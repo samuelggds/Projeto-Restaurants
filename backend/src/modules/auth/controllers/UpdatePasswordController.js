@@ -1,0 +1,19 @@
+import updatePasswordService from "../services/UpdatePasswordService.js";
+
+class UpdatePasswordController {
+  async handle(req, res) {
+    try {
+      const userId = req.user.id;
+
+      const { oldPassword, newPassword } = req.body;
+
+      await updatePasswordService.execute(userId, oldPassword, newPassword);
+
+      return res.status(200).json({ message: "Senha atualizada com sucesso!" });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+}
+
+export default new UpdatePasswordController();

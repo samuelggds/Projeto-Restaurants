@@ -1,0 +1,20 @@
+import closeTableSessionService from "../services/CloseTableSessionService.js";
+
+class CloseTableSessionController {
+  async handle(req, res) {
+    try {
+      const closedById = req.user.id;
+      const { id: sessionId } = req.params;
+
+      const session = await closeTableSessionService.execute({
+        sessionId,
+        closedById,
+      });
+
+      return res.status(200).json(session);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+}
+export default new CloseTableSessionController();

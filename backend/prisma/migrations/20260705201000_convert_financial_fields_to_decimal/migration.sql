@@ -1,0 +1,30 @@
+-- Convert financial fields from DOUBLE PRECISION to DECIMAL(10,2)
+
+ALTER TABLE "Product"
+  ALTER COLUMN "price" TYPE DECIMAL(10,2) USING "price"::DECIMAL(10,2);
+
+ALTER TABLE "Order"
+  ALTER COLUMN "total" TYPE DECIMAL(10,2) USING "total"::DECIMAL(10,2),
+  ALTER COLUMN "systemFee" TYPE DECIMAL(10,2) USING "systemFee"::DECIMAL(10,2),
+  ALTER COLUMN "systemFee" SET DEFAULT 0;
+
+ALTER TABLE "OrderItem"
+  ALTER COLUMN "price" TYPE DECIMAL(10,2) USING "price"::DECIMAL(10,2);
+
+ALTER TABLE "RestaurantSettings"
+  ALTER COLUMN "deliveryFee" TYPE DECIMAL(10,2) USING "deliveryFee"::DECIMAL(10,2),
+  ALTER COLUMN "deliveryFee" SET DEFAULT 0,
+  ALTER COLUMN "minimumOrder" TYPE DECIMAL(10,2) USING "minimumOrder"::DECIMAL(10,2),
+  ALTER COLUMN "minimumOrder" SET DEFAULT 0;
+
+ALTER TABLE "Coupon"
+  ALTER COLUMN "discount" TYPE DECIMAL(10,2) USING "discount"::DECIMAL(10,2);
+
+ALTER TABLE "Subscription"
+  ALTER COLUMN "balanceDebt" TYPE DECIMAL(10,2) USING "balanceDebt"::DECIMAL(10,2),
+  ALTER COLUMN "balanceDebt" SET DEFAULT 0;
+
+ALTER TABLE "Invoice"
+  ALTER COLUMN "monthlyFee" TYPE DECIMAL(10,2) USING "monthlyFee"::DECIMAL(10,2),
+  ALTER COLUMN "systemFees" TYPE DECIMAL(10,2) USING "systemFees"::DECIMAL(10,2),
+  ALTER COLUMN "total" TYPE DECIMAL(10,2) USING "total"::DECIMAL(10,2);

@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  FUNCIONARIO
+  MOTOQUEIRO
+  CLIENTE
+}
+
+enum OrderStatus {
+  PENDENTE
+  PREPARANDO
+  PRONTO
+  SAIU_PARA_ENTREGA
+  ENTREGUE
+  CANCELADO
+}
+
+enum OrderType {
+  DELIVERY
+  MESA
+  RETIRADA
+}
+
+enum PaymentMethod {
+  PIX
+  CARTAO
+  DINHEIRO
+}
+
+enum PlanType {
+  BASICO
+  PROFISSIONAL
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  TESTE
+  ATIVA
+  EXPIRADA
+  CANCELADA
+}
+
+enum TableSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum InvoiceStatus {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  name     String
+  email    String   @unique
+  password String
+  role     UserRole @default(CLIENTE)
+  active   Boolean  @default(true)
+  phone    String?
+
+  restaurantId Int?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  address    String?
+  number     String?
+  district   String?
+  city       String?
+  state      String?
+  zipCode    String?
+  complement String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders              Order[]
+  openedTableSessions TableSession[] @relation("OpenedTableSessions")
+  closedTableSessions TableSession[] @relation("ClosedTableSessions")
+}
+
+model Restaurant {
+  id   Int    @id @default(autoincrement())
+  name String
+  slug String @unique
+
+  email    String  @unique
+  phone    String?
+  whatsapp String?
+  cnpj     String? @unique
+
+  logo        String?
+  coverImage  String?
+  description String?
+
+  address String?
+  city    String?
+  state   String?
+  zipCode String?
+
+  openingHours String?
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  categories Category[]
+  products   Product[]
+  tables     Table[]
+  orders     Order[]
+
+  settings RestaurantSettings?
+  banners  Banner[]
+  coupons  Coupon[]
+
+  subscription Subscription?
+  invoices     Invoice[]
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  description String?
+  image       String?
+  active      Boolean @default(true)
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  description String?
+  image       String?
+  price       Decimal @db.Decimal(10, 2)
+  active      Boolean @default(true)
+
+  featured        Boolean @default(false)
+  preparationTime Int?
+  stock           Int?
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Table {
+  id     Int    @id @default(autoincrement())
+  number Int
+  token  String @unique
+
+  active Boolean @default(true)
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  orders Order[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  tableSessions TableSession[]
+
+  @@unique([restaurantId, number])
+}
+
+model TableSession {
+  id Int @id @default(autoincrement())
+
+  tableId Int
+  table   Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  pinHash      String
+  sessionToken String @unique
+
+  status TableSessionStatus @default(OPEN)
+
+  openedById Int
+  openedBy   User @relation("OpenedTableSessions", fields: [openedById], references: [id])
+
+  closedById Int?
+  closedBy   User? @relation("ClosedTableSessions", fields: [closedById], references: [id])
+
+  openedAt DateTime  @default(now())
+  closedAt DateTime?
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Order {
+  id            Int            @id @default(autoincrement())
+  total         Decimal        @db.Decimal(10, 2)
+  status        OrderStatus    @default(PENDENTE)
+  type          OrderType
+  paymentMethod PaymentMethod?
+  paid          Boolean        @default(false)
+  observation   String?
+
+  systemFee Decimal @default(0) @db.Decimal(10, 2)
+
+  feeCollected Boolean @default(false)
+
+  address    String?
+  number     String?
+  district   String?
+  city       String?
+  state      String?
+  zipCode    String?
+  complement String?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  tableId Int?
+  table   Table? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id Int @id @default(autoincrement())
+
+  quantity    Int
+  price       Decimal @db.Decimal(10, 2)
+  observation String?
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model RestaurantSettings {
+  id Int @id @default(autoincrement())
+
+  restaurantId Int        @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  deliveryFee  Decimal @default(0) @db.Decimal(10, 2)
+  minimumOrder Decimal @default(0) @db.Decimal(10, 2)
+
+  pixKey    String?
+  instagram String?
+  facebook  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Banner {
+  id    Int    @id @default(autoincrement())
+  title String
+  image String
+
+  active Boolean @default(true)
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id       Int     @id @default(autoincrement())
+  code     String
+  discount Decimal @db.Decimal(10, 2)
+
+  active     Boolean   @default(true)
+  expiration DateTime?
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, code])
+}
+
+model Subscription {
+  id           Int                @id @default(autoincrement())
+  restaurantId Int                @unique
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan         PlanType           @default(BASICO)
+  status       SubscriptionStatus @default(TESTE)
+  trialEndsAt  DateTime?
+
+  balanceDebt Decimal @default(0) @db.Decimal(10, 2)
+
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id           Int @id @default(autoincrement())
+  restaurantId Int
+  month        Int
+  year         Int
+
+  monthlyFee Decimal @db.Decimal(10, 2)
+  systemFees Decimal @db.Decimal(10, 2)
+  total      Decimal @db.Decimal(10, 2)
+
+  paymentLink String?
+
+  status InvoiceStatus @default(PENDENTE)
+
+  dueDate DateTime
+  paidAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, month, year])
+}

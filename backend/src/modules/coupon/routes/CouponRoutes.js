@@ -1,0 +1,35 @@
+import { Router } from "express";
+
+import { authMiddleware } from "../../../middlewares/authMiddleware.js";
+import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
+
+import CreateCouponController from "../controllers/CreateCouponController.js";
+import ListCouponController from "../controllers/ListCouponController.js";
+import UpdateCouponController from "../controllers/UpdateCouponController.js";
+import DeleteCouponController from "../controllers/DeleteCouponController.js";
+import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
+import { billingMiddleware } from "../../../middlewares/billingMiddleware.js";
+
+const router = Router();
+
+router.post(
+  "/",
+  authMiddleware,
+  adminMiddleware,
+  billingMiddleware,
+  (req, res) => CreateCouponController.handle(req, res),
+);
+
+router.get("/", authMiddleware, adminMiddleware, (req, res) =>
+  ListCouponController.handle(req, res),
+);
+
+router.put("/:id", authMiddleware, adminMiddleware, (req, res) =>
+  UpdateCouponController.handle(req, res),
+);
+
+router.delete("/:id", authMiddleware, adminMiddleware, (req, res) =>
+  DeleteCouponController.handle(req, res),
+);
+
+export default router;
