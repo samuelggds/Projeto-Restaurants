@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { GlobalStyles } from "../GlobalStyles/globalStyles.js";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "./config/sentry.js";
 import AppRoutes from "./routes/AppRoutes.jsx";
 import { AuthProvider } from "./contexts/authContext.jsx";
 

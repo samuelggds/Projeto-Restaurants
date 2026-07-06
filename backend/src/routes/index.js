@@ -14,7 +14,6 @@ import bannerRoutes from "../modules/banner/routes/BannerRoutes.js";
 import couponRoutes from "../modules/coupon/routes/CouponRoutes.js";
 import subscripitionRoutes from "../modules/subscription/routes/SubscriptionRoutes.js";
 
-
 const router = Router();
 
 router.use("/auth", authRoutes);
@@ -29,7 +28,6 @@ router.use("/settings", restaurantSettingsRoutes);
 router.use("/banners", bannerRoutes);
 router.use("/coupons", couponRoutes);
 router.use("/subscription", subscripitionRoutes);
-
 
 router.get("/profile", authMiddleware, (req, res) => {
   return res.json({
