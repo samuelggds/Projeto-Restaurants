@@ -302,8 +302,8 @@ export const OrderCard = styled.div`
     margin 0.28s ease,
     padding 0.28s ease,
     border-width 0.28s ease;
-  max-height: 560px;
-  overflow: hidden;
+  max-height: 1200px;
+  overflow: visible;
 
   ${(props) =>
     props.$isClosing &&
@@ -311,6 +311,7 @@ export const OrderCard = styled.div`
       opacity: 0;
       transform: translateY(10px) scale(0.98);
       max-height: 0;
+      overflow: hidden;
       margin: 0;
       padding-top: 0;
       padding-bottom: 0;
@@ -359,6 +360,57 @@ export const DeliveryAlert = styled.div`
   font-weight: 800;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+`;
+
+export const PaymentStatusBox = styled.div`
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  background: ${(props) => props.theme.inputBg};
+  display: grid;
+  gap: 0.5rem;
+
+  .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 800;
+    color: ${(props) => props.theme.textMuted};
+  }
+
+  .badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    border-radius: 999px;
+    padding: 0.22rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+
+    &.method {
+      background: rgba(14, 165, 233, 0.14);
+      color: ${(props) => props.theme.primary};
+      border: 1px solid rgba(14, 165, 233, 0.35);
+    }
+
+    &.state.pending {
+      background: rgba(234, 179, 8, 0.16);
+      color: #a16207;
+      border: 1px solid rgba(234, 179, 8, 0.5);
+    }
+
+    &.state.paid {
+      background: rgba(16, 185, 129, 0.14);
+      color: ${(props) => props.theme.success};
+      border: 1px solid rgba(16, 185, 129, 0.45);
+    }
+  }
 `;
 
 export const CloseDeliveredButton = styled.button`
@@ -457,6 +509,35 @@ export const DeliverButton = styled.button`
 
   &:disabled {
     opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    filter: none;
+  }
+`;
+
+export const ConfirmPaymentButton = styled.button`
+  width: 100%;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #111827;
+  font-weight: 800;
+  padding: 0.68rem 0.9rem;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(217, 119, 6, 0.32);
+    filter: brightness(1.03);
+  }
+
+  &:disabled {
+    opacity: 0.55;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;

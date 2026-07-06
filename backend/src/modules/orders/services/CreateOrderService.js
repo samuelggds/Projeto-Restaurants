@@ -5,7 +5,10 @@ import { io } from "../../../server.js";
 import { createOrderSchema } from "../../../validators/OrderValidator.js";
 import splitService from "../../billing/services/SplitService.js";
 import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
+import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
+import orderPixPaymentService from "./OrderPixPaymentService.js";
 import { TableSessionStatus } from "@prisma/client";
+import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
 
 class CreateOrderService {
   formatCpf(value) {
@@ -18,14 +21,46 @@ class CreateOrderService {
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   }
 
+  normalizePhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+
+    if (!digits) {
+      return null;
+    }
+
+    if (/^55\d{10,11}$/.test(digits)) {
+      return `+${digits}`;
+    }
+
+    if (/^\d{10,11}$/.test(digits)) {
+      return `+55${digits}`;
+    }
+
+    return null;
+  }
+
   async resolveOrderUser({
     tx,
     userId,
     restaurantId,
     customerName,
     customerCpf,
+    customerPhone,
   }) {
+    const normalizedPhone = this.normalizePhone(customerPhone);
+
     if (userId) {
+      if (normalizedPhone) {
+        await tx.user.update({
+          where: {
+            id: Number(userId),
+          },
+          data: {
+            phone: normalizedPhone,
+          },
+        });
+      }
+
       return Number(userId);
     }
 
@@ -50,6 +85,11 @@ class CreateOrderService {
       update: {
         name: normalizedName,
         active: true,
+        ...(normalizedPhone
+          ? {
+              phone: normalizedPhone,
+            }
+          : {}),
       },
       create: {
         name: normalizedName,
@@ -57,6 +97,7 @@ class CreateOrderService {
         password: guestPassword,
         role: "CLIENTE",
         active: true,
+        phone: normalizedPhone,
         restaurantId,
       },
       select: {
@@ -75,9 +116,13 @@ class CreateOrderService {
     tableSessionTableId,
     type,
     paymentMethod,
+    paid,
+    pixPaymentId,
+    paymentProof,
     observation,
     customerName,
     customerCpf,
+    customerPhone,
     tableId,
     items,
     address,
@@ -86,11 +131,11 @@ class CreateOrderService {
     city,
     state,
     zipCode,
+    paymentProofImage,
     complement,
   }) {
     const resolvedRestaurantId =
       Number(restaurantId) || Number(userRestaurantId) || null;
-
     if (!resolvedRestaurantId) {
       throw new Error("Restaurante não informado para o pedido");
     }
@@ -99,8 +144,12 @@ class CreateOrderService {
       restaurantId: resolvedRestaurantId,
       customerName,
       customerCpf,
+      customerPhone,
       type,
       paymentMethod,
+      paid,
+      pixPaymentId,
+      paymentProof,
       observation,
       tableId,
       items,
@@ -111,6 +160,8 @@ class CreateOrderService {
       state,
       zipCode,
       complement,
+      paymentProof,
+      paymentProofImage,
     });
 
     if (type === "MESA") {
@@ -154,6 +205,74 @@ class CreateOrderService {
       }
     }
 
+    const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
+    const isPixDeliveryOrder =
+      String(type || "").toUpperCase() === "DELIVERY" &&
+      normalizedPaymentMethod === "PIX";
+
+    if (isPixDeliveryOrder) {
+      const publicSettings =
+        await restaurantSettingsRepository.findPublicByRestaurantId(
+          resolvedRestaurantId,
+        );
+
+      const pixKey = String(publicSettings?.pixKey || "").trim();
+      const pixProvider = String(publicSettings?.pixProvider || "MERCADO_PAGO")
+        .trim()
+        .toUpperCase();
+
+      if (!pixKey) {
+        throw new Error(
+          "Este restaurante não possui chave PIX cadastrada para finalizar o pagamento.",
+        );
+      }
+
+      if (paid !== true) {
+        throw new Error(
+          "Pagamento PIX não confirmado. Finalize o PIX antes de criar o pedido.",
+        );
+      }
+
+      if (!String(pixPaymentId || "").trim()) {
+        throw new Error("Pagamento PIX inválido para confirmar o pedido.");
+      }
+
+      if (pixProvider === "MERCADO_PAGO") {
+        await orderPixPaymentService.ensurePaymentApproved({
+          paymentId: pixPaymentId,
+          restaurantId: resolvedRestaurantId,
+        });
+      } else {
+        const manualPrefix = `manual:${pixProvider}:${resolvedRestaurantId}:`;
+        if (!String(pixPaymentId).startsWith(manualPrefix)) {
+          throw new Error(
+            "Pagamento PIX inválido para o provedor configurado.",
+          );
+        }
+
+        const normalizedProofCode = String(paymentProof || "").trim();
+        const normalizedProofImage = String(paymentProofImage || "").trim();
+        const hasProofCode = normalizedProofCode.length >= 6;
+        const hasProofImage =
+          normalizedProofImage.startsWith("data:image/") &&
+          normalizedProofImage.length >= 40;
+
+        if (!hasProofCode && !hasProofImage) {
+          throw new Error(
+            "Informe o comprovante PIX (código da transação ou imagem) para finalizar o pedido.",
+          );
+        }
+
+        if (hasProofImage && normalizedProofImage.length > 3_000_000) {
+          throw new Error(
+            "Imagem do comprovante muito grande. Envie uma imagem menor que 3MB.",
+          );
+        }
+      }
+    }
+
+    const shouldMarkAsPaid = isPixDeliveryOrder && paid === true;
+
     const createdOrder = await prisma.$transaction(async (tx) => {
       const resolvedUserId = await this.resolveOrderUser({
         tx,
@@ -161,6 +280,7 @@ class CreateOrderService {
         restaurantId: resolvedRestaurantId,
         customerName,
         customerCpf,
+        customerPhone,
       });
 
       const products = await Promise.all(
@@ -202,7 +322,22 @@ class CreateOrderService {
           ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}`
           : "";
 
-      const mergedObservation = [guestSummary, observation]
+      const pixProofSummary =
+        isPixDeliveryOrder && String(paymentProof || "").trim()
+          ? `Comprovante PIX: ${String(paymentProof).trim()}`
+          : "";
+
+      const pixProofImageSummary =
+        isPixDeliveryOrder && String(paymentProofImage || "").trim()
+          ? "Comprovante PIX (imagem): anexado"
+          : "";
+
+      const mergedObservation = [
+        guestSummary,
+        pixProofSummary,
+        pixProofImageSummary,
+        observation,
+      ]
         .map((item) => String(item || "").trim())
         .filter(Boolean)
         .join(" | ");
@@ -213,6 +348,9 @@ class CreateOrderService {
           systemFee,
           type,
           paymentMethod,
+          paid: shouldMarkAsPaid,
+          paymentProof: String(paymentProof || "").trim() || null,
+          paymentProofImage: String(paymentProofImage || "").trim() || null,
           observation: mergedObservation || null,
           userId: resolvedUserId,
           restaurantId: resolvedRestaurantId,
@@ -239,6 +377,30 @@ class CreateOrderService {
     });
 
     io.emit("new-order", createdOrder);
+
+    if (shouldMarkAsPaid) {
+      io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {
+        orderId: createdOrder.id,
+        paymentMethod: normalizedPaymentMethod,
+        paid: true,
+        status: createdOrder.status,
+      });
+
+      notifyCustomerPaymentConfirmed({
+        customerPhone: createdOrder?.user?.phone || customerPhone,
+        customerName: createdOrder?.user?.name || customerName,
+        restaurantName: createdOrder?.restaurant?.name,
+        restaurantWhatsapp: createdOrder?.restaurant?.whatsapp,
+        orderId: createdOrder?.id,
+        total: createdOrder?.total,
+        paymentMethod: normalizedPaymentMethod,
+      }).catch((error) => {
+        console.error(
+          "[CUSTOMER_NOTIFICATION_UNHANDLED]",
+          error?.message || error,
+        );
+      });
+    }
 
     return createdOrder;
   }

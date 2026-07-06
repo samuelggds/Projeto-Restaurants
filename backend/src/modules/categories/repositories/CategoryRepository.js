@@ -30,6 +30,18 @@ class CategoryRepository {
     });
   }
 
+  async findByName(name, restaurantId, db = prisma) {
+    return db.category.findFirst({
+      where: {
+        restaurantId,
+        name: {
+          equals: String(name || "").trim(),
+          mode: "insensitive",
+        },
+      },
+    });
+  }
+
   async update(id, data, restaurantId, db = prisma) {
     return db.category.updateMany({
       where: {

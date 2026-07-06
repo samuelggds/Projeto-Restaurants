@@ -2,7 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ShoppingBag,
   X,
-  Sparkles,
+  ArrowLeft,
+  House,
+  AtSign,
+  Search,
+  Menu,
+  Grid2x2,
+  Square,
+  ChevronUp,
+  Star,
   CreditCard,
   CheckCircle,
 } from "lucide-react";
@@ -11,6 +19,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import menuService from "../../Services/menuService";
 import ordersService from "../../Services/ordersService";
 import tableSessionService from "../../Services/tableSessionService";
+import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import {
   connectTableSessionSocket,
   disconnectTableSessionSocket,
@@ -20,6 +29,7 @@ import * as S from "./styles";
 const MENU_RESTAURANT_KEY = "menuRestaurantId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
+const PRODUCT_DETAIL_CLOSE_MS = 240;
 
 function toInt(value) {
   const parsed = Number(value || 0);
@@ -51,6 +61,21 @@ function readTableSession() {
   }
 }
 
+function normalizeInstagramUrl(value) {
+  const raw = String(value || "").trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+
+  const username = raw.replace(/^@/, "");
+  return `https://instagram.com/${username}`;
+}
+
 export default function DigitalMenu() {
   const { tableNumber: tableNumberParam } = useParams();
   const [searchParams] = useSearchParams();
@@ -69,9 +94,19 @@ export default function DigitalMenu() {
   const [tablePin, setTablePin] = useState("");
   const [pinError, setPinError] = useState("");
   const [isPinValidating, setIsPinValidating] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isClosingProductDetail, setIsClosingProductDetail] = useState(false);
+  const [restaurantProfile, setRestaurantProfile] = useState({
+    name: "Restaurante",
+    logo: "",
+    coverImage: "",
+    instagram: "",
+  });
   const [tableSession, setTableSession] = useState(() => readTableSession());
   const pinRequestKeyRef = useRef("");
   const sessionClosedToastShownRef = useRef(false);
+  const closeProductDetailTimeoutRef = useRef(null);
 
   function clearMesaSession(showToast = true) {
     localStorage.removeItem("tableSession");
@@ -164,6 +199,52 @@ export default function DigitalMenu() {
   }, [mesaSessionIsActive, restaurantId]);
 
   useEffect(() => {
+    if (!restaurantId) {
+      return;
+    }
+
+    let mounted = true;
+
+    async function loadRestaurantProfile() {
+      try {
+        const settings =
+          await restaurantSettingsService.getPublicSettings(restaurantId);
+
+        if (!mounted) {
+          return;
+        }
+
+        const fallbackImage = products.find((item) => item?.image)?.image || "";
+
+        setRestaurantProfile({
+          name: settings?.restaurant?.name || "Restaurante",
+          logo: settings?.restaurant?.logo || fallbackImage,
+          coverImage: settings?.restaurant?.coverImage || fallbackImage,
+          instagram: normalizeInstagramUrl(settings?.instagram),
+        });
+      } catch {
+        if (!mounted) {
+          return;
+        }
+
+        const fallbackImage = products.find((item) => item?.image)?.image || "";
+
+        setRestaurantProfile((prev) => ({
+          ...prev,
+          logo: prev.logo || fallbackImage,
+          coverImage: prev.coverImage || fallbackImage,
+        }));
+      }
+    }
+
+    loadRestaurantProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [restaurantId, products]);
+
+  useEffect(() => {
     if (!isMesaContext) {
       return;
     }
@@ -179,7 +260,13 @@ export default function DigitalMenu() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTableSession(null);
     }
-  }, [isMesaContext, routeTableId, routeRestaurantId]);
+  }, [
+    isMesaContext,
+    routeTableId,
+    routeRestaurantId,
+    tableSession?.tableId,
+    tableSession?.restaurantId,
+  ]);
 
   useEffect(() => {
     if (!isMesaContext || mesaSessionIsActive || !routeTableId) {
@@ -270,14 +357,53 @@ export default function DigitalMenu() {
     };
   }, [mesaSessionIsActive, tableSession?.sessionToken]);
 
+  useEffect(() => {
+    const onScroll = () => {
+      setShowScrollTop(window.scrollY > 480);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeProductDetailTimeoutRef.current) {
+        clearTimeout(closeProductDetailTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const categories = useMemo(() => {
-    const names = Array.from(
-      new Set(products.map((item) => item?.category?.name).filter(Boolean)),
-    );
+    const categoryMap = new Map();
+
+    products.forEach((item) => {
+      const categoryName = String(item?.category?.name || "").trim();
+
+      if (!categoryName) {
+        return;
+      }
+
+      if (!categoryMap.has(categoryName)) {
+        categoryMap.set(categoryName, {
+          id: categoryName,
+          label: categoryName,
+          coverImage: item?.image || "",
+        });
+      }
+    });
 
     return [
-      { id: "all", label: "Todos" },
-      ...names.map((name) => ({ id: name, label: name })),
+      {
+        id: "all",
+        label: "Categorias",
+        coverImage: products.find((item) => item?.image)?.image || "",
+      },
+      ...Array.from(categoryMap.values()),
     ];
   }, [products]);
 
@@ -289,6 +415,22 @@ export default function DigitalMenu() {
     return products.filter((item) => item?.category?.name === activeCategory);
   }, [products, activeCategory]);
 
+  const groupedProducts = useMemo(() => {
+    const source = activeCategory === "all" ? products : filteredProducts;
+
+    return source.reduce((acc, product) => {
+      const categoryName = String(product?.category?.name || "Outros").trim();
+      const key = categoryName || "Outros";
+
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+
+      acc[key].push(product);
+      return acc;
+    }, {});
+  }, [activeCategory, products, filteredProducts]);
+
   const cartTotal = useMemo(() => {
     return cart.reduce(
       (acc, item) => acc + Number(item.price || 0) * Number(item.quantity || 0),
@@ -299,8 +441,6 @@ export default function DigitalMenu() {
   const cartCount = useMemo(() => {
     return cart.reduce((acc, item) => acc + Number(item.quantity || 0), 0);
   }, [cart]);
-
-  const averageTicket = cartCount > 0 ? cartTotal / cartCount : 0;
 
   async function handleValidateTablePin(event) {
     event.preventDefault();
@@ -459,6 +599,33 @@ export default function DigitalMenu() {
     }
   }
 
+  function handleScrollToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleOpenProductDetail(product) {
+    setIsClosingProductDetail(false);
+    setSelectedProduct(product);
+  }
+
+  function handleCloseProductDetail() {
+    if (isClosingProductDetail) {
+      return;
+    }
+
+    if (closeProductDetailTimeoutRef.current) {
+      clearTimeout(closeProductDetailTimeoutRef.current);
+    }
+
+    setIsClosingProductDetail(true);
+
+    closeProductDetailTimeoutRef.current = setTimeout(() => {
+      setSelectedProduct(null);
+      setIsClosingProductDetail(false);
+      closeProductDetailTimeoutRef.current = null;
+    }, PRODUCT_DETAIL_CLOSE_MS);
+  }
+
   return (
     <>
       <S.GlobalMenuStyle />
@@ -477,6 +644,21 @@ export default function DigitalMenu() {
         ) : !mesaSessionIsActive ? (
           <S.PinGateWrap>
             <S.PinGateCard>
+              <S.PinPreviewHeader>
+                <S.PinPreviewCover $image={restaurantProfile.coverImage} />
+
+                <S.PinPreviewIdentity>
+                  <S.PinPreviewLogoWrap>
+                    <S.PinPreviewLogoImage $image={restaurantProfile.logo} />
+                  </S.PinPreviewLogoWrap>
+
+                  <div>
+                    <strong>{restaurantProfile.name}</strong>
+                    <span>Acesso da mesa por PIN</span>
+                  </div>
+                </S.PinPreviewIdentity>
+              </S.PinPreviewHeader>
+
               <S.TableCallout>
                 Mesa <strong>{tableNumber || routeTableId}</strong>
               </S.TableCallout>
@@ -510,74 +692,89 @@ export default function DigitalMenu() {
           </S.PinGateWrap>
         ) : (
           <>
-            <S.Hero>
-              <S.HeroCard>
-                <S.HeroTop>
-                  <S.BrandPill>
-                    <Sparkles size={14} /> Menu Digital
-                  </S.BrandPill>
+            <S.ProfileHeaderSection>
+              <S.ProfileCover $image={restaurantProfile.coverImage} />
 
-                  <S.LivePill>
-                    Atendimento em tempo real
-                    <span />
-                  </S.LivePill>
+              <S.ProfileInfoCard>
+                <S.ProfileLogoWrap>
+                  <S.ProfileLogoImage $image={restaurantProfile.logo} />
+                </S.ProfileLogoWrap>
 
-                  <S.StepDots>
-                    <span className="on" />
-                    <span className={drawerStep === "finalizar" ? "on" : ""} />
-                    <span className={cartCount > 0 ? "on" : ""} />
-                  </S.StepDots>
-                </S.HeroTop>
+                <S.ProfileIdentity>
+                  <h1>{restaurantProfile.name}</h1>
+                  {tableNumber ? (
+                    <S.TableNumberBadge>
+                      Mesa <strong>{tableNumber}</strong>
+                    </S.TableNumberBadge>
+                  ) : null}
+                  <S.ProfileActionsRow>
+                    <button type="button" aria-label="Inicio">
+                      <House size={22} />
+                    </button>
 
-                <S.HeroTitle>
-                  Cardápio inteligente, pedido em segundos.
-                </S.HeroTitle>
-                <S.HeroText>
-                  Escolha os produtos por categoria, monte seu pedido e finalize
-                  sem login com nome e CPF. O pedido cai direto para o painel da
-                  equipe.
-                </S.HeroText>
+                    {restaurantProfile.instagram ? (
+                      <a
+                        href={restaurantProfile.instagram}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Instagram"
+                      >
+                        <AtSign size={22} />
+                      </a>
+                    ) : (
+                      <button type="button" aria-label="Instagram">
+                        <AtSign size={22} />
+                      </button>
+                    )}
 
+                    <button type="button" aria-label="Buscar">
+                      <Search size={22} />
+                    </button>
+                  </S.ProfileActionsRow>
+
+                  <S.ProfileRateText>Avaliar ★</S.ProfileRateText>
+                </S.ProfileIdentity>
+              </S.ProfileInfoCard>
+            </S.ProfileHeaderSection>
+
+            <S.MobileTopBar>
+              <S.MobileBrand>
+                <strong>{restaurantProfile.name}</strong>
                 {tableNumber ? (
-                  <S.TableCallout>
+                  <S.MobileTableNumberBadge>
                     Mesa <strong>{tableNumber}</strong>
-                  </S.TableCallout>
+                  </S.MobileTableNumberBadge>
                 ) : null}
+              </S.MobileBrand>
 
-                <S.HeroStats>
-                  <S.HeroStatCard>
-                    <strong>{cartCount}</strong>
-                    <span>Itens no pedido</span>
-                  </S.HeroStatCard>
-                  <S.HeroStatCard>
-                    <strong>R$ {toPrice(averageTicket)}</strong>
-                    <span>Ticket médio do carrinho</span>
-                  </S.HeroStatCard>
-                </S.HeroStats>
-              </S.HeroCard>
+              <S.MobileActions>
+                <button type="button" aria-label="Lista">
+                  <Menu size={18} />
+                </button>
+                <button type="button" aria-label="Grade">
+                  <Grid2x2 size={18} />
+                </button>
+                <button type="button" aria-label="Blocos">
+                  <Square size={18} />
+                </button>
+              </S.MobileActions>
+            </S.MobileTopBar>
 
-              <S.SectionHead>
-                <h2>Produtos e Categorias</h2>
-                {isMesaContext ? (
-                  <p>{`Pedido da Mesa ${tableNumber}`}</p>
-                ) : null}
-              </S.SectionHead>
-
-              {restaurantId ? (
-                <S.CategoryBar>
-                  {categories.map((category) => (
-                    <S.CategoryChip
-                      type="button"
-                      key={category.id}
-                      $active={activeCategory === category.id}
-                      onClick={() => setActiveCategory(category.id)}
-                    >
-                      {category.label}
-                    </S.CategoryChip>
-                  ))}
-                </S.CategoryBar>
-              ) : null}
-            </S.Hero>
+            {restaurantId ? (
+              <S.CategoryCircleRail>
+                {categories.map((category) => (
+                  <S.CategoryCircleButton
+                    type="button"
+                    key={category.id}
+                    $active={activeCategory === category.id}
+                    onClick={() => setActiveCategory(category.id)}
+                  >
+                    <S.CategoryCircleThumb $image={category.coverImage} />
+                    <span>{category.label}</span>
+                  </S.CategoryCircleButton>
+                ))}
+              </S.CategoryCircleRail>
+            ) : null}
 
             <S.Section>
               {!restaurantId ? (
@@ -591,40 +788,119 @@ export default function DigitalMenu() {
                   Nenhum produto encontrado nesta categoria no momento.
                 </S.EmptyHint>
               ) : (
-                <S.Grid>
-                  {filteredProducts.map((product) => (
-                    <S.ProductCard key={product.id}>
-                      <S.ProductImage $image={product.image} />
+                Object.entries(groupedProducts).map(
+                  ([groupName, groupItems]) => (
+                    <S.MenuCategoryBlock key={groupName}>
+                      <S.MenuCategoryHeader>{groupName}</S.MenuCategoryHeader>
 
-                      <S.ProductBody>
-                        <S.ProductCategory>
-                          {product?.category?.name || "Categoria"}
-                        </S.ProductCategory>
-                        <h3>{product.name}</h3>
-                        <p>
-                          {product.description || "Sem descrição disponível."}
-                        </p>
-
-                        <S.ProductMeta>
-                          <S.Price>R$ {toPrice(product.price)}</S.Price>
-                          <S.AddButton
-                            type="button"
-                            onClick={() => addToCart(product)}
+                      <S.MenuList>
+                        {groupItems.map((product) => (
+                          <S.MenuItemCard
+                            key={product.id}
+                            onClick={() => handleOpenProductDetail(product)}
+                            role="button"
+                            tabIndex={0}
                           >
-                            Adicionar
-                          </S.AddButton>
-                        </S.ProductMeta>
-                      </S.ProductBody>
-                    </S.ProductCard>
-                  ))}
-                </S.Grid>
+                            <S.MenuItemText>
+                              <h3>{product.name}</h3>
+                              <p>
+                                {product.description ||
+                                  "Sem descrição disponível para este item."}
+                              </p>
+
+                              <S.MenuItemBottom>
+                                <S.Price>R$ {toPrice(product.price)}</S.Price>
+
+                                <S.AddButton
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    addToCart(product);
+                                  }}
+                                >
+                                  Adicionar
+                                </S.AddButton>
+                              </S.MenuItemBottom>
+                            </S.MenuItemText>
+
+                            <S.MenuItemImageWrap>
+                              <S.MenuItemImage $image={product.image} />
+                            </S.MenuItemImageWrap>
+                          </S.MenuItemCard>
+                        ))}
+                      </S.MenuList>
+                    </S.MenuCategoryBlock>
+                  ),
+                )
               )}
             </S.Section>
+
+            {showScrollTop && (
+              <S.ScrollTopButton type="button" onClick={handleScrollToTop}>
+                <ChevronUp size={20} />
+              </S.ScrollTopButton>
+            )}
 
             <S.FloatingCart type="button" onClick={() => setDrawerOpen(true)}>
               <ShoppingBag size={18} /> Pedido ({cartCount})
               <b>R$ {toPrice(cartTotal)}</b>
             </S.FloatingCart>
+
+            {selectedProduct ? (
+              <S.ProductDetailOverlay
+                $closing={isClosingProductDetail}
+                onClick={handleCloseProductDetail}
+              >
+                <S.ProductDetailImage
+                  $image={selectedProduct.image}
+                  $closing={isClosingProductDetail}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <S.ProductDetailBackButton
+                    type="button"
+                    onClick={handleCloseProductDetail}
+                  >
+                    <ArrowLeft size={20} />
+                  </S.ProductDetailBackButton>
+                </S.ProductDetailImage>
+
+                <S.ProductDetailBody
+                  $closing={isClosingProductDetail}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <h2>{selectedProduct.name}</h2>
+                  <p>
+                    {selectedProduct.description ||
+                      "Sem descrição disponível para este item."}
+                  </p>
+
+                  <S.ProductDetailPrice>
+                    R$ {toPrice(selectedProduct.price)}
+                  </S.ProductDetailPrice>
+
+                  <S.ProductDetailRatingText>
+                    Deixe sua avaliação para este item
+                  </S.ProductDetailRatingText>
+
+                  <S.ProductDetailStars>
+                    <Star size={34} />
+                    <Star size={34} />
+                    <Star size={34} />
+                    <Star size={34} />
+                    <Star size={34} />
+                  </S.ProductDetailStars>
+
+                  <S.ProductDetailActions>
+                    <S.AddButton
+                      type="button"
+                      onClick={() => addToCart(selectedProduct)}
+                    >
+                      Adicionar ao pedido
+                    </S.AddButton>
+                  </S.ProductDetailActions>
+                </S.ProductDetailBody>
+              </S.ProductDetailOverlay>
+            ) : null}
 
             <S.Overlay
               $open={drawerOpen}

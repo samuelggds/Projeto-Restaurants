@@ -22,14 +22,17 @@ export function socketHandler(socket) {
 
   if (role === "FUNCIONARIO") {
     socket.join("kitchen");
+    socket.join(`restaurant:${restaurantId}:kitchen`);
   }
 
   if (role === "MOTOQUEIRO") {
     socket.join("courier");
+    socket.join(`restaurant:${restaurantId}:courier`);
   }
 
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
     socket.join("admin");
+    socket.join(`restaurant:${restaurantId}:admin`);
   }
 
   socket.on("disconnect", () => {

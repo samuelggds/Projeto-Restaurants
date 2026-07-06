@@ -1,4 +1,14 @@
-import styled, { css } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
+
+const spin = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+`;
 
 // --- TEMAS (Design System Premium) ---
 export const lightTheme = {
@@ -252,8 +262,8 @@ export const OrderCard = styled.div`
     max-height 0.28s ease,
     margin 0.28s ease,
     padding 0.28s ease;
-  max-height: 520px;
-  overflow: hidden;
+  max-height: ${(props) => (props.$hasPinSection ? "1200px" : "520px")};
+  overflow: ${(props) => (props.$hasPinSection ? "visible" : "hidden")};
 
   ${(props) =>
     props.$isClosing &&
@@ -261,6 +271,7 @@ export const OrderCard = styled.div`
       opacity: 0;
       transform: translateY(10px) scale(0.98);
       max-height: 0;
+      overflow: hidden;
       margin: 0;
       padding-top: 0;
       padding-bottom: 0;
@@ -416,16 +427,20 @@ export const StatusBox = styled.div`
 
 export const ButtonGroup = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 0.4rem;
 
   .btn {
     background: ${(props) => props.theme.background};
     border: 1px solid ${(props) => props.theme.border};
     color: ${(props) => props.theme.textMuted};
-    padding: 0.5rem 0.25rem;
+    min-height: 38px;
+    padding: 0.5rem 0.45rem;
     font-size: 0.75rem;
     font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
     border-radius: 8px;
     cursor: pointer;
     display: flex;
@@ -536,6 +551,74 @@ export const SlugBadge = styled.span`
   align-items: center;
   gap: 0.35rem;
   color: ${(props) => props.theme.primary};
+`;
+
+export const CategoryListItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  background: ${(props) => props.theme.background};
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 10px;
+  padding: 0.45rem;
+
+  ${SlugBadge} {
+    border: none;
+    background: transparent;
+    padding: 0.25rem 0.35rem;
+  }
+`;
+
+export const CategoryActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+`;
+
+export const CategoryActionButton = styled.button`
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.surface};
+  color: ${(props) => props.theme.textMuted};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${(props) => props.theme.primary};
+    color: ${(props) => props.theme.primary};
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .loading-icon {
+    animation: ${spin} 0.85s linear infinite;
+  }
+`;
+
+export const CategoryInlineEditor = styled.div`
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.45rem;
+
+  input {
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid ${(props) => props.theme.border};
+    background: ${(props) => props.theme.surface};
+    color: ${(props) => props.theme.text};
+    font-size: 0.92rem;
+  }
 `;
 
 export const TableQrGrid = styled.div`
@@ -769,4 +852,65 @@ export const SubmitBtn = styled.button`
   &:hover {
     background: ${(props) => props.theme.primaryHover};
   }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+`;
+
+export const CancelBtn = styled.button`
+  width: 100%;
+  padding: 1rem;
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.text};
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${(props) => props.theme.primary};
+    color: ${(props) => props.theme.primary};
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+`;
+
+export const ProductListItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem;
+  border-radius: 10px;
+  background: ${(props) => props.theme.background};
+  border: 1px solid ${(props) => props.theme.border};
+`;
+
+export const ProductMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+
+  strong {
+    font-size: 0.95rem;
+    color: ${(props) => props.theme.text};
+  }
+
+  small {
+    color: ${(props) => props.theme.textMuted};
+    font-size: 0.82rem;
+  }
+`;
+
+export const ProductActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 `;

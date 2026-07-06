@@ -127,6 +127,32 @@ export const ThemeToggleButton = styled.button`
   }
 `;
 
+export const AdminQuickButton = styled.button`
+  border: 1px solid ${(props) => props.theme.primary};
+  background: linear-gradient(135deg, #f59e0b, #facc15);
+  color: #0f172a;
+  height: 42px;
+  border-radius: 0.65rem;
+  padding: 0 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 18px rgba(217, 119, 6, 0.22);
+
+  &:hover {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
 export const UserMenuContainer = styled.div`
   position: relative;
 `;

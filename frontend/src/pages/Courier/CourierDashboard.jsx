@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import { toast } from "react-toastify";
@@ -26,6 +26,7 @@ const CLOSABLE_ORDER_STATUSES = ["ENTREGUE"];
 const COURIER_VISIBLE_STATUSES = ["SAIU_PARA_ENTREGA", "ENTREGUE"];
 const CLOSED_DELIVERED_ORDERS_STORAGE_KEY =
   "@PecaJaFood:courierClosedDeliveredOrders";
+const DIGITAL_PAYMENT_METHODS = ["PIX", "CARTAO"];
 
 function normalizeStatus(status) {
   return String(status || "")
@@ -87,9 +88,55 @@ function isCourierVisibleOrder(order) {
   );
 }
 
+function isDigitalPaymentOrder(order) {
+  return DIGITAL_PAYMENT_METHODS.includes(
+    normalizeStatus(order?.paymentMethod),
+  );
+}
+
+function isPendingDigitalPayment(order) {
+  return isDigitalPaymentOrder(order) && order?.paid !== true;
+}
+
+function formatPaymentMethod(paymentMethod) {
+  const normalizedMethod = normalizeStatus(paymentMethod);
+
+  if (!normalizedMethod) {
+    return "N/A";
+  }
+
+  if (normalizedMethod === "CARTAO") {
+    return "CARTAO";
+  }
+
+  return normalizedMethod;
+}
+
+function formatRequestTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function CourierDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const lastPinGeneratedEventRef = useRef({
+    orderId: null,
+    at: 0,
+  });
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [orders, setOrders] = useState([]);
@@ -97,6 +144,12 @@ export default function CourierDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [closingOrderIds, setClosingOrderIds] = useState([]);
+  const [confirmingPaymentOrderIds, setConfirmingPaymentOrderIds] = useState(
+    [],
+  );
+  const [requestingPinOrderIds, setRequestingPinOrderIds] = useState([]);
+  const [pinRequestByOrderId, setPinRequestByOrderId] = useState({});
+  const [paymentPinByOrderId, setPaymentPinByOrderId] = useState({});
   const [closedDeliveredOrderIds, setClosedDeliveredOrderIds] = useState(
     getInitialClosedDeliveredOrders,
   );
@@ -245,22 +298,114 @@ export default function CourierDashboard() {
 
         return prev.map((item) => (item.id === order.id ? order : item));
       });
+
+      if (order?.paid === true) {
+        setPinRequestByOrderId((prev) => {
+          const next = { ...prev };
+          delete next[order.id];
+          return next;
+        });
+      }
+    };
+
+    const onPaymentPinRequested = (payload) => {
+      const targetOrderId = Number(payload?.orderId);
+      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
+        return;
+      }
+
+      const requestedAt = payload?.requestedAt || new Date().toISOString();
+
+      setPinRequestByOrderId((prev) => ({
+        ...prev,
+        [targetOrderId]: {
+          requestedAt,
+        },
+      }));
+    };
+
+    const onPaymentPinGenerated = (payload) => {
+      const targetOrderId = Number(payload?.orderId);
+      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
+        return;
+      }
+
+      const now = Date.now();
+      const lastEvent = lastPinGeneratedEventRef.current;
+      const isDuplicatedEvent =
+        lastEvent.orderId === targetOrderId && now - lastEvent.at < 1200;
+
+      if (isDuplicatedEvent) {
+        return;
+      }
+
+      lastPinGeneratedEventRef.current = {
+        orderId: targetOrderId,
+        at: now,
+      };
+
+      setPinRequestByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[targetOrderId];
+        return next;
+      });
+      toast.info(`PIN do pedido #${targetOrderId} foi gerado pelo admin.`);
     };
 
     socket.on("connect", onReconnect);
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
+    socket.on("order:payment-pin-requested", onPaymentPinRequested);
+    socket.on("order:payment-pin-generated", onPaymentPinGenerated);
 
     return () => {
       socket.off("connect", onReconnect);
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
+      socket.off("order:payment-pin-requested", onPaymentPinRequested);
+      socket.off("order:payment-pin-generated", onPaymentPinGenerated);
       disconnectSocket();
     };
   }, []);
 
+  async function handleRequestPaymentPin(order) {
+    if (!isPendingDigitalPayment(order)) {
+      return;
+    }
+
+    setRequestingPinOrderIds((prev) =>
+      prev.includes(order.id) ? prev : [...prev, order.id],
+    );
+
+    try {
+      const result = await ordersService.requestPaymentConfirmationPin(
+        order.id,
+      );
+      const requestedAt = result?.requestedAt || new Date().toISOString();
+
+      setPinRequestByOrderId((prev) => ({
+        ...prev,
+        [order.id]: {
+          requestedAt,
+        },
+      }));
+      toast.success(`PIN solicitado para o pedido #${order.id}.`);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Erro ao solicitar PIN");
+    } finally {
+      setRequestingPinOrderIds((prev) => prev.filter((id) => id !== order.id));
+    }
+  }
+
   async function handleMarkDelivered(order) {
     if (!hasOrderStatus(order, "SAIU_PARA_ENTREGA")) {
+      return;
+    }
+
+    if (isPendingDigitalPayment(order)) {
+      toast.error(
+        "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue.",
+      );
       return;
     }
 
@@ -271,7 +416,49 @@ export default function CourierDashboard() {
       );
       toast.success(`Pedido #${order.id} entregue com sucesso`);
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Erro ao confirmar entrega");
+      const message = err?.response?.data?.error || "Erro ao confirmar entrega";
+      const friendlyMessage =
+        message.includes("pagamento PIX/CARTAO") ||
+        message.includes("ainda não foi confirmado")
+          ? "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue."
+          : message;
+      toast.error(friendlyMessage);
+    }
+  }
+
+  async function handleConfirmPayment(order) {
+    if (!isPendingDigitalPayment(order)) {
+      return;
+    }
+
+    const pin = String(paymentPinByOrderId[order.id] || "").trim();
+    if (!/^\d{4}$/.test(pin)) {
+      toast.error(
+        "Informe o PIN de 4 dígitos enviado por um usuário autorizado.",
+      );
+      return;
+    }
+
+    setConfirmingPaymentOrderIds((prev) =>
+      prev.includes(order.id) ? prev : [...prev, order.id],
+    );
+
+    try {
+      const updated = await ordersService.confirmPaymentWithPin(order.id, pin);
+      setOrders((prev) =>
+        prev.map((item) => (item.id === order.id ? updated : item)),
+      );
+      setPaymentPinByOrderId((prev) => ({
+        ...prev,
+        [order.id]: "",
+      }));
+      toast.success(`Pagamento do pedido #${order.id} confirmado!`);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Erro ao confirmar pagamento");
+    } finally {
+      setConfirmingPaymentOrderIds((prev) =>
+        prev.filter((id) => id !== order.id),
+      );
     }
   }
 
@@ -435,6 +622,19 @@ export default function CourierDashboard() {
                       "SAIU_PARA_ENTREGA",
                     );
                     const canClose = hasOrderStatus(order, "ENTREGUE");
+                    const pendingDigitalPayment =
+                      isPendingDigitalPayment(order);
+                    const isConfirmingPayment =
+                      confirmingPaymentOrderIds.includes(order.id);
+                    const isRequestingPin = requestingPinOrderIds.includes(
+                      order.id,
+                    );
+                    const pinRequestEntry =
+                      pinRequestByOrderId[order.id] || null;
+                    const hasRequestedPin = Boolean(pinRequestEntry);
+                    const requestedAtLabel = formatRequestTime(
+                      pinRequestEntry?.requestedAt,
+                    );
 
                     return (
                       <S.OrderCard
@@ -466,6 +666,22 @@ export default function CourierDashboard() {
                         <S.DeliveryAlert>
                           <AlertTriangle size={14} /> Pedido DELIVERY
                         </S.DeliveryAlert>
+
+                        <S.PaymentStatusBox>
+                          <span className="label">Pagamento</span>
+                          <div className="badges">
+                            <span className="badge method">
+                              Metodo: {formatPaymentMethod(order.paymentMethod)}
+                            </span>
+                            <span
+                              className={`badge state ${
+                                order.paid ? "paid" : "pending"
+                              }`}
+                            >
+                              {order.paid ? "Confirmado" : "Pendente"}
+                            </span>
+                          </div>
+                        </S.PaymentStatusBox>
 
                         <S.Price>
                           R$ {Number(order.total || 0).toFixed(2)}
@@ -506,15 +722,91 @@ export default function CourierDashboard() {
                         <S.DeliverButton
                           type="button"
                           onClick={() => handleMarkDelivered(order)}
-                          disabled={!canDeliver || isRefreshing}
+                          disabled={
+                            !canDeliver ||
+                            isRefreshing ||
+                            pendingDigitalPayment ||
+                            isConfirmingPayment
+                          }
                         >
                           <CheckCircle2 size={16} style={{ marginRight: 6 }} />
                           Marcar como Entregue
                         </S.DeliverButton>
 
-                        {!canDeliver && (
+                        {pendingDigitalPayment && (
+                          <>
+                            <S.ConfirmPaymentButton
+                              type="button"
+                              onClick={() => handleRequestPaymentPin(order)}
+                              disabled={isRequestingPin || isConfirmingPayment}
+                              style={{
+                                marginTop: "0.45rem",
+                                background:
+                                  "linear-gradient(135deg, #0891b2, #0369a1)",
+                              }}
+                            >
+                              {isRequestingPin
+                                ? "Solicitando PIN..."
+                                : hasRequestedPin
+                                  ? requestedAtLabel
+                                    ? `PIN solicitado às ${requestedAtLabel}`
+                                    : "PIN solicitado"
+                                  : "Solicitar PIN"}
+                            </S.ConfirmPaymentButton>
+
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={4}
+                              placeholder="PIN de 4 dígitos"
+                              value={paymentPinByOrderId[order.id] || ""}
+                              onChange={(event) => {
+                                const digitsOnly = event.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 4);
+                                setPaymentPinByOrderId((prev) => ({
+                                  ...prev,
+                                  [order.id]: digitsOnly,
+                                }));
+                              }}
+                              style={{
+                                width: "100%",
+                                minHeight: 42,
+                                borderRadius: 12,
+                                border: "1px solid rgba(14, 165, 233, 0.35)",
+                                padding: "0 0.75rem",
+                                marginTop: "0.45rem",
+                                marginBottom: "0.45rem",
+                                background: "rgba(15, 23, 42, 0.35)",
+                                color: "#e2e8f0",
+                                fontWeight: 700,
+                                letterSpacing: "0.08em",
+                              }}
+                            />
+
+                            <S.ConfirmPaymentButton
+                              type="button"
+                              onClick={() => handleConfirmPayment(order)}
+                              disabled={isConfirmingPayment}
+                            >
+                              {isConfirmingPayment
+                                ? "Confirmando pagamento..."
+                                : "Confirmar pagamento com PIN"}
+                            </S.ConfirmPaymentButton>
+                          </>
+                        )}
+
+                        {!canDeliver && !pendingDigitalPayment && (
                           <S.MetaText>
                             Aguardando status "SAIU PARA ENTREGA" para concluir.
+                          </S.MetaText>
+                        )}
+
+                        {pendingDigitalPayment && (
+                          <S.MetaText>
+                            Pagamento digital pendente. Solicite o PIN e
+                            confirme com os 4 dígitos.
                           </S.MetaText>
                         )}
                       </S.OrderCard>

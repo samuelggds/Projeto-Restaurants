@@ -5,10 +5,15 @@ import { authMiddleware } from "../../../middlewares/authMiddleware.js";
 import CreateRestaurantSettingsController from "../controllers/CreateRestaurantSettingsController.js";
 import GetRestaurantSettingsController from "../controllers/GetRestaurantSettingsController.js";
 import UpdateRestaurantSettingsController from "../controllers/UpdateRestaurantSettingsController.js";
+import GetPublicRestaurantSettingsController from "../controllers/GetPublicRestaurantSettingsController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 
 const router = Router();
+
+router.get("/public/:restaurantId", (req, res) =>
+  GetPublicRestaurantSettingsController.handle(req, res),
+);
 
 router.post("/", authMiddleware, adminMiddleware, (req, res) =>
   CreateRestaurantSettingsController.handle(req, res),

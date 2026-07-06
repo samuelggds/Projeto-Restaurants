@@ -166,24 +166,6 @@ export default function Profile() {
     }
   }, [storedUser]);
 
-  // Simulação de histórico de pedidos
-  const [pedidos] = useState([
-    {
-      id: "1042",
-      data: "Hoje, 14:20",
-      total: 82.9,
-      status: "Entregue",
-      mesa: "Mesa 04",
-    },
-    {
-      id: "0985",
-      data: "28 Jun 2026",
-      total: 42.0,
-      status: "Entregue",
-      mesa: "Mesa 12",
-    },
-  ]);
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     toast.info("Você saiu da sua conta.");
@@ -408,7 +390,7 @@ export default function Profile() {
               </S.Form>
             </S.ProfileCard>
 
-            {/* CARD DIREITO: ENDEREÇOS E PEDIDOS */}
+            {/* CARD DIREITO: ENDEREÇOS */}
             <S.RightColumn>
               {/* --- NOVA SEÇÃO: MEUS ENDEREÇOS --- */}
               <S.OrdersCard style={{ marginBottom: "2rem" }}>
@@ -535,37 +517,28 @@ export default function Profile() {
                 </S.AddressForm>
               </S.OrdersCard>
 
-              {/* CARD HISTÓRICO DE PEDIDOS */}
               <S.OrdersCard>
                 <S.SectionTitle>
                   <ShoppingBag size={20} />
-                  <h3>Meus Pedidos Recentes</h3>
+                  <h3>Pedidos do Perfil</h3>
                 </S.SectionTitle>
-
-                <S.OrderList>
-                  {pedidos.length === 0 ? (
-                    <p className="empty-msg">
-                      Você ainda não realizou pedidos neste restaurante.
-                    </p>
-                  ) : (
-                    pedidos.map((pedido) => (
-                      <S.OrderItem key={pedido.id}>
-                        <div className="order-info">
-                          <h5>Pedido #{pedido.id}</h5>
-                          <span>
-                            {pedido.data} • <strong>{pedido.mesa}</strong>
-                          </span>
-                        </div>
-                        <div className="order-meta">
-                          <span className="price">
-                            R$ {pedido.total.toFixed(2)}
-                          </span>
-                          <span className="status-badge">{pedido.status}</span>
-                        </div>
-                      </S.OrderItem>
-                    ))
-                  )}
-                </S.OrderList>
+                <p
+                  style={{
+                    margin: "0 0 1rem",
+                    opacity: 0.75,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  Abra a tela exclusiva para visualizar todos os pedidos feitos
+                  por este perfil.
+                </p>
+                <S.ActionButton
+                  type="button"
+                  $variant="secondary"
+                  onClick={() => navigate("/profile/orders")}
+                >
+                  <ShoppingBag size={16} /> Ver meus pedidos
+                </S.ActionButton>
               </S.OrdersCard>
             </S.RightColumn>
           </S.GridContainer>

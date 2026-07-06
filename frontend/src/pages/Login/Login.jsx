@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
@@ -19,7 +19,7 @@ export default function Login() {
   const googleButtonRef = useRef(null);
   const isGoogleMountedRef = useRef(false);
 
-  const loadGoogleScript = () => {
+  const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
       return Promise.resolve();
     }
@@ -64,9 +64,9 @@ export default function Login() {
       script.onerror = () => reject(new Error("script-error"));
       document.head.appendChild(script);
     });
-  };
+  }, []);
 
-  const getGoogleClientId = async () => {
+  const getGoogleClientId = useCallback(async () => {
     const localClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
     if (localClientId) {
@@ -74,33 +74,36 @@ export default function Login() {
     }
 
     return authService.getGoogleClientId();
-  };
+  }, []);
 
-  const redirectByRole = (user) => {
-    if (user?.role === "SUPER_ADMIN") {
-      navigate("/super_admin");
-      return;
-    }
+  const redirectByRole = useCallback(
+    (user) => {
+      if (user?.role === "SUPER_ADMIN") {
+        navigate("/super_admin");
+        return;
+      }
 
-    if (user?.role === "ADMIN") {
-      navigate("/admin");
-      return;
-    }
+      if (user?.role === "ADMIN") {
+        navigate("/admin");
+        return;
+      }
 
-    if (user?.role === "MOTOQUEIRO") {
-      navigate("/courier");
-      return;
-    }
+      if (user?.role === "MOTOQUEIRO") {
+        navigate("/courier");
+        return;
+      }
 
-    if (user?.role === "FUNCIONARIO") {
-      navigate("/orders");
-      return;
-    }
+      if (user?.role === "FUNCIONARIO") {
+        navigate("/orders");
+        return;
+      }
 
-    navigate("/");
-  };
+      navigate("/");
+    },
+    [navigate],
+  );
 
-  const initializeGoogleLogin = async () => {
+  const initializeGoogleLogin = useCallback(async () => {
     setGoogleStatus("loading");
     setGoogleMessage("");
 
@@ -160,18 +163,20 @@ export default function Login() {
         );
       }
     }
-  };
+  }, [getGoogleClientId, loadGoogleScript, login, redirectByRole, isDarkMode]);
 
   useEffect(() => {
     isGoogleMountedRef.current = true;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    initializeGoogleLogin();
+    const timeoutId = setTimeout(() => {
+      initializeGoogleLogin();
+    }, 0);
 
     return () => {
+      clearTimeout(timeoutId);
       isGoogleMountedRef.current = false;
     };
-  }, [isDarkMode]);
+  }, [initializeGoogleLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

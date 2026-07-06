@@ -2,6 +2,8 @@ import orderRepository from "../repositories/OrderRepository.js";
 import { io } from "../../../server.js";
 import { OrderStateMachine } from "../state/orderStateMachine.js";
 import { OrderPermissions } from "../permissions/orderPermissions.js";
+import { OrderStatus, PaymentMethod } from "@prisma/client";
+import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
 
 class UpdateOrderStatusService {
   async execute(orderId, restaurantId, status, role) {
@@ -25,11 +27,37 @@ class UpdateOrderStatusService {
       throw new Error("Usuário não tem permissão para isso!");
     }
 
+    // Pedidos com pagamento digital só podem ser finalizados após confirmação.
+    if (
+      status === OrderStatus.ENTREGUE &&
+      [PaymentMethod.PIX, PaymentMethod.CARTAO].includes(order.paymentMethod) &&
+      order.paid !== true
+    ) {
+      throw new Error(
+        "Não é possível marcar como entregue: pagamento PIX/CARTAO ainda não foi confirmado.",
+      );
+    }
+
     const updatedOrder = await orderRepository.updateStatus(
       orderId,
       status,
       restaurantId,
     );
+
+    notifyCustomerOrderStatusChanged({
+      customerPhone: order?.user?.phone,
+      customerName: order?.user?.name,
+      restaurantName: order?.restaurant?.name,
+      restaurantWhatsapp: order?.restaurant?.whatsapp,
+      orderId: updatedOrder?.id,
+      status: updatedOrder?.status,
+    }).catch((error) => {
+      console.error(
+        "[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]",
+        error?.message || error,
+      );
+    });
+
     io.to(`restaurant:${restaurantId}`).emit(
       "order:status-changed",
       updatedOrder,

@@ -497,9 +497,14 @@ export default function StaffDashboard() {
         `Pedido #${order.id} alterado para ${nextStatus.replace(/_/g, " ")}`,
       );
     } catch (err) {
-      toast.error(
-        err?.response?.data?.error || "Erro ao alterar status do pedido",
-      );
+      const message =
+        err?.response?.data?.error || "Erro ao alterar status do pedido";
+      const friendlyMessage =
+        message.includes("pagamento PIX/CARTAO") ||
+        message.includes("ainda não foi confirmado")
+          ? "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue."
+          : message;
+      toast.error(friendlyMessage);
     }
   }
 

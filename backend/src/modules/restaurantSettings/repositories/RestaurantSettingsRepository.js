@@ -6,6 +6,54 @@ class RestaurantSettingsRepository {
       where: {
         restaurantId: Number(restaurantId),
       },
+      include: {
+        restaurant: {
+          select: {
+            name: true,
+            logo: true,
+            coverImage: true,
+            whatsapp: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findRestaurantById(restaurantId) {
+    return prisma.restaurant.findUnique({
+      where: {
+        id: Number(restaurantId),
+      },
+      select: {
+        id: true,
+        name: true,
+        logo: true,
+        coverImage: true,
+        whatsapp: true,
+      },
+    });
+  }
+
+  async findPublicByRestaurantId(restaurantId) {
+    return prisma.restaurantSettings.findUnique({
+      where: {
+        restaurantId: Number(restaurantId),
+      },
+      select: {
+        restaurantId: true,
+        deliveryFee: true,
+        minimumOrder: true,
+        pixProvider: true,
+        pixKey: true,
+        instagram: true,
+        restaurant: {
+          select: {
+            name: true,
+            logo: true,
+            coverImage: true,
+          },
+        },
+      },
     });
   }
 

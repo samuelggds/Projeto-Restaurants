@@ -10,6 +10,14 @@ class OrderRepository {
             id: true,
             name: true,
             email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
           },
         },
         table: true,
@@ -34,6 +42,14 @@ class OrderRepository {
             id: true,
             name: true,
             email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
           },
         },
         table: true,
@@ -63,6 +79,43 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
+  async confirmPayment(id, restaurantId, db = prisma) {
+    await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+      },
+      data: {
+        paid: true,
+        paymentConfirmationPin: null,
+        paymentConfirmationPinExpiresAt: null,
+      },
+    });
+
+    return this.findById(id, restaurantId, db);
+  }
+
+  async setPaymentConfirmationPin(
+    id,
+    restaurantId,
+    paymentConfirmationPin,
+    paymentConfirmationPinExpiresAt,
+    db = prisma,
+  ) {
+    await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+      },
+      data: {
+        paymentConfirmationPin,
+        paymentConfirmationPinExpiresAt,
+      },
+    });
+
+    return this.findById(id, restaurantId, db);
+  }
+
   async findById(id, restaurantId, db = prisma) {
     return db.order.findFirst({
       where: {
@@ -75,6 +128,14 @@ class OrderRepository {
             id: true,
             name: true,
             email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
           },
         },
         table: true,

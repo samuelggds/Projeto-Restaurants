@@ -215,13 +215,17 @@ model TableSession {
 }
 
 model Order {
-  id            Int            @id @default(autoincrement())
-  total         Decimal        @db.Decimal(10, 2)
-  status        OrderStatus    @default(PENDENTE)
-  type          OrderType
-  paymentMethod PaymentMethod?
-  paid          Boolean        @default(false)
-  observation   String?
+  id                              Int            @id @default(autoincrement())
+  total                           Decimal        @db.Decimal(10, 2)
+  status                          OrderStatus    @default(PENDENTE)
+  type                            OrderType
+  paymentMethod                   PaymentMethod?
+  paid                            Boolean        @default(false)
+  observation                     String?
+  paymentProof                    String?
+  paymentProofImage               String?
+  paymentConfirmationPin          String?
+  paymentConfirmationPinExpiresAt DateTime?
 
   systemFee Decimal @default(0) @db.Decimal(10, 2)
 
@@ -273,9 +277,10 @@ model RestaurantSettings {
   deliveryFee  Decimal @default(0) @db.Decimal(10, 2)
   minimumOrder Decimal @default(0) @db.Decimal(10, 2)
 
-  pixKey    String?
-  instagram String?
-  facebook  String?
+  pixProvider String  @default("MERCADO_PAGO")
+  pixKey      String?
+  instagram   String?
+  facebook    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

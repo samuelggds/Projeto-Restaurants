@@ -5,14 +5,12 @@ import {
   Utensils,
   User,
   LogOut,
+  ShoppingBag,
   ShoppingCart,
   Sun,
   Moon,
   Layers,
-  Soup,
-  Flame,
-  IceCream,
-  Wine,
+  Shield,
   Link2,
   Globe,
   Mail,
@@ -22,6 +20,7 @@ import {
 import { toast } from "react-toastify";
 import menuService from "../../Services/menuService";
 import tableSessionService from "../../Services/tableSessionService";
+import { resolveCategoryIcon } from "../../config/categoryIconMap";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
 
@@ -183,14 +182,6 @@ export default function Home() {
         Number(tableSession?.restaurantId) === Number(routeRestaurantId)),
     );
 
-  const staticCategories = [
-    { id: "todos", label: "Todos", icon: <Layers size={16} /> },
-    { id: "Entradas", label: "Entradas", icon: <Soup size={16} /> },
-    { id: "Pratos", label: "Pratos", icon: <Flame size={16} /> },
-    { id: "Sobremesas", label: "Sobremesas", icon: <IceCream size={16} /> },
-    { id: "Bebidas", label: "Bebidas", icon: <Wine size={16} /> },
-  ];
-
   useEffect(() => {
     localStorage.setItem("isDarkMode", JSON.stringify(isDarkMode));
   }, [isDarkMode]);
@@ -241,17 +232,19 @@ export default function Home() {
 
   const dynamicCategories = Array.from(
     new Set(products.map((item) => item?.category?.name).filter(Boolean)),
-  ).map((name) => ({
-    id: name,
-    label: name,
-    icon: <Utensils size={16} />,
-  }));
+  ).map((name) => {
+    const Icon = resolveCategoryIcon(name);
+
+    return {
+      id: name,
+      label: name,
+      icon: <Icon size={16} />,
+    };
+  });
 
   const allCategories = [
-    ...staticCategories,
-    ...dynamicCategories.filter(
-      (category) => !staticCategories.some((item) => item.id === category.id),
-    ),
+    { id: "todos", label: "Todos", icon: <Layers size={16} /> },
+    ...dynamicCategories,
   ];
 
   useEffect(() => {
@@ -744,6 +737,12 @@ export default function Home() {
           </S.Brand>
 
           <S.NavRight>
+            {user?.role === "ADMIN" ? (
+              <S.AdminQuickButton onClick={() => navigate("/admin")}>
+                <Shield size={16} /> Admin
+              </S.AdminQuickButton>
+            ) : null}
+
             <S.CartButtonContainer onClick={() => navigate("/cart")}>
               <ShoppingCart size={20} />
               {totalItens > 0 && <S.Badge>{totalItens}</S.Badge>}
@@ -777,6 +776,9 @@ export default function Home() {
                     </S.DropdownHeader>
                     <S.DropdownItem onClick={() => navigate("/profile")}>
                       <User size={18} /> Meu Perfil
+                    </S.DropdownItem>
+                    <S.DropdownItem onClick={() => navigate("/profile/orders")}>
+                      <ShoppingBag size={18} /> Meus Pedidos
                     </S.DropdownItem>
                     <S.DropdownItem $danger onClick={handleLogout}>
                       <LogOut size={18} /> Fazer Logout

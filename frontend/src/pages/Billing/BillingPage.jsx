@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ThemeProvider } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import {
@@ -61,7 +61,7 @@ export default function BillingPage() {
     return link.includes("mercadopago.com") && link.includes("pref_id=");
   };
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get("/billing/invoices");
@@ -102,13 +102,15 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
+    let timeoutId;
+
     // Wait for context to load
     if (isLoading) {
       console.log("BillingPage: Waiting for context to load...");
-      return;
+      return undefined;
     }
 
     console.log("BillingPage: Context loaded");
@@ -122,13 +124,20 @@ export default function BillingPage() {
       console.log("BillingPage: No token found, redirecting to login");
       toast.error("Você precisa estar autenticado para acessar esta página");
       navigate("/login");
-      return;
+      return undefined;
     }
 
     console.log("BillingPage: Authentication OK, fetching invoices");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchInvoices();
-  }, [user, isLoading, navigate]);
+    timeoutId = setTimeout(() => {
+      fetchInvoices();
+    }, 0);
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [user, isLoading, navigate, fetchInvoices]);
 
   const getStatusLabel = (status) => {
     const labels = {

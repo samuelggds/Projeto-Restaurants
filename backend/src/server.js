@@ -46,7 +46,9 @@ server.listen(port, "0.0.0.0", () => {
 
 process.on("unhandledRejection", (reason) => {
   console.error("[UNHANDLED_REJECTION]", reason);
-  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
+  Sentry.captureException(
+    reason instanceof Error ? reason : new Error(String(reason)),
+  );
   notifyCriticalError("[UNHANDLED_REJECTION]", String(reason));
 });
 

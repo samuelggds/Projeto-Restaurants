@@ -11,6 +11,7 @@ import Login from "../pages/Login/Login";
 import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
 import Register from "../pages/Register/Register";
 import UserProfile from "../pages/Profile/Profile";
+import MyOrders from "../pages/MyOrders/MyOrders";
 import Orders from "../pages/Orders/Orders";
 import EmployeesDashboard from "../pages/Employees/EmployeesDashboard";
 import CourierDashboard from "../pages/Courier/CourierDashboard";
@@ -191,6 +192,7 @@ export default function AppRoutes() {
           <Route element={<BillingGate />}>
             <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
               <Route path="/profile" element={<UserProfile />} />
+              <Route path="/profile/orders" element={<MyOrders />} />
             </Route>
 
             <Route element={<RequireRole roles={["ADMIN"]} />}>

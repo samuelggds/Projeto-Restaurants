@@ -2,6 +2,7 @@ import { OrderStatus } from "@prisma/client";
 import orderRepository from "../repositories/OrderRepository.js";
 import { OrderStateMachine } from "../state/orderStateMachine.js";
 import { io } from "../../../server.js";
+import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
 
 class CancelOrderService {
   async execute(orderId, userId, restaurantId) {
@@ -28,6 +29,20 @@ class CancelOrderService {
       OrderStatus.CANCELADO,
       restaurantId,
     );
+
+    notifyCustomerOrderStatusChanged({
+      customerPhone: order?.user?.phone,
+      customerName: order?.user?.name,
+      restaurantName: order?.restaurant?.name,
+      restaurantWhatsapp: order?.restaurant?.whatsapp,
+      orderId: updatedOrder?.id,
+      status: updatedOrder?.status,
+    }).catch((error) => {
+      console.error(
+        "[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]",
+        error?.message || error,
+      );
+    });
 
     io.to(`restaurant:${restaurantId}`).emit(
       "order:status-changed",

@@ -52,7 +52,9 @@ class ProductRepository {
     const hasOrders = await db.orderItem.findFirst({
       where: {
         productId,
-        restaurantId,
+        order: {
+          restaurantId,
+        },
       },
     });
 

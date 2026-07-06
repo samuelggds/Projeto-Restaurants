@@ -7,9 +7,25 @@ class CreateCategoryService {
       throw new Error("Restaurante não encontrado");
     }
 
-    createCategorySchema.parse(data);
+    const parsed = createCategorySchema.parse(data);
+    const normalizedName = String(parsed.name || "").trim();
 
-    const category = await categoryRepository.create(data, restaurantId);
+    const existingCategory = await categoryRepository.findByName(
+      normalizedName,
+      restaurantId,
+    );
+
+    if (existingCategory) {
+      throw new Error("Já existe uma categoria com esse nome.");
+    }
+
+    const category = await categoryRepository.create(
+      {
+        ...parsed,
+        name: normalizedName,
+      },
+      restaurantId,
+    );
 
     return {
       category,

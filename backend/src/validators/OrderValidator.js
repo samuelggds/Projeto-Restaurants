@@ -8,9 +8,19 @@ export const createOrderSchema = z.object({
 
   customerCpf: z.string().trim().min(11).optional(),
 
+  customerPhone: z.string().trim().min(10).optional(),
+
   type: z.nativeEnum(OrderType),
 
   paymentMethod: z.nativeEnum(PaymentMethod).optional(),
+
+  paid: z.boolean().optional(),
+
+  pixPaymentId: z.string().trim().min(3).optional(),
+
+  paymentProof: z.string().trim().min(6).optional(),
+
+  paymentProofImage: z.string().trim().min(20).optional(),
 
   observation: z.string().trim().optional(),
 
