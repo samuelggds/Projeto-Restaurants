@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import updateBannerService from "../services/UpdateBannerService.js";
 
 class UpdateBannerController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const { title, image } = req.body;
@@ -13,9 +14,10 @@ class UpdateBannerController {
       });
 
       return res.status(200).json(banner);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error:
+          error instanceof Error ? error.message : "Erro ao atualizar banner",
       });
     }
   }

@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import listBannerService from "../services/ListBannerService.js";
 
 class ListBannerController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
 
@@ -10,9 +11,10 @@ class ListBannerController {
       });
 
       return res.status(200).json(banners);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error:
+          error instanceof Error ? error.message : "Erro ao listar banners",
       });
     }
   }
