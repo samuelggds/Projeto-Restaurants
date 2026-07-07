@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
-import QRCode from "react-qr-code";
 import {
   Utensils,
   Sun,
@@ -45,6 +44,14 @@ import { buildPixPayload } from "../../config/pixPayload";
 import { resolveCategoryIcon } from "../../config/categoryIconMap";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
+
+const PixAndDeliverySettingsTab = lazy(
+  () => import("./components/PixAndDeliverySettingsTab"),
+);
+const DigitalMenuSettingsTab = lazy(
+  () => import("./components/DigitalMenuSettingsTab"),
+);
+const QRCode = lazy(() => import("react-qr-code"));
 
 const ORDER_STATUSES = [
   "PENDENTE",
@@ -4303,288 +4310,33 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "settings" && (
-            <S.FormCard>
-              <S.PageHeader>
-                <h2>Configurações de PIX e Delivery</h2>
-                <p>
-                  Configure a cobrança do checkout e os parâmetros de entrega.
-                </p>
-              </S.PageHeader>
-
-              <form onSubmit={handleSavePixAndDeliverySettings}>
-                <S.FormRow>
-                  <S.FormGroup>
-                    <label>Taxa de Entrega (R$)</label>
-                    <input
-                      type="number"
-                      name="deliveryFee"
-                      step="0.01"
-                      min="0"
-                      placeholder="Ex: 8.50"
-                      value={settingsForm.deliveryFee}
-                      onChange={handleSettingsFieldChange}
-                    />
-                  </S.FormGroup>
-
-                  <S.FormGroup>
-                    <label>Pedido Mínimo (R$)</label>
-                    <input
-                      type="number"
-                      name="minimumOrder"
-                      step="0.01"
-                      min="0"
-                      placeholder="Ex: 20.00"
-                      value={settingsForm.minimumOrder}
-                      onChange={handleSettingsFieldChange}
-                    />
-                  </S.FormGroup>
-                </S.FormRow>
-
-                <S.FormGroup style={{ marginTop: "1rem" }}>
-                  <label>WhatsApp do Restaurante</label>
-                  <input
-                    type="text"
-                    name="whatsapp"
-                    placeholder="Ex: (85) 99999-9999"
-                    value={settingsForm.whatsapp}
-                    onChange={handleSettingsFieldChange}
-                  />
-                  <small style={{ opacity: 0.8, lineHeight: 1.4 }}>
-                    Esse número será usado como remetente da confirmação de
-                    pagamento para o cliente.
-                  </small>
-                </S.FormGroup>
-
-                <S.FormGroup style={{ marginTop: "1rem" }}>
-                  <label>Provedor PIX</label>
-                  <select
-                    name="pixProvider"
-                    value={settingsForm.pixProvider}
-                    onChange={handleSettingsFieldChange}
-                  >
-                    <option value="MERCADO_PAGO">Mercado Pago</option>
-                    <option value="NUBANK">Nubank</option>
-                    <option value="PICPAY">PicPay</option>
-                  </select>
-                </S.FormGroup>
-
-                <S.FormGroup style={{ marginTop: "1rem" }}>
-                  <label>Chave PIX</label>
-                  <input
-                    type="text"
-                    name="pixKey"
-                    placeholder="Ex: email@dominio.com, CPF ou celular com DDD"
-                    value={settingsForm.pixKey}
-                    onChange={handleSettingsFieldChange}
-                  />
-                  {hasPixKey && isPixKeyInvalid ? (
-                    <small
-                      style={{
-                        display: "block",
-                        marginTop: "0.45rem",
-                        color: "#dc2626",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Formato inválido. Use apenas CPF, e-mail ou celular.
-                    </small>
-                  ) : hasPixKey ? (
-                    <small
-                      style={{
-                        display: "block",
-                        marginTop: "0.45rem",
-                        color: "#16a34a",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {pixKeyTypeLabel}
-                    </small>
-                  ) : null}
-                </S.FormGroup>
-
-                <S.SubmitBtn
-                  type="submit"
-                  style={{ marginTop: "1.25rem" }}
-                  disabled={isSavingSettings || isPixKeyInvalid}
-                >
-                  {isSavingSettings ? "Salvando..." : "Salvar PIX e Delivery"}
-                </S.SubmitBtn>
-              </form>
-
-              <div style={{ marginTop: "1.75rem" }}>
-                <h3 style={{ marginBottom: "0.5rem" }}>
-                  Pré-visualização do QR PIX
-                </h3>
-                {hasPixKey && !isPixKeyInvalid ? (
-                  <div
-                    style={{
-                      border: "1px solid rgba(148, 163, 184, 0.35)",
-                      borderRadius: "16px",
-                      padding: "1rem",
-                      display: "grid",
-                      gap: "0.75rem",
-                      justifyItems: "start",
-                      maxWidth: "360px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: isDarkMode ? "#0f172a" : "#d8e2ed",
-                        borderRadius: "12px",
-                        padding: "0.75rem",
-                      }}
-                    >
-                      <QRCode
-                        value={pixPreviewPayload}
-                        size={160}
-                        bgColor="#ffffff"
-                        fgColor="#111827"
-                        level="M"
-                      />
-                    </div>
-                    <small style={{ opacity: 0.85, lineHeight: 1.4 }}>
-                      Esse QR é gerado automaticamente a partir da chave PIX do
-                      provedor selecionado e será exibido para o cliente no
-                      checkout delivery.
-                    </small>
-                  </div>
-                ) : (
-                  <small style={{ opacity: 0.75 }}>
-                    Informe uma chave PIX válida (CPF, e-mail ou celular) para
-                    visualizar e habilitar o QR Code.
-                  </small>
-                )}
-              </div>
-            </S.FormCard>
+            <Suspense fallback={null}>
+              <PixAndDeliverySettingsTab
+                settingsForm={settingsForm}
+                isSavingSettings={isSavingSettings}
+                isPixKeyInvalid={isPixKeyInvalid}
+                hasPixKey={hasPixKey}
+                pixKeyTypeLabel={pixKeyTypeLabel}
+                pixPreviewPayload={pixPreviewPayload}
+                isDarkMode={isDarkMode}
+                onSubmit={handleSavePixAndDeliverySettings}
+                onFieldChange={handleSettingsFieldChange}
+              />
+            </Suspense>
           )}
 
           {activeTab === "digital-menu" && (
-            <S.FormCard>
-              <S.PageHeader>
-                <h2>Editar Cardápio Digital</h2>
-                <p>
-                  Personalize a identidade visual que aparece no cardápio do
-                  cliente: nome, logo e banner.
-                </p>
-              </S.PageHeader>
-
-              <form onSubmit={handleSaveDigitalMenuSettings}>
-                <S.FormGroup>
-                  <label>Nome do Restaurante</label>
-                  <input
-                    type="text"
-                    name="restaurantName"
-                    placeholder="Ex: Pizzaria Mesa"
-                    value={settingsForm.restaurantName}
-                    onChange={handleSettingsFieldChange}
-                  />
-                </S.FormGroup>
-
-                <S.FormRow style={{ marginTop: "1rem" }}>
-                  <S.FormGroup>
-                    <label>URL da Logo</label>
-                    <input
-                      type="url"
-                      name="restaurantLogo"
-                      placeholder="https://..."
-                      value={settingsForm.restaurantLogo}
-                      onChange={handleSettingsFieldChange}
-                    />
-                    <div
-                      style={{
-                        marginTop: "0.55rem",
-                        display: "flex",
-                        gap: "0.5rem",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        onChange={(event) =>
-                          handleBrandingFileChange("restaurantLogo", event)
-                        }
-                      />
-                      {brandingUploadState.restaurantLogo ? (
-                        <small style={{ opacity: 0.85 }}>
-                          Processando imagem...
-                        </small>
-                      ) : null}
-                    </div>
-                    {settingsForm.restaurantLogo ? (
-                      <div
-                        style={{
-                          marginTop: "0.6rem",
-                          width: 76,
-                          height: 76,
-                          borderRadius: 999,
-                          border: "1px solid rgba(148, 163, 184, 0.35)",
-                          background: `url(${settingsForm.restaurantLogo}) center / cover`,
-                        }}
-                      />
-                    ) : null}
-                  </S.FormGroup>
-
-                  <S.FormGroup>
-                    <label>URL do Banner</label>
-                    <input
-                      type="url"
-                      name="restaurantCoverImage"
-                      placeholder="https://..."
-                      value={settingsForm.restaurantCoverImage}
-                      onChange={handleSettingsFieldChange}
-                    />
-                    <div
-                      style={{
-                        marginTop: "0.55rem",
-                        display: "flex",
-                        gap: "0.5rem",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        onChange={(event) =>
-                          handleBrandingFileChange(
-                            "restaurantCoverImage",
-                            event,
-                          )
-                        }
-                      />
-                      {brandingUploadState.restaurantCoverImage ? (
-                        <small style={{ opacity: 0.85 }}>
-                          Processando imagem...
-                        </small>
-                      ) : null}
-                    </div>
-                    {settingsForm.restaurantCoverImage ? (
-                      <div
-                        style={{
-                          marginTop: "0.6rem",
-                          width: "100%",
-                          maxWidth: 260,
-                          height: 84,
-                          borderRadius: 12,
-                          border: "1px solid rgba(148, 163, 184, 0.35)",
-                          background: `url(${settingsForm.restaurantCoverImage}) center / cover`,
-                        }}
-                      />
-                    ) : null}
-                  </S.FormGroup>
-                </S.FormRow>
-
-                <S.SubmitBtn
-                  type="submit"
-                  style={{ marginTop: "1.25rem" }}
-                  disabled={isSavingSettings || isBrandingUploadInProgress}
-                >
-                  {isSavingSettings ? "Salvando..." : "Salvar Cardápio Digital"}
-                </S.SubmitBtn>
-              </form>
-            </S.FormCard>
+            <Suspense fallback={null}>
+              <DigitalMenuSettingsTab
+                settingsForm={settingsForm}
+                brandingUploadState={brandingUploadState}
+                isSavingSettings={isSavingSettings}
+                isBrandingUploadInProgress={isBrandingUploadInProgress}
+                onSubmit={handleSaveDigitalMenuSettings}
+                onFieldChange={handleSettingsFieldChange}
+                onBrandingFileChange={handleBrandingFileChange}
+              />
+            </Suspense>
           )}
         </S.MainContent>
       </S.AdminLayout>
