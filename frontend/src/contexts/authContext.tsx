@@ -4,8 +4,16 @@ import api from "../Services/api";
 
 type AuthUser = {
   id?: number;
+  name?: string;
+  email?: string;
+  phone?: string;
   role?: string;
-  [key: string]: any;
+  restaurantId?: number;
+  restaurant?: {
+    id?: number;
+    restaurantId?: number;
+  } | null;
+  [key: string]: unknown;
 } | null;
 
 type AuthContextValue = {

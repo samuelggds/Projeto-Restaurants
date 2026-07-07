@@ -599,7 +599,7 @@ function isDeliveryBlockedUntilPaid(order) {
   return isPendingDigitalPayment(order);
 }
 
-function getPaymentSummaryLabel(_order?: any) {
+function getPaymentSummaryLabel(_order?: unknown) {
   return "PIX";
 }
 

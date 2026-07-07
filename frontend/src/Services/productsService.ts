@@ -1,5 +1,7 @@
 import api from "./api";
 
+type ProductPayload = Record<string, unknown>;
+
 function resolveRestaurantIdFromStorage() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -50,12 +52,12 @@ class ProductsService {
     return Array.isArray(payload?.products) ? payload.products : [];
   }
 
-  async createProduct(payload: any) {
+  async createProduct(payload: ProductPayload) {
     const response = await api.post("/products", payload);
     return response.data;
   }
 
-  async updateProduct(id: string | number, payload: any) {
+  async updateProduct(id: string | number, payload: ProductPayload) {
     const response = await api.put(`/products/${id}`, payload);
     return response.data;
   }

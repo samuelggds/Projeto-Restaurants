@@ -9,7 +9,7 @@ export default function useProductRatings({ restaurantId, tableSession }) {
 
   const ratingClientKey = useMemo(
     () => resolveRatingClientKey(tableSession),
-    [tableSession?.sessionId, tableSession?.sessionToken],
+    [tableSession],
   );
 
   function getProductRating(productId) {

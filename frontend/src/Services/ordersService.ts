@@ -1,5 +1,9 @@
 import api from "./api";
 
+type OrderPayload = Record<string, unknown>;
+type PixPaymentPayload = Record<string, unknown>;
+type PixPaymentStatusPayload = Record<string, unknown>;
+
 class OrdersService {
   async listRestaurantOrders(status?: string) {
     const response = await api.get("/orders", {
@@ -14,17 +18,17 @@ class OrdersService {
     return response.data;
   }
 
-  async createOrder(payload: any) {
+  async createOrder(payload: OrderPayload) {
     const response = await api.post("/orders", payload);
     return response.data;
   }
 
-  async createPixPayment(payload: any) {
+  async createPixPayment(payload: PixPaymentPayload) {
     const response = await api.post("/orders/pix/payment", payload);
     return response.data;
   }
 
-  async getPixPaymentStatus(payload: any) {
+  async getPixPaymentStatus(payload: PixPaymentStatusPayload) {
     const response = await api.post("/orders/pix/payment/status", payload);
     return response.data;
   }

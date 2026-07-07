@@ -64,7 +64,7 @@ const ORDER_STATUS_META = {
 
 const CLOSED_STATUS_SET = new Set(["ENTREGUE", "CANCELADO"]);
 
-function getPaymentSummaryLabel(_order?: any) {
+function getPaymentSummaryLabel(_order?: unknown) {
   return "PIX";
 }
 

@@ -389,17 +389,20 @@ export default function DigitalMenu() {
   const groupedProducts = useMemo(() => {
     const source = activeCategory === "all" ? products : filteredProducts;
 
-    return source.reduce<Record<string, any[]>>((acc, product) => {
-      const categoryName = String(product?.category?.name || "Outros").trim();
-      const key = categoryName || "Outros";
+    return source.reduce<Record<string, (typeof source)[number][]>>(
+      (acc, product) => {
+        const categoryName = String(product?.category?.name || "Outros").trim();
+        const key = categoryName || "Outros";
 
-      if (!acc[key]) {
-        acc[key] = [];
-      }
+        if (!acc[key]) {
+          acc[key] = [];
+        }
 
-      acc[key].push(product);
-      return acc;
-    }, {});
+        acc[key].push(product);
+        return acc;
+      },
+      {},
+    );
   }, [activeCategory, products, filteredProducts]);
 
   const cartTotal = useMemo(() => {
