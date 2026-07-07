@@ -1,7 +1,19 @@
 import productRepository from "../repositories/ProductRepository.js";
 
+type RateProductPayload = {
+  productId: number | string;
+  restaurantId: number | string;
+  clientKey: string;
+  rating: number | string;
+};
+
 class RateProductService {
-  async execute({ productId, restaurantId, clientKey, rating }) {
+  async execute({
+    productId,
+    restaurantId,
+    clientKey,
+    rating,
+  }: RateProductPayload) {
     const normalizedProductId = Number(productId);
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedRating = Number(rating);

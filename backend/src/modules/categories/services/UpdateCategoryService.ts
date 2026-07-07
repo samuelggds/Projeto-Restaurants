@@ -1,11 +1,22 @@
 import categoryRepository from "../repositories/CategoryRepository.js";
 import { createCategorySchema } from "../../../validators/CategoryValidator.js";
+import { z } from "zod";
+
+type UpdateCategoryInput = Partial<z.infer<typeof createCategorySchema>>;
 
 class UpdateCategoryService {
-  async execute(id, data, restaurantId) {
+  async execute(
+    id: number | string,
+    data: UpdateCategoryInput,
+    restaurantId: number | string,
+  ) {
+    const normalizedRestaurantId = Number(restaurantId);
     const parsedData = createCategorySchema.partial().parse(data);
 
-    const category = await categoryRepository.findById(id, restaurantId);
+    const category = await categoryRepository.findById(
+      id,
+      normalizedRestaurantId,
+    );
 
     if (!category) {
       throw new Error("Categoria não encontrada!");
@@ -25,7 +36,7 @@ class UpdateCategoryService {
 
       const existingCategory = await categoryRepository.findByName(
         normalizedName,
-        restaurantId,
+        normalizedRestaurantId,
       );
 
       if (existingCategory && Number(existingCategory.id) !== Number(id)) {
@@ -35,7 +46,7 @@ class UpdateCategoryService {
       parsedData.name = normalizedName;
     }
 
-    return categoryRepository.update(id, parsedData, restaurantId);
+    return categoryRepository.update(id, parsedData, normalizedRestaurantId);
   }
 }
 

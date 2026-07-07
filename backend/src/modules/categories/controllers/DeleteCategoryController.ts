@@ -4,7 +4,9 @@ import deleteCategoryService from "../services/DeleteCategoryService.js";
 class DeleteCategoryController {
   async handle(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
 
       await deleteCategoryService.execute(id, req.user.restaurantId);
 

@@ -1,7 +1,7 @@
 import employeeRepository from "../repositories/EmployeeRepository.js";
 
 class DeactivateEmployeeService {
-  async execute(id, restaurantId) {
+  async execute(id: number | string, restaurantId: number) {
     const employee = await employeeRepository.findById(id, restaurantId);
 
     if (!employee) {

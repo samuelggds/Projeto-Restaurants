@@ -6,7 +6,9 @@ class UpdateEmployeeController {
     try {
       const restaurantId = req.user.restaurantId;
 
-      const { id } = req.params;
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
 
       const { name, email, phone } = req.body;
 

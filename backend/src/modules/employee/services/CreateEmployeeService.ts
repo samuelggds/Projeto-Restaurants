@@ -2,8 +2,26 @@ import { UserRole } from "@prisma/client";
 import employeeRepository from "../repositories/EmployeeRepository.js";
 import bcrypt from "bcrypt";
 
+type CreateEmployeePayload = {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string | null;
+  restaurantId: number;
+  role?: UserRole;
+  cpf?: string | null;
+};
+
 class CreateEmployeeService {
-  async execute({ name, email, password, phone, restaurantId, role, cpf }) {
+  async execute({
+    name,
+    email,
+    password,
+    phone,
+    restaurantId,
+    role,
+    cpf,
+  }: CreateEmployeePayload) {
     const exists = await employeeRepository.findByEmail(email);
 
     if (exists) {

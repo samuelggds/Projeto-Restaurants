@@ -1,9 +1,14 @@
 import categoryRepository from "../repositories/CategoryRepository.js";
 import { createCategorySchema } from "../../../validators/CategoryValidator.js";
+import { z } from "zod";
+
+type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 
 class CreateCategoryService {
-  async execute(data, restaurantId) {
-    if (!restaurantId) {
+  async execute(data: CreateCategoryInput, restaurantId: number | string) {
+    const normalizedRestaurantId = Number(restaurantId);
+
+    if (!normalizedRestaurantId) {
       throw new Error("Restaurante não encontrado");
     }
 
@@ -12,7 +17,7 @@ class CreateCategoryService {
 
     const existingCategory = await categoryRepository.findByName(
       normalizedName,
-      restaurantId,
+      normalizedRestaurantId,
     );
 
     if (existingCategory) {
@@ -24,7 +29,7 @@ class CreateCategoryService {
         ...parsed,
         name: normalizedName,
       },
-      restaurantId,
+      normalizedRestaurantId,
     );
 
     return {

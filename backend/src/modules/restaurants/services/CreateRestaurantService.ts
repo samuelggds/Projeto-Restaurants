@@ -5,9 +5,12 @@ import subscriptionRepository from "../../subscription/repositories/Subscription
 import { PlanType, SubscriptionStatus, UserRole } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 import { createRestaurantSchema } from "../../../validators/RestaurantValidator.js";
+import { z } from "zod";
+
+type CreateRestaurantPayload = z.infer<typeof createRestaurantSchema>;
 
 class CreateRestaurantService {
-  async execute({ restaurant, admin }) {
+  async execute({ restaurant, admin }: CreateRestaurantPayload) {
     createRestaurantSchema.parse({ restaurant, admin });
 
     const restaurantExists = await restaurantRepository.findByEmail(

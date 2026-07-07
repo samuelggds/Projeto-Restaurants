@@ -1,12 +1,14 @@
 import employeeRepository from "../repositories/EmployeeRepository.js";
 
 class ListEmployeeService {
-  async execute(restaurantId) {
-    if (!restaurantId) {
+  async execute(restaurantId: number | string) {
+    const normalizedRestaurantId = Number(restaurantId);
+
+    if (!normalizedRestaurantId) {
       throw new Error("RestaurantId obrigatório");
     }
 
-    return employeeRepository.findAllByRestaurant(restaurantId);
+    return employeeRepository.findAllByRestaurant(normalizedRestaurantId);
   }
 }
 

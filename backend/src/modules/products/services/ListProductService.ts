@@ -1,7 +1,7 @@
 import productRepository from "../repositories/ProductRepository.js";
 
 class ListProductsService {
-  async execute(restaurantId) {
+  async execute(restaurantId: number | string) {
     const normalizedRestaurantId = Number(restaurantId);
 
     if (!normalizedRestaurantId) {

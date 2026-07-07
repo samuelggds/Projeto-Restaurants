@@ -1,7 +1,21 @@
 import employeeRepository from "../repositories/EmployeeRepository.js";
 
+type UpdateEmployeePayload = {
+  id: number | string;
+  restaurantId: number;
+  name?: string;
+  phone?: string | null;
+  email: string;
+};
+
 class UpdateEmployeeService {
-  async execute({ id, restaurantId, name, phone, email }) {
+  async execute({
+    id,
+    restaurantId,
+    name,
+    phone,
+    email,
+  }: UpdateEmployeePayload) {
     const employee = await employeeRepository.findById(id, restaurantId);
 
     if (!employee) {

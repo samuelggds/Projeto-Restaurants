@@ -1,7 +1,13 @@
 import bannerRepository from "../repositories/BannerRepository.js";
 
+type UpdateBannerPayload = {
+  id: number | string;
+  title?: string;
+  image?: string;
+};
+
 class UpdateBannerService {
-  async execute({ id, title, image }) {
+  async execute({ id, title, image }: UpdateBannerPayload) {
     const banner = await bannerRepository.findById(id);
 
     if (!banner) {

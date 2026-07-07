@@ -1,7 +1,11 @@
 import bannerRepository from "../repositories/BannerRepository.js";
 
+type DeleteBannerPayload = {
+  id: number | string;
+};
+
 class DeleteBannerService {
-  async execute({ id }) {
+  async execute({ id }: DeleteBannerPayload) {
     const banner = await bannerRepository.findById(id);
 
     if (!banner) {

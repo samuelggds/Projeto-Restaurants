@@ -1,13 +1,18 @@
 import prisma from "../../../config/prisma.js";
 import restaurantRepository from "../repositories/RestaurantRepository.js";
+import { PlanType } from "@prisma/client";
 
-const PLAN_PRICES = {
+type ListedRestaurant = Awaited<
+  ReturnType<typeof restaurantRepository.listAll>
+>[number];
+
+const PLAN_PRICES: Record<PlanType, number> = {
   BASICO: 299,
   PROFISSIONAL: 499,
   PREMIUM: 799,
 };
 
-function getRestaurantStatus(restaurant) {
+function getRestaurantStatus(restaurant: ListedRestaurant) {
   if (!restaurant.active) {
     return "Bloqueado";
   }
@@ -70,7 +75,9 @@ class ListRestaurantsService {
       subscription: restaurant.subscription || null,
       status: getRestaurantStatus(restaurant),
       uptime: restaurant.active ? 100 : 0,
-      price: PLAN_PRICES[restaurant.subscription?.plan] || 0,
+      price: restaurant.subscription?.plan
+        ? PLAN_PRICES[restaurant.subscription.plan]
+        : 0,
       revenue: revenueMap.get(restaurant.id) || 0,
     }));
   }

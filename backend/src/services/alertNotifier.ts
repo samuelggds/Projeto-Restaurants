@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 
 const alertWebhookUrl = process.env.ALERT_WEBHOOK_URL || "";
 const configuredProvider = (process.env.ALERT_PROVIDER || "generic")
@@ -12,7 +13,9 @@ const smtpSecure = process.env.SMTP_SECURE === "true";
 const smtpUser = process.env.SMTP_USER || "";
 const smtpPass = process.env.SMTP_PASS || "";
 
-let cachedTransporter = null;
+type AlertDetails = string | Record<string, unknown>;
+
+let cachedTransporter: Transporter | null = null;
 
 function resolveProvider() {
   if (configuredProvider !== "generic") {
@@ -67,7 +70,15 @@ function getTransporter() {
   return cachedTransporter;
 }
 
-async function sendEmailAlert(title, details) {
+function formatDetails(details: AlertDetails) {
+  if (typeof details === "string") {
+    return details;
+  }
+
+  return JSON.stringify(details, null, 2);
+}
+
+async function sendEmailAlert(title: string, details: AlertDetails) {
   if (!canSendEmail()) {
     return false;
   }
@@ -77,19 +88,22 @@ async function sendEmailAlert(title, details) {
       from: alertEmailFrom,
       to: alertEmailTo,
       subject: `[ALERTA] ${title}`,
-      text: `${title}\n\n${details}`,
+      text: `${title}\n\n${formatDetails(details)}`,
     });
 
     return true;
-  } catch (emailError) {
-    console.error("[ALERT_EMAIL_ERROR]", emailError?.message);
+  } catch (emailError: unknown) {
+    console.error(
+      "[ALERT_EMAIL_ERROR]",
+      emailError instanceof Error ? emailError.message : String(emailError),
+    );
     return false;
   }
 }
 
-function buildPayload(title, details) {
+function buildPayload(title: string, details: AlertDetails) {
   const provider = resolveProvider();
-  const message = `${title}\n${details}`;
+  const message = `${title}\n${formatDetails(details)}`;
 
   if (provider === "discord") {
     return {
@@ -114,7 +128,10 @@ function buildPayload(title, details) {
   };
 }
 
-export async function notifyCriticalError(title, details) {
+export async function notifyCriticalError(
+  title: string,
+  details: AlertDetails,
+) {
   const provider = resolveProvider();
 
   if (provider === "email") {
@@ -137,7 +154,12 @@ export async function notifyCriticalError(title, details) {
       },
       body: JSON.stringify(buildPayload(title, details)),
     });
-  } catch (notificationError) {
-    console.error("[ALERT_WEBHOOK_ERROR]", notificationError?.message);
+  } catch (notificationError: unknown) {
+    console.error(
+      "[ALERT_WEBHOOK_ERROR]",
+      notificationError instanceof Error
+        ? notificationError.message
+        : String(notificationError),
+    );
   }
 }
