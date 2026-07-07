@@ -1,8 +1,13 @@
 import billingRepository from "../repositories/BillingRepository.js";
 import { PLAN_CONFIG } from "../config/planConfig.js";
 
+type SplitPayload = {
+  restaurantId: number;
+  orderTotal: number;
+};
+
 class SplitService {
-  async execute({ restaurantId, orderTotal }) {
+  async execute({ restaurantId, orderTotal }: SplitPayload) {
     const subscription =
       await billingRepository.findSubscriptionByRestaurantId(restaurantId);
 

@@ -9,6 +9,33 @@ const PIX_PROVIDERS = {
   PICPAY: "PICPAY",
 };
 
+type PixProvider = (typeof PIX_PROVIDERS)[keyof typeof PIX_PROVIDERS];
+
+type OrderItemInput = {
+  productId: number;
+  quantity: number;
+};
+
+type CreatePixPayload = {
+  restaurantId: number | string;
+  type: string;
+  paymentMethod: string;
+  items: OrderItemInput[];
+  address?: string;
+  number?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  customerName?: string;
+  customerCpf?: string;
+  userEmail?: string | null;
+};
+
+type PaymentStatusPayload = {
+  paymentId: string;
+  restaurantId?: number | string;
+};
+
 type PixPaymentPayload = {
   id?: string | number;
   status?: string;
@@ -23,13 +50,17 @@ type PixPaymentPayload = {
   };
 };
 
-function buildEmvField(id, value) {
+function buildEmvField(id: string, value: string | number) {
   const normalizedValue = String(value || "");
   const byteLength = new TextEncoder().encode(normalizedValue).length;
   return `${id}${String(byteLength).padStart(2, "0")}${normalizedValue}`;
 }
 
-function normalizePixText(value, maxLength, fallback) {
+function normalizePixText(
+  value: string | number | null | undefined,
+  maxLength: number,
+  fallback: string,
+) {
   const normalized = String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -47,7 +78,7 @@ function normalizePixText(value, maxLength, fallback) {
     .toUpperCase();
 }
 
-function normalizeTxid(value) {
+function normalizeTxid(value: string | number | null | undefined) {
   const normalized = String(value || "")
     .replace(/[^A-Za-z0-9]/g, "")
     .slice(0, 25);
@@ -55,7 +86,7 @@ function normalizeTxid(value) {
   return normalized || "***";
 }
 
-function isValidCpf(value) {
+function isValidCpf(value: string | number | null | undefined) {
   const digits = String(value || "").replace(/\D/g, "");
   if (!/^\d{11}$/.test(digits)) {
     return false;
@@ -65,7 +96,7 @@ function isValidCpf(value) {
     return false;
   }
 
-  const calculateCheckDigit = (baseDigits, factorStart) => {
+  const calculateCheckDigit = (baseDigits: string, factorStart: number) => {
     let total = 0;
 
     for (let i = 0; i < baseDigits.length; i += 1) {
@@ -85,7 +116,7 @@ function isValidCpf(value) {
   );
 }
 
-function normalizePixKey(value) {
+function normalizePixKey(value: string | number | null | undefined) {
   const raw = String(value || "").trim();
   if (!raw) {
     return "";
@@ -132,7 +163,7 @@ function normalizePixKey(value) {
   return raw;
 }
 
-function calculateCrc16(payload) {
+function calculateCrc16(payload: string) {
   let crc = 0xffff;
 
   for (let i = 0; i < payload.length; i += 1) {
@@ -158,6 +189,12 @@ function buildPixPayload({
   merchantName = "RESTAURANTE",
   merchantCity = "SAO PAULO",
   txid = "***",
+}: {
+  pixKey: string;
+  amount: number;
+  merchantName?: string;
+  merchantCity?: string;
+  txid?: string;
 }) {
   const normalizedKey = String(pixKey || "").trim();
   const normalizedPixKey = normalizePixKey(normalizedKey);
@@ -220,12 +257,12 @@ class OrderPixPaymentService {
     }
   }
 
-  normalizeCpf(value) {
+  normalizeCpf(value: string | number | null | undefined) {
     const digits = String(value || "").replace(/\D/g, "");
     return digits.length === 11 ? digits : null;
   }
 
-  normalizeEmail(email, restaurantId) {
+  normalizeEmail(email: string | null | undefined, restaurantId: number) {
     const trimmed = String(email || "").trim();
 
     if (trimmed && trimmed.includes("@")) {
@@ -235,13 +272,13 @@ class OrderPixPaymentService {
     return `guest.pix.${restaurantId}.${Date.now()}@pecaja.local`;
   }
 
-  normalizePaymentStatus(status) {
+  normalizePaymentStatus(status: unknown) {
     return String(status || "")
       .trim()
       .toLowerCase();
   }
 
-  normalizePixProvider(value) {
+  normalizePixProvider(value: unknown): PixProvider {
     const provider = String(value || PIX_PROVIDERS.MERCADO_PAGO)
       .trim()
       .toUpperCase();
@@ -253,7 +290,13 @@ class OrderPixPaymentService {
     return PIX_PROVIDERS.MERCADO_PAGO;
   }
 
-  async calculateOrderSubtotal({ restaurantId, items }) {
+  async calculateOrderSubtotal({
+    restaurantId,
+    items,
+  }: {
+    restaurantId: number;
+    items: OrderItemInput[];
+  }) {
     const products = await Promise.all(
       items.map((item) =>
         productRepository.findById(item.productId, restaurantId),
@@ -285,7 +328,7 @@ class OrderPixPaymentService {
     customerName,
     customerCpf,
     userEmail,
-  }) {
+  }: CreatePixPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedType = String(type || "").toUpperCase();
     const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
@@ -421,7 +464,7 @@ class OrderPixPaymentService {
     };
   }
 
-  async getPaymentStatus({ paymentId, restaurantId }) {
+  async getPaymentStatus({ paymentId, restaurantId }: PaymentStatusPayload) {
     const normalizedPaymentId = String(paymentId || "").trim();
     if (!normalizedPaymentId) {
       throw new Error("Pagamento PIX inválido.");
@@ -477,7 +520,10 @@ class OrderPixPaymentService {
     };
   }
 
-  async ensurePaymentApproved({ paymentId, restaurantId }) {
+  async ensurePaymentApproved({
+    paymentId,
+    restaurantId,
+  }: PaymentStatusPayload) {
     const statusResult = await this.getPaymentStatus({
       paymentId,
       restaurantId,

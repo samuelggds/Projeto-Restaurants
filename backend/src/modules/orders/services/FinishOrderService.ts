@@ -5,11 +5,55 @@ import { io } from "../../../server.js";
 import { createOrderSchema } from "../../../validators/OrderValidator.js";
 import splitService from "../../billing/services/SplitService.js";
 import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
-import { TableSessionStatus } from "@prisma/client";
+import {
+  PaymentMethod,
+  Prisma,
+  TableSessionStatus,
+  OrderType,
+} from "@prisma/client";
 import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
+import { z } from "zod";
+
+type OrderItemInput = z.infer<typeof createOrderSchema>["items"][number];
+
+type CreateOrderPayload = {
+  userId?: number | string | null;
+  restaurantId?: number | string | null;
+  userRestaurantId?: number | string | null;
+  tableSessionId?: number | string | null;
+  tableSessionTableId?: number | string | null;
+  type: OrderType;
+  paymentMethod?: PaymentMethod;
+  paid?: boolean;
+  pixPaymentId?: string;
+  paymentProof?: string;
+  observation?: string;
+  customerName?: string;
+  customerCpf?: string;
+  customerPhone?: string;
+  tableId?: number | string | null;
+  items: OrderItemInput[];
+  address?: string;
+  number?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  paymentProofImage?: string;
+  complement?: string;
+};
+
+type ResolveOrderUserPayload = {
+  tx: Prisma.TransactionClient;
+  userId?: number | string | null;
+  restaurantId: number;
+  customerName?: string;
+  customerCpf?: string;
+  customerPhone?: string;
+};
 
 class CreateOrderService {
-  formatCpf(value) {
+  formatCpf(value: string | number | null | undefined) {
     const digits = String(value || "").replace(/\D/g, "");
 
     if (digits.length !== 11) {
@@ -19,7 +63,7 @@ class CreateOrderService {
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   }
 
-  normalizePhone(value) {
+  normalizePhone(value: string | number | null | undefined) {
     const digits = String(value || "").replace(/\D/g, "");
 
     if (!digits) {
@@ -44,7 +88,7 @@ class CreateOrderService {
     customerName,
     customerCpf,
     customerPhone,
-  }) {
+  }: ResolveOrderUserPayload) {
     const normalizedPhone = this.normalizePhone(customerPhone);
 
     if (userId) {
@@ -131,7 +175,7 @@ class CreateOrderService {
     zipCode,
     paymentProofImage,
     complement,
-  }) {
+  }: CreateOrderPayload) {
     const resolvedRestaurantId =
       Number(restaurantId) || Number(userRestaurantId) || null;
     if (!resolvedRestaurantId) {
@@ -254,7 +298,7 @@ class CreateOrderService {
         }
       });
 
-      const orderItems = items.map((item, index) => {
+      const orderItems = items.map((item: OrderItemInput, index: number) => {
         const product = products[index];
 
         return {
@@ -299,6 +343,11 @@ class CreateOrderService {
         .filter(Boolean)
         .join(" | ");
 
+      const normalizedTableId =
+        tableId === null || tableId === undefined || tableId === ""
+          ? null
+          : Number(tableId);
+
       const order = await orderRepository.create(
         {
           total,
@@ -311,7 +360,7 @@ class CreateOrderService {
           observation: mergedObservation || null,
           userId: resolvedUserId,
           restaurantId: resolvedRestaurantId,
-          tableId,
+          tableId: normalizedTableId,
           address,
           number,
           district,
@@ -354,10 +403,10 @@ class CreateOrderService {
         orderId: createdOrder?.id,
         total: createdOrder?.total,
         paymentMethod: normalizedPaymentMethod,
-      }).catch((error) => {
+      }).catch((error: unknown) => {
         console.error(
           "[CUSTOMER_NOTIFICATION_UNHANDLED]",
-          error?.message || error,
+          error instanceof Error ? error.message : String(error),
         );
       });
     }
