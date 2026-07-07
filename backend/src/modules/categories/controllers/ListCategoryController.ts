@@ -1,15 +1,19 @@
+import { Request, Response } from "express";
 import listCategoryService from "../services/ListCategoryService.js";
 
 class ListCategoryController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const categories = await listCategoryService.execute(
         req.user.restaurantId,
       );
 
       return res.status(200).json(categories);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error ? error.message : "Erro ao listar categorias",
+      });
     }
   }
 }

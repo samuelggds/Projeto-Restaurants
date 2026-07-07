@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import updateCategoryService from "../services/UpdateCategoryService.js";
 
 class UpdateCategoryController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
 
@@ -14,8 +15,13 @@ class UpdateCategoryController {
       );
 
       return res.status(200).json(category);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao atualizar categoria",
+      });
     }
   }
 }

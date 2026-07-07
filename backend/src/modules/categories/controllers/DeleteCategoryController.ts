@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import deleteCategoryService from "../services/DeleteCategoryService.js";
 
 class DeleteCategoryController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
 
@@ -10,8 +11,11 @@ class DeleteCategoryController {
       return res
         .status(200)
         .json({ message: "Categoria deletada com sucesso!" });
-    } catch (error) {
-      return res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        message:
+          error instanceof Error ? error.message : "Erro ao deletar categoria",
+      });
     }
   }
 }

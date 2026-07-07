@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import createCategoryService from "../services/CreateCategoryService.js";
 
 class CreateCategoryController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { name, description, image, active } = req.body;
 
@@ -16,8 +17,11 @@ class CreateCategoryController {
       );
 
       return res.status(201).json(category);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error ? error.message : "Erro ao criar categoria",
+      });
     }
   }
 }
