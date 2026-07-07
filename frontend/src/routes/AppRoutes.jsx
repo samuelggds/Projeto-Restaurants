@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -64,6 +65,21 @@ function RequireRole({ roles }) {
 
   if (!user || !roles.includes(user.role)) {
     return <Navigate to={getRoleHome(user?.role)} replace />;
+  }
+
+  return <Outlet />;
+}
+
+function SuperAdminScopeGuard() {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (user?.role === "SUPER_ADMIN" && location.pathname !== "/super_admin") {
+    return <Navigate to="/super_admin" replace />;
   }
 
   return <Outlet />;
@@ -173,41 +189,45 @@ export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/" element={<Home />} />
-        <Route path="/menu" element={<Home />} />
-        <Route path="/cardapio" element={<Home />} />
-        <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-        <Route path="/cart" element={<Cart />} />
+        <Route element={<SuperAdminScopeGuard />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/menu" element={<Home />} />
+          <Route path="/cardapio" element={<Home />} />
+          <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+          <Route path="/cart" element={<Cart />} />
 
-        <Route element={<RequireAuth />}>
-          <Route path="/system-blocked" element={<SystemBlockedPage />} />
-          <Route
-            path="/system-maintenance"
-            element={<SystemMaintenancePage />}
-          />
+          <Route element={<RequireAuth />}>
+            <Route path="/system-blocked" element={<SystemBlockedPage />} />
+            <Route
+              path="/system-maintenance"
+              element={<SystemMaintenancePage />}
+            />
 
-          <Route element={<BillingGate />}>
-            <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
-              <Route path="/profile" element={<UserProfile />} />
-              <Route path="/profile/orders" element={<MyOrders />} />
-            </Route>
+            <Route element={<BillingGate />}>
+              <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
+                <Route path="/profile" element={<UserProfile />} />
+                <Route path="/profile/orders" element={<MyOrders />} />
+              </Route>
 
-            <Route element={<RequireRole roles={["ADMIN"]} />}>
-              <Route path="/billing" element={<BillingPage />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-            </Route>
+              <Route element={<RequireRole roles={["ADMIN"]} />}>
+                <Route path="/billing" element={<BillingPage />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+              </Route>
 
-            <Route element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}>
-              <Route path="/courier" element={<CourierDashboard />} />
-            </Route>
+              <Route element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}>
+                <Route path="/courier" element={<CourierDashboard />} />
+              </Route>
 
-            <Route element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}>
-              <Route path="/employees" element={<EmployeesDashboard />} />
+              <Route element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}>
+                <Route path="/employees" element={<EmployeesDashboard />} />
+              </Route>
             </Route>
           </Route>
+        </Route>
 
+        <Route element={<RequireAuth />}>
           <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
             <Route path="/super_admin" element={<SuperAdminDashboard />} />
           </Route>

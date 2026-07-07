@@ -31,6 +31,7 @@ import {
   EyeOff,
   X,
   Bike,
+  LogOut,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import ordersService from "../../Services/ordersService";
@@ -42,6 +43,7 @@ import restaurantSettingsService from "../../Services/restaurantSettingsService"
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import { buildPixPayload } from "../../config/pixPayload";
 import { resolveCategoryIcon } from "../../config/categoryIconMap";
+import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
 
 const ORDER_STATUSES = [
@@ -694,6 +696,7 @@ function playPinRequestedSound() {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -2283,6 +2286,11 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
       <S.AdminLayout>
@@ -2789,6 +2797,14 @@ export default function AdminDashboard() {
                 <span>{isDarkMode ? "Modo Claro" : "Modo Escuro"}</span>
               )}
             </S.ThemeToggle>
+
+            <S.NavButton
+              style={{ marginTop: "0.5rem", color: "#ef4444" }}
+              onClick={handleLogout}
+            >
+              <LogOut size={20} />
+              {!isSidebarCollapsed && <span>Sair</span>}
+            </S.NavButton>
           </S.SidebarFooter>
         </S.Sidebar>
 

@@ -397,41 +397,52 @@ export const OrderItem = styled.div`
     }
 
     .status-badge {
-      font-size: 0.75rem;
-      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
       background-color: ${(props) => props.theme.border};
       color: ${(props) => props.theme.text};
-      padding: 0.2rem 0.6rem;
-      border-radius: 2rem;
+      border: 1px solid transparent;
+      padding: 0.32rem 0.62rem;
+      border-radius: 999px;
 
       &.status-pendente {
-        background: #eab30820;
-        color: #eab308;
+        background: #eab30822;
+        border-color: #eab30866;
+        color: #a16207;
       }
 
       &.status-preparando {
-        background: #3b82f620;
-        color: #3b82f6;
+        background: #3b82f622;
+        border-color: #3b82f666;
+        color: #1d4ed8;
       }
 
       &.status-pronto {
-        background: #a855f720;
-        color: #a855f7;
+        background: #a855f722;
+        border-color: #a855f766;
+        color: #7e22ce;
       }
 
       &.status-saiu_para_entrega {
-        background: #06b6d420;
-        color: #06b6d4;
+        background: #06b6d422;
+        border-color: #06b6d466;
+        color: #0e7490;
       }
 
       &.status-entregue {
-        background: #10b98120;
-        color: #10b981;
+        background: #10b98122;
+        border-color: #10b98166;
+        color: #047857;
       }
 
       &.status-cancelado {
-        background: #ef444420;
-        color: #ef4444;
+        background: #ef444422;
+        border-color: #ef444466;
+        color: #b91c1c;
       }
     }
 

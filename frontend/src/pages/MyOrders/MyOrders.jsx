@@ -6,6 +6,11 @@ import {
   ArrowLeft,
   ChevronsDown,
   ClipboardList,
+  Clock,
+  Package,
+  Truck,
+  CheckCircle2,
+  X,
   LogOut,
   Moon,
   ShoppingBag,
@@ -244,6 +249,32 @@ function getOrderStatusClass(status) {
   };
 
   return classByStatus[normalizedStatus] || "status-pendente";
+}
+
+function getOrderStatusIcon(status) {
+  const normalizedStatus = String(status || "").toUpperCase();
+
+  if (normalizedStatus === "PENDENTE" || normalizedStatus === "PREPARANDO") {
+    return <Clock size={13} />;
+  }
+
+  if (normalizedStatus === "PRONTO") {
+    return <Package size={13} />;
+  }
+
+  if (normalizedStatus === "SAIU_PARA_ENTREGA") {
+    return <Truck size={13} />;
+  }
+
+  if (normalizedStatus === "ENTREGUE") {
+    return <CheckCircle2 size={13} />;
+  }
+
+  if (normalizedStatus === "CANCELADO") {
+    return <X size={13} />;
+  }
+
+  return <Clock size={13} />;
 }
 
 function formatOrderOrigin(order) {
@@ -864,7 +895,8 @@ export default function MyOrders() {
                       <span
                         className={`status-badge ${getOrderStatusClass(pedido.status)}`}
                       >
-                        {formatOrderStatus(pedido.status)}
+                        {getOrderStatusIcon(pedido.status)}
+                        Status: {formatOrderStatus(pedido.status)}
                       </span>
                       {activeFilter === FILTERS.ARCHIVED ? (
                         <button
