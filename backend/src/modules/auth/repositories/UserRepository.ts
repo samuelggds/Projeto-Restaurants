@@ -1,7 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class UserRepository {
-  async findByEmail(email, db: any = prisma) {
+  async findByEmail(email: string, db: PrismaClientLike = prisma) {
     return db.user.findUnique({
       where: {
         email,
@@ -9,13 +12,16 @@ class UserRepository {
     });
   }
 
-  async create(data, db: any = prisma) {
+  async create(
+    data: Prisma.UserUncheckedCreateInput,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.create({
       data,
     });
   }
 
-  async findById(id, db: any = prisma) {
+  async findById(id: number | string, db: PrismaClientLike = prisma) {
     return db.user.findUnique({
       where: {
         id: Number(id),
@@ -40,7 +46,11 @@ class UserRepository {
     });
   }
 
-  async updateProfile(id, data, db: any = prisma) {
+  async updateProfile(
+    id: number | string,
+    data: Prisma.UserUpdateInput,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.update({
       where: {
         id: Number(id),
@@ -66,7 +76,11 @@ class UserRepository {
     });
   }
 
-  async updatePassword(id, password, db: any = prisma) {
+  async updatePassword(
+    id: number | string,
+    password: string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.update({
       where: {
         id: Number(id),
@@ -76,7 +90,10 @@ class UserRepository {
       },
     });
   }
-  async findByIdWithPassword(id, db: any = prisma) {
+  async findByIdWithPassword(
+    id: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.findUnique({
       where: {
         id: Number(id),
@@ -84,7 +101,7 @@ class UserRepository {
     });
   }
 
-  async deactivate(id, db: any = prisma) {
+  async deactivate(id: number | string, db: PrismaClientLike = prisma) {
     return db.user.update({
       where: {
         id: Number(id),
@@ -94,7 +111,7 @@ class UserRepository {
       },
     });
   }
-  async reactivate(id, db: any = prisma) {
+  async reactivate(id: number | string, db: PrismaClientLike = prisma) {
     return db.user.update({
       where: {
         id: Number(id),
