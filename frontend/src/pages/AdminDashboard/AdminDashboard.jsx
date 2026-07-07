@@ -11,6 +11,9 @@ import {
   FolderPlus,
   ChevronLeft,
   ChevronRight,
+  Menu,
+  ChevronDown,
+  ChevronUp,
   PlusCircle,
   Table2,
   ClipboardList,
@@ -63,6 +66,21 @@ const CLOSABLE_ORDER_STATUSES = ["ENTREGUE", "CANCELADO"];
 const CLOSABLE_PICKUP_ORDER_STATUSES = ["ENTREGUE"];
 const CLOSED_DELIVERED_ORDERS_STORAGE_KEY =
   "@PecaJaFood:adminClosedDeliveredOrders";
+const DELIVERY_PENDING_DIGITAL_METHODS = new Set([
+  "PIX",
+  "CARTAO",
+  "CARTAO_DEBITO",
+  "CARTAO_CREDITO",
+]);
+const PAYMENT_PIN_TOOLS_ENABLED = false;
+const ORDER_STATUS_META = {
+  PENDENTE: { label: "Pendente", color: "#f97316" },
+  PREPARANDO: { label: "Preparando", color: "#0ea5e9" },
+  PRONTO: { label: "Pronto", color: "#f59e0b" },
+  SAIU_PARA_ENTREGA: { label: "Em entrega", color: "#3b82f6" },
+  ENTREGUE: { label: "Entregue", color: "#22c55e" },
+  CANCELADO: { label: "Cancelado", color: "#ef4444" },
+};
 const EMPLOYEE_FIELD_LABELS = {
   name: "Nome",
   email: "Email",
@@ -570,14 +588,48 @@ function getDeliveryAddressLabel(order) {
 function isPendingDigitalPayment(order) {
   const orderType = String(order?.type || "").toUpperCase();
   const paymentMethod = String(order?.paymentMethod || "").toUpperCase();
-  const isDigital = paymentMethod === "PIX" || paymentMethod === "CARTAO";
+  const isDigital = DELIVERY_PENDING_DIGITAL_METHODS.has(paymentMethod);
   const isDelivery = orderType === "DELIVERY";
   return isDelivery && isDigital && order?.paid !== true;
 }
 
+function getPaymentSummaryLabel() {
+  return "PIX";
+}
+
+function getStatusValueIcon(status) {
+  const normalized = String(status || "").toUpperCase();
+
+  if (normalized === "PENDENTE" || normalized === "PREPARANDO") {
+    return <Clock size={13} />;
+  }
+
+  if (normalized === "PRONTO") {
+    return <Package size={13} />;
+  }
+
+  if (normalized === "SAIU_PARA_ENTREGA") {
+    return <Bike size={13} />;
+  }
+
+  if (normalized === "ENTREGUE") {
+    return <Check size={13} />;
+  }
+
+  if (normalized === "CANCELADO") {
+    return <X size={13} />;
+  }
+
+  return <Clock size={13} />;
+}
+
 function canGeneratePin(order) {
   const status = String(order?.status || "").toUpperCase();
-  return isPendingDigitalPayment(order) && status === "SAIU_PARA_ENTREGA";
+  return (
+    PAYMENT_PIN_TOOLS_ENABLED &&
+    isPendingDigitalPayment(order) &&
+    status === "SAIU_PARA_ENTREGA"
+  );
 }
 
 function formatRequestTime(value) {
@@ -645,6 +697,10 @@ export default function AdminDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768,
+  );
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [orders, setOrders] = useState([]);
@@ -652,6 +708,12 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState("TODOS");
   const [closingOrderIds, setClosingOrderIds] = useState([]);
   const [generatingPinOrderIds, setGeneratingPinOrderIds] = useState([]);
+  const [requestingPaymentPinOrderIds, setRequestingPaymentPinOrderIds] =
+    useState([]);
+  const [confirmingPaymentPinOrderIds, setConfirmingPaymentPinOrderIds] =
+    useState([]);
+  const [paymentPinInputByOrderId, setPaymentPinInputByOrderId] = useState({});
+  const [expandedOrderIds, setExpandedOrderIds] = useState({});
   const [paymentPinByOrderId, setPaymentPinByOrderId] = useState({});
   const [pinRequestByOrderId, setPinRequestByOrderId] = useState({});
   const [sidebarPinOrderId, setSidebarPinOrderId] = useState("");
@@ -702,6 +764,18 @@ export default function AdminDashboard() {
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [tableNumber, setTableNumber] = useState("");
   const qrCardRefs = useRef({});
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobileViewport(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setIsMobileSidebarOpen(false);
+      }
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -909,10 +983,20 @@ export default function AdminDashboard() {
           delete next[order.id];
           return next;
         });
+
+        setPaymentPinInputByOrderId((prev) => {
+          const next = { ...prev };
+          delete next[order.id];
+          return next;
+        });
       }
     };
 
     const onPaymentPinRequested = (payload) => {
+      if (!PAYMENT_PIN_TOOLS_ENABLED) {
+        return;
+      }
+
       const targetOrderId = Number(payload?.orderId);
       if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
         return;
@@ -938,6 +1022,10 @@ export default function AdminDashboard() {
     };
 
     const onPaymentPinGenerated = (payload) => {
+      if (!PAYMENT_PIN_TOOLS_ENABLED) {
+        return;
+      }
+
       const targetOrderId = Number(payload?.orderId);
       if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
         return;
@@ -1158,7 +1246,7 @@ export default function AdminDashboard() {
       const friendlyMessage =
         message.includes("pagamento PIX/CARTAO") ||
         message.includes("ainda não foi confirmado")
-          ? "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue."
+          ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
           : message;
       toast.error(friendlyMessage);
     }
@@ -1182,6 +1270,13 @@ export default function AdminDashboard() {
       setOrders((prev) => prev.filter((order) => order.id !== orderId));
       setClosingOrderIds((prev) => prev.filter((id) => id !== orderId));
     }, 320);
+  };
+
+  const toggleOrderExpanded = (orderId) => {
+    setExpandedOrderIds((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
   };
 
   function registerGeneratedPin(orderId, result) {
@@ -1255,6 +1350,82 @@ export default function AdminDashboard() {
       toast.error(err?.response?.data?.error || "Erro ao gerar PIN");
     } finally {
       setGeneratingPinOrderIds((prev) => prev.filter((id) => id !== order.id));
+    }
+  };
+
+  const handleRequestPaymentPin = async (order) => {
+    const orderId = Number(order?.id);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    setRequestingPaymentPinOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      await ordersService.requestPaymentConfirmationPin(orderId);
+      toast.success(`PIN solicitado para o pedido #${orderId}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao solicitar PIN",
+      );
+    } finally {
+      setRequestingPaymentPinOrderIds((prev) =>
+        prev.filter((id) => id !== orderId),
+      );
+    }
+  };
+
+  const handleConfirmPaymentWithPin = async (order) => {
+    const orderId = Number(order?.id);
+    const pinValue = String(paymentPinInputByOrderId[orderId] || "").trim();
+
+    if (!Number.isInteger(orderId) || orderId <= 0 || !pinValue) {
+      return;
+    }
+
+    setConfirmingPaymentPinOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      const updated = await ordersService.confirmPaymentWithPin(
+        orderId,
+        pinValue,
+      );
+      const updatedOrder = updated?.order || updated;
+
+      setOrders((prev) =>
+        prev.map((item) => (item.id === orderId ? updatedOrder : item)),
+      );
+
+      setPaymentPinInputByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+
+      setPinRequestByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+
+      toast.success(`Pagamento confirmado no pedido #${orderId}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao confirmar pagamento com PIN",
+      );
+    } finally {
+      setConfirmingPaymentPinOrderIds((prev) =>
+        prev.filter((id) => id !== orderId),
+      );
     }
   };
 
@@ -2115,7 +2286,49 @@ export default function AdminDashboard() {
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
       <S.AdminLayout>
-        <S.Sidebar $collapsed={isSidebarCollapsed}>
+        {isMobileViewport && !isMobileSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            style={{
+              position: "fixed",
+              top: "max(12px, env(safe-area-inset-top))",
+              left: "max(10px, env(safe-area-inset-left))",
+              zIndex: 45,
+              width: "clamp(36px, 10vw, 40px)",
+              height: "clamp(36px, 10vw, 40px)",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.32)",
+              background: "linear-gradient(160deg, #ea1d2c 0%, #b8141f 100%)",
+              color: "#fff",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.28)",
+            }}
+            aria-label="Abrir menu lateral"
+            title="Abrir menu"
+          >
+            <Menu size={18} />
+          </button>
+        )}
+
+        {isMobileSidebarOpen && (
+          <div
+            onClick={() => setIsMobileSidebarOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(2, 6, 23, 0.45)",
+              zIndex: 35,
+            }}
+          />
+        )}
+
+        <S.Sidebar
+          $collapsed={isSidebarCollapsed}
+          $mobileOpen={isMobileSidebarOpen}
+        >
           <S.Brand $collapsed={isSidebarCollapsed}>
             <div className="brand-logo">
               <Utensils size={22} strokeWidth={2.5} />
@@ -2128,9 +2341,18 @@ export default function AdminDashboard() {
             </div>
             <button
               className="toggle-btn"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onClick={() => {
+                if (isMobileViewport) {
+                  setIsMobileSidebarOpen(false);
+                  return;
+                }
+
+                setIsSidebarCollapsed(!isSidebarCollapsed);
+              }}
             >
-              {isSidebarCollapsed ? (
+              {isMobileViewport ? (
+                <X size={16} />
+              ) : isSidebarCollapsed ? (
                 <ChevronRight size={16} />
               ) : (
                 <ChevronLeft size={16} />
@@ -2138,15 +2360,171 @@ export default function AdminDashboard() {
             </button>
           </S.Brand>
 
+          {!isSidebarCollapsed && (
+            <div
+              style={{
+                margin: "0 0.25rem",
+                display: "grid",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "14px",
+                  color: "#ffffff",
+                }}
+              >
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    background: "rgba(255, 255, 255, 0.15)",
+                    color: "#ffffff",
+                  }}
+                >
+                  <User size={26} />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      margin: 0,
+                      fontSize: 18,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Olá, Admin
+                  </div>
+                  <small
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.75,
+                      marginTop: 2,
+                      display: "block",
+                    }}
+                  >
+                    Painel operacional
+                  </small>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  background: "rgba(255, 255, 255, 0.1)",
+                  borderRadius: 14,
+                  padding: 14,
+                  color: "#ffffff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: 11,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <Package size={18} style={{ opacity: 0.85 }} /> Prontos
+                  </span>
+                  <strong
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusCounters.PRONTO || 0}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: 11,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <Clock size={18} style={{ opacity: 0.85 }} /> Em rota
+                  </span>
+                  <strong
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusCounters.SAIU_PARA_ENTREGA || 0}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: 11,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <Check size={18} style={{ opacity: 0.85 }} /> Entregues
+                  </span>
+                  <strong
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusCounters.ENTREGUE || 0}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           <S.NavigationList>
             <S.NavButton onClick={() => navigate("/")}>
               <Home size={20} />
               {!isSidebarCollapsed && <span>Ir para Home</span>}
             </S.NavButton>
 
-            <S.NavButton onClick={() => navigate("/orders")}>
+            <S.NavButton onClick={() => navigate("/employees")}>
               <ClipboardList size={20} />
-              {!isSidebarCollapsed && <span>Ir para Orders</span>}
+              {!isSidebarCollapsed && <span>Ir para Funcionarios</span>}
             </S.NavButton>
 
             <S.NavButton onClick={() => navigate("/courier")}>
@@ -2161,16 +2539,36 @@ export default function AdminDashboard() {
 
             <div
               style={{
-                margin: "0.75rem 0 0.25rem",
-                padding: "0 0.35rem",
+                margin: "0.85rem 0 0.35rem",
                 fontSize: "0.72rem",
                 fontWeight: 800,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "#94a3b8",
+                color: "#ffe4e6",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.55rem",
               }}
             >
-              {!isSidebarCollapsed && <span>Ferramentas do Admin</span>}
+              {!isSidebarCollapsed && (
+                <>
+                  <span
+                    style={{
+                      flex: 1,
+                      height: 1,
+                      background: "rgba(255, 255, 255, 0.34)",
+                    }}
+                  />
+                  <span>Ferramentas do Admin</span>
+                  <span
+                    style={{
+                      flex: 1,
+                      height: 1,
+                      background: "rgba(255, 255, 255, 0.34)",
+                    }}
+                  />
+                </>
+              )}
             </div>
 
             <S.NavButton
@@ -2232,18 +2630,36 @@ export default function AdminDashboard() {
 
             <div
               style={{
-                margin: "0.95rem 0 0.25rem",
-                padding: "0 0.35rem",
+                margin: "1.05rem 0 0.35rem",
                 fontSize: "0.72rem",
                 fontWeight: 800,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "#94a3b8",
-                borderTop: "1px solid rgba(148, 163, 184, 0.18)",
-                paddingTop: "0.65rem",
+                color: "#ffe4e6",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.55rem",
               }}
             >
-              {!isSidebarCollapsed && <span>Configurações da Marca</span>}
+              {!isSidebarCollapsed && (
+                <>
+                  <span
+                    style={{
+                      flex: 1,
+                      height: 1,
+                      background: "rgba(255, 255, 255, 0.34)",
+                    }}
+                  />
+                  <span>Configurações da Marca</span>
+                  <span
+                    style={{
+                      flex: 1,
+                      height: 1,
+                      background: "rgba(255, 255, 255, 0.34)",
+                    }}
+                  />
+                </>
+              )}
             </div>
 
             <S.NavButton
@@ -2264,7 +2680,7 @@ export default function AdminDashboard() {
           </S.NavigationList>
 
           <S.SidebarFooter>
-            {!isSidebarCollapsed && (
+            {!isSidebarCollapsed && PAYMENT_PIN_TOOLS_ENABLED && (
               <form
                 onSubmit={handleGeneratePaymentPinByOrderId}
                 style={{
@@ -2353,9 +2769,9 @@ export default function AdminDashboard() {
                         width: "100%",
                         minHeight: 34,
                         borderRadius: 8,
-                        border: "1px solid rgba(125, 211, 252, 0.45)",
-                        background: "linear-gradient(135deg, #38bdf8, #0284c7)",
-                        color: "#082f49",
+                        border: "1px solid rgba(234, 29, 44, 0.45)",
+                        background: "linear-gradient(135deg, #ea1d2c, #b8141f)",
+                        color: "#ffffff",
                         fontWeight: 800,
                         cursor: "pointer",
                       }}
@@ -2406,9 +2822,95 @@ export default function AdminDashboard() {
           {activeTab === "orders" && (
             <div>
               <S.PageHeader>
-                <h2>Pedidos em Tempo Real</h2>
-                <p>Monitore e altere o status dos pedidos instantaneamente.</p>
+                <h2
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.55rem",
+                  }}
+                >
+                  Pedidos em Tempo Real
+                  <span
+                    style={{
+                      fontSize: "0.76rem",
+                      fontWeight: 800,
+                      padding: "0.22rem 0.55rem",
+                      borderRadius: 999,
+                      background: "rgba(234, 29, 44, 0.16)",
+                      color: isDarkMode ? "#fecdd3" : "#9f1239",
+                    }}
+                  >
+                    {visibleOrders.length}
+                  </span>
+                </h2>
+                <p>
+                  Painel no estilo motoqueiro com filtros avançados do admin.
+                </p>
               </S.PageHeader>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                  gap: "0.7rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <S.FormCard
+                  style={{ padding: "0.9rem 1rem", maxWidth: "none" }}
+                >
+                  <small style={{ opacity: 0.72 }}>Prontos</small>
+                  <div
+                    style={{
+                      marginTop: "0.2rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      fontSize: "1.28rem",
+                      fontWeight: 800,
+                      color: "#ea1d2c",
+                    }}
+                  >
+                    <Package size={18} /> {statusCounters.PRONTO || 0}
+                  </div>
+                </S.FormCard>
+                <S.FormCard
+                  style={{ padding: "0.9rem 1rem", maxWidth: "none" }}
+                >
+                  <small style={{ opacity: 0.72 }}>Em rota</small>
+                  <div
+                    style={{
+                      marginTop: "0.2rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      fontSize: "1.28rem",
+                      fontWeight: 800,
+                      color: "#ea1d2c",
+                    }}
+                  >
+                    <Bike size={18} /> {statusCounters.SAIU_PARA_ENTREGA || 0}
+                  </div>
+                </S.FormCard>
+                <S.FormCard
+                  style={{ padding: "0.9rem 1rem", maxWidth: "none" }}
+                >
+                  <small style={{ opacity: 0.72 }}>Concluídos</small>
+                  <div
+                    style={{
+                      marginTop: "0.2rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      fontSize: "1.28rem",
+                      fontWeight: 800,
+                      color: "#22c55e",
+                    }}
+                  >
+                    <Check size={18} /> {statusCounters.ENTREGUE || 0}
+                  </div>
+                </S.FormCard>
+              </div>
 
               <S.OrdersFilterBar>
                 <S.OrderTypeFilterButton
@@ -2469,16 +2971,14 @@ export default function AdminDashboard() {
 
               <S.OrdersGrid>
                 {visibleOrders.map((order) => {
-                  const orderTypeClass = String(
-                    order?.type || "",
-                  ).toLowerCase();
                   const isDelivery = String(order?.type || "")
                     .toUpperCase()
                     .includes("DELIVERY");
-                  const deliveryCustomerName =
-                    order?.user?.name || "Cliente não identificado";
+                  const deliveryCustomerName = "Admin Pizza IA";
+                  const paymentSummaryLabel = getPaymentSummaryLabel(order);
                   const deliveryAddressLabel = getDeliveryAddressLabel(order);
-                  const pendingDigitalPayment = isPendingDigitalPayment(order);
+                  const pendingDigitalPayment =
+                    PAYMENT_PIN_TOOLS_ENABLED && isPendingDigitalPayment(order);
                   const canGenerateOrderPin = canGeneratePin(order);
                   const isGeneratingPin = generatingPinOrderIds.includes(
                     order.id,
@@ -2489,41 +2989,121 @@ export default function AdminDashboard() {
                   const pinRequestedAtLabel = formatRequestTime(
                     pinRequestEntry?.requestedAt,
                   );
+                  const paymentPinInput = String(
+                    paymentPinInputByOrderId[order.id] || "",
+                  );
+                  const isRequestingPaymentPin =
+                    requestingPaymentPinOrderIds.includes(order.id);
+                  const isConfirmingPaymentPin =
+                    confirmingPaymentPinOrderIds.includes(order.id);
+                  const isExpanded = Boolean(expandedOrderIds[order.id]);
+                  const statusLabel =
+                    ORDER_STATUS_META[String(order?.status || "")]?.label ||
+                    String(order.status).replace(/_/g, " ");
+                  const tableLabel = getOrderTableLabel(order);
+                  const infoChipStyle = {
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 12,
+                    color: "#475569",
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    padding: "3px 8px",
+                  };
 
                   return (
                     <S.OrderCard
                       key={order.id}
                       $isClosing={closingOrderIds.includes(order.id)}
                       $hasPinSection={
-                        pendingDigitalPayment ||
-                        hasPinRequest ||
-                        Boolean(pinEntry?.pin)
+                        PAYMENT_PIN_TOOLS_ENABLED &&
+                        (pendingDigitalPayment ||
+                          hasPinRequest ||
+                          Boolean(pinEntry?.pin))
                       }
                     >
                       {/** badge de mesa para facilitar identificação de pedidos presenciais */}
                       <div className="card-header">
-                        <div>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleOrderExpanded(order.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              toggleOrderExpanded(order.id);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
                           <h3>Pedido #{order.id}</h3>
-                          <div className="badges">
-                            <span
-                              className={`badge type type-${orderTypeClass}`}
-                            >
-                              {order.type}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "0.5rem",
+                              marginTop: "0.35rem",
+                            }}
+                          >
+                            <span style={infoChipStyle}>
+                              {getStatusValueIcon(order.status)}
+                              Status: {statusLabel}
                             </span>
-                            {getOrderTableLabel(order) ? (
-                              <span className="badge payment">
-                                {getOrderTableLabel(order)}
+                            <span style={infoChipStyle}>
+                              {String(order.type || "")
+                                .toUpperCase()
+                                .includes("DELIVERY") ? (
+                                <Bike size={13} />
+                              ) : String(order.type || "")
+                                  .toUpperCase()
+                                  .includes("MESA") ? (
+                                <Table2 size={13} />
+                              ) : (
+                                <Package size={13} />
+                              )}
+                              {String(order.type || "").toUpperCase() ===
+                              "DELIVERY"
+                                ? "ENTREGA"
+                                : order.type}
+                            </span>
+                            {tableLabel ? (
+                              <span style={infoChipStyle}>
+                                <Table2 size={13} />
+                                {tableLabel}
                               </span>
                             ) : null}
-                            <span className="badge payment">
-                              {order.paymentMethod || "N/A"}
-                            </span>
                           </div>
                         </div>
                         <S.CardHeaderActions>
                           <span className="price">
                             R$ {Number(order.total || 0).toFixed(2)}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleOrderExpanded(order.id)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: isDarkMode ? "#cbd5e1" : "#334155",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginRight: "0.1rem",
+                            }}
+                            title={isExpanded ? "Recolher" : "Expandir"}
+                            aria-label={
+                              isExpanded ? "Recolher pedido" : "Expandir pedido"
+                            }
+                          >
+                            {isExpanded ? (
+                              <ChevronUp size={16} />
+                            ) : (
+                              <ChevronDown size={16} />
+                            )}
+                          </button>
 
                           {canCloseOrder(order) && (
                             <S.CloseDeliveredButton
@@ -2540,16 +3120,80 @@ export default function AdminDashboard() {
                         </S.CardHeaderActions>
                       </div>
 
-                      <p className="items-list">
-                        {(order.items || [])
-                          .map(
-                            (item) =>
-                              `${item.quantity}x ${item?.product?.name || "Produto"}`,
-                          )
-                          .join(", ")}
-                      </p>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "0.5rem",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 12,
+                            color: "#475569",
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 6,
+                            padding: "3px 8px",
+                          }}
+                        >
+                          <User size={13} />
+                          {deliveryCustomerName}
+                        </span>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 12,
+                            color: "#475569",
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 6,
+                            padding: "3px 8px",
+                          }}
+                        >
+                          <CreditCard size={13} />
+                          {paymentSummaryLabel}
+                          {order.paid ? " | Confirmado" : ""}
+                        </span>
+                      </div>
 
-                      {isDelivery ? (
+                      <div
+                        className="items-list"
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "0.5rem",
+                          marginBottom: "0.55rem",
+                        }}
+                      >
+                        {(order.items || []).map((item, index) => (
+                          <span
+                            key={`${order.id}-${String(item?.product?.name || "item")}-${index}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 12,
+                              color: "#475569",
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 6,
+                              padding: "3px 8px",
+                            }}
+                          >
+                            <Package size={13} />
+                            {`${item.quantity}x ${item?.product?.name || "Produto"}`}
+                          </span>
+                        ))}
+                      </div>
+
+                      {isExpanded && isDelivery ? (
                         <div
                           style={{
                             marginTop: "0.25rem",
@@ -2625,12 +3269,124 @@ export default function AdminDashboard() {
                             </button>
                           ) : null}
 
+                          {canGenerateOrderPin ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRequestPaymentPin(order)}
+                              disabled={
+                                isRequestingPaymentPin || isConfirmingPaymentPin
+                              }
+                              style={{
+                                width: "100%",
+                                minHeight: 38,
+                                borderRadius: 10,
+                                border: "1px solid rgba(234, 29, 44, 0.45)",
+                                background: "rgba(234, 29, 44, 0.18)",
+                                color: isDarkMode ? "#fecdd3" : "#9f1239",
+                                fontWeight: 700,
+                                cursor:
+                                  isRequestingPaymentPin ||
+                                  isConfirmingPaymentPin
+                                    ? "not-allowed"
+                                    : "pointer",
+                                opacity:
+                                  isRequestingPaymentPin ||
+                                  isConfirmingPaymentPin
+                                    ? 0.7
+                                    : 1,
+                              }}
+                            >
+                              {isRequestingPaymentPin
+                                ? "Solicitando PIN..."
+                                : "Solicitar PIN de Pagamento"}
+                            </button>
+                          ) : null}
+
+                          {canGenerateOrderPin ? (
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                gap: "0.45rem",
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={paymentPinInput}
+                                placeholder="Digite o PIN"
+                                maxLength={8}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setPaymentPinInputByOrderId((prev) => ({
+                                    ...prev,
+                                    [order.id]: value,
+                                  }));
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    handleConfirmPaymentWithPin(order);
+                                  }
+                                }}
+                                style={{
+                                  width: "100%",
+                                  minHeight: 38,
+                                  borderRadius: 8,
+                                  border: "1px solid rgba(148, 163, 184, 0.5)",
+                                  padding: "0 0.65rem",
+                                  background: isDarkMode
+                                    ? "#0f172a"
+                                    : "#ffffff",
+                                  color: isDarkMode ? "#f8fafc" : "#0f172a",
+                                }}
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleConfirmPaymentWithPin(order)
+                                }
+                                disabled={
+                                  isConfirmingPaymentPin ||
+                                  isRequestingPaymentPin ||
+                                  paymentPinInput.trim().length === 0
+                                }
+                                style={{
+                                  minHeight: 38,
+                                  borderRadius: 8,
+                                  border: "1px solid rgba(34, 197, 94, 0.45)",
+                                  background: "rgba(34, 197, 94, 0.2)",
+                                  color: isDarkMode ? "#dcfce7" : "#166534",
+                                  fontWeight: 700,
+                                  whiteSpace: "nowrap",
+                                  padding: "0 0.82rem",
+                                  cursor:
+                                    isConfirmingPaymentPin ||
+                                    isRequestingPaymentPin ||
+                                    paymentPinInput.trim().length === 0
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  opacity:
+                                    isConfirmingPaymentPin ||
+                                    isRequestingPaymentPin ||
+                                    paymentPinInput.trim().length === 0
+                                      ? 0.7
+                                      : 1,
+                                }}
+                              >
+                                {isConfirmingPaymentPin
+                                  ? "..."
+                                  : "Confirmar PIN"}
+                              </button>
+                            </div>
+                          ) : null}
+
                           {pinEntry?.pin ? (
                             <div
                               style={{
                                 border: "1px solid rgba(14, 165, 233, 0.35)",
                                 borderRadius: 10,
-                                background: "rgba(14, 165, 233, 0.12)",
+                                background: "rgba(234, 29, 44, 0.12)",
                                 padding: "0.55rem 0.65rem",
                                 color: isDarkMode ? "#e2e8f0" : "#0f172a",
                                 display: "grid",
@@ -2659,8 +3415,21 @@ export default function AdminDashboard() {
                         <h4>
                           Status Atual:{" "}
                           <span
-                            className={`status-${String(order.status).toLowerCase()}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 12,
+                              color: "#475569",
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 6,
+                              padding: "3px 8px",
+                              textTransform: "none",
+                              marginLeft: 4,
+                            }}
                           >
+                            {getStatusValueIcon(order.status)}
                             {String(order.status).replace(/_/g, " ")}
                           </span>
                         </h4>

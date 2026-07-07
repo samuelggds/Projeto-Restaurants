@@ -12,35 +12,35 @@ const spin = keyframes`
 
 // --- TEMAS (Design System Premium) ---
 export const lightTheme = {
-  background: "#cfd9e4",
-  surface: "#d9e3ee",
-  surfaceHover: "#cfdbe8",
-  sidebarSurface: "#afc0d1",
-  sidebarBorder: "#95a8bd",
-  text: "#0f172a",
-  textMuted: "#334155",
-  border: "#b3c1d2",
-  primary: "#f97316",
-  primaryHover: "#ea580c",
+  background: "#f1f5f9",
+  surface: "#ffffff",
+  surfaceHover: "#f8fafc",
+  sidebarSurface: "linear-gradient(160deg, #ea1d2c 0%, #b8141f 100%)",
+  sidebarBorder: "transparent",
+  text: "#1e293b",
+  textMuted: "#64748b",
+  border: "#e2e8f0",
+  primary: "#ea1d2c",
+  primaryHover: "#b8141f",
   success: "#10b981",
   danger: "#ef4444",
   shadow: "rgba(15, 23, 42, 0.12) 0px 4px 16px 0px",
 };
 
 export const darkTheme = {
-  background: "#0b0f19",
-  surface: "#151b2c",
-  surfaceHover: "#1e2640",
-  sidebarSurface: "#151b2c",
-  sidebarBorder: "#222f43",
-  text: "#f8fafc",
-  textMuted: "#94a3b8",
-  border: "#222f43",
-  primary: "#f97316",
-  primaryHover: "#ea580c",
+  background: "#f1f5f9",
+  surface: "#ffffff",
+  surfaceHover: "#f8fafc",
+  sidebarSurface: "linear-gradient(160deg, #ea1d2c 0%, #b8141f 100%)",
+  sidebarBorder: "transparent",
+  text: "#1e293b",
+  textMuted: "#64748b",
+  border: "#e2e8f0",
+  primary: "#ea1d2c",
+  primaryHover: "#b8141f",
   success: "#34d399",
   danger: "#f87171",
-  shadow: "rgba(0, 0, 0, 0.3) 0px 4px 20px 0px",
+  shadow: "rgba(15, 23, 42, 0.12) 0px 4px 16px 0px",
 };
 
 // --- LAYOUT E ESTRUTURA GLOBAL ---
@@ -66,25 +66,53 @@ export const MainContent = styled.main`
   box-sizing: border-box;
   max-height: 100vh;
 
+  @media (max-width: 1024px) {
+    padding: 1.8rem;
+  }
+
   @media (max-width: 768px) {
-    padding: 1.5rem;
+    padding: 4.4rem 1rem 1.1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 4.6rem 0.75rem 0.85rem;
+  }
+
+  @media (max-width: 360px) {
+    padding: 4.55rem 0.6rem 0.7rem;
   }
 `;
 
 export const PageHeader = styled.div`
   margin-bottom: 2.5rem;
 
+  @media (max-width: 480px) {
+    margin-bottom: 1.3rem;
+  }
+
   h2 {
     font-size: 1.85rem;
     margin: 0 0 0.35rem 0;
     font-weight: 800;
     letter-spacing: -0.025em;
+
+    @media (max-width: 480px) {
+      font-size: 1.4rem;
+    }
+
+    @media (max-width: 360px) {
+      font-size: 1.22rem;
+    }
   }
 
   p {
     margin: 0;
     color: ${(props) => props.theme.textMuted};
     font-size: 1rem;
+
+    @media (max-width: 480px) {
+      font-size: 0.86rem;
+    }
   }
 `;
 
@@ -92,15 +120,27 @@ export const PageHeader = styled.div`
 export const Sidebar = styled.aside`
   width: ${(props) => (props.$collapsed ? "80px" : "280px")};
   background: ${(props) => props.theme.sidebarSurface || props.theme.surface};
-  border-right: 1px solid
-    ${(props) => props.theme.sidebarBorder || props.theme.border};
+  border-right: 0;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 0.75rem;
+  justify-content: flex-start;
+  padding: ${(props) => (props.$collapsed ? "28px 12px" : "28px 20px")};
+  gap: 24px;
   box-sizing: border-box;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   z-index: 10;
+
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 0;
+    left: ${(props) => (props.$mobileOpen ? "0" : "calc(-88vw - 24px)")};
+    width: min(88vw, 300px);
+    height: 100vh;
+    transition: left 0.25s ease;
+    z-index: 40;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.35);
+  }
 `;
 
 export const Brand = styled.div`
@@ -108,29 +148,29 @@ export const Brand = styled.div`
   align-items: center;
   justify-content: ${(props) =>
     props.$collapsed ? "center" : "space-between"};
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid ${(props) => props.theme.border};
+  padding-bottom: 0;
+  border-bottom: 0;
   color: ${(props) => props.theme.primary};
   width: 100%;
-  min-height: 45px;
+  min-height: 52px;
 
   .brand-logo {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    color: ${(props) => props.theme.primary};
+    color: #ffffff;
   }
 
   .brand-text {
     h1 {
       font-size: 1.15rem;
       margin: 0;
-      color: ${(props) => props.theme.text};
+      color: #ffffff;
       font-weight: 800;
     }
     span {
       font-size: 0.7rem;
-      color: ${(props) => props.theme.textMuted};
+      color: rgba(255, 255, 255, 0.74);
       text-transform: uppercase;
       font-weight: 700;
       letter-spacing: 0.05em;
@@ -138,9 +178,9 @@ export const Brand = styled.div`
   }
 
   .toggle-btn {
-    background: ${(props) => props.theme.background};
-    border: 1px solid ${(props) => props.theme.border};
-    color: ${(props) => props.theme.text};
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #ffffff;
     padding: 0.4rem;
     border-radius: 8px;
     cursor: pointer;
@@ -150,9 +190,9 @@ export const Brand = styled.div`
     transition: all 0.2s;
 
     &:hover {
-      background: ${(props) => props.theme.primary};
+      background: rgba(255, 255, 255, 0.24);
       color: white;
-      border-color: ${(props) => props.theme.primary};
+      border-color: rgba(255, 255, 255, 0.34);
     }
   }
 `;
@@ -160,8 +200,8 @@ export const Brand = styled.div`
 export const NavigationList = styled.nav`
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 2rem;
+  gap: 6px;
+  margin-top: 0;
   flex: 1;
 `;
 
@@ -169,37 +209,37 @@ export const NavButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: ${(props) => (props.$collapsed ? "center" : "start")};
-  gap: 0.85rem;
-  padding: 0.85rem;
+  gap: 10px;
+  padding: 10px 14px;
   border: none;
   border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   background: transparent;
   color: ${(props) =>
-    props.$active ? props.theme.primary : props.theme.textMuted};
+    props.$active ? "#ffffff" : "rgba(255, 255, 255, 0.86)"};
   white-space: nowrap;
   transition: all 0.2s ease;
   width: 100%;
 
   &:hover {
-    background: ${(props) => props.theme.border};
-    color: ${(props) => props.theme.text};
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
   }
 
   ${(props) =>
     props.$active &&
     css`
-      background: ${props.theme.primary}15 !important;
-      color: ${props.theme.primary} !important;
+      background: rgba(255, 255, 255, 0.25) !important;
+      color: #ffffff !important;
     `}
 `;
 
 export const SidebarFooter = styled.div`
   margin-top: auto;
-  border-top: 1px solid ${(props) => props.theme.border};
-  padding-top: 1.25rem;
+  border-top: 0;
+  padding-top: 0;
 `;
 
 export const ThemeToggle = styled.button`
@@ -207,20 +247,20 @@ export const ThemeToggle = styled.button`
   display: flex;
   align-items: center;
   justify-content: ${(props) => (props.$collapsed ? "center" : "start")};
-  gap: 0.85rem;
-  padding: 0.85rem;
+  gap: 10px;
+  padding: 10px 14px;
   background: transparent;
-  border: 1px solid ${(props) => props.theme.border};
-  color: ${(props) => props.theme.text};
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
   border-radius: 10px;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
 
   &:hover {
-    background: ${(props) => props.theme.border};
+    background: rgba(255, 255, 255, 0.18);
   }
 `;
 
@@ -244,11 +284,12 @@ export const FlexDashboardLayout = styled.div`
 // --- FLUXO DE PEDIDOS REAL-TIME ---
 export const OrdersGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
 
-  @media (max-width: 480px) {
+  @media (max-width: 680px) {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 `;
 
@@ -257,6 +298,11 @@ export const OrdersFilterBar = styled.div`
   flex-wrap: wrap;
   gap: 0.55rem;
   margin-bottom: 1.25rem;
+
+  @media (max-width: 360px) {
+    gap: 0.4rem;
+    margin-bottom: 0.9rem;
+  }
 `;
 
 export const OrderTypeFilterButton = styled.button`
@@ -379,6 +425,11 @@ export const OrderTypeFilterButton = styled.button`
   cursor: pointer;
   transition: all 0.2s ease;
 
+  @media (max-width: 360px) {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.76rem;
+  }
+
   &:hover {
     border-color: ${(props) => props.theme.primary};
     color: ${(props) => props.theme.text};
@@ -413,6 +464,11 @@ export const OrderCard = styled.div`
   max-height: ${(props) => (props.$hasPinSection ? "1200px" : "520px")};
   overflow: ${(props) => (props.$hasPinSection ? "visible" : "hidden")};
 
+  @media (max-width: 480px) {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
   ${(props) =>
     props.$isClosing &&
     css`
@@ -430,21 +486,32 @@ export const OrderCard = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 
     h3 {
       margin: 0 0 0.5rem 0;
       font-size: 1.2rem;
       font-weight: 800;
+
+      @media (max-width: 360px) {
+        font-size: 1rem;
+      }
     }
     .price {
       font-size: 1.25rem;
       font-weight: 800;
       color: ${(props) => props.theme.primary};
+
+      @media (max-width: 360px) {
+        font-size: 1rem;
+      }
     }
   }
 
   .badges {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
 
     .badge {
@@ -578,6 +645,10 @@ export const ButtonGroup = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 0.4rem;
 
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+  }
+
   .btn {
     background: ${(props) => props.theme.background};
     border: 1px solid ${(props) => props.theme.border};
@@ -596,6 +667,12 @@ export const ButtonGroup = styled.div`
     justify-content: center;
     gap: 0.25rem;
     transition: all 0.15s;
+
+    @media (max-width: 360px) {
+      min-height: 36px;
+      font-size: 0.72rem;
+      padding: 0.4rem 0.2rem;
+    }
 
     &:hover {
       background: ${(props) => props.theme.border};
@@ -640,13 +717,15 @@ export const TableContainer = styled.div`
   background: ${(props) => props.theme.surface};
   border: 1px solid ${(props) => props.theme.border};
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   box-shadow: ${(props) => props.theme.shadow};
   width: 100%;
 `;
 
 export const Table = styled.table`
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.95rem;
@@ -661,6 +740,11 @@ export const Table = styled.table`
       text-transform: uppercase;
       letter-spacing: 0.05em;
       border-bottom: 1px solid ${(props) => props.theme.border};
+
+      @media (max-width: 360px) {
+        padding: 0.75rem 0.65rem;
+        font-size: 0.78rem;
+      }
     }
   }
 
@@ -677,6 +761,12 @@ export const Table = styled.table`
       padding: 1.25rem;
       color: ${(props) => props.theme.text};
       vertical-align: middle;
+
+      @media (max-width: 360px) {
+        padding: 0.75rem 0.65rem;
+        font-size: 0.82rem;
+      }
+
       strong {
         font-weight: 700;
       }
@@ -759,6 +849,10 @@ export const CategoryInlineEditor = styled.div`
   align-items: center;
   gap: 0.45rem;
 
+  @media (max-width: 460px) {
+    grid-template-columns: 1fr;
+  }
+
   input {
     padding: 0.6rem 0.75rem;
     border-radius: 8px;
@@ -795,10 +889,19 @@ export const TableQrCodeBox = styled.div`
   justify-content: center;
   min-height: 220px;
 
+  @media (max-width: 360px) {
+    min-height: 180px;
+    padding: 0.75rem;
+  }
+
   svg {
     width: 100%;
     height: auto;
     max-width: 160px;
+
+    @media (max-width: 360px) {
+      max-width: 130px;
+    }
   }
 `;
 
@@ -851,6 +954,12 @@ export const TableQrActionButton = styled.button`
     color: ${(props) => props.theme.primary};
     transform: translateY(-1px);
   }
+
+  @media (max-width: 360px) {
+    min-height: 40px;
+    font-size: 0.8rem;
+    padding: 0.6rem;
+  }
 `;
 
 // --- FORMULÁRIOS E INPUTS ---
@@ -863,6 +972,16 @@ export const FormCard = styled.div`
   box-shadow: ${(props) => props.theme.shadow};
   box-sizing: border-box;
   width: 100%;
+
+  @media (max-width: 600px) {
+    padding: 1rem;
+    border-radius: 14px;
+  }
+
+  @media (max-width: 360px) {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
 `;
 
 export const FormSectionTitle = styled.h3`
@@ -883,6 +1002,10 @@ export const FormRow = styled.div`
   @media (max-width: 600px) {
     flex-direction: column;
     gap: 1.25rem;
+  }
+
+  @media (max-width: 360px) {
+    gap: 0.85rem;
   }
 `;
 
@@ -917,6 +1040,11 @@ export const FormGroup = styled.div`
       border-color: ${(props) => props.theme.primary};
       background: ${(props) => props.theme.surface};
       box-shadow: 0 0 0 4px ${(props) => props.theme.primary + "20"};
+    }
+
+    @media (max-width: 360px) {
+      padding: 0.7rem 0.85rem;
+      font-size: 0.9rem;
     }
   }
 

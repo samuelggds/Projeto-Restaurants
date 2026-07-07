@@ -13,7 +13,6 @@ import {
   CreditCard,
   Bike,
   AlertCircle,
-  KeyRound,
   LogOut,
   Mail,
   IdCard,
@@ -40,6 +39,12 @@ const PAYMENT_LABEL = {
   CARTAO_DEBITO: "Débito",
   CARTAO_CREDITO: "Crédito",
 };
+const DIGITAL_PAYMENT_METHODS = new Set([
+  "PIX",
+  "CARTAO",
+  "CARTAO_DEBITO",
+  "CARTAO_CREDITO",
+]);
 
 function formatCpfDisplay(raw) {
   const d = String(raw || "")
@@ -261,25 +266,19 @@ function getDeliveryAddress(order) {
   return parts.length ? parts.join(", ") : "Endereço não informado";
 }
 
-function needsPinPayment(order) {
-  return (
-    ["PIX", "CARTAO", "CARTAO_DEBITO", "CARTAO_CREDITO"].includes(
-      order.paymentMethod,
-    ) && order.paid !== true
-  );
+function requiresConfirmedPayment(order) {
+  const paymentMethod = String(order?.paymentMethod || "").toUpperCase();
+  return DIGITAL_PAYMENT_METHODS.has(paymentMethod) && order?.paid !== true;
 }
 
-function OrderCard({ order, onMarkDelivered, onRequestPin, onConfirmPin }) {
+function OrderCard({ order, onMarkDelivered }) {
   const [expanded, setExpanded] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinMode, setPinMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [pinLoading, setPinLoading] = useState(false);
   const [error, setError] = useState("");
 
   const statusInfo = STATUS_LABEL[order.status] || {};
   const canDeliver = order.status === "SAIU_PARA_ENTREGA";
-  const requiresPin = needsPinPayment(order);
+  const paymentPendingConfirmation = requiresConfirmedPayment(order);
 
   async function handleMarkDelivered() {
     setLoading(true);
@@ -290,36 +289,6 @@ function OrderCard({ order, onMarkDelivered, onRequestPin, onConfirmPin }) {
       setError(e?.response?.data?.message || e?.message || "Erro ao atualizar");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleRequestPin() {
-    setPinLoading(true);
-    setError("");
-    try {
-      await onRequestPin(order.id);
-      setPinMode(true);
-    } catch (e) {
-      setError(
-        e?.response?.data?.message || e?.message || "Erro ao solicitar PIN",
-      );
-    } finally {
-      setPinLoading(false);
-    }
-  }
-
-  async function handleConfirmPin() {
-    if (!pin.trim()) return;
-    setPinLoading(true);
-    setError("");
-    try {
-      await onConfirmPin(order.id, pin.trim());
-      setPinMode(false);
-      setPin("");
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "PIN inválido");
-    } finally {
-      setPinLoading(false);
     }
   }
 
@@ -392,43 +361,12 @@ function OrderCard({ order, onMarkDelivered, onRequestPin, onConfirmPin }) {
 
       {canDeliver && (
         <S.CardActions>
-          {requiresPin && !order.paid && (
-            <>
-              {!pinMode ? (
-                <S.SecondaryButton
-                  onClick={handleRequestPin}
-                  disabled={pinLoading}
-                >
-                  <KeyRound size={15} />
-                  {pinLoading ? "Solicitando..." : "Solicitar PIN de Pagamento"}
-                </S.SecondaryButton>
-              ) : (
-                <S.PinRow>
-                  <input
-                    type="text"
-                    placeholder="Digite o PIN"
-                    value={pin}
-                    maxLength={8}
-                    onChange={(e) => setPin(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleConfirmPin()}
-                  />
-                  <S.PinConfirmButton
-                    onClick={handleConfirmPin}
-                    disabled={pinLoading || !pin.trim()}
-                  >
-                    {pinLoading ? "..." : "Confirmar"}
-                  </S.PinConfirmButton>
-                </S.PinRow>
-              )}
-            </>
-          )}
-
           <S.DeliverButton
             onClick={handleMarkDelivered}
-            disabled={loading || (requiresPin && !order.paid)}
+            disabled={loading || paymentPendingConfirmation}
             title={
-              requiresPin && !order.paid
-                ? "Confirme o pagamento antes de marcar como entregue"
+              paymentPendingConfirmation
+                ? "Pagamento PIX/cartão ainda não confirmado"
                 : ""
             }
           >
@@ -519,18 +457,6 @@ export default function CourierDashboard() {
 
   async function handleMarkDelivered(orderId) {
     const updated = await ordersService.updateStatus(orderId, "ENTREGUE");
-    const updatedOrder = updated?.order || updated;
-    setOrders((prev) =>
-      prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
-    );
-  }
-
-  async function handleRequestPin(orderId) {
-    await ordersService.requestPaymentConfirmationPin(orderId);
-  }
-
-  async function handleConfirmPin(orderId, pin) {
-    const updated = await ordersService.confirmPaymentWithPin(orderId, pin);
     const updatedOrder = updated?.order || updated;
     setOrders((prev) =>
       prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
@@ -705,8 +631,6 @@ export default function CourierDashboard() {
                 key={order.id}
                 order={order}
                 onMarkDelivered={handleMarkDelivered}
-                onRequestPin={handleRequestPin}
-                onConfirmPin={handleConfirmPin}
               />
             ))}
           </S.OrdersList>

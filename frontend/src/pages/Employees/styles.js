@@ -2,29 +2,29 @@ import styled, { css } from "styled-components";
 
 // --- TEMAS (DARK & LIGHT) ---
 export const darkTheme = {
-  background: "#13131a",
-  surface: "#1c1c24",
-  surfaceHover: "#232330",
-  sidebarSurface: "#1c1c24",
-  sidebarBorder: "#2d2d3d",
-  border: "#2d2d3d",
-  text: "#ffffff",
-  textMuted: "#a0aec0",
-  inputBg: "#232330",
-  primary: "#eab308", // Amarelo vibrante para a marca/destaques
+  background: "#f1f5f9",
+  surface: "#ffffff",
+  surfaceHover: "#f8fafc",
+  sidebarSurface: "linear-gradient(160deg, #ea1d2c 0%, #b8141f 100%)",
+  sidebarBorder: "transparent",
+  border: "#e2e8f0",
+  text: "#1e293b",
+  textMuted: "#64748b",
+  inputBg: "rgba(255, 255, 255, 0.16)",
+  primary: "#ea1d2c",
 };
 
 export const lightTheme = {
-  background: "#cfd9e4",
-  surface: "#d9e3ee",
-  surfaceHover: "#cfdbe8",
-  sidebarSurface: "#afc0d1",
-  sidebarBorder: "#95a8bd",
-  border: "#b3c1d2",
-  text: "#1a202c",
-  textMuted: "#334155",
-  inputBg: "#d8e2ed",
-  primary: "#dba206",
+  background: "#f1f5f9",
+  surface: "#ffffff",
+  surfaceHover: "#f8fafc",
+  sidebarSurface: "linear-gradient(160deg, #ea1d2c 0%, #b8141f 100%)",
+  sidebarBorder: "transparent",
+  border: "#e2e8f0",
+  text: "#1e293b",
+  textMuted: "#64748b",
+  inputBg: "rgba(255, 255, 255, 0.16)",
+  primary: "#ea1d2c",
 };
 
 // --- ESTRUTURA DO LAYOUT ---
@@ -44,40 +44,82 @@ export const MainContent = styled.main`
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+
+  @media (max-width: 1024px) {
+    padding: 1.5rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 4.4rem 1rem 1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 4.6rem 0.75rem 0.85rem;
+  }
+
+  @media (max-width: 360px) {
+    padding: 4.55rem 0.6rem 0.7rem;
+  }
 `;
 
 export const PageHeader = styled.div`
   margin-bottom: 2rem;
 
+  @media (max-width: 480px) {
+    margin-bottom: 1.3rem;
+  }
+
   h2 {
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 0.25rem;
+
+    @media (max-width: 480px) {
+      font-size: 1.35rem;
+    }
+
+    @media (max-width: 360px) {
+      font-size: 1.2rem;
+    }
   }
 
   p {
     color: ${(props) => props.theme.textMuted};
     font-size: 0.95rem;
+
+    @media (max-width: 480px) {
+      font-size: 0.85rem;
+    }
   }
 `;
 
 // --- SIDEBAR (BARRA LATERAL CORRIGIDA) ---
 export const Sidebar = styled.aside`
-  width: ${(props) => (props.$collapsed ? "80px" : "260px")};
-  background-color: ${(props) =>
-    props.theme.sidebarSurface || props.theme.surface};
-  border-right: 1px solid
-    ${(props) => props.theme.sidebarBorder || props.theme.border};
+  width: ${(props) => (props.$collapsed ? "80px" : "280px")};
+  background: ${(props) => props.theme.sidebarSurface || props.theme.surface};
+  border-right: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 1.5rem 1rem;
+  justify-content: flex-start;
+  padding: ${(props) => (props.$collapsed ? "28px 12px" : "28px 20px")};
+  gap: 24px;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   position: sticky;
   top: 0;
   height: 100vh;
   z-index: 10;
+
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 0;
+    left: ${(props) => (props.$mobileOpen ? "0" : "calc(-88vw - 24px)")};
+    width: min(88vw, 300px);
+    height: 100vh;
+    transition: left 0.25s ease;
+    z-index: 40;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.35);
+  }
 `;
 
 export const Brand = styled.div`
@@ -87,15 +129,15 @@ export const Brand = styled.div`
     props.$collapsed ? "center" : "space-between"};
   flex-direction: ${(props) => (props.$collapsed ? "column" : "row")};
   gap: ${(props) => (props.$collapsed ? "1rem" : "0")};
-  margin-bottom: 2.5rem;
-  padding: 0 0.5rem;
-  min-height: 75px;
+  margin-bottom: 0;
+  padding: 0;
+  min-height: 52px;
 
   .brand-logo {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    color: ${(props) => props.theme.primary};
+    color: #ffffff;
 
     .brand-text {
       display: flex;
@@ -105,20 +147,20 @@ export const Brand = styled.div`
         font-size: 1.15rem;
         font-weight: 800;
         line-height: 1.1;
-        color: ${(props) => props.theme.text};
+        color: #ffffff;
         margin: 0;
       }
       span {
         font-size: 0.75rem;
-        color: ${(props) => props.theme.textMuted};
+        color: rgba(255, 255, 255, 0.74);
       }
     }
   }
 
   .toggle-btn {
-    background: ${(props) => props.theme.inputBg};
-    border: 1px solid ${(props) => props.theme.border};
-    color: ${(props) => props.theme.text};
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #ffffff;
     border-radius: 6px;
     width: 28px;
     height: 28px;
@@ -129,7 +171,7 @@ export const Brand = styled.div`
     transition: all 0.2s;
 
     &:hover {
-      background: ${(props) => props.theme.primary};
+      background: rgba(255, 255, 255, 0.24);
       color: #fff;
     }
   }
@@ -138,7 +180,7 @@ export const Brand = styled.div`
 export const NavigationList = styled.nav`
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 6px;
   flex: 1;
 `;
 
@@ -148,34 +190,33 @@ export const NavButton = styled.button`
   justify-content: ${(props) => (props.$collapsed ? "center" : "flex-start")};
   gap: 1rem;
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 10px 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: ${(props) =>
-    props.$active ? props.theme.inputBg : "transparent"};
-  color: ${(props) => (props.$active ? props.theme.primary : props.theme.text)};
-  font-weight: ${(props) => (props.$active ? "600" : "500")};
-  font-size: 0.95rem;
+    props.$active ? "rgba(255,255,255,0.24)" : "transparent"};
+  color: ${(props) =>
+    props.$active ? "#ffffff" : "rgba(255, 255, 255, 0.86)"};
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
   white-space: nowrap;
 
-  border-left: 3px solid
-    ${(props) => (props.$active ? props.theme.primary : "transparent")};
-
   &:hover {
-    background: ${(props) => props.theme.surfaceHover};
-    color: ${(props) => props.theme.primary};
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
   }
 `;
 
 export const SidebarFooter = styled.div`
-  border-top: 1px solid ${(props) => props.theme.border};
-  padding-top: 1rem;
+  border-top: 0;
+  padding-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 6px;
+  margin-top: auto;
 `;
 
 export const ThemeToggle = styled.button`
@@ -184,25 +225,31 @@ export const ThemeToggle = styled.button`
   justify-content: ${(props) => (props.$collapsed ? "center" : "flex-start")};
   gap: 1rem;
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 10px 14px;
   border: none;
   background: transparent;
-  color: ${(props) => props.theme.textMuted};
+  color: rgba(255, 255, 255, 0.86);
   cursor: pointer;
   font-weight: 500;
-  border-radius: 8px;
+  font-size: 14px;
+  border-radius: 10px;
 
   &:hover {
-    background: ${(props) => props.theme.surfaceHover};
-    color: ${(props) => props.theme.text};
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
   }
 `;
 
 // --- GRID E CARDS DE PEDIDOS ---
 export const OrdersGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 `;
 
 export const OrderCard = styled.div`
@@ -223,6 +270,10 @@ export const OrderCard = styled.div`
   max-height: 520px;
   overflow: hidden;
 
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
+
   ${(props) =>
     props.$isClosing &&
     css`
@@ -239,6 +290,8 @@ export const OrderCard = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 0.5rem;
+    flex-wrap: wrap;
     border-bottom: 1px solid ${(props) => props.theme.border};
     padding-bottom: 0.75rem;
     margin-bottom: 0.75rem;
@@ -246,17 +299,26 @@ export const OrderCard = styled.div`
     h3 {
       font-size: 1.1rem;
       font-weight: 700;
+
+      @media (max-width: 360px) {
+        font-size: 0.98rem;
+      }
     }
 
     .price {
       font-weight: 700;
       color: ${(props) => props.theme.primary};
       font-size: 1.1rem;
+
+      @media (max-width: 360px) {
+        font-size: 1rem;
+      }
     }
   }
 
   .badges {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.35rem;
     margin-top: 0.35rem;
 
@@ -401,6 +463,18 @@ export const ButtonGroup = styled.div`
   gap: 0.4rem;
   margin-top: 0.7rem;
 
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  @media (max-width: 420px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+  }
+
   .btn {
     background: ${(props) => props.theme.surface};
     border: 1px solid ${(props) => props.theme.border};
@@ -414,6 +488,12 @@ export const ButtonGroup = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+
+    @media (max-width: 360px) {
+      min-height: 36px;
+      font-size: 0.72rem;
+      padding: 0.4rem 0.2rem;
+    }
 
     &:hover {
       background: ${(props) => props.theme.surfaceHover};
@@ -462,6 +542,16 @@ export const FormCard = styled.div`
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   max-width: 800px;
+  width: 100%;
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
+
+  @media (max-width: 360px) {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
 `;
 
 export const FormRow = styled.div`
@@ -472,6 +562,17 @@ export const FormRow = styled.div`
   & > * {
     flex: 1;
     min-width: 200px;
+  }
+
+  @media (max-width: 640px) {
+    & > * {
+      min-width: 0;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 360px) {
+    gap: 0.75rem;
   }
 `;
 
@@ -515,6 +616,11 @@ export const FormGroup = styled.div`
     &:disabled {
       background: ${(props) => props.theme.border};
       opacity: 0.6;
+    }
+
+    @media (max-width: 360px) {
+      padding: 0.65rem 0.8rem;
+      font-size: 0.9rem;
     }
   }
 `;
@@ -595,6 +701,13 @@ export const FlexDashboardLayout = styled.div`
     flex: 1;
     min-width: 320px;
   }
+
+  @media (max-width: 900px) {
+    & > * {
+      min-width: 0;
+      width: 100%;
+    }
+  }
 `;
 
 export const FormSectionTitle = styled.h3`
@@ -609,12 +722,14 @@ export const TableContainer = styled.div`
   background: ${(props) => props.theme.surface};
   border: 1px solid ${(props) => props.theme.border};
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 `;
 
 export const Table = styled.table`
   width: 100%;
+  min-width: 560px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.9rem;
@@ -627,6 +742,11 @@ export const Table = styled.table`
       padding: 1rem;
       font-weight: 600;
       color: ${(props) => props.theme.textMuted};
+
+      @media (max-width: 360px) {
+        padding: 0.7rem 0.6rem;
+        font-size: 0.8rem;
+      }
     }
   }
 
@@ -645,6 +765,11 @@ export const Table = styled.table`
     td {
       padding: 1rem;
       color: ${(props) => props.theme.text};
+
+      @media (max-width: 360px) {
+        padding: 0.7rem 0.6rem;
+        font-size: 0.82rem;
+      }
     }
   }
 `;

@@ -94,7 +94,7 @@ export default function Login() {
       }
 
       if (user?.role === "FUNCIONARIO") {
-        navigate("/orders");
+        navigate("/employees");
         return;
       }
 

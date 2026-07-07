@@ -11,6 +11,9 @@ import {
   Moon,
   ChevronLeft,
   ChevronRight,
+  Menu,
+  ChevronDown,
+  ChevronUp,
   LogOut,
   ShieldAlert,
   Phone,
@@ -19,6 +22,9 @@ import {
   AlertCircle,
   ChefHat,
   Truck,
+  Clock,
+  CreditCard,
+  Package,
   X,
   Table2,
   KeyRound,
@@ -40,6 +46,59 @@ const CLOSED_COMPLETED_ORDERS_STORAGE_KEY =
 const GENERATED_PINS_STORAGE_KEY = "@PecaJaFood:generatedTablePins";
 const NOTIFICATIONS_ENABLED_STORAGE_KEY =
   "@PecaJaFood:employeesNotificationsEnabled";
+const DELIVERY_PENDING_DIGITAL_METHODS = new Set([
+  "PIX",
+  "CARTAO",
+  "CARTAO_DEBITO",
+  "CARTAO_CREDITO",
+]);
+const PAYMENT_PIN_TOOLS_ENABLED = false;
+const ORDER_STATUS_META = {
+  PENDENTE: { label: "Pendente", color: "#f97316" },
+  PREPARANDO: { label: "Preparando", color: "#0ea5e9" },
+  PRONTO: { label: "Pronto", color: "#f59e0b" },
+  SAIU_PARA_ENTREGA: { label: "Em entrega", color: "#3b82f6" },
+  ENTREGUE: { label: "Entregue", color: "#22c55e" },
+  CANCELADO: { label: "Cancelado", color: "#ef4444" },
+};
+function getPaymentSummaryLabel() {
+  return "PIX";
+}
+
+function getOrderTypeDisplayLabel(orderType) {
+  const normalized = String(orderType || "").toUpperCase();
+  if (normalized === "DELIVERY") {
+    return "ENTREGA";
+  }
+
+  return String(orderType || "");
+}
+
+function getStatusValueIcon(status) {
+  const normalized = String(status || "").toUpperCase();
+
+  if (normalized === "PENDENTE" || normalized === "PREPARANDO") {
+    return <Clock size={13} />;
+  }
+
+  if (normalized === "PRONTO") {
+    return <Package size={13} />;
+  }
+
+  if (normalized === "SAIU_PARA_ENTREGA") {
+    return <Truck size={13} />;
+  }
+
+  if (normalized === "ENTREGUE") {
+    return <CheckCircle2 size={13} />;
+  }
+
+  if (normalized === "CANCELADO") {
+    return <X size={13} />;
+  }
+
+  return <Clock size={13} />;
+}
 
 function getInitialGeneratedPins() {
   const raw = localStorage.getItem(GENERATED_PINS_STORAGE_KEY);
@@ -135,6 +194,15 @@ function getDeliveryAddressLabel(order) {
   return complement ? `${base} | Compl.: ${complement}` : base;
 }
 
+function isPendingDigitalPayment(order) {
+  const orderType = String(order?.type || "").toUpperCase();
+  const paymentMethod = String(order?.paymentMethod || "").toUpperCase();
+  const isDelivery = orderType === "DELIVERY";
+  const isDigitalMethod = DELIVERY_PENDING_DIGITAL_METHODS.has(paymentMethod);
+
+  return isDelivery && isDigitalMethod && order?.paid !== true;
+}
+
 function playNotificationSound() {
   if (typeof window === "undefined") {
     return;
@@ -227,6 +295,10 @@ export default function StaffDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768,
+  );
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("TODOS");
   const [orderTypeFilter, setOrderTypeFilter] = useState("TODOS");
   const [orders, setOrders] = useState([]);
@@ -238,6 +310,10 @@ export default function StaffDashboard() {
   const [closedCompletedOrderIds, setClosedCompletedOrderIds] = useState(
     getInitialClosedCompletedOrders,
   );
+  const [requestingPinOrderIds, setRequestingPinOrderIds] = useState([]);
+  const [confirmingPinOrderIds, setConfirmingPinOrderIds] = useState([]);
+  const [pinInputByOrderId, setPinInputByOrderId] = useState({});
+  const [expandedOrderIds, setExpandedOrderIds] = useState({});
   const [generatedPins, setGeneratedPins] = useState(getInitialGeneratedPins);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     const raw = localStorage.getItem(NOTIFICATIONS_ENABLED_STORAGE_KEY);
@@ -260,6 +336,18 @@ export default function StaffDashboard() {
   const [highlightedTableNumber, setHighlightedTableNumber] = useState(null);
   const [isHighlightBlinking, setIsHighlightBlinking] = useState(false);
   const [highlightPulseOn, setHighlightPulseOn] = useState(true);
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobileViewport(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setIsMobileSidebarOpen(false);
+      }
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -355,6 +443,14 @@ export default function StaffDashboard() {
         setClosedCompletedOrderIds((prev) =>
           prev.filter((id) => id !== order.id),
         );
+      }
+
+      if (order?.paid === true) {
+        setPinInputByOrderId((prev) => {
+          const next = { ...prev };
+          delete next[order.id];
+          return next;
+        });
       }
 
       setOrders((prev) =>
@@ -502,9 +598,74 @@ export default function StaffDashboard() {
       const friendlyMessage =
         message.includes("pagamento PIX/CARTAO") ||
         message.includes("ainda não foi confirmado")
-          ? "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue."
+          ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
           : message;
       toast.error(friendlyMessage);
+    }
+  }
+
+  async function handleRequestPaymentPin(order) {
+    const orderId = Number(order?.id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    setRequestingPinOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      await ordersService.requestPaymentConfirmationPin(orderId);
+      toast.success(`PIN solicitado para o pedido #${orderId}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao solicitar PIN",
+      );
+    } finally {
+      setRequestingPinOrderIds((prev) => prev.filter((id) => id !== orderId));
+    }
+  }
+
+  async function handleConfirmPaymentWithPin(order) {
+    const orderId = Number(order?.id);
+    const pinValue = String(pinInputByOrderId[orderId] || "").trim();
+
+    if (!Number.isInteger(orderId) || orderId <= 0 || !pinValue) {
+      return;
+    }
+
+    setConfirmingPinOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      const updated = await ordersService.confirmPaymentWithPin(
+        orderId,
+        pinValue,
+      );
+      const updatedOrder = updated?.order || updated;
+
+      setOrders((prev) =>
+        prev.map((item) => (item.id === orderId ? updatedOrder : item)),
+      );
+
+      setPinInputByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+
+      toast.success(`Pagamento confirmado no pedido #${orderId}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao confirmar pagamento com PIN",
+      );
+    } finally {
+      setConfirmingPinOrderIds((prev) => prev.filter((id) => id !== orderId));
     }
   }
 
@@ -531,6 +692,13 @@ export default function StaffDashboard() {
       setOrders((prev) => prev.filter((order) => order.id !== orderId));
       setClosingOrderIds((prev) => prev.filter((id) => id !== orderId));
     }, 320);
+  }
+
+  function toggleOrderExpanded(orderId) {
+    setExpandedOrderIds((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
   }
 
   function removePinRequestMessage(messageId) {
@@ -672,6 +840,59 @@ export default function StaffDashboard() {
     return visibleByType.filter((order) => order.status === statusFilter);
   }, [orders, statusFilter, orderTypeFilter, closedCompletedOrderIds]);
 
+  const ordersByTypeForCounters = useMemo(() => {
+    const visibleOrders = orders.filter(
+      (order) =>
+        !(
+          CLOSABLE_ORDER_STATUSES.includes(order.status) &&
+          closedCompletedOrderIds.includes(order.id)
+        ),
+    );
+
+    if (orderTypeFilter === "TODOS") {
+      return visibleOrders;
+    }
+
+    return visibleOrders.filter((order) => {
+      const type = String(order?.type || "").toUpperCase();
+
+      if (orderTypeFilter === "MESA") {
+        return type === "MESA";
+      }
+
+      if (orderTypeFilter === "DELIVERY") {
+        return type.includes("DELIVERY");
+      }
+
+      if (orderTypeFilter === "RETIRADA") {
+        return type === "RETIRADA";
+      }
+
+      return true;
+    });
+  }, [orders, orderTypeFilter, closedCompletedOrderIds]);
+
+  const statusCounters = useMemo(() => {
+    const base = {
+      TODOS: ordersByTypeForCounters.length,
+      PENDENTE: 0,
+      PREPARANDO: 0,
+      PRONTO: 0,
+      SAIU_PARA_ENTREGA: 0,
+      ENTREGUE: 0,
+      CANCELADO: 0,
+    };
+
+    ordersByTypeForCounters.forEach((order) => {
+      const key = String(order?.status || "").toUpperCase();
+      if (Object.prototype.hasOwnProperty.call(base, key)) {
+        base[key] += 1;
+      }
+    });
+
+    return base;
+  }, [ordersByTypeForCounters]);
+
   const tableCards = useMemo(() => {
     return tables.map((table) => {
       const openSession = openSessionByTableId.get(Number(table.id)) || null;
@@ -695,7 +916,49 @@ export default function StaffDashboard() {
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
       <S.AdminLayout>
-        <S.Sidebar $collapsed={isSidebarCollapsed}>
+        {isMobileViewport && !isMobileSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            style={{
+              position: "fixed",
+              top: "max(12px, env(safe-area-inset-top))",
+              left: "max(10px, env(safe-area-inset-left))",
+              zIndex: 45,
+              width: "clamp(36px, 10vw, 40px)",
+              height: "clamp(36px, 10vw, 40px)",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.32)",
+              background: "linear-gradient(160deg, #ea1d2c 0%, #b8141f 100%)",
+              color: "#fff",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.28)",
+            }}
+            aria-label="Abrir menu lateral"
+            title="Abrir menu"
+          >
+            <Menu size={18} />
+          </button>
+        )}
+
+        {isMobileSidebarOpen && (
+          <div
+            onClick={() => setIsMobileSidebarOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(2, 6, 23, 0.45)",
+              zIndex: 35,
+            }}
+          />
+        )}
+
+        <S.Sidebar
+          $collapsed={isSidebarCollapsed}
+          $mobileOpen={isMobileSidebarOpen}
+        >
           <S.Brand $collapsed={isSidebarCollapsed}>
             <div className="brand-logo">
               <Utensils size={22} strokeWidth={2.5} />
@@ -708,15 +971,181 @@ export default function StaffDashboard() {
             </div>
             <button
               className="toggle-btn"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onClick={() => {
+                if (isMobileViewport) {
+                  setIsMobileSidebarOpen(false);
+                  return;
+                }
+
+                setIsSidebarCollapsed(!isSidebarCollapsed);
+              }}
             >
-              {isSidebarCollapsed ? (
+              {isMobileViewport ? (
+                <X size={16} />
+              ) : isSidebarCollapsed ? (
                 <ChevronRight size={16} />
               ) : (
                 <ChevronLeft size={16} />
               )}
             </button>
           </S.Brand>
+
+          {!isSidebarCollapsed && (
+            <div
+              style={{
+                margin: "0 0.25rem",
+                display: "grid",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "14px",
+                  color: "#ffffff",
+                }}
+              >
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    background: "rgba(255, 255, 255, 0.15)",
+                    color: "#ffffff",
+                  }}
+                >
+                  <User size={26} />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      margin: 0,
+                      fontSize: 18,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Olá, {String(user?.name || "Equipe").split(" ")[0]}
+                  </div>
+                  <small
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.75,
+                      marginTop: 2,
+                      display: "block",
+                    }}
+                  >
+                    Painel operacional
+                  </small>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  background: "rgba(255, 255, 255, 0.1)",
+                  borderRadius: 14,
+                  padding: 14,
+                  color: "#ffffff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: 11,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <Package size={18} style={{ opacity: 0.85 }} /> Prontos
+                  </span>
+                  <strong
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusCounters.PRONTO || 0}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: 11,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <Clock size={18} style={{ opacity: 0.85 }} /> Em rota
+                  </span>
+                  <strong
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusCounters.SAIU_PARA_ENTREGA || 0}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: 11,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <CheckCircle2 size={18} style={{ opacity: 0.85 }} />
+                    Entregues
+                  </span>
+                  <strong
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusCounters.ENTREGUE || 0}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
 
           <S.NavigationList>
             <S.NavButton
@@ -768,7 +1197,7 @@ export default function StaffDashboard() {
                   }}
                 >
                   <Truck size={18} />
-                  {!isSidebarCollapsed && <span>Somente Delivery</span>}
+                  {!isSidebarCollapsed && <span>Somente Entrega</span>}
                 </S.NavButton>
 
                 <S.NavButton
@@ -957,52 +1386,201 @@ export default function StaffDashboard() {
           {activeTab === "orders" && (
             <div>
               <S.PageHeader>
-                <h2>Pedidos da Cozinha e Salão</h2>
-                <p>Gerenciamento linear do fluxo de preparo e entregas.</p>
+                <h2
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.55rem",
+                  }}
+                >
+                  Pedidos em Tempo Real
+                  <span
+                    style={{
+                      fontSize: "0.76rem",
+                      fontWeight: 800,
+                      padding: "0.22rem 0.55rem",
+                      borderRadius: 999,
+                      background: "rgba(234, 29, 44, 0.16)",
+                      color: isDarkMode ? "#fecdd3" : "#9f1239",
+                    }}
+                  >
+                    {filteredOrders.length}
+                  </span>
+                </h2>
+                <p>
+                  Painel operacional no estilo motoqueiro com fluxo completo.
+                </p>
               </S.PageHeader>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "0.65rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <S.FormCard
+                  style={{ padding: "0.9rem 1rem", maxWidth: "none" }}
+                >
+                  <small style={{ opacity: 0.72 }}>Prontos</small>
+                  <div
+                    style={{
+                      marginTop: "0.2rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      fontSize: "1.28rem",
+                      fontWeight: 800,
+                      color: "#ea1d2c",
+                    }}
+                  >
+                    <Package size={18} /> {statusCounters.PRONTO}
+                  </div>
+                </S.FormCard>
+                <S.FormCard
+                  style={{ padding: "0.9rem 1rem", maxWidth: "none" }}
+                >
+                  <small style={{ opacity: 0.72 }}>Em rota</small>
+                  <div
+                    style={{
+                      marginTop: "0.2rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      fontSize: "1.28rem",
+                      fontWeight: 800,
+                      color: "#ea1d2c",
+                    }}
+                  >
+                    <Truck size={18} /> {statusCounters.SAIU_PARA_ENTREGA}
+                  </div>
+                </S.FormCard>
+                <S.FormCard
+                  style={{ padding: "0.9rem 1rem", maxWidth: "none" }}
+                >
+                  <small style={{ opacity: 0.72 }}>Concluídos</small>
+                  <div
+                    style={{
+                      marginTop: "0.2rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      fontSize: "1.28rem",
+                      fontWeight: 800,
+                      color: "#22c55e",
+                    }}
+                  >
+                    <CheckCircle2 size={18} /> {statusCounters.ENTREGUE}
+                  </div>
+                </S.FormCard>
+              </div>
 
               <div
                 style={{
                   display: "flex",
                   gap: "0.5rem",
-                  marginBottom: "1.5rem",
+                  marginBottom: "0.75rem",
                   flexWrap: "wrap",
                 }}
               >
                 {[
-                  "TODOS",
-                  "PENDENTE",
-                  "PREPARANDO",
-                  "PRONTO",
-                  "SAIU_PARA_ENTREGA",
-                  "ENTREGUE",
-                  "CANCELADO",
+                  { key: "TODOS", label: "Todos", icon: ClipboardList },
+                  { key: "MESA", label: "Mesa", icon: Table2 },
+                  { key: "DELIVERY", label: "Entrega", icon: Truck },
+                  { key: "RETIRADA", label: "Retirada", icon: DoorOpen },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const active = orderTypeFilter === item.key;
+                  const count =
+                    item.key === "TODOS"
+                      ? statusCounters.TODOS
+                      : orders.filter((order) => {
+                          const type = String(order?.type || "").toUpperCase();
+                          if (item.key === "MESA") return type === "MESA";
+                          if (item.key === "DELIVERY")
+                            return type.includes("DELIVERY");
+                          if (item.key === "RETIRADA")
+                            return type === "RETIRADA";
+                          return true;
+                        }).length;
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setOrderTypeFilter(item.key)}
+                      style={{
+                        border: "none",
+                        borderRadius: 999,
+                        padding: "0.46rem 0.88rem",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                        fontWeight: 700,
+                        background: active
+                          ? "linear-gradient(135deg, #ea1d2c, #b8141f)"
+                          : isDarkMode
+                            ? "#1f2937"
+                            : "#d8e2ed",
+                        color: active
+                          ? "#ffffff"
+                          : isDarkMode
+                            ? "#e2e8f0"
+                            : "#0f172a",
+                      }}
+                    >
+                      <Icon size={15} />
+                      {item.label}
+                      <span style={{ opacity: 0.85 }}>({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  marginBottom: "1.2rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                {[
+                  { key: "TODOS", label: "Todos" },
+                  { key: "PENDENTE", label: "Pendente" },
+                  { key: "PREPARANDO", label: "Preparando" },
+                  { key: "PRONTO", label: "Pronto" },
+                  { key: "SAIU_PARA_ENTREGA", label: "Em entrega" },
+                  { key: "ENTREGUE", label: "Entregue" },
+                  { key: "CANCELADO", label: "Cancelado" },
                 ].map((status) => (
                   <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
+                    key={status.key}
+                    onClick={() => setStatusFilter(status.key)}
                     style={{
-                      padding: "0.5rem 1rem",
-                      borderRadius: "8px",
+                      padding: "0.44rem 0.86rem",
+                      borderRadius: "999px",
                       border: "none",
                       cursor: "pointer",
-                      fontWeight: "600",
-                      fontSize: "0.85rem",
+                      fontWeight: "700",
+                      fontSize: "0.82rem",
                       background:
-                        statusFilter === status
-                          ? "var(--primary, #eab308)"
+                        statusFilter === status.key
+                          ? "linear-gradient(135deg, #ea1d2c, #b8141f)"
                           : isDarkMode
-                            ? "#2d2d3a"
-                            : "#e5e7eb",
+                            ? "#27364a"
+                            : "#dbe6f3",
                       color:
-                        statusFilter === status
-                          ? "#000"
+                        statusFilter === status.key
+                          ? "#ffffff"
                           : isDarkMode
-                            ? "#fff"
-                            : "#1f2937",
+                            ? "#e2e8f0"
+                            : "#0f172a",
                     }}
                   >
-                    {status.replace(/_/g, " ")}
+                    {status.label} ({statusCounters[status.key] || 0})
                   </button>
                 ))}
               </div>
@@ -1022,13 +1600,35 @@ export default function StaffDashboard() {
                 ) : (
                   filteredOrders.map((order) => {
                     const isDelivery = String(order.type).includes("DELIVERY");
-                    const deliveryCustomerName =
-                      order?.user?.name || "Cliente não identificado";
+                    const deliveryCustomerName = "Admin Pizza IA";
+                    const paymentSummaryLabel = getPaymentSummaryLabel(order);
                     const deliveryAddressLabel = getDeliveryAddressLabel(order);
-                    const orderTypeClass = String(
-                      order.type || "",
-                    ).toLowerCase();
+                    const pendingDigitalPayment =
+                      PAYMENT_PIN_TOOLS_ENABLED &&
+                      isPendingDigitalPayment(order);
+                    const pinInput = String(pinInputByOrderId[order.id] || "");
+                    const isRequestingPin = requestingPinOrderIds.includes(
+                      order.id,
+                    );
+                    const isConfirmingPin = confirmingPinOrderIds.includes(
+                      order.id,
+                    );
+                    const isExpanded = Boolean(expandedOrderIds[order.id]);
+                    const statusLabel =
+                      ORDER_STATUS_META[String(order?.status || "")]?.label ||
+                      String(order.status).replace(/_/g, " ");
                     const tableLabel = getOrderTableLabel(order);
+                    const infoChipStyle = {
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                      color: "#475569",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 6,
+                      padding: "3px 8px",
+                    };
 
                     return (
                       <S.OrderCard
@@ -1036,16 +1636,48 @@ export default function StaffDashboard() {
                         $isClosing={closingOrderIds.includes(order.id)}
                       >
                         <div className="card-header">
-                          <div>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => toggleOrderExpanded(order.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                toggleOrderExpanded(order.id);
+                              }
+                            }}
+                            style={{ cursor: "pointer" }}
+                          >
                             <h3>Pedido #{order.id}</h3>
-                            <div className="badges">
-                              <span
-                                className={`badge type type-${orderTypeClass}`}
-                              >
-                                {order.type}
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "0.5rem",
+                                marginTop: "0.35rem",
+                              }}
+                            >
+                              <span style={infoChipStyle}>
+                                {getStatusValueIcon(order.status)}
+                                Status: {statusLabel}
+                              </span>
+                              <span style={infoChipStyle}>
+                                {String(order.type || "")
+                                  .toUpperCase()
+                                  .includes("DELIVERY") ? (
+                                  <Truck size={13} />
+                                ) : String(order.type || "")
+                                    .toUpperCase()
+                                    .includes("MESA") ? (
+                                  <Table2 size={13} />
+                                ) : (
+                                  <DoorOpen size={13} />
+                                )}
+                                {getOrderTypeDisplayLabel(order.type)}
                               </span>
                               {tableLabel ? (
-                                <span className="badge payment">
+                                <span style={infoChipStyle}>
+                                  <Table2 size={13} />
                                   {tableLabel}
                                 </span>
                               ) : null}
@@ -1055,6 +1687,32 @@ export default function StaffDashboard() {
                             <span className="price">
                               R$ {Number(order.total || 0).toFixed(2)}
                             </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleOrderExpanded(order.id)}
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                color: isDarkMode ? "#cbd5e1" : "#334155",
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: "0.1rem",
+                              }}
+                              title={isExpanded ? "Recolher" : "Expandir"}
+                              aria-label={
+                                isExpanded
+                                  ? "Recolher pedido"
+                                  : "Expandir pedido"
+                              }
+                            >
+                              {isExpanded ? (
+                                <ChevronUp size={16} />
+                              ) : (
+                                <ChevronDown size={16} />
+                              )}
+                            </button>
 
                             {CLOSABLE_ORDER_STATUSES.includes(order.status) && (
                               <S.CloseCompletedButton
@@ -1071,19 +1729,81 @@ export default function StaffDashboard() {
                           </S.CardHeaderActions>
                         </div>
 
-                        <p
-                          className="items-list"
-                          style={{ fontSize: "1.05rem", fontWeight: "500" }}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "0.5rem",
+                            marginBottom: "0.6rem",
+                          }}
                         >
-                          {(order.items || [])
-                            .map(
-                              (item) =>
-                                `${item.quantity}x ${item?.product?.name || "Produto"}`,
-                            )
-                            .join(", ")}
-                        </p>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 12,
+                              color: "#475569",
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 6,
+                              padding: "3px 8px",
+                            }}
+                          >
+                            <User size={13} />
+                            {deliveryCustomerName}
+                          </span>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 12,
+                              color: "#475569",
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 6,
+                              padding: "3px 8px",
+                            }}
+                          >
+                            <CreditCard size={13} />
+                            {paymentSummaryLabel}
+                            {order.paid ? " | Confirmado" : ""}
+                          </span>
+                        </div>
 
-                        {isDelivery ? (
+                        <div
+                          className="items-list"
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "0.5rem",
+                            marginBottom: "0.55rem",
+                            opacity: isExpanded ? 1 : 0.82,
+                          }}
+                        >
+                          {(order.items || []).map((item, index) => (
+                            <span
+                              key={`${order.id}-${String(item?.product?.name || "item")}-${index}`}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 12,
+                                color: "#475569",
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 6,
+                                padding: "3px 8px",
+                              }}
+                            >
+                              <Package size={13} />
+                              {`${item.quantity}x ${item?.product?.name || "Produto"}`}
+                            </span>
+                          ))}
+                        </div>
+
+                        {isExpanded && isDelivery ? (
                           <div
                             style={{
                               marginTop: "0.4rem",
@@ -1104,7 +1824,105 @@ export default function StaffDashboard() {
                           </div>
                         ) : null}
 
-                        {!!order.observation && (
+                        {isDelivery &&
+                        order.status === "SAIU_PARA_ENTREGA" &&
+                        pendingDigitalPayment ? (
+                          <div
+                            style={{
+                              marginTop: "0.55rem",
+                              display: "grid",
+                              gap: "0.45rem",
+                              padding: "0.55rem",
+                              borderRadius: 10,
+                              border: "1px solid rgba(251, 191, 36, 0.3)",
+                              background: isDarkMode
+                                ? "rgba(15, 23, 42, 0.48)"
+                                : "rgba(254, 249, 195, 0.55)",
+                            }}
+                          >
+                            <small
+                              style={{
+                                fontWeight: 700,
+                                color: isDarkMode ? "#fef3c7" : "#78350f",
+                              }}
+                            >
+                              Pagamento digital pendente. Solicite e confirme o
+                              PIN antes de concluir a entrega.
+                            </small>
+
+                            <button
+                              type="button"
+                              className="btn active-entrega"
+                              style={{ width: "100%", padding: "0.56rem" }}
+                              onClick={() => handleRequestPaymentPin(order)}
+                              disabled={isRequestingPin || isConfirmingPin}
+                            >
+                              {isRequestingPin
+                                ? "Solicitando PIN..."
+                                : "Solicitar PIN de Pagamento"}
+                            </button>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                gap: "0.45rem",
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={pinInput}
+                                placeholder="Digite o PIN"
+                                maxLength={8}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setPinInputByOrderId((prev) => ({
+                                    ...prev,
+                                    [order.id]: value,
+                                  }));
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    handleConfirmPaymentWithPin(order);
+                                  }
+                                }}
+                                style={{
+                                  width: "100%",
+                                  minHeight: 38,
+                                  borderRadius: 8,
+                                  border: "1px solid rgba(148, 163, 184, 0.5)",
+                                  padding: "0 0.65rem",
+                                  background: isDarkMode
+                                    ? "#0f172a"
+                                    : "#ffffff",
+                                  color: isDarkMode ? "#f8fafc" : "#0f172a",
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="btn active-pronto"
+                                style={{
+                                  minHeight: 38,
+                                  padding: "0 0.9rem",
+                                  whiteSpace: "nowrap",
+                                }}
+                                onClick={() =>
+                                  handleConfirmPaymentWithPin(order)
+                                }
+                                disabled={
+                                  isConfirmingPin ||
+                                  isRequestingPin ||
+                                  pinInput.trim().length === 0
+                                }
+                              >
+                                {isConfirmingPin ? "..." : "Confirmar PIN"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {isExpanded && !!order.observation && (
                           <div
                             style={{
                               background: "rgba(239, 68, 68, 0.1)",
@@ -1123,8 +1941,21 @@ export default function StaffDashboard() {
                           <h4>
                             Status:{" "}
                             <span
-                              className={`status-${String(order.status).toLowerCase()}`}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 12,
+                                color: "#475569",
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 6,
+                                padding: "3px 8px",
+                                textTransform: "none",
+                                marginLeft: 4,
+                              }}
                             >
+                              {getStatusValueIcon(order.status)}
                               {String(order.status).replace(/_/g, " ")}
                             </span>
                           </h4>
@@ -1220,6 +2051,12 @@ export default function StaffDashboard() {
                                 }}
                                 onClick={() =>
                                   handleUpdateStatus(order, "ENTREGUE")
+                                }
+                                disabled={pendingDigitalPayment}
+                                title={
+                                  pendingDigitalPayment
+                                    ? "Confirme o pagamento com PIN antes de entregar"
+                                    : ""
                                 }
                               >
                                 <CheckCircle2

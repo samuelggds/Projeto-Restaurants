@@ -12,7 +12,6 @@ import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
 import Register from "../pages/Register/Register";
 import UserProfile from "../pages/Profile/Profile";
 import MyOrders from "../pages/MyOrders/MyOrders";
-import Orders from "../pages/Orders/Orders";
 import EmployeesDashboard from "../pages/Employees/EmployeesDashboard";
 import CourierDashboard from "../pages/Courier/CourierDashboard";
 import SuperAdminDashboard from "../pages/SuperAdmin/SuperAdminDashboard";
@@ -32,7 +31,7 @@ import {
 
 const ROLE_HOME = {
   CLIENTE: "/",
-  FUNCIONARIO: "/orders",
+  FUNCIONARIO: "/employees",
   MOTOQUEIRO: "/courier",
   ADMIN: "/admin",
   SUPER_ADMIN: "/super_admin",
@@ -200,15 +199,11 @@ export default function AppRoutes() {
               <Route path="/admin" element={<AdminDashboard />} />
             </Route>
 
-            <Route element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}>
-              <Route path="/orders" element={<Orders />} />
-            </Route>
-
             <Route element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}>
               <Route path="/courier" element={<CourierDashboard />} />
             </Route>
 
-            <Route element={<RequireRole roles={["ADMIN"]} />}>
+            <Route element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}>
               <Route path="/employees" element={<EmployeesDashboard />} />
             </Route>
           </Route>
