@@ -4,10 +4,11 @@ import resetPasswordByCodeService from "../services/ResetPasswordByCodeService.j
 class ResetPasswordByCodeController {
   async handle(req: Request, res: Response) {
     try {
-      const { email, code, newPassword, confirmPassword } = req.body;
+      const { email, phone, code, newPassword, confirmPassword } = req.body;
 
       const result = await resetPasswordByCodeService.execute({
         email,
+        phone,
         code,
         newPassword,
         confirmPassword,

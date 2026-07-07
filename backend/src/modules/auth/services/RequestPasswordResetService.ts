@@ -27,14 +27,19 @@ function createTransporter() {
 }
 
 class RequestPasswordResetService {
-  async execute({ email }: { email: string }) {
-    forgotPasswordSchema.parse({ email });
+  async execute({ email, phone }: { email?: string; phone?: string }) {
+    forgotPasswordSchema.parse({ email, phone });
 
-    const user = await userRepository.findByEmail(email);
+    const normalizedEmail = String(email || "").trim();
+    const normalizedPhone = String(phone || "").trim();
+
+    const user = normalizedEmail
+      ? await userRepository.findByEmail(normalizedEmail)
+      : await userRepository.findByPhone(normalizedPhone);
 
     // Always return the same response to avoid exposing registered emails.
     const safeMessage =
-      "Se o e-mail existir, enviamos um codigo para redefinir a senha.";
+      "Se os dados informados existirem, enviamos um codigo para redefinir a senha.";
 
     if (!user) {
       return { message: safeMessage };

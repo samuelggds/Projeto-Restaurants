@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, User } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -10,6 +10,23 @@ class UserRepository {
         email,
       },
     });
+  }
+
+  async findByPhone(phone: string, db: PrismaClientLike = prisma) {
+    const normalizedPhone = String(phone || "").replace(/\D/g, "");
+
+    if (!normalizedPhone) {
+      return null;
+    }
+
+    const users = await db.$queryRaw<User[]>`
+      SELECT *
+      FROM "User"
+      WHERE regexp_replace(COALESCE("phone", ''), '[^0-9]', '', 'g') = ${normalizedPhone}
+      LIMIT 1
+    `;
+
+    return users[0] || null;
   }
 
   async create(

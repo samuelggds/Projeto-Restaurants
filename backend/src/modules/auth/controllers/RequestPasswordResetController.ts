@@ -4,8 +4,11 @@ import requestPasswordResetService from "../services/RequestPasswordResetService
 class RequestPasswordResetController {
   async handle(req: Request, res: Response) {
     try {
-      const { email } = req.body;
-      const result = await requestPasswordResetService.execute({ email });
+      const { email, phone } = req.body;
+      const result = await requestPasswordResetService.execute({
+        email,
+        phone,
+      });
 
       return res.status(200).json(result);
     } catch (error: unknown) {

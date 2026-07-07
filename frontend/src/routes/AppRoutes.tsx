@@ -9,6 +9,9 @@ import {
 import { lazy, Suspense, useEffect, useState } from "react";
 
 const Login = lazy(() => import("../pages/Login/Login"));
+const RecoverPassword = lazy(
+  () => import("../pages/RecoverPassword/RecoverPassword"),
+);
 const AdminDashboard = lazy(
   () => import("../pages/AdminDashboard/AdminDashboard"),
 );
@@ -212,6 +215,7 @@ export default function AppRoutes() {
         <Routes>
           <Route element={<SuperAdminScopeGuard />}>
             <Route path="/login" element={<Login />} />
+            <Route path="/recover-password" element={<RecoverPassword />} />
             <Route path="/register" element={<Register />} />
             <Route path="/" element={<Home />} />
             <Route path="/menu" element={<Home />} />

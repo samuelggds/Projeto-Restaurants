@@ -14,13 +14,6 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [showRecovery, setShowRecovery] = useState(false);
-  const [recoveryStep, setRecoveryStep] = useState("request");
-  const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [recoveryCode, setRecoveryCode] = useState("");
-  const [recoveryNewPassword, setRecoveryNewPassword] = useState("");
-  const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
-  const [isRecoveryLoading, setIsRecoveryLoading] = useState(false);
   const [googleStatus, setGoogleStatus] = useState("loading");
   const [googleMessage, setGoogleMessage] = useState("");
   const googleButtonRef = useRef(null);
@@ -215,63 +208,6 @@ export default function Login() {
     }
   };
 
-  const handleRequestPasswordReset = async (e) => {
-    e.preventDefault();
-
-    const targetEmail = String(recoveryEmail || email).trim();
-
-    if (!targetEmail) {
-      toast.error("Digite o e-mail para recuperar a senha.");
-      return;
-    }
-
-    try {
-      setIsRecoveryLoading(true);
-      const result = await authService.forgotPassword({ email: targetEmail });
-      setRecoveryEmail(targetEmail);
-      setRecoveryStep("reset");
-      toast.success(
-        result?.message ||
-          "Se o e-mail existir, enviamos um codigo para redefinir a senha.",
-      );
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.error ||
-          "Nao foi possivel enviar o codigo de recuperacao.",
-      );
-    } finally {
-      setIsRecoveryLoading(false);
-    }
-  };
-
-  const handleResetPasswordByCode = async (e) => {
-    e.preventDefault();
-
-    try {
-      setIsRecoveryLoading(true);
-      const result = await authService.resetPassword({
-        email: recoveryEmail,
-        code: recoveryCode,
-        newPassword: recoveryNewPassword,
-        confirmPassword: recoveryConfirmPassword,
-      });
-
-      toast.success(result?.message || "Senha redefinida com sucesso.");
-      setShowRecovery(false);
-      setRecoveryStep("request");
-      setRecoveryCode("");
-      setRecoveryNewPassword("");
-      setRecoveryConfirmPassword("");
-      setPassword("");
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.error || "Nao foi possivel redefinir a senha.",
-      );
-    } finally {
-      setIsRecoveryLoading(false);
-    }
-  };
-
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
       <S.Container>
@@ -340,14 +276,7 @@ export default function Login() {
                 </S.CheckboxLabel>
                 <S.ForgotLink
                   type="button"
-                  onClick={() => {
-                    setShowRecovery((prev) => !prev);
-                    setRecoveryStep("request");
-                    setRecoveryEmail(email);
-                    setRecoveryCode("");
-                    setRecoveryNewPassword("");
-                    setRecoveryConfirmPassword("");
-                  }}
+                  onClick={() => navigate("/recover-password")}
                 >
                   Esqueceu a senha?
                 </S.ForgotLink>
@@ -355,107 +284,6 @@ export default function Login() {
 
               <S.Button type="submit">Entrar no Sistema</S.Button>
             </S.Form>
-
-            {showRecovery && (
-              <S.Form
-                onSubmit={
-                  recoveryStep === "request"
-                    ? handleRequestPasswordReset
-                    : handleResetPasswordByCode
-                }
-                style={{ marginTop: "1rem", gap: "0.9rem" }}
-              >
-                <S.FormSubtitle style={{ margin: 0 }}>
-                  {recoveryStep === "request"
-                    ? "Informe seu e-mail para receber o codigo de recuperacao."
-                    : "Digite o codigo recebido no e-mail e defina a nova senha."}
-                </S.FormSubtitle>
-
-                <S.InputGroup>
-                  <S.Label htmlFor="recovery-email">E-mail</S.Label>
-                  <S.Input
-                    id="recovery-email"
-                    type="email"
-                    placeholder="exemplo@email.com"
-                    value={recoveryEmail}
-                    onChange={(event) => setRecoveryEmail(event.target.value)}
-                    required
-                  />
-                </S.InputGroup>
-
-                {recoveryStep === "reset" && (
-                  <>
-                    <S.InputGroup>
-                      <S.Label htmlFor="recovery-code">Codigo</S.Label>
-                      <S.Input
-                        id="recovery-code"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder="Codigo de 6 digitos"
-                        value={recoveryCode}
-                        onChange={(event) =>
-                          setRecoveryCode(
-                            event.target.value.replace(/\D/g, "").slice(0, 6),
-                          )
-                        }
-                        required
-                      />
-                    </S.InputGroup>
-
-                    <S.InputGroup>
-                      <S.Label htmlFor="recovery-new-password">
-                        Nova senha
-                      </S.Label>
-                      <S.Input
-                        id="recovery-new-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={recoveryNewPassword}
-                        onChange={(event) =>
-                          setRecoveryNewPassword(event.target.value)
-                        }
-                        required
-                      />
-                    </S.InputGroup>
-
-                    <S.InputGroup>
-                      <S.Label htmlFor="recovery-confirm-password">
-                        Confirmar nova senha
-                      </S.Label>
-                      <S.Input
-                        id="recovery-confirm-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={recoveryConfirmPassword}
-                        onChange={(event) =>
-                          setRecoveryConfirmPassword(event.target.value)
-                        }
-                        required
-                      />
-                    </S.InputGroup>
-                  </>
-                )}
-
-                <S.Button type="submit" disabled={isRecoveryLoading}>
-                  {isRecoveryLoading
-                    ? "Processando..."
-                    : recoveryStep === "request"
-                      ? "Enviar codigo"
-                      : "Redefinir senha"}
-                </S.Button>
-
-                {recoveryStep === "reset" && (
-                  <S.ForgotLink
-                    type="button"
-                    onClick={handleRequestPasswordReset}
-                    disabled={isRecoveryLoading}
-                  >
-                    Reenviar codigo
-                  </S.ForgotLink>
-                )}
-              </S.Form>
-            )}
 
             <S.Divider>ou</S.Divider>
             <S.GoogleButtonContainer>

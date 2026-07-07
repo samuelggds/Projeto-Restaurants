@@ -5,23 +5,31 @@ import { resetPasswordSchema } from "../../../validators/ForgotPasswordValidator
 class ResetPasswordByCodeService {
   async execute({
     email,
+    phone,
     code,
     newPassword,
     confirmPassword,
   }: {
-    email: string;
+    email?: string;
+    phone?: string;
     code: string;
     newPassword: string;
     confirmPassword: string;
   }) {
     resetPasswordSchema.parse({
       email,
+      phone,
       code,
       newPassword,
       confirmPassword,
     });
 
-    const user = await userRepository.findByEmail(email);
+    const normalizedEmail = String(email || "").trim();
+    const normalizedPhone = String(phone || "").trim();
+
+    const user = normalizedEmail
+      ? await userRepository.findByEmail(normalizedEmail)
+      : await userRepository.findByPhone(normalizedPhone);
 
     if (
       !user?.resetPasswordCodeHash ||
