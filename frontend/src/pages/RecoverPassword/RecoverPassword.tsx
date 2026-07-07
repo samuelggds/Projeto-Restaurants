@@ -10,7 +10,7 @@ type ContactMethod = "email" | "phone";
 export default function RecoverPassword() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [step, setStep] = useState<"request" | "reset">("request");
-  const [contactMethod, setContactMethod] = useState<ContactMethod>("email");
+  const [contactMethod, setContactMethod] = useState<ContactMethod>("phone");
   const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -120,7 +120,12 @@ export default function RecoverPassword() {
                 <S.SwitchButton
                   type="button"
                   $active={contactMethod === "email"}
-                  onClick={() => setContactMethod("email")}
+                  onClick={() => {
+                    toast.info(
+                      "Recuperacao por e-mail esta temporariamente indisponivel.",
+                    );
+                    setContactMethod("phone");
+                  }}
                 >
                   E-mail
                 </S.SwitchButton>

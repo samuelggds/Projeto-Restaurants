@@ -39,6 +39,18 @@ export const SwitchButton = styled.button<{ $active: boolean }>`
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`;
+
+export const AvailabilityNote = styled.p`
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: ${(props) => props.theme.textMuted};
 `;
 
 export const FooterRow = styled.div`
