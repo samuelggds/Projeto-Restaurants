@@ -26,6 +26,27 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function normalizeRole(role: unknown) {
+  if (typeof role !== "string") {
+    return role;
+  }
+
+  return role.trim().toUpperCase();
+}
+
+function sanitizeUserRole<T extends Record<string, unknown> | null>(
+  userData: T,
+): T {
+  if (!userData || typeof userData !== "object") {
+    return userData;
+  }
+
+  return {
+    ...userData,
+    role: normalizeRole(userData.role),
+  } as T;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {
         ...safeStoredUser,
         ...remoteUser,
+        role: normalizeRole(remoteUser.role ?? safeStoredUser.role),
         phone: remoteUser.phone ?? safeStoredUser.phone ?? "",
         address: remoteUser.address ?? safeStoredUser.address ?? "",
         number: remoteUser.number ?? safeStoredUser.number ?? "",
@@ -62,7 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function bootstrapAuth() {
       const storedUserRaw = localStorage.getItem("user");
-      const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+      const storedUser = storedUserRaw
+        ? sanitizeUserRole(JSON.parse(storedUserRaw))
+        : null;
       const token = localStorage.getItem("token");
 
       if (!token) {
@@ -107,9 +131,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   function login(userData: AuthUser, token: string) {
+    const normalizedUserData = sanitizeUserRole(userData);
     localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(userData));
-    setUser(userData);
+    localStorage.setItem("user", JSON.stringify(normalizedUserData));
+    setUser(normalizedUserData);
   }
 
   function logout() {

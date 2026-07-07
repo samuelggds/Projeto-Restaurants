@@ -7,8 +7,6 @@ import {
   Utensils,
   Bell,
   BellRing,
-  Sun,
-  Moon,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -35,9 +33,6 @@ const TablesTab = lazy(() => import("./components/TablesTab"));
 const ProfileTab = lazy(() => import("./components/ProfileTab"));
 const OrdersTab = lazy(() => import("./components/OrdersTab"));
 
-const CLOSABLE_ORDER_STATUSES = ["ENTREGUE", "CANCELADO"];
-const CLOSED_COMPLETED_ORDERS_STORAGE_KEY =
-  "@PecaJaFood:employeesClosedCompletedOrders";
 const GENERATED_PINS_STORAGE_KEY = "@PecaJaFood:generatedTablePins";
 const NOTIFICATIONS_ENABLED_STORAGE_KEY =
   "@PecaJaFood:employeesNotificationsEnabled";
@@ -151,31 +146,6 @@ function getInitialGeneratedPins() {
     }, {});
   } catch {
     return {};
-  }
-}
-
-function getInitialClosedCompletedOrders() {
-  const raw = localStorage.getItem(CLOSED_COMPLETED_ORDERS_STORAGE_KEY);
-
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .map((value) => Number(value))
-      .filter((value, index, array) =>
-        Number.isInteger(value) && value > 0
-          ? array.indexOf(value) === index
-          : false,
-      );
-  } catch {
-    return [];
   }
 }
 
@@ -315,7 +285,7 @@ async function showBrowserNotification(message, tableLabel) {
 export default function StaffDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(
@@ -327,12 +297,9 @@ export default function StaffDashboard() {
   const [orders, setOrders] = useState([]);
   const [tables, setTables] = useState([]);
   const [openSessions, setOpenSessions] = useState([]);
-  const [closingOrderIds, setClosingOrderIds] = useState([]);
+  const [closingOrderIds, _setClosingOrderIds] = useState([]);
   const [openingTableIds, setOpeningTableIds] = useState([]);
   const [closingSessionIds, setClosingSessionIds] = useState([]);
-  const [closedCompletedOrderIds, setClosedCompletedOrderIds] = useState(
-    getInitialClosedCompletedOrders,
-  );
   const [requestingPinOrderIds, setRequestingPinOrderIds] = useState([]);
   const [confirmingPinOrderIds, setConfirmingPinOrderIds] = useState([]);
   const [pinInputByOrderId, setPinInputByOrderId] = useState({});
@@ -392,13 +359,6 @@ export default function StaffDashboard() {
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      CLOSED_COMPLETED_ORDERS_STORAGE_KEY,
-      JSON.stringify(closedCompletedOrderIds),
-    );
-  }, [closedCompletedOrderIds]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -462,12 +422,6 @@ export default function StaffDashboard() {
     };
 
     const onStatusChanged = (order) => {
-      if (!CLOSABLE_ORDER_STATUSES.includes(order?.status)) {
-        setClosedCompletedOrderIds((prev) =>
-          prev.filter((id) => id !== order.id),
-        );
-      }
-
       if (order?.paid === true) {
         setPinInputByOrderId((prev) => {
           const next = { ...prev };
@@ -606,12 +560,6 @@ export default function StaffDashboard() {
         prev.map((item) => (item.id === order.id ? updated : item)),
       );
 
-      if (!CLOSABLE_ORDER_STATUSES.includes(nextStatus)) {
-        setClosedCompletedOrderIds((prev) =>
-          prev.filter((id) => id !== order.id),
-        );
-      }
-
       toast.info(
         `Pedido #${order.id} alterado para ${nextStatus.replace(/_/g, " ")}`,
       );
@@ -695,26 +643,6 @@ export default function StaffDashboard() {
   function handleLogout() {
     logout();
     navigate("/login");
-  }
-
-  function handleCloseCompletedOrder(orderId) {
-    const targetOrder = orders.find((order) => order.id === orderId);
-
-    if (!targetOrder || !CLOSABLE_ORDER_STATUSES.includes(targetOrder.status)) {
-      return;
-    }
-
-    setClosingOrderIds((prev) =>
-      prev.includes(orderId) ? prev : [...prev, orderId],
-    );
-
-    setTimeout(() => {
-      setClosedCompletedOrderIds((prev) =>
-        prev.includes(orderId) ? prev : [...prev, orderId],
-      );
-      setOrders((prev) => prev.filter((order) => order.id !== orderId));
-      setClosingOrderIds((prev) => prev.filter((id) => id !== orderId));
-    }, 320);
   }
 
   function toggleOrderExpanded(orderId) {
@@ -827,13 +755,7 @@ export default function StaffDashboard() {
   }
 
   const filteredOrders = useMemo(() => {
-    const visibleOrders = orders.filter(
-      (order) =>
-        !(
-          CLOSABLE_ORDER_STATUSES.includes(order.status) &&
-          closedCompletedOrderIds.includes(order.id)
-        ),
-    );
+    const visibleOrders = orders;
 
     const visibleByType =
       orderTypeFilter === "TODOS"
@@ -861,16 +783,10 @@ export default function StaffDashboard() {
     }
 
     return visibleByType.filter((order) => order.status === statusFilter);
-  }, [orders, statusFilter, orderTypeFilter, closedCompletedOrderIds]);
+  }, [orders, statusFilter, orderTypeFilter]);
 
   const ordersByTypeForCounters = useMemo(() => {
-    const visibleOrders = orders.filter(
-      (order) =>
-        !(
-          CLOSABLE_ORDER_STATUSES.includes(order.status) &&
-          closedCompletedOrderIds.includes(order.id)
-        ),
-    );
+    const visibleOrders = orders;
 
     if (orderTypeFilter === "TODOS") {
       return visibleOrders;
@@ -893,7 +809,7 @@ export default function StaffDashboard() {
 
       return true;
     });
-  }, [orders, orderTypeFilter, closedCompletedOrderIds]);
+  }, [orders, orderTypeFilter]);
 
   const statusCounters = useMemo(() => {
     const base = {
@@ -1297,12 +1213,6 @@ export default function StaffDashboard() {
               )}
             </S.ThemeToggle>
 
-            <S.ThemeToggle onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-              {!isSidebarCollapsed && (
-                <span>{isDarkMode ? "Modo Claro" : "Modo Escuro"}</span>
-              )}
-            </S.ThemeToggle>
             <S.NavButton
               style={{ marginTop: "0.5rem", color: "#ef4444" }}
               onClick={handleLogout}
@@ -1433,12 +1343,10 @@ export default function StaffDashboard() {
                 requestingPinOrderIds={requestingPinOrderIds}
                 confirmingPinOrderIds={confirmingPinOrderIds}
                 paymentPinToolsEnabled={PAYMENT_PIN_TOOLS_ENABLED}
-                closableOrderStatuses={CLOSABLE_ORDER_STATUSES}
                 orderStatusMeta={ORDER_STATUS_META}
                 onSetOrderTypeFilter={setOrderTypeFilter}
                 onSetStatusFilter={setStatusFilter}
                 onToggleOrderExpanded={toggleOrderExpanded}
-                onCloseCompletedOrder={handleCloseCompletedOrder}
                 onSetPinInputByOrderId={setPinInputByOrderId}
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}

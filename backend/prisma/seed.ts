@@ -6,6 +6,22 @@ const prisma = new PrismaClient();
 const BASE_PASSWORD = "123456";
 const RESTAURANT_SLUG = "pizza-ia-demo";
 
+function isProductionEnvironment() {
+  const nodeEnv = String(process.env.NODE_ENV || "")
+    .trim()
+    .toLowerCase();
+
+  return nodeEnv === "production" || nodeEnv === "prod";
+}
+
+function isProdSeedExplicitlyAllowed() {
+  const allowSeed = String(process.env.ALLOW_PROD_SEED || "")
+    .trim()
+    .toLowerCase();
+
+  return allowSeed === "1" || allowSeed === "true" || allowSeed === "yes";
+}
+
 async function upsertUser({ email, name, role, restaurantId = null }) {
   const passwordHash = await bcrypt.hash(BASE_PASSWORD, 10);
 
@@ -134,6 +150,12 @@ async function upsertTable({ restaurantId, number, token }) {
 }
 
 async function main() {
+  if (isProductionEnvironment() && !isProdSeedExplicitlyAllowed()) {
+    throw new Error(
+      "Seed bloqueado em producao. Defina ALLOW_PROD_SEED=true apenas se realmente quiser executar.",
+    );
+  }
+
   const restaurant = await prisma.restaurant.upsert({
     where: { slug: RESTAURANT_SLUG },
     update: {

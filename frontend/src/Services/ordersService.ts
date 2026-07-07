@@ -3,6 +3,65 @@ import api from "./api";
 type OrderPayload = Record<string, unknown>;
 type PixPaymentPayload = Record<string, unknown>;
 type PixPaymentStatusPayload = Record<string, unknown>;
+type GenericRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): GenericRecord | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as GenericRecord;
+}
+
+function normalizeOrderItem(item: unknown) {
+  const record = asRecord(item);
+  if (!record) {
+    return item;
+  }
+
+  const productRecord = asRecord(record.product) || {};
+  const fallbackName =
+    String(record.productName || record.name || record.title || "").trim() ||
+    undefined;
+
+  return {
+    ...record,
+    quantity: Number(record.quantity || 0) || 0,
+    product: {
+      ...productRecord,
+      name: productRecord.name || fallbackName,
+    },
+  };
+}
+
+function normalizeOrder(order: unknown) {
+  const record = asRecord(order);
+  if (!record) {
+    return order;
+  }
+
+  const rawItems = Array.isArray(record.items)
+    ? record.items
+    : Array.isArray(record.orderItems)
+      ? record.orderItems
+      : [];
+
+  return {
+    ...record,
+    items: rawItems.map(normalizeOrderItem),
+  };
+}
+
+function normalizeOrdersPayload(payload: unknown) {
+  const payloadRecord = asRecord(payload);
+  const candidate = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payloadRecord?.orders)
+      ? payloadRecord.orders
+      : [];
+
+  return candidate.map(normalizeOrder);
+}
 
 class OrdersService {
   async listRestaurantOrders(status?: string) {
@@ -10,7 +69,7 @@ class OrdersService {
       params: status ? { status } : undefined,
     });
 
-    return response.data;
+    return normalizeOrdersPayload(response.data);
   }
 
   async listMyOrders() {

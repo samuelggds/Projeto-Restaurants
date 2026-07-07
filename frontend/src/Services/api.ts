@@ -52,11 +52,14 @@ function getApiBaseUrls() {
   const runtimeCandidates =
     getHostCandidates(runtimeHost).map(normalizeBaseUrl);
   const runtimeUrl = normalizeBaseUrl(getRuntimeBaseUrl());
+  const defaultLoopbackUrl = "http://127.0.0.1:3000";
   const defaultLocalUrl = "http://localhost:3000";
   const urls = new Set<string>();
 
-  if (configuredUrl) {
-    urls.add(configuredUrl);
+  // In local development, prefer loopback endpoints first to avoid stale LAN hosts.
+  if (LOCAL_HOSTS.includes(runtimeHost)) {
+    urls.add(defaultLoopbackUrl);
+    urls.add(defaultLocalUrl);
   }
 
   if (runtimeUrl) {
@@ -69,11 +72,11 @@ function getApiBaseUrls() {
     }
   }
 
-  if (LOCAL_HOSTS.includes(runtimeHost)) {
-    urls.add(defaultLocalUrl);
+  if (configuredUrl) {
+    urls.add(configuredUrl);
   }
 
-  return urls.size ? Array.from(urls) : [defaultLocalUrl];
+  return urls.size ? Array.from(urls) : [defaultLoopbackUrl, defaultLocalUrl];
 }
 
 const API_BASE_URLS: string[] = getApiBaseUrls();

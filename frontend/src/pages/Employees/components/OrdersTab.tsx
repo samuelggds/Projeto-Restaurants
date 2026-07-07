@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -17,6 +17,8 @@ import * as S from "../styles";
 
 type OrderItem = {
   quantity?: number;
+  name?: string;
+  productName?: string;
   product?: {
     name?: string;
   };
@@ -54,12 +56,10 @@ type OrdersTabProps = {
   requestingPinOrderIds: number[];
   confirmingPinOrderIds: number[];
   paymentPinToolsEnabled: boolean;
-  closableOrderStatuses: string[];
   orderStatusMeta: Record<string, { label: string; color: string }>;
   onSetOrderTypeFilter: (value: string) => void;
   onSetStatusFilter: (value: string) => void;
   onToggleOrderExpanded: (orderId: number) => void;
-  onCloseCompletedOrder: (orderId: number) => void;
   onSetPinInputByOrderId: (
     updater: (prev: Record<number, string>) => Record<number, string>,
   ) => void;
@@ -99,12 +99,10 @@ export default function OrdersTab({
   requestingPinOrderIds,
   confirmingPinOrderIds,
   paymentPinToolsEnabled,
-  closableOrderStatuses,
   orderStatusMeta,
   onSetOrderTypeFilter,
   onSetStatusFilter,
   onToggleOrderExpanded,
-  onCloseCompletedOrder,
   onSetPinInputByOrderId,
   onRequestPaymentPin,
   onConfirmPaymentWithPin,
@@ -118,6 +116,32 @@ export default function OrdersTab({
   getStatusValueIcon,
   getOrderTypeDisplayLabel,
 }: OrdersTabProps) {
+  const INITIAL_VISIBLE_ORDERS = 12;
+  const LOAD_MORE_STEP = 12;
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ORDERS);
+  const [orderIdSearch, setOrderIdSearch] = useState("");
+
+  const searchedOrders = useMemo(() => {
+    const normalizedSearch = orderIdSearch.trim();
+
+    if (!normalizedSearch) {
+      return filteredOrders;
+    }
+
+    return filteredOrders.filter((order) =>
+      String(order?.id ?? "").includes(normalizedSearch),
+    );
+  }, [filteredOrders, orderIdSearch]);
+
+  const displayedOrders = useMemo(
+    () => searchedOrders.slice(0, visibleLimit),
+    [searchedOrders, visibleLimit],
+  );
+  const hiddenOrdersCount = Math.max(
+    searchedOrders.length - displayedOrders.length,
+    0,
+  );
+
   return (
     <div>
       <S.PageHeader>
@@ -129,18 +153,6 @@ export default function OrdersTab({
           }}
         >
           Pedidos em Tempo Real
-          <span
-            style={{
-              fontSize: "0.76rem",
-              fontWeight: 800,
-              padding: "0.22rem 0.55rem",
-              borderRadius: 999,
-              background: "rgba(234, 29, 44, 0.16)",
-              color: isDarkMode ? "#fecdd3" : "#9f1239",
-            }}
-          >
-            {filteredOrders.length}
-          </span>
         </h2>
         <p>Painel operacional no estilo motoqueiro com fluxo completo.</p>
       </S.PageHeader>
@@ -306,8 +318,127 @@ export default function OrdersTab({
         ))}
       </div>
 
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "0.65rem",
+          marginBottom: "0.9rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          style={{
+            width: "min(320px, 100%)",
+            position: "relative",
+          }}
+        >
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={orderIdSearch}
+            onChange={(event) => {
+              setOrderIdSearch(
+                event.target.value.replace(/\D/g, "").slice(0, 10),
+              );
+              setVisibleLimit(INITIAL_VISIBLE_ORDERS);
+            }}
+            placeholder="Buscar por ID do pedido"
+            style={{
+              width: "100%",
+              minHeight: 38,
+              borderRadius: 10,
+              border: "1px solid rgba(148, 163, 184, 0.45)",
+              padding: "0 2.2rem 0 0.75rem",
+              background: "#ffffff",
+              color: "#0f172a",
+              fontWeight: 600,
+            }}
+          />
+
+          {orderIdSearch ? (
+            <button
+              type="button"
+              aria-label="Limpar busca por ID"
+              title="Limpar"
+              onClick={() => {
+                setOrderIdSearch("");
+                setVisibleLimit(INITIAL_VISIBLE_ORDERS);
+              }}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 24,
+                height: 24,
+                borderRadius: 999,
+                border: "1px solid rgba(148, 163, 184, 0.45)",
+                background: "#ffffff",
+                color: "#475569",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              <X size={14} />
+            </button>
+          ) : null}
+        </div>
+
+        <small style={{ opacity: 0.72, fontWeight: 600 }}>
+          Exibindo {displayedOrders.length} de {searchedOrders.length} pedidos
+        </small>
+
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {hiddenOrdersCount > 0 ? (
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleLimit((prev) =>
+                  Math.min(prev + LOAD_MORE_STEP, searchedOrders.length),
+                )
+              }
+              style={{
+                border: "1px solid rgba(148, 163, 184, 0.45)",
+                background: "#eef2f7",
+                color: "#0f172a",
+                borderRadius: 999,
+                padding: "0.38rem 0.78rem",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Mostrar +{Math.min(LOAD_MORE_STEP, hiddenOrdersCount)}
+            </button>
+          ) : null}
+
+          {displayedOrders.length > INITIAL_VISIBLE_ORDERS ? (
+            <button
+              type="button"
+              onClick={() => setVisibleLimit(INITIAL_VISIBLE_ORDERS)}
+              style={{
+                border: "1px solid rgba(148, 163, 184, 0.45)",
+                background: "#ffffff",
+                color: "#334155",
+                borderRadius: 999,
+                padding: "0.38rem 0.78rem",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Mostrar menos
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <S.OrdersGrid>
-        {filteredOrders.length === 0 ? (
+        {searchedOrders.length === 0 ? (
           <p
             style={{
               gridColumn: "1/-1",
@@ -316,10 +447,10 @@ export default function OrdersTab({
               padding: "2rem",
             }}
           >
-            Nenhum pedido encontrado neste status.
+            Nenhum pedido encontrado para esse filtro.
           </p>
         ) : (
-          filteredOrders.map((order) => {
+          displayedOrders.map((order) => {
             const isDelivery = String(order.type).includes("DELIVERY");
             const deliveryCustomerName = "Admin Pizza IA";
             const paymentSummaryLabel = getPaymentSummaryLabel(order);
@@ -346,6 +477,7 @@ export default function OrdersTab({
               borderRadius: 6,
               padding: "3px 8px",
             };
+            const orderItems = Array.isArray(order?.items) ? order.items : [];
 
             return (
               <S.OrderCard
@@ -408,14 +540,20 @@ export default function OrdersTab({
                       type="button"
                       onClick={() => onToggleOrderExpanded(order.id)}
                       style={{
-                        border: "none",
-                        background: "transparent",
-                        color: isDarkMode ? "#cbd5e1" : "#334155",
+                        width: 32,
+                        height: 32,
+                        borderRadius: 999,
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        background: isDarkMode
+                          ? "rgba(148, 163, 184, 0.18)"
+                          : "rgba(15, 23, 42, 0.06)",
+                        color: isDarkMode ? "#f8fafc" : "#0f172a",
                         cursor: "pointer",
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
                         marginRight: "0.1rem",
+                        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.12)",
                       }}
                       title={isExpanded ? "Recolher" : "Expandir"}
                       aria-label={
@@ -428,17 +566,6 @@ export default function OrdersTab({
                         <ChevronDown size={16} />
                       )}
                     </button>
-
-                    {closableOrderStatuses.includes(String(order.status)) && (
-                      <S.CloseCompletedButton
-                        type="button"
-                        onClick={() => onCloseCompletedOrder(order.id)}
-                        aria-label={`Fechar pedido ${order.id}`}
-                        title="Fechar pedido concluído"
-                      >
-                        <X size={14} />
-                      </S.CloseCompletedButton>
-                    )}
                   </S.CardHeaderActions>
                 </div>
 
@@ -471,15 +598,31 @@ export default function OrdersTab({
                     opacity: isExpanded ? 1 : 0.82,
                   }}
                 >
-                  {(order.items || []).map((item, index) => (
-                    <span
-                      key={`${order.id}-${String(item?.product?.name || "item")}-${index}`}
-                      style={infoChipStyle}
-                    >
+                  {orderItems.length > 0 ? (
+                    orderItems.map((item, index) => {
+                      const itemName =
+                        item?.product?.name ||
+                        item?.productName ||
+                        item?.name ||
+                        "Produto";
+                      const quantity = Number(item?.quantity || 0) || 1;
+
+                      return (
+                        <span
+                          key={`${order.id}-${String(itemName)}-${index}`}
+                          style={infoChipStyle}
+                        >
+                          <Package size={13} />
+                          {`${quantity}x ${itemName}`}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span style={infoChipStyle}>
                       <Package size={13} />
-                      {`${item.quantity}x ${item?.product?.name || "Produto"}`}
+                      Sem itens no pedido
                     </span>
-                  ))}
+                  )}
                 </div>
 
                 {isExpanded && isDelivery ? (
@@ -488,8 +631,18 @@ export default function OrdersTab({
                       marginTop: "0.4rem",
                       marginBottom: "0.55rem",
                       fontSize: "0.88rem",
-                      color: isDarkMode ? "#cbd5e1" : "#334155",
+                      color: isDarkMode ? "#f1f5f9" : "#1e293b",
                       lineHeight: 1.45,
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                      background: isDarkMode
+                        ? "rgba(15, 23, 42, 0.4)"
+                        : "rgba(248, 250, 252, 0.9)",
+                      border: isDarkMode
+                        ? "1px solid rgba(148, 163, 184, 0.28)"
+                        : "1px solid rgba(203, 213, 225, 0.9)",
+                      borderRadius: 10,
+                      padding: "0.6rem 0.7rem",
                     }}
                   >
                     <div>

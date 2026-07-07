@@ -24,7 +24,11 @@ On the backend server:
 4. Run Prisma migrations:
    - `cd backend`
    - `npx prisma migrate deploy`
-5. Start backend:
+5. Nao rode seed em producao:
+   - Evite `npm run db:seed` no deploy.
+   - O seed esta protegido para bloquear quando `NODE_ENV=production`.
+   - So execute seed em producao se for intencional e explicito usando `ALLOW_PROD_SEED=true`.
+6. Start backend:
    - `npm run start`
    - Recommended: use PM2 (`pm2 start src/server.js --name pizza-backend`)
 

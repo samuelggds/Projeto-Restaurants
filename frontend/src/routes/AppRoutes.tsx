@@ -94,6 +94,14 @@ function SuperAdminScopeGuard() {
     return <Navigate to="/super_admin" replace />;
   }
 
+  if (
+    user?.role &&
+    user.role !== "SUPER_ADMIN" &&
+    location.pathname === "/super_admin"
+  ) {
+    return <Navigate to={getRoleHome(user.role)} replace />;
+  }
+
   return <Outlet />;
 }
 

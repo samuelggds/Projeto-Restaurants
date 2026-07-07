@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import {
   Utensils,
-  Sun,
-  Moon,
   Home,
   User,
   FolderPlus,
@@ -25,7 +23,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import ordersService from "../../Services/ordersService";
+import ordersService from "../../Services/ordersService.js";
 import categoriesService from "../../Services/categoriesService";
 import productsService from "../../Services/productsService";
 import employeesService from "../../Services/employeesService";
@@ -63,10 +61,6 @@ const STATUS_FILTER_TONE_BY_STATUS = {
   ENTREGUE: "success",
   CANCELADO: "danger",
 };
-const CLOSABLE_ORDER_STATUSES = ["ENTREGUE", "CANCELADO"];
-const CLOSABLE_PICKUP_ORDER_STATUSES = ["ENTREGUE"];
-const CLOSED_DELIVERED_ORDERS_STORAGE_KEY =
-  "@PecaJaFood:adminClosedDeliveredOrders";
 const DELIVERY_PENDING_DIGITAL_METHODS = new Set([
   "PIX",
   "CARTAO",
@@ -114,17 +108,6 @@ function getAvailableStatusesByOrderType(orderType) {
   }
 
   return ORDER_STATUSES;
-}
-
-function canCloseOrder(order) {
-  const normalizedType = String(order?.type || "").toUpperCase();
-  const normalizedStatus = String(order?.status || "").toUpperCase();
-
-  if (normalizedType === "RETIRADA") {
-    return CLOSABLE_PICKUP_ORDER_STATUSES.includes(normalizedStatus);
-  }
-
-  return CLOSABLE_ORDER_STATUSES.includes(normalizedStatus);
 }
 
 function matchesOrderTypeFilter(order, orderTypeFilter) {
@@ -465,31 +448,6 @@ function getEmployeeCreationErrorFeedback(err) {
   };
 }
 
-function getInitialClosedDeliveredOrders() {
-  const raw = localStorage.getItem(CLOSED_DELIVERED_ORDERS_STORAGE_KEY);
-
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .map((value) => Number(value))
-      .filter((value, index, array) =>
-        Number.isInteger(value) && value > 0
-          ? array.indexOf(value) === index
-          : false,
-      );
-  } catch {
-    return [];
-  }
-}
-
 function resolveMenuBaseUrl() {
   if (typeof window === "undefined") {
     return null;
@@ -700,7 +658,7 @@ function playPinRequestedSound() {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(
@@ -712,7 +670,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [orderTypeFilter, setOrderTypeFilter] = useState("TODOS");
   const [statusFilter, setStatusFilter] = useState("TODOS");
-  const [closingOrderIds, setClosingOrderIds] = useState([]);
+  const [closingOrderIds, _setClosingOrderIds] = useState([]);
   const [generatingPinOrderIds, setGeneratingPinOrderIds] = useState([]);
   const [requestingPaymentPinOrderIds, setRequestingPaymentPinOrderIds] =
     useState([]);
@@ -726,9 +684,6 @@ export default function AdminDashboard() {
   const [isSidebarGeneratingPin, setIsSidebarGeneratingPin] = useState(false);
   const [sidebarGeneratedPin, setSidebarGeneratedPin] = useState(null);
   const pinToastDedupRef = useRef({});
-  const [closedDeliveredOrderIds, setClosedDeliveredOrderIds] = useState(
-    getInitialClosedDeliveredOrders,
-  );
   const [employees, setEmployees] = useState([]);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
@@ -869,13 +824,6 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(
-      CLOSED_DELIVERED_ORDERS_STORAGE_KEY,
-      JSON.stringify(closedDeliveredOrderIds),
-    );
-  }, [closedDeliveredOrderIds]);
-
-  useEffect(() => {
     let mounted = true;
 
     async function refreshProductsTabData() {
@@ -973,12 +921,6 @@ export default function AdminDashboard() {
     };
 
     const onStatusChanged = (order) => {
-      if (!canCloseOrder(order)) {
-        setClosedDeliveredOrderIds((prev) =>
-          prev.filter((id) => id !== order.id),
-        );
-      }
-
       setOrders((prev) =>
         prev.map((item) => (item.id === order.id ? order : item)),
       );
@@ -1240,12 +1182,6 @@ export default function AdminDashboard() {
       const updated = await ordersService.updateStatus(orderId, newStatus);
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
 
-      if (!CLOSABLE_ORDER_STATUSES.includes(newStatus)) {
-        setClosedDeliveredOrderIds((prev) =>
-          prev.filter((id) => id !== orderId),
-        );
-      }
-
       toast.info(`Pedido #${orderId} alterado para ${newStatus}`);
     } catch (err) {
       const message = err?.response?.data?.error || "Erro ao atualizar status";
@@ -1256,26 +1192,6 @@ export default function AdminDashboard() {
           : message;
       toast.error(friendlyMessage);
     }
-  };
-
-  const handleCloseDeliveredOrder = (orderId) => {
-    const targetOrder = orders.find((order) => order.id === orderId);
-
-    if (!targetOrder || !canCloseOrder(targetOrder)) {
-      return;
-    }
-
-    setClosingOrderIds((prev) =>
-      prev.includes(orderId) ? prev : [...prev, orderId],
-    );
-
-    setTimeout(() => {
-      setClosedDeliveredOrderIds((prev) =>
-        prev.includes(orderId) ? prev : [...prev, orderId],
-      );
-      setOrders((prev) => prev.filter((order) => order.id !== orderId));
-      setClosingOrderIds((prev) => prev.filter((id) => id !== orderId));
-    }, 320);
   };
 
   const toggleOrderExpanded = (orderId) => {
@@ -1478,10 +1394,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const unarchivedOrders = orders.filter(
-    (order) =>
-      !(canCloseOrder(order) && closedDeliveredOrderIds.includes(order.id)),
-  );
+  const unarchivedOrders = orders;
 
   const orderTypeCounters = {
     TODOS: unarchivedOrders.length,
@@ -2797,13 +2710,6 @@ export default function AdminDashboard() {
               </form>
             )}
 
-            <S.ThemeToggle onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-              {!isSidebarCollapsed && (
-                <span>{isDarkMode ? "Modo Claro" : "Modo Escuro"}</span>
-              )}
-            </S.ThemeToggle>
-
             <S.NavButton
               style={{ marginTop: "0.5rem", color: "#ef4444" }}
               onClick={handleLogout}
@@ -2865,7 +2771,6 @@ export default function AdminDashboard() {
                 onSetOrderTypeFilter={setOrderTypeFilter}
                 onSetStatusFilter={setStatusFilter}
                 onToggleOrderExpanded={toggleOrderExpanded}
-                onCloseDeliveredOrder={handleCloseDeliveredOrder}
                 onGeneratePaymentPin={handleGeneratePaymentPin}
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onSetPaymentPinInputByOrderId={setPaymentPinInputByOrderId}
@@ -2882,7 +2787,6 @@ export default function AdminDashboard() {
                 getAvailableStatusesByOrderType={
                   getAvailableStatusesByOrderType
                 }
-                canCloseOrder={canCloseOrder}
               />
             </Suspense>
           )}

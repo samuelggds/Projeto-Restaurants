@@ -286,6 +286,7 @@ export const OrdersGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
+  align-items: start;
 
   @media (max-width: 680px) {
     grid-template-columns: 1fr;
@@ -461,8 +462,8 @@ export const OrderCard = styled.div`
     max-height 0.28s ease,
     margin 0.28s ease,
     padding 0.28s ease;
-  max-height: ${(props) => (props.$hasPinSection ? "1200px" : "520px")};
-  overflow: ${(props) => (props.$hasPinSection ? "visible" : "hidden")};
+  max-height: none;
+  overflow: visible;
 
   @media (max-width: 480px) {
     padding: 1rem;
