@@ -1,3 +1,4 @@
+import { Request, Response } from "express";
 import billingRepository from "../repositories/BillingRepository.js";
 import processPaymentService from "../services/ProcessPaymentService.js";
 import {
@@ -7,7 +8,7 @@ import {
 import { debug, info, error as logError } from "../utils/billingLogger.js";
 
 class BillingWebhookController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const payment = req.body;
 
@@ -53,9 +54,9 @@ class BillingWebhookController {
       info("test webhook processed", { invoiceId });
 
       return res.sendStatus(200);
-    } catch (error) {
+    } catch (error: unknown) {
       logError("test webhook failed", {
-        message: error?.message || String(error),
+        message: error instanceof Error ? error.message : String(error),
       });
 
       return res.sendStatus(200);

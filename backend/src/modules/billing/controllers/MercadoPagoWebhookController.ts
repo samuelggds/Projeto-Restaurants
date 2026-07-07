@@ -1,3 +1,4 @@
+import { Request, Response } from "express";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import processPaymentService from "../services/ProcessPaymentService.js";
 import {
@@ -11,7 +12,7 @@ const client = new MercadoPagoConfig({
 });
 
 class MercadoPagoWebhookController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const paymentId = req.body?.data?.id || req.body?.id || req.query?.id;
       debug("MP webhook received", { paymentId });
@@ -46,9 +47,9 @@ class MercadoPagoWebhookController {
 
       info("webhook processed", { invoiceId });
       return res.sendStatus(200);
-    } catch (err) {
+    } catch (err: unknown) {
       logError("webhook processing failed", {
-        message: err?.message || String(err),
+        message: err instanceof Error ? err.message : String(err),
       });
       return res.sendStatus(500);
     }

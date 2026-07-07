@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import billingRepository from "../repositories/BillingRepository.js";
 
 class GetInvoicesController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
 
@@ -16,10 +17,11 @@ class GetInvoicesController {
         await billingRepository.findInvoicesByRestaurantId(restaurantId);
 
       return res.status(200).json(invoices);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching invoices:", error);
       return res.status(500).json({
-        error: error.message || "Failed to fetch invoices",
+        error:
+          error instanceof Error ? error.message : "Failed to fetch invoices",
       });
     }
   }

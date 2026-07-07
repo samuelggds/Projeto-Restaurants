@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import regenerateInvoicePaymentLinkService from "../services/RegenerateInvoicePaymentLinkService.js";
 
 class RegenerateInvoicePaymentLinkController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const invoiceId = Number(req.params.id);
       const restaurantId = Number(req.user.restaurantId);
@@ -16,9 +17,12 @@ class RegenerateInvoicePaymentLinkController {
       });
 
       return res.status(200).json(result);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message || "Erro ao regenerar link de pagamento.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao regenerar link de pagamento.",
       });
     }
   }
