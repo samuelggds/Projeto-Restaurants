@@ -30,6 +30,18 @@ class AuthService {
 
     return response.data?.clientId || null;
   }
+
+  async forgotPassword(data) {
+    const response = await api.post("/auth/forgot-password", data);
+
+    return response.data;
+  }
+
+  async resetPassword(data) {
+    const response = await api.post("/auth/reset-password", data);
+
+    return response.data;
+  }
 }
 
 export default new AuthService();

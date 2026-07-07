@@ -8,6 +8,8 @@ import UpdatePasswordController from "../controllers/UpdatePasswordController.js
 import UpdateProfileController from "../controllers/UpdateProfileController.js";
 import DeactivateUserController from "../controllers/DeactivateUserController.js";
 import ReactivateUserController from "../controllers/ReactivateUserController.js";
+import RequestPasswordResetController from "../controllers/RequestPasswordResetController.js";
+import ResetPasswordByCodeController from "../controllers/ResetPasswordByCodeController.js";
 
 const router = Router();
 
@@ -17,6 +19,14 @@ router.post("/register", (req, res) => {
 
 router.post("/login", (req, res) => {
   LoginController.handle(req, res);
+});
+
+router.post("/forgot-password", (req, res) => {
+  RequestPasswordResetController.handle(req, res);
+});
+
+router.post("/reset-password", (req, res) => {
+  ResetPasswordByCodeController.handle(req, res);
 });
 
 router.post("/google", (req, res) => {

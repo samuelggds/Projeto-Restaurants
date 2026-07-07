@@ -90,6 +90,55 @@ class UserRepository {
       },
     });
   }
+
+  async savePasswordResetCode(
+    id: number | string,
+    codeHash: string,
+    expiresAt: Date,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.user.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        resetPasswordCodeHash: codeHash,
+        resetPasswordCodeExpiresAt: expiresAt,
+      },
+    });
+  }
+
+  async clearPasswordResetCode(
+    id: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.user.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        resetPasswordCodeHash: null,
+        resetPasswordCodeExpiresAt: null,
+      },
+    });
+  }
+
+  async updatePasswordAndClearResetCode(
+    id: number | string,
+    password: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.user.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        password,
+        resetPasswordCodeHash: null,
+        resetPasswordCodeExpiresAt: null,
+      },
+    });
+  }
   async findByIdWithPassword(
     id: number | string,
     db: PrismaClientLike = prisma,

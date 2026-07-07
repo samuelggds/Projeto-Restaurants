@@ -70,6 +70,8 @@ model User {
   active   Boolean  @default(true)
   phone    String?
   cpf      String?
+  resetPasswordCodeHash      String?
+  resetPasswordCodeExpiresAt DateTime?
 
   restaurantId Int?
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)

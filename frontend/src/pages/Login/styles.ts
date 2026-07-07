@@ -199,11 +199,15 @@ export const CheckboxLabel = styled.label`
   }
 `;
 
-export const ForgotLink = styled.a`
+export const ForgotLink = styled.button`
   font-size: 0.85rem;
   font-weight: 700;
   color: ${(props) => props.theme.primary};
   text-decoration: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
 
   &:hover {
     color: ${(props) => props.theme.primaryHover};
