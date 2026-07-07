@@ -27,6 +27,7 @@ type ProductDetailModalProps = {
   setRatingHover: (value: number) => void;
   handleRateProduct: (product: SelectedProduct, stars: number) => void;
   addToCart: (product: SelectedProduct) => void;
+  isAddedToCart: boolean;
   handleCloseProductDetail: () => void;
 };
 
@@ -43,6 +44,7 @@ export default function ProductDetailModal({
   setRatingHover,
   handleRateProduct,
   addToCart,
+  isAddedToCart,
   handleCloseProductDetail,
 }: ProductDetailModalProps) {
   const previewRating = ratingHover || selectedRating.userRating;
@@ -118,8 +120,12 @@ export default function ProductDetailModal({
         </S.ProductDetailRatingMeta>
 
         <S.ProductDetailActions>
-          <S.AddButton type="button" onClick={() => addToCart(selectedProduct)}>
-            Adicionar ao pedido
+          <S.AddButton
+            type="button"
+            $added={isAddedToCart}
+            onClick={() => addToCart(selectedProduct)}
+          >
+            {isAddedToCart ? "Adicionado" : "Adicionar ao pedido"}
           </S.AddButton>
         </S.ProductDetailActions>
       </S.ProductDetailBody>

@@ -1,6 +1,34 @@
 import { CheckCircle, CreditCard, X } from "lucide-react";
 import * as S from "../styles";
 
+const ORDER_FLOW_STEPS = [
+  {
+    key: "PENDENTE",
+    title: "Pedido recebido",
+    description: "A equipe recebeu seu pedido e vai iniciar em breve.",
+  },
+  {
+    key: "PREPARANDO",
+    title: "Em preparo",
+    description: "Seu pedido esta sendo preparado na cozinha.",
+  },
+  {
+    key: "PRONTO",
+    title: "Pronto",
+    description: "Pedido pronto para ser levado ate sua mesa.",
+  },
+  {
+    key: "SAIU_PARA_ENTREGA",
+    title: "A caminho da mesa",
+    description: "Um atendente esta levando o pedido para voce.",
+  },
+  {
+    key: "ENTREGUE",
+    title: "Entregue",
+    description: "Pedido entregue. Bom apetite!",
+  },
+];
+
 type CartItem = {
   productId: number | string;
   name: string;
@@ -29,6 +57,14 @@ type OrderDrawerProps = {
   submitting: boolean;
   isConfirmed: boolean;
   loadingProducts: boolean;
+  latestOrder: {
+    id: number;
+    status: string;
+    total: number;
+    paymentMethod: string;
+    createdAt: string;
+    customerName: string;
+  } | null;
 };
 
 export default function OrderDrawer({
@@ -52,7 +88,39 @@ export default function OrderDrawer({
   submitting,
   isConfirmed,
   loadingProducts,
+  latestOrder,
 }: OrderDrawerProps) {
+  const normalizedStatus = String(latestOrder?.status || "").toUpperCase();
+  const isCanceled = normalizedStatus === "CANCELADO";
+  const activeStepIndex = ORDER_FLOW_STEPS.findIndex(
+    (step) => step.key === normalizedStatus,
+  );
+  const flowActiveIndex = activeStepIndex >= 0 ? activeStepIndex : 0;
+  const formattedCreatedAt = latestOrder?.createdAt
+    ? new Date(latestOrder.createdAt).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
+  function getStepState(index: number) {
+    if (isCanceled) {
+      return "pending";
+    }
+
+    if (index < flowActiveIndex) {
+      return "done";
+    }
+
+    if (index === flowActiveIndex) {
+      return "active";
+    }
+
+    return "pending";
+  }
+
   return (
     <>
       <S.Overlay $open={drawerOpen} onClick={() => setDrawerOpen(false)} />
@@ -84,6 +152,13 @@ export default function OrderDrawer({
             onClick={() => setDrawerStep("finalizar")}
           >
             Finalizar
+          </S.DrawerTab>
+          <S.DrawerTab
+            type="button"
+            $active={drawerStep === "fluxo"}
+            onClick={() => setDrawerStep("fluxo")}
+          >
+            Fluxo
           </S.DrawerTab>
         </S.DrawerTabs>
 
@@ -141,7 +216,7 @@ export default function OrderDrawer({
                 Ir para finalizar
               </S.ActionButton>
             </>
-          ) : (
+          ) : drawerStep === "finalizar" ? (
             <>
               <S.InputGrid>
                 <S.Label>
@@ -243,6 +318,72 @@ export default function OrderDrawer({
                 pagamento pode ser concluido depois, se ainda nao estiver
                 confirmado.
               </S.InlineInfo>
+            </>
+          ) : (
+            <>
+              {!latestOrder ? (
+                <S.EmptyHint>
+                  Voce ainda nao enviou pedido nesta mesa. Adicione itens e
+                  finalize para acompanhar o fluxo.
+                </S.EmptyHint>
+              ) : (
+                <>
+                  <S.OrderFlowCard>
+                    <S.OrderMetaRow>
+                      <strong>Pedido #{latestOrder.id}</strong>
+                      <S.OrderMetaPill>
+                        {isCanceled ? "Cancelado" : normalizedStatus}
+                      </S.OrderMetaPill>
+                    </S.OrderMetaRow>
+
+                    <S.Tiny>
+                      {latestOrder.customerName || "Cliente"} •{" "}
+                      {formattedCreatedAt}
+                    </S.Tiny>
+
+                    <S.Summary style={{ marginTop: "0.65rem" }}>
+                      <span>Total do pedido</span>
+                      <strong>R$ {toPrice(latestOrder.total)}</strong>
+                    </S.Summary>
+
+                    <S.OrderFlowList>
+                      {ORDER_FLOW_STEPS.map((step, index) => {
+                        const stepState = getStepState(index);
+
+                        return (
+                          <S.OrderFlowItem key={step.key} $state={stepState}>
+                            <S.OrderFlowDot $state={stepState} />
+                            <S.OrderFlowContent>
+                              <strong>{step.title}</strong>
+                              <span>{step.description}</span>
+                            </S.OrderFlowContent>
+                          </S.OrderFlowItem>
+                        );
+                      })}
+                    </S.OrderFlowList>
+
+                    {isCanceled ? (
+                      <S.OrderFlowHint>
+                        Este pedido foi cancelado. Se precisar, chame a equipe
+                        para gerar um novo pedido.
+                      </S.OrderFlowHint>
+                    ) : (
+                      <S.OrderFlowHint>
+                        O status muda conforme a equipe atualiza o pedido no
+                        painel interno.
+                      </S.OrderFlowHint>
+                    )}
+                  </S.OrderFlowCard>
+
+                  <S.ActionButton
+                    type="button"
+                    style={{ marginTop: "0.8rem", width: "100%" }}
+                    onClick={() => setDrawerStep("pedido")}
+                  >
+                    Voltar para pedido
+                  </S.ActionButton>
+                </>
+              )}
             </>
           )}
         </S.DrawerContent>

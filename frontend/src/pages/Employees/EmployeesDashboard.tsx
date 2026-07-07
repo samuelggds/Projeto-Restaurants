@@ -54,8 +54,30 @@ const ORDER_STATUS_META = {
 
 const CLOSED_STATUS_SET = new Set(["ENTREGUE", "CANCELADO"]);
 
-function getPaymentSummaryLabel(_order?: unknown) {
-  return "PIX";
+function getPaymentSummaryLabel(order?: unknown) {
+  const paymentMethod = String(
+    (order as { paymentMethod?: unknown } | undefined)?.paymentMethod || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  if (paymentMethod === "DINHEIRO") {
+    return "DINHEIRO";
+  }
+
+  if (
+    paymentMethod === "CARTAO" ||
+    paymentMethod === "CARTAO_DEBITO" ||
+    paymentMethod === "CARTAO_CREDITO"
+  ) {
+    return "CARTAO";
+  }
+
+  if (paymentMethod === "PIX") {
+    return "PIX";
+  }
+
+  return "NAO INFORMADO";
 }
 
 function getOrderTypeDisplayLabel(orderType) {

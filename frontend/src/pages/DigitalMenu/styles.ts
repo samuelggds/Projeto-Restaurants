@@ -204,6 +204,23 @@ export const GlobalMenuStyle = createGlobalStyle`
       scroll-behavior: auto !important;
     }
   }
+
+  @keyframes addToCartPulse {
+    0% {
+      transform: translateY(0) scale(1);
+      box-shadow: 0 0 0 rgba(58, 21, 65, 0);
+    }
+
+    55% {
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 10px 18px rgba(58, 21, 65, 0.22);
+    }
+
+    100% {
+      transform: translateY(0) scale(1);
+      box-shadow: 0 0 0 rgba(58, 21, 65, 0);
+    }
+  }
 `;
 
 export const Page = styled.main`
@@ -1063,10 +1080,25 @@ export const AddButton = styled.button`
   border: 1px solid rgba(90, 39, 87, 0.26);
   border-radius: 8px;
   padding: 0.38rem 0.62rem;
-  background: rgba(90, 39, 87, 0.08);
-  color: var(--dm-purple);
+  background: ${({ $added }) =>
+    $added
+      ? "linear-gradient(135deg, #5a2757, #7d2f79)"
+      : "rgba(90, 39, 87, 0.08)"};
+  color: ${({ $added }) => ($added ? "#ffffff" : "var(--dm-purple)")};
   font-weight: 700;
   cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+  animation: ${({ $added }) => ($added ? "addToCartPulse 0.34s ease" : "none")};
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+  }
 `;
 
 export const FloatingCart = styled.button`
@@ -1334,7 +1366,7 @@ export const DrawerTotal = styled.strong`
 export const DrawerTabs = styled.div`
   margin: 0.85rem 0.95rem 0;
   display: inline-grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
@@ -1544,6 +1576,107 @@ export const InlineInfo = styled.div`
   color: #5f3d69;
   padding: 0.58rem 0.72rem;
   font-size: 0.8rem;
+`;
+
+export const OrderFlowCard = styled.div`
+  margin-top: 0.7rem;
+  border: 1px solid rgba(90, 39, 87, 0.18);
+  border-radius: 12px;
+  background: var(--dm-light-surface);
+  padding: 0.78rem;
+  box-shadow: 0 10px 22px rgba(39, 19, 44, 0.08);
+`;
+
+export const OrderMetaRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.52rem;
+  flex-wrap: wrap;
+`;
+
+export const OrderMetaPill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 39, 87, 0.24);
+  background: rgba(90, 39, 87, 0.08);
+  color: #4a2451;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.25rem 0.62rem;
+`;
+
+export const OrderFlowList = styled.div`
+  margin-top: 0.82rem;
+  display: grid;
+  gap: 0.58rem;
+`;
+
+export const OrderFlowItem = styled.div`
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 0.58rem;
+  align-items: start;
+  opacity: ${({ $state }) => ($state === "pending" ? 0.5 : 1)};
+
+  &:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    top: 18px;
+    bottom: -11px;
+    width: 2px;
+    border-radius: 2px;
+    background: ${({ $state }) =>
+      $state === "done" || $state === "active"
+        ? "rgba(90, 39, 87, 0.42)"
+        : "rgba(90, 39, 87, 0.16)"};
+  }
+`;
+
+export const OrderFlowDot = styled.span`
+  margin-top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 2px solid
+    ${({ $state }) =>
+      $state === "done"
+        ? "#4f2150"
+        : $state === "active"
+          ? "#7d2f79"
+          : "rgba(90, 39, 87, 0.24)"};
+  background: ${({ $state }) =>
+    $state === "done"
+      ? "#4f2150"
+      : $state === "active"
+        ? "rgba(125, 47, 121, 0.22)"
+        : "transparent"};
+`;
+
+export const OrderFlowContent = styled.div`
+  strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #26122b;
+  }
+
+  span {
+    display: block;
+    margin-top: 0.14rem;
+    font-size: 0.78rem;
+    color: #716b7a;
+    line-height: 1.42;
+  }
+`;
+
+export const OrderFlowHint = styled.p`
+  margin: 0.74rem 0 0;
+  color: #6a6072;
+  font-size: 0.78rem;
+  line-height: 1.45;
 `;
 
 export const StepDots = styled.div`

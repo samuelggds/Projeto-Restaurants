@@ -39,10 +39,57 @@ const ProductDetailModal = lazy(
 const OrderDrawer = lazy(() => import("./components/OrderDrawer"));
 
 const MENU_RESTAURANT_KEY = "menuRestaurantId";
+const LAST_MESA_ORDER_KEY = "@PecaJaFood:lastMesaOrder";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PRODUCT_DETAIL_CLOSE_MS = 240;
 const ALLOWED_PAYMENT_METHODS = new Set(["PIX", "CARTAO", "DINHEIRO"]);
+
+function parseLastMesaOrder(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const id = Number(raw.id || 0);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+
+  return {
+    id,
+    status: String(raw.status || "PENDENTE").toUpperCase(),
+    total: Number(raw.total || 0),
+    paymentMethod: String(raw.paymentMethod || "PIX").toUpperCase(),
+    createdAt: String(raw.createdAt || new Date().toISOString()),
+    customerName: String(raw.customerName || ""),
+    tableId: Number(raw.tableId || 0) || null,
+    restaurantId: Number(raw.restaurantId || 0) || null,
+  };
+}
+
+function normalizeRealtimeOrderUpdate(payload) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const id = Number(payload.id || payload.orderId || 0);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+
+  return {
+    id,
+    status: String(payload.status || "PENDENTE").toUpperCase(),
+    total: Number(payload.total || 0),
+    paymentMethod: String(payload.paymentMethod || "PIX").toUpperCase(),
+    createdAt: String(payload.createdAt || new Date().toISOString()),
+    customerName: String(payload?.user?.name || payload.customerName || ""),
+    tableId: Number(payload.tableId || payload?.table?.id || 0) || null,
+    restaurantId: Number(payload.restaurantId || 0) || null,
+  };
+}
 
 export default function DigitalMenu() {
   const { tableNumber: tableNumberParam } = useParams();
@@ -65,6 +112,8 @@ export default function DigitalMenu() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isClosingProductDetail, setIsClosingProductDetail] = useState(false);
+  const [latestOrder, setLatestOrder] = useState(null);
+  const [addedProductMap, setAddedProductMap] = useState({});
   const [restaurantProfile, setRestaurantProfile] = useState({
     name: "Restaurante",
     logo: "",
@@ -75,6 +124,7 @@ export default function DigitalMenu() {
   const pinRequestKeyRef = useRef("");
   const sessionClosedToastShownRef = useRef(false);
   const closeProductDetailTimeoutRef = useRef(null);
+  const addFeedbackTimeoutsRef = useRef({});
 
   function clearMesaSession(showToast = true) {
     localStorage.removeItem("tableSession");
@@ -241,6 +291,44 @@ export default function DigitalMenu() {
   ]);
 
   useEffect(() => {
+    const stored = localStorage.getItem(LAST_MESA_ORDER_KEY);
+
+    if (!stored) {
+      setLatestOrder(null);
+      return;
+    }
+
+    try {
+      const parsed = parseLastMesaOrder(JSON.parse(stored));
+
+      if (!parsed) {
+        setLatestOrder(null);
+        return;
+      }
+
+      if (
+        routeTableId &&
+        Number(parsed.tableId || 0) !== Number(routeTableId)
+      ) {
+        setLatestOrder(null);
+        return;
+      }
+
+      if (
+        routeRestaurantId &&
+        Number(parsed.restaurantId || 0) !== Number(routeRestaurantId)
+      ) {
+        setLatestOrder(null);
+        return;
+      }
+
+      setLatestOrder(parsed);
+    } catch {
+      setLatestOrder(null);
+    }
+  }, [routeTableId, routeRestaurantId]);
+
+  useEffect(() => {
     if (!isMesaContext || mesaSessionIsActive || !routeTableId) {
       return;
     }
@@ -321,13 +409,77 @@ export default function DigitalMenu() {
       clearMesaSession(true);
     };
 
+    const onOrderStatusChanged = (payload) => {
+      const nextOrder = normalizeRealtimeOrderUpdate(payload);
+
+      if (!nextOrder) {
+        return;
+      }
+
+      setLatestOrder((prev) => {
+        const prevId = Number(prev?.id || 0);
+        const isSameOrder = prevId > 0 && prevId === nextOrder.id;
+        const isSameTable =
+          Number(nextOrder.tableId || 0) > 0 &&
+          Number(nextOrder.tableId) === Number(routeTableId || 0);
+
+        if (!isSameOrder && !isSameTable) {
+          return prev;
+        }
+
+        const merged = {
+          ...(prev || {}),
+          ...nextOrder,
+          total:
+            Number(nextOrder.total || 0) > 0
+              ? Number(nextOrder.total)
+              : Number(prev?.total || 0),
+          createdAt: nextOrder.createdAt || prev?.createdAt,
+          customerName: nextOrder.customerName || prev?.customerName || "",
+        };
+
+        localStorage.setItem(LAST_MESA_ORDER_KEY, JSON.stringify(merged));
+
+        return merged;
+      });
+    };
+
+    const onOrderPaymentConfirmed = (payload) => {
+      const payloadOrderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(payloadOrderId) || payloadOrderId <= 0) {
+        return;
+      }
+
+      setLatestOrder((prev) => {
+        if (Number(prev?.id || 0) !== payloadOrderId) {
+          return prev;
+        }
+
+        const merged = {
+          ...prev,
+          paymentMethod: String(
+            payload?.paymentMethod || prev?.paymentMethod || "PIX",
+          ).toUpperCase(),
+        };
+
+        localStorage.setItem(LAST_MESA_ORDER_KEY, JSON.stringify(merged));
+
+        return merged;
+      });
+    };
+
     socket.on("table:session-closed", onSessionClosed);
+    socket.on("order:status-changed", onOrderStatusChanged);
+    socket.on("order:payment-confirmed", onOrderPaymentConfirmed);
 
     return () => {
       socket.off("table:session-closed", onSessionClosed);
+      socket.off("order:status-changed", onOrderStatusChanged);
+      socket.off("order:payment-confirmed", onOrderPaymentConfirmed);
       disconnectTableSessionSocket();
     };
-  }, [mesaSessionIsActive, tableSession?.sessionToken]);
+  }, [mesaSessionIsActive, routeTableId, tableSession?.sessionToken]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -347,6 +499,10 @@ export default function DigitalMenu() {
       if (closeProductDetailTimeoutRef.current) {
         clearTimeout(closeProductDetailTimeoutRef.current);
       }
+
+      Object.values(addFeedbackTimeoutsRef.current).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
     };
   }, []);
 
@@ -463,7 +619,36 @@ export default function DigitalMenu() {
     }
   }
 
+  function markProductAsAdded(productId) {
+    const key = String(productId);
+
+    setAddedProductMap((prev) => ({
+      ...prev,
+      [key]: true,
+    }));
+
+    if (addFeedbackTimeoutsRef.current[key]) {
+      clearTimeout(addFeedbackTimeoutsRef.current[key]);
+    }
+
+    addFeedbackTimeoutsRef.current[key] = setTimeout(() => {
+      setAddedProductMap((prev) => {
+        if (!prev[key]) {
+          return prev;
+        }
+
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+
+      delete addFeedbackTimeoutsRef.current[key];
+    }, 1150);
+  }
+
   function addToCart(product) {
+    markProductAsAdded(product.id);
+
     setCart((prev) => {
       const existing = prev.find((item) => item.productId === product.id);
 
@@ -584,7 +769,7 @@ export default function DigitalMenu() {
     try {
       setSubmitting(true);
 
-      await ordersService.createOrder({
+      const createdOrder = await ordersService.createOrder({
         restaurantId,
         type: "MESA",
         tableId: Number(tableSession.tableId),
@@ -597,6 +782,22 @@ export default function DigitalMenu() {
           quantity: item.quantity,
         })),
       });
+
+      const nextOrder = {
+        id: Number(createdOrder?.id || 0),
+        status: String(createdOrder?.status || "PENDENTE").toUpperCase(),
+        total: Number(createdOrder?.total || cartTotal || 0),
+        paymentMethod: String(
+          createdOrder?.paymentMethod || normalizedPaymentMethod || "PIX",
+        ).toUpperCase(),
+        createdAt: String(createdOrder?.createdAt || new Date().toISOString()),
+        customerName: trimmedName,
+        tableId: Number(createdOrder?.tableId || tableSession.tableId || 0),
+        restaurantId: Number(createdOrder?.restaurantId || restaurantId || 0),
+      };
+
+      localStorage.setItem(LAST_MESA_ORDER_KEY, JSON.stringify(nextOrder));
+      setLatestOrder(nextOrder);
 
       const elapsed = Date.now() - startedAt;
       if (elapsed < MIN_CONFIRMATION_DELAY_MS) {
@@ -617,8 +818,8 @@ export default function DigitalMenu() {
       setCustomerName("");
       setCustomerCpf("");
       setObservation("");
-      setDrawerOpen(false);
-      setDrawerStep("pedido");
+      setDrawerOpen(true);
+      setDrawerStep("fluxo");
     } catch (error) {
       toast.error(error?.response?.data?.error || "Erro ao finalizar pedido");
       setIsConfirmed(false);
@@ -825,6 +1026,9 @@ export default function DigitalMenu() {
                       <S.MenuList>
                         {groupItems.map((product, index) => {
                           const rating = getProductRating(product.id);
+                          const isAdded = Boolean(
+                            addedProductMap[String(product.id)],
+                          );
 
                           return (
                             <S.MenuItemCard
@@ -878,12 +1082,13 @@ export default function DigitalMenu() {
 
                                   <S.AddButton
                                     type="button"
+                                    $added={isAdded}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       addToCart(product);
                                     }}
                                   >
-                                    Adicionar
+                                    {isAdded ? "Adicionado" : "Adicionar"}
                                   </S.AddButton>
                                 </S.MenuItemBottom>
                               </S.MenuItemText>
@@ -929,6 +1134,9 @@ export default function DigitalMenu() {
                   setRatingHover={setRatingHover}
                   handleRateProduct={handleRateProduct}
                   addToCart={addToCart}
+                  isAddedToCart={Boolean(
+                    addedProductMap[String(selectedProduct.id)],
+                  )}
                   handleCloseProductDetail={handleCloseProductDetail}
                 />
               </Suspense>
@@ -958,6 +1166,7 @@ export default function DigitalMenu() {
                 submitting={submitting}
                 isConfirmed={isConfirmed}
                 loadingProducts={loadingProducts}
+                latestOrder={latestOrder}
               />
             </Suspense>
           </>
