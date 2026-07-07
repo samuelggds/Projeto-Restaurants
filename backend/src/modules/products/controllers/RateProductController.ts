@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import rateProductService from "../services/RateProductService.js";
 
 class RateProductController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const { restaurantId, clientKey, rating } = req.body;
@@ -14,9 +15,10 @@ class RateProductController {
       });
 
       return res.status(200).json(result);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        message: error.message,
+        message:
+          error instanceof Error ? error.message : "Erro ao avaliar produto",
       });
     }
   }

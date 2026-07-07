@@ -18,7 +18,9 @@ class OpenTableSessionController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error ? error.message : "Erro ao abrir sessao de mesa",
+          error instanceof Error
+            ? error.message
+            : "Erro ao abrir sessao de mesa",
       });
     }
   }

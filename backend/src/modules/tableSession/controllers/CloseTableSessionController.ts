@@ -16,7 +16,9 @@ class CloseTableSessionController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error ? error.message : "Erro ao fechar sessao de mesa",
+          error instanceof Error
+            ? error.message
+            : "Erro ao fechar sessao de mesa",
       });
     }
   }

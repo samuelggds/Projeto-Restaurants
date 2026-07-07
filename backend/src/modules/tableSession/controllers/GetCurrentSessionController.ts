@@ -11,9 +11,7 @@ class GetCurrentSessionController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao obter sessao atual",
+          error instanceof Error ? error.message : "Erro ao obter sessao atual",
       });
     }
   }

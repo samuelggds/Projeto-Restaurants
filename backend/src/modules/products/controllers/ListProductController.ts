@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import listProductService from "../services/ListProductService.js";
 
 class ListProductsController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const restaurantId =
         Number(req.query.restaurantId) || Number(req.user?.restaurantId);
@@ -9,9 +10,10 @@ class ListProductsController {
       const products = await listProductService.execute(restaurantId);
 
       return res.status(200).json(products);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        message: error.message,
+        message:
+          error instanceof Error ? error.message : "Erro ao listar produtos",
       });
     }
   }

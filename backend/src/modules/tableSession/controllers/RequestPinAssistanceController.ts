@@ -12,7 +12,9 @@ class RequestPinAssistanceController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error ? error.message : "Erro ao solicitar apoio de PIN",
+          error instanceof Error
+            ? error.message
+            : "Erro ao solicitar apoio de PIN",
       });
     }
   }
