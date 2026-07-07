@@ -1,6 +1,6 @@
 import { OrderStatus } from "@prisma/client";
 
-const transitions = {
+const transitions: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDENTE]: [OrderStatus.PREPARANDO, OrderStatus.CANCELADO],
 
   [OrderStatus.PREPARANDO]: [OrderStatus.PRONTO],
@@ -13,7 +13,7 @@ const transitions = {
   [OrderStatus.CANCELADO]: [],
 };
 
-function canTransition(from, to) {
+function canTransition(from: OrderStatus, to: OrderStatus) {
   const allowed = transitions[from] || [];
   return allowed.includes(to);
 }

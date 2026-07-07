@@ -7,7 +7,7 @@ function generateFourDigitPin() {
 }
 
 class GenerateOrderPaymentConfirmationPinService {
-  async execute(orderId, restaurantId) {
+  async execute(orderId: number | string, restaurantId: number) {
     const order = await orderRepository.findById(orderId, restaurantId);
 
     if (!order) {

@@ -1,19 +1,25 @@
 import { Request, Response } from "express";
 import updateOrderStatusService from "../services/UpdateOrderStatusService.js";
+import { OrderStatus } from "@prisma/client";
 
 class UpdateOrderStatusController {
   async handle(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
 
       const { status } = req.body;
+      const normalizedStatus = String(
+        status || "",
+      ).toUpperCase() as OrderStatus;
 
       const { restaurantId, role } = req.user;
 
       const updatedOrder = await updateOrderStatusService.execute(
         id,
         restaurantId,
-        status,
+        normalizedStatus,
         role,
       );
 

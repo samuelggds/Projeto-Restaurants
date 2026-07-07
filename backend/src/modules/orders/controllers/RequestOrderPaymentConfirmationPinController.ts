@@ -4,7 +4,9 @@ import requestOrderPaymentConfirmationPinService from "../services/RequestOrderP
 class RequestOrderPaymentConfirmationPinController {
   async handle(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
       const { restaurantId, role } = req.user;
 
       const result = await requestOrderPaymentConfirmationPinService.execute(

@@ -1,14 +1,20 @@
-import { PaymentMethod } from "@prisma/client";
+import { PaymentMethod, UserRole } from "@prisma/client";
 import { io } from "../../../server.js";
 import orderRepository from "../repositories/OrderRepository.js";
 import { notifyRestaurantPaymentPinRequested } from "../../../services/customerNotifier.js";
 
 class RequestOrderPaymentConfirmationPinService {
-  async execute(orderId, restaurantId, role) {
+  async execute(
+    orderId: number | string,
+    restaurantId: number,
+    role: UserRole | string,
+  ) {
     const normalizedRole = String(role || "").toUpperCase();
-    const allowedRoles = ["MOTOQUEIRO", "ADMIN"];
+    const allowedRoles = [UserRole.MOTOQUEIRO, UserRole.ADMIN];
 
-    if (!allowedRoles.includes(normalizedRole)) {
+    if (
+      !allowedRoles.includes(normalizedRole as (typeof allowedRoles)[number])
+    ) {
       throw new Error(
         "Somente admin ou motoqueiro podem solicitar PIN de confirmação de pagamento.",
       );
@@ -48,10 +54,10 @@ class RequestOrderPaymentConfirmationPinService {
       restaurantName: order?.restaurant?.name,
       orderId: order?.id,
       requestedByRole: normalizedRole,
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       console.error(
         "[RESTAURANT_PIN_NOTIFICATION_UNHANDLED]",
-        error?.message || error,
+        error instanceof Error ? error.message : String(error),
       );
     });
 

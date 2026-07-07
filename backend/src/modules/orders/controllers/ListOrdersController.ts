@@ -1,14 +1,23 @@
 import { Request, Response } from "express";
 import listOrdersService from "../services/ListOrdersService.js";
+import { OrderStatus } from "@prisma/client";
 
 class ListOrdersController {
   async handle(req: Request, res: Response) {
     try {
-      const { status } = req.query;
+      const status = Array.isArray(req.query.status)
+        ? req.query.status[0]
+        : req.query.status;
+      const normalizedStatus = status
+        ? (String(status).toUpperCase() as OrderStatus)
+        : undefined;
 
       const restaurantId = req.user.restaurantId;
 
-      const orders = await listOrdersService.execute(restaurantId, status);
+      const orders = await listOrdersService.execute(
+        restaurantId,
+        normalizedStatus,
+      );
 
       return res.json(orders);
     } catch (error: unknown) {

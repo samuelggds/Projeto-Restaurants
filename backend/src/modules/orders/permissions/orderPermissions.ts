@@ -1,6 +1,6 @@
 import { OrderStatus, UserRole } from "@prisma/client";
 
-const permissions = {
+const permissions: Partial<Record<UserRole, OrderStatus[]>> = {
   [UserRole.ADMIN]: [
     OrderStatus.PENDENTE,
     OrderStatus.PREPARANDO,
@@ -22,7 +22,7 @@ const permissions = {
   [UserRole.CLIENTE]: [OrderStatus.CANCELADO],
 };
 
-function canUserChangeStatus(role, status) {
+function canUserChangeStatus(role: UserRole, status: OrderStatus) {
   const allowed = permissions[role] || [];
   return allowed.includes(status);
 }

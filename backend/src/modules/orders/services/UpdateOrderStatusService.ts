@@ -2,11 +2,16 @@ import orderRepository from "../repositories/OrderRepository.js";
 import { io } from "../../../server.js";
 import { OrderStateMachine } from "../state/orderStateMachine.js";
 import { OrderPermissions } from "../permissions/orderPermissions.js";
-import { OrderStatus, PaymentMethod } from "@prisma/client";
+import { OrderStatus, PaymentMethod, UserRole } from "@prisma/client";
 import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
 
 class UpdateOrderStatusService {
-  async execute(orderId, restaurantId, status, role) {
+  async execute(
+    orderId: number | string,
+    restaurantId: number,
+    status: OrderStatus,
+    role: UserRole | string,
+  ) {
     const order = await orderRepository.findById(orderId, restaurantId);
 
     if (!order) {
@@ -21,7 +26,11 @@ class UpdateOrderStatusService {
       throw new Error(`Transição inválida: ${currentStatus} → ${status} `);
     }
 
-    const canUserChange = OrderPermissions.canUserChangeStatus(role, status);
+    const normalizedRole = String(role || "").toUpperCase() as UserRole;
+    const canUserChange = OrderPermissions.canUserChangeStatus(
+      normalizedRole,
+      status,
+    );
 
     if (!canUserChange) {
       throw new Error("Usuário não tem permissão para isso!");
@@ -81,10 +90,10 @@ class UpdateOrderStatusService {
       restaurantWhatsapp: order?.restaurant?.whatsapp,
       orderId: updatedOrder?.id,
       status: updatedOrder?.status,
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       console.error(
         "[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]",
-        error?.message || error,
+        error instanceof Error ? error.message : String(error),
       );
     });
 
