@@ -149,11 +149,18 @@ class OrderRepository {
   }
 
   async findByUserId(userId, restaurantId, db = prisma) {
+    const normalizedRestaurantId = Number(restaurantId);
+
+    const where = {
+      userId: Number(userId),
+    };
+
+    if (Number.isFinite(normalizedRestaurantId) && normalizedRestaurantId > 0) {
+      where.restaurantId = normalizedRestaurantId;
+    }
+
     return db.order.findMany({
-      where: {
-        userId: Number(userId),
-        restaurantId,
-      },
+      where,
       include: {
         items: {
           include: {
