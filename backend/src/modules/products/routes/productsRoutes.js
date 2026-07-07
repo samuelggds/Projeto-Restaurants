@@ -3,9 +3,10 @@ import CreateProductController from "../controllers/CreateProductController.js";
 import UpdateProductController from "../controllers/UpdateProductController.js";
 import DeleteProductController from "../controllers/DeleteProductController.js";
 import ListProductsController from "../controllers/ListProductController.js";
+import ListProductRatingsController from "../controllers/ListProductRatingsController.js";
+import RateProductController from "../controllers/RateProductController.js";
 import { authMiddleware } from "../../../middlewares/authMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
-
 
 const router = Router();
 
@@ -17,6 +18,8 @@ router.post(
 );
 
 router.get("/", ListProductsController.handle);
+router.get("/ratings", ListProductRatingsController.handle);
+router.post("/:id/rating", RateProductController.handle);
 
 router.put(
   "/:id",

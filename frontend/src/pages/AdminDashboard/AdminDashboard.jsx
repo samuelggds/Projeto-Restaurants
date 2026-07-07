@@ -49,6 +49,16 @@ const ORDER_STATUSES = [
   "ENTREGUE",
   "CANCELADO",
 ];
+const ORDER_STATUS_FILTERS = ["TODOS", ...ORDER_STATUSES];
+const STATUS_FILTER_TONE_BY_STATUS = {
+  TODOS: "default",
+  PENDENTE: "warning",
+  PREPARANDO: "info",
+  PRONTO: "violet",
+  SAIU_PARA_ENTREGA: "cyan",
+  ENTREGUE: "success",
+  CANCELADO: "danger",
+};
 const CLOSABLE_ORDER_STATUSES = ["ENTREGUE", "CANCELADO"];
 const CLOSABLE_PICKUP_ORDER_STATUSES = ["ENTREGUE"];
 const CLOSED_DELIVERED_ORDERS_STORAGE_KEY =
@@ -95,6 +105,37 @@ function canCloseOrder(order) {
   }
 
   return CLOSABLE_ORDER_STATUSES.includes(normalizedStatus);
+}
+
+function matchesOrderTypeFilter(order, orderTypeFilter) {
+  if (orderTypeFilter === "TODOS") {
+    return true;
+  }
+
+  const type = String(order?.type || "").toUpperCase();
+
+  if (orderTypeFilter === "MESA") {
+    return type === "MESA";
+  }
+
+  if (orderTypeFilter === "DELIVERY") {
+    return type.includes("DELIVERY");
+  }
+
+  if (orderTypeFilter === "RETIRADA") {
+    return type === "RETIRADA";
+  }
+
+  return true;
+}
+
+function matchesStatusFilter(order, statusFilter) {
+  if (statusFilter === "TODOS") {
+    return true;
+  }
+
+  const status = String(order?.status || "").toUpperCase();
+  return status === statusFilter;
 }
 
 function isValidEmail(value) {
@@ -606,6 +647,8 @@ export default function AdminDashboard() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [orders, setOrders] = useState([]);
+  const [orderTypeFilter, setOrderTypeFilter] = useState("TODOS");
+  const [statusFilter, setStatusFilter] = useState("TODOS");
   const [closingOrderIds, setClosingOrderIds] = useState([]);
   const [generatingPinOrderIds, setGeneratingPinOrderIds] = useState([]);
   const [paymentPinByOrderId, setPaymentPinByOrderId] = useState({});
@@ -1256,9 +1299,38 @@ export default function AdminDashboard() {
     }
   };
 
-  const visibleOrders = orders.filter(
+  const unarchivedOrders = orders.filter(
     (order) =>
       !(canCloseOrder(order) && closedDeliveredOrderIds.includes(order.id)),
+  );
+
+  const orderTypeCounters = {
+    TODOS: unarchivedOrders.length,
+    DELIVERY: unarchivedOrders.filter((order) =>
+      matchesOrderTypeFilter(order, "DELIVERY"),
+    ).length,
+    MESA: unarchivedOrders.filter((order) =>
+      matchesOrderTypeFilter(order, "MESA"),
+    ).length,
+    RETIRADA: unarchivedOrders.filter((order) =>
+      matchesOrderTypeFilter(order, "RETIRADA"),
+    ).length,
+  };
+
+  const ordersBySelectedType = unarchivedOrders.filter((order) =>
+    matchesOrderTypeFilter(order, orderTypeFilter),
+  );
+
+  const statusCounters = ORDER_STATUS_FILTERS.reduce((acc, status) => {
+    acc[status] = ordersBySelectedType.filter((order) =>
+      matchesStatusFilter(order, status),
+    ).length;
+
+    return acc;
+  }, {});
+
+  const visibleOrders = ordersBySelectedType.filter((order) =>
+    matchesStatusFilter(order, statusFilter),
   );
 
   const handleCreateEmployee = async (event) => {
@@ -2231,7 +2303,7 @@ export default function AdminDashboard() {
                     borderRadius: 8,
                     border: "1px solid rgba(148, 163, 184, 0.4)",
                     padding: "0 0.65rem",
-                    background: isDarkMode ? "#0f172a" : "#ffffff",
+                    background: isDarkMode ? "#0f172a" : "#d8e2ed",
                     color: isDarkMode ? "#e2e8f0" : "#0f172a",
                     fontWeight: 700,
                   }}
@@ -2309,7 +2381,7 @@ export default function AdminDashboard() {
               border: "1px solid rgba(148, 163, 184, 0.26)",
               background: isDarkMode
                 ? "rgba(15, 23, 42, 0.36)"
-                : "rgba(255, 255, 255, 0.75)",
+                : "rgba(207, 217, 228, 0.92)",
               color: isDarkMode ? "#cbd5e1" : "#475569",
               fontSize: "0.83rem",
               fontWeight: 600,
@@ -2333,6 +2405,63 @@ export default function AdminDashboard() {
                 <h2>Pedidos em Tempo Real</h2>
                 <p>Monitore e altere o status dos pedidos instantaneamente.</p>
               </S.PageHeader>
+
+              <S.OrdersFilterBar>
+                <S.OrderTypeFilterButton
+                  type="button"
+                  $active={orderTypeFilter === "TODOS"}
+                  onClick={() => setOrderTypeFilter("TODOS")}
+                >
+                  Todos ({orderTypeCounters.TODOS})
+                </S.OrderTypeFilterButton>
+
+                <S.OrderTypeFilterButton
+                  type="button"
+                  $active={orderTypeFilter === "DELIVERY"}
+                  onClick={() => setOrderTypeFilter("DELIVERY")}
+                >
+                  Delivery ({orderTypeCounters.DELIVERY})
+                </S.OrderTypeFilterButton>
+
+                <S.OrderTypeFilterButton
+                  type="button"
+                  $active={orderTypeFilter === "MESA"}
+                  onClick={() => setOrderTypeFilter("MESA")}
+                >
+                  Mesa ({orderTypeCounters.MESA})
+                </S.OrderTypeFilterButton>
+
+                <S.OrderTypeFilterButton
+                  type="button"
+                  $active={orderTypeFilter === "RETIRADA"}
+                  onClick={() => setOrderTypeFilter("RETIRADA")}
+                >
+                  Retirada ({orderTypeCounters.RETIRADA})
+                </S.OrderTypeFilterButton>
+              </S.OrdersFilterBar>
+
+              <S.OrdersFilterBar>
+                {ORDER_STATUS_FILTERS.map((status) => {
+                  const isAll = status === "TODOS";
+                  const label = isAll
+                    ? "Todos"
+                    : String(status).replace(/_/g, " ");
+                  const tone =
+                    STATUS_FILTER_TONE_BY_STATUS[status] || "default";
+
+                  return (
+                    <S.OrderTypeFilterButton
+                      key={status}
+                      type="button"
+                      $tone={tone}
+                      $active={statusFilter === status}
+                      onClick={() => setStatusFilter(status)}
+                    >
+                      {label} ({statusCounters[status] || 0})
+                    </S.OrderTypeFilterButton>
+                  );
+                })}
+              </S.OrdersFilterBar>
 
               <S.OrdersGrid>
                 {visibleOrders.map((order) => {
@@ -3459,7 +3588,7 @@ export default function AdminDashboard() {
                   >
                     <div
                       style={{
-                        background: "#ffffff",
+                        background: isDarkMode ? "#0f172a" : "#d8e2ed",
                         borderRadius: "12px",
                         padding: "0.75rem",
                       }}

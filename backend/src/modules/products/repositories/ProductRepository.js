@@ -71,6 +71,117 @@ class ProductRepository {
       },
     });
   }
+
+  async listRatingsByRestaurant(restaurantId, clientKey, db = prisma) {
+    const summaries = await db.productRating.groupBy({
+      by: ["productId"],
+      where: {
+        restaurantId,
+      },
+      _avg: {
+        rating: true,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    let userRatingsMap = new Map();
+
+    if (clientKey) {
+      const userRatings = await db.productRating.findMany({
+        where: {
+          restaurantId,
+          clientKey,
+        },
+        select: {
+          productId: true,
+          rating: true,
+        },
+      });
+
+      userRatingsMap = new Map(
+        userRatings.map((item) => [
+          Number(item.productId),
+          Number(item.rating),
+        ]),
+      );
+    }
+
+    return summaries.map((item) => ({
+      productId: Number(item.productId),
+      average: Number(item._avg.rating || 0),
+      count: Number(item._count._all || 0),
+      userRating: Number(userRatingsMap.get(Number(item.productId)) || 0),
+    }));
+  }
+
+  async upsertRating(data, db = prisma) {
+    const { restaurantId, productId, clientKey, rating } = data;
+
+    return db.productRating.upsert({
+      where: {
+        restaurantId_productId_clientKey: {
+          restaurantId,
+          productId,
+          clientKey,
+        },
+      },
+      update: {
+        rating,
+      },
+      create: {
+        restaurantId,
+        productId,
+        clientKey,
+        rating,
+      },
+    });
+  }
+
+  async getRatingSummary(productId, restaurantId, clientKey, db = prisma) {
+    const grouped = await db.productRating.groupBy({
+      by: ["productId"],
+      where: {
+        restaurantId,
+        productId,
+      },
+      _avg: {
+        rating: true,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const summary = grouped[0];
+
+    let userRating = 0;
+
+    if (clientKey) {
+      const mine = await db.productRating.findUnique({
+        where: {
+          restaurantId_productId_clientKey: {
+            restaurantId,
+            productId,
+            clientKey,
+          },
+        },
+        select: {
+          rating: true,
+        },
+      });
+
+      userRating = Number(mine?.rating || 0);
+    }
+
+    return {
+      productId: Number(productId),
+      average: Number(summary?._avg?.rating || 0),
+      count: Number(summary?._count?._all || 0),
+      userRating,
+    };
+  }
 }
 
 export default new ProductRepository();

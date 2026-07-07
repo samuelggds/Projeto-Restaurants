@@ -24,57 +24,23 @@ import {
   connectTableSessionSocket,
   disconnectTableSessionSocket,
 } from "../../Services/socketService";
+import {
+  MAX_RATING_STARS,
+  formatCpfInput,
+  normalizeInstagramUrl,
+  readTableSession,
+  resolveProductImage,
+  toInt,
+  toPrice,
+  toRatingLabel,
+} from "./helpers";
+import useProductRatings from "./useProductRatings";
 import * as S from "./styles";
 
 const MENU_RESTAURANT_KEY = "menuRestaurantId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PRODUCT_DETAIL_CLOSE_MS = 240;
-
-function toInt(value) {
-  const parsed = Number(value || 0);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function toPrice(value) {
-  return Number(value || 0)
-    .toFixed(2)
-    .replace(".", ",");
-}
-
-function formatCpfInput(value) {
-  const digits = String(value || "")
-    .replace(/\D/g, "")
-    .slice(0, 11);
-
-  return digits
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-}
-
-function readTableSession() {
-  try {
-    return JSON.parse(localStorage.getItem("tableSession") || "null");
-  } catch {
-    return null;
-  }
-}
-
-function normalizeInstagramUrl(value) {
-  const raw = String(value || "").trim();
-
-  if (!raw) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(raw)) {
-    return raw;
-  }
-
-  const username = raw.replace(/^@/, "");
-  return `https://instagram.com/${username}`;
-}
 
 export default function DigitalMenu() {
   const { tableNumber: tableNumberParam } = useParams();
@@ -145,22 +111,22 @@ export default function DigitalMenu() {
     (!routeRestaurantId ||
       Number(tableSession?.restaurantId) === Number(routeRestaurantId)),
   );
-  const restaurantId = useMemo(() => {
-    if (!isMesaContext) {
-      return null;
-    }
+  const restaurantId = !isMesaContext
+    ? null
+    : mesaSessionIsActive
+      ? Number(tableSession?.restaurantId || 0) || null
+      : routeRestaurantId || null;
 
-    if (mesaSessionIsActive) {
-      return Number(tableSession?.restaurantId || 0) || null;
-    }
-
-    return routeRestaurantId || null;
-  }, [
-    isMesaContext,
-    mesaSessionIsActive,
-    tableSession?.restaurantId,
-    routeRestaurantId,
-  ]);
+  const {
+    ratingHover,
+    isRatingSubmitting,
+    getProductRating,
+    handleRateProduct,
+    setRatingHover,
+  } = useProductRatings({
+    restaurantId,
+    tableSession,
+  });
 
   useEffect(() => {
     if (!mesaSessionIsActive || !restaurantId) {
@@ -214,7 +180,9 @@ export default function DigitalMenu() {
           return;
         }
 
-        const fallbackImage = products.find((item) => item?.image)?.image || "";
+        const fallbackImage = products[0]
+          ? resolveProductImage(products[0], 0)
+          : "";
 
         setRestaurantProfile({
           name: settings?.restaurant?.name || "Restaurante",
@@ -227,7 +195,9 @@ export default function DigitalMenu() {
           return;
         }
 
-        const fallbackImage = products.find((item) => item?.image)?.image || "";
+        const fallbackImage = products[0]
+          ? resolveProductImage(products[0], 0)
+          : "";
 
         setRestaurantProfile((prev) => ({
           ...prev,
@@ -381,7 +351,7 @@ export default function DigitalMenu() {
   const categories = useMemo(() => {
     const categoryMap = new Map();
 
-    products.forEach((item) => {
+    products.forEach((item, index) => {
       const categoryName = String(item?.category?.name || "").trim();
 
       if (!categoryName) {
@@ -392,7 +362,7 @@ export default function DigitalMenu() {
         categoryMap.set(categoryName, {
           id: categoryName,
           label: categoryName,
-          coverImage: item?.image || "",
+          coverImage: resolveProductImage(item, index),
         });
       }
     });
@@ -401,7 +371,7 @@ export default function DigitalMenu() {
       {
         id: "all",
         label: "Categorias",
-        coverImage: products.find((item) => item?.image)?.image || "",
+        coverImage: products[0] ? resolveProductImage(products[0], 0) : "",
       },
       ...Array.from(categoryMap.values()),
     ];
@@ -605,6 +575,7 @@ export default function DigitalMenu() {
 
   function handleOpenProductDetail(product) {
     setIsClosingProductDetail(false);
+    setRatingHover(0);
     setSelectedProduct(product);
   }
 
@@ -618,6 +589,7 @@ export default function DigitalMenu() {
     }
 
     setIsClosingProductDetail(true);
+    setRatingHover(0);
 
     closeProductDetailTimeoutRef.current = setTimeout(() => {
       setSelectedProduct(null);
@@ -794,40 +766,79 @@ export default function DigitalMenu() {
                       <S.MenuCategoryHeader>{groupName}</S.MenuCategoryHeader>
 
                       <S.MenuList>
-                        {groupItems.map((product) => (
-                          <S.MenuItemCard
-                            key={product.id}
-                            onClick={() => handleOpenProductDetail(product)}
-                            role="button"
-                            tabIndex={0}
-                          >
-                            <S.MenuItemText>
-                              <h3>{product.name}</h3>
-                              <p>
-                                {product.description ||
-                                  "Sem descrição disponível para este item."}
-                              </p>
+                        {groupItems.map((product, index) => {
+                          const rating = getProductRating(product.id);
 
-                              <S.MenuItemBottom>
-                                <S.Price>R$ {toPrice(product.price)}</S.Price>
+                          return (
+                            <S.MenuItemCard
+                              key={product.id}
+                              onClick={() => handleOpenProductDetail(product)}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <S.MenuItemText>
+                                <h3>{product.name}</h3>
+                                <p>
+                                  {product.description ||
+                                    "Sem descrição disponível para este item."}
+                                </p>
 
-                                <S.AddButton
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    addToCart(product);
-                                  }}
-                                >
-                                  Adicionar
-                                </S.AddButton>
-                              </S.MenuItemBottom>
-                            </S.MenuItemText>
+                                <S.MenuItemRatingRow>
+                                  <S.MenuItemRatingStars>
+                                    {Array.from(
+                                      { length: MAX_RATING_STARS },
+                                      (_, starIndex) => {
+                                        const value = starIndex + 1;
+                                        const filled =
+                                          value <= Math.round(rating.average);
 
-                            <S.MenuItemImageWrap>
-                              <S.MenuItemImage $image={product.image} />
-                            </S.MenuItemImageWrap>
-                          </S.MenuItemCard>
-                        ))}
+                                        return (
+                                          <Star
+                                            key={`${product.id}-rating-${value}`}
+                                            size={13}
+                                            fill={
+                                              filled ? "#d7b35e" : "transparent"
+                                            }
+                                            color={
+                                              filled ? "#d7b35e" : "#c7c6ce"
+                                            }
+                                            strokeWidth={2.1}
+                                          />
+                                        );
+                                      },
+                                    )}
+                                  </S.MenuItemRatingStars>
+
+                                  <S.MenuItemRatingText>
+                                    {rating.count > 0
+                                      ? `${toRatingLabel(rating.average)} (${rating.count})`
+                                      : "Sem avaliações"}
+                                  </S.MenuItemRatingText>
+                                </S.MenuItemRatingRow>
+
+                                <S.MenuItemBottom>
+                                  <S.Price>R$ {toPrice(product.price)}</S.Price>
+
+                                  <S.AddButton
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      addToCart(product);
+                                    }}
+                                  >
+                                    Adicionar
+                                  </S.AddButton>
+                                </S.MenuItemBottom>
+                              </S.MenuItemText>
+
+                              <S.MenuItemImageWrap>
+                                <S.MenuItemImage
+                                  $image={resolveProductImage(product, index)}
+                                />
+                              </S.MenuItemImageWrap>
+                            </S.MenuItemCard>
+                          );
+                        })}
                       </S.MenuList>
                     </S.MenuCategoryBlock>
                   ),
@@ -846,61 +857,100 @@ export default function DigitalMenu() {
               <b>R$ {toPrice(cartTotal)}</b>
             </S.FloatingCart>
 
-            {selectedProduct ? (
-              <S.ProductDetailOverlay
-                $closing={isClosingProductDetail}
-                onClick={handleCloseProductDetail}
-              >
-                <S.ProductDetailImage
-                  $image={selectedProduct.image}
-                  $closing={isClosingProductDetail}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <S.ProductDetailBackButton
-                    type="button"
-                    onClick={handleCloseProductDetail}
-                  >
-                    <ArrowLeft size={20} />
-                  </S.ProductDetailBackButton>
-                </S.ProductDetailImage>
+            {selectedProduct
+              ? (() => {
+                  const selectedRating = getProductRating(selectedProduct.id);
+                  const previewRating =
+                    ratingHover || selectedRating.userRating;
 
-                <S.ProductDetailBody
-                  $closing={isClosingProductDetail}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <h2>{selectedProduct.name}</h2>
-                  <p>
-                    {selectedProduct.description ||
-                      "Sem descrição disponível para este item."}
-                  </p>
-
-                  <S.ProductDetailPrice>
-                    R$ {toPrice(selectedProduct.price)}
-                  </S.ProductDetailPrice>
-
-                  <S.ProductDetailRatingText>
-                    Deixe sua avaliação para este item
-                  </S.ProductDetailRatingText>
-
-                  <S.ProductDetailStars>
-                    <Star size={34} />
-                    <Star size={34} />
-                    <Star size={34} />
-                    <Star size={34} />
-                    <Star size={34} />
-                  </S.ProductDetailStars>
-
-                  <S.ProductDetailActions>
-                    <S.AddButton
-                      type="button"
-                      onClick={() => addToCart(selectedProduct)}
+                  return (
+                    <S.ProductDetailOverlay
+                      $closing={isClosingProductDetail}
+                      onClick={handleCloseProductDetail}
                     >
-                      Adicionar ao pedido
-                    </S.AddButton>
-                  </S.ProductDetailActions>
-                </S.ProductDetailBody>
-              </S.ProductDetailOverlay>
-            ) : null}
+                      <S.ProductDetailImage
+                        $image={resolveProductImage(selectedProduct)}
+                        $closing={isClosingProductDetail}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <S.ProductDetailBackButton
+                          type="button"
+                          onClick={handleCloseProductDetail}
+                        >
+                          <ArrowLeft size={20} />
+                        </S.ProductDetailBackButton>
+                      </S.ProductDetailImage>
+
+                      <S.ProductDetailBody
+                        $closing={isClosingProductDetail}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <h2>{selectedProduct.name}</h2>
+                        <p>
+                          {selectedProduct.description ||
+                            "Sem descrição disponível para este item."}
+                        </p>
+
+                        <S.ProductDetailPrice>
+                          R$ {toPrice(selectedProduct.price)}
+                        </S.ProductDetailPrice>
+
+                        <S.ProductDetailRatingText>
+                          Deixe sua avaliação para este item
+                        </S.ProductDetailRatingText>
+
+                        <S.ProductDetailStars>
+                          {Array.from(
+                            { length: MAX_RATING_STARS },
+                            (_, starIndex) => {
+                              const value = starIndex + 1;
+                              const active = value <= previewRating;
+
+                              return (
+                                <S.ProductDetailStarButton
+                                  key={`detail-rating-${value}`}
+                                  type="button"
+                                  $active={active}
+                                  disabled={isRatingSubmitting}
+                                  aria-label={`Avaliar com ${value} estrela${value > 1 ? "s" : ""}`}
+                                  onMouseEnter={() => setRatingHover(value)}
+                                  onMouseLeave={() => setRatingHover(0)}
+                                  onFocus={() => setRatingHover(value)}
+                                  onBlur={() => setRatingHover(0)}
+                                  onClick={() =>
+                                    handleRateProduct(selectedProduct, value)
+                                  }
+                                >
+                                  <Star
+                                    size={34}
+                                    fill={active ? "#d7b35e" : "transparent"}
+                                    color={active ? "#d7b35e" : "#d5d5da"}
+                                  />
+                                </S.ProductDetailStarButton>
+                              );
+                            },
+                          )}
+                        </S.ProductDetailStars>
+
+                        <S.ProductDetailRatingMeta>
+                          {selectedRating.count > 0
+                            ? `Média ${toRatingLabel(selectedRating.average)} de ${selectedRating.count} avaliação${selectedRating.count > 1 ? "ões" : ""}`
+                            : "Ainda sem avaliações"}
+                        </S.ProductDetailRatingMeta>
+
+                        <S.ProductDetailActions>
+                          <S.AddButton
+                            type="button"
+                            onClick={() => addToCart(selectedProduct)}
+                          >
+                            Adicionar ao pedido
+                          </S.AddButton>
+                        </S.ProductDetailActions>
+                      </S.ProductDetailBody>
+                    </S.ProductDetailOverlay>
+                  );
+                })()
+              : null}
 
             <S.Overlay
               $open={drawerOpen}
@@ -937,7 +987,7 @@ export default function DigitalMenu() {
                 </S.DrawerTab>
               </S.DrawerTabs>
 
-              <S.DrawerContent>
+              <S.DrawerContent $open={drawerOpen}>
                 {drawerStep === "pedido" ? (
                   <>
                     {cart.length === 0 ? (
@@ -945,8 +995,12 @@ export default function DigitalMenu() {
                         Seu pedido está vazio. Adicione itens no cardápio.
                       </S.EmptyHint>
                     ) : (
-                      cart.map((item) => (
-                        <S.CartLine key={item.productId}>
+                      cart.map((item, index) => (
+                        <S.CartLine
+                          key={item.productId}
+                          $open={drawerOpen}
+                          $index={index}
+                        >
                           <div>
                             <strong>{item.name}</strong>
                             <S.Tiny>
@@ -1057,10 +1111,10 @@ export default function DigitalMenu() {
                         isConfirmed
                           ? {
                               background:
-                                "linear-gradient(135deg, #0f172a, #1d4ed8)",
+                                "linear-gradient(135deg, #4f2150, #6e2c6a)",
                               color: "#ffffff",
-                              border: "1px solid rgba(148, 163, 184, 0.32)",
-                              boxShadow: "0 14px 28px rgba(29, 78, 216, 0.32)",
+                              border: "1px solid rgba(90, 39, 87, 0.34)",
+                              boxShadow: "0 14px 28px rgba(58, 21, 65, 0.3)",
                               letterSpacing: "0.01em",
                             }
                           : undefined

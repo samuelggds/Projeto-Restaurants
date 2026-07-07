@@ -5,6 +5,8 @@ export const darkTheme = {
   background: "#13131a",
   surface: "#1c1c24",
   surfaceHover: "#232330",
+  sidebarSurface: "#1c1c24",
+  sidebarBorder: "#2d2d3d",
   border: "#2d2d3d",
   text: "#ffffff",
   textMuted: "#a0aec0",
@@ -13,13 +15,15 @@ export const darkTheme = {
 };
 
 export const lightTheme = {
-  background: "#f7fafc",
-  surface: "#ffffff",
-  surfaceHover: "#f1f5f9",
-  border: "#e2e8f0",
+  background: "#cfd9e4",
+  surface: "#d9e3ee",
+  surfaceHover: "#cfdbe8",
+  sidebarSurface: "#afc0d1",
+  sidebarBorder: "#95a8bd",
+  border: "#b3c1d2",
   text: "#1a202c",
-  textMuted: "#718096",
-  inputBg: "#f8fafc",
+  textMuted: "#334155",
+  inputBg: "#d8e2ed",
   primary: "#dba206",
 };
 
@@ -60,8 +64,10 @@ export const PageHeader = styled.div`
 // --- SIDEBAR (BARRA LATERAL CORRIGIDA) ---
 export const Sidebar = styled.aside`
   width: ${(props) => (props.$collapsed ? "80px" : "260px")};
-  background-color: ${(props) => props.theme.surface};
-  border-right: 1px solid ${(props) => props.theme.border};
+  background-color: ${(props) =>
+    props.theme.sidebarSurface || props.theme.surface};
+  border-right: 1px solid
+    ${(props) => props.theme.sidebarBorder || props.theme.border};
   display: flex;
   flex-direction: column;
   justify-content: space-between;

@@ -148,6 +148,54 @@ export const GlobalMenuStyle = createGlobalStyle`
     }
   }
 
+  @keyframes drawerPanelIn {
+    from {
+      opacity: 0.72;
+      transform: translateX(36px) scale(0.986);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
+  @keyframes drawerHeaderRise {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes drawerContentRise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes cartLineIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -828,6 +876,27 @@ export const MenuItemBottom = styled.div`
   gap: 0.52rem;
 `;
 
+export const MenuItemRatingRow = styled.div`
+  margin-top: -0.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+`;
+
+export const MenuItemRatingStars = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+`;
+
+export const MenuItemRatingText = styled.span`
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #7b7786;
+  letter-spacing: 0.01em;
+`;
+
 export const MenuItemImageWrap = styled.div`
   position: relative;
   border-left: 1px solid rgba(0, 0, 0, 0.08);
@@ -1006,25 +1075,32 @@ export const FloatingCart = styled.button`
   position: fixed;
   right: 0.8rem;
   bottom: 1rem;
-  border: none;
+  border: 1px solid rgba(90, 39, 87, 0.22);
   border-radius: 999px;
   padding: 0.74rem 0.84rem;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: #17191e;
-  color: #ffffff;
-  box-shadow: 0 14px 28px rgba(2, 12, 27, 0.32);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--dm-purple);
+  box-shadow: 0 14px 28px rgba(58, 21, 65, 0.18);
   font-weight: 700;
   cursor: pointer;
   z-index: 30;
+  backdrop-filter: blur(8px);
+
+  &:hover {
+    border-color: rgba(90, 39, 87, 0.34);
+    box-shadow: 0 16px 30px rgba(58, 21, 65, 0.24);
+    transform: translateY(-1px);
+  }
 
   b {
     font-size: 0.82rem;
     padding: 0.14rem 0.42rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
+    background: rgba(90, 39, 87, 0.1);
+    color: #36153f;
   }
 
   @media (max-width: 520px) {
@@ -1129,18 +1205,36 @@ export const ProductDetailStars = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 0.8rem;
-  color: #d5d5da;
+`;
 
-  svg {
-    transition:
-      transform 0.2s ease,
-      color 0.2s ease;
+export const ProductDetailStarButton = styled.button`
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: ${({ $active }) => ($active ? "#d7b35e" : "#d5d5da")};
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.16s ease;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-1px) scale(1.03);
+    outline: none;
   }
 
-  &:hover svg {
-    color: #d7b35e;
-    transform: translateY(-1px);
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
   }
+`;
+
+export const ProductDetailRatingMeta = styled.p`
+  margin: 0.75rem 0 0 !important;
+  color: #6f6b79 !important;
+  font-size: 0.86rem !important;
 `;
 
 export const ProductDetailActions = styled.div`
@@ -1164,7 +1258,7 @@ export const ProductDetailActions = styled.div`
 export const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(10, 10, 10, 0.56);
+  background: rgba(19, 11, 24, 0.34);
   backdrop-filter: blur(2px);
   opacity: ${({ $open }) => ($open ? 1 : 0)};
   pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
@@ -1178,17 +1272,29 @@ export const Drawer = styled.aside`
   right: 0;
   width: min(520px, 100vw);
   height: 100vh;
-  background: linear-gradient(
-    175deg,
-    rgba(28, 31, 36, 0.98),
-    rgba(23, 26, 30, 0.98)
-  );
-  border-left: 1px solid var(--dm-line);
-  transform: translateX(${({ $open }) => ($open ? "0" : "106%")});
-  transition: transform 0.26s ease;
+  background: var(--dm-light-bg);
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: -22px 0 38px rgba(35, 14, 43, 0.2);
+  transform: ${({ $open }) =>
+    $open ? "translateX(0) scale(1)" : "translateX(106%) scale(0.986)"};
+  opacity: ${({ $open }) => ($open ? 1 : 0.74)};
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease;
+  animation: ${({ $open }) =>
+    $open ? "drawerPanelIn 0.32s cubic-bezier(0.22, 1, 0.36, 1)" : "none"};
+  will-change: transform, opacity;
   z-index: 90;
   display: flex;
   flex-direction: column;
+
+  @media (max-width: 640px) {
+    transition:
+      transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.18s ease;
+    animation: ${({ $open }) =>
+      $open ? "drawerPanelIn 0.24s cubic-bezier(0.22, 1, 0.36, 1)" : "none"};
+  }
 `;
 
 export const DrawerHeader = styled.div`
@@ -1197,20 +1303,24 @@ export const DrawerHeader = styled.div`
   justify-content: space-between;
   gap: 0.6rem;
   padding: 0.95rem;
-  border-bottom: 1px solid var(--dm-line);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--dm-light-surface);
+  animation: drawerHeaderRise 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 
   h2 {
     margin: 0;
     font-size: 1.04rem;
+    font-family: "Space Grotesk", "Sora", sans-serif;
+    color: #28132d;
   }
 
   button {
-    border: none;
+    border: 1px solid rgba(90, 39, 87, 0.2);
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: rgba(243, 161, 93, 0.16);
-    color: var(--dm-text);
+    background: rgba(90, 39, 87, 0.08);
+    color: var(--dm-purple);
     cursor: pointer;
   }
 `;
@@ -1218,18 +1328,20 @@ export const DrawerHeader = styled.div`
 export const DrawerTotal = styled.strong`
   margin-left: auto;
   margin-right: 0.55rem;
-  color: var(--dm-warm);
+  color: var(--dm-purple);
   font-size: 0.96rem;
+  font-family: "Space Grotesk", "Sora", sans-serif;
 `;
 
 export const DrawerTabs = styled.div`
   margin: 0.85rem 0.95rem 0;
   display: inline-grid;
   grid-template-columns: 1fr 1fr;
-  background: rgba(42, 45, 51, 0.92);
-  border: 1px solid var(--dm-line);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
   padding: 0.18rem;
+  animation: drawerHeaderRise 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 `;
 
 export const DrawerTab = styled.button`
@@ -1238,37 +1350,64 @@ export const DrawerTab = styled.button`
   padding: 0.54rem 0.66rem;
   font-weight: 700;
   cursor: pointer;
-  color: ${({ $active }) => ($active ? "#2d180c" : "var(--dm-muted)")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "#6f6d79")};
   background: ${({ $active }) =>
-    $active
-      ? "linear-gradient(135deg, var(--dm-brand), var(--dm-brand-2))"
-      : "transparent"};
+    $active ? "linear-gradient(135deg, #5a2757, #7d2f79)" : "transparent"};
 `;
 
 export const DrawerContent = styled.div`
   padding: 0.9rem 0.95rem 1.2rem;
   overflow: auto;
   flex: 1;
+  color: var(--dm-light-text);
+  animation: ${({ $open }) =>
+    $open ? "drawerContentRise 0.28s cubic-bezier(0.22, 1, 0.36, 1)" : "none"};
+
+  @media (max-width: 640px) {
+    animation: ${({ $open }) =>
+      $open ? "drawerContentRise 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : "none"};
+  }
 
   &::-webkit-scrollbar {
     width: 7px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(243, 161, 93, 0.38);
+    background: rgba(90, 39, 87, 0.3);
     border-radius: 999px;
   }
 `;
 
 export const CartLine = styled.div`
-  border: 1px solid var(--dm-line);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
   padding: 0.72rem;
-  background: rgba(38, 42, 47, 0.86);
+  background: var(--dm-light-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  animation: ${({ $open }) => ($open ? "cartLineIn 0.26s ease both" : "none")};
+  animation-delay: ${({ $index = 0 }) => `${Math.min($index, 7) * 0.045}s`};
+
+  @media (max-width: 640px) {
+    animation: ${({ $open }) => ($open ? "cartLineIn 0.2s ease both" : "none")};
+    animation-delay: ${({ $index = 0 }) => `${Math.min($index, 7) * 0.024}s`};
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(90, 39, 87, 0.24);
+    box-shadow: 0 8px 18px rgba(39, 19, 44, 0.1);
+  }
+
+  strong {
+    color: #212229;
+  }
 
   & + & {
     margin-top: 0.62rem;
@@ -1281,35 +1420,42 @@ export const QtyWrap = styled.div`
   gap: 0.4rem;
 
   button {
-    border: 1px solid var(--dm-line);
+    border: 1px solid rgba(90, 39, 87, 0.22);
     width: 26px;
     height: 26px;
     border-radius: 7px;
-    background: rgba(50, 54, 61, 0.96);
-    color: var(--dm-text);
+    background: rgba(90, 39, 87, 0.08);
+    color: var(--dm-purple);
     cursor: pointer;
+
+    &:hover {
+      background: rgba(90, 39, 87, 0.16);
+    }
   }
 
   strong {
     min-width: 14px;
     text-align: center;
+    color: #2b1630;
   }
 `;
 
 export const Summary = styled.div`
   margin-top: 0.84rem;
-  border: 1px dashed rgba(243, 161, 93, 0.4);
-  background: rgba(44, 39, 35, 0.72);
+  border: 1px dashed rgba(90, 39, 87, 0.34);
+  background: rgba(90, 39, 87, 0.06);
   border-radius: 10px;
   padding: 0.78rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 0.92rem;
+  color: #564f5d;
 
   strong {
-    color: var(--dm-warm);
+    color: var(--dm-purple);
     font-size: 1.12rem;
+    font-family: "Space Grotesk", "Sora", sans-serif;
   }
 `;
 
@@ -1323,12 +1469,21 @@ export const InputGrid = styled.div`
   select {
     width: 100%;
     border-radius: 10px;
-    border: 1px solid var(--dm-line);
-    background: rgba(38, 42, 47, 0.92);
-    color: var(--dm-text);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+    color: var(--dm-light-text);
     padding: 0.72rem 0.82rem;
     font-size: 0.94rem;
     outline: none;
+
+    &::placeholder {
+      color: #9695a0;
+    }
+
+    &:focus {
+      border-color: rgba(90, 39, 87, 0.42);
+      box-shadow: 0 0 0 4px rgba(90, 39, 87, 0.12);
+    }
   }
 
   textarea {
@@ -1342,14 +1497,15 @@ export const Label = styled.label`
   gap: 0.32rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--dm-muted);
+  color: #5e5a66;
 `;
 
 export const EmptyHint = styled.div`
-  border: 1px dashed rgba(243, 161, 93, 0.34);
+  border: 1px dashed rgba(90, 39, 87, 0.28);
   border-radius: 10px;
   padding: 0.95rem;
-  color: var(--dm-muted);
+  background: rgba(255, 255, 255, 0.82);
+  color: #7b7786;
   text-align: center;
 `;
 
@@ -1359,27 +1515,35 @@ export const CheckoutButton = styled.button`
   border-radius: 10px;
   margin-top: 0.85rem;
   padding: 0.82rem 0.95rem;
-  background: linear-gradient(135deg, var(--dm-brand), var(--dm-brand-2));
-  color: #2b180c;
+  background: linear-gradient(135deg, #5a2757, #7d2f79);
+  color: #ffffff;
   font-weight: 800;
   cursor: pointer;
+  box-shadow: 0 12px 24px rgba(58, 21, 65, 0.2);
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+    box-shadow: none;
   }
 
   &:not(:disabled):hover {
+    transform: translateY(-1px);
     filter: brightness(1.06);
+    box-shadow: 0 14px 28px rgba(58, 21, 65, 0.26);
   }
 `;
 
 export const InlineInfo = styled.div`
   margin-top: 0.74rem;
   border-radius: 9px;
-  border: 1px solid rgba(243, 161, 93, 0.4);
-  background: rgba(243, 161, 93, 0.1);
-  color: #ffe4bf;
+  border: 1px solid rgba(90, 39, 87, 0.24);
+  background: rgba(90, 39, 87, 0.08);
+  color: #5f3d69;
   padding: 0.58rem 0.72rem;
   font-size: 0.8rem;
 `;

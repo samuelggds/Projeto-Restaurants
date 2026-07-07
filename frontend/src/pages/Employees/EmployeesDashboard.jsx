@@ -858,7 +858,7 @@ export default function StaffDashboard() {
                   : "1px solid rgba(180, 83, 9, 0.28)",
                 background: isDarkMode
                   ? "linear-gradient(135deg, rgba(120,53,15,0.3), rgba(17,24,39,0.5))"
-                  : "linear-gradient(135deg, rgba(254,243,199,0.9), rgba(255,255,255,0.95))",
+                  : "linear-gradient(135deg, rgba(253,230,138,0.86), rgba(207,217,228,0.94))",
                 borderRadius: 14,
                 padding: "0.95rem",
                 marginBottom: "1rem",
@@ -898,7 +898,7 @@ export default function StaffDashboard() {
                     padding: "0.35rem 0.75rem",
                     cursor: "pointer",
                     fontWeight: 700,
-                    background: isDarkMode ? "#1f2937" : "#f1f5f9",
+                    background: isDarkMode ? "#1f2937" : "#d8e2ed",
                     color: isDarkMode ? "#f8fafc" : "#0f172a",
                   }}
                 >
@@ -919,7 +919,7 @@ export default function StaffDashboard() {
                       padding: "0.62rem 0.7rem",
                       background: isDarkMode
                         ? "rgba(15, 23, 42, 0.55)"
-                        : "rgba(255, 255, 255, 0.86)",
+                        : "rgba(216, 226, 237, 0.9)",
                     }}
                   >
                     <div>

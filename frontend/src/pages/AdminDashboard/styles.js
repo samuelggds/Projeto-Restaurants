@@ -12,23 +12,27 @@ const spin = keyframes`
 
 // --- TEMAS (Design System Premium) ---
 export const lightTheme = {
-  background: "#f1f5f9",
-  surface: "#ffffff",
-  surfaceHover: "#f8fafc",
+  background: "#cfd9e4",
+  surface: "#d9e3ee",
+  surfaceHover: "#cfdbe8",
+  sidebarSurface: "#afc0d1",
+  sidebarBorder: "#95a8bd",
   text: "#0f172a",
-  textMuted: "#64748b",
-  border: "#e2e8f0",
+  textMuted: "#334155",
+  border: "#b3c1d2",
   primary: "#f97316",
   primaryHover: "#ea580c",
   success: "#10b981",
   danger: "#ef4444",
-  shadow: "rgba(15, 23, 42, 0.05) 0px 4px 16px 0px",
+  shadow: "rgba(15, 23, 42, 0.12) 0px 4px 16px 0px",
 };
 
 export const darkTheme = {
   background: "#0b0f19",
   surface: "#151b2c",
   surfaceHover: "#1e2640",
+  sidebarSurface: "#151b2c",
+  sidebarBorder: "#222f43",
   text: "#f8fafc",
   textMuted: "#94a3b8",
   border: "#222f43",
@@ -87,8 +91,9 @@ export const PageHeader = styled.div`
 // --- SIDEBAR (BARRA LATERAL) ---
 export const Sidebar = styled.aside`
   width: ${(props) => (props.$collapsed ? "80px" : "280px")};
-  background: ${(props) => props.theme.surface};
-  border-right: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.sidebarSurface || props.theme.surface};
+  border-right: 1px solid
+    ${(props) => props.theme.sidebarBorder || props.theme.border};
   display: flex;
   flex-direction: column;
   padding: 1.5rem 0.75rem;
@@ -245,6 +250,149 @@ export const OrdersGrid = styled.div`
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
   }
+`;
+
+export const OrdersFilterBar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 1.25rem;
+`;
+
+export const OrderTypeFilterButton = styled.button`
+  ${(props) => {
+    const tone = String(props.$tone || "default").toLowerCase();
+
+    if (tone === "warning") {
+      return css`
+        &:hover {
+          border-color: #eab308;
+          color: #eab308;
+        }
+
+        ${props.$active &&
+        css`
+          border-color: #eab308;
+          background: #eab30820;
+          color: #eab308;
+          box-shadow: inset 0 0 0 1px #eab30840;
+        `}
+      `;
+    }
+
+    if (tone === "info") {
+      return css`
+        &:hover {
+          border-color: #3b82f6;
+          color: #3b82f6;
+        }
+
+        ${props.$active &&
+        css`
+          border-color: #3b82f6;
+          background: #3b82f620;
+          color: #3b82f6;
+          box-shadow: inset 0 0 0 1px #3b82f640;
+        `}
+      `;
+    }
+
+    if (tone === "violet") {
+      return css`
+        &:hover {
+          border-color: #a855f7;
+          color: #a855f7;
+        }
+
+        ${props.$active &&
+        css`
+          border-color: #a855f7;
+          background: #a855f720;
+          color: #a855f7;
+          box-shadow: inset 0 0 0 1px #a855f740;
+        `}
+      `;
+    }
+
+    if (tone === "cyan") {
+      return css`
+        &:hover {
+          border-color: #06b6d4;
+          color: #06b6d4;
+        }
+
+        ${props.$active &&
+        css`
+          border-color: #06b6d4;
+          background: #06b6d420;
+          color: #06b6d4;
+          box-shadow: inset 0 0 0 1px #06b6d440;
+        `}
+      `;
+    }
+
+    if (tone === "success") {
+      return css`
+        &:hover {
+          border-color: #10b981;
+          color: #10b981;
+        }
+
+        ${props.$active &&
+        css`
+          border-color: #10b981;
+          background: #10b98120;
+          color: #10b981;
+          box-shadow: inset 0 0 0 1px #10b98140;
+        `}
+      `;
+    }
+
+    if (tone === "danger") {
+      return css`
+        &:hover {
+          border-color: #ef4444;
+          color: #ef4444;
+        }
+
+        ${props.$active &&
+        css`
+          border-color: #ef4444;
+          background: #ef444420;
+          color: #ef4444;
+          box-shadow: inset 0 0 0 1px #ef444440;
+        `}
+      `;
+    }
+
+    return null;
+  }}
+
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.surface};
+  color: ${(props) => props.theme.textMuted};
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${(props) => props.theme.primary};
+    color: ${(props) => props.theme.text};
+  }
+
+  ${(props) =>
+    props.$active &&
+    !props.$tone &&
+    css`
+      border-color: ${props.theme.primary};
+      background: ${props.theme.primary}18;
+      color: ${props.theme.primary};
+      box-shadow: inset 0 0 0 1px ${props.theme.primary}28;
+    `}
 `;
 
 export const OrderCard = styled.div`
@@ -639,7 +787,7 @@ export const TableQrCard = styled.div`
 `;
 
 export const TableQrCodeBox = styled.div`
-  background: #ffffff;
+  background: ${(props) => props.theme.surfaceHover};
   border-radius: 14px;
   padding: 1rem;
   display: flex;
