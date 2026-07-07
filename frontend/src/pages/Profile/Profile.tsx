@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
@@ -6,22 +6,20 @@ import {
   Utensils,
   Sun,
   Moon,
-  User,
-  Mail,
-  Phone,
-  ShoppingBag,
   LogOut,
-  Save,
-  Edit2,
-  MapPin,
-  Plus,
-  Trash2,
   ArrowLeft,
   ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../contexts/authContext";
 import authService from "../../Services/authService";
 import * as S from "./styles";
+
+const ProfilePersonalCard = lazy(
+  () => import("./components/ProfilePersonalCard"),
+);
+const ProfileAddressesAndOrders = lazy(
+  () => import("./components/ProfileAddressesAndOrders"),
+);
 
 const ADDRESS_STORAGE_KEY = "@PecaJaFood:enderecos";
 const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
@@ -324,223 +322,31 @@ export default function Profile() {
         {/* CORPO DO PERFIL */}
         <S.MainContainer>
           <S.GridContainer>
-            {/* CARD ESQUERDO: DADOS PESSOAIS */}
-            <S.ProfileCard>
-              <S.AvatarSection>
-                <div className="avatar-circle">
-                  <User size={40} />
-                </div>
-                <h3>{name}</h3>
-                <p>Cliente Associado</p>
-              </S.AvatarSection>
+            <Suspense fallback={null}>
+              <ProfilePersonalCard
+                name={name}
+                email={email}
+                phone={phone}
+                isEditing={isEditing}
+                onNameChange={setName}
+                onEmailChange={setEmail}
+                onPhoneChange={setPhone}
+                onSubmit={handleSave}
+                onEnableEditing={() => setIsEditing(true)}
+              />
+            </Suspense>
 
-              <S.Form onSubmit={handleSave}>
-                <S.InputGroup>
-                  <S.Label>
-                    <User size={14} /> Nome Completo
-                  </S.Label>
-                  <S.Input
-                    type="text"
-                    value={name}
-                    disabled={!isEditing}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </S.InputGroup>
-
-                <S.InputGroup>
-                  <S.Label>
-                    <Mail size={14} /> E-mail
-                  </S.Label>
-                  <S.Input
-                    type="email"
-                    value={email}
-                    disabled={!isEditing}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </S.InputGroup>
-
-                <S.InputGroup>
-                  <S.Label>
-                    <Phone size={14} /> Telefone
-                  </S.Label>
-                  <S.Input
-                    type="text"
-                    value={phone}
-                    disabled={!isEditing}
-                    placeholder="(00) 00000-0000"
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </S.InputGroup>
-
-                {isEditing ? (
-                  <S.ActionButton type="submit" $variant="primary">
-                    <Save size={16} /> Salvar Alterações
-                  </S.ActionButton>
-                ) : (
-                  <S.ActionButton
-                    type="button"
-                    onClick={() => setIsEditing(true)}
-                    $variant="secondary"
-                  >
-                    <Edit2 size={16} /> Editar Perfil
-                  </S.ActionButton>
-                )}
-              </S.Form>
-            </S.ProfileCard>
-
-            {/* CARD DIREITO: ENDEREÇOS */}
-            <S.RightColumn>
-              {/* --- NOVA SEÇÃO: MEUS ENDEREÇOS --- */}
-              <S.OrdersCard style={{ marginBottom: "2rem" }}>
-                <S.SectionTitle>
-                  <MapPin size={20} />
-                  <h3>Meus Endereços de Entrega</h3>
-                </S.SectionTitle>
-
-                {/* Lista de Endereços Atuais */}
-                <S.AddressList>
-                  {enderecos.length === 0 ? (
-                    <p className="empty-msg">
-                      Nenhum endereço cadastrado ainda.
-                    </p>
-                  ) : (
-                    enderecos.map((end) => (
-                      <S.AddressItem key={end.id}>
-                        <div
-                          className="address-details"
-                          onClick={() => handleSelectEndereco(end.id)}
-                        >
-                          <h5>{end.rotulo}</h5>
-                          <p>
-                            {end.rua}, Nº {end.numero}{" "}
-                            {end.bairro ? `- ${end.bairro}` : ""}
-                          </p>
-                          <span>
-                            {end.cidade} {end.cep ? `• CEP: ${end.cep}` : ""}
-                          </span>
-                        </div>
-                        <S.DeleteAddressButton
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleDeleteEndereco(end.id);
-                          }}
-                          title="Excluir endereço"
-                        >
-                          <Trash2 size={16} />
-                        </S.DeleteAddressButton>
-                      </S.AddressItem>
-                    ))
-                  )}
-                </S.AddressList>
-
-                <hr
-                  style={{
-                    border: "0",
-                    borderTop: "1px solid var(--border)",
-                    margin: "1.5rem 0",
-                    opacity: 0.2,
-                  }}
-                />
-
-                {/* Formulário de Adicionar Endereço */}
-                <S.AddressForm onSubmit={handleAddEndereco}>
-                  <h4>Adicionar Novo Endereço</h4>
-                  <div className="form-row text-full">
-                    <input
-                      type="text"
-                      placeholder="Identificação (Ex: Casa, Trabalho, Namorada)"
-                      value={novoEndereco.rotulo}
-                      onChange={(e) =>
-                        setNovoEndereco({
-                          ...novoEndereco,
-                          rotulo: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="form-row split-rua">
-                    <input
-                      type="text"
-                      placeholder="Rua / Avenida"
-                      value={novoEndereco.rua}
-                      onChange={(e) =>
-                        setNovoEndereco({
-                          ...novoEndereco,
-                          rua: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Nº"
-                      value={novoEndereco.numero}
-                      onChange={(e) =>
-                        setNovoEndereco({
-                          ...novoEndereco,
-                          numero: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="form-row split-bairro">
-                    <input
-                      type="text"
-                      placeholder="Bairro"
-                      value={novoEndereco.bairro}
-                      onChange={(e) =>
-                        setNovoEndereco({
-                          ...novoEndereco,
-                          bairro: e.target.value,
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      placeholder="CEP"
-                      value={novoEndereco.cep}
-                      onChange={(e) =>
-                        setNovoEndereco({
-                          ...novoEndereco,
-                          cep: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <S.AddAddressButton type="submit">
-                    <Plus size={16} /> Salvar Endereço
-                  </S.AddAddressButton>
-                </S.AddressForm>
-              </S.OrdersCard>
-
-              <S.OrdersCard>
-                <S.SectionTitle>
-                  <ShoppingBag size={20} />
-                  <h3>Pedidos do Perfil</h3>
-                </S.SectionTitle>
-                <p
-                  style={{
-                    margin: "0 0 1rem",
-                    opacity: 0.75,
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  Abra a tela exclusiva para visualizar todos os pedidos feitos
-                  por este perfil.
-                </p>
-                <S.ActionButton
-                  type="button"
-                  $variant="secondary"
-                  onClick={() => navigate("/profile/orders")}
-                >
-                  <ShoppingBag size={16} /> Ver meus pedidos
-                </S.ActionButton>
-              </S.OrdersCard>
-            </S.RightColumn>
+            <Suspense fallback={null}>
+              <ProfileAddressesAndOrders
+                enderecos={enderecos}
+                novoEndereco={novoEndereco}
+                onNovoEnderecoChange={setNovoEndereco}
+                onAddEndereco={handleAddEndereco}
+                onSelectEndereco={handleSelectEndereco}
+                onDeleteEndereco={handleDeleteEndereco}
+                onNavigateOrders={() => navigate("/profile/orders")}
+              />
+            </Suspense>
           </S.GridContainer>
         </S.MainContainer>
       </S.ProfileLayout>
