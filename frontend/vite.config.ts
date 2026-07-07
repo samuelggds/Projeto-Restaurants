@@ -12,8 +12,28 @@ export default defineConfig({
             return;
           }
 
-          if (id.includes("react") || id.includes("scheduler")) {
-            return "react-vendor";
+          if (
+            id.includes("react-router") ||
+            id.includes("@remix-run") ||
+            id.includes("history")
+          ) {
+            return "router-vendor";
+          }
+
+          if (
+            id.includes("react-toastify") ||
+            id.includes("react-qr-code") ||
+            id.includes("lucide-react")
+          ) {
+            return "react-ui-vendor";
+          }
+
+          if (
+            id.includes("react-dom") ||
+            id.includes("react/") ||
+            id.includes("scheduler")
+          ) {
+            return "react-core-vendor";
           }
 
           if (id.includes("styled-components")) {
