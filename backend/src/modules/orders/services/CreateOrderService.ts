@@ -1,15 +1,59 @@
-import prisma from "../../../config/prisma.js";
+﻿import prisma from "../../../config/prisma.js";
 import orderRepository from "../repositories/OrderRepository.js";
 import productRepository from "../../products/repositories/ProductRepository.js";
 import { io } from "../../../server.js";
 import { createOrderSchema } from "../../../validators/OrderValidator.js";
 import splitService from "../../billing/services/SplitService.js";
 import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
-import { TableSessionStatus } from "@prisma/client";
+import {
+  PaymentMethod,
+  Prisma,
+  TableSessionStatus,
+  OrderType,
+} from "@prisma/client";
 import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
+import { z } from "zod";
+
+type OrderItemInput = z.infer<typeof createOrderSchema>["items"][number];
+
+type CreateOrderPayload = {
+  userId?: number | string | null;
+  restaurantId?: number | string | null;
+  userRestaurantId?: number | string | null;
+  tableSessionId?: number | string | null;
+  tableSessionTableId?: number | string | null;
+  type: OrderType;
+  paymentMethod?: PaymentMethod;
+  paid?: boolean;
+  pixPaymentId?: string;
+  paymentProof?: string;
+  observation?: string;
+  customerName?: string;
+  customerCpf?: string;
+  customerPhone?: string;
+  tableId?: number | string | null;
+  items: OrderItemInput[];
+  address?: string;
+  number?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  paymentProofImage?: string;
+  complement?: string;
+};
+
+type ResolveOrderUserPayload = {
+  tx: Prisma.TransactionClient;
+  userId?: number | string | null;
+  restaurantId: number;
+  customerName?: string;
+  customerCpf?: string;
+  customerPhone?: string;
+};
 
 class CreateOrderService {
-  formatCpf(value) {
+  formatCpf(value: string | number | null | undefined) {
     const digits = String(value || "").replace(/\D/g, "");
 
     if (digits.length !== 11) {
@@ -19,7 +63,7 @@ class CreateOrderService {
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   }
 
-  normalizePhone(value) {
+  normalizePhone(value: string | number | null | undefined) {
     const digits = String(value || "").replace(/\D/g, "");
 
     if (!digits) {
@@ -44,7 +88,7 @@ class CreateOrderService {
     customerName,
     customerCpf,
     customerPhone,
-  }) {
+  }: ResolveOrderUserPayload) {
     const normalizedPhone = this.normalizePhone(customerPhone);
 
     if (userId) {
@@ -70,7 +114,7 @@ class CreateOrderService {
     }
 
     if (cpfDigits.length !== 11) {
-      throw new Error("Informe um CPF válido com 11 dígitos.");
+      throw new Error("Informe um CPF vÃ¡lido com 11 dÃ­gitos.");
     }
 
     const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
@@ -131,11 +175,11 @@ class CreateOrderService {
     zipCode,
     paymentProofImage,
     complement,
-  }) {
+  }: CreateOrderPayload) {
     const resolvedRestaurantId =
       Number(restaurantId) || Number(userRestaurantId) || null;
     if (!resolvedRestaurantId) {
-      throw new Error("Restaurante não informado para o pedido");
+      throw new Error("Restaurante nÃ£o informado para o pedido");
     }
 
     createOrderSchema.parse({
@@ -164,7 +208,7 @@ class CreateOrderService {
     if (type === "MESA") {
       if (!tableSessionId) {
         throw new Error(
-          "Sessão da mesa não informada. Valide o PIN da mesa para continuar.",
+          "SessÃ£o da mesa nÃ£o informada. Valide o PIN da mesa para continuar.",
         );
       }
 
@@ -172,19 +216,19 @@ class CreateOrderService {
 
       if (!session || session.status !== TableSessionStatus.OPEN) {
         throw new Error(
-          "Essa mesa está fechada. Gere um novo PIN com a equipe para continuar.",
+          "Essa mesa estÃ¡ fechada. Gere um novo PIN com a equipe para continuar.",
         );
       }
 
       if (Number(tableId || 0) && Number(tableId) !== Number(session.tableId)) {
-        throw new Error("Mesa do pedido não confere com a sessão validada.");
+        throw new Error("Mesa do pedido nÃ£o confere com a sessÃ£o validada.");
       }
 
       if (
         Number(tableSessionTableId || 0) > 0 &&
         Number(tableSessionTableId) !== Number(session.tableId)
       ) {
-        throw new Error("Sessão da mesa inválida para este pedido.");
+        throw new Error("SessÃ£o da mesa invÃ¡lida para este pedido.");
       }
 
       tableId = Number(session.tableId);
@@ -197,7 +241,7 @@ class CreateOrderService {
 
       if (requiredAddressFields.length < 5) {
         throw new Error(
-          "Informe o endereço completo para pedidos de delivery.",
+          "Informe o endereÃ§o completo para pedidos de delivery.",
         );
       }
     }
@@ -225,17 +269,17 @@ class CreateOrderService {
         const item = items[index];
 
         if (!product) {
-          throw new Error(`Produto não encontrado: ${items[index].productId}`);
+          throw new Error(`Produto nÃ£o encontrado: ${items[index].productId}`);
         }
 
         if (product.active === false) {
-          throw new Error(`Produto indisponível: ${product.name}`);
+          throw new Error(`Produto indisponÃ­vel: ${product.name}`);
         }
 
         const quantity = Number(item.quantity || 0);
 
         if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Quantidade inválida para ${product.name}.`);
+          throw new Error(`Quantidade invÃ¡lida para ${product.name}.`);
         }
 
         const stockValue =
@@ -249,12 +293,12 @@ class CreateOrderService {
           quantity > stockValue
         ) {
           throw new Error(
-            `Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`,
+            `Estoque insuficiente para ${product.name}. DisponÃ­vel: ${stockValue}.`,
           );
         }
       });
 
-      const orderItems = items.map((item, index) => {
+      const orderItems = items.map((item: OrderItemInput, index: number) => {
         const product = products[index];
 
         return {
@@ -299,6 +343,11 @@ class CreateOrderService {
         .filter(Boolean)
         .join(" | ");
 
+      const normalizedTableId =
+        tableId === null || tableId === undefined || tableId === ""
+          ? null
+          : Number(tableId);
+
       const order = await orderRepository.create(
         {
           total,
@@ -311,7 +360,7 @@ class CreateOrderService {
           observation: mergedObservation || null,
           userId: resolvedUserId,
           restaurantId: resolvedRestaurantId,
-          tableId,
+          tableId: normalizedTableId,
           address,
           number,
           district,
@@ -354,10 +403,10 @@ class CreateOrderService {
         orderId: createdOrder?.id,
         total: createdOrder?.total,
         paymentMethod: normalizedPaymentMethod,
-      }).catch((error) => {
+      }).catch((error: unknown) => {
         console.error(
           "[CUSTOMER_NOTIFICATION_UNHANDLED]",
-          error?.message || error,
+          error instanceof Error ? error.message : String(error),
         );
       });
     }
@@ -367,3 +416,4 @@ class CreateOrderService {
 }
 
 export default new CreateOrderService();
+

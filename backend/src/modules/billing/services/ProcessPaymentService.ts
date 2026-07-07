@@ -3,8 +3,12 @@ import prisma from "../../../config/prisma.js";
 import { hasBlockingInvoices } from "../utils/billingRules.js";
 import { info } from "../utils/billingLogger.js";
 
+type ProcessPaymentPayload = {
+  invoiceId: number | string;
+};
+
 class ProcessPaymentService {
-  async execute({ invoiceId }) {
+  async execute({ invoiceId }: ProcessPaymentPayload) {
     const invoice = await billingRepository.updateInvoice(invoiceId, {
       status: "PAGO",
       paidAt: new Date(),

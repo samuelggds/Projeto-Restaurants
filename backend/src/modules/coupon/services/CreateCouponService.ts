@@ -1,7 +1,19 @@
 import couponRepository from "../repositories/CouponRepository.js";
 
+type CreateCouponPayload = {
+  code: string;
+  discount: number;
+  expiration: Date;
+  restaurantId: number;
+};
+
 class CreateCouponService {
-  async execute({ code, discount, expiration, restaurantId }) {
+  async execute({
+    code,
+    discount,
+    expiration,
+    restaurantId,
+  }: CreateCouponPayload) {
     const exists = await couponRepository.findByCode(code, restaurantId);
 
     if (exists) {

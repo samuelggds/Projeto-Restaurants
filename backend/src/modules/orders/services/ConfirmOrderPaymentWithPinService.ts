@@ -3,7 +3,13 @@ import { io } from "../../../server.js";
 import orderRepository from "../repositories/OrderRepository.js";
 
 class ConfirmOrderPaymentWithPinService {
-  async execute(orderId, restaurantId, role, pin) {
+  async execute(
+    orderId: number | string | string[],
+    restaurantId: number,
+    role: string,
+    pin: string,
+  ) {
+    const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
     const normalizedRole = String(role || "").toUpperCase();
     const allowedRoles = ["MOTOQUEIRO", "ADMIN"];
 
@@ -13,7 +19,10 @@ class ConfirmOrderPaymentWithPinService {
       );
     }
 
-    const order = await orderRepository.findById(orderId, restaurantId);
+    const order = await orderRepository.findById(
+      normalizedOrderId,
+      restaurantId,
+    );
 
     if (!order) {
       throw new Error("Pedido não encontrado!");
@@ -68,7 +77,7 @@ class ConfirmOrderPaymentWithPinService {
     }
 
     const updatedOrder = await orderRepository.confirmPayment(
-      orderId,
+      normalizedOrderId,
       restaurantId,
     );
 

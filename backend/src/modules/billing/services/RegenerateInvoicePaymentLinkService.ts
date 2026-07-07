@@ -1,8 +1,16 @@
 import billingRepository from "../repositories/BillingRepository.js";
 import mercadoPagoService from "./MercadoPagoService.js";
 
+type RegenerateInvoicePaymentLinkPayload = {
+  invoiceId: number | string;
+  restaurantId: number;
+};
+
 class RegenerateInvoicePaymentLinkService {
-  async execute({ invoiceId, restaurantId }) {
+  async execute({
+    invoiceId,
+    restaurantId,
+  }: RegenerateInvoicePaymentLinkPayload) {
     const invoice = await billingRepository.findInvoiceByIdAndRestaurantId(
       invoiceId,
       restaurantId,

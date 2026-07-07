@@ -1,10 +1,15 @@
 import { addBusinessDays } from "./dateUtils.js";
 
-export function getGraceLimitDate(dueDate) {
+type InvoiceLike = {
+  status: string;
+  dueDate: Date;
+};
+
+export function getGraceLimitDate(dueDate: Date) {
   return addBusinessDays(dueDate, 5);
 }
 
-export function isInvoiceBlocking(invoice, now = new Date()) {
+export function isInvoiceBlocking(invoice: InvoiceLike, now = new Date()) {
   if (invoice.status === "ATRASADO") {
     return true;
   }
@@ -17,6 +22,9 @@ export function isInvoiceBlocking(invoice, now = new Date()) {
   return now > graceLimitDate;
 }
 
-export function hasBlockingInvoices(invoices = [], now = new Date()) {
+export function hasBlockingInvoices(
+  invoices: InvoiceLike[] = [],
+  now = new Date(),
+) {
   return invoices.some((invoice) => isInvoiceBlocking(invoice, now));
 }

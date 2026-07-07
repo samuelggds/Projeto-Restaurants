@@ -3,8 +3,22 @@ import { PLAN_CONFIG } from "../config/planConfig.js";
 import mercadoPagoService from "./MercadoPagoService.js";
 import { addDays } from "../utils/dateUtils.js";
 
+type InvoicePayload = {
+  restaurantId: number;
+  month: number;
+  year: number;
+  startDate: Date;
+  endDate: Date;
+};
+
 class InvoiceService {
-  async execute({ restaurantId, month, year, startDate, endDate }) {
+  async execute({
+    restaurantId,
+    month,
+    year,
+    startDate,
+    endDate,
+  }: InvoicePayload) {
     // Busca a assinatura
     const subscription =
       await billingRepository.findSubscriptionByRestaurantId(restaurantId);
@@ -74,10 +88,10 @@ class InvoiceService {
       console.log(`Link Mercado Pago criado para invoice ${invoice.id}`);
 
       return updatedInvoice;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(
         "Erro ao criar pagamento Mercado Pago:",
-        error?.message || error,
+        error instanceof Error ? error.message : String(error),
       );
 
       return invoice;

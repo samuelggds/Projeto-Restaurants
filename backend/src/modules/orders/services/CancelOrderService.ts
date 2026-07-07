@@ -5,8 +5,16 @@ import { io } from "../../../server.js";
 import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
 
 class CancelOrderService {
-  async execute(orderId, userId, restaurantId) {
-    const order = await orderRepository.findById(orderId, restaurantId);
+  async execute(
+    orderId: number | string | string[],
+    userId: number,
+    restaurantId: number,
+  ) {
+    const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
+    const order = await orderRepository.findById(
+      normalizedOrderId,
+      restaurantId,
+    );
 
     if (!order) {
       throw new Error("Pedido não encontrado!");
@@ -25,7 +33,7 @@ class CancelOrderService {
       throw new Error("Pedido não pode ser cancelado!");
     }
     const updatedOrder = await orderRepository.updateStatus(
-      orderId,
+      normalizedOrderId,
       OrderStatus.CANCELADO,
       restaurantId,
     );

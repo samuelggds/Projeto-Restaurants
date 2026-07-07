@@ -1,7 +1,8 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 class BillingRepository {
-  async findSubscriptionByRestaurantId(restaurantId) {
+  async findSubscriptionByRestaurantId(restaurantId: number) {
     return prisma.subscription.findUnique({
       where: {
         restaurantId,
@@ -9,22 +10,25 @@ class BillingRepository {
     });
   }
 
-  async updateSubscription(id, data) {
+  async updateSubscription(
+    id: number | string,
+    data: Prisma.SubscriptionUpdateInput,
+  ) {
     return prisma.subscription.update({
       where: {
-        id,
+        id: Number(id),
       },
       data,
     });
   }
 
-  async createInvoice(data) {
+  async createInvoice(data: Prisma.InvoiceUncheckedCreateInput) {
     return prisma.invoice.create({
       data,
     });
   }
 
-  async findInvoiceByMonth(restaurantId, month, year) {
+  async findInvoiceByMonth(restaurantId: number, month: number, year: number) {
     return prisma.invoice.findFirst({
       where: {
         restaurantId,
@@ -45,19 +49,19 @@ class BillingRepository {
     });
   }
 
-  async updateInvoice(id, data) {
+  async updateInvoice(id: number | string, data: Prisma.InvoiceUpdateInput) {
     return prisma.invoice.update({
       where: {
-        id,
+        id: Number(id),
       },
       data,
     });
   }
 
-  async deactivateRestaurant(id) {
+  async deactivateRestaurant(id: number | string) {
     return prisma.restaurant.update({
       where: {
-        id,
+        id: Number(id),
       },
       data: {
         active: false,
@@ -65,10 +69,10 @@ class BillingRepository {
     });
   }
 
-  async activateRestaurant(id) {
+  async activateRestaurant(id: number | string) {
     return prisma.restaurant.update({
       where: {
-        id,
+        id: Number(id),
       },
       data: {
         active: true,
@@ -76,7 +80,11 @@ class BillingRepository {
     });
   }
 
-  async findPaidOrdersByPeriod(restaurantId, startDate, endDate) {
+  async findPaidOrdersByPeriod(
+    restaurantId: number,
+    startDate: Date,
+    endDate: Date,
+  ) {
     return prisma.order.findMany({
       where: {
         restaurantId,
@@ -117,16 +125,19 @@ class BillingRepository {
     });
   }
 
-  async findInvoiceById(id) {
+  async findInvoiceById(id: number | string) {
     return prisma.invoice.findUnique({
-      where: { id },
+      where: { id: Number(id) },
     });
   }
 
-  async findInvoiceByIdAndRestaurantId(id, restaurantId) {
+  async findInvoiceByIdAndRestaurantId(
+    id: number | string,
+    restaurantId: number,
+  ) {
     return prisma.invoice.findFirst({
       where: {
-        id,
+        id: Number(id),
         restaurantId,
       },
     });
@@ -136,7 +147,7 @@ class BillingRepository {
     return prisma.subscription.findMany();
   }
 
-  async findInvoicesByRestaurantId(restaurantId) {
+  async findInvoicesByRestaurantId(restaurantId: number) {
     return prisma.invoice.findMany({
       where: {
         restaurantId,

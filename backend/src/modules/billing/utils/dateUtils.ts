@@ -1,10 +1,10 @@
-export function addDays(date, days) {
+export function addDays(date: Date, days: number) {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 }
 
-export function addBusinessDays(date, businessDays) {
+export function addBusinessDays(date: Date, businessDays: number) {
   const result = new Date(date);
   let added = 0;
 

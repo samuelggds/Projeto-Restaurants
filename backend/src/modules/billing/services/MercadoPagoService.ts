@@ -19,8 +19,20 @@ type PreferencePayload = {
   };
 };
 
+type CreatePaymentPayload = {
+  invoiceId: number | string;
+  title: string;
+  description: string;
+  amount: number | string | { toString(): string };
+};
+
 class MercadoPagoService {
-  async createPayment({ invoiceId, title, description, amount }) {
+  async createPayment({
+    invoiceId,
+    title,
+    description,
+    amount,
+  }: CreatePaymentPayload) {
     const port = process.env.PORT || 3000;
     const notificationUrl =
       process.env.MP_NOTIFICATION_URL ||
