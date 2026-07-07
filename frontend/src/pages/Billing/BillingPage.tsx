@@ -105,8 +105,6 @@ export default function BillingPage() {
   }, [navigate]);
 
   useEffect(() => {
-    let timeoutId;
-
     // Wait for context to load
     if (isLoading) {
       console.log("BillingPage: Waiting for context to load...");
@@ -128,14 +126,12 @@ export default function BillingPage() {
     }
 
     console.log("BillingPage: Authentication OK, fetching invoices");
-    timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       fetchInvoices();
     }, 0);
 
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
     };
   }, [user, isLoading, navigate, fetchInvoices]);
 
