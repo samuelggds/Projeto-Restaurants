@@ -11,6 +11,36 @@ const whatsappWebhookToken = String(
   process.env.WHATSAPP_WEBHOOK_TOKEN || "",
 ).trim();
 
+type PaymentConfirmedPayload = {
+  restaurantWhatsapp?: string | null;
+  customerPhone?: string | null;
+  customerName?: string | null;
+  restaurantName?: string | null;
+  orderId?: number | string | null;
+  total?: number | string | null;
+  paymentMethod?: string | null;
+};
+
+type OrderStatusChangedPayload = {
+  restaurantWhatsapp?: string | null;
+  customerPhone?: string | null;
+  customerName?: string | null;
+  restaurantName?: string | null;
+  orderId?: number | string | null;
+  status?: string | null;
+};
+
+type RestaurantPinRequestedPayload = {
+  restaurantWhatsapp?: string | null;
+  restaurantName?: string | null;
+  orderId?: number | string | null;
+  requestedByRole?: string | null;
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
+}
+
 function resolveProvider() {
   if (configuredProvider && configuredProvider !== "none") {
     return configuredProvider;
@@ -23,7 +53,7 @@ function resolveProvider() {
   return "none";
 }
 
-function normalizeToE164Br(phone) {
+function normalizeToE164Br(phone: string | number | null | undefined) {
   const digits = String(phone || "").replace(/\D/g, "");
 
   if (!digits) {
@@ -45,7 +75,7 @@ function normalizeToE164Br(phone) {
   return "";
 }
 
-function formatCurrencyBrl(value) {
+function formatCurrencyBrl(value: number | string | null | undefined) {
   const amount = Number(value || 0);
 
   return new Intl.NumberFormat("pt-BR", {
@@ -60,7 +90,7 @@ function buildCustomerMessage({
   orderId,
   total,
   paymentMethod,
-}) {
+}: PaymentConfirmedPayload) {
   const resolvedCustomerName = String(customerName || "Cliente").trim();
   const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
   const resolvedPaymentMethod = String(paymentMethod || "PIX").toUpperCase();
@@ -79,7 +109,7 @@ function buildOrderStatusChangedMessage({
   restaurantName,
   orderId,
   status,
-}) {
+}: OrderStatusChangedPayload) {
   const resolvedCustomerName = String(customerName || "Cliente").trim();
   const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
   const resolvedStatus = String(status || "EM ANDAMENTO")
@@ -97,7 +127,7 @@ function buildRestaurantPinRequestMessage({
   restaurantName,
   orderId,
   requestedByRole,
-}) {
+}: RestaurantPinRequestedPayload) {
   const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
   const normalizedRole = String(requestedByRole || "MOTOQUEIRO").toUpperCase();
   const requesterLabel = normalizedRole === "ADMIN" ? "Admin" : "Motoqueiro";
@@ -117,7 +147,7 @@ async function notifyViaWhatsappWebhook({
   orderId,
   total,
   paymentMethod,
-}) {
+}: PaymentConfirmedPayload) {
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
@@ -192,7 +222,7 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   restaurantName,
   orderId,
   status,
-}) {
+}: OrderStatusChangedPayload) {
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
@@ -265,7 +295,7 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   restaurantName,
   orderId,
   requestedByRole,
-}) {
+}: RestaurantPinRequestedPayload) {
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
@@ -334,7 +364,7 @@ export async function notifyCustomerPaymentConfirmed({
   orderId,
   total,
   paymentMethod,
-}) {
+}: PaymentConfirmedPayload) {
   const provider = resolveProvider();
 
   if (provider === "none") {
@@ -362,13 +392,13 @@ export async function notifyCustomerPaymentConfirmed({
       reason: "provider_not_supported",
       provider,
     };
-  } catch (error) {
-    console.error("[CUSTOMER_NOTIFICATION_ERROR]", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[CUSTOMER_NOTIFICATION_ERROR]", getErrorMessage(error));
     return {
       sent: false,
       reason: "send_failed",
       provider,
-      error: error?.message || "unknown",
+      error: getErrorMessage(error),
     };
   }
 }
@@ -380,7 +410,7 @@ export async function notifyCustomerOrderStatusChanged({
   restaurantName,
   orderId,
   status,
-}) {
+}: OrderStatusChangedPayload) {
   const provider = resolveProvider();
 
   if (provider === "none") {
@@ -407,16 +437,16 @@ export async function notifyCustomerOrderStatusChanged({
       reason: "provider_not_supported",
       provider,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       "[CUSTOMER_STATUS_NOTIFICATION_ERROR]",
-      error?.message || error,
+      getErrorMessage(error),
     );
     return {
       sent: false,
       reason: "send_failed",
       provider,
-      error: error?.message || "unknown",
+      error: getErrorMessage(error),
     };
   }
 }
@@ -426,7 +456,7 @@ export async function notifyRestaurantPaymentPinRequested({
   restaurantName,
   orderId,
   requestedByRole,
-}) {
+}: RestaurantPinRequestedPayload) {
   const provider = resolveProvider();
 
   if (provider === "none") {
@@ -451,16 +481,16 @@ export async function notifyRestaurantPaymentPinRequested({
       reason: "provider_not_supported",
       provider,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       "[RESTAURANT_PIN_NOTIFICATION_ERROR]",
-      error?.message || error,
+      getErrorMessage(error),
     );
     return {
       sent: false,
       reason: "send_failed",
       provider,
-      error: error?.message || "unknown",
+      error: getErrorMessage(error),
     };
   }
 }
