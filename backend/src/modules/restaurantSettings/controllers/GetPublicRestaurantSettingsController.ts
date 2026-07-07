@@ -1,16 +1,20 @@
+import { Request, Response } from "express";
 import getPublicRestaurantSettingsService from "../services/GetPublicRestaurantSettingsService.js";
 
 class GetPublicRestaurantSettingsController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const settings = await getPublicRestaurantSettingsService.execute({
         restaurantId: req.params.restaurantId,
       });
 
       return res.status(200).json(settings);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao buscar configuracoes publicas do restaurante",
       });
     }
   }
