@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import updateProductService from "../services/UpdateProductService.js";
 
 class UpdateProductController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const data = req.body;
@@ -13,9 +14,10 @@ class UpdateProductController {
       );
 
       return res.status(200).json(updatedProduct);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        message: error.message,
+        message:
+          error instanceof Error ? error.message : "Erro ao atualizar produto",
       });
     }
   }
