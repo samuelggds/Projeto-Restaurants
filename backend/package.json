@@ -5,13 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "npm run test:billing",
-    "test:billing": "node --test src/modules/billing/utils/dateUtils.test.js src/modules/billing/utils/billingRules.test.js src/middlewares/billingMiddleware.integration.test.js src/modules/billing/services/ProcessPaymentService.integration.test.js",
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "create:superadmin": "node scripts/createSuperAdmin.js"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+    "test:billing": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/middlewares/billingMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts",
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "db:seed": "tsx prisma/seed.ts",
+    "create:superadmin": "tsx scripts/createSuperAdmin.ts"
   },
   "keywords": [],
   "author": "",
@@ -39,6 +38,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }
