@@ -2,6 +2,20 @@ import type { Prisma } from "@prisma/client";
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 import prisma from "../../../config/prisma.js";
 
+type CreateRestaurantSettingsPayload = {
+  restaurantId: number | string;
+  deliveryFee: number;
+  minimumOrder: number;
+  pixProvider?: string;
+  pixKey?: string | null;
+  whatsapp?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  restaurantName?: string | null;
+  restaurantLogo?: string | null;
+  restaurantCoverImage?: string | null;
+};
+
 class CreateRestaurantSettingsService {
   async execute({
     restaurantId,
@@ -15,7 +29,7 @@ class CreateRestaurantSettingsService {
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
-  }) {
+  }: CreateRestaurantSettingsPayload) {
     const settingsExists =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
 
@@ -48,7 +62,7 @@ class CreateRestaurantSettingsService {
     }
 
     const created = await restaurantSettingsRepository.create({
-      restaurantId,
+      restaurantId: Number(restaurantId),
       deliveryFee,
       minimumOrder,
       pixProvider: String(pixProvider || "MERCADO_PAGO")

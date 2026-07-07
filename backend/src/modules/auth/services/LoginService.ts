@@ -3,10 +3,10 @@ import jwt from "jsonwebtoken";
 import userRepository from "../repositories/UserRepository.js";
 import { loginSchema } from "../../../validators/LoginValidator.js";
 class LoginService {
-  async execute({ email, password }) {
+  async execute({ email, password }: { email: string; password: string }) {
     try {
       loginSchema.parse({ email, password });
-    } catch (err) {
+    } catch (_err: unknown) {
       throw new Error("Dados inválidos");
     }
 

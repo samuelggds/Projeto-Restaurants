@@ -1,7 +1,13 @@
 import tableRepository from "../repositories/TableRepository.js";
 
+type UpdateTablePayload = {
+  id: number | string;
+  restaurantId: number;
+  number: number | string;
+};
+
 class UpdateTableService {
-  async execute({ id, restaurantId, number }) {
+  async execute({ id, restaurantId, number }: UpdateTablePayload) {
     const table = await tableRepository.findById(id);
 
     if (!table || table.restaurantId !== restaurantId) {
@@ -18,7 +24,7 @@ class UpdateTableService {
     }
 
     return await tableRepository.update(id, {
-      number,
+      number: Number(number),
     });
   }
 }

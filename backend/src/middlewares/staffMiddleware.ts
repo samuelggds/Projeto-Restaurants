@@ -17,7 +17,11 @@ export function staffMiddleware(
     UserRole.MOTOQUEIRO,
   ];
 
-  if (!allowedRoles.includes(req.user.role)) {
+  if (
+    !allowedRoles.includes(
+      String(req.user.role) as (typeof allowedRoles)[number],
+    )
+  ) {
     return res.status(403).json({
       error: "Acesso negado",
     });

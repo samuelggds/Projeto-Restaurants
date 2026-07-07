@@ -2,8 +2,13 @@ import tableSessionRepository from "../repositories/TableSessionRepository.js";
 import { TableSessionStatus } from "@prisma/client";
 import { io } from "../../../server.js";
 
+type CloseTableSessionPayload = {
+  sessionId: number | string;
+  closedById: number | null;
+};
+
 class CloseTableSessionService {
-  async execute({ sessionId, closedById }) {
+  async execute({ sessionId, closedById }: CloseTableSessionPayload) {
     const session = await tableSessionRepository.findById(sessionId);
 
     if (!session) {

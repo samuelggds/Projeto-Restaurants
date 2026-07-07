@@ -5,7 +5,9 @@ class CloseTableSessionController {
   async handle(req: Request, res: Response) {
     try {
       const closedById = req.user.id;
-      const { id: sessionId } = req.params;
+      const sessionId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
 
       const session = await closeTableSessionService.execute({
         sessionId,

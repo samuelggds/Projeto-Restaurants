@@ -1,8 +1,13 @@
 import crypto from "crypto";
 import tableRepository from "../repositories/TableRepository.js";
 
+type CreateTablePayload = {
+  number: number | string;
+  restaurantId: number;
+};
+
 class CreateTableService {
-  async execute({ number, restaurantId }) {
+  async execute({ number, restaurantId }: CreateTablePayload) {
     const tableExists = await tableRepository.findByNumber(
       number,
       restaurantId,
@@ -15,7 +20,7 @@ class CreateTableService {
     const token = crypto.randomBytes(16).toString("hex");
 
     return tableRepository.create({
-      number,
+      number: Number(number),
       restaurantId,
       token,
     });

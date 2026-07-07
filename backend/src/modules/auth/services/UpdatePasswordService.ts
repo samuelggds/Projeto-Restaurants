@@ -2,8 +2,16 @@ import userRepository from "../repositories/UserRepository.js";
 import bcrypt from "bcrypt";
 
 class UpdatePasswordService {
-  async execute(userId, oldPassword, newPassword) {
+  async execute(
+    userId: number | string,
+    oldPassword: string,
+    newPassword: string,
+  ) {
     const user = await userRepository.findByIdWithPassword(userId);
+
+    if (!user) {
+      throw new Error("Usuário não encontrado!");
+    }
 
     const passwordCompare = await bcrypt.compare(oldPassword, user.password);
 

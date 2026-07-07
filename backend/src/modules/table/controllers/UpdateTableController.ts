@@ -5,11 +5,13 @@ class UpdateTableController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
-      const { id } = req.params;
+      const parsedId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
       const { number } = req.body;
 
       const table = await updateTableService.execute({
-        id,
+        id: parsedId,
         restaurantId,
         number,
       });

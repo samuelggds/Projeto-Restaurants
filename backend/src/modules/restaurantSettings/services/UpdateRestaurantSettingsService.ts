@@ -2,6 +2,20 @@ import type { Prisma } from "@prisma/client";
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 import prisma from "../../../config/prisma.js";
 
+type UpdateRestaurantSettingsPayload = {
+  restaurantId: number | string;
+  deliveryFee?: number;
+  minimumOrder?: number;
+  pixProvider?: string;
+  pixKey?: string | null;
+  whatsapp?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  restaurantName?: string | null;
+  restaurantLogo?: string | null;
+  restaurantCoverImage?: string | null;
+};
+
 class UpdateRestaurantSettingsService {
   async execute({
     restaurantId,
@@ -15,7 +29,7 @@ class UpdateRestaurantSettingsService {
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
-  }) {
+  }: UpdateRestaurantSettingsPayload) {
     const settings =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
 

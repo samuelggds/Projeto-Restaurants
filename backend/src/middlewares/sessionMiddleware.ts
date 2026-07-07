@@ -8,9 +8,12 @@ export async function sessionMiddleware(
   next: NextFunction,
 ) {
   try {
-    const sessionToken =
+    const rawSessionToken =
       req.headers["x-session-token"] ||
       req.headers.authorization?.replace("Bearer ", "");
+    const sessionToken = Array.isArray(rawSessionToken)
+      ? rawSessionToken[0]
+      : rawSessionToken;
 
     if (!sessionToken) {
       return res.status(401).json({

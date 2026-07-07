@@ -1,7 +1,29 @@
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 
+type RestaurantIdPayload = {
+  restaurantId: number | string;
+};
+
+type RestaurantSettingsFallback = {
+  id: number | null;
+  restaurantId: number;
+  deliveryFee: number;
+  minimumOrder: number;
+  pixProvider: string;
+  pixKey: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  whatsapp: string | null;
+  restaurant: {
+    name: string;
+    logo: string | null;
+    coverImage: string | null;
+    whatsapp: string | null;
+  };
+};
+
 class GetRestaurantSettingsService {
-  async execute({ restaurantId }) {
+  async execute({ restaurantId }: RestaurantIdPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     const settings = await restaurantSettingsRepository.findByRestaurantId(
       normalizedRestaurantId,
@@ -16,7 +38,7 @@ class GetRestaurantSettingsService {
         throw new Error("Restaurante não encontrado!");
       }
 
-      return {
+      const fallback: RestaurantSettingsFallback = {
         id: null,
         restaurantId: normalizedRestaurantId,
         deliveryFee: 0,
@@ -33,6 +55,8 @@ class GetRestaurantSettingsService {
           whatsapp: String(restaurant.whatsapp || "").trim() || null,
         },
       };
+
+      return fallback;
     }
 
     return {

@@ -1,8 +1,12 @@
 import tableRepository from "../../table/repositories/TableRepository.js";
 import { io } from "../../../server.js";
 
+type RequestPinAssistancePayload = {
+  tableId: number | string;
+};
+
 class RequestPinAssistanceService {
-  async execute({ tableId }) {
+  async execute({ tableId }: RequestPinAssistancePayload) {
     const parsedTableId = Number(tableId);
 
     if (!Number.isInteger(parsedTableId) || parsedTableId <= 0) {

@@ -2,8 +2,18 @@ import tableSessionRepository from "../repositories/TableSessionRepository.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
+type OpenTableSessionPayload = {
+  tableId: number | string;
+  restaurantId: number;
+  openedById: number | string | null;
+};
+
 class OpenTableSessionService {
-  async execute({ tableId, restaurantId, openedById }) {
+  async execute({
+    tableId,
+    restaurantId,
+    openedById,
+  }: OpenTableSessionPayload) {
     const sessionOpened =
       await tableSessionRepository.findOpenedByTable(tableId);
 
@@ -16,12 +26,22 @@ class OpenTableSessionService {
     const pinHash = await bcrypt.hash(pin, 10);
 
     const sessionToken = await crypto.randomBytes(32).toString("hex");
+    const normalizedTableId = Number(tableId);
+    const normalizedOpenedById = Number(openedById);
+
+    if (!Number.isInteger(normalizedTableId) || normalizedTableId <= 0) {
+      throw new Error("Mesa inválida para abrir sessão.");
+    }
+
+    if (!Number.isInteger(normalizedOpenedById) || normalizedOpenedById <= 0) {
+      throw new Error("Usuário inválido para abrir sessão.");
+    }
 
     const session = await tableSessionRepository.create({
-      tableId,
+      tableId: normalizedTableId,
       pinHash,
       sessionToken,
-      openedById,
+      openedById: normalizedOpenedById,
     });
 
     return {

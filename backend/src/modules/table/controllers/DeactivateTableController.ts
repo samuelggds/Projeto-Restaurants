@@ -5,10 +5,12 @@ class DeactivateTableController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
-      const { id } = req.params;
+      const parsedId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
 
       const table = await deactivateTableService.execute({
-        id,
+        id: parsedId,
         restaurantId,
       });
 

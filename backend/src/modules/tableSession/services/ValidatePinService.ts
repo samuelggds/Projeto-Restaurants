@@ -1,8 +1,13 @@
 import bcrypt from "bcrypt";
 import tableSessionRepository from "../repositories/TableSessionRepository.js";
 
+type ValidatePinPayload = {
+  tableId: number | string;
+  pin: string;
+};
+
 class ValidatePinService {
-  async execute({ tableId, pin }) {
+  async execute({ tableId, pin }: ValidatePinPayload) {
     const session = await tableSessionRepository.findOpenedByTable(tableId);
 
     if (!session) {

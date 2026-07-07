@@ -1,7 +1,7 @@
 import userRepository from "../repositories/UserRepository.js";
 
 class GetProfileService {
-  async execute(userId) {
+  async execute(userId: number | string) {
     return userRepository.findById(userId);
   }
 }

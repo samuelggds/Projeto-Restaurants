@@ -6,7 +6,10 @@ export function requestIdMiddleware(
   res: Response,
   next: NextFunction,
 ) {
-  const requestId = req.headers["x-request-id"] || crypto.randomUUID();
+  const rawRequestId = req.headers["x-request-id"];
+  const requestId = Array.isArray(rawRequestId)
+    ? rawRequestId[0]
+    : rawRequestId || crypto.randomUUID();
 
   req.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);

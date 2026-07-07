@@ -1,7 +1,7 @@
 import userRepository from "../repositories/UserRepository.js";
 
 class ReactivateUserService {
-  async execute(userId) {
+  async execute(userId: number | string) {
     const user = await userRepository.findById(userId);
 
     if (!user) {

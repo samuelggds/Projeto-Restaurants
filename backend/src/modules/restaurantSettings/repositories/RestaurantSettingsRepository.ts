@@ -1,7 +1,8 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 class RestaurantSettingsRepository {
-  async findByRestaurantId(restaurantId) {
+  async findByRestaurantId(restaurantId: number | string) {
     return prisma.restaurantSettings.findUnique({
       where: {
         restaurantId: Number(restaurantId),
@@ -19,7 +20,7 @@ class RestaurantSettingsRepository {
     });
   }
 
-  async findRestaurantById(restaurantId) {
+  async findRestaurantById(restaurantId: number | string) {
     return prisma.restaurant.findUnique({
       where: {
         id: Number(restaurantId),
@@ -34,7 +35,7 @@ class RestaurantSettingsRepository {
     });
   }
 
-  async findPublicByRestaurantId(restaurantId) {
+  async findPublicByRestaurantId(restaurantId: number | string) {
     return prisma.restaurantSettings.findUnique({
       where: {
         restaurantId: Number(restaurantId),
@@ -57,13 +58,16 @@ class RestaurantSettingsRepository {
     });
   }
 
-  async create(data) {
+  async create(data: Prisma.RestaurantSettingsUncheckedCreateInput) {
     return prisma.restaurantSettings.create({
       data,
     });
   }
 
-  async update(restaurantId, data) {
+  async update(
+    restaurantId: number | string,
+    data: Prisma.RestaurantSettingsUpdateInput,
+  ) {
     return prisma.restaurantSettings.update({
       where: {
         restaurantId: Number(restaurantId),

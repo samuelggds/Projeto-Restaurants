@@ -4,7 +4,7 @@ import { OAuth2Client } from "google-auth-library";
 import { UserRole } from "@prisma/client";
 import userRepository from "../repositories/UserRepository.js";
 
-function getSafeNameFromEmail(email) {
+function getSafeNameFromEmail(email: string | undefined) {
   const username = String(email || "")
     .split("@")[0]
     ?.trim();
@@ -12,7 +12,7 @@ function getSafeNameFromEmail(email) {
 }
 
 class GoogleAuthService {
-  async execute({ idToken }) {
+  async execute({ idToken }: { idToken: string }) {
     if (!idToken) {
       throw new Error("Token do Google não informado");
     }

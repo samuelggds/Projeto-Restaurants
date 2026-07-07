@@ -1,7 +1,21 @@
 import userRepository from "../repositories/UserRepository.js";
 
+type UpdateProfilePayload = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  cpf?: string;
+  address?: string;
+  number?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  complement?: string;
+};
+
 class UpdateProfileService {
-  async execute(userId, profileData) {
+  async execute(userId: number | string, profileData: UpdateProfilePayload) {
     const currentUser = await userRepository.findById(userId);
 
     if (!currentUser) {

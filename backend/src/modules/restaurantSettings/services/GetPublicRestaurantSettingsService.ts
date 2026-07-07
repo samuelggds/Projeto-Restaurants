@@ -1,7 +1,25 @@
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 
+type RestaurantIdPayload = {
+  restaurantId: number | string;
+};
+
+type PublicSettingsFallback = {
+  restaurantId: number;
+  deliveryFee: number;
+  minimumOrder: number;
+  pixProvider: string;
+  pixKey: string | null;
+  instagram: string | null;
+  restaurant: {
+    name: string | null;
+    logo: string | null;
+    coverImage: string | null;
+  };
+};
+
 class GetPublicRestaurantSettingsService {
-  async execute({ restaurantId }) {
+  async execute({ restaurantId }: RestaurantIdPayload) {
     const normalizedRestaurantId = Number(restaurantId);
 
     if (
@@ -21,7 +39,7 @@ class GetPublicRestaurantSettingsService {
         normalizedRestaurantId,
       );
 
-      return {
+      const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
         deliveryFee: 0,
         minimumOrder: 0,
@@ -34,6 +52,8 @@ class GetPublicRestaurantSettingsService {
           coverImage: restaurant?.coverImage || null,
         },
       };
+
+      return fallback;
     }
 
     return settings;

@@ -1,7 +1,11 @@
 import subscriptionRepository from "../repositories/SubscriptionRepository.js";
 
+type GetSubscriptionPayload = {
+  restaurantId: number | string;
+};
+
 class GetSubscriptionService {
-  async execute({ restaurantId }) {
+  async execute({ restaurantId }: GetSubscriptionPayload) {
     const subscription =
       await subscriptionRepository.findByRestaurantId(restaurantId);
 

@@ -1,7 +1,20 @@
+import type { PlanType, SubscriptionStatus } from "@prisma/client";
 import subscriptionRepository from "../repositories/SubscriptionRepository.js";
 
+type SubscriptionUpdatePayload = {
+  restaurantId: number | string;
+  plan?: PlanType;
+  status?: SubscriptionStatus;
+  trialEndsAt?: Date | null;
+};
+
 class UpdateSubscriptionService {
-  async execute({ restaurantId, plan, status, trialEndsAt }) {
+  async execute({
+    restaurantId,
+    plan,
+    status,
+    trialEndsAt,
+  }: SubscriptionUpdatePayload) {
     const subscription =
       await subscriptionRepository.findByRestaurantId(restaurantId);
 

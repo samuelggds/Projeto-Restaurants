@@ -17,7 +17,22 @@ export function authMiddleware(
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = decoded;
+    if (typeof decoded === "string") {
+      return res.status(401).json({ error: "Token inválido!" });
+    }
+
+    req.user = {
+      id: Number(decoded.id || 0),
+      role: String(decoded.role || ""),
+      restaurantId:
+        decoded.restaurantId === null || decoded.restaurantId === undefined
+          ? null
+          : Number(decoded.restaurantId),
+      email:
+        decoded.email === null || decoded.email === undefined
+          ? null
+          : String(decoded.email),
+    };
 
     return next();
   } catch (_error: unknown) {

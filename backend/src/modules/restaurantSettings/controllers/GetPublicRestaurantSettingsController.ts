@@ -4,8 +4,12 @@ import getPublicRestaurantSettingsService from "../services/GetPublicRestaurantS
 class GetPublicRestaurantSettingsController {
   async handle(req: Request, res: Response) {
     try {
+      const restaurantId = Array.isArray(req.params.restaurantId)
+        ? req.params.restaurantId[0]
+        : req.params.restaurantId;
+
       const settings = await getPublicRestaurantSettingsService.execute({
-        restaurantId: req.params.restaurantId,
+        restaurantId,
       });
 
       return res.status(200).json(settings);
