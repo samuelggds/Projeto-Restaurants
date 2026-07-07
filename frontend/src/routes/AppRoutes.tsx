@@ -215,15 +215,16 @@ export default function AppRoutes() {
         <Routes>
           <Route element={<SuperAdminScopeGuard />}>
             <Route path="/login" element={<Login />} />
-            <Route path="/recover-password" element={<RecoverPassword />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/" element={<Home />} />
-            <Route path="/menu" element={<Home />} />
-            <Route path="/cardapio" element={<Home />} />
             <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-            <Route path="/cart" element={<Cart />} />
 
             <Route element={<RequireAuth />}>
+              <Route path="/recover-password" element={<RecoverPassword />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={<Home />} />
+              <Route path="/menu" element={<Home />} />
+              <Route path="/cardapio" element={<Home />} />
+              <Route path="/cart" element={<Cart />} />
+
               <Route path="/system-blocked" element={<SystemBlockedPage />} />
               <Route
                 path="/system-maintenance"
