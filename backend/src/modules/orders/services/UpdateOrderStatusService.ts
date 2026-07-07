@@ -27,9 +27,12 @@ class UpdateOrderStatusService {
       throw new Error("Usuário não tem permissão para isso!");
     }
 
+    const digitalMethods: PaymentMethod[] = [
+      PaymentMethod.PIX,
+      PaymentMethod.CARTAO,
+    ];
     const isDigitalPayment =
-      !!order.paymentMethod &&
-      [PaymentMethod.PIX, PaymentMethod.CARTAO].includes(order.paymentMethod);
+      !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
 
     // PIX e cartão só podem ser entregues após a confirmação do pagamento.
     if (

@@ -1,7 +1,14 @@
+import type { Prisma } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class OrderRepository {
-  async create(data, db: any = prisma) {
+  async create(
+    data: Prisma.OrderCreateInput | Prisma.OrderUncheckedCreateInput,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.order.create({
       data,
       include: {
@@ -30,7 +37,11 @@ class OrderRepository {
     });
   }
 
-  async findAll(restaurantId, status, db: any = prisma) {
+  async findAll(
+    restaurantId: number,
+    status?: OrderStatus,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.order.findMany({
       where: {
         restaurantId,
@@ -65,7 +76,12 @@ class OrderRepository {
     });
   }
 
-  async updateStatus(id, status, restaurantId, db: any = prisma) {
+  async updateStatus(
+    id: number | string,
+    status: OrderStatus,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     await db.order.updateMany({
       where: {
         id: Number(id),
@@ -79,7 +95,11 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
-  async confirmPayment(id, restaurantId, db: any = prisma) {
+  async confirmPayment(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     await db.order.updateMany({
       where: {
         id: Number(id),
@@ -96,11 +116,11 @@ class OrderRepository {
   }
 
   async setPaymentConfirmationPin(
-    id,
-    restaurantId,
-    paymentConfirmationPin,
-    paymentConfirmationPinExpiresAt,
-    db: any = prisma,
+    id: number | string,
+    restaurantId: number,
+    paymentConfirmationPin: string,
+    paymentConfirmationPinExpiresAt: Date,
+    db: PrismaClientLike = prisma,
   ) {
     await db.order.updateMany({
       where: {
@@ -116,7 +136,11 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
-  async findById(id, restaurantId, db: any = prisma) {
+  async findById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.order.findFirst({
       where: {
         id: Number(id),
@@ -148,10 +172,14 @@ class OrderRepository {
     });
   }
 
-  async findByUserId(userId, restaurantId, db: any = prisma) {
+  async findByUserId(
+    userId: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     const normalizedRestaurantId = Number(restaurantId);
 
-    const where: any = {
+    const where: Prisma.OrderWhereInput = {
       userId: Number(userId),
     };
 

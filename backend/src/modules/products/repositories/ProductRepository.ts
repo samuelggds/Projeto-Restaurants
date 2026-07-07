@@ -1,7 +1,21 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
+type ProductRatingUpsertData = {
+  restaurantId: number;
+  productId: number;
+  clientKey: string;
+  rating: number;
+};
+
 class ProductRepository {
-  async create(data, restaurantId, db: any = prisma) {
+  async create(
+    data: Omit<Prisma.ProductUncheckedCreateInput, "restaurantId">,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.product.create({
       data: {
         ...data,
@@ -10,7 +24,7 @@ class ProductRepository {
     });
   }
 
-  async findAll(restaurantId, db: any = prisma) {
+  async findAll(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.product.findMany({
       where: {
         restaurantId,
@@ -24,7 +38,12 @@ class ProductRepository {
     });
   }
 
-  async update(id, data, restaurantId, db: any = prisma) {
+  async update(
+    id: number | string,
+    data: Prisma.ProductUpdateManyMutationInput,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.product.updateMany({
       where: {
         id: Number(id),
@@ -34,7 +53,11 @@ class ProductRepository {
     });
   }
 
-  async findById(id, restaurantId, db: any = prisma) {
+  async findById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.product.findFirst({
       where: {
         id: Number(id),
@@ -46,7 +69,11 @@ class ProductRepository {
     });
   }
 
-  async delete(id, restaurantId, db: any = prisma) {
+  async delete(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     const productId = Number(id);
 
     const hasOrders = await db.orderItem.findFirst({
@@ -72,7 +99,11 @@ class ProductRepository {
     });
   }
 
-  async listRatingsByRestaurant(restaurantId, clientKey, db: any = prisma) {
+  async listRatingsByRestaurant(
+    restaurantId: number,
+    clientKey?: string,
+    db: PrismaClientLike = prisma,
+  ) {
     const summaries = await db.productRating.groupBy({
       by: ["productId"],
       where: {
@@ -86,7 +117,7 @@ class ProductRepository {
       },
     });
 
-    let userRatingsMap = new Map();
+    let userRatingsMap = new Map<number, number>();
 
     if (clientKey) {
       const userRatings = await db.productRating.findMany({
@@ -116,7 +147,10 @@ class ProductRepository {
     }));
   }
 
-  async upsertRating(data, db: any = prisma) {
+  async upsertRating(
+    data: ProductRatingUpsertData,
+    db: PrismaClientLike = prisma,
+  ) {
     const { restaurantId, productId, clientKey, rating } = data;
 
     return db.productRating.upsert({
@@ -139,7 +173,12 @@ class ProductRepository {
     });
   }
 
-  async getRatingSummary(productId, restaurantId, clientKey, db: any = prisma) {
+  async getRatingSummary(
+    productId: number,
+    restaurantId: number,
+    clientKey?: string,
+    db: PrismaClientLike = prisma,
+  ) {
     const grouped = await db.productRating.groupBy({
       by: ["productId"],
       where: {

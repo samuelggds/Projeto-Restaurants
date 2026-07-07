@@ -17,7 +17,7 @@ type PaymentConfirmedPayload = {
   customerName?: string | null;
   restaurantName?: string | null;
   orderId?: number | string | null;
-  total?: number | string | null;
+  total?: number | string | { toString(): string } | null;
   paymentMethod?: string | null;
 };
 
@@ -75,7 +75,9 @@ function normalizeToE164Br(phone: string | number | null | undefined) {
   return "";
 }
 
-function formatCurrencyBrl(value: number | string | null | undefined) {
+function formatCurrencyBrl(
+  value: number | string | { toString(): string } | null | undefined,
+) {
   const amount = Number(value || 0);
 
   return new Intl.NumberFormat("pt-BR", {

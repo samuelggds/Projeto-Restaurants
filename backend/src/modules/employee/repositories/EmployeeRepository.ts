@@ -1,20 +1,29 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 import { UserRole } from "@prisma/client";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class EmployeeRepository {
-  async findByEmail(email, db = prisma) {
+  async findByEmail(email: string, db: PrismaClientLike = prisma) {
     return db.user.findFirst({
       where: { email },
     });
   }
 
-  async create(data, db = prisma) {
+  async create(
+    data: Prisma.UserUncheckedCreateInput,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.create({
       data,
     });
   }
 
-  async findAllByRestaurant(restaurantId, db = prisma) {
+  async findAllByRestaurant(
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.findMany({
       where: {
         restaurantId,
@@ -25,7 +34,11 @@ class EmployeeRepository {
     });
   }
 
-  async findById(id, restaurantId, db = prisma) {
+  async findById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.user.findFirst({
       where: {
         id: Number(id),
@@ -37,7 +50,12 @@ class EmployeeRepository {
     });
   }
 
-  async update(id, data, restaurantId, db = prisma) {
+  async update(
+    id: number | string,
+    data: Prisma.UserUpdateInput,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     const employee = await this.findById(id, restaurantId, db);
 
     if (!employee) {
@@ -52,7 +70,11 @@ class EmployeeRepository {
     });
   }
 
-  async deactivate(id, restaurantId, db = prisma) {
+  async deactivate(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     const employee = await this.findById(id, restaurantId, db);
 
     if (!employee) {

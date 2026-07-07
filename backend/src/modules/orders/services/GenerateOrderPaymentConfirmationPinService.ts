@@ -30,7 +30,10 @@ class GenerateOrderPaymentConfirmationPinService {
       throw new Error("Pagamento deste pedido já está confirmado.");
     }
 
-    const digitalMethods = new Set([PaymentMethod.PIX, PaymentMethod.CARTAO]);
+    const digitalMethods = new Set<PaymentMethod>([
+      PaymentMethod.PIX,
+      PaymentMethod.CARTAO,
+    ]);
 
     if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
       throw new Error(

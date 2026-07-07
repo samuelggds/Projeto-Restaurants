@@ -16,7 +16,10 @@ class ConfirmOrderPaymentService {
       throw new Error("Pedido não encontrado!");
     }
 
-    const digitalMethods = new Set([PaymentMethod.PIX, PaymentMethod.CARTAO]);
+    const digitalMethods = new Set<PaymentMethod>([
+      PaymentMethod.PIX,
+      PaymentMethod.CARTAO,
+    ]);
 
     if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
       throw new Error(
