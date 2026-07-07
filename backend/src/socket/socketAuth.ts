@@ -1,14 +1,37 @@
 import jwt from "jsonwebtoken";
+import type { JwtPayload } from "jsonwebtoken";
+import type { Socket } from "socket.io";
 import tableSessionRepository from "../modules/tableSession/repositories/TableSessionRepository.js";
 import { TableSessionStatus } from "@prisma/client";
 
-export async function socketAuth(socket, next) {
+type SocketAuthNext = (err?: Error) => void;
+
+type SocketUser = JwtPayload & {
+  id?: number | null;
+  role?: string;
+  restaurantId?: number | null;
+};
+
+type SocketTableSession = {
+  id: number;
+  tableId: number;
+  tableNumber: number | null;
+  restaurantId: number | null;
+};
+
+type AppSocket = Socket & {
+  user?: SocketUser;
+  authType?: "user" | "table-session";
+  tableSession?: SocketTableSession;
+};
+
+export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
   try {
     const token = socket.handshake.auth?.token;
     const sessionToken = socket.handshake.auth?.sessionToken;
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as SocketUser;
 
       socket.user = decoded;
       socket.authType = "user";
@@ -36,7 +59,7 @@ export async function socketAuth(socket, next) {
     }
 
     return next(new Error("Token não enviado"));
-  } catch (error) {
+  } catch (_error: unknown) {
     return next(new Error("Token inválido"));
   }
 }

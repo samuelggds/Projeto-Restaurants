@@ -1,7 +1,27 @@
-export function socketHandler(socket) {
+import type { Socket } from "socket.io";
+
+type SocketUser = {
+  id: number | string;
+  role: string;
+  restaurantId: number | string;
+};
+
+type SocketTableSession = {
+  id: number | string;
+  tableId: number | string;
+  restaurantId: number | string;
+};
+
+type AppSocket = Socket & {
+  user?: SocketUser;
+  authType?: "user" | "table-session";
+  tableSession?: SocketTableSession;
+};
+
+export function socketHandler(socket: AppSocket) {
   console.log("🔌 conectado:", socket.id);
 
-  if (socket.authType === "table-session") {
+  if (socket.authType === "table-session" && socket.tableSession) {
     const { id, tableId, restaurantId } = socket.tableSession;
 
     socket.join(`restaurant:${restaurantId}`);
@@ -15,7 +35,13 @@ export function socketHandler(socket) {
     return;
   }
 
-  const { id, role, restaurantId } = socket.user;
+  const user = socket.user;
+  if (!user) {
+    socket.disconnect(true);
+    return;
+  }
+
+  const { id, role, restaurantId } = user;
 
   socket.join(`restaurant:${restaurantId}`);
   socket.join(`user:${id}`);

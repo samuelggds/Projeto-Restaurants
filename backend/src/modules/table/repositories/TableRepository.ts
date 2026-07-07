@@ -1,13 +1,19 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class TableRepository {
-  async create(data, db = prisma) {
+  async create(
+    data: Prisma.TableUncheckedCreateInput,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.table.create({
       data,
     });
   }
 
-  async findById(id, db = prisma) {
+  async findById(id: number | string, db: PrismaClientLike = prisma) {
     return db.table.findUnique({
       where: {
         id: Number(id),
@@ -18,7 +24,11 @@ class TableRepository {
     });
   }
 
-  async findByNumber(number, restaurantId, db = prisma) {
+  async findByNumber(
+    number: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.table.findFirst({
       where: {
         number: Number(number),
@@ -27,7 +37,10 @@ class TableRepository {
     });
   }
 
-  async findAllByRestaurant(restaurantId, db = prisma) {
+  async findAllByRestaurant(
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.table.findMany({
       where: {
         restaurantId,
@@ -46,7 +59,7 @@ class TableRepository {
     });
   }
 
-  async update(id, data) {
+  async update(id: number | string, data: Prisma.TableUpdateInput) {
     return prisma.table.update({
       where: {
         id: Number(id),
@@ -55,7 +68,7 @@ class TableRepository {
     });
   }
 
-  async deactivate(id, db = prisma) {
+  async deactivate(id: number | string, db: PrismaClientLike = prisma) {
     return db.table.update({
       where: {
         id: Number(id),
