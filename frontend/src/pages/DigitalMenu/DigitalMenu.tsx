@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ShoppingBag,
-  X,
-  ArrowLeft,
   House,
   AtSign,
   Search,
@@ -11,8 +9,6 @@ import {
   Square,
   ChevronUp,
   Star,
-  CreditCard,
-  CheckCircle,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -36,6 +32,11 @@ import {
 } from "./helpers";
 import useProductRatings from "./useProductRatings";
 import * as S from "./styles";
+
+const ProductDetailModal = lazy(
+  () => import("./components/ProductDetailModal"),
+);
+const OrderDrawer = lazy(() => import("./components/OrderDrawer"));
 
 const MENU_RESTAURANT_KEY = "menuRestaurantId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
@@ -913,304 +914,52 @@ export default function DigitalMenu() {
               <b>R$ {toPrice(cartTotal)}</b>
             </S.FloatingCart>
 
-            {selectedProduct
-              ? (() => {
-                  const selectedRating = getProductRating(selectedProduct.id);
-                  const previewRating =
-                    ratingHover || selectedRating.userRating;
+            {selectedProduct ? (
+              <Suspense fallback={null}>
+                <ProductDetailModal
+                  selectedProduct={selectedProduct}
+                  isClosingProductDetail={isClosingProductDetail}
+                  selectedRating={getProductRating(selectedProduct.id)}
+                  ratingHover={ratingHover}
+                  isRatingSubmitting={isRatingSubmitting}
+                  maxRatingStars={MAX_RATING_STARS}
+                  resolveProductImage={resolveProductImage}
+                  toPrice={toPrice}
+                  toRatingLabel={toRatingLabel}
+                  setRatingHover={setRatingHover}
+                  handleRateProduct={handleRateProduct}
+                  addToCart={addToCart}
+                  handleCloseProductDetail={handleCloseProductDetail}
+                />
+              </Suspense>
+            ) : null}
 
-                  return (
-                    <S.ProductDetailOverlay
-                      $closing={isClosingProductDetail}
-                      onClick={handleCloseProductDetail}
-                    >
-                      <S.ProductDetailImage
-                        $image={resolveProductImage(selectedProduct)}
-                        $closing={isClosingProductDetail}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <S.ProductDetailBackButton
-                          type="button"
-                          onClick={handleCloseProductDetail}
-                        >
-                          <ArrowLeft size={20} />
-                        </S.ProductDetailBackButton>
-                      </S.ProductDetailImage>
-
-                      <S.ProductDetailBody
-                        $closing={isClosingProductDetail}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <h2>{selectedProduct.name}</h2>
-                        <p>
-                          {selectedProduct.description ||
-                            "Sem descrição disponível para este item."}
-                        </p>
-
-                        <S.ProductDetailPrice>
-                          R$ {toPrice(selectedProduct.price)}
-                        </S.ProductDetailPrice>
-
-                        <S.ProductDetailRatingText>
-                          Deixe sua avaliação para este item
-                        </S.ProductDetailRatingText>
-
-                        <S.ProductDetailStars>
-                          {Array.from(
-                            { length: MAX_RATING_STARS },
-                            (_, starIndex) => {
-                              const value = starIndex + 1;
-                              const active = value <= previewRating;
-
-                              return (
-                                <S.ProductDetailStarButton
-                                  key={`detail-rating-${value}`}
-                                  type="button"
-                                  $active={active}
-                                  disabled={isRatingSubmitting}
-                                  aria-label={`Avaliar com ${value} estrela${value > 1 ? "s" : ""}`}
-                                  onMouseEnter={() => setRatingHover(value)}
-                                  onMouseLeave={() => setRatingHover(0)}
-                                  onFocus={() => setRatingHover(value)}
-                                  onBlur={() => setRatingHover(0)}
-                                  onClick={() =>
-                                    handleRateProduct(selectedProduct, value)
-                                  }
-                                >
-                                  <Star
-                                    size={34}
-                                    fill={active ? "#d7b35e" : "transparent"}
-                                    color={active ? "#d7b35e" : "#d5d5da"}
-                                  />
-                                </S.ProductDetailStarButton>
-                              );
-                            },
-                          )}
-                        </S.ProductDetailStars>
-
-                        <S.ProductDetailRatingMeta>
-                          {selectedRating.count > 0
-                            ? `Média ${toRatingLabel(selectedRating.average)} de ${selectedRating.count} avaliação${selectedRating.count > 1 ? "ões" : ""}`
-                            : "Ainda sem avaliações"}
-                        </S.ProductDetailRatingMeta>
-
-                        <S.ProductDetailActions>
-                          <S.AddButton
-                            type="button"
-                            onClick={() => addToCart(selectedProduct)}
-                          >
-                            Adicionar ao pedido
-                          </S.AddButton>
-                        </S.ProductDetailActions>
-                      </S.ProductDetailBody>
-                    </S.ProductDetailOverlay>
-                  );
-                })()
-              : null}
-
-            <S.Overlay
-              $open={drawerOpen}
-              onClick={() => setDrawerOpen(false)}
-            />
-
-            <S.Drawer $open={drawerOpen}>
-              <S.DrawerHeader>
-                <h2>Seu Pedido</h2>
-                <S.DrawerTotal>R$ {toPrice(cartTotal)}</S.DrawerTotal>
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(false)}
-                  aria-label="Fechar"
-                >
-                  <X size={16} />
-                </button>
-              </S.DrawerHeader>
-
-              <S.DrawerTabs>
-                <S.DrawerTab
-                  type="button"
-                  $active={drawerStep === "pedido"}
-                  onClick={() => setDrawerStep("pedido")}
-                >
-                  Pedido
-                </S.DrawerTab>
-                <S.DrawerTab
-                  type="button"
-                  $active={drawerStep === "finalizar"}
-                  onClick={() => setDrawerStep("finalizar")}
-                >
-                  Finalizar
-                </S.DrawerTab>
-              </S.DrawerTabs>
-
-              <S.DrawerContent $open={drawerOpen}>
-                {drawerStep === "pedido" ? (
-                  <>
-                    {cart.length === 0 ? (
-                      <S.EmptyHint>
-                        Seu pedido está vazio. Adicione itens no cardápio.
-                      </S.EmptyHint>
-                    ) : (
-                      cart.map((item, index) => (
-                        <S.CartLine
-                          key={item.productId}
-                          $open={drawerOpen}
-                          $index={index}
-                        >
-                          <div>
-                            <strong>{item.name}</strong>
-                            <S.Tiny>
-                              {item.quantity} x R$ {toPrice(item.price)}
-                            </S.Tiny>
-                          </div>
-
-                          <S.QtyWrap>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.productId, -1)}
-                            >
-                              -
-                            </button>
-                            <strong>{item.quantity}</strong>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.productId, 1)}
-                            >
-                              +
-                            </button>
-                          </S.QtyWrap>
-                        </S.CartLine>
-                      ))
-                    )}
-
-                    <S.Summary>
-                      <span>Total</span>
-                      <strong>R$ {toPrice(cartTotal)}</strong>
-                    </S.Summary>
-
-                    <S.ActionButton
-                      type="button"
-                      style={{ marginTop: "0.9rem", width: "100%" }}
-                      onClick={() => setDrawerStep("finalizar")}
-                      disabled={cart.length === 0}
-                    >
-                      Ir para finalizar
-                    </S.ActionButton>
-                  </>
-                ) : (
-                  <>
-                    <S.InputGrid>
-                      <S.Label>
-                        Nome completo
-                        <input
-                          type="text"
-                          placeholder="Seu nome"
-                          value={customerName}
-                          onChange={(event) =>
-                            setCustomerName(event.target.value)
-                          }
-                        />
-                      </S.Label>
-
-                      <S.Label>
-                        CPF
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="000.000.000-00"
-                          value={customerCpf}
-                          onChange={(event) =>
-                            setCustomerCpf(formatCpfInput(event.target.value))
-                          }
-                        />
-                      </S.Label>
-
-                      <S.Label>
-                        Forma de pagamento
-                        <select
-                          value={paymentMethod}
-                          onChange={(event) =>
-                            setPaymentMethod(event.target.value)
-                          }
-                        >
-                          <option value="PIX">PIX</option>
-                          <option value="CARTAO">Cartão</option>
-                          <option value="DINHEIRO">Dinheiro</option>
-                        </select>
-                      </S.Label>
-
-                      <S.InlineInfo style={{ marginTop: -4 }}>
-                        O pedido será enviado agora. PIX e cartão ficam como
-                        pagamento pendente até a confirmação da equipe; dinheiro
-                        pode ser acertado na entrega.
-                      </S.InlineInfo>
-
-                      <S.Label>
-                        Observação (opcional)
-                        <textarea
-                          placeholder="Ex.: sem cebola, embalagem separada..."
-                          value={observation}
-                          onChange={(event) =>
-                            setObservation(event.target.value)
-                          }
-                        />
-                      </S.Label>
-                    </S.InputGrid>
-
-                    <S.Summary>
-                      <span>
-                        <CreditCard size={15} style={{ marginRight: 6 }} />{" "}
-                        Total
-                      </span>
-                      <strong>R$ {toPrice(cartTotal)}</strong>
-                    </S.Summary>
-
-                    <S.CheckoutButton
-                      type="button"
-                      onClick={handleFinishOrder}
-                      disabled={
-                        cart.length === 0 ||
-                        submitting ||
-                        isConfirmed ||
-                        loadingProducts
-                      }
-                      style={
-                        isConfirmed
-                          ? {
-                              background:
-                                "linear-gradient(135deg, #4f2150, #6e2c6a)",
-                              color: "#ffffff",
-                              border: "1px solid rgba(90, 39, 87, 0.34)",
-                              boxShadow: "0 14px 28px rgba(58, 21, 65, 0.3)",
-                              letterSpacing: "0.01em",
-                            }
-                          : undefined
-                      }
-                    >
-                      {isConfirmed ? (
-                        <>
-                          <CheckCircle size={18} style={{ marginRight: 6 }} />
-                          Confirmado
-                        </>
-                      ) : submitting ? (
-                        "Enviando pedido..."
-                      ) : (
-                        <>
-                          <CheckCircle size={18} style={{ marginRight: 6 }} />
-                          Enviar pedido para a mesa
-                        </>
-                      )}
-                    </S.CheckoutButton>
-
-                    <S.InlineInfo>
-                      Nome e CPF identificam seu pedido no painel dos
-                      funcionários. O pagamento pode ser concluído depois, se
-                      ainda não estiver confirmado.
-                    </S.InlineInfo>
-                  </>
-                )}
-              </S.DrawerContent>
-            </S.Drawer>
+            <Suspense fallback={null}>
+              <OrderDrawer
+                drawerOpen={drawerOpen}
+                drawerStep={drawerStep}
+                setDrawerOpen={setDrawerOpen}
+                setDrawerStep={setDrawerStep}
+                cart={cart}
+                cartTotal={cartTotal}
+                toPrice={toPrice}
+                updateQuantity={updateQuantity}
+                customerName={customerName}
+                customerCpf={customerCpf}
+                paymentMethod={paymentMethod}
+                observation={observation}
+                setCustomerName={setCustomerName}
+                onCustomerCpfChange={(value) =>
+                  setCustomerCpf(formatCpfInput(value))
+                }
+                setPaymentMethod={setPaymentMethod}
+                setObservation={setObservation}
+                handleFinishOrder={handleFinishOrder}
+                submitting={submitting}
+                isConfirmed={isConfirmed}
+                loadingProducts={loadingProducts}
+              />
+            </Suspense>
           </>
         )}
       </S.Page>
