@@ -1,3 +1,4 @@
+import { NextFunction, Request, Response } from "express";
 import { InvoiceStatus } from "@prisma/client";
 import prisma from "../config/prisma.js";
 import {
@@ -5,7 +6,11 @@ import {
   isInvoiceBlocking,
 } from "../modules/billing/utils/billingRules.js";
 
-export async function billingMiddleware(req, res, next) {
+export async function billingMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const restaurantId = req.user.restaurantId;
 
@@ -84,7 +89,7 @@ export async function billingMiddleware(req, res, next) {
     }
 
     return next();
-  } catch (error) {
+  } catch (_error: unknown) {
     return res.status(500).json({
       error: "Erro ao validar cobrança",
     });

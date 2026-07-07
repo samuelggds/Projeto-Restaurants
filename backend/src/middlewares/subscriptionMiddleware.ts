@@ -1,6 +1,11 @@
+import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma.js";
 
-export async function subscriptionMiddleware(req, res, next) {
+export async function subscriptionMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const restaurantId = req.user.restaurantId;
 
@@ -40,7 +45,7 @@ export async function subscriptionMiddleware(req, res, next) {
     req.subscription = subscription;
 
     return next();
-  } catch (error) {
+  } catch (_error: unknown) {
     return res.status(500).json({
       error: "Erro ao validar assinatura",
     });

@@ -1,6 +1,11 @@
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-export function authMiddleware(req, res, next) {
+export function authMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -15,7 +20,7 @@ export function authMiddleware(req, res, next) {
     req.user = decoded;
 
     return next();
-  } catch (error) {
+  } catch (_error: unknown) {
     return res.status(401).json({ error: "Token inválido!" });
   }
 }

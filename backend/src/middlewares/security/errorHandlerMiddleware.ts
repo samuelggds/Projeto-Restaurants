@@ -1,10 +1,26 @@
+import { ErrorRequestHandler, NextFunction, Request, Response } from "express";
 import * as Sentry from "@sentry/node";
 import { notifyCriticalError } from "../../services/alertNotifier.js";
 
 const INTERNAL_SERVER_ERROR_MESSAGE = "Erro interno do servidor";
 
-export function errorHandlerMiddleware(err, req, res, _next) {
-  const statusCode = Number(err?.status || err?.statusCode || 500);
+export const errorHandlerMiddleware: ErrorRequestHandler = (
+  err: unknown,
+  req: Request,
+  res: Response,
+  _next: NextFunction,
+) => {
+  const errObj =
+    typeof err === "object" && err !== null
+      ? (err as {
+          status?: number;
+          statusCode?: number;
+          message?: string;
+          stack?: string;
+        })
+      : {};
+
+  const statusCode = Number(errObj.status || errObj.statusCode || 500);
   const safeStatusCode =
     statusCode >= 400 && statusCode < 600 ? statusCode : 500;
 
@@ -13,13 +29,13 @@ export function errorHandlerMiddleware(err, req, res, _next) {
       requestId: req.requestId,
       method: req.method,
       path: req.originalUrl,
-      message: err?.message,
-      stack: err?.stack,
+      message: errObj.message,
+      stack: errObj.stack,
     });
 
     notifyCriticalError(
       "[CRITICAL_API_ERROR]",
-      `requestId=${req.requestId} method=${req.method} path=${req.originalUrl} message=${err?.message || "unknown"}`,
+      `requestId=${req.requestId} method=${req.method} path=${req.originalUrl} message=${errObj.message || "unknown"}`,
     );
   }
 
@@ -39,10 +55,10 @@ export function errorHandlerMiddleware(err, req, res, _next) {
   const message =
     safeStatusCode >= 500
       ? INTERNAL_SERVER_ERROR_MESSAGE
-      : err?.message || "Erro na requisicao";
+      : errObj.message || "Erro na requisicao";
 
   return res.status(safeStatusCode).json({
     error: message,
     requestId: req.requestId,
   });
-}
+};

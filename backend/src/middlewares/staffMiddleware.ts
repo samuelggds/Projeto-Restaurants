@@ -1,6 +1,11 @@
+import { NextFunction, Request, Response } from "express";
 import { UserRole } from "@prisma/client";
 
-export function staffMiddleware(req, res, next) {
+export function staffMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   if (!req.user) {
     return res.status(401).json({
       error: "Não autenticado",

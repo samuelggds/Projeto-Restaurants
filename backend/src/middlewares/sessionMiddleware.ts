@@ -1,7 +1,12 @@
+import { NextFunction, Request, Response } from "express";
 import tableSessionRepository from "../modules/tableSession/repositories/TableSessionRepository.js";
 import { TableSessionStatus } from "@prisma/client";
 
-export async function sessionMiddleware(req, res, next) {
+export async function sessionMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const sessionToken =
       req.headers["x-session-token"] ||
@@ -35,9 +40,9 @@ export async function sessionMiddleware(req, res, next) {
     };
 
     return next();
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(500).json({
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erro ao validar sessao",
     });
   }
 }

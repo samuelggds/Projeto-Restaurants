@@ -1,7 +1,12 @@
+import { NextFunction, Request, Response } from "express";
 import { authMiddleware } from "./authMiddleware.js";
 import { sessionMiddleware } from "./sessionMiddleware.js";
 
-export async function orderAccessMiddleware(req, res, next) {
+export async function orderAccessMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const authHeader = req.headers.authorization;
   const sessionToken = req.headers["x-session-token"];
   const bodyRestaurantId = Number(req.body?.restaurantId || 0);
