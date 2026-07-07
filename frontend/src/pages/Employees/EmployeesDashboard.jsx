@@ -61,6 +61,9 @@ const ORDER_STATUS_META = {
   ENTREGUE: { label: "Entregue", color: "#22c55e" },
   CANCELADO: { label: "Cancelado", color: "#ef4444" },
 };
+
+const CLOSED_STATUS_SET = new Set(["ENTREGUE", "CANCELADO"]);
+
 function getPaymentSummaryLabel() {
   return "PIX";
 }
@@ -98,6 +101,23 @@ function getStatusValueIcon(status) {
   }
 
   return <Clock size={13} />;
+}
+
+function getStatusChipStyle(status) {
+  const normalized = String(status || "").toUpperCase();
+  const isClosed = CLOSED_STATUS_SET.has(normalized);
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 12,
+    color: isClosed ? "#ef4444" : "#475569",
+    background: isClosed ? "#fef2f2" : "#f8fafc",
+    border: `1px solid ${isClosed ? "#fecaca" : "#e2e8f0"}`,
+    borderRadius: 6,
+    padding: "3px 8px",
+  };
 }
 
 function getInitialGeneratedPins() {
@@ -201,6 +221,10 @@ function isPendingDigitalPayment(order) {
   const isDigitalMethod = DELIVERY_PENDING_DIGITAL_METHODS.has(paymentMethod);
 
   return isDelivery && isDigitalMethod && order?.paid !== true;
+}
+
+function isDeliveryBlockedUntilPaid(order) {
+  return isPendingDigitalPayment(order);
 }
 
 function playNotificationSound() {
@@ -907,10 +931,12 @@ export default function StaffDashboard() {
   }, [tables, openSessionByTableId, generatedPins]);
 
   const managerInfo = {
-    name: "Gerência",
-    email: "gerencia@restaurante.com",
-    phone: "(85) 98888-7777",
-    restaurantName: "Peça Já",
+    name: String(user?.name || "Gerência"),
+    email: String(user?.email || ""),
+    phone: String(user?.phone || ""),
+    restaurantName: user?.restaurantId
+      ? `Filial #${user.restaurantId}`
+      : "Filial atual",
   };
 
   return (
@@ -1240,6 +1266,16 @@ export default function StaffDashboard() {
           </S.NavigationList>
 
           <S.SidebarFooter>
+            {user?.role === "ADMIN" && (
+              <S.NavButton
+                style={{ marginBottom: "0.25rem", color: "#ffffff" }}
+                onClick={() => navigate("/admin")}
+              >
+                <ShieldAlert size={20} />
+                {!isSidebarCollapsed && <span>Entrar na tela de admin</span>}
+              </S.NavButton>
+            )}
+
             <S.ThemeToggle
               onClick={handleEnableNotifications}
               title={
@@ -1606,6 +1642,8 @@ export default function StaffDashboard() {
                     const pendingDigitalPayment =
                       PAYMENT_PIN_TOOLS_ENABLED &&
                       isPendingDigitalPayment(order);
+                    const deliveryBlockedUntilPaid =
+                      isDeliveryBlockedUntilPaid(order);
                     const pinInput = String(pinInputByOrderId[order.id] || "");
                     const isRequestingPin = requestingPinOrderIds.includes(
                       order.id,
@@ -1657,7 +1695,7 @@ export default function StaffDashboard() {
                                 marginTop: "0.35rem",
                               }}
                             >
-                              <span style={infoChipStyle}>
+                              <span style={getStatusChipStyle(order.status)}>
                                 {getStatusValueIcon(order.status)}
                                 Status: {statusLabel}
                               </span>
@@ -1942,15 +1980,7 @@ export default function StaffDashboard() {
                             Status:{" "}
                             <span
                               style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontSize: 12,
-                                color: "#475569",
-                                background: "#f8fafc",
-                                border: "1px solid #e2e8f0",
-                                borderRadius: 6,
-                                padding: "3px 8px",
+                                ...getStatusChipStyle(order.status),
                                 textTransform: "none",
                                 marginLeft: 4,
                               }}
@@ -2052,10 +2082,10 @@ export default function StaffDashboard() {
                                 onClick={() =>
                                   handleUpdateStatus(order, "ENTREGUE")
                                 }
-                                disabled={pendingDigitalPayment}
+                                disabled={deliveryBlockedUntilPaid}
                                 title={
-                                  pendingDigitalPayment
-                                    ? "Confirme o pagamento com PIN antes de entregar"
+                                  deliveryBlockedUntilPaid
+                                    ? "Confirme o pagamento antes de entregar"
                                     : ""
                                 }
                               >
@@ -2187,7 +2217,7 @@ export default function StaffDashboard() {
                     isHighlighted && isHighlightBlinking && !highlightPulseOn
                       ? "2px solid transparent"
                       : isHighlighted
-                        ? "2px solid #f59e0b"
+                        ? "2px solid #ef4444"
                         : "1px solid transparent";
                   const highlightShadow =
                     isHighlighted && isHighlightBlinking && !highlightPulseOn
@@ -2201,7 +2231,7 @@ export default function StaffDashboard() {
                       key={table.id}
                       style={{
                         maxWidth: "none",
-                        borderTop: `4px solid ${isOpen ? "#10b981" : "#f59e0b"}`,
+                        borderTop: `4px solid ${isOpen ? "#10b981" : "#ef4444"}`,
                         border: highlightBorder,
                         boxShadow: highlightShadow,
                         transform: isHighlighted
@@ -2237,8 +2267,8 @@ export default function StaffDashboard() {
                             fontSize: "0.75rem",
                             fontWeight: 800,
                             textTransform: "uppercase",
-                            background: isOpen ? "#10b98122" : "#f59e0b22",
-                            color: isOpen ? "#10b981" : "#f59e0b",
+                            background: isOpen ? "#10b98122" : "#ef444422",
+                            color: isOpen ? "#10b981" : "#ef4444",
                           }}
                         >
                           {isOpen ? "Aberta" : "Fechada"}
@@ -2346,9 +2376,9 @@ export default function StaffDashboard() {
                             borderRadius: 12,
                             padding: "0.9rem",
                             background: isDarkMode
-                              ? "rgba(245, 158, 11, 0.12)"
-                              : "rgba(245, 158, 11, 0.08)",
-                            border: "1px solid rgba(245, 158, 11, 0.2)",
+                              ? "rgba(239, 68, 68, 0.12)"
+                              : "rgba(239, 68, 68, 0.08)",
+                            border: "1px solid rgba(239, 68, 68, 0.2)",
                             fontSize: "0.9rem",
                           }}
                         >
@@ -2657,9 +2687,19 @@ export default function StaffDashboard() {
                     size={16}
                     style={{ flexShrink: 0, color: "var(--primary, #eab308)" }}
                   />
-                  <span style={{ fontSize: "0.8rem", opacity: 0.8 }}>
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      opacity: 0.92,
+                      color: isDarkMode ? "#f8fafc" : "#111827",
+                    }}
+                  >
                     Você está conectado à filial:{" "}
-                    <strong>{managerInfo.restaurantName}</strong>
+                    <strong
+                      style={{ color: isDarkMode ? "#ffffff" : "#111827" }}
+                    >
+                      {managerInfo.restaurantName}
+                    </strong>
                   </span>
                 </div>
               </S.FormCard>

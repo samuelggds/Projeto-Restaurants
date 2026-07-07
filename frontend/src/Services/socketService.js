@@ -15,7 +15,8 @@ export function connectSocket(token) {
   }
 
   socket = io(baseUrl, {
-    transports: ["websocket", "polling"],
+    transports: ["polling"],
+    upgrade: false,
     auth: {
       token,
     },
@@ -47,7 +48,8 @@ export function connectTableSessionSocket(sessionToken) {
   }
 
   tableSessionSocket = io(baseUrl, {
-    transports: ["websocket", "polling"],
+    transports: ["polling"],
+    upgrade: false,
     auth: {
       sessionToken,
     },

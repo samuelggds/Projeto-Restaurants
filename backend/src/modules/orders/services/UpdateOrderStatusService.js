@@ -27,22 +27,49 @@ class UpdateOrderStatusService {
       throw new Error("Usuário não tem permissão para isso!");
     }
 
-    // Pedidos com pagamento digital só podem ser finalizados após confirmação.
+    const isDigitalPayment = [PaymentMethod.PIX, PaymentMethod.CARTAO].includes(
+      order.paymentMethod,
+    );
+
+    // PIX e cartão só podem ser entregues após a confirmação do pagamento.
     if (
       status === OrderStatus.ENTREGUE &&
-      [PaymentMethod.PIX, PaymentMethod.CARTAO].includes(order.paymentMethod) &&
+      isDigitalPayment &&
       order.paid !== true
     ) {
       throw new Error(
-        "Não é possível marcar como entregue: pagamento PIX/CARTAO ainda não foi confirmado.",
+        "Não é possível marcar como entregue: o pagamento ainda não foi confirmado.",
       );
     }
 
-    const updatedOrder = await orderRepository.updateStatus(
+    let updatedOrder = await orderRepository.updateStatus(
       orderId,
       status,
       restaurantId,
     );
+
+    if (
+      status === OrderStatus.ENTREGUE &&
+      order.paymentMethod === PaymentMethod.DINHEIRO &&
+      updatedOrder?.paid !== true
+    ) {
+      updatedOrder = await orderRepository.confirmPayment(
+        orderId,
+        restaurantId,
+      );
+
+      io.to(`restaurant:${restaurantId}`).emit("order:payment-confirmed", {
+        orderId: updatedOrder.id,
+        paid: true,
+        paymentMethod: updatedOrder.paymentMethod,
+      });
+
+      io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
+        orderId: updatedOrder.id,
+        paid: true,
+        paymentMethod: updatedOrder.paymentMethod,
+      });
+    }
 
     notifyCustomerOrderStatusChanged({
       customerPhone: order?.user?.phone,

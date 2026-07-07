@@ -13,6 +13,7 @@ import {
   CreditCard,
   Bike,
   AlertCircle,
+  ShieldAlert,
   LogOut,
   Mail,
   IdCard,
@@ -365,9 +366,7 @@ function OrderCard({ order, onMarkDelivered }) {
             onClick={handleMarkDelivered}
             disabled={loading || paymentPendingConfirmation}
             title={
-              paymentPendingConfirmation
-                ? "Pagamento PIX/cartão ainda não confirmado"
-                : ""
+              paymentPendingConfirmation ? "Pagamento ainda não confirmado" : ""
             }
           >
             <CheckCircle size={16} />
@@ -510,7 +509,7 @@ export default function CourierDashboard() {
 
         <S.SidebarNav>
           <S.SideNavItem
-            active={activeTab === "PRONTO"}
+            $active={activeTab === "PRONTO"}
             onClick={() => setActiveTab("PRONTO")}
           >
             <Package size={16} />
@@ -518,15 +517,15 @@ export default function CourierDashboard() {
             {prontoCount > 0 && <S.NavBadge>{prontoCount}</S.NavBadge>}
           </S.SideNavItem>
           <S.SideNavItem
-            active={activeTab === "SAIU_PARA_ENTREGA"}
+            $active={activeTab === "SAIU_PARA_ENTREGA"}
             onClick={() => setActiveTab("SAIU_PARA_ENTREGA")}
           >
             <Bike size={16} />
             Em entrega
-            {saiuCount > 0 && <S.NavBadge urgent>{saiuCount}</S.NavBadge>}
+            {saiuCount > 0 && <S.NavBadge $urgent>{saiuCount}</S.NavBadge>}
           </S.SideNavItem>
           <S.SideNavItem
-            active={activeTab === "ENTREGUE"}
+            $active={activeTab === "ENTREGUE"}
             onClick={() => setActiveTab("ENTREGUE")}
           >
             <CheckCircle size={16} />
@@ -534,13 +533,23 @@ export default function CourierDashboard() {
             {entregueCount > 0 && <S.NavBadge>{entregueCount}</S.NavBadge>}
           </S.SideNavItem>
           <S.SideNavItem
-            active={activeTab === "PERFIL"}
+            $active={activeTab === "PERFIL"}
             onClick={() => setActiveTab("PERFIL")}
           >
             <User size={16} />
             Meu Perfil
           </S.SideNavItem>
         </S.SidebarNav>
+
+        {user?.role === "ADMIN" && (
+          <S.LogoutButton
+            style={{ marginBottom: "0.75rem" }}
+            onClick={() => navigate("/admin")}
+          >
+            <ShieldAlert size={16} />
+            Entrar na tela de admin
+          </S.LogoutButton>
+        )}
 
         <S.LogoutButton
           onClick={() => {
@@ -579,27 +588,27 @@ export default function CourierDashboard() {
         {/* Tabs mobile */}
         <S.MobileTabs>
           <S.MobileTab
-            active={activeTab === "PRONTO"}
+            $active={activeTab === "PRONTO"}
             onClick={() => setActiveTab("PRONTO")}
           >
             <Package size={15} /> Prontos{" "}
             {prontoCount > 0 && `(${prontoCount})`}
           </S.MobileTab>
           <S.MobileTab
-            active={activeTab === "SAIU_PARA_ENTREGA"}
+            $active={activeTab === "SAIU_PARA_ENTREGA"}
             onClick={() => setActiveTab("SAIU_PARA_ENTREGA")}
           >
             <Bike size={15} /> Em rota {saiuCount > 0 && `(${saiuCount})`}
           </S.MobileTab>
           <S.MobileTab
-            active={activeTab === "ENTREGUE"}
+            $active={activeTab === "ENTREGUE"}
             onClick={() => setActiveTab("ENTREGUE")}
           >
             <CheckCircle size={15} /> Entregues{" "}
             {entregueCount > 0 && `(${entregueCount})`}
           </S.MobileTab>
           <S.MobileTab
-            active={activeTab === "PERFIL"}
+            $active={activeTab === "PERFIL"}
             onClick={() => setActiveTab("PERFIL")}
           >
             <User size={15} /> Perfil

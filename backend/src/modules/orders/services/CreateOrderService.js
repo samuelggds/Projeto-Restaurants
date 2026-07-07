@@ -5,8 +5,6 @@ import { io } from "../../../server.js";
 import { createOrderSchema } from "../../../validators/OrderValidator.js";
 import splitService from "../../billing/services/SplitService.js";
 import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
-import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
-import orderPixPaymentService from "./OrderPixPaymentService.js";
 import { TableSessionStatus } from "@prisma/client";
 import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
 
@@ -206,72 +204,7 @@ class CreateOrderService {
     }
 
     const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
-    const isPixDeliveryOrder =
-      String(type || "").toUpperCase() === "DELIVERY" &&
-      normalizedPaymentMethod === "PIX";
-
-    if (isPixDeliveryOrder) {
-      const publicSettings =
-        await restaurantSettingsRepository.findPublicByRestaurantId(
-          resolvedRestaurantId,
-        );
-
-      const pixKey = String(publicSettings?.pixKey || "").trim();
-      const pixProvider = String(publicSettings?.pixProvider || "MERCADO_PAGO")
-        .trim()
-        .toUpperCase();
-
-      if (!pixKey) {
-        throw new Error(
-          "Este restaurante não possui chave PIX cadastrada para finalizar o pagamento.",
-        );
-      }
-
-      if (paid !== true) {
-        throw new Error(
-          "Pagamento PIX não confirmado. Finalize o PIX antes de criar o pedido.",
-        );
-      }
-
-      if (!String(pixPaymentId || "").trim()) {
-        throw new Error("Pagamento PIX inválido para confirmar o pedido.");
-      }
-
-      if (pixProvider === "MERCADO_PAGO") {
-        await orderPixPaymentService.ensurePaymentApproved({
-          paymentId: pixPaymentId,
-          restaurantId: resolvedRestaurantId,
-        });
-      } else {
-        const manualPrefix = `manual:${pixProvider}:${resolvedRestaurantId}:`;
-        if (!String(pixPaymentId).startsWith(manualPrefix)) {
-          throw new Error(
-            "Pagamento PIX inválido para o provedor configurado.",
-          );
-        }
-
-        const normalizedProofCode = String(paymentProof || "").trim();
-        const normalizedProofImage = String(paymentProofImage || "").trim();
-        const hasProofCode = normalizedProofCode.length >= 6;
-        const hasProofImage =
-          normalizedProofImage.startsWith("data:image/") &&
-          normalizedProofImage.length >= 40;
-
-        if (!hasProofCode && !hasProofImage) {
-          throw new Error(
-            "Informe o comprovante PIX (código da transação ou imagem) para finalizar o pedido.",
-          );
-        }
-
-        if (hasProofImage && normalizedProofImage.length > 3_000_000) {
-          throw new Error(
-            "Imagem do comprovante muito grande. Envie uma imagem menor que 3MB.",
-          );
-        }
-      }
-    }
-
-    const shouldMarkAsPaid = isPixDeliveryOrder && paid === true;
+    const shouldMarkAsPaid = paid === true;
 
     const createdOrder = await prisma.$transaction(async (tx) => {
       const resolvedUserId = await this.resolveOrderUser({
@@ -290,8 +223,35 @@ class CreateOrderService {
       );
 
       products.forEach((product, index) => {
+        const item = items[index];
+
         if (!product) {
           throw new Error(`Produto não encontrado: ${items[index].productId}`);
+        }
+
+        if (product.active === false) {
+          throw new Error(`Produto indisponível: ${product.name}`);
+        }
+
+        const quantity = Number(item.quantity || 0);
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+          throw new Error(`Quantidade inválida para ${product.name}.`);
+        }
+
+        const stockValue =
+          product.stock === null || product.stock === undefined
+            ? null
+            : Number(product.stock);
+
+        if (
+          Number.isInteger(stockValue) &&
+          stockValue >= 0 &&
+          quantity > stockValue
+        ) {
+          throw new Error(
+            `Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`,
+          );
         }
       });
 
@@ -322,15 +282,13 @@ class CreateOrderService {
           ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}`
           : "";
 
-      const pixProofSummary =
-        isPixDeliveryOrder && String(paymentProof || "").trim()
-          ? `Comprovante PIX: ${String(paymentProof).trim()}`
-          : "";
+      const pixProofSummary = String(paymentProof || "").trim()
+        ? `Comprovante PIX: ${String(paymentProof).trim()}`
+        : "";
 
-      const pixProofImageSummary =
-        isPixDeliveryOrder && String(paymentProofImage || "").trim()
-          ? "Comprovante PIX (imagem): anexado"
-          : "";
+      const pixProofImageSummary = String(paymentProofImage || "").trim()
+        ? "Comprovante PIX (imagem): anexado"
+        : "";
 
       const mergedObservation = [
         guestSummary,
@@ -376,7 +334,10 @@ class CreateOrderService {
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
     });
 
-    io.emit("new-order", createdOrder);
+    io.to(`restaurant:${createdOrder.restaurantId}`).emit(
+      "new-order",
+      createdOrder,
+    );
 
     if (shouldMarkAsPaid) {
       io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {

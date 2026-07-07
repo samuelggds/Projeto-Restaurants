@@ -595,6 +595,10 @@ function isPendingDigitalPayment(order) {
   return isDelivery && isDigital && order?.paid !== true;
 }
 
+function isDeliveryBlockedUntilPaid(order) {
+  return isPendingDigitalPayment(order);
+}
+
 function getPaymentSummaryLabel() {
   return "PIX";
 }
@@ -2995,6 +2999,8 @@ export default function AdminDashboard() {
                   const deliveryAddressLabel = getDeliveryAddressLabel(order);
                   const pendingDigitalPayment =
                     PAYMENT_PIN_TOOLS_ENABLED && isPendingDigitalPayment(order);
+                  const deliveryBlockedUntilPaid =
+                    isDeliveryBlockedUntilPaid(order);
                   const canGenerateOrderPin = canGeneratePin(order);
                   const isGeneratingPin = generatingPinOrderIds.includes(
                     order.id,
@@ -3456,6 +3462,16 @@ export default function AdminDashboard() {
                               <button
                                 key={status}
                                 className={`btn ${order.status === status ? `active-${String(status).toLowerCase()}` : ""}`}
+                                disabled={
+                                  String(status).toUpperCase() === "ENTREGUE" &&
+                                  deliveryBlockedUntilPaid
+                                }
+                                title={
+                                  String(status).toUpperCase() === "ENTREGUE" &&
+                                  deliveryBlockedUntilPaid
+                                    ? "Confirme o pagamento antes de marcar como entregue"
+                                    : ""
+                                }
                                 onClick={() =>
                                   handleUpdateStatus(order.id, status)
                                 }

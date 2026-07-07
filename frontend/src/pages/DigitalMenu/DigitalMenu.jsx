@@ -41,6 +41,7 @@ const MENU_RESTAURANT_KEY = "menuRestaurantId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PRODUCT_DETAIL_CLOSE_MS = 240;
+const ALLOWED_PAYMENT_METHODS = new Set(["PIX", "CARTAO", "DINHEIRO"]);
 
 export default function DigitalMenu() {
   const { tableNumber: tableNumberParam } = useParams();
@@ -509,8 +510,21 @@ export default function DigitalMenu() {
       return;
     }
 
+    if (loadingProducts) {
+      toast.error("Aguarde o cardápio carregar para finalizar o pedido.");
+      return;
+    }
+
     const trimmedName = customerName.trim();
     const cpfDigits = customerCpf.replace(/\D/g, "");
+    const normalizedPaymentMethod = String(paymentMethod || "")
+      .trim()
+      .toUpperCase();
+
+    if (!ALLOWED_PAYMENT_METHODS.has(normalizedPaymentMethod)) {
+      toast.error("Selecione uma forma de pagamento válida.");
+      return;
+    }
 
     if (trimmedName.length < 2) {
       toast.error("Digite seu nome para concluir o pedido.");
@@ -522,6 +536,45 @@ export default function DigitalMenu() {
       return;
     }
 
+    for (const item of cart) {
+      const product = products.find(
+        (current) => Number(current?.id) === Number(item.productId),
+      );
+
+      if (!product) {
+        toast.error(`Produto indisponível no cardápio: ${item.name}`);
+        return;
+      }
+
+      if (product.active === false) {
+        toast.error(`Produto indisponível no cardápio: ${product.name}`);
+        return;
+      }
+
+      const quantity = Number(item.quantity || 0);
+
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        toast.error(`Quantidade inválida para ${product.name}.`);
+        return;
+      }
+
+      const stockValue =
+        product.stock === null || product.stock === undefined
+          ? null
+          : Number(product.stock);
+
+      if (
+        Number.isInteger(stockValue) &&
+        stockValue >= 0 &&
+        quantity > stockValue
+      ) {
+        toast.error(
+          `Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`,
+        );
+        return;
+      }
+    }
+
     const startedAt = Date.now();
 
     try {
@@ -531,7 +584,7 @@ export default function DigitalMenu() {
         restaurantId,
         type: "MESA",
         tableId: Number(tableSession.tableId),
-        paymentMethod,
+        paymentMethod: normalizedPaymentMethod,
         customerName: trimmedName,
         customerCpf: cpfDigits,
         observation: observation.trim() || undefined,
@@ -1083,6 +1136,12 @@ export default function DigitalMenu() {
                         </select>
                       </S.Label>
 
+                      <S.InlineInfo style={{ marginTop: -4 }}>
+                        O pedido será enviado agora. PIX e cartão ficam como
+                        pagamento pendente até a confirmação da equipe; dinheiro
+                        pode ser acertado na entrega.
+                      </S.InlineInfo>
+
                       <S.Label>
                         Observação (opcional)
                         <textarea
@@ -1106,7 +1165,12 @@ export default function DigitalMenu() {
                     <S.CheckoutButton
                       type="button"
                       onClick={handleFinishOrder}
-                      disabled={cart.length === 0 || submitting || isConfirmed}
+                      disabled={
+                        cart.length === 0 ||
+                        submitting ||
+                        isConfirmed ||
+                        loadingProducts
+                      }
                       style={
                         isConfirmed
                           ? {
@@ -1126,18 +1190,19 @@ export default function DigitalMenu() {
                           Confirmado
                         </>
                       ) : submitting ? (
-                        "Confirmando pedido..."
+                        "Enviando pedido..."
                       ) : (
                         <>
                           <CheckCircle size={18} style={{ marginRight: 6 }} />
-                          Confirmar e Fazer Pedido
+                          Enviar pedido para a mesa
                         </>
                       )}
                     </S.CheckoutButton>
 
                     <S.InlineInfo>
-                      Nome e CPF são usados para identificar seu pedido no
-                      painel dos funcionários.
+                      Nome e CPF identificam seu pedido no painel dos
+                      funcionários. O pagamento pode ser concluído depois, se
+                      ainda não estiver confirmado.
                     </S.InlineInfo>
                   </>
                 )}

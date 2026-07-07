@@ -140,7 +140,7 @@ export const SideNavItem = styled.button`
   font-size: 14px;
   font-weight: 500;
   transition: background 0.15s;
-  background: ${(p) => (p.active ? "rgba(255,255,255,0.25)" : "transparent")};
+  background: ${(p) => (p.$active ? "rgba(255,255,255,0.25)" : "transparent")};
   color: white;
 
   &:hover {
@@ -150,8 +150,8 @@ export const SideNavItem = styled.button`
 
 export const NavBadge = styled.span`
   margin-left: auto;
-  background: ${(p) => (p.urgent ? "#fbbf24" : "rgba(255,255,255,0.3)")};
-  color: ${(p) => (p.urgent ? "#1e293b" : "white")};
+  background: ${(p) => (p.$urgent ? "#fbbf24" : "rgba(255,255,255,0.3)")};
+  color: ${(p) => (p.$urgent ? "#1e293b" : "white")};
   font-size: 11px;
   font-weight: 700;
   border-radius: 20px;
