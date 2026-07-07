@@ -6,22 +6,34 @@ import {
   Outlet,
   useLocation,
 } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-import Login from "../pages/Login/Login";
-import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
-import Register from "../pages/Register/Register";
-import UserProfile from "../pages/Profile/Profile";
-import MyOrders from "../pages/MyOrders/MyOrders";
-import EmployeesDashboard from "../pages/Employees/EmployeesDashboard";
-import CourierDashboard from "../pages/Courier/CourierDashboard";
-import SuperAdminDashboard from "../pages/SuperAdmin/SuperAdminDashboard";
-import Cart from "../pages/Cart/Cart";
-import BillingPage from "../pages/Billing/BillingPage";
-import SystemBlockedPage from "../pages/SystemBlocked/SystemBlocked";
-import SystemMaintenancePage from "../pages/SystemMaintenance/SystemMaintenance";
-import Home from "../pages/Home/Home";
-import DigitalMenu from "../pages/DigitalMenu/DigitalMenu";
+const Login = lazy(() => import("../pages/Login/Login"));
+const AdminDashboard = lazy(
+  () => import("../pages/AdminDashboard/AdminDashboard"),
+);
+const Register = lazy(() => import("../pages/Register/Register"));
+const UserProfile = lazy(() => import("../pages/Profile/Profile"));
+const MyOrders = lazy(() => import("../pages/MyOrders/MyOrders"));
+const EmployeesDashboard = lazy(
+  () => import("../pages/Employees/EmployeesDashboard"),
+);
+const CourierDashboard = lazy(
+  () => import("../pages/Courier/CourierDashboard"),
+);
+const SuperAdminDashboard = lazy(
+  () => import("../pages/SuperAdmin/SuperAdminDashboard"),
+);
+const Cart = lazy(() => import("../pages/Cart/Cart"));
+const BillingPage = lazy(() => import("../pages/Billing/BillingPage"));
+const SystemBlockedPage = lazy(
+  () => import("../pages/SystemBlocked/SystemBlocked"),
+);
+const SystemMaintenancePage = lazy(
+  () => import("../pages/SystemMaintenance/SystemMaintenance"),
+);
+const Home = lazy(() => import("../pages/Home/Home"));
+const DigitalMenu = lazy(() => import("../pages/DigitalMenu/DigitalMenu"));
 import api from "../Services/api";
 import { useAuth } from "../contexts/authContext";
 import {
@@ -188,53 +200,59 @@ function BillingGate() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<SuperAdminScopeGuard />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/" element={<Home />} />
-          <Route path="/menu" element={<Home />} />
-          <Route path="/cardapio" element={<Home />} />
-          <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-          <Route path="/cart" element={<Cart />} />
+      <Suspense fallback={null}>
+        <Routes>
+          <Route element={<SuperAdminScopeGuard />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/menu" element={<Home />} />
+            <Route path="/cardapio" element={<Home />} />
+            <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+            <Route path="/cart" element={<Cart />} />
 
-          <Route element={<RequireAuth />}>
-            <Route path="/system-blocked" element={<SystemBlockedPage />} />
-            <Route
-              path="/system-maintenance"
-              element={<SystemMaintenancePage />}
-            />
+            <Route element={<RequireAuth />}>
+              <Route path="/system-blocked" element={<SystemBlockedPage />} />
+              <Route
+                path="/system-maintenance"
+                element={<SystemMaintenancePage />}
+              />
 
-            <Route element={<BillingGate />}>
-              <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
-                <Route path="/profile" element={<UserProfile />} />
-                <Route path="/profile/orders" element={<MyOrders />} />
-              </Route>
+              <Route element={<BillingGate />}>
+                <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
+                  <Route path="/profile" element={<UserProfile />} />
+                  <Route path="/profile/orders" element={<MyOrders />} />
+                </Route>
 
-              <Route element={<RequireRole roles={["ADMIN"]} />}>
-                <Route path="/billing" element={<BillingPage />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-              </Route>
+                <Route element={<RequireRole roles={["ADMIN"]} />}>
+                  <Route path="/billing" element={<BillingPage />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                </Route>
 
-              <Route element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}>
-                <Route path="/courier" element={<CourierDashboard />} />
-              </Route>
+                <Route
+                  element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}
+                >
+                  <Route path="/courier" element={<CourierDashboard />} />
+                </Route>
 
-              <Route element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}>
-                <Route path="/employees" element={<EmployeesDashboard />} />
+                <Route
+                  element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}
+                >
+                  <Route path="/employees" element={<EmployeesDashboard />} />
+                </Route>
               </Route>
             </Route>
           </Route>
-        </Route>
 
-        <Route element={<RequireAuth />}>
-          <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
-            <Route path="/super_admin" element={<SuperAdminDashboard />} />
+          <Route element={<RequireAuth />}>
+            <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
+              <Route path="/super_admin" element={<SuperAdminDashboard />} />
+            </Route>
           </Route>
-        </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
