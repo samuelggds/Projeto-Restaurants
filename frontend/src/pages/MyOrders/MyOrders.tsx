@@ -1,19 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import { toast } from "react-toastify";
 import {
   ArrowLeft,
-  ChevronsDown,
   ClipboardList,
-  Clock,
-  Package,
-  Truck,
-  CheckCircle2,
-  X,
   LogOut,
   Moon,
-  ShoppingBag,
   Sun,
   Utensils,
 } from "lucide-react";
@@ -21,6 +14,8 @@ import { useAuth } from "../../contexts/authContext";
 import ordersService from "../../Services/ordersService";
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import * as S from "./styles";
+
+const MyOrdersContent = lazy(() => import("./components/MyOrdersContent"));
 
 const FILTERS = {
   ALL: "TODOS",
@@ -249,32 +244,6 @@ function getOrderStatusClass(status) {
   };
 
   return classByStatus[normalizedStatus] || "status-pendente";
-}
-
-function getOrderStatusIcon(status) {
-  const normalizedStatus = String(status || "").toUpperCase();
-
-  if (normalizedStatus === "PENDENTE" || normalizedStatus === "PREPARANDO") {
-    return <Clock size={13} />;
-  }
-
-  if (normalizedStatus === "PRONTO") {
-    return <Package size={13} />;
-  }
-
-  if (normalizedStatus === "SAIU_PARA_ENTREGA") {
-    return <Truck size={13} />;
-  }
-
-  if (normalizedStatus === "ENTREGUE") {
-    return <CheckCircle2 size={13} />;
-  }
-
-  if (normalizedStatus === "CANCELADO") {
-    return <X size={13} />;
-  }
-
-  return <Clock size={13} />;
 }
 
 function formatOrderOrigin(order) {
@@ -724,203 +693,36 @@ export default function MyOrders() {
         </S.Navbar>
 
         <S.MainContainer>
-          <S.OrdersCard>
-            <S.SectionTitle>
-              <ShoppingBag size={20} />
-              <h2>Pedidos deste perfil</h2>
-              <S.SectionTitleActions>
-                <S.ScrollActionWrapper ref={scrollActionRef}>
-                  <S.BulkArchiveButton
-                    type="button"
-                    onClick={() => setIsScrollMenuOpen((prev) => !prev)}
-                    disabled={isLoadingPedidos}
-                  >
-                    <ChevronsDown size={14} />
-                    Descer: {getDateFilterLabel(dateFilter)}
-                  </S.BulkArchiveButton>
-
-                  {isScrollMenuOpen && (
-                    <S.ScrollActionMenu>
-                      {DATE_FILTER_OPTIONS.map((option) => (
-                        <S.ScrollActionMenuItem
-                          key={option.value}
-                          type="button"
-                          $active={dateFilter === option.value}
-                          onClick={() =>
-                            handleScrollToOrdersWithDateFilter(option.value)
-                          }
-                        >
-                          {option.label}
-                        </S.ScrollActionMenuItem>
-                      ))}
-                    </S.ScrollActionMenu>
-                  )}
-                </S.ScrollActionWrapper>
-                <S.BulkArchiveButton
-                  type="button"
-                  onClick={handleArchiveDeliveredOrders}
-                  disabled={
-                    isLoadingPedidos || deliveredVisibleOrderIds.length === 0
-                  }
-                >
-                  Arquivar entregues
-                </S.BulkArchiveButton>
-              </S.SectionTitleActions>
-            </S.SectionTitle>
-
-            <S.FilterBar>
-              <S.FilterButton
-                type="button"
-                $active={activeFilter === FILTERS.ALL}
-                onClick={() => setActiveFilter(FILTERS.ALL)}
-              >
-                Todos ({filterCounts[FILTERS.ALL]})
-              </S.FilterButton>
-              <S.FilterButton
-                type="button"
-                $active={activeFilter === FILTERS.ACTIVE}
-                onClick={() => setActiveFilter(FILTERS.ACTIVE)}
-              >
-                Em andamento ({filterCounts[FILTERS.ACTIVE]})
-              </S.FilterButton>
-              <S.FilterButton
-                type="button"
-                $active={activeFilter === FILTERS.DELIVERED}
-                onClick={() => setActiveFilter(FILTERS.DELIVERED)}
-              >
-                Entregues ({filterCounts[FILTERS.DELIVERED]})
-              </S.FilterButton>
-              <S.FilterButton
-                type="button"
-                $active={activeFilter === FILTERS.CANCELED}
-                onClick={() => setActiveFilter(FILTERS.CANCELED)}
-              >
-                Cancelados ({filterCounts[FILTERS.CANCELED]})
-              </S.FilterButton>
-              <S.FilterButton
-                type="button"
-                $active={activeFilter === FILTERS.ARCHIVED}
-                onClick={() => setActiveFilter(FILTERS.ARCHIVED)}
-              >
-                Arquivados ({filterCounts[FILTERS.ARCHIVED]})
-              </S.FilterButton>
-            </S.FilterBar>
-
-            {activeFilter === FILTERS.ARCHIVED && (
-              <>
-                <S.FilterSectionLabel>Tempo em arquivados</S.FilterSectionLabel>
-                <S.FilterBar>
-                  <S.FilterButton
-                    type="button"
-                    $active={archiveAgeFilter === ARCHIVE_AGE_FILTERS.ALL}
-                    onClick={() => setArchiveAgeFilter(ARCHIVE_AGE_FILTERS.ALL)}
-                  >
-                    Todos arquivados
-                  </S.FilterButton>
-                  <S.FilterButton
-                    type="button"
-                    $active={
-                      archiveAgeFilter === ARCHIVE_AGE_FILTERS.UP_TO_1_MONTH
-                    }
-                    onClick={() =>
-                      setArchiveAgeFilter(ARCHIVE_AGE_FILTERS.UP_TO_1_MONTH)
-                    }
-                  >
-                    Ate 1 mes
-                  </S.FilterButton>
-                  <S.FilterButton
-                    type="button"
-                    $active={
-                      archiveAgeFilter ===
-                      ARCHIVE_AGE_FILTERS.FROM_1_MONTH_TO_1_YEAR
-                    }
-                    onClick={() =>
-                      setArchiveAgeFilter(
-                        ARCHIVE_AGE_FILTERS.FROM_1_MONTH_TO_1_YEAR,
-                      )
-                    }
-                  >
-                    1 mes a 1 ano
-                  </S.FilterButton>
-                  <S.FilterButton
-                    type="button"
-                    $active={
-                      archiveAgeFilter ===
-                      ARCHIVE_AGE_FILTERS.FROM_1_TO_10_YEARS
-                    }
-                    onClick={() =>
-                      setArchiveAgeFilter(
-                        ARCHIVE_AGE_FILTERS.FROM_1_TO_10_YEARS,
-                      )
-                    }
-                  >
-                    1 ano a 10 anos
-                  </S.FilterButton>
-                  <S.FilterButton
-                    type="button"
-                    $active={
-                      archiveAgeFilter === ARCHIVE_AGE_FILTERS.OVER_10_YEARS
-                    }
-                    onClick={() =>
-                      setArchiveAgeFilter(ARCHIVE_AGE_FILTERS.OVER_10_YEARS)
-                    }
-                  >
-                    Mais de 10 anos
-                  </S.FilterButton>
-                </S.FilterBar>
-              </>
-            )}
-
-            <S.OrderList ref={orderListRef}>
-              {isLoadingPedidos ? (
-                <p className="empty-msg">Carregando pedidos...</p>
-              ) : filteredPedidos.length === 0 ? (
-                <p className="empty-msg">
-                  Nenhum pedido encontrado para este filtro.
-                </p>
-              ) : (
-                filteredPedidos.map((pedido) => (
-                  <S.OrderItem key={pedido.id}>
-                    <div className="order-info">
-                      <h5>Pedido #{pedido.id}</h5>
-                      <span>
-                        {formatOrderDate(pedido.createdAt)} •{" "}
-                        <strong>{formatOrderOrigin(pedido)}</strong>
-                      </span>
-                    </div>
-                    <div className="order-meta">
-                      <span className="price">
-                        R$ {resolveOrderTotal(pedido).toFixed(2)}
-                      </span>
-                      <span
-                        className={`status-badge ${getOrderStatusClass(pedido.status)}`}
-                      >
-                        {getOrderStatusIcon(pedido.status)}
-                        Status: {formatOrderStatus(pedido.status)}
-                      </span>
-                      {activeFilter === FILTERS.ARCHIVED ? (
-                        <button
-                          type="button"
-                          className="archive-btn"
-                          onClick={() => handleUnarchiveOrder(pedido.id)}
-                        >
-                          Desarquivar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="archive-btn"
-                          onClick={() => handleArchiveOrder(pedido.id)}
-                        >
-                          Arquivar
-                        </button>
-                      )}
-                    </div>
-                  </S.OrderItem>
-                ))
-              )}
-            </S.OrderList>
-          </S.OrdersCard>
+          <Suspense fallback={null}>
+            <MyOrdersContent
+              scrollActionRef={scrollActionRef}
+              orderListRef={orderListRef}
+              isLoadingPedidos={isLoadingPedidos}
+              isScrollMenuOpen={isScrollMenuOpen}
+              dateFilter={dateFilter}
+              dateFilterLabel={getDateFilterLabel(dateFilter)}
+              dateFilterOptions={DATE_FILTER_OPTIONS}
+              activeFilter={activeFilter}
+              filterCounts={filterCounts}
+              archiveAgeFilter={archiveAgeFilter}
+              filters={FILTERS}
+              archiveAgeFilters={ARCHIVE_AGE_FILTERS}
+              filteredPedidos={filteredPedidos}
+              deliveredVisibleOrderIds={deliveredVisibleOrderIds}
+              onToggleScrollMenu={() => setIsScrollMenuOpen((prev) => !prev)}
+              onScrollWithDateFilter={handleScrollToOrdersWithDateFilter}
+              onArchiveDeliveredOrders={handleArchiveDeliveredOrders}
+              onSetActiveFilter={setActiveFilter}
+              onSetArchiveAgeFilter={setArchiveAgeFilter}
+              onArchiveOrder={handleArchiveOrder}
+              onUnarchiveOrder={handleUnarchiveOrder}
+              formatOrderDate={formatOrderDate}
+              formatOrderOrigin={formatOrderOrigin}
+              resolveOrderTotal={resolveOrderTotal}
+              formatOrderStatus={formatOrderStatus}
+              getOrderStatusClass={getOrderStatusClass}
+            />
+          </Suspense>
         </S.MainContainer>
       </S.PageLayout>
     </ThemeProvider>
