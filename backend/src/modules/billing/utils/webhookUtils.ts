@@ -5,17 +5,47 @@ const APPROVED_STATUSES = new Set([
   "settled",
 ]);
 
-export function normalizePaymentStatus(status: any) {
+type LooseObject = Record<string, unknown>;
+
+type MetadataLike = {
+  invoice_id?: unknown;
+  invoiceId?: unknown;
+};
+
+type PaymentLike = {
+  status?: unknown;
+  action?: unknown;
+  type?: unknown;
+  event?: unknown;
+  external_reference?: unknown;
+  externalReference?: unknown;
+  invoice_id?: unknown;
+  invoiceId?: unknown;
+  metadata?: MetadataLike;
+  data?: {
+    external_reference?: unknown;
+    status?: unknown;
+  };
+  body?: {
+    status?: unknown;
+    external_reference?: unknown;
+  };
+  resource?: {
+    external_reference?: unknown;
+  };
+};
+
+export function normalizePaymentStatus(status: unknown) {
   return String(status || "")
     .trim()
     .toLowerCase();
 }
 
-export function isApprovedPaymentStatus(status: any) {
+export function isApprovedPaymentStatus(status: unknown) {
   return APPROVED_STATUSES.has(normalizePaymentStatus(status));
 }
 
-function readFirstDefined(...values: any[]) {
+function readFirstDefined(...values: unknown[]) {
   for (const value of values) {
     if (value === undefined || value === null || value === "") {
       continue;
@@ -27,25 +57,31 @@ function readFirstDefined(...values: any[]) {
   return null;
 }
 
-export function extractInvoiceId(payload: any = {}, paymentDetails: any = {}) {
+export function extractInvoiceId(
+  payload: LooseObject = {},
+  paymentDetails: LooseObject = {},
+) {
+  const payloadData = payload as PaymentLike;
+  const detailsData = paymentDetails as PaymentLike;
+
   const candidates = [
     readFirstDefined(
-      payload?.data?.external_reference,
-      payload?.external_reference,
-      payload?.externalReference,
-      payload?.metadata?.invoice_id,
-      payload?.metadata?.invoiceId,
-      payload?.invoice_id,
-      payload?.invoiceId,
-      paymentDetails?.external_reference,
-      paymentDetails?.body?.external_reference,
-      paymentDetails?.metadata?.invoice_id,
-      paymentDetails?.metadata?.invoiceId,
-      paymentDetails?.invoice_id,
-      paymentDetails?.invoiceId,
+      payloadData.data?.external_reference,
+      payloadData.external_reference,
+      payloadData.externalReference,
+      payloadData.metadata?.invoice_id,
+      payloadData.metadata?.invoiceId,
+      payloadData.invoice_id,
+      payloadData.invoiceId,
+      detailsData.external_reference,
+      detailsData.body?.external_reference,
+      detailsData.metadata?.invoice_id,
+      detailsData.metadata?.invoiceId,
+      detailsData.invoice_id,
+      detailsData.invoiceId,
     ),
-    payload?.resource?.external_reference,
-    paymentDetails?.resource?.external_reference,
+    payloadData.resource?.external_reference,
+    detailsData.resource?.external_reference,
   ];
 
   for (const candidate of candidates) {
@@ -68,16 +104,19 @@ export function extractInvoiceId(payload: any = {}, paymentDetails: any = {}) {
 }
 
 export function shouldProcessPayment(
-  payload: any = {},
-  paymentDetails: any = {},
+  payload: LooseObject = {},
+  paymentDetails: LooseObject = {},
 ) {
+  const payloadData = payload as PaymentLike;
+  const detailsData = paymentDetails as PaymentLike;
+
   const status = normalizePaymentStatus(
     readFirstDefined(
-      payload?.status,
-      payload?.body?.status,
-      payload?.data?.status,
-      paymentDetails?.status,
-      paymentDetails?.body?.status,
+      payloadData.status,
+      payloadData.body?.status,
+      payloadData.data?.status,
+      detailsData.status,
+      detailsData.body?.status,
     ),
   );
 
@@ -87,10 +126,10 @@ export function shouldProcessPayment(
 
   const action = normalizePaymentStatus(
     readFirstDefined(
-      payload?.action,
-      payload?.type,
-      payload?.event,
-      paymentDetails?.action,
+      payloadData.action,
+      payloadData.type,
+      payloadData.event,
+      detailsData.action,
     ),
   );
 

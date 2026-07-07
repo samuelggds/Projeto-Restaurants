@@ -23,11 +23,29 @@ class MercadoPagoWebhookController {
       }
 
       const paymentApi = new Payment(client);
-      const payment = (await paymentApi.get({ id: paymentId })) as any;
-      const paymentDetails = payment?.body || payment || {};
+      const payment = (await paymentApi.get({ id: paymentId })) as unknown;
+      const paymentDetails =
+        typeof payment === "object" && payment !== null
+          ? ((payment as { body?: unknown }).body ?? payment)
+          : {};
+      const paymentDetailsRecord =
+        typeof paymentDetails === "object" && paymentDetails !== null
+          ? (paymentDetails as Record<string, unknown>)
+          : {};
+      const payloadRecord =
+        typeof req.body === "object" && req.body !== null
+          ? (req.body as Record<string, unknown>)
+          : {};
+      const payloadData =
+        typeof payloadRecord["data"] === "object" &&
+        payloadRecord["data"] !== null
+          ? (payloadRecord["data"] as Record<string, unknown>)
+          : {};
 
       const status =
-        paymentDetails?.status || req.body?.status || req.body?.data?.status;
+        paymentDetailsRecord["status"] ||
+        payloadRecord["status"] ||
+        payloadData["status"];
       debug("MP payment status", { status });
 
       if (!isApprovedPaymentStatus(status)) {
@@ -35,7 +53,7 @@ class MercadoPagoWebhookController {
         return res.sendStatus(200);
       }
 
-      const invoiceId = extractInvoiceId(req.body, paymentDetails);
+      const invoiceId = extractInvoiceId(payloadRecord, paymentDetailsRecord);
       debug("webhook extracted invoice", { invoiceId });
 
       if (!invoiceId) {

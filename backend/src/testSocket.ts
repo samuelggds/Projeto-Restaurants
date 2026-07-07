@@ -6,6 +6,7 @@ socket.on("connect", () => {
   console.log("Conectado com sucesso! ID:", socket.id);
 });
 
-socket.on("connect_error", (err: any) => {
-  console.log("Erro detalhado:", err.message);
+socket.on("connect_error", (err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.log("Erro detalhado:", message);
 });

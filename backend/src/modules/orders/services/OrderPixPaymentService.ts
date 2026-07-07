@@ -9,6 +9,20 @@ const PIX_PROVIDERS = {
   PICPAY: "PICPAY",
 };
 
+type PixPaymentPayload = {
+  id?: string | number;
+  status?: string;
+  point_of_interaction?: {
+    transaction_data?: {
+      qr_code?: string;
+      qr_code_base64?: string;
+    };
+  };
+  metadata?: {
+    restaurant_id?: string;
+  };
+};
+
 function buildEmvField(id, value) {
   const normalizedValue = String(value || "");
   const byteLength = new TextEncoder().encode(normalizedValue).length;
@@ -381,20 +395,24 @@ class OrderPixPaymentService {
       external_reference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
     };
 
-    const response = (await this.paymentApi.create({ body })) as any;
-    const payment = response?.body || response || {};
+    const response = (await this.paymentApi.create({ body })) as unknown;
+    const payment =
+      typeof response === "object" && response !== null
+        ? ((response as { body?: unknown }).body ?? response)
+        : {};
+    const paymentData = payment as PixPaymentPayload;
     const transactionData =
-      payment?.point_of_interaction?.transaction_data || {};
+      paymentData?.point_of_interaction?.transaction_data || {};
     const qrCode = String(transactionData?.qr_code || "").trim();
     const qrCodeBase64 = String(transactionData?.qr_code_base64 || "").trim();
 
-    if (!payment?.id || !qrCode) {
+    if (!paymentData?.id || !qrCode) {
       throw new Error("Não foi possível gerar o QR Code PIX no momento.");
     }
 
     return {
-      paymentId: String(payment.id),
-      status: String(payment.status || "pending"),
+      paymentId: String(paymentData.id),
+      status: String(paymentData.status || "pending"),
       provider: pixProvider,
       totalAmount,
       qrCode,
@@ -432,11 +450,15 @@ class OrderPixPaymentService {
 
     const response = (await this.paymentApi.get({
       id: normalizedPaymentId,
-    })) as any;
-    const payment = response?.body || response || {};
-    const status = this.normalizePaymentStatus(payment?.status);
+    })) as unknown;
+    const payment =
+      typeof response === "object" && response !== null
+        ? ((response as { body?: unknown }).body ?? response)
+        : {};
+    const paymentData = payment as PixPaymentPayload;
+    const status = this.normalizePaymentStatus(paymentData?.status);
     const metadataRestaurantId = String(
-      payment?.metadata?.restaurant_id || "",
+      paymentData?.metadata?.restaurant_id || "",
     ).trim();
     const normalizedRestaurantId = String(restaurantId || "").trim();
 
