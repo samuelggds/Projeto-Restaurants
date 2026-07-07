@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import {
   Check,
   Clock,
@@ -16,7 +16,109 @@ import QRCode from "react-qr-code";
 import { resolveCategoryIcon } from "../../../config/categoryIconMap";
 import * as S from "../styles";
 
-type OperationalTabsProps = any;
+type ActiveTab =
+  | "categories"
+  | "products"
+  | "products-manage"
+  | "tables"
+  | "employees";
+
+type Category = {
+  id: number;
+  name: string;
+};
+
+type Product = {
+  id: number;
+  name: string;
+  price?: number | string;
+  category?: {
+    name?: string;
+  };
+};
+
+type Table = {
+  id: number;
+  number: number;
+};
+
+type Employee = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+};
+
+type ProductForm = {
+  name: string;
+  description: string;
+  image: string;
+  price: string;
+  categoryId: string;
+  preparationTime: string;
+  stock: string;
+  featured: boolean;
+  active: boolean;
+};
+
+type EmployeeData = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  cpf: string;
+  role: string;
+};
+
+type MaybePromise<T = void> = T | Promise<T>;
+
+type OperationalTabsProps = {
+  activeTab: ActiveTab;
+  categories: Category[];
+  deletingCategoryId: number | null;
+  categoryName: string;
+  setCategoryName: Dispatch<SetStateAction<string>>;
+  handleCreateCategory: (event: FormEvent<HTMLFormElement>) => MaybePromise;
+  editingCategoryId: number | null;
+  editingCategoryName: string;
+  setEditingCategoryName: Dispatch<SetStateAction<string>>;
+  handleSaveEditCategory: (categoryId: number) => MaybePromise;
+  handleCancelEditCategory: () => void;
+  handleStartEditCategory: (category: Category) => void;
+  handleDeleteCategory: (categoryId: number) => MaybePromise;
+  handleCreateProduct: (event: FormEvent<HTMLFormElement>) => MaybePromise;
+  handleSubmitProduct: (event: FormEvent<HTMLFormElement>) => MaybePromise;
+  productForm: ProductForm;
+  deletingProductId: number | null;
+  handleProductInputChange: (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => void;
+  productSearchTerm: string;
+  setProductSearchTerm: Dispatch<SetStateAction<string>>;
+  products: Product[];
+  handleStartEditProduct: (product: Product) => void;
+  handleDeleteProduct: (productId: number) => MaybePromise;
+  editingProductId: number | null;
+  handleCancelEditProduct: () => void;
+  handleCreateTable: (event: FormEvent<HTMLFormElement>) => MaybePromise;
+  tableNumber: string;
+  setTableNumber: Dispatch<SetStateAction<string>>;
+  tables: Table[];
+  getTableQrValue: (table: Table) => string;
+  qrCardRefs: { current: Record<number, HTMLDivElement> };
+  handlePreviewTableQr: (table: Table) => void;
+  handleCopyTableQrLink: (table: Table) => MaybePromise;
+  handleDownloadTableQr: (table: Table) => void;
+  handlePrintTableQr: (table: Table) => void;
+  handleCreateEmployee: (event: FormEvent<HTMLFormElement>) => MaybePromise;
+  employeeData: EmployeeData;
+  setEmployeeData: Dispatch<SetStateAction<EmployeeData>>;
+  showPassword: boolean;
+  setShowPassword: Dispatch<SetStateAction<boolean>>;
+  employees: Employee[];
+  handleDeactivateEmployee: (employeeId: number) => MaybePromise;
+};
 
 export default function OperationalTabs({
   activeTab,
@@ -95,7 +197,7 @@ export default function OperationalTabs({
           </form>
 
           <div style={{ marginTop: "1.5rem", display: "grid", gap: "0.5rem" }}>
-            {categories.map((category: any) => {
+            {categories.map((category) => {
               const Icon = resolveCategoryIcon(category?.name);
               const isDeletingAnyCategory = deletingCategoryId !== null;
               const isEditing =
@@ -200,7 +302,7 @@ export default function OperationalTabs({
                   required
                 >
                   <option value="">Selecione a categoria...</option>
-                  {categories.map((cat: any) => (
+                  {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
@@ -346,7 +448,7 @@ export default function OperationalTabs({
                   required
                 >
                   <option value="">Selecione a categoria...</option>
-                  {categories.map((cat: any) => (
+                  {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
@@ -478,7 +580,7 @@ export default function OperationalTabs({
           </S.FormGroup>
 
           <div style={{ marginTop: "1.5rem", display: "grid", gap: "0.5rem" }}>
-            {products.filter((product: any) => {
+            {products.filter((product) => {
               const term = String(productSearchTerm || "")
                 .trim()
                 .toLowerCase();
@@ -497,7 +599,7 @@ export default function OperationalTabs({
               <div style={{ opacity: 0.7 }}>Nenhum produto cadastrado.</div>
             ) : (
               products
-                .filter((product: any) => {
+                .filter((product) => {
                   const term = String(productSearchTerm || "")
                     .trim()
                     .toLowerCase();
@@ -515,7 +617,7 @@ export default function OperationalTabs({
                     productName.includes(term) || categoryName.includes(term)
                   );
                 })
-                .map((product: any) => {
+                .map((product) => {
                   const isDeleting =
                     Number(deletingProductId) === Number(product.id);
                   const isDeletingAnyProduct = deletingProductId !== null;
@@ -593,7 +695,7 @@ export default function OperationalTabs({
               <div style={{ opacity: 0.7 }}>Nenhuma mesa cadastrada.</div>
             ) : (
               <S.TableQrGrid>
-                {tables.map((table: any) => {
+                {tables.map((table) => {
                   const qrValue = getTableQrValue(table);
 
                   return (
@@ -828,7 +930,7 @@ export default function OperationalTabs({
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp: any) => (
+                {employees.map((emp) => (
                   <tr key={emp.id}>
                     <td>
                       <strong>{emp.name}</strong>
