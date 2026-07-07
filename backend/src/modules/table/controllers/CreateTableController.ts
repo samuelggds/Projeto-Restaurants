@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import createTableService from "../services/CreateTableService.js";
 
 class CreateTableController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
 
@@ -13,9 +14,9 @@ class CreateTableController {
       });
 
       return res.status(201).json(table);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error: error instanceof Error ? error.message : "Erro ao criar mesa",
       });
     }
   }

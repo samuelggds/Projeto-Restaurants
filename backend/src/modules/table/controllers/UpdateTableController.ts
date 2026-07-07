@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import updateTableService from "../services/UpdateTableService.js";
 
 class UpdateTableController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
       const { id } = req.params;
@@ -14,9 +15,10 @@ class UpdateTableController {
       });
 
       return res.status(200).json(table);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error:
+          error instanceof Error ? error.message : "Erro ao atualizar mesa",
       });
     }
   }
