@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import cancelOrderService from "../services/CancelOrderService.js";
 
 class CancelOrderController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const { id: userId, restaurantId } = req.user;
@@ -9,8 +10,11 @@ class CancelOrderController {
       const order = await cancelOrderService.execute(id, userId, restaurantId);
 
       return res.json(order);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error ? error.message : "Erro ao cancelar pedido",
+      });
     }
   }
 }

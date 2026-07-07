@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import requestOrderPaymentConfirmationPinService from "../services/RequestOrderPaymentConfirmationPinService.js";
 
 class RequestOrderPaymentConfirmationPinController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const { restaurantId, role } = req.user;
@@ -13,8 +14,13 @@ class RequestOrderPaymentConfirmationPinController {
       );
 
       return res.status(200).json(result);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao solicitar PIN de confirmacao de pagamento",
+      });
     }
   }
 }

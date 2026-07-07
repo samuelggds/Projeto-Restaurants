@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import listOrdersService from "../services/ListOrdersService.js";
 
 class ListOrdersController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { status } = req.query;
 
@@ -10,8 +11,11 @@ class ListOrdersController {
       const orders = await listOrdersService.execute(restaurantId, status);
 
       return res.json(orders);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error ? error.message : "Erro ao listar pedidos",
+      });
     }
   }
 }

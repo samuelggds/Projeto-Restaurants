@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import orderPixPaymentService from "../services/OrderPixPaymentService.js";
 
 class CreateOrderPixPaymentController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const {
         restaurantId,
@@ -37,9 +38,12 @@ class CreateOrderPixPaymentController {
       });
 
       return res.status(201).json(result);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao gerar pagamento PIX",
       });
     }
   }

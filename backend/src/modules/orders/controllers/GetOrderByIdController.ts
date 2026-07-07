@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import getOrderByIdService from "../services/GetOrderByIdService.js";
 
 class GetOrderByIdController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const { id } = req.params;
 
@@ -10,9 +11,9 @@ class GetOrderByIdController {
       const order = await getOrderByIdService.execute(id, restaurantId);
 
       return res.json(order);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error: error instanceof Error ? error.message : "Erro ao buscar pedido",
       });
     }
   }
