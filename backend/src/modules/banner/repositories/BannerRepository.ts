@@ -1,13 +1,14 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 class BannerRepository {
-  async create(data) {
+  async create(data: Prisma.BannerUncheckedCreateInput) {
     return prisma.banner.create({
       data,
     });
   }
 
-  async findAllByRestaurant(restaurantId) {
+  async findAllByRestaurant(restaurantId: number | string) {
     return prisma.banner.findMany({
       where: {
         restaurantId: Number(restaurantId),
@@ -18,7 +19,7 @@ class BannerRepository {
     });
   }
 
-  async findById(id) {
+  async findById(id: number | string) {
     return prisma.banner.findUnique({
       where: {
         id: Number(id),
@@ -26,7 +27,7 @@ class BannerRepository {
     });
   }
 
-  async update(id, data) {
+  async update(id: number | string, data: Prisma.BannerUpdateInput) {
     return prisma.banner.update({
       where: {
         id: Number(id),
@@ -35,7 +36,7 @@ class BannerRepository {
     });
   }
 
-  async delete(id) {
+  async delete(id: number | string) {
     return prisma.banner.delete({
       where: {
         id: Number(id),

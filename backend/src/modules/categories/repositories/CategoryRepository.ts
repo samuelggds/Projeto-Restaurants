@@ -1,7 +1,14 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class CategoryRepository {
-  async create(data, restaurantId, db = prisma) {
+  async create(
+    data: Omit<Prisma.CategoryUncheckedCreateInput, "restaurantId">,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.category.create({
       data: {
         ...data,
@@ -10,7 +17,7 @@ class CategoryRepository {
     });
   }
 
-  async findAll(restaurantId, db = prisma) {
+  async findAll(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.category.findMany({
       where: {
         restaurantId,
@@ -21,7 +28,11 @@ class CategoryRepository {
     });
   }
 
-  async findById(id, restaurantId, db = prisma) {
+  async findById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.category.findFirst({
       where: {
         id: Number(id),
@@ -30,7 +41,11 @@ class CategoryRepository {
     });
   }
 
-  async findByName(name, restaurantId, db = prisma) {
+  async findByName(
+    name: string | null | undefined,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.category.findFirst({
       where: {
         restaurantId,
@@ -42,7 +57,12 @@ class CategoryRepository {
     });
   }
 
-  async update(id, data, restaurantId, db = prisma) {
+  async update(
+    id: number | string,
+    data: Prisma.CategoryUpdateManyMutationInput,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.category.updateMany({
       where: {
         id: Number(id),
@@ -51,7 +71,11 @@ class CategoryRepository {
       data,
     });
   }
-  async delete(id, restaurantId, db = prisma) {
+  async delete(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     const categoryId = Number(id);
 
     const hasProducts = await db.product.findFirst({

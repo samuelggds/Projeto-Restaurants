@@ -1,8 +1,14 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 import { TableSessionStatus } from "@prisma/client";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class TableSessionRepository {
-  async create(data, db = prisma) {
+  async create(
+    data: Prisma.TableSessionUncheckedCreateInput,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.create({
       data,
       include: {
@@ -18,7 +24,10 @@ class TableSessionRepository {
     });
   }
 
-  async findOpenedByTable(tableId, db = prisma) {
+  async findOpenedByTable(
+    tableId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findFirst({
       where: {
         tableId: Number(tableId),
@@ -30,7 +39,7 @@ class TableSessionRepository {
     });
   }
 
-  async findById(id, db = prisma) {
+  async findById(id: number | string, db: PrismaClientLike = prisma) {
     return db.tableSession.findUnique({
       where: {
         id: Number(id),
@@ -41,7 +50,10 @@ class TableSessionRepository {
     });
   }
 
-  async findBySessionToken(sessionToken, db = prisma) {
+  async findBySessionToken(
+    sessionToken: string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findUnique({
       where: {
         sessionToken,
@@ -51,7 +63,11 @@ class TableSessionRepository {
       },
     });
   }
-  async close(id, closedById, db = prisma) {
+  async close(
+    id: number | string,
+    closedById: number | null,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.update({
       where: {
         id: Number(id),
@@ -63,7 +79,10 @@ class TableSessionRepository {
       },
     });
   }
-  async listOpenByRestaurant(restaurantId, db = prisma) {
+  async listOpenByRestaurant(
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findMany({
       where: {
         status: TableSessionStatus.OPEN,

@@ -1,13 +1,14 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 class CouponRepository {
-  async create(data) {
+  async create(data: Prisma.CouponUncheckedCreateInput) {
     return prisma.coupon.create({
       data,
     });
   }
 
-  async findAllByRestaurant(restaurantId) {
+  async findAllByRestaurant(restaurantId: number | string) {
     return prisma.coupon.findMany({
       where: {
         restaurantId: Number(restaurantId),
@@ -18,7 +19,7 @@ class CouponRepository {
     });
   }
 
-  async findById(id) {
+  async findById(id: number | string) {
     return prisma.coupon.findUnique({
       where: {
         id: Number(id),
@@ -26,7 +27,7 @@ class CouponRepository {
     });
   }
 
-  async findByCode(code, restaurantId) {
+  async findByCode(code: string, restaurantId: number | string) {
     return prisma.coupon.findFirst({
       where: {
         code,
@@ -35,7 +36,7 @@ class CouponRepository {
     });
   }
 
-  async update(id, data) {
+  async update(id: number | string, data: Prisma.CouponUpdateInput) {
     return prisma.coupon.update({
       where: {
         id: Number(id),
@@ -44,7 +45,7 @@ class CouponRepository {
     });
   }
 
-  async delete(id) {
+  async delete(id: number | string) {
     return prisma.coupon.delete({
       where: {
         id: Number(id),
