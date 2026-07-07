@@ -1,31 +1,22 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  MapPin,
   Package,
   CheckCircle,
   Clock,
   RefreshCw,
-  ChevronDown,
-  ChevronUp,
   User,
-  Phone,
-  CreditCard,
   Bike,
-  AlertCircle,
   ShieldAlert,
   LogOut,
-  Mail,
-  IdCard,
-  Pencil,
-  Save,
-  X,
 } from "lucide-react";
 import * as S from "./styles";
 import ordersService from "../../Services/ordersService";
-import authService from "../../Services/authService";
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import { useAuth } from "../../contexts/authContext";
+
+const ProfilePanel = lazy(() => import("./components/ProfilePanel"));
+const OrderCard = lazy(() => import("./components/OrderCard"));
 
 const STATUS_LABEL = {
   PRONTO: { label: "Pronto p/ retirada", color: "#f59e0b" },
@@ -46,337 +37,6 @@ const DIGITAL_PAYMENT_METHODS = new Set([
   "CARTAO_DEBITO",
   "CARTAO_CREDITO",
 ]);
-
-function formatCpfDisplay(raw) {
-  const d = String(raw || "")
-    .replace(/\D/g, "")
-    .slice(0, 11);
-  return d
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-}
-
-function ProfilePanel({ user, onUpdated }) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [form, setForm] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    cpf: formatCpfDisplay(user?.cpf),
-  });
-
-  function handleChange(e) {
-    const { name, value } = e.target;
-    if (name === "cpf") {
-      const digits = value.replace(/\D/g, "").slice(0, 11);
-      const masked = digits
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-      setForm((f) => ({ ...f, cpf: masked }));
-    } else {
-      setForm((f) => ({ ...f, [name]: value }));
-    }
-  }
-
-  async function handleSave(e) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    setSuccess("");
-    try {
-      const updated = await authService.updateProfile({
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-      });
-      onUpdated(updated);
-      setEditing(false);
-      setSuccess("Perfil atualizado com sucesso!");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err?.response?.data?.error || "Erro ao salvar perfil.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function handleCancel() {
-    setForm({
-      name: user?.name || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
-      cpf: formatCpfDisplay(user?.cpf),
-    });
-    setEditing(false);
-    setError("");
-  }
-
-  const ROLE_LABEL = {
-    MOTOQUEIRO: "Motoqueiro",
-    FUNCIONARIO: "Funcionário",
-    ADMIN: "Administrador",
-  };
-
-  return (
-    <S.ProfilePanel>
-      <S.ProfileAvatarRow>
-        <S.ProfileAvatar>
-          <User size={40} />
-        </S.ProfileAvatar>
-        <div>
-          <S.ProfileName>{user?.name || "—"}</S.ProfileName>
-          <S.ProfileRole>{ROLE_LABEL[user?.role] || user?.role}</S.ProfileRole>
-        </div>
-        {!editing && (
-          <S.EditProfileBtn onClick={() => setEditing(true)} type="button">
-            <Pencil size={15} />
-            Editar
-          </S.EditProfileBtn>
-        )}
-      </S.ProfileAvatarRow>
-
-      {success && (
-        <S.SuccessMsg>
-          <CheckCircle size={14} />
-          {success}
-        </S.SuccessMsg>
-      )}
-      {error && (
-        <S.ErrorMsg>
-          <AlertCircle size={14} />
-          {error}
-        </S.ErrorMsg>
-      )}
-
-      {editing ? (
-        <form onSubmit={handleSave}>
-          <S.ProfileFieldsGrid>
-            <S.ProfileField>
-              <label>
-                <User size={13} /> Nome completo
-              </label>
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />
-            </S.ProfileField>
-            <S.ProfileField>
-              <label>
-                <Mail size={13} /> E-mail
-              </label>
-              <input
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                required
-              />
-            </S.ProfileField>
-            <S.ProfileField>
-              <label>
-                <Phone size={13} /> Telefone
-              </label>
-              <input
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="(11) 99999-9999"
-              />
-            </S.ProfileField>
-            <S.ProfileField>
-              <label>
-                <IdCard size={13} /> CPF
-              </label>
-              <input
-                name="cpf"
-                value={form.cpf || "Não informado"}
-                readOnly
-                disabled
-                style={{ cursor: "not-allowed", opacity: 0.6 }}
-              />
-            </S.ProfileField>
-          </S.ProfileFieldsGrid>
-          <S.ProfileActions>
-            <S.SaveButton type="submit" disabled={saving}>
-              <Save size={15} />
-              {saving ? "Salvando..." : "Salvar alterações"}
-            </S.SaveButton>
-            <S.CancelButton type="button" onClick={handleCancel}>
-              <X size={15} />
-              Cancelar
-            </S.CancelButton>
-          </S.ProfileActions>
-        </form>
-      ) : (
-        <S.ProfileFieldsGrid>
-          <S.ProfileInfoItem>
-            <span>
-              <Mail size={13} /> E-mail
-            </span>
-            <strong>{user?.email || "—"}</strong>
-          </S.ProfileInfoItem>
-          <S.ProfileInfoItem>
-            <span>
-              <Phone size={13} /> Telefone
-            </span>
-            <strong>{user?.phone || "Não informado"}</strong>
-          </S.ProfileInfoItem>
-          <S.ProfileInfoItem>
-            <span>
-              <IdCard size={13} /> CPF
-            </span>
-            <strong>
-              {user?.cpf ? formatCpfDisplay(user.cpf) : "Não informado"}
-            </strong>
-          </S.ProfileInfoItem>
-          <S.ProfileInfoItem>
-            <span>
-              <User size={13} /> Cargo
-            </span>
-            <strong>{ROLE_LABEL[user?.role] || user?.role || "—"}</strong>
-          </S.ProfileInfoItem>
-        </S.ProfileFieldsGrid>
-      )}
-    </S.ProfilePanel>
-  );
-}
-
-function formatCurrency(value) {
-  return Number(value || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-function getDeliveryAddress(order) {
-  const parts = [
-    order.address,
-    order.number,
-    order.complement,
-    order.district,
-    order.city,
-    order.state,
-  ].filter(Boolean);
-  return parts.length ? parts.join(", ") : "Endereço não informado";
-}
-
-function requiresConfirmedPayment(order) {
-  const paymentMethod = String(order?.paymentMethod || "").toUpperCase();
-  return DIGITAL_PAYMENT_METHODS.has(paymentMethod) && order?.paid !== true;
-}
-
-function OrderCard({ order, onMarkDelivered }) {
-  const [expanded, setExpanded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const statusInfo = STATUS_LABEL[order.status] || {};
-  const canDeliver = order.status === "SAIU_PARA_ENTREGA";
-  const paymentPendingConfirmation = requiresConfirmedPayment(order);
-
-  async function handleMarkDelivered() {
-    setLoading(true);
-    setError("");
-    try {
-      await onMarkDelivered(order.id);
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Erro ao atualizar");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <S.OrderCard>
-      <S.OrderCardHeader onClick={() => setExpanded((v) => !v)}>
-        <S.OrderMeta>
-          <S.OrderId>Pedido #{order.id}</S.OrderId>
-          <S.StatusBadgeInline color={statusInfo.color}>
-            {statusInfo.label}
-          </S.StatusBadgeInline>
-        </S.OrderMeta>
-        <S.OrderTopRight>
-          <S.OrderTotal>{formatCurrency(order.total)}</S.OrderTotal>
-          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </S.OrderTopRight>
-      </S.OrderCardHeader>
-
-      <S.OrderSummaryRow>
-        <S.InfoChip>
-          <User size={13} />
-          {order.user?.name || "Cliente"}
-        </S.InfoChip>
-        <S.InfoChip>
-          <CreditCard size={13} />
-          {PAYMENT_LABEL[order.paymentMethod] || order.paymentMethod}
-          {order.paid && " ✓"}
-        </S.InfoChip>
-      </S.OrderSummaryRow>
-
-      <S.AddressRow>
-        <MapPin size={14} />
-        <span>{getDeliveryAddress(order)}</span>
-      </S.AddressRow>
-
-      {expanded && (
-        <S.ExpandedContent>
-          {order.user?.phone && (
-            <S.DetailRow>
-              <Phone size={14} />
-              <span>{order.user.phone}</span>
-            </S.DetailRow>
-          )}
-
-          <S.ItemsList>
-            {(order.items || []).map((item, idx) => (
-              <S.ItemRow key={idx}>
-                <span>
-                  {item.quantity}x {item.product?.name || "Item"}
-                </span>
-                <span>{formatCurrency(item.price * item.quantity)}</span>
-              </S.ItemRow>
-            ))}
-          </S.ItemsList>
-
-          {order.notes && (
-            <S.NotesBox>
-              <strong>Obs:</strong> {order.notes}
-            </S.NotesBox>
-          )}
-        </S.ExpandedContent>
-      )}
-
-      {error && (
-        <S.ErrorMsg>
-          <AlertCircle size={14} />
-          {error}
-        </S.ErrorMsg>
-      )}
-
-      {canDeliver && (
-        <S.CardActions>
-          <S.DeliverButton
-            onClick={handleMarkDelivered}
-            disabled={loading || paymentPendingConfirmation}
-            title={
-              paymentPendingConfirmation ? "Pagamento ainda não confirmado" : ""
-            }
-          >
-            <CheckCircle size={16} />
-            {loading ? "Atualizando..." : "Marcar como Entregue"}
-          </S.DeliverButton>
-        </S.CardActions>
-      )}
-    </S.OrderCard>
-  );
-}
 
 export default function CourierDashboard() {
   const { user, login, logout } = useAuth();
@@ -616,7 +276,9 @@ export default function CourierDashboard() {
         </S.MobileTabs>
 
         {activeTab === "PERFIL" ? (
-          <ProfilePanel user={user} onUpdated={handleProfileUpdated} />
+          <Suspense fallback={null}>
+            <ProfilePanel user={user} onUpdated={handleProfileUpdated} />
+          </Suspense>
         ) : loading ? (
           <S.EmptyState>
             <RefreshCw size={32} className="spinning" />
@@ -634,15 +296,20 @@ export default function CourierDashboard() {
             </p>
           </S.EmptyState>
         ) : (
-          <S.OrdersList>
-            {filteredOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onMarkDelivered={handleMarkDelivered}
-              />
-            ))}
-          </S.OrdersList>
+          <Suspense fallback={null}>
+            <S.OrdersList>
+              {filteredOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  onMarkDelivered={handleMarkDelivered}
+                  digitalPaymentMethods={DIGITAL_PAYMENT_METHODS}
+                  paymentLabel={PAYMENT_LABEL}
+                  statusLabel={STATUS_LABEL}
+                />
+              ))}
+            </S.OrdersList>
+          </Suspense>
         )}
       </S.MainArea>
     </S.PageWrapper>
