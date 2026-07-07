@@ -1,7 +1,8 @@
+import { Request, Response } from "express";
 import updateSubscriptionService from "../services/UpdateSubscriptionService.js";
 
 class UpdateSubscriptionController {
-  async handle(req, res) {
+  async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
       const { plan, status, trialEndsAt } = req.body;
@@ -14,9 +15,12 @@ class UpdateSubscriptionController {
       });
 
       return res.status(200).json(subscription);
-    } catch (error) {
+    } catch (error: unknown) {
       return res.status(400).json({
-        error: error.message,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao atualizar assinatura",
       });
     }
   }
