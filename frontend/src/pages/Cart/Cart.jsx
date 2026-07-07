@@ -298,7 +298,7 @@ export default function Cart() {
       paid,
       pixPaymentId: pixPaymentId || undefined,
       customerPhone: isDelivery
-        ? String(customerPhone || "").trim()
+        ? String(customerPhone || "").trim() || undefined
         : undefined,
       tableId: isMesa ? Number(tableSession.tableId) : undefined,
       address: isDelivery ? endereco.logradouro : undefined,

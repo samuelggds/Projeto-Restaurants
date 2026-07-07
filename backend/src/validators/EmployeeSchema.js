@@ -24,6 +24,19 @@ export const EmployeeUserSchema = z
       .string()
       .min(1, "Telefone obrigatório")
       .regex(phoneRegex, "Número de telefone inválido!"),
+    cpf: z
+      .string()
+      .optional()
+      .refine(
+        (value) =>
+          !value ||
+          /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(
+            value
+              .replace(/\D/g, "")
+              .replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4"),
+          ),
+        { message: "CPF inválido" },
+      ),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não conferem!",

@@ -7,7 +7,7 @@ class SplitService {
       await billingRepository.findSubscriptionByRestaurantId(restaurantId);
 
     if (!subscription) {
-      throw new Error("Assinatura não encontrada.");
+      return 0;
     }
 
     const plan = PLAN_CONFIG[subscription.plan];

@@ -69,6 +69,7 @@ const EMPLOYEE_FIELD_LABELS = {
   password: "Senha",
   confirmPassword: "Confirmacao de senha",
   phone: "Telefone",
+  cpf: "CPF",
   role: "Cargo",
 };
 
@@ -692,6 +693,7 @@ export default function AdminDashboard() {
     password: "",
     confirmPassword: "",
     phone: "",
+    cpf: "",
     role: "FUNCIONARIO",
   });
   const [categoryName, setCategoryName] = useState("");
@@ -1343,6 +1345,7 @@ export default function AdminDashboard() {
         password: employeeData.password,
         confirmPassword: employeeData.confirmPassword,
         phone: employeeData.phone,
+        cpf: employeeData.cpf || undefined,
         role: employeeData.role,
       });
 
@@ -1356,6 +1359,7 @@ export default function AdminDashboard() {
         password: "",
         confirmPassword: "",
         phone: "",
+        cpf: "",
         role: "FUNCIONARIO",
       });
     } catch (err) {
@@ -3319,6 +3323,39 @@ export default function AdminDashboard() {
                           })
                         }
                         required
+                      />
+                    </S.FormGroup>
+                  </S.FormRow>
+
+                  <S.FormRow style={{ marginTop: "1rem" }}>
+                    <S.FormGroup style={{ flex: 1 }}>
+                      <label>
+                        CPF{" "}
+                        <span
+                          style={{
+                            fontWeight: 400,
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                          }}
+                        >
+                          (opcional)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="000.000.000-00"
+                        value={employeeData.cpf}
+                        maxLength={14}
+                        onChange={(event) => {
+                          const digits = event.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 11);
+                          const masked = digits
+                            .replace(/(\d{3})(\d)/, "$1.$2")
+                            .replace(/(\d{3})(\d)/, "$1.$2")
+                            .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+                          setEmployeeData({ ...employeeData, cpf: masked });
+                        }}
                       />
                     </S.FormGroup>
                   </S.FormRow>

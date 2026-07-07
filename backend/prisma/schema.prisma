@@ -69,6 +69,7 @@ model User {
   role     UserRole @default(CLIENTE)
   active   Boolean  @default(true)
   phone    String?
+  cpf      String?
 
   restaurantId Int?
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -165,8 +166,8 @@ model Product {
   categoryId Int
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  items    OrderItem[]
-  ratings  ProductRating[]
+  items   OrderItem[]
+  ratings ProductRating[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

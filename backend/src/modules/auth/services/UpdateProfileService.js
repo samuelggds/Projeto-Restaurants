@@ -21,6 +21,7 @@ class UpdateProfileService {
       name: String(profileData.name || "").trim(),
       email: nextEmail,
       phone: String(profileData.phone || "").trim() || null,
+      cpf: String(profileData.cpf || "").replace(/\D/g, "") || null,
       address: String(profileData.address || "").trim() || null,
       number: String(profileData.number || "").trim() || null,
       district: String(profileData.district || "").trim() || null,

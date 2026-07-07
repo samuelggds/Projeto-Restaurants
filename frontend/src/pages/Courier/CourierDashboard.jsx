@@ -1,823 +1,717 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ThemeProvider } from "styled-components";
-import { toast } from "react-toastify";
 import {
-  Bike,
-  Moon,
-  Sun,
-  LogOut,
-  RefreshCw,
-  CheckCircle2,
   MapPin,
-  AlertTriangle,
-  X,
-  ChevronLeft,
-  ChevronRight,
+  Package,
+  CheckCircle,
+  Clock,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
   User,
+  Phone,
+  CreditCard,
+  Bike,
+  AlertCircle,
+  KeyRound,
+  LogOut,
   Mail,
+  IdCard,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
+import * as S from "./styles";
 import ordersService from "../../Services/ordersService";
+import authService from "../../Services/authService";
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import { useAuth } from "../../contexts/authContext";
-import * as S from "./styles";
 
-const CLOSABLE_ORDER_STATUSES = ["ENTREGUE"];
-const COURIER_VISIBLE_STATUSES = ["SAIU_PARA_ENTREGA", "ENTREGUE"];
-const CLOSED_DELIVERED_ORDERS_STORAGE_KEY =
-  "@PecaJaFood:courierClosedDeliveredOrders";
-const DIGITAL_PAYMENT_METHODS = ["PIX", "CARTAO"];
+const STATUS_LABEL = {
+  PRONTO: { label: "Pronto p/ retirada", color: "#f59e0b" },
+  SAIU_PARA_ENTREGA: { label: "Em entrega", color: "#3b82f6" },
+  ENTREGUE: { label: "Entregue", color: "#22c55e" },
+};
 
-function normalizeStatus(status) {
-  return String(status || "")
-    .trim()
-    .toUpperCase();
+const PAYMENT_LABEL = {
+  DINHEIRO: "Dinheiro",
+  PIX: "PIX",
+  CARTAO: "Cartão",
+  CARTAO_DEBITO: "Débito",
+  CARTAO_CREDITO: "Crédito",
+};
+
+function formatCpfDisplay(raw) {
+  const d = String(raw || "")
+    .replace(/\D/g, "")
+    .slice(0, 11);
+  return d
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
 
-function hasOrderStatus(order, status) {
-  return normalizeStatus(order?.status) === normalizeStatus(status);
-}
-
-function getInitialClosedDeliveredOrders() {
-  const raw = localStorage.getItem(CLOSED_DELIVERED_ORDERS_STORAGE_KEY);
-
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .map((value) => Number(value))
-      .filter((value, index, array) =>
-        Number.isInteger(value) && value > 0
-          ? array.indexOf(value) === index
-          : false,
-      );
-  } catch {
-    return [];
-  }
-}
-
-function formatStatus(status) {
-  return String(status || "").replace(/_/g, " ");
-}
-
-function getAddressText(order) {
-  const lineOne = [order?.address, order?.number].filter(Boolean).join(", ");
-  const lineTwo = [order?.district, order?.city, order?.state]
-    .filter(Boolean)
-    .join(" - ");
-
-  return [lineOne, lineTwo, order?.zipCode].filter(Boolean);
-}
-
-function isDeliveryOrder(order) {
-  return String(order?.type || "").toUpperCase() === "DELIVERY";
-}
-
-function isCourierVisibleOrder(order) {
-  return (
-    isDeliveryOrder(order) &&
-    COURIER_VISIBLE_STATUSES.includes(normalizeStatus(order?.status))
-  );
-}
-
-function isDigitalPaymentOrder(order) {
-  return DIGITAL_PAYMENT_METHODS.includes(
-    normalizeStatus(order?.paymentMethod),
-  );
-}
-
-function isPendingDigitalPayment(order) {
-  return isDigitalPaymentOrder(order) && order?.paid !== true;
-}
-
-function formatPaymentMethod(paymentMethod) {
-  const normalizedMethod = normalizeStatus(paymentMethod);
-
-  if (!normalizedMethod) {
-    return "N/A";
-  }
-
-  if (normalizedMethod === "CARTAO") {
-    return "CARTAO";
-  }
-
-  return normalizedMethod;
-}
-
-function formatRequestTime(value) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+function ProfilePanel({ user, onUpdated }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [form, setForm] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    cpf: formatCpfDisplay(user?.cpf),
   });
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    if (name === "cpf") {
+      const digits = value.replace(/\D/g, "").slice(0, 11);
+      const masked = digits
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+      setForm((f) => ({ ...f, cpf: masked }));
+    } else {
+      setForm((f) => ({ ...f, [name]: value }));
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await authService.updateProfile({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+      });
+      onUpdated(updated);
+      setEditing(false);
+      setSuccess("Perfil atualizado com sucesso!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err?.response?.data?.error || "Erro ao salvar perfil.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancel() {
+    setForm({
+      name: user?.name || "",
+      email: user?.email || "",
+      phone: user?.phone || "",
+      cpf: formatCpfDisplay(user?.cpf),
+    });
+    setEditing(false);
+    setError("");
+  }
+
+  const ROLE_LABEL = {
+    MOTOQUEIRO: "Motoqueiro",
+    FUNCIONARIO: "Funcionário",
+    ADMIN: "Administrador",
+  };
+
+  return (
+    <S.ProfilePanel>
+      <S.ProfileAvatarRow>
+        <S.ProfileAvatar>
+          <User size={40} />
+        </S.ProfileAvatar>
+        <div>
+          <S.ProfileName>{user?.name || "—"}</S.ProfileName>
+          <S.ProfileRole>{ROLE_LABEL[user?.role] || user?.role}</S.ProfileRole>
+        </div>
+        {!editing && (
+          <S.EditProfileBtn onClick={() => setEditing(true)} type="button">
+            <Pencil size={15} />
+            Editar
+          </S.EditProfileBtn>
+        )}
+      </S.ProfileAvatarRow>
+
+      {success && (
+        <S.SuccessMsg>
+          <CheckCircle size={14} />
+          {success}
+        </S.SuccessMsg>
+      )}
+      {error && (
+        <S.ErrorMsg>
+          <AlertCircle size={14} />
+          {error}
+        </S.ErrorMsg>
+      )}
+
+      {editing ? (
+        <form onSubmit={handleSave}>
+          <S.ProfileFieldsGrid>
+            <S.ProfileField>
+              <label>
+                <User size={13} /> Nome completo
+              </label>
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />
+            </S.ProfileField>
+            <S.ProfileField>
+              <label>
+                <Mail size={13} /> E-mail
+              </label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                required
+              />
+            </S.ProfileField>
+            <S.ProfileField>
+              <label>
+                <Phone size={13} /> Telefone
+              </label>
+              <input
+                name="phone"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="(11) 99999-9999"
+              />
+            </S.ProfileField>
+            <S.ProfileField>
+              <label>
+                <IdCard size={13} /> CPF
+              </label>
+              <input
+                name="cpf"
+                value={form.cpf || "Não informado"}
+                readOnly
+                disabled
+                style={{ cursor: "not-allowed", opacity: 0.6 }}
+              />
+            </S.ProfileField>
+          </S.ProfileFieldsGrid>
+          <S.ProfileActions>
+            <S.SaveButton type="submit" disabled={saving}>
+              <Save size={15} />
+              {saving ? "Salvando..." : "Salvar alterações"}
+            </S.SaveButton>
+            <S.CancelButton type="button" onClick={handleCancel}>
+              <X size={15} />
+              Cancelar
+            </S.CancelButton>
+          </S.ProfileActions>
+        </form>
+      ) : (
+        <S.ProfileFieldsGrid>
+          <S.ProfileInfoItem>
+            <span>
+              <Mail size={13} /> E-mail
+            </span>
+            <strong>{user?.email || "—"}</strong>
+          </S.ProfileInfoItem>
+          <S.ProfileInfoItem>
+            <span>
+              <Phone size={13} /> Telefone
+            </span>
+            <strong>{user?.phone || "Não informado"}</strong>
+          </S.ProfileInfoItem>
+          <S.ProfileInfoItem>
+            <span>
+              <IdCard size={13} /> CPF
+            </span>
+            <strong>
+              {user?.cpf ? formatCpfDisplay(user.cpf) : "Não informado"}
+            </strong>
+          </S.ProfileInfoItem>
+          <S.ProfileInfoItem>
+            <span>
+              <User size={13} /> Cargo
+            </span>
+            <strong>{ROLE_LABEL[user?.role] || user?.role || "—"}</strong>
+          </S.ProfileInfoItem>
+        </S.ProfileFieldsGrid>
+      )}
+    </S.ProfilePanel>
+  );
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function getDeliveryAddress(order) {
+  const parts = [
+    order.address,
+    order.number,
+    order.complement,
+    order.district,
+    order.city,
+    order.state,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : "Endereço não informado";
+}
+
+function needsPinPayment(order) {
+  return (
+    ["PIX", "CARTAO", "CARTAO_DEBITO", "CARTAO_CREDITO"].includes(
+      order.paymentMethod,
+    ) && order.paid !== true
+  );
+}
+
+function OrderCard({ order, onMarkDelivered, onRequestPin, onConfirmPin }) {
+  const [expanded, setExpanded] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinMode, setPinMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const statusInfo = STATUS_LABEL[order.status] || {};
+  const canDeliver = order.status === "SAIU_PARA_ENTREGA";
+  const requiresPin = needsPinPayment(order);
+
+  async function handleMarkDelivered() {
+    setLoading(true);
+    setError("");
+    try {
+      await onMarkDelivered(order.id);
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || "Erro ao atualizar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRequestPin() {
+    setPinLoading(true);
+    setError("");
+    try {
+      await onRequestPin(order.id);
+      setPinMode(true);
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || e?.message || "Erro ao solicitar PIN",
+      );
+    } finally {
+      setPinLoading(false);
+    }
+  }
+
+  async function handleConfirmPin() {
+    if (!pin.trim()) return;
+    setPinLoading(true);
+    setError("");
+    try {
+      await onConfirmPin(order.id, pin.trim());
+      setPinMode(false);
+      setPin("");
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || "PIN inválido");
+    } finally {
+      setPinLoading(false);
+    }
+  }
+
+  return (
+    <S.OrderCard>
+      <S.OrderCardHeader onClick={() => setExpanded((v) => !v)}>
+        <S.OrderMeta>
+          <S.OrderId>Pedido #{order.id}</S.OrderId>
+          <S.StatusBadgeInline color={statusInfo.color}>
+            {statusInfo.label}
+          </S.StatusBadgeInline>
+        </S.OrderMeta>
+        <S.OrderTopRight>
+          <S.OrderTotal>{formatCurrency(order.total)}</S.OrderTotal>
+          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </S.OrderTopRight>
+      </S.OrderCardHeader>
+
+      <S.OrderSummaryRow>
+        <S.InfoChip>
+          <User size={13} />
+          {order.user?.name || "Cliente"}
+        </S.InfoChip>
+        <S.InfoChip>
+          <CreditCard size={13} />
+          {PAYMENT_LABEL[order.paymentMethod] || order.paymentMethod}
+          {order.paid && " ✓"}
+        </S.InfoChip>
+      </S.OrderSummaryRow>
+
+      <S.AddressRow>
+        <MapPin size={14} />
+        <span>{getDeliveryAddress(order)}</span>
+      </S.AddressRow>
+
+      {expanded && (
+        <S.ExpandedContent>
+          {order.user?.phone && (
+            <S.DetailRow>
+              <Phone size={14} />
+              <span>{order.user.phone}</span>
+            </S.DetailRow>
+          )}
+
+          <S.ItemsList>
+            {(order.items || []).map((item, idx) => (
+              <S.ItemRow key={idx}>
+                <span>
+                  {item.quantity}x {item.product?.name || "Item"}
+                </span>
+                <span>{formatCurrency(item.price * item.quantity)}</span>
+              </S.ItemRow>
+            ))}
+          </S.ItemsList>
+
+          {order.notes && (
+            <S.NotesBox>
+              <strong>Obs:</strong> {order.notes}
+            </S.NotesBox>
+          )}
+        </S.ExpandedContent>
+      )}
+
+      {error && (
+        <S.ErrorMsg>
+          <AlertCircle size={14} />
+          {error}
+        </S.ErrorMsg>
+      )}
+
+      {canDeliver && (
+        <S.CardActions>
+          {requiresPin && !order.paid && (
+            <>
+              {!pinMode ? (
+                <S.SecondaryButton
+                  onClick={handleRequestPin}
+                  disabled={pinLoading}
+                >
+                  <KeyRound size={15} />
+                  {pinLoading ? "Solicitando..." : "Solicitar PIN de Pagamento"}
+                </S.SecondaryButton>
+              ) : (
+                <S.PinRow>
+                  <input
+                    type="text"
+                    placeholder="Digite o PIN"
+                    value={pin}
+                    maxLength={8}
+                    onChange={(e) => setPin(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleConfirmPin()}
+                  />
+                  <S.PinConfirmButton
+                    onClick={handleConfirmPin}
+                    disabled={pinLoading || !pin.trim()}
+                  >
+                    {pinLoading ? "..." : "Confirmar"}
+                  </S.PinConfirmButton>
+                </S.PinRow>
+              )}
+            </>
+          )}
+
+          <S.DeliverButton
+            onClick={handleMarkDelivered}
+            disabled={loading || (requiresPin && !order.paid)}
+            title={
+              requiresPin && !order.paid
+                ? "Confirme o pagamento antes de marcar como entregue"
+                : ""
+            }
+          >
+            <CheckCircle size={16} />
+            {loading ? "Atualizando..." : "Marcar como Entregue"}
+          </S.DeliverButton>
+        </S.CardActions>
+      )}
+    </S.OrderCard>
+  );
 }
 
 export default function CourierDashboard() {
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const lastPinGeneratedEventRef = useRef({
-    orderId: null,
-    at: 0,
-  });
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("TODOS");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [closingOrderIds, setClosingOrderIds] = useState([]);
-  const [confirmingPaymentOrderIds, setConfirmingPaymentOrderIds] = useState(
-    [],
-  );
-  const [requestingPinOrderIds, setRequestingPinOrderIds] = useState([]);
-  const [pinRequestByOrderId, setPinRequestByOrderId] = useState({});
-  const [paymentPinByOrderId, setPaymentPinByOrderId] = useState({});
-  const [closedDeliveredOrderIds, setClosedDeliveredOrderIds] = useState(
-    getInitialClosedDeliveredOrders,
-  );
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("SAIU_PARA_ENTREGA");
+  const [deliveredCount, setDeliveredCount] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const deliveryOrders = useMemo(() => orders, [orders]);
+  function handleProfileUpdated(updatedUser) {
+    const token = localStorage.getItem("token");
+    if (token) login(updatedUser, token);
+  }
 
-  const filteredDeliveryOrders = useMemo(() => {
-    const visibleOrders = deliveryOrders.filter(
-      (order) =>
-        !(
-          CLOSABLE_ORDER_STATUSES.includes(normalizeStatus(order?.status)) &&
-          closedDeliveredOrderIds.includes(order.id)
-        ),
-    );
-
-    if (statusFilter === "TODOS") {
-      return visibleOrders;
-    }
-
-    if (statusFilter === "EM_ROTA") {
-      return visibleOrders.filter((order) =>
-        hasOrderStatus(order, "SAIU_PARA_ENTREGA"),
-      );
-    }
-
-    if (statusFilter === "ENTREGUES") {
-      return visibleOrders.filter((order) => hasOrderStatus(order, "ENTREGUE"));
-    }
-
-    return visibleOrders;
-  }, [deliveryOrders, statusFilter, closedDeliveredOrderIds]);
-
-  const statusCounters = useMemo(
-    () => ({
-      TODOS: deliveryOrders.length,
-      EM_ROTA: deliveryOrders.filter((order) =>
-        hasOrderStatus(order, "SAIU_PARA_ENTREGA"),
-      ).length,
-      ENTREGUES: deliveryOrders.filter((order) =>
-        hasOrderStatus(order, "ENTREGUE"),
-      ).length,
-    }),
-    [deliveryOrders],
-  );
-
-  async function loadOrders(showLoading = true) {
-    try {
-      if (showLoading) {
-        setIsLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
-
-      const data = await ordersService.listRestaurantOrders();
-      setOrders(Array.isArray(data) ? data.filter(isCourierVisibleOrder) : []);
-    } catch (err) {
-      toast.error(err?.response?.data?.error || "Erro ao carregar pedidos");
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
+  function fetchOrders() {
+    setRefreshKey((k) => k + 1);
   }
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadInitialOrders() {
+    async function load() {
+      setLoading(true);
       try {
         const data = await ordersService.listRestaurantOrders();
-        if (mounted) {
-          setOrders(
-            Array.isArray(data) ? data.filter(isCourierVisibleOrder) : [],
-          );
-        }
-      } catch (err) {
-        toast.error(err?.response?.data?.error || "Erro ao carregar pedidos");
+        if (!mounted) return;
+        const allOrders = Array.isArray(data) ? data : data?.orders || [];
+        const deliveryOrders = allOrders.filter(
+          (o) => String(o.type || "").toUpperCase() === "DELIVERY",
+        );
+        setOrders(deliveryOrders);
+        setDeliveredCount(
+          deliveryOrders.filter((o) => o.status === "ENTREGUE").length,
+        );
+      } catch {
+        // silently fail
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     }
 
-    loadInitialOrders();
-
+    load();
     return () => {
       mounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      CLOSED_DELIVERED_ORDERS_STORAGE_KEY,
-      JSON.stringify(closedDeliveredOrderIds),
-    );
-  }, [closedDeliveredOrderIds]);
+  }, [refreshKey]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    if (!token) {
-      return undefined;
-    }
+    if (!token) return;
 
     const socket = connectSocket(token);
 
-    const onReconnect = () => {
-      // Re-sync after reconnect to avoid missing orders while offline.
-      loadOrders(false);
-    };
-
-    const onNewOrder = (order) => {
-      if (!isCourierVisibleOrder(order)) {
-        return;
-      }
-
+    function onStatusChanged(updatedOrder) {
       setOrders((prev) => {
-        const exists = prev.some((item) => item.id === order.id);
-        if (exists) {
-          return prev;
-        }
-
-        toast.info(`Novo pedido delivery #${order.id}`);
-        return [order, ...prev];
-      });
-    };
-
-    const onStatusChanged = (order) => {
-      if (!isCourierVisibleOrder(order)) {
-        setOrders((prev) => prev.filter((item) => item.id !== order.id));
-        return;
-      }
-
-      if (!CLOSABLE_ORDER_STATUSES.includes(normalizeStatus(order?.status))) {
-        setClosedDeliveredOrderIds((prev) =>
-          prev.filter((id) => id !== order.id),
-        );
-      }
-
-      setOrders((prev) => {
-        const exists = prev.some((item) => item.id === order.id);
-
+        const exists = prev.find((o) => o.id === updatedOrder.id);
         if (!exists) {
-          return [order, ...prev];
+          if (String(updatedOrder.type || "").toUpperCase() !== "DELIVERY")
+            return prev;
+          return [updatedOrder, ...prev];
         }
-
-        return prev.map((item) => (item.id === order.id ? order : item));
+        return prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
       });
-
-      if (order?.paid === true) {
-        setPinRequestByOrderId((prev) => {
-          const next = { ...prev };
-          delete next[order.id];
-          return next;
-        });
+      if (updatedOrder.status === "ENTREGUE") {
+        setDeliveredCount((n) => n + 1);
       }
-    };
+    }
 
-    const onPaymentPinRequested = (payload) => {
-      const targetOrderId = Number(payload?.orderId);
-      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
-        return;
-      }
-
-      const requestedAt = payload?.requestedAt || new Date().toISOString();
-
-      setPinRequestByOrderId((prev) => ({
-        ...prev,
-        [targetOrderId]: {
-          requestedAt,
-        },
-      }));
-    };
-
-    const onPaymentPinGenerated = (payload) => {
-      const targetOrderId = Number(payload?.orderId);
-      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
-        return;
-      }
-
-      const now = Date.now();
-      const lastEvent = lastPinGeneratedEventRef.current;
-      const isDuplicatedEvent =
-        lastEvent.orderId === targetOrderId && now - lastEvent.at < 1200;
-
-      if (isDuplicatedEvent) {
-        return;
-      }
-
-      lastPinGeneratedEventRef.current = {
-        orderId: targetOrderId,
-        at: now,
-      };
-
-      setPinRequestByOrderId((prev) => {
-        const next = { ...prev };
-        delete next[targetOrderId];
-        return next;
-      });
-      toast.info(`PIN do pedido #${targetOrderId} foi gerado pelo admin.`);
-    };
-
-    socket.on("connect", onReconnect);
-    socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
-    socket.on("order:payment-pin-requested", onPaymentPinRequested);
-    socket.on("order:payment-pin-generated", onPaymentPinGenerated);
 
     return () => {
-      socket.off("connect", onReconnect);
-      socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
-      socket.off("order:payment-pin-requested", onPaymentPinRequested);
-      socket.off("order:payment-pin-generated", onPaymentPinGenerated);
       disconnectSocket();
     };
   }, []);
 
-  async function handleRequestPaymentPin(order) {
-    if (!isPendingDigitalPayment(order)) {
-      return;
-    }
-
-    setRequestingPinOrderIds((prev) =>
-      prev.includes(order.id) ? prev : [...prev, order.id],
+  async function handleMarkDelivered(orderId) {
+    const updated = await ordersService.updateStatus(orderId, "ENTREGUE");
+    const updatedOrder = updated?.order || updated;
+    setOrders((prev) =>
+      prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
     );
-
-    try {
-      const result = await ordersService.requestPaymentConfirmationPin(
-        order.id,
-      );
-      const requestedAt = result?.requestedAt || new Date().toISOString();
-
-      setPinRequestByOrderId((prev) => ({
-        ...prev,
-        [order.id]: {
-          requestedAt,
-        },
-      }));
-      toast.success(`PIN solicitado para o pedido #${order.id}.`);
-    } catch (err) {
-      toast.error(err?.response?.data?.error || "Erro ao solicitar PIN");
-    } finally {
-      setRequestingPinOrderIds((prev) => prev.filter((id) => id !== order.id));
-    }
   }
 
-  async function handleMarkDelivered(order) {
-    if (!hasOrderStatus(order, "SAIU_PARA_ENTREGA")) {
-      return;
-    }
-
-    if (isPendingDigitalPayment(order)) {
-      toast.error(
-        "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue.",
-      );
-      return;
-    }
-
-    try {
-      const updated = await ordersService.updateStatus(order.id, "ENTREGUE");
-      setOrders((prev) =>
-        prev.map((item) => (item.id === order.id ? updated : item)),
-      );
-      toast.success(`Pedido #${order.id} entregue com sucesso`);
-    } catch (err) {
-      const message = err?.response?.data?.error || "Erro ao confirmar entrega";
-      const friendlyMessage =
-        message.includes("pagamento PIX/CARTAO") ||
-        message.includes("ainda não foi confirmado")
-          ? "Confirme o pagamento (PIX ou cartão) antes de concluir como entregue."
-          : message;
-      toast.error(friendlyMessage);
-    }
+  async function handleRequestPin(orderId) {
+    await ordersService.requestPaymentConfirmationPin(orderId);
   }
 
-  async function handleConfirmPayment(order) {
-    if (!isPendingDigitalPayment(order)) {
-      return;
-    }
-
-    const pin = String(paymentPinByOrderId[order.id] || "").trim();
-    if (!/^\d{4}$/.test(pin)) {
-      toast.error(
-        "Informe o PIN de 4 dígitos enviado por um usuário autorizado.",
-      );
-      return;
-    }
-
-    setConfirmingPaymentOrderIds((prev) =>
-      prev.includes(order.id) ? prev : [...prev, order.id],
+  async function handleConfirmPin(orderId, pin) {
+    const updated = await ordersService.confirmPaymentWithPin(orderId, pin);
+    const updatedOrder = updated?.order || updated;
+    setOrders((prev) =>
+      prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
     );
-
-    try {
-      const updated = await ordersService.confirmPaymentWithPin(order.id, pin);
-      setOrders((prev) =>
-        prev.map((item) => (item.id === order.id ? updated : item)),
-      );
-      setPaymentPinByOrderId((prev) => ({
-        ...prev,
-        [order.id]: "",
-      }));
-      toast.success(`Pagamento do pedido #${order.id} confirmado!`);
-    } catch (err) {
-      toast.error(err?.response?.data?.error || "Erro ao confirmar pagamento");
-    } finally {
-      setConfirmingPaymentOrderIds((prev) =>
-        prev.filter((id) => id !== order.id),
-      );
-    }
   }
 
-  function handleCloseDeliveredOrder(orderId) {
-    const targetOrder = orders.find((order) => order.id === orderId);
-
-    if (
-      !targetOrder ||
-      !CLOSABLE_ORDER_STATUSES.includes(normalizeStatus(targetOrder.status))
-    ) {
-      return;
-    }
-
-    setClosingOrderIds((prev) =>
-      prev.includes(orderId) ? prev : [...prev, orderId],
-    );
-
-    setTimeout(() => {
-      setClosedDeliveredOrderIds((prev) =>
-        prev.includes(orderId) ? prev : [...prev, orderId],
-      );
-      setOrders((prev) => prev.filter((order) => order.id !== orderId));
-      setClosingOrderIds((prev) => prev.filter((id) => id !== orderId));
-    }, 320);
-  }
-
-  function handleLogout() {
-    logout();
-    navigate("/login");
-  }
+  const filteredOrders = orders.filter((o) => o.status === activeTab);
+  const prontoCount = orders.filter((o) => o.status === "PRONTO").length;
+  const saiuCount = orders.filter(
+    (o) => o.status === "SAIU_PARA_ENTREGA",
+  ).length;
+  const entregueCount = orders.filter((o) => o.status === "ENTREGUE").length;
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
-      <S.Layout>
-        <S.AppShell>
-          <S.Sidebar $collapsed={isSidebarCollapsed}>
-            <S.SidebarTop>
-              <S.SidebarBrand $collapsed={isSidebarCollapsed}>
-                <Bike size={20} />
-                {!isSidebarCollapsed && <span>Painel Motoqueiro</span>}
-              </S.SidebarBrand>
+    <S.PageWrapper>
+      {/* Sidebar */}
+      <S.Sidebar>
+        <S.SidebarHeader>
+          <S.BikeIcon>
+            <Bike size={28} />
+          </S.BikeIcon>
+          <div>
+            <h2>Olá, {user?.name?.split(" ")[0] || "Entregador"}</h2>
+            <p>{user?.email || ""}</p>
+          </div>
+        </S.SidebarHeader>
 
-              <S.CollapseButton
-                type="button"
-                onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-                title={isSidebarCollapsed ? "Abrir menu" : "Fechar menu"}
-              >
-                {isSidebarCollapsed ? (
-                  <ChevronRight size={16} />
-                ) : (
-                  <ChevronLeft size={16} />
-                )}
-              </S.CollapseButton>
-            </S.SidebarTop>
+        <S.SidebarStats>
+          <S.SideStatItem>
+            <Package size={18} />
+            <div>
+              <span>Prontos</span>
+              <strong>{prontoCount}</strong>
+            </div>
+          </S.SideStatItem>
+          <S.SideStatItem>
+            <Clock size={18} />
+            <div>
+              <span>Em rota</span>
+              <strong>{saiuCount}</strong>
+            </div>
+          </S.SideStatItem>
+          <S.SideStatItem>
+            <CheckCircle size={18} />
+            <div>
+              <span>Entregues hoje</span>
+              <strong>{deliveredCount}</strong>
+            </div>
+          </S.SideStatItem>
+        </S.SidebarStats>
 
-            <S.ProfileCard $collapsed={isSidebarCollapsed}>
-              <S.ProfileBadge>
-                <User size={14} />
-                {!isSidebarCollapsed && <span>Perfil: MOTOQUEIRO</span>}
-              </S.ProfileBadge>
+        <S.SidebarNav>
+          <S.SideNavItem
+            active={activeTab === "PRONTO"}
+            onClick={() => setActiveTab("PRONTO")}
+          >
+            <Package size={16} />
+            Prontos para retirada
+            {prontoCount > 0 && <S.NavBadge>{prontoCount}</S.NavBadge>}
+          </S.SideNavItem>
+          <S.SideNavItem
+            active={activeTab === "SAIU_PARA_ENTREGA"}
+            onClick={() => setActiveTab("SAIU_PARA_ENTREGA")}
+          >
+            <Bike size={16} />
+            Em entrega
+            {saiuCount > 0 && <S.NavBadge urgent>{saiuCount}</S.NavBadge>}
+          </S.SideNavItem>
+          <S.SideNavItem
+            active={activeTab === "ENTREGUE"}
+            onClick={() => setActiveTab("ENTREGUE")}
+          >
+            <CheckCircle size={16} />
+            Entregues
+            {entregueCount > 0 && <S.NavBadge>{entregueCount}</S.NavBadge>}
+          </S.SideNavItem>
+          <S.SideNavItem
+            active={activeTab === "PERFIL"}
+            onClick={() => setActiveTab("PERFIL")}
+          >
+            <User size={16} />
+            Meu Perfil
+          </S.SideNavItem>
+        </S.SidebarNav>
 
-              {!isSidebarCollapsed && (
-                <>
-                  <S.ProfileName>{user?.name || "Motoqueiro"}</S.ProfileName>
-                  <S.ProfileEmail>
-                    <Mail size={14} />
-                    <span>{user?.email || "email nao informado"}</span>
-                  </S.ProfileEmail>
-                </>
-              )}
-            </S.ProfileCard>
+        <S.LogoutButton
+          onClick={() => {
+            logout();
+            navigate("/login");
+          }}
+        >
+          <LogOut size={16} />
+          Sair
+        </S.LogoutButton>
+      </S.Sidebar>
 
-            <S.SidebarActions>
-              <S.SidebarActionButton
-                type="button"
-                onClick={() => loadOrders(false)}
-                title="Atualizar pedidos"
-                $collapsed={isSidebarCollapsed}
-              >
-                <RefreshCw size={16} />
-                {!isSidebarCollapsed && <span>Atualizar</span>}
-              </S.SidebarActionButton>
+      {/* Conteúdo principal */}
+      <S.MainArea>
+        <S.TopBar>
+          <S.TopBarTitle>
+            {activeTab === "PRONTO"
+              ? "Prontos para retirada"
+              : activeTab === "SAIU_PARA_ENTREGA"
+                ? "Em entrega"
+                : activeTab === "ENTREGUE"
+                  ? "Pedidos Entregues"
+                  : "Meu Perfil"}
+            {activeTab !== "PERFIL" && (
+              <S.CountChip>{filteredOrders.length}</S.CountChip>
+            )}
+          </S.TopBarTitle>
+          {activeTab !== "PERFIL" && (
+            <S.RefreshButton onClick={fetchOrders} title="Atualizar">
+              <RefreshCw size={16} />
+              Atualizar
+            </S.RefreshButton>
+          )}
+        </S.TopBar>
 
-              <S.SidebarActionButton
-                type="button"
-                onClick={() => setIsDarkMode((prev) => !prev)}
-                title="Alternar tema"
-                $collapsed={isSidebarCollapsed}
-              >
-                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                {!isSidebarCollapsed && (
-                  <span>{isDarkMode ? "Modo claro" : "Modo escuro"}</span>
-                )}
-              </S.SidebarActionButton>
+        {/* Tabs mobile */}
+        <S.MobileTabs>
+          <S.MobileTab
+            active={activeTab === "PRONTO"}
+            onClick={() => setActiveTab("PRONTO")}
+          >
+            <Package size={15} /> Prontos{" "}
+            {prontoCount > 0 && `(${prontoCount})`}
+          </S.MobileTab>
+          <S.MobileTab
+            active={activeTab === "SAIU_PARA_ENTREGA"}
+            onClick={() => setActiveTab("SAIU_PARA_ENTREGA")}
+          >
+            <Bike size={15} /> Em rota {saiuCount > 0 && `(${saiuCount})`}
+          </S.MobileTab>
+          <S.MobileTab
+            active={activeTab === "ENTREGUE"}
+            onClick={() => setActiveTab("ENTREGUE")}
+          >
+            <CheckCircle size={15} /> Entregues{" "}
+            {entregueCount > 0 && `(${entregueCount})`}
+          </S.MobileTab>
+          <S.MobileTab
+            active={activeTab === "PERFIL"}
+            onClick={() => setActiveTab("PERFIL")}
+          >
+            <User size={15} /> Perfil
+          </S.MobileTab>
+        </S.MobileTabs>
 
-              <S.SidebarActionButton
-                type="button"
-                onClick={handleLogout}
-                title="Sair"
-                $collapsed={isSidebarCollapsed}
-              >
-                <LogOut size={16} />
-                {!isSidebarCollapsed && <span>Sair</span>}
-              </S.SidebarActionButton>
-            </S.SidebarActions>
-          </S.Sidebar>
-
-          <S.MainArea>
-            <S.Header>
-              <S.HeaderTitle>
-                <Bike size={20} />
-                <h1>Entregas de Delivery</h1>
-              </S.HeaderTitle>
-            </S.Header>
-
-            <S.Content>
-              <S.Intro>
-                <h2>Pedidos de Delivery</h2>
-                <p>
-                  Veja apenas pedidos de delivery e marque como entregue quando
-                  finalizar.
-                </p>
-              </S.Intro>
-
-              <S.FilterBar>
-                <S.FilterButton
-                  type="button"
-                  $active={statusFilter === "TODOS"}
-                  onClick={() => setStatusFilter("TODOS")}
-                >
-                  Todos ({statusCounters.TODOS})
-                </S.FilterButton>
-                <S.FilterButton
-                  type="button"
-                  $active={statusFilter === "EM_ROTA"}
-                  onClick={() => setStatusFilter("EM_ROTA")}
-                >
-                  Em rota ({statusCounters.EM_ROTA})
-                </S.FilterButton>
-                <S.FilterButton
-                  type="button"
-                  $active={statusFilter === "ENTREGUES"}
-                  onClick={() => setStatusFilter("ENTREGUES")}
-                >
-                  Entregues ({statusCounters.ENTREGUES})
-                </S.FilterButton>
-              </S.FilterBar>
-
-              {isLoading ? (
-                <S.EmptyState>Carregando pedidos...</S.EmptyState>
-              ) : filteredDeliveryOrders.length === 0 ? (
-                <S.EmptyState>
-                  Nenhum pedido de delivery encontrado.
-                </S.EmptyState>
-              ) : (
-                <S.OrdersGrid>
-                  {filteredDeliveryOrders.map((order) => {
-                    const addressLines = getAddressText(order);
-                    const canDeliver = hasOrderStatus(
-                      order,
-                      "SAIU_PARA_ENTREGA",
-                    );
-                    const canClose = hasOrderStatus(order, "ENTREGUE");
-                    const pendingDigitalPayment =
-                      isPendingDigitalPayment(order);
-                    const isConfirmingPayment =
-                      confirmingPaymentOrderIds.includes(order.id);
-                    const isRequestingPin = requestingPinOrderIds.includes(
-                      order.id,
-                    );
-                    const pinRequestEntry =
-                      pinRequestByOrderId[order.id] || null;
-                    const hasRequestedPin = Boolean(pinRequestEntry);
-                    const requestedAtLabel = formatRequestTime(
-                      pinRequestEntry?.requestedAt,
-                    );
-
-                    return (
-                      <S.OrderCard
-                        key={order.id}
-                        $isClosing={closingOrderIds.includes(order.id)}
-                      >
-                        <S.TopRow>
-                          <span className="id">Pedido #{order.id}</span>
-                          <S.TopRowRight>
-                            <span className="status">
-                              {formatStatus(order.status)}
-                            </span>
-
-                            {canClose && (
-                              <S.CloseDeliveredButton
-                                type="button"
-                                onClick={() =>
-                                  handleCloseDeliveredOrder(order.id)
-                                }
-                                aria-label={`Fechar pedido ${order.id}`}
-                                title="Fechar pedido entregue"
-                              >
-                                <X size={14} />
-                              </S.CloseDeliveredButton>
-                            )}
-                          </S.TopRowRight>
-                        </S.TopRow>
-
-                        <S.DeliveryAlert>
-                          <AlertTriangle size={14} /> Pedido DELIVERY
-                        </S.DeliveryAlert>
-
-                        <S.PaymentStatusBox>
-                          <span className="label">Pagamento</span>
-                          <div className="badges">
-                            <span className="badge method">
-                              Metodo: {formatPaymentMethod(order.paymentMethod)}
-                            </span>
-                            <span
-                              className={`badge state ${
-                                order.paid ? "paid" : "pending"
-                              }`}
-                            >
-                              {order.paid ? "Confirmado" : "Pendente"}
-                            </span>
-                          </div>
-                        </S.PaymentStatusBox>
-
-                        <S.Price>
-                          R$ {Number(order.total || 0).toFixed(2)}
-                        </S.Price>
-
-                        <S.AddressBox>
-                          <div className="label">
-                            <MapPin size={13} style={{ marginRight: 6 }} />{" "}
-                            Endereco
-                          </div>
-                          {addressLines.length ? (
-                            addressLines.map((line, index) => (
-                              <div
-                                className="line"
-                                key={`${order.id}-${index}`}
-                              >
-                                {line}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="line">Endereco nao informado</div>
-                          )}
-                        </S.AddressBox>
-
-                        <S.Items>
-                          {(order.items || []).map((item) => (
-                            <li
-                              key={
-                                item.id || `${item.productId}-${item.quantity}`
-                              }
-                            >
-                              {item.quantity}x{" "}
-                              {item?.product?.name || "Produto"}
-                            </li>
-                          ))}
-                        </S.Items>
-
-                        <S.DeliverButton
-                          type="button"
-                          onClick={() => handleMarkDelivered(order)}
-                          disabled={
-                            !canDeliver ||
-                            isRefreshing ||
-                            pendingDigitalPayment ||
-                            isConfirmingPayment
-                          }
-                        >
-                          <CheckCircle2 size={16} style={{ marginRight: 6 }} />
-                          Marcar como Entregue
-                        </S.DeliverButton>
-
-                        {pendingDigitalPayment && (
-                          <>
-                            <S.ConfirmPaymentButton
-                              type="button"
-                              onClick={() => handleRequestPaymentPin(order)}
-                              disabled={isRequestingPin || isConfirmingPayment}
-                              style={{
-                                marginTop: "0.45rem",
-                                background:
-                                  "linear-gradient(135deg, #0891b2, #0369a1)",
-                              }}
-                            >
-                              {isRequestingPin
-                                ? "Solicitando PIN..."
-                                : hasRequestedPin
-                                  ? requestedAtLabel
-                                    ? `PIN solicitado às ${requestedAtLabel}`
-                                    : "PIN solicitado"
-                                  : "Solicitar PIN"}
-                            </S.ConfirmPaymentButton>
-
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              maxLength={4}
-                              placeholder="PIN de 4 dígitos"
-                              value={paymentPinByOrderId[order.id] || ""}
-                              onChange={(event) => {
-                                const digitsOnly = event.target.value
-                                  .replace(/\D/g, "")
-                                  .slice(0, 4);
-                                setPaymentPinByOrderId((prev) => ({
-                                  ...prev,
-                                  [order.id]: digitsOnly,
-                                }));
-                              }}
-                              style={{
-                                width: "100%",
-                                minHeight: 42,
-                                borderRadius: 12,
-                                border: "1px solid rgba(14, 165, 233, 0.35)",
-                                padding: "0 0.75rem",
-                                marginTop: "0.45rem",
-                                marginBottom: "0.45rem",
-                                background: "rgba(15, 23, 42, 0.35)",
-                                color: "#e2e8f0",
-                                fontWeight: 700,
-                                letterSpacing: "0.08em",
-                              }}
-                            />
-
-                            <S.ConfirmPaymentButton
-                              type="button"
-                              onClick={() => handleConfirmPayment(order)}
-                              disabled={isConfirmingPayment}
-                            >
-                              {isConfirmingPayment
-                                ? "Confirmando pagamento..."
-                                : "Confirmar pagamento com PIN"}
-                            </S.ConfirmPaymentButton>
-                          </>
-                        )}
-
-                        {!canDeliver && !pendingDigitalPayment && (
-                          <S.MetaText>
-                            Aguardando status "SAIU PARA ENTREGA" para concluir.
-                          </S.MetaText>
-                        )}
-
-                        {pendingDigitalPayment && (
-                          <S.MetaText>
-                            Pagamento digital pendente. Solicite o PIN e
-                            confirme com os 4 dígitos.
-                          </S.MetaText>
-                        )}
-                      </S.OrderCard>
-                    );
-                  })}
-                </S.OrdersGrid>
-              )}
-            </S.Content>
-          </S.MainArea>
-        </S.AppShell>
-      </S.Layout>
-    </ThemeProvider>
+        {activeTab === "PERFIL" ? (
+          <ProfilePanel user={user} onUpdated={handleProfileUpdated} />
+        ) : loading ? (
+          <S.EmptyState>
+            <RefreshCw size={32} className="spinning" />
+            <p>Carregando pedidos...</p>
+          </S.EmptyState>
+        ) : filteredOrders.length === 0 ? (
+          <S.EmptyState>
+            <Package size={40} />
+            <p>
+              {activeTab === "PRONTO"
+                ? "Nenhum pedido pronto para retirada."
+                : activeTab === "SAIU_PARA_ENTREGA"
+                  ? "Nenhum pedido em rota no momento."
+                  : "Nenhum pedido entregue ainda."}
+            </p>
+          </S.EmptyState>
+        ) : (
+          <S.OrdersList>
+            {filteredOrders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onMarkDelivered={handleMarkDelivered}
+                onRequestPin={handleRequestPin}
+                onConfirmPin={handleConfirmPin}
+              />
+            ))}
+          </S.OrdersList>
+        )}
+      </S.MainArea>
+    </S.PageWrapper>
   );
 }

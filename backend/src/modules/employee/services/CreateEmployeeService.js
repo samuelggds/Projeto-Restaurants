@@ -3,7 +3,7 @@ import employeeRepository from "../repositories/EmployeeRepository.js";
 import bcrypt from "bcrypt";
 
 class CreateEmployeeService {
-  async execute({ name, email, password, phone, restaurantId, role }) {
+  async execute({ name, email, password, phone, restaurantId, role, cpf }) {
     const exists = await employeeRepository.findByEmail(email);
 
     if (exists) {
@@ -17,6 +17,7 @@ class CreateEmployeeService {
       email,
       password: passwordHash,
       phone,
+      cpf: cpf ? String(cpf).replace(/\D/g, "") : undefined,
       restaurantId,
       role: role || UserRole.FUNCIONARIO,
     });
