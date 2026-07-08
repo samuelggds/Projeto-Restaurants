@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npm run test:billing",
+    "test": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/middlewares/billingMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts src/modules/restaurantSettings/services/CreateRestaurantSettingsService.test.ts src/modules/orders/services/CreateOrderCardCheckoutService.test.ts src/modules/orders/controllers/PagBankOrderWebhookController.test.ts",
     "test:billing": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/middlewares/billingMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts",
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
