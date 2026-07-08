@@ -49,6 +49,7 @@ class UserRepository {
         email: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         phone: true,
         cpf: true,
         address: true,
@@ -79,6 +80,7 @@ class UserRepository {
         email: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         phone: true,
         cpf: true,
         address: true,
@@ -104,6 +106,7 @@ class UserRepository {
       },
       data: {
         password,
+        mustChangePassword: false,
       },
     });
   }

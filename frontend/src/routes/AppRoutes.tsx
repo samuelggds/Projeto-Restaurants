@@ -27,6 +27,9 @@ const CourierDashboard = lazy(
 const SuperAdminDashboard = lazy(
   () => import("../pages/SuperAdmin/SuperAdminDashboard"),
 );
+const SuperAdminCreateRestaurant = lazy(
+  () => import("../pages/SuperAdmin/SuperAdminCreateRestaurant"),
+);
 const Cart = lazy(() => import("../pages/Cart/Cart"));
 const BillingPage = lazy(() => import("../pages/Billing/BillingPage"));
 const SystemBlockedPage = lazy(
@@ -44,6 +47,7 @@ import {
   getSystemBlockState,
   setSystemBlockState,
 } from "../Services/systemBlock";
+import GlobalAiAssistant from "../components/GlobalAiAssistant/GlobalAiAssistant";
 
 const ROLE_HOME = {
   CLIENTE: "/",
@@ -93,14 +97,17 @@ function SuperAdminScopeGuard() {
     return null;
   }
 
-  if (user?.role === "SUPER_ADMIN" && location.pathname !== "/super_admin") {
+  if (
+    user?.role === "SUPER_ADMIN" &&
+    !location.pathname.startsWith("/super_admin")
+  ) {
     return <Navigate to="/super_admin" replace />;
   }
 
   if (
     user?.role &&
     user.role !== "SUPER_ADMIN" &&
-    location.pathname === "/super_admin"
+    location.pathname.startsWith("/super_admin")
   ) {
     return <Navigate to={getRoleHome(user.role)} replace />;
   }
@@ -260,12 +267,17 @@ export default function AppRoutes() {
           <Route element={<RequireAuth />}>
             <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
               <Route path="/super_admin" element={<SuperAdminDashboard />} />
+              <Route
+                path="/super_admin/cadastro"
+                element={<SuperAdminCreateRestaurant />}
+              />
             </Route>
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <GlobalAiAssistant />
     </BrowserRouter>
   );
 }

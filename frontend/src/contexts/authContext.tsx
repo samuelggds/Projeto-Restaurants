@@ -8,6 +8,7 @@ type AuthUser = {
   email?: string;
   phone?: string;
   role?: string;
+  mustChangePassword?: boolean;
   restaurantId?: number;
   restaurant?: {
     id?: number;

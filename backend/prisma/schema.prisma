@@ -62,14 +62,15 @@ enum InvoiceStatus {
 }
 
 model User {
-  id       Int      @id @default(autoincrement())
-  name     String
-  email    String   @unique
-  password String
-  role     UserRole @default(CLIENTE)
-  active   Boolean  @default(true)
-  phone    String?
-  cpf      String?
+  id                         Int       @id @default(autoincrement())
+  name                       String
+  email                      String    @unique
+  password                   String
+  role                       UserRole  @default(CLIENTE)
+  active                     Boolean   @default(true)
+  mustChangePassword         Boolean   @default(false)
+  phone                      String?
+  cpf                        String?
   resetPasswordCodeHash      String?
   resetPasswordCodeExpiresAt DateTime?
 
@@ -307,39 +308,39 @@ model RestaurantSettings {
   pixProvider String  @default("MERCADO_PAGO")
   pixKey      String?
 
-  legalDocumentType     String?
-  companyDocument       String?
-  companyLegalName      String?
-  companyTradeName      String?
-  companyAddress        String?
-  companyCnae           String?
-  monthlyRevenue        Decimal? @db.Decimal(12, 2)
+  legalDocumentType String?
+  companyDocument   String?
+  companyLegalName  String?
+  companyTradeName  String?
+  companyAddress    String?
+  companyCnae       String?
+  monthlyRevenue    Decimal? @db.Decimal(12, 2)
 
-  ownerFullName         String?
-  ownerCpf              String?
-  ownerBirthDate        DateTime?
-  ownerEmail            String?
-  ownerPhone            String?
-  ownerAddress          String?
+  ownerFullName  String?
+  ownerCpf       String?
+  ownerBirthDate DateTime?
+  ownerEmail     String?
+  ownerPhone     String?
+  ownerAddress   String?
 
-  bankName    String?
-  bankCode    String?
-  bankAccountType String?
-  bankBranch  String?
-  bankAccount String?
+  bankName           String?
+  bankCode           String?
+  bankAccountType    String?
+  bankBranch         String?
+  bankAccount        String?
   bankHolderDocument String?
-  cardGateway String?
-  gatewayMerchantId String?
-  pagbankEmail String?
-  pagbankToken String?
+  cardGateway        String?
+  gatewayMerchantId  String?
+  pagbankEmail       String?
+  pagbankToken       String?
   pagbankEnvironment String?
 
   ownerDocumentFileUrl   String?
   bankProofFileUrl       String?
   companyContractFileUrl String?
 
-  instagram   String?
-  facebook    String?
+  instagram String?
+  facebook  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -371,16 +372,16 @@ model Coupon {
 }
 
 model Subscription {
-  id           Int                @id @default(autoincrement())
-  restaurantId Int                @unique
-  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  plan         PlanType           @default(BASICO)
-  scheduledPlan PlanType?
+  id                          Int                @id @default(autoincrement())
+  restaurantId                Int                @unique
+  restaurant                  Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan                        PlanType           @default(BASICO)
+  scheduledPlan               PlanType?
   scheduledPlanEffectiveMonth Int?
   scheduledPlanEffectiveYear  Int?
-  planChangeLockedUntil DateTime?
-  status       SubscriptionStatus @default(TESTE)
-  trialEndsAt  DateTime?
+  planChangeLockedUntil       DateTime?
+  status                      SubscriptionStatus @default(TESTE)
+  trialEndsAt                 DateTime?
 
   balanceDebt Decimal @default(0) @db.Decimal(10, 2)
 

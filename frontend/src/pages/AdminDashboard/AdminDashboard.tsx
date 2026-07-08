@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Minimize2,
   Maximize2,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../../Services/api";
@@ -712,7 +713,7 @@ function playPinRequestedSound() {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, login, logout } = useAuth();
   const [isDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -812,7 +813,21 @@ export default function AdminDashboard() {
   const [billingWarningState, setBillingWarningState] = useState(null);
   const [isBillingWarningMinimized, setIsBillingWarningMinimized] =
     useState(false);
+  const [
+    isPasswordRotationModalMinimized,
+    setIsPasswordRotationModalMinimized,
+  ] = useState(false);
+  const [passwordRotationForm, setPasswordRotationForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [isSavingPasswordRotation, setIsSavingPasswordRotation] =
+    useState(false);
   const qrCardRefs = useRef({});
+
+  const shouldForcePasswordRotation =
+    user?.role === "ADMIN" && user?.mustChangePassword === true;
 
   function addBusinessDays(baseDate, businessDays) {
     const date = new Date(baseDate);
@@ -2706,6 +2721,87 @@ export default function AdminDashboard() {
     navigate("/login");
   };
 
+  const handlePasswordRotationFieldChange =
+    (field: "oldPassword" | "newPassword" | "confirmPassword") =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+
+      setPasswordRotationForm((current) => ({
+        ...current,
+        [field]: value,
+      }));
+    };
+
+  const handleSubmitPasswordRotation = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    if (!passwordRotationForm.oldPassword.trim()) {
+      toast.error("Informe a senha atual recebida do Super Admin.");
+      return;
+    }
+
+    if (passwordRotationForm.newPassword.length < 6) {
+      toast.error("A nova senha precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (
+      passwordRotationForm.newPassword !== passwordRotationForm.confirmPassword
+    ) {
+      toast.error(
+        "As senhas novas não conferem. Confere para mim e tenta de novo.",
+      );
+      return;
+    }
+
+    try {
+      setIsSavingPasswordRotation(true);
+
+      await api.put("/auth/password", {
+        oldPassword: passwordRotationForm.oldPassword,
+        newPassword: passwordRotationForm.newPassword,
+      });
+
+      const token = localStorage.getItem("token");
+
+      if (token && user) {
+        login(
+          {
+            ...user,
+            mustChangePassword: false,
+          },
+          token,
+        );
+      }
+
+      setPasswordRotationForm({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setIsPasswordRotationModalMinimized(false);
+      toast.success(
+        "Perfeito! Sua senha foi atualizada e sua conta está liberada.",
+      );
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response
+          ?.data?.error === "string"
+          ? (error as { response?: { data?: { error?: string } } }).response
+              ?.data?.error
+          : "Não consegui atualizar sua senha agora. Tenta novamente em instantes.";
+
+      toast.error(message);
+    } finally {
+      setIsSavingPasswordRotation(false);
+    }
+  };
+
   const billingBusinessDaysTotal = 5;
   const billingBusinessDaysLeft = Math.max(
     0,
@@ -3764,6 +3860,276 @@ export default function AdminDashboard() {
                 onBrandingFileChange={handleBrandingFileChange}
               />
             </Suspense>
+          )}
+
+          {shouldForcePasswordRotation && isPasswordRotationModalMinimized && (
+            <div
+              style={{
+                position: "fixed",
+                right: "max(14px, env(safe-area-inset-right))",
+                bottom: "max(14px, env(safe-area-inset-bottom))",
+                zIndex: 70,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                borderRadius: 999,
+                padding: "0.5rem 0.72rem",
+                background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+                border: "1px solid rgba(234, 88, 12, 0.35)",
+                boxShadow: "0 12px 24px rgba(15, 23, 42, 0.18)",
+                color: "#9a3412",
+              }}
+            >
+              <KeyRound size={14} />
+              <small style={{ fontWeight: 800 }}>Troca de senha pendente</small>
+              <button
+                type="button"
+                onClick={() => setIsPasswordRotationModalMinimized(false)}
+                style={{
+                  minHeight: 30,
+                  borderRadius: 999,
+                  border: "1px solid rgba(194, 65, 12, 0.45)",
+                  background: "rgba(255,255,255,0.9)",
+                  color: "#9a3412",
+                  fontWeight: 800,
+                  padding: "0 0.72rem",
+                  cursor: "pointer",
+                }}
+              >
+                Abrir
+              </button>
+            </div>
+          )}
+
+          {shouldForcePasswordRotation && !isPasswordRotationModalMinimized && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 80,
+                background:
+                  "radial-gradient(circle at top right, rgba(251, 146, 60, 0.25), rgba(2, 6, 23, 0.62) 55%)",
+                backdropFilter: "blur(6px)",
+                display: "grid",
+                placeItems: "center",
+                padding: "1rem",
+              }}
+            >
+              <form
+                onSubmit={handleSubmitPasswordRotation}
+                style={{
+                  width: "min(520px, 100%)",
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  border: "1px solid rgba(251, 146, 60, 0.32)",
+                  boxShadow: "0 26px 58px rgba(15, 23, 42, 0.38)",
+                  background:
+                    "linear-gradient(160deg, #fff7ed 0%, #ffffff 38%, #f8fafc 100%)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "0.7rem",
+                    padding: "0.95rem 1rem",
+                    borderBottom: "1px solid rgba(148, 163, 184, 0.24)",
+                    background:
+                      "linear-gradient(135deg, rgba(251, 146, 60, 0.22) 0%, rgba(234, 88, 12, 0.12) 100%)",
+                  }}
+                >
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 10 }}
+                  >
+                    <span
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#ffffff",
+                        background: "linear-gradient(135deg, #ea580c, #c2410c)",
+                      }}
+                    >
+                      <KeyRound size={18} />
+                    </span>
+                    <div>
+                      <strong
+                        style={{
+                          display: "block",
+                          color: "#7c2d12",
+                          fontSize: "1rem",
+                          letterSpacing: "0.01em",
+                        }}
+                      >
+                        Segurança da conta ADMIN
+                      </strong>
+                      <small style={{ color: "#9a3412", opacity: 0.92 }}>
+                        Primeiro acesso detectado. Troque sua senha para
+                        continuar.
+                      </small>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPasswordRotationModalMinimized(true)}
+                    aria-label="Minimizar modal de troca de senha"
+                    title="Minimizar"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      border: "1px solid rgba(194, 65, 12, 0.3)",
+                      background: "rgba(255,255,255,0.82)",
+                      color: "#9a3412",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Minimize2 size={16} />
+                  </button>
+                </div>
+
+                <div
+                  style={{ padding: "1rem", display: "grid", gap: "0.85rem" }}
+                >
+                  <label style={{ display: "grid", gap: "0.38rem" }}>
+                    <span
+                      style={{
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        color: "#9a3412",
+                      }}
+                    >
+                      Senha atual
+                    </span>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={passwordRotationForm.oldPassword}
+                      onChange={handlePasswordRotationFieldChange(
+                        "oldPassword",
+                      )}
+                      placeholder="Senha recebida do Super Admin"
+                      required
+                      style={{
+                        minHeight: 42,
+                        borderRadius: 12,
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        padding: "0 0.85rem",
+                        background: "rgba(255,255,255,0.95)",
+                        color: "#0f172a",
+                      }}
+                    />
+                  </label>
+
+                  <label style={{ display: "grid", gap: "0.38rem" }}>
+                    <span
+                      style={{
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        color: "#9a3412",
+                      }}
+                    >
+                      Nova senha
+                    </span>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={6}
+                      value={passwordRotationForm.newPassword}
+                      onChange={handlePasswordRotationFieldChange(
+                        "newPassword",
+                      )}
+                      placeholder="Crie uma senha forte"
+                      required
+                      style={{
+                        minHeight: 42,
+                        borderRadius: 12,
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        padding: "0 0.85rem",
+                        background: "rgba(255,255,255,0.95)",
+                        color: "#0f172a",
+                      }}
+                    />
+                  </label>
+
+                  <label style={{ display: "grid", gap: "0.38rem" }}>
+                    <span
+                      style={{
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        color: "#9a3412",
+                      }}
+                    >
+                      Confirmar nova senha
+                    </span>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={6}
+                      value={passwordRotationForm.confirmPassword}
+                      onChange={handlePasswordRotationFieldChange(
+                        "confirmPassword",
+                      )}
+                      placeholder="Repita a nova senha"
+                      required
+                      style={{
+                        minHeight: 42,
+                        borderRadius: 12,
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        padding: "0 0.85rem",
+                        background: "rgba(255,255,255,0.95)",
+                        color: "#0f172a",
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    padding: "0.9rem 1rem 1rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <small style={{ color: "#9a3412", fontWeight: 600 }}>
+                    Você pode minimizar agora e concluir depois pelo atalho
+                    flutuante.
+                  </small>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingPasswordRotation}
+                    style={{
+                      minHeight: 40,
+                      borderRadius: 12,
+                      border: "1px solid rgba(194, 65, 12, 0.5)",
+                      padding: "0 1rem",
+                      color: "#ffffff",
+                      fontWeight: 800,
+                      background:
+                        "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)",
+                      cursor: isSavingPasswordRotation ? "wait" : "pointer",
+                      opacity: isSavingPasswordRotation ? 0.72 : 1,
+                    }}
+                  >
+                    {isSavingPasswordRotation
+                      ? "Atualizando..."
+                      : "Salvar nova senha"}
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
         </S.MainContent>
       </S.AdminLayout>

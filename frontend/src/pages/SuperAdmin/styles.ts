@@ -290,6 +290,104 @@ export const KpiCard = styled.div`
   }
 `;
 
+export const CreateSection = styled.section`
+  background: ${(props) => props.theme.surface};
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+`;
+
+export const CreateHeader = styled.div`
+  margin-bottom: 1rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: ${(props) => props.theme.textDark};
+  }
+
+  p {
+    margin: 0.4rem 0 0;
+    font-size: 0.82rem;
+    color: ${(props) => props.theme.textMuted};
+  }
+`;
+
+export const CreateForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+export const CreateGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 760px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const InputGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: ${(props) => props.theme.textMuted};
+    letter-spacing: 0.2px;
+  }
+
+  input {
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid ${(props) => props.theme.border};
+    background: ${(props) => props.theme.surface};
+    color: ${(props) => props.theme.textDark};
+    padding: 0 0.75rem;
+    font-size: 0.85rem;
+    outline: none;
+
+    &:focus {
+      border-color: ${(props) => props.theme.textDark};
+    }
+  }
+`;
+
+export const CreateActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+`;
+
+export const CreateButton = styled.button`
+  border: none;
+  background: ${(props) => props.theme.primary};
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.7rem 1.05rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${(props) => props.theme.primaryHover};
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+`;
+
 /* FILTROS */
 export const FilterSection = styled.div`
   display: flex;

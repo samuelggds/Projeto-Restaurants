@@ -11,45 +11,60 @@ type CreateRestaurantPayload = z.infer<typeof createRestaurantSchema>;
 
 class CreateRestaurantService {
   async execute({ restaurant, admin }: CreateRestaurantPayload) {
-    createRestaurantSchema.parse({ restaurant, admin });
+    const parsedPayloadResult = createRestaurantSchema.safeParse({
+      restaurant,
+      admin,
+    });
+
+    if (!parsedPayloadResult.success) {
+      const firstIssue = parsedPayloadResult.error.issues[0];
+      throw new Error(firstIssue?.message || "Dados inválidos para cadastro.");
+    }
+
+    const parsedPayload = parsedPayloadResult.data;
+    const parsedRestaurant = parsedPayload.restaurant;
+    const parsedAdmin = parsedPayload.admin;
 
     const restaurantExists = await restaurantRepository.findByEmail(
-      restaurant.email,
+      parsedRestaurant.email,
     );
 
     if (restaurantExists) {
-      throw new Error("Já existe um restaurante com esse email!");
+      throw new Error("Já existe um restaurante com esse e-mail.");
     }
 
-    const slugExists = await restaurantRepository.findBySlug(restaurant.slug);
+    const slugExists = await restaurantRepository.findBySlug(
+      parsedRestaurant.slug,
+    );
 
     if (slugExists) {
-      throw new Error("Esse slug já está sendo utilizado!");
+      throw new Error("Esse slug já existe. Escolha outro.");
     }
 
-    const userExists = await userRepository.findByEmail(admin.email);
+    const userExists = await userRepository.findByEmail(parsedAdmin.email);
 
     if (userExists) {
-      throw new Error("Já existe um usuário com esse email!");
+      throw new Error("Já existe um admin com esse e-mail.");
     }
 
     return prisma.$transaction(async (tx) => {
       const createdRestaurant = await restaurantRepository.create(
         {
-          ...restaurant,
+          ...parsedRestaurant,
         },
         tx,
       );
 
-      const passwordHash = await bcrypt.hash(admin.password, 10);
+      const passwordHash = await bcrypt.hash(parsedAdmin.password, 10);
 
       const createdAdmin = await userRepository.create(
         {
-          name: admin.name,
-          email: admin.email,
+          name: parsedAdmin.name,
+          email: parsedAdmin.email,
           password: passwordHash,
           role: UserRole.ADMIN,
           active: true,
+          mustChangePassword: true,
           restaurantId: createdRestaurant.id,
         },
         tx,

@@ -43,6 +43,7 @@ class LoginService {
         email: user.email,
         role: user.role,
         active: user.active,
+        mustChangePassword: user.mustChangePassword,
         phone: user.phone,
         address: user.address,
         number: user.number,
