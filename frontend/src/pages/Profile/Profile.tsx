@@ -10,6 +10,14 @@ import {
   ArrowLeft,
   ClipboardList,
 } from "lucide-react";
+import {
+  findSavedCard,
+  getEmptyCardDraft,
+  isCardDraftComplete,
+  persistCardWallet,
+  readCardWallet,
+  sanitizeCardDraft,
+} from "../../config/cardPaymentWallet";
 import { useAuth } from "../../contexts/authContext";
 import authService from "../../Services/authService";
 import * as S from "./styles";
@@ -103,6 +111,7 @@ function getInitialSelectedAddressId(addresses) {
 export default function Profile() {
   const navigate = useNavigate();
   const { user, login } = useAuth();
+  const initialCardWallet = readCardWallet();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
 
@@ -132,6 +141,21 @@ export default function Profile() {
     cep: "",
     complemento: "",
   });
+  const [savedCards, setSavedCards] = useState(initialCardWallet.cards);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState(
+    initialCardWallet.selectedCardId,
+  );
+  const [defaultSavedCardId, setDefaultSavedCardId] = useState(
+    initialCardWallet.defaultCardId,
+  );
+  const [cardPaymentDraft, setCardPaymentDraft] = useState(() => {
+    const selectedCard = findSavedCard(
+      initialCardWallet.cards,
+      initialCardWallet.selectedCardId,
+    );
+
+    return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
+  });
 
   // Atualiza o localStorage sempre que os endereços mudarem
   useEffect(() => {
@@ -145,6 +169,10 @@ export default function Profile() {
       localStorage.removeItem(ADDRESS_SELECTED_KEY);
     }
   }, [selectedAddressId]);
+
+  useEffect(() => {
+    persistCardWallet(savedCards, selectedSavedCardId, defaultSavedCardId);
+  }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
 
   const selectedAddress =
     enderecos.find((endereco) => endereco.id === selectedAddressId) ||
@@ -285,6 +313,102 @@ export default function Profile() {
     }
   };
 
+  const handleCardPaymentDraftChange = (field, value) => {
+    setCardPaymentDraft((prev) => ({
+      ...prev,
+      [field]:
+        field === "lastFour"
+          ? String(value || "")
+              .replace(/\D/g, "")
+              .slice(0, 4)
+          : value,
+    }));
+  };
+
+  const handleSelectSavedCard = (cardId) => {
+    const selectedCard = findSavedCard(savedCards, cardId);
+
+    if (!selectedCard) {
+      return;
+    }
+
+    setSelectedSavedCardId(selectedCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(selectedCard));
+  };
+
+  const handleSetDefaultSavedCard = (cardId) => {
+    const selectedCard = findSavedCard(savedCards, cardId);
+
+    if (!selectedCard) {
+      return;
+    }
+
+    setDefaultSavedCardId(selectedCard.id);
+    toast.success("Cartao padrao atualizado.");
+  };
+
+  const handleStartNewSavedCard = () => {
+    setSelectedSavedCardId(null);
+    setCardPaymentDraft(getEmptyCardDraft());
+  };
+
+  const handleSaveCurrentCard = () => {
+    const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
+
+    if (!isCardDraftComplete(sanitizedDraft)) {
+      toast.warning(
+        "Preencha titular, bandeira e os 4 ultimos digitos para salvar o cartao.",
+      );
+      return;
+    }
+
+    const normalizedHolder = sanitizedDraft.holderName.trim().toLowerCase();
+    const normalizedBrand = sanitizedDraft.brand.trim().toLowerCase();
+    const existingCard =
+      findSavedCard(savedCards, selectedSavedCardId) ||
+      savedCards.find(
+        (card) =>
+          card.lastFour === sanitizedDraft.lastFour &&
+          card.holderName.trim().toLowerCase() === normalizedHolder &&
+          card.brand.trim().toLowerCase() === normalizedBrand,
+      ) ||
+      null;
+    const nextCard = {
+      id: existingCard?.id || `${Date.now()}`,
+      ...sanitizedDraft,
+    };
+    const nextCards = existingCard
+      ? savedCards.map((card) =>
+          card.id === existingCard.id ? nextCard : card,
+        )
+      : [...savedCards, nextCard];
+
+    setSavedCards(nextCards);
+    setSelectedSavedCardId(nextCard.id);
+    setDefaultSavedCardId((prev) => prev || nextCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
+  };
+
+  const handleRemoveSavedCard = (cardId) => {
+    const nextCards = savedCards.filter((card) => card.id !== cardId);
+    const nextSelectedCardId = nextCards[0]?.id || null;
+    const nextDefaultCardId =
+      defaultSavedCardId === cardId
+        ? nextCards[0]?.id || null
+        : defaultSavedCardId;
+
+    setSavedCards(nextCards);
+    setSelectedSavedCardId(nextSelectedCardId);
+    setDefaultSavedCardId(nextDefaultCardId);
+    setCardPaymentDraft(
+      nextSelectedCardId
+        ? sanitizeCardDraft(findSavedCard(nextCards, nextSelectedCardId))
+        : getEmptyCardDraft(),
+    );
+    toast.info("Cartao removido.");
+  };
+
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
       <S.ProfileLayout>
@@ -340,10 +464,20 @@ export default function Profile() {
               <ProfileAddressesAndOrders
                 enderecos={enderecos}
                 novoEndereco={novoEndereco}
+                savedCards={savedCards}
+                selectedSavedCardId={selectedSavedCardId}
+                defaultSavedCardId={defaultSavedCardId}
+                cardPaymentDraft={cardPaymentDraft}
                 onNovoEnderecoChange={setNovoEndereco}
                 onAddEndereco={handleAddEndereco}
                 onSelectEndereco={handleSelectEndereco}
                 onDeleteEndereco={handleDeleteEndereco}
+                onCardPaymentDraftChange={handleCardPaymentDraftChange}
+                onSelectSavedCard={handleSelectSavedCard}
+                onSetDefaultSavedCard={handleSetDefaultSavedCard}
+                onStartNewSavedCard={handleStartNewSavedCard}
+                onSaveCurrentCard={handleSaveCurrentCard}
+                onRemoveSavedCard={handleRemoveSavedCard}
                 onNavigateOrders={() => navigate("/profile/orders")}
               />
             </Suspense>

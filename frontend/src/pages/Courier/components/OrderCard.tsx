@@ -95,6 +95,15 @@ export default function OrderCard({
     order,
     digitalPaymentMethods,
   );
+  const paymentStatusLabel = order.paid ? "Pago" : "Nao pago";
+  const paymentStatusChipStyle = {
+    color: order.paid ? "#166534" : "#991b1b",
+    background: order.paid ? "#dcfce7" : "#fee2e2",
+    border: order.paid
+      ? "1px solid rgba(34, 197, 94, 0.35)"
+      : "1px solid rgba(239, 68, 68, 0.35)",
+    fontWeight: 800,
+  };
 
   async function handleMarkDelivered() {
     setLoading(true);
@@ -140,7 +149,10 @@ export default function OrderCard({
         <S.InfoChip>
           <CreditCard size={13} />
           {paymentLabel[order.paymentMethod || ""] || order.paymentMethod}
-          {order.paid && " ✓"}
+        </S.InfoChip>
+        <S.InfoChip style={paymentStatusChipStyle}>
+          <CreditCard size={13} />
+          {paymentStatusLabel}
         </S.InfoChip>
       </S.OrderSummaryRow>
 

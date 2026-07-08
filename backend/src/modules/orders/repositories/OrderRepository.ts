@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentMethod } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -45,6 +45,22 @@ class OrderRepository {
     return db.order.findMany({
       where: {
         restaurantId,
+        NOT: [
+          {
+            paymentMethod: PaymentMethod.PIX,
+            paid: false,
+            pixPaymentId: {
+              not: null,
+            },
+          },
+          {
+            paymentMethod: PaymentMethod.CARTAO,
+            paid: false,
+            cardCheckoutSessionId: {
+              not: null,
+            },
+          },
+        ],
         ...(status && { status }),
       },
       include: {
@@ -107,12 +123,75 @@ class OrderRepository {
       },
       data: {
         paid: true,
+        paidAt: new Date(),
         paymentConfirmationPin: null,
         paymentConfirmationPinExpiresAt: null,
       },
     });
 
     return this.findById(id, restaurantId, db);
+  }
+
+  async confirmPixPayment(
+    id: number | string,
+    restaurantId: number,
+    {
+      paymentProof,
+      paymentProofImage,
+    }: {
+      paymentProof?: string | null;
+      paymentProofImage?: string | null;
+    } = {},
+    db: PrismaClientLike = prisma,
+  ) {
+    await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+      },
+      data: {
+        paid: true,
+        paidAt: new Date(),
+        paymentProof: String(paymentProof || "").trim() || null,
+        paymentProofImage: String(paymentProofImage || "").trim() || null,
+        paymentConfirmationPin: null,
+        paymentConfirmationPinExpiresAt: null,
+      },
+    });
+
+    return this.findById(id, restaurantId, db);
+  }
+
+  async setCardCheckoutSessionId(
+    id: number | string,
+    restaurantId: number,
+    cardCheckoutSessionId: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+      },
+      data: {
+        cardCheckoutSessionId,
+      },
+    });
+
+    return this.findById(id, restaurantId, db);
+  }
+
+  async deleteById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    await db.order.deleteMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+      },
+    });
   }
 
   async setPaymentConfirmationPin(
@@ -172,6 +251,125 @@ class OrderRepository {
     });
   }
 
+  async findByPixPaymentId(
+    pixPaymentId: string,
+    restaurantId?: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        pixPaymentId,
+        ...(restaurantId
+          ? {
+              restaurantId,
+            }
+          : {}),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+          },
+        },
+        table: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findByCardCheckoutSessionId(
+    cardCheckoutSessionId: string,
+    restaurantId?: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        cardCheckoutSessionId,
+        ...(restaurantId
+          ? {
+              restaurantId,
+            }
+          : {}),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+          },
+        },
+        table: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findLatestByTable(
+    tableId: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        tableId: Number(tableId),
+        restaurantId: Number(restaurantId),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+          },
+        },
+        table: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
   async findByUserId(
     userId: number | string,
     restaurantId: number | string,
@@ -188,7 +386,25 @@ class OrderRepository {
     }
 
     return db.order.findMany({
-      where,
+      where: {
+        ...where,
+        NOT: [
+          {
+            paymentMethod: PaymentMethod.PIX,
+            paid: false,
+            pixPaymentId: {
+              not: null,
+            },
+          },
+          {
+            paymentMethod: PaymentMethod.CARTAO,
+            paid: false,
+            cardCheckoutSessionId: {
+              not: null,
+            },
+          },
+        ],
+      },
       include: {
         items: {
           include: {

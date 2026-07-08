@@ -221,6 +221,45 @@ export const GlobalMenuStyle = createGlobalStyle`
       box-shadow: 0 0 0 rgba(58, 21, 65, 0);
     }
   }
+
+  @keyframes flowStepIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes flowDotPulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(125, 47, 121, 0.35);
+      transform: scale(1);
+    }
+
+    70% {
+      box-shadow: 0 0 0 8px rgba(125, 47, 121, 0);
+      transform: scale(1.04);
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 rgba(125, 47, 121, 0);
+      transform: scale(1);
+    }
+  }
+
+  @keyframes flowTrailSweep {
+    0% {
+      background-position: 0% 0%;
+    }
+
+    100% {
+      background-position: 0% 100%;
+    }
+  }
 `;
 
 export const Page = styled.main`
@@ -1620,6 +1659,9 @@ export const OrderFlowItem = styled.div`
   gap: 0.58rem;
   align-items: start;
   opacity: ${({ $state }) => ($state === "pending" ? 0.5 : 1)};
+  animation: flowStepIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: ${({ $index = 0 }) =>
+    `${Math.min(Number($index || 0), 8) * 0.05}s`};
 
   &:not(:last-child)::after {
     content: "";
@@ -1631,8 +1673,11 @@ export const OrderFlowItem = styled.div`
     border-radius: 2px;
     background: ${({ $state }) =>
       $state === "done" || $state === "active"
-        ? "rgba(90, 39, 87, 0.42)"
+        ? "linear-gradient(180deg, rgba(90, 39, 87, 0.2), rgba(125, 47, 121, 0.76), rgba(90, 39, 87, 0.2))"
         : "rgba(90, 39, 87, 0.16)"};
+    background-size: 100% 220%;
+    animation: ${({ $state }) =>
+      $state === "active" ? "flowTrailSweep 0.9s linear infinite" : "none"};
   }
 `;
 
@@ -1654,6 +1699,13 @@ export const OrderFlowDot = styled.span`
       : $state === "active"
         ? "rgba(125, 47, 121, 0.22)"
         : "transparent"};
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.24s ease,
+    border-color 0.24s ease,
+    background 0.24s ease;
+  animation: ${({ $state }) =>
+    $state === "active" ? "flowDotPulse 1.2s ease-out infinite" : "none"};
 `;
 
 export const OrderFlowContent = styled.div`

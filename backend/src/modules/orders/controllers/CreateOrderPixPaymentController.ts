@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import orderPixPaymentService from "../services/OrderPixPaymentService.js";
+import createOrderService from "../services/CreateOrderService.js";
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -8,16 +9,21 @@ class CreateOrderPixPaymentController {
         restaurantId,
         type,
         paymentMethod,
+        pixProvider,
         items,
         address,
         number,
         district,
         city,
         state,
+        zipCode,
+        complement,
         customerName,
         customerCpf,
+        customerPhone,
       } = req.body;
 
+      const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? null;
       const resolvedRestaurantId =
         Number(restaurantId) || Number(userRestaurantId);
@@ -26,6 +32,7 @@ class CreateOrderPixPaymentController {
         restaurantId: resolvedRestaurantId,
         type,
         paymentMethod,
+        pixProvider,
         items,
         address,
         number,
@@ -34,10 +41,36 @@ class CreateOrderPixPaymentController {
         state,
         customerName,
         customerCpf,
+        customerPhone,
         userEmail: req.user?.email || null,
       });
 
-      return res.status(201).json(result);
+      const order = await createOrderService.execute({
+        userId,
+        restaurantId: resolvedRestaurantId,
+        userRestaurantId,
+        deferRealtimeUntilPaid: true,
+        type,
+        paymentMethod,
+        paid: false,
+        pixPaymentId: String(result.paymentId || ""),
+        customerName,
+        customerCpf,
+        customerPhone,
+        items,
+        address,
+        number,
+        district,
+        city,
+        state,
+        zipCode,
+        complement,
+      });
+
+      return res.status(201).json({
+        ...result,
+        orderId: order.id,
+      });
     } catch (error: unknown) {
       return res.status(400).json({
         error:

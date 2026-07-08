@@ -266,3 +266,171 @@ export const DisabledButton = styled(PaymentButton)`
     transform: none;
   }
 `;
+
+export const PlanSection = styled.section`
+  margin-bottom: 2rem;
+  background-color: ${(props) => props.theme.surface};
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+`;
+
+export const PlanHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+
+  h2 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  p {
+    margin: 0.3rem 0 0;
+    font-size: 0.92rem;
+    max-width: 780px;
+    color: ${(props) => props.theme.textMuted};
+  }
+`;
+
+export const PlanTag = styled.span`
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.surfaceHover};
+  color: ${(props) => props.theme.text};
+  border-radius: 999px;
+  padding: 0.36rem 0.76rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+`;
+
+export const PlanInfo = styled.div`
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  background: rgba(251, 191, 36, 0.12);
+  color: ${(props) => props.theme.text};
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+`;
+
+export const PlanGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.9rem;
+`;
+
+export const PlanCard = styled.div`
+  border: 1px solid
+    ${(props) =>
+      props.$tone === "basic"
+        ? "rgba(148, 163, 184, 0.26)"
+        : props.$tone === "pro"
+          ? "rgba(59, 130, 246, 0.32)"
+          : props.$tone === "premium" || props.$highlighted
+            ? "rgba(234, 179, 8, 0.55)"
+            : "rgba(148, 163, 184, 0.35)"};
+  background: ${(props) =>
+    props.$tone === "basic"
+      ? props.theme.surfaceHover
+      : props.$tone === "pro"
+        ? "linear-gradient(160deg, rgba(59, 130, 246, 0.1), rgba(15, 23, 42, 0.04))"
+        : props.$tone === "premium" || props.$highlighted
+          ? "linear-gradient(160deg, rgba(234, 179, 8, 0.16), rgba(30, 41, 59, 0.12))"
+          : props.theme.surface};
+  border-radius: 12px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+  opacity: ${(props) => (props.$tone === "basic" ? 0.92 : 1)};
+  box-shadow: ${(props) =>
+    props.$tone === "premium"
+      ? "0 14px 26px rgba(234, 179, 8, 0.14)"
+      : props.$tone === "pro"
+        ? "0 10px 18px rgba(59, 130, 246, 0.1)"
+        : "none"};
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+
+  &:hover {
+    transform: ${(props) =>
+      props.$tone === "basic" ? "none" : "translateY(-2px)"};
+    box-shadow: ${(props) =>
+      props.$tone === "premium"
+        ? "0 18px 30px rgba(234, 179, 8, 0.2)"
+        : props.$tone === "pro"
+          ? "0 14px 24px rgba(59, 130, 246, 0.16)"
+          : "none"};
+  }
+`;
+
+export const PlanTitle = styled.h3`
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1.02rem;
+`;
+
+export const PlanPrice = styled.div`
+  font-size: 1rem;
+  font-weight: 800;
+  color: ${(props) => props.theme.primary};
+`;
+
+export const PlanList = styled.ul`
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+
+  li {
+    font-size: 0.88rem;
+    color: ${(props) => props.theme.textMuted};
+  }
+`;
+
+export const PlanActionButton = styled.button`
+  border: none;
+  border-radius: 8px;
+  min-height: 38px;
+  padding: 0 0.85rem;
+  font-weight: 800;
+  background: ${(props) =>
+    props.$tone === "basic"
+      ? props.theme.border
+      : props.$tone === "pro"
+        ? "#3b82f6"
+        : props.theme.primary};
+  color: ${(props) =>
+    props.$tone === "basic" ? props.theme.textMuted : "#0f172a"};
+  cursor: pointer;
+  transition:
+    filter 160ms ease,
+    transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.03);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+export const PlanMutedText = styled.p`
+  margin: 0;
+  min-height: 4.1rem;
+  font-size: 0.88rem;
+  color: ${(props) => props.theme.textMuted};
+  display: flex;
+  align-items: center;
+`;

@@ -1,15 +1,13 @@
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import productRepository from "../../products/repositories/ProductRepository.js";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
+import {
+  PIX_PROVIDERS,
+  type PixProvider,
+  normalizePixProvider,
+} from "../../payments/providers/providerCatalog.js";
 
 const APPROVED_PAYMENT_STATUSES = new Set(["approved", "accredited", "paid"]);
-const PIX_PROVIDERS = {
-  MERCADO_PAGO: "MERCADO_PAGO",
-  NUBANK: "NUBANK",
-  PICPAY: "PICPAY",
-};
-
-type PixProvider = (typeof PIX_PROVIDERS)[keyof typeof PIX_PROVIDERS];
 
 type OrderItemInput = {
   productId: number;
@@ -20,6 +18,7 @@ type CreatePixPayload = {
   restaurantId: number | string;
   type: string;
   paymentMethod: string;
+  pixProvider?: string;
   items: OrderItemInput[];
   address?: string;
   number?: string;
@@ -28,6 +27,7 @@ type CreatePixPayload = {
   state?: string;
   customerName?: string;
   customerCpf?: string;
+  customerPhone?: string;
   userEmail?: string | null;
 };
 
@@ -279,15 +279,7 @@ class OrderPixPaymentService {
   }
 
   normalizePixProvider(value: unknown): PixProvider {
-    const provider = String(value || PIX_PROVIDERS.MERCADO_PAGO)
-      .trim()
-      .toUpperCase();
-
-    if (Object.values(PIX_PROVIDERS).includes(provider)) {
-      return provider;
-    }
-
-    return PIX_PROVIDERS.MERCADO_PAGO;
+    return normalizePixProvider(value);
   }
 
   async calculateOrderSubtotal({
@@ -319,6 +311,7 @@ class OrderPixPaymentService {
     restaurantId,
     type,
     paymentMethod,
+    pixProvider,
     items,
     address,
     number,
@@ -359,7 +352,12 @@ class OrderPixPaymentService {
         normalizedRestaurantId,
       );
 
-    const pixProvider = this.normalizePixProvider(settings?.pixProvider);
+    const requestedPixProvider = String(pixProvider || "")
+      .trim()
+      .toUpperCase();
+    const resolvedPixProvider = requestedPixProvider
+      ? this.normalizePixProvider(requestedPixProvider)
+      : this.normalizePixProvider(settings?.pixProvider);
     const pixKey = String(settings?.pixKey || "").trim();
 
     if (!pixKey) {
@@ -388,19 +386,19 @@ class OrderPixPaymentService {
       throw new Error("Total do pedido inválido para gerar cobrança PIX.");
     }
 
-    if (pixProvider !== PIX_PROVIDERS.MERCADO_PAGO) {
+    if (resolvedPixProvider !== PIX_PROVIDERS.MERCADO_PAGO) {
       const pixCopyPaste = buildPixPayload({
         pixKey,
         amount: totalAmount,
         merchantName: "RESTAURANTE",
         merchantCity: "SAO PAULO",
-        txid: `${pixProvider}${normalizedRestaurantId}${Date.now()}`,
+        txid: `${resolvedPixProvider}${normalizedRestaurantId}${Date.now()}`,
       });
 
       return {
-        paymentId: `manual:${pixProvider}:${normalizedRestaurantId}:${Date.now()}`,
+        paymentId: `manual:${resolvedPixProvider}:${normalizedRestaurantId}:${Date.now()}`,
         status: "pending_manual",
-        provider: pixProvider,
+        provider: resolvedPixProvider,
         totalAmount,
         qrCode: pixCopyPaste || pixKey,
         qrCodeBase64: null,
@@ -433,12 +431,13 @@ class OrderPixPaymentService {
       metadata: {
         restaurant_id: String(normalizedRestaurantId),
         source: "order_checkout",
-        provider: pixProvider,
+        provider: resolvedPixProvider,
       },
       external_reference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
     };
 
     const response = (await this.paymentApi.create({ body })) as unknown;
+
     const payment =
       typeof response === "object" && response !== null
         ? ((response as { body?: unknown }).body ?? response)
@@ -456,7 +455,7 @@ class OrderPixPaymentService {
     return {
       paymentId: String(paymentData.id),
       status: String(paymentData.status || "pending"),
-      provider: pixProvider,
+      provider: resolvedPixProvider,
       totalAmount,
       qrCode,
       qrCodeBase64: qrCodeBase64 || null,

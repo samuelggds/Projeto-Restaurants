@@ -386,6 +386,7 @@ class CreateOrderService {
       "new-order",
       createdOrder,
     );
+    io.to(`user:${createdOrder.userId}`).emit("new-order", createdOrder);
 
     if (shouldMarkAsPaid) {
       io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {

@@ -8,6 +8,33 @@ type CreateRestaurantSettingsPayload = {
   minimumOrder: number;
   pixProvider?: string;
   pixKey?: string | null;
+  legalDocumentType?: string | null;
+  companyDocument?: string | null;
+  companyLegalName?: string | null;
+  companyTradeName?: string | null;
+  companyAddress?: string | null;
+  companyCnae?: string | null;
+  monthlyRevenue?: number | null;
+  ownerFullName?: string | null;
+  ownerCpf?: string | null;
+  ownerBirthDate?: string | null;
+  ownerEmail?: string | null;
+  ownerPhone?: string | null;
+  ownerAddress?: string | null;
+  bankName?: string | null;
+  bankCode?: string | null;
+  bankAccountType?: string | null;
+  bankBranch?: string | null;
+  bankAccount?: string | null;
+  bankHolderDocument?: string | null;
+  cardGateway?: string | null;
+  gatewayMerchantId?: string | null;
+  pagbankEmail?: string | null;
+  pagbankToken?: string | null;
+  pagbankEnvironment?: string | null;
+  ownerDocumentFileUrl?: string | null;
+  bankProofFileUrl?: string | null;
+  companyContractFileUrl?: string | null;
   whatsapp?: string | null;
   instagram?: string | null;
   facebook?: string | null;
@@ -23,6 +50,33 @@ class CreateRestaurantSettingsService {
     minimumOrder,
     pixProvider,
     pixKey,
+    legalDocumentType,
+    companyDocument,
+    companyLegalName,
+    companyTradeName,
+    companyAddress,
+    companyCnae,
+    monthlyRevenue,
+    ownerFullName,
+    ownerCpf,
+    ownerBirthDate,
+    ownerEmail,
+    ownerPhone,
+    ownerAddress,
+    bankName,
+    bankCode,
+    bankAccountType,
+    bankBranch,
+    bankAccount,
+    bankHolderDocument,
+    cardGateway,
+    gatewayMerchantId,
+    pagbankEmail,
+    pagbankToken,
+    pagbankEnvironment,
+    ownerDocumentFileUrl,
+    bankProofFileUrl,
+    companyContractFileUrl,
     whatsapp,
     instagram,
     facebook,
@@ -61,6 +115,45 @@ class CreateRestaurantSettingsService {
       throw new Error("Nome do restaurante inválido.");
     }
 
+    const normalizedLegalDocumentType = String(legalDocumentType || "")
+      .trim()
+      .toUpperCase();
+    const normalizedCompanyDocument = String(companyDocument || "").replace(
+      /\D/g,
+      "",
+    );
+    const normalizedBankHolderDocument = String(
+      bankHolderDocument || "",
+    ).replace(/\D/g, "");
+    const normalizedOwnerCpf = String(ownerCpf || "").replace(/\D/g, "");
+    const normalizedOwnerPhone = String(ownerPhone || "").replace(/\D/g, "");
+
+    if (
+      normalizedLegalDocumentType === "CNPJ" &&
+      normalizedCompanyDocument.length > 0 &&
+      normalizedCompanyDocument.length !== 14
+    ) {
+      throw new Error("CNPJ inválido para cadastro da empresa.");
+    }
+
+    if (
+      normalizedLegalDocumentType === "CPF" &&
+      normalizedCompanyDocument.length > 0 &&
+      normalizedCompanyDocument.length !== 11
+    ) {
+      throw new Error("CPF inválido para cadastro de autônomo.");
+    }
+
+    if (
+      normalizedCompanyDocument &&
+      normalizedBankHolderDocument &&
+      normalizedCompanyDocument !== normalizedBankHolderDocument
+    ) {
+      throw new Error(
+        "A titularidade da conta bancária deve ser igual ao documento cadastrado (CPF/CNPJ).",
+      );
+    }
+
     const created = await restaurantSettingsRepository.create({
       restaurantId: Number(restaurantId),
       deliveryFee,
@@ -69,6 +162,40 @@ class CreateRestaurantSettingsService {
         .trim()
         .toUpperCase(),
       pixKey,
+      legalDocumentType: normalizedLegalDocumentType || null,
+      companyDocument: normalizedCompanyDocument || null,
+      companyLegalName: String(companyLegalName || "").trim() || null,
+      companyTradeName: String(companyTradeName || "").trim() || null,
+      companyAddress: String(companyAddress || "").trim() || null,
+      companyCnae: String(companyCnae || "").trim() || null,
+      monthlyRevenue:
+        monthlyRevenue === undefined || monthlyRevenue === null
+          ? null
+          : Number(monthlyRevenue),
+      ownerFullName: String(ownerFullName || "").trim() || null,
+      ownerCpf: normalizedOwnerCpf || null,
+      ownerBirthDate: ownerBirthDate ? new Date(ownerBirthDate) : null,
+      ownerEmail: String(ownerEmail || "").trim() || null,
+      ownerPhone: normalizedOwnerPhone || null,
+      ownerAddress: String(ownerAddress || "").trim() || null,
+      bankName: String(bankName || "").trim() || null,
+      bankCode: String(bankCode || "").trim() || null,
+      bankAccountType:
+        String(bankAccountType || "")
+          .trim()
+          .toUpperCase() || null,
+      bankBranch: String(bankBranch || "").trim() || null,
+      bankAccount: String(bankAccount || "").trim() || null,
+      bankHolderDocument: normalizedBankHolderDocument || null,
+      cardGateway: String(cardGateway || "").trim() || null,
+      gatewayMerchantId: String(gatewayMerchantId || "").trim() || null,
+      pagbankEmail: String(pagbankEmail || "").trim() || null,
+      pagbankToken: String(pagbankToken || "").trim() || null,
+      pagbankEnvironment: "production",
+      ownerDocumentFileUrl: String(ownerDocumentFileUrl || "").trim() || null,
+      bankProofFileUrl: String(bankProofFileUrl || "").trim() || null,
+      companyContractFileUrl:
+        String(companyContractFileUrl || "").trim() || null,
       instagram,
       facebook,
     });
@@ -102,6 +229,7 @@ class CreateRestaurantSettingsService {
 
     return {
       ...created,
+      pagbankToken: null,
       whatsapp: normalizedWhatsapp ?? null,
       restaurantName: normalizedRestaurantName ?? null,
       restaurantLogo: normalizedRestaurantLogo ?? null,

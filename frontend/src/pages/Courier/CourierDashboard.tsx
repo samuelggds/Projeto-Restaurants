@@ -105,7 +105,7 @@ export default function CourierDashboard() {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    const socket = connectSocket(token);
+    const socket = connectSocket(token, "courier-dashboard");
 
     function onStatusChanged(updatedOrder) {
       setOrders((prev) => {

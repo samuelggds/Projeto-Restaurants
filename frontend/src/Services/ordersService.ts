@@ -77,6 +77,12 @@ class OrdersService {
     return response.data;
   }
 
+  async getCurrentTableOrder() {
+    const response = await api.get("/orders/table/current");
+    const order = response.data?.order || null;
+    return order ? normalizeOrder(order) : null;
+  }
+
   async createOrder(payload: OrderPayload) {
     const response = await api.post("/orders", payload);
     return response.data;
@@ -87,8 +93,18 @@ class OrdersService {
     return response.data;
   }
 
+  async createCardCheckout(payload: PixPaymentPayload) {
+    const response = await api.post("/orders/card/checkout", payload);
+    return response.data;
+  }
+
   async getPixPaymentStatus(payload: PixPaymentStatusPayload) {
     const response = await api.post("/orders/pix/payment/status", payload);
+    return response.data;
+  }
+
+  async confirmPixPayment(payload: PixPaymentStatusPayload) {
+    const response = await api.post("/orders/pix/payment/confirm", payload);
     return response.data;
   }
 

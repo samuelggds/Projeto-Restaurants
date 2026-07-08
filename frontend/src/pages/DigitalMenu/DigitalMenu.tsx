@@ -21,6 +21,18 @@ import {
   disconnectTableSessionSocket,
 } from "../../Services/socketService";
 import {
+  buildCardPaymentSummary,
+  findSavedCard,
+  getEmptyCardDraft,
+  getCardNumberDigits,
+  isCardDraftComplete,
+  isCardNumberValid,
+  normalizeCardNumberInput,
+  persistCardWallet,
+  readCardWallet,
+  sanitizeCardDraft,
+} from "../../config/cardPaymentWallet";
+import {
   MAX_RATING_STARS,
   formatCpfInput,
   normalizeInstagramUrl,
@@ -39,7 +51,7 @@ const ProductDetailModal = lazy(
 const OrderDrawer = lazy(() => import("./components/OrderDrawer"));
 
 const MENU_RESTAURANT_KEY = "menuRestaurantId";
-const LAST_MESA_ORDER_KEY = "@PecaJaFood:lastMesaOrder";
+const MESA_ORDERS_KEY = "@PecaJaFood:mesaOrders";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PRODUCT_DETAIL_CLOSE_MS = 240;
@@ -68,6 +80,18 @@ function parseLastMesaOrder(raw) {
   };
 }
 
+function parseStoredMesaOrders(raw) {
+  if (!raw) {
+    return [];
+  }
+
+  const items = Array.isArray(raw) ? raw : [raw];
+
+  return items
+    .map((item) => parseLastMesaOrder(item))
+    .filter((item) => Boolean(item));
+}
+
 function normalizeRealtimeOrderUpdate(payload) {
   if (!payload || typeof payload !== "object") {
     return null;
@@ -87,13 +111,97 @@ function normalizeRealtimeOrderUpdate(payload) {
     createdAt: String(payload.createdAt || new Date().toISOString()),
     customerName: String(payload?.user?.name || payload.customerName || ""),
     tableId: Number(payload.tableId || payload?.table?.id || 0) || null,
+    tableNumber:
+      Number(payload.tableNumber || payload?.table?.number || 0) || null,
     restaurantId: Number(payload.restaurantId || 0) || null,
   };
+}
+
+function isDeliveredStatus(status) {
+  return (
+    String(status || "")
+      .trim()
+      .toUpperCase() === "ENTREGUE"
+  );
+}
+
+function toStoredOrderShape(payload, fallback = null) {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const id = Number(payload.id || payload.orderId || fallback?.id || 0);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return fallback;
+  }
+
+  return {
+    id,
+    status: String(
+      payload.status || fallback?.status || "PENDENTE",
+    ).toUpperCase(),
+    total: Number(payload.total || fallback?.total || 0),
+    paymentMethod: String(
+      payload.paymentMethod || fallback?.paymentMethod || "PIX",
+    ).toUpperCase(),
+    createdAt: String(
+      payload.createdAt || fallback?.createdAt || new Date().toISOString(),
+    ),
+    customerName: String(
+      payload?.user?.name ||
+        payload.customerName ||
+        fallback?.customerName ||
+        "",
+    ),
+    tableId:
+      Number(payload.tableId || payload?.table?.id || fallback?.tableId || 0) ||
+      null,
+    tableNumber:
+      Number(
+        payload.tableNumber ||
+          payload?.table?.number ||
+          fallback?.tableNumber ||
+          0,
+      ) || null,
+    restaurantId:
+      Number(payload.restaurantId || fallback?.restaurantId || 0) || null,
+  };
+}
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const responseData = error?.response?.data;
+
+  if (typeof responseData === "string" && responseData.trim()) {
+    return responseData;
+  }
+
+  if (responseData?.error && String(responseData.error).trim()) {
+    return String(responseData.error);
+  }
+
+  if (responseData?.message && String(responseData.message).trim()) {
+    return String(responseData.message);
+  }
+
+  if (Array.isArray(responseData?.issues) && responseData.issues.length > 0) {
+    const firstIssue = responseData.issues[0];
+    if (firstIssue?.message) {
+      return String(firstIssue.message);
+    }
+  }
+
+  if (error?.message && String(error.message).trim()) {
+    return String(error.message);
+  }
+
+  return fallbackMessage;
 }
 
 export default function DigitalMenu() {
   const { tableNumber: tableNumberParam } = useParams();
   const [searchParams] = useSearchParams();
+  const initialCardWallet = useMemo(() => readCardWallet(), []);
   const [products, setProducts] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -104,6 +212,23 @@ export default function DigitalMenu() {
   const [customerCpf, setCustomerCpf] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [observation, setObservation] = useState("");
+  const [savedCards, setSavedCards] = useState(initialCardWallet.cards);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState(
+    initialCardWallet.selectedCardId,
+  );
+  const [defaultSavedCardId, setDefaultSavedCardId] = useState(
+    initialCardWallet.defaultCardId,
+  );
+  const [cardPaymentDraft, setCardPaymentDraft] = useState(() => {
+    const selectedCard = findSavedCard(
+      initialCardWallet.cards,
+      initialCardWallet.selectedCardId,
+    );
+
+    return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
+  });
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [tablePin, setTablePin] = useState("");
@@ -112,7 +237,7 @@ export default function DigitalMenu() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isClosingProductDetail, setIsClosingProductDetail] = useState(false);
-  const [latestOrder, setLatestOrder] = useState(null);
+  const [mesaOrders, setMesaOrders] = useState([]);
   const [addedProductMap, setAddedProductMap] = useState({});
   const [restaurantProfile, setRestaurantProfile] = useState({
     name: "Restaurante",
@@ -123,8 +248,12 @@ export default function DigitalMenu() {
   const [tableSession, setTableSession] = useState(() => readTableSession());
   const pinRequestKeyRef = useRef("");
   const sessionClosedToastShownRef = useRef(false);
-  const closeProductDetailTimeoutRef = useRef(null);
-  const addFeedbackTimeoutsRef = useRef({});
+  const closeProductDetailTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const addFeedbackTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
 
   function clearMesaSession(showToast = true) {
     localStorage.removeItem("tableSession");
@@ -165,9 +294,7 @@ export default function DigitalMenu() {
   );
   const restaurantId = !isMesaContext
     ? null
-    : mesaSessionIsActive
-      ? Number(tableSession?.restaurantId || 0) || null
-      : routeRestaurantId || null;
+    : Number(tableSession?.restaurantId || 0) || routeRestaurantId || null;
 
   const {
     ratingHover,
@@ -199,9 +326,11 @@ export default function DigitalMenu() {
 
         setProducts(Array.isArray(data) ? data : []);
       } catch (error) {
-        toast.error(
-          error?.response?.data?.error || "Erro ao carregar cardápio",
-        );
+        const message =
+          error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          "Erro ao carregar cardápio";
+        toast.error(message);
       } finally {
         if (mounted) {
           setLoadingProducts(false);
@@ -215,6 +344,34 @@ export default function DigitalMenu() {
       mounted = false;
     };
   }, [mesaSessionIsActive, restaurantId]);
+
+  useEffect(() => {
+    const cardCheckoutStatus = String(
+      searchParams.get("cardCheckoutStatus") || "",
+    ).trim();
+
+    if (!cardCheckoutStatus) {
+      return;
+    }
+
+    if (cardCheckoutStatus === "success") {
+      setCart([]);
+      setDrawerOpen(true);
+      setDrawerStep("fluxo");
+      toast.success(
+        "Pagamento do cartao concluido. Aguardando confirmacao final do pedido.",
+      );
+      return;
+    }
+
+    if (cardCheckoutStatus === "cancel") {
+      toast.info(
+        "Pagamento com cartao cancelado. Seu pedido continuou no carrinho.",
+      );
+      setDrawerOpen(true);
+      setDrawerStep("finalizar");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!restaurantId) {
@@ -291,40 +448,43 @@ export default function DigitalMenu() {
   ]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(LAST_MESA_ORDER_KEY);
+    const stored = localStorage.getItem(MESA_ORDERS_KEY);
 
     if (!stored) {
-      setLatestOrder(null);
+      setMesaOrders([]);
       return;
     }
 
     try {
-      const parsed = parseLastMesaOrder(JSON.parse(stored));
+      const parsedOrders = parseStoredMesaOrders(JSON.parse(stored));
+      const filteredOrders = parsedOrders.filter((order) => {
+        if (
+          routeTableId &&
+          Number(order.tableId || 0) !== Number(routeTableId)
+        ) {
+          return false;
+        }
 
-      if (!parsed) {
-        setLatestOrder(null);
+        if (
+          routeRestaurantId &&
+          Number(order.restaurantId || 0) !== Number(routeRestaurantId)
+        ) {
+          return false;
+        }
+
+        return !isDeliveredStatus(order.status);
+      });
+
+      setMesaOrders(filteredOrders);
+
+      if (filteredOrders.length === 0) {
+        localStorage.removeItem(MESA_ORDERS_KEY);
         return;
       }
 
-      if (
-        routeTableId &&
-        Number(parsed.tableId || 0) !== Number(routeTableId)
-      ) {
-        setLatestOrder(null);
-        return;
-      }
-
-      if (
-        routeRestaurantId &&
-        Number(parsed.restaurantId || 0) !== Number(routeRestaurantId)
-      ) {
-        setLatestOrder(null);
-        return;
-      }
-
-      setLatestOrder(parsed);
+      localStorage.setItem(MESA_ORDERS_KEY, JSON.stringify(filteredOrders));
     } catch {
-      setLatestOrder(null);
+      setMesaOrders([]);
     }
   }, [routeTableId, routeRestaurantId]);
 
@@ -399,7 +559,10 @@ export default function DigitalMenu() {
       return;
     }
 
-    const socket = connectTableSessionSocket(tableSession.sessionToken);
+    const socket = connectTableSessionSocket(
+      tableSession.sessionToken,
+      "digital-menu",
+    );
 
     if (!socket) {
       return;
@@ -409,39 +572,82 @@ export default function DigitalMenu() {
       clearMesaSession(true);
     };
 
-    const onOrderStatusChanged = (payload) => {
-      const nextOrder = normalizeRealtimeOrderUpdate(payload);
+    const applyLatestOrderUpdate = (payload) => {
+      setMesaOrders((prev) => {
+        const normalizedPayload =
+          normalizeRealtimeOrderUpdate(payload) || payload;
+        const fallback =
+          prev.find(
+            (order) =>
+              Number(order?.id || 0) ===
+              Number(normalizedPayload?.id || normalizedPayload?.orderId || 0),
+          ) || null;
+        const nextOrder = toStoredOrderShape(normalizedPayload, fallback);
 
-      if (!nextOrder) {
-        return;
-      }
-
-      setLatestOrder((prev) => {
-        const prevId = Number(prev?.id || 0);
-        const isSameOrder = prevId > 0 && prevId === nextOrder.id;
-        const isSameTable =
-          Number(nextOrder.tableId || 0) > 0 &&
-          Number(nextOrder.tableId) === Number(routeTableId || 0);
-
-        if (!isSameOrder && !isSameTable) {
+        if (!nextOrder) {
           return prev;
         }
 
+        const tableCandidates = new Set(
+          [
+            Number(routeTableId || 0),
+            Number(routeTableNumber || 0),
+            Number(tableSession?.tableId || 0),
+            Number(tableSession?.tableNumber || 0),
+          ].filter((value) => Number.isInteger(value) && value > 0),
+        );
+        const nextTableId = Number(nextOrder.tableId || 0);
+        const nextTableNumber = Number(nextOrder.tableNumber || 0);
+        const isSameTableById =
+          nextTableId > 0 && tableCandidates.has(nextTableId);
+        const isSameTableByNumber =
+          nextTableNumber > 0 && tableCandidates.has(nextTableNumber);
+        const isSameTable = isSameTableById || isSameTableByNumber;
+
+        if (!isSameTable) {
+          return prev;
+        }
+
+        const existingIndex = prev.findIndex(
+          (order) => Number(order?.id || 0) === Number(nextOrder.id),
+        );
+        const existingOrder = existingIndex >= 0 ? prev[existingIndex] : null;
         const merged = {
-          ...(prev || {}),
+          ...(existingOrder || {}),
           ...nextOrder,
           total:
             Number(nextOrder.total || 0) > 0
               ? Number(nextOrder.total)
-              : Number(prev?.total || 0),
-          createdAt: nextOrder.createdAt || prev?.createdAt,
-          customerName: nextOrder.customerName || prev?.customerName || "",
+              : Number(existingOrder?.total || 0),
+          createdAt: nextOrder.createdAt || existingOrder?.createdAt,
+          customerName:
+            nextOrder.customerName || existingOrder?.customerName || "",
         };
 
-        localStorage.setItem(LAST_MESA_ORDER_KEY, JSON.stringify(merged));
+        const nextOrders =
+          existingIndex >= 0
+            ? prev.map((order, index) =>
+                index === existingIndex ? merged : order,
+              )
+            : [merged, ...prev];
 
-        return merged;
+        const activeOrders = nextOrders.filter(
+          (order) => !isDeliveredStatus(order.status),
+        );
+
+        if (activeOrders.length === 0) {
+          localStorage.removeItem(MESA_ORDERS_KEY);
+          return [];
+        }
+
+        localStorage.setItem(MESA_ORDERS_KEY, JSON.stringify(activeOrders));
+
+        return activeOrders;
       });
+    };
+
+    const onOrderStatusChanged = (payload) => {
+      applyLatestOrderUpdate(payload);
     };
 
     const onOrderPaymentConfirmed = (payload) => {
@@ -451,21 +657,27 @@ export default function DigitalMenu() {
         return;
       }
 
-      setLatestOrder((prev) => {
-        if (Number(prev?.id || 0) !== payloadOrderId) {
+      setMesaOrders((prev) => {
+        if (!Array.isArray(prev) || prev.length === 0) {
           return prev;
         }
 
-        const merged = {
-          ...prev,
-          paymentMethod: String(
-            payload?.paymentMethod || prev?.paymentMethod || "PIX",
-          ).toUpperCase(),
-        };
+        const nextOrders = prev.map((order) => {
+          if (Number(order?.id || 0) !== payloadOrderId) {
+            return order;
+          }
 
-        localStorage.setItem(LAST_MESA_ORDER_KEY, JSON.stringify(merged));
+          return {
+            ...order,
+            paymentMethod: String(
+              payload?.paymentMethod || order?.paymentMethod || "PIX",
+            ).toUpperCase(),
+          };
+        });
 
-        return merged;
+        localStorage.setItem(MESA_ORDERS_KEY, JSON.stringify(nextOrders));
+
+        return nextOrders;
       });
     };
 
@@ -480,6 +692,68 @@ export default function DigitalMenu() {
       disconnectTableSessionSocket();
     };
   }, [mesaSessionIsActive, routeTableId, tableSession?.sessionToken]);
+
+  useEffect(() => {
+    if (!mesaSessionIsActive || !tableSession?.sessionToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncCurrentTableOrder = async () => {
+      try {
+        const order = await ordersService.getCurrentTableOrder();
+
+        if (cancelled || !order) {
+          return;
+        }
+
+        const nextOrder = toStoredOrderShape(order);
+
+        if (!nextOrder) {
+          return;
+        }
+
+        setMesaOrders((prev) => {
+          const existingIndex = prev.findIndex(
+            (order) => Number(order?.id || 0) === Number(nextOrder.id),
+          );
+          const existingOrder = existingIndex >= 0 ? prev[existingIndex] : null;
+          const merged = {
+            ...(existingOrder || {}),
+            ...nextOrder,
+          };
+          const nextOrders =
+            existingIndex >= 0
+              ? prev.map((order, index) =>
+                  index === existingIndex ? merged : order,
+                )
+              : [merged, ...prev];
+          const activeOrders = nextOrders.filter(
+            (order) => !isDeliveredStatus(order.status),
+          );
+
+          if (activeOrders.length === 0) {
+            localStorage.removeItem(MESA_ORDERS_KEY);
+            return [];
+          }
+
+          localStorage.setItem(MESA_ORDERS_KEY, JSON.stringify(activeOrders));
+          return activeOrders;
+        });
+      } catch {
+        // O fallback por polling nao deve interromper a experiencia se falhar.
+      }
+    };
+
+    syncCurrentTableOrder();
+    const intervalId = setInterval(syncCurrentTableOrder, 4000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [mesaSessionIsActive, tableSession?.sessionToken]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -505,6 +779,10 @@ export default function DigitalMenu() {
       });
     };
   }, []);
+
+  useEffect(() => {
+    persistCardWallet(savedCards, selectedSavedCardId, defaultSavedCardId);
+  }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
 
   const categories = useMemo(() => {
     const categoryMap = new Map();
@@ -725,6 +1003,61 @@ export default function DigitalMenu() {
       return;
     }
 
+    if (normalizedPaymentMethod === "CARTAO") {
+      if (!isCardDraftComplete(cardPaymentDraft)) {
+        toast.error(
+          "Informe titular, bandeira e os 4 ultimos digitos do cartao para continuar.",
+        );
+        return;
+      }
+
+      if (!isCardNumberValid(cardNumber)) {
+        toast.error("Informe um numero de cartao valido.");
+        return;
+      }
+
+      const fullCardDigits = getCardNumberDigits(cardNumber);
+      const savedLastFour = String(cardPaymentDraft?.lastFour || "");
+
+      if (savedLastFour && !fullCardDigits.endsWith(savedLastFour)) {
+        toast.error(
+          "O numero completo do cartao precisa terminar com os 4 digitos do cartao selecionado.",
+        );
+        return;
+      }
+
+      if (!/^\d{3,4}$/.test(String(cardCvv || "").trim())) {
+        toast.error("Informe um CVV valido com 3 ou 4 digitos.");
+        return;
+      }
+
+      const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
+      const normalizedHolder = sanitizedDraft.holderName.trim().toLowerCase();
+      const normalizedBrand = sanitizedDraft.brand.trim().toLowerCase();
+      const existingCard =
+        findSavedCard(savedCards, selectedSavedCardId) ||
+        savedCards.find(
+          (card) =>
+            card.lastFour === sanitizedDraft.lastFour &&
+            card.holderName.trim().toLowerCase() === normalizedHolder &&
+            card.brand.trim().toLowerCase() === normalizedBrand,
+        ) ||
+        null;
+      const nextCard = {
+        id: existingCard?.id || `${Date.now()}`,
+        ...sanitizedDraft,
+      };
+      const nextCards = existingCard
+        ? savedCards.map((card) =>
+            card.id === existingCard.id ? nextCard : card,
+          )
+        : [...savedCards, nextCard];
+
+      setSavedCards(nextCards);
+      setSelectedSavedCardId(nextCard.id);
+      setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    }
+
     for (const item of cart) {
       const product = products.find(
         (current) => Number(current?.id) === Number(item.productId),
@@ -769,6 +1102,54 @@ export default function DigitalMenu() {
     try {
       setSubmitting(true);
 
+      try {
+        await tableSessionService.getCurrentSession();
+      } catch (sessionError) {
+        const status = Number(sessionError?.response?.status || 0);
+
+        if (status === 401 || status === 403 || status === 404) {
+          clearMesaSession(false);
+          throw new Error(
+            "Sessao da mesa expirada. Solicite um novo PIN para continuar.",
+          );
+        }
+
+        throw sessionError;
+      }
+
+      const cardPaymentSummary =
+        normalizedPaymentMethod === "CARTAO"
+          ? buildCardPaymentSummary(cardPaymentDraft)
+          : "";
+
+      if (normalizedPaymentMethod === "CARTAO") {
+        const checkout = await ordersService.createCardCheckout({
+          restaurantId,
+          type: "MESA",
+          tableId: Number(tableSession.tableId),
+          paymentMethod: normalizedPaymentMethod,
+          customerName: trimmedName,
+          customerCpf: cpfDigits,
+          observation:
+            [observation.trim(), cardPaymentSummary]
+              .filter(Boolean)
+              .join(" | ") || undefined,
+          items: cart.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          })),
+          successUrl: window.location.href,
+          cancelUrl: window.location.href,
+        });
+
+        if (!checkout?.checkoutUrl) {
+          throw new Error("Nao foi possivel iniciar o pagamento com cartao.");
+        }
+
+        window.location.href = String(checkout.checkoutUrl);
+        return;
+      }
+
       const createdOrder = await ordersService.createOrder({
         restaurantId,
         type: "MESA",
@@ -776,7 +1157,10 @@ export default function DigitalMenu() {
         paymentMethod: normalizedPaymentMethod,
         customerName: trimmedName,
         customerCpf: cpfDigits,
-        observation: observation.trim() || undefined,
+        observation:
+          [observation.trim(), cardPaymentSummary]
+            .filter(Boolean)
+            .join(" | ") || undefined,
         items: cart.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -796,8 +1180,22 @@ export default function DigitalMenu() {
         restaurantId: Number(createdOrder?.restaurantId || restaurantId || 0),
       };
 
-      localStorage.setItem(LAST_MESA_ORDER_KEY, JSON.stringify(nextOrder));
-      setLatestOrder(nextOrder);
+      setMesaOrders((prev) => {
+        const nextOrders = [
+          nextOrder,
+          ...prev.filter(
+            (order) => Number(order?.id || 0) !== Number(nextOrder.id),
+          ),
+        ].filter((order) => !isDeliveredStatus(order.status));
+
+        if (nextOrders.length === 0) {
+          localStorage.removeItem(MESA_ORDERS_KEY);
+          return [];
+        }
+
+        localStorage.setItem(MESA_ORDERS_KEY, JSON.stringify(nextOrders));
+        return nextOrders;
+      });
 
       const elapsed = Date.now() - startedAt;
       if (elapsed < MIN_CONFIRMATION_DELAY_MS) {
@@ -821,7 +1219,7 @@ export default function DigitalMenu() {
       setDrawerOpen(true);
       setDrawerStep("fluxo");
     } catch (error) {
-      toast.error(error?.response?.data?.error || "Erro ao finalizar pedido");
+      toast.error(getApiErrorMessage(error, "Erro ao finalizar pedido"));
       setIsConfirmed(false);
       setSubmitting(false);
     }
@@ -829,6 +1227,108 @@ export default function DigitalMenu() {
 
   function handleScrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCardPaymentDraftChange(field, value) {
+    setCardPaymentDraft((prev) => ({
+      ...prev,
+      [field]:
+        field === "lastFour"
+          ? String(value || "")
+              .replace(/\D/g, "")
+              .slice(0, 4)
+          : value,
+    }));
+  }
+
+  function handleSelectSavedCard(cardId) {
+    const selectedCard = findSavedCard(savedCards, cardId);
+
+    if (!selectedCard) {
+      return;
+    }
+
+    setSelectedSavedCardId(selectedCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(selectedCard));
+    setCardNumber("");
+    setCardCvv("");
+  }
+
+  function handleStartNewSavedCard() {
+    setSelectedSavedCardId(null);
+    setCardPaymentDraft(getEmptyCardDraft());
+    setCardNumber("");
+    setCardCvv("");
+  }
+
+  function handleSetDefaultSavedCard(cardId) {
+    const selectedCard = findSavedCard(savedCards, cardId);
+
+    if (!selectedCard) {
+      return;
+    }
+
+    setDefaultSavedCardId(selectedCard.id);
+    toast.success("Cartao padrao atualizado.");
+  }
+
+  function handleSaveCurrentCard() {
+    const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
+
+    if (!isCardDraftComplete(sanitizedDraft)) {
+      toast.error(
+        "Preencha titular, bandeira e os 4 ultimos digitos para salvar o cartao.",
+      );
+      return;
+    }
+
+    const normalizedHolder = sanitizedDraft.holderName.trim().toLowerCase();
+    const normalizedBrand = sanitizedDraft.brand.trim().toLowerCase();
+    const existingCard =
+      findSavedCard(savedCards, selectedSavedCardId) ||
+      savedCards.find(
+        (card) =>
+          card.lastFour === sanitizedDraft.lastFour &&
+          card.holderName.trim().toLowerCase() === normalizedHolder &&
+          card.brand.trim().toLowerCase() === normalizedBrand,
+      ) ||
+      null;
+    const nextCard = {
+      id: existingCard?.id || `${Date.now()}`,
+      ...sanitizedDraft,
+    };
+    const nextCards = existingCard
+      ? savedCards.map((card) =>
+          card.id === existingCard.id ? nextCard : card,
+        )
+      : [...savedCards, nextCard];
+
+    setSavedCards(nextCards);
+    setSelectedSavedCardId(nextCard.id);
+    setDefaultSavedCardId((prev) => prev || nextCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
+  }
+
+  function handleRemoveSavedCard(cardId) {
+    const nextCards = savedCards.filter((card) => card.id !== cardId);
+    const nextSelectedCardId = nextCards[0]?.id || null;
+    const nextDefaultCardId =
+      defaultSavedCardId === cardId
+        ? nextCards[0]?.id || null
+        : defaultSavedCardId;
+
+    setSavedCards(nextCards);
+    setSelectedSavedCardId(nextSelectedCardId);
+    setDefaultSavedCardId(nextDefaultCardId);
+    setCardPaymentDraft(
+      nextSelectedCardId
+        ? sanitizeCardDraft(findSavedCard(nextCards, nextSelectedCardId))
+        : getEmptyCardDraft(),
+    );
+    setCardNumber("");
+    setCardCvv("");
+    toast.info("Cartao removido.");
   }
 
   function handleOpenProductDetail(product) {
@@ -1156,17 +1656,31 @@ export default function DigitalMenu() {
                 customerCpf={customerCpf}
                 paymentMethod={paymentMethod}
                 observation={observation}
+                savedCards={savedCards}
+                selectedSavedCardId={selectedSavedCardId}
+                defaultSavedCardId={defaultSavedCardId}
+                cardPaymentDraft={cardPaymentDraft}
+                cardNumber={cardNumber}
+                cardCvv={cardCvv}
                 setCustomerName={setCustomerName}
                 onCustomerCpfChange={(value) =>
                   setCustomerCpf(formatCpfInput(value))
                 }
                 setPaymentMethod={setPaymentMethod}
                 setObservation={setObservation}
+                onCardPaymentDraftChange={handleCardPaymentDraftChange}
+                onSelectSavedCard={handleSelectSavedCard}
+                onSetDefaultSavedCard={handleSetDefaultSavedCard}
+                onStartNewSavedCard={handleStartNewSavedCard}
+                onSaveCurrentCard={handleSaveCurrentCard}
+                onRemoveSavedCard={handleRemoveSavedCard}
+                onCardNumberChange={setCardNumber}
+                onCardCvvChange={setCardCvv}
                 handleFinishOrder={handleFinishOrder}
                 submitting={submitting}
                 isConfirmed={isConfirmed}
                 loadingProducts={loadingProducts}
-                latestOrder={latestOrder}
+                mesaOrders={mesaOrders}
               />
             </Suspense>
           </>

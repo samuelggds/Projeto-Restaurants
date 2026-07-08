@@ -10,7 +10,10 @@
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "db:seed": "tsx prisma/seed.ts",
-    "create:superadmin": "tsx scripts/createSuperAdmin.ts"
+    "create:superadmin": "tsx scripts/createSuperAdmin.ts",
+    "test:pagbank-webhook": "node scripts/testPagBankWebhook.mjs",
+    "test:pagbank-transaction": "node scripts/testPagBankTransaction.mjs",
+    "test:pagbank-flow": "node scripts/testPagBankFlow.mjs"
   },
   "keywords": [],
   "author": "",

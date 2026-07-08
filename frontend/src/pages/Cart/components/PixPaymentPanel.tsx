@@ -1,14 +1,16 @@
 import type { ChangeEvent } from "react";
-import { CheckCircle, Copy } from "lucide-react";
+import { Copy } from "lucide-react";
 import QRCode from "react-qr-code";
 import * as S from "../styles";
 
 type PixPaymentData = {
   orderId: number | null;
   total: number;
+  paymentId?: string;
   provider: string;
   pixCode: string;
   qrCodeBase64: string | null;
+  requiresStatusCheck?: boolean;
 };
 
 type PixPaymentPanelProps = {
@@ -19,11 +21,9 @@ type PixPaymentPanelProps = {
   pixManualProofImageName: string;
   isSubmittingPixConfirmation: boolean;
   isManualProvider: boolean;
-  isConfirmDisabled: boolean;
   onCopyPixKey: () => void;
   onPixManualProofChange: (value: string) => void;
   onManualProofFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onConfirmPayment: () => void;
 };
 
 export default function PixPaymentPanel({
@@ -34,11 +34,9 @@ export default function PixPaymentPanel({
   pixManualProofImageName,
   isSubmittingPixConfirmation,
   isManualProvider,
-  isConfirmDisabled,
   onCopyPixKey,
   onPixManualProofChange,
   onManualProofFileChange,
-  onConfirmPayment,
 }: PixPaymentPanelProps) {
   return (
     <div
@@ -59,10 +57,27 @@ export default function PixPaymentPanel({
       <h2 style={{ margin: 0 }}>Pedido confirmado!</h2>
       <p style={{ margin: 0, color: "#334155", lineHeight: 1.5 }}>
         {pixPaymentData?.provider === "MERCADO_PAGO"
-          ? "Finalize o pagamento com PIX para agilizar a preparação."
-          : "Realize o pagamento PIX no app do provedor e depois confirme para gerar o pedido."}
+          ? "Finalize o pagamento com PIX. Assim que o provedor aprovar, o pedido sera confirmado automaticamente."
+          : "Realize o pagamento PIX no app do provedor. Assim que o comprovante for informado, o pedido sera confirmado automaticamente."}
         {pixPaymentData.orderId ? ` Pedido #${pixPaymentData.orderId}.` : ""}
       </p>
+
+      {pixPaymentData?.provider === "MERCADO_PAGO" ? (
+        <div
+          style={{
+            border: "1px solid #bfdbfe",
+            background: "#eff6ff",
+            color: "#1d4ed8",
+            borderRadius: 12,
+            padding: "0.85rem 1rem",
+            fontSize: 14,
+            fontWeight: 700,
+          }}
+        >
+          Pagamento monitorado automaticamente. Nao e necessario clicar para
+          confirmar.
+        </div>
+      ) : null}
 
       <div
         style={{
@@ -253,25 +268,40 @@ export default function PixPaymentPanel({
                 />
               </div>
             ) : null}
+
+            <small
+              style={{
+                display: "block",
+                marginTop: "0.75rem",
+                color: "#475569",
+                lineHeight: 1.5,
+              }}
+            >
+              Ao preencher o comprovante, a confirmacao do pagamento acontece
+              automaticamente.
+            </small>
           </div>
         )}
       </div>
 
-      <S.PrimaryButton
-        onClick={onConfirmPayment}
-        disabled={isConfirmDisabled}
-        style={{ width: "100%", justifyContent: "center" }}
-      >
-        {isSubmittingPixConfirmation ? (
-          <>
-            <S.LoadingSpinner /> Gerando pedido...
-          </>
-        ) : (
-          <>
-            <CheckCircle size={18} /> Confirmar pagamento e gerar pedido
-          </>
-        )}
-      </S.PrimaryButton>
+      {isManualProvider && isSubmittingPixConfirmation ? (
+        <div
+          style={{
+            width: "100%",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.6rem",
+            borderRadius: 999,
+            padding: "0.9rem 1.1rem",
+            background: "#0f172a",
+            color: "#f8fafc",
+            fontWeight: 700,
+          }}
+        >
+          <S.LoadingSpinner /> Confirmando pagamento...
+        </div>
+      ) : null}
     </div>
   );
 }

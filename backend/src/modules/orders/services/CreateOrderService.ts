@@ -5,6 +5,7 @@ import { io } from "../../../server.js";
 import { createOrderSchema } from "../../../validators/OrderValidator.js";
 import splitService from "../../billing/services/SplitService.js";
 import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
+import orderPixPaymentService from "./OrderPixPaymentService.js";
 import {
   PaymentMethod,
   Prisma,
@@ -22,6 +23,7 @@ type CreateOrderPayload = {
   userRestaurantId?: number | string | null;
   tableSessionId?: number | string | null;
   tableSessionTableId?: number | string | null;
+  deferRealtimeUntilPaid?: boolean;
   type: OrderType;
   paymentMethod?: PaymentMethod;
   paid?: boolean;
@@ -50,6 +52,15 @@ type ResolveOrderUserPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+};
+
+type ResolvePaymentStatePayload = {
+  paymentMethod?: PaymentMethod;
+  paid?: boolean;
+  pixPaymentId?: string;
+  paymentProof?: string;
+  paymentProofImage?: string;
+  restaurantId: number;
 };
 
 class CreateOrderService {
@@ -150,12 +161,93 @@ class CreateOrderService {
     return Number(guestUser.id);
   }
 
+  async resolvePaymentState({
+    paymentMethod,
+    paid,
+    pixPaymentId,
+    paymentProof,
+    paymentProofImage,
+    restaurantId,
+  }: ResolvePaymentStatePayload) {
+    const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
+    const normalizedPixPaymentId = String(pixPaymentId || "").trim();
+    const requestedAsPaid = paid === true;
+    const hasManualPaymentProof =
+      String(paymentProof || "").trim().length >= 6 ||
+      String(paymentProofImage || "")
+        .trim()
+        .startsWith("data:image/");
+
+    if (!requestedAsPaid) {
+      return {
+        normalizedPaymentMethod,
+        normalizedPixPaymentId,
+        shouldMarkAsPaid: false,
+        paidAt: null,
+      };
+    }
+
+    if (normalizedPaymentMethod === PaymentMethod.PIX) {
+      if (
+        normalizedPixPaymentId &&
+        !normalizedPixPaymentId.startsWith("manual:")
+      ) {
+        const paymentStatus =
+          await orderPixPaymentService.ensurePaymentApproved({
+            paymentId: normalizedPixPaymentId,
+            restaurantId,
+          });
+
+        if (!paymentStatus.sameRestaurant) {
+          throw new Error(
+            "O pagamento PIX informado nao pertence a este restaurante.",
+          );
+        }
+
+        return {
+          normalizedPaymentMethod,
+          normalizedPixPaymentId,
+          shouldMarkAsPaid: true,
+          paidAt: new Date(),
+        };
+      }
+
+      if (
+        normalizedPixPaymentId.startsWith("manual:") &&
+        hasManualPaymentProof
+      ) {
+        return {
+          normalizedPaymentMethod,
+          normalizedPixPaymentId,
+          shouldMarkAsPaid: true,
+          paidAt: new Date(),
+        };
+      }
+
+      throw new Error("Pagamento PIX ainda nao foi confirmado pelo provedor.");
+    }
+
+    if (normalizedPaymentMethod === PaymentMethod.CARTAO) {
+      throw new Error(
+        "Confirmacao automatica para cartao ainda nao esta configurada. Integre um gateway online para liberar essa automacao.",
+      );
+    }
+
+    return {
+      normalizedPaymentMethod,
+      normalizedPixPaymentId,
+      shouldMarkAsPaid: false,
+      paidAt: null,
+    };
+  }
+
   async execute({
     userId,
     restaurantId,
     userRestaurantId,
     tableSessionId,
     tableSessionTableId,
+    deferRealtimeUntilPaid,
     type,
     paymentMethod,
     paid,
@@ -205,6 +297,20 @@ class CreateOrderService {
       paymentProofImage,
     });
 
+    const {
+      normalizedPaymentMethod,
+      normalizedPixPaymentId,
+      shouldMarkAsPaid,
+      paidAt,
+    } = await this.resolvePaymentState({
+      paymentMethod,
+      paid,
+      pixPaymentId,
+      paymentProof,
+      paymentProofImage,
+      restaurantId: resolvedRestaurantId,
+    });
+
     if (type === "MESA") {
       if (!tableSessionId) {
         throw new Error(
@@ -245,9 +351,6 @@ class CreateOrderService {
         );
       }
     }
-
-    const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
-    const shouldMarkAsPaid = paid === true;
 
     const createdOrder = await prisma.$transaction(async (tx) => {
       const resolvedUserId = await this.resolveOrderUser({
@@ -355,6 +458,8 @@ class CreateOrderService {
           type,
           paymentMethod,
           paid: shouldMarkAsPaid,
+          pixPaymentId: normalizedPixPaymentId || null,
+          paidAt,
           paymentProof: String(paymentProof || "").trim() || null,
           paymentProofImage: String(paymentProofImage || "").trim() || null,
           observation: mergedObservation || null,
@@ -382,10 +487,16 @@ class CreateOrderService {
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
     });
 
-    io.to(`restaurant:${createdOrder.restaurantId}`).emit(
-      "new-order",
-      createdOrder,
-    );
+    const shouldDeferRealtimeUntilPaid =
+      deferRealtimeUntilPaid === true && shouldMarkAsPaid !== true;
+
+    if (!shouldDeferRealtimeUntilPaid) {
+      io.to(`restaurant:${createdOrder.restaurantId}`).emit(
+        "new-order",
+        createdOrder,
+      );
+      io.to(`user:${createdOrder.userId}`).emit("new-order", createdOrder);
+    }
 
     if (shouldMarkAsPaid) {
       io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {
@@ -416,4 +527,3 @@ class CreateOrderService {
 }
 
 export default new CreateOrderService();
-

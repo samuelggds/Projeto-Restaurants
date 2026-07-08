@@ -1,0 +1,21 @@
+-- AlterTable
+ALTER TABLE "RestaurantSettings"
+ADD COLUMN "legalDocumentType" TEXT,
+ADD COLUMN "companyDocument" TEXT,
+ADD COLUMN "companyLegalName" TEXT,
+ADD COLUMN "companyTradeName" TEXT,
+ADD COLUMN "companyAddress" TEXT,
+ADD COLUMN "companyCnae" TEXT,
+ADD COLUMN "monthlyRevenue" DECIMAL(12,2),
+ADD COLUMN "ownerFullName" TEXT,
+ADD COLUMN "ownerCpf" TEXT,
+ADD COLUMN "ownerBirthDate" TIMESTAMP(3),
+ADD COLUMN "ownerEmail" TEXT,
+ADD COLUMN "ownerPhone" TEXT,
+ADD COLUMN "ownerAddress" TEXT,
+ADD COLUMN "bankCode" TEXT,
+ADD COLUMN "bankAccountType" TEXT,
+ADD COLUMN "bankHolderDocument" TEXT,
+ADD COLUMN "ownerDocumentFileUrl" TEXT,
+ADD COLUMN "bankProofFileUrl" TEXT,
+ADD COLUMN "companyContractFileUrl" TEXT;

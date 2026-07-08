@@ -11,13 +11,24 @@ import ConfirmOrderPaymentWithPinController from "../controllers/ConfirmOrderPay
 import GenerateOrderPaymentConfirmationPinController from "../controllers/GenerateOrderPaymentConfirmationPinController.js";
 import RequestOrderPaymentConfirmationPinController from "../controllers/RequestOrderPaymentConfirmationPinController.js";
 import CreateOrderPixPaymentController from "../controllers/CreateOrderPixPaymentController.js";
+import CreateOrderCardCheckoutController from "../controllers/CreateOrderCardCheckoutController.js";
 import GetOrderPixPaymentStatusController from "../controllers/GetOrderPixPaymentStatusController.js";
+import ConfirmOrderPixPaymentController from "../controllers/ConfirmOrderPixPaymentController.js";
+import MercadoPagoOrderWebhookController from "../controllers/MercadoPagoOrderWebhookController.js";
+import StripeOrderWebhookController from "../controllers/StripeOrderWebhookController.js";
+import PagBankOrderWebhookController from "../controllers/PagBankOrderWebhookController.js";
+import GetCurrentTableOrderController from "../controllers/GetCurrentTableOrderController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { billingMiddleware } from "../../../middlewares/billingMiddleware.js";
 import { orderAccessMiddleware } from "../../../middlewares/orderAccessMiddleware.js";
 import { authMiddleware } from "../../../middlewares/authMiddleware.js";
+import { sessionMiddleware } from "../../../middlewares/sessionMiddleware.js";
 
 const router = Router();
+
+router.post("/webhook/mercadopago", MercadoPagoOrderWebhookController.handle);
+router.post("/webhook/stripe", StripeOrderWebhookController.handle);
+router.post("/webhook/pagbank", PagBankOrderWebhookController.handle);
 
 router.post("/", orderAccessMiddleware, billingMiddleware, (req, res) => {
   CreateOrderController.handle(req, res);
@@ -33,11 +44,29 @@ router.post(
 );
 
 router.post(
+  "/card/checkout",
+  orderAccessMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    CreateOrderCardCheckoutController.handle(req, res);
+  },
+);
+
+router.post(
   "/pix/payment/status",
   orderAccessMiddleware,
   billingMiddleware,
   (req, res) => {
     GetOrderPixPaymentStatusController.handle(req, res);
+  },
+);
+
+router.post(
+  "/pix/payment/confirm",
+  orderAccessMiddleware,
+  billingMiddleware,
+  (req, res) => {
+    ConfirmOrderPixPaymentController.handle(req, res);
   },
 );
 
@@ -86,6 +115,10 @@ router.get("/", authMiddleware, staffMiddleware, (req, res) => {
 });
 router.get("/my-orders", authMiddleware, (req, res) => {
   ListMyOrdersController.handle(req, res);
+});
+
+router.get("/table/current", sessionMiddleware, (req, res) => {
+  GetCurrentTableOrderController.handle(req, res);
 });
 
 router.get("/:id", authMiddleware, staffMiddleware, (req, res) => {

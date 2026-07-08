@@ -285,7 +285,7 @@ export default function OrdersTab({
           { key: "PENDENTE", label: "Pendente" },
           { key: "PREPARANDO", label: "Preparando" },
           { key: "PRONTO", label: "Pronto" },
-          { key: "SAIU_PARA_ENTREGA", label: "Em entrega" },
+          { key: "SAIU_PARA_ENTREGA", label: "A caminho" },
           { key: "ENTREGUE", label: "Entregue" },
           { key: "CANCELADO", label: "Cancelado" },
         ].map((status) => (
@@ -451,9 +451,11 @@ export default function OrdersTab({
           </p>
         ) : (
           displayedOrders.map((order) => {
-            const isDelivery = String(order.type).includes("DELIVERY");
+            const normalizedOrderType = String(order?.type || "").toUpperCase();
+            const isDelivery = normalizedOrderType.includes("DELIVERY");
             const deliveryCustomerName = "Admin Pizza IA";
             const paymentSummaryLabel = getPaymentSummaryLabel(order);
+            const paymentStatusLabel = order.paid ? "Pago" : "Nao pago";
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
@@ -476,6 +478,15 @@ export default function OrdersTab({
               border: "1px solid #e2e8f0",
               borderRadius: 6,
               padding: "3px 8px",
+            };
+            const paymentStatusChipStyle = {
+              ...infoChipStyle,
+              color: order.paid ? "#166534" : "#991b1b",
+              background: order.paid ? "#dcfce7" : "#fee2e2",
+              border: order.paid
+                ? "1px solid rgba(34, 197, 94, 0.35)"
+                : "1px solid rgba(239, 68, 68, 0.35)",
+              fontWeight: 800,
             };
             const orderItems = Array.isArray(order?.items) ? order.items : [];
 
@@ -584,7 +595,10 @@ export default function OrdersTab({
                   <span style={infoChipStyle}>
                     <CreditCard size={13} />
                     {paymentSummaryLabel}
-                    {order.paid ? " | Confirmado" : ""}
+                  </span>
+                  <span style={paymentStatusChipStyle}>
+                    <CreditCard size={13} />
+                    {paymentStatusLabel}
                   </span>
                 </div>
 
@@ -826,10 +840,7 @@ export default function OrdersTab({
                           fontSize: "0.9rem",
                         }}
                         onClick={() =>
-                          onUpdateStatus(
-                            order,
-                            isDelivery ? "SAIU_PARA_ENTREGA" : "ENTREGUE",
-                          )
+                          onUpdateStatus(order, "SAIU_PARA_ENTREGA")
                         }
                       >
                         {isDelivery ? (
@@ -843,7 +854,7 @@ export default function OrdersTab({
                               size={18}
                               style={{ marginRight: 6 }}
                             />{" "}
-                            Entregar na Mesa / Balcão
+                            Enviar para A caminho
                           </>
                         )}
                       </button>
@@ -858,9 +869,9 @@ export default function OrdersTab({
                           fontSize: "0.9rem",
                         }}
                         onClick={() => onUpdateStatus(order, "ENTREGUE")}
-                        disabled={deliveryBlockedUntilPaid}
+                        disabled={isDelivery && deliveryBlockedUntilPaid}
                         title={
-                          deliveryBlockedUntilPaid
+                          isDelivery && deliveryBlockedUntilPaid
                             ? "Confirme o pagamento antes de entregar"
                             : ""
                         }

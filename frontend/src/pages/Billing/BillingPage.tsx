@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Gem,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import * as S from "./styles";
@@ -50,8 +51,38 @@ export default function BillingPage() {
   const { user, isLoading } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [invoices, setInvoices] = useState([]);
+  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+
+  const PLAN_DISPLAY = {
+    BASICO: "Basico",
+    PROFISSIONAL: "Profissional",
+    PREMIUM: "Premium",
+  };
+
+  const PLAN_PRICES = {
+    BASICO: "R$ 100,00 / mes",
+    PROFISSIONAL: "R$ 200,00 / mes",
+    PREMIUM: "R$ 300,00 / mes",
+  };
+
+  const PLAN_BENEFITS = {
+    PROFISSIONAL: [
+      "Mais controle financeiro com alertas inteligentes",
+      "Prioridade media no suporte",
+      "Taxa de split reduzida para 3%",
+      "Relatorios de desempenho mensal para acelerar decisoes",
+    ],
+    PREMIUM: [
+      "Tudo do Profissional",
+      "Suporte prioritario dedicado",
+      "Taxa de split reduzida para 2%",
+      "Insights avancados de vendas e recompra",
+      "Novas funcionalidades premium liberadas primeiro",
+    ],
+  };
 
   const isValidPaymentLink = (link) => {
     if (typeof link !== "string") {
@@ -104,6 +135,15 @@ export default function BillingPage() {
     }
   }, [navigate]);
 
+  const fetchSubscription = useCallback(async () => {
+    try {
+      const response = await api.get("/subscription");
+      setSubscription(response.data);
+    } catch {
+      setSubscription(null);
+    }
+  }, []);
+
   useEffect(() => {
     // Wait for context to load
     if (isLoading) {
@@ -128,12 +168,99 @@ export default function BillingPage() {
     console.log("BillingPage: Authentication OK, fetching invoices");
     const timeoutId = setTimeout(() => {
       fetchInvoices();
+      fetchSubscription();
     }, 0);
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [user, isLoading, navigate, fetchInvoices]);
+  }, [user, isLoading, navigate, fetchInvoices, fetchSubscription]);
+
+  const getScheduledPlanLabel = () => {
+    if (
+      !subscription?.scheduledPlan ||
+      !subscription?.scheduledPlanEffectiveMonth ||
+      !subscription?.scheduledPlanEffectiveYear
+    ) {
+      return null;
+    }
+
+    const month = String(subscription.scheduledPlanEffectiveMonth).padStart(
+      2,
+      "0",
+    );
+
+    return `${PLAN_DISPLAY[subscription.scheduledPlan] || subscription.scheduledPlan} (${month}/${subscription.scheduledPlanEffectiveYear})`;
+  };
+
+  const normalizedInvoiceStatus = (status) =>
+    String(status || "")
+      .trim()
+      .toUpperCase();
+
+  const hasOpenInvoices = invoices.some((invoice) =>
+    ["PENDENTE", "ATRASADO", "VENCIDO"].includes(
+      normalizedInvoiceStatus(invoice.status),
+    ),
+  );
+  const latestPaidInvoice = [...invoices]
+    .filter((invoice) => normalizedInvoiceStatus(invoice.status) === "PAGO")
+    .sort(
+      (a, b) =>
+        new Date(b.paidAt || b.createdAt).getTime() -
+        new Date(a.paidAt || a.createdAt).getTime(),
+    )[0];
+  const now = new Date();
+  const latestPaidReferenceDate = latestPaidInvoice
+    ? new Date(latestPaidInvoice.paidAt || latestPaidInvoice.createdAt)
+    : null;
+  const latestPaidDeadline = latestPaidReferenceDate
+    ? new Date(latestPaidReferenceDate)
+    : null;
+
+  if (latestPaidDeadline) {
+    latestPaidDeadline.setDate(latestPaidDeadline.getDate() + 30);
+  }
+
+  const isInsideThirtyDayWindow =
+    Boolean(latestPaidDeadline) && now <= latestPaidDeadline;
+  const isPlanChangeAllowedByInvoice =
+    Boolean(latestPaidInvoice) && !hasOpenInvoices && isInsideThirtyDayWindow;
+  const planChangeBlockReason = !latestPaidInvoice
+    ? "Pague a ultima fatura para liberar a troca de plano."
+    : hasOpenInvoices
+      ? "Existe fatura pendente/atrasada. Regularize para liberar a troca de plano."
+      : !isInsideThirtyDayWindow
+        ? `O prazo de 30 dias apos o pagamento expirou em ${formatDate(latestPaidDeadline)}.`
+        : null;
+
+  const handleRequestPlanChange = async (plan) => {
+    if (!subscription) {
+      return;
+    }
+
+    if (subscription.plan === plan) {
+      toast.info("Esse ja e o seu plano atual.");
+      return;
+    }
+
+    setIsChangingPlan(true);
+
+    try {
+      const response = await api.post("/subscription/change-plan", { plan });
+      toast.success(
+        response?.data?.message ||
+          "Troca de plano agendada para o proximo ciclo.",
+      );
+      await fetchSubscription();
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error || "Nao foi possivel solicitar a troca.",
+      );
+    } finally {
+      setIsChangingPlan(false);
+    }
+  };
 
   const getStatusLabel = (status) => {
     const labels = {
@@ -245,6 +372,111 @@ export default function BillingPage() {
               <p style={{ marginBottom: "2rem", color: "#999" }}>
                 Visualize e gerencie todas as suas faturas e efetue pagamentos
               </p>
+
+              <S.PlanSection>
+                <S.PlanHeader>
+                  <div>
+                    <h2>Troca de Plano</h2>
+                    <p>
+                      Escolha o plano ideal para o momento do seu restaurante. A
+                      troca entra no proximo ciclo de faturamento e segue as
+                      regras de adimplencia e prazo.
+                    </p>
+                  </div>
+                  <S.PlanTag>
+                    Plano atual: {PLAN_DISPLAY[subscription?.plan] || "-"}
+                  </S.PlanTag>
+                </S.PlanHeader>
+
+                {getScheduledPlanLabel() ? (
+                  <S.PlanInfo>
+                    Troca agendada para: {getScheduledPlanLabel()}
+                  </S.PlanInfo>
+                ) : null}
+
+                {!getScheduledPlanLabel() && planChangeBlockReason ? (
+                  <S.PlanInfo
+                    style={{
+                      border: "1px solid rgba(220, 38, 38, 0.35)",
+                      background: "rgba(239, 68, 68, 0.1)",
+                    }}
+                  >
+                    {planChangeBlockReason}
+                  </S.PlanInfo>
+                ) : null}
+
+                <S.PlanGrid>
+                  <S.PlanCard $highlighted={false} $tone="basic">
+                    <S.PlanTitle>
+                      <Gem size={18} /> Basico
+                    </S.PlanTitle>
+                    <S.PlanPrice>{PLAN_PRICES.BASICO}</S.PlanPrice>
+                    <S.PlanMutedText>
+                      Este plano nao possui vantagens extras.
+                    </S.PlanMutedText>
+                    <S.PlanActionButton
+                      $tone="basic"
+                      disabled={
+                        isChangingPlan ||
+                        Boolean(getScheduledPlanLabel()) ||
+                        !isPlanChangeAllowedByInvoice ||
+                        subscription?.plan === "BASICO"
+                      }
+                      onClick={() => handleRequestPlanChange("BASICO")}
+                    >
+                      Solicitar Basico
+                    </S.PlanActionButton>
+                  </S.PlanCard>
+
+                  <S.PlanCard $highlighted={false} $tone="pro">
+                    <S.PlanTitle>
+                      <Gem size={18} /> Profissional
+                    </S.PlanTitle>
+                    <S.PlanPrice>{PLAN_PRICES.PROFISSIONAL}</S.PlanPrice>
+                    <S.PlanList>
+                      {PLAN_BENEFITS.PROFISSIONAL.map((benefit) => (
+                        <li key={benefit}>{benefit}</li>
+                      ))}
+                    </S.PlanList>
+                    <S.PlanActionButton
+                      $tone="pro"
+                      disabled={
+                        isChangingPlan ||
+                        Boolean(getScheduledPlanLabel()) ||
+                        !isPlanChangeAllowedByInvoice ||
+                        subscription?.plan === "PROFISSIONAL"
+                      }
+                      onClick={() => handleRequestPlanChange("PROFISSIONAL")}
+                    >
+                      Solicitar Profissional
+                    </S.PlanActionButton>
+                  </S.PlanCard>
+
+                  <S.PlanCard $highlighted $tone="premium">
+                    <S.PlanTitle>
+                      <Gem size={18} /> Premium
+                    </S.PlanTitle>
+                    <S.PlanPrice>{PLAN_PRICES.PREMIUM}</S.PlanPrice>
+                    <S.PlanList>
+                      {PLAN_BENEFITS.PREMIUM.map((benefit) => (
+                        <li key={benefit}>{benefit}</li>
+                      ))}
+                    </S.PlanList>
+                    <S.PlanActionButton
+                      $tone="premium"
+                      disabled={
+                        isChangingPlan ||
+                        Boolean(getScheduledPlanLabel()) ||
+                        !isPlanChangeAllowedByInvoice ||
+                        subscription?.plan === "PREMIUM"
+                      }
+                      onClick={() => handleRequestPlanChange("PREMIUM")}
+                    >
+                      Solicitar Premium
+                    </S.PlanActionButton>
+                  </S.PlanCard>
+                </S.PlanGrid>
+              </S.PlanSection>
 
               {loading ? (
                 <S.LoadingContainer>

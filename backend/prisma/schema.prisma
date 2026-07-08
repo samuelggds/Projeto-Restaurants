@@ -245,9 +245,12 @@ model Order {
   type                            OrderType
   paymentMethod                   PaymentMethod?
   paid                            Boolean        @default(false)
+  pixPaymentId                    String?
+  cardCheckoutSessionId           String?
   observation                     String?
   paymentProof                    String?
   paymentProofImage               String?
+  paidAt                          DateTime?
   paymentConfirmationPin          String?
   paymentConfirmationPinExpiresAt DateTime?
 
@@ -303,6 +306,38 @@ model RestaurantSettings {
 
   pixProvider String  @default("MERCADO_PAGO")
   pixKey      String?
+
+  legalDocumentType     String?
+  companyDocument       String?
+  companyLegalName      String?
+  companyTradeName      String?
+  companyAddress        String?
+  companyCnae           String?
+  monthlyRevenue        Decimal? @db.Decimal(12, 2)
+
+  ownerFullName         String?
+  ownerCpf              String?
+  ownerBirthDate        DateTime?
+  ownerEmail            String?
+  ownerPhone            String?
+  ownerAddress          String?
+
+  bankName    String?
+  bankCode    String?
+  bankAccountType String?
+  bankBranch  String?
+  bankAccount String?
+  bankHolderDocument String?
+  cardGateway String?
+  gatewayMerchantId String?
+  pagbankEmail String?
+  pagbankToken String?
+  pagbankEnvironment String?
+
+  ownerDocumentFileUrl   String?
+  bankProofFileUrl       String?
+  companyContractFileUrl String?
+
   instagram   String?
   facebook    String?
 
@@ -340,6 +375,10 @@ model Subscription {
   restaurantId Int                @unique
   restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   plan         PlanType           @default(BASICO)
+  scheduledPlan PlanType?
+  scheduledPlanEffectiveMonth Int?
+  scheduledPlanEffectiveYear  Int?
+  planChangeLockedUntil DateTime?
   status       SubscriptionStatus @default(TESTE)
   trialEndsAt  DateTime?
 

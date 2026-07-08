@@ -369,7 +369,40 @@ export default function MyOrders() {
       return undefined;
     }
 
-    const socket = connectSocket(token);
+    const socket = connectSocket(token, "my-orders");
+
+    const upsertMyOrder = (prevOrders, incomingOrder) => {
+      const incomingId = Number(incomingOrder?.id || 0);
+
+      if (!Number.isInteger(incomingId) || incomingId <= 0) {
+        return prevOrders;
+      }
+
+      const existingIndex = prevOrders.findIndex(
+        (item) => Number(item?.id || 0) === incomingId,
+      );
+
+      if (existingIndex < 0) {
+        return [incomingOrder, ...prevOrders];
+      }
+
+      return prevOrders.map((item, index) =>
+        index === existingIndex ? { ...item, ...incomingOrder } : item,
+      );
+    };
+
+    const syncMyOrdersAfterConnect = async () => {
+      try {
+        const response = await ordersService.listMyOrders();
+        setPedidos(Array.isArray(response) ? response : []);
+      } catch {
+        // Mantem os dados atuais caso a sincronizacao inicial falhe.
+      }
+    };
+
+    const onConnect = () => {
+      void syncMyOrdersAfterConnect();
+    };
 
     const onNewOrder = (newOrder) => {
       const currentUserId = Number(user?.id || 0);
@@ -379,13 +412,7 @@ export default function MyOrders() {
         return;
       }
 
-      setPedidos((prev) => {
-        if (prev.some((item) => item.id === newOrder.id)) {
-          return prev;
-        }
-
-        return [newOrder, ...prev];
-      });
+      setPedidos((prev) => upsertMyOrder(prev, newOrder));
     };
 
     const onStatusChanged = (updatedOrder) => {
@@ -432,23 +459,23 @@ export default function MyOrders() {
             );
           }
 
-          return prev.map((item) =>
-            item.id === updatedOrder.id ? { ...item, ...updatedOrder } : item,
-          );
+          return upsertMyOrder(prev, updatedOrder);
         }
 
         toast.info(
           `Pedido #${updatedOrder.id} atualizado para ${formatOrderStatus(nextStatus)}.`,
         );
 
-        return [updatedOrder, ...prev];
+        return upsertMyOrder(prev, updatedOrder);
       });
     };
 
+    socket.on("connect", onConnect);
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
 
     return () => {
+      socket.off("connect", onConnect);
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
       disconnectSocket();

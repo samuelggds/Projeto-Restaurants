@@ -4,6 +4,7 @@ import { ThemeProvider } from "styled-components";
 import {
   Utensils,
   Home,
+  DollarSign,
   User,
   FolderPlus,
   ChevronLeft,
@@ -21,8 +22,12 @@ import {
   X,
   Bike,
   LogOut,
+  AlertTriangle,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import api from "../../Services/api";
 import ordersService from "../../Services/ordersService.js";
 import categoriesService from "../../Services/categoriesService";
 import productsService from "../../Services/productsService";
@@ -72,7 +77,7 @@ const ORDER_STATUS_META = {
   PENDENTE: { label: "Pendente", color: "#f97316" },
   PREPARANDO: { label: "Preparando", color: "#0ea5e9" },
   PRONTO: { label: "Pronto", color: "#f59e0b" },
-  SAIU_PARA_ENTREGA: { label: "Em entrega", color: "#3b82f6" },
+  SAIU_PARA_ENTREGA: { label: "A caminho", color: "#3b82f6" },
   ENTREGUE: { label: "Entregue", color: "#22c55e" },
   CANCELADO: { label: "Cancelado", color: "#ef4444" },
 };
@@ -100,13 +105,7 @@ function createInitialProductForm(categoryId = "") {
   };
 }
 
-function getAvailableStatusesByOrderType(orderType) {
-  const normalizedType = String(orderType || "").toUpperCase();
-
-  if (normalizedType === "RETIRADA") {
-    return ORDER_STATUSES.filter((status) => status !== "SAIU_PARA_ENTREGA");
-  }
-
+function _getAvailableStatusesByOrderType(_orderType) {
   return ORDER_STATUSES;
 }
 
@@ -232,6 +231,40 @@ function formatCpfMask(value) {
   }
 
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function formatCnpjMask(value) {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 14);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  if (digits.length <= 5) {
+    return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  }
+
+  if (digits.length <= 8) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  }
+
+  if (digits.length <= 12) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  }
+
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+}
+
+function formatCpfOrCnpjMask(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (digits.length <= 11) {
+    return formatCpfMask(digits);
+  }
+
+  return formatCnpjMask(digits);
 }
 
 function formatBrazilPhoneMask(value) {
@@ -686,6 +719,9 @@ export default function AdminDashboard() {
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => typeof window !== "undefined" && window.innerWidth <= 768,
   );
+  const [isVerySmallViewport, setIsVerySmallViewport] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 360,
+  );
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -720,6 +756,33 @@ export default function AdminDashboard() {
     pixProvider: "MERCADO_PAGO",
     pixKey: "",
     whatsapp: "",
+    legalDocumentType: "",
+    companyDocument: "",
+    companyLegalName: "",
+    companyTradeName: "",
+    companyAddress: "",
+    companyCnae: "",
+    monthlyRevenue: "",
+    ownerFullName: "",
+    ownerCpf: "",
+    ownerBirthDate: "",
+    ownerEmail: "",
+    ownerPhone: "",
+    ownerAddress: "",
+    bankName: "",
+    bankCode: "",
+    bankAccountType: "",
+    bankBranch: "",
+    bankAccount: "",
+    bankHolderDocument: "",
+    cardGateway: "",
+    gatewayMerchantId: "",
+    pagbankEmail: "",
+    pagbankToken: "",
+    pagbankEnvironment: "production",
+    ownerDocumentFileUrl: "",
+    bankProofFileUrl: "",
+    companyContractFileUrl: "",
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [brandingUploadState, setBrandingUploadState] = useState({
@@ -746,11 +809,67 @@ export default function AdminDashboard() {
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [tableNumber, setTableNumber] = useState("");
+  const [billingWarningState, setBillingWarningState] = useState(null);
+  const [isBillingWarningMinimized, setIsBillingWarningMinimized] =
+    useState(false);
   const qrCardRefs = useRef({});
+
+  function addBusinessDays(baseDate, businessDays) {
+    const date = new Date(baseDate);
+    let remaining = Number(businessDays || 0);
+
+    while (remaining > 0) {
+      date.setDate(date.getDate() + 1);
+      const day = date.getDay();
+
+      if (day !== 0 && day !== 6) {
+        remaining -= 1;
+      }
+    }
+
+    return date;
+  }
+
+  function formatDatePtBr(value) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(value));
+  }
+
+  function countBusinessDaysLeft(fromDate, untilDate) {
+    const start = new Date(fromDate);
+    const end = new Date(untilDate);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return 0;
+    }
+
+    if (start > end) {
+      return 0;
+    }
+
+    let count = 0;
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    while (cursor <= end) {
+      const day = cursor.getDay();
+      if (day !== 0 && day !== 6) {
+        count += 1;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return count;
+  }
 
   useEffect(() => {
     function handleResize() {
       setIsMobileViewport(window.innerWidth <= 768);
+      setIsVerySmallViewport(window.innerWidth <= 360);
       if (window.innerWidth > 768) {
         setIsMobileSidebarOpen(false);
       }
@@ -758,6 +877,78 @@ export default function AdminDashboard() {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadBillingWarning() {
+      try {
+        const response = await api.get("/billing/invoices");
+
+        if (!mounted) {
+          return;
+        }
+
+        const pendingInvoices = (
+          Array.isArray(response.data) ? response.data : []
+        )
+          .filter((invoice) => invoice.status === "PENDENTE")
+          .sort(
+            (a, b) =>
+              new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+          );
+
+        const now = new Date();
+        const invoiceInGracePeriod = pendingInvoices.find((invoice) => {
+          const dueDate = new Date(invoice.dueDate);
+          if (Number.isNaN(dueDate.getTime())) {
+            return false;
+          }
+
+          const graceLimitDate = addBusinessDays(dueDate, 5);
+          return now >= dueDate && now <= graceLimitDate;
+        });
+
+        if (!invoiceInGracePeriod) {
+          setBillingWarningState(null);
+          setIsBillingWarningMinimized(false);
+          return;
+        }
+
+        const dueDate = new Date(invoiceInGracePeriod.dueDate);
+        const graceLimitDate = addBusinessDays(dueDate, 5);
+        const businessDaysLeft = countBusinessDaysLeft(now, graceLimitDate);
+        const hasPreviousPaidInvoice = (
+          Array.isArray(response.data) ? response.data : []
+        ).some(
+          (invoice) =>
+            invoice.status === "PAGO" &&
+            Number(invoice.id) < Number(invoiceInGracePeriod.id),
+        );
+
+        setBillingWarningState({
+          invoiceId: invoiceInGracePeriod.id,
+          paymentLink: String(invoiceInGracePeriod.paymentLink || "").trim(),
+          dueDate,
+          graceLimitDate,
+          businessDaysLeft,
+          isPostTrial: !hasPreviousPaidInvoice,
+        });
+        setIsBillingWarningMinimized(false);
+      } catch {
+        if (mounted) {
+          setBillingWarningState(null);
+          setIsBillingWarningMinimized(false);
+        }
+      }
+    }
+
+    loadBillingWarning();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -832,6 +1023,43 @@ export default function AdminDashboard() {
             .toUpperCase(),
           pixKey: String(settings.pixKey || ""),
           whatsapp: formatBrazilPhoneInput(String(settings.whatsapp || "")),
+          legalDocumentType: String(settings.legalDocumentType || "")
+            .trim()
+            .toUpperCase(),
+          companyDocument: String(settings.companyDocument || ""),
+          companyLegalName: String(settings.companyLegalName || ""),
+          companyTradeName: String(settings.companyTradeName || ""),
+          companyAddress: String(settings.companyAddress || ""),
+          companyCnae: String(settings.companyCnae || ""),
+          monthlyRevenue:
+            settings.monthlyRevenue !== undefined &&
+            settings.monthlyRevenue !== null
+              ? String(settings.monthlyRevenue)
+              : "",
+          ownerFullName: String(settings.ownerFullName || ""),
+          ownerCpf: String(settings.ownerCpf || ""),
+          ownerBirthDate: String(settings.ownerBirthDate || "").slice(0, 10),
+          ownerEmail: String(settings.ownerEmail || ""),
+          ownerPhone: formatBrazilPhoneInput(String(settings.ownerPhone || "")),
+          ownerAddress: String(settings.ownerAddress || ""),
+          bankName: String(settings.bankName || ""),
+          bankCode: String(settings.bankCode || ""),
+          bankAccountType: String(settings.bankAccountType || "")
+            .trim()
+            .toUpperCase(),
+          bankBranch: String(settings.bankBranch || ""),
+          bankAccount: String(settings.bankAccount || ""),
+          bankHolderDocument: String(settings.bankHolderDocument || ""),
+          cardGateway: String(settings.cardGateway || "")
+            .trim()
+            .toUpperCase(),
+          gatewayMerchantId: String(settings.gatewayMerchantId || ""),
+          pagbankEmail: String(settings.pagbankEmail || ""),
+          pagbankToken: "",
+          pagbankEnvironment: "production",
+          ownerDocumentFileUrl: String(settings.ownerDocumentFileUrl || ""),
+          bankProofFileUrl: String(settings.bankProofFileUrl || ""),
+          companyContractFileUrl: String(settings.companyContractFileUrl || ""),
         });
       } catch {
         // Se ainda não houver configurações, o admin pode criar pelo formulário.
@@ -930,7 +1158,7 @@ export default function AdminDashboard() {
       return undefined;
     }
 
-    const socket = connectSocket(token);
+    const socket = connectSocket(token, "admin-dashboard");
 
     const onNewOrder = (order) => {
       setOrders((prev) => {
@@ -1199,19 +1427,54 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
+  const _handleUpdateStatus = async (orderId, newStatus) => {
+    const nextStatusNormalized = String(newStatus || "").toUpperCase();
+    const targetOrder = orders.find(
+      (order) => Number(order?.id) === Number(orderId),
+    );
+    const normalizedOrderType = String(targetOrder?.type || "").toUpperCase();
+    const isMesaOrRetiradaOrder =
+      normalizedOrderType === "MESA" || normalizedOrderType === "RETIRADA";
+    const shouldAutoAdvanceFlow =
+      nextStatusNormalized === "PRONTO" && isMesaOrRetiradaOrder;
+
+    if (
+      nextStatusNormalized === "ENTREGUE" &&
+      targetOrder &&
+      isDeliveryBlockedUntilPaid(targetOrder)
+    ) {
+      toast.error(
+        "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro.",
+      );
+      return;
+    }
+
     try {
       const updated = await ordersService.updateStatus(orderId, newStatus);
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+      const finalUpdated = shouldAutoAdvanceFlow
+        ? await ordersService.updateStatus(orderId, "SAIU_PARA_ENTREGA")
+        : updated;
+      const nextStatusLabel = String(
+        finalUpdated?.status ||
+          (shouldAutoAdvanceFlow ? "SAIU_PARA_ENTREGA" : newStatus),
+      );
 
-      toast.info(`Pedido #${orderId} alterado para ${newStatus}`);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? finalUpdated : o)),
+      );
+
+      toast.info(`Pedido #${orderId} alterado para ${nextStatusLabel}`);
     } catch (err) {
       const message = err?.response?.data?.error || "Erro ao atualizar status";
-      const friendlyMessage =
-        message.includes("pagamento PIX/CARTAO") ||
-        message.includes("ainda não foi confirmado")
-          ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
-          : message;
+      const shouldShowPaymentPendingHint =
+        nextStatusNormalized === "ENTREGUE" &&
+        targetOrder &&
+        isDeliveryBlockedUntilPaid(targetOrder) &&
+        (message.includes("pagamento PIX/CARTAO") ||
+          message.includes("ainda não foi confirmado"));
+      const friendlyMessage = shouldShowPaymentPendingHint
+        ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
+        : message;
       toast.error(friendlyMessage);
     }
   };
@@ -1684,6 +1947,43 @@ export default function AdminDashboard() {
       nextValue = formatBrazilPhoneInput(value);
     }
 
+    if (name === "ownerPhone") {
+      nextValue = formatBrazilPhoneInput(value);
+    }
+
+    if (name === "ownerCpf") {
+      nextValue = formatCpfMask(value);
+    }
+
+    if (name === "companyDocument") {
+      const documentType = String(settingsForm.legalDocumentType || "")
+        .trim()
+        .toUpperCase();
+
+      nextValue =
+        documentType === "CNPJ"
+          ? formatCnpjMask(value)
+          : documentType === "CPF"
+            ? formatCpfMask(value)
+            : formatCpfOrCnpjMask(value);
+    }
+
+    if (name === "bankHolderDocument") {
+      nextValue = formatCpfOrCnpjMask(value);
+    }
+
+    if (name === "bankCode") {
+      nextValue = String(value || "")
+        .replace(/\D/g, "")
+        .slice(0, 6);
+    }
+
+    if (name === "companyCnae") {
+      nextValue = String(value || "")
+        .replace(/[^\d.-]/g, "")
+        .slice(0, 16);
+    }
+
     setSettingsForm((prev) => ({
       ...prev,
       [name]: nextValue,
@@ -1775,6 +2075,42 @@ export default function AdminDashboard() {
       whatsapp: formatBrazilPhoneInput(
         String(saved.whatsapp || prev.whatsapp || ""),
       ),
+      legalDocumentType: String(saved.legalDocumentType || "")
+        .trim()
+        .toUpperCase(),
+      companyDocument: String(saved.companyDocument || ""),
+      companyLegalName: String(saved.companyLegalName || ""),
+      companyTradeName: String(saved.companyTradeName || ""),
+      companyAddress: String(saved.companyAddress || ""),
+      companyCnae: String(saved.companyCnae || ""),
+      monthlyRevenue:
+        saved.monthlyRevenue !== undefined && saved.monthlyRevenue !== null
+          ? String(saved.monthlyRevenue)
+          : "",
+      ownerFullName: String(saved.ownerFullName || ""),
+      ownerCpf: String(saved.ownerCpf || ""),
+      ownerBirthDate: String(saved.ownerBirthDate || "").slice(0, 10),
+      ownerEmail: String(saved.ownerEmail || ""),
+      ownerPhone: formatBrazilPhoneInput(String(saved.ownerPhone || "")),
+      ownerAddress: String(saved.ownerAddress || ""),
+      bankName: String(saved.bankName || ""),
+      bankCode: String(saved.bankCode || ""),
+      bankAccountType: String(saved.bankAccountType || "")
+        .trim()
+        .toUpperCase(),
+      bankBranch: String(saved.bankBranch || ""),
+      bankAccount: String(saved.bankAccount || ""),
+      bankHolderDocument: String(saved.bankHolderDocument || ""),
+      cardGateway: String(saved.cardGateway || "")
+        .trim()
+        .toUpperCase(),
+      gatewayMerchantId: String(saved.gatewayMerchantId || ""),
+      pagbankEmail: String(saved.pagbankEmail || ""),
+      pagbankToken: "",
+      pagbankEnvironment: "production",
+      ownerDocumentFileUrl: String(saved.ownerDocumentFileUrl || ""),
+      bankProofFileUrl: String(saved.bankProofFileUrl || ""),
+      companyContractFileUrl: String(saved.companyContractFileUrl || ""),
     }));
 
     toast.success(successMessage);
@@ -1864,13 +2200,148 @@ export default function AdminDashboard() {
 
       await persistRestaurantSettings({
         payload,
-        successMessage: "Configurações de PIX e delivery salvas com sucesso!",
+        successMessage: "Configurações de PIX salvas com sucesso!",
       });
     } catch (err) {
       toast.error(
         err?.response?.data?.error ||
           err?.message ||
-          "Erro ao salvar configurações de PIX e delivery",
+          "Erro ao salvar configurações de PIX",
+      );
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveCardAndKybSettings = async (event) => {
+    event.preventDefault();
+
+    if (isSavingSettings) {
+      return;
+    }
+
+    try {
+      setIsSavingSettings(true);
+
+      const legalDocumentType = String(settingsForm.legalDocumentType || "")
+        .trim()
+        .toUpperCase();
+      const companyDocument = String(
+        settingsForm.companyDocument || "",
+      ).replace(/\D/g, "");
+      const bankHolderDocument = String(
+        settingsForm.bankHolderDocument || "",
+      ).replace(/\D/g, "");
+      const ownerCpf = String(settingsForm.ownerCpf || "").replace(/\D/g, "");
+      const normalizedPagBankEmail = String(
+        settingsForm.pagbankEmail || "",
+      ).trim();
+      const normalizedPagBankToken = String(
+        settingsForm.pagbankToken || "",
+      ).trim();
+      const normalizedPagBankEnvironment = "production";
+
+      if (
+        legalDocumentType === "CNPJ" &&
+        companyDocument &&
+        companyDocument.length !== 14
+      ) {
+        throw new Error("CNPJ inválido. Informe 14 dígitos.");
+      }
+
+      if (
+        legalDocumentType === "CPF" &&
+        companyDocument &&
+        companyDocument.length !== 11
+      ) {
+        throw new Error("CPF inválido. Informe 11 dígitos.");
+      }
+
+      if (ownerCpf && ownerCpf.length !== 11) {
+        throw new Error("CPF do representante inválido.");
+      }
+
+      if (
+        companyDocument &&
+        bankHolderDocument &&
+        companyDocument !== bankHolderDocument
+      ) {
+        throw new Error(
+          "A titularidade bancária deve ser igual ao CPF/CNPJ cadastrado.",
+        );
+      }
+
+      const normalizedCardGateway = String(settingsForm.cardGateway || "")
+        .trim()
+        .toUpperCase();
+
+      if (normalizedCardGateway === "PAGBANK" && !normalizedPagBankEmail) {
+        throw new Error("Informe o e-mail da conta PagBank.");
+      }
+
+      const payload = {
+        legalDocumentType: legalDocumentType || null,
+        companyDocument: companyDocument || null,
+        companyLegalName:
+          String(settingsForm.companyLegalName || "").trim() || null,
+        companyTradeName:
+          String(settingsForm.companyTradeName || "").trim() || null,
+        companyAddress:
+          String(settingsForm.companyAddress || "").trim() || null,
+        companyCnae: String(settingsForm.companyCnae || "").trim() || null,
+        monthlyRevenue:
+          settingsForm.monthlyRevenue === ""
+            ? null
+            : Number(settingsForm.monthlyRevenue),
+        ownerFullName: String(settingsForm.ownerFullName || "").trim() || null,
+        ownerCpf: ownerCpf || null,
+        ownerBirthDate:
+          String(settingsForm.ownerBirthDate || "").trim() || null,
+        ownerEmail: String(settingsForm.ownerEmail || "").trim() || null,
+        ownerPhone:
+          String(settingsForm.ownerPhone || "").replace(/\D/g, "") || null,
+        ownerAddress: String(settingsForm.ownerAddress || "").trim() || null,
+        bankName: String(settingsForm.bankName || "").trim() || null,
+        bankCode: String(settingsForm.bankCode || "").trim() || null,
+        bankAccountType:
+          String(settingsForm.bankAccountType || "")
+            .trim()
+            .toUpperCase() || null,
+        bankBranch: String(settingsForm.bankBranch || "").trim() || null,
+        bankAccount: String(settingsForm.bankAccount || "").trim() || null,
+        bankHolderDocument: bankHolderDocument || null,
+        cardGateway: normalizedCardGateway || null,
+        gatewayMerchantId:
+          String(settingsForm.gatewayMerchantId || "").trim() || null,
+        pagbankEmail: normalizedPagBankEmail || null,
+        pagbankEnvironment: normalizedPagBankEnvironment || null,
+        ...(normalizedPagBankToken
+          ? { pagbankToken: normalizedPagBankToken }
+          : {}),
+        ownerDocumentFileUrl:
+          String(settingsForm.ownerDocumentFileUrl || "").trim() || null,
+        bankProofFileUrl:
+          String(settingsForm.bankProofFileUrl || "").trim() || null,
+        companyContractFileUrl:
+          String(settingsForm.companyContractFileUrl || "").trim() || null,
+      };
+
+      if (
+        payload.monthlyRevenue !== null &&
+        Number.isNaN(payload.monthlyRevenue)
+      ) {
+        throw new Error("Faturamento mensal deve ser um número válido.");
+      }
+
+      await persistRestaurantSettings({
+        payload,
+        successMessage: "Cadastro de Cartão/Banco (KYB) salvo com sucesso!",
+      });
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Erro ao salvar cadastro de Cartão/Banco (KYB)",
       );
     } finally {
       setIsSavingSettings(false);
@@ -2188,7 +2659,10 @@ export default function AdminDashboard() {
     "products-manage": { section: "Cardápio", label: "Gerenciar Produtos" },
     tables: { section: "Atendimento", label: "Criar Mesa" },
     employees: { section: "Gestão", label: "Equipe / Funcionários" },
-    settings: { section: "Configurações da Marca", label: "PIX e Delivery" },
+    settings: {
+      section: "Configurações da Marca",
+      label: "PIX, banco e gateway",
+    },
     "digital-menu": {
       section: "Configurações da Marca",
       label: "Editar Cardápio Digital",
@@ -2231,6 +2705,21 @@ export default function AdminDashboard() {
     logout();
     navigate("/login");
   };
+
+  const billingBusinessDaysTotal = 5;
+  const billingBusinessDaysLeft = Math.max(
+    0,
+    Number(billingWarningState?.businessDaysLeft || 0),
+  );
+  const billingBusinessDaysElapsed = Math.max(
+    0,
+    billingBusinessDaysTotal - billingBusinessDaysLeft,
+  );
+  const billingProgressPercent = Math.min(
+    100,
+    Math.round((billingBusinessDaysElapsed / billingBusinessDaysTotal) * 100),
+  );
+  const billingIsCritical = billingBusinessDaysLeft <= 2;
 
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
@@ -2624,7 +3113,29 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab("settings")}
             >
               <CreditCard size={20} />
-              {!isSidebarCollapsed && <span>PIX e Delivery</span>}
+              {!isSidebarCollapsed && <span>PIX, Banco e Gateway</span>}
+            </S.NavButton>
+
+            <S.NavButton
+              onClick={() => navigate("/billing")}
+              style={
+                billingWarningState
+                  ? {
+                      background: "rgba(249, 115, 22, 0.24)",
+                      border: "1px solid rgba(251, 146, 60, 0.55)",
+                      color: "#ffffff",
+                      boxShadow: "0 8px 18px rgba(15, 23, 42, 0.2)",
+                    }
+                  : undefined
+              }
+              title={
+                billingWarningState
+                  ? "Existe aviso de faturamento pendente"
+                  : "Abrir faturamento e planos"
+              }
+            >
+              <DollarSign size={20} />
+              {!isSidebarCollapsed && <span>Faturamento e Planos</span>}
             </S.NavButton>
           </S.NavigationList>
 
@@ -2746,12 +3257,17 @@ export default function AdminDashboard() {
           <div
             style={{
               marginBottom: "1rem",
+              position: "sticky",
+              top: "0.25rem",
+              zIndex: 26,
               padding: "0.58rem 0.78rem",
               borderRadius: 10,
               border: "1px solid rgba(148, 163, 184, 0.26)",
               background: isDarkMode
                 ? "rgba(15, 23, 42, 0.36)"
                 : "rgba(207, 217, 228, 0.92)",
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.08)",
               color: isDarkMode ? "#cbd5e1" : "#475569",
               fontSize: "0.83rem",
               fontWeight: 600,
@@ -2768,6 +3284,364 @@ export default function AdminDashboard() {
               / {activeTabBreadcrumb.label}
             </span>
           </div>
+
+          {billingWarningState && !isBillingWarningMinimized && (
+            <div
+              style={{
+                marginBottom: "1rem",
+                position: "sticky",
+                top: "3.35rem",
+                zIndex: 24,
+                borderRadius: 16,
+                border: billingIsCritical
+                  ? "2px solid rgba(220, 38, 38, 0.52)"
+                  : "2px solid rgba(249, 115, 22, 0.45)",
+                background:
+                  "radial-gradient(circle at top right, rgba(254, 240, 138, 0.35) 0%, rgba(255, 255, 255, 0) 42%), linear-gradient(145deg, rgba(255, 247, 237, 0.98) 0%, rgba(255, 237, 213, 0.98) 100%)",
+                color: "#7c2d12",
+                padding: "1rem 1rem 0.9rem",
+                boxShadow: billingIsCritical
+                  ? "0 16px 34px rgba(185, 28, 28, 0.2)"
+                  : "0 16px 34px rgba(194, 65, 12, 0.16)",
+                backdropFilter: "blur(6px)",
+                display: "grid",
+                gap: "0.65rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.6rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.6rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: billingIsCritical
+                        ? "linear-gradient(135deg, #ef4444, #b91c1c)"
+                        : "linear-gradient(135deg, #f59e0b, #ea580c)",
+                      color: "#fff",
+                      boxShadow: "0 10px 20px rgba(127, 29, 29, 0.22)",
+                    }}
+                  >
+                    <AlertTriangle size={18} />
+                  </span>
+
+                  <div style={{ display: "grid", gap: "0.1rem" }}>
+                    <strong
+                      style={{
+                        fontSize: "0.95rem",
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      {billingWarningState.isPostTrial
+                        ? "Fatura do pos-trial gerada"
+                        : "Fatura mensal de renovacao gerada"}
+                    </strong>
+                    <small style={{ fontSize: "0.76rem", opacity: 0.86 }}>
+                      {billingWarningState.isPostTrial
+                        ? "Pagamento necessario para manter o sistema ativo"
+                        : "Renovacao pendente para manter a operacao ativa"}
+                    </small>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBillingWarningMinimized(true)}
+                  aria-label="Minimizar aviso de faturamento"
+                  title="Minimizar"
+                  style={{
+                    width: isMobileViewport ? 44 : 34,
+                    height: isMobileViewport ? 44 : 34,
+                    borderRadius: 10,
+                    border: "1px solid rgba(194, 65, 12, 0.35)",
+                    background: "rgba(255, 255, 255, 0.85)",
+                    color: "#9a3412",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Minimize2 size={16} />
+                </button>
+
+                <span
+                  style={{
+                    borderRadius: 999,
+                    border: billingIsCritical
+                      ? "1px solid rgba(185, 28, 28, 0.55)"
+                      : "1px solid rgba(194, 65, 12, 0.5)",
+                    padding: "0.24rem 0.66rem",
+                    fontSize: "0.78rem",
+                    fontWeight: 800,
+                    background: billingIsCritical
+                      ? "rgba(254, 202, 202, 0.72)"
+                      : "rgba(254, 215, 170, 0.76)",
+                  }}
+                >
+                  Prazo final:{" "}
+                  {formatDatePtBr(billingWarningState.graceLimitDate)}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(194, 65, 12, 0.24)",
+                  background: "rgba(255, 255, 255, 0.62)",
+                  padding: "0.62rem 0.72rem",
+                  display: "grid",
+                  gap: "0.5rem",
+                }}
+              >
+                <span style={{ fontSize: "0.84rem", lineHeight: 1.45 }}>
+                  {billingWarningState.isPostTrial
+                    ? "Seu periodo gratis de 30 dias terminou e a fatura #"
+                    : "Sua renovacao mensal esta pendente e a fatura #"}
+                  {billingWarningState.invoiceId}
+                  {billingWarningState.isPostTrial
+                    ? " ja foi gerada. Pague ate "
+                    : " esta em aberto. Regularize ate "}
+                  {formatDatePtBr(billingWarningState.graceLimitDate)}
+                  {billingWarningState.isPostTrial
+                    ? " para evitar bloqueio automatico do sistema."
+                    : " para evitar bloqueio automatico do sistema."}
+                </span>
+
+                <div style={{ display: "grid", gap: "0.28rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <small style={{ fontWeight: 800 }}>
+                      Janela de tolerancia: {billingBusinessDaysTotal} dias
+                      uteis
+                    </small>
+                    <small style={{ fontWeight: 800 }}>
+                      Restantes: {billingBusinessDaysLeft}
+                    </small>
+                  </div>
+
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 8,
+                      borderRadius: 999,
+                      overflow: "hidden",
+                      background: "rgba(125, 53, 15, 0.14)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${billingProgressPercent}%`,
+                        height: "100%",
+                        borderRadius: 999,
+                        background: billingIsCritical
+                          ? "linear-gradient(90deg, #f97316 0%, #dc2626 100%)"
+                          : "linear-gradient(90deg, #f59e0b 0%, #ea580c 100%)",
+                        transition: "width 220ms ease",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.65rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <small style={{ fontWeight: 700, opacity: 0.9 }}>
+                  Apos o prazo, o sistema bloqueia automaticamente ate a
+                  confirmacao do pagamento.
+                </small>
+
+                <div
+                  style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigate("/billing")}
+                    style={{
+                      border: "1px solid rgba(194, 65, 12, 0.42)",
+                      background: "rgba(255, 255, 255, 0.84)",
+                      color: "#9a3412",
+                      borderRadius: 8,
+                      minHeight: 34,
+                      padding: "0 0.85rem",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Ver fatura
+                  </button>
+
+                  {billingWarningState.paymentLink ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          billingWarningState.paymentLink,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
+                      style={{
+                        border: billingIsCritical
+                          ? "1px solid rgba(185, 28, 28, 0.65)"
+                          : "1px solid rgba(194, 65, 12, 0.56)",
+                        background:
+                          "linear-gradient(135deg, #f97316 0%, #dc2626 100%)",
+                        color: "#fff",
+                        borderRadius: 8,
+                        minHeight: 34,
+                        padding: "0 0.92rem",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        boxShadow: "0 10px 18px rgba(185, 28, 28, 0.22)",
+                      }}
+                    >
+                      Pagar agora
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {billingWarningState && isBillingWarningMinimized && (
+            <div
+              style={{
+                position: "fixed",
+                left: isMobileViewport
+                  ? "env(safe-area-inset-left)"
+                  : "max(12px, env(safe-area-inset-left))",
+                right: isMobileViewport
+                  ? "env(safe-area-inset-right)"
+                  : "max(12px, env(safe-area-inset-right))",
+                bottom: "max(12px, env(safe-area-inset-bottom))",
+                zIndex: 50,
+                borderRadius: isMobileViewport ? 10 : 12,
+                border: billingIsCritical
+                  ? "1px solid rgba(220, 38, 38, 0.5)"
+                  : "1px solid rgba(249, 115, 22, 0.45)",
+                background:
+                  "linear-gradient(135deg, rgba(255,247,237,0.97) 0%, rgba(255,237,213,0.97) 100%)",
+                color: "#7c2d12",
+                boxShadow: "0 12px 28px rgba(15, 23, 42, 0.18)",
+                backdropFilter: "blur(6px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: isVerySmallViewport
+                  ? "0.35rem"
+                  : isMobileViewport
+                    ? "0.5rem"
+                    : "0.75rem",
+                padding: isMobileViewport
+                  ? "0.5rem max(8px, env(safe-area-inset-left))"
+                  : "0.62rem 0.75rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  minWidth: 0,
+                }}
+              >
+                <span
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 8,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: billingIsCritical
+                      ? "linear-gradient(135deg, #ef4444, #b91c1c)"
+                      : "linear-gradient(135deg, #f59e0b, #ea580c)",
+                    color: "#fff",
+                  }}
+                >
+                  <AlertTriangle size={14} />
+                </span>
+                <small
+                  style={{
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    fontSize: isVerySmallViewport
+                      ? "0.68rem"
+                      : isMobileViewport
+                        ? "0.72rem"
+                        : "0.78rem",
+                    maxWidth: isMobileViewport ? "68vw" : "none",
+                  }}
+                >
+                  {isMobileViewport
+                    ? "Aviso de vencimento"
+                    : "Aviso de faturamento ativo. Prazo: "}
+                  {!isMobileViewport
+                    ? formatDatePtBr(billingWarningState.graceLimitDate)
+                    : ""}
+                </small>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsBillingWarningMinimized(false)}
+                aria-label="Expandir aviso de faturamento"
+                title="Expandir"
+                style={{
+                  minHeight: isMobileViewport ? 44 : 32,
+                  minWidth: isMobileViewport ? 44 : "auto",
+                  borderRadius: 8,
+                  border: "1px solid rgba(194, 65, 12, 0.45)",
+                  background: "rgba(255, 255, 255, 0.88)",
+                  color: "#9a3412",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  justifyContent: "center",
+                  padding: isMobileViewport ? "0" : "0 0.68rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                <Maximize2 size={14} />
+                {!isMobileViewport ? "Expandir" : null}
+              </button>
+            </div>
+          )}
 
           {activeTab === "orders" && (
             <Suspense fallback={null}>
@@ -2797,18 +3671,13 @@ export default function AdminDashboard() {
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onSetPaymentPinInputByOrderId={setPaymentPinInputByOrderId}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
-                onUpdateStatus={handleUpdateStatus}
                 getStatusValueIcon={getStatusValueIcon}
                 getPaymentSummaryLabel={getPaymentSummaryLabel}
                 getDeliveryAddressLabel={getDeliveryAddressLabel}
                 isPendingDigitalPayment={isPendingDigitalPayment}
-                isDeliveryBlockedUntilPaid={isDeliveryBlockedUntilPaid}
                 canGeneratePin={canGeneratePin}
                 formatRequestTime={formatRequestTime}
                 getOrderTableLabel={getOrderTableLabel}
-                getAvailableStatusesByOrderType={
-                  getAvailableStatusesByOrderType
-                }
               />
             </Suspense>
           )}
@@ -2876,7 +3745,8 @@ export default function AdminDashboard() {
                 pixKeyTypeLabel={pixKeyTypeLabel}
                 pixPreviewPayload={pixPreviewPayload}
                 isDarkMode={isDarkMode}
-                onSubmit={handleSavePixAndDeliverySettings}
+                onSubmitPixSettings={handleSavePixAndDeliverySettings}
+                onSubmitCardBankSettings={handleSaveCardAndKybSettings}
                 onFieldChange={handleSettingsFieldChange}
               />
             </Suspense>

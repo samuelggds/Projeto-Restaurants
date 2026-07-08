@@ -1,0 +1,38 @@
+import { Request, Response } from "express";
+import finalizeOrderPixPaymentService from "../services/FinalizeOrderPixPaymentService.js";
+
+class ConfirmOrderPixPaymentController {
+  async handle(req: Request, res: Response) {
+    try {
+      const {
+        orderId,
+        paymentId,
+        restaurantId,
+        paymentProof,
+        paymentProofImage,
+      } = req.body;
+      const userRestaurantId = req.user?.restaurantId ?? null;
+      const resolvedRestaurantId =
+        Number(restaurantId) || Number(userRestaurantId) || undefined;
+
+      const order = await finalizeOrderPixPaymentService.execute({
+        orderId,
+        paymentId,
+        restaurantId: resolvedRestaurantId,
+        paymentProof,
+        paymentProofImage,
+      });
+
+      return res.status(200).json(order);
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao confirmar pagamento PIX do pedido",
+      });
+    }
+  }
+}
+
+export default new ConfirmOrderPixPaymentController();

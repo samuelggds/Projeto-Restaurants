@@ -71,16 +71,13 @@ type OrdersTabProps = {
     updater: (prev: Record<number, string>) => Record<number, string>,
   ) => void;
   onConfirmPaymentWithPin: (order: Order) => void;
-  onUpdateStatus: (orderId: number, status: string) => void;
   getStatusValueIcon: (status?: string) => ReactElement;
   getPaymentSummaryLabel: (order?: unknown) => string;
   getDeliveryAddressLabel: (order: Order) => string | null;
   isPendingDigitalPayment: (order: Order) => boolean;
-  isDeliveryBlockedUntilPaid: (order: Order) => boolean;
   canGeneratePin: (order: Order) => boolean;
   formatRequestTime: (requestedAt?: string) => string;
   getOrderTableLabel: (order: Order) => string | null;
-  getAvailableStatusesByOrderType: (orderType?: string) => string[];
 };
 
 export default function OrdersTab({
@@ -109,16 +106,13 @@ export default function OrdersTab({
   onRequestPaymentPin,
   onSetPaymentPinInputByOrderId,
   onConfirmPaymentWithPin,
-  onUpdateStatus,
   getStatusValueIcon,
   getPaymentSummaryLabel,
   getDeliveryAddressLabel,
   isPendingDigitalPayment,
-  isDeliveryBlockedUntilPaid,
   canGeneratePin,
   formatRequestTime,
   getOrderTableLabel,
-  getAvailableStatusesByOrderType,
 }: OrdersTabProps) {
   const INITIAL_VISIBLE_ORDERS = 12;
   const LOAD_MORE_STEP = 12;
@@ -256,7 +250,11 @@ export default function OrdersTab({
       <S.OrdersFilterBar>
         {orderStatusFilters.map((status) => {
           const isAll = status === "TODOS";
-          const label = isAll ? "Todos" : String(status).replace(/_/g, " ");
+          const label = isAll
+            ? "Todos"
+            : status === "SAIU_PARA_ENTREGA"
+              ? "EM ENTREGA / A CAMINHO"
+              : String(status).replace(/_/g, " ");
           const tone = statusFilterToneByStatus[status] || "default";
 
           return (
@@ -406,16 +404,15 @@ export default function OrdersTab({
           </p>
         ) : (
           displayedOrders.map((order) => {
-            const isDelivery = String(order?.type || "")
-              .toUpperCase()
-              .includes("DELIVERY");
+            const normalizedOrderType = String(order?.type || "").toUpperCase();
+            const isDelivery = normalizedOrderType.includes("DELIVERY");
             const hasExpandableInfo = isDelivery;
             const deliveryCustomerName = "Admin Pizza IA";
             const paymentSummaryLabel = getPaymentSummaryLabel(order);
+            const paymentStatusLabel = order.paid ? "Pago" : "Nao pago";
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
-            const deliveryBlockedUntilPaid = isDeliveryBlockedUntilPaid(order);
             const canGenerateOrderPin = canGeneratePin(order);
             const isGeneratingPin = generatingPinOrderIds.includes(order.id);
             const pinEntry = paymentPinByOrderId[order.id] || null;
@@ -432,9 +429,14 @@ export default function OrdersTab({
             const isConfirmingPaymentPin =
               confirmingPaymentPinOrderIds.includes(order.id);
             const isExpanded = Boolean(expandedOrderIds[order.id]);
+            const normalizedStatus = String(order?.status || "").toUpperCase();
             const statusLabel =
-              orderStatusMeta[String(order?.status || "")]?.label ||
-              String(order.status).replace(/_/g, " ");
+              normalizedStatus === "SAIU_PARA_ENTREGA"
+                ? isDelivery
+                  ? "EM ENTREGA"
+                  : "A CAMINHO"
+                : orderStatusMeta[String(order?.status || "")]?.label ||
+                  String(order.status).replace(/_/g, " ");
             const tableLabel = getOrderTableLabel(order);
             const infoChipStyle = {
               display: "inline-flex",
@@ -446,6 +448,15 @@ export default function OrdersTab({
               border: "1px solid #e2e8f0",
               borderRadius: 6,
               padding: "3px 8px",
+            };
+            const paymentStatusChipStyle = {
+              ...infoChipStyle,
+              color: order.paid ? "#166534" : "#991b1b",
+              background: order.paid ? "#dcfce7" : "#fee2e2",
+              border: order.paid
+                ? "1px solid rgba(34, 197, 94, 0.35)"
+                : "1px solid rgba(239, 68, 68, 0.35)",
+              fontWeight: 800,
             };
             const orderItems = Array.isArray(order?.items) ? order.items : [];
 
@@ -573,7 +584,10 @@ export default function OrdersTab({
                   <span style={infoChipStyle}>
                     <CreditCard size={13} />
                     {paymentSummaryLabel}
-                    {order.paid ? " | Confirmado" : ""}
+                  </span>
+                  <span style={paymentStatusChipStyle}>
+                    <CreditCard size={13} />
+                    {paymentStatusLabel}
                   </span>
                 </div>
 
@@ -850,33 +864,13 @@ export default function OrdersTab({
                       }}
                     >
                       {getStatusValueIcon(order.status)}
-                      {String(order.status).replace(/_/g, " ")}
+                      {normalizedStatus === "SAIU_PARA_ENTREGA"
+                        ? isDelivery
+                          ? "SAIU PARA ENTREGA"
+                          : "A CAMINHO"
+                        : String(order.status).replace(/_/g, " ")}
                     </span>
                   </h4>
-
-                  <S.ButtonGroup>
-                    {getAvailableStatusesByOrderType(order.type).map(
-                      (status) => (
-                        <button
-                          key={status}
-                          className={`btn ${order.status === status ? `active-${String(status).toLowerCase()}` : ""}`}
-                          disabled={
-                            String(status).toUpperCase() === "ENTREGUE" &&
-                            deliveryBlockedUntilPaid
-                          }
-                          title={
-                            String(status).toUpperCase() === "ENTREGUE" &&
-                            deliveryBlockedUntilPaid
-                              ? "Confirme o pagamento antes de marcar como entregue"
-                              : ""
-                          }
-                          onClick={() => onUpdateStatus(order.id, status)}
-                        >
-                          {String(status).replace(/_/g, " ")}
-                        </button>
-                      ),
-                    )}
-                  </S.ButtonGroup>
                 </S.StatusBox>
               </S.OrderCard>
             );

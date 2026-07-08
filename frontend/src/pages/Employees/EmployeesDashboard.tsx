@@ -47,7 +47,7 @@ const ORDER_STATUS_META = {
   PENDENTE: { label: "Pendente", color: "#f97316" },
   PREPARANDO: { label: "Preparando", color: "#0ea5e9" },
   PRONTO: { label: "Pronto", color: "#f59e0b" },
-  SAIU_PARA_ENTREGA: { label: "Em entrega", color: "#3b82f6" },
+  SAIU_PARA_ENTREGA: { label: "A caminho", color: "#3b82f6" },
   ENTREGUE: { label: "Entregue", color: "#22c55e" },
   CANCELADO: { label: "Cancelado", color: "#ef4444" },
 };
@@ -348,6 +348,8 @@ export default function StaffDashboard() {
   const [highlightedTableNumber, setHighlightedTableNumber] = useState(null);
   const [isHighlightBlinking, setIsHighlightBlinking] = useState(false);
   const [highlightPulseOn, setHighlightPulseOn] = useState(true);
+  const [socketStatus, setSocketStatus] = useState("connecting");
+  const [lastOrdersSyncAt, setLastOrdersSyncAt] = useState(null);
 
   useEffect(() => {
     function handleResize() {
@@ -369,6 +371,7 @@ export default function StaffDashboard() {
         const data = await ordersService.listRestaurantOrders();
         if (mounted) {
           setOrders(Array.isArray(data) ? data : []);
+          setLastOrdersSyncAt(Date.now());
         }
       } catch (err) {
         toast.error(err?.response?.data?.error || "Erro ao carregar pedidos");
@@ -428,19 +431,59 @@ export default function StaffDashboard() {
     const token = localStorage.getItem("token");
 
     if (!token) {
+      setSocketStatus("disconnected");
       return undefined;
     }
 
-    const socket = connectSocket(token);
+    setSocketStatus("connecting");
+    const socket = connectSocket(token, "employees-dashboard");
+
+    const upsertOrder = (prevOrders, nextOrder) => {
+      const nextOrderId = Number(nextOrder?.id || 0);
+
+      if (!Number.isInteger(nextOrderId) || nextOrderId <= 0) {
+        return prevOrders;
+      }
+
+      const existingIndex = prevOrders.findIndex(
+        (item) => Number(item?.id || 0) === nextOrderId,
+      );
+
+      if (existingIndex < 0) {
+        return [nextOrder, ...prevOrders];
+      }
+
+      return prevOrders.map((item, index) =>
+        index === existingIndex ? { ...item, ...nextOrder } : item,
+      );
+    };
+
+    const syncOrdersAfterConnect = async () => {
+      try {
+        const data = await ordersService.listRestaurantOrders();
+        setOrders(Array.isArray(data) ? data : []);
+        setLastOrdersSyncAt(Date.now());
+      } catch {
+        // Evita interromper o fluxo em caso de falha temporaria de rede.
+      }
+    };
+
+    const onConnect = () => {
+      setSocketStatus("connected");
+      void syncOrdersAfterConnect();
+    };
+
+    const onDisconnect = () => {
+      setSocketStatus("disconnected");
+    };
+
+    const onConnectError = () => {
+      setSocketStatus("disconnected");
+    };
 
     const onNewOrder = (order) => {
-      setOrders((prev) => {
-        const exists = prev.some((item) => item.id === order.id);
-        if (exists) {
-          return prev;
-        }
-        return [order, ...prev];
-      });
+      setOrders((prev) => upsertOrder(prev, order));
+      setLastOrdersSyncAt(Date.now());
     };
 
     const onStatusChanged = (order) => {
@@ -452,9 +495,8 @@ export default function StaffDashboard() {
         });
       }
 
-      setOrders((prev) =>
-        prev.map((item) => (item.id === order.id ? order : item)),
-      );
+      setOrders((prev) => upsertOrder(prev, order));
+      setLastOrdersSyncAt(Date.now());
     };
 
     const onTablePinRequested = async (payload) => {
@@ -491,17 +533,52 @@ export default function StaffDashboard() {
       await showBrowserNotification(message, tableLabel);
     };
 
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
     socket.on("table:pin-requested", onTablePinRequested);
 
     return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
       socket.off("table:pin-requested", onTablePinRequested);
       disconnectSocket();
     };
   }, [notificationsEnabled]);
+
+  useEffect(() => {
+    if (activeTab !== "orders") {
+      return;
+    }
+
+    let mounted = true;
+
+    async function refreshOrdersTab() {
+      try {
+        const data = await ordersService.listRestaurantOrders();
+
+        if (!mounted) {
+          return;
+        }
+
+        setOrders(Array.isArray(data) ? data : []);
+        setLastOrdersSyncAt(Date.now());
+      } catch {
+        // Mantem o painel operando mesmo se a recarga falhar temporariamente.
+      }
+    }
+
+    void refreshOrdersTab();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     if (!highlightedTableId && !highlightedTableNumber) {
@@ -576,23 +653,53 @@ export default function StaffDashboard() {
   }
 
   async function handleUpdateStatus(order, nextStatus) {
+    const nextStatusNormalized = String(nextStatus || "").toUpperCase();
+    const normalizedOrderType = String(order?.type || "").toUpperCase();
+    const isMesaOrRetiradaOrder =
+      normalizedOrderType === "MESA" || normalizedOrderType === "RETIRADA";
+    const shouldAutoAdvanceFlow =
+      nextStatusNormalized === "PRONTO" && isMesaOrRetiradaOrder;
+
+    if (
+      nextStatusNormalized === "ENTREGUE" &&
+      order &&
+      isDeliveryBlockedUntilPaid(order)
+    ) {
+      toast.error(
+        "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro.",
+      );
+      return;
+    }
+
     try {
       const updated = await ordersService.updateStatus(order.id, nextStatus);
+      const finalUpdated = shouldAutoAdvanceFlow
+        ? await ordersService.updateStatus(order.id, "SAIU_PARA_ENTREGA")
+        : updated;
+      const nextStatusLabel = String(
+        finalUpdated?.status ||
+          (shouldAutoAdvanceFlow ? "SAIU_PARA_ENTREGA" : nextStatus),
+      );
+
       setOrders((prev) =>
-        prev.map((item) => (item.id === order.id ? updated : item)),
+        prev.map((item) => (item.id === order.id ? finalUpdated : item)),
       );
 
       toast.info(
-        `Pedido #${order.id} alterado para ${nextStatus.replace(/_/g, " ")}`,
+        `Pedido #${order.id} alterado para ${nextStatusLabel.replace(/_/g, " ")}`,
       );
     } catch (err) {
       const message =
         err?.response?.data?.error || "Erro ao alterar status do pedido";
-      const friendlyMessage =
-        message.includes("pagamento PIX/CARTAO") ||
-        message.includes("ainda não foi confirmado")
-          ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
-          : message;
+      const shouldShowPaymentPendingHint =
+        nextStatusNormalized === "ENTREGUE" &&
+        order &&
+        isDeliveryBlockedUntilPaid(order) &&
+        (message.includes("pagamento PIX/CARTAO") ||
+          message.includes("ainda não foi confirmado"));
+      const friendlyMessage = shouldShowPaymentPendingHint
+        ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
+        : message;
       toast.error(friendlyMessage);
     }
   }
@@ -1246,6 +1353,68 @@ export default function StaffDashboard() {
         </S.Sidebar>
 
         <S.MainContent>
+          {activeTab === "orders" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.85rem",
+                flexWrap: "wrap",
+                borderRadius: 14,
+                padding: "0.8rem 0.95rem",
+                marginBottom: "1rem",
+                border: isDarkMode
+                  ? "1px solid rgba(71, 85, 105, 0.4)"
+                  : "1px solid rgba(148, 163, 184, 0.35)",
+                background: isDarkMode
+                  ? "rgba(15, 23, 42, 0.45)"
+                  : "rgba(255, 255, 255, 0.92)",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  fontWeight: 700,
+                  color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                }}
+              >
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 999,
+                    background:
+                      socketStatus === "connected" ? "#22c55e" : "#f59e0b",
+                    boxShadow:
+                      socketStatus === "connected"
+                        ? "0 0 0 4px rgba(34,197,94,0.15)"
+                        : "0 0 0 4px rgba(245,158,11,0.16)",
+                    flexShrink: 0,
+                  }}
+                />
+                <span>
+                  {socketStatus === "connected"
+                    ? "Tempo real conectado"
+                    : "Reconectando tempo real"}
+                </span>
+              </div>
+
+              <small
+                style={{
+                  color: isDarkMode ? "#94a3b8" : "#475569",
+                  fontSize: 12,
+                }}
+              >
+                {lastOrdersSyncAt
+                  ? `Pedidos sincronizados as ${new Date(lastOrdersSyncAt).toLocaleTimeString("pt-BR")}`
+                  : "Sincronizando pedidos..."}
+              </small>
+            </div>
+          )}
+
           {pinRequestMessages.length > 0 && (
             <div
               style={{

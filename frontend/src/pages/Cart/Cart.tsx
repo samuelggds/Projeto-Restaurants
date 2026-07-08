@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import {
   ArrowLeft,
@@ -16,6 +16,22 @@ import {
 import { toast } from "react-toastify";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
+import {
+  CARD_BRAND_OPTIONS,
+  buildCardPaymentSummary,
+  findSavedCard,
+  getCardBrandDisplay,
+  getCardBrandLogo,
+  getEmptyCardDraft,
+  getCardBrandPalette,
+  getCardNumberDigits,
+  isCardDraftComplete,
+  isCardNumberValid,
+  normalizeCardNumberInput,
+  persistCardWallet,
+  readCardWallet,
+  sanitizeCardDraft,
+} from "../../config/cardPaymentWallet";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
 
@@ -25,6 +41,23 @@ const ADDRESS_STORAGE_KEY = "@PecaJaFood:enderecos";
 const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
+const PIX_AUTO_STATUS_CHECK_INTERVAL_MS = 4000;
+const CARD_BRAND_LOGO_STYLE = {
+  width: 54,
+  height: 32,
+  borderRadius: 8,
+  objectFit: "contain" as const,
+  display: "block",
+  background: "#ffffff",
+  padding: 2,
+  boxSizing: "border-box" as const,
+  border: "1px solid rgba(148, 163, 184, 0.32)",
+};
+const PIX_PROVIDER_OPTIONS = [
+  { value: "MERCADO_PAGO", label: "Mercado Pago" },
+  { value: "NUBANK", label: "Nubank" },
+  { value: "PICPAY", label: "PicPay" },
+];
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", {
@@ -177,7 +210,9 @@ function loadInitialCart() {
 
 export default function Cart() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, login } = useAuth();
+  const initialCardWallet = useMemo(() => readCardWallet(), []);
   const [isDarkMode] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [cartItems, setCartItems] = useState(loadInitialCart);
@@ -192,6 +227,8 @@ export default function Cart() {
   const [pixManualProofImageName, setPixManualProofImageName] = useState("");
   const [isSubmittingPixConfirmation, setIsSubmittingPixConfirmation] =
     useState(false);
+  const [selectedPixProvider, setSelectedPixProvider] =
+    useState("MERCADO_PAGO");
   const [publicRestaurantSettings, setPublicRestaurantSettings] = useState({
     deliveryFee: 8.5,
     minimumOrder: 0,
@@ -207,6 +244,23 @@ export default function Cart() {
   const [customerPhone, setCustomerPhone] = useState(() =>
     formatPhoneInput(storedUser?.phone || ""),
   );
+  const [savedCards, setSavedCards] = useState(initialCardWallet.cards);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState(
+    initialCardWallet.selectedCardId,
+  );
+  const [defaultSavedCardId, setDefaultSavedCardId] = useState(
+    initialCardWallet.defaultCardId,
+  );
+  const [cardPaymentDraft, setCardPaymentDraft] = useState(() => {
+    const selectedCard = findSavedCard(
+      initialCardWallet.cards,
+      initialCardWallet.selectedCardId,
+    );
+
+    return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
+  });
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
 
   const tableSession = useMemo(() => {
     const raw = localStorage.getItem("tableSession");
@@ -271,6 +325,43 @@ export default function Cart() {
     };
   }, [restaurantId]);
 
+  useEffect(() => {
+    setSelectedPixProvider(
+      String(publicRestaurantSettings.pixProvider || "MERCADO_PAGO")
+        .trim()
+        .toUpperCase(),
+    );
+  }, [publicRestaurantSettings.pixProvider]);
+
+  useEffect(() => {
+    const cardCheckoutStatus = String(
+      searchParams.get("cardCheckoutStatus") || "",
+    ).trim();
+
+    if (!cardCheckoutStatus) {
+      return;
+    }
+
+    if (cardCheckoutStatus === "success") {
+      localStorage.removeItem("cartItems");
+      setCartItems([]);
+      toast.success(
+        "Pagamento do cartao concluido. Aguardando confirmacao final do pedido.",
+      );
+      navigate("/cart", { replace: true });
+      return;
+    }
+
+    if (cardCheckoutStatus === "cancel") {
+      toast.info("Pagamento com cartao cancelado. Seu carrinho foi mantido.");
+      navigate("/cart", { replace: true });
+    }
+  }, [navigate, searchParams]);
+
+  useEffect(() => {
+    persistCardWallet(savedCards, selectedSavedCardId, defaultSavedCardId);
+  }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
+
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0,
@@ -291,12 +382,24 @@ export default function Cart() {
     hasMinimumOrderForDelivery && !isMinimumOrderReached;
 
   function buildOrderPayload({ paid = false, pixPaymentId = null } = {}) {
+    const cardPaymentSummary =
+      paymentMethod === "CARTAO"
+        ? buildCardPaymentSummary(cardPaymentDraft)
+        : "";
+
     return {
       restaurantId,
       type: isMesa ? "MESA" : orderType,
       paymentMethod,
+      pixProvider:
+        paymentMethod === "PIX"
+          ? String(selectedPixProvider || "MERCADO_PAGO")
+              .trim()
+              .toUpperCase()
+          : undefined,
       paid,
       pixPaymentId: pixPaymentId || undefined,
+      observation: cardPaymentSummary || undefined,
       customerPhone: isDelivery
         ? String(customerPhone || "").trim() || undefined
         : undefined,
@@ -358,6 +461,111 @@ export default function Cart() {
 
   const handleCustomerPhoneChange = (event) => {
     setCustomerPhone(formatPhoneInput(event.target.value));
+  };
+
+  const handleCardPaymentDraftChange = (field, value) => {
+    setCardPaymentDraft((prev) => ({
+      ...prev,
+      [field]:
+        field === "lastFour"
+          ? String(value || "")
+              .replace(/\D/g, "")
+              .slice(0, 4)
+          : value,
+    }));
+  };
+
+  const handleSelectSavedCard = (cardId) => {
+    const selectedCard = findSavedCard(savedCards, cardId);
+
+    if (!selectedCard) {
+      return;
+    }
+
+    setSelectedSavedCardId(selectedCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(selectedCard));
+    setCardNumber("");
+    setCardCvv("");
+  };
+
+  const handleStartNewSavedCard = () => {
+    setSelectedSavedCardId(null);
+    setCardPaymentDraft(getEmptyCardDraft());
+    setCardNumber("");
+    setCardCvv("");
+  };
+
+  const handleSetDefaultSavedCard = (cardId) => {
+    const selectedCard = findSavedCard(savedCards, cardId);
+
+    if (!selectedCard) {
+      return;
+    }
+
+    setDefaultSavedCardId(selectedCard.id);
+    toast.success("Cartao padrao atualizado.");
+  };
+
+  const handleSaveCurrentCard = () => {
+    const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
+
+    if (!isCardDraftComplete(sanitizedDraft)) {
+      toast.error(
+        "Preencha titular, bandeira e os 4 ultimos digitos para salvar o cartao.",
+      );
+      return;
+    }
+
+    const normalizedHolder = sanitizedDraft.holderName.trim().toLowerCase();
+    const normalizedBrand = sanitizedDraft.brand.trim().toLowerCase();
+
+    const existingCard =
+      findSavedCard(savedCards, selectedSavedCardId) ||
+      savedCards.find(
+        (card) =>
+          card.lastFour === sanitizedDraft.lastFour &&
+          card.holderName.trim().toLowerCase() === normalizedHolder &&
+          card.brand.trim().toLowerCase() === normalizedBrand,
+      ) ||
+      null;
+
+    const nextCard = {
+      id: existingCard?.id || `${Date.now()}`,
+      ...sanitizedDraft,
+    };
+
+    const nextCards = existingCard
+      ? savedCards.map((card) =>
+          card.id === existingCard.id ? nextCard : card,
+        )
+      : [...savedCards, nextCard];
+
+    setSavedCards(nextCards);
+    setSelectedSavedCardId(nextCard.id);
+    setDefaultSavedCardId((prev) => prev || nextCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
+  };
+
+  const handleRemoveSavedCard = (cardId) => {
+    const nextCards = savedCards.filter((card) => card.id !== cardId);
+    const nextSelectedCardId = nextCards[0]?.id || null;
+    const nextDefaultCardId =
+      defaultSavedCardId === cardId
+        ? nextCards[0]?.id || null
+        : defaultSavedCardId;
+
+    setSavedCards(nextCards);
+    setSelectedSavedCardId(nextSelectedCardId);
+    setDefaultSavedCardId(nextDefaultCardId);
+    setCardPaymentDraft(
+      nextSelectedCardId
+        ? sanitizeCardDraft(findSavedCard(nextCards, nextSelectedCardId))
+        : getEmptyCardDraft(),
+    );
+    setCardNumber("");
+    setCardCvv("");
+    toast.info("Cartao removido.");
   };
 
   function persistDeliveryAddress(address) {
@@ -476,6 +684,24 @@ export default function Cart() {
         toast.error("Preencha os dados obrigatórios de entrega.");
         return;
       }
+
+      if (
+        paymentMethod === "CARTAO" &&
+        !isCardDraftComplete(cardPaymentDraft)
+      ) {
+        toast.error(
+          "Informe titular, bandeira e os 4 ultimos digitos do cartao para continuar.",
+        );
+        return;
+      }
+
+      if (
+        paymentMethod === "CARTAO" &&
+        !/^\d{3,4}$/.test(String(cardCvv || "").trim())
+      ) {
+        toast.error("Informe um CVV valido com 3 ou 4 digitos.");
+        return;
+      }
     }
 
     const startedAt = Date.now();
@@ -488,10 +714,19 @@ export default function Cart() {
           buildOrderPayload({ paid: false }),
         );
 
+        const isMercadoPagoPix =
+          String(
+            pixPayment?.provider ||
+              publicRestaurantSettings.pixProvider ||
+              "MERCADO_PAGO",
+          )
+            .trim()
+            .toUpperCase() === "MERCADO_PAGO";
+
         setIsDrawerOpen(false);
         setIsSubmitting(false);
         setPixPaymentData({
-          orderId: null,
+          orderId: Number(pixPayment?.orderId || 0) || null,
           total: Number(pixPayment?.totalAmount || total),
           paymentId: String(pixPayment?.paymentId || ""),
           provider: String(
@@ -508,12 +743,25 @@ export default function Cart() {
         setPixManualProof("");
         setPixManualProofImage("");
         setPixManualProofImageName("");
-        setPendingPixOrderPayload(
-          buildOrderPayload({
-            paid: true,
-            pixPaymentId: pixPayment?.paymentId,
-          }),
-        );
+        setPendingPixOrderPayload(null);
+        return;
+      }
+
+      if (paymentMethod === "CARTAO") {
+        const checkout = await ordersService.createCardCheckout({
+          ...buildOrderPayload({ paid: false }),
+          customerName: String(storedUser?.name || "Cliente"),
+          customerCpf:
+            String(storedUser?.cpf || "").replace(/\D/g, "") || undefined,
+          successUrl: window.location.href,
+          cancelUrl: window.location.href,
+        });
+
+        if (!checkout?.checkoutUrl) {
+          throw new Error("Nao foi possivel iniciar o pagamento com cartao.");
+        }
+
+        window.location.href = String(checkout.checkoutUrl);
         return;
       }
 
@@ -594,7 +842,7 @@ export default function Cart() {
   }
 
   async function handleConfirmPixPaymentAndCreateOrder() {
-    if (!pendingPixOrderPayload || isSubmittingPixConfirmation) {
+    if (!pixPaymentData || isSubmittingPixConfirmation) {
       return;
     }
 
@@ -633,54 +881,41 @@ export default function Cart() {
         return;
       }
 
-      if (pixPaymentData?.requiresStatusCheck) {
-        const paymentStatus = await ordersService.getPixPaymentStatus({
+      if (
+        pixPaymentData?.orderId &&
+        String(pixPaymentData?.paymentId || "").trim()
+      ) {
+        const confirmedOrder = await ordersService.confirmPixPayment({
           restaurantId,
-          paymentId: pendingPixOrderPayload.pixPaymentId,
-        });
-
-        if (!paymentStatus?.isApproved) {
-          toast.error(
-            "Pagamento PIX ainda não foi aprovado. Finalize o pagamento e tente novamente.",
-          );
-          setIsSubmittingPixConfirmation(false);
-          return;
-        }
-      }
-
-      const payloadToCreate = isManualProvider
-        ? {
-            ...pendingPixOrderPayload,
-            paymentProof: normalizedManualProof || undefined,
-            paymentProofImage: hasManualProofImage
+          orderId: pixPaymentData.orderId,
+          paymentId: pixPaymentData.paymentId,
+          paymentProof: isManualProvider
+            ? normalizedManualProof || undefined
+            : undefined,
+          paymentProofImage:
+            isManualProvider && hasManualProofImage
               ? normalizedManualProofImage
               : undefined,
-          }
-        : pendingPixOrderPayload;
+        });
 
-      const createdOrder = await ordersService.createOrder(payloadToCreate);
+        localStorage.removeItem("cartItems");
+        if (isDelivery) {
+          persistDeliveryAddress(endereco);
+        }
 
-      localStorage.removeItem("cartItems");
-      if (isDelivery) {
-        persistDeliveryAddress(endereco);
+        setPendingPixOrderPayload(null);
+        setPixPaymentData(null);
+        setPixManualProof("");
+        setPixManualProofImage("");
+        setPixManualProofImageName("");
+        toast.success(
+          confirmedOrder?.paid
+            ? "Pagamento confirmado e pedido enviado para a cozinha!"
+            : "Pedido aguardando confirmacao do pagamento.",
+        );
+        navigate(returnMenuPath, { replace: true });
+        return;
       }
-
-      setPixPaymentData((prev) =>
-        prev
-          ? {
-              ...prev,
-              orderId: createdOrder?.id || null,
-            }
-          : prev,
-      );
-
-      setPendingPixOrderPayload(null);
-      setPixPaymentData(null);
-      setPixManualProof("");
-      setPixManualProofImage("");
-      setPixManualProofImageName("");
-      toast.success("Pagamento confirmado e pedido criado com sucesso!");
-      navigate(returnMenuPath, { replace: true });
     } catch (err) {
       toast.error(
         err?.response?.data?.error || "Erro ao confirmar pagamento PIX",
@@ -688,6 +923,114 @@ export default function Cart() {
       setIsSubmittingPixConfirmation(false);
     }
   }
+
+  useEffect(() => {
+    const shouldAutoConfirmPix =
+      Boolean(pixPaymentData?.requiresStatusCheck) &&
+      Boolean(pixPaymentData?.paymentId) &&
+      Boolean(pixPaymentData?.orderId) &&
+      String(pixPaymentData?.provider || "").toUpperCase() === "MERCADO_PAGO" &&
+      !isSubmittingPixConfirmation;
+
+    if (!shouldAutoConfirmPix) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkAndConfirmPixPayment() {
+      try {
+        await ordersService.confirmPixPayment({
+          restaurantId,
+          orderId: pixPaymentData.orderId,
+          paymentId: pixPaymentData.paymentId,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        localStorage.removeItem("cartItems");
+        if (isDelivery) {
+          persistDeliveryAddress(endereco);
+        }
+
+        setPendingPixOrderPayload(null);
+        setPixPaymentData(null);
+        setPixManualProof("");
+        setPixManualProofImage("");
+        setPixManualProofImageName("");
+        toast.success("Pagamento confirmado e pedido enviado para a cozinha!");
+        navigate(returnMenuPath, { replace: true });
+      } catch (error) {
+        const message = String(
+          error?.response?.data?.error || error?.message || "",
+        );
+
+        if (
+          message.includes("ainda nao foi aprovado") ||
+          message.includes("ainda não foi aprovado")
+        ) {
+          return;
+        }
+
+        // Keep polling silently; the manual button remains available.
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void checkAndConfirmPixPayment();
+    }, PIX_AUTO_STATUS_CHECK_INTERVAL_MS);
+
+    void checkAndConfirmPixPayment();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    endereco,
+    isSubmittingPixConfirmation,
+    isDelivery,
+    navigate,
+    pixPaymentData,
+    returnMenuPath,
+    restaurantId,
+  ]);
+
+  useEffect(() => {
+    const isManualProvider =
+      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
+    const normalizedManualProof = String(pixManualProof || "").trim();
+    const normalizedManualProofImage = String(pixManualProofImage || "").trim();
+    const hasManualProofImage =
+      normalizedManualProofImage.startsWith("data:image/") &&
+      normalizedManualProofImage.length >= 40;
+    const shouldAutoConfirmManualPix =
+      isManualProvider &&
+      Boolean(pixPaymentData?.paymentId) &&
+      Boolean(pixPaymentData?.orderId) &&
+      !isSubmittingPixConfirmation &&
+      (normalizedManualProof.length >= 6 || hasManualProofImage);
+
+    if (!shouldAutoConfirmManualPix) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void handleConfirmPixPaymentAndCreateOrder();
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    handleConfirmPixPaymentAndCreateOrder,
+    isSubmittingPixConfirmation,
+    pixManualProof,
+    pixManualProofImage,
+    pixPaymentData,
+  ]);
 
   if (pixPaymentData) {
     const isManualProvider =
@@ -721,11 +1064,9 @@ export default function Cart() {
                 pixManualProofImageName={pixManualProofImageName}
                 isSubmittingPixConfirmation={isSubmittingPixConfirmation}
                 isManualProvider={isManualProvider}
-                isConfirmDisabled={isConfirmDisabled}
                 onCopyPixKey={handleCopyPixKey}
                 onPixManualProofChange={setPixManualProof}
                 onManualProofFileChange={handleManualProofFileChange}
-                onConfirmPayment={handleConfirmPixPaymentAndCreateOrder}
               />
             </Suspense>
           </S.MenuSection>
@@ -1205,6 +1546,413 @@ export default function Cart() {
                   Cartão
                 </button>
               </div>
+
+              {paymentMethod === "PIX" ? (
+                <div
+                  style={{
+                    marginTop: "0.85rem",
+                    display: "grid",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <label
+                    htmlFor="pix-provider"
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: isDarkMode ? "#e2e8f0" : "#334155",
+                    }}
+                  >
+                    App/provedor do PIX
+                  </label>
+                  <select
+                    id="pix-provider"
+                    value={selectedPixProvider}
+                    onChange={(event) =>
+                      setSelectedPixProvider(
+                        String(event.target.value || "MERCADO_PAGO")
+                          .trim()
+                          .toUpperCase(),
+                      )
+                    }
+                    style={{
+                      width: "100%",
+                      minHeight: 48,
+                      borderRadius: 12,
+                      padding: "0.75rem 0.9rem",
+                      border: "1px solid #cbd5e1",
+                      background: isDarkMode ? "#1f2937" : "#ffffff",
+                      color: "inherit",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {PIX_PROVIDER_OPTIONS.map((provider) => (
+                      <option key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </option>
+                    ))}
+                  </select>
+                  <small
+                    style={{
+                      color: isDarkMode ? "#94a3b8" : "#64748b",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    Mercado Pago tenta confirmar automaticamente. Nubank e
+                    PicPay usam comprovante manual.
+                  </small>
+                </div>
+              ) : null}
+
+              {paymentMethod === "CARTAO" ? (
+                <div
+                  style={{
+                    marginTop: "1rem",
+                    display: "grid",
+                    gap: "0.75rem",
+                  }}
+                >
+                  {savedCards.length > 0 ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <label
+                        htmlFor="saved-card-select"
+                        style={{ fontSize: 13, fontWeight: 700 }}
+                      >
+                        Escolher cartao salvo
+                      </label>
+                      <select
+                        id="saved-card-select"
+                        value={selectedSavedCardId || ""}
+                        onChange={(event) =>
+                          event.target.value
+                            ? handleSelectSavedCard(event.target.value)
+                            : handleStartNewSavedCard()
+                        }
+                        style={{
+                          width: "100%",
+                          minHeight: 48,
+                          borderRadius: 12,
+                          padding: "0.75rem 0.9rem",
+                          border: "1px solid #cbd5e1",
+                          background: isDarkMode ? "#1f2937" : "#ffffff",
+                          color: "inherit",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <option value="">Novo cartao</option>
+                        {savedCards.map((card) => (
+                          <option key={card.id} value={card.id}>
+                            {`${card.brand} final ${card.lastFour} - ${card.holderName}`}
+                          </option>
+                        ))}
+                      </select>
+                      <strong style={{ fontSize: 14 }}>Cartoes salvos</strong>
+                      {savedCards.map((card) => {
+                        const isSelected = selectedSavedCardId === card.id;
+                        const isDefault = defaultSavedCardId === card.id;
+
+                        return (
+                          <div
+                            key={card.id}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr auto auto",
+                              gap: "0.5rem",
+                              alignItems: "center",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleSelectSavedCard(card.id)}
+                              style={{
+                                textAlign: "left",
+                                padding: "0.95rem 1rem",
+                                borderRadius: 16,
+                                border: isSelected
+                                  ? "2px solid #dba206"
+                                  : "1px solid #cbd5e1",
+                                ...getCardBrandPalette(card.brand),
+                                boxShadow: isSelected
+                                  ? "0 14px 30px rgba(219, 162, 6, 0.18)"
+                                  : "0 10px 24px rgba(15, 23, 42, 0.10)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: "0.75rem",
+                                  alignItems: "center",
+                                  marginBottom: "0.6rem",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.45rem",
+                                  }}
+                                >
+                                  <img
+                                    src={getCardBrandLogo(card.brand)}
+                                    alt={`Bandeira ${card.brand}`}
+                                    style={CARD_BRAND_LOGO_STYLE}
+                                  />
+                                  <strong>{card.brand.toUpperCase()}</strong>
+                                </div>
+                                <span style={{ fontSize: 11, opacity: 0.9 }}>
+                                  {isDefault
+                                    ? "PADRAO"
+                                    : isSelected
+                                      ? "EM USO"
+                                      : "SALVO"}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 18, fontWeight: 800 }}>
+                                •••• •••• •••• {card.lastFour}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  opacity: 0.88,
+                                  marginTop: "0.5rem",
+                                }}
+                              >
+                                {card.holderName}
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetDefaultSavedCard(card.id)}
+                              style={{
+                                borderRadius: 10,
+                                border: isDefault
+                                  ? "1px solid rgba(34, 197, 94, 0.35)"
+                                  : "1px solid rgba(148, 163, 184, 0.35)",
+                                background: isDefault
+                                  ? "rgba(34, 197, 94, 0.1)"
+                                  : "transparent",
+                                color: isDefault ? "#166534" : "inherit",
+                                padding: "0.7rem 0.85rem",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {isDefault ? "Padrao" : "Definir padrao"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSavedCard(card.id)}
+                              style={{
+                                borderRadius: 10,
+                                border: "1px solid rgba(239, 68, 68, 0.35)",
+                                background: "rgba(239, 68, 68, 0.1)",
+                                color: "#991b1b",
+                                padding: "0.7rem 0.85rem",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  <input
+                    type="text"
+                    placeholder="Nome do titular"
+                    value={cardPaymentDraft.holderName}
+                    onChange={(event) =>
+                      handleCardPaymentDraftChange(
+                        "holderName",
+                        event.target.value,
+                      )
+                    }
+                  />
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.2fr 1fr",
+                      gap: "0.75rem",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Numero do cartao"
+                      value={cardNumber}
+                      onChange={(event) =>
+                        setCardNumber(
+                          normalizeCardNumberInput(event.target.value),
+                        )
+                      }
+                    />
+                    <select
+                      value={cardPaymentDraft.brand}
+                      onChange={(event) =>
+                        handleCardPaymentDraftChange(
+                          "brand",
+                          event.target.value,
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        minHeight: 48,
+                        borderRadius: 12,
+                        padding: "0.75rem 0.9rem",
+                        border: "1px solid #cbd5e1",
+                        background: isDarkMode ? "#1f2937" : "#ffffff",
+                        color: "inherit",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <option value="">Selecione a bandeira</option>
+                      {CARD_BRAND_OPTIONS.map((brand) => (
+                        <option key={brand} value={brand}>
+                          {getCardBrandDisplay(brand).label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    {CARD_BRAND_OPTIONS.map((brand) => {
+                      const isActive = cardPaymentDraft.brand === brand;
+
+                      return (
+                        <button
+                          key={brand}
+                          type="button"
+                          onClick={() =>
+                            handleCardPaymentDraftChange("brand", brand)
+                          }
+                          style={{
+                            minHeight: 58,
+                            borderRadius: 12,
+                            border: isActive
+                              ? "2px solid #dba206"
+                              : "1px solid #cbd5e1",
+                            background: isActive
+                              ? "rgba(219, 162, 6, 0.12)"
+                              : "transparent",
+                            color: "inherit",
+                            cursor: "pointer",
+                            display: "grid",
+                            justifyItems: "center",
+                            alignContent: "center",
+                            gap: "0.25rem",
+                          }}
+                        >
+                          <img
+                            src={getCardBrandLogo(brand)}
+                            alt={`Bandeira ${brand}`}
+                            style={CARD_BRAND_LOGO_STYLE}
+                          />
+                          <span style={{ fontSize: 11, fontWeight: 700 }}>
+                            {getCardBrandDisplay(brand).label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "0.8fr 0.6fr",
+                      gap: "0.75rem",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Final 1234"
+                      value={cardPaymentDraft.lastFour}
+                      onChange={(event) =>
+                        handleCardPaymentDraftChange(
+                          "lastFour",
+                          event.target.value,
+                        )
+                      }
+                    />
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="CVV"
+                      value={cardCvv}
+                      onChange={(event) =>
+                        setCardCvv(
+                          String(event.target.value || "")
+                            .replace(/\D/g, "")
+                            .slice(0, 4),
+                        )
+                      }
+                    />
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={handleSaveCurrentCard}
+                      style={{
+                        padding: "0.8rem 1rem",
+                        borderRadius: 10,
+                        border: "1px solid rgba(34, 197, 94, 0.35)",
+                        background: "rgba(34, 197, 94, 0.12)",
+                        color: "#166534",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedSavedCardId
+                        ? "Atualizar cartao"
+                        : "Salvar cartao"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartNewSavedCard}
+                      style={{
+                        padding: "0.8rem 1rem",
+                        borderRadius: 10,
+                        border: "1px solid #cbd5e1",
+                        background: "transparent",
+                        color: "inherit",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Novo cartao
+                    </button>
+                  </div>
+                  <small
+                    style={{
+                      color: isDarkMode ? "#cbd5e1" : "#475569",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Por seguranca, este aparelho salva apenas titular, bandeira
+                    e os 4 ultimos digitos do cartao. Numero completo e CVV nao
+                    sao armazenados; o CVV vale apenas para esta compra.
+                  </small>
+                </div>
+              ) : null}
             </div>
 
             <div

@@ -72,6 +72,7 @@ app.use(
 
 // Parse JSON for all routes
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 app.get("/health", (_req, res) => {
   return res.status(200).json({
