@@ -1,3 +1,4 @@
+import "dotenv/config";
 import promptSync from "prompt-sync";
 import bcrypt from "bcrypt";
 import { PrismaClient, UserRole } from "@prisma/client";
@@ -22,9 +23,11 @@ async function createSuperAdmin() {
       return;
     }
 
-    const name = prompt("Nome: ");
-    const email = prompt("Email: ");
-    const password = prompt("Senha: ");
+    const name = String(prompt("Nome: ") || "").trim();
+    const email = String(prompt("Email: ") || "")
+      .trim()
+      .toLowerCase();
+    const password = String(prompt("Senha: ") || "").trim();
 
     const hashPassword = await bcrypt.hash(password, 10);
 

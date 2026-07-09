@@ -13,7 +13,11 @@ class RegisterService {
   async execute({ name, email, password, confirmPassword }: RegisterPayload) {
     registerSchema.parse({ name, email, password, confirmPassword });
 
-    const userExists = await userRepository.findByEmail(email);
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
+
+    const userExists = await userRepository.findByEmail(normalizedEmail);
     if (userExists) {
       throw new Error("Este e-mail já está em uso!");
     }
@@ -22,7 +26,7 @@ class RegisterService {
 
     const user = await userRepository.create({
       name,
-      email,
+      email: normalizedEmail,
       password: passwordhash,
     });
 
