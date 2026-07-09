@@ -10,6 +10,8 @@ class CreateOrderPixPaymentController {
         type,
         paymentMethod,
         pixProvider,
+        observation,
+        tableId,
         items,
         address,
         number,
@@ -24,9 +26,13 @@ class CreateOrderPixPaymentController {
       } = req.body;
 
       const userId = req.user?.id ?? null;
-      const userRestaurantId = req.user?.restaurantId ?? null;
+      const userRestaurantId =
+        req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
       const resolvedRestaurantId =
         Number(restaurantId) || Number(userRestaurantId);
+      const normalizedType = String(type || "")
+        .trim()
+        .toUpperCase();
 
       const result = await orderPixPaymentService.createPixPayment({
         restaurantId: resolvedRestaurantId,
@@ -49,11 +55,15 @@ class CreateOrderPixPaymentController {
         userId,
         restaurantId: resolvedRestaurantId,
         userRestaurantId,
-        deferRealtimeUntilPaid: true,
+        tableSessionId: req.tableSession?.id ?? null,
+        tableSessionTableId: req.tableSession?.tableId ?? null,
+        deferRealtimeUntilPaid: normalizedType === "DELIVERY",
         type,
         paymentMethod,
         paid: false,
         pixPaymentId: String(result.paymentId || ""),
+        observation,
+        tableId,
         customerName,
         customerCpf,
         customerPhone,

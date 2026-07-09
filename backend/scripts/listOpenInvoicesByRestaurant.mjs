@@ -1,9 +1,16 @@
+import "dotenv/config";
 import prisma from "../src/config/prisma.js";
 
-const restaurantId = Number(process.argv[2] || 15);
+const restaurantId = Number(process.argv[2] || 0);
 
 (async () => {
   try {
+    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+      throw new Error(
+        "Informe o restaurantId como primeiro argumento. Ex.: npm --prefix backend exec node backend/scripts/listOpenInvoicesByRestaurant.mjs 1",
+      );
+    }
+
     const invoices = await prisma.invoice.findMany({
       where: {
         restaurantId,

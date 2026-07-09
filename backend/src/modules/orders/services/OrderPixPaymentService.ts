@@ -234,27 +234,29 @@ function buildPixPayload({
 }
 
 class OrderPixPaymentService {
-  hasAccessToken: boolean;
-  client: MercadoPagoConfig | null;
-  paymentApi: Payment | null;
+  async getMercadoPagoPaymentApi(restaurantId?: number) {
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    const allowGlobalFallback =
+      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
+    const settings =
+      Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
+        ? await restaurantSettingsRepository.findByRestaurantId(
+            normalizedRestaurantId,
+          )
+        : null;
+    const settingsToken = String(settings?.mercadoPagoAccessToken || "").trim();
+    const globalToken = String(process.env.MP_ACCESS_TOKEN || "").trim();
+    const accessToken =
+      settingsToken || (allowGlobalFallback ? globalToken : "");
 
-  constructor() {
-    const accessToken = String(process.env.MP_ACCESS_TOKEN || "").trim();
-    this.hasAccessToken = Boolean(accessToken);
-    this.client = this.hasAccessToken
-      ? new MercadoPagoConfig({
-          accessToken,
-        })
-      : null;
-    this.paymentApi = this.client ? new Payment(this.client) : null;
-  }
-
-  ensureMercadoPagoConfigured() {
-    if (!this.hasAccessToken || !this.paymentApi) {
+    if (!accessToken) {
       throw new Error(
-        "Pagamento PIX indisponível no momento. Configure MP_ACCESS_TOKEN no servidor.",
+        "Pagamento PIX indisponivel no momento. Configure access token Mercado Pago nas configuracoes do restaurante.",
       );
     }
+
+    const client = new MercadoPagoConfig({ accessToken });
+    return new Payment(client);
   }
 
   normalizeCpf(value: string | number | null | undefined) {
@@ -333,18 +335,27 @@ class OrderPixPaymentService {
       throw new Error("Restaurante inválido para gerar PIX.");
     }
 
-    if (normalizedType !== "DELIVERY" || normalizedPaymentMethod !== "PIX") {
+    const allowsPixType =
+      normalizedType === "DELIVERY" ||
+      normalizedType === "MESA" ||
+      normalizedType === "RETIRADA";
+
+    if (!allowsPixType || normalizedPaymentMethod !== "PIX") {
       throw new Error(
-        "A geração de PIX é permitida apenas para pedidos DELIVERY com pagamento PIX.",
+        "A geracao de PIX e permitida para pedidos DELIVERY, MESA ou RETIRADA com pagamento PIX.",
       );
     }
 
-    const requiredAddressFields = [address, number, district, city, state]
-      .map((value) => String(value || "").trim())
-      .filter(Boolean);
+    if (normalizedType === "DELIVERY") {
+      const requiredAddressFields = [address, number, district, city, state]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
 
-    if (requiredAddressFields.length < 5) {
-      throw new Error("Informe o endereço completo para pedidos de delivery.");
+      if (requiredAddressFields.length < 5) {
+        throw new Error(
+          "Informe o endereco completo para pedidos de delivery.",
+        );
+      }
     }
 
     const settings =
@@ -372,15 +383,19 @@ class OrderPixPaymentService {
       items,
     });
 
-    if (minimumOrder > 0 && subtotal < minimumOrder) {
+    if (
+      normalizedType === "DELIVERY" &&
+      minimumOrder > 0 &&
+      subtotal < minimumOrder
+    ) {
       throw new Error(
         `Pedido mínimo para delivery: R$ ${minimumOrder.toFixed(2)}.`,
       );
     }
 
-    const totalAmount = Number(
-      (subtotal + Math.max(deliveryFee, 0)).toFixed(2),
-    );
+    const additionalFee =
+      normalizedType === "DELIVERY" ? Math.max(deliveryFee, 0) : 0;
+    const totalAmount = Number((subtotal + additionalFee).toFixed(2));
 
     if (totalAmount <= 0) {
       throw new Error("Total do pedido inválido para gerar cobrança PIX.");
@@ -406,7 +421,9 @@ class OrderPixPaymentService {
       };
     }
 
-    this.ensureMercadoPagoConfigured();
+    const paymentApi = await this.getMercadoPagoPaymentApi(
+      normalizedRestaurantId,
+    );
 
     const payerEmail = this.normalizeEmail(userEmail, normalizedRestaurantId);
     const payerName = String(customerName || "Cliente").trim();
@@ -436,7 +453,7 @@ class OrderPixPaymentService {
       external_reference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
     };
 
-    const response = (await this.paymentApi.create({ body })) as unknown;
+    const response = (await paymentApi.create({ body })) as unknown;
 
     const payment =
       typeof response === "object" && response !== null
@@ -488,9 +505,15 @@ class OrderPixPaymentService {
       };
     }
 
-    this.ensureMercadoPagoConfigured();
+    const normalizedRestaurantIdNumber = Number(restaurantId || 0);
+    const paymentApi = await this.getMercadoPagoPaymentApi(
+      Number.isInteger(normalizedRestaurantIdNumber) &&
+        normalizedRestaurantIdNumber > 0
+        ? normalizedRestaurantIdNumber
+        : undefined,
+    );
 
-    const response = (await this.paymentApi.get({
+    const response = (await paymentApi.get({
       id: normalizedPaymentId,
     })) as unknown;
     const payment =

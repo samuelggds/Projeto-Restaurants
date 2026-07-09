@@ -29,6 +29,8 @@ type CreateRestaurantSettingsPayload = {
   bankHolderDocument?: string | null;
   cardGateway?: string | null;
   gatewayMerchantId?: string | null;
+  stripeSecretKey?: string | null;
+  mercadoPagoAccessToken?: string | null;
   pagbankEmail?: string | null;
   pagbankToken?: string | null;
   pagbankEnvironment?: string | null;
@@ -71,6 +73,8 @@ class CreateRestaurantSettingsService {
     bankHolderDocument,
     cardGateway,
     gatewayMerchantId,
+    stripeSecretKey,
+    mercadoPagoAccessToken,
     pagbankEmail,
     pagbankToken,
     pagbankEnvironment,
@@ -189,6 +193,9 @@ class CreateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument || null,
       cardGateway: String(cardGateway || "").trim() || null,
       gatewayMerchantId: String(gatewayMerchantId || "").trim() || null,
+      stripeSecretKey: String(stripeSecretKey || "").trim() || null,
+      mercadoPagoAccessToken:
+        String(mercadoPagoAccessToken || "").trim() || null,
       pagbankEmail: String(pagbankEmail || "").trim() || null,
       pagbankToken: String(pagbankToken || "").trim() || null,
       pagbankEnvironment: "production",
@@ -229,7 +236,18 @@ class CreateRestaurantSettingsService {
 
     return {
       ...created,
+      stripeSecretKey: null,
+      mercadoPagoAccessToken: null,
       pagbankToken: null,
+      stripeSecretKeyConfigured: Boolean(
+        String(created?.stripeSecretKey || "").trim(),
+      ),
+      mercadoPagoAccessTokenConfigured: Boolean(
+        String(created?.mercadoPagoAccessToken || "").trim(),
+      ),
+      pagbankTokenConfigured: Boolean(
+        String(created?.pagbankToken || "").trim(),
+      ),
       whatsapp: normalizedWhatsapp ?? null,
       restaurantName: normalizedRestaurantName ?? null,
       restaurantLogo: normalizedRestaurantLogo ?? null,

@@ -51,6 +51,9 @@ class ConfirmOrderPaymentService {
       paymentMethod: updatedOrder.paymentMethod,
     });
 
+    io.to(`restaurant:${restaurantId}`).emit("new-order", updatedOrder);
+    io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
+
     // Reuse existing dashboard listeners that refresh order cards on this event.
     io.to(`restaurant:${restaurantId}`).emit(
       "order:status-changed",

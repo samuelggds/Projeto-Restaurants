@@ -29,6 +29,8 @@ type UpdateRestaurantSettingsPayload = {
   bankHolderDocument?: string | null;
   cardGateway?: string | null;
   gatewayMerchantId?: string | null;
+  stripeSecretKey?: string | null;
+  mercadoPagoAccessToken?: string | null;
   pagbankEmail?: string | null;
   pagbankToken?: string | null;
   pagbankEnvironment?: string | null;
@@ -71,6 +73,8 @@ class UpdateRestaurantSettingsService {
     bankHolderDocument,
     cardGateway,
     gatewayMerchantId,
+    stripeSecretKey,
+    mercadoPagoAccessToken,
     pagbankEmail,
     pagbankToken,
     pagbankEnvironment,
@@ -127,6 +131,14 @@ class UpdateRestaurantSettingsService {
       gatewayMerchantId === undefined
         ? undefined
         : String(gatewayMerchantId || "").trim() || null;
+    const normalizedStripeSecretKey =
+      stripeSecretKey === undefined
+        ? undefined
+        : String(stripeSecretKey || "").trim() || null;
+    const normalizedMercadoPagoAccessToken =
+      mercadoPagoAccessToken === undefined
+        ? undefined
+        : String(mercadoPagoAccessToken || "").trim() || null;
     const normalizedPagBankEmail =
       pagbankEmail === undefined
         ? undefined
@@ -267,6 +279,8 @@ class UpdateRestaurantSettingsService {
       bankHolderDocument: normalizedBankHolderDocument,
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: normalizedGatewayMerchantId,
+      stripeSecretKey: normalizedStripeSecretKey,
+      mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       pagbankEmail: normalizedPagBankEmail,
       pagbankToken: normalizedPagBankToken,
       pagbankEnvironment: normalizedPagBankEnvironment,
@@ -315,7 +329,18 @@ class UpdateRestaurantSettingsService {
 
     return {
       ...updated,
+      stripeSecretKey: null,
+      mercadoPagoAccessToken: null,
       pagbankToken: null,
+      stripeSecretKeyConfigured: Boolean(
+        String(updated?.stripeSecretKey || "").trim(),
+      ),
+      mercadoPagoAccessTokenConfigured: Boolean(
+        String(updated?.mercadoPagoAccessToken || "").trim(),
+      ),
+      pagbankTokenConfigured: Boolean(
+        String(updated?.pagbankToken || "").trim(),
+      ),
       whatsapp:
         whatsapp !== undefined
           ? normalizedWhatsapp

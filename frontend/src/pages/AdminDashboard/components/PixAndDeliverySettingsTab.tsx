@@ -30,8 +30,13 @@ type SettingsForm = {
   bankHolderDocument: string;
   cardGateway: string;
   gatewayMerchantId: string;
+  stripeSecretKey: string;
+  stripeSecretKeyConfigured: boolean;
+  mercadoPagoAccessToken: string;
+  mercadoPagoAccessTokenConfigured: boolean;
   pagbankEmail: string;
   pagbankToken: string;
+  pagbankTokenConfigured: boolean;
   pagbankEnvironment: string;
   ownerDocumentFileUrl: string;
   bankProofFileUrl: string;
@@ -100,10 +105,17 @@ export default function PixAndDeliverySettingsTab({
     const isIntegratedGateway = integratedGateways.has(selectedGateway);
     const hasGatewayMerchantId =
       String(settingsForm.gatewayMerchantId || "").trim().length > 0;
+    const hasStripeSecretKey =
+      String(settingsForm.stripeSecretKey || "").trim().length > 0 ||
+      Boolean(settingsForm.stripeSecretKeyConfigured);
+    const hasMercadoPagoAccessToken =
+      String(settingsForm.mercadoPagoAccessToken || "").trim().length > 0 ||
+      Boolean(settingsForm.mercadoPagoAccessTokenConfigured);
     const hasPagBankEmail =
       String(settingsForm.pagbankEmail || "").trim().length > 0;
     const hasPagBankToken =
-      String(settingsForm.pagbankToken || "").trim().length > 0;
+      String(settingsForm.pagbankToken || "").trim().length > 0 ||
+      Boolean(settingsForm.pagbankTokenConfigured);
 
     if (!selectedGateway) {
       return null;
@@ -180,10 +192,16 @@ export default function PixAndDeliverySettingsTab({
             no backend e, se precisar, o ID da conta conectada neste campo.
           </small>
           {renderCredentialStatus(
-            true,
+            hasStripeSecretKey,
             " Configuracao minima pronta",
             " Informe as credenciais",
           )}
+          {Boolean(settingsForm.stripeSecretKeyConfigured) &&
+          !String(settingsForm.stripeSecretKey || "").trim() ? (
+            <small style={{ lineHeight: 1.4 }}>
+              Chave Stripe ja cadastrada. Preencha novamente apenas para trocar.
+            </small>
+          ) : null}
           {!hasGatewayMerchantId ? (
             <small style={{ lineHeight: 1.4 }}>
               Opcional: preencha ID da conta/merchant para operacao com conta
@@ -213,10 +231,17 @@ export default function PixAndDeliverySettingsTab({
             o Access Token da conta vendedora.
           </small>
           {renderCredentialStatus(
-            true,
+            hasMercadoPagoAccessToken,
             " Configuracao minima pronta",
             " Informe as credenciais",
           )}
+          {Boolean(settingsForm.mercadoPagoAccessTokenConfigured) &&
+          !String(settingsForm.mercadoPagoAccessToken || "").trim() ? (
+            <small style={{ lineHeight: 1.4 }}>
+              Access token do Mercado Pago ja cadastrado. Preencha novamente
+              apenas para trocar.
+            </small>
+          ) : null}
           {!hasGatewayMerchantId ? (
             <small style={{ lineHeight: 1.4 }}>
               Opcional: preencha ID da conta/merchant quando houver esse dado no
@@ -254,6 +279,13 @@ export default function PixAndDeliverySettingsTab({
             <small style={{ lineHeight: 1.4 }}>
               Minimo para salvar com seguranca: e-mail da conta PagBank e token
               de integracao.
+            </small>
+          ) : null}
+          {Boolean(settingsForm.pagbankTokenConfigured) &&
+          !String(settingsForm.pagbankToken || "").trim() ? (
+            <small style={{ lineHeight: 1.4 }}>
+              Token PagBank ja cadastrado. Preencha novamente apenas para
+              trocar.
             </small>
           ) : null}
           <a
@@ -460,22 +492,34 @@ export default function PixAndDeliverySettingsTab({
   const hasPagBankEmailForReview =
     String(settingsForm.pagbankEmail || "").trim().length > 0;
   const hasPagBankTokenForReview =
-    String(settingsForm.pagbankToken || "").trim().length > 0;
+    String(settingsForm.pagbankToken || "").trim().length > 0 ||
+    Boolean(settingsForm.pagbankTokenConfigured);
+  const hasStripeSecretKeyForReview =
+    String(settingsForm.stripeSecretKey || "").trim().length > 0 ||
+    Boolean(settingsForm.stripeSecretKeyConfigured);
+  const hasMercadoPagoAccessTokenForReview =
+    String(settingsForm.mercadoPagoAccessToken || "").trim().length > 0 ||
+    Boolean(settingsForm.mercadoPagoAccessTokenConfigured);
 
   const gatewayCredentialChecklistLabel =
     selectedGatewayForReview === "PAGBANK"
       ? "Credenciais do gateway (PagBank: e-mail e token)"
-      : "Credenciais do gateway";
+      : selectedGatewayForReview === "STRIPE"
+        ? "Credenciais do gateway (Stripe: chave secreta)"
+        : selectedGatewayForReview === "MERCADO_PAGO"
+          ? "Credenciais do gateway (Mercado Pago: access token)"
+          : "Credenciais do gateway";
 
   const gatewayCredentialChecklistDone =
     selectedGatewayForReview === "PAGBANK"
       ? hasPagBankEmailForReview && hasPagBankTokenForReview
-      : selectedGatewayForReview === "STRIPE" ||
-          selectedGatewayForReview === "MERCADO_PAGO"
-        ? true
-        : selectedGatewayForReview
-          ? false
-          : true;
+      : selectedGatewayForReview === "STRIPE"
+        ? hasStripeSecretKeyForReview
+        : selectedGatewayForReview === "MERCADO_PAGO"
+          ? hasMercadoPagoAccessTokenForReview
+          : selectedGatewayForReview
+            ? false
+            : true;
 
   const finalReviewItems: ChecklistItem[] = [
     {
@@ -519,7 +563,10 @@ export default function PixAndDeliverySettingsTab({
     {
       label: gatewayCredentialChecklistLabel,
       done: gatewayCredentialChecklistDone,
-      required: selectedGatewayForReview === "PAGBANK",
+      required:
+        selectedGatewayForReview === "PAGBANK" ||
+        selectedGatewayForReview === "STRIPE" ||
+        selectedGatewayForReview === "MERCADO_PAGO",
     },
   ];
 
@@ -1288,10 +1335,7 @@ export default function PixAndDeliverySettingsTab({
                   >
                     <option value="">Selecione</option>
                     <option value="STRIPE">Stripe</option>
-                    <option value="STONE">Stone</option>
                     <option value="PAGBANK">PagBank</option>
-                    <option value="ZOOP">Zoop</option>
-                    <option value="PAGARME">Pagar.me</option>
                     <option value="MERCADO_PAGO">Mercado Pago</option>
                   </select>
                   <small style={fieldHelpStyle}>
@@ -1314,6 +1358,42 @@ export default function PixAndDeliverySettingsTab({
               </S.FormRow>
 
               {renderGatewayCredentialGuide()}
+
+              {String(settingsForm.cardGateway || "").toUpperCase() ===
+              "STRIPE" ? (
+                <S.FormGroup style={{ marginTop: "1rem" }}>
+                  <label>Chave Secreta Stripe</label>
+                  <input
+                    type="password"
+                    name="stripeSecretKey"
+                    placeholder="Cole aqui a sk_... da conta do restaurante"
+                    value={settingsForm.stripeSecretKey}
+                    onChange={onFieldChange}
+                  />
+                  <small style={fieldHelpStyle}>
+                    Por seguranca, essa chave nao e exibida apos salvar.
+                    Preencha novamente apenas para atualizar credencial.
+                  </small>
+                </S.FormGroup>
+              ) : null}
+
+              {String(settingsForm.cardGateway || "").toUpperCase() ===
+              "MERCADO_PAGO" ? (
+                <S.FormGroup style={{ marginTop: "1rem" }}>
+                  <label>Access Token Mercado Pago</label>
+                  <input
+                    type="password"
+                    name="mercadoPagoAccessToken"
+                    placeholder="Cole aqui o APP_USR-... da conta do restaurante"
+                    value={settingsForm.mercadoPagoAccessToken}
+                    onChange={onFieldChange}
+                  />
+                  <small style={fieldHelpStyle}>
+                    Por seguranca, o token nao e exibido apos salvar. Preencha
+                    novamente apenas para atualizar credencial.
+                  </small>
+                </S.FormGroup>
+              ) : null}
 
               {String(settingsForm.cardGateway || "").toUpperCase() ===
               "PAGBANK" ? (

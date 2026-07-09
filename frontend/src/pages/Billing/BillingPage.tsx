@@ -198,6 +198,14 @@ export default function BillingPage() {
       .trim()
       .toUpperCase();
 
+  const formatDate = (date) => {
+    return new Intl.DateTimeFormat("pt-BR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(date));
+  };
+
   const hasOpenInvoices = invoices.some((invoice) =>
     ["PENDENTE", "ATRASADO", "VENCIDO"].includes(
       normalizedInvoiceStatus(invoice.status),
@@ -338,14 +346,6 @@ export default function BillingPage() {
     }).format(value);
   };
 
-  const formatDate = (date) => {
-    return new Intl.DateTimeFormat("pt-BR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(date));
-  };
-
   return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
       <S.AdminLayout>
@@ -412,7 +412,7 @@ export default function BillingPage() {
                     </S.PlanTitle>
                     <S.PlanPrice>{PLAN_PRICES.BASICO}</S.PlanPrice>
                     <S.PlanMutedText>
-                      Este plano nao possui vantagens extras.
+                      Taxa de split de 4% por pedido.
                     </S.PlanMutedText>
                     <S.PlanActionButton
                       $tone="basic"

@@ -1,4 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import {
@@ -24,9 +31,7 @@ import {
   getCardBrandLogo,
   getEmptyCardDraft,
   getCardBrandPalette,
-  getCardNumberDigits,
   isCardDraftComplete,
-  isCardNumberValid,
   normalizeCardNumberInput,
   persistCardWallet,
   readCardWallet,
@@ -42,17 +47,67 @@ const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PIX_AUTO_STATUS_CHECK_INTERVAL_MS = 4000;
-const CARD_BRAND_LOGO_STYLE = {
-  width: 54,
-  height: 32,
-  borderRadius: 8,
+const DELIVERY_PAYMENT_REQUIRED_MESSAGE =
+  "Seu pedido foi criado, mas so sera liberado para a equipe apos pagamento confirmado. Pague e confirme o pedido para liberar o preparo.";
+const CARD_BRAND_LOGO_STYLE_BASE = {
+  width: 62,
+  height: 24,
+  borderRadius: 0,
   objectFit: "contain" as const,
   display: "block",
-  background: "#ffffff",
-  padding: 2,
+  background: "transparent",
+  padding: 0,
   boxSizing: "border-box" as const,
-  border: "1px solid rgba(148, 163, 184, 0.32)",
+  border: "none",
 };
+
+const CARD_BRAND_LOGO_SIZE_PRESETS = {
+  default: {
+    compact: { width: 62, height: 24 },
+    preview: { width: 84, height: 30 },
+  },
+  visa: {
+    compact: { width: 54, height: 20 },
+    preview: { width: 74, height: 24 },
+  },
+  mastercard: {
+    compact: { width: 60, height: 24 },
+    preview: { width: 82, height: 30 },
+  },
+  elo: {
+    compact: { width: 70, height: 26 },
+    preview: { width: 92, height: 34 },
+  },
+  hipercard: {
+    compact: { width: 64, height: 24 },
+    preview: { width: 86, height: 30 },
+  },
+  "american express": {
+    compact: { width: 68, height: 24 },
+    preview: { width: 88, height: 30 },
+  },
+} as const;
+
+function normalizeCardBrandKey(brand) {
+  return String(brand || "")
+    .trim()
+    .toLowerCase();
+}
+
+function getCardBrandLogoStyle(
+  brand,
+  variant: "compact" | "preview" = "compact",
+) {
+  const key = normalizeCardBrandKey(brand);
+  const sizeSet =
+    CARD_BRAND_LOGO_SIZE_PRESETS[key] || CARD_BRAND_LOGO_SIZE_PRESETS.default;
+
+  return {
+    ...CARD_BRAND_LOGO_STYLE_BASE,
+    ...sizeSet[variant],
+  };
+}
+
 const PIX_PROVIDER_OPTIONS = [
   { value: "MERCADO_PAGO", label: "Mercado Pago" },
   { value: "NUBANK", label: "Nubank" },
@@ -208,6 +263,27 @@ function loadInitialCart() {
   }));
 }
 
+function maskCardDigits(value) {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 16);
+  if (!digits) {
+    return "1234 1234 1234 1234";
+  }
+
+  const grouped = digits.match(/.{1,4}/g) || [];
+  return grouped.join(" ").padEnd(19, "_");
+}
+
+function resolveCardHolderName(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "SMITH PLACE HOLDER";
+  }
+
+  return text.toUpperCase().slice(0, 26);
+}
+
 export default function Cart() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -221,12 +297,18 @@ export default function Cart() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState(null);
-  const [pendingPixOrderPayload, setPendingPixOrderPayload] = useState(null);
+  const [, setPendingPixOrderPayload] = useState(null);
   const [pixManualProof, setPixManualProof] = useState("");
   const [pixManualProofImage, setPixManualProofImage] = useState("");
   const [pixManualProofImageName, setPixManualProofImageName] = useState("");
   const [isSubmittingPixConfirmation, setIsSubmittingPixConfirmation] =
     useState(false);
+  const [paymentSuccessState, setPaymentSuccessState] = useState<{
+    orderId: number | null;
+    provider: string;
+    title: string;
+    message: string;
+  } | null>(null);
   const [selectedPixProvider, setSelectedPixProvider] =
     useState("MERCADO_PAGO");
   const [publicRestaurantSettings, setPublicRestaurantSettings] = useState({
@@ -261,6 +343,13 @@ export default function Cart() {
   });
   const [cardNumber, setCardNumber] = useState("");
   const [cardCvv, setCardCvv] = useState("");
+  const cardPreviewDigits = maskCardDigits(cardNumber);
+  const cardPreviewHolder = resolveCardHolderName(cardPaymentDraft.holderName);
+  const cardPreviewCvv = String(cardCvv || "").trim() || "789";
+  const cardPreviewBrand = String(cardPaymentDraft.brand || "").trim();
+  const cardPreviewBrandSource = cardPreviewBrand || "outra";
+  const cardPreviewBrandLabel =
+    getCardBrandDisplay(cardPreviewBrandSource).label || "Bandeira";
 
   const tableSession = useMemo(() => {
     const raw = localStorage.getItem("tableSession");
@@ -273,9 +362,29 @@ export default function Cart() {
     Number(localStorage.getItem("menuRestaurantId")) ||
     null;
 
-  const returnMenuPath = tableSession?.tableId
+  const mesaReturnPath = tableSession?.tableId
     ? `/mesa/${tableSession.tableNumber || tableSession.tableId}?tableId=${tableSession.tableId}${restaurantId ? `&restaurantId=${restaurantId}` : ""}`
-    : "/";
+    : "/menu";
+  const cartOrigin = String(
+    searchParams.get("from") || searchParams.get("origin") || "",
+  )
+    .trim()
+    .toLowerCase();
+  const explicitReturnPath = String(searchParams.get("returnTo") || "").trim();
+  const returnMenuPath = explicitReturnPath.startsWith("/")
+    ? explicitReturnPath
+    : cartOrigin === "home"
+      ? "/menu"
+      : cartOrigin === "menu" || cartOrigin === "cardapio"
+        ? mesaReturnPath
+        : tableSession?.tableId
+          ? mesaReturnPath
+          : "/menu";
+  const paymentSuccessReturnPath = explicitReturnPath.startsWith("/")
+    ? explicitReturnPath
+    : cartOrigin === "menu" || cartOrigin === "cardapio"
+      ? mesaReturnPath
+      : "/home";
 
   const isMesa = Boolean(tableSession?.tableId);
   const isDelivery = !isMesa && orderType === "DELIVERY";
@@ -326,6 +435,7 @@ export default function Cart() {
   }, [restaurantId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedPixProvider(
       String(publicRestaurantSettings.pixProvider || "MERCADO_PAGO")
         .trim()
@@ -344,23 +454,62 @@ export default function Cart() {
 
     if (cardCheckoutStatus === "success") {
       localStorage.removeItem("cartItems");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCartItems([]);
-      toast.success(
-        "Pagamento do cartao concluido. Aguardando confirmacao final do pedido.",
+      const params = new URLSearchParams(searchParams);
+      params.delete("cardCheckoutStatus");
+      params.set("paymentSuccess", "1");
+      params.set("provider", "CARTAO");
+      if (Number(searchParams.get("orderId") || 0) > 0) {
+        params.set("orderId", String(Number(searchParams.get("orderId"))));
+      }
+      navigate(
+        {
+          pathname: "/cart",
+          search: params.toString() ? `?${params.toString()}` : "",
+        },
+        { replace: true },
       );
-      navigate("/cart", { replace: true });
       return;
     }
 
     if (cardCheckoutStatus === "cancel") {
       toast.info("Pagamento com cartao cancelado. Seu carrinho foi mantido.");
-      navigate("/cart", { replace: true });
+      const params = new URLSearchParams(searchParams);
+      params.delete("cardCheckoutStatus");
+      navigate(
+        {
+          pathname: "/cart",
+          search: params.toString() ? `?${params.toString()}` : "",
+        },
+        { replace: true },
+      );
     }
   }, [navigate, searchParams]);
 
   useEffect(() => {
     persistCardWallet(savedCards, selectedSavedCardId, defaultSavedCardId);
   }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
+
+  function handleGoToOrderFromPaymentSuccess() {
+    setPaymentSuccessState(null);
+    navigate(paymentSuccessReturnPath, { replace: true });
+  }
+
+  const paymentSuccessFromQuery =
+    String(searchParams.get("paymentSuccess") || "") === "1"
+      ? {
+          orderId: Number(searchParams.get("orderId") || 0) || null,
+          provider: String(searchParams.get("provider") || "PIX")
+            .trim()
+            .toUpperCase(),
+          title: "Fique tranquilo",
+          message: "Este pedido ja foi pago.",
+        }
+      : null;
+
+  const activePaymentSuccessState =
+    paymentSuccessState || paymentSuccessFromQuery;
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.price * item.quantity,
@@ -568,73 +717,76 @@ export default function Cart() {
     toast.info("Cartao removido.");
   };
 
-  function persistDeliveryAddress(address) {
-    const normalizedAddress = normalizeStoredAddress({
-      rotulo: "Entrega recente",
-      rua: address.logradouro,
-      numero: address.numero,
-      bairro: address.bairro,
-      cidade: address.cidade,
-      estado: address.estado,
-      cep: address.cep,
-      complemento: address.complemento,
-    });
+  const persistDeliveryAddress = useCallback(
+    (address) => {
+      const normalizedAddress = normalizeStoredAddress({
+        rotulo: "Entrega recente",
+        rua: address.logradouro,
+        numero: address.numero,
+        bairro: address.bairro,
+        cidade: address.cidade,
+        estado: address.estado,
+        cep: address.cep,
+        complemento: address.complemento,
+      });
 
-    const currentAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, []);
-    const addresses = Array.isArray(currentAddresses)
-      ? currentAddresses.map(normalizeStoredAddress)
-      : [];
+      const currentAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, []);
+      const addresses = Array.isArray(currentAddresses)
+        ? currentAddresses.map(normalizeStoredAddress)
+        : [];
 
-    const addressSignature = getAddressSignature(address);
-    const existingIndex = addresses.findIndex(
-      (savedAddress) =>
-        getAddressSignature({
-          logradouro: savedAddress.rua,
-          numero: savedAddress.numero,
-          bairro: savedAddress.bairro,
-          cidade: savedAddress.cidade,
-          estado: savedAddress.estado,
-          cep: savedAddress.cep,
-          complemento: savedAddress.complemento,
-        }) === addressSignature,
-    );
+      const addressSignature = getAddressSignature(address);
+      const existingIndex = addresses.findIndex(
+        (savedAddress) =>
+          getAddressSignature({
+            logradouro: savedAddress.rua,
+            numero: savedAddress.numero,
+            bairro: savedAddress.bairro,
+            cidade: savedAddress.cidade,
+            estado: savedAddress.estado,
+            cep: savedAddress.cep,
+            complemento: savedAddress.complemento,
+          }) === addressSignature,
+      );
 
-    const nextAddress =
-      existingIndex >= 0
-        ? addresses[existingIndex]
-        : {
-            ...normalizedAddress,
-            id: Date.now(),
-          };
+      const nextAddress =
+        existingIndex >= 0
+          ? addresses[existingIndex]
+          : {
+              ...normalizedAddress,
+              id: Date.now(),
+            };
 
-    const nextAddresses =
-      existingIndex >= 0 ? addresses : [...addresses, nextAddress];
+      const nextAddresses =
+        existingIndex >= 0 ? addresses : [...addresses, nextAddress];
 
-    localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(nextAddresses));
-    localStorage.setItem(ADDRESS_SELECTED_KEY, String(nextAddress.id));
+      localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(nextAddresses));
+      localStorage.setItem(ADDRESS_SELECTED_KEY, String(nextAddress.id));
 
-    const currentUser = storedUser || {};
-    const nextUser = {
-      ...currentUser,
-      phone: String(customerPhone || "").trim() || currentUser.phone,
-      address: nextAddress.rua,
-      number: nextAddress.numero,
-      district: nextAddress.bairro,
-      city: nextAddress.cidade,
-      state: nextAddress.estado,
-      zipCode: nextAddress.cep,
-      complement: nextAddress.complemento,
-      defaultAddressId: nextAddress.id,
-      defaultAddressLabel: nextAddress.rotulo,
-    };
+      const currentUser = storedUser || {};
+      const nextUser = {
+        ...currentUser,
+        phone: String(customerPhone || "").trim() || currentUser.phone,
+        address: nextAddress.rua,
+        number: nextAddress.numero,
+        district: nextAddress.bairro,
+        city: nextAddress.cidade,
+        state: nextAddress.estado,
+        zipCode: nextAddress.cep,
+        complement: nextAddress.complemento,
+        defaultAddressId: nextAddress.id,
+        defaultAddressLabel: nextAddress.rotulo,
+      };
 
-    const token = localStorage.getItem("token");
-    if (token) {
-      login(nextUser, token);
-    } else {
-      localStorage.setItem("user", JSON.stringify(nextUser));
-    }
-  }
+      const token = localStorage.getItem("token");
+      if (token) {
+        login(nextUser, token);
+      } else {
+        localStorage.setItem("user", JSON.stringify(nextUser));
+      }
+    },
+    [customerPhone, login, storedUser],
+  );
 
   async function handleSubmitOrder() {
     if (isSubmitting || isConfirmed) {
@@ -714,15 +866,6 @@ export default function Cart() {
           buildOrderPayload({ paid: false }),
         );
 
-        const isMercadoPagoPix =
-          String(
-            pixPayment?.provider ||
-              publicRestaurantSettings.pixProvider ||
-              "MERCADO_PAGO",
-          )
-            .trim()
-            .toUpperCase() === "MERCADO_PAGO";
-
         setIsDrawerOpen(false);
         setIsSubmitting(false);
         setPixPaymentData({
@@ -744,6 +887,7 @@ export default function Cart() {
         setPixManualProofImage("");
         setPixManualProofImageName("");
         setPendingPixOrderPayload(null);
+        toast.info(DELIVERY_PAYMENT_REQUIRED_MESSAGE);
         return;
       }
 
@@ -766,6 +910,10 @@ export default function Cart() {
       }
 
       await ordersService.createOrder(buildOrderPayload({ paid: false }));
+
+      if (isDelivery) {
+        toast.info(DELIVERY_PAYMENT_REQUIRED_MESSAGE);
+      }
 
       localStorage.removeItem("cartItems");
       if (isDelivery) {
@@ -841,7 +989,7 @@ export default function Cart() {
     }
   }
 
-  async function handleConfirmPixPaymentAndCreateOrder() {
+  const handleConfirmPixPaymentAndCreateOrder = useCallback(async () => {
     if (!pixPaymentData || isSubmittingPixConfirmation) {
       return;
     }
@@ -908,12 +1056,16 @@ export default function Cart() {
         setPixManualProof("");
         setPixManualProofImage("");
         setPixManualProofImageName("");
-        toast.success(
-          confirmedOrder?.paid
-            ? "Pagamento confirmado e pedido enviado para a cozinha!"
+        setPaymentSuccessState({
+          orderId: Number(pixPaymentData?.orderId || 0) || null,
+          provider: String(pixPaymentData?.provider || "PIX")
+            .trim()
+            .toUpperCase(),
+          title: "Fique tranquilo",
+          message: confirmedOrder?.paid
+            ? "Este pedido ja foi pago."
             : "Pedido aguardando confirmacao do pagamento.",
-        );
-        navigate(returnMenuPath, { replace: true });
+        });
         return;
       }
     } catch (err) {
@@ -922,7 +1074,16 @@ export default function Cart() {
       );
       setIsSubmittingPixConfirmation(false);
     }
-  }
+  }, [
+    endereco,
+    isDelivery,
+    isSubmittingPixConfirmation,
+    pixManualProof,
+    pixManualProofImage,
+    pixPaymentData,
+    persistDeliveryAddress,
+    restaurantId,
+  ]);
 
   useEffect(() => {
     const shouldAutoConfirmPix =
@@ -960,8 +1121,14 @@ export default function Cart() {
         setPixManualProof("");
         setPixManualProofImage("");
         setPixManualProofImageName("");
-        toast.success("Pagamento confirmado e pedido enviado para a cozinha!");
-        navigate(returnMenuPath, { replace: true });
+        setPaymentSuccessState({
+          orderId: Number(pixPaymentData?.orderId || 0) || null,
+          provider: String(pixPaymentData?.provider || "PIX")
+            .trim()
+            .toUpperCase(),
+          title: "Fique tranquilo",
+          message: "Este pedido ja foi pago.",
+        });
       } catch (error) {
         const message = String(
           error?.response?.data?.error || error?.message || "",
@@ -973,7 +1140,6 @@ export default function Cart() {
         ) {
           return;
         }
-
         // Keep polling silently; the manual button remains available.
       }
     }
@@ -992,9 +1158,8 @@ export default function Cart() {
     endereco,
     isSubmittingPixConfirmation,
     isDelivery,
-    navigate,
     pixPaymentData,
-    returnMenuPath,
+    persistDeliveryAddress,
     restaurantId,
   ]);
 
@@ -1032,17 +1197,51 @@ export default function Cart() {
     pixPaymentData,
   ]);
 
+  if (activePaymentSuccessState) {
+    const displayProvider =
+      activePaymentSuccessState.provider === "MERCADO_PAGO"
+        ? "Mercado Pago"
+        : activePaymentSuccessState.provider === "CARTAO"
+          ? "Cartao"
+          : activePaymentSuccessState.provider;
+
+    return (
+      <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
+        <S.HomeLayout>
+          <S.PaymentSuccessWrap>
+            <S.PaymentSuccessFrame>
+              <S.PaymentSuccessCard>
+                <S.PaymentSuccessIcon>
+                  <CheckCircle size={46} strokeWidth={2.5} />
+                </S.PaymentSuccessIcon>
+                <S.PaymentSuccessTitle>
+                  {activePaymentSuccessState.title}
+                </S.PaymentSuccessTitle>
+                <S.PaymentSuccessText>
+                  {activePaymentSuccessState.message}
+                </S.PaymentSuccessText>
+                <S.PaymentSuccessMeta>
+                  Pedido: {activePaymentSuccessState.orderId || "-"}
+                  <br />
+                  Via: {displayProvider}
+                </S.PaymentSuccessMeta>
+                <S.PaymentSuccessAction
+                  type="button"
+                  onClick={handleGoToOrderFromPaymentSuccess}
+                >
+                  VOLTAR PARA O PEDIDO
+                </S.PaymentSuccessAction>
+              </S.PaymentSuccessCard>
+            </S.PaymentSuccessFrame>
+          </S.PaymentSuccessWrap>
+        </S.HomeLayout>
+      </ThemeProvider>
+    );
+  }
+
   if (pixPaymentData) {
     const isManualProvider =
       String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
-    const hasManualProofImage =
-      String(pixManualProofImage || "").startsWith("data:image/") &&
-      String(pixManualProofImage || "").length >= 40;
-    const isConfirmDisabled =
-      isSubmittingPixConfirmation ||
-      (isManualProvider &&
-        String(pixManualProof || "").trim().length < 6 &&
-        !hasManualProofImage);
 
     return (
       <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
@@ -1089,9 +1288,9 @@ export default function Cart() {
               style={{
                 padding: "0.55rem 0.85rem",
                 borderRadius: 999,
-                background: "rgba(234, 179, 8, 0.14)",
-                color: isDarkMode ? "#fef3c7" : "#92400e",
-                border: `1px solid ${isDarkMode ? "rgba(234,179,8,0.26)" : "rgba(234,179,8,0.28)"}`,
+                background: "rgba(63, 100, 255, 0.14)",
+                color: isDarkMode ? "#dbe5ff" : "#2f4bc5",
+                border: `1px solid ${isDarkMode ? "rgba(126,151,255,0.34)" : "rgba(63,100,255,0.32)"}`,
                 fontWeight: 800,
                 fontSize: 13,
               }}
@@ -1112,7 +1311,7 @@ export default function Cart() {
               border: "none",
               cursor: "pointer",
               marginBottom: "1.5rem",
-              color: isDarkMode ? "#eab308" : "#dba206",
+              color: isDarkMode ? "#88a2ff" : "#3f64ff",
               fontWeight: "600",
             }}
           >
@@ -1141,7 +1340,7 @@ export default function Cart() {
                       <span
                         style={{
                           fontWeight: "700",
-                          color: isDarkMode ? "#eab308" : "#dba206",
+                          color: isDarkMode ? "#88a2ff" : "#3f64ff",
                         }}
                       >
                         R$ {item.price.toFixed(2)}
@@ -1284,12 +1483,12 @@ export default function Cart() {
                     fontWeight: "800",
                     fontSize: "1.3rem",
                     marginBottom: "1.5rem",
-                    borderTop: "1px dashed #ccc",
+                    borderTop: "1px dashed rgba(63, 100, 255, 0.34)",
                     paddingTop: "1rem",
                   }}
                 >
                   <span>Total:</span>
-                  <span style={{ color: isDarkMode ? "#eab308" : "#dba206" }}>
+                  <span style={{ color: isDarkMode ? "#88a2ff" : "#3f64ff" }}>
                     R$ {total.toFixed(2)}
                   </span>
                 </div>
@@ -1364,8 +1563,8 @@ export default function Cart() {
                       borderRadius: "8px",
                       border:
                         orderType === "DELIVERY"
-                          ? "2px solid #dba206"
-                          : "1px solid #ccc",
+                          ? "2px solid #3f64ff"
+                          : "1px solid #c9d3e8",
                       background: "transparent",
                       fontWeight: "600",
                       cursor: "pointer",
@@ -1382,8 +1581,8 @@ export default function Cart() {
                       borderRadius: "8px",
                       border:
                         orderType === "RETIRADA"
-                          ? "2px solid #dba206"
-                          : "1px solid #ccc",
+                          ? "2px solid #3f64ff"
+                          : "1px solid #c9d3e8",
                       background: "transparent",
                       fontWeight: "600",
                       cursor: "pointer",
@@ -1518,8 +1717,8 @@ export default function Cart() {
                     borderRadius: "8px",
                     border:
                       paymentMethod === "PIX"
-                        ? "2px solid #dba206"
-                        : "1px solid #ccc",
+                        ? "2px solid #3f64ff"
+                        : "1px solid #c9d3e8",
                     background: "transparent",
                     fontWeight: "600",
                     cursor: "pointer",
@@ -1535,8 +1734,8 @@ export default function Cart() {
                     borderRadius: "8px",
                     border:
                       paymentMethod === "CARTAO"
-                        ? "2px solid #dba206"
-                        : "1px solid #ccc",
+                        ? "2px solid #3f64ff"
+                        : "1px solid #c9d3e8",
                     background: "transparent",
                     cursor: "pointer",
                     color: "inherit",
@@ -1580,7 +1779,7 @@ export default function Cart() {
                       minHeight: 48,
                       borderRadius: 12,
                       padding: "0.75rem 0.9rem",
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid #c9d3e8",
                       background: isDarkMode ? "#1f2937" : "#ffffff",
                       color: "inherit",
                       fontWeight: 700,
@@ -1612,6 +1811,31 @@ export default function Cart() {
                     gap: "0.75rem",
                   }}
                 >
+                  <S.CardVisualPreview>
+                    <S.CardVisualTop>
+                      <S.CardChip />
+                      <S.CardBrandLogo
+                        src={getCardBrandLogo(cardPreviewBrandSource)}
+                        alt={`Bandeira ${cardPreviewBrandLabel}`}
+                        style={getCardBrandLogoStyle(
+                          cardPreviewBrandSource,
+                          "preview",
+                        )}
+                      />
+                    </S.CardVisualTop>
+                    <S.CardVisualNumber>{cardPreviewDigits}</S.CardVisualNumber>
+                    <S.CardVisualFooter>
+                      <div className="left">
+                        <small>CVC</small>
+                        <strong>{cardPreviewCvv}</strong>
+                      </div>
+                      <div className="right">
+                        <small>Nome no cartao</small>
+                        <strong>{cardPreviewHolder}</strong>
+                      </div>
+                    </S.CardVisualFooter>
+                  </S.CardVisualPreview>
+
                   {savedCards.length > 0 ? (
                     <div
                       style={{
@@ -1638,7 +1862,7 @@ export default function Cart() {
                           minHeight: 48,
                           borderRadius: 12,
                           padding: "0.75rem 0.9rem",
-                          border: "1px solid #cbd5e1",
+                          border: "1px solid #c9d3e8",
                           background: isDarkMode ? "#1f2937" : "#ffffff",
                           color: "inherit",
                           fontWeight: 700,
@@ -1674,11 +1898,11 @@ export default function Cart() {
                                 padding: "0.95rem 1rem",
                                 borderRadius: 16,
                                 border: isSelected
-                                  ? "2px solid #dba206"
-                                  : "1px solid #cbd5e1",
+                                  ? "2px solid #3f64ff"
+                                  : "1px solid #c9d3e8",
                                 ...getCardBrandPalette(card.brand),
                                 boxShadow: isSelected
-                                  ? "0 14px 30px rgba(219, 162, 6, 0.18)"
+                                  ? "0 14px 30px rgba(63, 100, 255, 0.2)"
                                   : "0 10px 24px rgba(15, 23, 42, 0.10)",
                                 cursor: "pointer",
                               }}
@@ -1702,7 +1926,7 @@ export default function Cart() {
                                   <img
                                     src={getCardBrandLogo(card.brand)}
                                     alt={`Bandeira ${card.brand}`}
-                                    style={CARD_BRAND_LOGO_STYLE}
+                                    style={getCardBrandLogoStyle(card.brand)}
                                   />
                                   <strong>{card.brand.toUpperCase()}</strong>
                                 </div>
@@ -1777,13 +2001,7 @@ export default function Cart() {
                       )
                     }
                   />
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1.2fr 1fr",
-                      gap: "0.75rem",
-                    }}
-                  >
+                  <S.CardDraftRow>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -1808,7 +2026,7 @@ export default function Cart() {
                         minHeight: 48,
                         borderRadius: 12,
                         padding: "0.75rem 0.9rem",
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid #c9d3e8",
                         background: isDarkMode ? "#1f2937" : "#ffffff",
                         color: "inherit",
                         fontWeight: 700,
@@ -1821,7 +2039,7 @@ export default function Cart() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </S.CardDraftRow>
                   <div
                     style={{
                       display: "grid",
@@ -1843,10 +2061,10 @@ export default function Cart() {
                             minHeight: 58,
                             borderRadius: 12,
                             border: isActive
-                              ? "2px solid #dba206"
-                              : "1px solid #cbd5e1",
+                              ? "2px solid #3f64ff"
+                              : "1px solid #c9d3e8",
                             background: isActive
-                              ? "rgba(219, 162, 6, 0.12)"
+                              ? "rgba(63, 100, 255, 0.12)"
                               : "transparent",
                             color: "inherit",
                             cursor: "pointer",
@@ -1859,7 +2077,7 @@ export default function Cart() {
                           <img
                             src={getCardBrandLogo(brand)}
                             alt={`Bandeira ${brand}`}
-                            style={CARD_BRAND_LOGO_STYLE}
+                            style={getCardBrandLogoStyle(brand)}
                           />
                           <span style={{ fontSize: 11, fontWeight: 700 }}>
                             {getCardBrandDisplay(brand).label}
@@ -1868,13 +2086,7 @@ export default function Cart() {
                       );
                     })}
                   </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "0.8fr 0.6fr",
-                      gap: "0.75rem",
-                    }}
-                  >
+                  <S.CardLastRow>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -1900,7 +2112,7 @@ export default function Cart() {
                         )
                       }
                     />
-                  </div>
+                  </S.CardLastRow>
                   <div
                     style={{
                       display: "flex",
@@ -1931,7 +2143,7 @@ export default function Cart() {
                       style={{
                         padding: "0.8rem 1rem",
                         borderRadius: 10,
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid #c9d3e8",
                         background: "transparent",
                         color: "inherit",
                         cursor: "pointer",
@@ -1943,7 +2155,7 @@ export default function Cart() {
                   </div>
                   <small
                     style={{
-                      color: isDarkMode ? "#cbd5e1" : "#475569",
+                      color: isDarkMode ? "#a8b4d3" : "#475569",
                       lineHeight: 1.45,
                     }}
                   >
@@ -1974,7 +2186,7 @@ export default function Cart() {
                         ? "#166534"
                         : "#991b1b"
                       : isDarkMode
-                        ? "#cbd5e1"
+                        ? "#a8b4d3"
                         : "#334155",
                     border: hasMinimumOrderForDelivery
                       ? isMinimumOrderReached

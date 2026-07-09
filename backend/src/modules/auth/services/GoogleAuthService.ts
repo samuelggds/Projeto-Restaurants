@@ -1,8 +1,9 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { UserRole } from "@prisma/client";
 import userRepository from "../repositories/UserRepository.js";
+import authTokenService from "./AuthTokenService.js";
+import loginMfaService from "./LoginMfaService.js";
 
 function getSafeNameFromEmail(email: string | undefined) {
   const username = String(email || "")
@@ -56,17 +57,19 @@ class GoogleAuthService {
       throw new Error("Conta desativada. Reative sua conta para continuar.");
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-        restaurantId: user.restaurantId,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      },
-    );
+    const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
+    if (mfaChallenge) {
+      return mfaChallenge;
+    }
+
+    const tokenPayload = {
+      id: user.id,
+      role: user.role,
+      restaurantId: user.restaurantId,
+    };
+    const token = authTokenService.createAccessToken(tokenPayload);
+    const refreshToken =
+      await authTokenService.createRefreshToken(tokenPayload);
 
     return {
       user: {
@@ -87,6 +90,7 @@ class GoogleAuthService {
         restaurantId: user.restaurantId,
       },
       token,
+      refreshToken,
     };
   }
 }

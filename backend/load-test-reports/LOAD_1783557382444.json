@@ -1,0 +1,34 @@
+{
+  "runId": "LOAD_1783557382444",
+  "baseUrl": "http://127.0.0.1:3001",
+  "durationSec": 180,
+  "targetRpm": 300,
+  "seeds": [
+    {
+      "restaurantId": 1,
+      "productId": 1
+    },
+    {
+      "restaurantId": 6,
+      "productId": 6
+    }
+  ],
+  "sent": 900,
+  "ok": 900,
+  "failed": 0,
+  "errorRatePercent": 0,
+  "throughputRps": 4.999,
+  "latencyMs": {
+    "avg": 11.03,
+    "p50": 8,
+    "p95": 40,
+    "p99": 47,
+    "max": 196
+  },
+  "byStatus": {
+    "201": 900
+  },
+  "sampleErrors": [],
+  "startedAt": "2026-07-09T00:36:22.444Z",
+  "finishedAt": "2026-07-09T00:39:22.486Z"
+}

@@ -16,7 +16,7 @@ export default function HomeFooter({
         <S.FooterBrandColumn>
           <S.Brand>
             <Utensils size={24} strokeWidth={2.5} />
-            <span>Peça já food</span>
+            <span>Peça Já Food</span>
           </S.Brand>
           <p>Uma experiência gastronômica integrada ao seu painel.</p>
           <S.SocialLinks>
@@ -82,7 +82,7 @@ export default function HomeFooter({
       </S.FooterGrid>
 
       <S.FooterCopy>
-        <span>&copy; 2026 Peça já food. Todos os direitos reservados.</span>
+        <span>© 2026 Peça Já Food. Todos os direitos reservados.</span>
         <span>Desenvolvido por SgSolutions</span>
       </S.FooterCopy>
     </S.Footer>

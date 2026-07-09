@@ -1,4 +1,12 @@
-import { lazy, Suspense, useState, useEffect, useRef } from "react";
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import {
@@ -11,6 +19,7 @@ import {
   Moon,
   Layers,
   Shield,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import menuService from "../../Services/menuService";
@@ -24,6 +33,24 @@ const HomeFooter = lazy(() => import("./components/HomeFooter"));
 
 const ADDRESS_STORAGE_KEY = "@PecaJaFood:enderecos";
 const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
+const PRODUCT_DETAIL_CLOSE_MS = 240;
+const PRODUCT_CARD_CLICK_ANIMATION_MS = 180;
+
+type ProductItem = {
+  id: number;
+  name: string;
+  description?: string | null;
+  image?: string | null;
+  price?: number | string;
+  category?: {
+    name?: string | null;
+  } | null;
+};
+
+type ProductRipplePoint = {
+  x: number;
+  y: number;
+};
 
 function toPositiveNumber(value) {
   const parsed = Number(value || 0);
@@ -120,7 +147,7 @@ export default function Home() {
   const mesaMode = Boolean(routeTableNumberValue || routeTableId);
   const hasRouteRestaurantId = Boolean(routeRestaurantId);
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
   const [cart, setCart] = useState(() =>
     readJsonStorage("cartItems", []).map((item) => ({
       ...item,
@@ -143,12 +170,25 @@ export default function Home() {
   const [tableSession, setTableSession] = useState(() =>
     readJsonStorage("tableSession", null),
   );
+  const [clickedProductId, setClickedProductId] = useState<number | null>(null);
+  const [clickedProductRipple, setClickedProductRipple] =
+    useState<ProductRipplePoint | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
+    null,
+  );
+  const [isClosingProductDetail, setIsClosingProductDetail] = useState(false);
   const [addresses] = useState(() => getInitialAddresses(user));
   const [selectedAddressId, setSelectedAddressId] = useState(() =>
     getInitialSelectedAddressId(getInitialAddresses(user)),
   );
 
   const dropdownRef = useRef(null);
+  const openProductDetailTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const closeProductDetailTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const selectedAddress =
     addresses.find((address) => address.id === selectedAddressId) ||
@@ -308,6 +348,18 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (openProductDetailTimeoutRef.current) {
+        clearTimeout(openProductDetailTimeoutRef.current);
+      }
+
+      if (closeProductDetailTimeoutRef.current) {
+        clearTimeout(closeProductDetailTimeoutRef.current);
+      }
+    };
+  }, []);
+
   function handleSelectAddress(address) {
     setSelectedAddressId(address.id);
     localStorage.setItem(ADDRESS_SELECTED_KEY, String(address.id));
@@ -359,6 +411,57 @@ export default function Home() {
         },
       ];
     });
+  }
+
+  function handleOpenProductDetail(
+    product: ProductItem,
+    event: ReactMouseEvent<HTMLDivElement>,
+  ) {
+    if (openProductDetailTimeoutRef.current) {
+      clearTimeout(openProductDetailTimeoutRef.current);
+      openProductDetailTimeoutRef.current = null;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const rippleX = Math.min(
+      100,
+      Math.max(0, ((event.clientX - rect.left) / rect.width) * 100),
+    );
+    const rippleY = Math.min(
+      100,
+      Math.max(0, ((event.clientY - rect.top) / rect.height) * 100),
+    );
+
+    setClickedProductId(product.id);
+    setClickedProductRipple({ x: rippleX, y: rippleY });
+
+    openProductDetailTimeoutRef.current = setTimeout(() => {
+      setClickedProductId(null);
+      setClickedProductRipple(null);
+
+      if (closeProductDetailTimeoutRef.current) {
+        clearTimeout(closeProductDetailTimeoutRef.current);
+        closeProductDetailTimeoutRef.current = null;
+      }
+
+      setIsClosingProductDetail(false);
+      setSelectedProduct(product);
+      openProductDetailTimeoutRef.current = null;
+    }, PRODUCT_CARD_CLICK_ANIMATION_MS);
+  }
+
+  function handleCloseProductDetail() {
+    setIsClosingProductDetail(true);
+
+    if (closeProductDetailTimeoutRef.current) {
+      clearTimeout(closeProductDetailTimeoutRef.current);
+    }
+
+    closeProductDetailTimeoutRef.current = setTimeout(() => {
+      setSelectedProduct(null);
+      setIsClosingProductDetail(false);
+      closeProductDetailTimeoutRef.current = null;
+    }, PRODUCT_DETAIL_CLOSE_MS);
   }
 
   function handleLogout() {
@@ -434,6 +537,29 @@ export default function Home() {
     }
   }
 
+  const filteredProducts =
+    activeCategory === "todos"
+      ? products
+      : products.filter((item) => item?.category?.name === activeCategory);
+  const groupedProducts = useMemo<Record<string, ProductItem[]>>(() => {
+    const source = activeCategory === "todos" ? products : filteredProducts;
+
+    return source.reduce(
+      (acc, product) => {
+        const categoryName = String(product?.category?.name || "Outros").trim();
+        const key = categoryName || "Outros";
+
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+
+        acc[key].push(product);
+        return acc;
+      },
+      {} as Record<string, ProductItem[]>,
+    );
+  }, [activeCategory, products, filteredProducts]);
+
   if (mesaMode && !hasValidQrContext) {
     return (
       <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
@@ -441,7 +567,7 @@ export default function Home() {
           <S.Navbar>
             <S.Brand>
               <Utensils size={24} strokeWidth={2.5} />
-              <span>Peça já food</span>
+              <span>Peça Já Food</span>
             </S.Brand>
 
             <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
@@ -544,7 +670,7 @@ export default function Home() {
           <S.Navbar>
             <S.Brand>
               <Utensils size={24} strokeWidth={2.5} />
-              <span>Peça já food</span>
+              <span>Peça Já Food</span>
             </S.Brand>
 
             <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
@@ -699,11 +825,6 @@ export default function Home() {
     0,
   );
 
-  const filteredProducts =
-    activeCategory === "todos"
-      ? products
-      : products.filter((item) => item?.category?.name === activeCategory);
-
   const addressPanelBackground = isDarkMode
     ? "linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96))"
     : "linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96))";
@@ -722,7 +843,7 @@ export default function Home() {
         <S.Navbar>
           <S.Brand>
             <Utensils size={24} strokeWidth={2.5} />
-            <span>Peça já food</span>
+            <span>Peça Já Food</span>
           </S.Brand>
 
           <S.NavRight>
@@ -732,7 +853,7 @@ export default function Home() {
               </S.AdminQuickButton>
             ) : null}
 
-            <S.CartButtonContainer onClick={() => navigate("/cart")}>
+            <S.CartButtonContainer onClick={() => navigate("/cart?from=home")}>
               <ShoppingCart size={20} />
               {totalItens > 0 && <S.Badge>{totalItens}</S.Badge>}
             </S.CartButtonContainer>
@@ -892,33 +1013,60 @@ export default function Home() {
             ))}
           </S.CategoriesContainer>
 
-          <S.ProductsGrid>
-            {filteredProducts.map((item) => (
-              <S.ProductCard key={item.id}>
-                <S.ProductImage>
-                  <img
-                    src={
-                      item.image ||
-                      "https://via.placeholder.com/400x260?text=Produto"
-                    }
-                    alt={item.name}
-                  />
-                </S.ProductImage>
-                <S.ProductInfo>
-                  <div className="title-row">
-                    <h4>{item.name}</h4>
-                    <span className="price">
-                      R$ {Number(item.price || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <p>{item.description || "Sem descrição"}</p>
-                  <S.AddToCartButton onClick={() => addToCart(item)}>
-                    <ShoppingCart size={18} /> Adicionar ao Pedido
-                  </S.AddToCartButton>
-                </S.ProductInfo>
-              </S.ProductCard>
-            ))}
-          </S.ProductsGrid>
+          {(Object.entries(groupedProducts) as [string, ProductItem[]][]).map(
+            ([categoryName, items]) => (
+              <S.CategorySection key={categoryName}>
+                <S.CategorySectionTitle>{categoryName}</S.CategorySectionTitle>
+
+                <S.ProductsGrid>
+                  {items.map((item) => (
+                    <S.ProductCard
+                      key={item.id}
+                      $clicking={clickedProductId === item.id}
+                      $rippleX={
+                        clickedProductId === item.id
+                          ? (clickedProductRipple?.x ?? 50)
+                          : 50
+                      }
+                      $rippleY={
+                        clickedProductId === item.id
+                          ? (clickedProductRipple?.y ?? 50)
+                          : 50
+                      }
+                      onClick={(event) => handleOpenProductDetail(item, event)}
+                    >
+                      <S.ProductImage>
+                        <img
+                          src={
+                            item.image ||
+                            "https://via.placeholder.com/400x260?text=Produto"
+                          }
+                          alt={item.name}
+                        />
+                      </S.ProductImage>
+                      <S.ProductInfo>
+                        <div className="title-row">
+                          <h4>{item.name}</h4>
+                          <span className="price">
+                            R$ {Number(item.price || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <p>{item.description || "Sem descrição"}</p>
+                        <S.AddToCartButton
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addToCart(item);
+                          }}
+                        >
+                          <ShoppingCart size={18} /> Adicionar ao Pedido
+                        </S.AddToCartButton>
+                      </S.ProductInfo>
+                    </S.ProductCard>
+                  ))}
+                </S.ProductsGrid>
+              </S.CategorySection>
+            ),
+          )}
 
           {restaurantId == null && (
             <p style={{ marginTop: "1rem", opacity: 0.7 }}>
@@ -934,9 +1082,58 @@ export default function Home() {
                 .getElementById("vitrine")
                 ?.scrollIntoView({ behavior: "smooth" })
             }
-            onNavigateCart={() => navigate("/cart")}
+            onNavigateCart={() => navigate("/cart?from=home")}
           />
         </Suspense>
+
+        {selectedProduct && (
+          <S.ProductDetailOverlay
+            $closing={isClosingProductDetail}
+            onClick={handleCloseProductDetail}
+          >
+            <S.ProductDetailImage
+              $image={
+                selectedProduct.image ||
+                "https://via.placeholder.com/1200x900?text=Produto"
+              }
+              $closing={isClosingProductDetail}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <S.ProductDetailBackButton
+                type="button"
+                onClick={handleCloseProductDetail}
+              >
+                <ArrowLeft size={20} />
+              </S.ProductDetailBackButton>
+            </S.ProductDetailImage>
+
+            <S.ProductDetailBody
+              $closing={isClosingProductDetail}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2>{selectedProduct.name}</h2>
+              <p>
+                {selectedProduct.description ||
+                  "Sem descricao disponivel para este item."}
+              </p>
+
+              <S.ProductDetailPrice>
+                R$ {Number(selectedProduct.price || 0).toFixed(2)}
+              </S.ProductDetailPrice>
+
+              <S.ProductDetailActions>
+                <S.AddToCartButton
+                  onClick={() => {
+                    addToCart(selectedProduct);
+                    handleCloseProductDetail();
+                  }}
+                >
+                  <ShoppingCart size={18} /> Adicionar ao Pedido
+                </S.AddToCartButton>
+              </S.ProductDetailActions>
+            </S.ProductDetailBody>
+          </S.ProductDetailOverlay>
+        )}
       </S.HomeLayout>
     </ThemeProvider>
   );

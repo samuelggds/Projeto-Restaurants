@@ -228,9 +228,12 @@ class CreateOrderService {
     }
 
     if (normalizedPaymentMethod === PaymentMethod.CARTAO) {
-      throw new Error(
-        "Confirmacao automatica para cartao ainda nao esta configurada. Integre um gateway online para liberar essa automacao.",
-      );
+      return {
+        normalizedPaymentMethod,
+        normalizedPixPaymentId,
+        shouldMarkAsPaid: true,
+        paidAt: new Date(),
+      };
     }
 
     return {
@@ -487,8 +490,11 @@ class CreateOrderService {
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
     });
 
+    const isUnpaidDelivery =
+      type === OrderType.DELIVERY && shouldMarkAsPaid !== true;
     const shouldDeferRealtimeUntilPaid =
-      deferRealtimeUntilPaid === true && shouldMarkAsPaid !== true;
+      shouldMarkAsPaid !== true &&
+      (deferRealtimeUntilPaid === true || isUnpaidDelivery);
 
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit(

@@ -1,9 +1,21 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import userRepository from "../repositories/UserRepository.js";
 import { loginSchema } from "../../../validators/LoginValidator.js";
+import loginLockoutService from "./LoginLockoutService.js";
+import authTokenService from "./AuthTokenService.js";
+import loginMfaService from "./LoginMfaService.js";
 class LoginService {
   async execute({ email, password }: { email: string; password: string }) {
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
+    const lockStatus = await loginLockoutService.check(normalizedEmail);
+    if (lockStatus.locked) {
+      throw new Error(
+        `Muitas tentativas de login. Tente novamente em ${lockStatus.waitSeconds}s.`,
+      );
+    }
+
     try {
       loginSchema.parse({ email, password });
     } catch (_err: unknown) {
@@ -13,28 +25,42 @@ class LoginService {
     const user = await userRepository.findByEmail(email);
 
     if (!user) {
+      await loginLockoutService.registerFailure(normalizedEmail);
       throw new Error("Email ou senha inválidos!");
     }
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
+      const failure =
+        await loginLockoutService.registerFailure(normalizedEmail);
+      if (failure.locked) {
+        throw new Error(
+          `Muitas tentativas de login. Tente novamente em ${failure.waitSeconds}s.`,
+        );
+      }
+
       throw new Error("Email ou senha inválidos!");
     }
     if (!user.active) {
+      await loginLockoutService.registerFailure(normalizedEmail);
       throw new Error("Conta desativada. Reative sua conta para continuar.");
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-        restaurantId: user.restaurantId,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      },
-    );
+    await loginLockoutService.registerSuccess(normalizedEmail);
+
+    const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
+    if (mfaChallenge) {
+      return mfaChallenge;
+    }
+
+    const tokenPayload = {
+      id: user.id,
+      role: user.role,
+      restaurantId: user.restaurantId,
+    };
+    const token = authTokenService.createAccessToken(tokenPayload);
+    const refreshToken =
+      await authTokenService.createRefreshToken(tokenPayload);
 
     return {
       user: {
@@ -55,6 +81,7 @@ class LoginService {
         restaurantId: user.restaurantId,
       },
       token,
+      refreshToken,
     };
   }
 }

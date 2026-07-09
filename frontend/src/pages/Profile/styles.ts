@@ -545,6 +545,12 @@ export const AddressForm = styled.form`
     flex: 1;
   }
 
+  .split-bairro .card-last-four-input {
+    min-height: 36px;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
   input {
     padding: 0.65rem 0.85rem;
     border-radius: 0.5rem;
@@ -581,5 +587,267 @@ export const AddAddressButton = styled.button`
   &:hover {
     background-color: ${(props) => props.theme.primary};
     color: #000000;
+  }
+`;
+
+export const SavedCardsSection = styled.div`
+  display: grid;
+  gap: 0.8rem;
+`;
+
+export const SavedCardRow = styled.div`
+  display: grid;
+  gap: 0.6rem;
+`;
+
+export const SavedCardMainButton = styled.button`
+  border: 1px solid
+    ${({ $selected }) => ($selected ? "rgba(219, 162, 6, 0.7)" : "transparent")};
+  border-radius: 0.9rem;
+  background: ${({ $background }) =>
+    $background || "linear-gradient(135deg, #334155, #64748b)"};
+  color: ${({ $color }) => $color || "#f8fafc"};
+  padding: 0.85rem 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  box-shadow: ${({ $selected }) =>
+    $selected
+      ? "0 12px 26px rgba(219, 162, 6, 0.25)"
+      : "0 10px 20px rgba(15, 23, 42, 0.18)"};
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(219, 162, 6, 0.62);
+  }
+`;
+
+export const SavedCardTop = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+`;
+
+export const SavedCardBrandIdentity = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  strong {
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+  }
+`;
+
+export const CardBrandLogo = styled.img`
+  width: 40px;
+  height: 24px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 0.35rem;
+  padding: 0.15rem;
+`;
+
+export const SavedCardState = styled.span`
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+
+  ${({ $tone }) => {
+    if ($tone === "defaultCard") {
+      return `
+        background: rgba(16, 185, 129, 0.18);
+        color: #d1fae5;
+        border-color: rgba(16, 185, 129, 0.45);
+      `;
+    }
+
+    if ($tone === "active") {
+      return `
+        background: rgba(59, 130, 246, 0.18);
+        color: #dbeafe;
+        border-color: rgba(59, 130, 246, 0.45);
+      `;
+    }
+
+    return `
+      background: rgba(255, 255, 255, 0.18);
+      color: rgba(255, 255, 255, 0.9);
+      border-color: rgba(255, 255, 255, 0.35);
+    `;
+  }}
+`;
+
+export const SavedCardNumber = styled.div`
+  margin-top: 0.6rem;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+`;
+
+export const SavedCardHolder = styled.div`
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  opacity: 0.92;
+`;
+
+export const SavedCardActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+`;
+
+export const CardMiniAction = styled.button`
+  border: 1px solid
+    ${({ $variant, theme }) => {
+      if ($variant === "success") {
+        return "rgba(16, 185, 129, 0.5)";
+      }
+
+      if ($variant === "danger") {
+        return "rgba(239, 68, 68, 0.5)";
+      }
+
+      return theme.border;
+    }};
+  background: ${({ $variant }) => {
+    if ($variant === "success") {
+      return "rgba(16, 185, 129, 0.14)";
+    }
+
+    if ($variant === "danger") {
+      return "rgba(239, 68, 68, 0.14)";
+    }
+
+    return "transparent";
+  }};
+  color: ${({ $variant, theme }) => {
+    if ($variant === "success") {
+      return "#047857";
+    }
+
+    if ($variant === "danger") {
+      return "#b91c1c";
+    }
+
+    return theme.text;
+  }};
+  border-radius: 0.6rem;
+  padding: 0.46rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.98);
+  }
+`;
+
+export const CardVisualPreview = styled.div`
+  border-radius: 16px;
+  padding: 1rem;
+  min-height: 156px;
+  background:
+    linear-gradient(140deg, rgba(64, 93, 255, 0.98), rgba(76, 106, 255, 0.95)),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 14px 26px rgba(31, 52, 150, 0.3);
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -24px;
+    right: -16px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.11);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 36%;
+    top: 18%;
+    width: 90px;
+    height: 90px;
+    transform: rotate(45deg);
+    background: rgba(10, 15, 36, 0.13);
+    border-radius: 12px;
+  }
+`;
+
+export const CardVisualTop = styled.div`
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+export const CardChip = styled.span`
+  width: 28px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #f8df8c, #f2ba53);
+  box-shadow: inset 0 0 0 1px rgba(116, 86, 27, 0.28);
+`;
+
+export const CardVisualNumber = styled.div`
+  position: relative;
+  z-index: 1;
+  margin-top: 1.7rem;
+  color: #ffffff;
+  letter-spacing: 0.17em;
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  font-weight: 700;
+`;
+
+export const CardVisualFooter = styled.div`
+  position: relative;
+  z-index: 1;
+  margin-top: 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+
+  .left,
+  .right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .right {
+    align-items: flex-end;
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.67rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: #f8fafc;
+    font-size: 0.78rem;
+    font-weight: 700;
+    max-width: 18ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;

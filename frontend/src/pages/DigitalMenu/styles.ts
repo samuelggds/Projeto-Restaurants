@@ -13,11 +13,11 @@ export const GlobalMenuStyle = createGlobalStyle`
     --dm-brand-2: #d47344;
     --dm-warm: #ffd089;
     --dm-danger: #ef8f7a;
-    --dm-light-bg: #f3f3f6;
+    --dm-light-bg: #eef1f6;
     --dm-light-surface: #ffffff;
-    --dm-light-text: #1f1f24;
-    --dm-light-muted: #7a7a84;
-    --dm-purple: #5a2757;
+    --dm-light-text: #171b26;
+    --dm-light-muted: #6f7586;
+    --dm-purple: #3f64ff;
   }
 
   body {
@@ -260,12 +260,164 @@ export const GlobalMenuStyle = createGlobalStyle`
       background-position: 0% 100%;
     }
   }
+
+  @keyframes paymentSuccessPulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.22);
+      transform: scale(1);
+    }
+
+    70% {
+      box-shadow: 0 0 0 16px rgba(34, 197, 94, 0);
+      transform: scale(1.03);
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+      transform: scale(1);
+    }
+  }
+
+  @keyframes paymentCheckDraw {
+    from {
+      stroke-dashoffset: 48;
+    }
+
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes paymentRingAppear {
+    from {
+      opacity: 0;
+      transform: scale(0.82);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 `;
 
 export const Page = styled.main`
   min-height: 100vh;
   width: 100%;
   color: var(--dm-light-text);
+`;
+
+export const PaymentSuccessWrap = styled.section`
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    linear-gradient(145deg, #4f67df 0%, #546ee8 54%, #4a62d7 100%),
+    radial-gradient(circle at 0% 80%, rgba(44, 58, 128, 0.24), transparent 44%),
+    radial-gradient(
+      circle at 95% 20%,
+      rgba(255, 255, 255, 0.08),
+      transparent 38%
+    );
+`;
+
+export const PaymentSuccessFrame = styled.div`
+  width: min(420px, 100%);
+  display: grid;
+  gap: 0.7rem;
+  justify-items: center;
+  animation: riseIn 0.34s ease;
+`;
+
+export const PaymentSuccessBrand = styled.h1`
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #1fbe63;
+`;
+
+export const PaymentSuccessCard = styled.div`
+  width: 100%;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: clamp(1.2rem, 4vw, 1.75rem) clamp(1rem, 4vw, 1.6rem);
+  display: grid;
+  justify-items: center;
+  gap: 0.95rem;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.2);
+`;
+
+export const PaymentSuccessIconRing = styled.div`
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  border: 3px solid #18b467;
+  color: #18b467;
+  display: grid;
+  place-items: center;
+  animation:
+    paymentRingAppear 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    paymentSuccessPulse 1.8s ease-out 0.48s infinite;
+
+  svg {
+    overflow: visible;
+  }
+
+  svg * {
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: paymentCheckDraw 0.58s ease 0.24s forwards;
+  }
+`;
+
+export const PaymentSuccessTitle = styled.h2`
+  margin: 0;
+  font-size: clamp(1.7rem, 6vw, 2.3rem);
+  line-height: 1;
+  font-weight: 900;
+  color: #111827;
+  letter-spacing: -0.01em;
+`;
+
+export const PaymentSuccessText = styled.p`
+  margin: 0;
+  text-align: center;
+  color: #111827;
+  font-size: 1rem;
+`;
+
+export const PaymentSuccessMeta = styled.p`
+  margin: 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  line-height: 1.45;
+`;
+
+export const PaymentSuccessAction = styled.button`
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 999px;
+  background: #0fb8ab;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.12rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+    box-shadow: 0 14px 26px rgba(15, 184, 171, 0.36);
+  }
 `;
 
 export const PinGateWrap = styled.section`
@@ -1342,8 +1494,8 @@ export const Drawer = styled.aside`
   width: min(520px, 100vw);
   height: 100vh;
   background: var(--dm-light-bg);
-  border-left: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: -22px 0 38px rgba(35, 14, 43, 0.2);
+  border-left: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: -20px 0 40px rgba(15, 23, 42, 0.2);
   transform: ${({ $open }) =>
     $open ? "translateX(0) scale(1)" : "translateX(106%) scale(0.986)"};
   opacity: ${({ $open }) => ($open ? 1 : 0.74)};
@@ -1372,24 +1524,24 @@ export const DrawerHeader = styled.div`
   justify-content: space-between;
   gap: 0.6rem;
   padding: 0.95rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  background: var(--dm-light-surface);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #17181e, #1f2027);
   animation: drawerHeaderRise 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 
   h2 {
     margin: 0;
     font-size: 1.04rem;
     font-family: "Space Grotesk", "Sora", sans-serif;
-    color: #28132d;
+    color: #ffffff;
   }
 
   button {
-    border: 1px solid rgba(90, 39, 87, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: rgba(90, 39, 87, 0.08);
-    color: var(--dm-purple);
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
     cursor: pointer;
   }
 `;
@@ -1397,7 +1549,7 @@ export const DrawerHeader = styled.div`
 export const DrawerTotal = styled.strong`
   margin-left: auto;
   margin-right: 0.55rem;
-  color: var(--dm-purple);
+  color: #9aaeff;
   font-size: 0.96rem;
   font-family: "Space Grotesk", "Sora", sans-serif;
 `;
@@ -1406,8 +1558,8 @@ export const DrawerTabs = styled.div`
   margin: 0.85rem 0.95rem 0;
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(26, 31, 44, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   padding: 0.18rem;
   animation: drawerHeaderRise 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1419,9 +1571,9 @@ export const DrawerTab = styled.button`
   padding: 0.54rem 0.66rem;
   font-weight: 700;
   cursor: pointer;
-  color: ${({ $active }) => ($active ? "#ffffff" : "#6f6d79")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "#d2d7e8")};
   background: ${({ $active }) =>
-    $active ? "linear-gradient(135deg, #5a2757, #7d2f79)" : "transparent"};
+    $active ? "linear-gradient(135deg, #3f64ff, #6f86ff)" : "transparent"};
 `;
 
 export const DrawerContent = styled.div`
@@ -1511,18 +1663,18 @@ export const QtyWrap = styled.div`
 
 export const Summary = styled.div`
   margin-top: 0.84rem;
-  border: 1px dashed rgba(90, 39, 87, 0.34);
-  background: rgba(90, 39, 87, 0.06);
+  border: 1px dashed rgba(63, 100, 255, 0.4);
+  background: rgba(63, 100, 255, 0.08);
   border-radius: 10px;
   padding: 0.78rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 0.92rem;
-  color: #564f5d;
+  color: #4b5574;
 
   strong {
-    color: var(--dm-purple);
+    color: #2d4bc8;
     font-size: 1.12rem;
     font-family: "Space Grotesk", "Sora", sans-serif;
   }
@@ -1537,11 +1689,12 @@ export const InputGrid = styled.div`
   textarea,
   select {
     width: 100%;
-    border-radius: 10px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    border: none;
+    border-bottom: 2px solid rgba(63, 100, 255, 0.5);
     background: #ffffff;
     color: var(--dm-light-text);
-    padding: 0.72rem 0.82rem;
+    padding: 0.65rem 0.2rem 0.5rem;
     font-size: 0.94rem;
     outline: none;
 
@@ -1550,8 +1703,8 @@ export const InputGrid = styled.div`
     }
 
     &:focus {
-      border-color: rgba(90, 39, 87, 0.42);
-      box-shadow: 0 0 0 4px rgba(90, 39, 87, 0.12);
+      border-bottom-color: rgba(63, 100, 255, 0.9);
+      box-shadow: none;
     }
   }
 
@@ -1566,7 +1719,7 @@ export const Label = styled.label`
   gap: 0.32rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #5e5a66;
+  color: #6b7184;
 `;
 
 export const EmptyHint = styled.div`
@@ -1581,14 +1734,14 @@ export const EmptyHint = styled.div`
 export const CheckoutButton = styled.button`
   width: 100%;
   border: none;
-  border-radius: 10px;
+  border-radius: 0;
   margin-top: 0.85rem;
   padding: 0.82rem 0.95rem;
-  background: linear-gradient(135deg, #5a2757, #7d2f79);
+  background: linear-gradient(135deg, #10b7a5, #17cab6);
   color: #ffffff;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(58, 21, 65, 0.2);
+  box-shadow: 0 12px 24px rgba(16, 183, 165, 0.24);
   transition:
     transform 0.2s ease,
     filter 0.2s ease,
@@ -1603,18 +1756,433 @@ export const CheckoutButton = styled.button`
   &:not(:disabled):hover {
     transform: translateY(-1px);
     filter: brightness(1.06);
-    box-shadow: 0 14px 28px rgba(58, 21, 65, 0.26);
+    box-shadow: 0 14px 28px rgba(16, 183, 165, 0.28);
   }
 `;
 
 export const InlineInfo = styled.div`
   margin-top: 0.74rem;
-  border-radius: 9px;
-  border: 1px solid rgba(90, 39, 87, 0.24);
-  background: rgba(90, 39, 87, 0.08);
-  color: #5f3d69;
-  padding: 0.58rem 0.72rem;
+  border-radius: 10px;
+  border: 1px solid rgba(63, 100, 255, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(63, 100, 255, 0.08),
+    rgba(111, 134, 255, 0.09)
+  );
+  color: #3f4d79;
+  padding: 0.62rem 0.76rem;
   font-size: 0.8rem;
+  line-height: 1.45;
+`;
+
+export const SavedCardsSection = styled.section`
+  margin-top: 0.2rem;
+  display: grid;
+  gap: 0.52rem;
+`;
+
+export const SavedCardsHeading = styled.strong`
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #55618a;
+`;
+
+export const SavedCardRow = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.58rem;
+  align-items: stretch;
+
+  @media (max-width: 540px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const SavedCardMainButton = styled.button`
+  text-align: left;
+  border-radius: 16px;
+  padding: 0.9rem;
+  border: ${({ $selected }) =>
+    $selected
+      ? "2px solid rgba(63, 100, 255, 0.8)"
+      : "1px solid rgba(63, 100, 255, 0.2)"};
+  background: ${({ $selected }) =>
+    $selected
+      ? "linear-gradient(130deg, rgba(233, 239, 255, 0.98), rgba(221, 231, 255, 0.95))"
+      : "linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 255, 0.96))"};
+  color: #221c29;
+  box-shadow: ${({ $selected }) =>
+    $selected
+      ? "0 16px 30px rgba(63, 100, 255, 0.2)"
+      : "0 12px 24px rgba(31, 20, 38, 0.08)"};
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(63, 100, 255, 0.52);
+  }
+`;
+
+export const SavedCardTop = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.55rem;
+
+  strong {
+    letter-spacing: 0.05em;
+    font-size: 0.86rem;
+  }
+`;
+
+export const SavedCardBrandIdentity = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+`;
+
+export const SavedCardState = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.54rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid
+    ${({ $tone }) =>
+      $tone === "defaultCard"
+        ? "rgba(34, 197, 94, 0.4)"
+        : $tone === "active"
+          ? "rgba(63, 100, 255, 0.42)"
+          : "rgba(63, 100, 255, 0.18)"};
+  background: ${({ $tone }) =>
+    $tone === "defaultCard"
+      ? "rgba(34, 197, 94, 0.15)"
+      : $tone === "active"
+        ? "rgba(63, 100, 255, 0.14)"
+        : "rgba(63, 100, 255, 0.08)"};
+  color: ${({ $tone }) =>
+    $tone === "defaultCard"
+      ? "#166534"
+      : $tone === "active"
+        ? "#2f4bc5"
+        : "#5f6990"};
+`;
+
+export const SavedCardNumber = styled.div`
+  font-size: 1.06rem;
+  font-weight: 800;
+`;
+
+export const SavedCardHolder = styled.div`
+  margin-top: 0.42rem;
+  font-size: 0.72rem;
+  opacity: 0.84;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+`;
+
+export const SavedCardActions = styled.div`
+  display: grid;
+  gap: 0.42rem;
+  align-content: start;
+  min-width: 128px;
+`;
+
+export const CardMiniAction = styled.button`
+  border-radius: 10px;
+  border: 1px solid
+    ${({ $variant }) =>
+      $variant === "success"
+        ? "rgba(34, 197, 94, 0.35)"
+        : $variant === "danger"
+          ? "rgba(239, 68, 68, 0.34)"
+          : "rgba(148, 163, 184, 0.36)"};
+  background: ${({ $variant }) =>
+    $variant === "success"
+      ? "rgba(34, 197, 94, 0.11)"
+      : $variant === "danger"
+        ? "rgba(239, 68, 68, 0.1)"
+        : "rgba(255, 255, 255, 0.8)"};
+  color: ${({ $variant }) =>
+    $variant === "success"
+      ? "#166534"
+      : $variant === "danger"
+        ? "#991b1b"
+        : "#4b5563"};
+  padding: 0.62rem 0.72rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.99);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.09);
+  }
+`;
+
+export const CardDraftRow = styled.div`
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 0.75rem;
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const CardLastRow = styled.div`
+  display: grid;
+  grid-template-columns: 0.9fr 0.5fr;
+  gap: 0.75rem;
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const CardVisualPreview = styled.div`
+  margin-top: 0.15rem;
+  margin-bottom: 0.2rem;
+  border-radius: 16px;
+  padding: 1rem;
+  min-height: 156px;
+  background:
+    linear-gradient(140deg, rgba(64, 93, 255, 0.98), rgba(76, 106, 255, 0.95)),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 14px 26px rgba(31, 52, 150, 0.3);
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -24px;
+    right: -16px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.11);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 36%;
+    top: 18%;
+    width: 90px;
+    height: 90px;
+    transform: rotate(45deg);
+    background: rgba(10, 15, 36, 0.13);
+    border-radius: 12px;
+  }
+`;
+
+export const CardVisualTop = styled.div`
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+export const CardChip = styled.span`
+  width: 28px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #f8df8c, #f2ba53);
+  box-shadow: inset 0 0 0 1px rgba(116, 86, 27, 0.28);
+`;
+
+export const CardBrandMark = styled.span`
+  position: relative;
+  width: 34px;
+  height: 20px;
+  display: inline-block;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+  }
+
+  &::before {
+    left: 0;
+    background: #ff4d4f;
+  }
+
+  &::after {
+    right: 0;
+    background: #ffb800;
+    opacity: 0.86;
+  }
+`;
+
+export const CardBrandLogo = styled.img`
+  width: 84px;
+  height: 30px;
+  object-fit: contain;
+  background: transparent;
+  padding: 0;
+  border: none;
+  filter: none;
+`;
+
+export const CardVisualNumber = styled.div`
+  position: relative;
+  z-index: 1;
+  margin-top: 2rem;
+  color: #ffffff;
+  letter-spacing: 0.17em;
+  font-size: 0.92rem;
+  font-weight: 700;
+`;
+
+export const CardVisualFooter = styled.div`
+  position: relative;
+  z-index: 1;
+  margin-top: 1.3rem;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.7rem;
+  color: #ffffff;
+
+  .left,
+  .right {
+    display: grid;
+    gap: 0.12rem;
+  }
+
+  small {
+    font-size: 0.56rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.82;
+  }
+
+  strong {
+    font-size: 0.78rem;
+    letter-spacing: 0.09em;
+  }
+`;
+
+export const BrandOptionGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+`;
+
+export const BrandOptionButton = styled.button`
+  min-height: 54px;
+  padding: 0.35rem 0.28rem;
+  border-radius: 12px;
+  border: ${({ $active }) =>
+    $active
+      ? "2px solid rgba(63, 100, 255, 0.82)"
+      : "1px solid rgba(63, 100, 255, 0.18)"};
+  background: ${({ $active, $accent }) =>
+    $active
+      ? `linear-gradient(140deg, ${$accent}, rgba(255, 255, 255, 0.92))`
+      : "rgba(255, 255, 255, 0.84)"};
+  color: #2c2033;
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.14rem;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(63, 100, 255, 0.54);
+    box-shadow: 0 8px 18px rgba(43, 69, 173, 0.18);
+  }
+
+  span {
+    font-size: 0.64rem;
+    line-height: 1.08;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  @media (max-width: 560px) {
+    min-height: 52px;
+    padding: 0.28rem 0.24rem;
+    gap: 0.09rem;
+
+    span {
+      font-size: 0.6rem;
+      line-height: 1.04;
+      letter-spacing: 0.02em;
+    }
+  }
+`;
+
+export const CardActionRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.52rem;
+`;
+
+export const CardPrimaryAction = styled.button`
+  padding: 0.78rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 183, 165, 0.4);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 183, 165, 0.18),
+    rgba(23, 202, 182, 0.14)
+  );
+  color: #0f766e;
+  cursor: pointer;
+  font-weight: 800;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 22px rgba(16, 183, 165, 0.26);
+  }
+`;
+
+export const CardGhostAction = styled.button`
+  padding: 0.78rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  background: rgba(255, 255, 255, 0.7);
+  color: #4b5563;
+  cursor: pointer;
+  font-weight: 700;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+  }
 `;
 
 export const OrderFlowCard = styled.div`

@@ -52,6 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  function readStoredUser(): AuthUser {
+    const storedUserRaw = localStorage.getItem("user");
+
+    if (!storedUserRaw || storedUserRaw === "undefined") {
+      return null;
+    }
+
+    try {
+      return sanitizeUserRole(JSON.parse(storedUserRaw));
+    } catch {
+      localStorage.removeItem("user");
+      return null;
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -84,10 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     async function bootstrapAuth() {
-      const storedUserRaw = localStorage.getItem("user");
-      const storedUser = storedUserRaw
-        ? sanitizeUserRole(JSON.parse(storedUserRaw))
-        : null;
+      const storedUser = readStoredUser();
       const token = localStorage.getItem("token");
 
       if (!token) {

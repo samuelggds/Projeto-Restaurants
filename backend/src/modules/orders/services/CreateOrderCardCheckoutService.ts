@@ -23,7 +23,7 @@ class CreateOrderCardCheckoutService {
       Number(payload.restaurantId) || Number(payload.userRestaurantId) || 0;
 
     if (!resolvedRestaurantId) {
-      return CARD_PROVIDERS.STRIPE;
+      return CARD_PROVIDERS.MERCADO_PAGO;
     }
 
     const settings =

@@ -431,10 +431,10 @@ export default function StaffDashboard() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      setSocketStatus("disconnected");
       return undefined;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocketStatus("connecting");
     const socket = connectSocket(token, "employees-dashboard");
 
@@ -1034,7 +1034,7 @@ export default function StaffDashboard() {
               <Utensils size={22} strokeWidth={2.5} />
               {!isSidebarCollapsed && (
                 <div className="brand-text">
-                  <h1>Peça Já food</h1>
+                  <h1>Peça Já Food</h1>
                   <span>Painel Operacional</span>
                 </div>
               )}

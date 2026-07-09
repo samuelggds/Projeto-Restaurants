@@ -2,7 +2,7 @@ import { CheckCircle, CreditCard, X } from "lucide-react";
 import {
   CARD_BRAND_OPTIONS,
   getCardBrandDisplay,
-  getCardBrandPalette,
+  getCardBrandLogo,
 } from "../../../config/cardPaymentWallet";
 import * as S from "../styles";
 
@@ -43,6 +43,86 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   CANCELADO: "Cancelado",
 };
 
+const CARD_BRAND_LOGO_STYLE_BASE = {
+  width: 62,
+  height: 24,
+  borderRadius: 0,
+  objectFit: "contain" as const,
+  display: "block",
+  background: "transparent",
+  padding: 0,
+  boxSizing: "border-box" as const,
+  border: "none",
+};
+
+const CARD_BRAND_LOGO_SIZE_PRESETS = {
+  default: {
+    compact: { width: 62, height: 24 },
+    preview: { width: 84, height: 30 },
+  },
+  visa: {
+    compact: { width: 54, height: 20 },
+    preview: { width: 74, height: 24 },
+  },
+  mastercard: {
+    compact: { width: 60, height: 24 },
+    preview: { width: 82, height: 30 },
+  },
+  elo: {
+    compact: { width: 70, height: 26 },
+    preview: { width: 92, height: 34 },
+  },
+  hipercard: {
+    compact: { width: 64, height: 24 },
+    preview: { width: 86, height: 30 },
+  },
+  "american express": {
+    compact: { width: 68, height: 24 },
+    preview: { width: 88, height: 30 },
+  },
+} as const;
+
+function normalizeCardBrandKey(brand: string | null | undefined) {
+  return String(brand || "")
+    .trim()
+    .toLowerCase();
+}
+
+function getCardBrandLogoStyle(
+  brand: string | null | undefined,
+  variant: "compact" | "preview" = "compact",
+) {
+  const key = normalizeCardBrandKey(brand);
+  const sizeSet =
+    CARD_BRAND_LOGO_SIZE_PRESETS[key] || CARD_BRAND_LOGO_SIZE_PRESETS.default;
+
+  return {
+    ...CARD_BRAND_LOGO_STYLE_BASE,
+    ...sizeSet[variant],
+  };
+}
+
+function maskCardDigits(value: string) {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 16);
+  if (!digits) {
+    return "1234 1234 1234 1234";
+  }
+
+  const grouped = digits.match(/.{1,4}/g) || [];
+  return grouped.join(" ").padEnd(19, "_");
+}
+
+function resolveCardHolderName(value: string) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "SMITH PLACE HOLDER";
+  }
+
+  return text.toUpperCase().slice(0, 26);
+}
+
 type CartItem = {
   productId: number | string;
   name: string;
@@ -62,6 +142,7 @@ type OrderDrawerProps = {
   customerName: string;
   customerCpf: string;
   paymentMethod: string;
+  paymentTiming: "NOW" | "LATER";
   observation: string;
   savedCards: {
     id: string;
@@ -81,6 +162,7 @@ type OrderDrawerProps = {
   setCustomerName: (value: string) => void;
   onCustomerCpfChange: (value: string) => void;
   setPaymentMethod: (value: string) => void;
+  setPaymentTiming: (value: "NOW" | "LATER") => void;
   setObservation: (value: string) => void;
   onCardPaymentDraftChange: (field: string, value: string) => void;
   onSelectSavedCard: (cardId: string) => void;
@@ -99,6 +181,7 @@ type OrderDrawerProps = {
     status: string;
     total: number;
     paymentMethod: string;
+    paid?: boolean;
     createdAt: string;
     customerName: string;
   }[];
@@ -116,6 +199,7 @@ export default function OrderDrawer({
   customerName,
   customerCpf,
   paymentMethod,
+  paymentTiming,
   observation,
   savedCards,
   selectedSavedCardId,
@@ -126,6 +210,7 @@ export default function OrderDrawer({
   setCustomerName,
   onCustomerCpfChange,
   setPaymentMethod,
+  setPaymentTiming,
   setObservation,
   onCardPaymentDraftChange,
   onSelectSavedCard,
@@ -146,6 +231,9 @@ export default function OrderDrawer({
     const bTime = new Date(b.createdAt || 0).getTime();
     return bTime - aTime;
   });
+  const cardPreviewDigits = maskCardDigits(cardNumber);
+  const cardPreviewHolder = resolveCardHolderName(cardPaymentDraft.holderName);
+  const cardPreviewCvv = String(cardCvv || "").trim() || "789";
 
   function getStepState(
     index: number,
@@ -307,116 +395,219 @@ export default function OrderDrawer({
                   acertado na entrega.
                 </S.InlineInfo>
 
+                {paymentMethod === "PIX" ? (
+                  <div
+                    style={{
+                      marginTop: "0.15rem",
+                      borderRadius: 16,
+                      border: "1px solid rgba(90, 39, 87, 0.18)",
+                      background:
+                        "linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(244, 237, 255, 0.92))",
+                      padding: "0.85rem 0.9rem",
+                      display: "grid",
+                      gap: "0.62rem",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: "0.14rem" }}>
+                      <strong style={{ fontSize: 14, color: "#3b1f3f" }}>
+                        Voce deseja pagar agora ou pagar depois com o garcom?
+                      </strong>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.45,
+                          color: "#5b4a69",
+                        }}
+                      >
+                        Escolha a forma mais confortavel para voce. Se pagar
+                        agora, o pedido vai como <strong>Pago</strong>. Se
+                        deixar para o garcom, ele fica como
+                        <strong> Nao pago</strong>.
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setPaymentTiming("NOW")}
+                        style={{
+                          minHeight: 42,
+                          borderRadius: 12,
+                          border:
+                            paymentTiming === "NOW"
+                              ? "2px solid rgba(63, 100, 255, 0.92)"
+                              : "1px solid rgba(99, 102, 241, 0.3)",
+                          background:
+                            paymentTiming === "NOW"
+                              ? "linear-gradient(135deg, rgba(63, 100, 255, 0.2), rgba(116, 145, 255, 0.14))"
+                              : "rgba(255, 255, 255, 0.84)",
+                          color: "#2f2a4a",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Pagar agora
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentTiming("LATER")}
+                        style={{
+                          minHeight: 42,
+                          borderRadius: 12,
+                          border:
+                            paymentTiming === "LATER"
+                              ? "2px solid rgba(16, 185, 129, 0.85)"
+                              : "1px solid rgba(16, 185, 129, 0.28)",
+                          background:
+                            paymentTiming === "LATER"
+                              ? "linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(52, 211, 153, 0.1))"
+                              : "rgba(255, 255, 255, 0.84)",
+                          color: "#1f513f",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Pagar depois ao garcom
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {paymentMethod === "PIX" && paymentTiming === "LATER" ? (
+                  <S.InlineInfo
+                    style={{
+                      marginTop: "0.05rem",
+                      borderColor: "rgba(16, 185, 129, 0.34)",
+                      background: "rgba(16, 185, 129, 0.08)",
+                      color: "#0f766e",
+                    }}
+                  >
+                    Sem problemas. O pedido sera enviado como nao pago e voce
+                    pode finalizar com o garcom quando preferir.
+                  </S.InlineInfo>
+                ) : null}
+
+                {paymentMethod === "CARTAO" ? (
+                  <S.InlineInfo
+                    style={{
+                      marginTop: "0.05rem",
+                      borderColor: "rgba(59, 130, 246, 0.35)",
+                      background: "rgba(59, 130, 246, 0.08)",
+                      color: "#1d4ed8",
+                    }}
+                  >
+                    No cartao, o pagamento acontece automaticamente no momento
+                    do pedido e ja consta como pago. Para continuar, deixe um
+                    cartao salvo e selecionado.
+                  </S.InlineInfo>
+                ) : null}
+
                 {paymentMethod === "CARTAO" ? (
                   <>
                     {savedCards.length > 0 ? (
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: "0.5rem",
-                        }}
-                      >
-                        <strong style={{ fontSize: 14 }}>Cartoes salvos</strong>
+                      <S.SavedCardsSection>
+                        <S.SavedCardsHeading>
+                          Cartoes salvos
+                        </S.SavedCardsHeading>
                         {savedCards.map((card) => {
                           const isSelected = selectedSavedCardId === card.id;
                           const isDefault = defaultSavedCardId === card.id;
 
                           return (
-                            <div
-                              key={card.id}
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr auto auto",
-                                gap: "0.5rem",
-                                alignItems: "center",
-                              }}
-                            >
-                              <button
+                            <S.SavedCardRow key={card.id}>
+                              <S.SavedCardMainButton
                                 type="button"
                                 onClick={() => onSelectSavedCard(card.id)}
-                                style={{
-                                  textAlign: "left",
-                                  padding: "0.95rem 1rem",
-                                  borderRadius: 16,
-                                  border: isSelected
-                                    ? "2px solid #dba206"
-                                    : "1px solid #cbd5e1",
-                                  ...getCardBrandPalette(card.brand),
-                                  boxShadow: isSelected
-                                    ? "0 14px 30px rgba(219, 162, 6, 0.18)"
-                                    : "0 10px 24px rgba(15, 23, 42, 0.10)",
-                                  cursor: "pointer",
-                                }}
+                                $selected={isSelected}
                               >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    gap: "0.75rem",
-                                    alignItems: "center",
-                                    marginBottom: "0.6rem",
-                                  }}
-                                >
-                                  <strong>{card.brand.toUpperCase()}</strong>
-                                  <span style={{ fontSize: 11, opacity: 0.9 }}>
+                                <S.SavedCardTop>
+                                  <S.SavedCardBrandIdentity>
+                                    <S.CardBrandLogo
+                                      src={getCardBrandLogo(card.brand)}
+                                      alt={`Bandeira ${card.brand}`}
+                                      style={getCardBrandLogoStyle(card.brand)}
+                                    />
+                                    <strong>{card.brand.toUpperCase()}</strong>
+                                  </S.SavedCardBrandIdentity>
+                                  <S.SavedCardState
+                                    $tone={
+                                      isDefault
+                                        ? "defaultCard"
+                                        : isSelected
+                                          ? "active"
+                                          : "default"
+                                    }
+                                  >
                                     {isDefault
                                       ? "PADRAO"
                                       : isSelected
                                         ? "EM USO"
                                         : "SALVO"}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: 18, fontWeight: 800 }}>
+                                  </S.SavedCardState>
+                                </S.SavedCardTop>
+                                <S.SavedCardNumber>
                                   •••• •••• •••• {card.lastFour}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 12,
-                                    opacity: 0.88,
-                                    marginTop: "0.5rem",
-                                  }}
-                                >
+                                </S.SavedCardNumber>
+                                <S.SavedCardHolder>
                                   {card.holderName}
-                                </div>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onSetDefaultSavedCard(card.id)}
-                                style={{
-                                  borderRadius: 10,
-                                  border: isDefault
-                                    ? "1px solid rgba(34, 197, 94, 0.35)"
-                                    : "1px solid rgba(148, 163, 184, 0.35)",
-                                  background: isDefault
-                                    ? "rgba(34, 197, 94, 0.1)"
-                                    : "transparent",
-                                  color: isDefault ? "#166534" : "inherit",
-                                  padding: "0.7rem 0.85rem",
-                                  cursor: "pointer",
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {isDefault ? "Padrao" : "Definir padrao"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onRemoveSavedCard(card.id)}
-                                style={{
-                                  borderRadius: 10,
-                                  border: "1px solid rgba(239, 68, 68, 0.35)",
-                                  background: "rgba(239, 68, 68, 0.1)",
-                                  color: "#991b1b",
-                                  padding: "0.7rem 0.85rem",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Remover
-                              </button>
-                            </div>
+                                </S.SavedCardHolder>
+                              </S.SavedCardMainButton>
+
+                              <S.SavedCardActions>
+                                <S.CardMiniAction
+                                  type="button"
+                                  onClick={() => onSetDefaultSavedCard(card.id)}
+                                  $variant={isDefault ? "success" : "default"}
+                                >
+                                  {isDefault ? "Padrao" : "Definir padrao"}
+                                </S.CardMiniAction>
+                                <S.CardMiniAction
+                                  type="button"
+                                  onClick={() => onRemoveSavedCard(card.id)}
+                                  $variant="danger"
+                                >
+                                  Remover
+                                </S.CardMiniAction>
+                              </S.SavedCardActions>
+                            </S.SavedCardRow>
                           );
                         })}
-                      </div>
+                      </S.SavedCardsSection>
                     ) : null}
+
+                    <S.CardVisualPreview>
+                      <S.CardVisualTop>
+                        <S.CardChip />
+                        <S.CardBrandLogo
+                          src={getCardBrandLogo(cardPaymentDraft.brand)}
+                          alt={`Bandeira ${
+                            getCardBrandDisplay(cardPaymentDraft.brand).label
+                          }`}
+                          style={getCardBrandLogoStyle(
+                            cardPaymentDraft.brand,
+                            "preview",
+                          )}
+                        />
+                      </S.CardVisualTop>
+                      <S.CardVisualNumber>
+                        {cardPreviewDigits}
+                      </S.CardVisualNumber>
+                      <S.CardVisualFooter>
+                        <div className="left">
+                          <small>CVC</small>
+                          <strong>{cardPreviewCvv}</strong>
+                        </div>
+                        <div className="right">
+                          <small>Nome no cartao</small>
+                          <strong>{cardPreviewHolder}</strong>
+                        </div>
+                      </S.CardVisualFooter>
+                    </S.CardVisualPreview>
 
                     <S.Label>
                       Nome do titular
@@ -435,13 +626,7 @@ export default function OrderDrawer({
 
                     <S.Label>
                       Bandeira e final do cartao
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1.2fr 1fr",
-                          gap: "0.75rem",
-                        }}
-                      >
+                      <S.CardDraftRow>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -457,59 +642,33 @@ export default function OrderDrawer({
                             )
                           }
                         />
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                            gap: "0.5rem",
-                          }}
-                        >
+                        <S.BrandOptionGrid>
                           {CARD_BRAND_OPTIONS.map((brand) => {
                             const isActive = cardPaymentDraft.brand === brand;
                             const brandDisplay = getCardBrandDisplay(brand);
 
                             return (
-                              <button
+                              <S.BrandOptionButton
                                 key={brand}
                                 type="button"
                                 onClick={() =>
                                   onCardPaymentDraftChange("brand", brand)
                                 }
-                                style={{
-                                  minHeight: 54,
-                                  borderRadius: 12,
-                                  border: isActive
-                                    ? "2px solid #dba206"
-                                    : "1px solid #cbd5e1",
-                                  background: isActive
-                                    ? brandDisplay.accent
-                                    : "transparent",
-                                  color: "inherit",
-                                  cursor: "pointer",
-                                  display: "grid",
-                                  justifyItems: "center",
-                                  alignContent: "center",
-                                  gap: "0.15rem",
-                                }}
+                                $active={isActive}
+                                $accent={brandDisplay.accent}
                               >
-                                <strong style={{ fontSize: 14 }}>
-                                  {brandDisplay.badge}
-                                </strong>
-                                <span style={{ fontSize: 11, fontWeight: 700 }}>
-                                  {brandDisplay.label}
-                                </span>
-                              </button>
+                                <S.CardBrandLogo
+                                  src={getCardBrandLogo(brand)}
+                                  alt={`Bandeira ${brandDisplay.label}`}
+                                  style={getCardBrandLogoStyle(brand)}
+                                />
+                                <span>{brandDisplay.label}</span>
+                              </S.BrandOptionButton>
                             );
                           })}
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "0.8fr 0.6fr",
-                          gap: "0.75rem",
-                        }}
-                      >
+                        </S.BrandOptionGrid>
+                      </S.CardDraftRow>
+                      <S.CardLastRow>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -535,49 +694,25 @@ export default function OrderDrawer({
                             )
                           }
                         />
-                      </div>
+                      </S.CardLastRow>
                     </S.Label>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "0.5rem",
-                      }}
-                    >
-                      <button
+                    <S.CardActionRow>
+                      <S.CardPrimaryAction
                         type="button"
                         onClick={onSaveCurrentCard}
-                        style={{
-                          padding: "0.8rem 1rem",
-                          borderRadius: 10,
-                          border: "1px solid rgba(34, 197, 94, 0.35)",
-                          background: "rgba(34, 197, 94, 0.12)",
-                          color: "#166534",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
                       >
                         {selectedSavedCardId
                           ? "Atualizar cartao"
                           : "Salvar cartao"}
-                      </button>
-                      <button
+                      </S.CardPrimaryAction>
+                      <S.CardGhostAction
                         type="button"
                         onClick={onStartNewSavedCard}
-                        style={{
-                          padding: "0.8rem 1rem",
-                          borderRadius: 10,
-                          border: "1px solid #cbd5e1",
-                          background: "transparent",
-                          color: "inherit",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
                       >
                         Novo cartao
-                      </button>
-                    </div>
+                      </S.CardGhostAction>
+                    </S.CardActionRow>
 
                     <S.InlineInfo style={{ marginTop: -4 }}>
                       Por seguranca, este aparelho salva apenas titular,
@@ -636,7 +771,11 @@ export default function OrderDrawer({
                 ) : (
                   <>
                     <CheckCircle size={18} style={{ marginRight: 6 }} />
-                    Enviar pedido para a mesa
+                    {paymentTiming === "NOW" && paymentMethod === "PIX"
+                      ? "Gerar PIX e pagar agora"
+                      : paymentTiming === "NOW" && paymentMethod === "CARTAO"
+                        ? "Pagar com cartao agora"
+                        : "Enviar pedido para a mesa"}
                   </>
                 )}
               </S.CheckoutButton>
@@ -696,6 +835,31 @@ export default function OrderDrawer({
                           <span>Total do pedido</span>
                           <strong>R$ {toPrice(order.total)}</strong>
                         </S.Summary>
+
+                        <div
+                          style={{
+                            marginTop: "0.5rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            borderRadius: 999,
+                            border: `1px solid ${
+                              order?.paid
+                                ? "rgba(34, 197, 94, 0.4)"
+                                : "rgba(239, 68, 68, 0.35)"
+                            }`,
+                            background: order?.paid
+                              ? "rgba(34, 197, 94, 0.12)"
+                              : "rgba(239, 68, 68, 0.1)",
+                            color: order?.paid ? "#166534" : "#991b1b",
+                            fontSize: 12,
+                            fontWeight: 800,
+                            padding: "0.18rem 0.62rem",
+                            letterSpacing: "0.03em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {order?.paid ? "Pago" : "Nao pago"}
+                        </div>
 
                         <S.OrderFlowList
                           key={`flow-${order.id}-${normalizedStatus}`}

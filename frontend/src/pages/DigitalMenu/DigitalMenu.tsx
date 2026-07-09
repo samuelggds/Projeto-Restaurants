@@ -1,4 +1,12 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ShoppingBag,
   House,
@@ -9,9 +17,10 @@ import {
   Square,
   ChevronUp,
   Star,
+  Check,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import menuService from "../../Services/menuService";
 import ordersService from "../../Services/ordersService";
 import tableSessionService from "../../Services/tableSessionService";
@@ -24,10 +33,7 @@ import {
   buildCardPaymentSummary,
   findSavedCard,
   getEmptyCardDraft,
-  getCardNumberDigits,
   isCardDraftComplete,
-  isCardNumberValid,
-  normalizeCardNumberInput,
   persistCardWallet,
   readCardWallet,
   sanitizeCardDraft,
@@ -49,12 +55,16 @@ const ProductDetailModal = lazy(
   () => import("./components/ProductDetailModal"),
 );
 const OrderDrawer = lazy(() => import("./components/OrderDrawer"));
+const PixPaymentPanel = lazy(
+  () => import("../Cart/components/PixPaymentPanel"),
+);
 
 const MENU_RESTAURANT_KEY = "menuRestaurantId";
 const MESA_ORDERS_KEY = "@PecaJaFood:mesaOrders";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PRODUCT_DETAIL_CLOSE_MS = 240;
+const PIX_AUTO_STATUS_CHECK_INTERVAL_MS = 4000;
 const ALLOWED_PAYMENT_METHODS = new Set(["PIX", "CARTAO", "DINHEIRO"]);
 
 function parseLastMesaOrder(raw) {
@@ -73,6 +83,7 @@ function parseLastMesaOrder(raw) {
     status: String(raw.status || "PENDENTE").toUpperCase(),
     total: Number(raw.total || 0),
     paymentMethod: String(raw.paymentMethod || "PIX").toUpperCase(),
+    paid: Boolean(raw.paid),
     createdAt: String(raw.createdAt || new Date().toISOString()),
     customerName: String(raw.customerName || ""),
     tableId: Number(raw.tableId || 0) || null,
@@ -108,6 +119,7 @@ function normalizeRealtimeOrderUpdate(payload) {
     status: String(payload.status || "PENDENTE").toUpperCase(),
     total: Number(payload.total || 0),
     paymentMethod: String(payload.paymentMethod || "PIX").toUpperCase(),
+    paid: Boolean(payload.paid),
     createdAt: String(payload.createdAt || new Date().toISOString()),
     customerName: String(payload?.user?.name || payload.customerName || ""),
     tableId: Number(payload.tableId || payload?.table?.id || 0) || null,
@@ -145,6 +157,10 @@ function toStoredOrderShape(payload, fallback = null) {
     paymentMethod: String(
       payload.paymentMethod || fallback?.paymentMethod || "PIX",
     ).toUpperCase(),
+    paid:
+      typeof payload.paid === "boolean"
+        ? payload.paid
+        : Boolean(fallback?.paid),
     createdAt: String(
       payload.createdAt || fallback?.createdAt || new Date().toISOString(),
     ),
@@ -198,9 +214,37 @@ function getApiErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(String(reader.result || ""));
+    };
+
+    reader.onerror = () => {
+      reject(new Error("Nao foi possivel ler o arquivo selecionado."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function DigitalMenu() {
+  const navigate = useNavigate();
   const { tableNumber: tableNumberParam } = useParams();
   const [searchParams] = useSearchParams();
+  const previewPaymentSuccess =
+    String(searchParams.get("preview") || "")
+      .trim()
+      .toLowerCase() === "payment-success";
   const initialCardWallet = useMemo(() => readCardWallet(), []);
   const [products, setProducts] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -211,6 +255,7 @@ export default function DigitalMenu() {
   const [customerName, setCustomerName] = useState("");
   const [customerCpf, setCustomerCpf] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [paymentTiming, setPaymentTiming] = useState<"NOW" | "LATER">("LATER");
   const [observation, setObservation] = useState("");
   const [savedCards, setSavedCards] = useState(initialCardWallet.cards);
   const [selectedSavedCardId, setSelectedSavedCardId] = useState(
@@ -231,6 +276,18 @@ export default function DigitalMenu() {
   const [cardCvv, setCardCvv] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [pixPaymentData, setPixPaymentData] = useState(null);
+  const [pixManualProof, setPixManualProof] = useState("");
+  const [pixManualProofImage, setPixManualProofImage] = useState("");
+  const [pixManualProofImageName, setPixManualProofImageName] = useState("");
+  const [isSubmittingPixConfirmation, setIsSubmittingPixConfirmation] =
+    useState(false);
+  const [paymentSuccessState, setPaymentSuccessState] = useState<{
+    orderId: number | null;
+    provider: string;
+    title: string;
+    message: string;
+  } | null>(null);
   const [tablePin, setTablePin] = useState("");
   const [pinError, setPinError] = useState("");
   const [isPinValidating, setIsPinValidating] = useState(false);
@@ -251,9 +308,6 @@ export default function DigitalMenu() {
   const closeProductDetailTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const addFeedbackTimeoutsRef = useRef<
-    Record<string, ReturnType<typeof setTimeout>>
-  >({});
 
   function clearMesaSession(showToast = true) {
     localStorage.removeItem("tableSession");
@@ -355,6 +409,7 @@ export default function DigitalMenu() {
     }
 
     if (cardCheckoutStatus === "success") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCart([]);
       setDrawerOpen(true);
       setDrawerStep("fluxo");
@@ -451,6 +506,7 @@ export default function DigitalMenu() {
     const stored = localStorage.getItem(MESA_ORDERS_KEY);
 
     if (!stored) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMesaOrders([]);
       return;
     }
@@ -669,6 +725,7 @@ export default function DigitalMenu() {
 
           return {
             ...order,
+            paid: true,
             paymentMethod: String(
               payload?.paymentMethod || order?.paymentMethod || "PIX",
             ).toUpperCase(),
@@ -691,7 +748,14 @@ export default function DigitalMenu() {
       socket.off("order:payment-confirmed", onOrderPaymentConfirmed);
       disconnectTableSessionSocket();
     };
-  }, [mesaSessionIsActive, routeTableId, tableSession?.sessionToken]);
+  }, [
+    mesaSessionIsActive,
+    routeTableId,
+    routeTableNumber,
+    tableSession?.sessionToken,
+    tableSession?.tableId,
+    tableSession?.tableNumber,
+  ]);
 
   useEffect(() => {
     if (!mesaSessionIsActive || !tableSession?.sessionToken) {
@@ -773,16 +837,234 @@ export default function DigitalMenu() {
       if (closeProductDetailTimeoutRef.current) {
         clearTimeout(closeProductDetailTimeoutRef.current);
       }
-
-      Object.values(addFeedbackTimeoutsRef.current).forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
     };
   }, []);
 
   useEffect(() => {
     persistCardWallet(savedCards, selectedSavedCardId, defaultSavedCardId);
   }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
+
+  useEffect(() => {
+    if (
+      String(paymentMethod || "")
+        .trim()
+        .toUpperCase() === "CARTAO"
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPaymentTiming("NOW");
+    }
+  }, [paymentMethod]);
+
+  async function handleCopyPixKey() {
+    try {
+      const pixCode = String(pixPaymentData?.pixCode || "").trim();
+
+      if (!pixCode) {
+        throw new Error("Codigo PIX indisponivel para copia.");
+      }
+
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Seu navegador nao permite copiar automaticamente.");
+      }
+
+      await navigator.clipboard.writeText(pixCode);
+      toast.success("Codigo PIX copiado!");
+    } catch (error) {
+      toast.error(error?.message || "Erro ao copiar codigo PIX");
+    }
+  }
+
+  async function handleManualProofFileChange(event) {
+    try {
+      const file = event.target.files?.[0];
+
+      if (!file) {
+        setPixManualProofImage("");
+        setPixManualProofImageName("");
+        return;
+      }
+
+      if (!String(file.type || "").startsWith("image/")) {
+        throw new Error("Selecione um arquivo de imagem valido.");
+      }
+
+      if (Number(file.size || 0) > 2 * 1024 * 1024) {
+        throw new Error("A imagem deve ter no maximo 2MB.");
+      }
+
+      const dataUrl = await readFileAsDataUrl(file);
+      setPixManualProofImage(dataUrl);
+      setPixManualProofImageName(String(file.name || "comprovante"));
+    } catch (error) {
+      toast.error(error?.message || "Erro ao carregar comprovante.");
+      setPixManualProofImage("");
+      setPixManualProofImageName("");
+    }
+  }
+
+  const handleConfirmPixPaymentAndCreateOrder = useCallback(async () => {
+    if (!pixPaymentData || isSubmittingPixConfirmation) {
+      return;
+    }
+
+    const normalizedPaymentId = String(pixPaymentData?.paymentId || "").trim();
+    const normalizedOrderId = Number(pixPaymentData?.orderId || 0);
+
+    if (!normalizedPaymentId || !normalizedOrderId || !restaurantId) {
+      toast.error("Dados de pagamento PIX incompletos.");
+      return;
+    }
+
+    try {
+      setIsSubmittingPixConfirmation(true);
+      await ordersService.confirmPixPayment({
+        orderId: normalizedOrderId,
+        paymentId: normalizedPaymentId,
+        restaurantId,
+        paymentProof: String(pixManualProof || "").trim() || undefined,
+        paymentProofImage:
+          String(pixManualProofImage || "").trim() || undefined,
+      });
+
+      setMesaOrders((prev) =>
+        prev.map((order) =>
+          Number(order?.id || 0) === normalizedOrderId
+            ? {
+                ...order,
+                paid: true,
+                paymentMethod: "PIX",
+              }
+            : order,
+        ),
+      );
+
+      setPixPaymentData(null);
+      setPixManualProof("");
+      setPixManualProofImage("");
+      setPixManualProofImageName("");
+      setDrawerOpen(false);
+      setCart([]);
+      setObservation("");
+      setPaymentSuccessState({
+        orderId: normalizedOrderId,
+        provider: String(pixPaymentData?.provider || "PIX")
+          .trim()
+          .toUpperCase(),
+        title: "Fique tranquilo",
+        message: "Este pedido ja foi pago.",
+      });
+    } catch (error) {
+      const message = String(
+        error?.response?.data?.error || error?.message || "",
+      );
+
+      if (
+        message.includes("ainda nao foi aprovado") ||
+        message.includes("ainda não foi aprovado")
+      ) {
+        return;
+      }
+
+      toast.error(getApiErrorMessage(error, "Erro ao confirmar pagamento PIX"));
+    } finally {
+      setIsSubmittingPixConfirmation(false);
+    }
+  }, [
+    isSubmittingPixConfirmation,
+    pixManualProof,
+    pixManualProofImage,
+    pixPaymentData,
+    restaurantId,
+  ]);
+
+  useEffect(() => {
+    const provider = String(pixPaymentData?.provider || "").toUpperCase();
+    const shouldAutoPollMercadoPago =
+      provider === "MERCADO_PAGO" &&
+      Boolean(pixPaymentData?.paymentId) &&
+      Boolean(pixPaymentData?.orderId) &&
+      !isSubmittingPixConfirmation;
+
+    if (!shouldAutoPollMercadoPago) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkAndConfirmPixPayment() {
+      if (cancelled || !restaurantId) {
+        return;
+      }
+
+      try {
+        const status = await ordersService.getPixPaymentStatus({
+          paymentId: String(pixPaymentData.paymentId || "").trim(),
+          restaurantId,
+        });
+        const normalizedStatus = String(status?.status || "")
+          .trim()
+          .toLowerCase();
+
+        if (!["approved", "accredited", "paid"].includes(normalizedStatus)) {
+          return;
+        }
+
+        await handleConfirmPixPaymentAndCreateOrder();
+      } catch {
+        // Mantem polling silencioso ate o provedor aprovar.
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void checkAndConfirmPixPayment();
+    }, PIX_AUTO_STATUS_CHECK_INTERVAL_MS);
+
+    void checkAndConfirmPixPayment();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    handleConfirmPixPaymentAndCreateOrder,
+    isSubmittingPixConfirmation,
+    pixPaymentData,
+    restaurantId,
+  ]);
+
+  useEffect(() => {
+    const isManualProvider =
+      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
+    const normalizedManualProof = String(pixManualProof || "").trim();
+    const normalizedManualProofImage = String(pixManualProofImage || "").trim();
+    const hasManualProofImage =
+      normalizedManualProofImage.startsWith("data:image/") &&
+      normalizedManualProofImage.length >= 40;
+    const shouldAutoConfirmManualPix =
+      isManualProvider &&
+      Boolean(pixPaymentData?.paymentId) &&
+      Boolean(pixPaymentData?.orderId) &&
+      !isSubmittingPixConfirmation &&
+      (normalizedManualProof.length >= 6 || hasManualProofImage);
+
+    if (!shouldAutoConfirmManualPix) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void handleConfirmPixPaymentAndCreateOrder();
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    handleConfirmPixPaymentAndCreateOrder,
+    isSubmittingPixConfirmation,
+    pixManualProof,
+    pixManualProofImage,
+    pixPaymentData,
+  ]);
 
   const categories = useMemo(() => {
     const categoryMap = new Map();
@@ -905,11 +1187,7 @@ export default function DigitalMenu() {
       [key]: true,
     }));
 
-    if (addFeedbackTimeoutsRef.current[key]) {
-      clearTimeout(addFeedbackTimeoutsRef.current[key]);
-    }
-
-    addFeedbackTimeoutsRef.current[key] = setTimeout(() => {
+    window.setTimeout(() => {
       setAddedProductMap((prev) => {
         if (!prev[key]) {
           return prev;
@@ -919,14 +1197,10 @@ export default function DigitalMenu() {
         delete next[key];
         return next;
       });
-
-      delete addFeedbackTimeoutsRef.current[key];
     }, 1150);
   }
 
   function addToCart(product) {
-    markProductAsAdded(product.id);
-
     setCart((prev) => {
       const existing = prev.find((item) => item.productId === product.id);
 
@@ -987,9 +1261,17 @@ export default function DigitalMenu() {
     const normalizedPaymentMethod = String(paymentMethod || "")
       .trim()
       .toUpperCase();
+    const normalizedPaymentTiming = String(paymentTiming || "LATER")
+      .trim()
+      .toUpperCase();
 
     if (!ALLOWED_PAYMENT_METHODS.has(normalizedPaymentMethod)) {
       toast.error("Selecione uma forma de pagamento válida.");
+      return;
+    }
+
+    if (!["NOW", "LATER"].includes(normalizedPaymentTiming)) {
+      toast.error("Selecione quando deseja pagar o pedido.");
       return;
     }
 
@@ -1003,59 +1285,16 @@ export default function DigitalMenu() {
       return;
     }
 
-    if (normalizedPaymentMethod === "CARTAO") {
-      if (!isCardDraftComplete(cardPaymentDraft)) {
-        toast.error(
-          "Informe titular, bandeira e os 4 ultimos digitos do cartao para continuar.",
-        );
-        return;
-      }
+    const selectedCard =
+      normalizedPaymentMethod === "CARTAO"
+        ? findSavedCard(savedCards, selectedSavedCardId)
+        : null;
 
-      if (!isCardNumberValid(cardNumber)) {
-        toast.error("Informe um numero de cartao valido.");
-        return;
-      }
-
-      const fullCardDigits = getCardNumberDigits(cardNumber);
-      const savedLastFour = String(cardPaymentDraft?.lastFour || "");
-
-      if (savedLastFour && !fullCardDigits.endsWith(savedLastFour)) {
-        toast.error(
-          "O numero completo do cartao precisa terminar com os 4 digitos do cartao selecionado.",
-        );
-        return;
-      }
-
-      if (!/^\d{3,4}$/.test(String(cardCvv || "").trim())) {
-        toast.error("Informe um CVV valido com 3 ou 4 digitos.");
-        return;
-      }
-
-      const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
-      const normalizedHolder = sanitizedDraft.holderName.trim().toLowerCase();
-      const normalizedBrand = sanitizedDraft.brand.trim().toLowerCase();
-      const existingCard =
-        findSavedCard(savedCards, selectedSavedCardId) ||
-        savedCards.find(
-          (card) =>
-            card.lastFour === sanitizedDraft.lastFour &&
-            card.holderName.trim().toLowerCase() === normalizedHolder &&
-            card.brand.trim().toLowerCase() === normalizedBrand,
-        ) ||
-        null;
-      const nextCard = {
-        id: existingCard?.id || `${Date.now()}`,
-        ...sanitizedDraft,
-      };
-      const nextCards = existingCard
-        ? savedCards.map((card) =>
-            card.id === existingCard.id ? nextCard : card,
-          )
-        : [...savedCards, nextCard];
-
-      setSavedCards(nextCards);
-      setSelectedSavedCardId(nextCard.id);
-      setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    if (normalizedPaymentMethod === "CARTAO" && !selectedCard) {
+      toast.error(
+        "Para pagar com cartao, cadastre e selecione um cartao antes de finalizar o pedido.",
+      );
+      return;
     }
 
     for (const item of cart) {
@@ -1111,6 +1350,7 @@ export default function DigitalMenu() {
           clearMesaSession(false);
           throw new Error(
             "Sessao da mesa expirada. Solicite um novo PIN para continuar.",
+            { cause: sessionError },
           );
         }
 
@@ -1118,35 +1358,75 @@ export default function DigitalMenu() {
       }
 
       const cardPaymentSummary =
-        normalizedPaymentMethod === "CARTAO"
-          ? buildCardPaymentSummary(cardPaymentDraft)
-          : "";
+        normalizedPaymentMethod === "CARTAO" && selectedCard
+          ? buildCardPaymentSummary(selectedCard)
+          : normalizedPaymentMethod === "CARTAO"
+            ? buildCardPaymentSummary(cardPaymentDraft)
+            : "";
 
-      if (normalizedPaymentMethod === "CARTAO") {
-        const checkout = await ordersService.createCardCheckout({
+      if (
+        normalizedPaymentMethod === "PIX" &&
+        normalizedPaymentTiming === "NOW"
+      ) {
+        const pixPayment = await ordersService.createPixPayment({
           restaurantId,
           type: "MESA",
           tableId: Number(tableSession.tableId),
           paymentMethod: normalizedPaymentMethod,
           customerName: trimmedName,
           customerCpf: cpfDigits,
-          observation:
-            [observation.trim(), cardPaymentSummary]
-              .filter(Boolean)
-              .join(" | ") || undefined,
+          observation: observation.trim() || undefined,
           items: cart.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
           })),
-          successUrl: window.location.href,
-          cancelUrl: window.location.href,
         });
 
-        if (!checkout?.checkoutUrl) {
-          throw new Error("Nao foi possivel iniciar o pagamento com cartao.");
+        const nextOrder = {
+          id: Number(pixPayment?.orderId || 0),
+          status: "PENDENTE",
+          total: Number(pixPayment?.totalAmount || cartTotal || 0),
+          paymentMethod: "PIX",
+          paid: false,
+          createdAt: new Date().toISOString(),
+          customerName: trimmedName,
+          tableId: Number(tableSession.tableId || 0),
+          restaurantId: Number(restaurantId || 0),
+        };
+
+        if (nextOrder.id > 0) {
+          setMesaOrders((prev) => {
+            const nextOrders = [
+              nextOrder,
+              ...prev.filter(
+                (order) => Number(order?.id || 0) !== Number(nextOrder.id),
+              ),
+            ].filter((order) => !isDeliveredStatus(order.status));
+
+            localStorage.setItem(MESA_ORDERS_KEY, JSON.stringify(nextOrders));
+            return nextOrders;
+          });
         }
 
-        window.location.href = String(checkout.checkoutUrl);
+        setDrawerOpen(false);
+        setSubmitting(false);
+        setPixPaymentData({
+          orderId: Number(pixPayment?.orderId || 0) || null,
+          total: Number(pixPayment?.totalAmount || cartTotal || 0),
+          paymentId: String(pixPayment?.paymentId || ""),
+          provider: String(pixPayment?.provider || "MERCADO_PAGO")
+            .trim()
+            .toUpperCase(),
+          pixCode: String(pixPayment?.qrCode || ""),
+          qrCodeBase64: pixPayment?.qrCodeBase64 || null,
+          requiresStatusCheck: Boolean(pixPayment?.requiresStatusCheck),
+        });
+        setPixManualProof("");
+        setPixManualProofImage("");
+        setPixManualProofImageName("");
+        toast.info(
+          "Pagamento PIX iniciado. Assim que aprovar, seu pedido sera marcado como pago automaticamente.",
+        );
         return;
       }
 
@@ -1155,6 +1435,7 @@ export default function DigitalMenu() {
         type: "MESA",
         tableId: Number(tableSession.tableId),
         paymentMethod: normalizedPaymentMethod,
+        paid: normalizedPaymentMethod === "CARTAO",
         customerName: trimmedName,
         customerCpf: cpfDigits,
         observation:
@@ -1174,6 +1455,7 @@ export default function DigitalMenu() {
         paymentMethod: String(
           createdOrder?.paymentMethod || normalizedPaymentMethod || "PIX",
         ).toUpperCase(),
+        paid: Boolean(createdOrder?.paid),
         createdAt: String(createdOrder?.createdAt || new Date().toISOString()),
         customerName: trimmedName,
         tableId: Number(createdOrder?.tableId || tableSession.tableId || 0),
@@ -1216,6 +1498,21 @@ export default function DigitalMenu() {
       setCustomerName("");
       setCustomerCpf("");
       setObservation("");
+      setCardNumber("");
+      setCardCvv("");
+      setPaymentTiming("LATER");
+
+      if (normalizedPaymentMethod === "CARTAO" && Boolean(nextOrder.paid)) {
+        setDrawerOpen(false);
+        setPaymentSuccessState({
+          orderId: Number(nextOrder.id || 0) || null,
+          provider: "CARTAO",
+          title: "Fique tranquilo",
+          message: "Este pedido ja foi pago.",
+        });
+        return;
+      }
+
       setDrawerOpen(true);
       setDrawerStep("fluxo");
     } catch (error) {
@@ -1354,6 +1651,111 @@ export default function DigitalMenu() {
       setIsClosingProductDetail(false);
       closeProductDetailTimeoutRef.current = null;
     }, PRODUCT_DETAIL_CLOSE_MS);
+  }
+
+  function handleGoToOrderFlow() {
+    const targetTableNumber =
+      toInt(tableNumberParam) ||
+      routeTableId ||
+      toInt(tableSession?.tableNumber) ||
+      toInt(tableSession?.tableId);
+
+    if (previewPaymentSuccess) {
+      if (targetTableNumber) {
+        navigate(`/mesa/${targetTableNumber}`);
+      } else {
+        navigate("/cart?from=menu");
+      }
+
+      return;
+    }
+
+    setPaymentSuccessState(null);
+    setDrawerOpen(true);
+    setDrawerStep("fluxo");
+  }
+
+  const activePaymentSuccessState =
+    paymentSuccessState ||
+    (previewPaymentSuccess
+      ? {
+          orderId: Number(searchParams.get("orderId") || 1024) || 1024,
+          provider: String(searchParams.get("provider") || "PIX")
+            .trim()
+            .toUpperCase(),
+          title: "Fique tranquilo",
+          message: "Este pedido ja foi pago.",
+        }
+      : null);
+
+  if (activePaymentSuccessState) {
+    const displayProvider =
+      activePaymentSuccessState.provider === "MERCADO_PAGO"
+        ? "Mercado Pago"
+        : activePaymentSuccessState.provider === "CARTAO"
+          ? "Cartao"
+          : activePaymentSuccessState.provider;
+
+    return (
+      <>
+        <S.GlobalMenuStyle />
+        <S.PaymentSuccessWrap>
+          <S.PaymentSuccessFrame>
+            <S.PaymentSuccessCard>
+              <S.PaymentSuccessIconRing>
+                <Check size={46} strokeWidth={2.5} />
+              </S.PaymentSuccessIconRing>
+              <S.PaymentSuccessTitle>
+                {activePaymentSuccessState.title}
+              </S.PaymentSuccessTitle>
+              <S.PaymentSuccessText>
+                {activePaymentSuccessState.message}
+              </S.PaymentSuccessText>
+              <S.PaymentSuccessMeta>
+                Loja: {restaurantProfile.name}
+                <br />
+                Pedido: {activePaymentSuccessState.orderId || "-"}
+                <br />
+                Via: {displayProvider}
+              </S.PaymentSuccessMeta>
+              <S.PaymentSuccessAction
+                type="button"
+                onClick={handleGoToOrderFlow}
+              >
+                IR PARA O PEDIDO
+              </S.PaymentSuccessAction>
+            </S.PaymentSuccessCard>
+          </S.PaymentSuccessFrame>
+        </S.PaymentSuccessWrap>
+      </>
+    );
+  }
+
+  if (pixPaymentData) {
+    const isManualProvider =
+      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
+
+    return (
+      <>
+        <S.GlobalMenuStyle />
+        <S.Page>
+          <Suspense fallback={null}>
+            <PixPaymentPanel
+              pixPaymentData={pixPaymentData}
+              formatCurrency={formatCurrency}
+              pixManualProof={pixManualProof}
+              pixManualProofImage={pixManualProofImage}
+              pixManualProofImageName={pixManualProofImageName}
+              isSubmittingPixConfirmation={isSubmittingPixConfirmation}
+              isManualProvider={isManualProvider}
+              onCopyPixKey={handleCopyPixKey}
+              onPixManualProofChange={setPixManualProof}
+              onManualProofFileChange={handleManualProofFileChange}
+            />
+          </Suspense>
+        </S.Page>
+      </>
+    );
   }
 
   return (
@@ -1585,6 +1987,7 @@ export default function DigitalMenu() {
                                     $added={isAdded}
                                     onClick={(event) => {
                                       event.stopPropagation();
+                                      markProductAsAdded(product.id);
                                       addToCart(product);
                                     }}
                                   >
@@ -1655,6 +2058,7 @@ export default function DigitalMenu() {
                 customerName={customerName}
                 customerCpf={customerCpf}
                 paymentMethod={paymentMethod}
+                paymentTiming={paymentTiming}
                 observation={observation}
                 savedCards={savedCards}
                 selectedSavedCardId={selectedSavedCardId}
@@ -1667,6 +2071,7 @@ export default function DigitalMenu() {
                   setCustomerCpf(formatCpfInput(value))
                 }
                 setPaymentMethod={setPaymentMethod}
+                setPaymentTiming={setPaymentTiming}
                 setObservation={setObservation}
                 onCardPaymentDraftChange={handleCardPaymentDraftChange}
                 onSelectSavedCard={handleSelectSavedCard}

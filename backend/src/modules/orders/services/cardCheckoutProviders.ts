@@ -77,33 +77,44 @@ function withQueryParam(baseUrl: string, params: Record<string, string>) {
   }
 }
 
-function getStripeClient() {
-  const secretKey = String(process.env.STRIPE_SECRET_KEY || "").trim();
+async function getStripeClient(restaurantId: number) {
+  const allowGlobalFallback =
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
+  const settings =
+    await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+  const settingsSecretKey = String(settings?.stripeSecretKey || "").trim();
+  const globalSecretKey = String(process.env.STRIPE_SECRET_KEY || "").trim();
+  const secretKey =
+    settingsSecretKey || (allowGlobalFallback ? globalSecretKey : "");
 
   if (!secretKey) {
     throw new Error(
-      "Pagamento com cartao indisponivel. Configure STRIPE_SECRET_KEY no servidor.",
+      "Pagamento com cartao indisponivel. Configure chave secreta Stripe nas configuracoes do restaurante.",
     );
   }
 
   return new Stripe(secretKey);
 }
 
-function resolveMercadoPagoNotificationUrl() {
+function resolveMercadoPagoNotificationUrl(restaurantId?: number) {
   const explicitNotificationUrl = String(
     process.env.MP_NOTIFICATION_URL || "",
   ).trim();
 
-  if (explicitNotificationUrl) {
-    return explicitNotificationUrl;
+  const backendUrl = String(process.env.BACKEND_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+  const baseNotificationUrl =
+    explicitNotificationUrl ||
+    (backendUrl ? `${backendUrl}/orders/webhook/mercadopago` : "");
+
+  if (!baseNotificationUrl || !restaurantId) {
+    return baseNotificationUrl;
   }
 
-  const backendUrl = String(process.env.BACKEND_URL || "").trim();
-  if (!backendUrl) {
-    return "";
-  }
-
-  return `${backendUrl.replace(/\/+$/, "")}/orders/webhook/mercadopago`;
+  return withQueryParam(baseNotificationUrl, {
+    restaurantId: String(restaurantId),
+  });
 }
 
 type PagBankCredentials = {
@@ -120,20 +131,20 @@ function resolvePagBankEnvironment(): "production" {
 async function getPagBankCredentials(
   restaurantId: number,
 ): Promise<PagBankCredentials> {
+  const allowGlobalFallback =
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
   const settings =
     await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-  const email = String(
-    settings?.pagbankEmail ||
-      process.env.PAGBANK_EMAIL ||
-      process.env.PAGSEGURO_EMAIL ||
-      "",
+  const settingsEmail = String(settings?.pagbankEmail || "").trim();
+  const settingsToken = String(settings?.pagbankToken || "").trim();
+  const globalEmail = String(
+    process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || "",
   ).trim();
-  const token = String(
-    settings?.pagbankToken ||
-      process.env.PAGBANK_TOKEN ||
-      process.env.PAGSEGURO_TOKEN ||
-      "",
+  const globalToken = String(
+    process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || "",
   ).trim();
+  const email = settingsEmail || (allowGlobalFallback ? globalEmail : "");
+  const token = settingsToken || (allowGlobalFallback ? globalToken : "");
   const environment = resolvePagBankEnvironment();
 
   if (!email || !token) {
@@ -185,7 +196,7 @@ function extractXmlTagValue(xml: string, tag: string) {
 
 const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ order, successUrlBase, cancelUrlBase }) {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient(order.restaurantId);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -227,8 +238,10 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
 
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ order, successUrlBase, cancelUrlBase }) {
-    const preferenceApi = getMercadoPagoPreferenceApi();
-    const notificationUrl = resolveMercadoPagoNotificationUrl();
+    const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
+    const notificationUrl = resolveMercadoPagoNotificationUrl(
+      order.restaurantId,
+    );
 
     const response = (await preferenceApi.create({
       body: {

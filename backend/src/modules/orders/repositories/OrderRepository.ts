@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { OrderStatus, PaymentMethod } from "@prisma/client";
+import { OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -47,18 +47,8 @@ class OrderRepository {
         restaurantId,
         NOT: [
           {
-            paymentMethod: PaymentMethod.PIX,
+            type: OrderType.DELIVERY,
             paid: false,
-            pixPaymentId: {
-              not: null,
-            },
-          },
-          {
-            paymentMethod: PaymentMethod.CARTAO,
-            paid: false,
-            cardCheckoutSessionId: {
-              not: null,
-            },
           },
         ],
         ...(status && { status }),

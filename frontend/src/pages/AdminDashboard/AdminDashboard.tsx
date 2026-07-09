@@ -37,6 +37,7 @@ import tablesService from "../../Services/tablesService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import { buildPixPayload } from "../../config/pixPayload";
+import { persistBrandIdentity } from "../../config/brandIdentity";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
 
@@ -776,10 +777,15 @@ export default function AdminDashboard() {
     bankBranch: "",
     bankAccount: "",
     bankHolderDocument: "",
-    cardGateway: "",
+    cardGateway: "MERCADO_PAGO",
     gatewayMerchantId: "",
+    stripeSecretKey: "",
+    stripeSecretKeyConfigured: false,
+    mercadoPagoAccessToken: "",
+    mercadoPagoAccessTokenConfigured: false,
     pagbankEmail: "",
     pagbankToken: "",
+    pagbankTokenConfigured: false,
     pagbankEnvironment: "production",
     ownerDocumentFileUrl: "",
     bankProofFileUrl: "",
@@ -1065,16 +1071,30 @@ export default function AdminDashboard() {
           bankBranch: String(settings.bankBranch || ""),
           bankAccount: String(settings.bankAccount || ""),
           bankHolderDocument: String(settings.bankHolderDocument || ""),
-          cardGateway: String(settings.cardGateway || "")
+          cardGateway: String(settings.cardGateway || "MERCADO_PAGO")
             .trim()
             .toUpperCase(),
           gatewayMerchantId: String(settings.gatewayMerchantId || ""),
+          stripeSecretKey: "",
+          stripeSecretKeyConfigured: Boolean(
+            settings.stripeSecretKeyConfigured,
+          ),
+          mercadoPagoAccessToken: "",
+          mercadoPagoAccessTokenConfigured: Boolean(
+            settings.mercadoPagoAccessTokenConfigured,
+          ),
           pagbankEmail: String(settings.pagbankEmail || ""),
           pagbankToken: "",
+          pagbankTokenConfigured: Boolean(settings.pagbankTokenConfigured),
           pagbankEnvironment: "production",
           ownerDocumentFileUrl: String(settings.ownerDocumentFileUrl || ""),
           bankProofFileUrl: String(settings.bankProofFileUrl || ""),
           companyContractFileUrl: String(settings.companyContractFileUrl || ""),
+        });
+
+        persistBrandIdentity({
+          name: String(settings?.restaurant?.name || ""),
+          logoUrl: String(settings?.restaurant?.logo || ""),
         });
       } catch {
         // Se ainda não houver configurações, o admin pode criar pelo formulário.
@@ -2116,17 +2136,35 @@ export default function AdminDashboard() {
       bankBranch: String(saved.bankBranch || ""),
       bankAccount: String(saved.bankAccount || ""),
       bankHolderDocument: String(saved.bankHolderDocument || ""),
-      cardGateway: String(saved.cardGateway || "")
+      cardGateway: String(
+        saved.cardGateway || prev.cardGateway || "MERCADO_PAGO",
+      )
         .trim()
         .toUpperCase(),
       gatewayMerchantId: String(saved.gatewayMerchantId || ""),
+      stripeSecretKey: "",
+      stripeSecretKeyConfigured: Boolean(saved.stripeSecretKeyConfigured),
+      mercadoPagoAccessToken: "",
+      mercadoPagoAccessTokenConfigured: Boolean(
+        saved.mercadoPagoAccessTokenConfigured,
+      ),
       pagbankEmail: String(saved.pagbankEmail || ""),
       pagbankToken: "",
+      pagbankTokenConfigured: Boolean(saved.pagbankTokenConfigured),
       pagbankEnvironment: "production",
       ownerDocumentFileUrl: String(saved.ownerDocumentFileUrl || ""),
       bankProofFileUrl: String(saved.bankProofFileUrl || ""),
       companyContractFileUrl: String(saved.companyContractFileUrl || ""),
     }));
+
+    persistBrandIdentity({
+      name:
+        String(saved.restaurantName || payload.restaurantName || "").trim() ||
+        undefined,
+      logoUrl:
+        String(saved.restaurantLogo || payload.restaurantLogo || "").trim() ||
+        undefined,
+    });
 
     toast.success(successMessage);
   };
@@ -2251,6 +2289,12 @@ export default function AdminDashboard() {
       const normalizedPagBankEmail = String(
         settingsForm.pagbankEmail || "",
       ).trim();
+      const normalizedStripeSecretKey = String(
+        settingsForm.stripeSecretKey || "",
+      ).trim();
+      const normalizedMercadoPagoAccessToken = String(
+        settingsForm.mercadoPagoAccessToken || "",
+      ).trim();
       const normalizedPagBankToken = String(
         settingsForm.pagbankToken || "",
       ).trim();
@@ -2294,6 +2338,36 @@ export default function AdminDashboard() {
         throw new Error("Informe o e-mail da conta PagBank.");
       }
 
+      if (
+        normalizedCardGateway === "PAGBANK" &&
+        !normalizedPagBankToken &&
+        !settingsForm.pagbankTokenConfigured
+      ) {
+        throw new Error(
+          "Informe o token PagBank pelo menos uma vez para ativar o gateway.",
+        );
+      }
+
+      if (
+        normalizedCardGateway === "STRIPE" &&
+        !normalizedStripeSecretKey &&
+        !settingsForm.stripeSecretKeyConfigured
+      ) {
+        throw new Error(
+          "Informe a chave secreta Stripe pelo menos uma vez para ativar o gateway.",
+        );
+      }
+
+      if (
+        normalizedCardGateway === "MERCADO_PAGO" &&
+        !normalizedMercadoPagoAccessToken &&
+        !settingsForm.mercadoPagoAccessTokenConfigured
+      ) {
+        throw new Error(
+          "Informe o access token do Mercado Pago pelo menos uma vez para ativar o gateway.",
+        );
+      }
+
       const payload = {
         legalDocumentType: legalDocumentType || null,
         companyDocument: companyDocument || null,
@@ -2328,6 +2402,12 @@ export default function AdminDashboard() {
         cardGateway: normalizedCardGateway || null,
         gatewayMerchantId:
           String(settingsForm.gatewayMerchantId || "").trim() || null,
+        ...(normalizedStripeSecretKey
+          ? { stripeSecretKey: normalizedStripeSecretKey }
+          : {}),
+        ...(normalizedMercadoPagoAccessToken
+          ? { mercadoPagoAccessToken: normalizedMercadoPagoAccessToken }
+          : {}),
         pagbankEmail: normalizedPagBankEmail || null,
         pagbankEnvironment: normalizedPagBankEnvironment || null,
         ...(normalizedPagBankToken
@@ -2401,6 +2481,8 @@ export default function AdminDashboard() {
   const handlePrintTableQr = (table) => {
     try {
       const svgMarkup = getQrSvgMarkup(table.id);
+      const brandMarkup =
+        '<div class="brand"><span class="brand-mark">PJ</span><span>Peça Já Food</span></div>';
       const printWindow = window.open("", "_blank", "width=1240,height=1754");
 
       if (!printWindow) {
@@ -2459,6 +2541,14 @@ export default function AdminDashboard() {
                 color: #0f172a;
                 font-weight: 900;
               }
+              .brand-image {
+                width: 34px;
+                height: 34px;
+                border-radius: 999px;
+                object-fit: cover;
+                border: 1px solid rgba(15, 23, 42, 0.12);
+                background: #ffffff;
+              }
               .title {
                 font-size: 32px;
                 font-weight: 800;
@@ -2497,10 +2587,7 @@ export default function AdminDashboard() {
           </head>
           <body>
             <div class="sheet">
-              <div class="brand">
-                <span class="brand-mark">PJ</span>
-                <span>Peça já food</span>
-              </div>
+              ${brandMarkup}
               <h1 class="title">Mesa ${table.number}</h1>
               <p class="subtitle">Escaneie o QR para abrir o cardápio digital e informar o PIN da mesa.</p>
               <div class="qr-box">${svgMarkup}</div>
@@ -2524,6 +2611,8 @@ export default function AdminDashboard() {
   const handlePreviewTableQr = (table) => {
     try {
       const svgMarkup = getQrSvgMarkup(table.id);
+      const brandMarkup =
+        '<div class="brand"><span class="brand-mark">PJ</span><span>Peça Já Food</span></div>';
       const previewWindow = window.open("", "_blank", "width=1240,height=1754");
 
       if (!previewWindow) {
@@ -2582,6 +2671,14 @@ export default function AdminDashboard() {
                 color: #0f172a;
                 font-weight: 900;
               }
+              .brand-image {
+                width: 34px;
+                height: 34px;
+                border-radius: 999px;
+                object-fit: cover;
+                border: 1px solid rgba(255, 255, 255, 0.24);
+                background: #ffffff;
+              }
               .title {
                 font-size: 32px;
                 font-weight: 800;
@@ -2624,10 +2721,7 @@ export default function AdminDashboard() {
           </head>
           <body>
             <div class="sheet">
-              <div class="brand">
-                <span class="brand-mark">PJ</span>
-                <span>Peça já food</span>
-              </div>
+              ${brandMarkup}
               <h1 class="title">Mesa ${table.number}</h1>
               <p class="subtitle">Esta é a pré-visualização do QR para impressão.</p>
               <div class="qr-box">${svgMarkup}</div>
@@ -2688,7 +2782,6 @@ export default function AdminDashboard() {
     section: "Admin",
     label: "Painel",
   };
-
   const handleCopyTableQrLink = async (table) => {
     try {
       const qrValue = getTableQrValue(table);
@@ -2865,10 +2958,12 @@ export default function AdminDashboard() {
         >
           <S.Brand $collapsed={isSidebarCollapsed}>
             <div className="brand-logo">
-              <Utensils size={22} strokeWidth={2.5} />
+              <span className="brand-logo-fallback">
+                <Utensils size={22} strokeWidth={2.5} />
+              </span>
               {!isSidebarCollapsed && (
                 <div className="brand-text">
-                  <h1>Peça já food</h1>
+                  <h1>Peça Já Food</h1>
                   <span>Painel Admin</span>
                 </div>
               )}

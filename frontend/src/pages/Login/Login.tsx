@@ -103,15 +103,37 @@ export default function Login() {
     [navigate],
   );
 
+  const completeLoginWithMfaIfNeeded = useCallback(async (authResponse) => {
+    if (!authResponse?.mfaRequired) {
+      return authResponse;
+    }
+
+    const code = window.prompt(
+      "Digite o codigo de verificacao (2FA) enviado para o seu e-mail:",
+    );
+
+    if (!code || !String(code).trim()) {
+      throw new Error("Codigo 2FA nao informado.");
+    }
+
+    return authService.verifyLogin2fa({
+      mfaToken: authResponse.mfaToken,
+      code: String(code).trim(),
+    });
+  }, []);
+
   const initializeGoogleLogin = useCallback(async () => {
     setGoogleStatus("loading");
     setGoogleMessage("");
+    let resolvedGoogleClientId = "";
 
     try {
       const [googleClientId] = await Promise.all([
         getGoogleClientId(),
         loadGoogleScript(),
       ]);
+
+      resolvedGoogleClientId = String(googleClientId || "");
 
       if (!googleClientId) {
         throw new Error("missing-client-id");
@@ -129,9 +151,10 @@ export default function Login() {
         client_id: googleClientId,
         callback: async (response) => {
           try {
-            const authResponse = await authService.loginWithGoogle(
+            const firstStep = await authService.loginWithGoogle(
               response.credential,
             );
+            const authResponse = await completeLoginWithMfaIfNeeded(firstStep);
 
             login(authResponse.user, authResponse.token);
             toast.success("Login com Google realizado com sucesso!");
@@ -157,13 +180,21 @@ export default function Login() {
       setGoogleStatus("ready");
     } catch {
       if (isGoogleMountedRef.current) {
+        const origin = window.location.origin;
         setGoogleStatus("error");
         setGoogleMessage(
-          "Nao foi possivel carregar o login com Google. Verifique o client id, o acesso ao script do Google e tente novamente.",
+          `Nao foi possivel carregar o login com Google. No Google Cloud Console, adicione o origin ${origin} em Authorized JavaScript origins para o client id ${resolvedGoogleClientId || "configurado"}.`,
         );
       }
     }
-  }, [getGoogleClientId, loadGoogleScript, login, redirectByRole, isDarkMode]);
+  }, [
+    getGoogleClientId,
+    loadGoogleScript,
+    login,
+    redirectByRole,
+    isDarkMode,
+    completeLoginWithMfaIfNeeded,
+  ]);
 
   useEffect(() => {
     isGoogleMountedRef.current = true;
@@ -181,10 +212,11 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await authService.login({
+      const firstStep = await authService.login({
         email,
         password,
       });
+      const response = await completeLoginWithMfaIfNeeded(firstStep);
 
       // Save to context and localStorage
       login(response.user, response.token);
@@ -200,6 +232,7 @@ export default function Login() {
       redirectByRole(response.user);
     } catch (error) {
       const message =
+        error?.message ||
         error.response?.data?.error ||
         (error.request
           ? "Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente."
@@ -222,7 +255,7 @@ export default function Login() {
         <S.BannerSection>
           <S.BrandTitle>
             <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça já food</span>
+            <span>Peça Já Food</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
             Acesse nosso menu interativo global. Faça seus pedidos de forma

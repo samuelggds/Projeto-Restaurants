@@ -30,7 +30,7 @@ export function normalizePixProvider(value: unknown): PixProvider {
 }
 
 export function normalizeCardProvider(value: unknown): CardProvider {
-  const provider = String(value || CARD_PROVIDERS.STRIPE)
+  const provider = String(value || CARD_PROVIDERS.MERCADO_PAGO)
     .trim()
     .toUpperCase();
 
@@ -38,5 +38,5 @@ export function normalizeCardProvider(value: unknown): CardProvider {
     return provider as CardProvider;
   }
 
-  return CARD_PROVIDERS.STRIPE;
+  return CARD_PROVIDERS.MERCADO_PAGO;
 }

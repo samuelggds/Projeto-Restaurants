@@ -70,6 +70,9 @@ app.use(
   }),
 );
 
+// Stripe signature verification requires the exact raw request body.
+app.use("/orders/webhook/stripe", express.raw({ type: "application/json" }));
+
 // Parse JSON for all routes
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || "1mb" }));
 app.use(express.urlencoded({ extended: true }));

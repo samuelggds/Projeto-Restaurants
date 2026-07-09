@@ -344,6 +344,8 @@ export default function Profile() {
     }
 
     setDefaultSavedCardId(selectedCard.id);
+    setSelectedSavedCardId(selectedCard.id);
+    setCardPaymentDraft(sanitizeCardDraft(selectedCard));
     toast.success("Cartao padrao atualizado.");
   };
 
@@ -416,7 +418,7 @@ export default function Profile() {
         <S.Navbar>
           <S.Brand onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
             <Utensils size={22} strokeWidth={2.5} />
-            <span>Peça já food</span>
+            <span>Peça Já Food</span>
           </S.Brand>
 
           <S.NavRight>

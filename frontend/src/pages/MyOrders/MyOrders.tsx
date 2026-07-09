@@ -692,7 +692,7 @@ export default function MyOrders() {
         <S.Navbar>
           <S.Brand onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
             <Utensils size={22} strokeWidth={2.5} />
-            <span>Peca ja food</span>
+            <span>Peça Já Food</span>
           </S.Brand>
 
           <S.NavRight>

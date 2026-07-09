@@ -161,6 +161,30 @@ export const Brand = styled.div`
     color: #ffffff;
   }
 
+  .brand-logo-image {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
+    flex-shrink: 0;
+  }
+
+  .brand-logo-fallback {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+    flex-shrink: 0;
+  }
+
   .brand-text {
     h1 {
       font-size: 1.15rem;

@@ -2,6 +2,7 @@ import { MapPin, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import {
   CARD_BRAND_OPTIONS,
   getCardBrandDisplay,
+  getCardBrandLogo,
   getCardBrandPalette,
 } from "../../../config/cardPaymentWallet";
 import * as S from "../styles";
@@ -75,6 +76,30 @@ export default function ProfileAddressesAndOrders({
   onRemoveSavedCard,
   onNavigateOrders,
 }: ProfileAddressesAndOrdersProps) {
+  const orderedSavedCards = [...savedCards].sort((a, b) => {
+    const aDefault = a.id === defaultSavedCardId ? 1 : 0;
+    const bDefault = b.id === defaultSavedCardId ? 1 : 0;
+
+    if (aDefault !== bDefault) {
+      return bDefault - aDefault;
+    }
+
+    const aSelected = a.id === selectedSavedCardId ? 1 : 0;
+    const bSelected = b.id === selectedSavedCardId ? 1 : 0;
+
+    if (aSelected !== bSelected) {
+      return bSelected - aSelected;
+    }
+
+    return 0;
+  });
+
+  const cardPreviewDigits = cardPaymentDraft.lastFour
+    ? `•••• •••• •••• ${cardPaymentDraft.lastFour}`
+    : "•••• •••• •••• ••••";
+  const cardPreviewHolder =
+    cardPaymentDraft.holderName?.trim().toUpperCase() || "NOME DO TITULAR";
+
   return (
     <S.RightColumn>
       <S.OrdersCard style={{ marginBottom: "2rem" }}>
@@ -206,72 +231,175 @@ export default function ProfileAddressesAndOrders({
 
         <S.AddressList>
           {savedCards.length === 0 ? (
-            <p className="empty-msg">Nenhum cartão salvo ainda.</p>
+            <div
+              style={{
+                padding: "0.9rem 1rem",
+                borderRadius: 12,
+                border: "1px solid rgba(63, 100, 255, 0.32)",
+                background: "rgba(239, 246, 255, 0.85)",
+              }}
+            >
+              <p className="empty-msg" style={{ margin: 0 }}>
+                Nenhum cartão salvo ainda.
+              </p>
+            </div>
           ) : (
-            savedCards.map((card) => {
-              const isSelected = selectedSavedCardId === card.id;
-              const isDefault = defaultSavedCardId === card.id;
+            <div
+              style={{
+                display: "grid",
+                gap: "0.5rem",
+              }}
+            >
+              <label
+                htmlFor="saved-card-select-profile"
+                style={{ fontSize: 13, fontWeight: 700 }}
+              >
+                Escolher cartao salvo
+              </label>
+              <select
+                id="saved-card-select-profile"
+                value={selectedSavedCardId || ""}
+                onChange={(event) =>
+                  event.target.value
+                    ? onSelectSavedCard(event.target.value)
+                    : onStartNewSavedCard()
+                }
+                style={{
+                  width: "100%",
+                  minHeight: 48,
+                  borderRadius: 12,
+                  padding: "0.75rem 0.9rem",
+                  border: "1px solid #c9d3e8",
+                  background: "transparent",
+                  color: "inherit",
+                  fontWeight: 700,
+                }}
+              >
+                <option value="">Novo cartao</option>
+                {orderedSavedCards.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {`${card.brand} final ${card.lastFour} - ${card.holderName}`}
+                  </option>
+                ))}
+              </select>
+              <strong style={{ fontSize: 14 }}>Cartoes salvos</strong>
 
-              return (
-                <S.AddressItem key={card.id}>
+              {orderedSavedCards.map((card) => {
+                const isSelected = selectedSavedCardId === card.id;
+                const isDefault = defaultSavedCardId === card.id;
+
+                return (
                   <div
-                    className="address-details"
-                    onClick={() => onSelectSavedCard(card.id)}
+                    key={card.id}
                     style={{
-                      cursor: "pointer",
-                      padding: "0.95rem 1rem",
-                      borderRadius: 16,
-                      ...getCardBrandPalette(card.brand),
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto auto",
+                      gap: "0.5rem",
+                      alignItems: "center",
                     }}
                   >
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => onSelectSavedCard(card.id)}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: "0.75rem",
-                        alignItems: "center",
-                        marginBottom: "0.6rem",
+                        textAlign: "left",
+                        padding: "0.95rem 1rem",
+                        borderRadius: 16,
+                        border: isSelected
+                          ? "2px solid #3f64ff"
+                          : "1px solid #c9d3e8",
+                        ...getCardBrandPalette(card.brand),
+                        boxShadow: isSelected
+                          ? "0 14px 30px rgba(63, 100, 255, 0.2)"
+                          : "0 10px 24px rgba(15, 23, 42, 0.10)",
+                        cursor: "pointer",
                       }}
                     >
-                      <h5 style={{ color: "inherit" }}>
-                        {card.brand.toUpperCase()}
-                      </h5>
-                      <span style={{ fontSize: 11, opacity: 0.9 }}>
-                        {isDefault
-                          ? "PADRAO"
-                          : isSelected
-                            ? "EDITANDO"
-                            : "SALVO"}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 18, fontWeight: 800 }}>
-                      •••• •••• •••• {card.lastFour}
-                    </p>
-                    <span style={{ opacity: 0.88 }}>{card.holderName}</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "0.75rem",
+                          alignItems: "center",
+                          marginBottom: "0.6rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.45rem",
+                          }}
+                        >
+                          <img
+                            src={getCardBrandLogo(card.brand)}
+                            alt={`Bandeira ${card.brand}`}
+                            style={{
+                              width: 40,
+                              height: 24,
+                              objectFit: "contain",
+                            }}
+                          />
+                          <strong>{card.brand.toUpperCase()}</strong>
+                        </div>
+                        <span style={{ fontSize: 11, opacity: 0.9 }}>
+                          {isDefault
+                            ? "PADRAO"
+                            : isSelected
+                              ? "EM USO"
+                              : "SALVO"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>
+                        •••• •••• •••• {card.lastFour}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          opacity: 0.88,
+                          marginTop: "0.5rem",
+                        }}
+                      >
+                        {card.holderName}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSetDefaultSavedCard(card.id)}
+                      style={{
+                        borderRadius: 10,
+                        border: isDefault
+                          ? "1px solid rgba(34, 197, 94, 0.35)"
+                          : "1px solid rgba(148, 163, 184, 0.35)",
+                        background: isDefault
+                          ? "rgba(34, 197, 94, 0.1)"
+                          : "transparent",
+                        color: isDefault ? "#166534" : "inherit",
+                        padding: "0.7rem 0.85rem",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {isDefault ? "Padrao" : "Definir padrao"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveSavedCard(card.id)}
+                      style={{
+                        borderRadius: 10,
+                        border: "1px solid rgba(239, 68, 68, 0.35)",
+                        background: "rgba(239, 68, 68, 0.1)",
+                        color: "#991b1b",
+                        padding: "0.7rem 0.85rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Remover
+                    </button>
                   </div>
-                  <S.ActionButton
-                    type="button"
-                    $variant="secondary"
-                    style={{ width: "auto", minWidth: 120 }}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onSetDefaultSavedCard(card.id);
-                    }}
-                  >
-                    {isDefault ? "Padrao" : "Definir padrao"}
-                  </S.ActionButton>
-                  <S.DeleteAddressButton
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onRemoveSavedCard(card.id);
-                    }}
-                    title="Excluir cartão"
-                  >
-                    <Trash2 size={16} />
-                  </S.DeleteAddressButton>
-                </S.AddressItem>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </S.AddressList>
 
@@ -291,6 +419,29 @@ export default function ProfileAddressesAndOrders({
           }}
         >
           <h4>Salvar ou editar cartão</h4>
+          <S.CardVisualPreview>
+            <S.CardVisualTop>
+              <S.CardChip />
+              <S.CardBrandLogo
+                src={getCardBrandLogo(cardPaymentDraft.brand)}
+                alt={`Bandeira ${getCardBrandDisplay(cardPaymentDraft.brand).label}`}
+              />
+            </S.CardVisualTop>
+            <S.CardVisualNumber>{cardPreviewDigits}</S.CardVisualNumber>
+            <S.CardVisualFooter>
+              <div className="left">
+                <small>Bandeira</small>
+                <strong>
+                  {getCardBrandDisplay(cardPaymentDraft.brand).label ||
+                    "Cartao"}
+                </strong>
+              </div>
+              <div className="right">
+                <small>Nome no cartao</small>
+                <strong>{cardPreviewHolder}</strong>
+              </div>
+            </S.CardVisualFooter>
+          </S.CardVisualPreview>
           <div className="form-row text-full">
             <input
               type="text"
@@ -312,6 +463,8 @@ export default function ProfileAddressesAndOrders({
               {CARD_BRAND_OPTIONS.map((brand) => {
                 const isActive = cardPaymentDraft.brand === brand;
                 const brandDisplay = getCardBrandDisplay(brand);
+                const cardDigitsPreview =
+                  String(cardPaymentDraft.lastFour || "").trim() || "1234";
 
                 return (
                   <button
@@ -322,30 +475,46 @@ export default function ProfileAddressesAndOrders({
                       minHeight: 54,
                       borderRadius: 12,
                       border: isActive
-                        ? "2px solid #dba206"
+                        ? "2px solid #3f64ff"
                         : "1px solid #cbd5e1",
                       background: isActive
-                        ? brandDisplay.accent
+                        ? "rgba(63, 100, 255, 0.12)"
                         : "transparent",
                       color: "inherit",
                       cursor: "pointer",
-                      display: "grid",
-                      justifyItems: "center",
-                      alignContent: "center",
-                      gap: "0.15rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.4rem",
+                      padding: "0.45rem 0.5rem",
                     }}
                   >
-                    <strong style={{ fontSize: 14 }}>
-                      {brandDisplay.badge}
-                    </strong>
-                    <span style={{ fontSize: 11, fontWeight: 700 }}>
-                      {brandDisplay.label}
+                    <img
+                      src={getCardBrandLogo(brand)}
+                      alt={`Bandeira ${brandDisplay.label}`}
+                      style={{
+                        width: 38,
+                        height: 24,
+                        objectFit: "contain",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.02em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {`•••• ${cardDigitsPreview}`}
                     </span>
                   </button>
                 );
               })}
             </div>
             <input
+              className="card-last-four-input"
               type="text"
               placeholder="Final 1234"
               inputMode="numeric"

@@ -1,0 +1,75 @@
+{
+  "runId": "LOAD_1783556863391",
+  "baseUrl": "http://127.0.0.1:3000",
+  "durationSec": 90,
+  "targetRpm": 300,
+  "seeds": [
+    {
+      "restaurantId": 1,
+      "productId": 1
+    },
+    {
+      "restaurantId": 6,
+      "productId": 6
+    }
+  ],
+  "sent": 450,
+  "ok": 0,
+  "failed": 450,
+  "errorRatePercent": 100,
+  "throughputRps": 5,
+  "latencyMs": {
+    "avg": 1.29,
+    "p50": 1,
+    "p95": 2,
+    "p99": 3,
+    "max": 28
+  },
+  "byStatus": {
+    "429": 450
+  },
+  "sampleErrors": [
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    },
+    {
+      "status": 429,
+      "body": "{\"error\":\"Muitas requisicoes. Tente novamente em instantes.\"}"
+    }
+  ],
+  "startedAt": "2026-07-09T00:27:43.391Z",
+  "finishedAt": "2026-07-09T00:29:13.393Z"
+}

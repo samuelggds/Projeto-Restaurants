@@ -89,8 +89,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   orders              Order[]
-  openedTableSessions TableSession[] @relation("OpenedTableSessions")
-  closedTableSessions TableSession[] @relation("ClosedTableSessions")
+  openedTableSessions TableSession[]      @relation("OpenedTableSessions")
+  closedTableSessions TableSession[]      @relation("ClosedTableSessions")
+  authRefreshSession  AuthRefreshSession?
+  authMfaChallenge    AuthMfaChallenge?
 }
 
 model Restaurant {
@@ -323,17 +325,19 @@ model RestaurantSettings {
   ownerPhone     String?
   ownerAddress   String?
 
-  bankName           String?
-  bankCode           String?
-  bankAccountType    String?
-  bankBranch         String?
-  bankAccount        String?
-  bankHolderDocument String?
-  cardGateway        String?
-  gatewayMerchantId  String?
-  pagbankEmail       String?
-  pagbankToken       String?
-  pagbankEnvironment String?
+  bankName               String?
+  bankCode               String?
+  bankAccountType        String?
+  bankBranch             String?
+  bankAccount            String?
+  bankHolderDocument     String?
+  cardGateway            String?
+  gatewayMerchantId      String?
+  stripeSecretKey        String?
+  mercadoPagoAccessToken String?
+  pagbankEmail           String?
+  pagbankToken           String?
+  pagbankEnvironment     String?
 
   ownerDocumentFileUrl   String?
   bankProofFileUrl       String?
@@ -414,4 +418,49 @@ model Invoice {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, month, year])
+}
+
+model AuthRefreshSession {
+  id Int @id @default(autoincrement())
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jti       String
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jti])
+  @@index([expiresAt])
+}
+
+model LoginLockout {
+  id Int @id @default(autoincrement())
+
+  emailNormalized String @unique
+
+  failedAttempts Int       @default(0)
+  lockUntil      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lockUntil])
+}
+
+model AuthMfaChallenge {
+  id Int @id @default(autoincrement())
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  codeHash  String
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
 }

@@ -10,6 +10,10 @@ import DeactivateUserController from "../controllers/DeactivateUserController.js
 import ReactivateUserController from "../controllers/ReactivateUserController.js";
 import RequestPasswordResetController from "../controllers/RequestPasswordResetController.js";
 import ResetPasswordByCodeController from "../controllers/ResetPasswordByCodeController.js";
+import { loginRateLimitMiddleware } from "../../../middlewares/security/loginRateLimitMiddleware.js";
+import RefreshTokenController from "../controllers/RefreshTokenController.js";
+import LogoutController from "../controllers/LogoutController.js";
+import VerifyLoginMfaController from "../controllers/VerifyLoginMfaController.js";
 
 const router = Router();
 
@@ -17,7 +21,7 @@ router.post("/register", (req, res) => {
   RegisterController.handle(req, res);
 });
 
-router.post("/login", (req, res) => {
+router.post("/login", loginRateLimitMiddleware, (req, res) => {
   LoginController.handle(req, res);
 });
 
@@ -31,6 +35,18 @@ router.post("/reset-password", (req, res) => {
 
 router.post("/google", (req, res) => {
   GoogleAuthController.handle(req, res);
+});
+
+router.post("/refresh", (req, res) => {
+  RefreshTokenController.handle(req, res);
+});
+
+router.post("/logout", (req, res) => {
+  LogoutController.handle(req, res);
+});
+
+router.post("/login/verify-2fa", (req, res) => {
+  VerifyLoginMfaController.handle(req, res);
 });
 
 router.get("/google/client-id", (req, res) => {

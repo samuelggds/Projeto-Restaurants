@@ -1,15 +1,58 @@
 import { Request, Response } from "express";
+import Stripe from "stripe";
 import finalizeOrderCardPaymentService from "../services/FinalizeOrderCardPaymentService.js";
 
 class StripeOrderWebhookController {
   async handle(req: Request, res: Response) {
     try {
-      const eventType = String(req.body?.type || "").trim();
-      const session = req.body?.data?.object || {};
+      const stripeWebhookSecret = String(
+        process.env.STRIPE_WEBHOOK_SECRET || "",
+      ).trim();
+      const allowInsecureWebhookInDev =
+        process.env.ALLOW_INSECURE_STRIPE_WEBHOOK === "true";
+      const stripeSignature = String(
+        req.headers["stripe-signature"] || "",
+      ).trim();
+      const rawBody = Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(JSON.stringify(req.body || {}), "utf-8");
+
+      let eventPayload: Record<string, any> = {};
+
+      if (stripeWebhookSecret) {
+        if (!stripeSignature) {
+          return res.status(400).json({
+            error: "Assinatura Stripe ausente no webhook.",
+          });
+        }
+
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+        const event = stripe.webhooks.constructEvent(
+          rawBody,
+          stripeSignature,
+          stripeWebhookSecret,
+        );
+        eventPayload = event as unknown as Record<string, any>;
+      } else {
+        if (
+          process.env.NODE_ENV === "production" &&
+          !allowInsecureWebhookInDev
+        ) {
+          return res.status(503).json({
+            error:
+              "Webhook Stripe indisponivel sem STRIPE_WEBHOOK_SECRET em producao.",
+          });
+        }
+
+        eventPayload = JSON.parse(rawBody.toString("utf-8") || "{}");
+      }
+
+      const eventType = String(eventPayload?.type || "").trim();
+      const session = eventPayload?.data?.object || {};
       const sessionId = String(session?.id || "").trim();
       const paymentStatus = String(session?.payment_status || "").trim();
       const metadataOrderId = session?.metadata?.orderId || null;
-      const metadataRestaurantId = session?.metadata?.restaurantId || null;
+      const metadataRestaurantId = Number(session?.metadata?.restaurantId || 0);
 
       if (!sessionId) {
         return res.sendStatus(200);
@@ -22,6 +65,17 @@ class StripeOrderWebhookController {
 
       if (!allowedEventTypes.has(eventType) || paymentStatus !== "paid") {
         return res.sendStatus(200);
+      }
+
+      if (
+        !metadataOrderId ||
+        !Number.isInteger(metadataRestaurantId) ||
+        metadataRestaurantId <= 0
+      ) {
+        return res.status(400).json({
+          error:
+            "Webhook Stripe invalido: metadata orderId/restaurantId obrigatoria.",
+        });
       }
 
       await finalizeOrderCardPaymentService.execute({

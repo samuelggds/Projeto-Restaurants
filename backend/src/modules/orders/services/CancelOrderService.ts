@@ -1,8 +1,9 @@
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentMethod } from "@prisma/client";
 import orderRepository from "../repositories/OrderRepository.js";
 import { OrderStateMachine } from "../state/orderStateMachine.js";
 import { io } from "../../../server.js";
 import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
+import refundOrderPaymentService from "./RefundOrderPaymentService.js";
 
 class CancelOrderService {
   async execute(
@@ -32,6 +33,16 @@ class CancelOrderService {
     if (!canCancel) {
       throw new Error("Pedido não pode ser cancelado!");
     }
+
+    const isPaidDigitalOrder =
+      order.paid === true &&
+      (order.paymentMethod === PaymentMethod.PIX ||
+        order.paymentMethod === PaymentMethod.CARTAO);
+
+    if (isPaidDigitalOrder) {
+      await refundOrderPaymentService.execute(order);
+    }
+
     const updatedOrder = await orderRepository.updateStatus(
       normalizedOrderId,
       OrderStatus.CANCELADO,

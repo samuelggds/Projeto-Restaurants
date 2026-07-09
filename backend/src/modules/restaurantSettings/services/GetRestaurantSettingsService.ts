@@ -32,9 +32,14 @@ type RestaurantSettingsFallback = {
   bankHolderDocument: string | null;
   cardGateway: string | null;
   gatewayMerchantId: string | null;
+  stripeSecretKey: string | null;
+  mercadoPagoAccessToken: string | null;
   pagbankEmail: string | null;
   pagbankToken: string | null;
   pagbankEnvironment: string | null;
+  stripeSecretKeyConfigured: boolean;
+  mercadoPagoAccessTokenConfigured: boolean;
+  pagbankTokenConfigured: boolean;
   ownerDocumentFileUrl: string | null;
   bankProofFileUrl: string | null;
   companyContractFileUrl: string | null;
@@ -93,9 +98,14 @@ class GetRestaurantSettingsService {
         bankHolderDocument: null,
         cardGateway: null,
         gatewayMerchantId: null,
+        stripeSecretKey: null,
+        mercadoPagoAccessToken: null,
         pagbankEmail: null,
         pagbankToken: null,
         pagbankEnvironment: null,
+        stripeSecretKeyConfigured: false,
+        mercadoPagoAccessTokenConfigured: false,
+        pagbankTokenConfigured: false,
         ownerDocumentFileUrl: null,
         bankProofFileUrl: null,
         companyContractFileUrl: null,
@@ -115,7 +125,18 @@ class GetRestaurantSettingsService {
 
     return {
       ...settings,
+      stripeSecretKey: null,
+      mercadoPagoAccessToken: null,
       pagbankToken: null,
+      stripeSecretKeyConfigured: Boolean(
+        String(settings?.stripeSecretKey || "").trim(),
+      ),
+      mercadoPagoAccessTokenConfigured: Boolean(
+        String(settings?.mercadoPagoAccessToken || "").trim(),
+      ),
+      pagbankTokenConfigured: Boolean(
+        String(settings?.pagbankToken || "").trim(),
+      ),
       whatsapp: String(settings?.restaurant?.whatsapp || "").trim() || null,
     };
   }

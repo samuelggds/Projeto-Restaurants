@@ -56,7 +56,7 @@ export default function Register() {
         <S.BannerSection>
           <S.BrandTitle>
             <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça já food</span>
+            <span>Peça Já Food</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
             Crie sua conta em poucos segundos e tenha acesso completo ao nosso

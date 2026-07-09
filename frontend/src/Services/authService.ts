@@ -25,6 +25,12 @@ class AuthService {
     return response.data;
   }
 
+  async verifyLogin2fa(data) {
+    const response = await api.post("/auth/login/verify-2fa", data);
+
+    return response.data;
+  }
+
   async getGoogleClientId() {
     const response = await api.get("/auth/google/client-id");
 

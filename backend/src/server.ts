@@ -9,6 +9,9 @@ import { socketHandler } from "./socket/socketHandler.js";
 import { startJobs } from "./modules/billing/jobs/scheduler.js";
 import billingJob from "./modules/billing/jobs/BillingJob.js";
 import { notifyCriticalError } from "./services/alertNotifier.js";
+import { validateCriticalEnv } from "./config/validateEnv.js";
+
+validateCriticalEnv();
 
 const server = http.createServer(app);
 const port = Number(process.env.PORT) || 3000;

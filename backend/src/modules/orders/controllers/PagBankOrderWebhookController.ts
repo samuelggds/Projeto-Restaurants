@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import finalizeOrderCardPaymentService from "../services/FinalizeOrderCardPaymentService.js";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
+import orderRepository from "../repositories/OrderRepository.js";
 
 const APPROVED_TRANSACTION_STATUSES = new Set(["3", "4"]);
 
@@ -33,21 +34,28 @@ function normalizeEnvironment(): "production" {
 async function getPagBankCredentials(
   restaurantId?: number,
 ): Promise<PagBankCredentials> {
+  const allowGlobalFallback =
+    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
+  if (!restaurantId && !allowGlobalFallback) {
+    throw new PagBankWebhookError(
+      "Webhook PagBank sem restaurantId. Configure notificationURL com restaurantId.",
+      400,
+    );
+  }
+
   const settings = restaurantId
     ? await restaurantSettingsRepository.findByRestaurantId(restaurantId)
     : null;
-  const email = String(
-    settings?.pagbankEmail ||
-      process.env.PAGBANK_EMAIL ||
-      process.env.PAGSEGURO_EMAIL ||
-      "",
+  const settingsEmail = String(settings?.pagbankEmail || "").trim();
+  const settingsToken = String(settings?.pagbankToken || "").trim();
+  const globalEmail = String(
+    process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || "",
   ).trim();
-  const token = String(
-    settings?.pagbankToken ||
-      process.env.PAGBANK_TOKEN ||
-      process.env.PAGSEGURO_TOKEN ||
-      "",
+  const globalToken = String(
+    process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || "",
   ).trim();
+  const email = settingsEmail || (allowGlobalFallback ? globalEmail : "");
+  const token = settingsToken || (allowGlobalFallback ? globalToken : "");
   const environment = normalizeEnvironment();
 
   if (!email || !token) {
@@ -145,6 +153,16 @@ class PagBankOrderWebhookController {
         Number(req.body?.restaurantId || req.query?.restaurantId || 0) ||
         undefined;
 
+      if (
+        !restaurantIdHint &&
+        process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK !== "true"
+      ) {
+        return res.status(400).json({
+          error:
+            "restaurantId obrigatorio no webhook PagBank para ambiente multi-tenant.",
+        });
+      }
+
       if (!notificationCode && !transactionCode) {
         return res.sendStatus(200);
       }
@@ -170,6 +188,14 @@ class PagBankOrderWebhookController {
           externalReference.split(":");
 
         if (orderId) {
+          if (details.code) {
+            await orderRepository.setCardCheckoutSessionId(
+              orderId,
+              Number(restaurantId || 0),
+              `pagbank_tx:${details.code}`,
+            );
+          }
+
           await finalizeOrderCardPaymentService.execute({
             orderId,
             restaurantId: Number(restaurantId || 0) || undefined,

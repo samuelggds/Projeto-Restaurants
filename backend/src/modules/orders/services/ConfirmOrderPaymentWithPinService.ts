@@ -88,6 +88,9 @@ class ConfirmOrderPaymentWithPinService {
       confirmedWithPin: true,
     });
 
+    io.to(`restaurant:${restaurantId}`).emit("new-order", updatedOrder);
+    io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
+
     io.to(`restaurant:${restaurantId}`).emit(
       "order:status-changed",
       updatedOrder,
