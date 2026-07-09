@@ -226,6 +226,11 @@ export default function AppRoutes() {
             <Route path="/recover-password" element={<RecoverPassword />} />
             <Route path="/register" element={<Register />} />
             <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+            <Route path="/:restaurantSlug" element={<Home />} />
+            <Route
+              path="/:restaurantSlug/mesa/:tableNumber"
+              element={<DigitalMenu />}
+            />
 
             <Route element={<RequireAuth />}>
               <Route path="/" element={<Home />} />

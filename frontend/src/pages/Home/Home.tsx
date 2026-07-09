@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import menuService from "../../Services/menuService";
+import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import tableSessionService from "../../Services/tableSessionService";
 import { resolveCategoryIcon } from "../../config/categoryIconMap";
 import { useAuth } from "../../contexts/authContext";
@@ -128,9 +129,13 @@ function getInitialSelectedAddressId(addresses) {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { tableNumber: routeTableNumber } = useParams();
+  const { tableNumber: routeTableNumber, restaurantSlug: routeRestaurantSlug } =
+    useParams();
   const [searchParams] = useSearchParams();
   const { user, logout, login } = useAuth();
+  const normalizedRouteRestaurantSlug = String(routeRestaurantSlug || "")
+    .trim()
+    .toLowerCase();
 
   const routeTableNumberValue = toPositiveNumber(routeTableNumber);
   const routeRestaurantId = toPositiveNumber(
@@ -146,6 +151,9 @@ export default function Home() {
     ) || routeTableNumberValue;
   const mesaMode = Boolean(routeTableNumberValue || routeTableId);
   const hasRouteRestaurantId = Boolean(routeRestaurantId);
+  const [resolvedRestaurantId, setResolvedRestaurantId] = useState<
+    number | null
+  >(null);
 
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [cart, setCart] = useState(() =>
@@ -212,6 +220,52 @@ export default function Home() {
     );
 
   useEffect(() => {
+    if (!normalizedRouteRestaurantSlug) {
+      setResolvedRestaurantId(null);
+      return;
+    }
+
+    let mounted = true;
+
+    async function resolveRestaurantSlug() {
+      try {
+        const settings =
+          await restaurantSettingsService.getPublicSettingsBySlug(
+            normalizedRouteRestaurantSlug,
+          );
+        const nextRestaurantId = toPositiveNumber(settings?.restaurantId);
+
+        if (!mounted) {
+          return;
+        }
+
+        setResolvedRestaurantId(nextRestaurantId);
+
+        if (nextRestaurantId) {
+          localStorage.setItem("menuRestaurantId", String(nextRestaurantId));
+        }
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        setResolvedRestaurantId(null);
+        toast.error(
+          error?.response?.data?.error ||
+            error?.response?.data?.message ||
+            "Restaurante não encontrado.",
+        );
+      }
+    }
+
+    resolveRestaurantSlug();
+
+    return () => {
+      mounted = false;
+    };
+  }, [normalizedRouteRestaurantSlug]);
+
+  useEffect(() => {
     localStorage.setItem("isDarkMode", JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
@@ -243,21 +297,21 @@ export default function Home() {
     tableSession?.restaurantId,
   ]);
 
+  const storedTableSessionRestaurantId = Number(
+    JSON.parse(localStorage.getItem("tableSession") || "null")?.restaurantId,
+  );
   const restaurantId = mesaMode
     ? routeRestaurantId ||
-      Number(
-        JSON.parse(localStorage.getItem("tableSession") || "null")
-          ?.restaurantId,
-      ) ||
+      storedTableSessionRestaurantId ||
+      resolvedRestaurantId ||
       null
-    : user?.restaurantId ||
-      routeRestaurantId ||
-      Number(localStorage.getItem("menuRestaurantId")) ||
-      Number(
-        JSON.parse(localStorage.getItem("tableSession") || "null")
-          ?.restaurantId,
-      ) ||
-      null;
+    : normalizedRouteRestaurantSlug
+      ? resolvedRestaurantId
+      : user?.restaurantId ||
+        routeRestaurantId ||
+        Number(localStorage.getItem("menuRestaurantId")) ||
+        storedTableSessionRestaurantId ||
+        null;
 
   const dynamicCategories = Array.from(
     new Set(products.map((item) => item?.category?.name).filter(Boolean)),
@@ -286,7 +340,9 @@ export default function Home() {
     async function loadProducts() {
       try {
         localStorage.setItem("menuRestaurantId", String(restaurantId));
-        const data = await menuService.listProducts(Number(restaurantId));
+        const data = normalizedRouteRestaurantSlug
+          ? await menuService.listProductsBySlug(normalizedRouteRestaurantSlug)
+          : await menuService.listProducts(Number(restaurantId));
         if (mounted) {
           setProducts(Array.isArray(data) ? data : []);
         }
@@ -300,7 +356,7 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, [restaurantId]);
+  }, [restaurantId, normalizedRouteRestaurantSlug]);
 
   useEffect(() => {
     if (!mesaMode || !mesaSessionIsActive) {
@@ -503,7 +559,12 @@ export default function Home() {
               routeTableId,
           ) || null,
         restaurantId:
-          Number(result.restaurantId || routeRestaurantId || 0) || null,
+          Number(
+            result.restaurantId ||
+              routeRestaurantId ||
+              resolvedRestaurantId ||
+              0,
+          ) || null,
       };
 
       if (

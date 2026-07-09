@@ -11,6 +11,7 @@ class RestaurantSettingsRepository {
         restaurant: {
           select: {
             name: true,
+            slug: true,
             logo: true,
             coverImage: true,
             whatsapp: true,
@@ -28,6 +29,7 @@ class RestaurantSettingsRepository {
       select: {
         id: true,
         name: true,
+        slug: true,
         logo: true,
         coverImage: true,
         whatsapp: true,
@@ -50,6 +52,7 @@ class RestaurantSettingsRepository {
         restaurant: {
           select: {
             name: true,
+            slug: true,
             logo: true,
             coverImage: true,
           },

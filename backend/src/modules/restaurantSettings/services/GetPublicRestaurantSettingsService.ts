@@ -1,7 +1,9 @@
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
+import restaurantRepository from "../../restaurants/repositories/RestaurantRepository.js";
 
 type RestaurantIdPayload = {
-  restaurantId: number | string;
+  restaurantId?: number | string;
+  slug?: string;
 };
 
 type PublicSettingsFallback = {
@@ -13,14 +15,26 @@ type PublicSettingsFallback = {
   instagram: string | null;
   restaurant: {
     name: string | null;
+    slug: string | null;
     logo: string | null;
     coverImage: string | null;
   };
 };
 
 class GetPublicRestaurantSettingsService {
-  async execute({ restaurantId }: RestaurantIdPayload) {
-    const normalizedRestaurantId = Number(restaurantId);
+  async execute({ restaurantId, slug }: RestaurantIdPayload) {
+    let normalizedRestaurantId = Number(restaurantId);
+
+    if (
+      (!Number.isInteger(normalizedRestaurantId) ||
+        normalizedRestaurantId <= 0) &&
+      slug
+    ) {
+      const restaurant = await restaurantRepository.findBySlug(
+        String(slug).trim(),
+      );
+      normalizedRestaurantId = Number(restaurant?.id || 0);
+    }
 
     if (
       !Number.isInteger(normalizedRestaurantId) ||
@@ -48,6 +62,7 @@ class GetPublicRestaurantSettingsService {
         instagram: null,
         restaurant: {
           name: restaurant?.name || null,
+          slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
           coverImage: restaurant?.coverImage || null,
         },
