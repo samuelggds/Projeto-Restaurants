@@ -121,3 +121,53 @@ In Mercado Pago panel:
 - Do not commit `.env` files.
 - Restrict CORS origins in production.
 - Keep server ports closed except 80/443.
+
+## 9. Deploy on Render
+
+### 9.1 Backend (Web Service)
+
+In Render, create a Web Service pointing to this repository and set Root Directory to `backend`.
+
+- Build Command:
+  - `npm ci && npm run build && npx prisma generate`
+- Start Command:
+  - `npx prisma migrate deploy && npm run start`
+
+Required environment variables (Backend service):
+
+- `NODE_ENV=production`
+- `DATABASE_URL` (Render Postgres URL)
+- `PORT` (Render injects this; do not hardcode another port)
+- `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_MFA_SECRET`
+- `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`, `JWT_MFA_EXPIRES_IN`
+- `CORS_ORIGINS` and `SOCKET_CORS_ORIGINS` with your frontend domain
+- `FRONTEND_URL` with your frontend public URL
+- `GOOGLE_CLIENT_ID` (if Google login is enabled)
+- `ALLOW_INSECURE_STRIPE_WEBHOOK=false`
+- `ALLOW_GLOBAL_PAYMENT_FALLBACK=false`
+
+If 2FA by e-mail is enabled in production:
+
+- `MFA_REQUIRED_ROLES=ADMIN,SUPER_ADMIN`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_AUTH_TYPE`, `SMTP_USER`, `SMTP_PASS`
+
+### 9.2 Frontend (Static Site)
+
+Create a Static Site in Render with Root Directory `frontend`.
+
+- Build Command:
+  - `npm ci && npm run build`
+- Publish Directory:
+  - `dist`
+
+Environment variables (Frontend service):
+
+- `VITE_API_URL=https://<backend-render-domain>`
+- `VITE_GOOGLE_CLIENT_ID=<google-oauth-client-id>` (optional if frontend fetches from backend)
+
+### 9.3 Render pre-go-live checks
+
+1. Backend health endpoint responds: `/health`.
+2. Frontend can login against Render backend.
+3. Webhooks are configured with Render backend URL.
+4. Google OAuth authorized origins include Render frontend domain.
