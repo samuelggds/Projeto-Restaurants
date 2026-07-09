@@ -44,6 +44,12 @@ type ProfileAddressesAndOrdersProps = {
     brand: string;
     lastFour: string;
   };
+  cardFieldErrors?: {
+    holderName?: string;
+    brand?: string;
+    lastFour?: string;
+  };
+  showCardFieldFeedback?: boolean;
   onNovoEnderecoChange: (value: NovoEndereco) => void;
   onAddEndereco: (event: React.FormEvent<HTMLFormElement>) => void;
   onSelectEndereco: (id: number) => void;
@@ -64,6 +70,8 @@ export default function ProfileAddressesAndOrders({
   selectedSavedCardId,
   defaultSavedCardId,
   cardPaymentDraft,
+  cardFieldErrors = {},
+  showCardFieldFeedback = false,
   onNovoEnderecoChange,
   onAddEndereco,
   onSelectEndereco,
@@ -99,6 +107,36 @@ export default function ProfileAddressesAndOrders({
     : "•••• •••• •••• ••••";
   const cardPreviewHolder =
     cardPaymentDraft.holderName?.trim().toUpperCase() || "NOME DO TITULAR";
+  const cardErrorTextStyle = {
+    color: "#dc2626",
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: 600,
+  } as const;
+  const cardFieldErrorStyle = {
+    border: "1px solid #ef4444",
+    boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.18)",
+  } as const;
+  const cardFieldValidStyle = {
+    border: "1px solid #22c55e",
+    boxShadow: "0 0 0 1px rgba(34, 197, 94, 0.2)",
+  } as const;
+
+  function resolveCardFieldStyle(hasError: boolean, isValid: boolean) {
+    if (!showCardFieldFeedback) {
+      return undefined;
+    }
+
+    if (hasError) {
+      return cardFieldErrorStyle;
+    }
+
+    if (isValid) {
+      return cardFieldValidStyle;
+    }
+
+    return undefined;
+  }
 
   return (
     <S.RightColumn>
@@ -447,10 +485,19 @@ export default function ProfileAddressesAndOrders({
               type="text"
               placeholder="Nome do titular"
               value={cardPaymentDraft.holderName}
+              style={resolveCardFieldStyle(
+                Boolean(cardFieldErrors.holderName),
+                String(cardPaymentDraft.holderName || "").trim().length >= 3,
+              )}
               onChange={(event) =>
                 onCardPaymentDraftChange("holderName", event.target.value)
               }
             />
+            {cardFieldErrors.holderName ? (
+              <small style={cardErrorTextStyle}>
+                {cardFieldErrors.holderName}
+              </small>
+            ) : null}
           </div>
           <div className="form-row split-bairro">
             <div
@@ -476,7 +523,13 @@ export default function ProfileAddressesAndOrders({
                       borderRadius: 12,
                       border: isActive
                         ? "2px solid #3f64ff"
-                        : "1px solid #cbd5e1",
+                        : showCardFieldFeedback && cardFieldErrors.brand
+                          ? "1px solid #ef4444"
+                          : showCardFieldFeedback &&
+                              String(cardPaymentDraft.brand || "").trim()
+                                .length >= 2
+                            ? "1px solid #22c55e"
+                            : "1px solid #cbd5e1",
                       background: isActive
                         ? "rgba(63, 100, 255, 0.12)"
                         : "transparent",
@@ -487,6 +540,17 @@ export default function ProfileAddressesAndOrders({
                       justifyContent: "space-between",
                       gap: "0.4rem",
                       padding: "0.45rem 0.5rem",
+                      boxShadow:
+                        !isActive &&
+                        showCardFieldFeedback &&
+                        cardFieldErrors.brand
+                          ? "0 0 0 1px rgba(239, 68, 68, 0.18)"
+                          : !isActive &&
+                              showCardFieldFeedback &&
+                              String(cardPaymentDraft.brand || "").trim()
+                                .length >= 2
+                            ? "0 0 0 1px rgba(34, 197, 94, 0.2)"
+                            : "none",
                     }}
                   >
                     <img
@@ -513,16 +577,29 @@ export default function ProfileAddressesAndOrders({
                 );
               })}
             </div>
+            {cardFieldErrors.brand ? (
+              <small style={cardErrorTextStyle}>{cardFieldErrors.brand}</small>
+            ) : null}
             <input
               className="card-last-four-input"
               type="text"
               placeholder="Final 1234"
               inputMode="numeric"
               value={cardPaymentDraft.lastFour}
+              style={resolveCardFieldStyle(
+                Boolean(cardFieldErrors.lastFour),
+                String(cardPaymentDraft.lastFour || "").replace(/\D/g, "")
+                  .length === 4,
+              )}
               onChange={(event) =>
                 onCardPaymentDraftChange("lastFour", event.target.value)
               }
             />
+            {cardFieldErrors.lastFour ? (
+              <small style={cardErrorTextStyle}>
+                {cardFieldErrors.lastFour}
+              </small>
+            ) : null}
           </div>
           <div
             style={{

@@ -484,6 +484,7 @@ export default function StaffDashboard() {
     const onNewOrder = (order) => {
       setOrders((prev) => upsertOrder(prev, order));
       setLastOrdersSyncAt(Date.now());
+      void syncOrdersAfterConnect();
     };
 
     const onStatusChanged = (order) => {
@@ -497,6 +498,29 @@ export default function StaffDashboard() {
 
       setOrders((prev) => upsertOrder(prev, order));
       setLastOrdersSyncAt(Date.now());
+      void syncOrdersAfterConnect();
+    };
+
+    const onPaymentConfirmed = (payload) => {
+      const orderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(orderId) || orderId <= 0) {
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((item) =>
+          Number(item?.id || 0) === orderId
+            ? {
+                ...item,
+                paid: true,
+                status: payload?.status || item?.status,
+              }
+            : item,
+        ),
+      );
+      setLastOrdersSyncAt(Date.now());
+      void syncOrdersAfterConnect();
     };
 
     const onTablePinRequested = async (payload) => {
@@ -538,6 +562,7 @@ export default function StaffDashboard() {
     socket.on("connect_error", onConnectError);
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
+    socket.on("order:payment-confirmed", onPaymentConfirmed);
     socket.on("table:pin-requested", onTablePinRequested);
 
     return () => {
@@ -546,6 +571,7 @@ export default function StaffDashboard() {
       socket.off("connect_error", onConnectError);
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
+      socket.off("order:payment-confirmed", onPaymentConfirmed);
       socket.off("table:pin-requested", onTablePinRequested);
       disconnectSocket();
     };
@@ -575,8 +601,13 @@ export default function StaffDashboard() {
 
     void refreshOrdersTab();
 
+    const intervalId = setInterval(() => {
+      void refreshOrdersTab();
+    }, 6000);
+
     return () => {
       mounted = false;
+      clearInterval(intervalId);
     };
   }, [activeTab]);
 

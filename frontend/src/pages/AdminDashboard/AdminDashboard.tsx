@@ -353,6 +353,30 @@ function formatBrazilPhoneInput(value) {
   return `(${ddd}) ${local.slice(0, 5)}-${local.slice(5, 9)}`;
 }
 
+function formatBankBranchInput(value) {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 8);
+
+  if (digits.length <= 4) {
+    return digits;
+  }
+
+  return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+}
+
+function formatBankAccountInput(value) {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 13);
+
+  if (digits.length <= 1) {
+    return digits;
+  }
+
+  return `${digits.slice(0, -1)}-${digits.slice(-1)}`;
+}
+
 function fileToDataUrl(file) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -1225,6 +1249,38 @@ export default function AdminDashboard() {
       }
     };
 
+    const onPaymentConfirmed = (payload) => {
+      const targetOrderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((item) =>
+          Number(item?.id || 0) === targetOrderId
+            ? {
+                ...item,
+                paid: true,
+                status: payload?.status || item?.status,
+              }
+            : item,
+        ),
+      );
+
+      setPinRequestByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[targetOrderId];
+        return next;
+      });
+
+      setPaymentPinInputByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[targetOrderId];
+        return next;
+      });
+    };
+
     const onPaymentPinRequested = (payload) => {
       if (!PAYMENT_PIN_TOOLS_ENABLED) {
         return;
@@ -1281,12 +1337,14 @@ export default function AdminDashboard() {
 
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
+    socket.on("order:payment-confirmed", onPaymentConfirmed);
     socket.on("order:payment-pin-requested", onPaymentPinRequested);
     socket.on("order:payment-pin-generated", onPaymentPinGenerated);
 
     return () => {
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
+      socket.off("order:payment-confirmed", onPaymentConfirmed);
       socket.off("order:payment-pin-requested", onPaymentPinRequested);
       socket.off("order:payment-pin-generated", onPaymentPinGenerated);
       disconnectSocket();
@@ -2010,7 +2068,15 @@ export default function AdminDashboard() {
     if (name === "bankCode") {
       nextValue = String(value || "")
         .replace(/\D/g, "")
-        .slice(0, 6);
+        .slice(0, 8);
+    }
+
+    if (name === "bankBranch") {
+      nextValue = formatBankBranchInput(value);
+    }
+
+    if (name === "bankAccount") {
+      nextValue = formatBankAccountInput(value);
     }
 
     if (name === "companyCnae") {

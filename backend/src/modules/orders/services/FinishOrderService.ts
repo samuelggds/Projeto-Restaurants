@@ -389,6 +389,16 @@ class CreateOrderService {
     io.to(`user:${createdOrder.userId}`).emit("new-order", createdOrder);
 
     if (shouldMarkAsPaid) {
+      io.to(`restaurant:${createdOrder.restaurantId}`).emit(
+        "order:payment-confirmed",
+        {
+          orderId: createdOrder.id,
+          paymentMethod: normalizedPaymentMethod,
+          paid: true,
+          status: createdOrder.status,
+        },
+      );
+
       io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {
         orderId: createdOrder.id,
         paymentMethod: normalizedPaymentMethod,

@@ -85,6 +85,19 @@ export default function PixAndDeliverySettingsTab({
   const kybProgressPercent = Math.round(
     ((kybStepIndex + 1) / kybSteps.length) * 100,
   );
+  const bankHolderDocumentDigits = onlyDigits(
+    settingsForm.bankHolderDocument || "",
+  );
+  const bankHolderDocumentDetectedType =
+    bankHolderDocumentDigits.length === 0
+      ? ""
+      : bankHolderDocumentDigits.length > 11
+        ? "CNPJ"
+        : "CPF";
+  const bankHolderDocumentPlaceholder =
+    bankHolderDocumentDetectedType === "CNPJ"
+      ? "Ex: 12.345.678/0001-90"
+      : "Ex: 123.456.789-00";
   const fieldHelpStyle = {
     display: "block",
     marginTop: "0.4rem",
@@ -95,6 +108,165 @@ export default function PixAndDeliverySettingsTab({
 
   function hasValue(value: string) {
     return String(value || "").trim().length > 0;
+  }
+
+  function onlyDigits(value: string) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function isValidEmail(value: string) {
+    const normalized = String(value || "").trim();
+    if (!normalized) {
+      return false;
+    }
+
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+  }
+
+  function getKybFieldErrors() {
+    const errors: Record<string, string> = {};
+
+    const legalDocumentType = String(settingsForm.legalDocumentType || "")
+      .trim()
+      .toUpperCase();
+    const companyDocument = onlyDigits(settingsForm.companyDocument || "");
+    const ownerCpf = onlyDigits(settingsForm.ownerCpf || "");
+    const bankCode = onlyDigits(settingsForm.bankCode || "");
+    const bankBranch = String(settingsForm.bankBranch || "").trim();
+    const bankAccount = String(settingsForm.bankAccount || "").trim();
+    const bankHolderDocument = onlyDigits(
+      settingsForm.bankHolderDocument || "",
+    );
+    const cardGateway = String(settingsForm.cardGateway || "")
+      .trim()
+      .toUpperCase();
+    const stripeSecretKey = String(settingsForm.stripeSecretKey || "").trim();
+    const mercadoPagoAccessToken = String(
+      settingsForm.mercadoPagoAccessToken || "",
+    ).trim();
+    const pagbankEmail = String(settingsForm.pagbankEmail || "").trim();
+    const pagbankToken = String(settingsForm.pagbankToken || "").trim();
+
+    if (!legalDocumentType) {
+      errors.legalDocumentType = "Selecione CPF ou CNPJ para continuar.";
+    }
+
+    if (!companyDocument) {
+      errors.companyDocument = "Informe o documento da empresa para continuar.";
+    } else if (legalDocumentType === "CPF" && companyDocument.length !== 11) {
+      errors.companyDocument = "CPF da empresa/autonomo deve ter 11 digitos.";
+    } else if (legalDocumentType === "CNPJ" && companyDocument.length !== 14) {
+      errors.companyDocument =
+        "CNPJ da empresa deve ter 14 digitos (somente numeros).";
+    }
+
+    if (!String(settingsForm.ownerFullName || "").trim()) {
+      errors.ownerFullName = "Informe o nome do representante para continuar.";
+    }
+
+    if (!ownerCpf) {
+      errors.ownerCpf = "Informe o CPF do representante para continuar.";
+    } else if (ownerCpf.length !== 11) {
+      errors.ownerCpf = "CPF do representante deve ter 11 digitos.";
+    }
+
+    if (!String(settingsForm.bankName || "").trim()) {
+      errors.bankName = "Informe o banco para continuar.";
+    }
+
+    if (!bankCode) {
+      errors.bankCode = "Informe o codigo do banco (ex: 001).";
+    } else if (bankCode.length < 3 || bankCode.length > 8) {
+      errors.bankCode =
+        "Codigo do banco invalido. Use apenas numeros (3 a 8 digitos).";
+    }
+
+    if (!bankBranch) {
+      errors.bankBranch = "Informe a agencia para continuar.";
+    } else if (onlyDigits(bankBranch).length < 3) {
+      errors.bankBranch =
+        "Agencia invalida. Digite ao menos 3 numeros da agencia.";
+    }
+
+    if (!bankAccount) {
+      errors.bankAccount = "Informe a conta para continuar.";
+    } else if (onlyDigits(bankAccount).length < 4) {
+      errors.bankAccount =
+        "Conta invalida. Digite conta e digito conforme seu banco.";
+    }
+
+    if (bankHolderDocument) {
+      if (![11, 14].includes(bankHolderDocument.length)) {
+        errors.bankHolderDocument =
+          "Documento do titular da conta deve ter 11 (CPF) ou 14 (CNPJ) digitos.";
+      } else if (companyDocument && companyDocument !== bankHolderDocument) {
+        errors.bankHolderDocument =
+          "Documento do titular da conta deve ser igual ao CPF/CNPJ da empresa.";
+      }
+    }
+
+    if (cardGateway === "STRIPE") {
+      const hasStripeKey =
+        stripeSecretKey.length > 0 ||
+        Boolean(settingsForm.stripeSecretKeyConfigured);
+      if (!hasStripeKey) {
+        errors.stripeSecretKey =
+          "Cole a chave secreta Stripe (sk_...) para ativar pagamento por cartao.";
+      } else if (stripeSecretKey && !stripeSecretKey.startsWith("sk_")) {
+        errors.stripeSecretKey =
+          "Chave Stripe invalida. Ela normalmente comeca com sk_.";
+      }
+    }
+
+    if (cardGateway === "MERCADO_PAGO") {
+      const hasMercadoToken =
+        mercadoPagoAccessToken.length > 0 ||
+        Boolean(settingsForm.mercadoPagoAccessTokenConfigured);
+      if (!hasMercadoToken) {
+        errors.mercadoPagoAccessToken =
+          "Cole o Access Token do Mercado Pago (APP_USR-...) para ativar o cartao.";
+      } else if (
+        mercadoPagoAccessToken &&
+        !/^APP_USR-|^TEST-/.test(mercadoPagoAccessToken)
+      ) {
+        errors.mercadoPagoAccessToken =
+          "Token Mercado Pago invalido. Geralmente comeca com APP_USR-.";
+      }
+    }
+
+    if (cardGateway === "PAGBANK") {
+      if (!pagbankEmail) {
+        errors.pagbankEmail = "Informe o e-mail da conta PagBank vendedora.";
+      } else if (!isValidEmail(pagbankEmail)) {
+        errors.pagbankEmail =
+          "E-mail PagBank invalido. Exemplo: financeiro@loja.com.";
+      }
+
+      const hasPagBankToken =
+        pagbankToken.length > 0 || Boolean(settingsForm.pagbankTokenConfigured);
+      if (!hasPagBankToken) {
+        errors.pagbankToken =
+          "Informe o token de integracao PagBank para ativar o cartao.";
+      } else if (pagbankToken && pagbankToken.length < 10) {
+        errors.pagbankToken =
+          "Token PagBank parece incompleto. Copie novamente do painel do PagBank.";
+      }
+    }
+
+    return errors;
+  }
+
+  const kybFieldErrors = getKybFieldErrors();
+
+  function getFieldStyle(fieldName: string) {
+    if (!kybFieldErrors[fieldName]) {
+      return undefined;
+    }
+
+    return {
+      border: "1px solid #ef4444",
+      boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.18)",
+    } as const;
   }
 
   function renderGatewayCredentialGuide() {
@@ -577,37 +749,28 @@ export default function PixAndDeliverySettingsTab({
 
   function getKybStepError(stepKey: (typeof kybSteps)[number]["key"]) {
     if (stepKey === "company") {
-      if (!String(settingsForm.legalDocumentType || "").trim()) {
-        return "Selecione CPF ou CNPJ para continuar.";
-      }
-
-      if (!String(settingsForm.companyDocument || "").trim()) {
-        return "Informe o documento da empresa para continuar.";
-      }
+      return (
+        kybFieldErrors.legalDocumentType || kybFieldErrors.companyDocument || ""
+      );
     }
 
     if (stepKey === "owner") {
-      if (!String(settingsForm.ownerFullName || "").trim()) {
-        return "Informe o nome do representante para continuar.";
-      }
-
-      if (!String(settingsForm.ownerCpf || "").trim()) {
-        return "Informe o CPF do representante para continuar.";
-      }
+      return kybFieldErrors.ownerFullName || kybFieldErrors.ownerCpf || "";
     }
 
     if (stepKey === "bank") {
-      if (!String(settingsForm.bankName || "").trim()) {
-        return "Informe o banco para continuar.";
-      }
-
-      if (!String(settingsForm.bankBranch || "").trim()) {
-        return "Informe a agência para continuar.";
-      }
-
-      if (!String(settingsForm.bankAccount || "").trim()) {
-        return "Informe a conta para continuar.";
-      }
+      return (
+        kybFieldErrors.bankName ||
+        kybFieldErrors.bankCode ||
+        kybFieldErrors.bankBranch ||
+        kybFieldErrors.bankAccount ||
+        kybFieldErrors.bankHolderDocument ||
+        kybFieldErrors.stripeSecretKey ||
+        kybFieldErrors.mercadoPagoAccessToken ||
+        kybFieldErrors.pagbankEmail ||
+        kybFieldErrors.pagbankToken ||
+        ""
+      );
     }
 
     return "";
@@ -1024,6 +1187,8 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="companyDocument"
+                    inputMode="numeric"
+                    maxLength={18}
                     placeholder={
                       settingsForm.legalDocumentType === "CPF"
                         ? "Ex: 123.456.789-00"
@@ -1150,6 +1315,8 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="ownerCpf"
+                    inputMode="numeric"
+                    maxLength={14}
                     placeholder="Ex: 123.456.789-00"
                     value={settingsForm.ownerCpf}
                     onChange={onFieldChange}
@@ -1195,6 +1362,8 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="ownerPhone"
+                    inputMode="tel"
+                    maxLength={16}
                     placeholder="Ex: (85) 99999-9999"
                     value={settingsForm.ownerPhone}
                     onChange={onFieldChange}
@@ -1254,10 +1423,24 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="bankCode"
+                    inputMode="numeric"
+                    maxLength={8}
                     placeholder="Ex: 001"
                     value={settingsForm.bankCode}
+                    style={getFieldStyle("bankCode")}
                     onChange={onFieldChange}
                   />
+                  {kybFieldErrors.bankCode ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#dc2626",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {kybFieldErrors.bankCode}
+                    </small>
+                  ) : null}
                   <small style={fieldHelpStyle}>
                     Codigo numerico do banco (COMPE/ISPB).
                   </small>
@@ -1285,10 +1468,36 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="bankHolderDocument"
-                    placeholder="CPF/CNPJ do titular da conta"
+                    inputMode="numeric"
+                    maxLength={18}
+                    placeholder={bankHolderDocumentPlaceholder}
                     value={settingsForm.bankHolderDocument}
+                    style={getFieldStyle("bankHolderDocument")}
                     onChange={onFieldChange}
                   />
+                  {!kybFieldErrors.bankHolderDocument &&
+                  bankHolderDocumentDetectedType ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#166534",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Formato detectado: {bankHolderDocumentDetectedType}.
+                    </small>
+                  ) : null}
+                  {kybFieldErrors.bankHolderDocument ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#dc2626",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {kybFieldErrors.bankHolderDocument}
+                    </small>
+                  ) : null}
                   <small style={fieldHelpStyle}>
                     Obrigatorio: este CPF/CNPJ deve ser o mesmo do cadastro da
                     empresa para aprovacao.
@@ -1302,10 +1511,24 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="bankBranch"
+                    inputMode="numeric"
+                    maxLength={9}
                     placeholder="Ex: 1234"
                     value={settingsForm.bankBranch}
+                    style={getFieldStyle("bankBranch")}
                     onChange={onFieldChange}
                   />
+                  {kybFieldErrors.bankBranch ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#dc2626",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {kybFieldErrors.bankBranch}
+                    </small>
+                  ) : null}
                   <small style={fieldHelpStyle}>
                     Numero da agencia sem digito, se seu banco usar esse padrao.
                   </small>
@@ -1315,10 +1538,24 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="bankAccount"
+                    inputMode="numeric"
+                    maxLength={14}
                     placeholder="Ex: 98765-4"
                     value={settingsForm.bankAccount}
+                    style={getFieldStyle("bankAccount")}
                     onChange={onFieldChange}
                   />
+                  {kybFieldErrors.bankAccount ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#dc2626",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {kybFieldErrors.bankAccount}
+                    </small>
+                  ) : null}
                   <small style={fieldHelpStyle}>
                     Numero da conta com digito, conforme aparece no app/banco.
                   </small>
@@ -1340,6 +1577,10 @@ export default function PixAndDeliverySettingsTab({
                   </select>
                   <small style={fieldHelpStyle}>
                     Selecione o gateway de cartao que voce usa ou pretende usar.
+                  </small>
+                  <small style={{ ...fieldHelpStyle, fontWeight: 700 }}>
+                    Dica rapida: Stripe = chave sk_; Mercado Pago = Access Token
+                    APP_USR-; PagBank = e-mail + token.
                   </small>
                 </S.FormGroup>
                 <S.FormGroup>
@@ -1368,8 +1609,20 @@ export default function PixAndDeliverySettingsTab({
                     name="stripeSecretKey"
                     placeholder="Cole aqui a sk_... da conta do restaurante"
                     value={settingsForm.stripeSecretKey}
+                    style={getFieldStyle("stripeSecretKey")}
                     onChange={onFieldChange}
                   />
+                  {kybFieldErrors.stripeSecretKey ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#dc2626",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {kybFieldErrors.stripeSecretKey}
+                    </small>
+                  ) : null}
                   <small style={fieldHelpStyle}>
                     Por seguranca, essa chave nao e exibida apos salvar.
                     Preencha novamente apenas para atualizar credencial.
@@ -1386,8 +1639,20 @@ export default function PixAndDeliverySettingsTab({
                     name="mercadoPagoAccessToken"
                     placeholder="Cole aqui o APP_USR-... da conta do restaurante"
                     value={settingsForm.mercadoPagoAccessToken}
+                    style={getFieldStyle("mercadoPagoAccessToken")}
                     onChange={onFieldChange}
                   />
+                  {kybFieldErrors.mercadoPagoAccessToken ? (
+                    <small
+                      style={{
+                        ...fieldHelpStyle,
+                        color: "#dc2626",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {kybFieldErrors.mercadoPagoAccessToken}
+                    </small>
+                  ) : null}
                   <small style={fieldHelpStyle}>
                     Por seguranca, o token nao e exibido apos salvar. Preencha
                     novamente apenas para atualizar credencial.
@@ -1406,8 +1671,20 @@ export default function PixAndDeliverySettingsTab({
                         name="pagbankEmail"
                         placeholder="Ex: dono@restaurante.com"
                         value={settingsForm.pagbankEmail}
+                        style={getFieldStyle("pagbankEmail")}
                         onChange={onFieldChange}
                       />
+                      {kybFieldErrors.pagbankEmail ? (
+                        <small
+                          style={{
+                            ...fieldHelpStyle,
+                            color: "#dc2626",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {kybFieldErrors.pagbankEmail}
+                        </small>
+                      ) : null}
                       <small style={fieldHelpStyle}>
                         E-mail da conta vendedora do PagBank usada para receber
                         os pagamentos.
@@ -1437,8 +1714,20 @@ export default function PixAndDeliverySettingsTab({
                       name="pagbankToken"
                       placeholder="Cole aqui o token de integracao"
                       value={settingsForm.pagbankToken}
+                      style={getFieldStyle("pagbankToken")}
                       onChange={onFieldChange}
                     />
+                    {kybFieldErrors.pagbankToken ? (
+                      <small
+                        style={{
+                          ...fieldHelpStyle,
+                          color: "#dc2626",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {kybFieldErrors.pagbankToken}
+                      </small>
+                    ) : null}
                     <small style={fieldHelpStyle}>
                       Por seguranca, o token nao e exibido apos salvar. Preencha
                       apenas quando quiser atualizar a credencial.

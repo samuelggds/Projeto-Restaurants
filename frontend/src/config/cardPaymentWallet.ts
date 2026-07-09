@@ -234,6 +234,190 @@ export function isCardNumberValid(value: string | null | undefined) {
   return digits.length >= 13 && digits.length <= 19;
 }
 
+function isLuhnValid(value: string) {
+  let sum = 0;
+  let shouldDouble = false;
+
+  for (let index = value.length - 1; index >= 0; index -= 1) {
+    let digit = Number(value[index]);
+
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+
+  return sum % 10 === 0;
+}
+
+export function normalizeCardExpiryInput(value: string | null | undefined) {
+  const digits = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 4);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+export function isCardExpiryValid(value: string | null | undefined) {
+  const normalized = String(value || "").trim();
+  const match = normalized.match(/^(\d{2})\/(\d{2})$/);
+
+  if (!match) {
+    return false;
+  }
+
+  const month = Number(match[1]);
+  const year = Number(match[2]);
+
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return false;
+  }
+
+  const now = new Date();
+  const currentYear = now.getFullYear() % 100;
+  const currentMonth = now.getMonth() + 1;
+
+  if (year < currentYear) {
+    return false;
+  }
+
+  if (year === currentYear && month < currentMonth) {
+    return false;
+  }
+
+  return true;
+}
+
+type CardCheckoutValidationInput = {
+  cardDraft: Partial<CardPaymentDraft> | null | undefined;
+  cardNumber: string | null | undefined;
+  cardExpiry: string | null | undefined;
+  cardCvv: string | null | undefined;
+};
+
+export type CardCheckoutFieldErrors = {
+  holderName?: string;
+  brand?: string;
+  cardNumber?: string;
+  lastFour?: string;
+  cardExpiry?: string;
+  cardCvv?: string;
+};
+
+export type SavedCardFieldErrors = {
+  holderName?: string;
+  brand?: string;
+  lastFour?: string;
+};
+
+export function getSavedCardFieldErrors(
+  cardDraft: Partial<CardPaymentDraft> | null | undefined,
+): SavedCardFieldErrors {
+  const draft = sanitizeCardDraft(cardDraft);
+  const errors: SavedCardFieldErrors = {};
+
+  if (!draft.holderName.trim() || draft.holderName.trim().length < 3) {
+    errors.holderName = "Informe o nome do titular como aparece no cartao.";
+  }
+
+  if (!draft.brand.trim()) {
+    errors.brand = "Selecione a bandeira do cartao.";
+  }
+
+  if (draft.lastFour.length !== 4) {
+    errors.lastFour = "Informe os 4 ultimos digitos do cartao.";
+  }
+
+  return errors;
+}
+
+export function validateSavedCardInput(
+  cardDraft: Partial<CardPaymentDraft> | null | undefined,
+) {
+  const errors = getSavedCardFieldErrors(cardDraft);
+
+  return errors.holderName || errors.brand || errors.lastFour || null;
+}
+
+export function getCardCheckoutFieldErrors({
+  cardDraft,
+  cardNumber,
+  cardExpiry,
+  cardCvv,
+}: CardCheckoutValidationInput): CardCheckoutFieldErrors {
+  const errors: CardCheckoutFieldErrors = {};
+  const draft = sanitizeCardDraft(cardDraft);
+  const cardNumberDigits = getCardNumberDigits(cardNumber);
+  const cvvDigits = String(cardCvv || "")
+    .replace(/\D/g, "")
+    .slice(0, 4);
+
+  if (!draft.holderName.trim() || draft.holderName.trim().length < 3) {
+    errors.holderName = "Informe o nome do titular como aparece no cartao.";
+  }
+
+  if (!draft.brand.trim()) {
+    errors.brand = "Selecione a bandeira do cartao.";
+  }
+
+  if (!isCardNumberValid(cardNumberDigits)) {
+    errors.cardNumber = "Informe um numero de cartao valido (13 a 19 digitos).";
+  } else if (!isLuhnValid(cardNumberDigits)) {
+    errors.cardNumber =
+      "Numero do cartao invalido. Revise os digitos informados.";
+  }
+
+  if (draft.lastFour.length !== 4) {
+    errors.lastFour = "Informe os 4 ultimos digitos do cartao.";
+  } else if (cardNumberDigits && !cardNumberDigits.endsWith(draft.lastFour)) {
+    errors.lastFour =
+      "Os 4 ultimos digitos nao conferem com o numero do cartao.";
+  }
+
+  if (!isCardExpiryValid(cardExpiry)) {
+    errors.cardExpiry = "Informe uma validade valida no formato MM/AA.";
+  }
+
+  if (!/^\d{3,4}$/.test(cvvDigits)) {
+    errors.cardCvv = "Informe um CVV valido com 3 ou 4 digitos.";
+  }
+
+  return errors;
+}
+
+export function validateCardCheckoutInput({
+  cardDraft,
+  cardNumber,
+  cardExpiry,
+  cardCvv,
+}: CardCheckoutValidationInput) {
+  const errors = getCardCheckoutFieldErrors({
+    cardDraft,
+    cardNumber,
+    cardExpiry,
+    cardCvv,
+  });
+
+  return (
+    errors.holderName ||
+    errors.brand ||
+    errors.cardNumber ||
+    errors.lastFour ||
+    errors.cardExpiry ||
+    errors.cardCvv ||
+    null
+  );
+}
+
 export function getCardBrandPalette(brand: string | null | undefined) {
   const normalized = String(brand || "")
     .trim()
