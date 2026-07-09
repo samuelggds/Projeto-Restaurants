@@ -5,6 +5,7 @@ import {
   Navigate,
   Outlet,
   useLocation,
+  useParams,
 } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
 
@@ -59,6 +60,22 @@ const ROLE_HOME = {
 
 function getRoleHome(role) {
   return ROLE_HOME[role] || "/login";
+}
+
+function RestaurantLoginRedirect() {
+  const { restaurantSlug } = useParams();
+
+  const normalizedSlug = String(restaurantSlug || "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedSlug) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const next = encodeURIComponent(`/${normalizedSlug}`);
+
+  return <Navigate to={`/login?next=${next}`} replace />;
 }
 
 function RequireAuth() {
@@ -223,6 +240,10 @@ export default function AppRoutes() {
         <Routes>
           <Route element={<SuperAdminScopeGuard />}>
             <Route path="/login" element={<Login />} />
+            <Route
+              path="/:restaurantSlug/login"
+              element={<RestaurantLoginRedirect />}
+            />
             <Route path="/recover-password" element={<RecoverPassword />} />
             <Route path="/register" element={<Register />} />
             <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
