@@ -27,15 +27,17 @@ import {
   CARD_BRAND_OPTIONS,
   buildCardPaymentSummary,
   findSavedCard,
+  getCardCheckoutFieldErrors,
   getCardBrandDisplay,
   getCardBrandLogo,
   getEmptyCardDraft,
   getCardBrandPalette,
-  isCardDraftComplete,
   normalizeCardNumberInput,
+  normalizeCardExpiryInput,
   persistCardWallet,
   readCardWallet,
   sanitizeCardDraft,
+  validateCardCheckoutInput,
 } from "../../config/cardPaymentWallet";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
@@ -342,7 +344,9 @@ export default function Cart() {
     return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
   });
   const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
+  const [showCardFieldErrors, setShowCardFieldErrors] = useState(false);
   const cardPreviewDigits = maskCardDigits(cardNumber);
   const cardPreviewHolder = resolveCardHolderName(cardPaymentDraft.holderName);
   const cardPreviewCvv = String(cardCvv || "").trim() || "789";
@@ -350,6 +354,55 @@ export default function Cart() {
   const cardPreviewBrandSource = cardPreviewBrand || "outra";
   const cardPreviewBrandLabel =
     getCardBrandDisplay(cardPreviewBrandSource).label || "Bandeira";
+  const cardFieldErrors = useMemo(() => {
+    if (!showCardFieldErrors || paymentMethod !== "CARTAO") {
+      return {};
+    }
+
+    return getCardCheckoutFieldErrors({
+      cardDraft: cardPaymentDraft,
+      cardNumber,
+      cardExpiry,
+      cardCvv,
+    });
+  }, [
+    showCardFieldErrors,
+    paymentMethod,
+    cardPaymentDraft,
+    cardNumber,
+    cardExpiry,
+    cardCvv,
+  ]);
+  const cardErrorTextStyle = {
+    color: "#dc2626",
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: 600,
+  } as const;
+  const cardFieldErrorStyle = {
+    border: "1px solid #ef4444",
+    boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.18)",
+  } as const;
+  const cardFieldValidStyle = {
+    border: "1px solid #22c55e",
+    boxShadow: "0 0 0 1px rgba(34, 197, 94, 0.2)",
+  } as const;
+
+  function resolveCardFieldStyle(hasError, isValid) {
+    if (!showCardFieldErrors || paymentMethod !== "CARTAO") {
+      return undefined;
+    }
+
+    if (hasError) {
+      return cardFieldErrorStyle;
+    }
+
+    if (isValid) {
+      return cardFieldValidStyle;
+    }
+
+    return undefined;
+  }
 
   const tableSession = useMemo(() => {
     const raw = localStorage.getItem("tableSession");
@@ -634,14 +687,18 @@ export default function Cart() {
     setSelectedSavedCardId(selectedCard.id);
     setCardPaymentDraft(sanitizeCardDraft(selectedCard));
     setCardNumber("");
+    setCardExpiry("");
     setCardCvv("");
+    setShowCardFieldErrors(false);
   };
 
   const handleStartNewSavedCard = () => {
     setSelectedSavedCardId(null);
     setCardPaymentDraft(getEmptyCardDraft());
     setCardNumber("");
+    setCardExpiry("");
     setCardCvv("");
+    setShowCardFieldErrors(false);
   };
 
   const handleSetDefaultSavedCard = (cardId) => {
@@ -656,12 +713,18 @@ export default function Cart() {
   };
 
   const handleSaveCurrentCard = () => {
+    setShowCardFieldErrors(true);
     const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
 
-    if (!isCardDraftComplete(sanitizedDraft)) {
-      toast.error(
-        "Preencha titular, bandeira e os 4 ultimos digitos para salvar o cartao.",
-      );
+    const validationError = validateCardCheckoutInput({
+      cardDraft: sanitizedDraft,
+      cardNumber,
+      cardExpiry,
+      cardCvv,
+    });
+
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -693,6 +756,7 @@ export default function Cart() {
     setSelectedSavedCardId(nextCard.id);
     setDefaultSavedCardId((prev) => prev || nextCard.id);
     setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    setShowCardFieldErrors(false);
     toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
   };
 
@@ -713,7 +777,9 @@ export default function Cart() {
         : getEmptyCardDraft(),
     );
     setCardNumber("");
+    setCardExpiry("");
     setCardCvv("");
+    setShowCardFieldErrors(false);
     toast.info("Cartao removido.");
   };
 
@@ -836,22 +902,19 @@ export default function Cart() {
         toast.error("Preencha os dados obrigatórios de entrega.");
         return;
       }
+    }
 
-      if (
-        paymentMethod === "CARTAO" &&
-        !isCardDraftComplete(cardPaymentDraft)
-      ) {
-        toast.error(
-          "Informe titular, bandeira e os 4 ultimos digitos do cartao para continuar.",
-        );
-        return;
-      }
+    if (paymentMethod === "CARTAO") {
+      setShowCardFieldErrors(true);
+      const validationError = validateCardCheckoutInput({
+        cardDraft: cardPaymentDraft,
+        cardNumber,
+        cardExpiry,
+        cardCvv,
+      });
 
-      if (
-        paymentMethod === "CARTAO" &&
-        !/^\d{3,4}$/.test(String(cardCvv || "").trim())
-      ) {
-        toast.error("Informe um CVV valido com 3 ou 4 digitos.");
+      if (validationError) {
+        toast.error(validationError);
         return;
       }
     }
@@ -1994,6 +2057,11 @@ export default function Cart() {
                     type="text"
                     placeholder="Nome do titular"
                     value={cardPaymentDraft.holderName}
+                    style={resolveCardFieldStyle(
+                      Boolean(cardFieldErrors.holderName),
+                      String(cardPaymentDraft.holderName || "").trim().length >=
+                        3,
+                    )}
                     onChange={(event) =>
                       handleCardPaymentDraftChange(
                         "holderName",
@@ -2001,12 +2069,21 @@ export default function Cart() {
                       )
                     }
                   />
+                  {cardFieldErrors.holderName ? (
+                    <small style={cardErrorTextStyle}>
+                      {cardFieldErrors.holderName}
+                    </small>
+                  ) : null}
                   <S.CardDraftRow>
                     <input
                       type="text"
                       inputMode="numeric"
                       placeholder="Numero do cartao"
                       value={cardNumber}
+                      style={resolveCardFieldStyle(
+                        Boolean(cardFieldErrors.cardNumber),
+                        String(cardNumber || "").trim().length >= 13,
+                      )}
                       onChange={(event) =>
                         setCardNumber(
                           normalizeCardNumberInput(event.target.value),
@@ -2026,10 +2103,25 @@ export default function Cart() {
                         minHeight: 48,
                         borderRadius: 12,
                         padding: "0.75rem 0.9rem",
-                        border: "1px solid #c9d3e8",
+                        border: cardFieldErrors.brand
+                          ? "1px solid #ef4444"
+                          : showCardFieldErrors &&
+                              paymentMethod === "CARTAO" &&
+                              String(cardPaymentDraft.brand || "").trim()
+                                .length > 0
+                            ? "1px solid #22c55e"
+                            : "1px solid #c9d3e8",
                         background: isDarkMode ? "#1f2937" : "#ffffff",
                         color: "inherit",
                         fontWeight: 700,
+                        boxShadow: cardFieldErrors.brand
+                          ? "0 0 0 1px rgba(239, 68, 68, 0.18)"
+                          : showCardFieldErrors &&
+                              paymentMethod === "CARTAO" &&
+                              String(cardPaymentDraft.brand || "").trim()
+                                .length > 0
+                            ? "0 0 0 1px rgba(34, 197, 94, 0.2)"
+                            : "none",
                       }}
                     >
                       <option value="">Selecione a bandeira</option>
@@ -2040,6 +2132,16 @@ export default function Cart() {
                       ))}
                     </select>
                   </S.CardDraftRow>
+                  {cardFieldErrors.cardNumber ? (
+                    <small style={cardErrorTextStyle}>
+                      {cardFieldErrors.cardNumber}
+                    </small>
+                  ) : null}
+                  {cardFieldErrors.brand ? (
+                    <small style={cardErrorTextStyle}>
+                      {cardFieldErrors.brand}
+                    </small>
+                  ) : null}
                   <div
                     style={{
                       display: "grid",
@@ -2062,7 +2164,9 @@ export default function Cart() {
                             borderRadius: 12,
                             border: isActive
                               ? "2px solid #3f64ff"
-                              : "1px solid #c9d3e8",
+                              : cardFieldErrors.brand
+                                ? "1px solid #ef4444"
+                                : "1px solid #c9d3e8",
                             background: isActive
                               ? "rgba(63, 100, 255, 0.12)"
                               : "transparent",
@@ -2092,6 +2196,13 @@ export default function Cart() {
                       inputMode="numeric"
                       placeholder="Final 1234"
                       value={cardPaymentDraft.lastFour}
+                      style={resolveCardFieldStyle(
+                        Boolean(cardFieldErrors.lastFour),
+                        String(cardPaymentDraft.lastFour || "").replace(
+                          /\D/g,
+                          "",
+                        ).length === 4,
+                      )}
                       onChange={(event) =>
                         handleCardPaymentDraftChange(
                           "lastFour",
@@ -2100,10 +2211,33 @@ export default function Cart() {
                       }
                     />
                     <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="MM/AA"
+                      value={cardExpiry}
+                      style={resolveCardFieldStyle(
+                        Boolean(cardFieldErrors.cardExpiry),
+                        String(cardExpiry || "").trim().length === 5,
+                      )}
+                      onChange={(event) =>
+                        setCardExpiry(
+                          normalizeCardExpiryInput(event.target.value),
+                        )
+                      }
+                    />
+                    <input
                       type="password"
                       inputMode="numeric"
                       placeholder="CVV"
                       value={cardCvv}
+                      style={resolveCardFieldStyle(
+                        Boolean(cardFieldErrors.cardCvv),
+                        /^\d{3,4}$/.test(
+                          String(cardCvv || "")
+                            .replace(/\D/g, "")
+                            .slice(0, 4),
+                        ),
+                      )}
                       onChange={(event) =>
                         setCardCvv(
                           String(event.target.value || "")
@@ -2113,6 +2247,21 @@ export default function Cart() {
                       }
                     />
                   </S.CardLastRow>
+                  {cardFieldErrors.lastFour ? (
+                    <small style={cardErrorTextStyle}>
+                      {cardFieldErrors.lastFour}
+                    </small>
+                  ) : null}
+                  {cardFieldErrors.cardExpiry ? (
+                    <small style={cardErrorTextStyle}>
+                      {cardFieldErrors.cardExpiry}
+                    </small>
+                  ) : null}
+                  {cardFieldErrors.cardCvv ? (
+                    <small style={cardErrorTextStyle}>
+                      {cardFieldErrors.cardCvv}
+                    </small>
+                  ) : null}
                   <div
                     style={{
                       display: "flex",

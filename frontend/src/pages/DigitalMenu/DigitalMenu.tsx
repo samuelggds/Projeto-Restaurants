@@ -32,11 +32,13 @@ import {
 import {
   buildCardPaymentSummary,
   findSavedCard,
+  getCardCheckoutFieldErrors,
   getEmptyCardDraft,
-  isCardDraftComplete,
+  normalizeCardExpiryInput,
   persistCardWallet,
   readCardWallet,
   sanitizeCardDraft,
+  validateCardCheckoutInput,
 } from "../../config/cardPaymentWallet";
 import {
   MAX_RATING_STARS,
@@ -273,7 +275,9 @@ export default function DigitalMenu() {
     return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
   });
   const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
+  const [showCardFieldErrors, setShowCardFieldErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState(null);
@@ -855,6 +859,30 @@ export default function DigitalMenu() {
     }
   }, [paymentMethod]);
 
+  const cardFieldErrors = useMemo(() => {
+    if (!showCardFieldErrors || paymentMethod !== "CARTAO") {
+      return {};
+    }
+
+    const selectedCard = findSavedCard(savedCards, selectedSavedCardId);
+
+    return getCardCheckoutFieldErrors({
+      cardDraft: selectedCard || cardPaymentDraft,
+      cardNumber,
+      cardExpiry,
+      cardCvv,
+    });
+  }, [
+    showCardFieldErrors,
+    paymentMethod,
+    savedCards,
+    selectedSavedCardId,
+    cardPaymentDraft,
+    cardNumber,
+    cardExpiry,
+    cardCvv,
+  ]);
+
   async function handleCopyPixKey() {
     try {
       const pixCode = String(pixPaymentData?.pixCode || "").trim();
@@ -1297,6 +1325,21 @@ export default function DigitalMenu() {
       return;
     }
 
+    if (normalizedPaymentMethod === "CARTAO") {
+      setShowCardFieldErrors(true);
+      const validationError = validateCardCheckoutInput({
+        cardDraft: selectedCard || cardPaymentDraft,
+        cardNumber,
+        cardExpiry,
+        cardCvv,
+      });
+
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+    }
+
     for (const item of cart) {
       const product = products.find(
         (current) => Number(current?.id) === Number(item.productId),
@@ -1499,7 +1542,9 @@ export default function DigitalMenu() {
       setCustomerCpf("");
       setObservation("");
       setCardNumber("");
+      setCardExpiry("");
       setCardCvv("");
+      setShowCardFieldErrors(false);
       setPaymentTiming("LATER");
 
       if (normalizedPaymentMethod === "CARTAO" && Boolean(nextOrder.paid)) {
@@ -1548,14 +1593,18 @@ export default function DigitalMenu() {
     setSelectedSavedCardId(selectedCard.id);
     setCardPaymentDraft(sanitizeCardDraft(selectedCard));
     setCardNumber("");
+    setCardExpiry("");
     setCardCvv("");
+    setShowCardFieldErrors(false);
   }
 
   function handleStartNewSavedCard() {
     setSelectedSavedCardId(null);
     setCardPaymentDraft(getEmptyCardDraft());
     setCardNumber("");
+    setCardExpiry("");
     setCardCvv("");
+    setShowCardFieldErrors(false);
   }
 
   function handleSetDefaultSavedCard(cardId) {
@@ -1570,12 +1619,18 @@ export default function DigitalMenu() {
   }
 
   function handleSaveCurrentCard() {
+    setShowCardFieldErrors(true);
     const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
 
-    if (!isCardDraftComplete(sanitizedDraft)) {
-      toast.error(
-        "Preencha titular, bandeira e os 4 ultimos digitos para salvar o cartao.",
-      );
+    const validationError = validateCardCheckoutInput({
+      cardDraft: sanitizedDraft,
+      cardNumber,
+      cardExpiry,
+      cardCvv,
+    });
+
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -1604,6 +1659,7 @@ export default function DigitalMenu() {
     setSelectedSavedCardId(nextCard.id);
     setDefaultSavedCardId((prev) => prev || nextCard.id);
     setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    setShowCardFieldErrors(false);
     toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
   }
 
@@ -1624,7 +1680,9 @@ export default function DigitalMenu() {
         : getEmptyCardDraft(),
     );
     setCardNumber("");
+    setCardExpiry("");
     setCardCvv("");
+    setShowCardFieldErrors(false);
     toast.info("Cartao removido.");
   }
 
@@ -2065,7 +2123,10 @@ export default function DigitalMenu() {
                 defaultSavedCardId={defaultSavedCardId}
                 cardPaymentDraft={cardPaymentDraft}
                 cardNumber={cardNumber}
+                cardExpiry={cardExpiry}
                 cardCvv={cardCvv}
+                cardFieldErrors={cardFieldErrors}
+                showCardFieldFeedback={showCardFieldErrors}
                 setCustomerName={setCustomerName}
                 onCustomerCpfChange={(value) =>
                   setCustomerCpf(formatCpfInput(value))
@@ -2080,6 +2141,9 @@ export default function DigitalMenu() {
                 onSaveCurrentCard={handleSaveCurrentCard}
                 onRemoveSavedCard={handleRemoveSavedCard}
                 onCardNumberChange={setCardNumber}
+                onCardExpiryChange={(value) =>
+                  setCardExpiry(normalizeCardExpiryInput(value))
+                }
                 onCardCvvChange={setCardCvv}
                 handleFinishOrder={handleFinishOrder}
                 submitting={submitting}

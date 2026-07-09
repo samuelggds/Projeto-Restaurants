@@ -39,7 +39,7 @@ class LoginService {
         );
       }
 
-      throw new Error("Email ou senha inválidos!");
+      throw new Error("Senha incorreta!");
     }
     if (!user.active) {
       await loginLockoutService.registerFailure(normalizedEmail);

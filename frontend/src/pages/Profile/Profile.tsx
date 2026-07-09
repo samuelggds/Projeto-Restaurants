@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
@@ -13,10 +13,11 @@ import {
 import {
   findSavedCard,
   getEmptyCardDraft,
-  isCardDraftComplete,
+  getSavedCardFieldErrors,
   persistCardWallet,
   readCardWallet,
   sanitizeCardDraft,
+  validateSavedCardInput,
 } from "../../config/cardPaymentWallet";
 import { useAuth } from "../../contexts/authContext";
 import authService from "../../Services/authService";
@@ -156,6 +157,15 @@ export default function Profile() {
 
     return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
   });
+  const [showCardFieldFeedback, setShowCardFieldFeedback] = useState(false);
+
+  const cardFieldErrors = useMemo(() => {
+    if (!showCardFieldFeedback) {
+      return {};
+    }
+
+    return getSavedCardFieldErrors(cardPaymentDraft);
+  }, [showCardFieldFeedback, cardPaymentDraft]);
 
   // Atualiza o localStorage sempre que os endereços mudarem
   useEffect(() => {
@@ -334,6 +344,7 @@ export default function Profile() {
 
     setSelectedSavedCardId(selectedCard.id);
     setCardPaymentDraft(sanitizeCardDraft(selectedCard));
+    setShowCardFieldFeedback(false);
   };
 
   const handleSetDefaultSavedCard = (cardId) => {
@@ -346,21 +357,24 @@ export default function Profile() {
     setDefaultSavedCardId(selectedCard.id);
     setSelectedSavedCardId(selectedCard.id);
     setCardPaymentDraft(sanitizeCardDraft(selectedCard));
+    setShowCardFieldFeedback(false);
     toast.success("Cartao padrao atualizado.");
   };
 
   const handleStartNewSavedCard = () => {
     setSelectedSavedCardId(null);
     setCardPaymentDraft(getEmptyCardDraft());
+    setShowCardFieldFeedback(false);
   };
 
   const handleSaveCurrentCard = () => {
+    setShowCardFieldFeedback(true);
     const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
 
-    if (!isCardDraftComplete(sanitizedDraft)) {
-      toast.warning(
-        "Preencha titular, bandeira e os 4 ultimos digitos para salvar o cartao.",
-      );
+    const validationError = validateSavedCardInput(sanitizedDraft);
+
+    if (validationError) {
+      toast.warning(validationError);
       return;
     }
 
@@ -389,6 +403,7 @@ export default function Profile() {
     setSelectedSavedCardId(nextCard.id);
     setDefaultSavedCardId((prev) => prev || nextCard.id);
     setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    setShowCardFieldFeedback(false);
     toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
   };
 
@@ -408,6 +423,7 @@ export default function Profile() {
         ? sanitizeCardDraft(findSavedCard(nextCards, nextSelectedCardId))
         : getEmptyCardDraft(),
     );
+    setShowCardFieldFeedback(false);
     toast.info("Cartao removido.");
   };
 
@@ -470,6 +486,8 @@ export default function Profile() {
                 selectedSavedCardId={selectedSavedCardId}
                 defaultSavedCardId={defaultSavedCardId}
                 cardPaymentDraft={cardPaymentDraft}
+                cardFieldErrors={cardFieldErrors}
+                showCardFieldFeedback={showCardFieldFeedback}
                 onNovoEnderecoChange={setNovoEndereco}
                 onAddEndereco={handleAddEndereco}
                 onSelectEndereco={handleSelectEndereco}

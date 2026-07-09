@@ -232,8 +232,7 @@ export default function Login() {
       redirectByRole(response.user);
     } catch (error) {
       const message =
-        error?.message ||
-        error.response?.data?.error ||
+        error?.response?.data?.error ||
         (error.request
           ? "Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente."
           : "Erro ao fazer login!");

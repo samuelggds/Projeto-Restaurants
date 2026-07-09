@@ -3,6 +3,7 @@ import {
   CARD_BRAND_OPTIONS,
   getCardBrandDisplay,
   getCardBrandLogo,
+  normalizeCardExpiryInput,
 } from "../../../config/cardPaymentWallet";
 import * as S from "../styles";
 
@@ -158,7 +159,17 @@ type OrderDrawerProps = {
     lastFour: string;
   };
   cardNumber: string;
+  cardExpiry: string;
   cardCvv: string;
+  cardFieldErrors?: {
+    holderName?: string;
+    brand?: string;
+    cardNumber?: string;
+    lastFour?: string;
+    cardExpiry?: string;
+    cardCvv?: string;
+  };
+  showCardFieldFeedback?: boolean;
   setCustomerName: (value: string) => void;
   onCustomerCpfChange: (value: string) => void;
   setPaymentMethod: (value: string) => void;
@@ -171,6 +182,7 @@ type OrderDrawerProps = {
   onSaveCurrentCard: () => void;
   onRemoveSavedCard: (cardId: string) => void;
   onCardNumberChange: (value: string) => void;
+  onCardExpiryChange: (value: string) => void;
   onCardCvvChange: (value: string) => void;
   handleFinishOrder: () => void;
   submitting: boolean;
@@ -206,7 +218,10 @@ export default function OrderDrawer({
   defaultSavedCardId,
   cardPaymentDraft,
   cardNumber,
+  cardExpiry,
   cardCvv,
+  cardFieldErrors = {},
+  showCardFieldFeedback = false,
   setCustomerName,
   onCustomerCpfChange,
   setPaymentMethod,
@@ -219,6 +234,7 @@ export default function OrderDrawer({
   onSaveCurrentCard,
   onRemoveSavedCard,
   onCardNumberChange,
+  onCardExpiryChange,
   onCardCvvChange,
   handleFinishOrder,
   submitting,
@@ -234,6 +250,36 @@ export default function OrderDrawer({
   const cardPreviewDigits = maskCardDigits(cardNumber);
   const cardPreviewHolder = resolveCardHolderName(cardPaymentDraft.holderName);
   const cardPreviewCvv = String(cardCvv || "").trim() || "789";
+  const cardErrorTextStyle = {
+    color: "#dc2626",
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: 600,
+  } as const;
+  const cardFieldErrorStyle = {
+    border: "1px solid #ef4444",
+    boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.18)",
+  } as const;
+  const cardFieldValidStyle = {
+    border: "1px solid #22c55e",
+    boxShadow: "0 0 0 1px rgba(34, 197, 94, 0.2)",
+  } as const;
+
+  function resolveCardFieldStyle(hasError: boolean, isValid: boolean) {
+    if (!showCardFieldFeedback || paymentMethod !== "CARTAO") {
+      return undefined;
+    }
+
+    if (hasError) {
+      return cardFieldErrorStyle;
+    }
+
+    if (isValid) {
+      return cardFieldValidStyle;
+    }
+
+    return undefined;
+  }
 
   function getStepState(
     index: number,
@@ -261,14 +307,9 @@ export default function OrderDrawer({
 
       <S.Drawer $open={drawerOpen}>
         <S.DrawerHeader>
-          <h2>Seu Pedido</h2>
-          <S.DrawerTotal>R$ {toPrice(cartTotal)}</S.DrawerTotal>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(false)}
-            aria-label="Fechar"
-          >
-            <X size={16} />
+          <h2>Pedido da mesa</h2>
+          <button type="button" onClick={() => setDrawerOpen(false)}>
+            <X size={18} />
           </button>
         </S.DrawerHeader>
 
@@ -798,6 +839,14 @@ export default function OrderDrawer({
                         type="text"
                         placeholder="Como aparece no cartao"
                         value={cardPaymentDraft.holderName}
+                        style={
+                          cardFieldErrors.holderName
+                            ? {
+                                border: "1px solid #ef4444",
+                                boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.18)",
+                              }
+                            : undefined
+                        }
                         onChange={(event) =>
                           onCardPaymentDraftChange(
                             "holderName",
@@ -805,6 +854,11 @@ export default function OrderDrawer({
                           )
                         }
                       />
+                      {cardFieldErrors.holderName ? (
+                        <small style={cardErrorTextStyle}>
+                          {cardFieldErrors.holderName}
+                        </small>
+                      ) : null}
                     </S.Label>
 
                     <S.Label>
@@ -815,6 +869,10 @@ export default function OrderDrawer({
                           inputMode="numeric"
                           placeholder="Numero do cartao"
                           value={cardNumber}
+                          style={resolveCardFieldStyle(
+                            Boolean(cardFieldErrors.cardNumber),
+                            String(cardNumber || "").trim().length >= 13,
+                          )}
                           onChange={(event) =>
                             onCardNumberChange(
                               String(event.target.value || "")
@@ -839,6 +897,24 @@ export default function OrderDrawer({
                                 }
                                 $active={isActive}
                                 $accent={brandDisplay.accent}
+                                style={
+                                  !isActive && cardFieldErrors.brand
+                                    ? {
+                                        border: "1px solid #ef4444",
+                                        boxShadow:
+                                          "0 0 0 1px rgba(239, 68, 68, 0.18)",
+                                      }
+                                    : isActive &&
+                                        showCardFieldFeedback &&
+                                        paymentMethod === "CARTAO" &&
+                                        !cardFieldErrors.brand
+                                      ? {
+                                          border: "2px solid #22c55e",
+                                          boxShadow:
+                                            "0 0 0 1px rgba(34, 197, 94, 0.2)",
+                                        }
+                                      : undefined
+                                }
                               >
                                 <S.CardBrandLogo
                                   src={getCardBrandLogo(brand)}
@@ -851,12 +927,29 @@ export default function OrderDrawer({
                           })}
                         </S.BrandOptionGrid>
                       </S.CardDraftRow>
+                      {cardFieldErrors.cardNumber ? (
+                        <small style={cardErrorTextStyle}>
+                          {cardFieldErrors.cardNumber}
+                        </small>
+                      ) : null}
+                      {cardFieldErrors.brand ? (
+                        <small style={cardErrorTextStyle}>
+                          {cardFieldErrors.brand}
+                        </small>
+                      ) : null}
                       <S.CardLastRow>
                         <input
                           type="text"
                           inputMode="numeric"
                           placeholder="Final 1234"
                           value={cardPaymentDraft.lastFour}
+                          style={resolveCardFieldStyle(
+                            Boolean(cardFieldErrors.lastFour),
+                            String(cardPaymentDraft.lastFour || "").replace(
+                              /\D/g,
+                              "",
+                            ).length === 4,
+                          )}
                           onChange={(event) =>
                             onCardPaymentDraftChange(
                               "lastFour",
@@ -865,10 +958,33 @@ export default function OrderDrawer({
                           }
                         />
                         <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="MM/AA"
+                          value={cardExpiry}
+                          style={resolveCardFieldStyle(
+                            Boolean(cardFieldErrors.cardExpiry),
+                            String(cardExpiry || "").trim().length === 5,
+                          )}
+                          onChange={(event) =>
+                            onCardExpiryChange(
+                              normalizeCardExpiryInput(event.target.value),
+                            )
+                          }
+                        />
+                        <input
                           type="password"
                           inputMode="numeric"
                           placeholder="CVV"
                           value={cardCvv}
+                          style={resolveCardFieldStyle(
+                            Boolean(cardFieldErrors.cardCvv),
+                            /^\d{3,4}$/.test(
+                              String(cardCvv || "")
+                                .replace(/\D/g, "")
+                                .slice(0, 4),
+                            ),
+                          )}
                           onChange={(event) =>
                             onCardCvvChange(
                               String(event.target.value || "")
@@ -878,6 +994,21 @@ export default function OrderDrawer({
                           }
                         />
                       </S.CardLastRow>
+                      {cardFieldErrors.lastFour ? (
+                        <small style={cardErrorTextStyle}>
+                          {cardFieldErrors.lastFour}
+                        </small>
+                      ) : null}
+                      {cardFieldErrors.cardExpiry ? (
+                        <small style={cardErrorTextStyle}>
+                          {cardFieldErrors.cardExpiry}
+                        </small>
+                      ) : null}
+                      {cardFieldErrors.cardCvv ? (
+                        <small style={cardErrorTextStyle}>
+                          {cardFieldErrors.cardCvv}
+                        </small>
+                      ) : null}
                     </S.Label>
 
                     <S.CardActionRow>
