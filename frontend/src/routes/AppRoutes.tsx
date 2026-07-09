@@ -94,7 +94,8 @@ function SuperAdminScopeGuard() {
   const location = useLocation();
 
   if (isLoading) {
-    return null;
+    // Keep public routes visible while auth bootstrap is in progress.
+    return <Outlet />;
   }
 
   if (
