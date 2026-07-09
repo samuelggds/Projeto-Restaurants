@@ -53,9 +53,14 @@ function getHostCandidates(host) {
     typeof window !== "undefined" && window.location.protocol === "https:"
       ? "https:"
       : "http:";
-  const alternateProtocol = protocol === "https:" ? "http:" : "https:";
+  const candidates = [`${protocol}//${host}:3000`];
 
-  return [`${protocol}//${host}:3000`, `${alternateProtocol}//${host}:3000`];
+  // Never try insecure HTTP fallbacks when the app is served over HTTPS.
+  if (protocol !== "https:") {
+    candidates.push(`https://${host}:3000`);
+  }
+
+  return candidates;
 }
 
 function getSocketBaseUrls() {
@@ -64,14 +69,32 @@ function getSocketBaseUrls() {
   const runtimeCandidates =
     getHostCandidates(runtimeHost).map(normalizeBaseUrl);
   const runtimeUrl = normalizeBaseUrl(getRuntimeSocketUrl());
+  const sameOriginUrl =
+    typeof window !== "undefined"
+      ? normalizeBaseUrl(window.location.origin)
+      : "";
   const defaultLoopbackUrl = "http://127.0.0.1:3000";
   const defaultLocalUrl = "http://localhost:3000";
   const urls = new Set<string>();
+  const isLocalRuntimeHost = LOCAL_HOSTS.includes(runtimeHost);
 
   // Keep the socket pinned to the same local backend preference used by axios.
-  if (LOCAL_HOSTS.includes(runtimeHost)) {
+  if (isLocalRuntimeHost) {
     urls.add(defaultLoopbackUrl);
     urls.add(defaultLocalUrl);
+  }
+
+  // In production-like hosts, never fall back to host:3000.
+  if (!isLocalRuntimeHost) {
+    if (configuredUrl) {
+      urls.add(configuredUrl);
+    }
+
+    if (sameOriginUrl) {
+      urls.add(sameOriginUrl);
+    }
+
+    return Array.from(urls);
   }
 
   if (runtimeUrl) {
@@ -92,7 +115,16 @@ function getSocketBaseUrls() {
 }
 
 function getSocketBaseUrl() {
-  return getSocketBaseUrls()[0] || "http://127.0.0.1:3000";
+  const baseUrls = getSocketBaseUrls();
+  if (baseUrls[0]) {
+    return baseUrls[0];
+  }
+
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return "http://127.0.0.1:3000";
 }
 
 function normalizeAuthValue(value) {
