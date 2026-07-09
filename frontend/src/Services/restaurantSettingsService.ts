@@ -20,6 +20,11 @@ class RestaurantSettingsService {
     const response = await api.get(`/settings/public/${restaurantId}`);
     return response.data;
   }
+
+  async getPublicSettingsBySlug(slug) {
+    const response = await api.get(`/settings/public/slug/${slug}`);
+    return response.data;
+  }
 }
 
 export default new RestaurantSettingsService();

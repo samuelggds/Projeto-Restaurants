@@ -9,6 +9,14 @@ class MenuService {
     return response.data?.products || [];
   }
 
+  async listProductsBySlug(slug) {
+    const response = await api.get("/products", {
+      params: { slug },
+    });
+
+    return response.data?.products || [];
+  }
+
   async listProductRatings(restaurantId, clientKey) {
     const response = await api.get("/products/ratings", {
       params: {

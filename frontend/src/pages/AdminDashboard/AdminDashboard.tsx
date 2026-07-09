@@ -545,7 +545,7 @@ function resolveMenuBaseUrl() {
   }
 }
 
-function getTableQrValue(table) {
+function getTableQrValue(table, restaurantSlug) {
   const tableNumber = Number(table?.number) || 0;
   const tableId = Number(table?.id) || 0;
   const restaurantId = Number(table?.restaurantId) || 0;
@@ -560,6 +560,10 @@ function getTableQrValue(table) {
   }
 
   const menuBaseUrl = resolveMenuBaseUrl() || window.location.origin;
+
+  if (restaurantSlug) {
+    return `${menuBaseUrl}/${restaurantSlug}/mesa/${tableNumber}?tableId=${tableId}&restaurantId=${restaurantId}`;
+  }
 
   return `${menuBaseUrl}/mesa/${tableNumber}?tableId=${tableId}&restaurantId=${restaurantId}`;
 }
@@ -775,6 +779,7 @@ export default function AdminDashboard() {
   const [settingsForm, setSettingsForm] = useState({
     id: null,
     restaurantName: "",
+    restaurantSlug: "",
     restaurantLogo: "",
     restaurantCoverImage: "",
     deliveryFee: "",
@@ -1052,6 +1057,7 @@ export default function AdminDashboard() {
         setSettingsForm({
           id: settings.id || null,
           restaurantName: String(settings?.restaurant?.name || ""),
+          restaurantSlug: String(settings?.restaurant?.slug || ""),
           restaurantLogo: String(settings?.restaurant?.logo || ""),
           restaurantCoverImage: String(settings?.restaurant?.coverImage || ""),
           deliveryFee:
@@ -1131,6 +1137,9 @@ export default function AdminDashboard() {
       mounted = false;
     };
   }, []);
+
+  const getRestaurantTableQrValue = (table) =>
+    getTableQrValue(table, String(settingsForm.restaurantSlug || "").trim());
 
   useEffect(() => {
     let mounted = true;
@@ -2850,7 +2859,7 @@ export default function AdminDashboard() {
   };
   const handleCopyTableQrLink = async (table) => {
     try {
-      const qrValue = getTableQrValue(table);
+      const qrValue = getRestaurantTableQrValue(table);
 
       if (!navigator?.clipboard?.writeText) {
         throw new Error("Seu navegador não permite copiar automaticamente.");
@@ -3975,7 +3984,7 @@ export default function AdminDashboard() {
                 tableNumber={tableNumber}
                 setTableNumber={setTableNumber}
                 tables={tables}
-                getTableQrValue={getTableQrValue}
+                getTableQrValue={getRestaurantTableQrValue}
                 qrCardRefs={qrCardRefs}
                 handlePreviewTableQr={handlePreviewTableQr}
                 handleCopyTableQrLink={handleCopyTableQrLink}
