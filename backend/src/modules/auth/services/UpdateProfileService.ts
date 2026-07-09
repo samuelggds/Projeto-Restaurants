@@ -22,7 +22,9 @@ class UpdateProfileService {
       throw new Error("Usuário não encontrado!");
     }
 
-    const nextEmail = String(profileData.email || "").trim();
+    const nextEmail = String(profileData.email || "")
+      .trim()
+      .toLowerCase();
     if (nextEmail && nextEmail !== currentUser.email) {
       const emailInUse = await userRepository.findByEmail(nextEmail);
 

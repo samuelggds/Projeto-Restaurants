@@ -22,7 +22,7 @@ class LoginService {
       throw new Error("Dados inválidos");
     }
 
-    const user = await userRepository.findByEmail(email);
+    const user = await userRepository.findByEmail(normalizedEmail);
 
     if (!user) {
       await loginLockoutService.registerFailure(normalizedEmail);

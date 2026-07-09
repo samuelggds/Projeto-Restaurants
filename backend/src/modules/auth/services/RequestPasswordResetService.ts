@@ -73,7 +73,9 @@ class RequestPasswordResetService {
   async execute({ email, phone }: { email?: string; phone?: string }) {
     forgotPasswordSchema.parse({ email, phone });
 
-    const normalizedEmail = String(email || "").trim();
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
     const normalizedPhone = String(phone || "").trim();
 
     const user = normalizedEmail

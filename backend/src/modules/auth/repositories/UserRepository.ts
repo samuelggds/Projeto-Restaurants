@@ -5,9 +5,20 @@ type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class UserRepository {
   async findByEmail(email: string, db: PrismaClientLike = prisma) {
-    return db.user.findUnique({
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!normalizedEmail) {
+      return null;
+    }
+
+    return db.user.findFirst({
       where: {
-        email,
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
       },
     });
   }

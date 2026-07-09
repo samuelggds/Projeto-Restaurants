@@ -2324,6 +2324,61 @@ export default function Cart() {
                 marginBottom: "2rem",
               }}
             >
+              <div
+                style={{
+                  marginBottom: "0.9rem",
+                  paddingBottom: "0.7rem",
+                  borderBottom: `1px dashed ${isDarkMode ? "rgba(148,163,184,0.35)" : "rgba(71,85,105,0.25)"}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    color: isDarkMode ? "#cbd5e1" : "#334155",
+                    marginBottom: "0.45rem",
+                  }}
+                >
+                  Resumo da entrega e pagamento
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "0.25rem",
+                    fontSize: "0.9rem",
+                    color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                  }}
+                >
+                  <div>
+                    <strong>Tipo:</strong>{" "}
+                    {isMesa
+                      ? "Mesa"
+                      : orderType === "DELIVERY"
+                        ? "Delivery"
+                        : "Retirada"}
+                  </div>
+                  <div>
+                    <strong>Pagamento:</strong>{" "}
+                    {paymentMethod === "PIX" ? "PIX" : "Cartao"}
+                  </div>
+                  {isDelivery && customerPhone ? (
+                    <div>
+                      <strong>Contato:</strong> {customerPhone}
+                    </div>
+                  ) : null}
+                  {isDelivery ? (
+                    <div>
+                      <strong>Endereco:</strong>{" "}
+                      {[endereco.logradouro, endereco.numero, endereco.bairro]
+                        .filter(Boolean)
+                        .join(", ") || "Preencha para concluir"}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
               {isDelivery && (
                 <div
                   style={{

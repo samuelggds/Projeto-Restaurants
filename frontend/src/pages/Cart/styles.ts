@@ -254,7 +254,7 @@ export const DrawerContainer = styled.div`
 
 export const DrawerHeader = styled.div`
   padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid ${(props) => props.theme.border};
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -264,21 +264,30 @@ export const DrawerHeader = styled.div`
     margin: 0;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #ffffff;
+    color: ${(props) => props.theme.text};
   }
 
   button {
     background: none;
     border: none;
-    color: #ffffff;
+    color: ${(props) => props.theme.text};
     cursor: pointer;
     display: flex;
     align-items: center;
-    opacity: 0.7;
-    transition: opacity 0.2s;
+    opacity: 0.88;
+    transition:
+      opacity 0.2s,
+      color 0.2s;
+
+    &:focus-visible {
+      outline: 2px solid ${(props) => props.theme.primary};
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
 
     &:hover {
       opacity: 1;
+      color: ${(props) => props.theme.primary};
     }
   }
 `;
