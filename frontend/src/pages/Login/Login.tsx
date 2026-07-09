@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
 import { Utensils, Sun, Moon } from "lucide-react";
@@ -9,6 +9,7 @@ import * as S from "./styles";
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [email, setEmail] = useState("");
@@ -76,8 +77,31 @@ export default function Login() {
     return authService.getGoogleClientId();
   }, []);
 
+  const getSafeNextPath = useCallback(() => {
+    const rawNext = String(searchParams.get("next") || "").trim();
+
+    if (!rawNext || !rawNext.startsWith("/") || rawNext.startsWith("//")) {
+      return "";
+    }
+
+    const blockedPaths = new Set(["/login", "/register", "/recover-password"]);
+    const normalizedPath = rawNext.toLowerCase();
+
+    if (blockedPaths.has(normalizedPath)) {
+      return "";
+    }
+
+    return rawNext;
+  }, [searchParams]);
+
   const redirectByRole = useCallback(
     (user) => {
+      const nextPath = getSafeNextPath();
+      if (nextPath) {
+        navigate(nextPath);
+        return;
+      }
+
       if (user?.role === "SUPER_ADMIN") {
         navigate("/super_admin");
         return;
@@ -100,7 +124,7 @@ export default function Login() {
 
       navigate("/");
     },
-    [navigate],
+    [getSafeNextPath, navigate],
   );
 
   const completeLoginWithMfaIfNeeded = useCallback(async (authResponse) => {
