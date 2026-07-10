@@ -644,12 +644,13 @@ export const SavedCardBrandIdentity = styled.div`
 `;
 
 export const CardBrandLogo = styled.img`
-  width: 40px;
-  height: 24px;
+  width: 62px;
+  height: 20px;
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 0.35rem;
-  padding: 0.15rem;
+  background: transparent;
+  padding: 0;
+  border: none;
+  filter: none;
 `;
 
 export const SavedCardState = styled.span`
@@ -754,23 +755,25 @@ export const CardMiniAction = styled.button`
 `;
 
 export const CardVisualPreview = styled.div`
-  border-radius: 16px;
-  padding: 1rem;
-  min-height: 156px;
+  width: min(240px, 100%);
+  margin: 0 auto;
+  border-radius: 14px;
+  padding: 0.62rem;
+  min-height: 112px;
   background:
     linear-gradient(140deg, rgba(64, 93, 255, 0.98), rgba(76, 106, 255, 0.95)),
     linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
   position: relative;
   overflow: hidden;
-  box-shadow: 0 14px 26px rgba(31, 52, 150, 0.3);
+  box-shadow: 0 10px 20px rgba(31, 52, 150, 0.24);
 
   &::before {
     content: "";
     position: absolute;
-    top: -24px;
-    right: -16px;
-    width: 140px;
-    height: 140px;
+    top: -20px;
+    right: -12px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.11);
   }
@@ -780,8 +783,8 @@ export const CardVisualPreview = styled.div`
     position: absolute;
     left: 36%;
     top: 18%;
-    width: 90px;
-    height: 90px;
+    width: 60px;
+    height: 60px;
     transform: rotate(45deg);
     background: rgba(10, 15, 36, 0.13);
     border-radius: 12px;
@@ -797,8 +800,8 @@ export const CardVisualTop = styled.div`
 `;
 
 export const CardChip = styled.span`
-  width: 28px;
-  height: 22px;
+  width: 20px;
+  height: 16px;
   border-radius: 5px;
   background: linear-gradient(135deg, #f8df8c, #f2ba53);
   box-shadow: inset 0 0 0 1px rgba(116, 86, 27, 0.28);
@@ -807,45 +810,46 @@ export const CardChip = styled.span`
 export const CardVisualNumber = styled.div`
   position: relative;
   z-index: 1;
-  margin-top: 1.7rem;
+  margin-top: 1rem;
   color: #ffffff;
-  letter-spacing: 0.17em;
-  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  letter-spacing: 0.11em;
+  font-size: 0.7rem;
   font-weight: 700;
 `;
 
 export const CardVisualFooter = styled.div`
   position: relative;
   z-index: 1;
-  margin-top: 1.2rem;
+  margin-top: 0.68rem;
   display: flex;
+  align-items: end;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.7rem;
+  color: #ffffff;
 
   .left,
   .right {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
+    display: grid;
+    gap: 0.12rem;
     min-width: 0;
   }
 
   .right {
-    align-items: flex-end;
+    align-items: end;
   }
 
   small {
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 0.67rem;
+    font-size: 0.45rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    opacity: 0.82;
   }
 
   strong {
-    color: #f8fafc;
-    font-size: 0.78rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.09em;
     font-weight: 700;
-    max-width: 18ch;
+    max-width: 16ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
