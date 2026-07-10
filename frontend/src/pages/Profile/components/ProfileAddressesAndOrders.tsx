@@ -520,10 +520,9 @@ export default function ProfileAddressesAndOrders({
             <S.CardVisualNumber>{cardPreviewDigits}</S.CardVisualNumber>
             <S.CardVisualFooter>
               <div className="left">
-                <small>Bandeira</small>
+                <small>Final</small>
                 <strong>
-                  {getCardBrandDisplay(cardPaymentDraft.brand).label ||
-                    "Cartao"}
+                  {String(cardPaymentDraft.lastFour || "").trim() || "0000"}
                 </strong>
               </div>
               <div className="right">
@@ -551,6 +550,45 @@ export default function ProfileAddressesAndOrders({
               </small>
             ) : null}
           </div>
+          <div className="form-row text-full">
+            <select
+              value={cardPaymentDraft.brand}
+              onChange={(event) =>
+                onCardPaymentDraftChange("brand", event.target.value)
+              }
+              style={{
+                width: "100%",
+                minHeight: 48,
+                borderRadius: 12,
+                padding: "0.75rem 0.9rem",
+                border: cardFieldErrors.brand
+                  ? "1px solid #ef4444"
+                  : showCardFieldFeedback &&
+                      String(cardPaymentDraft.brand || "").trim().length > 0
+                    ? "1px solid #22c55e"
+                    : "1px solid #c9d3e8",
+                background: "transparent",
+                color: "inherit",
+                fontWeight: 700,
+                boxShadow: cardFieldErrors.brand
+                  ? "0 0 0 1px rgba(239, 68, 68, 0.18)"
+                  : showCardFieldFeedback &&
+                      String(cardPaymentDraft.brand || "").trim().length > 0
+                    ? "0 0 0 1px rgba(34, 197, 94, 0.2)"
+                    : "none",
+              }}
+            >
+              <option value="">Selecione a bandeira</option>
+              {CARD_BRAND_OPTIONS.map((brand) => (
+                <option key={brand} value={brand}>
+                  {getCardBrandDisplay(brand).label}
+                </option>
+              ))}
+            </select>
+            {cardFieldErrors.brand ? (
+              <small style={cardErrorTextStyle}>{cardFieldErrors.brand}</small>
+            ) : null}
+          </div>
           <div className="form-row split-bairro">
             <div
               style={{
@@ -562,8 +600,6 @@ export default function ProfileAddressesAndOrders({
               {CARD_BRAND_OPTIONS.map((brand) => {
                 const isActive = cardPaymentDraft.brand === brand;
                 const brandDisplay = getCardBrandDisplay(brand);
-                const cardDigitsPreview =
-                  String(cardPaymentDraft.lastFour || "").trim() || "1234";
 
                 return (
                   <button
@@ -571,7 +607,7 @@ export default function ProfileAddressesAndOrders({
                     type="button"
                     onClick={() => onCardPaymentDraftChange("brand", brand)}
                     style={{
-                      minHeight: 54,
+                      minHeight: 58,
                       borderRadius: 12,
                       border: isActive
                         ? "2px solid #3f64ff"
@@ -587,10 +623,10 @@ export default function ProfileAddressesAndOrders({
                         : "transparent",
                       color: "inherit",
                       cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "0.4rem",
+                      display: "grid",
+                      justifyItems: "center",
+                      alignContent: "center",
+                      gap: "0.25rem",
                       padding: "0.45rem 0.5rem",
                       boxShadow:
                         !isActive &&
@@ -609,29 +645,23 @@ export default function ProfileAddressesAndOrders({
                       src={getCardBrandLogo(brand)}
                       alt={`Bandeira ${brandDisplay.label}`}
                       style={{
-                        width: 38,
+                        width: 40,
                         height: 24,
                         objectFit: "contain",
-                        flexShrink: 0,
                       }}
                     />
                     <span
                       style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.02em",
-                        textTransform: "uppercase",
+                        fontSize: 11,
+                        fontWeight: 700,
                       }}
                     >
-                      {`•••• ${cardDigitsPreview}`}
+                      {brandDisplay.label}
                     </span>
                   </button>
                 );
               })}
             </div>
-            {cardFieldErrors.brand ? (
-              <small style={cardErrorTextStyle}>{cardFieldErrors.brand}</small>
-            ) : null}
             <input
               className="card-last-four-input"
               type="text"
@@ -681,8 +711,9 @@ export default function ProfileAddressesAndOrders({
               opacity: 0.72,
             }}
           >
-            Por seguranca, ficam salvos apenas titular, bandeira e os 4 ultimos
-            digitos. Numero completo e CVV nao sao armazenados.
+            Por seguranca, este aparelho salva apenas titular, bandeira e os 4
+            ultimos digitos do cartao. Numero completo e CVV nao sao
+            armazenados.
           </p>
         </S.AddressForm>
       </S.OrdersCard>
