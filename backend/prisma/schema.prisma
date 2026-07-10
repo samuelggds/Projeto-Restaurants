@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                         Int                 @id @default(autoincrement())
+  id                         Int                  @id @default(autoincrement())
   name                       String
-  email                      String              @unique
+  email                      String               @unique
   password                   String
   address                    String?
   city                       String?
@@ -19,54 +19,74 @@ model User {
   number                     String?
   state                      String?
   zipCode                    String?
-  active                     Boolean             @default(true)
-  createdAt                  DateTime            @default(now())
+  active                     Boolean              @default(true)
+  createdAt                  DateTime             @default(now())
   phone                      String?
   restaurantId               Int?
-  updatedAt                  DateTime            @updatedAt
-  role                       UserRole            @default(CLIENTE)
+  updatedAt                  DateTime             @updatedAt
+  role                       UserRole             @default(CLIENTE)
   cpf                        String?
   resetPasswordCodeExpiresAt DateTime?
   resetPasswordCodeHash      String?
-  mustChangePassword         Boolean             @default(false)
+  mustChangePassword         Boolean              @default(false)
   authMfaChallenge           AuthMfaChallenge?
   authRefreshSession         AuthRefreshSession?
   orders                     Order[]
-  closedTableSessions        TableSession[]      @relation("ClosedTableSessions")
-  openedTableSessions        TableSession[]      @relation("OpenedTableSessions")
-  restaurant                 Restaurant?         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderIssueThreads          OrderIssueThread[]
+  closedTableSessions        TableSession[]       @relation("ClosedTableSessions")
+  openedTableSessions        TableSession[]       @relation("OpenedTableSessions")
+  restaurant                 Restaurant?          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  supportChatMessages        SupportChatMessage[]
 }
 
 model Restaurant {
-  id           Int                 @id @default(autoincrement())
-  name         String
-  slug         String              @unique
-  email        String              @unique
-  phone        String?
-  whatsapp     String?
-  cnpj         String?             @unique
-  logo         String?
-  coverImage   String?
-  description  String?
-  address      String?
-  city         String?
-  state        String?
-  zipCode      String?
-  openingHours String?
-  active       Boolean             @default(true)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  banners      Banner[]
-  categories   Category[]
-  coupons      Coupon[]
-  invoices     Invoice[]
-  orders       Order[]
-  products     Product[]
-  ratings      ProductRating[]
-  settings     RestaurantSettings?
-  subscription Subscription?
-  tables       Table[]
-  users        User[]
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  slug                String               @unique
+  email               String               @unique
+  phone               String?
+  whatsapp            String?
+  cnpj                String?              @unique
+  logo                String?
+  coverImage          String?
+  description         String?
+  address             String?
+  city                String?
+  state               String?
+  zipCode             String?
+  openingHours        String?
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  banners             Banner[]
+  categories          Category[]
+  coupons             Coupon[]
+  invoices            Invoice[]
+  orders              Order[]
+  products            Product[]
+  ratings             ProductRating[]
+  settings            RestaurantSettings?
+  supportChatMessages SupportChatMessage[]
+  subscription        Subscription?
+  tables              Table[]
+  users               User[]
+  orderIssueThreads   OrderIssueThread[]
+}
+
+model SupportChatMessage {
+  id           Int                   @id @default(autoincrement())
+  restaurantId Int
+  senderUserId Int?
+  senderRole   SupportChatSenderRole
+  senderLabel  String
+  message      String
+  sentAt       DateTime              @default(now())
+  createdAt    DateTime              @default(now())
+  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  senderUser   User?                 @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, sentAt])
+  @@index([senderUserId, sentAt])
 }
 
 model Category {
@@ -151,9 +171,9 @@ model TableSession {
 }
 
 model Order {
-  id                              Int            @id @default(autoincrement())
-  total                           Decimal        @db.Decimal(10, 2)
-  createdAt                       DateTime       @default(now())
+  id                              Int               @id @default(autoincrement())
+  total                           Decimal           @db.Decimal(10, 2)
+  createdAt                       DateTime          @default(now())
   userId                          Int
   address                         String?
   city                            String?
@@ -163,15 +183,17 @@ model Order {
   state                           String?
   zipCode                         String?
   observation                     String?
-  paid                            Boolean        @default(false)
+  paid                            Boolean           @default(false)
   paymentMethod                   PaymentMethod?
+  payOnDelivery                   Boolean           @default(false)
+  payOnDeliveryMethod             PaymentMethod?
   restaurantId                    Int
   tableId                         Int?
   type                            OrderType
-  updatedAt                       DateTime       @updatedAt
-  status                          OrderStatus    @default(PENDENTE)
-  feeCollected                    Boolean        @default(false)
-  systemFee                       Decimal        @default(0) @db.Decimal(10, 2)
+  updatedAt                       DateTime          @updatedAt
+  status                          OrderStatus       @default(PENDENTE)
+  feeCollected                    Boolean           @default(false)
+  systemFee                       Decimal           @default(0) @db.Decimal(10, 2)
   paymentProof                    String?
   paymentProofImage               String?
   paymentConfirmationPin          String?
@@ -179,10 +201,51 @@ model Order {
   paidAt                          DateTime?
   pixPaymentId                    String?
   cardCheckoutSessionId           String?
-  restaurant                      Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table                           Table?         @relation(fields: [tableId], references: [id])
-  user                            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant                      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table                           Table?            @relation(fields: [tableId], references: [id])
+  user                            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   items                           OrderItem[]
+  issueThread                     OrderIssueThread?
+}
+
+model OrderIssueThread {
+  id             Int                 @id @default(autoincrement())
+  orderId        Int                 @unique
+  userId         Int
+  restaurantId   Int
+  customerName   String
+  customerPhone  String?
+  orderStatus    String
+  orderType      String
+  paymentMethod  String?
+  total          Decimal             @db.Decimal(10, 2)
+  orderCreatedAt DateTime
+  addressLabel   String?
+  itemsSummary   String[]            @default([])
+  isResolved     Boolean             @default(false)
+  resolvedAt     DateTime?
+  resolvedByName String?
+  openedAt       DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  messages       OrderIssueMessage[]
+  order          Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant     Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, updatedAt])
+  @@index([userId, updatedAt])
+}
+
+model OrderIssueMessage {
+  id         Int                  @id @default(autoincrement())
+  threadId   Int
+  senderType OrderIssueSenderType
+  senderName String
+  message    String
+  sentAt     DateTime             @default(now())
+  thread     OrderIssueThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, sentAt])
 }
 
 model OrderItem {
@@ -359,6 +422,16 @@ enum PaymentMethod {
   PIX
   CARTAO
   DINHEIRO
+}
+
+enum OrderIssueSenderType {
+  CLIENT
+  ADMIN
+}
+
+enum SupportChatSenderRole {
+  ADMIN
+  SUPER_ADMIN
 }
 
 enum PlanType {

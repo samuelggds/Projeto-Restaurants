@@ -7,7 +7,12 @@ import {
   useMemo,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import {
   Utensils,
@@ -148,6 +153,7 @@ function getInitialSelectedAddressId(addresses) {
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tableNumber: routeTableNumber, restaurantSlug: routeRestaurantSlug } =
     useParams();
   const [searchParams] = useSearchParams();
@@ -259,6 +265,10 @@ export default function Home() {
         }
 
         setResolvedRestaurantId(nextRestaurantId);
+        localStorage.setItem(
+          "menuRestaurantSlug",
+          normalizedRouteRestaurantSlug,
+        );
 
         if (nextRestaurantId) {
           localStorage.setItem("menuRestaurantId", String(nextRestaurantId));
@@ -923,6 +933,8 @@ export default function Home() {
   const addressDropdownBackground = isDarkMode
     ? "linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98))"
     : "linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.98))";
+  const currentReturnTo = `${location.pathname}${location.search}`;
+  const cartReturnQuery = `?from=home${currentReturnTo ? `&returnTo=${encodeURIComponent(currentReturnTo)}` : ""}`;
 
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
@@ -940,7 +952,9 @@ export default function Home() {
               </S.AdminQuickButton>
             ) : null}
 
-            <S.CartButtonContainer onClick={() => navigate("/cart?from=home")}>
+            <S.CartButtonContainer
+              onClick={() => navigate(`/cart${cartReturnQuery}`)}
+            >
               <ShoppingCart size={20} />
               {totalItens > 0 && <S.Badge>{totalItens}</S.Badge>}
             </S.CartButtonContainer>
@@ -1193,7 +1207,7 @@ export default function Home() {
                 .getElementById("vitrine")
                 ?.scrollIntoView({ behavior: "smooth" })
             }
-            onNavigateCart={() => navigate("/cart?from=home")}
+            onNavigateCart={() => navigate(`/cart${cartReturnQuery}`)}
           />
         </Suspense>
 

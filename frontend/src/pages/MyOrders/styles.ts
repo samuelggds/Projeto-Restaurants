@@ -462,5 +462,470 @@ export const OrderItem = styled.div`
         color: ${(props) => props.theme.primary};
       }
     }
+
+    .issue-btn {
+      border: 1px solid #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+      color: #b45309;
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        border-color: #d97706;
+        background: rgba(245, 158, 11, 0.18);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
+`;
+
+export const IssueReplyPopup = styled.div`
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(360px, calc(100vw - 2rem));
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.surface};
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.22);
+  z-index: 120;
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.64rem 0.75rem;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #ffffff;
+
+    strong {
+      font-size: 0.83rem;
+      letter-spacing: 0.01em;
+    }
+
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 0.22rem 0.52rem;
+      font-size: 0.73rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  }
+
+  .bubble {
+    margin: 0.75rem;
+    border-radius: 12px 12px 12px 4px;
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    background: #dcfce7;
+    color: #14532d;
+    padding: 0.62rem 0.68rem;
+    display: grid;
+    gap: 0.28rem;
+
+    small {
+      font-weight: 700;
+      font-size: 0.74rem;
+      opacity: 0.9;
+    }
+
+    p {
+      margin: 0;
+      line-height: 1.4;
+      font-size: 0.84rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+`;
+
+export const IssueChatPopup = styled.div`
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(70vh, 560px);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(5, 91, 76, 0.35);
+  background: ${(props) => props.theme.surface};
+  box-shadow: 0 24px 52px rgba(7, 94, 84, 0.28);
+  z-index: 130;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    padding: 0.7rem 0.8rem;
+    background: linear-gradient(135deg, #075e54, #0b7f6e);
+    color: #ffffff;
+
+    strong {
+      font-size: 0.86rem;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  .header-subtitle {
+    font-size: 0.7rem;
+    opacity: 0.86;
+    font-weight: 700;
+  }
+
+  .header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 0.22rem 0.52rem;
+      font-size: 0.73rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  }
+
+  .resolved-pill {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.52);
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    padding: 0.16rem 0.52rem;
+    font-size: 0.67rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .chat-scroll {
+    overflow: auto;
+    padding: 0.72rem;
+    background:
+      radial-gradient(
+        circle at 10% 15%,
+        rgba(255, 255, 255, 0.34) 0 6px,
+        transparent 7px
+      ),
+      radial-gradient(
+        circle at 82% 24%,
+        rgba(255, 255, 255, 0.28) 0 5px,
+        transparent 6px
+      ),
+      radial-gradient(
+        circle at 26% 78%,
+        rgba(255, 255, 255, 0.3) 0 5px,
+        transparent 6px
+      ),
+      linear-gradient(180deg, #e6ddd4 0%, #dcd2c6 100%);
+    display: grid;
+    gap: 0.52rem;
+    align-content: start;
+  }
+
+  .empty-chat {
+    margin: 0;
+    font-size: 0.82rem;
+    opacity: 0.75;
+    text-align: center;
+  }
+
+  .chat-message {
+    max-width: 88%;
+    border-radius: 12px;
+    padding: 0.52rem 0.6rem;
+    display: grid;
+    gap: 0.2rem;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+
+    &.client {
+      margin-left: auto;
+      border: 1px solid rgba(37, 211, 102, 0.38);
+      background: #dcf8c6;
+      color: #1f2937;
+      border-radius: 12px 12px 4px 12px;
+    }
+
+    &.admin {
+      margin-right: auto;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      background: #ffffff;
+      color: #111827;
+      border-radius: 12px 12px 12px 4px;
+    }
+
+    small {
+      font-size: 0.68rem;
+      font-weight: 700;
+      opacity: 0.84;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.36;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+
+  .chat-tip {
+    width: 100%;
+    max-width: 95%;
+    margin: 0 auto;
+    border-radius: 10px;
+    border: 1px solid rgba(7, 94, 84, 0.24);
+    background: rgba(255, 255, 255, 0.8);
+    color: #0f172a;
+    padding: 0.62rem 0.72rem;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+
+    p {
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    small {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.72rem;
+      opacity: 0.82;
+    }
+  }
+
+  .composer {
+    border-top: 1px solid rgba(5, 91, 76, 0.16);
+    padding: 0.62rem 0.72rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: flex-end;
+    gap: 0.5rem;
+    background: #f0f2f5;
+
+    .resolved-note {
+      grid-column: 1 / -1;
+      font-size: 0.75rem;
+      color: #065f46;
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+
+    .suggestions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.1rem;
+    }
+
+    .suggestion-chip {
+      border-radius: 999px;
+      border: 1px solid rgba(7, 94, 84, 0.32);
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.28rem 0.62rem;
+      cursor: pointer;
+
+      &.active {
+        background: #dcf8c6;
+        border-color: rgba(37, 211, 102, 0.45);
+        color: #0f5132;
+      }
+    }
+
+    textarea {
+      flex: 1;
+      min-height: 42px;
+      max-height: 120px;
+      resize: vertical;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.42);
+      background: #ffffff;
+      color: #111827;
+      padding: 0.55rem 0.78rem;
+      font-size: 0.83rem;
+      font-family: inherit;
+
+      &:focus {
+        outline: none;
+        border-color: #0b7f6e;
+        box-shadow: 0 0 0 3px rgba(11, 127, 110, 0.16);
+      }
+    }
+
+    button {
+      min-width: 74px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(7, 94, 84, 0.48);
+      background: linear-gradient(135deg, #25d366, #128c7e);
+      color: #ffffff;
+      font-weight: 800;
+      cursor: pointer;
+      padding: 0 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+    }
+  }
+`;
+
+export const IssueReportOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(234, 179, 8, 0.16),
+      transparent 46%
+    ),
+    rgba(2, 6, 23, 0.58);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+`;
+
+export const IssueReportModal = styled.div`
+  width: min(520px, 100%);
+  border-radius: 18px;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.surface};
+  color: ${(props) => props.theme.text};
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+`;
+
+export const IssueReportHeader = styled.div`
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid ${(props) => props.theme.border};
+  background: linear-gradient(
+    135deg,
+    rgba(234, 179, 8, 0.22) 0%,
+    rgba(251, 191, 36, 0.1) 100%
+  );
+`;
+
+export const IssueReportTitle = styled.h3`
+  margin: 0;
+  font-size: 1rem;
+`;
+
+export const IssueReportSubtitle = styled.small`
+  display: block;
+  margin-top: 0.15rem;
+  opacity: 0.75;
+`;
+
+export const IssueReportBody = styled.div`
+  padding: 0.95rem 1rem 1rem;
+  display: grid;
+  gap: 0.75rem;
+`;
+
+export const IssueReportField = styled.label`
+  display: grid;
+  gap: 0.35rem;
+`;
+
+export const IssueReportLabel = styled.span`
+  font-size: 0.82rem;
+  font-weight: 700;
+`;
+
+export const IssueReportSelect = styled.select`
+  min-height: 42px;
+  border-radius: 11px;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.text};
+  padding: 0 0.75rem;
+  font-size: 0.9rem;
+
+  &:focus {
+    outline: none;
+    border-color: ${(props) => props.theme.primary};
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18);
+  }
+`;
+
+export const IssueReportTextarea = styled.textarea`
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  border-radius: 11px;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.text};
+  padding: 0.7rem 0.78rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: ${(props) => props.theme.primary};
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18);
+  }
+`;
+
+export const IssueReportActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+`;
+
+export const IssueReportCancelButton = styled.button`
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid ${(props) => props.theme.border};
+  background: transparent;
+  color: ${(props) => props.theme.text};
+  font-weight: 700;
+  padding: 0 0.9rem;
+  cursor: pointer;
+`;
+
+export const IssueReportSendButton = styled.button`
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(234, 179, 8, 0.48);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  font-weight: 800;
+  padding: 0 0.95rem;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
   }
 `;

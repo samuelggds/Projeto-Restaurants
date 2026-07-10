@@ -3,28 +3,49 @@ import tableRepository from "../repositories/TableRepository.js";
 type UpdateTablePayload = {
   id: number | string;
   restaurantId: number;
-  number: number | string;
+  number?: number | string;
+  active?: boolean;
 };
 
 class UpdateTableService {
-  async execute({ id, restaurantId, number }: UpdateTablePayload) {
+  async execute({ id, restaurantId, number, active }: UpdateTablePayload) {
     const table = await tableRepository.findById(id);
 
     if (!table || table.restaurantId !== restaurantId) {
       throw new Error("Mesa não encontrada!");
     }
 
-    const tableExists = await tableRepository.findByNumber(
-      number,
-      restaurantId,
-    );
+    if (number !== undefined && number !== null && String(number).trim()) {
+      const tableExists = await tableRepository.findByNumber(
+        number,
+        restaurantId,
+      );
 
-    if (tableExists && tableExists.id !== table.id) {
-      throw new Error("Já existe uma mesa com esse número!");
+      if (tableExists && tableExists.id !== table.id) {
+        throw new Error("Já existe uma mesa com esse número!");
+      }
+    }
+
+    const hasNumber =
+      number !== undefined && number !== null && String(number).trim() !== "";
+    const hasActive = typeof active === "boolean";
+
+    if (!hasNumber && !hasActive) {
+      throw new Error("Informe número e/ou status ativo da mesa.");
+    }
+
+    const updateData: { number?: number; active?: boolean } = {};
+
+    if (hasNumber) {
+      updateData.number = Number(number);
+    }
+
+    if (hasActive) {
+      updateData.active = Boolean(active);
     }
 
     return await tableRepository.update(id, {
-      number: Number(number),
+      ...updateData,
     });
   }
 }

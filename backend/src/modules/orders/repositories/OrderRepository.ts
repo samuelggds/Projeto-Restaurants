@@ -49,6 +49,22 @@ class OrderRepository {
           {
             type: OrderType.DELIVERY,
             paid: false,
+            paymentMethod: {
+              in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
+            },
+            payOnDelivery: false,
+            OR: [
+              {
+                observation: null,
+              },
+              {
+                observation: {
+                  not: {
+                    contains: "PAY_ON_DELIVERY:",
+                  },
+                },
+              },
+            ],
           },
         ],
         ...(status && { status }),
@@ -73,6 +89,22 @@ class OrderRepository {
         items: {
           include: {
             product: true,
+          },
+        },
+        issueThread: {
+          select: {
+            orderId: true,
+            isResolved: true,
+            messages: {
+              orderBy: {
+                sentAt: "desc",
+              },
+              take: 40,
+              select: {
+                senderType: true,
+                message: true,
+              },
+            },
           },
         },
       },
@@ -402,6 +434,14 @@ class OrderRepository {
           },
         },
         table: true,
+        issueThread: {
+          select: {
+            orderId: true,
+            isResolved: true,
+            resolvedAt: true,
+            resolvedByName: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

@@ -52,6 +52,7 @@ export default function BillingPage() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [invoices, setInvoices] = useState([]);
   const [subscription, setSubscription] = useState(null);
+  const [billingSummary, setBillingSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
@@ -96,9 +97,19 @@ export default function BillingPage() {
     try {
       setLoading(true);
       const response = await api.get("/billing/invoices");
-      setInvoices(response.data);
+      const invoiceList = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.data?.invoices)
+          ? response.data.invoices
+          : [];
+      const billingMeta =
+        response?.data && !Array.isArray(response.data)
+          ? response.data.billing || null
+          : null;
+      setInvoices(invoiceList);
+      setBillingSummary(billingMeta);
 
-      const overdueInvoices = response.data.filter(
+      const overdueInvoices = invoiceList.filter(
         (invoice) => invoice.status === "ATRASADO",
       );
 
@@ -192,6 +203,21 @@ export default function BillingPage() {
 
     return `${PLAN_DISPLAY[subscription.scheduledPlan] || subscription.scheduledPlan} (${month}/${subscription.scheduledPlanEffectiveYear})`;
   };
+
+  const currentPlanFromBilling = String(
+    billingSummary?.plan || "",
+  ).toUpperCase();
+  const currentPlan =
+    currentPlanFromBilling || String(subscription?.plan || "").toUpperCase();
+  const currentPlanLabel = PLAN_DISPLAY[currentPlan] || currentPlan || "-";
+  const isPlanActive =
+    typeof billingSummary?.isPlanActive === "boolean"
+      ? billingSummary.isPlanActive
+      : String(subscription?.status || "").toUpperCase() === "ATIVA" ||
+        String(subscription?.status || "").toUpperCase() === "TESTE";
+  const subscriptionStatusLabel = String(
+    billingSummary?.subscriptionStatus || subscription?.status || "N/A",
+  ).toUpperCase();
 
   const normalizedInvoiceStatus = (status) =>
     String(status || "")
@@ -383,9 +409,28 @@ export default function BillingPage() {
                       regras de adimplencia e prazo.
                     </p>
                   </div>
-                  <S.PlanTag>
-                    Plano atual: {PLAN_DISPLAY[subscription?.plan] || "-"}
-                  </S.PlanTag>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      gap: "0.45rem",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <S.PlanTag>Plano atual: {currentPlanLabel}</S.PlanTag>
+                    <S.PlanTag
+                      style={{
+                        borderColor: isPlanActive
+                          ? "rgba(16,185,129,0.45)"
+                          : "rgba(239,68,68,0.45)",
+                        background: isPlanActive
+                          ? "rgba(16,185,129,0.14)"
+                          : "rgba(239,68,68,0.14)",
+                      }}
+                    >
+                      {isPlanActive ? "Plano ativo" : "Plano inativo"} •{" "}
+                      {subscriptionStatusLabel}
+                    </S.PlanTag>
+                  </div>
                 </S.PlanHeader>
 
                 {getScheduledPlanLabel() ? (

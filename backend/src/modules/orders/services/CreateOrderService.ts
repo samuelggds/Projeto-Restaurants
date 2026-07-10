@@ -25,6 +25,8 @@ type CreateOrderPayload = {
   deferRealtimeUntilPaid?: boolean;
   type: OrderType;
   paymentMethod?: PaymentMethod;
+  payOnDelivery?: boolean;
+  payOnDeliveryMethod?: PaymentMethod;
   paid?: boolean;
   pixPaymentId?: string;
   paymentProof?: string;
@@ -252,6 +254,8 @@ class CreateOrderService {
     deferRealtimeUntilPaid,
     type,
     paymentMethod,
+    payOnDelivery,
+    payOnDeliveryMethod,
     paid,
     pixPaymentId,
     paymentProof,
@@ -276,13 +280,34 @@ class CreateOrderService {
       throw new Error("Restaurante nÃ£o informado para o pedido");
     }
 
+    const shouldPayOnDelivery = payOnDelivery === true;
+    const effectivePaymentMethod = shouldPayOnDelivery
+      ? payOnDeliveryMethod || paymentMethod
+      : paymentMethod;
+
+    if (shouldPayOnDelivery && type !== OrderType.DELIVERY) {
+      throw new Error(
+        "Pagar na entrega só é permitido para pedidos de delivery.",
+      );
+    }
+
+    if (shouldPayOnDelivery && !effectivePaymentMethod) {
+      throw new Error(
+        "Informe o método de pagamento para pedidos com pagar na entrega.",
+      );
+    }
+
     createOrderSchema.parse({
       restaurantId: resolvedRestaurantId,
       customerName,
       customerCpf,
       customerPhone,
       type,
-      paymentMethod,
+      paymentMethod: effectivePaymentMethod,
+      payOnDelivery: shouldPayOnDelivery,
+      payOnDeliveryMethod: shouldPayOnDelivery
+        ? effectivePaymentMethod
+        : undefined,
       paid,
       pixPaymentId,
       paymentProof,
@@ -305,8 +330,8 @@ class CreateOrderService {
       shouldMarkAsPaid,
       paidAt,
     } = await this.resolvePaymentState({
-      paymentMethod,
-      paid,
+      paymentMethod: effectivePaymentMethod,
+      paid: shouldPayOnDelivery ? false : paid,
       pixPaymentId,
       paymentProof,
       paymentProofImage,
@@ -350,6 +375,35 @@ class CreateOrderService {
       if (requiredAddressFields.length < 5) {
         throw new Error(
           "Informe o endereÃ§o completo para pedidos de delivery.",
+        );
+      }
+
+      const normalizedCustomerPhone = this.normalizePhone(customerPhone);
+
+      if (!normalizedCustomerPhone && userId) {
+        const existingUser = await prisma.user.findUnique({
+          where: {
+            id: Number(userId),
+          },
+          select: {
+            phone: true,
+          },
+        });
+
+        const normalizedExistingPhone = this.normalizePhone(
+          existingUser?.phone,
+        );
+
+        if (!normalizedExistingPhone) {
+          throw new Error(
+            "Informe um celular/WhatsApp válido para pedidos de delivery.",
+          );
+        }
+      }
+
+      if (!normalizedCustomerPhone && !userId) {
+        throw new Error(
+          "Informe um celular/WhatsApp válido para pedidos de delivery.",
         );
       }
     }
@@ -453,7 +507,11 @@ class CreateOrderService {
           total,
           systemFee: 0,
           type,
-          paymentMethod,
+          paymentMethod: effectivePaymentMethod,
+          payOnDelivery: shouldPayOnDelivery,
+          payOnDeliveryMethod: shouldPayOnDelivery
+            ? effectivePaymentMethod
+            : null,
           paid: shouldMarkAsPaid,
           pixPaymentId: normalizedPixPaymentId || null,
           paidAt,

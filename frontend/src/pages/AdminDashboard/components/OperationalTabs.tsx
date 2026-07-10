@@ -1,4 +1,11 @@
-import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
+import {
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+} from "react";
 import {
   Check,
   Clock,
@@ -42,6 +49,7 @@ type Product = {
 type Table = {
   id: number;
   number: number;
+  active?: boolean;
 };
 
 type Employee = {
@@ -107,12 +115,16 @@ type OperationalTabsProps = {
   tableNumber: string;
   setTableNumber: Dispatch<SetStateAction<string>>;
   tables: Table[];
+  deactivatingTableIds: number[];
+  activatingTableIds: number[];
   getTableQrValue: (table: Table) => string;
   qrCardRefs: { current: Record<number, HTMLDivElement> };
   handlePreviewTableQr: (table: Table) => void;
   handleCopyTableQrLink: (table: Table) => MaybePromise;
   handleDownloadTableQr: (table: Table) => void;
   handlePrintTableQr: (table: Table) => void;
+  handleDeactivateTable: (table: Table) => MaybePromise;
+  handleActivateTable: (table: Table) => MaybePromise;
   handleCreateEmployee: (event: FormEvent<HTMLFormElement>) => MaybePromise;
   employeeData: EmployeeData;
   setEmployeeData: Dispatch<SetStateAction<EmployeeData>>;
@@ -152,12 +164,16 @@ export default function OperationalTabs({
   tableNumber,
   setTableNumber,
   tables,
+  deactivatingTableIds,
+  activatingTableIds,
   getTableQrValue,
   qrCardRefs,
   handlePreviewTableQr,
   handleCopyTableQrLink,
   handleDownloadTableQr,
   handlePrintTableQr,
+  handleDeactivateTable,
+  handleActivateTable,
   handleCreateEmployee,
   employeeData,
   setEmployeeData,
@@ -166,6 +182,38 @@ export default function OperationalTabs({
   employees,
   handleDeactivateEmployee,
 }: OperationalTabsProps) {
+  const [tableFilter, setTableFilter] = useState<
+    "ATIVAS" | "INATIVAS" | "TODAS"
+  >("ATIVAS");
+
+  const tableCounters = useMemo(() => {
+    const total = tables.length;
+    const activeCount = tables.filter(
+      (table) => table?.active !== false,
+    ).length;
+    const inactiveCount = tables.filter(
+      (table) => table?.active === false,
+    ).length;
+
+    return {
+      total,
+      activeCount,
+      inactiveCount,
+    };
+  }, [tables]);
+
+  const filteredTables = useMemo(() => {
+    if (tableFilter === "TODAS") {
+      return tables;
+    }
+
+    if (tableFilter === "INATIVAS") {
+      return tables.filter((table) => table?.active === false);
+    }
+
+    return tables.filter((table) => table?.active !== false);
+  }, [tableFilter, tables]);
+
   return (
     <>
       {activeTab === "categories" && (
@@ -739,62 +787,167 @@ export default function OperationalTabs({
             {tables.length === 0 ? (
               <div style={{ opacity: 0.7 }}>Nenhuma mesa cadastrada.</div>
             ) : (
-              <S.TableQrGrid>
-                {tables.map((table) => {
-                  const qrValue = getTableQrValue(table);
+              <>
+                <S.OrdersFilterBar style={{ marginBottom: "0.85rem" }}>
+                  <S.OrderTypeFilterButton
+                    type="button"
+                    $active={tableFilter === "ATIVAS"}
+                    onClick={() => setTableFilter("ATIVAS")}
+                  >
+                    Ativas ({tableCounters.activeCount})
+                  </S.OrderTypeFilterButton>
+                  <S.OrderTypeFilterButton
+                    type="button"
+                    $active={tableFilter === "INATIVAS"}
+                    onClick={() => setTableFilter("INATIVAS")}
+                  >
+                    Inativas ({tableCounters.inactiveCount})
+                  </S.OrderTypeFilterButton>
+                  <S.OrderTypeFilterButton
+                    type="button"
+                    $active={tableFilter === "TODAS"}
+                    onClick={() => setTableFilter("TODAS")}
+                  >
+                    Todas ({tableCounters.total})
+                  </S.OrderTypeFilterButton>
+                </S.OrdersFilterBar>
 
-                  return (
-                    <S.TableQrCard
-                      key={table.id}
-                      ref={(node) => {
-                        if (node) {
-                          qrCardRefs.current[table.id] = node;
-                        }
-                      }}
-                    >
-                      <S.TableQrCodeBox>
-                        <QRCode
-                          value={qrValue}
-                          size={160}
-                          bgColor="#ffffff"
-                          fgColor="#111827"
-                          level="M"
-                        />
-                      </S.TableQrCodeBox>
-                      <S.TableQrMeta>
-                        <S.SlugBadge>Mesa {table.number}</S.SlugBadge>
-                        <small>Abre o cardapio da mesa</small>
-                        <S.TableQrActions>
-                          <S.TableQrActionButton
-                            type="button"
-                            onClick={() => handlePreviewTableQr(table)}
-                          >
-                            Ver
-                          </S.TableQrActionButton>
-                          <S.TableQrActionButton
-                            type="button"
-                            onClick={() => handleCopyTableQrLink(table)}
-                          >
-                            Copiar
-                          </S.TableQrActionButton>
-                          <S.TableQrActionButton
-                            type="button"
-                            onClick={() => handleDownloadTableQr(table)}
-                          >
-                            Baixar
-                          </S.TableQrActionButton>
-                          <S.TableQrActionButton
-                            type="button"
-                            onClick={() => handlePrintTableQr(table)}
-                          >
-                            Imprimir
-                          </S.TableQrActionButton>
-                        </S.TableQrActions>
-                      </S.TableQrMeta>
-                    </S.TableQrCard>
-                  );
-                })}
-              </S.TableQrGrid>
+                {filteredTables.length === 0 ? (
+                  <div style={{ opacity: 0.7 }}>
+                    Nenhuma mesa encontrada para este filtro.
+                  </div>
+                ) : (
+                  <S.TableQrGrid>
+                    {filteredTables.map((table) => {
+                      const qrValue = getTableQrValue(table);
+                      const isRemovingQr = deactivatingTableIds.includes(
+                        table.id,
+                      );
+                      const isActivatingQr = activatingTableIds.includes(
+                        table.id,
+                      );
+                      const isInactive = table?.active === false;
+
+                      return (
+                        <S.TableQrCard
+                          key={table.id}
+                          ref={(node) => {
+                            if (node) {
+                              qrCardRefs.current[table.id] = node;
+                            }
+                          }}
+                        >
+                          <S.TableQrCodeBox>
+                            <QRCode
+                              value={qrValue}
+                              size={160}
+                              bgColor="#ffffff"
+                              fgColor="#111827"
+                              level="M"
+                            />
+                          </S.TableQrCodeBox>
+                          <S.TableQrMeta>
+                            <S.SlugBadge>
+                              Mesa {table.number}
+                              {isInactive ? " • Inativa" : ""}
+                            </S.SlugBadge>
+                            <small>
+                              {isInactive
+                                ? "QR removido e mesa desativada"
+                                : "Abre o cardapio da mesa"}
+                            </small>
+                            <S.TableQrActions>
+                              <S.TableQrActionButton
+                                type="button"
+                                onClick={() => handlePreviewTableQr(table)}
+                                disabled={isInactive}
+                              >
+                                Ver
+                              </S.TableQrActionButton>
+                              <S.TableQrActionButton
+                                type="button"
+                                onClick={() => handleCopyTableQrLink(table)}
+                                disabled={isInactive}
+                              >
+                                Copiar
+                              </S.TableQrActionButton>
+                              <S.TableQrActionButton
+                                type="button"
+                                onClick={() => handleDownloadTableQr(table)}
+                                disabled={isInactive}
+                              >
+                                Baixar
+                              </S.TableQrActionButton>
+                              <S.TableQrActionButton
+                                type="button"
+                                onClick={() => handlePrintTableQr(table)}
+                                disabled={isInactive}
+                              >
+                                Imprimir
+                              </S.TableQrActionButton>
+                              <S.TableQrActionButton
+                                type="button"
+                                onClick={() => handleDeactivateTable(table)}
+                                disabled={
+                                  isRemovingQr || isActivatingQr || isInactive
+                                }
+                                title="Remove o QR e desativa a mesa"
+                                style={{
+                                  borderColor: "rgba(239, 68, 68, 0.4)",
+                                  color: "#b91c1c",
+                                }}
+                              >
+                                {isRemovingQr ? (
+                                  <>
+                                    <Loader2
+                                      size={14}
+                                      className="loading-icon"
+                                    />
+                                    Removendo...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 size={14} />
+                                    Remover QR
+                                  </>
+                                )}
+                              </S.TableQrActionButton>
+
+                              <S.TableQrActionButton
+                                type="button"
+                                onClick={() => handleActivateTable(table)}
+                                disabled={
+                                  isActivatingQr || isRemovingQr || !isInactive
+                                }
+                                title="Ativa novamente o QR da mesa"
+                                style={{
+                                  borderColor: "rgba(22, 163, 74, 0.4)",
+                                  color: "#166534",
+                                }}
+                              >
+                                {isActivatingQr ? (
+                                  <>
+                                    <Loader2
+                                      size={14}
+                                      className="loading-icon"
+                                    />
+                                    Ativando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check size={14} />
+                                    Ativar QR
+                                  </>
+                                )}
+                              </S.TableQrActionButton>
+                            </S.TableQrActions>
+                          </S.TableQrMeta>
+                        </S.TableQrCard>
+                      );
+                    })}
+                  </S.TableQrGrid>
+                )}
+              </>
             )}
           </div>
         </S.FormCard>

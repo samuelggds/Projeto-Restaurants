@@ -484,6 +484,36 @@ export const CardActions = styled.div`
   padding-top: 10px;
 `;
 
+export const DeliveryHint = styled.p`
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.35;
+`;
+
+export const DeliveryCodeInput = styled.input`
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  background: #ffffff;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+    font-weight: 500;
+  }
+`;
+
 export const DeliverButton = styled.button`
   display: flex;
   align-items: center;

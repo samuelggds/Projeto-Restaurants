@@ -26,6 +26,7 @@ import {
   Minimize2,
   Maximize2,
   KeyRound,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../../Services/api";
@@ -35,7 +36,13 @@ import productsService from "../../Services/productsService";
 import employeesService from "../../Services/employeesService";
 import tablesService from "../../Services/tablesService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
-import { connectSocket, disconnectSocket } from "../../Services/socketService";
+import supportChatService from "../../Services/supportChatService";
+import {
+  connectSocket,
+  disconnectSocket,
+  getSocket,
+  waitForSocketConnection,
+} from "../../Services/socketService";
 import { buildPixPayload } from "../../config/pixPayload";
 import { persistBrandIdentity } from "../../config/brandIdentity";
 import { useAuth } from "../../contexts/authContext";
@@ -57,6 +64,7 @@ const ORDER_STATUSES = [
   "SAIU_PARA_ENTREGA",
   "ENTREGUE",
   "CANCELADO",
+  "ESTORNADOS",
 ];
 const ORDER_STATUS_FILTERS = ["TODOS", ...ORDER_STATUSES];
 const STATUS_FILTER_TONE_BY_STATUS = {
@@ -67,6 +75,7 @@ const STATUS_FILTER_TONE_BY_STATUS = {
   SAIU_PARA_ENTREGA: "cyan",
   ENTREGUE: "success",
   CANCELADO: "danger",
+  ESTORNADOS: "danger",
 };
 const DELIVERY_PENDING_DIGITAL_METHODS = new Set([
   "PIX",
@@ -82,6 +91,7 @@ const ORDER_STATUS_META = {
   SAIU_PARA_ENTREGA: { label: "A caminho", color: "#3b82f6" },
   ENTREGUE: { label: "Entregue", color: "#22c55e" },
   CANCELADO: { label: "Cancelado", color: "#ef4444" },
+  ESTORNADOS: { label: "Estornado", color: "#b91c1c" },
 };
 const EMPLOYEE_FIELD_LABELS = {
   name: "Nome",
@@ -139,6 +149,15 @@ function matchesStatusFilter(order, statusFilter) {
   }
 
   const status = String(order?.status || "").toUpperCase();
+
+  if (statusFilter === "ESTORNADOS") {
+    return status === "CANCELADO" && order?.paid === true;
+  }
+
+  if (statusFilter === "CANCELADO") {
+    return status === "CANCELADO" && order?.paid !== true;
+  }
+
   return status === statusFilter;
 }
 
@@ -619,6 +638,55 @@ function isDeliveryBlockedUntilPaid(order) {
   return isPendingDigitalPayment(order);
 }
 
+const REFUND_REQUEST_PATTERN =
+  /(estorno|reembolso|devolver|devolucao|devolução|cancelar\s+pedido|quero\s+cancelar|quero\s+estorno|quero\s+reembolso)/i;
+
+function hasClientRefundRequest(order) {
+  const issueMessages = Array.isArray(order?.issueThread?.messages)
+    ? order.issueThread.messages
+    : [];
+
+  return issueMessages.some((messageItem) => {
+    const senderType = String(messageItem?.senderType || "").toUpperCase();
+    const content = String(messageItem?.message || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return senderType === "CLIENT" && REFUND_REQUEST_PATTERN.test(content);
+  });
+}
+
+function isPayOnDeliveryOrder(order) {
+  if (order?.payOnDelivery === true) {
+    return true;
+  }
+
+  return String(order?.observation || "")
+    .toUpperCase()
+    .includes("PAY_ON_DELIVERY:");
+}
+
+function canUseAdminRefund(order, currentUserRole) {
+  const normalizedRole = String(currentUserRole || "").toUpperCase();
+  const isAdminRole =
+    normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN";
+
+  if (!isAdminRole) {
+    return false;
+  }
+
+  const normalizedStatus = String(order?.status || "").toUpperCase();
+  if (normalizedStatus === "CANCELADO") {
+    return false;
+  }
+
+  if (!hasClientRefundRequest(order)) {
+    return false;
+  }
+
+  return true;
+}
+
 function getPaymentSummaryLabel(order?: unknown) {
   const paymentMethod = String(
     (order as { paymentMethod?: unknown } | undefined)?.paymentMethod || "",
@@ -758,12 +826,15 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [orderTypeFilter, setOrderTypeFilter] = useState("TODOS");
   const [statusFilter, setStatusFilter] = useState("TODOS");
+  const [refundRequestedOnly, setRefundRequestedOnly] = useState(false);
+  const [payOnDeliveryOnly, setPayOnDeliveryOnly] = useState(false);
   const [closingOrderIds, _setClosingOrderIds] = useState([]);
   const [generatingPinOrderIds, setGeneratingPinOrderIds] = useState([]);
   const [requestingPaymentPinOrderIds, setRequestingPaymentPinOrderIds] =
     useState([]);
   const [confirmingPaymentPinOrderIds, setConfirmingPaymentPinOrderIds] =
     useState([]);
+  const [refundingOrderIds, setRefundingOrderIds] = useState<number[]>([]);
   const [paymentPinInputByOrderId, setPaymentPinInputByOrderId] = useState({});
   const [expandedOrderIds, setExpandedOrderIds] = useState({});
   const [paymentPinByOrderId, setPaymentPinByOrderId] = useState({});
@@ -845,9 +916,30 @@ export default function AdminDashboard() {
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [tableNumber, setTableNumber] = useState("");
+  const [deactivatingTableIds, setDeactivatingTableIds] = useState<number[]>(
+    [],
+  );
+  const [activatingTableIds, setActivatingTableIds] = useState<number[]>([]);
   const [billingWarningState, setBillingWarningState] = useState(null);
   const [isBillingWarningMinimized, setIsBillingWarningMinimized] =
     useState(false);
+  const [latestOrderIssue, setLatestOrderIssue] = useState(null);
+  const [isOrderIssuePanelMinimized, setIsOrderIssuePanelMinimized] =
+    useState(false);
+  const [orderIssueReplyMessage, setOrderIssueReplyMessage] = useState("");
+  const [isSendingOrderIssueReply, setIsSendingOrderIssueReply] =
+    useState(false);
+  const [isResolvingOrderIssue, setIsResolvingOrderIssue] = useState(false);
+  const [supportChatMessages, setSupportChatMessages] = useState([]);
+  const [supportChatInput, setSupportChatInput] = useState("");
+  const [isSendingSupportChat, setIsSendingSupportChat] = useState(false);
+  const [isSupportChatMinimized, setIsSupportChatMinimized] = useState(true);
+  const [isLoadingMoreSupportChat, setIsLoadingMoreSupportChat] =
+    useState(false);
+  const [supportChatHasMoreHistory, setSupportChatHasMoreHistory] =
+    useState(false);
+  const [supportChatPlanAllowed, setSupportChatPlanAllowed] = useState(true);
+  const [supportChatPlanName, setSupportChatPlanName] = useState("");
   const [
     isPasswordRotationModalMinimized,
     setIsPasswordRotationModalMinimized,
@@ -860,6 +952,12 @@ export default function AdminDashboard() {
   const [isSavingPasswordRotation, setIsSavingPasswordRotation] =
     useState(false);
   const qrCardRefs = useRef({});
+  const supportChatScrollRef = useRef<HTMLDivElement | null>(null);
+  const supportChatScrollSnapshotRef = useRef({
+    pending: false,
+    previousScrollHeight: 0,
+    previousScrollTop: 0,
+  });
 
   const shouldForcePasswordRotation =
     user?.role === "ADMIN" && user?.mustChangePassword === true;
@@ -930,19 +1028,83 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadSupportChatHistory() {
+      try {
+        const response = await supportChatService.getMessages({
+          limit: 40,
+        });
+        const historyMessages = Array.isArray(response?.messages)
+          ? response.messages
+          : [];
+
+        if (!cancelled) {
+          setSupportChatMessages(historyMessages);
+          setSupportChatHasMoreHistory(Boolean(response?.hasMore));
+        }
+      } catch (_error) {
+        // Keep silent: real-time chat still works if history load fails.
+      }
+    }
+
+    loadSupportChatHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSupportChatPlanEligibility() {
+      try {
+        const response = await api.get("/subscription");
+        const plan = String(response?.data?.plan || "").toUpperCase();
+        const allowed = plan === "PROFISSIONAL" || plan === "PREMIUM";
+
+        if (!cancelled) {
+          setSupportChatPlanAllowed(allowed);
+          setSupportChatPlanName(plan || "BASICO");
+
+          if (!allowed) {
+            setIsSupportChatMinimized(true);
+          }
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setSupportChatPlanAllowed(false);
+          setSupportChatPlanName("BASICO");
+          setIsSupportChatMinimized(true);
+        }
+      }
+    }
+
+    loadSupportChatPlanEligibility();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
 
     async function loadBillingWarning() {
       try {
         const response = await api.get("/billing/invoices");
+        const invoiceList = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.invoices)
+            ? response.data.invoices
+            : [];
 
         if (!mounted) {
           return;
         }
 
-        const pendingInvoices = (
-          Array.isArray(response.data) ? response.data : []
-        )
+        const pendingInvoices = invoiceList
           .filter((invoice) => invoice.status === "PENDENTE")
           .sort(
             (a, b) =>
@@ -969,9 +1131,7 @@ export default function AdminDashboard() {
         const dueDate = new Date(invoiceInGracePeriod.dueDate);
         const graceLimitDate = addBusinessDays(dueDate, 5);
         const businessDaysLeft = countBusinessDaysLeft(now, graceLimitDate);
-        const hasPreviousPaidInvoice = (
-          Array.isArray(response.data) ? response.data : []
-        ).some(
+        const hasPreviousPaidInvoice = invoiceList.some(
           (invoice) =>
             invoice.status === "PAGO" &&
             Number(invoice.id) < Number(invoiceInGracePeriod.id),
@@ -1000,6 +1160,23 @@ export default function AdminDashboard() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const snapshot = supportChatScrollSnapshotRef.current;
+    if (!snapshot.pending) {
+      return;
+    }
+
+    const container = supportChatScrollRef.current;
+    if (!container) {
+      snapshot.pending = false;
+      return;
+    }
+
+    const heightDelta = container.scrollHeight - snapshot.previousScrollHeight;
+    container.scrollTop = snapshot.previousScrollTop + Math.max(heightDelta, 0);
+    snapshot.pending = false;
+  }, [supportChatMessages]);
 
   useEffect(() => {
     let mounted = true;
@@ -1344,11 +1521,203 @@ export default function AdminDashboard() {
       });
     };
 
+    const onOrderIssueReported = (payload) => {
+      const targetOrderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
+        return;
+      }
+
+      const customerName = String(payload?.customerName || "Cliente").trim();
+      const customerPhone = String(payload?.customerPhone || "").trim();
+      const issueMessage = String(payload?.issueMessage || "").trim();
+      const orderType = String(payload?.type || "")
+        .replace(/_/g, " ")
+        .trim()
+        .toUpperCase();
+      const paymentMethod = String(payload?.paymentMethod || "")
+        .replace(/_/g, " ")
+        .trim()
+        .toUpperCase();
+      const total = Number(payload?.total || 0);
+      const totalLabel = Number.isFinite(total)
+        ? total.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          })
+        : "N/A";
+      const addressLabel = String(payload?.addressLabel || "").trim();
+      const itemsSummary = Array.isArray(payload?.itemsSummary)
+        ? payload.itemsSummary
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+        : [];
+      const createdAtRaw = String(payload?.createdAt || "").trim();
+      const createdAtLabel = createdAtRaw
+        ? new Date(createdAtRaw).toLocaleString("pt-BR")
+        : "N/A";
+      const messages = Array.isArray(payload?.messages)
+        ? payload.messages
+        : payload?.message
+          ? [payload.message]
+          : issueMessage
+            ? [
+                {
+                  id: `${targetOrderId}-${Date.now()}-seed-client`,
+                  senderType: "CLIENT",
+                  senderName: customerName || "Cliente",
+                  message: issueMessage,
+                  sentAt: payload?.reportedAt || new Date().toISOString(),
+                },
+              ]
+            : [];
+
+      setLatestOrderIssue({
+        orderId: targetOrderId,
+        customerName,
+        customerPhone,
+        issueMessage,
+        orderType,
+        paymentMethod,
+        totalLabel,
+        addressLabel,
+        itemsSummary,
+        createdAtLabel,
+        isResolved: Boolean(payload?.isResolved),
+        resolvedAt: payload?.resolvedAt || null,
+        resolvedByName: payload?.resolvedByName || null,
+        messages,
+        receivedAtLabel: new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      });
+      setIsOrderIssuePanelMinimized(false);
+    };
+
+    const onOrderIssueMessage = (payload) => {
+      const targetOrderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
+        return;
+      }
+
+      const incomingMessages = Array.isArray(payload?.messages)
+        ? payload.messages
+        : [];
+      const lastMessage = payload?.message || null;
+
+      setLatestOrderIssue((prev) => {
+        if (Number(prev?.orderId || 0) !== targetOrderId) {
+          return prev;
+        }
+
+        const baseMessages = Array.isArray(prev?.messages) ? prev.messages : [];
+        const nextMessages = [...baseMessages];
+
+        incomingMessages.forEach((messageItem) => {
+          const messageId = String(messageItem?.id || "").trim();
+          if (!messageId) {
+            return;
+          }
+
+          if (
+            !nextMessages.some((item) => String(item?.id || "") === messageId)
+          ) {
+            nextMessages.push(messageItem);
+          }
+        });
+
+        if (lastMessage?.id) {
+          const lastMessageId = String(lastMessage.id);
+          if (
+            !nextMessages.some(
+              (item) => String(item?.id || "") === lastMessageId,
+            )
+          ) {
+            nextMessages.push(lastMessage);
+          }
+        }
+
+        nextMessages.sort((a, b) => {
+          const aTime = new Date(a?.sentAt || 0).getTime();
+          const bTime = new Date(b?.sentAt || 0).getTime();
+          return aTime - bTime;
+        });
+
+        return {
+          ...prev,
+          messages: nextMessages,
+          isResolved: Boolean(payload?.isResolved ?? prev?.isResolved),
+          resolvedAt: payload?.resolvedAt || prev?.resolvedAt || null,
+          resolvedByName:
+            payload?.resolvedByName || prev?.resolvedByName || null,
+        };
+      });
+
+      setIsOrderIssuePanelMinimized(false);
+    };
+
+    const onOrderIssueResolved = (payload) => {
+      const targetOrderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(targetOrderId) || targetOrderId <= 0) {
+        return;
+      }
+
+      setLatestOrderIssue((prev) => {
+        if (Number(prev?.orderId || 0) !== targetOrderId) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          isResolved: true,
+          resolvedAt: payload?.resolvedAt || new Date().toISOString(),
+          resolvedByName: payload?.resolvedByName || "Admin",
+        };
+      });
+
+      toast.success(`Problema do pedido #${targetOrderId} foi resolvido.`);
+    };
+
+    const onSupportChatMessage = (payload) => {
+      const normalizedMessage = String(payload?.message || "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!normalizedMessage) {
+        return;
+      }
+
+      const messageId = String(payload?.id || "").trim();
+      if (!messageId) {
+        return;
+      }
+
+      setSupportChatMessages((prev) => {
+        if (prev.some((item) => String(item?.id || "") === messageId)) {
+          return prev;
+        }
+
+        const next = [...prev, payload];
+        return next.slice(-240);
+      });
+
+      if (String(payload?.senderRole || "").toUpperCase() === "SUPER_ADMIN") {
+        setIsSupportChatMinimized(false);
+      }
+    };
+
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
     socket.on("order:payment-confirmed", onPaymentConfirmed);
     socket.on("order:payment-pin-requested", onPaymentPinRequested);
     socket.on("order:payment-pin-generated", onPaymentPinGenerated);
+    socket.on("order:issue-reported", onOrderIssueReported);
+    socket.on("order:issue-message", onOrderIssueMessage);
+    socket.on("order:issue-resolved", onOrderIssueResolved);
+    socket.on("support:chat-message", onSupportChatMessage);
 
     return () => {
       socket.off("new-order", onNewOrder);
@@ -1356,9 +1725,127 @@ export default function AdminDashboard() {
       socket.off("order:payment-confirmed", onPaymentConfirmed);
       socket.off("order:payment-pin-requested", onPaymentPinRequested);
       socket.off("order:payment-pin-generated", onPaymentPinGenerated);
+      socket.off("order:issue-reported", onOrderIssueReported);
+      socket.off("order:issue-message", onOrderIssueMessage);
+      socket.off("order:issue-resolved", onOrderIssueResolved);
+      socket.off("support:chat-message", onSupportChatMessage);
       disconnectSocket();
     };
   }, []);
+
+  const handleSendSupportChatToSuperAdmin = async () => {
+    if (!supportChatPlanAllowed) {
+      toast.info(
+        "Chat com Super Admin disponível apenas para planos Profissional e Premium.",
+      );
+      return;
+    }
+
+    const normalizedMessage = String(supportChatInput || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (normalizedMessage.length < 2) {
+      toast.error("Digite uma mensagem para o suporte do Super Admin.");
+      return;
+    }
+
+    const socket = getSocket();
+    if (!socket) {
+      toast.error(
+        "Socket desconectado. Recarregue a página e tente novamente.",
+      );
+      return;
+    }
+
+    try {
+      setIsSendingSupportChat(true);
+      await waitForSocketConnection(6000);
+
+      const result = await new Promise<{ ok?: boolean; error?: string }>(
+        (resolve) => {
+          socket.emit(
+            "support:chat-send",
+            {
+              message: normalizedMessage,
+            },
+            (response) => {
+              resolve(response || {});
+            },
+          );
+        },
+      );
+
+      if (!result?.ok) {
+        throw new Error(result?.error || "Não foi possível enviar mensagem.");
+      }
+
+      setSupportChatInput("");
+      setIsSupportChatMinimized(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível enviar mensagem ao Super Admin.",
+      );
+    } finally {
+      setIsSendingSupportChat(false);
+    }
+  };
+
+  const handleLoadOlderSupportChatMessages = async () => {
+    if (isLoadingMoreSupportChat || !supportChatHasMoreHistory) {
+      return;
+    }
+
+    const oldestMessageId = Number(supportChatMessages?.[0]?.id || 0);
+    if (!Number.isInteger(oldestMessageId) || oldestMessageId <= 0) {
+      setSupportChatHasMoreHistory(false);
+      return;
+    }
+
+    try {
+      setIsLoadingMoreSupportChat(true);
+      const container = supportChatScrollRef.current;
+      if (container) {
+        supportChatScrollSnapshotRef.current = {
+          pending: true,
+          previousScrollHeight: container.scrollHeight,
+          previousScrollTop: container.scrollTop,
+        };
+      }
+
+      const response = await supportChatService.getMessages({
+        beforeId: oldestMessageId,
+        limit: 40,
+      });
+
+      const olderMessages = Array.isArray(response?.messages)
+        ? response.messages
+        : [];
+
+      setSupportChatMessages((prev) => {
+        const existingIds = new Set(prev.map((item) => String(item?.id || "")));
+        const uniqueOlderMessages = olderMessages.filter(
+          (item) => !existingIds.has(String(item?.id || "")),
+        );
+
+        if (uniqueOlderMessages.length === 0) {
+          supportChatScrollSnapshotRef.current.pending = false;
+          return prev;
+        }
+
+        return [...uniqueOlderMessages, ...prev];
+      });
+
+      setSupportChatHasMoreHistory(Boolean(response?.hasMore));
+    } catch (_error) {
+      supportChatScrollSnapshotRef.current.pending = false;
+      toast.error("Não foi possível carregar mensagens antigas.");
+    } finally {
+      setIsLoadingMoreSupportChat(false);
+    }
+  };
 
   const handleProductInputChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -1738,6 +2225,73 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRefundOrder = async (order) => {
+    const orderId = Number(order?.id || 0);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      toast.error("Pedido inválido para estorno.");
+      return;
+    }
+
+    if (!canUseAdminRefund(order, user?.role)) {
+      toast.error(
+        "Estorno disponível quando o cliente solicitar estorno no chat.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Confirmar estorno do pedido #${orderId}? Esta ação irá cancelar o pedido.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setRefundingOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      const response = await ordersService.refundOrder(orderId);
+      const updatedOrder = response?.order || response;
+
+      setOrders((prev) =>
+        prev.map((item) =>
+          Number(item?.id) === orderId ? { ...item, ...updatedOrder } : item,
+        ),
+      );
+
+      if (response?.issueThread) {
+        setLatestOrderIssue((prev) => {
+          if (Number(prev?.orderId || 0) !== orderId) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            isResolved: true,
+            resolvedAt:
+              response?.issueThread?.resolvedAt || prev?.resolvedAt || null,
+            resolvedByName:
+              response?.issueThread?.resolvedByName ||
+              prev?.resolvedByName ||
+              "Admin",
+          };
+        });
+      }
+
+      toast.success(`Estorno concluído no pedido #${orderId}.`);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          "Não foi possível estornar este pedido agora.",
+      );
+    } finally {
+      setRefundingOrderIds((prev) => prev.filter((id) => id !== orderId));
+    }
+  };
+
   const handleGeneratePaymentPinByOrderId = async (event) => {
     event.preventDefault();
 
@@ -1800,9 +2354,30 @@ export default function AdminDashboard() {
     matchesOrderTypeFilter(order, orderTypeFilter),
   );
 
+  const quickFilterCounts = {
+    refundRequested: ordersBySelectedType.filter((order) =>
+      hasClientRefundRequest(order),
+    ).length,
+    payOnDelivery: ordersBySelectedType.filter((order) =>
+      isPayOnDeliveryOrder(order),
+    ).length,
+  };
+
+  const ordersByQuickFilters = ordersBySelectedType.filter((order) => {
+    if (refundRequestedOnly && !hasClientRefundRequest(order)) {
+      return false;
+    }
+
+    if (payOnDeliveryOnly && !isPayOnDeliveryOrder(order)) {
+      return false;
+    }
+
+    return true;
+  });
+
   const statusCounters = ORDER_STATUS_FILTERS.reduce<Record<string, number>>(
     (acc, status) => {
-      acc[status] = ordersBySelectedType.filter((order) =>
+      acc[status] = ordersByQuickFilters.filter((order) =>
         matchesStatusFilter(order, status),
       ).length;
 
@@ -1814,6 +2389,18 @@ export default function AdminDashboard() {
   const visibleOrders = ordersBySelectedType.filter((order) =>
     matchesStatusFilter(order, statusFilter),
   );
+
+  const visibleOrdersWithQuickFilters = visibleOrders.filter((order) => {
+    if (refundRequestedOnly && !hasClientRefundRequest(order)) {
+      return false;
+    }
+
+    if (payOnDeliveryOnly && !isPayOnDeliveryOrder(order)) {
+      return false;
+    }
+
+    return true;
+  });
 
   const handleCreateEmployee = async (event) => {
     event.preventDefault();
@@ -2035,6 +2622,104 @@ export default function AdminDashboard() {
       toast.success(`Mesa ${createdTable.number} cadastrada!`);
     } catch (err) {
       toast.error(err?.response?.data?.error || "Erro ao cadastrar mesa");
+    }
+  };
+
+  const handleDeactivateTable = async (table) => {
+    const tableId = Number(table?.id || 0);
+    const tableNumberLabel = Number(table?.number || 0);
+    const isAlreadyInactive = table?.active === false;
+
+    if (!Number.isInteger(tableId) || tableId <= 0) {
+      toast.error("Mesa inválida para remover QR.");
+      return;
+    }
+
+    if (isAlreadyInactive) {
+      toast.info("Esta mesa já está com QR removido.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remover o QR Code da mesa ${tableNumberLabel || tableId}? A mesa será desativada.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeactivatingTableIds((prev) =>
+      prev.includes(tableId) ? prev : [...prev, tableId],
+    );
+
+    try {
+      await tablesService.deactivateTable(tableId);
+
+      setTables((prev) =>
+        prev.map((item) =>
+          Number(item?.id || 0) === tableId
+            ? {
+                ...item,
+                active: false,
+              }
+            : item,
+        ),
+      );
+
+      toast.success(`QR da mesa ${tableNumberLabel || tableId} removido.`);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          "Não foi possível remover o QR da mesa.",
+      );
+    } finally {
+      setDeactivatingTableIds((prev) => prev.filter((id) => id !== tableId));
+    }
+  };
+
+  const handleActivateTable = async (table) => {
+    const tableId = Number(table?.id || 0);
+    const tableNumberLabel = Number(table?.number || 0);
+
+    if (!Number.isInteger(tableId) || tableId <= 0) {
+      toast.error("Mesa inválida para ativar QR.");
+      return;
+    }
+
+    if (table?.active !== false) {
+      toast.info("Esta mesa já está ativa.");
+      return;
+    }
+
+    setActivatingTableIds((prev) =>
+      prev.includes(tableId) ? prev : [...prev, tableId],
+    );
+
+    try {
+      const updatedTable = await tablesService.activateTable(
+        tableId,
+        tableNumberLabel || 1,
+      );
+
+      setTables((prev) =>
+        prev.map((item) =>
+          Number(item?.id || 0) === tableId
+            ? {
+                ...item,
+                ...updatedTable,
+                active: true,
+              }
+            : item,
+        ),
+      );
+
+      toast.success(`Mesa ${tableNumberLabel || tableId} ativada com sucesso.`);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error || "Não foi possível ativar o QR da mesa.",
+      );
+    } finally {
+      setActivatingTableIds((prev) => prev.filter((id) => id !== tableId));
     }
   };
 
@@ -2967,6 +3652,78 @@ export default function AdminDashboard() {
       toast.error(message);
     } finally {
       setIsSavingPasswordRotation(false);
+    }
+  };
+
+  const handleReplyOrderIssue = async () => {
+    const orderId = Number(latestOrderIssue?.orderId || 0);
+    const message = String(orderIssueReplyMessage || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      toast.error("Pedido inválido para responder.");
+      return;
+    }
+
+    if (message.length < 2) {
+      toast.error("Digite uma mensagem para o cliente.");
+      return;
+    }
+
+    try {
+      setIsSendingOrderIssueReply(true);
+      await ordersService.replyIssue(orderId, message);
+      setOrderIssueReplyMessage("");
+      toast.success(`Resposta enviada para o cliente no pedido #${orderId}.`);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          "Não foi possível enviar a resposta para o cliente.",
+      );
+    } finally {
+      setIsSendingOrderIssueReply(false);
+    }
+  };
+
+  const handleResolveOrderIssue = async () => {
+    const orderId = Number(latestOrderIssue?.orderId || 0);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      toast.error("Pedido inválido para resolver o problema.");
+      return;
+    }
+
+    if (latestOrderIssue?.isResolved) {
+      toast.info("Este problema já está resolvido.");
+      return;
+    }
+
+    try {
+      setIsResolvingOrderIssue(true);
+      const response = await ordersService.resolveIssue(orderId);
+
+      setLatestOrderIssue((prev) => {
+        if (Number(prev?.orderId || 0) !== orderId) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          isResolved: true,
+          resolvedAt: response?.resolvedAt || new Date().toISOString(),
+          resolvedByName: response?.resolvedByName || "Admin",
+        };
+      });
+
+      toast.success(`Problema do pedido #${orderId} marcado como resolvido.`);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          "Não foi possível marcar o problema como resolvido.",
+      );
+    } finally {
+      setIsResolvingOrderIssue(false);
     }
   };
 
@@ -3913,13 +4670,16 @@ export default function AdminDashboard() {
             <Suspense fallback={null}>
               <OrdersTab
                 isDarkMode={isDarkMode}
-                visibleOrders={visibleOrders}
+                visibleOrders={visibleOrdersWithQuickFilters}
                 statusCounters={statusCounters}
                 orderTypeFilter={orderTypeFilter}
                 orderTypeCounters={orderTypeCounters}
+                quickFilterCounts={quickFilterCounts}
                 statusFilter={statusFilter}
                 orderStatusFilters={ORDER_STATUS_FILTERS}
                 statusFilterToneByStatus={STATUS_FILTER_TONE_BY_STATUS}
+                refundRequestedOnly={refundRequestedOnly}
+                payOnDeliveryOnly={payOnDeliveryOnly}
                 expandedOrderIds={expandedOrderIds}
                 closingOrderIds={closingOrderIds}
                 generatingPinOrderIds={generatingPinOrderIds}
@@ -3928,20 +4688,27 @@ export default function AdminDashboard() {
                 paymentPinInputByOrderId={paymentPinInputByOrderId}
                 requestingPaymentPinOrderIds={requestingPaymentPinOrderIds}
                 confirmingPaymentPinOrderIds={confirmingPaymentPinOrderIds}
+                refundingOrderIds={refundingOrderIds}
                 paymentPinToolsEnabled={PAYMENT_PIN_TOOLS_ENABLED}
                 orderStatusMeta={ORDER_STATUS_META}
                 onSetOrderTypeFilter={setOrderTypeFilter}
                 onSetStatusFilter={setStatusFilter}
+                onSetRefundRequestedOnly={setRefundRequestedOnly}
+                onSetPayOnDeliveryOnly={setPayOnDeliveryOnly}
                 onToggleOrderExpanded={toggleOrderExpanded}
                 onGeneratePaymentPin={handleGeneratePaymentPin}
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onSetPaymentPinInputByOrderId={setPaymentPinInputByOrderId}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
+                onRefundOrder={handleRefundOrder}
                 getStatusValueIcon={getStatusValueIcon}
                 getPaymentSummaryLabel={getPaymentSummaryLabel}
                 getDeliveryAddressLabel={getDeliveryAddressLabel}
                 isPendingDigitalPayment={isPendingDigitalPayment}
                 canGeneratePin={canGeneratePin}
+                canRefundOrder={(order) => canUseAdminRefund(order, user?.role)}
+                hasRefundRequest={hasClientRefundRequest}
+                isPayOnDeliveryOrder={isPayOnDeliveryOrder}
                 formatRequestTime={formatRequestTime}
                 getOrderTableLabel={getOrderTableLabel}
               />
@@ -3984,12 +4751,16 @@ export default function AdminDashboard() {
                 tableNumber={tableNumber}
                 setTableNumber={setTableNumber}
                 tables={tables}
+                deactivatingTableIds={deactivatingTableIds}
+                activatingTableIds={activatingTableIds}
                 getTableQrValue={getRestaurantTableQrValue}
                 qrCardRefs={qrCardRefs}
                 handlePreviewTableQr={handlePreviewTableQr}
                 handleCopyTableQrLink={handleCopyTableQrLink}
                 handleDownloadTableQr={handleDownloadTableQr}
                 handlePrintTableQr={handlePrintTableQr}
+                handleDeactivateTable={handleDeactivateTable}
+                handleActivateTable={handleActivateTable}
                 handleCreateEmployee={handleCreateEmployee}
                 employeeData={employeeData}
                 setEmployeeData={setEmployeeData}
@@ -4068,6 +4839,598 @@ export default function AdminDashboard() {
               >
                 Abrir
               </button>
+            </div>
+          )}
+
+          {latestOrderIssue && isOrderIssuePanelMinimized && (
+            <div
+              style={{
+                position: "fixed",
+                left: "max(14px, env(safe-area-inset-left))",
+                bottom: "max(14px, env(safe-area-inset-bottom))",
+                zIndex: 72,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                borderRadius: 999,
+                padding: "0.5rem 0.72rem",
+                background: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)",
+                border: "1px solid rgba(22, 163, 74, 0.38)",
+                boxShadow: "0 12px 24px rgba(15, 23, 42, 0.18)",
+                color: "#14532d",
+              }}
+            >
+              <MessageCircle size={14} />
+              <small style={{ fontWeight: 800 }}>Mensagem do cliente</small>
+              <button
+                type="button"
+                onClick={() => setIsOrderIssuePanelMinimized(false)}
+                style={{
+                  minHeight: 30,
+                  borderRadius: 999,
+                  border: "1px solid rgba(22, 163, 74, 0.42)",
+                  background: "rgba(255,255,255,0.9)",
+                  color: "#166534",
+                  fontWeight: 800,
+                  padding: "0 0.72rem",
+                  cursor: "pointer",
+                }}
+              >
+                Abrir
+              </button>
+            </div>
+          )}
+
+          {latestOrderIssue && !isOrderIssuePanelMinimized && (
+            <div
+              style={{
+                position: "fixed",
+                right: "max(14px, env(safe-area-inset-right))",
+                bottom: "max(14px, env(safe-area-inset-bottom))",
+                zIndex: 72,
+                width: "min(420px, calc(100vw - 24px))",
+                borderRadius: 16,
+                overflow: "hidden",
+                border: "1px solid rgba(22, 163, 74, 0.35)",
+                boxShadow: "0 24px 40px rgba(15, 23, 42, 0.28)",
+                background: "#f0fdf4",
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #16a34a, #15803d)",
+                  color: "#ffffff",
+                  padding: "0.72rem 0.82rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.6rem",
+                }}
+              >
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <MessageCircle size={16} />
+                  <strong
+                    style={{ fontSize: "0.9rem", letterSpacing: "0.01em" }}
+                  >
+                    Mensagem do cliente
+                  </strong>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <small style={{ opacity: 0.92 }}>
+                    {latestOrderIssue.receivedAtLabel}
+                  </small>
+                  <button
+                    type="button"
+                    onClick={() => setIsOrderIssuePanelMinimized(true)}
+                    aria-label="Minimizar mensagem"
+                    title="Minimizar"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      border: "1px solid rgba(255,255,255,0.4)",
+                      background: "rgba(255,255,255,0.16)",
+                      color: "#ffffff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Minimize2 size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLatestOrderIssue(null);
+                      setOrderIssueReplyMessage("");
+                    }}
+                    aria-label="Fechar mensagem"
+                    title="Fechar"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      border: "1px solid rgba(255,255,255,0.4)",
+                      background: "rgba(255,255,255,0.16)",
+                      color: "#ffffff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: "0.82rem",
+                  background:
+                    "radial-gradient(circle at top right, rgba(74, 222, 128, 0.18), rgba(240, 253, 244, 0) 55%), #f0fdf4",
+                }}
+              >
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    width: "100%",
+                    maxWidth: "100%",
+                    borderRadius: "14px",
+                    background: "#ecfdf5",
+                    border: "1px solid rgba(34, 197, 94, 0.26)",
+                    padding: "0.68rem 0.72rem",
+                    color: "#14532d",
+                    boxShadow: "0 8px 20px rgba(15, 23, 42, 0.12)",
+                    display: "grid",
+                    gap: "0.38rem",
+                  }}
+                >
+                  <strong style={{ fontSize: "0.84rem" }}>
+                    {latestOrderIssue.customerName} • Pedido #
+                    {latestOrderIssue.orderId}
+                  </strong>
+                  {latestOrderIssue.customerPhone ? (
+                    <small style={{ opacity: 0.95 }}>
+                      Telefone: {latestOrderIssue.customerPhone}
+                    </small>
+                  ) : null}
+                  <small style={{ fontWeight: 700, opacity: 0.92 }}>
+                    Tipo: {latestOrderIssue.orderType || "N/A"} | Pagamento:{" "}
+                    {latestOrderIssue.paymentMethod || "N/A"}
+                  </small>
+                  <small style={{ fontWeight: 700, opacity: 0.92 }}>
+                    Total: {latestOrderIssue.totalLabel} | Criado em:{" "}
+                    {latestOrderIssue.createdAtLabel}
+                  </small>
+                  {latestOrderIssue.addressLabel ? (
+                    <small style={{ opacity: 0.95 }}>
+                      Endereço: {latestOrderIssue.addressLabel}
+                    </small>
+                  ) : null}
+                  {latestOrderIssue.itemsSummary?.length ? (
+                    <small style={{ opacity: 0.95 }}>
+                      Itens: {latestOrderIssue.itemsSummary.join("; ")}
+                    </small>
+                  ) : null}
+                  <div
+                    style={{
+                      marginTop: "0.15rem",
+                      maxHeight: "220px",
+                      overflow: "auto",
+                      display: "grid",
+                      gap: "0.45rem",
+                    }}
+                  >
+                    {(latestOrderIssue.messages || []).map((messageItem) => {
+                      const senderType = String(
+                        messageItem?.senderType || "CLIENT",
+                      ).toUpperCase();
+                      const isAdminMessage = senderType === "ADMIN";
+                      const sentAtLabel = messageItem?.sentAt
+                        ? new Date(messageItem.sentAt).toLocaleString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Agora";
+
+                      return (
+                        <div
+                          key={String(messageItem?.id || `${Math.random()}`)}
+                          style={{
+                            marginLeft: isAdminMessage ? "auto" : 0,
+                            marginRight: isAdminMessage ? 0 : "auto",
+                            maxWidth: "92%",
+                            borderRadius: isAdminMessage
+                              ? "12px 12px 4px 12px"
+                              : "12px 12px 12px 4px",
+                            border: isAdminMessage
+                              ? "1px solid rgba(37,99,235,0.28)"
+                              : "1px solid rgba(34,197,94,0.3)",
+                            background: isAdminMessage ? "#dbeafe" : "#dcfce7",
+                            color: isAdminMessage ? "#1e3a8a" : "#14532d",
+                            padding: "0.52rem 0.58rem",
+                            display: "grid",
+                            gap: "0.15rem",
+                          }}
+                        >
+                          <small style={{ fontWeight: 800, opacity: 0.86 }}>
+                            {String(messageItem?.senderName || "").trim() ||
+                              (isAdminMessage ? "Admin" : "Cliente")}{" "}
+                            • {sentAtLabel}
+                          </small>
+                          <span
+                            style={{
+                              fontSize: "0.84rem",
+                              lineHeight: 1.35,
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {String(messageItem?.message || "").trim()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {latestOrderIssue?.isResolved ? (
+                    <div
+                      style={{
+                        marginTop: "0.1rem",
+                        borderRadius: 10,
+                        border: "1px solid rgba(16,185,129,0.38)",
+                        background: "rgba(220,252,231,0.72)",
+                        padding: "0.48rem 0.58rem",
+                        fontSize: "0.8rem",
+                        fontWeight: 800,
+                        color: "#14532d",
+                      }}
+                    >
+                      Problema resolvido por{" "}
+                      {latestOrderIssue.resolvedByName || "Admin"}.
+                    </div>
+                  ) : null}
+
+                  <div
+                    style={{
+                      marginTop: "0.3rem",
+                      display: "grid",
+                      gap: "0.45rem",
+                    }}
+                  >
+                    <textarea
+                      value={orderIssueReplyMessage}
+                      onChange={(event) =>
+                        setOrderIssueReplyMessage(event.target.value)
+                      }
+                      placeholder={
+                        latestOrderIssue?.isResolved
+                          ? "Chat encerrado"
+                          : "Responder cliente..."
+                      }
+                      rows={2}
+                      disabled={latestOrderIssue?.isResolved}
+                      style={{
+                        width: "100%",
+                        resize: "vertical",
+                        borderRadius: 10,
+                        border: "1px solid rgba(22, 163, 74, 0.32)",
+                        background: "rgba(255,255,255,0.86)",
+                        padding: "0.52rem 0.58rem",
+                        color: "#14532d",
+                        fontSize: "0.84rem",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleReplyOrderIssue}
+                      disabled={
+                        isSendingOrderIssueReply || latestOrderIssue?.isResolved
+                      }
+                      style={{
+                        minHeight: 34,
+                        borderRadius: 10,
+                        border: "1px solid rgba(22, 163, 74, 0.48)",
+                        background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                        color: "#ffffff",
+                        fontWeight: 800,
+                        cursor:
+                          isSendingOrderIssueReply ||
+                          latestOrderIssue?.isResolved
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          isSendingOrderIssueReply ||
+                          latestOrderIssue?.isResolved
+                            ? 0.68
+                            : 1,
+                      }}
+                    >
+                      {isSendingOrderIssueReply
+                        ? "Enviando..."
+                        : "Responder cliente"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleResolveOrderIssue}
+                      disabled={
+                        isResolvingOrderIssue || latestOrderIssue?.isResolved
+                      }
+                      style={{
+                        minHeight: 34,
+                        borderRadius: 10,
+                        border: "1px solid rgba(6, 95, 70, 0.45)",
+                        background: "linear-gradient(135deg, #10b981, #059669)",
+                        color: "#ffffff",
+                        fontWeight: 800,
+                        cursor:
+                          isResolvingOrderIssue || latestOrderIssue?.isResolved
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          isResolvingOrderIssue || latestOrderIssue?.isResolved
+                            ? 0.68
+                            : 1,
+                      }}
+                    >
+                      {latestOrderIssue?.isResolved
+                        ? "Problema resolvido"
+                        : isResolvingOrderIssue
+                          ? "Finalizando..."
+                          : "Marcar problema como resolvido"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!supportChatPlanAllowed ? (
+            <button
+              type="button"
+              disabled
+              title="Disponível apenas para planos Profissional e Premium"
+              style={{
+                position: "fixed",
+                right: "max(14px, env(safe-area-inset-right))",
+                bottom: "max(14px, env(safe-area-inset-bottom))",
+                zIndex: 71,
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.4)",
+                background: "linear-gradient(135deg, #cbd5e1, #94a3b8)",
+                color: "#0f172a",
+                minHeight: 40,
+                padding: "0 0.9rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                fontWeight: 800,
+                cursor: "not-allowed",
+                opacity: 0.82,
+              }}
+            >
+              <MessageCircle size={14} />
+              Chat Super Admin indisponível no plano{" "}
+              {supportChatPlanName || "BASICO"}
+            </button>
+          ) : isSupportChatMinimized ? (
+            <button
+              type="button"
+              onClick={() => setIsSupportChatMinimized(false)}
+              style={{
+                position: "fixed",
+                right: "max(14px, env(safe-area-inset-right))",
+                bottom: "max(14px, env(safe-area-inset-bottom))",
+                zIndex: 71,
+                borderRadius: 999,
+                border: "1px solid rgba(59,130,246,0.4)",
+                background: "linear-gradient(135deg, #60a5fa, #2563eb)",
+                color: "#ffffff",
+                minHeight: 40,
+                padding: "0 0.9rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              <MessageCircle size={14} /> Chat com Super Admin
+            </button>
+          ) : (
+            <div
+              style={{
+                position: "fixed",
+                right: "max(14px, env(safe-area-inset-right))",
+                bottom: "max(14px, env(safe-area-inset-bottom))",
+                zIndex: 71,
+                width: "min(360px, calc(100vw - 24px))",
+                borderRadius: 14,
+                border: "1px solid rgba(59,130,246,0.35)",
+                background: "#eff6ff",
+                overflow: "hidden",
+                boxShadow: "0 22px 36px rgba(15,23,42,0.28)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.6rem",
+                  padding: "0.62rem 0.72rem",
+                  background: "linear-gradient(135deg, #1d4ed8, #1e3a8a)",
+                  color: "#ffffff",
+                }}
+              >
+                <strong style={{ fontSize: "0.85rem" }}>
+                  Suporte em tempo real • Super Admin
+                </strong>
+                <button
+                  type="button"
+                  onClick={() => setIsSupportChatMinimized(true)}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.45)",
+                    background: "rgba(255,255,255,0.15)",
+                    color: "#fff",
+                    cursor: "pointer",
+                  }}
+                  title="Minimizar"
+                >
+                  <Minimize2 size={13} />
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: "0.68rem",
+                  display: "grid",
+                  gap: "0.45rem",
+                }}
+              >
+                <div
+                  style={{
+                    borderRadius: 9,
+                    border: "1px solid rgba(59,130,246,0.26)",
+                    background: "rgba(219,234,254,0.7)",
+                    color: "#1e3a8a",
+                    fontSize: "0.76rem",
+                    lineHeight: 1.3,
+                    padding: "0.42rem 0.5rem",
+                  }}
+                >
+                  Se o Super Admin estiver ocupado, ele responde assim que puder
+                  atender.
+                </div>
+
+                <div
+                  ref={supportChatScrollRef}
+                  style={{
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    display: "grid",
+                    gap: "0.35rem",
+                  }}
+                >
+                  {supportChatHasMoreHistory && (
+                    <button
+                      type="button"
+                      onClick={handleLoadOlderSupportChatMessages}
+                      disabled={isLoadingMoreSupportChat}
+                      style={{
+                        minHeight: 30,
+                        borderRadius: 8,
+                        border: "1px solid rgba(59,130,246,0.35)",
+                        background: "#ffffff",
+                        color: "#1d4ed8",
+                        fontSize: "0.74rem",
+                        fontWeight: 700,
+                        cursor: isLoadingMoreSupportChat
+                          ? "not-allowed"
+                          : "pointer",
+                        opacity: isLoadingMoreSupportChat ? 0.68 : 1,
+                      }}
+                    >
+                      {isLoadingMoreSupportChat
+                        ? "Carregando..."
+                        : "Carregar mensagens antigas"}
+                    </button>
+                  )}
+
+                  {supportChatMessages.length === 0 ? (
+                    <small style={{ opacity: 0.78 }}>
+                      Inicie uma conversa com o Super Admin.
+                    </small>
+                  ) : (
+                    supportChatMessages.map((messageItem) => {
+                      const senderRole = String(
+                        messageItem?.senderRole || "ADMIN",
+                      ).toUpperCase();
+                      const isMine = senderRole === "ADMIN";
+
+                      return (
+                        <div
+                          key={String(messageItem?.id || `${Math.random()}`)}
+                          style={{
+                            marginLeft: isMine ? "auto" : 0,
+                            marginRight: isMine ? 0 : "auto",
+                            maxWidth: "92%",
+                            borderRadius: isMine
+                              ? "11px 11px 4px 11px"
+                              : "11px 11px 11px 4px",
+                            border: isMine
+                              ? "1px solid rgba(37,99,235,0.36)"
+                              : "1px solid rgba(14,165,233,0.36)",
+                            background: isMine ? "#dbeafe" : "#e0f2fe",
+                            padding: "0.42rem 0.52rem",
+                            color: "#0f172a",
+                          }}
+                        >
+                          <small style={{ fontWeight: 800, opacity: 0.75 }}>
+                            {messageItem?.senderLabel ||
+                              (isMine ? "Admin" : "Super Admin")}
+                          </small>
+                          <div
+                            style={{ fontSize: "0.83rem", lineHeight: 1.32 }}
+                          >
+                            {String(messageItem?.message || "").trim()}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <textarea
+                  value={supportChatInput}
+                  onChange={(event) => setSupportChatInput(event.target.value)}
+                  rows={2}
+                  placeholder="Falar com o Super Admin..."
+                  style={{
+                    width: "100%",
+                    resize: "vertical",
+                    borderRadius: 9,
+                    border: "1px solid rgba(59,130,246,0.35)",
+                    background: "#ffffff",
+                    padding: "0.5rem 0.55rem",
+                    fontSize: "0.84rem",
+                    color: "#0f172a",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendSupportChatToSuperAdmin}
+                  disabled={isSendingSupportChat}
+                  style={{
+                    minHeight: 34,
+                    borderRadius: 9,
+                    border: "1px solid rgba(37,99,235,0.45)",
+                    background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+                    color: "#ffffff",
+                    fontWeight: 800,
+                    cursor: isSendingSupportChat ? "not-allowed" : "pointer",
+                    opacity: isSendingSupportChat ? 0.68 : 1,
+                  }}
+                >
+                  {isSendingSupportChat
+                    ? "Enviando..."
+                    : "Enviar para Super Admin"}
+                </button>
+              </div>
             </div>
           )}
 

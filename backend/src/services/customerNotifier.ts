@@ -37,6 +37,22 @@ type RestaurantPinRequestedPayload = {
   requestedByRole?: string | null;
 };
 
+type RestaurantOrderIssueReportedPayload = {
+  restaurantWhatsapp?: string | null;
+  restaurantName?: string | null;
+  orderId?: number | string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  issueMessage?: string | null;
+  orderStatus?: string | null;
+  orderType?: string | null;
+  paymentMethod?: string | null;
+  total?: number | string | { toString(): string } | null;
+  addressLabel?: string | null;
+  itemsSummary?: string[] | null;
+  createdAt?: string | null;
+};
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
 }
@@ -139,6 +155,69 @@ function buildRestaurantPinRequestMessage({
     `${requesterLabel} solicitou PIN de confirmacao de pagamento.`,
     `Pedido #${orderId}.`,
   ].join("\n");
+}
+
+function buildRestaurantOrderIssueReportedMessage({
+  restaurantName,
+  orderId,
+  customerName,
+  customerPhone,
+  issueMessage,
+  orderStatus,
+  orderType,
+  paymentMethod,
+  total,
+  addressLabel,
+  itemsSummary,
+  createdAt,
+}: RestaurantOrderIssueReportedPayload) {
+  const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
+  const resolvedCustomerName = String(customerName || "Cliente").trim();
+  const resolvedCustomerPhone = String(customerPhone || "").trim();
+  const resolvedIssueMessage = String(issueMessage || "")
+    .trim()
+    .slice(0, 600);
+  const resolvedOrderStatus = String(orderStatus || "N/A")
+    .trim()
+    .replace(/_/g, " ")
+    .toUpperCase();
+  const resolvedOrderType = String(orderType || "N/A")
+    .trim()
+    .replace(/_/g, " ")
+    .toUpperCase();
+  const resolvedPaymentMethod = String(paymentMethod || "N/A")
+    .trim()
+    .replace(/_/g, " ")
+    .toUpperCase();
+  const resolvedAddressLabel = String(addressLabel || "").trim();
+  const resolvedItemsSummary = Array.isArray(itemsSummary)
+    ? itemsSummary
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .slice(0, 8)
+    : [];
+  const resolvedCreatedAt = String(createdAt || "").trim();
+  const resolvedCreatedAtText = resolvedCreatedAt
+    ? new Date(resolvedCreatedAt).toLocaleString("pt-BR")
+    : "N/A";
+
+  return [
+    `Notificacao - ${resolvedRestaurantName}`,
+    `Cliente ${resolvedCustomerName} relatou problema no pedido #${orderId}.`,
+    resolvedCustomerPhone
+      ? `Telefone do cliente: ${resolvedCustomerPhone}.`
+      : null,
+    `Status: ${resolvedOrderStatus} | Tipo: ${resolvedOrderType} | Pagamento: ${resolvedPaymentMethod}.`,
+    `Total: ${formatCurrencyBrl(total)}.`,
+    resolvedAddressLabel ? `Endereco: ${resolvedAddressLabel}.` : null,
+    resolvedItemsSummary.length > 0
+      ? `Itens: ${resolvedItemsSummary.join("; ")}.`
+      : null,
+    `Criado em: ${resolvedCreatedAtText}.`,
+    `Mensagem: ${resolvedIssueMessage || "(sem detalhes)"}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 async function notifyViaWhatsappWebhook({
@@ -358,6 +437,96 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   };
 }
 
+async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
+  restaurantWhatsapp,
+  restaurantName,
+  orderId,
+  customerName,
+  issueMessage,
+  orderStatus,
+  orderType,
+  paymentMethod,
+  total,
+  addressLabel,
+  itemsSummary,
+  createdAt,
+}: RestaurantOrderIssueReportedPayload) {
+  if (!whatsappWebhookUrl) {
+    return {
+      sent: false,
+      reason: "webhook_not_configured",
+    };
+  }
+
+  const from = normalizeToE164Br(restaurantWhatsapp);
+  if (!from) {
+    return {
+      sent: false,
+      reason: "restaurant_whatsapp_not_configured",
+    };
+  }
+
+  const to = from;
+
+  const message = buildRestaurantOrderIssueReportedMessage({
+    restaurantName,
+    orderId,
+    customerName,
+    issueMessage,
+    orderStatus,
+    orderType,
+    paymentMethod,
+    total,
+    addressLabel,
+    itemsSummary,
+    createdAt,
+  });
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (whatsappWebhookToken) {
+    headers.Authorization = `Bearer ${whatsappWebhookToken}`;
+  }
+
+  const response = await fetch(whatsappWebhookUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      channel: "whatsapp",
+      from,
+      to,
+      message,
+      metadata: {
+        orderId,
+        customerName,
+        issueMessage,
+        orderStatus,
+        orderType,
+        paymentMethod,
+        total,
+        addressLabel,
+        itemsSummary,
+        createdAt,
+        restaurantWhatsapp: from,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Webhook respondeu ${response.status}: ${body}`.trim());
+  }
+
+  return {
+    sent: true,
+    provider: "whatsapp_webhook",
+    from,
+    to,
+  };
+}
+
 export async function notifyCustomerPaymentConfirmed({
   restaurantWhatsapp,
   customerPhone,
@@ -486,6 +655,66 @@ export async function notifyRestaurantPaymentPinRequested({
   } catch (error: unknown) {
     console.error(
       "[RESTAURANT_PIN_NOTIFICATION_ERROR]",
+      getErrorMessage(error),
+    );
+    return {
+      sent: false,
+      reason: "send_failed",
+      provider,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function notifyRestaurantOrderIssueReported({
+  restaurantWhatsapp,
+  restaurantName,
+  orderId,
+  customerName,
+  issueMessage,
+  orderStatus,
+  orderType,
+  paymentMethod,
+  total,
+  addressLabel,
+  itemsSummary,
+  createdAt,
+}: RestaurantOrderIssueReportedPayload) {
+  const provider = resolveProvider();
+
+  if (provider === "none") {
+    return {
+      sent: false,
+      reason: "provider_not_configured",
+    };
+  }
+
+  try {
+    if (provider === "whatsapp_webhook") {
+      return await notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
+        restaurantWhatsapp,
+        restaurantName,
+        orderId,
+        customerName,
+        issueMessage,
+        orderStatus,
+        orderType,
+        paymentMethod,
+        total,
+        addressLabel,
+        itemsSummary,
+        createdAt,
+      });
+    }
+
+    return {
+      sent: false,
+      reason: "provider_not_supported",
+      provider,
+    };
+  } catch (error: unknown) {
+    console.error(
+      "[RESTAURANT_ORDER_ISSUE_NOTIFICATION_ERROR]",
       getErrorMessage(error),
     );
     return {

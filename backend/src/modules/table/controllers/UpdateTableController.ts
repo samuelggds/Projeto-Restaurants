@@ -8,12 +8,13 @@ class UpdateTableController {
       const parsedId = Array.isArray(req.params.id)
         ? req.params.id[0]
         : req.params.id;
-      const { number } = req.body;
+      const { number, active } = req.body;
 
       const table = await updateTableService.execute({
         id: parsedId,
         restaurantId,
         number,
+        active,
       });
 
       return res.status(200).json(table);

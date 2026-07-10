@@ -221,6 +221,74 @@ export function getSocket() {
   return socket;
 }
 
+export function waitForSocketConnection(timeoutMs = 6000) {
+  return new Promise((resolve, reject) => {
+    const activeSocket = socket;
+
+    if (!activeSocket) {
+      reject(new Error("Socket indisponível."));
+      return;
+    }
+
+    if (activeSocket.connected) {
+      resolve(activeSocket);
+      return;
+    }
+
+    let settled = false;
+
+    const cleanup = () => {
+      activeSocket.off("connect", handleConnect);
+      activeSocket.off("connect_error", handleConnectError);
+      activeSocket.off("disconnect", handleDisconnect);
+      clearTimeout(timerId);
+    };
+
+    const settleResolve = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(activeSocket);
+    };
+
+    const settleReject = (message: string) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(new Error(message));
+    };
+
+    const handleConnect = () => {
+      settleResolve();
+    };
+
+    const handleConnectError = (error) => {
+      const message = String(error?.message || "Falha na conexão do socket.");
+      settleReject(message);
+    };
+
+    const handleDisconnect = () => {
+      settleReject("Socket desconectado antes de concluir a conexão.");
+    };
+
+    const timerId = setTimeout(() => {
+      settleReject("Tempo esgotado para conectar socket.");
+    }, timeoutMs);
+
+    activeSocket.once("connect", handleConnect);
+    activeSocket.once("connect_error", handleConnectError);
+    activeSocket.once("disconnect", handleDisconnect);
+
+    if (!activeSocket.active) {
+      activeSocket.connect();
+    }
+  });
+}
+
 export function disconnectSocket() {
   if (socket) {
     debugSocket(`manual disconnect user socket (${socketContextName})`, {

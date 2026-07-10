@@ -48,7 +48,12 @@ export default function SystemBlockedPage() {
 
   const resolvePaymentLink = async () => {
     const response = await api.get("/billing/invoices");
-    const payableInvoice = response.data.find(
+    const invoiceList = Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.data?.invoices)
+        ? response.data.invoices
+        : [];
+    const payableInvoice = invoiceList.find(
       (invoice) =>
         ["ATRASADO", "PENDENTE", "VENCIDO"].includes(invoice.status) &&
         isValidPaymentLink(invoice.paymentLink),
@@ -65,7 +70,7 @@ export default function SystemBlockedPage() {
       return payableInvoice.paymentLink;
     }
 
-    const payableWithoutLink = response.data.find((invoice) =>
+    const payableWithoutLink = invoiceList.find((invoice) =>
       ["ATRASADO", "PENDENTE", "VENCIDO"].includes(invoice.status),
     );
 
@@ -145,7 +150,12 @@ export default function SystemBlockedPage() {
   const handleRetestAccess = async () => {
     try {
       const response = await api.get("/billing/invoices");
-      const hasOverdue = response.data.some(
+      const invoiceList = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.data?.invoices)
+          ? response.data.invoices
+          : [];
+      const hasOverdue = invoiceList.some(
         (invoice) => invoice.status === "ATRASADO",
       );
 

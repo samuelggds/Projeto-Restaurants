@@ -10,6 +10,19 @@ class TablesService {
     const response = await api.post("/tables", payload);
     return response.data;
   }
+
+  async deactivateTable(tableId) {
+    const response = await api.patch(`/tables/${tableId}`);
+    return response.data;
+  }
+
+  async activateTable(tableId, number) {
+    const response = await api.put(`/tables/${tableId}`, {
+      number,
+      active: true,
+    });
+    return response.data;
+  }
 }
 
 export default new TablesService();

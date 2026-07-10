@@ -24,6 +24,8 @@ type Order = {
   status: string;
   total: number;
   paymentMethod?: string;
+  payOnDelivery?: boolean;
+  payOnDeliveryMethod?: string;
   paid?: boolean;
   user?: {
     name?: string;
@@ -31,6 +33,7 @@ type Order = {
   };
   items?: OrderItem[];
   notes?: string;
+  observation?: string;
   address?: string;
   number?: string;
   complement?: string;
@@ -41,7 +44,10 @@ type Order = {
 
 type OrderCardProps = {
   order: Order;
-  onMarkDelivered: (orderId: number) => Promise<void>;
+  onMarkDelivered: (
+    orderId: number,
+    deliveryConfirmationCode: string,
+  ) => Promise<void>;
   digitalPaymentMethods: Set<string>;
   paymentLabel: Record<string, string>;
   statusLabel: Record<string, { label: string; color: string }>;
@@ -71,8 +77,29 @@ function requiresConfirmedPayment(
   order: Order,
   digitalPaymentMethods: Set<string>,
 ) {
+  const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
+  if (payOnDeliveryMethod) {
+    return false;
+  }
+
   const paymentMethod = String(order?.paymentMethod || "").toUpperCase();
   return digitalPaymentMethods.has(paymentMethod) && order?.paid !== true;
+}
+
+function getPayOnDeliveryMethod(order: Order) {
+  const structuredMethod = String(order?.payOnDeliveryMethod || "")
+    .trim()
+    .toUpperCase();
+
+  if (order?.payOnDelivery && structuredMethod) {
+    return structuredMethod;
+  }
+
+  const rawObservation = String(order?.notes || order?.observation || "");
+  const match = rawObservation
+    .toUpperCase()
+    .match(/PAY_ON_DELIVERY:\s*(PIX|CARTAO|DINHEIRO)/);
+  return match?.[1] || null;
 }
 
 export default function OrderCard({
@@ -85,6 +112,7 @@ export default function OrderCard({
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [deliveryCode, setDeliveryCode] = useState("");
 
   const statusInfo = statusLabel[order.status] || {
     label: order.status,
@@ -95,7 +123,15 @@ export default function OrderCard({
     order,
     digitalPaymentMethods,
   );
+  const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
+  const normalizedDeliveryCode = String(deliveryCode || "").replace(/\D/g, "");
+  const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
   const paymentStatusLabel = order.paid ? "Pago" : "Nao pago";
+  const orderObservation = String(order.notes || order.observation || "")
+    .replace(/\s*\|?\s*PAY_ON_DELIVERY:\s*(PIX|CARTAO|DINHEIRO)\s*\|?/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^\|\s*|\s*\|$/g, "")
+    .trim();
   const paymentStatusChipStyle = {
     color: order.paid ? "#166534" : "#991b1b",
     background: order.paid ? "#dcfce7" : "#fee2e2",
@@ -106,18 +142,25 @@ export default function OrderCard({
   };
 
   async function handleMarkDelivered() {
+    if (!isDeliveryCodeValid) {
+      setError("Digite exatamente 4 dígitos para confirmar a entrega.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     try {
-      await onMarkDelivered(order.id);
+      await onMarkDelivered(order.id, normalizedDeliveryCode);
     } catch (err) {
       const message =
         (
           err as {
-            response?: { data?: { message?: string } };
+            response?: { data?: { message?: string; error?: string } };
             message?: string;
           }
         )?.response?.data?.message ||
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ||
         (err as { message?: string })?.message ||
         "Erro ao atualizar";
       setError(message);
@@ -154,6 +197,19 @@ export default function OrderCard({
           <CreditCard size={13} />
           {paymentStatusLabel}
         </S.InfoChip>
+        {payOnDeliveryMethod ? (
+          <S.InfoChip
+            style={{
+              color: "#1d4ed8",
+              background: "#dbeafe",
+              border: "1px solid rgba(59, 130, 246, 0.35)",
+              fontWeight: 800,
+            }}
+          >
+            <CreditCard size={13} />
+            {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
+          </S.InfoChip>
+        ) : null}
       </S.OrderSummaryRow>
 
       <S.AddressRow>
@@ -181,9 +237,9 @@ export default function OrderCard({
             ))}
           </S.ItemsList>
 
-          {order.notes && (
+          {orderObservation && (
             <S.NotesBox>
-              <strong>Obs:</strong> {order.notes}
+              <strong>Obs:</strong> {orderObservation}
             </S.NotesBox>
           )}
         </S.ExpandedContent>
@@ -198,11 +254,37 @@ export default function OrderCard({
 
       {canDeliver && (
         <S.CardActions>
+          <S.DeliveryHint>
+            Peca ao cliente os 4 ultimos digitos do celular e digite abaixo para
+            concluir a entrega.
+          </S.DeliveryHint>
+          <S.DeliveryCodeInput
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            value={deliveryCode}
+            onChange={(event) => {
+              setDeliveryCode(
+                event.target.value.replace(/\D/g, "").slice(0, 4),
+              );
+              if (error) {
+                setError("");
+              }
+            }}
+            placeholder="4 ultimos digitos do celular"
+          />
           <S.DeliverButton
             onClick={handleMarkDelivered}
-            disabled={loading || paymentPendingConfirmation}
+            disabled={
+              loading || paymentPendingConfirmation || !isDeliveryCodeValid
+            }
             title={
-              paymentPendingConfirmation ? "Pagamento ainda não confirmado" : ""
+              paymentPendingConfirmation
+                ? "Pagamento ainda não confirmado"
+                : !isDeliveryCodeValid
+                  ? "Digite os 4 dígitos para concluir"
+                  : ""
             }
           >
             <CheckCircle size={16} />
