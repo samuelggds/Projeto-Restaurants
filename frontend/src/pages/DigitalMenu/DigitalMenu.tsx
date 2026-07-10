@@ -240,22 +240,6 @@ function formatCurrency(value) {
   });
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      resolve(String(reader.result || ""));
-    };
-
-    reader.onerror = () => {
-      reject(new Error("Nao foi possivel ler o arquivo selecionado."));
-    };
-
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function DigitalMenu() {
   const navigate = useNavigate();
   const { tableNumber: tableNumberParam } = useParams();
@@ -298,9 +282,6 @@ export default function DigitalMenu() {
   const [submitting, setSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState(null);
-  const [pixManualProof, setPixManualProof] = useState("");
-  const [pixManualProofImage, setPixManualProofImage] = useState("");
-  const [pixManualProofImageName, setPixManualProofImageName] = useState("");
   const [isSubmittingPixConfirmation, setIsSubmittingPixConfirmation] =
     useState(false);
   const [paymentSuccessState, setPaymentSuccessState] = useState<{
@@ -919,34 +900,6 @@ export default function DigitalMenu() {
     }
   }
 
-  async function handleManualProofFileChange(event) {
-    try {
-      const file = event.target.files?.[0];
-
-      if (!file) {
-        setPixManualProofImage("");
-        setPixManualProofImageName("");
-        return;
-      }
-
-      if (!String(file.type || "").startsWith("image/")) {
-        throw new Error("Selecione um arquivo de imagem valido.");
-      }
-
-      if (Number(file.size || 0) > 2 * 1024 * 1024) {
-        throw new Error("A imagem deve ter no maximo 2MB.");
-      }
-
-      const dataUrl = await readFileAsDataUrl(file);
-      setPixManualProofImage(dataUrl);
-      setPixManualProofImageName(String(file.name || "comprovante"));
-    } catch (error) {
-      toast.error(error?.message || "Erro ao carregar comprovante.");
-      setPixManualProofImage("");
-      setPixManualProofImageName("");
-    }
-  }
-
   const handleConfirmPixPaymentAndCreateOrder = useCallback(async () => {
     if (!pixPaymentData || isSubmittingPixConfirmation) {
       return;
@@ -966,9 +919,6 @@ export default function DigitalMenu() {
         orderId: normalizedOrderId,
         paymentId: normalizedPaymentId,
         restaurantId,
-        paymentProof: String(pixManualProof || "").trim() || undefined,
-        paymentProofImage:
-          String(pixManualProofImage || "").trim() || undefined,
       });
 
       setMesaOrders((prev) =>
@@ -984,9 +934,6 @@ export default function DigitalMenu() {
       );
 
       setPixPaymentData(null);
-      setPixManualProof("");
-      setPixManualProofImage("");
-      setPixManualProofImageName("");
       setDrawerOpen(false);
       setCart([]);
       setObservation("");
@@ -1014,13 +961,7 @@ export default function DigitalMenu() {
     } finally {
       setIsSubmittingPixConfirmation(false);
     }
-  }, [
-    isSubmittingPixConfirmation,
-    pixManualProof,
-    pixManualProofImage,
-    pixPaymentData,
-    restaurantId,
-  ]);
+  }, [isSubmittingPixConfirmation, pixPaymentData, restaurantId]);
 
   useEffect(() => {
     const provider = String(pixPaymentData?.provider || "").toUpperCase();
@@ -1075,40 +1016,6 @@ export default function DigitalMenu() {
     isSubmittingPixConfirmation,
     pixPaymentData,
     restaurantId,
-  ]);
-
-  useEffect(() => {
-    const isManualProvider =
-      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
-    const normalizedManualProof = String(pixManualProof || "").trim();
-    const normalizedManualProofImage = String(pixManualProofImage || "").trim();
-    const hasManualProofImage =
-      normalizedManualProofImage.startsWith("data:image/") &&
-      normalizedManualProofImage.length >= 40;
-    const shouldAutoConfirmManualPix =
-      isManualProvider &&
-      Boolean(pixPaymentData?.paymentId) &&
-      Boolean(pixPaymentData?.orderId) &&
-      !isSubmittingPixConfirmation &&
-      (normalizedManualProof.length >= 6 || hasManualProofImage);
-
-    if (!shouldAutoConfirmManualPix) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void handleConfirmPixPaymentAndCreateOrder();
-    }, 700);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    handleConfirmPixPaymentAndCreateOrder,
-    isSubmittingPixConfirmation,
-    pixManualProof,
-    pixManualProofImage,
-    pixPaymentData,
   ]);
 
   const categories = useMemo(() => {
@@ -1488,11 +1395,12 @@ export default function DigitalMenu() {
           qrCodeBase64: pixPayment?.qrCodeBase64 || null,
           requiresStatusCheck: Boolean(pixPayment?.requiresStatusCheck),
         });
-        setPixManualProof("");
-        setPixManualProofImage("");
-        setPixManualProofImageName("");
         toast.info(
-          "Pagamento PIX iniciado. Assim que aprovar, seu pedido sera marcado como pago automaticamente.",
+          String(pixPayment?.provider || "")
+            .trim()
+            .toUpperCase() === "MERCADO_PAGO"
+            ? "Pagamento PIX iniciado. Assim que aprovar, seu pedido sera marcado como pago automaticamente."
+            : "Pagamento PIX iniciado. Depois de pagar no app do banco, clique em confirmar pagamento.",
         );
         return;
       }
@@ -1827,14 +1735,10 @@ export default function DigitalMenu() {
             <PixPaymentPanel
               pixPaymentData={pixPaymentData}
               formatCurrency={formatCurrency}
-              pixManualProof={pixManualProof}
-              pixManualProofImage={pixManualProofImage}
-              pixManualProofImageName={pixManualProofImageName}
               isSubmittingPixConfirmation={isSubmittingPixConfirmation}
               isManualProvider={isManualProvider}
               onCopyPixKey={handleCopyPixKey}
-              onPixManualProofChange={setPixManualProof}
-              onManualProofFileChange={handleManualProofFileChange}
+              onConfirmManualPayment={handleConfirmPixPaymentAndCreateOrder}
             />
           </Suspense>
         </S.Page>

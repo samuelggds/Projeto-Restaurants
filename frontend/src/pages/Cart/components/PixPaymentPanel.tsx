@@ -1,4 +1,3 @@
-import type { ChangeEvent } from "react";
 import { Copy } from "lucide-react";
 import QRCode from "react-qr-code";
 import * as S from "../styles";
@@ -16,28 +15,20 @@ type PixPaymentData = {
 type PixPaymentPanelProps = {
   pixPaymentData: PixPaymentData;
   formatCurrency: (value: number) => string;
-  pixManualProof: string;
-  pixManualProofImage: string;
-  pixManualProofImageName: string;
   isSubmittingPixConfirmation: boolean;
   isManualProvider: boolean;
   onCopyPixKey: () => void;
-  onPixManualProofChange: (value: string) => void;
-  onManualProofFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onBackToCart: () => void;
+  onConfirmManualPayment: () => void;
+  onBackToCart?: () => void;
 };
 
 export default function PixPaymentPanel({
   pixPaymentData,
   formatCurrency,
-  pixManualProof,
-  pixManualProofImage,
-  pixManualProofImageName,
   isSubmittingPixConfirmation,
   isManualProvider,
   onCopyPixKey,
-  onPixManualProofChange,
-  onManualProofFileChange,
+  onConfirmManualPayment,
   onBackToCart,
 }: PixPaymentPanelProps) {
   return (
@@ -75,34 +66,36 @@ export default function PixPaymentPanel({
       <p style={{ margin: 0, color: "#334155", lineHeight: 1.5 }}>
         {pixPaymentData?.provider === "MERCADO_PAGO"
           ? "Finalize o pagamento com PIX. Assim que o provedor aprovar, o pedido sera confirmado automaticamente."
-          : "Realize o pagamento PIX no app do provedor. Assim que o comprovante for informado, o pedido sera confirmado automaticamente."}
+          : "Realize o pagamento PIX no app do banco e, em seguida, clique em confirmar pagamento para liberar o pedido."}
         {pixPaymentData.orderId ? ` Pedido #${pixPaymentData.orderId}.` : ""}
       </p>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
-        <button
-          type="button"
-          onClick={onBackToCart}
+      {onBackToCart ? (
+        <div
           style={{
-            border: "1px solid #cbd5e1",
-            background: "#ffffff",
-            color: "#334155",
-            borderRadius: 999,
-            minHeight: 34,
-            padding: "0 0.9rem",
-            fontSize: 12,
-            fontWeight: 800,
-            cursor: "pointer",
+            display: "flex",
+            justifyContent: "flex-end",
           }}
         >
-          Voltar ao carrinho
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={onBackToCart}
+            style={{
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+              color: "#334155",
+              borderRadius: 999,
+              minHeight: 34,
+              padding: "0 0.9rem",
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Voltar ao carrinho
+          </button>
+        </div>
+      ) : null}
 
       {pixPaymentData?.provider === "MERCADO_PAGO" ? (
         <div
@@ -225,105 +218,25 @@ export default function PixPaymentPanel({
           <Copy size={16} /> Copiar Código PIX
         </button>
 
-        {isManualProvider && (
-          <div style={{ width: "100%" }}>
-            <span
-              style={{
-                display: "block",
-                fontSize: 13,
-                color: "#475569",
-                marginBottom: "0.35rem",
-              }}
-            >
-              Comprovante/código da transação (obrigatório)
-            </span>
-            <input
-              type="text"
-              value={pixManualProof}
-              onChange={(event) => onPixManualProofChange(event.target.value)}
-              placeholder="Ex: NSU, ID da transação ou referência do comprovante"
-              style={{
-                width: "100%",
-                minHeight: 46,
-                padding: "0.75rem",
-                borderRadius: 10,
-                border: "1px solid #cbd5e1",
-                background: "#f8fafc",
-                color: "#0f172a",
-                fontWeight: 600,
-                boxSizing: "border-box",
-              }}
-            />
-
-            <div style={{ marginTop: "0.75rem" }}>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  color: "#475569",
-                  marginBottom: "0.35rem",
-                }}
-              >
-                Upload da imagem do comprovante (opcional)
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={onManualProofFileChange}
-                style={{
-                  width: "100%",
-                  fontSize: 13,
-                }}
-              />
-              {pixManualProofImageName ? (
-                <small
-                  style={{
-                    display: "block",
-                    marginTop: "0.35rem",
-                    color: "#64748b",
-                  }}
-                >
-                  Arquivo: {pixManualProofImageName}
-                </small>
-              ) : null}
-            </div>
-
-            {pixManualProofImage ? (
-              <div
-                style={{
-                  marginTop: "0.75rem",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 10,
-                  padding: "0.5rem",
-                  background: "#ffffff",
-                }}
-              >
-                <img
-                  src={pixManualProofImage}
-                  alt="Prévia do comprovante"
-                  style={{
-                    width: "100%",
-                    maxHeight: 220,
-                    objectFit: "contain",
-                    borderRadius: 8,
-                  }}
-                />
-              </div>
-            ) : null}
-
-            <small
-              style={{
-                display: "block",
-                marginTop: "0.75rem",
-                color: "#475569",
-                lineHeight: 1.5,
-              }}
-            >
-              Ao preencher o comprovante, a confirmacao do pagamento acontece
-              automaticamente.
-            </small>
-          </div>
-        )}
+        {isManualProvider ? (
+          <button
+            type="button"
+            onClick={onConfirmManualPayment}
+            disabled={isSubmittingPixConfirmation}
+            style={{
+              width: "100%",
+              border: "1px solid #0f172a",
+              background: isSubmittingPixConfirmation ? "#334155" : "#0f172a",
+              color: "#f8fafc",
+              borderRadius: 999,
+              minHeight: 46,
+              fontWeight: 800,
+              cursor: isSubmittingPixConfirmation ? "not-allowed" : "pointer",
+            }}
+          >
+            Ja paguei, confirmar pedido
+          </button>
+        ) : null}
       </div>
 
       {isManualProvider && isSubmittingPixConfirmation ? (

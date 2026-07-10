@@ -136,22 +136,6 @@ function parseMoney(value, fallback = 0) {
   return normalized;
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      resolve(String(reader.result || ""));
-    };
-
-    reader.onerror = () => {
-      reject(new Error("Não foi possível ler o arquivo selecionado."));
-    };
-
-    reader.readAsDataURL(file);
-  });
-}
-
 function readJsonStorage(key, fallback) {
   const raw = localStorage.getItem(key);
   if (!raw) {
@@ -379,9 +363,6 @@ export default function Cart() {
   const [isPixPaymentPanelMinimized, setIsPixPaymentPanelMinimized] =
     useState(false);
   const [, setPendingPixOrderPayload] = useState(null);
-  const [pixManualProof, setPixManualProof] = useState("");
-  const [pixManualProofImage, setPixManualProofImage] = useState("");
-  const [pixManualProofImageName, setPixManualProofImageName] = useState("");
   const [isSubmittingPixConfirmation, setIsSubmittingPixConfirmation] =
     useState(false);
   const [paymentSuccessState, setPaymentSuccessState] = useState<{
@@ -1134,9 +1115,6 @@ export default function Cart() {
           requiresStatusCheck: Boolean(pixPayment?.requiresStatusCheck),
         });
         setIsPixPaymentPanelMinimized(false);
-        setPixManualProof("");
-        setPixManualProofImage("");
-        setPixManualProofImageName("");
         setPendingPixOrderPayload(null);
         toast.info(DELIVERY_PAYMENT_REQUIRED_MESSAGE);
         return;
@@ -1216,34 +1194,6 @@ export default function Cart() {
     }
   }
 
-  async function handleManualProofFileChange(event) {
-    try {
-      const file = event.target.files?.[0];
-
-      if (!file) {
-        setPixManualProofImage("");
-        setPixManualProofImageName("");
-        return;
-      }
-
-      if (!String(file.type || "").startsWith("image/")) {
-        throw new Error("Selecione um arquivo de imagem válido.");
-      }
-
-      if (Number(file.size || 0) > 2 * 1024 * 1024) {
-        throw new Error("A imagem deve ter no máximo 2MB.");
-      }
-
-      const dataUrl = await readFileAsDataUrl(file);
-      setPixManualProofImage(dataUrl);
-      setPixManualProofImageName(String(file.name || "comprovante"));
-    } catch (error) {
-      toast.error(error?.message || "Erro ao carregar comprovante.");
-      setPixManualProofImage("");
-      setPixManualProofImageName("");
-    }
-  }
-
   const handleConfirmPixPaymentAndCreateOrder = useCallback(async () => {
     if (!pixPaymentData || isSubmittingPixConfirmation) {
       return;
@@ -1251,39 +1201,6 @@ export default function Cart() {
 
     try {
       setIsSubmittingPixConfirmation(true);
-      const isManualProvider =
-        String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
-      const normalizedManualProof = String(pixManualProof || "").trim();
-      const normalizedManualProofImage = String(
-        pixManualProofImage || "",
-      ).trim();
-      const hasManualProofImage =
-        normalizedManualProofImage.startsWith("data:image/") &&
-        normalizedManualProofImage.length >= 40;
-
-      if (
-        isManualProvider &&
-        normalizedManualProof.length < 6 &&
-        !hasManualProofImage
-      ) {
-        toast.error(
-          "Informe o comprovante PIX (código da transação ou imagem) para gerar o pedido.",
-        );
-        setIsSubmittingPixConfirmation(false);
-        return;
-      }
-
-      if (
-        hasManualProofImage &&
-        normalizedManualProofImage.length > 3_000_000
-      ) {
-        toast.error(
-          "Imagem do comprovante muito grande. Envie uma imagem menor que 3MB.",
-        );
-        setIsSubmittingPixConfirmation(false);
-        return;
-      }
-
       if (
         pixPaymentData?.orderId &&
         String(pixPaymentData?.paymentId || "").trim()
@@ -1292,13 +1209,6 @@ export default function Cart() {
           restaurantId,
           orderId: pixPaymentData.orderId,
           paymentId: pixPaymentData.paymentId,
-          paymentProof: isManualProvider
-            ? normalizedManualProof || undefined
-            : undefined,
-          paymentProofImage:
-            isManualProvider && hasManualProofImage
-              ? normalizedManualProofImage
-              : undefined,
         });
 
         localStorage.removeItem("cartItems");
@@ -1309,9 +1219,6 @@ export default function Cart() {
         setPendingPixOrderPayload(null);
         setPixPaymentData(null);
         setIsPixPaymentPanelMinimized(false);
-        setPixManualProof("");
-        setPixManualProofImage("");
-        setPixManualProofImageName("");
         setPaymentSuccessState({
           orderId: Number(pixPaymentData?.orderId || 0) || null,
           provider: String(pixPaymentData?.provider || "PIX")
@@ -1334,8 +1241,6 @@ export default function Cart() {
     endereco,
     isDelivery,
     isSubmittingPixConfirmation,
-    pixManualProof,
-    pixManualProofImage,
     pixPaymentData,
     persistDeliveryAddress,
     restaurantId,
@@ -1375,9 +1280,6 @@ export default function Cart() {
         setPendingPixOrderPayload(null);
         setPixPaymentData(null);
         setIsPixPaymentPanelMinimized(false);
-        setPixManualProof("");
-        setPixManualProofImage("");
-        setPixManualProofImageName("");
         setPaymentSuccessState({
           orderId: Number(pixPaymentData?.orderId || 0) || null,
           provider: String(pixPaymentData?.provider || "PIX")
@@ -1441,9 +1343,6 @@ export default function Cart() {
       }
 
       setPixPaymentData(null);
-      setPixManualProof("");
-      setPixManualProofImage("");
-      setPixManualProofImageName("");
       setIsDrawerOpen(false);
       localStorage.removeItem("cartItems");
       setCartItems([]);
@@ -1468,40 +1367,6 @@ export default function Cart() {
       disconnectSocket();
     };
   }, [pixPaymentData]);
-
-  useEffect(() => {
-    const isManualProvider =
-      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
-    const normalizedManualProof = String(pixManualProof || "").trim();
-    const normalizedManualProofImage = String(pixManualProofImage || "").trim();
-    const hasManualProofImage =
-      normalizedManualProofImage.startsWith("data:image/") &&
-      normalizedManualProofImage.length >= 40;
-    const shouldAutoConfirmManualPix =
-      isManualProvider &&
-      Boolean(pixPaymentData?.paymentId) &&
-      Boolean(pixPaymentData?.orderId) &&
-      !isSubmittingPixConfirmation &&
-      (normalizedManualProof.length >= 6 || hasManualProofImage);
-
-    if (!shouldAutoConfirmManualPix) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void handleConfirmPixPaymentAndCreateOrder();
-    }, 700);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    handleConfirmPixPaymentAndCreateOrder,
-    isSubmittingPixConfirmation,
-    pixManualProof,
-    pixManualProofImage,
-    pixPaymentData,
-  ]);
 
   if (activePaymentSuccessState) {
     const displayProvider =
@@ -1563,14 +1428,10 @@ export default function Cart() {
               <PixPaymentPanel
                 pixPaymentData={pixPaymentData}
                 formatCurrency={formatCurrency}
-                pixManualProof={pixManualProof}
-                pixManualProofImage={pixManualProofImage}
-                pixManualProofImageName={pixManualProofImageName}
                 isSubmittingPixConfirmation={isSubmittingPixConfirmation}
                 isManualProvider={isManualProvider}
                 onCopyPixKey={handleCopyPixKey}
-                onPixManualProofChange={setPixManualProof}
-                onManualProofFileChange={handleManualProofFileChange}
+                onConfirmManualPayment={handleConfirmPixPaymentAndCreateOrder}
                 onBackToCart={() => {
                   setIsPixPaymentPanelMinimized(true);
                   toast.info(
