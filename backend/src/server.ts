@@ -16,13 +16,14 @@ validateCriticalEnv();
 const server = http.createServer(app);
 const port = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === "production";
-const socketAllowedOrigins = (
-  process.env.SOCKET_CORS_ORIGINS ||
-  process.env.CORS_ORIGINS ||
-  ""
-)
-  .split(",")
-  .map((origin) => origin.trim())
+const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, "");
+const socketAllowedOrigins = [
+  process.env.SOCKET_CORS_ORIGINS || "",
+  process.env.CORS_ORIGINS || "",
+  process.env.FRONTEND_URL || "",
+]
+  .flatMap((value) => value.split(","))
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 
 export const io = new Server(server, {
