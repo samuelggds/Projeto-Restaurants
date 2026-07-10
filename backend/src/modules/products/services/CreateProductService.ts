@@ -12,7 +12,19 @@ class CreateProductService {
 
     createProductSchema.parse(data);
 
-    const product = await productRepository.create(data, restaurantId);
+    const normalizedStock =
+      data.stock === null || data.stock === undefined
+        ? null
+        : Number(data.stock);
+    const shouldForceUnavailable =
+      Number.isInteger(normalizedStock) && normalizedStock === 0;
+
+    const payload: CreateProductInput = {
+      ...data,
+      active: shouldForceUnavailable ? false : data.active,
+    };
+
+    const product = await productRepository.create(payload, restaurantId);
 
     return {
       product,
