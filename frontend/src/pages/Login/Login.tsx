@@ -19,6 +19,9 @@ export default function Login() {
   const [googleMessage, setGoogleMessage] = useState("");
   const googleButtonRef = useRef(null);
   const isGoogleMountedRef = useRef(false);
+  const googleInitInFlightRef = useRef(false);
+  const googleInitializedRef = useRef(false);
+  const googleInitializedClientIdRef = useRef("");
 
   const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
@@ -147,6 +150,11 @@ export default function Login() {
   }, []);
 
   const initializeGoogleLogin = useCallback(async () => {
+    if (googleInitInFlightRef.current) {
+      return;
+    }
+
+    googleInitInFlightRef.current = true;
     setGoogleStatus("loading");
     setGoogleMessage("");
     let resolvedGoogleClientId = "";
@@ -171,25 +179,35 @@ export default function Login() {
         throw new Error("google-api-unavailable");
       }
 
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async (response) => {
-          try {
-            const firstStep = await authService.loginWithGoogle(
-              response.credential,
-            );
-            const authResponse = await completeLoginWithMfaIfNeeded(firstStep);
+      const normalizedClientId = String(googleClientId).trim();
+      if (
+        !googleInitializedRef.current ||
+        googleInitializedClientIdRef.current !== normalizedClientId
+      ) {
+        window.google.accounts.id.initialize({
+          client_id: normalizedClientId,
+          callback: async (response) => {
+            try {
+              const firstStep = await authService.loginWithGoogle(
+                response.credential,
+              );
+              const authResponse =
+                await completeLoginWithMfaIfNeeded(firstStep);
 
-            login(authResponse.user, authResponse.token);
-            toast.success("Login com Google realizado com sucesso!");
-            redirectByRole(authResponse.user);
-          } catch (error) {
-            const message =
-              error?.response?.data?.error || "Erro ao autenticar com Google";
-            toast.error(message);
-          }
-        },
-      });
+              login(authResponse.user, authResponse.token);
+              toast.success("Login com Google realizado com sucesso!");
+              redirectByRole(authResponse.user);
+            } catch (error) {
+              const message =
+                error?.response?.data?.error || "Erro ao autenticar com Google";
+              toast.error(message);
+            }
+          },
+        });
+
+        googleInitializedRef.current = true;
+        googleInitializedClientIdRef.current = normalizedClientId;
+      }
 
       googleButtonRef.current.innerHTML = "";
       window.google.accounts.id.renderButton(googleButtonRef.current, {
@@ -210,6 +228,8 @@ export default function Login() {
           `Nao foi possivel carregar o login com Google. No Google Cloud Console, adicione o origin ${origin} em Authorized JavaScript origins para o client id ${resolvedGoogleClientId || "configurado"}.`,
         );
       }
+    } finally {
+      googleInitInFlightRef.current = false;
     }
   }, [
     getGoogleClientId,
