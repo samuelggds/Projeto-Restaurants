@@ -1741,12 +1741,14 @@ export default function DigitalMenu() {
       routeTableId ||
       toInt(tableSession?.tableNumber) ||
       toInt(tableSession?.tableId);
+    const currentReturnTo = `${window.location.pathname}${window.location.search}`;
+    const cartReturnQuery = `?from=menu&returnTo=${encodeURIComponent(currentReturnTo)}`;
 
     if (previewPaymentSuccess) {
       if (targetTableNumber) {
         navigate(`/mesa/${targetTableNumber}`);
       } else {
-        navigate("/cart?from=menu");
+        navigate(`/cart${cartReturnQuery}`);
       }
 
       return;

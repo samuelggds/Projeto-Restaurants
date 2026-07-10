@@ -14,6 +14,11 @@ import CreateOrderPixPaymentController from "../controllers/CreateOrderPixPaymen
 import CreateOrderCardCheckoutController from "../controllers/CreateOrderCardCheckoutController.js";
 import GetOrderPixPaymentStatusController from "../controllers/GetOrderPixPaymentStatusController.js";
 import ConfirmOrderPixPaymentController from "../controllers/ConfirmOrderPixPaymentController.js";
+import ReportOrderIssueController from "../controllers/ReportOrderIssueController.js";
+import ReplyOrderIssueController from "../controllers/ReplyOrderIssueController.js";
+import GetOrderIssueThreadController from "../controllers/GetOrderIssueThreadController.js";
+import ResolveOrderIssueController from "../controllers/ResolveOrderIssueController.js";
+import RefundOrderByAdminController from "../controllers/RefundOrderByAdminController.js";
 import MercadoPagoOrderWebhookController from "../controllers/MercadoPagoOrderWebhookController.js";
 import StripeOrderWebhookController from "../controllers/StripeOrderWebhookController.js";
 import PagBankOrderWebhookController from "../controllers/PagBankOrderWebhookController.js";
@@ -127,6 +132,31 @@ router.get("/:id", authMiddleware, staffMiddleware, (req, res) => {
 
 router.patch("/:id/cancel", authMiddleware, (req, res) => {
   CancelOrderController.handle(req, res);
+});
+
+router.post("/:id/report-issue", authMiddleware, (req, res) => {
+  ReportOrderIssueController.handle(req, res);
+});
+
+router.get("/:id/issue-thread", authMiddleware, (req, res) => {
+  GetOrderIssueThreadController.handle(req, res);
+});
+
+router.post("/:id/reply-issue", authMiddleware, adminMiddleware, (req, res) => {
+  ReplyOrderIssueController.handle(req, res);
+});
+
+router.patch(
+  "/:id/resolve-issue",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => {
+    ResolveOrderIssueController.handle(req, res);
+  },
+);
+
+router.patch("/:id/refund", authMiddleware, adminMiddleware, (req, res) => {
+  RefundOrderByAdminController.handle(req, res);
 });
 
 export default router;

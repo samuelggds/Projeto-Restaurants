@@ -108,8 +108,19 @@ class OrdersService {
     return response.data;
   }
 
-  async updateStatus(orderId: string | number, status: string) {
-    const response = await api.put(`/orders/${orderId}/status`, { status });
+  async updateStatus(
+    orderId: string | number,
+    status: string,
+    deliveryConfirmationCode?: string,
+  ) {
+    const response = await api.put(`/orders/${orderId}/status`, {
+      status,
+      ...(deliveryConfirmationCode
+        ? {
+            deliveryConfirmationCode,
+          }
+        : {}),
+    });
     return response.data;
   }
 
@@ -144,6 +155,35 @@ class OrdersService {
         pin,
       },
     );
+    return response.data;
+  }
+
+  async reportIssue(orderId: string | number, message: string) {
+    const response = await api.post(`/orders/${orderId}/report-issue`, {
+      message,
+    });
+    return response.data;
+  }
+
+  async replyIssue(orderId: string | number, message: string) {
+    const response = await api.post(`/orders/${orderId}/reply-issue`, {
+      message,
+    });
+    return response.data;
+  }
+
+  async getIssueThread(orderId: string | number) {
+    const response = await api.get(`/orders/${orderId}/issue-thread`);
+    return response.data;
+  }
+
+  async resolveIssue(orderId: string | number) {
+    const response = await api.patch(`/orders/${orderId}/resolve-issue`);
+    return response.data;
+  }
+
+  async refundOrder(orderId: string | number) {
+    const response = await api.patch(`/orders/${orderId}/refund`);
     return response.data;
   }
 }

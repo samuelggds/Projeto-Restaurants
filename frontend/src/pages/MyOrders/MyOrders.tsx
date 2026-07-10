@@ -25,20 +25,13 @@ const FILTERS = {
   ARCHIVED: "ARQUIVADOS",
 };
 
-const DATE_FILTERS = {
-  ALL: "TODOS_PERIODOS",
-  LAST_30_DAYS: "ULTIMOS_30_DIAS",
-  LAST_YEAR: "ULTIMO_ANO",
-  OLDER_THAN_1_YEAR: "MAIS_DE_1_ANO",
-  OLDER_THAN_10_YEARS: "MAIS_DE_10_ANOS",
-};
-
-const DATE_FILTER_OPTIONS = [
-  { value: DATE_FILTERS.ALL, label: "Todos periodos" },
-  { value: DATE_FILTERS.LAST_30_DAYS, label: "Ultimos 30 dias" },
-  { value: DATE_FILTERS.LAST_YEAR, label: "Ultimo ano" },
-  { value: DATE_FILTERS.OLDER_THAN_1_YEAR, label: "Mais de 1 ano" },
-  { value: DATE_FILTERS.OLDER_THAN_10_YEARS, label: "Mais de 10 anos" },
+const ISSUE_REASON_OPTIONS = [
+  "Pedido veio errado",
+  "Faltou item no pedido",
+  "Demora na entrega",
+  "Qualidade do produto",
+  "Problema com entregador",
+  "Outro",
 ];
 
 const ARCHIVE_AGE_FILTERS = {
@@ -54,6 +47,23 @@ const CANCELED_STATUS = "CANCELADO";
 const ARCHIVED_ORDERS_STORAGE_PREFIX = "@PecaJaFood:myOrdersArchived";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+type IssueChatMessage = {
+  id?: string;
+  senderType?: string;
+  senderName?: string;
+  message?: string;
+  sentAt?: string;
+};
+
+type IssueThread = {
+  orderId?: number;
+  isResolved?: boolean;
+  resolvedAt?: string | null;
+  resolvedByName?: string | null;
+  messages?: IssueChatMessage[];
+  [key: string]: unknown;
+};
 
 function getArchivedStorageKey(userId) {
   const numericUserId = Number(userId || 0);
@@ -110,43 +120,6 @@ function getInitialArchivedOrdersMap(userId) {
   }
 }
 
-function getDaysSinceDate(value) {
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  const diffMs = Date.now() - parsedDate.getTime();
-  return diffMs / DAY_IN_MS;
-}
-
-function matchesCreatedAtFilter(createdAt, selectedFilter) {
-  if (selectedFilter === DATE_FILTERS.ALL) {
-    return true;
-  }
-
-  const days = getDaysSinceDate(createdAt);
-
-  if (selectedFilter === DATE_FILTERS.LAST_30_DAYS) {
-    return days <= 30;
-  }
-
-  if (selectedFilter === DATE_FILTERS.LAST_YEAR) {
-    return days <= 365;
-  }
-
-  if (selectedFilter === DATE_FILTERS.OLDER_THAN_1_YEAR) {
-    return days > 365;
-  }
-
-  if (selectedFilter === DATE_FILTERS.OLDER_THAN_10_YEARS) {
-    return days > 3650;
-  }
-
-  return true;
-}
-
 function matchesArchiveAgeFilter(archivedAt, selectedFilter) {
   if (selectedFilter === ARCHIVE_AGE_FILTERS.ALL) {
     return true;
@@ -179,13 +152,6 @@ function matchesArchiveAgeFilter(archivedAt, selectedFilter) {
   }
 
   return true;
-}
-
-function getDateFilterLabel(filterValue) {
-  return (
-    DATE_FILTER_OPTIONS.find((option) => option.value === filterValue)?.label ||
-    "Todos periodos"
-  );
 }
 
 function isActiveStatus(status) {
@@ -286,7 +252,6 @@ export default function MyOrders() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const orderListRef = useRef(null);
-  const scrollActionRef = useRef(null);
   const lastStatusEventRef = useRef({
     orderId: null,
     status: null,
@@ -295,11 +260,25 @@ export default function MyOrders() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [pedidos, setPedidos] = useState([]);
   const [isLoadingPedidos, setIsLoadingPedidos] = useState(true);
+  const [reportingIssueOrderId, setReportingIssueOrderId] = useState<
+    number | null
+  >(null);
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
-  const [dateFilter, setDateFilter] = useState(DATE_FILTERS.ALL);
-  const [isScrollMenuOpen, setIsScrollMenuOpen] = useState(false);
   const [archiveAgeFilter, setArchiveAgeFilter] = useState(
     ARCHIVE_AGE_FILTERS.ALL,
+  );
+  const [issueThreadsByOrderId, setIssueThreadsByOrderId] = useState<
+    Record<number, IssueThread>
+  >({});
+  const [activeIssueChatOrderId, setActiveIssueChatOrderId] = useState<
+    number | null
+  >(null);
+  const issueChatScrollRef = useRef<HTMLDivElement | null>(null);
+  const [issueChatInput, setIssueChatInput] = useState("");
+  const [isSendingIssueChatMessage, setIsSendingIssueChatMessage] =
+    useState(false);
+  const [selectedIssueReason, setSelectedIssueReason] = useState(
+    ISSUE_REASON_OPTIONS[0],
   );
   const archivedStorageKey = useMemo(
     () => getArchivedStorageKey(user?.id),
@@ -319,6 +298,74 @@ export default function MyOrders() {
     .filter((id) => Number.isInteger(id) && id > 0);
 
   const isAdmin = user?.role === "ADMIN";
+
+  const upsertIssueThread = (payload) => {
+    const orderId = Number(payload?.orderId || 0);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    const incomingMessages = Array.isArray(payload?.messages)
+      ? payload.messages
+      : [];
+    const lastMessage = payload?.message || payload?.lastMessage || null;
+
+    setIssueThreadsByOrderId((prev) => {
+      const current = prev[orderId] || {
+        orderId,
+        isResolved: false,
+        messages: [],
+      };
+
+      const mergedMessages = [...current.messages];
+
+      incomingMessages.forEach((messageItem) => {
+        const messageId = String(messageItem?.id || "").trim();
+
+        if (!messageId) {
+          return;
+        }
+
+        if (
+          !mergedMessages.some((item) => String(item?.id || "") === messageId)
+        ) {
+          mergedMessages.push(messageItem);
+        }
+      });
+
+      if (lastMessage?.id) {
+        const lastMessageId = String(lastMessage.id);
+        if (
+          !mergedMessages.some(
+            (item) => String(item?.id || "") === lastMessageId,
+          )
+        ) {
+          mergedMessages.push(lastMessage);
+        }
+      }
+
+      mergedMessages.sort((a, b) => {
+        const aTime = new Date(a?.sentAt || 0).getTime();
+        const bTime = new Date(b?.sentAt || 0).getTime();
+        return aTime - bTime;
+      });
+
+      return {
+        ...prev,
+        [orderId]: {
+          ...current,
+          ...payload,
+          orderId,
+          messages: mergedMessages,
+          isResolved: Boolean(payload?.isResolved ?? current.isResolved),
+          resolvedAt: payload?.resolvedAt || current.resolvedAt || null,
+          resolvedByName:
+            payload?.resolvedByName || current.resolvedByName || null,
+        },
+      };
+    });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -470,51 +517,80 @@ export default function MyOrders() {
       });
     };
 
+    const onIssueMessage = (payload) => {
+      const orderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(orderId) || orderId <= 0) {
+        return;
+      }
+
+      upsertIssueThread(payload);
+
+      const lastMessage = payload?.message;
+      const senderType = String(lastMessage?.senderType || "").toUpperCase();
+      if (senderType === "ADMIN") {
+        toast.info(`Nova mensagem do admin no pedido #${orderId}.`);
+      }
+    };
+
+    const onIssueResolved = (payload) => {
+      const orderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(orderId) || orderId <= 0) {
+        return;
+      }
+
+      upsertIssueThread({
+        orderId,
+        isResolved: true,
+        resolvedAt: payload?.resolvedAt || new Date().toISOString(),
+        resolvedByName: payload?.resolvedByName || "Admin",
+      });
+
+      setActiveIssueChatOrderId((prev) => (prev === orderId ? null : prev));
+      toast.success(
+        `Problema do pedido #${orderId} foi marcado como resolvido.`,
+      );
+    };
+
     socket.on("connect", onConnect);
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
+    socket.on("order:issue-message", onIssueMessage);
+    socket.on("order:issue-resolved", onIssueResolved);
 
     return () => {
       socket.off("connect", onConnect);
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
+      socket.off("order:issue-message", onIssueMessage);
+      socket.off("order:issue-resolved", onIssueResolved);
       disconnectSocket();
     };
   }, [user?.id]);
 
   useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (!scrollActionRef.current) {
-        return;
-      }
+    const activeThread =
+      activeIssueChatOrderId && issueThreadsByOrderId[activeIssueChatOrderId]
+        ? issueThreadsByOrderId[activeIssueChatOrderId]
+        : null;
 
-      if (!scrollActionRef.current.contains(event.target)) {
-        setIsScrollMenuOpen(false);
-      }
-    };
+    if (!activeThread) {
+      return;
+    }
 
-    document.addEventListener("mousedown", handleOutsideClick);
+    const host = issueChatScrollRef.current;
+    if (!host) {
+      return;
+    }
 
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, []);
+    host.scrollTop = host.scrollHeight;
+  }, [activeIssueChatOrderId, issueThreadsByOrderId]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     toast.info("Voce saiu da sua conta.");
     navigate("/login");
-  };
-
-  const handleScrollToOrdersWithDateFilter = (nextDateFilter) => {
-    setDateFilter(nextDateFilter);
-    setArchiveAgeFilter(ARCHIVE_AGE_FILTERS.ALL);
-    setIsScrollMenuOpen(false);
-
-    orderListRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
   };
 
   const handleArchiveOrder = (orderId) => {
@@ -593,6 +669,119 @@ export default function MyOrders() {
     );
   };
 
+  const handleReportIssue = async (orderId) => {
+    const numericOrderId = Number(orderId);
+
+    if (!Number.isInteger(numericOrderId) || numericOrderId <= 0) {
+      toast.error("Pedido inválido para relatar problema.");
+      return;
+    }
+
+    const knownThread = issueThreadsByOrderId[numericOrderId];
+    if (knownThread?.isResolved) {
+      toast.info("Este problema já foi resolvido e o chat foi encerrado.");
+      return;
+    }
+
+    try {
+      const thread = await ordersService.getIssueThread(numericOrderId);
+
+      if (thread?.orderId) {
+        upsertIssueThread(thread);
+      }
+
+      if (thread?.isResolved) {
+        toast.info("Este problema já foi resolvido e o chat foi encerrado.");
+        return;
+      }
+    } catch {
+      // Se falhar carregar histórico, segue para abertura do primeiro relato.
+    }
+
+    setIssueThreadsByOrderId((prev) => ({
+      ...prev,
+      [numericOrderId]: prev[numericOrderId] || {
+        orderId: numericOrderId,
+        isResolved: false,
+        messages: [],
+      },
+    }));
+
+    setActiveIssueChatOrderId(numericOrderId);
+    setSelectedIssueReason(ISSUE_REASON_OPTIONS[0]);
+    setIssueChatInput("");
+  };
+
+  const handleSendIssueChatMessage = async () => {
+    const numericOrderId = Number(activeIssueChatOrderId || 0);
+    const normalizedInput = String(issueChatInput || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const thread = issueThreadsByOrderId[numericOrderId];
+    const hasExistingMessages =
+      Array.isArray(thread?.messages) && thread.messages.length > 0;
+    let messageToSend = normalizedInput;
+
+    if (!Number.isInteger(numericOrderId) || numericOrderId <= 0) {
+      toast.error("Pedido inválido para enviar mensagem.");
+      return;
+    }
+
+    if (issueThreadsByOrderId[numericOrderId]?.isResolved) {
+      toast.info("Este problema já foi resolvido e o chat foi encerrado.");
+      setActiveIssueChatOrderId(null);
+      return;
+    }
+
+    if (!hasExistingMessages) {
+      const normalizedReason = String(selectedIssueReason || "").trim();
+
+      if (!normalizedReason) {
+        toast.error("Escolha um motivo para iniciar o chat.");
+        return;
+      }
+
+      if (normalizedReason === "Outro" && normalizedInput.length < 10) {
+        toast.error("Descreva o problema com pelo menos 10 caracteres.");
+        return;
+      }
+
+      if (!normalizedInput) {
+        messageToSend = `Motivo: ${normalizedReason}.`;
+      } else if (normalizedReason === "Outro") {
+        messageToSend = normalizedInput;
+      } else {
+        messageToSend = `Motivo: ${normalizedReason}. Detalhes: ${normalizedInput}`;
+      }
+    }
+
+    if (messageToSend.length < 2) {
+      toast.error("Digite uma mensagem para continuar o chat.");
+      return;
+    }
+
+    try {
+      setIsSendingIssueChatMessage(true);
+      const response = await ordersService.reportIssue(
+        numericOrderId,
+        messageToSend,
+      );
+
+      if (response?.orderId) {
+        upsertIssueThread(response);
+      }
+
+      setIssueChatInput("");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          "Nao foi possivel enviar sua mensagem no chat.",
+      );
+    } finally {
+      setIsSendingIssueChatMessage(false);
+    }
+  };
+
   const visiblePedidos = useMemo(
     () =>
       pedidos.filter((pedido) => !archivedOrderIds.includes(Number(pedido.id))),
@@ -667,24 +856,43 @@ export default function MyOrders() {
     return visiblePedidos;
   }, [activeFilter, visiblePedidos, archivedPedidos]);
 
-  const dateFilteredPedidos = useMemo(
-    () =>
-      statusFilteredPedidos.filter((pedido) =>
-        matchesCreatedAtFilter(pedido?.createdAt, dateFilter),
-      ),
-    [statusFilteredPedidos, dateFilter],
-  );
-
   const filteredPedidos = useMemo(() => {
     if (activeFilter !== FILTERS.ARCHIVED) {
-      return dateFilteredPedidos;
+      return statusFilteredPedidos;
     }
 
-    return dateFilteredPedidos.filter((pedido) => {
+    return statusFilteredPedidos.filter((pedido) => {
       const archivedAt = archivedOrdersMap[Number(pedido?.id)];
       return matchesArchiveAgeFilter(archivedAt, archiveAgeFilter);
     });
-  }, [activeFilter, dateFilteredPedidos, archivedOrdersMap, archiveAgeFilter]);
+  }, [
+    activeFilter,
+    statusFilteredPedidos,
+    archivedOrdersMap,
+    archiveAgeFilter,
+  ]);
+
+  const resolvedIssueOrderIds = useMemo(() => {
+    const idsFromThreads = Object.values(issueThreadsByOrderId)
+      .filter((thread) => thread?.isResolved)
+      .map((thread) => Number(thread?.orderId || 0))
+      .filter((orderId) => Number.isInteger(orderId) && orderId > 0);
+
+    const idsFromOrders = pedidos
+      .filter((pedido) => Boolean(pedido?.issueThread?.isResolved))
+      .map((pedido) => Number(pedido?.id || 0))
+      .filter((orderId) => Number.isInteger(orderId) && orderId > 0);
+
+    return Array.from(new Set([...idsFromThreads, ...idsFromOrders]));
+  }, [issueThreadsByOrderId, pedidos]);
+
+  const activeIssueThread =
+    activeIssueChatOrderId && issueThreadsByOrderId[activeIssueChatOrderId]
+      ? issueThreadsByOrderId[activeIssueChatOrderId]
+      : null;
+  const activeIssueHasMessages =
+    Array.isArray(activeIssueThread?.messages) &&
+    activeIssueThread.messages.length > 0;
 
   return (
     <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
@@ -722,13 +930,8 @@ export default function MyOrders() {
         <S.MainContainer>
           <Suspense fallback={null}>
             <MyOrdersContent
-              scrollActionRef={scrollActionRef}
               orderListRef={orderListRef}
               isLoadingPedidos={isLoadingPedidos}
-              isScrollMenuOpen={isScrollMenuOpen}
-              dateFilter={dateFilter}
-              dateFilterLabel={getDateFilterLabel(dateFilter)}
-              dateFilterOptions={DATE_FILTER_OPTIONS}
               activeFilter={activeFilter}
               filterCounts={filterCounts}
               archiveAgeFilter={archiveAgeFilter}
@@ -736,9 +939,10 @@ export default function MyOrders() {
               archiveAgeFilters={ARCHIVE_AGE_FILTERS}
               filteredPedidos={filteredPedidos}
               deliveredVisibleOrderIds={deliveredVisibleOrderIds}
-              onToggleScrollMenu={() => setIsScrollMenuOpen((prev) => !prev)}
-              onScrollWithDateFilter={handleScrollToOrdersWithDateFilter}
+              reportingIssueOrderId={reportingIssueOrderId}
+              resolvedIssueOrderIds={resolvedIssueOrderIds}
               onArchiveDeliveredOrders={handleArchiveDeliveredOrders}
+              onReportIssue={handleReportIssue}
               onSetActiveFilter={setActiveFilter}
               onSetArchiveAgeFilter={setArchiveAgeFilter}
               onArchiveOrder={handleArchiveOrder}
@@ -751,6 +955,125 @@ export default function MyOrders() {
             />
           </Suspense>
         </S.MainContainer>
+
+        {activeIssueThread && (
+          <S.IssueChatPopup>
+            <div className="header">
+              <strong>Chat do pedido #{activeIssueThread.orderId}</strong>
+              <small className="header-subtitle">
+                Atendimento em tempo real
+              </small>
+              <div className="header-actions">
+                {activeIssueThread.isResolved ? (
+                  <span className="resolved-pill">Problema resolvido</span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setActiveIssueChatOrderId(null)}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+
+            <div className="chat-scroll" ref={issueChatScrollRef}>
+              {(activeIssueThread.messages || []).length === 0 ? (
+                <div className="chat-tip">
+                  <p>
+                    Oi! Vamos resolver isso juntos. Me conta o que aconteceu.
+                  </p>
+                  <small>
+                    Escolha um motivo abaixo e envie sua primeira mensagem.
+                  </small>
+                </div>
+              ) : (
+                (activeIssueThread.messages || []).map((messageItem) => {
+                  const senderType = String(
+                    messageItem?.senderType || "CLIENT",
+                  ).toUpperCase();
+                  const isAdminMessage = senderType === "ADMIN";
+                  const sentAtLabel = messageItem?.sentAt
+                    ? new Date(messageItem.sentAt).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Agora";
+
+                  return (
+                    <div
+                      key={String(messageItem?.id || `${Math.random()}`)}
+                      className={`chat-message ${
+                        isAdminMessage ? "admin" : "client"
+                      }`}
+                    >
+                      <small>
+                        {String(messageItem?.senderName || "").trim() ||
+                          (isAdminMessage ? "Admin" : "Voce")}{" "}
+                        • {sentAtLabel}
+                      </small>
+                      <p>{String(messageItem?.message || "").trim()}</p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="composer">
+              {activeIssueThread.isResolved ? (
+                <small className="resolved-note">
+                  Este problema foi resolvido por{" "}
+                  {activeIssueThread.resolvedByName || "Admin"}.
+                </small>
+              ) : null}
+
+              {!activeIssueHasMessages && !activeIssueThread.isResolved ? (
+                <div className="suggestions">
+                  {ISSUE_REASON_OPTIONS.map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      className={`suggestion-chip ${
+                        selectedIssueReason === reason ? "active" : ""
+                      }`}
+                      onClick={() => setSelectedIssueReason(reason)}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <textarea
+                value={issueChatInput}
+                onChange={(event) => setIssueChatInput(event.target.value)}
+                rows={2}
+                placeholder={
+                  activeIssueThread.isResolved
+                    ? "Chat encerrado"
+                    : !activeIssueHasMessages
+                      ? selectedIssueReason === "Outro"
+                        ? "Descreva seu problema..."
+                        : "Adicione um detalhe (opcional)..."
+                      : "Escreva sua mensagem para o admin..."
+                }
+                disabled={
+                  activeIssueThread.isResolved || isSendingIssueChatMessage
+                }
+              />
+              <button
+                type="button"
+                onClick={handleSendIssueChatMessage}
+                disabled={
+                  activeIssueThread.isResolved || isSendingIssueChatMessage
+                }
+              >
+                {isSendingIssueChatMessage ? "Enviando..." : "Enviar"}
+              </button>
+            </div>
+          </S.IssueChatPopup>
+        )}
       </S.PageLayout>
     </ThemeProvider>
   );

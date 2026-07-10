@@ -1,6 +1,6 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
-  ChevronsDown,
   Clock,
   Package,
   ShoppingBag,
@@ -8,11 +8,6 @@ import {
   X,
 } from "lucide-react";
 import * as S from "../styles";
-
-type DateFilterOption = {
-  value: string;
-  label: string;
-};
 
 type OrderItemLike = {
   id: number;
@@ -30,14 +25,12 @@ type OrderItemLike = {
   }>;
 };
 
+const INITIAL_VISIBLE_ORDERS = 6;
+const LOAD_MORE_STEP = 6;
+
 type MyOrdersContentProps = {
-  scrollActionRef: React.RefObject<HTMLDivElement | null>;
   orderListRef: React.RefObject<HTMLDivElement | null>;
   isLoadingPedidos: boolean;
-  isScrollMenuOpen: boolean;
-  dateFilter: string;
-  dateFilterLabel: string;
-  dateFilterOptions: DateFilterOption[];
   activeFilter: string;
   filterCounts: Record<string, number>;
   archiveAgeFilter: string;
@@ -45,9 +38,10 @@ type MyOrdersContentProps = {
   archiveAgeFilters: Record<string, string>;
   filteredPedidos: OrderItemLike[];
   deliveredVisibleOrderIds: number[];
-  onToggleScrollMenu: () => void;
-  onScrollWithDateFilter: (value: string) => void;
+  reportingIssueOrderId: number | null;
+  resolvedIssueOrderIds: number[];
   onArchiveDeliveredOrders: () => void;
+  onReportIssue: (orderId: number) => void;
   onSetActiveFilter: (value: string) => void;
   onSetArchiveAgeFilter: (value: string) => void;
   onArchiveOrder: (orderId: number) => void;
@@ -86,13 +80,8 @@ function getOrderStatusIcon(status: string) {
 }
 
 export default function MyOrdersContent({
-  scrollActionRef,
   orderListRef,
   isLoadingPedidos,
-  isScrollMenuOpen,
-  dateFilter,
-  dateFilterLabel,
-  dateFilterOptions,
   activeFilter,
   filterCounts,
   archiveAgeFilter,
@@ -100,9 +89,10 @@ export default function MyOrdersContent({
   archiveAgeFilters,
   filteredPedidos,
   deliveredVisibleOrderIds,
-  onToggleScrollMenu,
-  onScrollWithDateFilter,
+  reportingIssueOrderId,
+  resolvedIssueOrderIds,
   onArchiveDeliveredOrders,
+  onReportIssue,
   onSetActiveFilter,
   onSetArchiveAgeFilter,
   onArchiveOrder,
@@ -113,37 +103,29 @@ export default function MyOrdersContent({
   formatOrderStatus,
   getOrderStatusClass,
 }: MyOrdersContentProps) {
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ORDERS);
+
+  useEffect(() => {
+    setVisibleLimit(INITIAL_VISIBLE_ORDERS);
+  }, [activeFilter]);
+
+  const displayedOrders = useMemo(
+    () => filteredPedidos.slice(0, visibleLimit),
+    [filteredPedidos, visibleLimit],
+  );
+  const hiddenOrdersCount = Math.max(
+    filteredPedidos.length - displayedOrders.length,
+    0,
+  );
+  const canResetVisibleLimit =
+    hiddenOrdersCount === 0 && displayedOrders.length > INITIAL_VISIBLE_ORDERS;
+
   return (
     <S.OrdersCard>
       <S.SectionTitle>
         <ShoppingBag size={20} />
         <h2>Pedidos deste perfil</h2>
         <S.SectionTitleActions>
-          <S.ScrollActionWrapper ref={scrollActionRef}>
-            <S.BulkArchiveButton
-              type="button"
-              onClick={onToggleScrollMenu}
-              disabled={isLoadingPedidos}
-            >
-              <ChevronsDown size={14} />
-              Descer: {dateFilterLabel}
-            </S.BulkArchiveButton>
-
-            {isScrollMenuOpen && (
-              <S.ScrollActionMenu>
-                {dateFilterOptions.map((option) => (
-                  <S.ScrollActionMenuItem
-                    key={option.value}
-                    type="button"
-                    $active={dateFilter === option.value}
-                    onClick={() => onScrollWithDateFilter(option.value)}
-                  >
-                    {option.label}
-                  </S.ScrollActionMenuItem>
-                ))}
-              </S.ScrollActionMenu>
-            )}
-          </S.ScrollActionWrapper>
           <S.BulkArchiveButton
             type="button"
             onClick={onArchiveDeliveredOrders}
@@ -250,52 +232,110 @@ export default function MyOrdersContent({
       <S.OrderList ref={orderListRef}>
         {isLoadingPedidos ? (
           <p className="empty-msg">Carregando pedidos...</p>
-        ) : filteredPedidos.length === 0 ? (
+        ) : displayedOrders.length === 0 ? (
           <p className="empty-msg">
             Nenhum pedido encontrado para este filtro.
           </p>
         ) : (
-          filteredPedidos.map((pedido) => (
-            <S.OrderItem key={pedido.id}>
-              <div className="order-info">
-                <h5>Pedido #{pedido.id}</h5>
-                <span>
-                  {formatOrderDate(pedido.createdAt)} •{" "}
-                  <strong>{formatOrderOrigin(pedido)}</strong>
-                </span>
-              </div>
-              <div className="order-meta">
-                <span className="price">
-                  R$ {resolveOrderTotal(pedido).toFixed(2)}
-                </span>
-                <span
-                  className={`status-badge ${getOrderStatusClass(pedido.status)}`}
-                >
-                  {getOrderStatusIcon(pedido.status)}
-                  Status: {formatOrderStatus(pedido.status)}
-                </span>
-                {activeFilter === filters.ARCHIVED ? (
+          displayedOrders.map((pedido) => {
+            const isResolvedIssue = resolvedIssueOrderIds.includes(
+              Number(pedido.id),
+            );
+
+            return (
+              <S.OrderItem key={pedido.id}>
+                <div className="order-info">
+                  <h5>Pedido #{pedido.id}</h5>
+                  <span>
+                    {formatOrderDate(pedido.createdAt)} •{" "}
+                    <strong>{formatOrderOrigin(pedido)}</strong>
+                  </span>
+                </div>
+                <div className="order-meta">
+                  <span className="price">
+                    R$ {resolveOrderTotal(pedido).toFixed(2)}
+                  </span>
+                  <span
+                    className={`status-badge ${getOrderStatusClass(pedido.status)}`}
+                  >
+                    {getOrderStatusIcon(pedido.status)}
+                    Status: {formatOrderStatus(pedido.status)}
+                  </span>
+                  {activeFilter === filters.ARCHIVED ? (
+                    <button
+                      type="button"
+                      className="archive-btn"
+                      onClick={() => onUnarchiveOrder(pedido.id)}
+                    >
+                      Desarquivar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="archive-btn"
+                      onClick={() => onArchiveOrder(pedido.id)}
+                    >
+                      Arquivar
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="archive-btn"
-                    onClick={() => onUnarchiveOrder(pedido.id)}
+                    className="issue-btn"
+                    onClick={() => onReportIssue(pedido.id)}
+                    disabled={
+                      reportingIssueOrderId === Number(pedido.id) ||
+                      isResolvedIssue
+                    }
                   >
-                    Desarquivar
+                    {isResolvedIssue
+                      ? "Problema resolvido"
+                      : reportingIssueOrderId === Number(pedido.id)
+                        ? "Enviando..."
+                        : "Relatar problema"}
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="archive-btn"
-                    onClick={() => onArchiveOrder(pedido.id)}
-                  >
-                    Arquivar
-                  </button>
-                )}
-              </div>
-            </S.OrderItem>
-          ))
+                </div>
+              </S.OrderItem>
+            );
+          })
         )}
       </S.OrderList>
+
+      {!isLoadingPedidos && filteredPedidos.length > INITIAL_VISIBLE_ORDERS ? (
+        <div
+          style={{
+            marginTop: "0.9rem",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "0.6rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <small style={{ opacity: 0.72, fontWeight: 600 }}>
+            Exibindo {displayedOrders.length} de {filteredPedidos.length}{" "}
+            pedidos
+          </small>
+          <S.BulkArchiveButton
+            type="button"
+            onClick={() => {
+              if (hiddenOrdersCount > 0) {
+                setVisibleLimit((prev) =>
+                  Math.min(prev + LOAD_MORE_STEP, filteredPedidos.length),
+                );
+                return;
+              }
+
+              setVisibleLimit(INITIAL_VISIBLE_ORDERS);
+            }}
+          >
+            {hiddenOrdersCount > 0
+              ? `Mostrar +${Math.min(LOAD_MORE_STEP, hiddenOrdersCount)}`
+              : canResetVisibleLimit
+                ? "Voltar para 6"
+                : "Mostrar +6"}
+          </S.BulkArchiveButton>
+        </div>
+      ) : null}
     </S.OrdersCard>
   );
 }

@@ -48,7 +48,6 @@ import {
   getSystemBlockState,
   setSystemBlockState,
 } from "../Services/systemBlock";
-import GlobalAiAssistant from "../components/GlobalAiAssistant/GlobalAiAssistant";
 
 const ROLE_HOME = {
   CLIENTE: "/",
@@ -76,6 +75,29 @@ function RestaurantLoginRedirect() {
   const next = encodeURIComponent(`/${normalizedSlug}`);
 
   return <Navigate to={`/login?next=${next}`} replace />;
+}
+
+function RestaurantMenuGate() {
+  const { user, isLoading } = useAuth();
+  const { restaurantSlug } = useParams();
+
+  const normalizedSlug = String(restaurantSlug || "")
+    .trim()
+    .toLowerCase();
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!normalizedSlug) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!user) {
+    return <Navigate to={`/${normalizedSlug}/login`} replace />;
+  }
+
+  return <Home />;
 }
 
 function RequireAuth() {
@@ -178,7 +200,12 @@ function BillingGate() {
 
       try {
         const response = await api.get("/billing/invoices");
-        const overdueInvoices = response.data.filter(
+        const invoiceList = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.invoices)
+            ? response.data.invoices
+            : [];
+        const overdueInvoices = invoiceList.filter(
           (invoice) => invoice.status === "ATRASADO",
         );
 
@@ -247,7 +274,7 @@ export default function AppRoutes() {
             <Route path="/recover-password" element={<RecoverPassword />} />
             <Route path="/register" element={<Register />} />
             <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-            <Route path="/:restaurantSlug" element={<Home />} />
+            <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
             <Route
               path="/:restaurantSlug/mesa/:tableNumber"
               element={<DigitalMenu />}
@@ -304,7 +331,6 @@ export default function AppRoutes() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      <GlobalAiAssistant />
     </BrowserRouter>
   );
 }

@@ -130,8 +130,12 @@ export default function CourierDashboard() {
     };
   }, []);
 
-  async function handleMarkDelivered(orderId) {
-    const updated = await ordersService.updateStatus(orderId, "ENTREGUE");
+  async function handleMarkDelivered(orderId, deliveryConfirmationCode) {
+    const updated = await ordersService.updateStatus(
+      orderId,
+      "ENTREGUE",
+      deliveryConfirmationCode,
+    );
     const updatedOrder = updated?.order || updated;
     setOrders((prev) =>
       prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),

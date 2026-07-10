@@ -389,7 +389,7 @@ class OrderPixPaymentService {
       subtotal < minimumOrder
     ) {
       throw new Error(
-        `Pedido mínimo para delivery: R$ ${minimumOrder.toFixed(2)}.`,
+        `Pedido mínimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega é cobrada à parte.`,
       );
     }
 

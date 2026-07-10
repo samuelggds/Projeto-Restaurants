@@ -6,6 +6,7 @@ import {
   ChevronUp,
   CreditCard,
   Package,
+  RotateCcw,
   Table2,
   User,
   X,
@@ -31,6 +32,17 @@ type Order = {
   status?: string;
   total?: number;
   paid?: boolean;
+  paymentMethod?: string;
+  payOnDelivery?: boolean;
+  observation?: string;
+  issueThread?: {
+    orderId?: number;
+    isResolved?: boolean;
+    messages?: Array<{
+      senderType?: string;
+      message?: string;
+    }>;
+  } | null;
   items?: OrderItem[];
 };
 
@@ -49,9 +61,15 @@ type OrdersTabProps = {
   statusCounters: Record<string, number>;
   orderTypeFilter: string;
   orderTypeCounters: Record<string, number>;
+  quickFilterCounts: {
+    refundRequested: number;
+    payOnDelivery: number;
+  };
   statusFilter: string;
   orderStatusFilters: string[];
   statusFilterToneByStatus: ToneByStatus;
+  refundRequestedOnly: boolean;
+  payOnDeliveryOnly: boolean;
   expandedOrderIds: Record<number, boolean>;
   closingOrderIds: number[];
   generatingPinOrderIds: number[];
@@ -60,10 +78,13 @@ type OrdersTabProps = {
   paymentPinInputByOrderId: Record<number, string>;
   requestingPaymentPinOrderIds: number[];
   confirmingPaymentPinOrderIds: number[];
+  refundingOrderIds: number[];
   paymentPinToolsEnabled: boolean;
   orderStatusMeta: StatusMeta;
   onSetOrderTypeFilter: (value: string) => void;
   onSetStatusFilter: (value: string) => void;
+  onSetRefundRequestedOnly: (value: boolean) => void;
+  onSetPayOnDeliveryOnly: (value: boolean) => void;
   onToggleOrderExpanded: (orderId: number) => void;
   onGeneratePaymentPin: (order: Order) => void;
   onRequestPaymentPin: (order: Order) => void;
@@ -71,11 +92,15 @@ type OrdersTabProps = {
     updater: (prev: Record<number, string>) => Record<number, string>,
   ) => void;
   onConfirmPaymentWithPin: (order: Order) => void;
+  onRefundOrder: (order: Order) => void;
   getStatusValueIcon: (status?: string) => ReactElement;
   getPaymentSummaryLabel: (order?: unknown) => string;
   getDeliveryAddressLabel: (order: Order) => string | null;
   isPendingDigitalPayment: (order: Order) => boolean;
   canGeneratePin: (order: Order) => boolean;
+  canRefundOrder: (order: Order) => boolean;
+  hasRefundRequest: (order: Order) => boolean;
+  isPayOnDeliveryOrder: (order: Order) => boolean;
   formatRequestTime: (requestedAt?: string) => string;
   getOrderTableLabel: (order: Order) => string | null;
 };
@@ -86,9 +111,12 @@ export default function OrdersTab({
   statusCounters,
   orderTypeFilter,
   orderTypeCounters,
+  quickFilterCounts,
   statusFilter,
   orderStatusFilters,
   statusFilterToneByStatus,
+  refundRequestedOnly,
+  payOnDeliveryOnly,
   expandedOrderIds,
   closingOrderIds,
   generatingPinOrderIds,
@@ -97,20 +125,27 @@ export default function OrdersTab({
   paymentPinInputByOrderId,
   requestingPaymentPinOrderIds,
   confirmingPaymentPinOrderIds,
+  refundingOrderIds,
   paymentPinToolsEnabled,
   orderStatusMeta,
   onSetOrderTypeFilter,
   onSetStatusFilter,
+  onSetRefundRequestedOnly,
+  onSetPayOnDeliveryOnly,
   onToggleOrderExpanded,
   onGeneratePaymentPin,
   onRequestPaymentPin,
   onSetPaymentPinInputByOrderId,
   onConfirmPaymentWithPin,
+  onRefundOrder,
   getStatusValueIcon,
   getPaymentSummaryLabel,
   getDeliveryAddressLabel,
   isPendingDigitalPayment,
   canGeneratePin,
+  canRefundOrder,
+  hasRefundRequest,
+  isPayOnDeliveryOrder,
   formatRequestTime,
   getOrderTableLabel,
 }: OrdersTabProps) {
@@ -271,6 +306,26 @@ export default function OrdersTab({
         })}
       </S.OrdersFilterBar>
 
+      <S.OrdersFilterBar>
+        <S.OrderTypeFilterButton
+          type="button"
+          $active={refundRequestedOnly}
+          onClick={() => onSetRefundRequestedOnly(!refundRequestedOnly)}
+          title="Mostrar somente pedidos com solicitação de estorno no chat"
+        >
+          Solicitação de estorno ({quickFilterCounts.refundRequested || 0})
+        </S.OrderTypeFilterButton>
+
+        <S.OrderTypeFilterButton
+          type="button"
+          $active={payOnDeliveryOnly}
+          onClick={() => onSetPayOnDeliveryOnly(!payOnDeliveryOnly)}
+          title="Mostrar somente pedidos com pagamento na entrega"
+        >
+          Pagamento na entrega ({quickFilterCounts.payOnDelivery || 0})
+        </S.OrderTypeFilterButton>
+      </S.OrdersFilterBar>
+
       <div
         style={{
           display: "flex",
@@ -428,10 +483,17 @@ export default function OrdersTab({
               requestingPaymentPinOrderIds.includes(order.id);
             const isConfirmingPaymentPin =
               confirmingPaymentPinOrderIds.includes(order.id);
+            const isRefundingOrder = refundingOrderIds.includes(order.id);
+            const canRefundCurrentOrder = canRefundOrder(order);
+            const hasRequestedRefund = hasRefundRequest(order);
+            const isPayOnDelivery = isPayOnDeliveryOrder(order);
             const isExpanded = Boolean(expandedOrderIds[order.id]);
             const normalizedStatus = String(order?.status || "").toUpperCase();
-            const statusLabel =
-              normalizedStatus === "SAIU_PARA_ENTREGA"
+            const isRefundedOrder =
+              normalizedStatus === "CANCELADO" && order?.paid === true;
+            const statusLabel = isRefundedOrder
+              ? "ESTORNADO"
+              : normalizedStatus === "SAIU_PARA_ENTREGA"
                 ? isDelivery
                   ? "EM ENTREGA"
                   : "A CAMINHO"
@@ -589,6 +651,34 @@ export default function OrdersTab({
                     <CreditCard size={13} />
                     {paymentStatusLabel}
                   </span>
+                  {hasRequestedRefund ? (
+                    <span
+                      style={{
+                        ...infoChipStyle,
+                        color: "#7c2d12",
+                        background: "#ffedd5",
+                        border: "1px solid rgba(249, 115, 22, 0.45)",
+                        fontWeight: 800,
+                      }}
+                    >
+                      <RotateCcw size={13} />
+                      Cliente solicitou estorno
+                    </span>
+                  ) : null}
+                  {isPayOnDelivery ? (
+                    <span
+                      style={{
+                        ...infoChipStyle,
+                        color: "#0f172a",
+                        background: "#fef3c7",
+                        border: "1px solid rgba(245, 158, 11, 0.45)",
+                        fontWeight: 800,
+                      }}
+                    >
+                      <CreditCard size={13} />
+                      Pagamento na entrega
+                    </span>
+                  ) : null}
                 </div>
 
                 <div
@@ -863,14 +953,54 @@ export default function OrdersTab({
                         marginLeft: 4,
                       }}
                     >
-                      {getStatusValueIcon(order.status)}
-                      {normalizedStatus === "SAIU_PARA_ENTREGA"
-                        ? isDelivery
-                          ? "SAIU PARA ENTREGA"
-                          : "A CAMINHO"
-                        : String(order.status).replace(/_/g, " ")}
+                      {getStatusValueIcon(
+                        isRefundedOrder ? "ESTORNADOS" : order.status,
+                      )}
+                      {isRefundedOrder
+                        ? "ESTORNADO"
+                        : normalizedStatus === "SAIU_PARA_ENTREGA"
+                          ? isDelivery
+                            ? "SAIU PARA ENTREGA"
+                            : "A CAMINHO"
+                          : String(order.status).replace(/_/g, " ")}
                     </span>
                   </h4>
+
+                  <button
+                    type="button"
+                    onClick={() => onRefundOrder(order)}
+                    disabled={!canRefundCurrentOrder || isRefundingOrder}
+                    style={{
+                      marginTop: "0.5rem",
+                      minHeight: 34,
+                      width: "100%",
+                      borderRadius: 10,
+                      border: "1px solid rgba(220, 38, 38, 0.45)",
+                      background: canRefundCurrentOrder
+                        ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                        : "rgba(248, 113, 113, 0.2)",
+                      color: canRefundCurrentOrder ? "#ffffff" : "#7f1d1d",
+                      fontWeight: 800,
+                      cursor:
+                        !canRefundCurrentOrder || isRefundingOrder
+                          ? "not-allowed"
+                          : "pointer",
+                      opacity:
+                        !canRefundCurrentOrder || isRefundingOrder ? 0.72 : 1,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.4rem",
+                    }}
+                    title={
+                      canRefundCurrentOrder
+                        ? "Estornar pedido"
+                        : "Disponível para pedidos pagos via PIX/CARTAO com solicitação de estorno no chat"
+                    }
+                  >
+                    <RotateCcw size={14} />
+                    {isRefundingOrder ? "Estornando..." : "Estornar pedido"}
+                  </button>
                 </S.StatusBox>
               </S.OrderCard>
             );

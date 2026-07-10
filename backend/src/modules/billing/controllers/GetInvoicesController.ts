@@ -16,7 +16,26 @@ class GetInvoicesController {
       const invoices =
         await billingRepository.findInvoicesByRestaurantId(restaurantId);
 
-      return res.status(200).json(invoices);
+      const subscription =
+        await billingRepository.findSubscriptionByRestaurantId(
+          Number(restaurantId),
+        );
+      const subscriptionStatus = String(
+        subscription?.status || "",
+      ).toUpperCase();
+      const isPlanActive =
+        subscriptionStatus === "ATIVA" || subscriptionStatus === "TESTE";
+
+      const billing = {
+        plan: String(subscription?.plan || "BASICO").toUpperCase(),
+        subscriptionStatus,
+        isPlanActive,
+      };
+
+      return res.status(200).json({
+        invoices,
+        billing,
+      });
     } catch (error: unknown) {
       console.error("Error fetching invoices:", error);
       return res.status(500).json({

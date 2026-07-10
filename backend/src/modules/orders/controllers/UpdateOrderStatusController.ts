@@ -9,7 +9,7 @@ class UpdateOrderStatusController {
         ? req.params.id[0]
         : req.params.id;
 
-      const { status } = req.body;
+      const { status, deliveryConfirmationCode } = req.body;
       const normalizedStatus = String(
         status || "",
       ).toUpperCase() as OrderStatus;
@@ -21,6 +21,7 @@ class UpdateOrderStatusController {
         restaurantId,
         normalizedStatus,
         role,
+        deliveryConfirmationCode,
       );
 
       return res.status(200).json(updatedOrder);

@@ -318,6 +318,8 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState(loadInitialCart);
   const [orderType, setOrderType] = useState("DELIVERY");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [isPayOnDelivery, setIsPayOnDelivery] = useState(false);
+  const [payOnDeliveryMethod, setPayOnDeliveryMethod] = useState("DINHEIRO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState(null);
@@ -377,7 +379,7 @@ export default function Cart() {
   const cardPreviewBrandLabel =
     getCardBrandDisplay(cardPreviewBrandSource).label || "Bandeira";
   const cardFieldErrors = useMemo(() => {
-    if (!showCardFieldErrors || paymentMethod !== "CARTAO") {
+    if (!showCardFieldErrors || isPayOnDelivery || paymentMethod !== "CARTAO") {
       return {};
     }
 
@@ -389,6 +391,7 @@ export default function Cart() {
     });
   }, [
     showCardFieldErrors,
+    isPayOnDelivery,
     paymentMethod,
     cardPaymentDraft,
     cardNumber,
@@ -411,7 +414,7 @@ export default function Cart() {
   } as const;
 
   function resolveCardFieldStyle(hasError, isValid) {
-    if (!showCardFieldErrors || paymentMethod !== "CARTAO") {
+    if (!showCardFieldErrors || isPayOnDelivery || paymentMethod !== "CARTAO") {
       return undefined;
     }
 
@@ -440,6 +443,11 @@ export default function Cart() {
   const mesaReturnPath = tableSession?.tableId
     ? `/mesa/${tableSession.tableNumber || tableSession.tableId}?tableId=${tableSession.tableId}${restaurantId ? `&restaurantId=${restaurantId}` : ""}`
     : "/menu";
+  const storedMenuRestaurantSlug = String(
+    localStorage.getItem("menuRestaurantSlug") || "",
+  )
+    .trim()
+    .toLowerCase();
   const cartOrigin = String(
     searchParams.get("from") || searchParams.get("origin") || "",
   )
@@ -459,10 +467,24 @@ export default function Cart() {
     ? explicitReturnPath
     : cartOrigin === "menu" || cartOrigin === "cardapio"
       ? mesaReturnPath
-      : "/home";
+      : storedMenuRestaurantSlug
+        ? `/${storedMenuRestaurantSlug}`
+        : "/home";
 
   const isMesa = Boolean(tableSession?.tableId);
   const isDelivery = !isMesa && orderType === "DELIVERY";
+  const effectivePaymentMethod = isPayOnDelivery
+    ? payOnDeliveryMethod
+    : paymentMethod;
+  const shouldUsePixCheckout =
+    isDelivery && !isPayOnDelivery && paymentMethod === "PIX";
+  const shouldUseCardCheckout = !isPayOnDelivery && paymentMethod === "CARTAO";
+
+  useEffect(() => {
+    if (!isDelivery && isPayOnDelivery) {
+      setIsPayOnDelivery(false);
+    }
+  }, [isDelivery, isPayOnDelivery]);
 
   useEffect(() => {
     let mounted = true;
@@ -597,17 +619,18 @@ export default function Cart() {
     hasMinimumOrderForDelivery && !isMinimumOrderReached;
 
   function buildOrderPayload({ paid = false, pixPaymentId = null } = {}) {
-    const cardPaymentSummary =
-      paymentMethod === "CARTAO"
-        ? buildCardPaymentSummary(cardPaymentDraft)
-        : "";
+    const cardPaymentSummary = shouldUseCardCheckout
+      ? buildCardPaymentSummary(cardPaymentDraft)
+      : "";
 
     return {
       restaurantId,
       type: isMesa ? "MESA" : orderType,
-      paymentMethod,
+      paymentMethod: effectivePaymentMethod,
+      payOnDelivery: isPayOnDelivery,
+      payOnDeliveryMethod: isPayOnDelivery ? effectivePaymentMethod : undefined,
       pixProvider:
-        paymentMethod === "PIX"
+        effectivePaymentMethod === "PIX" && !isPayOnDelivery
           ? String(publicRestaurantSettings.pixProvider || "MERCADO_PAGO")
               .trim()
               .toUpperCase()
@@ -963,12 +986,9 @@ export default function Cart() {
 
     if (isDelivery) {
       const phoneDigits = String(customerPhone || "").replace(/\D/g, "");
-      if (
-        paymentMethod === "PIX" &&
-        (phoneDigits.length < 10 || phoneDigits.length > 13)
-      ) {
+      if (phoneDigits.length < 10 || phoneDigits.length > 13) {
         toast.error(
-          "Informe um celular/WhatsApp válido para receber a confirmação do pagamento.",
+          "Informe um celular/WhatsApp válido para pedidos de delivery.",
         );
         return;
       }
@@ -978,7 +998,7 @@ export default function Cart() {
         subtotal < publicRestaurantSettings.minimumOrder
       ) {
         toast.error(
-          `Pedido mínimo para delivery: ${formatCurrency(publicRestaurantSettings.minimumOrder)}.`,
+          `Pedido mínimo sobre o subtotal para delivery: ${formatCurrency(publicRestaurantSettings.minimumOrder)}. A taxa de entrega é cobrada à parte.`,
         );
         return;
       }
@@ -996,7 +1016,7 @@ export default function Cart() {
       }
     }
 
-    if (paymentMethod === "CARTAO") {
+    if (shouldUseCardCheckout) {
       setShowCardFieldErrors(true);
       const validationError = validateCardCheckoutInput({
         cardDraft: cardPaymentDraft,
@@ -1016,7 +1036,7 @@ export default function Cart() {
     try {
       setIsSubmitting(true);
 
-      if (isDelivery && paymentMethod === "PIX") {
+      if (shouldUsePixCheckout) {
         const pixPayment = await ordersService.createPixPayment(
           buildOrderPayload({ paid: false }),
         );
@@ -1046,7 +1066,7 @@ export default function Cart() {
         return;
       }
 
-      if (paymentMethod === "CARTAO") {
+      if (shouldUseCardCheckout) {
         const checkout = await ordersService.createCardCheckout({
           ...buildOrderPayload({ paid: false }),
           customerName: String(storedUser?.name || "Cliente"),
@@ -1066,7 +1086,11 @@ export default function Cart() {
 
       await ordersService.createOrder(buildOrderPayload({ paid: false }));
 
-      if (isDelivery) {
+      if (
+        isDelivery &&
+        !isPayOnDelivery &&
+        effectivePaymentMethod !== "DINHEIRO"
+      ) {
         toast.info(DELIVERY_PAYMENT_REQUIRED_MESSAGE);
       }
 
@@ -1377,8 +1401,7 @@ export default function Cart() {
                 </S.PaymentSuccessText>
                 <S.PaymentSuccessMeta>
                   Pedido: {activePaymentSuccessState.orderId || "-"}
-                  <br />
-                  Via: {displayProvider}
+                  <div>Via: {displayProvider}</div>
                 </S.PaymentSuccessMeta>
                 <S.PaymentSuccessAction
                   type="button"
@@ -1704,7 +1727,7 @@ export default function Cart() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
-                    gap: "0.5rem",
+                    gap: "0.75rem",
                   }}
                 >
                   <button
@@ -1759,7 +1782,6 @@ export default function Cart() {
                 >
                   <MapPin size={18} /> Endereço de Entrega
                 </h4>
-
                 <div
                   style={{
                     display: "flex",
@@ -1780,6 +1802,7 @@ export default function Cart() {
                     placeholder="Celular/WhatsApp para confirmação (Ex: (85) 99999-9999)"
                     value={customerPhone}
                     onChange={handleCustomerPhoneChange}
+                    required
                   />
                   {isCepLookupLoading && (
                     <small
@@ -1876,16 +1899,17 @@ export default function Cart() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "0.5rem",
+                  gridTemplateColumns: isDelivery ? "1fr 1fr 1fr" : "1fr 1fr",
+                  gap: "0.75rem",
                 }}
               >
                 <button
+                  type="button"
                   style={{
                     padding: "1rem",
                     borderRadius: "8px",
                     border:
-                      paymentMethod === "PIX"
+                      !isPayOnDelivery && paymentMethod === "PIX"
                         ? "2px solid #3f64ff"
                         : "1px solid #c9d3e8",
                     background: "transparent",
@@ -1893,29 +1917,99 @@ export default function Cart() {
                     cursor: "pointer",
                     color: "inherit",
                   }}
-                  onClick={() => setPaymentMethod("PIX")}
+                  onClick={() => {
+                    setIsPayOnDelivery(false);
+                    setPaymentMethod("PIX");
+                  }}
                 >
                   Pix
                 </button>
                 <button
+                  type="button"
                   style={{
                     padding: "1rem",
                     borderRadius: "8px",
                     border:
-                      paymentMethod === "CARTAO"
+                      !isPayOnDelivery && paymentMethod === "CARTAO"
                         ? "2px solid #3f64ff"
                         : "1px solid #c9d3e8",
                     background: "transparent",
                     cursor: "pointer",
                     color: "inherit",
                   }}
-                  onClick={() => setPaymentMethod("CARTAO")}
+                  onClick={() => {
+                    setIsPayOnDelivery(false);
+                    setPaymentMethod("CARTAO");
+                  }}
                 >
                   Cartão
                 </button>
+                {isDelivery ? (
+                  <button
+                    type="button"
+                    style={{
+                      padding: "1rem",
+                      borderRadius: "8px",
+                      border: isPayOnDelivery
+                        ? "2px solid #3f64ff"
+                        : "1px solid #c9d3e8",
+                      background: "transparent",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      color: "inherit",
+                    }}
+                    onClick={() => {
+                      setIsPayOnDelivery(true);
+                    }}
+                  >
+                    Pagar na entrega
+                  </button>
+                ) : null}
               </div>
 
-              {paymentMethod === "CARTAO" ? (
+              {isDelivery && isPayOnDelivery ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: "0.5rem",
+                    marginTop: "0.75rem",
+                  }}
+                >
+                  {[
+                    { value: "PIX", label: "PIX" },
+                    { value: "CARTAO", label: "Cartão" },
+                    { value: "DINHEIRO", label: "Dinheiro" },
+                  ].map((option) => {
+                    const isActive = payOnDeliveryMethod === option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setPayOnDeliveryMethod(option.value)}
+                        style={{
+                          minHeight: 48,
+                          borderRadius: "10px",
+                          border: isActive
+                            ? "2px solid #3f64ff"
+                            : "1px solid #c9d3e8",
+                          background: isActive
+                            ? "rgba(63, 100, 255, 0.08)"
+                            : "transparent",
+                          color: "inherit",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {shouldUseCardCheckout ? (
                 <div
                   style={{
                     marginTop: "1rem",
@@ -2155,7 +2249,7 @@ export default function Cart() {
                         border: cardFieldErrors.brand
                           ? "1px solid #ef4444"
                           : showCardFieldErrors &&
-                              paymentMethod === "CARTAO" &&
+                              shouldUseCardCheckout &&
                               String(cardPaymentDraft.brand || "").trim()
                                 .length > 0
                             ? "1px solid #22c55e"
@@ -2166,7 +2260,7 @@ export default function Cart() {
                         boxShadow: cardFieldErrors.brand
                           ? "0 0 0 1px rgba(239, 68, 68, 0.18)"
                           : showCardFieldErrors &&
-                              paymentMethod === "CARTAO" &&
+                              shouldUseCardCheckout &&
                               String(cardPaymentDraft.brand || "").trim()
                                 .length > 0
                             ? "0 0 0 1px rgba(34, 197, 94, 0.2)"
@@ -2410,7 +2504,13 @@ export default function Cart() {
                   </div>
                   <div>
                     <strong>Pagamento:</strong>{" "}
-                    {paymentMethod === "PIX" ? "PIX" : "Cartao"}
+                    {isPayOnDelivery
+                      ? `Pagar na entrega (${effectivePaymentMethod === "CARTAO" ? "Cartao" : effectivePaymentMethod})`
+                      : paymentMethod === "PIX"
+                        ? "PIX"
+                        : paymentMethod === "CARTAO"
+                          ? "Cartao"
+                          : "Dinheiro"}
                   </div>
                   {isDelivery && customerPhone ? (
                     <div>
