@@ -29,6 +29,7 @@ import {
 } from "../../Services/cepService";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
+import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import {
   CARD_BRAND_OPTIONS,
   buildCardPaymentSummary,
@@ -36,6 +37,7 @@ import {
   getCardCheckoutFieldErrors,
   getCardBrandDisplay,
   getCardBrandLogo,
+  getExpectedCardCvvLength,
   getEmptyCardDraft,
   getCardBrandPalette,
   normalizeCardNumberInput,
@@ -55,6 +57,8 @@ const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
 const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PIX_AUTO_STATUS_CHECK_INTERVAL_MS = 4000;
+const PENDING_PIX_CHECKOUT_STORAGE_KEY = "@PecaJaFood:pendingPixCheckout";
+const PENDING_PIX_CHECKOUT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const DELIVERY_PAYMENT_REQUIRED_MESSAGE =
   "Seu pedido foi criado, mas so sera liberado para a equipe apos pagamento confirmado. Pague e confirme o pedido para liberar o preparo.";
 const CARD_BRAND_LOGO_STYLE_BASE = {
@@ -72,27 +76,27 @@ const CARD_BRAND_LOGO_STYLE_BASE = {
 const CARD_BRAND_LOGO_SIZE_PRESETS = {
   default: {
     compact: { width: 62, height: 24 },
-    preview: { width: 84, height: 30 },
+    preview: { width: 72, height: 24 },
   },
   visa: {
     compact: { width: 54, height: 20 },
-    preview: { width: 74, height: 24 },
+    preview: { width: 64, height: 20 },
   },
   mastercard: {
     compact: { width: 60, height: 24 },
-    preview: { width: 82, height: 30 },
+    preview: { width: 70, height: 24 },
   },
   elo: {
     compact: { width: 70, height: 26 },
-    preview: { width: 92, height: 34 },
+    preview: { width: 76, height: 28 },
   },
   hipercard: {
     compact: { width: 64, height: 24 },
-    preview: { width: 86, height: 30 },
+    preview: { width: 72, height: 24 },
   },
   "american express": {
     compact: { width: 68, height: 24 },
-    preview: { width: 88, height: 30 },
+    preview: { width: 74, height: 24 },
   },
 } as const;
 
@@ -159,6 +163,53 @@ function readJsonStorage(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function normalizePendingPixCheckout(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const orderId = Number(value?.orderId || 0);
+  const paymentId = String(value?.paymentId || "").trim();
+  const pixCode = String(value?.pixCode || "").trim();
+
+  if (!Number.isInteger(orderId) || orderId <= 0 || !paymentId || !pixCode) {
+    return null;
+  }
+
+  const total = Number(value?.total || 0);
+  const savedAt = Number(value?.savedAt || Date.now());
+
+  return {
+    orderId,
+    total: Number.isFinite(total) ? total : 0,
+    paymentId,
+    provider: String(value?.provider || "MERCADO_PAGO")
+      .trim()
+      .toUpperCase(),
+    pixCode,
+    qrCodeBase64: value?.qrCodeBase64 || null,
+    requiresStatusCheck: Boolean(value?.requiresStatusCheck),
+    savedAt,
+  };
+}
+
+function readPendingPixCheckout() {
+  const raw = readJsonStorage(PENDING_PIX_CHECKOUT_STORAGE_KEY, null);
+  const normalized = normalizePendingPixCheckout(raw);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const ageMs = Date.now() - Number(normalized.savedAt || 0);
+  if (!Number.isFinite(ageMs) || ageMs > PENDING_PIX_CHECKOUT_MAX_AGE_MS) {
+    localStorage.removeItem(PENDING_PIX_CHECKOUT_STORAGE_KEY);
+    return null;
+  }
+
+  return normalized;
 }
 
 function formatPhoneInput(value) {
@@ -322,7 +373,11 @@ export default function Cart() {
   const [payOnDeliveryMethod, setPayOnDeliveryMethod] = useState("DINHEIRO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [pixPaymentData, setPixPaymentData] = useState(null);
+  const [pixPaymentData, setPixPaymentData] = useState(() =>
+    readPendingPixCheckout(),
+  );
+  const [isPixPaymentPanelMinimized, setIsPixPaymentPanelMinimized] =
+    useState(false);
   const [, setPendingPixOrderPayload] = useState(null);
   const [pixManualProof, setPixManualProof] = useState("");
   const [pixManualProofImage, setPixManualProofImage] = useState("");
@@ -376,6 +431,9 @@ export default function Cart() {
   const cardPreviewCvv = String(cardCvv || "").trim() || "789";
   const cardPreviewBrand = String(cardPaymentDraft.brand || "").trim();
   const cardPreviewBrandSource = cardPreviewBrand || "outra";
+  const expectedCardCvvLength = getExpectedCardCvvLength(
+    cardPaymentDraft.brand,
+  );
   const cardPreviewBrandLabel =
     getCardBrandDisplay(cardPreviewBrandSource).label || "Bandeira";
   const cardFieldErrors = useMemo(() => {
@@ -412,6 +470,23 @@ export default function Cart() {
     border: "1px solid #22c55e",
     boxShadow: "0 0 0 1px rgba(34, 197, 94, 0.2)",
   } as const;
+
+  useEffect(() => {
+    const normalized = normalizePendingPixCheckout(pixPaymentData);
+
+    if (!normalized) {
+      localStorage.removeItem(PENDING_PIX_CHECKOUT_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      PENDING_PIX_CHECKOUT_STORAGE_KEY,
+      JSON.stringify({
+        ...normalized,
+        savedAt: Date.now(),
+      }),
+    );
+  }, [pixPaymentData]);
 
   function resolveCardFieldStyle(hasError, isValid) {
     if (!showCardFieldErrors || isPayOnDelivery || paymentMethod !== "CARTAO") {
@@ -1058,6 +1133,7 @@ export default function Cart() {
           qrCodeBase64: pixPayment?.qrCodeBase64 || null,
           requiresStatusCheck: Boolean(pixPayment?.requiresStatusCheck),
         });
+        setIsPixPaymentPanelMinimized(false);
         setPixManualProof("");
         setPixManualProofImage("");
         setPixManualProofImageName("");
@@ -1232,6 +1308,7 @@ export default function Cart() {
 
         setPendingPixOrderPayload(null);
         setPixPaymentData(null);
+        setIsPixPaymentPanelMinimized(false);
         setPixManualProof("");
         setPixManualProofImage("");
         setPixManualProofImageName("");
@@ -1297,6 +1374,7 @@ export default function Cart() {
 
         setPendingPixOrderPayload(null);
         setPixPaymentData(null);
+        setIsPixPaymentPanelMinimized(false);
         setPixManualProof("");
         setPixManualProofImage("");
         setPixManualProofImageName("");
@@ -1341,6 +1419,55 @@ export default function Cart() {
     persistDeliveryAddress,
     restaurantId,
   ]);
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const normalizedOrderId = Number(pixPaymentData?.orderId || 0);
+
+    if (
+      !token ||
+      !Number.isInteger(normalizedOrderId) ||
+      normalizedOrderId <= 0
+    ) {
+      return undefined;
+    }
+
+    const socket = connectSocket(token, "cart-pix-realtime-confirmation");
+
+    function handleRealtimePaymentConfirmed(payload) {
+      const payloadOrderId = Number(payload?.orderId || 0);
+
+      if (payloadOrderId !== normalizedOrderId) {
+        return;
+      }
+
+      setPixPaymentData(null);
+      setPixManualProof("");
+      setPixManualProofImage("");
+      setPixManualProofImageName("");
+      setIsDrawerOpen(false);
+      localStorage.removeItem("cartItems");
+      setCartItems([]);
+      setPaymentSuccessState({
+        orderId: normalizedOrderId,
+        provider: String(
+          payload?.paymentMethod || pixPaymentData?.provider || "PIX",
+        )
+          .trim()
+          .toUpperCase(),
+        title: "Fique tranquilo",
+        message: "Este pedido ja foi pago.",
+      });
+    }
+
+    socket.on("payment-confirmed", handleRealtimePaymentConfirmed);
+    socket.on("order:payment-confirmed", handleRealtimePaymentConfirmed);
+
+    return () => {
+      socket.off("payment-confirmed", handleRealtimePaymentConfirmed);
+      socket.off("order:payment-confirmed", handleRealtimePaymentConfirmed);
+      disconnectSocket();
+    };
+  }, [pixPaymentData]);
 
   useEffect(() => {
     const isManualProvider =
@@ -1417,7 +1544,7 @@ export default function Cart() {
     );
   }
 
-  if (pixPaymentData) {
+  if (pixPaymentData && !isPixPaymentPanelMinimized) {
     const isManualProvider =
       String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
 
@@ -1444,6 +1571,12 @@ export default function Cart() {
                 onCopyPixKey={handleCopyPixKey}
                 onPixManualProofChange={setPixManualProof}
                 onManualProofFileChange={handleManualProofFileChange}
+                onBackToCart={() => {
+                  setIsPixPaymentPanelMinimized(true);
+                  toast.info(
+                    `PIX pendente do pedido #${pixPaymentData?.orderId || "-"}. Voce pode retomar o pagamento a qualquer momento.`,
+                  );
+                }}
               />
             </Suspense>
           </S.MenuSection>
@@ -1697,6 +1830,50 @@ export default function Cart() {
             </S.CartSummarySection>
           </S.CartSplitLayout>
         </S.MenuSection>
+        {pixPaymentData && isPixPaymentPanelMinimized ? (
+          <div
+            style={{
+              marginBottom: "1rem",
+              border: "1px solid #f59e0b66",
+              background: "#fffbeb",
+              color: "#92400e",
+              borderRadius: 14,
+              padding: "0.85rem 0.95rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "0.55rem",
+            }}
+          >
+            <div style={{ display: "grid", gap: "0.15rem" }}>
+              <strong style={{ fontSize: 14 }}>
+                Voce tem um PIX pendente do pedido #
+                {pixPaymentData?.orderId || "-"}
+              </strong>
+              <small style={{ fontSize: 12, fontWeight: 700 }}>
+                O pedido so sera liberado apos a confirmacao do pagamento.
+              </small>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPixPaymentPanelMinimized(false)}
+              style={{
+                border: "1px solid #f59e0b",
+                background: "#ffffff",
+                color: "#92400e",
+                borderRadius: 999,
+                minHeight: 34,
+                padding: "0 0.85rem",
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              Retomar pagamento PIX
+            </button>
+          </div>
+        ) : null}
 
         {isDrawerOpen && (
           <S.DrawerOverlay onClick={() => setIsDrawerOpen(false)} />
@@ -2371,21 +2548,24 @@ export default function Cart() {
                     <input
                       type="password"
                       inputMode="numeric"
-                      placeholder="CVV"
+                      placeholder={
+                        expectedCardCvvLength === 4 ? "CVV (4)" : "CVV"
+                      }
                       value={cardCvv}
+                      maxLength={expectedCardCvvLength}
                       style={resolveCardFieldStyle(
                         Boolean(cardFieldErrors.cardCvv),
-                        /^\d{3,4}$/.test(
+                        new RegExp(`^\\d{${expectedCardCvvLength}}$`).test(
                           String(cardCvv || "")
                             .replace(/\D/g, "")
-                            .slice(0, 4),
+                            .slice(0, expectedCardCvvLength),
                         ),
                       )}
                       onChange={(event) =>
                         setCardCvv(
                           String(event.target.value || "")
                             .replace(/\D/g, "")
-                            .slice(0, 4),
+                            .slice(0, expectedCardCvvLength),
                         )
                       }
                     />

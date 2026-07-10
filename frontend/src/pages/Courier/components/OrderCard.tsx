@@ -40,6 +40,7 @@ type Order = {
   district?: string;
   city?: string;
   state?: string;
+  pointReference?: string;
 };
 
 type OrderCardProps = {
@@ -61,16 +62,47 @@ function formatCurrency(value: number) {
 }
 
 function getDeliveryAddress(order: Order) {
+  const rawComplement = String(order?.complement || "").trim();
+  const complementWithoutReference = rawComplement
+    .replace(/\|?\s*Ref\.:\s*.+$/i, "")
+    .replace(/\|?\s*Ponto de referencia:\s*.+$/i, "")
+    .trim();
+
   const parts = [
     order.address,
     order.number,
-    order.complement,
+    complementWithoutReference,
     order.district,
     order.city,
     order.state,
   ].filter(Boolean);
 
   return parts.length ? parts.join(", ") : "Endereço não informado";
+}
+
+function getReferencePoint(order: Order) {
+  const explicitReference = String(order?.pointReference || "").trim();
+  if (explicitReference) {
+    return explicitReference;
+  }
+
+  const complement = String(order?.complement || "").trim();
+  const complementMatch = complement.match(
+    /(?:^|\|)\s*(?:Ref\.:|Ponto de referencia:)\s*(.+)$/i,
+  );
+  if (complementMatch?.[1]) {
+    return complementMatch[1].trim();
+  }
+
+  const observation = String(order?.observation || order?.notes || "").trim();
+  const observationMatch = observation.match(
+    /(?:^|\|)\s*(?:Ref\.:|Ponto de referencia:)\s*(.+)$/i,
+  );
+  if (observationMatch?.[1]) {
+    return observationMatch[1].trim();
+  }
+
+  return "";
 }
 
 function requiresConfirmedPayment(
@@ -132,6 +164,7 @@ export default function OrderCard({
     .replace(/\s{2,}/g, " ")
     .replace(/^\|\s*|\s*\|$/g, "")
     .trim();
+  const orderReferencePoint = getReferencePoint(order);
   const paymentStatusChipStyle = {
     color: order.paid ? "#166534" : "#991b1b",
     background: order.paid ? "#dcfce7" : "#fee2e2",
@@ -216,6 +249,13 @@ export default function OrderCard({
         <MapPin size={14} />
         <span>{getDeliveryAddress(order)}</span>
       </S.AddressRow>
+
+      {orderReferencePoint ? (
+        <S.DetailRow>
+          <MapPin size={14} />
+          <span>Ponto de referência: {orderReferencePoint}</span>
+        </S.DetailRow>
+      ) : null}
 
       {expanded && (
         <S.ExpandedContent>

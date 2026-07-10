@@ -201,6 +201,111 @@ export const MainArea = styled.main`
   }
 `;
 
+export const LocationAlertCard = styled.div`
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  border: 1px solid rgba(234, 29, 44, 0.3);
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(251, 191, 36, 0.24),
+      transparent 45%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(255, 241, 242, 0.95)
+    );
+  border-radius: 14px;
+  padding: 0.8rem 0.95rem;
+  margin-bottom: 0.9rem;
+  box-shadow: 0 10px 24px rgba(234, 29, 44, 0.12);
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+`;
+
+export const LocationAlertIcon = styled.div`
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.86);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+`;
+
+export const LocationAlertContent = styled.div`
+  display: grid;
+  gap: 0.2rem;
+
+  strong {
+    font-size: 0.95rem;
+    color: #7f1d1d;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #9f1239;
+    line-height: 1.35;
+  }
+
+  small {
+    font-size: 0.74rem;
+    color: #7f1d1d;
+    font-weight: 700;
+    opacity: 0.92;
+  }
+`;
+
+export const LocationAlertButton = styled.button`
+  min-height: 38px;
+  border-radius: 11px;
+  border: 1px solid rgba(234, 29, 44, 0.45);
+  background: linear-gradient(135deg, #ea1d2c, #be123c);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+`;
+
+export const LocationStatusChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+`;
+
 export const TopBar = styled.div`
   display: flex;
   align-items: center;

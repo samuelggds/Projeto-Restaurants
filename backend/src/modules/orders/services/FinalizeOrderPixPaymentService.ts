@@ -25,9 +25,7 @@ class FinalizeOrderPixPaymentService {
     const normalizedPaymentProof = String(paymentProof || "").trim();
     const normalizedPaymentProofImage = String(paymentProofImage || "").trim();
     const isManualProvider = normalizedPaymentId.startsWith("manual:");
-    const hasManualPaymentProof =
-      normalizedPaymentProof.length >= 6 ||
-      normalizedPaymentProofImage.startsWith("data:image/");
+    const hasManualPaymentProof = normalizedPaymentProof.length >= 6;
 
     if (!normalizedPaymentId) {
       throw new Error("Pagamento PIX invalido.");
@@ -47,9 +45,14 @@ class FinalizeOrderPixPaymentService {
 
       if (!hasManualPaymentProof) {
         throw new Error(
-          "Informe o comprovante PIX para confirmar o pagamento deste pedido.",
+          "Informe o código/ID da transação PIX no comprovante para confirmar este pedido.",
         );
       }
+
+      orderPixPaymentService.ensureManualPaymentConfirmationAllowed({
+        paymentId: normalizedPaymentId,
+        paymentProof: normalizedPaymentProof,
+      });
     } else {
       await orderPixPaymentService.ensurePaymentApproved({
         paymentId: normalizedPaymentId,

@@ -1,4 +1,38 @@
-import styled, { css } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
+
+const pendingPulse = keyframes`
+  0% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.25);
+    transform: translateY(0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(249, 115, 22, 0);
+    transform: translateY(-1px);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    transform: translateY(0);
+  }
+`;
+
+const pendingAlertPulse = keyframes`
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.34);
+    transform: translateY(0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+    transform: translateY(-1px);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    transform: translateY(0);
+  }
+`;
 
 // --- TEMAS (DARK & LIGHT) ---
 export const darkTheme = {
@@ -360,6 +394,25 @@ export const OrderCard = styled.div`
     color: ${(props) => props.theme.text};
     opacity: 0.9;
   }
+`;
+
+export const PixPendingRealtimeBadge = styled.span<{ $isDelayed?: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: ${(props) => (props.$isDelayed ? "#7f1d1d" : "#7c2d12")};
+  background: ${(props) => (props.$isDelayed ? "#fee2e2" : "#ffedd5")};
+  border: 1px solid
+    ${(props) =>
+      props.$isDelayed
+        ? "rgba(220, 38, 38, 0.45)"
+        : "rgba(249, 115, 22, 0.45)"};
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-weight: 800;
+  animation: ${(props) => (props.$isDelayed ? pendingAlertPulse : pendingPulse)}
+    1.5s ease-in-out infinite;
 `;
 
 export const CardHeaderActions = styled.div`

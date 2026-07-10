@@ -1,4 +1,26 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+
+const mapOverlayIn = keyframes`
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+`;
+
+const mapModalIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+`;
 
 export const lightTheme = {
   background: "#f8fafc",
@@ -376,6 +398,78 @@ export const OrderItem = styled.div`
       font-size: 0.8rem;
       opacity: 0.7;
     }
+
+    .delivery-live {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-top: 0.15rem;
+      padding: 0.18rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid rgba(14, 116, 144, 0.35);
+      background: rgba(6, 182, 212, 0.12);
+      color: #0e7490;
+      font-size: 0.7rem;
+      font-weight: 700;
+      opacity: 1;
+    }
+
+    .delivery-waiting-location {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-top: 0.15rem;
+      padding: 0.18rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      background: rgba(251, 191, 36, 0.14);
+      color: #92400e;
+      font-size: 0.7rem;
+      font-weight: 700;
+      opacity: 1;
+    }
+
+    .delivery-live-map {
+      width: min(360px, 96vw);
+      margin-top: 0.45rem;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(14, 116, 144, 0.32);
+      background: #e0f2fe;
+      display: grid;
+      gap: 0;
+
+      iframe {
+        width: 100%;
+        height: 148px;
+        border: 0;
+        display: block;
+      }
+
+      a,
+      button {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 32px;
+        font-size: 0.74rem;
+        font-weight: 800;
+        color: #0c4a6e;
+        background: rgba(255, 255, 255, 0.86);
+        text-decoration: none;
+        border-top: 1px solid rgba(14, 116, 144, 0.25);
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        transition: all 0.2s ease;
+        cursor: pointer;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.96);
+          color: #075985;
+        }
+      }
+    }
   }
 
   .order-meta {
@@ -460,6 +554,31 @@ export const OrderItem = styled.div`
       &:hover {
         border-color: ${(props) => props.theme.primary};
         color: ${(props) => props.theme.primary};
+      }
+    }
+
+    .track-btn {
+      border: 1px solid rgba(14, 116, 144, 0.35);
+      background: rgba(6, 182, 212, 0.12);
+      color: #0e7490;
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+      font-size: 0.7rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        border-color: #0891b2;
+        background: rgba(6, 182, 212, 0.2);
+        color: #155e75;
+      }
+
+      &:disabled {
+        border-color: rgba(245, 158, 11, 0.35);
+        background: rgba(251, 191, 36, 0.14);
+        color: #92400e;
+        cursor: not-allowed;
       }
     }
 
@@ -927,5 +1046,119 @@ export const IssueReportSendButton = styled.button`
   &:disabled {
     cursor: not-allowed;
     opacity: 0.7;
+  }
+`;
+
+export const MapTrackingOverlay = styled.div<{ $closing?: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  background: rgba(2, 6, 23, 0.62);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  opacity: ${(props) => (props.$closing ? 0 : 1)};
+  transition: opacity 0.18s ease;
+  animation: ${(props) => (props.$closing ? "none" : mapOverlayIn)} 0.18s ease;
+`;
+
+export const MapTrackingModal = styled.div<{ $closing?: boolean }>`
+  width: min(980px, 100%);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid ${(props) => props.theme.border};
+  background: ${(props) => props.theme.surface};
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.4);
+  opacity: ${(props) => (props.$closing ? 0 : 1)};
+  transform: ${(props) =>
+    props.$closing
+      ? "translateY(18px) scale(0.985)"
+      : "translateY(0) scale(1)"};
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  animation: ${(props) => (props.$closing ? "none" : mapModalIn)} 0.2s
+    cubic-bezier(0.2, 0.8, 0.2, 1);
+`;
+
+export const MapTrackingHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.8rem 0.95rem;
+  border-bottom: 1px solid ${(props) => props.theme.border};
+  background: linear-gradient(
+    135deg,
+    rgba(6, 182, 212, 0.2),
+    rgba(59, 130, 246, 0.14)
+  );
+
+  strong {
+    font-size: 0.95rem;
+    color: ${(props) => props.theme.text};
+  }
+
+  button {
+    border: 1px solid ${(props) => props.theme.border};
+    background: ${(props) => props.theme.surface};
+    color: ${(props) => props.theme.text};
+    border-radius: 10px;
+    min-height: 34px;
+    padding: 0 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover {
+      border-color: ${(props) => props.theme.primary};
+      color: ${(props) => props.theme.primary};
+    }
+  }
+`;
+
+export const MapTrackingBody = styled.div`
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.6rem;
+
+  iframe {
+    width: 100%;
+    height: min(70vh, 560px);
+    border: 1px solid ${(props) => props.theme.border};
+    border-radius: 12px;
+    background: #e2e8f0;
+  }
+
+  a {
+    justify-self: end;
+    border: 1px solid rgba(6, 182, 212, 0.45);
+    background: rgba(6, 182, 212, 0.1);
+    color: #0e7490;
+    text-decoration: none;
+    border-radius: 999px;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.85rem;
+    font-weight: 800;
+    font-size: 0.78rem;
+
+    &:hover {
+      border-color: #0891b2;
+      color: #155e75;
+      background: rgba(6, 182, 212, 0.18);
+    }
+  }
+
+  @media (max-width: 600px) {
+    iframe {
+      height: min(62vh, 420px);
+    }
+
+    a {
+      justify-self: stretch;
+      justify-content: center;
+    }
   }
 `;

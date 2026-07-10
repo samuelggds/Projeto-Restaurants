@@ -233,7 +233,99 @@ function buildPixPayload({
   return `${payloadForCrc}${crc}`;
 }
 
+function normalizeReferenceToken(value: string | number | null | undefined) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+function doesProofContainTransactionId(
+  paymentProof: string,
+  transactionId: string,
+) {
+  const normalizedProof = normalizeReferenceToken(paymentProof);
+  const normalizedTransactionId = normalizeReferenceToken(transactionId);
+
+  if (!normalizedProof || !normalizedTransactionId) {
+    return false;
+  }
+
+  return normalizedProof.includes(normalizedTransactionId);
+}
+
+type ParsedManualPixPaymentId = {
+  provider: PixProvider;
+  restaurantId: number;
+  createdAt: Date;
+  transactionId: string;
+};
+
 class OrderPixPaymentService {
+  parseManualPaymentId(paymentId: string): ParsedManualPixPaymentId {
+    const normalizedPaymentId = String(paymentId || "").trim();
+    const [
+      prefix = "",
+      provider = "",
+      restaurant = "",
+      createdAtMs = "",
+      transactionIdFromId = "",
+    ] = normalizedPaymentId.split(":");
+
+    if (prefix !== "manual") {
+      throw new Error("Pagamento PIX manual inválido.");
+    }
+
+    const restaurantId = Number(restaurant || 0);
+    const createdAtTimestamp = Number(createdAtMs || 0);
+    const createdAt = new Date(createdAtTimestamp);
+    const fallbackTransactionId = normalizeTxid(
+      `${provider}${restaurantId}${createdAtTimestamp}`,
+    );
+    const transactionId = normalizeTxid(
+      transactionIdFromId || fallbackTransactionId,
+    );
+
+    if (
+      !Number.isInteger(restaurantId) ||
+      restaurantId <= 0 ||
+      !Number.isFinite(createdAtTimestamp) ||
+      Number.isNaN(createdAt.getTime()) ||
+      !transactionId
+    ) {
+      throw new Error("Pagamento PIX manual inválido.");
+    }
+
+    return {
+      provider: this.normalizePixProvider(provider),
+      restaurantId,
+      createdAt,
+      transactionId,
+    };
+  }
+
+  ensureManualPaymentConfirmationAllowed({
+    paymentId,
+    paymentProof,
+  }: {
+    paymentId: string;
+    paymentProof: string;
+  }) {
+    const parsed = this.parseManualPaymentId(paymentId);
+    const normalizedProof = String(paymentProof || "").trim();
+    if (normalizedProof.length < 6) {
+      throw new Error(
+        "Informe no comprovante o código/ID da transação PIX para confirmar este pagamento.",
+      );
+    }
+
+    if (!doesProofContainTransactionId(normalizedProof, parsed.transactionId)) {
+      throw new Error(
+        "Comprovante PIX inválido: o ID da transação não corresponde ao pagamento deste pedido.",
+      );
+    }
+  }
+
   async getMercadoPagoPaymentApi(restaurantId?: number) {
     const normalizedRestaurantId = Number(restaurantId || 0);
     const allowGlobalFallback =
@@ -402,16 +494,20 @@ class OrderPixPaymentService {
     }
 
     if (resolvedPixProvider !== PIX_PROVIDERS.MERCADO_PAGO) {
+      const createdAtTimestamp = Date.now();
+      const transactionId = normalizeTxid(
+        `${resolvedPixProvider}${normalizedRestaurantId}${createdAtTimestamp}`,
+      );
       const pixCopyPaste = buildPixPayload({
         pixKey,
         amount: totalAmount,
         merchantName: "RESTAURANTE",
         merchantCity: "SAO PAULO",
-        txid: `${resolvedPixProvider}${normalizedRestaurantId}${Date.now()}`,
+        txid: transactionId,
       });
 
       return {
-        paymentId: `manual:${resolvedPixProvider}:${normalizedRestaurantId}:${Date.now()}`,
+        paymentId: `manual:${resolvedPixProvider}:${normalizedRestaurantId}:${createdAtTimestamp}:${transactionId}`,
         status: "pending_manual",
         provider: resolvedPixProvider,
         totalAmount,
@@ -487,18 +583,17 @@ class OrderPixPaymentService {
     }
 
     if (normalizedPaymentId.startsWith("manual:")) {
-      const [, provider = "", providerRestaurantId = ""] =
-        normalizedPaymentId.split(":");
+      const parsedManualPayment =
+        this.parseManualPaymentId(normalizedPaymentId);
       const normalizedRestaurantId = String(restaurantId || "").trim();
       const sameRestaurant =
         !normalizedRestaurantId ||
-        !providerRestaurantId ||
-        providerRestaurantId === normalizedRestaurantId;
+        String(parsedManualPayment.restaurantId) === normalizedRestaurantId;
 
       return {
         paymentId: normalizedPaymentId,
         status: "pending_manual",
-        provider: this.normalizePixProvider(provider),
+        provider: parsedManualPayment.provider,
         isApproved: false,
         sameRestaurant,
         requiresStatusCheck: false,

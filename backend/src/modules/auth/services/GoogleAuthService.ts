@@ -12,24 +12,37 @@ function getSafeNameFromEmail(email: string | undefined) {
   return username || "Cliente";
 }
 
+function parseGoogleClientIds() {
+  const singleClientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  const listFromEnv = String(process.env.GOOGLE_CLIENT_IDS || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const merged = [singleClientId, ...listFromEnv].filter(Boolean);
+
+  return Array.from(new Set(merged));
+}
+
 class GoogleAuthService {
   async execute({ idToken }: { idToken: string }) {
     if (!idToken) {
       throw new Error("Token do Google não informado");
     }
 
-    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const googleClientIds = parseGoogleClientIds();
+    const googleClientId = googleClientIds[0] || "";
 
-    if (!googleClientId) {
+    if (!googleClientId || googleClientIds.length === 0) {
       throw new Error(
-        "Login com Google indisponível. Configure GOOGLE_CLIENT_ID no backend.",
+        "Login com Google indisponível. Configure GOOGLE_CLIENT_ID (ou GOOGLE_CLIENT_IDS) no backend.",
       );
     }
 
     const client = new OAuth2Client(googleClientId);
     const ticket = await client.verifyIdToken({
       idToken,
-      audience: googleClientId,
+      audience: googleClientIds,
     });
     const payload = ticket.getPayload();
 

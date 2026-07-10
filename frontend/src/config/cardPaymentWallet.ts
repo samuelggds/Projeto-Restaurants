@@ -319,6 +319,16 @@ export type SavedCardFieldErrors = {
   lastFour?: string;
 };
 
+export function getExpectedCardCvvLength(
+  brand: string | null | undefined,
+): number {
+  const normalized = String(brand || "")
+    .trim()
+    .toLowerCase();
+
+  return normalized === "american express" ? 4 : 3;
+}
+
 export function getSavedCardFieldErrors(
   cardDraft: Partial<CardPaymentDraft> | null | undefined,
 ): SavedCardFieldErrors {
@@ -356,6 +366,7 @@ export function getCardCheckoutFieldErrors({
 }: CardCheckoutValidationInput): CardCheckoutFieldErrors {
   const errors: CardCheckoutFieldErrors = {};
   const draft = sanitizeCardDraft(cardDraft);
+  const expectedCvvLength = getExpectedCardCvvLength(draft.brand);
   const cardNumberDigits = getCardNumberDigits(cardNumber);
   const cvvDigits = String(cardCvv || "")
     .replace(/\D/g, "")
@@ -387,8 +398,11 @@ export function getCardCheckoutFieldErrors({
     errors.cardExpiry = "Informe uma validade valida no formato MM/AA.";
   }
 
-  if (!/^\d{3,4}$/.test(cvvDigits)) {
-    errors.cardCvv = "Informe um CVV valido com 3 ou 4 digitos.";
+  if (cvvDigits.length !== expectedCvvLength) {
+    errors.cardCvv =
+      expectedCvvLength === 4
+        ? "Para American Express, informe 4 digitos no CVV."
+        : "Informe um CVV valido com 3 digitos.";
   }
 
   return errors;

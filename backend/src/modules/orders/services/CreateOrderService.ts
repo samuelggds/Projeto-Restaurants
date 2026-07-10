@@ -172,12 +172,9 @@ class CreateOrderService {
   }: ResolvePaymentStatePayload) {
     const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
     const normalizedPixPaymentId = String(pixPaymentId || "").trim();
+    const normalizedPaymentProof = String(paymentProof || "").trim();
     const requestedAsPaid = paid === true;
-    const hasManualPaymentProof =
-      String(paymentProof || "").trim().length >= 6 ||
-      String(paymentProofImage || "")
-        .trim()
-        .startsWith("data:image/");
+    const hasManualPaymentProof = normalizedPaymentProof.length >= 6;
 
     if (!requestedAsPaid) {
       return {
@@ -217,6 +214,11 @@ class CreateOrderService {
         normalizedPixPaymentId.startsWith("manual:") &&
         hasManualPaymentProof
       ) {
+        orderPixPaymentService.ensureManualPaymentConfirmationAllowed({
+          paymentId: normalizedPixPaymentId,
+          paymentProof: normalizedPaymentProof,
+        });
+
         return {
           normalizedPaymentMethod,
           normalizedPixPaymentId,

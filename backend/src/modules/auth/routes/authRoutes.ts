@@ -50,8 +50,15 @@ router.post("/login/verify-2fa", (req, res) => {
 });
 
 router.get("/google/client-id", (req, res) => {
+  const singleClientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  const listClientIds = String(process.env.GOOGLE_CLIENT_IDS || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const clientId = singleClientId || listClientIds[0] || null;
+
   return res.json({
-    clientId: process.env.GOOGLE_CLIENT_ID || null,
+    clientId,
   });
 });
 

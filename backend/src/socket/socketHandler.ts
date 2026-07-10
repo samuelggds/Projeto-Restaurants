@@ -66,6 +66,102 @@ export function socketHandler(socket: AppSocket) {
     socket.join("super_admin");
   }
 
+  socket.on("delivery:location:update", async (rawPayload, ack) => {
+    const reply =
+      typeof ack === "function"
+        ? ack
+        : (_result: { ok: boolean; error?: string }) => {};
+
+    if (String(role || "").toUpperCase() !== "MOTOQUEIRO") {
+      reply({
+        ok: false,
+        error: "Somente motoqueiros podem enviar localização.",
+      });
+      return;
+    }
+
+    const orderId = Number(rawPayload?.orderId || 0);
+    const latitude = Number(rawPayload?.latitude);
+    const longitude = Number(rawPayload?.longitude);
+    const heading = Number(rawPayload?.heading);
+    const speed = Number(rawPayload?.speed);
+    const accuracy = Number(rawPayload?.accuracy);
+    const sentAt =
+      typeof rawPayload?.sentAt === "string" && rawPayload.sentAt
+        ? rawPayload.sentAt
+        : new Date().toISOString();
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      reply({ ok: false, error: "Pedido inválido para rastreio." });
+      return;
+    }
+
+    const hasValidCoordinates =
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180;
+
+    if (!hasValidCoordinates) {
+      reply({ ok: false, error: "Coordenadas inválidas." });
+      return;
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        userId: true,
+        restaurantId: true,
+        type: true,
+        status: true,
+      },
+    });
+
+    if (!order) {
+      reply({ ok: false, error: "Pedido não encontrado." });
+      return;
+    }
+
+    if (Number(order.restaurantId || 0) !== Number(restaurantId || 0)) {
+      reply({ ok: false, error: "Pedido não pertence ao seu restaurante." });
+      return;
+    }
+
+    if (String(order.type || "").toUpperCase() !== "DELIVERY") {
+      reply({ ok: false, error: "Rastreio disponível apenas para delivery." });
+      return;
+    }
+
+    if (String(order.status || "").toUpperCase() !== "SAIU_PARA_ENTREGA") {
+      reply({ ok: false, error: "Rastreio disponível apenas em entrega." });
+      return;
+    }
+
+    const payload = {
+      orderId: order.id,
+      latitude,
+      longitude,
+      heading: Number.isFinite(heading) ? heading : null,
+      speed: Number.isFinite(speed) ? speed : null,
+      accuracy:
+        Number.isFinite(accuracy) && accuracy >= 0
+          ? Math.round(accuracy)
+          : null,
+      sentAt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    socket.to(`user:${order.userId}`).emit("order:delivery-location", payload);
+    socket
+      .to(`restaurant:${order.restaurantId}`)
+      .emit("order:delivery-location", payload);
+
+    reply({ ok: true });
+  });
+
   socket.on("support:chat-send", async (rawPayload, ack) => {
     const reply =
       typeof ack === "function"
