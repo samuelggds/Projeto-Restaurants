@@ -49,20 +49,43 @@ class OrderRepository {
           {
             type: OrderType.DELIVERY,
             paid: false,
-            paymentMethod: {
-              in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
-            },
             payOnDelivery: false,
-            OR: [
+            AND: [
               {
-                observation: null,
+                OR: [
+                  {
+                    paymentMethod: PaymentMethod.CARTAO,
+                  },
+                  {
+                    paymentMethod: PaymentMethod.PIX,
+                    OR: [
+                      {
+                        pixPaymentId: null,
+                      },
+                      {
+                        pixPaymentId: {
+                          not: {
+                            startsWith: "manual:",
+                          },
+                        },
+                      },
+                    ],
+                  },
+                ],
               },
               {
-                observation: {
-                  not: {
-                    contains: "PAY_ON_DELIVERY:",
+                OR: [
+                  {
+                    observation: null,
                   },
-                },
+                  {
+                    observation: {
+                      not: {
+                        contains: "PAY_ON_DELIVERY:",
+                      },
+                    },
+                  },
+                ],
               },
             ],
           },
