@@ -51,6 +51,18 @@ class ConfirmOrderPaymentService {
       paymentMethod: updatedOrder.paymentMethod,
     });
 
+    io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
+      orderId: updatedOrder.id,
+      paid: true,
+      paymentMethod: updatedOrder.paymentMethod,
+    });
+
+    io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+      orderId: updatedOrder.id,
+      paid: true,
+      paymentMethod: updatedOrder.paymentMethod,
+    });
+
     io.to(`restaurant:${restaurantId}`).emit("new-order", updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
 
