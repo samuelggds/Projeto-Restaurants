@@ -29,9 +29,9 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
-      JWT_SECRET: ${JWT_SECRET:-change_me}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_with_another_strong_secret}
-      JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_with_another_strong_secret}
+      JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
+      JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_mfa_secret_min_32_chars}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-14d}
       JWT_MFA_EXPIRES_IN: ${JWT_MFA_EXPIRES_IN:-10m}
