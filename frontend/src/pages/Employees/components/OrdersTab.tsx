@@ -484,16 +484,9 @@ export default function OrdersTab({
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
-            const normalizedPixPaymentId = String(
-              order?.pixPaymentId || "",
-            ).trim();
             const pendingManualPixClaim =
               !order.paid &&
-              String(order?.paymentMethod || "").toUpperCase() === "PIX" &&
-              (
-                normalizedPixPaymentId.startsWith("manual:") ||
-                normalizedPixPaymentId.length === 0
-              );
+              String(order?.paymentMethod || "").toUpperCase() === "PIX";
             const pendingPixDelayed =
               pendingDigitalPayment && isPixPendingDelayed(order);
             const deliveryBlockedUntilPaid = isDeliveryBlockedUntilPaid(order);
