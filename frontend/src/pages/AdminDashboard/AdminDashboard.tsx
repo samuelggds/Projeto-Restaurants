@@ -2250,6 +2250,58 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConfirmPaymentByAdmin = async (order) => {
+    const orderId = Number(order?.id || 0);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    setConfirmingPaymentPinOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      const updated = await ordersService.confirmPayment(orderId);
+      const updatedOrder = updated?.order || updated;
+
+      setOrders((prev) =>
+        prev.map((item) =>
+          Number(item?.id || 0) === orderId
+            ? {
+                ...item,
+                ...updatedOrder,
+              }
+            : item,
+        ),
+      );
+
+      setPinRequestByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+
+      setPaymentPinInputByOrderId((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+
+      toast.success(`Pagamento confirmado pelo admin no pedido #${orderId}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao confirmar pagamento",
+      );
+    } finally {
+      setConfirmingPaymentPinOrderIds((prev) =>
+        prev.filter((id) => id !== orderId),
+      );
+    }
+  };
+
   const handleRetryPixPaymentStatus = async (order, options = {}) => {
     const silent = options?.silent === true;
     const orderId = Number(order?.id || 0);
@@ -4836,6 +4888,7 @@ export default function AdminDashboard() {
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onSetPaymentPinInputByOrderId={setPaymentPinInputByOrderId}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
+                onConfirmPaymentByAdmin={handleConfirmPaymentByAdmin}
                 onRetryPixPaymentStatus={handleRetryPixPaymentStatus}
                 onRefundOrder={handleRefundOrder}
                 getStatusValueIcon={getStatusValueIcon}

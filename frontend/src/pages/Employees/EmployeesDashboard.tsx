@@ -849,44 +849,6 @@ export default function StaffDashboard() {
     }
   }
 
-  async function handleConfirmPaymentByAdmin(order) {
-    const orderId = Number(order?.id || 0);
-
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      return;
-    }
-
-    setConfirmingPinOrderIds((prev) =>
-      prev.includes(orderId) ? prev : [...prev, orderId],
-    );
-
-    try {
-      const updated = await ordersService.confirmPayment(orderId);
-      const updatedOrder = updated?.order || updated;
-
-      setOrders((prev) =>
-        prev.map((item) =>
-          Number(item?.id || 0) === orderId
-            ? {
-                ...item,
-                ...updatedOrder,
-              }
-            : item,
-        ),
-      );
-
-      toast.success(`Pagamento confirmado pelo admin no pedido #${orderId}`);
-    } catch (err) {
-      toast.error(
-        err?.response?.data?.error ||
-          err?.response?.data?.message ||
-          "Erro ao confirmar pagamento",
-      );
-    } finally {
-      setConfirmingPinOrderIds((prev) => prev.filter((id) => id !== orderId));
-    }
-  }
-
   async function handleRetryPixPaymentStatus(order, options = {}) {
     const silent = options?.silent === true;
     const orderId = Number(order?.id || 0);
@@ -1770,7 +1732,6 @@ export default function StaffDashboard() {
                 onSetPinInputByOrderId={setPinInputByOrderId}
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
-                onConfirmPaymentByAdmin={handleConfirmPaymentByAdmin}
                 onRetryPixPaymentStatus={handleRetryPixPaymentStatus}
                 onUpdateStatus={handleUpdateStatus}
                 getPaymentSummaryLabel={getPaymentSummaryLabel}
