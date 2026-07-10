@@ -578,6 +578,28 @@ export default function StaffDashboard() {
       await showBrowserNotification(message, tableLabel);
     };
 
+    const onManualPixClaimed = (payload) => {
+      if (!notificationsEnabled) {
+        return;
+      }
+
+      const orderId = Number(payload?.orderId || 0);
+
+      if (!Number.isInteger(orderId) || orderId <= 0) {
+        return;
+      }
+
+      toast.info(
+        `Pedido #${orderId}: cliente informou pagamento PIX. Confirmar no painel admin.`,
+      );
+      playNotificationSound();
+      setActiveTab("orders");
+      setExpandedOrderIds((prev) => ({
+        ...prev,
+        [orderId]: true,
+      }));
+    };
+
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("connect_error", onConnectError);
@@ -585,6 +607,7 @@ export default function StaffDashboard() {
     socket.on("order:status-changed", onStatusChanged);
     socket.on("order:payment-confirmed", onPaymentConfirmed);
     socket.on("table:pin-requested", onTablePinRequested);
+    socket.on("order:pix-manual-claimed", onManualPixClaimed);
 
     return () => {
       socket.off("connect", onConnect);
@@ -594,6 +617,7 @@ export default function StaffDashboard() {
       socket.off("order:status-changed", onStatusChanged);
       socket.off("order:payment-confirmed", onPaymentConfirmed);
       socket.off("table:pin-requested", onTablePinRequested);
+      socket.off("order:pix-manual-claimed", onManualPixClaimed);
       disconnectSocket();
     };
   }, [notificationsEnabled]);
@@ -819,6 +843,44 @@ export default function StaffDashboard() {
         err?.response?.data?.error ||
           err?.response?.data?.message ||
           "Erro ao confirmar pagamento com PIN",
+      );
+    } finally {
+      setConfirmingPinOrderIds((prev) => prev.filter((id) => id !== orderId));
+    }
+  }
+
+  async function handleConfirmPaymentByAdmin(order) {
+    const orderId = Number(order?.id || 0);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    setConfirmingPinOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      const updated = await ordersService.confirmPayment(orderId);
+      const updatedOrder = updated?.order || updated;
+
+      setOrders((prev) =>
+        prev.map((item) =>
+          Number(item?.id || 0) === orderId
+            ? {
+                ...item,
+                ...updatedOrder,
+              }
+            : item,
+        ),
+      );
+
+      toast.success(`Pagamento confirmado pelo admin no pedido #${orderId}`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao confirmar pagamento",
       );
     } finally {
       setConfirmingPinOrderIds((prev) => prev.filter((id) => id !== orderId));
@@ -1708,6 +1770,7 @@ export default function StaffDashboard() {
                 onSetPinInputByOrderId={setPinInputByOrderId}
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
+                onConfirmPaymentByAdmin={handleConfirmPaymentByAdmin}
                 onRetryPixPaymentStatus={handleRetryPixPaymentStatus}
                 onUpdateStatus={handleUpdateStatus}
                 getPaymentSummaryLabel={getPaymentSummaryLabel}

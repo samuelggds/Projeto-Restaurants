@@ -43,16 +43,12 @@ class FinalizeOrderPixPaymentService {
         );
       }
 
-      if (!hasManualPaymentProof) {
-        throw new Error(
-          "Informe o código/ID da transação PIX no comprovante para confirmar este pedido.",
-        );
+      if (hasManualPaymentProof) {
+        orderPixPaymentService.ensureManualPaymentConfirmationAllowed({
+          paymentId: normalizedPaymentId,
+          paymentProof: normalizedPaymentProof,
+        });
       }
-
-      orderPixPaymentService.ensureManualPaymentConfirmationAllowed({
-        paymentId: normalizedPaymentId,
-        paymentProof: normalizedPaymentProof,
-      });
     } else {
       await orderPixPaymentService.ensurePaymentApproved({
         paymentId: normalizedPaymentId,
@@ -83,16 +79,38 @@ class FinalizeOrderPixPaymentService {
       throw new Error("Pagamento PIX nao corresponde ao pedido informado.");
     }
 
+    if (isManualProvider) {
+      const requestedAt = new Date().toISOString();
+
+      io.to(`restaurant:${order.restaurantId}`).emit(
+        "order:pix-manual-claimed",
+        {
+          orderId: order.id,
+          paymentId: normalizedPaymentId,
+          requestedAt,
+        },
+      );
+
+      io.to(`restaurant:${order.restaurantId}:admin`).emit(
+        "order:pix-manual-claimed",
+        {
+          orderId: order.id,
+          paymentId: normalizedPaymentId,
+          requestedAt,
+        },
+      );
+
+      return order;
+    }
+
     if (order.paid === true) {
       return order;
     }
 
-    const updatedOrder = isManualProvider
-      ? await orderRepository.confirmPixPayment(order.id, order.restaurantId, {
-          paymentProof: normalizedPaymentProof || null,
-          paymentProofImage: normalizedPaymentProofImage || null,
-        })
-      : await orderRepository.confirmPayment(order.id, order.restaurantId);
+    const updatedOrder = await orderRepository.confirmPayment(
+      order.id,
+      order.restaurantId,
+    );
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
       "order:payment-confirmed",
