@@ -26,6 +26,9 @@ type OrderItem = {
 
 type Order = {
   id: number;
+  createdAt?: string;
+  pixPaymentId?: string;
+  paymentMethod?: string;
   type?: string;
   total?: number;
   status?: string;
@@ -55,6 +58,7 @@ type OrdersTabProps = {
   pinInputByOrderId: Record<number, string>;
   requestingPinOrderIds: number[];
   confirmingPinOrderIds: number[];
+  retryingPixCheckOrderIds: number[];
   paymentPinToolsEnabled: boolean;
   orderStatusMeta: Record<string, { label: string; color: string }>;
   onSetOrderTypeFilter: (value: string) => void;
@@ -65,6 +69,7 @@ type OrdersTabProps = {
   ) => void;
   onRequestPaymentPin: (order: Order) => void;
   onConfirmPaymentWithPin: (order: Order) => void;
+  onRetryPixPaymentStatus: (order: Order) => void;
   onUpdateStatus: (order: Order, nextStatus: string) => void;
   getPaymentSummaryLabel: (order?: unknown) => string;
   getDeliveryAddressLabel: (order: Order) => string | null;
@@ -86,6 +91,22 @@ type OrdersTabProps = {
   getOrderTypeDisplayLabel: (orderType?: string) => string;
 };
 
+const PIX_PENDING_ALERT_DELAY_MS = 2 * 60 * 1000;
+
+function isPixPendingDelayed(order: Order) {
+  const createdAtRaw = String(order?.createdAt || "").trim();
+  if (!createdAtRaw) {
+    return false;
+  }
+
+  const createdAtMs = Date.parse(createdAtRaw);
+  if (!Number.isFinite(createdAtMs)) {
+    return false;
+  }
+
+  return Date.now() - createdAtMs >= PIX_PENDING_ALERT_DELAY_MS;
+}
+
 export default function OrdersTab({
   filteredOrders,
   statusCounters,
@@ -98,6 +119,7 @@ export default function OrdersTab({
   pinInputByOrderId,
   requestingPinOrderIds,
   confirmingPinOrderIds,
+  retryingPixCheckOrderIds,
   paymentPinToolsEnabled,
   orderStatusMeta,
   onSetOrderTypeFilter,
@@ -106,6 +128,7 @@ export default function OrdersTab({
   onSetPinInputByOrderId,
   onRequestPaymentPin,
   onConfirmPaymentWithPin,
+  onRetryPixPaymentStatus,
   onUpdateStatus,
   getPaymentSummaryLabel,
   getDeliveryAddressLabel,
@@ -459,10 +482,15 @@ export default function OrdersTab({
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
+            const pendingPixDelayed =
+              pendingDigitalPayment && isPixPendingDelayed(order);
             const deliveryBlockedUntilPaid = isDeliveryBlockedUntilPaid(order);
             const pinInput = String(pinInputByOrderId[order.id] || "");
             const isRequestingPin = requestingPinOrderIds.includes(order.id);
             const isConfirmingPin = confirmingPinOrderIds.includes(order.id);
+            const isRetryingPixCheck = retryingPixCheckOrderIds.includes(
+              order.id,
+            );
             const isExpanded = Boolean(expandedOrderIds[order.id]);
             const statusLabel =
               orderStatusMeta[String(order?.status || "")]?.label ||
@@ -600,6 +628,43 @@ export default function OrdersTab({
                     <CreditCard size={13} />
                     {paymentStatusLabel}
                   </span>
+                  {pendingDigitalPayment ? (
+                    <S.PixPendingRealtimeBadge
+                      $isDelayed={pendingPixDelayed}
+                      title={
+                        pendingPixDelayed
+                          ? "PIX pendente há mais de 2 minutos. Verifique webhook/provedor."
+                          : "Assim que o provedor confirmar, o pedido muda para pago automaticamente."
+                      }
+                    >
+                      <CreditCard size={13} />
+                      {pendingPixDelayed
+                        ? "PIX pendente há mais de 2 minutos"
+                        : "Aguardando confirmação do PIX em tempo real"}
+                    </S.PixPendingRealtimeBadge>
+                  ) : null}
+                  {pendingPixDelayed ? (
+                    <button
+                      type="button"
+                      onClick={() => onRetryPixPaymentStatus(order)}
+                      disabled={isRetryingPixCheck}
+                      style={{
+                        ...infoChipStyle,
+                        color: "#7f1d1d",
+                        background: "#fee2e2",
+                        border: "1px solid rgba(220, 38, 38, 0.45)",
+                        fontWeight: 800,
+                        cursor: isRetryingPixCheck ? "not-allowed" : "pointer",
+                        opacity: isRetryingPixCheck ? 0.7 : 1,
+                      }}
+                      title="Consultar agora no provedor e confirmar automaticamente se já estiver aprovado."
+                    >
+                      <CreditCard size={13} />
+                      {isRetryingPixCheck
+                        ? "Reconsultando PIX..."
+                        : "Reconsultar status PIX agora"}
+                    </button>
+                  ) : null}
                 </div>
 
                 <div

@@ -83,6 +83,9 @@ const DELIVERY_PENDING_DIGITAL_METHODS = new Set([
   "CARTAO_DEBITO",
   "CARTAO_CREDITO",
 ]);
+const PIX_APPROVED_STATUSES = new Set(["approved", "accredited", "paid"]);
+const PIX_PENDING_ALERT_DELAY_MS = 2 * 60 * 1000;
+const PIX_PENDING_AUTO_RECHECK_INTERVAL_MS = 30 * 1000;
 const PAYMENT_PIN_TOOLS_ENABLED = false;
 const ORDER_STATUS_META = {
   PENDENTE: { label: "Pendente", color: "#f97316" },
@@ -634,6 +637,23 @@ function isPendingDigitalPayment(order) {
   return isDelivery && isDigital && order?.paid !== true;
 }
 
+function isDelayedPendingPixOrder(order) {
+  const orderType = String(order?.type || "").toUpperCase();
+  const paymentMethod = String(order?.paymentMethod || "").toUpperCase();
+  const createdAtMs = Date.parse(String(order?.createdAt || ""));
+
+  if (
+    orderType !== "DELIVERY" ||
+    paymentMethod !== "PIX" ||
+    order?.paid === true ||
+    !Number.isFinite(createdAtMs)
+  ) {
+    return false;
+  }
+
+  return Date.now() - createdAtMs >= PIX_PENDING_ALERT_DELAY_MS;
+}
+
 function isDeliveryBlockedUntilPaid(order) {
   return isPendingDigitalPayment(order);
 }
@@ -834,6 +854,7 @@ export default function AdminDashboard() {
     useState([]);
   const [confirmingPaymentPinOrderIds, setConfirmingPaymentPinOrderIds] =
     useState([]);
+  const [retryingPixCheckOrderIds, setRetryingPixCheckOrderIds] = useState([]);
   const [refundingOrderIds, setRefundingOrderIds] = useState<number[]>([]);
   const [paymentPinInputByOrderId, setPaymentPinInputByOrderId] = useState({});
   const [expandedOrderIds, setExpandedOrderIds] = useState({});
@@ -2027,13 +2048,15 @@ export default function AdminDashboard() {
     const shouldAutoAdvanceFlow =
       nextStatusNormalized === "PRONTO" && isMesaOrRetiradaOrder;
 
-    if (
-      nextStatusNormalized === "ENTREGUE" &&
+    const shouldBlockForPendingDigitalDelivery =
       targetOrder &&
-      isDeliveryBlockedUntilPaid(targetOrder)
-    ) {
+      isDeliveryBlockedUntilPaid(targetOrder) &&
+      nextStatusNormalized !== "PENDENTE" &&
+      nextStatusNormalized !== "CANCELADO";
+
+    if (shouldBlockForPendingDigitalDelivery) {
       toast.error(
-        "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro.",
+        "Pagamento pendente: pedido delivery com PIX/cartão deve permanecer em PENDENTE até a confirmação.",
       );
       return;
     }
@@ -2056,13 +2079,15 @@ export default function AdminDashboard() {
     } catch (err) {
       const message = err?.response?.data?.error || "Erro ao atualizar status";
       const shouldShowPaymentPendingHint =
-        nextStatusNormalized === "ENTREGUE" &&
+        nextStatusNormalized !== "PENDENTE" &&
+        nextStatusNormalized !== "CANCELADO" &&
         targetOrder &&
         isDeliveryBlockedUntilPaid(targetOrder) &&
         (message.includes("pagamento PIX/CARTAO") ||
-          message.includes("ainda não foi confirmado"));
+          message.includes("ainda não foi confirmado") ||
+          message.includes("deve permanecer em PENDENTE"));
       const friendlyMessage = shouldShowPaymentPendingHint
-        ? "Pagamento pendente: a confirmação por PIN fica apenas no fluxo do motoqueiro."
+        ? "Pagamento pendente: pedido delivery com PIX/cartão deve permanecer em PENDENTE até a confirmação."
         : message;
       toast.error(friendlyMessage);
     }
@@ -2224,6 +2249,116 @@ export default function AdminDashboard() {
       );
     }
   };
+
+  const handleRetryPixPaymentStatus = async (order, options = {}) => {
+    const silent = options?.silent === true;
+    const orderId = Number(order?.id || 0);
+    const paymentId = String(order?.pixPaymentId || "").trim();
+    const paymentMethod = String(order?.paymentMethod || "")
+      .trim()
+      .toUpperCase();
+
+    if (!Number.isInteger(orderId) || orderId <= 0 || paymentMethod !== "PIX") {
+      return;
+    }
+
+    if (!paymentId) {
+      if (!silent) {
+        toast.error("Este pedido PIX está sem identificador de pagamento.");
+      }
+      return;
+    }
+
+    setRetryingPixCheckOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId],
+    );
+
+    try {
+      const status = await ordersService.getPixPaymentStatus({ paymentId });
+      const normalizedStatus = String(status?.status || "")
+        .trim()
+        .toLowerCase();
+
+      if (!PIX_APPROVED_STATUSES.has(normalizedStatus)) {
+        if (!silent) {
+          toast.info(
+            `Pagamento PIX ainda pendente no provedor (${normalizedStatus || "aguardando"}).`,
+          );
+        }
+        return;
+      }
+
+      const updated = await ordersService.confirmPixPayment({
+        orderId,
+        paymentId,
+      });
+      const updatedOrder = updated?.order || updated;
+
+      setOrders((prev) =>
+        prev.map((item) =>
+          Number(item?.id) === orderId ? { ...item, ...updatedOrder } : item,
+        ),
+      );
+
+      if (!silent) {
+        toast.success(`Pagamento PIX confirmado no pedido #${orderId}.`);
+      }
+    } catch (error) {
+      if (!silent) {
+        toast.error(
+          error?.response?.data?.error ||
+            error?.response?.data?.message ||
+            "Não foi possível reconsultar o pagamento PIX agora.",
+        );
+      }
+    } finally {
+      setRetryingPixCheckOrderIds((prev) =>
+        prev.filter((id) => id !== orderId),
+      );
+    }
+  };
+
+  useEffect(() => {
+    const delayedPixOrders = (Array.isArray(orders) ? orders : []).filter(
+      (order) => {
+        const orderId = Number(order?.id || 0);
+        return (
+          isDelayedPendingPixOrder(order) &&
+          Number.isInteger(orderId) &&
+          orderId > 0 &&
+          !retryingPixCheckOrderIds.includes(orderId)
+        );
+      },
+    );
+
+    if (delayedPixOrders.length === 0) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const runAutoRecheck = () => {
+      if (cancelled) {
+        return;
+      }
+
+      delayedPixOrders.forEach((order) => {
+        void handleRetryPixPaymentStatus(order, { silent: true });
+      });
+    };
+
+    const intervalId = window.setInterval(
+      runAutoRecheck,
+      PIX_PENDING_AUTO_RECHECK_INTERVAL_MS,
+    );
+
+    void runAutoRecheck();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [orders, retryingPixCheckOrderIds]);
 
   const handleRefundOrder = async (order) => {
     const orderId = Number(order?.id || 0);
@@ -4688,6 +4823,7 @@ export default function AdminDashboard() {
                 paymentPinInputByOrderId={paymentPinInputByOrderId}
                 requestingPaymentPinOrderIds={requestingPaymentPinOrderIds}
                 confirmingPaymentPinOrderIds={confirmingPaymentPinOrderIds}
+                retryingPixCheckOrderIds={retryingPixCheckOrderIds}
                 refundingOrderIds={refundingOrderIds}
                 paymentPinToolsEnabled={PAYMENT_PIN_TOOLS_ENABLED}
                 orderStatusMeta={ORDER_STATUS_META}
@@ -4700,6 +4836,7 @@ export default function AdminDashboard() {
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onSetPaymentPinInputByOrderId={setPaymentPinInputByOrderId}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
+                onRetryPixPaymentStatus={handleRetryPixPaymentStatus}
                 onRefundOrder={handleRefundOrder}
                 getStatusValueIcon={getStatusValueIcon}
                 getPaymentSummaryLabel={getPaymentSummaryLabel}

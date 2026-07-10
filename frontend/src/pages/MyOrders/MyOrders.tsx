@@ -65,6 +65,15 @@ type IssueThread = {
   [key: string]: unknown;
 };
 
+type DeliveryLocationSnapshot = {
+  latitude: number;
+  longitude: number;
+  heading: number | null;
+  speed: number | null;
+  accuracy: number | null;
+  updatedAt: string;
+};
+
 function getArchivedStorageKey(userId) {
   const numericUserId = Number(userId || 0);
   return `${ARCHIVED_ORDERS_STORAGE_PREFIX}:${numericUserId || "anon"}`;
@@ -259,6 +268,9 @@ export default function MyOrders() {
   });
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [pedidos, setPedidos] = useState([]);
+  const [deliveryLocationByOrderId, setDeliveryLocationByOrderId] = useState<
+    Record<number, DeliveryLocationSnapshot>
+  >({});
   const [isLoadingPedidos, setIsLoadingPedidos] = useState(true);
   const [reportingIssueOrderId, setReportingIssueOrderId] = useState<
     number | null
@@ -515,6 +527,71 @@ export default function MyOrders() {
 
         return upsertMyOrder(prev, updatedOrder);
       });
+
+      const normalizedStatus = String(updatedOrder?.status || "").toUpperCase();
+      if (
+        normalizedStatus === DELIVERED_STATUS ||
+        normalizedStatus === CANCELED_STATUS
+      ) {
+        const numericOrderId = Number(updatedOrder?.id || 0);
+
+        if (Number.isInteger(numericOrderId) && numericOrderId > 0) {
+          setDeliveryLocationByOrderId((prev) => {
+            if (!prev[numericOrderId]) {
+              return prev;
+            }
+
+            const next = { ...prev };
+            delete next[numericOrderId];
+            return next;
+          });
+        }
+      }
+    };
+
+    const onDeliveryLocation = (payload) => {
+      const orderId = Number(payload?.orderId || 0);
+      const latitude = Number(payload?.latitude);
+      const longitude = Number(payload?.longitude);
+
+      if (!Number.isInteger(orderId) || orderId <= 0) {
+        return;
+      }
+
+      const hasValidCoordinates =
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+
+      if (!hasValidCoordinates) {
+        return;
+      }
+
+      setDeliveryLocationByOrderId((prev) => ({
+        ...prev,
+        [orderId]: {
+          latitude,
+          longitude,
+          heading: Number.isFinite(Number(payload?.heading))
+            ? Number(payload.heading)
+            : null,
+          speed: Number.isFinite(Number(payload?.speed))
+            ? Number(payload.speed)
+            : null,
+          accuracy:
+            Number.isFinite(Number(payload?.accuracy)) &&
+            Number(payload.accuracy) >= 0
+              ? Math.round(Number(payload.accuracy))
+              : null,
+          updatedAt:
+            typeof payload?.updatedAt === "string" && payload.updatedAt
+              ? payload.updatedAt
+              : new Date().toISOString(),
+        },
+      }));
     };
 
     const onIssueMessage = (payload) => {
@@ -556,6 +633,7 @@ export default function MyOrders() {
     socket.on("connect", onConnect);
     socket.on("new-order", onNewOrder);
     socket.on("order:status-changed", onStatusChanged);
+    socket.on("order:delivery-location", onDeliveryLocation);
     socket.on("order:issue-message", onIssueMessage);
     socket.on("order:issue-resolved", onIssueResolved);
 
@@ -563,6 +641,7 @@ export default function MyOrders() {
       socket.off("connect", onConnect);
       socket.off("new-order", onNewOrder);
       socket.off("order:status-changed", onStatusChanged);
+      socket.off("order:delivery-location", onDeliveryLocation);
       socket.off("order:issue-message", onIssueMessage);
       socket.off("order:issue-resolved", onIssueResolved);
       disconnectSocket();
@@ -938,6 +1017,7 @@ export default function MyOrders() {
               filters={FILTERS}
               archiveAgeFilters={ARCHIVE_AGE_FILTERS}
               filteredPedidos={filteredPedidos}
+              deliveryLocationByOrderId={deliveryLocationByOrderId}
               deliveredVisibleOrderIds={deliveredVisibleOrderIds}
               reportingIssueOrderId={reportingIssueOrderId}
               resolvedIssueOrderIds={resolvedIssueOrderIds}

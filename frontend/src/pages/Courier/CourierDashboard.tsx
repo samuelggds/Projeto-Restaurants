@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Package,
@@ -7,6 +7,9 @@ import {
   RefreshCw,
   User,
   Bike,
+  LocateFixed,
+  Navigation,
+  MapPinOff,
   ShieldAlert,
   LogOut,
   X,
@@ -38,6 +41,9 @@ const DIGITAL_PAYMENT_METHODS = new Set([
   "CARTAO_DEBITO",
   "CARTAO_CREDITO",
 ]);
+const LOCATION_UPDATE_INTERVAL_MS = 5000;
+
+type GeoStatus = "checking" | "enabled" | "blocked" | "unsupported";
 
 export default function CourierDashboard() {
   const INITIAL_VISIBLE_ORDERS = 12;
@@ -52,6 +58,18 @@ export default function CourierDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ORDERS);
   const [orderIdSearch, setOrderIdSearch] = useState("");
+  const ordersRef = useRef<Array<{ id?: number; status?: string }>>([]);
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("checking");
+  const [geoNotice, setGeoNotice] = useState(
+    "Ative sua localização para que o cliente acompanhe a entrega em tempo real.",
+  );
+  const [geoActionHint, setGeoActionHint] = useState(
+    "Toque em Ativar localização para abrir o aviso de permissão.",
+  );
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   function handleProfileUpdated(updatedUser) {
     const token = localStorage.getItem("token");
@@ -106,6 +124,101 @@ export default function CourierDashboard() {
     if (!token) return;
 
     const socket = connectSocket(token, "courier-dashboard");
+    let watchId: number | null = null;
+    let emitTimer: ReturnType<typeof setInterval> | null = null;
+    const latestPositionRef: {
+      current: GeolocationPosition | null;
+    } = {
+      current: null,
+    };
+
+    const emitLocationForOrdersInRoute = () => {
+      const currentPosition = latestPositionRef.current;
+
+      if (!currentPosition) {
+        return;
+      }
+
+      const deliveryInRoute = ordersRef.current.filter(
+        (order) =>
+          String(order?.status || "").toUpperCase() === "SAIU_PARA_ENTREGA",
+      );
+
+      if (deliveryInRoute.length === 0) {
+        return;
+      }
+
+      for (const order of deliveryInRoute) {
+        const orderId = Number(order?.id || 0);
+
+        if (!Number.isInteger(orderId) || orderId <= 0) {
+          continue;
+        }
+
+        socket.emit("delivery:location:update", {
+          orderId,
+          latitude: currentPosition.coords.latitude,
+          longitude: currentPosition.coords.longitude,
+          heading: Number.isFinite(currentPosition.coords.heading)
+            ? currentPosition.coords.heading
+            : null,
+          speed: Number.isFinite(currentPosition.coords.speed)
+            ? currentPosition.coords.speed
+            : null,
+          accuracy: currentPosition.coords.accuracy,
+          sentAt: new Date().toISOString(),
+        });
+      }
+    };
+
+    if (typeof window !== "undefined" && navigator?.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          latestPositionRef.current = position;
+          setGeoStatus("enabled");
+          setGeoNotice(
+            "Localização ativa. O cliente recebe sua posição automaticamente a cada 5 segundos.",
+          );
+          setGeoActionHint("");
+          emitLocationForOrdersInRoute();
+        },
+        (error) => {
+          if (error?.code === 1) {
+            setGeoStatus("blocked");
+            setGeoNotice(
+              "Sem acesso à localização. Ative a permissão no navegador para liberar o rastreio em tempo real.",
+            );
+            setGeoActionHint(
+              "Dica: clique no cadeado ao lado da URL e permita Localização.",
+            );
+            return;
+          }
+
+          setGeoStatus("blocked");
+          setGeoNotice(
+            "Não foi possível obter sua localização agora. Verifique GPS/internet e tente novamente.",
+          );
+          setGeoActionHint(
+            "Se aparecer o aviso no navegador, confirme em Permitir.",
+          );
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: LOCATION_UPDATE_INTERVAL_MS,
+          timeout: 10000,
+        },
+      );
+
+      emitTimer = setInterval(() => {
+        emitLocationForOrdersInRoute();
+      }, LOCATION_UPDATE_INTERVAL_MS);
+    } else {
+      setGeoStatus("unsupported");
+      setGeoNotice(
+        "Seu dispositivo não oferece geolocalização neste navegador.",
+      );
+      setGeoActionHint("");
+    }
 
     function onStatusChanged(updatedOrder) {
       setOrders((prev) => {
@@ -125,6 +238,12 @@ export default function CourierDashboard() {
     socket.on("order:status-changed", onStatusChanged);
 
     return () => {
+      if (emitTimer) {
+        clearInterval(emitTimer);
+      }
+      if (watchId !== null && navigator?.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
       socket.off("order:status-changed", onStatusChanged);
       disconnectSocket();
     };
@@ -162,6 +281,55 @@ export default function CourierDashboard() {
     (o) => o.status === "SAIU_PARA_ENTREGA",
   ).length;
   const entregueCount = orders.filter((o) => o.status === "ENTREGUE").length;
+
+  const requestLocationPermission = () => {
+    if (!navigator?.geolocation) {
+      setGeoStatus("unsupported");
+      setGeoNotice("Este navegador não suporta geolocalização.");
+      setGeoActionHint("");
+      return;
+    }
+
+    setGeoStatus("checking");
+    setGeoNotice("Aguardando sua confirmação para ativar a localização.");
+    setGeoActionHint(
+      "Quando o navegador mostrar o aviso, clique em Permitir para liberar o rastreio.",
+    );
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setGeoStatus("enabled");
+        setGeoNotice(
+          "Localização ativa. O cliente recebe sua posição automaticamente a cada 5 segundos.",
+        );
+        setGeoActionHint("");
+      },
+      (error) => {
+        if (error?.code === 1) {
+          setGeoStatus("blocked");
+          setGeoNotice(
+            "Permissão negada. Ative localização nas configurações do navegador para liberar o rastreio.",
+          );
+          setGeoActionHint(
+            "Dica: clique no cadeado ao lado da URL e permita Localização.",
+          );
+          return;
+        }
+
+        setGeoStatus("blocked");
+        setGeoNotice(
+          "Não foi possível ativar a localização agora. Verifique o GPS e tente de novo.",
+        );
+        setGeoActionHint(
+          "Se aparecer o aviso do navegador, confirme em Permitir.",
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      },
+    );
+  };
 
   return (
     <S.PageWrapper>
@@ -258,6 +426,39 @@ export default function CourierDashboard() {
 
       {/* Conteúdo principal */}
       <S.MainArea>
+        {geoStatus !== "enabled" ? (
+          <S.LocationAlertCard>
+            <S.LocationAlertIcon>
+              {geoStatus === "unsupported" ? (
+                <MapPinOff size={22} />
+              ) : (
+                <LocateFixed size={22} />
+              )}
+            </S.LocationAlertIcon>
+            <S.LocationAlertContent>
+              <strong>
+                Ative sua localização para liberar o rastreio ao cliente
+              </strong>
+              <p>{geoNotice}</p>
+              {geoActionHint ? <small>{geoActionHint}</small> : null}
+            </S.LocationAlertContent>
+            {geoStatus !== "unsupported" ? (
+              <S.LocationAlertButton
+                type="button"
+                onClick={requestLocationPermission}
+              >
+                <Navigation size={16} />
+                Ativar localização
+              </S.LocationAlertButton>
+            ) : null}
+          </S.LocationAlertCard>
+        ) : (
+          <S.LocationStatusChip>
+            <LocateFixed size={14} />
+            Rastreamento ativo: envio automático a cada 5s
+          </S.LocationStatusChip>
+        )}
+
         <S.TopBar>
           <S.TopBarTitle>
             {activeTab === "PRONTO"

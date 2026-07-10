@@ -24,6 +24,7 @@ type PixPaymentPanelProps = {
   onCopyPixKey: () => void;
   onPixManualProofChange: (value: string) => void;
   onManualProofFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onBackToCart: () => void;
 };
 
 export default function PixPaymentPanel({
@@ -37,6 +38,7 @@ export default function PixPaymentPanel({
   onCopyPixKey,
   onPixManualProofChange,
   onManualProofFileChange,
+  onBackToCart,
 }: PixPaymentPanelProps) {
   return (
     <div
@@ -54,13 +56,53 @@ export default function PixPaymentPanel({
         gap: "1rem",
       }}
     >
-      <h2 style={{ margin: 0 }}>Pedido confirmado!</h2>
+      <h2 style={{ margin: 0 }}>Pagamento PIX pendente</h2>
+      <div
+        style={{
+          border: "1px solid #f59e0b66",
+          background: "#fffbeb",
+          color: "#92400e",
+          borderRadius: 12,
+          padding: "0.75rem 0.9rem",
+          fontSize: 13,
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.02em",
+        }}
+      >
+        Status: aguardando pagamento
+      </div>
       <p style={{ margin: 0, color: "#334155", lineHeight: 1.5 }}>
         {pixPaymentData?.provider === "MERCADO_PAGO"
           ? "Finalize o pagamento com PIX. Assim que o provedor aprovar, o pedido sera confirmado automaticamente."
           : "Realize o pagamento PIX no app do provedor. Assim que o comprovante for informado, o pedido sera confirmado automaticamente."}
         {pixPaymentData.orderId ? ` Pedido #${pixPaymentData.orderId}.` : ""}
       </p>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onBackToCart}
+          style={{
+            border: "1px solid #cbd5e1",
+            background: "#ffffff",
+            color: "#334155",
+            borderRadius: 999,
+            minHeight: 34,
+            padding: "0 0.9rem",
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          Voltar ao carrinho
+        </button>
+      </div>
 
       {pixPaymentData?.provider === "MERCADO_PAGO" ? (
         <div

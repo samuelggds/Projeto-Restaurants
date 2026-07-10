@@ -94,6 +94,22 @@ class UpdateOrderStatusService {
     const isDigitalPayment =
       !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
 
+    const isUnpaidDigitalDeliveryBlocked =
+      order.type === OrderType.DELIVERY &&
+      isDigitalPayment &&
+      !isPayOnDelivery &&
+      order.paid !== true;
+
+    if (
+      isUnpaidDigitalDeliveryBlocked &&
+      status !== OrderStatus.PENDENTE &&
+      status !== OrderStatus.CANCELADO
+    ) {
+      throw new Error(
+        "Pedido delivery com pagamento digital pendente deve permanecer em PENDENTE até a confirmação do pagamento.",
+      );
+    }
+
     // PIX e cartão só podem ser entregues após a confirmação do pagamento.
     if (
       status === OrderStatus.ENTREGUE &&
