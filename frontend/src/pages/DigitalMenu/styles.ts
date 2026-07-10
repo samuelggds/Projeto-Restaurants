@@ -1290,6 +1290,17 @@ export const AddButton = styled.button`
     transform: translateY(-1px);
     filter: brightness(1.03);
   }
+
+  &:disabled {
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #64748b;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+    box-shadow: none;
+    animation: none;
+  }
 `;
 
 export const FloatingCart = styled.button`

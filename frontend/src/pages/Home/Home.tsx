@@ -43,10 +43,29 @@ type ProductItem = {
   description?: string | null;
   image?: string | null;
   price?: number | string;
+  active?: boolean;
+  stock?: number | null;
   category?: {
     name?: string | null;
   } | null;
 };
+
+function isProductUnavailable(product: ProductItem | null | undefined) {
+  if (!product) {
+    return true;
+  }
+
+  if (product.active === false) {
+    return true;
+  }
+
+  const stockValue =
+    product.stock === null || product.stock === undefined
+      ? null
+      : Number(product.stock);
+
+  return Number.isInteger(stockValue) && stockValue <= 0;
+}
 
 type ProductRipplePoint = {
   x: number;
@@ -89,7 +108,7 @@ function normalizeAddress(address) {
 function getInitialAddresses(user) {
   const storedAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, null);
 
-  if (Array.isArray(storedAddresses) && storedAddresses.length > 0) {
+  if (Array.isArray(storedAddresses)) {
     return storedAddresses.map(normalizeAddress);
   }
 
@@ -446,6 +465,13 @@ export default function Home() {
   }
 
   function addToCart(product) {
+    if (isProductUnavailable(product)) {
+      toast.error(
+        `Produto indisponivel no momento: ${product?.name || "Item"}`,
+      );
+      return;
+    }
+
     setCart((prevCart) => {
       const existing = prevCart.find((item) => item.productId === product.id);
 
@@ -1080,50 +1106,74 @@ export default function Home() {
                 <S.CategorySectionTitle>{categoryName}</S.CategorySectionTitle>
 
                 <S.ProductsGrid>
-                  {items.map((item) => (
-                    <S.ProductCard
-                      key={item.id}
-                      $clicking={clickedProductId === item.id}
-                      $rippleX={
-                        clickedProductId === item.id
-                          ? (clickedProductRipple?.x ?? 50)
-                          : 50
-                      }
-                      $rippleY={
-                        clickedProductId === item.id
-                          ? (clickedProductRipple?.y ?? 50)
-                          : 50
-                      }
-                      onClick={(event) => handleOpenProductDetail(item, event)}
-                    >
-                      <S.ProductImage>
-                        <img
-                          src={
-                            item.image ||
-                            "https://via.placeholder.com/400x260?text=Produto"
-                          }
-                          alt={item.name}
-                        />
-                      </S.ProductImage>
-                      <S.ProductInfo>
-                        <div className="title-row">
-                          <h4>{item.name}</h4>
-                          <span className="price">
-                            R$ {Number(item.price || 0).toFixed(2)}
-                          </span>
-                        </div>
-                        <p>{item.description || "Sem descrição"}</p>
-                        <S.AddToCartButton
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            addToCart(item);
-                          }}
-                        >
-                          <ShoppingCart size={18} /> Adicionar ao Pedido
-                        </S.AddToCartButton>
-                      </S.ProductInfo>
-                    </S.ProductCard>
-                  ))}
+                  {items.map((item) => {
+                    const unavailable = isProductUnavailable(item);
+
+                    return (
+                      <S.ProductCard
+                        key={item.id}
+                        $clicking={clickedProductId === item.id}
+                        $rippleX={
+                          clickedProductId === item.id
+                            ? (clickedProductRipple?.x ?? 50)
+                            : 50
+                        }
+                        $rippleY={
+                          clickedProductId === item.id
+                            ? (clickedProductRipple?.y ?? 50)
+                            : 50
+                        }
+                        onClick={(event) =>
+                          handleOpenProductDetail(item, event)
+                        }
+                      >
+                        <S.ProductImage>
+                          <img
+                            src={
+                              item.image ||
+                              "https://via.placeholder.com/400x260?text=Produto"
+                            }
+                            alt={item.name}
+                          />
+                        </S.ProductImage>
+                        <S.ProductInfo>
+                          <div className="title-row">
+                            <h4>{item.name}</h4>
+                            <span className="price">
+                              R$ {Number(item.price || 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <p>{item.description || "Sem descrição"}</p>
+                          {unavailable && (
+                            <p
+                              style={{
+                                marginTop: "0.35rem",
+                                color: "#b91c1c",
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                                opacity: 1,
+                              }}
+                            >
+                              Produto indisponivel
+                            </p>
+                          )}
+                          <S.AddToCartButton
+                            type="button"
+                            disabled={unavailable}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              addToCart(item);
+                            }}
+                          >
+                            <ShoppingCart size={18} />
+                            {unavailable
+                              ? "Indisponivel"
+                              : "Adicionar ao Pedido"}
+                          </S.AddToCartButton>
+                        </S.ProductInfo>
+                      </S.ProductCard>
+                    );
+                  })}
                 </S.ProductsGrid>
               </S.CategorySection>
             ),
@@ -1182,14 +1232,32 @@ export default function Home() {
                 R$ {Number(selectedProduct.price || 0).toFixed(2)}
               </S.ProductDetailPrice>
 
+              {isProductUnavailable(selectedProduct) && (
+                <p
+                  style={{
+                    marginTop: "0.6rem",
+                    marginBottom: 0,
+                    color: "#b91c1c",
+                    fontWeight: 700,
+                  }}
+                >
+                  Produto indisponivel no momento.
+                </p>
+              )}
+
               <S.ProductDetailActions>
                 <S.AddToCartButton
+                  type="button"
+                  disabled={isProductUnavailable(selectedProduct)}
                   onClick={() => {
                     addToCart(selectedProduct);
                     handleCloseProductDetail();
                   }}
                 >
-                  <ShoppingCart size={18} /> Adicionar ao Pedido
+                  <ShoppingCart size={18} />
+                  {isProductUnavailable(selectedProduct)
+                    ? "Indisponivel"
+                    : "Adicionar ao Pedido"}
                 </S.AddToCartButton>
               </S.ProductDetailActions>
             </S.ProductDetailBody>

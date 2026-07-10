@@ -487,6 +487,35 @@ class CreateOrderService {
         })),
       });
 
+      await Promise.all(
+        orderItems.map(async (item, index) => {
+          const product = products[index];
+          const stockValue =
+            product.stock === null || product.stock === undefined
+              ? null
+              : Number(product.stock);
+
+          if (!Number.isInteger(stockValue) || stockValue < 0) {
+            return;
+          }
+
+          const nextStock = Math.max(
+            stockValue - Number(item.quantity || 0),
+            0,
+          );
+
+          await tx.product.update({
+            where: {
+              id: Number(product.id),
+            },
+            data: {
+              stock: nextStock,
+              active: nextStock === 0 ? false : Boolean(product.active),
+            },
+          });
+        }),
+      );
+
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
     });
 

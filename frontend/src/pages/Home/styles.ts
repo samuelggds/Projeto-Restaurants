@@ -912,6 +912,15 @@ export const AddToCartButton = styled.button`
     transform: translateY(-1px);
     box-shadow: 0 10px 20px rgba(16, 183, 165, 0.26);
   }
+
+  &:disabled {
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #64748b;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
 `;
 
 export const Footer = styled.footer`

@@ -32,6 +32,8 @@ type Product = {
   id: number;
   name: string;
   price?: number | string;
+  active?: boolean;
+  stock?: number | null;
   category?: {
     name?: string;
   };
@@ -353,6 +355,18 @@ export default function OperationalTabs({
               </S.FormGroup>
             </S.FormRow>
 
+            <div
+              style={{
+                marginTop: "0.5rem",
+                color: "#475569",
+                fontSize: "0.82rem",
+                lineHeight: 1.4,
+              }}
+            >
+              Regra automatica: estoque maior que 0 deixa o produto disponivel;
+              estoque 0 deixa indisponivel.
+            </div>
+
             <S.FormGroup style={{ marginTop: "1rem" }}>
               <label>
                 <ImageIcon size={14} /> URL da Imagem
@@ -400,7 +414,7 @@ export default function OperationalTabs({
                   disabled={deletingProductId !== null}
                   onChange={handleProductInputChange}
                 />
-                <span>🟢 Produto Ativo</span>
+                <span>🟢 Produto Disponivel no Cardapio</span>
               </label>
             </S.CheckboxContainerRow>
 
@@ -499,6 +513,18 @@ export default function OperationalTabs({
               </S.FormGroup>
             </S.FormRow>
 
+            <div
+              style={{
+                marginTop: "0.5rem",
+                color: "#475569",
+                fontSize: "0.82rem",
+                lineHeight: 1.4,
+              }}
+            >
+              Regra automatica: estoque maior que 0 deixa o produto disponivel;
+              estoque 0 deixa indisponivel.
+            </div>
+
             <S.FormGroup style={{ marginTop: "1rem" }}>
               <label>
                 <ImageIcon size={14} /> URL da Imagem
@@ -546,7 +572,7 @@ export default function OperationalTabs({
                   disabled={deletingProductId !== null}
                   onChange={handleProductInputChange}
                 />
-                <span>🟢 Produto Ativo</span>
+                <span>🟢 Produto Disponivel no Cardapio</span>
               </label>
             </S.CheckboxContainerRow>
 
@@ -621,6 +647,14 @@ export default function OperationalTabs({
                   const isDeleting =
                     Number(deletingProductId) === Number(product.id);
                   const isDeletingAnyProduct = deletingProductId !== null;
+                  const normalizedStock =
+                    product?.stock === null || product?.stock === undefined
+                      ? null
+                      : Number(product.stock);
+                  const isStockDepleted =
+                    Number.isInteger(normalizedStock) && normalizedStock <= 0;
+                  const isUnavailable =
+                    product?.active === false || isStockDepleted;
 
                   return (
                     <S.ProductListItem key={product.id}>
@@ -630,6 +664,17 @@ export default function OperationalTabs({
                           {(product?.category?.name || "Sem categoria") +
                             " • R$ " +
                             Number(product?.price || 0).toFixed(2)}
+                        </small>
+                        <small
+                          style={{
+                            color: isUnavailable ? "#b91c1c" : "#166534",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {isUnavailable ? "Indisponivel" : "Disponivel"}
+                          {Number.isInteger(normalizedStock)
+                            ? ` • Estoque: ${normalizedStock}`
+                            : " • Estoque ilimitado"}
                         </small>
                       </S.ProductMeta>
 

@@ -4,6 +4,8 @@ import { OrderStateMachine } from "../state/orderStateMachine.js";
 import { OrderPermissions } from "../permissions/orderPermissions.js";
 import { OrderStatus, PaymentMethod, UserRole } from "@prisma/client";
 import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
+import prisma from "../../../config/prisma.js";
+import { restoreOrderItemsStock } from "./restoreOrderItemsStock.js";
 
 class UpdateOrderStatusService {
   async execute(
@@ -54,11 +56,21 @@ class UpdateOrderStatusService {
       );
     }
 
-    let updatedOrder = await orderRepository.updateStatus(
-      orderId,
-      status,
-      restaurantId,
-    );
+    let updatedOrder;
+
+    if (status === OrderStatus.CANCELADO) {
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        await restoreOrderItemsStock(tx, order);
+
+        return orderRepository.updateStatus(orderId, status, restaurantId, tx);
+      });
+    } else {
+      updatedOrder = await orderRepository.updateStatus(
+        orderId,
+        status,
+        restaurantId,
+      );
+    }
 
     if (
       status === OrderStatus.ENTREGUE &&

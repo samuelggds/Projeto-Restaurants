@@ -4,6 +4,8 @@ import { OrderStateMachine } from "../state/orderStateMachine.js";
 import { io } from "../../../server.js";
 import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
 import refundOrderPaymentService from "./RefundOrderPaymentService.js";
+import prisma from "../../../config/prisma.js";
+import { restoreOrderItemsStock } from "./restoreOrderItemsStock.js";
 
 class CancelOrderService {
   async execute(
@@ -43,11 +45,16 @@ class CancelOrderService {
       await refundOrderPaymentService.execute(order);
     }
 
-    const updatedOrder = await orderRepository.updateStatus(
-      normalizedOrderId,
-      OrderStatus.CANCELADO,
-      restaurantId,
-    );
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      await restoreOrderItemsStock(tx, order);
+
+      return orderRepository.updateStatus(
+        normalizedOrderId,
+        OrderStatus.CANCELADO,
+        restaurantId,
+        tx,
+      );
+    });
 
     notifyCustomerOrderStatusChanged({
       customerPhone: order?.user?.phone,

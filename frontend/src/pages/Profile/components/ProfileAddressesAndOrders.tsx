@@ -15,6 +15,8 @@ type Endereco = {
   bairro: string;
   cidade: string;
   cep: string;
+  complemento?: string;
+  pontoReferencia?: string;
 };
 
 type NovoEndereco = {
@@ -26,6 +28,7 @@ type NovoEndereco = {
   estado: string;
   cep: string;
   complemento: string;
+  pontoReferencia: string;
 };
 
 type ProfileAddressesAndOrdersProps = {
@@ -50,6 +53,7 @@ type ProfileAddressesAndOrdersProps = {
     lastFour?: string;
   };
   showCardFieldFeedback?: boolean;
+  isCepLookupLoading?: boolean;
   onNovoEnderecoChange: (value: NovoEndereco) => void;
   onAddEndereco: (event: React.FormEvent<HTMLFormElement>) => void;
   onSelectEndereco: (id: number) => void;
@@ -72,6 +76,7 @@ export default function ProfileAddressesAndOrders({
   cardPaymentDraft,
   cardFieldErrors = {},
   showCardFieldFeedback = false,
+  isCepLookupLoading = false,
   onNovoEnderecoChange,
   onAddEndereco,
   onSelectEndereco,
@@ -165,6 +170,12 @@ export default function ProfileAddressesAndOrders({
                     {endereco.cidade}
                     {endereco.cep ? ` • CEP: ${endereco.cep}` : ""}
                   </span>
+                  {endereco.complemento ? (
+                    <span>Complemento: {endereco.complemento}</span>
+                  ) : null}
+                  {endereco.pontoReferencia ? (
+                    <span>Ponto de referência: {endereco.pontoReferencia}</span>
+                  ) : null}
                 </div>
                 <S.DeleteAddressButton
                   onClick={(event) => {
@@ -194,7 +205,20 @@ export default function ProfileAddressesAndOrders({
           <div className="form-row text-full">
             <input
               type="text"
-              placeholder="Identificação (Ex: Casa, Trabalho, Namorada)"
+              placeholder="CEP"
+              value={novoEndereco.cep}
+              onChange={(event) =>
+                onNovoEnderecoChange({
+                  ...novoEndereco,
+                  cep: event.target.value,
+                })
+              }
+            />
+          </div>
+          <div className="form-row text-full">
+            <input
+              type="text"
+              placeholder="Identificação (Ex: Casa, Trabalho, Apto 101)"
               value={novoEndereco.rotulo}
               onChange={(event) =>
                 onNovoEnderecoChange({
@@ -243,18 +267,46 @@ export default function ProfileAddressesAndOrders({
                 })
               }
             />
+          </div>
+          <div className="form-row text-full">
             <input
               type="text"
-              placeholder="CEP"
-              value={novoEndereco.cep}
+              placeholder="Complemento (opcional)"
+              value={novoEndereco.complemento}
               onChange={(event) =>
                 onNovoEnderecoChange({
                   ...novoEndereco,
-                  cep: event.target.value,
+                  complemento: event.target.value,
                 })
               }
             />
           </div>
+          <div className="form-row text-full">
+            <input
+              type="text"
+              placeholder="Ponto de referência (opcional)"
+              value={novoEndereco.pontoReferencia}
+              onChange={(event) =>
+                onNovoEnderecoChange({
+                  ...novoEndereco,
+                  pontoReferencia: event.target.value,
+                })
+              }
+            />
+          </div>
+          {isCepLookupLoading && (
+            <small
+              style={{
+                display: "block",
+                marginTop: "-0.35rem",
+                marginBottom: "0.35rem",
+                color: "#475569",
+                fontWeight: 500,
+              }}
+            >
+              Buscando endereco pelo CEP...
+            </small>
+          )}
           <S.AddAddressButton type="submit">
             <Plus size={16} /> Salvar Endereço
           </S.AddAddressButton>

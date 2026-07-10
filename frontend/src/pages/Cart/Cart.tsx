@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -21,6 +22,11 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import {
+  extractCepDigits,
+  fetchAddressByCep,
+  normalizeCepInput,
+} from "../../Services/cepService";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import {
@@ -110,12 +116,6 @@ function getCardBrandLogoStyle(
   };
 }
 
-const PIX_PROVIDER_OPTIONS = [
-  { value: "MERCADO_PAGO", label: "Mercado Pago" },
-  { value: "NUBANK", label: "Nubank" },
-  { value: "PICPAY", label: "PicPay" },
-];
-
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -202,7 +202,27 @@ function normalizeStoredAddress(address) {
     estado: String(address?.estado || ""),
     cep: String(address?.cep || ""),
     complemento: String(address?.complemento || ""),
+    pontoReferencia: String(address?.pontoReferencia || ""),
   };
+}
+
+function mergeComplementAndReference(complemento, pontoReferencia) {
+  const normalizedComplemento = String(complemento || "").trim();
+  const normalizedReference = String(pontoReferencia || "").trim();
+
+  if (normalizedComplemento && normalizedReference) {
+    return `${normalizedComplemento} | Ref.: ${normalizedReference}`;
+  }
+
+  if (normalizedComplemento) {
+    return normalizedComplemento;
+  }
+
+  if (normalizedReference) {
+    return `Ref.: ${normalizedReference}`;
+  }
+
+  return "";
 }
 
 function buildDeliveryAddress(user) {
@@ -225,6 +245,7 @@ function buildDeliveryAddress(user) {
     cidade: selectedAddress?.cidade || user?.city || "Fortaleza",
     estado: selectedAddress?.estado || user?.state || "CE",
     complemento: selectedAddress?.complemento || user?.complement || "",
+    pontoReferencia: selectedAddress?.pontoReferencia || "",
   };
 }
 
@@ -237,6 +258,7 @@ function getAddressSignature(address) {
     address?.estado,
     address?.cep,
     address?.complemento,
+    address?.pontoReferencia,
   ]
     .map((value) =>
       String(value || "")
@@ -311,8 +333,6 @@ export default function Cart() {
     title: string;
     message: string;
   } | null>(null);
-  const [selectedPixProvider, setSelectedPixProvider] =
-    useState("MERCADO_PAGO");
   const [publicRestaurantSettings, setPublicRestaurantSettings] = useState({
     deliveryFee: 8.5,
     minimumOrder: 0,
@@ -325,6 +345,8 @@ export default function Cart() {
   const [endereco, setEndereco] = useState(() =>
     buildDeliveryAddress(storedUser),
   );
+  const lastCepLookupRef = useRef("");
+  const [isCepLookupLoading, setIsCepLookupLoading] = useState(false);
   const [customerPhone, setCustomerPhone] = useState(() =>
     formatPhoneInput(storedUser?.phone || ""),
   );
@@ -488,15 +510,6 @@ export default function Cart() {
   }, [restaurantId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedPixProvider(
-      String(publicRestaurantSettings.pixProvider || "MERCADO_PAGO")
-        .trim()
-        .toUpperCase(),
-    );
-  }, [publicRestaurantSettings.pixProvider]);
-
-  useEffect(() => {
     const cardCheckoutStatus = String(
       searchParams.get("cardCheckoutStatus") || "",
     ).trim();
@@ -595,7 +608,7 @@ export default function Cart() {
       paymentMethod,
       pixProvider:
         paymentMethod === "PIX"
-          ? String(selectedPixProvider || "MERCADO_PAGO")
+          ? String(publicRestaurantSettings.pixProvider || "MERCADO_PAGO")
               .trim()
               .toUpperCase()
           : undefined,
@@ -612,7 +625,12 @@ export default function Cart() {
       city: isDelivery ? endereco.cidade : undefined,
       state: isDelivery ? endereco.estado : undefined,
       zipCode: isDelivery ? endereco.cep : undefined,
-      complement: isDelivery ? endereco.complemento : undefined,
+      complement: isDelivery
+        ? mergeComplementAndReference(
+            endereco.complemento,
+            endereco.pontoReferencia,
+          ) || undefined
+        : undefined,
       items: cartItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -658,8 +676,77 @@ export default function Cart() {
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
+
+    if (name === "cep") {
+      const normalizedCep = normalizeCepInput(value);
+      const cepDigits = extractCepDigits(normalizedCep);
+
+      if (cepDigits.length < 8) {
+        lastCepLookupRef.current = "";
+      }
+
+      setEndereco((prev) => ({ ...prev, cep: normalizedCep }));
+      return;
+    }
+
     setEndereco((prev) => ({ ...prev, [name]: value }));
   };
+
+  useEffect(() => {
+    const cepDigits = extractCepDigits(endereco.cep);
+
+    if (!isDelivery || cepDigits.length !== 8) {
+      return;
+    }
+
+    if (lastCepLookupRef.current === cepDigits) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fillAddressFromCep() {
+      try {
+        setIsCepLookupLoading(true);
+        const viaCepAddress = await fetchAddressByCep(cepDigits);
+
+        if (cancelled) {
+          return;
+        }
+
+        lastCepLookupRef.current = cepDigits;
+        setEndereco((prev) => ({
+          ...prev,
+          cep: normalizeCepInput(prev.cep),
+          logradouro: viaCepAddress.logradouro || prev.logradouro,
+          bairro: viaCepAddress.bairro || prev.bairro,
+          cidade: viaCepAddress.localidade || prev.cidade,
+          estado: viaCepAddress.uf || prev.estado,
+        }));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        lastCepLookupRef.current = cepDigits;
+        toast.warning(
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel preencher o endereco por CEP.",
+        );
+      } finally {
+        if (!cancelled) {
+          setIsCepLookupLoading(false);
+        }
+      }
+    }
+
+    fillAddressFromCep();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [endereco.cep, isDelivery]);
 
   const handleCustomerPhoneChange = (event) => {
     setCustomerPhone(formatPhoneInput(event.target.value));
@@ -794,6 +881,7 @@ export default function Cart() {
         estado: address.estado,
         cep: address.cep,
         complemento: address.complemento,
+        pontoReferencia: address.pontoReferencia,
       });
 
       const currentAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, []);
@@ -812,6 +900,7 @@ export default function Cart() {
             estado: savedAddress.estado,
             cep: savedAddress.cep,
             complemento: savedAddress.complemento,
+            pontoReferencia: savedAddress.pontoReferencia,
           }) === addressSignature,
       );
 
@@ -839,7 +928,10 @@ export default function Cart() {
         city: nextAddress.cidade,
         state: nextAddress.estado,
         zipCode: nextAddress.cep,
-        complement: nextAddress.complemento,
+        complement: mergeComplementAndReference(
+          nextAddress.complemento,
+          nextAddress.pontoReferencia,
+        ),
         defaultAddressId: nextAddress.id,
         defaultAddressLabel: nextAddress.rotulo,
       };
@@ -1521,10 +1613,6 @@ export default function Cart() {
                           : "#334155",
                     }}
                   >
-                    <div>
-                      Taxa configurada pelo restaurante:{" "}
-                      {formatCurrency(taxaEntrega)}
-                    </div>
                     {hasMinimumOrderForDelivery ? (
                       <div>
                         Pedido mínimo do delivery:{" "}
@@ -1681,18 +1769,29 @@ export default function Cart() {
                 >
                   <input
                     type="text"
-                    name="customerPhone"
-                    placeholder="Celular/WhatsApp para confirmação (Ex: (85) 99999-9999)"
-                    value={customerPhone}
-                    onChange={handleCustomerPhoneChange}
-                  />
-                  <input
-                    type="text"
                     name="cep"
                     placeholder="CEP"
                     value={endereco.cep}
                     onChange={handleInputChange}
                   />
+                  <input
+                    type="text"
+                    name="customerPhone"
+                    placeholder="Celular/WhatsApp para confirmação (Ex: (85) 99999-9999)"
+                    value={customerPhone}
+                    onChange={handleCustomerPhoneChange}
+                  />
+                  {isCepLookupLoading && (
+                    <small
+                      style={{
+                        marginTop: "-0.25rem",
+                        color: isDarkMode ? "#cbd5e1" : "#475569",
+                        display: "block",
+                      }}
+                    >
+                      Buscando endereco pelo CEP...
+                    </small>
+                  )}
                   <div
                     style={{
                       display: "grid",
@@ -1748,8 +1847,15 @@ export default function Cart() {
                   <input
                     type="text"
                     name="complemento"
-                    placeholder="Complemento"
+                    placeholder="Complemento (opcional)"
                     value={endereco.complemento}
+                    onChange={handleInputChange}
+                  />
+                  <input
+                    type="text"
+                    name="pontoReferencia"
+                    placeholder="Ponto de referência (opcional)"
+                    value={endereco.pontoReferencia}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -1808,63 +1914,6 @@ export default function Cart() {
                   Cartão
                 </button>
               </div>
-
-              {paymentMethod === "PIX" ? (
-                <div
-                  style={{
-                    marginTop: "0.85rem",
-                    display: "grid",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <label
-                    htmlFor="pix-provider"
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: isDarkMode ? "#e2e8f0" : "#334155",
-                    }}
-                  >
-                    App/provedor do PIX
-                  </label>
-                  <select
-                    id="pix-provider"
-                    value={selectedPixProvider}
-                    onChange={(event) =>
-                      setSelectedPixProvider(
-                        String(event.target.value || "MERCADO_PAGO")
-                          .trim()
-                          .toUpperCase(),
-                      )
-                    }
-                    style={{
-                      width: "100%",
-                      minHeight: 48,
-                      borderRadius: 12,
-                      padding: "0.75rem 0.9rem",
-                      border: "1px solid #c9d3e8",
-                      background: isDarkMode ? "#1f2937" : "#ffffff",
-                      color: "inherit",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {PIX_PROVIDER_OPTIONS.map((provider) => (
-                      <option key={provider.value} value={provider.value}>
-                        {provider.label}
-                      </option>
-                    ))}
-                  </select>
-                  <small
-                    style={{
-                      color: isDarkMode ? "#94a3b8" : "#64748b",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    Mercado Pago tenta confirmar automaticamente. Nubank e
-                    PicPay usam comprovante manual.
-                  </small>
-                </div>
-              ) : null}
 
               {paymentMethod === "CARTAO" ? (
                 <div

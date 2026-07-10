@@ -17,7 +17,24 @@ class UpdateProductService {
     if (!product) {
       throw new Error("Produto não encontrado!");
     }
-    return productRepository.update(id, data, restaurantId);
+
+    const normalizedStock =
+      data.stock === null || data.stock === undefined
+        ? null
+        : Number(data.stock);
+
+    let nextActive = data.active;
+
+    if (Number.isInteger(normalizedStock) && normalizedStock >= 0) {
+      nextActive = normalizedStock > 0;
+    }
+
+    const payload: UpdateProductInput = {
+      ...data,
+      active: nextActive,
+    };
+
+    return productRepository.update(id, payload, restaurantId);
   }
 }
 

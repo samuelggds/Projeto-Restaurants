@@ -16,6 +16,7 @@ type RatingState = {
 
 type ProductDetailModalProps = {
   selectedProduct: SelectedProduct;
+  isUnavailable: boolean;
   isClosingProductDetail: boolean;
   selectedRating: RatingState;
   ratingHover: number;
@@ -33,6 +34,7 @@ type ProductDetailModalProps = {
 
 export default function ProductDetailModal({
   selectedProduct,
+  isUnavailable,
   isClosingProductDetail,
   selectedRating,
   ratingHover,
@@ -81,6 +83,18 @@ export default function ProductDetailModal({
           R$ {toPrice(selectedProduct.price)}
         </S.ProductDetailPrice>
 
+        {isUnavailable && (
+          <p
+            style={{
+              margin: "0.55rem 0 0",
+              color: "#b91c1c",
+              fontWeight: 700,
+            }}
+          >
+            Este produto esta indisponivel no momento.
+          </p>
+        )}
+
         <S.ProductDetailRatingText>
           Deixe sua avaliacao para este item
         </S.ProductDetailRatingText>
@@ -123,9 +137,14 @@ export default function ProductDetailModal({
           <S.AddButton
             type="button"
             $added={isAddedToCart}
+            disabled={isUnavailable}
             onClick={() => addToCart(selectedProduct)}
           >
-            {isAddedToCart ? "Adicionado" : "Adicionar ao pedido"}
+            {isUnavailable
+              ? "Indisponivel"
+              : isAddedToCart
+                ? "Adicionado"
+                : "Adicionar ao pedido"}
           </S.AddButton>
         </S.ProductDetailActions>
       </S.ProductDetailBody>

@@ -139,6 +139,23 @@ function isDeliveredStatus(status) {
   );
 }
 
+function isProductUnavailable(product) {
+  if (!product) {
+    return true;
+  }
+
+  if (product.active === false) {
+    return true;
+  }
+
+  const stockValue =
+    product.stock === null || product.stock === undefined
+      ? null
+      : Number(product.stock);
+
+  return Number.isInteger(stockValue) && stockValue <= 0;
+}
+
 function toStoredOrderShape(payload, fallback = null) {
   if (!payload || typeof payload !== "object") {
     return fallback;
@@ -1229,6 +1246,13 @@ export default function DigitalMenu() {
   }
 
   function addToCart(product) {
+    if (isProductUnavailable(product)) {
+      toast.error(
+        `Produto indisponivel no momento: ${product?.name || "Item"}`,
+      );
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.productId === product.id);
 
@@ -1350,7 +1374,7 @@ export default function DigitalMenu() {
         return;
       }
 
-      if (product.active === false) {
+      if (isProductUnavailable(product)) {
         toast.error(`Produto indisponível no cardápio: ${product.name}`);
         return;
       }
@@ -1989,6 +2013,7 @@ export default function DigitalMenu() {
                           const isAdded = Boolean(
                             addedProductMap[String(product.id)],
                           );
+                          const isUnavailable = isProductUnavailable(product);
 
                           return (
                             <S.MenuItemCard
@@ -2003,6 +2028,20 @@ export default function DigitalMenu() {
                                   {product.description ||
                                     "Sem descrição disponível para este item."}
                                 </p>
+
+                                {isUnavailable && (
+                                  <p
+                                    style={{
+                                      margin: "0.12rem 0 0",
+                                      color: "#b91c1c",
+                                      fontWeight: 700,
+                                      fontSize: "0.78rem",
+                                      lineHeight: 1.3,
+                                    }}
+                                  >
+                                    Produto indisponivel
+                                  </p>
+                                )}
 
                                 <S.MenuItemRatingRow>
                                   <S.MenuItemRatingStars>
@@ -2043,13 +2082,18 @@ export default function DigitalMenu() {
                                   <S.AddButton
                                     type="button"
                                     $added={isAdded}
+                                    disabled={isUnavailable}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       markProductAsAdded(product.id);
                                       addToCart(product);
                                     }}
                                   >
-                                    {isAdded ? "Adicionado" : "Adicionar"}
+                                    {isUnavailable
+                                      ? "Indisponivel"
+                                      : isAdded
+                                        ? "Adicionado"
+                                        : "Adicionar"}
                                   </S.AddButton>
                                 </S.MenuItemBottom>
                               </S.MenuItemText>
@@ -2084,6 +2128,7 @@ export default function DigitalMenu() {
               <Suspense fallback={null}>
                 <ProductDetailModal
                   selectedProduct={selectedProduct}
+                  isUnavailable={isProductUnavailable(selectedProduct)}
                   isClosingProductDetail={isClosingProductDetail}
                   selectedRating={getProductRating(selectedProduct.id)}
                   ratingHover={ratingHover}

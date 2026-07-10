@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useMemo } from "react";
+import { lazy, Suspense, useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
@@ -21,6 +21,11 @@ import {
 } from "../../config/cardPaymentWallet";
 import { useAuth } from "../../contexts/authContext";
 import authService from "../../Services/authService";
+import {
+  extractCepDigits,
+  fetchAddressByCep,
+  normalizeCepInput,
+} from "../../Services/cepService";
 import * as S from "./styles";
 
 const ProfilePersonalCard = lazy(
@@ -61,12 +66,19 @@ function buildAddressFromUser(user) {
     estado: user?.state || "",
     cep: user?.zipCode || "",
     complemento: user?.complement || "",
+    pontoReferencia: "",
   };
 }
 
 function normalizeAddress(address) {
+  const parsedId = Number(address?.id);
+  const safeId =
+    Number.isInteger(parsedId) && parsedId > 0
+      ? parsedId
+      : Date.now() + Math.floor(Math.random() * 1000);
+
   return {
-    id: Number(address?.id || Date.now()),
+    id: safeId,
     rotulo: String(address?.rotulo || "Principal"),
     rua: String(address?.rua || ""),
     numero: String(address?.numero || ""),
@@ -75,7 +87,30 @@ function normalizeAddress(address) {
     estado: String(address?.estado || ""),
     cep: String(address?.cep || ""),
     complemento: String(address?.complemento || ""),
+    pontoReferencia: String(address?.pontoReferencia || ""),
   };
+}
+
+function mergeComplementAndReference(
+  complemento: string | null | undefined,
+  pontoReferencia: string | null | undefined,
+) {
+  const normalizedComplemento = String(complemento || "").trim();
+  const normalizedReference = String(pontoReferencia || "").trim();
+
+  if (normalizedComplemento && normalizedReference) {
+    return `${normalizedComplemento} | Ref.: ${normalizedReference}`;
+  }
+
+  if (normalizedComplemento) {
+    return normalizedComplemento;
+  }
+
+  if (normalizedReference) {
+    return `Ref.: ${normalizedReference}`;
+  }
+
+  return "";
 }
 
 function getStoredUser() {
@@ -85,7 +120,7 @@ function getStoredUser() {
 function getInitialAddresses(user) {
   const storedAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, null);
 
-  if (Array.isArray(storedAddresses) && storedAddresses.length > 0) {
+  if (Array.isArray(storedAddresses)) {
     return storedAddresses.map(normalizeAddress);
   }
 
@@ -107,6 +142,10 @@ function getInitialSelectedAddressId(addresses) {
   }
 
   return addresses[0]?.id || null;
+}
+
+function sameAddressId(left, right) {
+  return String(left ?? "") === String(right ?? "");
 }
 
 export default function Profile() {
@@ -141,7 +180,10 @@ export default function Profile() {
     estado: storedUser?.state || "CE",
     cep: "",
     complemento: "",
+    pontoReferencia: "",
   });
+  const lastCepLookupRef = useRef("");
+  const [isCepLookupLoading, setIsCepLookupLoading] = useState(false);
   const [savedCards, setSavedCards] = useState(initialCardWallet.cards);
   const [selectedSavedCardId, setSelectedSavedCardId] = useState(
     initialCardWallet.selectedCardId,
@@ -185,7 +227,9 @@ export default function Profile() {
   }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
 
   const selectedAddress =
-    enderecos.find((endereco) => endereco.id === selectedAddressId) ||
+    enderecos.find((endereco) =>
+      sameAddressId(endereco.id, selectedAddressId),
+    ) ||
     enderecos[0] ||
     null;
 
@@ -230,7 +274,12 @@ export default function Profile() {
         state: selectedAddress?.estado || currentUser.state || "",
         zipCode: selectedAddress?.cep || currentUser.zipCode || "",
         complement:
-          selectedAddress?.complemento || currentUser.complement || "",
+          mergeComplementAndReference(
+            selectedAddress?.complemento,
+            selectedAddress?.pontoReferencia,
+          ) ||
+          currentUser.complement ||
+          "",
         defaultAddressId:
           selectedAddress?.id || currentUser.defaultAddressId || null,
         defaultAddressLabel:
@@ -288,26 +337,54 @@ export default function Profile() {
       estado: storedUser?.state || "CE",
       cep: "",
       complemento: "",
+      pontoReferencia: "",
     });
     toast.success("Endereço salvo com sucesso!");
   };
 
   const handleDeleteEndereco = (id) => {
-    setEnderecos((prev) => prev.filter((end) => end.id !== id));
+    const nextAddresses = enderecos.filter((end) => !sameAddressId(end.id, id));
+
+    setEnderecos(nextAddresses);
     setSelectedAddressId((current) => {
-      if (current !== id) {
+      if (!sameAddressId(current, id)) {
         return current;
       }
 
-      const nextAddresses = enderecos.filter((end) => end.id !== id);
       return nextAddresses[0]?.id || null;
     });
+
+    if (nextAddresses.length === 0) {
+      const token = localStorage.getItem("token");
+      const currentUser = getStoredUser() || {};
+      const nextUser = {
+        ...currentUser,
+        address: "",
+        number: "",
+        district: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        complement: "",
+        defaultAddressId: null,
+        defaultAddressLabel: null,
+      };
+
+      if (token) {
+        login(nextUser, token);
+      } else {
+        localStorage.setItem("user", JSON.stringify(nextUser));
+      }
+    }
+
     toast.info("Endereço removido.");
   };
 
   const handleSelectEndereco = (id) => {
     setSelectedAddressId(id);
-    const selected = enderecos.find((endereco) => endereco.id === id);
+    const selected = enderecos.find((endereco) =>
+      sameAddressId(endereco.id, id),
+    );
 
     if (selected) {
       setNovoEndereco({
@@ -319,9 +396,80 @@ export default function Profile() {
         estado: selected.estado || storedUser?.state || "CE",
         cep: selected.cep || "",
         complemento: selected.complemento || "",
+        pontoReferencia: selected.pontoReferencia || "",
       });
     }
   };
+
+  const handleNovoEnderecoChange = (value) => {
+    const normalizedCep = normalizeCepInput(value?.cep || "");
+    const cepDigits = extractCepDigits(normalizedCep);
+
+    if (cepDigits.length < 8) {
+      lastCepLookupRef.current = "";
+    }
+
+    setNovoEndereco({
+      ...value,
+      cep: normalizedCep,
+    });
+  };
+
+  useEffect(() => {
+    const cepDigits = extractCepDigits(novoEndereco.cep);
+
+    if (cepDigits.length !== 8) {
+      return;
+    }
+
+    if (lastCepLookupRef.current === cepDigits) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fillAddressFromCep() {
+      try {
+        setIsCepLookupLoading(true);
+        const viaCepAddress = await fetchAddressByCep(cepDigits);
+
+        if (cancelled) {
+          return;
+        }
+
+        lastCepLookupRef.current = cepDigits;
+        setNovoEndereco((prev) => ({
+          ...prev,
+          cep: normalizeCepInput(prev.cep),
+          rua: viaCepAddress.logradouro || prev.rua,
+          bairro: viaCepAddress.bairro || prev.bairro,
+          cidade: viaCepAddress.localidade || prev.cidade,
+          estado: viaCepAddress.uf || prev.estado,
+        }));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        lastCepLookupRef.current = cepDigits;
+        toast.warning(
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel preencher o endereco por CEP.",
+        );
+      } finally {
+        if (!cancelled) {
+          setIsCepLookupLoading(false);
+        }
+      }
+    }
+
+    fillAddressFromCep();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [novoEndereco.cep]);
 
   const handleCardPaymentDraftChange = (field, value) => {
     setCardPaymentDraft((prev) => ({
@@ -488,7 +636,8 @@ export default function Profile() {
                 cardPaymentDraft={cardPaymentDraft}
                 cardFieldErrors={cardFieldErrors}
                 showCardFieldFeedback={showCardFieldFeedback}
-                onNovoEnderecoChange={setNovoEndereco}
+                isCepLookupLoading={isCepLookupLoading}
+                onNovoEnderecoChange={handleNovoEnderecoChange}
                 onAddEndereco={handleAddEndereco}
                 onSelectEndereco={handleSelectEndereco}
                 onDeleteEndereco={handleDeleteEndereco}
