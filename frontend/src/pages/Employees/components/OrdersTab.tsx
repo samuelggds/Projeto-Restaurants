@@ -70,7 +70,6 @@ type OrdersTabProps = {
   ) => void;
   onRequestPaymentPin: (order: Order) => void;
   onConfirmPaymentWithPin: (order: Order) => void;
-  onConfirmPaymentByAdmin: (order: Order) => void;
   onRetryPixPaymentStatus: (order: Order) => void;
   onUpdateStatus: (order: Order, nextStatus: string) => void;
   getPaymentSummaryLabel: (order?: unknown) => string;
@@ -130,7 +129,6 @@ export default function OrdersTab({
   onSetPinInputByOrderId,
   onRequestPaymentPin,
   onConfirmPaymentWithPin,
-  onConfirmPaymentByAdmin,
   onRetryPixPaymentStatus,
   onUpdateStatus,
   getPaymentSummaryLabel,
@@ -485,16 +483,6 @@ export default function OrdersTab({
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
-            const normalizedPixPaymentId = String(
-              order?.pixPaymentId || "",
-            ).trim();
-            const pendingManualPixClaim =
-              !order.paid &&
-              String(order?.paymentMethod || "").toUpperCase() === "PIX" &&
-              (normalizedPixPaymentId.startsWith("manual:") ||
-                (normalizedPixPaymentId.length === 0 &&
-                  String(order?.type || "").toUpperCase() === "DELIVERY" &&
-                  order?.payOnDelivery !== true));
             const pendingPixDelayed =
               pendingDigitalPayment && isPixPendingDelayed(order);
             const deliveryBlockedUntilPaid = isDeliveryBlockedUntilPaid(order);
@@ -676,22 +664,6 @@ export default function OrdersTab({
                       {isRetryingPixCheck
                         ? "Reconsultando PIX..."
                         : "Reconsultar status PIX agora"}
-                    </button>
-                  ) : null}
-                  {pendingManualPixClaim ? (
-                    <button
-                      type="button"
-                      onClick={() => onConfirmPaymentByAdmin(order)}
-                      className="btn active-pronto"
-                      style={{
-                        minHeight: 30,
-                        padding: "0.28rem 0.7rem",
-                        fontSize: 12,
-                        fontWeight: 800,
-                      }}
-                      title="Confirme somente após validar no extrato do banco."
-                    >
-                      Confirmar pagamento (admin)
                     </button>
                   ) : null}
                 </div>
