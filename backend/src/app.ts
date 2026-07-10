@@ -12,9 +12,13 @@ import { errorHandlerMiddleware } from "./middlewares/security/errorHandlerMiddl
 const app = express();
 
 const isProduction = process.env.NODE_ENV === "production";
-const allowedOrigins = (process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map((origin) => origin.trim())
+const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, "");
+const allowedOrigins = [
+  process.env.CORS_ORIGINS || "",
+  process.env.FRONTEND_URL || "",
+]
+  .flatMap((value) => value.split(","))
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 const rateLimitWindowMs = Number(
   process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
@@ -59,7 +63,9 @@ app.use(
         return;
       }
 
-      if (!isProduction || allowedOrigins.includes(origin)) {
+      const normalizedOrigin = normalizeOrigin(origin);
+
+      if (!isProduction || allowedOrigins.includes(normalizedOrigin)) {
         callback(null, true);
         return;
       }
