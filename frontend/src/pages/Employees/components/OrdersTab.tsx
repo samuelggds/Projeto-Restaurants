@@ -29,6 +29,7 @@ type Order = {
   createdAt?: string;
   pixPaymentId?: string;
   paymentMethod?: string;
+  payOnDelivery?: boolean;
   type?: string;
   total?: number;
   status?: string;
@@ -484,9 +485,16 @@ export default function OrdersTab({
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
+            const normalizedPixPaymentId = String(
+              order?.pixPaymentId || "",
+            ).trim();
             const pendingManualPixClaim =
               !order.paid &&
-              String(order?.paymentMethod || "").toUpperCase() === "PIX";
+              String(order?.paymentMethod || "").toUpperCase() === "PIX" &&
+              (normalizedPixPaymentId.startsWith("manual:") ||
+                (normalizedPixPaymentId.length === 0 &&
+                  String(order?.type || "").toUpperCase() === "DELIVERY" &&
+                  order?.payOnDelivery !== true));
             const pendingPixDelayed =
               pendingDigitalPayment && isPixPendingDelayed(order);
             const deliveryBlockedUntilPaid = isDeliveryBlockedUntilPaid(order);
