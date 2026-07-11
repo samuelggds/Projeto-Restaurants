@@ -16,6 +16,11 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async onboardAsaas(payload) {
+    const response = await api.post("/settings/asaas/onboard", payload);
+    return response.data;
+  }
+
   async getPublicSettings(restaurantId) {
     const response = await api.get(`/settings/public/${restaurantId}`);
     return response.data;

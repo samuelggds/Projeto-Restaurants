@@ -31,6 +31,8 @@ type CreateRestaurantSettingsPayload = {
   gatewayMerchantId?: string | null;
   stripeSecretKey?: string | null;
   mercadoPagoAccessToken?: string | null;
+  picpayToken?: string | null;
+  asaasAccessToken?: string | null;
   pagbankEmail?: string | null;
   pagbankToken?: string | null;
   pagbankEnvironment?: string | null;
@@ -75,6 +77,8 @@ class CreateRestaurantSettingsService {
     gatewayMerchantId,
     stripeSecretKey,
     mercadoPagoAccessToken,
+    picpayToken,
+    asaasAccessToken,
     pagbankEmail,
     pagbankToken,
     pagbankEnvironment,
@@ -196,6 +200,8 @@ class CreateRestaurantSettingsService {
       stripeSecretKey: String(stripeSecretKey || "").trim() || null,
       mercadoPagoAccessToken:
         String(mercadoPagoAccessToken || "").trim() || null,
+      picpayToken: String(picpayToken || "").trim() || null,
+      asaasAccessToken: String(asaasAccessToken || "").trim() || null,
       pagbankEmail: String(pagbankEmail || "").trim() || null,
       pagbankToken: String(pagbankToken || "").trim() || null,
       pagbankEnvironment: "production",
@@ -238,12 +244,18 @@ class CreateRestaurantSettingsService {
       ...created,
       stripeSecretKey: null,
       mercadoPagoAccessToken: null,
+      picpayToken: null,
+      asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(created?.stripeSecretKey || "").trim(),
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(created?.mercadoPagoAccessToken || "").trim(),
+      ),
+      picpayTokenConfigured: Boolean(String(created?.picpayToken || "").trim()),
+      asaasAccessTokenConfigured: Boolean(
+        String(created?.asaasAccessToken || "").trim(),
       ),
       pagbankTokenConfigured: Boolean(
         String(created?.pagbankToken || "").trim(),

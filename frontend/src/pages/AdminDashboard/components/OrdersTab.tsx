@@ -95,7 +95,6 @@ type OrdersTabProps = {
     updater: (prev: Record<number, string>) => Record<number, string>,
   ) => void;
   onConfirmPaymentWithPin: (order: Order) => void;
-  onConfirmPaymentByAdmin: (order: Order) => void;
   onRetryPixPaymentStatus: (order: Order) => void;
   onRefundOrder: (order: Order) => void;
   getStatusValueIcon: (status?: string) => ReactElement;
@@ -159,7 +158,6 @@ export default function OrdersTab({
   onRequestPaymentPin,
   onSetPaymentPinInputByOrderId,
   onConfirmPaymentWithPin,
-  onConfirmPaymentByAdmin,
   onRetryPixPaymentStatus,
   onRefundOrder,
   getStatusValueIcon,
@@ -492,16 +490,6 @@ export default function OrdersTab({
             const deliveryAddressLabel = getDeliveryAddressLabel(order);
             const pendingDigitalPayment =
               paymentPinToolsEnabled && isPendingDigitalPayment(order);
-            const normalizedPixPaymentId = String(
-              order?.pixPaymentId || "",
-            ).trim();
-            const pendingManualPixClaim =
-              !order.paid &&
-              String(order?.paymentMethod || "").toUpperCase() === "PIX" &&
-              (normalizedPixPaymentId.startsWith("manual:") ||
-                (normalizedPixPaymentId.length === 0 &&
-                  String(order?.type || "").toUpperCase() === "DELIVERY" &&
-                  order?.payOnDelivery !== true));
             const pendingPixDelayed =
               pendingDigitalPayment && isPixPendingDelayed(order);
             const canGenerateOrderPin = canGeneratePin(order);
@@ -725,39 +713,6 @@ export default function OrdersTab({
                       {isRetryingPixCheck
                         ? "Reconsultando PIX..."
                         : "Reconsultar status PIX agora"}
-                    </button>
-                  ) : null}
-                  {pendingManualPixClaim ? (
-                    <button
-                      type="button"
-                      onClick={() => onConfirmPaymentByAdmin(order)}
-                      disabled={isConfirmingPaymentPin}
-                      style={{
-                        minHeight: 34,
-                        padding: "0.36rem 0.85rem",
-                        borderRadius: 999,
-                        border: "1px solid rgba(21, 128, 61, 0.55)",
-                        background:
-                          "linear-gradient(135deg, #22c55e 0%, #16a34a 55%, #15803d 100%)",
-                        color: "#ffffff",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        cursor: isConfirmingPaymentPin
-                          ? "not-allowed"
-                          : "pointer",
-                        opacity: isConfirmingPaymentPin ? 0.7 : 1,
-                        boxShadow: "0 8px 18px rgba(21, 128, 61, 0.28)",
-                        letterSpacing: "0.01em",
-                      }}
-                      title="Confirme somente após validar no extrato do banco."
-                    >
-                      <Check size={13} />
-                      {isConfirmingPaymentPin
-                        ? "Confirmando..."
-                        : "Confirmar pagamento"}
                     </button>
                   ) : null}
                   {hasRequestedRefund ? (

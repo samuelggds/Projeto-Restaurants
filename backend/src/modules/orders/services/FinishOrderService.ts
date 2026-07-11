@@ -205,6 +205,16 @@ class CreateOrderService {
       paymentProofImage,
     });
 
+    if (
+      String(paymentMethod || "").toUpperCase() === PaymentMethod.PIX &&
+      (String(paymentProof || "").trim() ||
+        String(paymentProofImage || "").trim())
+    ) {
+      throw new Error(
+        "Nao e permitido enviar comprovante manual para PIX. O pedido sera confirmado automaticamente pelo provedor.",
+      );
+    }
+
     if (type === "MESA") {
       if (!tableSessionId) {
         throw new Error(
@@ -325,20 +335,7 @@ class CreateOrderService {
           ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}`
           : "";
 
-      const pixProofSummary = String(paymentProof || "").trim()
-        ? `Comprovante PIX: ${String(paymentProof).trim()}`
-        : "";
-
-      const pixProofImageSummary = String(paymentProofImage || "").trim()
-        ? "Comprovante PIX (imagem): anexado"
-        : "";
-
-      const mergedObservation = [
-        guestSummary,
-        pixProofSummary,
-        pixProofImageSummary,
-        observation,
-      ]
+      const mergedObservation = [guestSummary, observation]
         .map((item) => String(item || "").trim())
         .filter(Boolean)
         .join(" | ");
@@ -355,8 +352,8 @@ class CreateOrderService {
           type,
           paymentMethod,
           paid: shouldMarkAsPaid,
-          paymentProof: String(paymentProof || "").trim() || null,
-          paymentProofImage: String(paymentProofImage || "").trim() || null,
+          paymentProof: null,
+          paymentProofImage: null,
           observation: mergedObservation || null,
           userId: resolvedUserId,
           restaurantId: resolvedRestaurantId,

@@ -298,6 +298,8 @@ model RestaurantSettings {
   pagbankToken           String?
   pagbankEnvironment     String?
   mercadoPagoAccessToken String?
+  picpayToken            String?
+  asaasAccessToken       String?
   stripeSecretKey        String?
   restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }

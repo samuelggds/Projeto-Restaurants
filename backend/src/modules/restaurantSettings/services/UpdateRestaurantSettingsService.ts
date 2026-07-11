@@ -31,6 +31,8 @@ type UpdateRestaurantSettingsPayload = {
   gatewayMerchantId?: string | null;
   stripeSecretKey?: string | null;
   mercadoPagoAccessToken?: string | null;
+  picpayToken?: string | null;
+  asaasAccessToken?: string | null;
   pagbankEmail?: string | null;
   pagbankToken?: string | null;
   pagbankEnvironment?: string | null;
@@ -75,6 +77,8 @@ class UpdateRestaurantSettingsService {
     gatewayMerchantId,
     stripeSecretKey,
     mercadoPagoAccessToken,
+    picpayToken,
+    asaasAccessToken,
     pagbankEmail,
     pagbankToken,
     pagbankEnvironment,
@@ -139,6 +143,14 @@ class UpdateRestaurantSettingsService {
       mercadoPagoAccessToken === undefined
         ? undefined
         : String(mercadoPagoAccessToken || "").trim() || null;
+    const normalizedPicPayToken =
+      picpayToken === undefined
+        ? undefined
+        : String(picpayToken || "").trim() || null;
+    const normalizedAsaasAccessToken =
+      asaasAccessToken === undefined
+        ? undefined
+        : String(asaasAccessToken || "").trim() || null;
     const normalizedPagBankEmail =
       pagbankEmail === undefined
         ? undefined
@@ -281,6 +293,8 @@ class UpdateRestaurantSettingsService {
       gatewayMerchantId: normalizedGatewayMerchantId,
       stripeSecretKey: normalizedStripeSecretKey,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
+      picpayToken: normalizedPicPayToken,
+      asaasAccessToken: normalizedAsaasAccessToken,
       pagbankEmail: normalizedPagBankEmail,
       pagbankToken: normalizedPagBankToken,
       pagbankEnvironment: normalizedPagBankEnvironment,
@@ -331,12 +345,18 @@ class UpdateRestaurantSettingsService {
       ...updated,
       stripeSecretKey: null,
       mercadoPagoAccessToken: null,
+      picpayToken: null,
+      asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(updated?.stripeSecretKey || "").trim(),
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(updated?.mercadoPagoAccessToken || "").trim(),
+      ),
+      picpayTokenConfigured: Boolean(String(updated?.picpayToken || "").trim()),
+      asaasAccessTokenConfigured: Boolean(
+        String(updated?.asaasAccessToken || "").trim(),
       ),
       pagbankTokenConfigured: Boolean(
         String(updated?.pagbankToken || "").trim(),

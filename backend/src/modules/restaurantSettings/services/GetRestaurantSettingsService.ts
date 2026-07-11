@@ -34,11 +34,15 @@ type RestaurantSettingsFallback = {
   gatewayMerchantId: string | null;
   stripeSecretKey: string | null;
   mercadoPagoAccessToken: string | null;
+  picpayToken: string | null;
+  asaasAccessToken: string | null;
   pagbankEmail: string | null;
   pagbankToken: string | null;
   pagbankEnvironment: string | null;
   stripeSecretKeyConfigured: boolean;
   mercadoPagoAccessTokenConfigured: boolean;
+  picpayTokenConfigured: boolean;
+  asaasAccessTokenConfigured: boolean;
   pagbankTokenConfigured: boolean;
   ownerDocumentFileUrl: string | null;
   bankProofFileUrl: string | null;
@@ -100,11 +104,15 @@ class GetRestaurantSettingsService {
         gatewayMerchantId: null,
         stripeSecretKey: null,
         mercadoPagoAccessToken: null,
+        picpayToken: null,
+        asaasAccessToken: null,
         pagbankEmail: null,
         pagbankToken: null,
         pagbankEnvironment: null,
         stripeSecretKeyConfigured: false,
         mercadoPagoAccessTokenConfigured: false,
+        picpayTokenConfigured: false,
+        asaasAccessTokenConfigured: false,
         pagbankTokenConfigured: false,
         ownerDocumentFileUrl: null,
         bankProofFileUrl: null,
@@ -127,12 +135,20 @@ class GetRestaurantSettingsService {
       ...settings,
       stripeSecretKey: null,
       mercadoPagoAccessToken: null,
+      picpayToken: null,
+      asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(settings?.stripeSecretKey || "").trim(),
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(settings?.mercadoPagoAccessToken || "").trim(),
+      ),
+      picpayTokenConfigured: Boolean(
+        String(settings?.picpayToken || "").trim(),
+      ),
+      asaasAccessTokenConfigured: Boolean(
+        String(settings?.asaasAccessToken || "").trim(),
       ),
       pagbankTokenConfigured: Boolean(
         String(settings?.pagbankToken || "").trim(),

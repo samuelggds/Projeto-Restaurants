@@ -45,51 +45,12 @@ class OrderRepository {
     return db.order.findMany({
       where: {
         restaurantId,
-        NOT: [
-          {
-            type: OrderType.DELIVERY,
-            paid: false,
-            payOnDelivery: false,
-            AND: [
-              {
-                OR: [
-                  {
-                    paymentMethod: PaymentMethod.CARTAO,
-                  },
-                  {
-                    paymentMethod: PaymentMethod.PIX,
-                    OR: [
-                      {
-                        pixPaymentId: null,
-                      },
-                      {
-                        pixPaymentId: {
-                          not: {
-                            startsWith: "manual:",
-                          },
-                        },
-                      },
-                    ],
-                  },
-                ],
-              },
-              {
-                OR: [
-                  {
-                    observation: null,
-                  },
-                  {
-                    observation: {
-                      not: {
-                        contains: "PAY_ON_DELIVERY:",
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
+        NOT: {
+          paid: false,
+          paymentMethod: {
+            in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
           },
-        ],
+        },
         ...(status && { status }),
       },
       include: {

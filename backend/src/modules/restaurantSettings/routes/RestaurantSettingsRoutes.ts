@@ -6,6 +6,7 @@ import CreateRestaurantSettingsController from "../controllers/CreateRestaurantS
 import GetRestaurantSettingsController from "../controllers/GetRestaurantSettingsController.js";
 import UpdateRestaurantSettingsController from "../controllers/UpdateRestaurantSettingsController.js";
 import GetPublicRestaurantSettingsController from "../controllers/GetPublicRestaurantSettingsController.js";
+import OnboardRestaurantAsaasController from "../controllers/OnboardRestaurantAsaasController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 
@@ -25,6 +26,10 @@ router.post("/", authMiddleware, adminMiddleware, (req, res) =>
 
 router.get("/", authMiddleware, adminMiddleware, (req, res) =>
   GetRestaurantSettingsController.handle(req, res),
+);
+
+router.post("/asaas/onboard", authMiddleware, adminMiddleware, (req, res) =>
+  OnboardRestaurantAsaasController.handle(req, res),
 );
 
 router.put("/:id", authMiddleware, adminMiddleware, (req, res) =>

@@ -578,28 +578,6 @@ export default function StaffDashboard() {
       await showBrowserNotification(message, tableLabel);
     };
 
-    const onManualPixClaimed = (payload) => {
-      if (!notificationsEnabled) {
-        return;
-      }
-
-      const orderId = Number(payload?.orderId || 0);
-
-      if (!Number.isInteger(orderId) || orderId <= 0) {
-        return;
-      }
-
-      toast.info(
-        `Pedido #${orderId}: cliente informou pagamento PIX. Confirmar no painel admin.`,
-      );
-      playNotificationSound();
-      setActiveTab("orders");
-      setExpandedOrderIds((prev) => ({
-        ...prev,
-        [orderId]: true,
-      }));
-    };
-
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("connect_error", onConnectError);
@@ -607,7 +585,6 @@ export default function StaffDashboard() {
     socket.on("order:status-changed", onStatusChanged);
     socket.on("order:payment-confirmed", onPaymentConfirmed);
     socket.on("table:pin-requested", onTablePinRequested);
-    socket.on("order:pix-manual-claimed", onManualPixClaimed);
 
     return () => {
       socket.off("connect", onConnect);
@@ -617,7 +594,6 @@ export default function StaffDashboard() {
       socket.off("order:status-changed", onStatusChanged);
       socket.off("order:payment-confirmed", onPaymentConfirmed);
       socket.off("table:pin-requested", onTablePinRequested);
-      socket.off("order:pix-manual-claimed", onManualPixClaimed);
       disconnectSocket();
     };
   }, [notificationsEnabled]);

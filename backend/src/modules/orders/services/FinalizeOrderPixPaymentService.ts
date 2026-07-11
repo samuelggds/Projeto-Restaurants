@@ -7,8 +7,6 @@ type FinalizeOrderPixPaymentPayload = {
   orderId?: number | string | null;
   paymentId: string;
   restaurantId?: number | null;
-  paymentProof?: string | null;
-  paymentProofImage?: string | null;
   allowMissingOrder?: boolean;
 };
 
@@ -17,44 +15,22 @@ class FinalizeOrderPixPaymentService {
     orderId,
     paymentId,
     restaurantId,
-    paymentProof,
-    paymentProofImage,
     allowMissingOrder = false,
   }: FinalizeOrderPixPaymentPayload) {
     const normalizedPaymentId = String(paymentId || "").trim();
-    const normalizedPaymentProof = String(paymentProof || "").trim();
-    const normalizedPaymentProofImage = String(paymentProofImage || "").trim();
-    const isManualProvider = normalizedPaymentId.startsWith("manual:");
-    const hasManualPaymentProof = normalizedPaymentProof.length >= 6;
 
     if (!normalizedPaymentId) {
       throw new Error("Pagamento PIX invalido.");
     }
 
-    if (isManualProvider) {
-      const paymentStatus = await orderPixPaymentService.getPaymentStatus({
-        paymentId: normalizedPaymentId,
-        restaurantId,
-      });
-
-      if (!paymentStatus.sameRestaurant) {
-        throw new Error(
-          "Este pagamento PIX nao pertence ao restaurante do pedido.",
-        );
-      }
-
-      if (hasManualPaymentProof) {
-        orderPixPaymentService.ensureManualPaymentConfirmationAllowed({
-          paymentId: normalizedPaymentId,
-          paymentProof: normalizedPaymentProof,
-        });
-      }
-    } else {
-      await orderPixPaymentService.ensurePaymentApproved({
-        paymentId: normalizedPaymentId,
-        restaurantId,
-      });
+    if (normalizedPaymentId.startsWith("manual:")) {
+      throw new Error("Pagamento PIX manual nao e permitido.");
     }
+
+    await orderPixPaymentService.ensurePaymentApproved({
+      paymentId: normalizedPaymentId,
+      restaurantId,
+    });
 
     const normalizedRestaurantId = Number(restaurantId || 0) || undefined;
     const order = orderId
@@ -77,30 +53,6 @@ class FinalizeOrderPixPaymentService {
 
     if (String(order.pixPaymentId || "").trim() !== normalizedPaymentId) {
       throw new Error("Pagamento PIX nao corresponde ao pedido informado.");
-    }
-
-    if (isManualProvider) {
-      const requestedAt = new Date().toISOString();
-
-      io.to(`restaurant:${order.restaurantId}`).emit(
-        "order:pix-manual-claimed",
-        {
-          orderId: order.id,
-          paymentId: normalizedPaymentId,
-          requestedAt,
-        },
-      );
-
-      io.to(`restaurant:${order.restaurantId}:admin`).emit(
-        "order:pix-manual-claimed",
-        {
-          orderId: order.id,
-          paymentId: normalizedPaymentId,
-          requestedAt,
-        },
-      );
-
-      return order;
     }
 
     if (order.paid === true) {

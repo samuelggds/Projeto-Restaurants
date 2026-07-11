@@ -43,13 +43,15 @@ import {
   getSocket,
   waitForSocketConnection,
 } from "../../Services/socketService";
-import { buildPixPayload } from "../../config/pixPayload";
 import { persistBrandIdentity } from "../../config/brandIdentity";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
 
 const PixAndDeliverySettingsTab = lazy(
   () => import("./components/PixAndDeliverySettingsTab"),
+);
+const AsaasOnboardingTab = lazy(
+  () => import("./components/AsaasOnboardingTab"),
 );
 const DigitalMenuSettingsTab = lazy(
   () => import("./components/DigitalMenuSettingsTab"),
@@ -884,6 +886,12 @@ export default function AdminDashboard() {
     companyLegalName: "",
     companyTradeName: "",
     companyAddress: "",
+    establishmentZipCode: "",
+    establishmentStreet: "",
+    establishmentNumber: "",
+    establishmentComplement: "",
+    establishmentDistrict: "",
+    establishmentCityState: "",
     companyCnae: "",
     monthlyRevenue: "",
     ownerFullName: "",
@@ -913,6 +921,7 @@ export default function AdminDashboard() {
     companyContractFileUrl: "",
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isOnboardingAsaas, setIsOnboardingAsaas] = useState(false);
   const [brandingUploadState, setBrandingUploadState] = useState({
     restaurantLogo: false,
     restaurantCoverImage: false,
@@ -1279,6 +1288,12 @@ export default function AdminDashboard() {
           companyLegalName: String(settings.companyLegalName || ""),
           companyTradeName: String(settings.companyTradeName || ""),
           companyAddress: String(settings.companyAddress || ""),
+          establishmentZipCode: "",
+          establishmentStreet: String(settings.companyAddress || ""),
+          establishmentNumber: "",
+          establishmentComplement: "",
+          establishmentDistrict: "",
+          establishmentCityState: "",
           companyCnae: String(settings.companyCnae || ""),
           monthlyRevenue:
             settings.monthlyRevenue !== undefined &&
@@ -2250,58 +2265,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleConfirmPaymentByAdmin = async (order) => {
-    const orderId = Number(order?.id || 0);
-
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      return;
-    }
-
-    setConfirmingPaymentPinOrderIds((prev) =>
-      prev.includes(orderId) ? prev : [...prev, orderId],
-    );
-
-    try {
-      const updated = await ordersService.confirmPayment(orderId);
-      const updatedOrder = updated?.order || updated;
-
-      setOrders((prev) =>
-        prev.map((item) =>
-          Number(item?.id || 0) === orderId
-            ? {
-                ...item,
-                ...updatedOrder,
-              }
-            : item,
-        ),
-      );
-
-      setPinRequestByOrderId((prev) => {
-        const next = { ...prev };
-        delete next[orderId];
-        return next;
-      });
-
-      setPaymentPinInputByOrderId((prev) => {
-        const next = { ...prev };
-        delete next[orderId];
-        return next;
-      });
-
-      toast.success(`Pagamento confirmado pelo admin no pedido #${orderId}`);
-    } catch (err) {
-      toast.error(
-        err?.response?.data?.error ||
-          err?.response?.data?.message ||
-          "Erro ao confirmar pagamento",
-      );
-    } finally {
-      setConfirmingPaymentPinOrderIds((prev) =>
-        prev.filter((id) => id !== orderId),
-      );
-    }
-  };
-
   const handleRetryPixPaymentStatus = async (order, options = {}) => {
     const silent = options?.silent === true;
     const orderId = Number(order?.id || 0);
@@ -2966,6 +2929,15 @@ export default function AdminDashboard() {
         .slice(0, 16);
     }
 
+    if (name === "establishmentZipCode") {
+      const digits = String(value || "")
+        .replace(/\D/g, "")
+        .slice(0, 8);
+      nextValue = digits.replace(/^(\d{5})(\d{0,3}).*$/, (_m, p1, p2) =>
+        p2 ? `${p1}-${p2}` : p1,
+      );
+    }
+
     setSettingsForm((prev) => ({
       ...prev,
       [name]: nextValue,
@@ -3064,6 +3036,12 @@ export default function AdminDashboard() {
       companyLegalName: String(saved.companyLegalName || ""),
       companyTradeName: String(saved.companyTradeName || ""),
       companyAddress: String(saved.companyAddress || ""),
+      establishmentZipCode: prev.establishmentZipCode,
+      establishmentStreet: prev.establishmentStreet,
+      establishmentNumber: prev.establishmentNumber,
+      establishmentComplement: prev.establishmentComplement,
+      establishmentDistrict: prev.establishmentDistrict,
+      establishmentCityState: prev.establishmentCityState,
       companyCnae: String(saved.companyCnae || ""),
       monthlyRevenue:
         saved.monthlyRevenue !== undefined && saved.monthlyRevenue !== null
@@ -3246,6 +3224,41 @@ export default function AdminDashboard() {
         settingsForm.pagbankToken || "",
       ).trim();
       const normalizedPagBankEnvironment = "production";
+      const establishmentZipCode = String(
+        settingsForm.establishmentZipCode || "",
+      )
+        .replace(/\D/g, "")
+        .trim();
+      const establishmentStreet = String(
+        settingsForm.establishmentStreet || "",
+      ).trim();
+      const establishmentNumber = String(
+        settingsForm.establishmentNumber || "",
+      ).trim();
+      const establishmentComplement = String(
+        settingsForm.establishmentComplement || "",
+      ).trim();
+      const establishmentDistrict = String(
+        settingsForm.establishmentDistrict || "",
+      ).trim();
+      const establishmentCityState = String(
+        settingsForm.establishmentCityState || "",
+      ).trim();
+
+      const composedCompanyAddress = [
+        establishmentZipCode ? `CEP: ${establishmentZipCode}` : "",
+        establishmentStreet ? `Logradouro: ${establishmentStreet}` : "",
+        establishmentNumber ? `Numero: ${establishmentNumber}` : "",
+        establishmentComplement
+          ? `Complemento: ${establishmentComplement}`
+          : "",
+        establishmentDistrict ? `Bairro: ${establishmentDistrict}` : "",
+        establishmentCityState
+          ? `Cidade/Estado: ${establishmentCityState}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" | ");
 
       if (
         legalDocumentType === "CNPJ" &&
@@ -3316,6 +3329,7 @@ export default function AdminDashboard() {
       }
 
       const payload = {
+        pixKey: String(settingsForm.pixKey || "").trim() || null,
         legalDocumentType: legalDocumentType || null,
         companyDocument: companyDocument || null,
         companyLegalName:
@@ -3323,7 +3337,9 @@ export default function AdminDashboard() {
         companyTradeName:
           String(settingsForm.companyTradeName || "").trim() || null,
         companyAddress:
-          String(settingsForm.companyAddress || "").trim() || null,
+          composedCompanyAddress ||
+          String(settingsForm.companyAddress || "").trim() ||
+          null,
         companyCnae: String(settingsForm.companyCnae || "").trim() || null,
         monthlyRevenue:
           settingsForm.monthlyRevenue === ""
@@ -3387,6 +3403,59 @@ export default function AdminDashboard() {
       );
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleOnboardAsaasFromPixTab = async () => {
+    if (isOnboardingAsaas || isSavingSettings) {
+      return;
+    }
+
+    try {
+      const cnpj = String(settingsForm.companyDocument || "").replace(
+        /\D/g,
+        "",
+      );
+      const restaurantName = String(settingsForm.restaurantSlug || "").trim();
+      const pixKey = String(settingsForm.pixKey || "").trim();
+
+      if (cnpj.length !== 14) {
+        throw new Error("Informe um CNPJ valido com 14 digitos.");
+      }
+
+      if (restaurantName.length < 2) {
+        throw new Error("Slug do restaurante invalido para criar a conta.");
+      }
+
+      if (!pixKey) {
+        throw new Error("Informe a chave PIX de recebimento.");
+      }
+
+      setIsOnboardingAsaas(true);
+
+      const response = await restaurantSettingsService.onboardAsaas({
+        cnpj,
+        restaurantName,
+        pixKey,
+      });
+
+      setSettingsForm((prev) => ({
+        ...prev,
+        companyDocument: cnpj,
+        companyTradeName: restaurantName,
+        pixKey,
+        gatewayMerchantId: String(response?.walletId || prev.gatewayMerchantId),
+      }));
+
+      toast.success("Conta Asaas criada e vinculada ao restaurante.");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Erro ao criar conta Asaas automaticamente",
+      );
+    } finally {
+      setIsOnboardingAsaas(false);
     }
   };
 
@@ -3686,27 +3755,9 @@ export default function AdminDashboard() {
 
   const currentPixKey = String(settingsForm.pixKey || "").trim();
   const currentPixKeyType = getPixKeyType(currentPixKey);
-  const hasPixKey = currentPixKey.length > 0;
-  const isPixKeyInvalid = currentPixKeyType === "INVALID";
   const isBrandingUploadInProgress =
     brandingUploadState.restaurantLogo ||
     brandingUploadState.restaurantCoverImage;
-
-  const pixKeyTypeLabel =
-    currentPixKeyType === "EMAIL"
-      ? "Chave detectada: e-mail"
-      : currentPixKeyType === "CPF"
-        ? "Chave detectada: CPF"
-        : currentPixKeyType === "PHONE"
-          ? "Chave detectada: celular"
-          : "";
-
-  const pixPreviewPayload = buildPixPayload({
-    pixKey: isPixKeyInvalid ? "" : currentPixKey,
-    merchantName: "RESTAURANTE",
-    merchantCity: "SAO PAULO",
-    txid: "PREVIEW",
-  });
 
   const tabBreadcrumbMap = {
     orders: { section: "Operação", label: "Pedidos Real-Time" },
@@ -3717,11 +3768,15 @@ export default function AdminDashboard() {
     employees: { section: "Gestão", label: "Equipe / Funcionários" },
     settings: {
       section: "Configurações da Marca",
-      label: "PIX, banco e gateway",
+      label: "Cadastrar Banco",
     },
     "digital-menu": {
       section: "Configurações da Marca",
       label: "Editar Cardápio Digital",
+    },
+    "owner-onboarding": {
+      section: "Configurações da Marca",
+      label: "PIX (Formulario)",
     },
   };
 
@@ -4323,7 +4378,7 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab("settings")}
             >
               <CreditCard size={20} />
-              {!isSidebarCollapsed && <span>PIX, Banco e Gateway</span>}
+              {!isSidebarCollapsed && <span>Cadastrar Banco</span>}
             </S.NavButton>
 
             <S.NavButton
@@ -4346,6 +4401,14 @@ export default function AdminDashboard() {
             >
               <DollarSign size={20} />
               {!isSidebarCollapsed && <span>Faturamento e Planos</span>}
+            </S.NavButton>
+
+            <S.NavButton
+              $active={activeTab === "owner-onboarding"}
+              onClick={() => setActiveTab("owner-onboarding")}
+            >
+              <User size={20} />
+              {!isSidebarCollapsed && <span>PIX (Formulario)</span>}
             </S.NavButton>
           </S.NavigationList>
 
@@ -4888,7 +4951,6 @@ export default function AdminDashboard() {
                 onRequestPaymentPin={handleRequestPaymentPin}
                 onSetPaymentPinInputByOrderId={setPaymentPinInputByOrderId}
                 onConfirmPaymentWithPin={handleConfirmPaymentWithPin}
-                onConfirmPaymentByAdmin={handleConfirmPaymentByAdmin}
                 onRetryPixPaymentStatus={handleRetryPixPaymentStatus}
                 onRefundOrder={handleRefundOrder}
                 getStatusValueIcon={getStatusValueIcon}
@@ -4967,13 +5029,20 @@ export default function AdminDashboard() {
               <PixAndDeliverySettingsTab
                 settingsForm={settingsForm}
                 isSavingSettings={isSavingSettings}
-                isPixKeyInvalid={isPixKeyInvalid}
-                hasPixKey={hasPixKey}
-                pixKeyTypeLabel={pixKeyTypeLabel}
-                pixPreviewPayload={pixPreviewPayload}
-                isDarkMode={isDarkMode}
                 onSubmitPixSettings={handleSavePixAndDeliverySettings}
                 onSubmitCardBankSettings={handleSaveCardAndKybSettings}
+                onFieldChange={handleSettingsFieldChange}
+              />
+            </Suspense>
+          )}
+
+          {activeTab === "owner-onboarding" && (
+            <Suspense fallback={null}>
+              <AsaasOnboardingTab
+                settingsForm={settingsForm}
+                isSavingSettings={isSavingSettings}
+                isOnboardingAsaas={isOnboardingAsaas}
+                onSubmitAsaasOnboarding={handleOnboardAsaasFromPixTab}
                 onFieldChange={handleSettingsFieldChange}
               />
             </Suspense>

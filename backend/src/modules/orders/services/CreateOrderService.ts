@@ -167,15 +167,11 @@ class CreateOrderService {
     paymentMethod,
     paid,
     pixPaymentId,
-    paymentProof,
-    paymentProofImage,
     restaurantId,
   }: ResolvePaymentStatePayload) {
     const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
     const normalizedPixPaymentId = String(pixPaymentId || "").trim();
-    const normalizedPaymentProof = String(paymentProof || "").trim();
     const requestedAsPaid = paid === true;
-    const hasManualPaymentProof = normalizedPaymentProof.length >= 6;
 
     if (!requestedAsPaid) {
       return {
@@ -202,23 +198,6 @@ class CreateOrderService {
             "O pagamento PIX informado nao pertence a este restaurante.",
           );
         }
-
-        return {
-          normalizedPaymentMethod,
-          normalizedPixPaymentId,
-          shouldMarkAsPaid: true,
-          paidAt: new Date(),
-        };
-      }
-
-      if (
-        normalizedPixPaymentId.startsWith("manual:") &&
-        hasManualPaymentProof
-      ) {
-        orderPixPaymentService.ensureManualPaymentConfirmationAllowed({
-          paymentId: normalizedPixPaymentId,
-          paymentProof: normalizedPaymentProof,
-        });
 
         return {
           normalizedPaymentMethod,
@@ -300,6 +279,17 @@ class CreateOrderService {
       );
     }
 
+    if (
+      String(effectivePaymentMethod || "").toUpperCase() ===
+        PaymentMethod.PIX &&
+      (String(paymentProof || "").trim() ||
+        String(paymentProofImage || "").trim())
+    ) {
+      throw new Error(
+        "Nao e permitido enviar comprovante manual para PIX. O pedido sera confirmado automaticamente pelo provedor.",
+      );
+    }
+
     createOrderSchema.parse({
       restaurantId: resolvedRestaurantId,
       customerName,
@@ -336,8 +326,6 @@ class CreateOrderService {
       paymentMethod: effectivePaymentMethod,
       paid: shouldPayOnDelivery ? false : paid,
       pixPaymentId,
-      paymentProof,
-      paymentProofImage,
       restaurantId: resolvedRestaurantId,
     });
 
@@ -487,20 +475,7 @@ class CreateOrderService {
           ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}`
           : "";
 
-      const pixProofSummary = String(paymentProof || "").trim()
-        ? `Comprovante PIX: ${String(paymentProof).trim()}`
-        : "";
-
-      const pixProofImageSummary = String(paymentProofImage || "").trim()
-        ? "Comprovante PIX (imagem): anexado"
-        : "";
-
-      const mergedObservation = [
-        guestSummary,
-        pixProofSummary,
-        pixProofImageSummary,
-        observation,
-      ]
+      const mergedObservation = [guestSummary, observation]
         .map((item) => String(item || "").trim())
         .filter(Boolean)
         .join(" | ");
@@ -523,8 +498,8 @@ class CreateOrderService {
           paid: shouldMarkAsPaid,
           pixPaymentId: normalizedPixPaymentId || null,
           paidAt,
-          paymentProof: String(paymentProof || "").trim() || null,
-          paymentProofImage: String(paymentProofImage || "").trim() || null,
+          paymentProof: null,
+          paymentProofImage: null,
           observation: mergedObservation || null,
           userId: resolvedUserId,
           restaurantId: resolvedRestaurantId,
@@ -581,9 +556,14 @@ class CreateOrderService {
 
     const isUnpaidDelivery =
       type === OrderType.DELIVERY && shouldMarkAsPaid !== true;
-    const shouldDeferRealtimeUntilPaid =
+    const isUnpaidDigitalPayment =
       shouldMarkAsPaid !== true &&
-      (deferRealtimeUntilPaid === true || isUnpaidDelivery);
+      (normalizedPaymentMethod === PaymentMethod.PIX ||
+        normalizedPaymentMethod === PaymentMethod.CARTAO);
+    const shouldDeferRealtimeUntilPaid =
+      deferRealtimeUntilPaid === true ||
+      isUnpaidDelivery ||
+      isUnpaidDigitalPayment;
 
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit(

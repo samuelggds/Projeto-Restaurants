@@ -23,10 +23,6 @@ export const createOrderSchema = z
 
     pixPaymentId: z.string().trim().min(3).optional(),
 
-    paymentProof: z.string().trim().min(6).optional(),
-
-    paymentProofImage: z.string().trim().min(20).optional(),
-
     observation: z.string().trim().optional(),
 
     tableId: z.number().int().positive().optional(),

@@ -23,8 +23,6 @@ class CreateOrderController {
         district,
         city,
         state,
-        paymentProof,
-        paymentProofImage,
         zipCode,
         complement,
       } = req.body;
@@ -55,8 +53,6 @@ class CreateOrderController {
         number,
         district,
         city,
-        paymentProof,
-        paymentProofImage,
         state,
         zipCode,
         complement,
