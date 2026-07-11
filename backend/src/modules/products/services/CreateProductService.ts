@@ -1,8 +1,20 @@
 import productRepository from "../repositories/ProductRepository.js";
 import { createProductSchema } from "../../../validators/ProductValidator.js";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 
 type CreateProductInput = z.infer<typeof createProductSchema>;
+
+function requireDefined<T>(
+  value: T | null | undefined,
+  message: string,
+): NonNullable<T> {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+
+  return value as NonNullable<T>;
+}
 
 class CreateProductService {
   async execute(data: CreateProductInput, restaurantId: number) {
@@ -10,18 +22,34 @@ class CreateProductService {
       throw new Error("Restaurante não encontrado");
     }
 
-    createProductSchema.parse(data);
+    const parsedData = createProductSchema.parse(data);
 
     const normalizedStock =
-      data.stock === null || data.stock === undefined
+      parsedData.stock === null || parsedData.stock === undefined
         ? null
-        : Number(data.stock);
+        : Number(parsedData.stock);
     const shouldForceUnavailable =
       Number.isInteger(normalizedStock) && normalizedStock === 0;
 
-    const payload: CreateProductInput = {
-      ...data,
-      active: shouldForceUnavailable ? false : data.active,
+    const requiredName = requireDefined(
+      parsedData.name,
+      "Nome do produto é obrigatório.",
+    );
+    const requiredPrice = requireDefined(
+      parsedData.price,
+      "Preço do produto é obrigatório.",
+    );
+    const requiredCategoryId = requireDefined(
+      parsedData.categoryId,
+      "Categoria do produto é obrigatória.",
+    );
+
+    const payload: Omit<Prisma.ProductUncheckedCreateInput, "restaurantId"> = {
+      ...parsedData,
+      name: requiredName,
+      price: requiredPrice,
+      categoryId: requiredCategoryId,
+      active: shouldForceUnavailable ? false : parsedData.active,
     };
 
     const product = await productRepository.create(payload, restaurantId);

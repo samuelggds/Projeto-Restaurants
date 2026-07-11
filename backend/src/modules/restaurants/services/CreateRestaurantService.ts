@@ -3,11 +3,23 @@ import bcrypt from "bcrypt";
 import userRepository from "../../auth/repositories/UserRepository.js";
 import subscriptionRepository from "../../subscription/repositories/SubscriptionRepository.js";
 import { PlanType, SubscriptionStatus, UserRole } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 import { createRestaurantSchema } from "../../../validators/RestaurantValidator.js";
 import { z } from "zod";
 
 type CreateRestaurantPayload = z.infer<typeof createRestaurantSchema>;
+
+function requireDefined<T>(
+  value: T | null | undefined,
+  message: string,
+): NonNullable<T> {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+
+  return value as NonNullable<T>;
+}
 
 class CreateRestaurantService {
   async execute({ restaurant, admin }: CreateRestaurantPayload) {
@@ -48,10 +60,28 @@ class CreateRestaurantService {
     }
 
     return prisma.$transaction(async (tx) => {
+      const requiredName = requireDefined(
+        parsedRestaurant.name,
+        "Nome do restaurante é obrigatório.",
+      );
+      const requiredSlug = requireDefined(
+        parsedRestaurant.slug,
+        "Slug do restaurante é obrigatório.",
+      );
+      const requiredEmail = requireDefined(
+        parsedRestaurant.email,
+        "Email do restaurante é obrigatório.",
+      );
+
+      const restaurantCreateData: Prisma.RestaurantUncheckedCreateInput = {
+        ...parsedRestaurant,
+        name: requiredName,
+        slug: requiredSlug,
+        email: requiredEmail,
+      };
+
       const createdRestaurant = await restaurantRepository.create(
-        {
-          ...parsedRestaurant,
-        },
+        restaurantCreateData,
         tx,
       );
 
