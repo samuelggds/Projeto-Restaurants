@@ -53,6 +53,7 @@ const PixAndDeliverySettingsTab = lazy(
 const AsaasOnboardingTab = lazy(
   () => import("./components/AsaasOnboardingTab"),
 );
+const AsaasWalletTab = lazy(() => import("./components/AsaasWalletTab"));
 const DigitalMenuSettingsTab = lazy(
   () => import("./components/DigitalMenuSettingsTab"),
 );
@@ -198,6 +199,70 @@ function isValidCpf(value) {
     firstCheckDigit === Number(digits[9]) &&
     secondCheckDigit === Number(digits[10])
   );
+}
+
+function getNextBusinessDayLabel(fromDate = new Date()) {
+  const candidate = new Date(fromDate);
+
+  do {
+    candidate.setDate(candidate.getDate() + 1);
+  } while (candidate.getDay() === 0 || candidate.getDay() === 6);
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(candidate);
+}
+
+function buildFriendlyWithdrawErrorMessage({
+  rawMessage,
+  withdrawValue,
+  currentBalance,
+  blockedBalance,
+  pendingBalance,
+}: {
+  rawMessage: string;
+  withdrawValue: number;
+  currentBalance: number | null;
+  blockedBalance: number | null;
+  pendingBalance: number | null;
+}) {
+  const message = String(rawMessage || "").trim();
+  const lowerMessage = message.toLowerCase();
+  const nextBusinessDayLabel = getNextBusinessDayLabel();
+  const normalizedCurrentBalance = Number(currentBalance || 0);
+  const normalizedBlockedBalance = Number(blockedBalance || 0);
+  const normalizedPendingBalance = Number(pendingBalance || 0);
+
+  if (
+    lowerMessage.includes("nao vinculada") ||
+    lowerMessage.includes("onboarding")
+  ) {
+    return "Sua conta Asaas ainda não está vinculada. Conclua o cadastro bancário e tente novamente.";
+  }
+
+  if (lowerMessage.includes("chave pix")) {
+    return "Não foi possível sacar com a chave PIX informada. Revise a chave e tente novamente.";
+  }
+
+  if (
+    lowerMessage.includes("saldo") ||
+    lowerMessage.includes("insuficiente") ||
+    withdrawValue > normalizedCurrentBalance
+  ) {
+    return `Não foi possível sacar agora por saldo disponível insuficiente. Em muitos casos, o saldo é liberado até ${nextBusinessDayLabel}. Disponível: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedCurrentBalance)} | Pendente: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedPendingBalance)} | Bloqueado: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedBlockedBalance)}.`;
+  }
+
+  if (
+    lowerMessage.includes("limite") ||
+    lowerMessage.includes("analise") ||
+    lowerMessage.includes("bloque")
+  ) {
+    return `Seu saque não foi concluído neste momento por regra de segurança/limite do Asaas. Tente novamente em ${nextBusinessDayLabel} ou confira o status da conta no painel Asaas.`;
+  }
+
+  return `Não foi possível solicitar o saque agora. Tente novamente em ${nextBusinessDayLabel}. Se persistir, confira o status da conta no Asaas.`;
 }
 
 function isValidBrazilPhonePixKey(value) {
@@ -919,9 +984,38 @@ export default function AdminDashboard() {
     ownerDocumentFileUrl: "",
     bankProofFileUrl: "",
     companyContractFileUrl: "",
+    asaasWalletWithdrawAmount: "",
+    asaasWalletWithdrawPixKey: "",
+    asaasWalletWithdrawDescription: "",
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isOnboardingAsaas, setIsOnboardingAsaas] = useState(false);
+  const [isLoadingAsaasWalletBalance, setIsLoadingAsaasWalletBalance] =
+    useState(false);
+  const [isWithdrawingAsaasWallet, setIsWithdrawingAsaasWallet] =
+    useState(false);
+  const [asaasWalletBalance, setAsaasWalletBalance] = useState<number | null>(
+    null,
+  );
+  const [asaasWalletBlockedBalance, setAsaasWalletBlockedBalance] = useState<
+    number | null
+  >(null);
+  const [asaasWalletPendingBalance, setAsaasWalletPendingBalance] = useState<
+    number | null
+  >(null);
+  const [lastAsaasWalletTransfer, setLastAsaasWalletTransfer] = useState<{
+    transferId?: string;
+    status?: string;
+    value?: number;
+    pixKey?: string;
+    dateCreated?: string;
+  } | null>(null);
+  const [asaasWalletNotice, setAsaasWalletNotice] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
+  const [isAsaasWalletWidgetExpanded, setIsAsaasWalletWidgetExpanded] =
+    useState(false);
   const [brandingUploadState, setBrandingUploadState] = useState({
     restaurantLogo: false,
     restaurantCoverImage: false,
@@ -1333,6 +1427,9 @@ export default function AdminDashboard() {
           ownerDocumentFileUrl: String(settings.ownerDocumentFileUrl || ""),
           bankProofFileUrl: String(settings.bankProofFileUrl || ""),
           companyContractFileUrl: String(settings.companyContractFileUrl || ""),
+          asaasWalletWithdrawAmount: "",
+          asaasWalletWithdrawPixKey: String(settings.pixKey || ""),
+          asaasWalletWithdrawDescription: "",
         });
 
         persistBrandIdentity({
@@ -3459,6 +3556,135 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRefreshAsaasWalletBalance = async () => {
+    if (isLoadingAsaasWalletBalance) {
+      return;
+    }
+
+    try {
+      setIsLoadingAsaasWalletBalance(true);
+      const response = await restaurantSettingsService.getAsaasWalletBalance();
+
+      setAsaasWalletBalance(Number(response?.balance || 0));
+      setAsaasWalletBlockedBalance(Number(response?.blockedBalance || 0));
+      setAsaasWalletPendingBalance(Number(response?.pendingBalance || 0));
+    } catch (err) {
+      const errorMessage = String(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Erro ao consultar saldo da carteira Asaas.",
+      );
+
+      const isAccountNotLinkedError =
+        errorMessage.toLowerCase().includes("nao vinculada") ||
+        errorMessage.toLowerCase().includes("onboarding");
+
+      // Ao recarregar a página (ou autoatualizar), não exibe aviso de conta não vinculada.
+      if (!isAccountNotLinkedError) {
+        setAsaasWalletNotice({
+          type: "error",
+          message: errorMessage,
+        });
+      }
+    } finally {
+      setIsLoadingAsaasWalletBalance(false);
+    }
+  };
+
+  const handleWithdrawAsaasWallet = async () => {
+    if (isWithdrawingAsaasWallet) {
+      return;
+    }
+
+    let withdrawValue = 0;
+
+    try {
+      withdrawValue = Number(
+        String(settingsForm.asaasWalletWithdrawAmount || "").replace(",", "."),
+      );
+      const withdrawPixKey = String(
+        settingsForm.asaasWalletWithdrawPixKey || settingsForm.pixKey || "",
+      ).trim();
+      const withdrawDescription = String(
+        settingsForm.asaasWalletWithdrawDescription || "",
+      ).trim();
+
+      if (!Number.isFinite(withdrawValue) || withdrawValue <= 0) {
+        throw new Error("Informe um valor de saque maior que zero.");
+      }
+
+      if (!withdrawPixKey) {
+        throw new Error("Informe uma chave Pix válida para o saque.");
+      }
+
+      setIsWithdrawingAsaasWallet(true);
+
+      const response = await restaurantSettingsService.withdrawAsaasWallet({
+        value: withdrawValue,
+        pixKey: withdrawPixKey,
+        description: withdrawDescription || undefined,
+      });
+
+      setLastAsaasWalletTransfer({
+        transferId: String(response?.transferId || ""),
+        status: String(response?.status || "PENDING"),
+        value: Number(response?.value || withdrawValue),
+        pixKey: String(response?.pixKey || withdrawPixKey),
+        dateCreated: String(response?.dateCreated || ""),
+      });
+
+      const transferStatus = String(response?.status || "PENDING")
+        .trim()
+        .toUpperCase();
+
+      if (transferStatus === "DONE") {
+        setAsaasWalletNotice({
+          type: "success",
+          message: "Saque realizado com sucesso e enviado para sua conta.",
+        });
+      } else {
+        setAsaasWalletNotice({
+          type: "info",
+          message: `Saque solicitado com sucesso. O Asaas pode concluir a liberação até ${getNextBusinessDayLabel()}.`,
+        });
+      }
+
+      await handleRefreshAsaasWalletBalance();
+    } catch (err) {
+      const errorMessage = String(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Erro ao solicitar saque na carteira Asaas.",
+      );
+
+      setAsaasWalletNotice({
+        type: "error",
+        message: buildFriendlyWithdrawErrorMessage({
+          rawMessage: errorMessage,
+          withdrawValue,
+          currentBalance: asaasWalletBalance,
+          blockedBalance: asaasWalletBlockedBalance,
+          pendingBalance: asaasWalletPendingBalance,
+        }),
+      });
+    } finally {
+      setIsWithdrawingAsaasWallet(false);
+    }
+  };
+
+  useEffect(() => {
+    handleRefreshAsaasWalletBalance();
+
+    const intervalId = window.setInterval(() => {
+      handleRefreshAsaasWalletBalance();
+    }, 30 * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const getQrSvgMarkup = (tableId) => {
     const cardRef = qrCardRefs.current[tableId];
     const svg = cardRef?.querySelector("svg");
@@ -4527,6 +4753,37 @@ export default function AdminDashboard() {
         </S.Sidebar>
 
         <S.MainContent>
+          <Suspense fallback={null}>
+            <AsaasWalletTab
+              isMobileViewport={isMobileViewport}
+              isExpanded={isAsaasWalletWidgetExpanded}
+              defaultPixKey={String(settingsForm.pixKey || "")}
+              currentBalance={asaasWalletBalance}
+              blockedBalance={asaasWalletBlockedBalance}
+              pendingBalance={asaasWalletPendingBalance}
+              notice={asaasWalletNotice}
+              withdrawAmount={String(
+                settingsForm.asaasWalletWithdrawAmount || "",
+              )}
+              withdrawPixKey={String(
+                settingsForm.asaasWalletWithdrawPixKey || "",
+              )}
+              withdrawDescription={String(
+                settingsForm.asaasWalletWithdrawDescription || "",
+              )}
+              isLoadingBalance={isLoadingAsaasWalletBalance}
+              isWithdrawing={isWithdrawingAsaasWallet}
+              lastTransfer={lastAsaasWalletTransfer}
+              onChangeField={handleSettingsFieldChange}
+              onDismissNotice={() => setAsaasWalletNotice(null)}
+              onToggleExpand={() =>
+                setIsAsaasWalletWidgetExpanded((prev) => !prev)
+              }
+              onRefreshBalance={handleRefreshAsaasWalletBalance}
+              onWithdraw={handleWithdrawAsaasWallet}
+            />
+          </Suspense>
+
           <div
             style={{
               marginBottom: "1rem",

@@ -15,11 +15,16 @@ import couponRoutes from "../modules/coupon/routes/CouponRoutes.js";
 import subscripitionRoutes from "../modules/subscription/routes/SubscriptionRoutes.js";
 import aiSupportRoutes from "../modules/aiSupport/routes/AiSupportRoutes.js";
 import AsaasOrderWebhookController from "../modules/orders/controllers/AsaasOrderWebhookController.js";
+import AsaasWithdrawValidationWebhookController from "../modules/restaurantSettings/controllers/AsaasWithdrawValidationWebhookController.js";
 
 const router = Router();
 
 router.post("/api/webhooks/asaas", (req, res) => {
   AsaasOrderWebhookController.handle(req, res);
+});
+
+router.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
+  AsaasWithdrawValidationWebhookController.handle(req, res);
 });
 
 router.use("/auth", authRoutes);

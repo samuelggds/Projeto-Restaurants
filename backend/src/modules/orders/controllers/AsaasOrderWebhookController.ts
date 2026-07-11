@@ -90,6 +90,27 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
+      if (walletId) {
+        try {
+          await prisma.restaurantSettings.updateMany({
+            where: {
+              restaurantId: order.restaurantId,
+              OR: [{ gatewayMerchantId: null }, { gatewayMerchantId: "" }],
+            },
+            data: {
+              gatewayMerchantId: walletId,
+            },
+          });
+        } catch (settingsUpdateError: unknown) {
+          console.warn(
+            "[ASAAS_WEBHOOK_GATEWAY_ID_BACKFILL_ERROR]",
+            settingsUpdateError instanceof Error
+              ? settingsUpdateError.message
+              : String(settingsUpdateError),
+          );
+        }
+      }
+
       if (!order.paid) {
         if (asaasPaymentId && !String(order.pixPaymentId || "").trim()) {
           await prisma.order.update({

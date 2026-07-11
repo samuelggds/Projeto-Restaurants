@@ -21,6 +21,16 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async getAsaasWalletBalance() {
+    const response = await api.get("/settings/asaas/wallet/balance");
+    return response.data;
+  }
+
+  async withdrawAsaasWallet(payload) {
+    const response = await api.post("/settings/asaas/wallet/withdraw", payload);
+    return response.data;
+  }
+
   async getPublicSettings(restaurantId) {
     const response = await api.get(`/settings/public/${restaurantId}`);
     return response.data;
