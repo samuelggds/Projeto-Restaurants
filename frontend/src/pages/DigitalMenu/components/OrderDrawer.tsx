@@ -1,6 +1,7 @@
 import { CheckCircle, CreditCard, X } from "lucide-react";
 import {
   CARD_BRAND_OPTIONS,
+  getExpectedCardCvvLength,
   getCardBrandDisplay,
   getCardBrandLogo,
   normalizeCardExpiryInput,
@@ -250,6 +251,9 @@ export default function OrderDrawer({
   const cardPreviewDigits = maskCardDigits(cardNumber);
   const cardPreviewHolder = resolveCardHolderName(cardPaymentDraft.holderName);
   const cardPreviewCvv = String(cardCvv || "").trim() || "789";
+  const expectedCardCvvLength = getExpectedCardCvvLength(
+    cardPaymentDraft.brand,
+  );
   const cardErrorTextStyle = {
     color: "#dc2626",
     fontSize: 12,
@@ -975,21 +979,24 @@ export default function OrderDrawer({
                         <input
                           type="password"
                           inputMode="numeric"
-                          placeholder="CVV"
+                          placeholder={
+                            expectedCardCvvLength === 4 ? "CVV (4)" : "CVV"
+                          }
                           value={cardCvv}
+                          maxLength={expectedCardCvvLength}
                           style={resolveCardFieldStyle(
                             Boolean(cardFieldErrors.cardCvv),
-                            /^\d{3,4}$/.test(
+                            new RegExp(`^\\d{${expectedCardCvvLength}}$`).test(
                               String(cardCvv || "")
                                 .replace(/\D/g, "")
-                                .slice(0, 4),
+                                .slice(0, expectedCardCvvLength),
                             ),
                           )}
                           onChange={(event) =>
                             onCardCvvChange(
                               String(event.target.value || "")
                                 .replace(/\D/g, "")
-                                .slice(0, 4),
+                                .slice(0, expectedCardCvvLength),
                             )
                           }
                         />

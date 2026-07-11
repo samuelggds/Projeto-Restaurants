@@ -382,8 +382,8 @@ export default function ProfileAddressesAndOrders({
                   <div
                     key={card.id}
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr auto auto",
+                      display: "flex",
+                      flexWrap: "wrap",
                       gap: "0.5rem",
                       alignItems: "center",
                     }}
@@ -393,15 +393,23 @@ export default function ProfileAddressesAndOrders({
                       onClick={() => onSelectSavedCard(card.id)}
                       style={{
                         textAlign: "left",
-                        padding: "0.95rem 1rem",
-                        borderRadius: 16,
+                        padding: "0.75rem 0.85rem",
+                        borderRadius: 14,
                         border: isSelected
                           ? "2px solid #3f64ff"
                           : "1px solid #c9d3e8",
+                        width: "100%",
+                        maxWidth: 195,
+                        minHeight: 117,
+                        height: 117,
                         ...getCardBrandPalette(card.brand),
                         boxShadow: isSelected
                           ? "0 14px 30px rgba(63, 100, 255, 0.2)"
                           : "0 10px 24px rgba(15, 23, 42, 0.10)",
+                        display: "grid",
+                        alignContent: "space-between",
+                        gap: "0.35rem",
+                        overflow: "hidden",
                         cursor: "pointer",
                       }}
                     >
@@ -411,7 +419,7 @@ export default function ProfileAddressesAndOrders({
                           justifyContent: "space-between",
                           gap: "0.75rem",
                           alignItems: "center",
-                          marginBottom: "0.6rem",
+                          marginBottom: "0.25rem",
                         }}
                       >
                         <div
@@ -440,14 +448,17 @@ export default function ProfileAddressesAndOrders({
                               : "SALVO"}
                         </span>
                       </div>
-                      <div style={{ fontSize: 18, fontWeight: 800 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800 }}>
                         •••• •••• •••• {card.lastFour}
                       </div>
                       <div
                         style={{
-                          fontSize: 12,
+                          fontSize: 11,
                           opacity: 0.88,
-                          marginTop: "0.5rem",
+                          marginTop: "0.15rem",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
                         {card.holderName}
