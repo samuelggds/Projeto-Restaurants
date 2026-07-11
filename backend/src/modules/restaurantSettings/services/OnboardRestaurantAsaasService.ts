@@ -2,7 +2,8 @@ import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepo
 
 type OnboardRestaurantAsaasPayload = {
   restaurantId: number | string;
-  cnpj: string;
+  cnpj?: string;
+  cpf?: string;
   restaurantName: string;
   pixKey: string;
 };
@@ -20,8 +21,20 @@ type AsaasCreateAccountResponse = {
 };
 
 class OnboardRestaurantAsaasService {
-  private normalizeCnpj(value: string) {
+  private normalizeDocument(value: string) {
     return String(value || "").replace(/\D/g, "");
+  }
+
+  private resolveDocumentType(value: string) {
+    if (value.length === 14) {
+      return "CNPJ";
+    }
+
+    if (value.length === 11) {
+      return "CPF";
+    }
+
+    return null;
   }
 
   private getAsaasBaseUrl() {
@@ -54,6 +67,7 @@ class OnboardRestaurantAsaasService {
   async execute({
     restaurantId,
     cnpj,
+    cpf,
     restaurantName,
     pixKey,
   }: OnboardRestaurantAsaasPayload) {
@@ -65,12 +79,22 @@ class OnboardRestaurantAsaasService {
       throw new Error("Restaurante invalido para onboarding Asaas.");
     }
 
-    const normalizedCnpj = this.normalizeCnpj(cnpj);
+    const normalizedCnpj = this.normalizeDocument(cnpj || "");
+    const normalizedCpf = this.normalizeDocument(cpf || "");
+
+    if (normalizedCnpj && normalizedCpf && normalizedCnpj !== normalizedCpf) {
+      throw new Error("Informe apenas um documento valido: CPF ou CNPJ.");
+    }
+
+    const normalizedDocument = normalizedCnpj || normalizedCpf;
+    const legalDocumentType = this.resolveDocumentType(normalizedDocument);
     const normalizedRestaurantName = String(restaurantName || "").trim();
     const normalizedPixKey = String(pixKey || "").trim();
 
-    if (normalizedCnpj.length !== 14) {
-      throw new Error("CNPJ invalido. Informe 14 digitos.");
+    if (!legalDocumentType) {
+      throw new Error(
+        "Documento invalido. Informe CPF (11) ou CNPJ (14) digitos.",
+      );
     }
 
     if (normalizedRestaurantName.length < 2) {
@@ -94,7 +118,7 @@ class OnboardRestaurantAsaasService {
         access_token: asaasApiKey,
       },
       body: JSON.stringify({
-        cpfCnpj: normalizedCnpj,
+        cpfCnpj: normalizedDocument,
         name: normalizedRestaurantName,
       }),
     });
@@ -119,7 +143,8 @@ class OnboardRestaurantAsaasService {
 
     if (existingSettings) {
       await restaurantSettingsRepository.update(normalizedRestaurantId, {
-        companyDocument: normalizedCnpj,
+        legalDocumentType,
+        companyDocument: normalizedDocument,
         companyTradeName: normalizedRestaurantName,
         pixProvider: "ASAAS",
         pixKey: normalizedPixKey,
@@ -137,7 +162,8 @@ class OnboardRestaurantAsaasService {
         minimumOrder: 0,
         pixProvider: "ASAAS",
         pixKey: normalizedPixKey,
-        companyDocument: normalizedCnpj,
+        legalDocumentType,
+        companyDocument: normalizedDocument,
         companyTradeName: normalizedRestaurantName,
         gatewayMerchantId: walletIdentifier,
         asaasAccessToken: asaasSubaccountToken || null,

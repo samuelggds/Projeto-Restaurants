@@ -45,7 +45,6 @@ import {
   persistCardWallet,
   readCardWallet,
   sanitizeCardDraft,
-  validateCardCheckoutInput,
 } from "../../config/cardPaymentWallet";
 import { useAuth } from "../../contexts/authContext";
 import * as S from "./styles";
@@ -351,17 +350,19 @@ export default function Cart() {
   const [isDarkMode] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [cartItems, setCartItems] = useState(loadInitialCart);
+  const initialPendingPixCheckout = readPendingPixCheckout();
   const [orderType, setOrderType] = useState("DELIVERY");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [isPayOnDelivery, setIsPayOnDelivery] = useState(false);
   const [payOnDeliveryMethod, setPayOnDeliveryMethod] = useState("DINHEIRO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [pixPaymentData, setPixPaymentData] = useState(() =>
-    readPendingPixCheckout(),
+  const [pixPaymentData, setPixPaymentData] = useState(
+    initialPendingPixCheckout,
   );
-  const [isPixPaymentPanelMinimized, setIsPixPaymentPanelMinimized] =
-    useState(false);
+  const [isPixPaymentPanelMinimized, setIsPixPaymentPanelMinimized] = useState(
+    () => Boolean(initialPendingPixCheckout),
+  );
   const [, setPendingPixOrderPayload] = useState(null);
   const [paymentSuccessState, setPaymentSuccessState] = useState<{
     orderId: number | null;
@@ -407,7 +408,7 @@ export default function Cart() {
   const [showCardFieldErrors, setShowCardFieldErrors] = useState(false);
   const cardPreviewDigits = maskCardDigits(cardNumber);
   const cardPreviewHolder = resolveCardHolderName(cardPaymentDraft.holderName);
-  const cardPreviewCvv = String(cardCvv || "").trim() || "789";
+  const cardPreviewCvv = String(cardCvv || "").trim();
   const cardPreviewBrand = String(cardPaymentDraft.brand || "").trim();
   const cardPreviewBrandSource = cardPreviewBrand || "outra";
   const expectedCardCvvLength = getExpectedCardCvvLength(
@@ -435,6 +436,15 @@ export default function Cart() {
     cardExpiry,
     cardCvv,
   ]);
+  const hasRequiredCardCheckoutErrors = useMemo(
+    () =>
+      Boolean(
+        cardFieldErrors.cardNumber ||
+        cardFieldErrors.cardExpiry ||
+        cardFieldErrors.cardCvv,
+      ),
+    [cardFieldErrors],
+  );
   const cardErrorTextStyle = {
     color: "#dc2626",
     fontSize: 12,
@@ -533,6 +543,14 @@ export default function Cart() {
   const shouldUsePixCheckout =
     isDelivery && !isPayOnDelivery && paymentMethod === "PIX";
   const shouldUseCardCheckout = !isPayOnDelivery && paymentMethod === "CARTAO";
+
+  useEffect(() => {
+    if (!shouldUseCardCheckout) {
+      return;
+    }
+
+    setCardCvv("");
+  }, [shouldUseCardCheckout]);
 
   useEffect(() => {
     if (!isDelivery && isPayOnDelivery) {
@@ -880,15 +898,14 @@ export default function Cart() {
     setShowCardFieldErrors(true);
     const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
 
-    const validationError = validateCardCheckoutInput({
+    const validationError = getCardCheckoutFieldErrors({
       cardDraft: sanitizedDraft,
       cardNumber,
       cardExpiry,
       cardCvv,
     });
 
-    if (validationError) {
-      toast.error(validationError);
+    if (Object.keys(validationError).length > 0) {
       return;
     }
 
@@ -920,6 +937,9 @@ export default function Cart() {
     setSelectedSavedCardId(nextCard.id);
     setDefaultSavedCardId((prev) => prev || nextCard.id);
     setCardPaymentDraft(sanitizeCardDraft(nextCard));
+    setCardNumber("");
+    setCardExpiry("");
+    setCardCvv("");
     setShowCardFieldErrors(false);
     toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
   };
@@ -1072,15 +1092,14 @@ export default function Cart() {
 
     if (shouldUseCardCheckout) {
       setShowCardFieldErrors(true);
-      const validationError = validateCardCheckoutInput({
+      const validationError = getCardCheckoutFieldErrors({
         cardDraft: cardPaymentDraft,
         cardNumber,
         cardExpiry,
         cardCvv,
       });
 
-      if (validationError) {
-        toast.error(validationError);
+      if (Object.keys(validationError).length > 0) {
         return;
       }
     }
@@ -1194,7 +1213,6 @@ export default function Cart() {
 
   useEffect(() => {
     const shouldAutoConfirmPix =
-      Boolean(pixPaymentData?.requiresStatusCheck) &&
       Boolean(pixPaymentData?.paymentId) &&
       Boolean(pixPaymentData?.orderId) &&
       String(pixPaymentData?.provider || "").trim().length > 0;
@@ -1218,12 +1236,14 @@ export default function Cart() {
         }
 
         localStorage.removeItem("cartItems");
+        setCartItems([]);
         if (isDelivery) {
           persistDeliveryAddress(endereco);
         }
 
         setPendingPixOrderPayload(null);
         setPixPaymentData(null);
+        setIsDrawerOpen(false);
         setIsPixPaymentPanelMinimized(false);
         setPaymentSuccessState({
           orderId: Number(pixPaymentData?.orderId || 0) || null,
@@ -1287,6 +1307,8 @@ export default function Cart() {
       }
 
       setPixPaymentData(null);
+      setPendingPixOrderPayload(null);
+      setIsPixPaymentPanelMinimized(false);
       setIsDrawerOpen(false);
       localStorage.removeItem("cartItems");
       setCartItems([]);
@@ -1630,8 +1652,11 @@ export default function Cart() {
           </S.CartSplitLayout>
         </S.MenuSection>
         {pixPaymentData && isPixPaymentPanelMinimized ? (
-          <div
+          <button
+            type="button"
+            onClick={() => setIsPixPaymentPanelMinimized(false)}
             style={{
+              width: "100%",
               marginBottom: "1rem",
               border: "1px solid #f59e0b66",
               background: "#fffbeb",
@@ -1640,9 +1665,11 @@ export default function Cart() {
               padding: "0.85rem 0.95rem",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              justifyContent: "flex-start",
               flexWrap: "wrap",
               gap: "0.55rem",
+              textAlign: "left",
+              cursor: "pointer",
             }}
           >
             <div style={{ display: "grid", gap: "0.15rem" }}>
@@ -1654,24 +1681,7 @@ export default function Cart() {
                 O pedido so sera liberado apos a confirmacao do pagamento.
               </small>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsPixPaymentPanelMinimized(false)}
-              style={{
-                border: "1px solid #f59e0b",
-                background: "#ffffff",
-                color: "#92400e",
-                borderRadius: 999,
-                minHeight: 34,
-                padding: "0 0.85rem",
-                fontSize: 12,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              Retomar pagamento PIX
-            </button>
-          </div>
+          </button>
         ) : null}
 
         {isDrawerOpen && (
@@ -2346,7 +2356,11 @@ export default function Cart() {
                     />
                     <input
                       type="password"
+                      name="pjf_cvv_manual"
                       inputMode="numeric"
+                      autoComplete="new-password"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       placeholder={
                         expectedCardCvvLength === 4 ? "CVV (4)" : "CVV"
                       }
@@ -2382,6 +2396,11 @@ export default function Cart() {
                   {cardFieldErrors.cardCvv ? (
                     <small style={cardErrorTextStyle}>
                       {cardFieldErrors.cardCvv}
+                    </small>
+                  ) : null}
+                  {hasRequiredCardCheckoutErrors ? (
+                    <small style={cardErrorTextStyle}>
+                      Preencha numero do cartao, validade e CVV para continuar.
                     </small>
                   ) : null}
                   <div

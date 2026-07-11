@@ -5,11 +5,12 @@ class OnboardRestaurantAsaasController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user?.restaurantId;
-      const { cnpj, restaurantName, pixKey } = req.body;
+      const { cnpj, cpf, restaurantName, pixKey } = req.body;
 
       const result = await onboardRestaurantAsaasService.execute({
         restaurantId,
         cnpj,
+        cpf,
         restaurantName,
         pixKey,
       });
