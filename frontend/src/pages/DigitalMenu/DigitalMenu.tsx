@@ -1396,11 +1396,7 @@ export default function DigitalMenu() {
           requiresStatusCheck: Boolean(pixPayment?.requiresStatusCheck),
         });
         toast.info(
-          String(pixPayment?.provider || "")
-            .trim()
-            .toUpperCase() === "MERCADO_PAGO"
-            ? "Pagamento PIX iniciado. Assim que aprovar, seu pedido sera marcado como pago automaticamente."
-            : "Pagamento PIX iniciado. Depois de pagar no app do banco, clique em confirmar pagamento.",
+          "Pagamento PIX iniciado. Assim que aprovar, seu pedido sera marcado como pago automaticamente.",
         );
         return;
       }
@@ -1724,9 +1720,6 @@ export default function DigitalMenu() {
   }
 
   if (pixPaymentData) {
-    const isManualProvider =
-      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
-
     return (
       <>
         <S.GlobalMenuStyle />
@@ -1735,10 +1728,7 @@ export default function DigitalMenu() {
             <PixPaymentPanel
               pixPaymentData={pixPaymentData}
               formatCurrency={formatCurrency}
-              isSubmittingPixConfirmation={isSubmittingPixConfirmation}
-              isManualProvider={isManualProvider}
               onCopyPixKey={handleCopyPixKey}
-              onConfirmManualPayment={handleConfirmPixPaymentAndCreateOrder}
             />
           </Suspense>
         </S.Page>

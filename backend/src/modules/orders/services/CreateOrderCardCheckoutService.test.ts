@@ -44,6 +44,7 @@ afterEach(() => {
   delete process.env.BACKEND_URL;
   delete process.env.PAGBANK_EMAIL;
   delete process.env.PAGBANK_TOKEN;
+  delete process.env.ASAAS_PLATFORM_WALLET_ID;
 });
 
 test("deve abrir checkout de cartao usando a configuracao PagBank do restaurante", async () => {
@@ -107,4 +108,105 @@ test("deve abrir checkout de cartao usando a configuracao PagBank do restaurante
   );
   assert.equal(savedSessionId, "pagbank_chk:CHK-ABC-123");
   assert.equal(deletedOrderId, null);
+});
+
+test("deve abrir checkout de cartao com Asaas e fazer fallback sem split quando rejeitado", async () => {
+  let savedSessionId = null;
+  let deletedOrderId = null;
+  const paymentBodies = [];
+
+  process.env.ASAAS_PLATFORM_WALLET_ID = "wallet-platform-xyz";
+
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    cardGateway: "ASAAS",
+    asaasAccessToken: "asaas-token-restaurante",
+    gatewayMerchantId: "wallet-restaurant-123",
+  });
+
+  createOrderService.execute = async () => ({
+    id: 654,
+    restaurantId: 9,
+    total: 112.5,
+    systemFee: 4.5,
+    restaurant: {
+      name: "Pizzaria da Ana",
+    },
+  });
+
+  orderRepository.setCardCheckoutSessionId = async (
+    _orderId,
+    _restaurantId,
+    sessionId,
+  ) => {
+    savedSessionId = sessionId;
+  };
+
+  orderRepository.deleteById = async (orderId) => {
+    deletedOrderId = orderId;
+  };
+
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input || "");
+
+    if (url.endsWith("/v3/customers")) {
+      return new Response(JSON.stringify({ id: "cus_001" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (url.endsWith("/v3/payments")) {
+      const body = JSON.parse(String(init.body || "{}"));
+      paymentBodies.push(body);
+
+      if (paymentBodies.length === 1) {
+        return new Response(
+          JSON.stringify({
+            errors: [{ description: "split not allowed for this account" }],
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          id: "pay_asaas_777",
+          invoiceUrl: "https://sandbox.asaas.com/i/pay_asaas_777",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return new Response(JSON.stringify({ errors: [] }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const result = await createOrderCardCheckoutService.execute({
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: "DELIVERY",
+    paymentMethod: "CARTAO",
+    items: [{ productId: 1, quantity: 1 }],
+    customerName: "Ana Souza",
+    customerCpf: "12345678901",
+    customerPhone: "11999888777",
+  });
+
+  assert.equal(result.orderId, 654);
+  assert.equal(result.provider, "ASAAS");
+  assert.equal(result.sessionId, "pay_asaas_777");
+  assert.equal(result.checkoutUrl, "https://sandbox.asaas.com/i/pay_asaas_777");
+  assert.equal(savedSessionId, "asaas_pay:pay_asaas_777");
+  assert.equal(deletedOrderId, null);
+  assert.equal(paymentBodies.length, 2);
+  assert.ok(Array.isArray(paymentBodies[0].split));
+  assert.equal(paymentBodies[1].split, undefined);
 });

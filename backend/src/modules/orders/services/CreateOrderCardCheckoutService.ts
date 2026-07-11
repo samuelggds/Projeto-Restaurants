@@ -64,6 +64,7 @@ class CreateOrderCardCheckoutService {
           id: createdOrder.id,
           restaurantId: createdOrder.restaurantId,
           total: createdOrder.total,
+          systemFee: createdOrder.systemFee,
           restaurant: createdOrder.restaurant,
         },
         successUrlBase,

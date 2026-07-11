@@ -4,13 +4,7 @@ import finalizeOrderPixPaymentService from "../services/FinalizeOrderPixPaymentS
 class ConfirmOrderPixPaymentController {
   async handle(req: Request, res: Response) {
     try {
-      const {
-        orderId,
-        paymentId,
-        restaurantId,
-        paymentProof,
-        paymentProofImage,
-      } = req.body;
+      const { orderId, paymentId, restaurantId } = req.body;
       const userRestaurantId = req.user?.restaurantId ?? null;
       const resolvedRestaurantId =
         Number(restaurantId) || Number(userRestaurantId) || undefined;
@@ -19,8 +13,6 @@ class ConfirmOrderPixPaymentController {
         orderId,
         paymentId,
         restaurantId: resolvedRestaurantId,
-        paymentProof,
-        paymentProofImage,
       });
 
       return res.status(200).json(order);

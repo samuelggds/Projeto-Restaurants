@@ -363,8 +363,6 @@ export default function Cart() {
   const [isPixPaymentPanelMinimized, setIsPixPaymentPanelMinimized] =
     useState(false);
   const [, setPendingPixOrderPayload] = useState(null);
-  const [isSubmittingPixConfirmation, setIsSubmittingPixConfirmation] =
-    useState(false);
   const [paymentSuccessState, setPaymentSuccessState] = useState<{
     orderId: number | null;
     provider: string;
@@ -1194,65 +1192,12 @@ export default function Cart() {
     }
   }
 
-  const handleConfirmPixPaymentAndCreateOrder = useCallback(async () => {
-    if (!pixPaymentData || isSubmittingPixConfirmation) {
-      return;
-    }
-
-    try {
-      setIsSubmittingPixConfirmation(true);
-      if (
-        pixPaymentData?.orderId &&
-        String(pixPaymentData?.paymentId || "").trim()
-      ) {
-        const confirmedOrder = await ordersService.confirmPixPayment({
-          restaurantId,
-          orderId: pixPaymentData.orderId,
-          paymentId: pixPaymentData.paymentId,
-        });
-
-        localStorage.removeItem("cartItems");
-        if (isDelivery) {
-          persistDeliveryAddress(endereco);
-        }
-
-        setPendingPixOrderPayload(null);
-        setPixPaymentData(null);
-        setIsPixPaymentPanelMinimized(false);
-        setPaymentSuccessState({
-          orderId: Number(pixPaymentData?.orderId || 0) || null,
-          provider: String(pixPaymentData?.provider || "PIX")
-            .trim()
-            .toUpperCase(),
-          title: "Fique tranquilo",
-          message: confirmedOrder?.paid
-            ? "Este pedido ja foi pago."
-            : "Pedido aguardando confirmacao do pagamento.",
-        });
-        return;
-      }
-    } catch (err) {
-      toast.error(
-        err?.response?.data?.error || "Erro ao confirmar pagamento PIX",
-      );
-      setIsSubmittingPixConfirmation(false);
-    }
-  }, [
-    endereco,
-    isDelivery,
-    isSubmittingPixConfirmation,
-    pixPaymentData,
-    persistDeliveryAddress,
-    restaurantId,
-  ]);
-
   useEffect(() => {
     const shouldAutoConfirmPix =
       Boolean(pixPaymentData?.requiresStatusCheck) &&
       Boolean(pixPaymentData?.paymentId) &&
       Boolean(pixPaymentData?.orderId) &&
-      String(pixPaymentData?.provider || "").toUpperCase() === "MERCADO_PAGO" &&
-      !isSubmittingPixConfirmation;
+      String(pixPaymentData?.provider || "").trim().length > 0;
 
     if (!shouldAutoConfirmPix) {
       return undefined;
@@ -1315,7 +1260,6 @@ export default function Cart() {
     };
   }, [
     endereco,
-    isSubmittingPixConfirmation,
     isDelivery,
     pixPaymentData,
     persistDeliveryAddress,
@@ -1410,9 +1354,6 @@ export default function Cart() {
   }
 
   if (pixPaymentData && !isPixPaymentPanelMinimized) {
-    const isManualProvider =
-      String(pixPaymentData?.provider || "").toUpperCase() !== "MERCADO_PAGO";
-
     return (
       <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
         <S.HomeLayout>
@@ -1428,10 +1369,7 @@ export default function Cart() {
               <PixPaymentPanel
                 pixPaymentData={pixPaymentData}
                 formatCurrency={formatCurrency}
-                isSubmittingPixConfirmation={isSubmittingPixConfirmation}
-                isManualProvider={isManualProvider}
                 onCopyPixKey={handleCopyPixKey}
-                onConfirmManualPayment={handleConfirmPixPaymentAndCreateOrder}
                 onBackToCart={() => {
                   setIsPixPaymentPanelMinimized(true);
                   toast.info(

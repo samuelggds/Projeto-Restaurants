@@ -15,20 +15,14 @@ type PixPaymentData = {
 type PixPaymentPanelProps = {
   pixPaymentData: PixPaymentData;
   formatCurrency: (value: number) => string;
-  isSubmittingPixConfirmation: boolean;
-  isManualProvider: boolean;
   onCopyPixKey: () => void;
-  onConfirmManualPayment: () => void;
   onBackToCart?: () => void;
 };
 
 export default function PixPaymentPanel({
   pixPaymentData,
   formatCurrency,
-  isSubmittingPixConfirmation,
-  isManualProvider,
   onCopyPixKey,
-  onConfirmManualPayment,
   onBackToCart,
 }: PixPaymentPanelProps) {
   return (
@@ -64,9 +58,8 @@ export default function PixPaymentPanel({
         Status: aguardando pagamento
       </div>
       <p style={{ margin: 0, color: "#334155", lineHeight: 1.5 }}>
-        {pixPaymentData?.provider === "MERCADO_PAGO"
-          ? "Finalize o pagamento com PIX. Assim que o provedor aprovar, o pedido sera confirmado automaticamente."
-          : "Realize o pagamento PIX no app do banco e, em seguida, clique em confirmar pagamento para liberar o pedido."}
+        Finalize o pagamento com PIX. Assim que o provedor aprovar, o pedido
+        sera confirmado automaticamente.
         {pixPaymentData.orderId ? ` Pedido #${pixPaymentData.orderId}.` : ""}
       </p>
 
@@ -97,22 +90,20 @@ export default function PixPaymentPanel({
         </div>
       ) : null}
 
-      {pixPaymentData?.provider === "MERCADO_PAGO" ? (
-        <div
-          style={{
-            border: "1px solid #bfdbfe",
-            background: "#eff6ff",
-            color: "#1d4ed8",
-            borderRadius: 12,
-            padding: "0.85rem 1rem",
-            fontSize: 14,
-            fontWeight: 700,
-          }}
-        >
-          Pagamento monitorado automaticamente. Nao e necessario clicar para
-          confirmar.
-        </div>
-      ) : null}
+      <div
+        style={{
+          border: "1px solid #bfdbfe",
+          background: "#eff6ff",
+          color: "#1d4ed8",
+          borderRadius: 12,
+          padding: "0.85rem 1rem",
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Pagamento monitorado automaticamente. Nao e necessario clicar para
+        confirmar.
+      </div>
 
       <div
         style={{
@@ -218,28 +209,6 @@ export default function PixPaymentPanel({
           <Copy size={16} /> Copiar Código PIX
         </button>
 
-        {isManualProvider ? (
-          <button
-            type="button"
-            onClick={onConfirmManualPayment}
-            disabled={isSubmittingPixConfirmation}
-            style={{
-              width: "100%",
-              border: "1px solid #0f172a",
-              background: isSubmittingPixConfirmation ? "#334155" : "#0f172a",
-              color: "#f8fafc",
-              borderRadius: 999,
-              minHeight: 46,
-              fontWeight: 800,
-              cursor: isSubmittingPixConfirmation ? "not-allowed" : "pointer",
-            }}
-          >
-            Ja paguei, confirmar pedido
-          </button>
-        ) : null}
-      </div>
-
-      {isManualProvider && isSubmittingPixConfirmation ? (
         <div
           style={{
             width: "100%",
@@ -254,9 +223,9 @@ export default function PixPaymentPanel({
             fontWeight: 700,
           }}
         >
-          <S.LoadingSpinner /> Confirmando pagamento...
+          <S.LoadingSpinner /> Aguardando confirmacao automatica do PIX...
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
