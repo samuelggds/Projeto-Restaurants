@@ -48,6 +48,38 @@ type UpdateRestaurantSettingsPayload = {
 };
 
 class UpdateRestaurantSettingsService {
+  private getAsaasBaseUrl() {
+    return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com")
+      .trim()
+      .replace(/\/+$/, "");
+  }
+
+  private async resolveAsaasWalletIdentifierByToken(token: string) {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) {
+      return "";
+    }
+
+    const response = await fetch(`${this.getAsaasBaseUrl()}/v3/myAccount`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        access_token: normalizedToken,
+      },
+    });
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const body = (await response.json()) as {
+      walletId?: string;
+      id?: string;
+    };
+
+    return String(body?.walletId || body?.id || "").trim();
+  }
+
   async execute({
     restaurantId,
     deliveryFee,
@@ -189,6 +221,53 @@ class UpdateRestaurantSettingsService {
           ? new Date(ownerBirthDate)
           : null;
 
+    const resolvedAsaasToken =
+      normalizedAsaasAccessToken === undefined
+        ? String(settings.asaasAccessToken || "").trim()
+        : String(normalizedAsaasAccessToken || "").trim();
+
+    const resolvedPixProvider = String(
+      pixProvider || settings.pixProvider || "MERCADO_PAGO",
+    )
+      .trim()
+      .toUpperCase();
+
+    const resolvedCardGateway =
+      normalizedCardGateway === undefined
+        ? String(settings.cardGateway || "")
+            .trim()
+            .toUpperCase()
+        : String(normalizedCardGateway || "")
+            .trim()
+            .toUpperCase();
+
+    let resolvedGatewayMerchantId =
+      normalizedGatewayMerchantId === undefined
+        ? String(settings.gatewayMerchantId || "").trim() || null
+        : normalizedGatewayMerchantId;
+    let gatewayMerchantIdAutoResolved = false;
+    let gatewayMerchantIdAutoResolvedSource: string | null = null;
+
+    const shouldTryAutoResolveGatewayMerchantId =
+      !resolvedGatewayMerchantId &&
+      Boolean(resolvedAsaasToken) &&
+      (resolvedPixProvider === "ASAAS" || resolvedCardGateway === "ASAAS");
+
+    if (shouldTryAutoResolveGatewayMerchantId) {
+      try {
+        const autoWalletId =
+          await this.resolveAsaasWalletIdentifierByToken(resolvedAsaasToken);
+
+        if (autoWalletId) {
+          resolvedGatewayMerchantId = autoWalletId;
+          gatewayMerchantIdAutoResolved = true;
+          gatewayMerchantIdAutoResolvedSource = "asaas_myAccount";
+        }
+      } catch {
+        // Non-blocking fallback: webhook can still backfill gatewayMerchantId later.
+      }
+    }
+
     if (
       restaurantName !== undefined &&
       String(normalizedRestaurantName || "").length < 2
@@ -232,9 +311,7 @@ class UpdateRestaurantSettingsService {
     const updated = await restaurantSettingsRepository.update(restaurantId, {
       deliveryFee,
       minimumOrder,
-      pixProvider: String(pixProvider || settings.pixProvider || "MERCADO_PAGO")
-        .trim()
-        .toUpperCase(),
+      pixProvider: resolvedPixProvider,
       pixKey,
       legalDocumentType: normalizedLegalDocumentType,
       companyDocument: normalizedCompanyDocument,
@@ -290,7 +367,7 @@ class UpdateRestaurantSettingsService {
       bankAccount: normalizedBankAccount,
       bankHolderDocument: normalizedBankHolderDocument,
       cardGateway: normalizedCardGateway,
-      gatewayMerchantId: normalizedGatewayMerchantId,
+      gatewayMerchantId: resolvedGatewayMerchantId,
       stripeSecretKey: normalizedStripeSecretKey,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       picpayToken: normalizedPicPayToken,
@@ -377,6 +454,11 @@ class UpdateRestaurantSettingsService {
         restaurantCoverImage !== undefined
           ? normalizedRestaurantCoverImage
           : String(settings?.restaurant?.coverImage || "").trim() || null,
+      gatewayMerchantIdConfigured: Boolean(
+        String(updated?.gatewayMerchantId || "").trim(),
+      ),
+      gatewayMerchantIdAutoResolved,
+      gatewayMerchantIdAutoResolvedSource,
     };
   }
 }

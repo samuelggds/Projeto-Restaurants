@@ -920,7 +920,7 @@ export default function PixAndDeliverySettingsTab({
                   <input
                     type="text"
                     name="pixKey"
-                    placeholder="Ex: financeiro@seudominio.com"
+                    placeholder="Ex: financeiro@seudominio.com | CPF 12345678909 | Celular +5511999999999"
                     value={settingsForm.pixKey}
                     style={getFieldStyle("pixKey")}
                     onChange={onFieldChange}

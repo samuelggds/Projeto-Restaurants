@@ -7,6 +7,8 @@ import GetRestaurantSettingsController from "../controllers/GetRestaurantSetting
 import UpdateRestaurantSettingsController from "../controllers/UpdateRestaurantSettingsController.js";
 import GetPublicRestaurantSettingsController from "../controllers/GetPublicRestaurantSettingsController.js";
 import OnboardRestaurantAsaasController from "../controllers/OnboardRestaurantAsaasController.js";
+import GetAsaasWalletBalanceController from "../controllers/GetAsaasWalletBalanceController.js";
+import WithdrawAsaasWalletController from "../controllers/WithdrawAsaasWalletController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 
@@ -30,6 +32,20 @@ router.get("/", authMiddleware, adminMiddleware, (req, res) =>
 
 router.post("/asaas/onboard", authMiddleware, adminMiddleware, (req, res) =>
   OnboardRestaurantAsaasController.handle(req, res),
+);
+
+router.get(
+  "/asaas/wallet/balance",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => GetAsaasWalletBalanceController.handle(req, res),
+);
+
+router.post(
+  "/asaas/wallet/withdraw",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => WithdrawAsaasWalletController.handle(req, res),
 );
 
 router.put("/:id", authMiddleware, adminMiddleware, (req, res) =>

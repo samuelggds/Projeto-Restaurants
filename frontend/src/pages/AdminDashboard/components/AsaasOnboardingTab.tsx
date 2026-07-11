@@ -71,7 +71,7 @@ export default function AsaasOnboardingTab({
           <input
             type="text"
             name="pixKey"
-            placeholder="Ex: email@dominio.com, CPF ou celular"
+            placeholder="Ex: email@dominio.com | CPF 12345678909 | Celular +5511999999999"
             value={settingsForm.pixKey}
             onChange={onFieldChange}
           />
