@@ -9,7 +9,8 @@ export const createProductSchema = z.object({
 
   price: z
     .number({
-      error: "Preço deve ser um número.",
+      invalid_type_error: "Preço deve ser um número.",
+      required_error: "Preço deve ser um número.",
     })
     .positive("Preço deve ser maior que zero!"),
 
@@ -31,7 +32,8 @@ export const createProductSchema = z.object({
 
   categoryId: z
     .number({
-      error: "Categoria é obrigatória.",
+      invalid_type_error: "Categoria é obrigatória.",
+      required_error: "Categoria é obrigatória.",
     })
     .int(),
 });
