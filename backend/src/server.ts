@@ -8,6 +8,7 @@ import { socketAuth } from "./socket/socketAuth.js";
 import { socketHandler } from "./socket/socketHandler.js";
 import { startJobs } from "./modules/billing/jobs/scheduler.js";
 import billingJob from "./modules/billing/jobs/BillingJob.js";
+import reconcileMercadoPagoInvoicesService from "./modules/billing/services/ReconcileMercadoPagoInvoicesService.js";
 import { notifyCriticalError } from "./services/alertNotifier.js";
 import { validateCriticalEnv } from "./config/validateEnv.js";
 
@@ -43,6 +44,11 @@ server.listen(port, "0.0.0.0", () => {
   startJobs();
 
   billingJob.execute().catch((error) => {
+    console.error(error);
+    Sentry.captureException(error);
+  });
+
+  reconcileMercadoPagoInvoicesService.execute().catch((error) => {
     console.error(error);
     Sentry.captureException(error);
   });

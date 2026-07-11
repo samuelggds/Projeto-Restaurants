@@ -33,11 +33,25 @@ class MercadoPagoService {
     description,
     amount,
   }: CreatePaymentPayload) {
+    const isProduction = process.env.NODE_ENV === "production";
     const port = process.env.PORT || 3000;
-    const notificationUrl =
-      process.env.MP_NOTIFICATION_URL ||
-      `http://localhost:${port}/billing/webhook/mercadopago`;
+    const backendBaseUrl = String(process.env.BACKEND_URL || "").trim();
+    const fallbackNotificationUrl = backendBaseUrl
+      ? `${backendBaseUrl}/billing/webhook/mercadopago`
+      : `http://localhost:${port}/billing/webhook/mercadopago`;
+    const notificationUrl = String(
+      process.env.MP_NOTIFICATION_URL || fallbackNotificationUrl,
+    ).trim();
     const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
+    if (
+      isProduction &&
+      (!notificationUrl || notificationUrl.includes("localhost"))
+    ) {
+      throw new Error(
+        "Webhook Mercado Pago invalido para producao. Configure MP_NOTIFICATION_URL com uma URL publica HTTPS.",
+      );
+    }
 
     const body: PreferencePayload = {
       items: [
