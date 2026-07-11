@@ -19,6 +19,7 @@ import ReplyOrderIssueController from "../controllers/ReplyOrderIssueController.
 import GetOrderIssueThreadController from "../controllers/GetOrderIssueThreadController.js";
 import ResolveOrderIssueController from "../controllers/ResolveOrderIssueController.js";
 import RefundOrderByAdminController from "../controllers/RefundOrderByAdminController.js";
+import ClearOrdersAndCategoriesController from "../controllers/ClearOrdersAndCategoriesController.js";
 import MercadoPagoOrderWebhookController from "../controllers/MercadoPagoOrderWebhookController.js";
 import StripeOrderWebhookController from "../controllers/StripeOrderWebhookController.js";
 import PagBankOrderWebhookController from "../controllers/PagBankOrderWebhookController.js";
@@ -118,6 +119,16 @@ router.patch(
 router.get("/", authMiddleware, staffMiddleware, (req, res) => {
   ListOrdersController.handle(req, res);
 });
+
+router.delete(
+  "/cleanup/orders-categories",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => {
+    ClearOrdersAndCategoriesController.handle(req, res);
+  },
+);
+
 router.get("/my-orders", authMiddleware, (req, res) => {
   ListMyOrdersController.handle(req, res);
 });

@@ -2,6 +2,23 @@ import { useState } from "react";
 import { ThemeProvider } from "styled-components";
 import * as S from "./styles";
 
+function isProductUnavailable(product) {
+  if (!product) {
+    return true;
+  }
+
+  if (product.active === false) {
+    return true;
+  }
+
+  const stockValue =
+    product.stock === null || product.stock === undefined
+      ? null
+      : Number(product.stock);
+
+  return Number.isInteger(stockValue) && stockValue <= 0;
+}
+
 // --- MOCK DATA COM IMAGENS PREMIUM ---
 const MENU_DATA = [
   {
@@ -11,6 +28,8 @@ const MENU_DATA = [
     category: "burgers",
     tag: "Mais Vendido",
     isPop: true,
+    active: true,
+    stock: 12,
     image:
       "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
     description:
@@ -23,6 +42,8 @@ const MENU_DATA = [
     category: "burgers",
     tag: "Premium",
     isPop: false,
+    active: false,
+    stock: 0,
     image:
       "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=500&auto=format&fit=crop&q=60",
     description:
@@ -35,6 +56,8 @@ const MENU_DATA = [
     category: "acompanhamentos",
     tag: "Porção",
     isPop: false,
+    active: true,
+    stock: 8,
     image:
       "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=500&auto=format&fit=crop&q=60",
     description:
@@ -47,6 +70,8 @@ const MENU_DATA = [
     category: "acompanhamentos",
     tag: "Sucesso",
     isPop: true,
+    active: true,
+    stock: 5,
     image:
       "https://images.unsplash.com/photo-1639024471283-2bc7b3c6a267?w=500&auto=format&fit=crop&q=60",
     description:
@@ -59,6 +84,8 @@ const MENU_DATA = [
     category: "bebidas",
     tag: "Natural",
     isPop: false,
+    active: true,
+    stock: 20,
     image:
       "https://images.unsplash.com/photo-1613478223719-2ab802602423?w=500&auto=format&fit=crop&q=60",
     description:
@@ -71,6 +98,8 @@ const MENU_DATA = [
     category: "bebidas",
     tag: "Refrescante",
     isPop: true,
+    active: true,
+    stock: 10,
     image:
       "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60",
     description:
@@ -92,6 +121,10 @@ export default function Menu() {
 
   // Adicionar item à comanda
   const addToCart = (product) => {
+    if (isProductUnavailable(product)) {
+      return;
+    }
+
     setCart((prev) => {
       const itemExists = prev.find((item) => item.id === product.id);
       if (itemExists) {
@@ -186,38 +219,55 @@ export default function Menu() {
 
           <S.MenuGrid>
             {MENU_DATA.filter((item) => item.category === activeCategory).map(
-              (product) => (
-                <S.ProductCard
-                  key={product.id}
-                  onClick={() => addToCart(product)}
-                >
-                  <div className="image-container">
-                    <span
-                      className={`tag-highlight ${product.isPop ? "pop" : ""}`}
-                    >
-                      {product.tag}
-                    </span>
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      loading="lazy"
-                    />
-                  </div>
+              (product) => {
+                const unavailable = isProductUnavailable(product);
 
-                  <div className="card-body">
-                    <div className="card-top">
-                      <h4>{product.name}</h4>
-                      <span className="price">
-                        R$ {product.price.toFixed(2)}
+                return (
+                  <S.ProductCard
+                    key={product.id}
+                    onClick={() => addToCart(product)}
+                  >
+                    <div className="image-container">
+                      <span
+                        className={`tag-highlight ${product.isPop ? "pop" : ""}`}
+                      >
+                        {product.tag}
                       </span>
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        loading="lazy"
+                      />
                     </div>
-                    <p className="description">{product.description}</p>
-                    <S.ActionButton $secondary style={{ marginTop: "auto" }}>
-                      ➕ Adicionar
-                    </S.ActionButton>
-                  </div>
-                </S.ProductCard>
-              ),
+
+                    <div className="card-body">
+                      <div className="card-top">
+                        <h4>{product.name}</h4>
+                        <span className="price">
+                          R$ {product.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="description">{product.description}</p>
+                      {unavailable && (
+                        <p
+                          style={{
+                            marginTop: "0.35rem",
+                            color: "#b91c1c",
+                            fontWeight: 700,
+                            fontSize: "0.82rem",
+                            opacity: 1,
+                          }}
+                        >
+                          Produto indisponivel
+                        </p>
+                      )}
+                      <S.ActionButton $secondary style={{ marginTop: "auto" }}>
+                        {unavailable ? "Indisponivel" : "➕ Adicionar"}
+                      </S.ActionButton>
+                    </div>
+                  </S.ProductCard>
+                );
+              },
             )}
           </S.MenuGrid>
         </S.MainContent>

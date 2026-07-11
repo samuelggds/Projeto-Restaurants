@@ -24,6 +24,22 @@ class ProductRepository {
     });
   }
 
+  async findByName(
+    name: string | null | undefined,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.product.findFirst({
+      where: {
+        restaurantId,
+        name: {
+          equals: String(name || "").trim(),
+          mode: "insensitive",
+        },
+      },
+    });
+  }
+
   async findAll(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.product.findMany({
       where: {

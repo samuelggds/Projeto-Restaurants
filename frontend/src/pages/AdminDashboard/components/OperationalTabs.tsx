@@ -1,5 +1,6 @@
 import {
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type Dispatch,
@@ -11,18 +12,24 @@ import {
   Clock,
   Eye,
   EyeOff,
+  ChevronDown,
+  PlusCircle,
   Image as ImageIcon,
   Loader2,
+  FolderPlus,
   Package,
   Pencil,
+  Search,
+  Sparkles,
   Trash2,
   UserPlus,
   X,
 } from "lucide-react";
-import QRCode from "react-qr-code";
+
 import { resolveCategoryIcon } from "../../../config/categoryIconMap";
 import * as S from "../styles";
-
+import ImportMenuFromImageTab from "./ImportMenuFromImageTab";
+import IfoodImportTab from "./IfoodImportTab";
 type ActiveTab =
   | "categories"
   | "products"
@@ -38,11 +45,17 @@ type Category = {
 type Product = {
   id: number;
   name: string;
+  description?: string;
+  image?: string;
   price?: number | string;
   active?: boolean;
   stock?: number | null;
+  categoryId?: number | null;
+  preparationTime?: number | null;
+  featured?: boolean;
   category?: {
     name?: string;
+    id?: number;
   };
 };
 
@@ -132,6 +145,9 @@ type OperationalTabsProps = {
   setShowPassword: Dispatch<SetStateAction<boolean>>;
   employees: Employee[];
   handleDeactivateEmployee: (employeeId: number) => MaybePromise;
+  restaurantId?: number | null;
+  onImportedCatalog?: () => void | Promise<void>;
+  onNavigateTab?: (tab: ActiveTab) => void;
 };
 
 export default function OperationalTabs({
@@ -181,10 +197,16 @@ export default function OperationalTabs({
   setShowPassword,
   employees,
   handleDeactivateEmployee,
+  restaurantId,
+  onImportedCatalog,
 }: OperationalTabsProps) {
   const [tableFilter, setTableFilter] = useState<
     "ATIVAS" | "INATIVAS" | "TODAS"
   >("ATIVAS");
+  const [isProductsDrawerOpen, setIsProductsDrawerOpen] = useState(true);
+  const [openProductPanel, setOpenProductPanel] = useState<
+    "create" | "ifood" | "ai" | "manage" | "categories"
+  >("create");
 
   const tableCounters = useMemo(() => {
     const total = tables.length;
@@ -214,6 +236,28 @@ export default function OperationalTabs({
     return tables.filter((table) => table?.active !== false);
   }, [tableFilter, tables]);
 
+  const filteredProducts = useMemo(() => {
+    const term = productSearchTerm.trim().toLowerCase();
+
+    if (!term) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      const name = String(product?.name || "").toLowerCase();
+      const categoryName = String(product?.category?.name || "").toLowerCase();
+      const description = String(product?.description || "").toLowerCase();
+      const productId = String(product?.id || "");
+
+      return (
+        name.includes(term) ||
+        categoryName.includes(term) ||
+        description.includes(term) ||
+        productId.includes(term)
+      );
+    });
+  }, [productSearchTerm, products]);
+
   return (
     <>
       {activeTab === "categories" && (
@@ -225,6 +269,7 @@ export default function OperationalTabs({
               cadastrado.
             </p>
           </S.PageHeader>
+
           <form onSubmit={handleCreateCategory}>
             <S.FormGroup>
               <label>Nome da Categoria</label>
@@ -324,631 +369,774 @@ export default function OperationalTabs({
 
       {activeTab === "products" && (
         <S.FormCard>
-          <S.PageHeader>
-            <h2>Novo Produto do Cardapio</h2>
-          </S.PageHeader>
-
-          <form onSubmit={handleCreateProduct}>
-            <S.FormRow>
-              <S.FormGroup style={{ flex: 2 }}>
-                <label>Nome do Produto *</label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Ex: Burger Duplo Bacon Cheddar"
-                  value={productForm.name}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                  required
+          <div style={{ display: "grid", gap: "0.85rem" }}>
+            <button
+              type="button"
+              onClick={() => setIsProductsDrawerOpen((current) => !current)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.85rem",
+                border: "1px solid rgba(234, 29, 44, 0.24)",
+                background: isProductsDrawerOpen
+                  ? "linear-gradient(135deg, #ea1d2c 0%, #b8141f 100%)"
+                  : "rgba(234, 29, 44, 0.08)",
+                color: isProductsDrawerOpen ? "#ffffff" : "#9f1239",
+                borderRadius: 18,
+                padding: "0.95rem 1rem",
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: isProductsDrawerOpen
+                  ? "0 16px 28px rgba(184, 20, 31, 0.18)"
+                  : "none",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <FolderPlus size={16} />
+                Aba lateral de produtos
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  opacity: 0.96,
+                }}
+              >
+                {isProductsDrawerOpen ? "Fechar" : "Abrir"}
+                <ChevronDown
+                  size={16}
+                  style={{
+                    transform: isProductsDrawerOpen
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
                 />
-              </S.FormGroup>
-              <S.FormGroup style={{ flex: 1 }}>
-                <label>Categoria *</label>
-                <select
-                  name="categoryId"
-                  value={productForm.categoryId}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                  required
-                >
-                  <option value="">Selecione a categoria...</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </S.FormGroup>
-            </S.FormRow>
-
-            <S.FormRow style={{ marginTop: "1rem" }}>
-              <S.FormGroup>
-                <label>Preco *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="price"
-                  placeholder="0,00"
-                  value={productForm.price}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                  required
-                />
-              </S.FormGroup>
-              <S.FormGroup>
-                <label>
-                  <Clock size={14} /> Preparo (Min)
-                </label>
-                <input
-                  type="number"
-                  name="preparationTime"
-                  placeholder="Ex: 15"
-                  value={productForm.preparationTime}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-              </S.FormGroup>
-              <S.FormGroup>
-                <label>
-                  <Package size={14} /> Estoque
-                </label>
-                <input
-                  type="number"
-                  name="stock"
-                  placeholder="Ex: 50"
-                  value={productForm.stock}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-              </S.FormGroup>
-            </S.FormRow>
+              </span>
+            </button>
 
             <div
               style={{
-                marginTop: "0.5rem",
-                color: "#475569",
-                fontSize: "0.82rem",
-                lineHeight: 1.4,
+                display: isProductsDrawerOpen ? "grid" : "none",
+                gap: "0.85rem",
               }}
             >
-              Regra automatica: estoque maior que 0 deixa o produto disponivel;
-              estoque 0 deixa indisponivel.
-            </div>
-
-            <S.FormGroup style={{ marginTop: "1rem" }}>
-              <label>
-                <ImageIcon size={14} /> URL da Imagem
-              </label>
-              <input
-                type="url"
-                name="image"
-                placeholder="https://exemplo.com/imagem.jpg"
-                value={productForm.image}
-                disabled={deletingProductId !== null}
-                onChange={handleProductInputChange}
-              />
-            </S.FormGroup>
-
-            <S.FormGroup style={{ marginTop: "1rem" }}>
-              <label>Descricao</label>
-              <input
-                type="text"
-                name="description"
-                placeholder="Descricao do produto"
-                value={productForm.description}
-                disabled={deletingProductId !== null}
-                onChange={handleProductInputChange}
-              />
-            </S.FormGroup>
-
-            <S.CheckboxContainerRow
-              style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}
-            >
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="featured"
-                  checked={productForm.featured}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-                <span>🌟 Destacar Produto</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="active"
-                  checked={productForm.active}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-                <span>🟢 Produto Disponivel no Cardapio</span>
-              </label>
-            </S.CheckboxContainerRow>
-
-            <S.FormRow>
-              <S.SubmitBtn
-                type="submit"
-                style={{ flex: 1 }}
-                disabled={deletingProductId !== null}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                  padding: "0.2rem 0 0.1rem",
+                }}
               >
-                Publicar Produto
-              </S.SubmitBtn>
-            </S.FormRow>
-          </form>
-        </S.FormCard>
-      )}
+                {[
+                  { key: "create", label: "Criar Produto", icon: PlusCircle },
+                  { key: "ifood", label: "Importar iFood", icon: ImageIcon },
+                  { key: "ai", label: "Importar IA", icon: Sparkles },
+                  { key: "manage", label: "Gerenciar Produtos", icon: Package },
+                  { key: "categories", label: "Categorias", icon: FolderPlus },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = openProductPanel === item.key;
 
-      {activeTab === "products-manage" && (
-        <S.FormCard>
-          <S.PageHeader>
-            <h2>Gerenciar Produtos</h2>
-            <p>Edite ou exclua produtos ja cadastrados.</p>
-          </S.PageHeader>
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() =>
+                        setOpenProductPanel(item.key as typeof openProductPanel)
+                      }
+                      style={{
+                        border: "1px solid rgba(234, 29, 44, 0.24)",
+                        background: isActive
+                          ? "linear-gradient(135deg, #ea1d2c 0%, #b8141f 100%)"
+                          : "rgba(234, 29, 44, 0.08)",
+                        color: isActive ? "#ffffff" : "#9f1239",
+                        borderRadius: 999,
+                        padding: "0.55rem 0.9rem",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <Icon size={14} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <form onSubmit={handleSubmitProduct}>
-            <S.FormRow>
-              <S.FormGroup style={{ flex: 2 }}>
-                <label>Nome do Produto *</label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Selecione um produto para editar"
-                  value={productForm.name}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                  required
-                />
-              </S.FormGroup>
-              <S.FormGroup style={{ flex: 1 }}>
-                <label>Categoria *</label>
-                <select
-                  name="categoryId"
-                  value={productForm.categoryId}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                  required
+              {openProductPanel === "create" && (
+                <div
+                  style={{
+                    border: "1px solid rgba(234, 29, 44, 0.15)",
+                    borderRadius: 16,
+                    padding: "1rem",
+                    background: "rgba(255,255,255,0.9)",
+                    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+                  }}
                 >
-                  <option value="">Selecione a categoria...</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </S.FormGroup>
-            </S.FormRow>
+                  <S.PageHeader style={{ marginBottom: "1rem" }}>
+                    <h2>Novo Produto do Cardapio</h2>
+                    <p>Use esta aba para cadastrar um item manualmente.</p>
+                  </S.PageHeader>
 
-            <S.FormRow style={{ marginTop: "1rem" }}>
-              <S.FormGroup>
-                <label>Preco *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="price"
-                  placeholder="0,00"
-                  value={productForm.price}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                  required
-                />
-              </S.FormGroup>
-              <S.FormGroup>
-                <label>
-                  <Clock size={14} /> Preparo (Min)
-                </label>
-                <input
-                  type="number"
-                  name="preparationTime"
-                  placeholder="Ex: 15"
-                  value={productForm.preparationTime}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-              </S.FormGroup>
-              <S.FormGroup>
-                <label>
-                  <Package size={14} /> Estoque
-                </label>
-                <input
-                  type="number"
-                  name="stock"
-                  placeholder="Ex: 50"
-                  value={productForm.stock}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-              </S.FormGroup>
-            </S.FormRow>
-
-            <div
-              style={{
-                marginTop: "0.5rem",
-                color: "#475569",
-                fontSize: "0.82rem",
-                lineHeight: 1.4,
-              }}
-            >
-              Regra automatica: estoque maior que 0 deixa o produto disponivel;
-              estoque 0 deixa indisponivel.
-            </div>
-
-            <S.FormGroup style={{ marginTop: "1rem" }}>
-              <label>
-                <ImageIcon size={14} /> URL da Imagem
-              </label>
-              <input
-                type="url"
-                name="image"
-                placeholder="https://exemplo.com/imagem.jpg"
-                value={productForm.image}
-                disabled={deletingProductId !== null}
-                onChange={handleProductInputChange}
-              />
-            </S.FormGroup>
-
-            <S.FormGroup style={{ marginTop: "1rem" }}>
-              <label>Descricao</label>
-              <input
-                type="text"
-                name="description"
-                placeholder="Descricao do produto"
-                value={productForm.description}
-                disabled={deletingProductId !== null}
-                onChange={handleProductInputChange}
-              />
-            </S.FormGroup>
-
-            <S.CheckboxContainerRow
-              style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}
-            >
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="featured"
-                  checked={productForm.featured}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-                <span>🌟 Destacar Produto</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="active"
-                  checked={productForm.active}
-                  disabled={deletingProductId !== null}
-                  onChange={handleProductInputChange}
-                />
-                <span>🟢 Produto Disponivel no Cardapio</span>
-              </label>
-            </S.CheckboxContainerRow>
-
-            <S.FormRow>
-              <S.SubmitBtn
-                type="submit"
-                style={{ flex: 1 }}
-                disabled={deletingProductId !== null || !editingProductId}
-              >
-                Salvar Alteracoes
-              </S.SubmitBtn>
-              <S.CancelBtn
-                type="button"
-                style={{ flex: 1 }}
-                disabled={deletingProductId !== null}
-                onClick={handleCancelEditProduct}
-              >
-                Limpar Edicao
-              </S.CancelBtn>
-            </S.FormRow>
-          </form>
-
-          <S.FormGroup style={{ marginTop: "1.5rem" }}>
-            <label>Buscar Produto</label>
-            <input
-              type="text"
-              placeholder="Digite nome ou categoria"
-              value={productSearchTerm}
-              onChange={(event) => setProductSearchTerm(event.target.value)}
-            />
-          </S.FormGroup>
-
-          <div style={{ marginTop: "1.5rem", display: "grid", gap: "0.5rem" }}>
-            {products.filter((product) => {
-              const term = String(productSearchTerm || "")
-                .trim()
-                .toLowerCase();
-
-              if (!term) {
-                return true;
-              }
-
-              const productName = String(product?.name || "").toLowerCase();
-              const categoryName = String(
-                product?.category?.name || "",
-              ).toLowerCase();
-
-              return productName.includes(term) || categoryName.includes(term);
-            }).length === 0 ? (
-              <div style={{ opacity: 0.7 }}>Nenhum produto cadastrado.</div>
-            ) : (
-              products
-                .filter((product) => {
-                  const term = String(productSearchTerm || "")
-                    .trim()
-                    .toLowerCase();
-
-                  if (!term) {
-                    return true;
-                  }
-
-                  const productName = String(product?.name || "").toLowerCase();
-                  const categoryName = String(
-                    product?.category?.name || "",
-                  ).toLowerCase();
-
-                  return (
-                    productName.includes(term) || categoryName.includes(term)
-                  );
-                })
-                .map((product) => {
-                  const isDeleting =
-                    Number(deletingProductId) === Number(product.id);
-                  const isDeletingAnyProduct = deletingProductId !== null;
-                  const normalizedStock =
-                    product?.stock === null || product?.stock === undefined
-                      ? null
-                      : Number(product.stock);
-                  const isStockDepleted =
-                    Number.isInteger(normalizedStock) && normalizedStock <= 0;
-                  const isUnavailable =
-                    product?.active === false || isStockDepleted;
-
-                  return (
-                    <S.ProductListItem key={product.id}>
-                      <S.ProductMeta>
-                        <strong>{product.name}</strong>
-                        <small>
-                          {(product?.category?.name || "Sem categoria") +
-                            " • R$ " +
-                            Number(product?.price || 0).toFixed(2)}
-                        </small>
-                        <small
-                          style={{
-                            color: isUnavailable ? "#b91c1c" : "#166534",
-                            fontWeight: 700,
-                          }}
+                  <form onSubmit={handleCreateProduct}>
+                    <S.FormRow>
+                      <S.FormGroup style={{ flex: 2 }}>
+                        <label>Nome do Produto *</label>
+                        <input
+                          type="text"
+                          name="name"
+                          placeholder="Ex: Burger Duplo Bacon Cheddar"
+                          value={productForm.name}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                          required
+                        />
+                      </S.FormGroup>
+                      <S.FormGroup style={{ flex: 1 }}>
+                        <label>Categoria *</label>
+                        <select
+                          name="categoryId"
+                          value={productForm.categoryId}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                          required
                         >
-                          {isUnavailable ? "Indisponivel" : "Disponivel"}
-                          {Number.isInteger(normalizedStock)
-                            ? ` • Estoque: ${normalizedStock}`
-                            : " • Estoque ilimitado"}
-                        </small>
-                      </S.ProductMeta>
+                          <option value="">Selecione a categoria...</option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </S.FormGroup>
+                    </S.FormRow>
 
-                      <S.ProductActions>
-                        <S.CategoryActionButton
-                          type="button"
-                          disabled={isDeletingAnyProduct}
-                          onClick={() => handleStartEditProduct(product)}
-                          title="Editar produto"
+                    <S.FormRow style={{ marginTop: "1rem" }}>
+                      <S.FormGroup>
+                        <label>Preco *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="price"
+                          placeholder="0,00"
+                          value={productForm.price}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                          required
+                        />
+                      </S.FormGroup>
+                      <S.FormGroup>
+                        <label>
+                          <Clock size={14} /> Preparo (Min)
+                        </label>
+                        <input
+                          type="number"
+                          name="preparationTime"
+                          placeholder="Ex: 15"
+                          value={productForm.preparationTime}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                      </S.FormGroup>
+                      <S.FormGroup>
+                        <label>
+                          <Package size={14} /> Estoque
+                        </label>
+                        <input
+                          type="number"
+                          name="stock"
+                          placeholder="Ex: 50"
+                          value={productForm.stock}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                      </S.FormGroup>
+                    </S.FormRow>
+
+                    <div
+                      style={{
+                        marginTop: "0.5rem",
+                        color: "#475569",
+                        fontSize: "0.82rem",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      Regra automatica: estoque maior que 0 deixa o produto
+                      disponivel; estoque 0 deixa indisponivel.
+                    </div>
+
+                    <S.FormGroup style={{ marginTop: "1rem" }}>
+                      <label>
+                        <ImageIcon size={14} /> URL da Imagem
+                      </label>
+                      <input
+                        type="url"
+                        name="image"
+                        placeholder="https://exemplo.com/imagem.jpg"
+                        value={productForm.image}
+                        disabled={deletingProductId !== null}
+                        onChange={handleProductInputChange}
+                      />
+                    </S.FormGroup>
+
+                    <S.FormGroup style={{ marginTop: "1rem" }}>
+                      <label>Descricao</label>
+                      <input
+                        type="text"
+                        name="description"
+                        placeholder="Descricao do produto"
+                        value={productForm.description}
+                        disabled={deletingProductId !== null}
+                        onChange={handleProductInputChange}
+                      />
+                    </S.FormGroup>
+
+                    <S.CheckboxContainerRow
+                      style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}
+                    >
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="featured"
+                          checked={productForm.featured}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                        <span>🌟 Destacar Produto</span>
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="active"
+                          checked={productForm.active}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                        <span>🟢 Produto Disponivel no Cardapio</span>
+                      </label>
+                    </S.CheckboxContainerRow>
+
+                    <S.FormRow>
+                      <S.SubmitBtn
+                        type="submit"
+                        style={{ flex: 1 }}
+                        disabled={deletingProductId !== null}
+                      >
+                        Publicar Produto
+                      </S.SubmitBtn>
+                    </S.FormRow>
+                  </form>
+                </div>
+              )}
+
+              {openProductPanel === "ifood" && (
+                <div
+                  style={{
+                    border: "1px solid rgba(234, 29, 44, 0.15)",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    background: "#fff",
+                    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  <IfoodImportTab
+                    restaurantId={restaurantId}
+                    onImported={onImportedCatalog}
+                  />
+                </div>
+              )}
+
+              {openProductPanel === "ai" && (
+                <div
+                  style={{
+                    border: "1px solid rgba(59, 130, 246, 0.15)",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    background: "#fff",
+                    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  <ImportMenuFromImageTab
+                    restaurantId={restaurantId}
+                    onImported={onImportedCatalog}
+                  />
+                </div>
+              )}
+
+              {openProductPanel === "manage" && (
+                <div
+                  style={{
+                    border: "1px solid rgba(100, 116, 139, 0.16)",
+                    borderRadius: 16,
+                    padding: "1rem",
+                    background: "rgba(248, 250, 252, 0.96)",
+                  }}
+                >
+                  <S.PageHeader style={{ marginBottom: "1rem" }}>
+                    <h2>Gerenciar Produtos</h2>
+                    <p>Edite, pesquise ou exclua produtos cadastrados.</p>
+                  </S.PageHeader>
+
+                  <form onSubmit={handleSubmitProduct}>
+                    <S.FormRow>
+                      <S.FormGroup style={{ flex: 2 }}>
+                        <label>Nome do Produto *</label>
+                        <input
+                          type="text"
+                          name="name"
+                          placeholder="Selecione um produto para editar"
+                          value={productForm.name}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                          required
+                        />
+                      </S.FormGroup>
+                      <S.FormGroup style={{ flex: 1 }}>
+                        <label>Categoria *</label>
+                        <select
+                          name="categoryId"
+                          value={productForm.categoryId}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                          required
                         >
-                          <Pencil size={15} />
-                        </S.CategoryActionButton>
+                          <option value="">Selecione a categoria...</option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </S.FormGroup>
+                    </S.FormRow>
 
-                        <S.CategoryActionButton
-                          type="button"
-                          disabled={isDeletingAnyProduct}
-                          onClick={() => handleDeleteProduct(product.id)}
-                          title="Excluir produto"
-                        >
-                          {isDeleting ? (
-                            <Loader2 size={15} className="loading-icon" />
-                          ) : (
-                            <Trash2 size={15} />
-                          )}
-                        </S.CategoryActionButton>
-                      </S.ProductActions>
-                    </S.ProductListItem>
-                  );
-                })
-            )}
-          </div>
-        </S.FormCard>
-      )}
+                    <S.FormRow style={{ marginTop: "1rem" }}>
+                      <S.FormGroup>
+                        <label>Preco *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="price"
+                          placeholder="0,00"
+                          value={productForm.price}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                          required
+                        />
+                      </S.FormGroup>
+                      <S.FormGroup>
+                        <label>
+                          <Clock size={14} /> Preparo (Min)
+                        </label>
+                        <input
+                          type="number"
+                          name="preparationTime"
+                          placeholder="Ex: 15"
+                          value={productForm.preparationTime}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                      </S.FormGroup>
+                      <S.FormGroup>
+                        <label>
+                          <Package size={14} /> Estoque
+                        </label>
+                        <input
+                          type="number"
+                          name="stock"
+                          placeholder="Ex: 50"
+                          value={productForm.stock}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                      </S.FormGroup>
+                    </S.FormRow>
 
-      {activeTab === "tables" && (
-        <S.FormCard>
-          <S.PageHeader>
-            <h2>Nova Mesa</h2>
-          </S.PageHeader>
+                    <S.FormGroup style={{ marginTop: "1rem" }}>
+                      <label>
+                        <ImageIcon size={14} /> URL da Imagem
+                      </label>
+                      <input
+                        type="url"
+                        name="image"
+                        placeholder="https://exemplo.com/imagem.jpg"
+                        value={productForm.image}
+                        disabled={deletingProductId !== null}
+                        onChange={handleProductInputChange}
+                      />
+                    </S.FormGroup>
 
-          <form onSubmit={handleCreateTable}>
-            <S.FormRow>
-              <S.FormGroup style={{ flex: 1 }}>
-                <label>Numero da Mesa *</label>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Ex: 1"
-                  value={tableNumber}
-                  onChange={(event) => setTableNumber(event.target.value)}
-                  required
-                />
-              </S.FormGroup>
-            </S.FormRow>
+                    <S.FormGroup style={{ marginTop: "1rem" }}>
+                      <label>Descricao</label>
+                      <input
+                        type="text"
+                        name="description"
+                        placeholder="Descricao do produto"
+                        value={productForm.description}
+                        disabled={deletingProductId !== null}
+                        onChange={handleProductInputChange}
+                      />
+                    </S.FormGroup>
 
-            <S.SubmitBtn type="submit" style={{ marginTop: "1.5rem" }}>
-              Cadastrar Mesa
-            </S.SubmitBtn>
-          </form>
+                    <S.CheckboxContainerRow
+                      style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}
+                    >
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="featured"
+                          checked={productForm.featured}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                        <span>🌟 Destacar Produto</span>
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="active"
+                          checked={productForm.active}
+                          disabled={deletingProductId !== null}
+                          onChange={handleProductInputChange}
+                        />
+                        <span>🟢 Produto Disponivel no Cardapio</span>
+                      </label>
+                    </S.CheckboxContainerRow>
 
-          <div style={{ marginTop: "1.5rem" }}>
-            {tables.length === 0 ? (
-              <div style={{ opacity: 0.7 }}>Nenhuma mesa cadastrada.</div>
-            ) : (
-              <>
-                <S.OrdersFilterBar style={{ marginBottom: "0.85rem" }}>
-                  <S.OrderTypeFilterButton
-                    type="button"
-                    $active={tableFilter === "ATIVAS"}
-                    onClick={() => setTableFilter("ATIVAS")}
+                    <S.FormRow>
+                      <S.SubmitBtn
+                        type="submit"
+                        style={{ flex: 1 }}
+                        disabled={deletingProductId !== null}
+                      >
+                        Publicar Produto
+                      </S.SubmitBtn>
+                    </S.FormRow>
+                  </form>
+
+                  <div
+                    style={{
+                      marginTop: "1.35rem",
+                      display: "grid",
+                      gap: "0.85rem",
+                    }}
                   >
-                    Ativas ({tableCounters.activeCount})
-                  </S.OrderTypeFilterButton>
-                  <S.OrderTypeFilterButton
-                    type="button"
-                    $active={tableFilter === "INATIVAS"}
-                    onClick={() => setTableFilter("INATIVAS")}
-                  >
-                    Inativas ({tableCounters.inactiveCount})
-                  </S.OrderTypeFilterButton>
-                  <S.OrderTypeFilterButton
-                    type="button"
-                    $active={tableFilter === "TODAS"}
-                    onClick={() => setTableFilter("TODAS")}
-                  >
-                    Todas ({tableCounters.total})
-                  </S.OrderTypeFilterButton>
-                </S.OrdersFilterBar>
+                    <S.FormGroup>
+                      <label>
+                        <Search size={14} /> Buscar produto
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Nome, descrição, categoria ou ID"
+                        value={productSearchTerm}
+                        onChange={(event) =>
+                          setProductSearchTerm(event.target.value)
+                        }
+                      />
+                    </S.FormGroup>
 
-                {filteredTables.length === 0 ? (
-                  <div style={{ opacity: 0.7 }}>
-                    Nenhuma mesa encontrada para este filtro.
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "0.75rem",
+                        flexWrap: "wrap",
+                        color: "#475569",
+                        fontSize: "0.88rem",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>
+                        {filteredProducts.length} produto(s) encontrado(s)
+                      </span>
+                      <span>
+                        Use editar para carregar o produto no formulário acima.
+                      </span>
+                    </div>
+
+                    {filteredProducts.length === 0 ? (
+                      <div
+                        style={{
+                          border: "1px dashed rgba(148, 163, 184, 0.5)",
+                          borderRadius: 14,
+                          padding: "1rem",
+                          background: "rgba(255,255,255,0.8)",
+                          color: "#64748b",
+                          fontSize: "0.92rem",
+                        }}
+                      >
+                        Nenhum produto encontrado com esse filtro.
+                      </div>
+                    ) : (
+                      <div style={{ display: "grid", gap: "0.65rem" }}>
+                        {filteredProducts.map((product) => {
+                          const isDeleting =
+                            Number(deletingProductId) === Number(product.id);
+                          const isEditing =
+                            Number(editingProductId) === Number(product.id);
+                          const rawStock = product?.stock;
+                          const parsedStock =
+                            rawStock === null || rawStock === undefined
+                              ? null
+                              : Number(rawStock);
+                          const isOutOfStock =
+                            Number.isFinite(parsedStock) && parsedStock <= 0;
+                          const isUnavailable =
+                            isOutOfStock || product.active === false;
+
+                          return (
+                            <S.ProductListItem key={product.id}>
+                              <S.ProductMeta>
+                                <strong
+                                  style={{
+                                    color: isOutOfStock ? "#dc2626" : undefined,
+                                  }}
+                                >
+                                  {product.name}
+                                  {isEditing ? (
+                                    <span
+                                      style={{
+                                        marginLeft: 8,
+                                        padding: "0.18rem 0.45rem",
+                                        borderRadius: 999,
+                                        background: "rgba(234, 29, 44, 0.12)",
+                                        color: "#b8141f",
+                                        fontSize: "0.72rem",
+                                        fontWeight: 800,
+                                      }}
+                                    >
+                                      Editando
+                                    </span>
+                                  ) : null}
+                                  {isOutOfStock ? (
+                                    <span
+                                      style={{
+                                        marginLeft: 8,
+                                        padding: "0.18rem 0.45rem",
+                                        borderRadius: 999,
+                                        background: "rgba(220, 38, 38, 0.12)",
+                                        color: "#b91c1c",
+                                        fontSize: "0.72rem",
+                                        fontWeight: 800,
+                                      }}
+                                    >
+                                      Estoque 0
+                                    </span>
+                                  ) : null}
+                                </strong>
+                                <small>
+                                  {product.category?.name || "Sem categoria"}
+                                  {product.price !== undefined &&
+                                  product.price !== null
+                                    ? ` • R$ ${Number(product.price).toFixed(2)}`
+                                    : ""}
+                                  {product.stock !== undefined &&
+                                  product.stock !== null ? (
+                                    <span
+                                      style={{
+                                        color: isOutOfStock
+                                          ? "#dc2626"
+                                          : undefined,
+                                      }}
+                                    >
+                                      {` • Estoque: ${product.stock}`}
+                                      {isUnavailable
+                                        ? " • Indisponível"
+                                        : " • Disponível"}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      style={{
+                                        color: isOutOfStock
+                                          ? "#dc2626"
+                                          : undefined,
+                                      }}
+                                    >
+                                      {isUnavailable
+                                        ? " • Indisponível"
+                                        : " • Disponível"}
+                                    </span>
+                                  )}
+                                </small>
+                              </S.ProductMeta>
+
+                              <S.ProductActions>
+                                <S.CategoryActionButton
+                                  type="button"
+                                  onClick={() =>
+                                    handleStartEditProduct(product)
+                                  }
+                                  title="Editar produto"
+                                  disabled={isDeleting}
+                                >
+                                  <Pencil size={15} />
+                                </S.CategoryActionButton>
+                                <S.CategoryActionButton
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteProduct(product.id)
+                                  }
+                                  title="Excluir produto"
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting ? (
+                                    <Loader2
+                                      size={15}
+                                      className="loading-icon"
+                                    />
+                                  ) : (
+                                    <Trash2 size={15} />
+                                  )}
+                                </S.CategoryActionButton>
+                              </S.ProductActions>
+                            </S.ProductListItem>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <S.TableQrGrid>
-                    {filteredTables.map((table) => {
-                      const qrValue = getTableQrValue(table);
-                      const isRemovingQr = deactivatingTableIds.includes(
-                        table.id,
-                      );
-                      const isActivatingQr = activatingTableIds.includes(
-                        table.id,
-                      );
-                      const isInactive = table?.active === false;
+                </div>
+              )}
+
+              {openProductPanel === "categories" && (
+                <div
+                  style={{
+                    border: "1px solid rgba(100, 116, 139, 0.16)",
+                    borderRadius: 16,
+                    padding: "1rem",
+                    background: "rgba(248, 250, 252, 0.96)",
+                  }}
+                >
+                  <S.PageHeader style={{ marginBottom: "1rem" }}>
+                    <h2>Categorias</h2>
+                    <p>Use esta aba para criar, editar e excluir categorias.</p>
+                  </S.PageHeader>
+
+                  <form onSubmit={handleCreateCategory}>
+                    <S.FormGroup>
+                      <label>Nome da Categoria</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Hamburgueres Artesanais, Bebidas, Pizzas..."
+                        value={categoryName}
+                        disabled={deletingCategoryId !== null}
+                        onChange={(event) =>
+                          setCategoryName(event.target.value)
+                        }
+                        required
+                      />
+                    </S.FormGroup>
+                    <S.SubmitBtn
+                      type="submit"
+                      style={{ marginTop: "1.5rem" }}
+                      disabled={deletingCategoryId !== null}
+                    >
+                      Salvar Categoria
+                    </S.SubmitBtn>
+                  </form>
+
+                  <div
+                    style={{
+                      marginTop: "1.5rem",
+                      display: "grid",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    {categories.map((category) => {
+                      const Icon = resolveCategoryIcon(category?.name);
+                      const isDeletingAnyCategory = deletingCategoryId !== null;
+                      const isEditing =
+                        Number(editingCategoryId) === Number(category.id);
+                      const isDeleting =
+                        Number(deletingCategoryId) === Number(category.id);
 
                       return (
-                        <S.TableQrCard
-                          key={table.id}
-                          ref={(node) => {
-                            if (node) {
-                              qrCardRefs.current[table.id] = node;
-                            }
-                          }}
-                        >
-                          <S.TableQrCodeBox>
-                            <QRCode
-                              value={qrValue}
-                              size={160}
-                              bgColor="#ffffff"
-                              fgColor="#111827"
-                              level="M"
-                            />
-                          </S.TableQrCodeBox>
-                          <S.TableQrMeta>
-                            <S.SlugBadge>
-                              Mesa {table.number}
-                              {isInactive ? " • Inativa" : ""}
-                            </S.SlugBadge>
-                            <small>
-                              {isInactive
-                                ? "QR removido e mesa desativada"
-                                : "Abre o cardapio da mesa"}
-                            </small>
-                            <S.TableQrActions>
-                              <S.TableQrActionButton
-                                type="button"
-                                onClick={() => handlePreviewTableQr(table)}
-                                disabled={isInactive}
-                              >
-                                Ver
-                              </S.TableQrActionButton>
-                              <S.TableQrActionButton
-                                type="button"
-                                onClick={() => handleCopyTableQrLink(table)}
-                                disabled={isInactive}
-                              >
-                                Copiar
-                              </S.TableQrActionButton>
-                              <S.TableQrActionButton
-                                type="button"
-                                onClick={() => handleDownloadTableQr(table)}
-                                disabled={isInactive}
-                              >
-                                Baixar
-                              </S.TableQrActionButton>
-                              <S.TableQrActionButton
-                                type="button"
-                                onClick={() => handlePrintTableQr(table)}
-                                disabled={isInactive}
-                              >
-                                Imprimir
-                              </S.TableQrActionButton>
-                              <S.TableQrActionButton
-                                type="button"
-                                onClick={() => handleDeactivateTable(table)}
-                                disabled={
-                                  isRemovingQr || isActivatingQr || isInactive
+                        <S.CategoryListItem key={category.id}>
+                          {isEditing ? (
+                            <S.CategoryInlineEditor>
+                              <input
+                                type="text"
+                                disabled={isDeletingAnyCategory}
+                                value={editingCategoryName}
+                                onChange={(event) =>
+                                  setEditingCategoryName(event.target.value)
                                 }
-                                title="Remove o QR e desativa a mesa"
-                                style={{
-                                  borderColor: "rgba(239, 68, 68, 0.4)",
-                                  color: "#b91c1c",
-                                }}
+                                placeholder="Nome da categoria"
+                              />
+                              <S.CategoryActionButton
+                                type="button"
+                                disabled={isDeletingAnyCategory}
+                                onClick={() =>
+                                  handleSaveEditCategory(category.id)
+                                }
+                                title="Salvar"
                               >
-                                {isRemovingQr ? (
-                                  <>
+                                <Check size={15} />
+                              </S.CategoryActionButton>
+                              <S.CategoryActionButton
+                                type="button"
+                                disabled={isDeletingAnyCategory}
+                                onClick={handleCancelEditCategory}
+                                title="Cancelar"
+                              >
+                                <X size={15} />
+                              </S.CategoryActionButton>
+                            </S.CategoryInlineEditor>
+                          ) : (
+                            <>
+                              <S.SlugBadge>
+                                <Icon size={15} />
+                                {category.name}
+                              </S.SlugBadge>
+                              <S.CategoryActions>
+                                <S.CategoryActionButton
+                                  type="button"
+                                  disabled={isDeletingAnyCategory}
+                                  onClick={() =>
+                                    handleStartEditCategory(category)
+                                  }
+                                  title="Editar categoria"
+                                >
+                                  <Pencil size={15} />
+                                </S.CategoryActionButton>
+                                <S.CategoryActionButton
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteCategory(category.id)
+                                  }
+                                  title="Excluir categoria"
+                                  disabled={isDeletingAnyCategory}
+                                >
+                                  {isDeleting ? (
                                     <Loader2
-                                      size={14}
+                                      size={15}
                                       className="loading-icon"
                                     />
-                                    Removendo...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 size={14} />
-                                    Remover QR
-                                  </>
-                                )}
-                              </S.TableQrActionButton>
-
-                              <S.TableQrActionButton
-                                type="button"
-                                onClick={() => handleActivateTable(table)}
-                                disabled={
-                                  isActivatingQr || isRemovingQr || !isInactive
-                                }
-                                title="Ativa novamente o QR da mesa"
-                                style={{
-                                  borderColor: "rgba(22, 163, 74, 0.4)",
-                                  color: "#166534",
-                                }}
-                              >
-                                {isActivatingQr ? (
-                                  <>
-                                    <Loader2
-                                      size={14}
-                                      className="loading-icon"
-                                    />
-                                    Ativando...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check size={14} />
-                                    Ativar QR
-                                  </>
-                                )}
-                              </S.TableQrActionButton>
-                            </S.TableQrActions>
-                          </S.TableQrMeta>
-                        </S.TableQrCard>
+                                  ) : (
+                                    <Trash2 size={15} />
+                                  )}
+                                </S.CategoryActionButton>
+                              </S.CategoryActions>
+                            </>
+                          )}
+                        </S.CategoryListItem>
                       );
                     })}
-                  </S.TableQrGrid>
-                )}
-              </>
-            )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </S.FormCard>
       )}
