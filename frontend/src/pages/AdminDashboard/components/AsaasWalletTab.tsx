@@ -112,7 +112,7 @@ export default function AsaasWalletTab({
 
           <div style={{ display: "grid", gap: "0.05rem" }}>
             <strong style={{ fontSize: "0.78rem", letterSpacing: "0.02em" }}>
-              Carteira digital
+              Carteira Digital Asaas
             </strong>
             <small style={{ opacity: 0.86, fontSize: "0.74rem" }}>
               Saldo: {formatCurrency(currentBalance)}

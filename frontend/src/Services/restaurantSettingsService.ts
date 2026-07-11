@@ -31,6 +31,11 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async startMercadoPagoOAuth() {
+    const response = await api.post("/settings/mercado-pago/oauth/start");
+    return response.data;
+  }
+
   async getPublicSettings(restaurantId) {
     const response = await api.get(`/settings/public/${restaurantId}`);
     return response.data;
