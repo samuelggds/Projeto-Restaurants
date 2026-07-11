@@ -50,8 +50,9 @@ type SettingsForm = {
 type PixAndDeliverySettingsTabProps = {
   settingsForm: SettingsForm;
   isSavingSettings: boolean;
-  onSubmitPixSettings: (event: React.FormEvent<HTMLFormElement>) => void;
+  isConnectingMercadoPago: boolean;
   onSubmitCardBankSettings: (event: React.FormEvent<HTMLFormElement>) => void;
+  onConnectMercadoPago: () => Promise<void>;
   onFieldChange: (
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
@@ -190,8 +191,9 @@ function renderChecklist(title: string, items: ChecklistItem[]) {
 export default function PixAndDeliverySettingsTab({
   settingsForm,
   isSavingSettings,
-  onSubmitPixSettings,
+  isConnectingMercadoPago,
   onSubmitCardBankSettings,
+  onConnectMercadoPago,
   onFieldChange,
 }: PixAndDeliverySettingsTabProps) {
   const kybSteps: Array<{ key: StepKey; label: string }> = [
@@ -477,52 +479,83 @@ export default function PixAndDeliverySettingsTab({
     <>
       <S.FormCard>
         <S.PageHeader>
-          <h2>Taxa de Entrega e Pedido Minimo</h2>
-          <p>Configure somente os valores operacionais de entrega.</p>
+          <h2>Conexao com Mercado Pago</h2>
+          <p>
+            Autorize sua conta para o sistema gerar cobrancas PIX e Cartao em
+            seu nome.
+          </p>
         </S.PageHeader>
 
-        <form onSubmit={onSubmitPixSettings}>
-          <S.FormRow>
-            <S.FormGroup>
-              <label>Taxa de Entrega (R$)</label>
-              <input
-                type="number"
-                name="deliveryFee"
-                step="0.01"
-                min="0"
-                placeholder="Ex: 8.50"
-                value={settingsForm.deliveryFee}
-                onChange={onFieldChange}
-              />
-            </S.FormGroup>
+        <div
+          style={{
+            border: "1px solid rgba(148, 163, 184, 0.3)",
+            borderRadius: 12,
+            padding: "0.95rem",
+            background: "rgba(248, 250, 252, 0.7)",
+            display: "grid",
+            gap: "0.7rem",
+          }}
+        >
+          <small style={{ opacity: 0.85 }}>
+            1) Clique no botao para abrir a autorizacao oficial do Mercado Pago.
+          </small>
+          <small style={{ opacity: 0.85 }}>
+            2) Faca login e clique em "Autorizar".
+          </small>
+          <small style={{ opacity: 0.85 }}>
+            3) Voce sera redirecionado de volta e a conexao ficara salva
+            automaticamente.
+          </small>
 
-            <S.FormGroup>
-              <label>Pedido Minimo (R$)</label>
-              <input
-                type="number"
-                name="minimumOrder"
-                step="0.01"
-                min="0"
-                placeholder="Ex: 20.00"
-                value={settingsForm.minimumOrder}
-                onChange={onFieldChange}
-              />
-            </S.FormGroup>
-          </S.FormRow>
-
-          <S.SubmitBtn
-            type="submit"
-            style={{ marginTop: "1.25rem" }}
-            disabled={isSavingSettings}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              flexWrap: "wrap",
+            }}
           >
-            {isSavingSettings ? "Salvando..." : "Salvar valores"}
-          </S.SubmitBtn>
-        </form>
+            <button
+              type="button"
+              onClick={onConnectMercadoPago}
+              disabled={isConnectingMercadoPago}
+              style={{
+                minHeight: 42,
+                borderRadius: 10,
+                border: "1px solid rgba(30, 64, 175, 0.42)",
+                background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                color: "#ffffff",
+                fontWeight: 800,
+                padding: "0 1rem",
+                cursor: isConnectingMercadoPago ? "not-allowed" : "pointer",
+                opacity: isConnectingMercadoPago ? 0.75 : 1,
+              }}
+            >
+              {isConnectingMercadoPago
+                ? "Abrindo autorizacao..."
+                : "Conectar com o Mercado Pago"}
+            </button>
+
+            <small
+              style={{
+                fontWeight: 700,
+                color: settingsForm.mercadoPagoAccessTokenConfigured
+                  ? "#166534"
+                  : "#9a3412",
+              }}
+            >
+              Status:{" "}
+              {settingsForm.mercadoPagoAccessTokenConfigured
+                ? "Conectado"
+                : "Nao conectado"}
+            </small>
+          </div>
+        </div>
       </S.FormCard>
 
       <S.FormCard style={{ marginTop: "1rem" }}>
         <S.PageHeader>
-          <h2>Formulario de Onboarding (Restaurante)</h2>
+          <h2>Formulario de Onboarding (Asaas)</h2>
           <p>Preencha somente os dados solicitados para cadastro no gateway.</p>
         </S.PageHeader>
 

@@ -9,6 +9,8 @@ import GetPublicRestaurantSettingsController from "../controllers/GetPublicResta
 import OnboardRestaurantAsaasController from "../controllers/OnboardRestaurantAsaasController.js";
 import GetAsaasWalletBalanceController from "../controllers/GetAsaasWalletBalanceController.js";
 import WithdrawAsaasWalletController from "../controllers/WithdrawAsaasWalletController.js";
+import StartMercadoPagoOAuthController from "../controllers/StartMercadoPagoOAuthController.js";
+import MercadoPagoOAuthCallbackController from "../controllers/MercadoPagoOAuthCallbackController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 
@@ -28,6 +30,17 @@ router.post("/", authMiddleware, adminMiddleware, (req, res) =>
 
 router.get("/", authMiddleware, adminMiddleware, (req, res) =>
   GetRestaurantSettingsController.handle(req, res),
+);
+
+router.post(
+  "/mercado-pago/oauth/start",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => StartMercadoPagoOAuthController.handle(req, res),
+);
+
+router.get("/mercado-pago/oauth/callback", (req, res) =>
+  MercadoPagoOAuthCallbackController.handle(req, res),
 );
 
 router.post("/asaas/onboard", authMiddleware, adminMiddleware, (req, res) =>

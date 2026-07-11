@@ -27,6 +27,7 @@ import {
   Maximize2,
   KeyRound,
   MessageCircle,
+  QrCode,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../../Services/api";
@@ -56,6 +57,9 @@ const AsaasOnboardingTab = lazy(
 const AsaasWalletTab = lazy(() => import("./components/AsaasWalletTab"));
 const DigitalMenuSettingsTab = lazy(
   () => import("./components/DigitalMenuSettingsTab"),
+);
+const DeliveryAndMinimumOrderTab = lazy(
+  () => import("./components/DeliveryAndMinimumOrderTab"),
 );
 const OrdersTab = lazy(() => import("./components/OrdersTab"));
 const OperationalTabs = lazy(() => import("./components/OperationalTabs"));
@@ -989,6 +993,7 @@ export default function AdminDashboard() {
     asaasWalletWithdrawDescription: "",
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isConnectingMercadoPago, setIsConnectingMercadoPago] = useState(false);
   const [isOnboardingAsaas, setIsOnboardingAsaas] = useState(false);
   const [isLoadingAsaasWalletBalance, setIsLoadingAsaasWalletBalance] =
     useState(false);
@@ -1284,6 +1289,31 @@ export default function AdminDashboard() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mpOauthStatus = String(params.get("mp_oauth") || "").trim();
+
+    if (!mpOauthStatus) {
+      return;
+    }
+
+    const oauthMessage = String(params.get("message") || "").trim();
+
+    if (mpOauthStatus === "success") {
+      toast.success("Conta Mercado Pago conectada com sucesso.");
+      setSettingsForm((prev) => ({
+        ...prev,
+        pixProvider: "MERCADO_PAGO",
+        cardGateway: "MERCADO_PAGO",
+        mercadoPagoAccessTokenConfigured: true,
+      }));
+    } else {
+      toast.error(oauthMessage || "Nao foi possivel conectar o Mercado Pago.");
+    }
+
+    navigate("/admin", { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     const snapshot = supportChatScrollSnapshotRef.current;
@@ -3503,6 +3533,46 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConnectMercadoPago = async () => {
+    if (isConnectingMercadoPago) {
+      return;
+    }
+
+    try {
+      setIsConnectingMercadoPago(true);
+
+      const response = await restaurantSettingsService.startMercadoPagoOAuth();
+      const authorizationUrl = String(response?.authorizationUrl || "").trim();
+
+      if (!authorizationUrl) {
+        throw new Error("Nao foi possivel gerar o link de autorizacao.");
+      }
+
+      const popup = window.open(
+        authorizationUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
+
+      if (!popup) {
+        window.location.href = authorizationUrl;
+        return;
+      }
+
+      toast.info(
+        "Autorizacao aberta em nova aba. Conclua no Mercado Pago e volte para o painel.",
+      );
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Erro ao iniciar conexao com Mercado Pago.",
+      );
+    } finally {
+      setIsConnectingMercadoPago(false);
+    }
+  };
+
   const handleOnboardAsaasFromPixTab = async () => {
     if (isOnboardingAsaas || isSavingSettings) {
       return;
@@ -3987,6 +4057,10 @@ export default function AdminDashboard() {
 
   const tabBreadcrumbMap = {
     orders: { section: "Operação", label: "Pedidos Real-Time" },
+    "delivery-settings": {
+      section: "Operação",
+      label: "Taxa e Pedido Mínimo",
+    },
     categories: { section: "Cardápio", label: "Criar Categoria" },
     products: { section: "Cardápio", label: "Criar Produto" },
     "products-manage": { section: "Cardápio", label: "Gerenciar Produtos" },
@@ -4002,7 +4076,7 @@ export default function AdminDashboard() {
     },
     "owner-onboarding": {
       section: "Configurações da Marca",
-      label: "PIX (Formulario)",
+      label: "Cadastrar PIX",
     },
   };
 
@@ -4509,6 +4583,14 @@ export default function AdminDashboard() {
             </S.NavButton>
 
             <S.NavButton
+              $active={activeTab === "delivery-settings"}
+              onClick={() => setActiveTab("delivery-settings")}
+            >
+              <DollarSign size={20} />
+              {!isSidebarCollapsed && <span>Taxa e Pedido Mínimo</span>}
+            </S.NavButton>
+
+            <S.NavButton
               $active={activeTab === "categories"}
               onClick={() => setActiveTab("categories")}
             >
@@ -4608,6 +4690,14 @@ export default function AdminDashboard() {
             </S.NavButton>
 
             <S.NavButton
+              $active={activeTab === "owner-onboarding"}
+              onClick={() => setActiveTab("owner-onboarding")}
+            >
+              <QrCode size={20} />
+              {!isSidebarCollapsed && <span>Cadastrar PIX</span>}
+            </S.NavButton>
+
+            <S.NavButton
               onClick={() => navigate("/billing")}
               style={
                 billingWarningState
@@ -4627,14 +4717,6 @@ export default function AdminDashboard() {
             >
               <DollarSign size={20} />
               {!isSidebarCollapsed && <span>Faturamento e Planos</span>}
-            </S.NavButton>
-
-            <S.NavButton
-              $active={activeTab === "owner-onboarding"}
-              onClick={() => setActiveTab("owner-onboarding")}
-            >
-              <User size={20} />
-              {!isSidebarCollapsed && <span>PIX (Formulario)</span>}
             </S.NavButton>
           </S.NavigationList>
 
@@ -5286,8 +5368,20 @@ export default function AdminDashboard() {
               <PixAndDeliverySettingsTab
                 settingsForm={settingsForm}
                 isSavingSettings={isSavingSettings}
-                onSubmitPixSettings={handleSavePixAndDeliverySettings}
+                isConnectingMercadoPago={isConnectingMercadoPago}
                 onSubmitCardBankSettings={handleSaveCardAndKybSettings}
+                onConnectMercadoPago={handleConnectMercadoPago}
+                onFieldChange={handleSettingsFieldChange}
+              />
+            </Suspense>
+          )}
+
+          {activeTab === "delivery-settings" && (
+            <Suspense fallback={null}>
+              <DeliveryAndMinimumOrderTab
+                settingsForm={settingsForm}
+                isSavingSettings={isSavingSettings}
+                onSubmit={handleSavePixAndDeliverySettings}
                 onFieldChange={handleSettingsFieldChange}
               />
             </Suspense>
