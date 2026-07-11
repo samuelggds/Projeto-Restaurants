@@ -139,6 +139,16 @@ function isDeliveredStatus(status) {
   );
 }
 
+function parseStockValue(rawStock) {
+  if (rawStock === null || rawStock === undefined || rawStock === "") {
+    return null;
+  }
+
+  return typeof rawStock === "string"
+    ? Number(rawStock.replace(",", "."))
+    : Number(rawStock);
+}
+
 function isProductUnavailable(product) {
   if (!product) {
     return true;
@@ -148,12 +158,9 @@ function isProductUnavailable(product) {
     return true;
   }
 
-  const stockValue =
-    product.stock === null || product.stock === undefined
-      ? null
-      : Number(product.stock);
+  const stockValue = parseStockValue(product.stock);
 
-  return Number.isInteger(stockValue) && stockValue <= 0;
+  return Number.isFinite(stockValue) && stockValue <= 0;
 }
 
 function toStoredOrderShape(payload, fallback = null) {
@@ -1293,13 +1300,10 @@ export default function DigitalMenu() {
         return;
       }
 
-      const stockValue =
-        product.stock === null || product.stock === undefined
-          ? null
-          : Number(product.stock);
+      const stockValue = parseStockValue(product.stock);
 
       if (
-        Number.isInteger(stockValue) &&
+        Number.isFinite(stockValue) &&
         stockValue >= 0 &&
         quantity > stockValue
       ) {

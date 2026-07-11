@@ -77,6 +77,11 @@ class OrdersService {
     return response.data;
   }
 
+  async clearOrdersAndCategories() {
+    const response = await api.delete("/orders/cleanup/orders-categories");
+    return response.data;
+  }
+
   async getCurrentTableOrder() {
     const response = await api.get("/orders/table/current");
     const order = response.data?.order || null;

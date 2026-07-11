@@ -200,6 +200,17 @@ class OrderRepository {
     });
   }
 
+  async deleteAllByRestaurant(
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.deleteMany({
+      where: {
+        restaurantId,
+      },
+    });
+  }
+
   async setPaymentConfirmationPin(
     id: number | string,
     restaurantId: number,

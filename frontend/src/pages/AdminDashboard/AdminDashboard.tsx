@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+﻿import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import {
@@ -243,11 +243,11 @@ function buildFriendlyWithdrawErrorMessage({
     lowerMessage.includes("nao vinculada") ||
     lowerMessage.includes("onboarding")
   ) {
-    return "Sua conta Asaas ainda não está vinculada. Conclua o cadastro bancário e tente novamente.";
+    return "Sua conta Asaas ainda n├úo est├í vinculada. Conclua o cadastro banc├írio e tente novamente.";
   }
 
   if (lowerMessage.includes("chave pix")) {
-    return "Não foi possível sacar com a chave PIX informada. Revise a chave e tente novamente.";
+    return "N├úo foi poss├¡vel sacar com a chave PIX informada. Revise a chave e tente novamente.";
   }
 
   if (
@@ -255,7 +255,7 @@ function buildFriendlyWithdrawErrorMessage({
     lowerMessage.includes("insuficiente") ||
     withdrawValue > normalizedCurrentBalance
   ) {
-    return `Não foi possível sacar agora por saldo disponível insuficiente. Em muitos casos, o saldo é liberado até ${nextBusinessDayLabel}. Disponível: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedCurrentBalance)} | Pendente: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedPendingBalance)} | Bloqueado: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedBlockedBalance)}.`;
+    return `N├úo foi poss├¡vel sacar agora por saldo dispon├¡vel insuficiente. Em muitos casos, o saldo ├® liberado at├® ${nextBusinessDayLabel}. Dispon├¡vel: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedCurrentBalance)} | Pendente: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedPendingBalance)} | Bloqueado: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(normalizedBlockedBalance)}.`;
   }
 
   if (
@@ -263,10 +263,10 @@ function buildFriendlyWithdrawErrorMessage({
     lowerMessage.includes("analise") ||
     lowerMessage.includes("bloque")
   ) {
-    return `Seu saque não foi concluído neste momento por regra de segurança/limite do Asaas. Tente novamente em ${nextBusinessDayLabel} ou confira o status da conta no painel Asaas.`;
+    return `Seu saque n├úo foi conclu├¡do neste momento por regra de seguran├ºa/limite do Asaas. Tente novamente em ${nextBusinessDayLabel} ou confira o status da conta no painel Asaas.`;
   }
 
-  return `Não foi possível solicitar o saque agora. Tente novamente em ${nextBusinessDayLabel}. Se persistir, confira o status da conta no Asaas.`;
+  return `N├úo foi poss├¡vel solicitar o saque agora. Tente novamente em ${nextBusinessDayLabel}. Se persistir, confira o status da conta no Asaas.`;
 }
 
 function isValidBrazilPhonePixKey(value) {
@@ -474,7 +474,8 @@ function fileToDataUrl(file) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+    reader.onerror = () =>
+      reject(new Error("N├úo foi poss├¡vel ler a imagem."));
     reader.readAsDataURL(file);
   });
 }
@@ -484,7 +485,7 @@ function loadImage(source) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () =>
-      reject(new Error("Não foi possível processar a imagem."));
+      reject(new Error("N├úo foi poss├¡vel processar a imagem."));
     image.src = source;
   });
 }
@@ -510,7 +511,7 @@ async function compressImageFile(
   const context = canvas.getContext("2d");
 
   if (!context) {
-    throw new Error("Não foi possível preparar o upload da imagem.");
+    throw new Error("N├úo foi poss├¡vel preparar o upload da imagem.");
   }
 
   context.drawImage(image, 0, 0, targetWidth, targetHeight);
@@ -730,7 +731,7 @@ function isDeliveryBlockedUntilPaid(order) {
 }
 
 const REFUND_REQUEST_PATTERN =
-  /(estorno|reembolso|devolver|devolucao|devolução|cancelar\s+pedido|quero\s+cancelar|quero\s+estorno|quero\s+reembolso)/i;
+  /(estorno|reembolso|devolver|devolucao|devolu├º├úo|cancelar\s+pedido|quero\s+cancelar|quero\s+estorno|quero\s+reembolso)/i;
 
 function hasClientRefundRequest(order) {
   const issueMessages = Array.isArray(order?.issueThread?.messages)
@@ -1467,7 +1468,7 @@ export default function AdminDashboard() {
           logoUrl: String(settings?.restaurant?.logo || ""),
         });
       } catch {
-        // Se ainda não houver configurações, o admin pode criar pelo formulário.
+        // Se ainda n├úo houver configura├º├Áes, o admin pode criar pelo formul├írio.
       }
     }
 
@@ -1528,9 +1529,10 @@ export default function AdminDashboard() {
         return;
       }
 
-      if (activeTab === "products-manage") {
+      if (activeTab === "products" || activeTab === "products-manage") {
         try {
-          const productsData = await productsService.listProducts();
+          const productsData =
+            await productsService.listProducts(currentRestaurantId);
 
           if (!mounted) {
             return;
@@ -1899,7 +1901,7 @@ export default function AdminDashboard() {
   const handleSendSupportChatToSuperAdmin = async () => {
     if (!supportChatPlanAllowed) {
       toast.info(
-        "Chat com Super Admin disponível apenas para planos Profissional e Premium.",
+        "Chat com Super Admin dispon├¡vel apenas para planos Profissional e Premium.",
       );
       return;
     }
@@ -1916,7 +1918,7 @@ export default function AdminDashboard() {
     const socket = getSocket();
     if (!socket) {
       toast.error(
-        "Socket desconectado. Recarregue a página e tente novamente.",
+        "Socket desconectado. Recarregue a p├ígina e tente novamente.",
       );
       return;
     }
@@ -1940,7 +1942,7 @@ export default function AdminDashboard() {
       );
 
       if (!result?.ok) {
-        throw new Error(result?.error || "Não foi possível enviar mensagem.");
+        throw new Error(result?.error || "N├úo foi poss├¡vel enviar mensagem.");
       }
 
       setSupportChatInput("");
@@ -1949,7 +1951,7 @@ export default function AdminDashboard() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Não foi possível enviar mensagem ao Super Admin.",
+          : "N├úo foi poss├¡vel enviar mensagem ao Super Admin.",
       );
     } finally {
       setIsSendingSupportChat(false);
@@ -2004,7 +2006,7 @@ export default function AdminDashboard() {
       setSupportChatHasMoreHistory(Boolean(response?.hasMore));
     } catch (_error) {
       supportChatScrollSnapshotRef.current.pending = false;
-      toast.error("Não foi possível carregar mensagens antigas.");
+      toast.error("N├úo foi poss├¡vel carregar mensagens antigas.");
     } finally {
       setIsLoadingMoreSupportChat(false);
     }
@@ -2081,7 +2083,8 @@ export default function AdminDashboard() {
     try {
       await productsService.createProduct(payload);
 
-      const productsData = await productsService.listProducts();
+      const productsData =
+        await productsService.listProducts(currentRestaurantId);
       setProducts(Array.isArray(productsData) ? productsData : []);
 
       toast.success("Produto criado com sucesso!");
@@ -2125,7 +2128,8 @@ export default function AdminDashboard() {
     try {
       await productsService.updateProduct(editingProductId, payload);
 
-      const productsData = await productsService.listProducts();
+      const productsData =
+        await productsService.listProducts(currentRestaurantId);
       setProducts(Array.isArray(productsData) ? productsData : []);
 
       toast.success("Produto atualizado com sucesso!");
@@ -2160,7 +2164,8 @@ export default function AdminDashboard() {
       setDeletingProductId(productId);
       await productsService.deleteProduct(productId);
 
-      const productsData = await productsService.listProducts();
+      const productsData =
+        await productsService.listProducts(currentRestaurantId);
       setProducts(Array.isArray(productsData) ? productsData : []);
 
       if (Number(editingProductId) === Number(productId)) {
@@ -2198,7 +2203,7 @@ export default function AdminDashboard() {
 
     if (shouldBlockForPendingDigitalDelivery) {
       toast.error(
-        "Pagamento pendente: pedido delivery com PIX/cartão deve permanecer em PENDENTE até a confirmação.",
+        "Pagamento pendente: pedido delivery com PIX/cart├úo deve permanecer em PENDENTE at├® a confirma├º├úo.",
       );
       return;
     }
@@ -2226,10 +2231,10 @@ export default function AdminDashboard() {
         targetOrder &&
         isDeliveryBlockedUntilPaid(targetOrder) &&
         (message.includes("pagamento PIX/CARTAO") ||
-          message.includes("ainda não foi confirmado") ||
+          message.includes("ainda n├úo foi confirmado") ||
           message.includes("deve permanecer em PENDENTE"));
       const friendlyMessage = shouldShowPaymentPendingHint
-        ? "Pagamento pendente: pedido delivery com PIX/cartão deve permanecer em PENDENTE até a confirmação."
+        ? "Pagamento pendente: pedido delivery com PIX/cart├úo deve permanecer em PENDENTE at├® a confirma├º├úo."
         : message;
       toast.error(friendlyMessage);
     }
@@ -2392,7 +2397,10 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleRetryPixPaymentStatus = async (order, options = {}) => {
+  const handleRetryPixPaymentStatus = async (
+    order,
+    options: { silent?: boolean } = {},
+  ) => {
     const silent = options?.silent === true;
     const orderId = Number(order?.id || 0);
     const paymentId = String(order?.pixPaymentId || "").trim();
@@ -2406,7 +2414,7 @@ export default function AdminDashboard() {
 
     if (!paymentId) {
       if (!silent) {
-        toast.error("Este pedido PIX está sem identificador de pagamento.");
+        toast.error("Este pedido PIX est├í sem identificador de pagamento.");
       }
       return;
     }
@@ -2450,7 +2458,7 @@ export default function AdminDashboard() {
         toast.error(
           error?.response?.data?.error ||
             error?.response?.data?.message ||
-            "Não foi possível reconsultar o pagamento PIX agora.",
+            "N├úo foi poss├¡vel reconsultar o pagamento PIX agora.",
         );
       }
     } finally {
@@ -2506,19 +2514,19 @@ export default function AdminDashboard() {
     const orderId = Number(order?.id || 0);
 
     if (!Number.isInteger(orderId) || orderId <= 0) {
-      toast.error("Pedido inválido para estorno.");
+      toast.error("Pedido inv├ílido para estorno.");
       return;
     }
 
     if (!canUseAdminRefund(order, user?.role)) {
       toast.error(
-        "Estorno disponível quando o cliente solicitar estorno no chat.",
+        "Estorno dispon├¡vel quando o cliente solicitar estorno no chat.",
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Confirmar estorno do pedido #${orderId}? Esta ação irá cancelar o pedido.`,
+      `Confirmar estorno do pedido #${orderId}? Esta a├º├úo ir├í cancelar o pedido.`,
     );
 
     if (!confirmed) {
@@ -2558,11 +2566,11 @@ export default function AdminDashboard() {
         });
       }
 
-      toast.success(`Estorno concluído no pedido #${orderId}.`);
+      toast.success(`Estorno conclu├¡do no pedido #${orderId}.`);
     } catch (error) {
       toast.error(
         error?.response?.data?.error ||
-          "Não foi possível estornar este pedido agora.",
+          "N├úo foi poss├¡vel estornar este pedido agora.",
       );
     } finally {
       setRefundingOrderIds((prev) => prev.filter((id) => id !== orderId));
@@ -2574,7 +2582,7 @@ export default function AdminDashboard() {
 
     const orderId = Number(sidebarPinOrderId);
     if (!Number.isInteger(orderId) || orderId <= 0) {
-      toast.error("Informe um ID de entrega válido.");
+      toast.error("Informe um ID de entrega v├ílido.");
       return;
     }
 
@@ -2596,19 +2604,19 @@ export default function AdminDashboard() {
     const pin = String(sidebarGeneratedPin?.pin || "").trim();
 
     if (!/^\d{4}$/.test(pin)) {
-      toast.error("Nenhum PIN válido para copiar.");
+      toast.error("Nenhum PIN v├ílido para copiar.");
       return;
     }
 
     try {
       if (!navigator?.clipboard?.writeText) {
-        throw new Error("Clipboard indisponível neste navegador.");
+        throw new Error("Clipboard indispon├¡vel neste navegador.");
       }
 
       await navigator.clipboard.writeText(pin);
       toast.success(`PIN ${pin} copiado!`);
     } catch {
-      toast.error("Não foi possível copiar o PIN automaticamente.");
+      toast.error("N├úo foi poss├¡vel copiar o PIN automaticamente.");
     }
   };
 
@@ -2696,7 +2704,7 @@ export default function AdminDashboard() {
       const employeesData = await employeesService.listEmployees();
       setEmployees(Array.isArray(employeesData) ? employeesData : []);
 
-      toast.success(`Funcionário ${employeeData.name} cadastrado!`);
+      toast.success(`Funcion├írio ${employeeData.name} cadastrado!`);
       setEmployeeData({
         name: "",
         email: "",
@@ -2723,7 +2731,7 @@ export default function AdminDashboard() {
             }}
           >
             {feedback.details.map((detail) => (
-              <span key={detail}>• {detail}</span>
+              <span key={detail}>ÔÇó {detail}</span>
             ))}
           </div>
         </div>,
@@ -2758,7 +2766,7 @@ export default function AdminDashboard() {
     );
 
     if (categoryAlreadyExists) {
-      toast.error("Já existe uma categoria com esse nome.");
+      toast.error("J├í existe uma categoria com esse nome.");
       return;
     }
 
@@ -2805,7 +2813,7 @@ export default function AdminDashboard() {
     );
 
     if (categoryAlreadyExists) {
-      toast.error("Já existe uma categoria com esse nome.");
+      toast.error("J├í existe uma categoria com esse nome.");
       return;
     }
 
@@ -2908,17 +2916,17 @@ export default function AdminDashboard() {
     const isAlreadyInactive = table?.active === false;
 
     if (!Number.isInteger(tableId) || tableId <= 0) {
-      toast.error("Mesa inválida para remover QR.");
+      toast.error("Mesa inv├ílida para remover QR.");
       return;
     }
 
     if (isAlreadyInactive) {
-      toast.info("Esta mesa já está com QR removido.");
+      toast.info("Esta mesa j├í est├í com QR removido.");
       return;
     }
 
     const confirmed = window.confirm(
-      `Remover o QR Code da mesa ${tableNumberLabel || tableId}? A mesa será desativada.`,
+      `Remover o QR Code da mesa ${tableNumberLabel || tableId}? A mesa ser├í desativada.`,
     );
 
     if (!confirmed) {
@@ -2947,7 +2955,7 @@ export default function AdminDashboard() {
     } catch (error) {
       toast.error(
         error?.response?.data?.error ||
-          "Não foi possível remover o QR da mesa.",
+          "N├úo foi poss├¡vel remover o QR da mesa.",
       );
     } finally {
       setDeactivatingTableIds((prev) => prev.filter((id) => id !== tableId));
@@ -2959,12 +2967,12 @@ export default function AdminDashboard() {
     const tableNumberLabel = Number(table?.number || 0);
 
     if (!Number.isInteger(tableId) || tableId <= 0) {
-      toast.error("Mesa inválida para ativar QR.");
+      toast.error("Mesa inv├ílida para ativar QR.");
       return;
     }
 
     if (table?.active !== false) {
-      toast.info("Esta mesa já está ativa.");
+      toast.info("Esta mesa j├í est├í ativa.");
       return;
     }
 
@@ -2993,7 +3001,8 @@ export default function AdminDashboard() {
       toast.success(`Mesa ${tableNumberLabel || tableId} ativada com sucesso.`);
     } catch (error) {
       toast.error(
-        error?.response?.data?.error || "Não foi possível ativar o QR da mesa.",
+        error?.response?.data?.error ||
+          "N├úo foi poss├¡vel ativar o QR da mesa.",
       );
     } finally {
       setActivatingTableIds((prev) => prev.filter((id) => id !== tableId));
@@ -3089,7 +3098,7 @@ export default function AdminDashboard() {
     const maxFileSizeBytes = 7 * 1024 * 1024;
 
     if (file.size > maxFileSizeBytes) {
-      toast.error("A imagem deve ter no máximo 7MB.");
+      toast.error("A imagem deve ter no m├íximo 7MB.");
       event.target.value = "";
       return;
     }
@@ -3242,13 +3251,13 @@ export default function AdminDashboard() {
 
       await persistRestaurantSettings({
         payload,
-        successMessage: "Cardápio digital atualizado com sucesso!",
+        successMessage: "Card├ípio digital atualizado com sucesso!",
       });
     } catch (err) {
       toast.error(
         err?.response?.data?.error ||
           err?.message ||
-          "Erro ao salvar identidade do cardápio digital",
+          "Erro ao salvar identidade do card├ípio digital",
       );
     } finally {
       setIsSavingSettings(false);
@@ -3286,32 +3295,32 @@ export default function AdminDashboard() {
         Number.isNaN(payload.minimumOrder)
       ) {
         throw new Error(
-          "Informe valores numéricos válidos para taxa e pedido mínimo.",
+          "Informe valores num├®ricos v├ílidos para taxa e pedido m├¡nimo.",
         );
       }
 
       const pixKeyType = getPixKeyType(payload.pixKey || "");
       if (payload.pixKey && pixKeyType === "INVALID") {
         throw new Error(
-          "Chave PIX inválida. Informe uma chave no formato CPF, e-mail ou celular.",
+          "Chave PIX inv├ílida. Informe uma chave no formato CPF, e-mail ou celular.",
         );
       }
 
       if (payload.whatsapp && !isValidBrazilPhone(payload.whatsapp)) {
         throw new Error(
-          "WhatsApp do restaurante inválido. Informe um celular com DDD.",
+          "WhatsApp do restaurante inv├ílido. Informe um celular com DDD.",
         );
       }
 
       await persistRestaurantSettings({
         payload,
-        successMessage: "Configurações de PIX salvas com sucesso!",
+        successMessage: "Configura├º├Áes de PIX salvas com sucesso!",
       });
     } catch (err) {
       toast.error(
         err?.response?.data?.error ||
           err?.message ||
-          "Erro ao salvar configurações de PIX",
+          "Erro ao salvar configura├º├Áes de PIX",
       );
     } finally {
       setIsSavingSettings(false);
@@ -3392,7 +3401,7 @@ export default function AdminDashboard() {
         companyDocument &&
         companyDocument.length !== 14
       ) {
-        throw new Error("CNPJ inválido. Informe 14 dígitos.");
+        throw new Error("CNPJ inv├ílido. Informe 14 d├¡gitos.");
       }
 
       if (
@@ -3400,11 +3409,11 @@ export default function AdminDashboard() {
         companyDocument &&
         companyDocument.length !== 11
       ) {
-        throw new Error("CPF inválido. Informe 11 dígitos.");
+        throw new Error("CPF inv├ílido. Informe 11 d├¡gitos.");
       }
 
       if (ownerCpf && ownerCpf.length !== 11) {
-        throw new Error("CPF do representante inválido.");
+        throw new Error("CPF do representante inv├ílido.");
       }
 
       if (
@@ -3413,7 +3422,7 @@ export default function AdminDashboard() {
         companyDocument !== bankHolderDocument
       ) {
         throw new Error(
-          "A titularidade bancária deve ser igual ao CPF/CNPJ cadastrado.",
+          "A titularidade banc├íria deve ser igual ao CPF/CNPJ cadastrado.",
         );
       }
 
@@ -3515,18 +3524,18 @@ export default function AdminDashboard() {
         payload.monthlyRevenue !== null &&
         Number.isNaN(payload.monthlyRevenue)
       ) {
-        throw new Error("Faturamento mensal deve ser um número válido.");
+        throw new Error("Faturamento mensal deve ser um n├║mero v├ílido.");
       }
 
       await persistRestaurantSettings({
         payload,
-        successMessage: "Cadastro de Cartão/Banco (KYB) salvo com sucesso!",
+        successMessage: "Cadastro de Cart├úo/Banco (KYB) salvo com sucesso!",
       });
     } catch (err) {
       toast.error(
         err?.response?.data?.error ||
           err?.message ||
-          "Erro ao salvar cadastro de Cartão/Banco (KYB)",
+          "Erro ao salvar cadastro de Cart├úo/Banco (KYB)",
       );
     } finally {
       setIsSavingSettings(false);
@@ -3649,7 +3658,7 @@ export default function AdminDashboard() {
         errorMessage.toLowerCase().includes("nao vinculada") ||
         errorMessage.toLowerCase().includes("onboarding");
 
-      // Ao recarregar a página (ou autoatualizar), não exibe aviso de conta não vinculada.
+      // Ao recarregar a p├ígina (ou autoatualizar), n├úo exibe aviso de conta n├úo vinculada.
       if (!isAccountNotLinkedError) {
         setAsaasWalletNotice({
           type: "error",
@@ -3684,7 +3693,7 @@ export default function AdminDashboard() {
       }
 
       if (!withdrawPixKey) {
-        throw new Error("Informe uma chave Pix válida para o saque.");
+        throw new Error("Informe uma chave Pix v├ílida para o saque.");
       }
 
       setIsWithdrawingAsaasWallet(true);
@@ -3715,7 +3724,7 @@ export default function AdminDashboard() {
       } else {
         setAsaasWalletNotice({
           type: "info",
-          message: `Saque solicitado com sucesso. O Asaas pode concluir a liberação até ${getNextBusinessDayLabel()}.`,
+          message: `Saque solicitado com sucesso. O Asaas pode concluir a libera├º├úo at├® ${getNextBusinessDayLabel()}.`,
         });
       }
 
@@ -3760,7 +3769,7 @@ export default function AdminDashboard() {
     const svg = cardRef?.querySelector("svg");
 
     if (!svg) {
-      throw new Error("QR code ainda não foi renderizado.");
+      throw new Error("QR code ainda n├úo foi renderizado.");
     }
 
     const clonedSvg = svg.cloneNode(true);
@@ -3794,11 +3803,11 @@ export default function AdminDashboard() {
     try {
       const svgMarkup = getQrSvgMarkup(table.id);
       const brandMarkup =
-        '<div class="brand"><span class="brand-mark">PJ</span><span>Peça Já Food</span></div>';
+        '<div class="brand"><span class="brand-mark">PJ</span><span>Pe├ºa J├í Food</span></div>';
       const printWindow = window.open("", "_blank", "width=1240,height=1754");
 
       if (!printWindow) {
-        throw new Error("Não foi possível abrir a janela de impressão.");
+        throw new Error("N├úo foi poss├¡vel abrir a janela de impress├úo.");
       }
 
       printWindow.document.open();
@@ -3901,9 +3910,9 @@ export default function AdminDashboard() {
             <div class="sheet">
               ${brandMarkup}
               <h1 class="title">Mesa ${table.number}</h1>
-              <p class="subtitle">Escaneie o QR para abrir o cardápio digital e informar o PIN da mesa.</p>
+              <p class="subtitle">Escaneie o QR para abrir o card├ípio digital e informar o PIN da mesa.</p>
               <div class="qr-box">${svgMarkup}</div>
-              <div class="footer-note">Cardápio digital exclusivo desta mesa.</div>
+              <div class="footer-note">Card├ípio digital exclusivo desta mesa.</div>
             </div>
             <script>
               window.onload = function () {
@@ -3924,11 +3933,11 @@ export default function AdminDashboard() {
     try {
       const svgMarkup = getQrSvgMarkup(table.id);
       const brandMarkup =
-        '<div class="brand"><span class="brand-mark">PJ</span><span>Peça Já Food</span></div>';
+        '<div class="brand"><span class="brand-mark">PJ</span><span>Pe├ºa J├í Food</span></div>';
       const previewWindow = window.open("", "_blank", "width=1240,height=1754");
 
       if (!previewWindow) {
-        throw new Error("Não foi possível abrir a pré-visualização.");
+        throw new Error("N├úo foi poss├¡vel abrir a pr├®-visualiza├º├úo.");
       }
 
       previewWindow.document.open();
@@ -3936,7 +3945,7 @@ export default function AdminDashboard() {
         <!doctype html>
         <html>
           <head>
-            <title>Prévia da Mesa ${table.number}</title>
+            <title>Pr├®via da Mesa ${table.number}</title>
             <style>
               * { box-sizing: border-box; }
               body {
@@ -4035,17 +4044,17 @@ export default function AdminDashboard() {
             <div class="sheet">
               ${brandMarkup}
               <h1 class="title">Mesa ${table.number}</h1>
-              <p class="subtitle">Esta é a pré-visualização do QR para impressão.</p>
+              <p class="subtitle">Esta ├® a pr├®-visualiza├º├úo do QR para impress├úo.</p>
               <div class="qr-box">${svgMarkup}</div>
-              <div class="hint">Use os botões abaixo para baixar ou imprimir a versão final.</div>
-              <div class="footer-note">Cardápio digital exclusivo desta mesa.</div>
+              <div class="hint">Use os bot├Áes abaixo para baixar ou imprimir a vers├úo final.</div>
+              <div class="footer-note">Card├ípio digital exclusivo desta mesa.</div>
             </div>
           </body>
         </html>
       `);
       previewWindow.document.close();
     } catch (error) {
-      toast.error(error?.message || "Erro ao abrir pré-visualização");
+      toast.error(error?.message || "Erro ao abrir pr├®-visualiza├º├úo");
     }
   };
 
@@ -4055,27 +4064,83 @@ export default function AdminDashboard() {
     brandingUploadState.restaurantLogo ||
     brandingUploadState.restaurantCoverImage;
 
+  const currentRestaurantId =
+    Number(
+      user?.restaurantId ||
+        user?.restaurant?.id ||
+        user?.restaurant?.restaurantId ||
+        0,
+    ) || null;
+
+  const refreshCatalogData = async () => {
+    const [categoriesData, productsData] = await Promise.all([
+      categoriesService.listCategories(),
+      productsService.listProducts(currentRestaurantId),
+    ]);
+
+    setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+    setProducts(Array.isArray(productsData) ? productsData : []);
+  };
+
+  const refreshOrdersData = async () => {
+    const ordersData = await ordersService.listRestaurantOrders();
+    setOrders(Array.isArray(ordersData) ? ordersData : []);
+  };
+
+  const handleClearOrdersAndCategories = async () => {
+    const confirmed = window.confirm(
+      "Isso vai apagar todos os pedidos e todas as categorias deste restaurante. Continuar?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await ordersService.clearOrdersAndCategories();
+      await Promise.all([refreshOrdersData(), refreshCatalogData()]);
+
+      setProductForm((prev) => ({
+        ...prev,
+        categoryId: "",
+      }));
+      setCategoryName("");
+      setEditingCategoryId(null);
+      setEditingCategoryName("");
+      setEditingProductId(null);
+      setProductSearchTerm("");
+
+      toast.success("Pedidos e categorias excluídos com sucesso!");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao excluir pedidos e categorias",
+      );
+    }
+  };
+
   const tabBreadcrumbMap = {
-    orders: { section: "Operação", label: "Pedidos Real-Time" },
+    orders: { section: "Operacao", label: "Pedidos Real-Time" },
     "delivery-settings": {
-      section: "Operação",
-      label: "Taxa e Pedido Mínimo",
+      section: "Operacao",
+      label: "Taxa e Pedido Minimo",
     },
-    categories: { section: "Cardápio", label: "Criar Categoria" },
-    products: { section: "Cardápio", label: "Criar Produto" },
-    "products-manage": { section: "Cardápio", label: "Gerenciar Produtos" },
+    categories: { section: "Cardapio", label: "Categorias" },
+    products: { section: "Cardapio", label: "Cardapio" },
+    "products-manage": { section: "Cardapio", label: "Produtos" },
     tables: { section: "Atendimento", label: "Criar Mesa" },
-    employees: { section: "Gestão", label: "Equipe / Funcionários" },
+    employees: { section: "Gestao", label: "Equipe / Funcionarios" },
     settings: {
-      section: "Configurações da Marca",
+      section: "Configuracoes da Marca",
       label: "Cadastrar Banco",
     },
     "digital-menu": {
-      section: "Configurações da Marca",
-      label: "Editar Cardápio Digital",
+      section: "Configuracoes da Marca",
+      label: "Editar Cardapio Digital",
     },
     "owner-onboarding": {
-      section: "Configurações da Marca",
+      section: "Configuracoes da Marca",
       label: "Cadastrar PIX",
     },
   };
@@ -4089,7 +4154,7 @@ export default function AdminDashboard() {
       const qrValue = getRestaurantTableQrValue(table);
 
       if (!navigator?.clipboard?.writeText) {
-        throw new Error("Seu navegador não permite copiar automaticamente.");
+        throw new Error("Seu navegador n├úo permite copiar automaticamente.");
       }
 
       await navigator.clipboard.writeText(qrValue);
@@ -4105,9 +4170,9 @@ export default function AdminDashboard() {
       setEmployees((prev) =>
         prev.filter((employee) => employee.id !== employeeId),
       );
-      toast.info("Funcionário desativado.");
+      toast.info("Funcion├írio desativado.");
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Erro ao remover funcionário");
+      toast.error(err?.response?.data?.error || "Erro ao remover funcion├írio");
     }
   };
 
@@ -4146,7 +4211,7 @@ export default function AdminDashboard() {
       passwordRotationForm.newPassword !== passwordRotationForm.confirmPassword
     ) {
       toast.error(
-        "As senhas novas não conferem. Confere para mim e tenta de novo.",
+        "As senhas novas n├úo conferem. Confere para mim e tenta de novo.",
       );
       return;
     }
@@ -4178,7 +4243,7 @@ export default function AdminDashboard() {
       });
       setIsPasswordRotationModalMinimized(false);
       toast.success(
-        "Perfeito! Sua senha foi atualizada e sua conta está liberada.",
+        "Perfeito! Sua senha foi atualizada e sua conta est├í liberada.",
       );
     } catch (error: unknown) {
       const message =
@@ -4189,7 +4254,7 @@ export default function AdminDashboard() {
           ?.data?.error === "string"
           ? (error as { response?: { data?: { error?: string } } }).response
               ?.data?.error
-          : "Não consegui atualizar sua senha agora. Tenta novamente em instantes.";
+          : "N├úo consegui atualizar sua senha agora. Tenta novamente em instantes.";
 
       toast.error(message);
     } finally {
@@ -4204,7 +4269,7 @@ export default function AdminDashboard() {
       .trim();
 
     if (!Number.isInteger(orderId) || orderId <= 0) {
-      toast.error("Pedido inválido para responder.");
+      toast.error("Pedido inv├ílido para responder.");
       return;
     }
 
@@ -4221,7 +4286,7 @@ export default function AdminDashboard() {
     } catch (error) {
       toast.error(
         error?.response?.data?.error ||
-          "Não foi possível enviar a resposta para o cliente.",
+          "N├úo foi poss├¡vel enviar a resposta para o cliente.",
       );
     } finally {
       setIsSendingOrderIssueReply(false);
@@ -4232,12 +4297,12 @@ export default function AdminDashboard() {
     const orderId = Number(latestOrderIssue?.orderId || 0);
 
     if (!Number.isInteger(orderId) || orderId <= 0) {
-      toast.error("Pedido inválido para resolver o problema.");
+      toast.error("Pedido inv├ílido para resolver o problema.");
       return;
     }
 
     if (latestOrderIssue?.isResolved) {
-      toast.info("Este problema já está resolvido.");
+      toast.info("Este problema j├í est├í resolvido.");
       return;
     }
 
@@ -4262,7 +4327,7 @@ export default function AdminDashboard() {
     } catch (error) {
       toast.error(
         error?.response?.data?.error ||
-          "Não foi possível marcar o problema como resolvido.",
+          "N├úo foi poss├¡vel marcar o problema como resolvido.",
       );
     } finally {
       setIsResolvingOrderIssue(false);
@@ -4337,7 +4402,7 @@ export default function AdminDashboard() {
               </span>
               {!isSidebarCollapsed && (
                 <div className="brand-text">
-                  <h1>Peça Já Food</h1>
+                  <h1>Peca Ja Food</h1>
                   <span>Painel Admin</span>
                 </div>
               )}
@@ -4402,7 +4467,7 @@ export default function AdminDashboard() {
                       fontWeight: 700,
                     }}
                   >
-                    Olá, Admin
+                    Ola, Admin
                   </div>
                   <small
                     style={{
@@ -4587,15 +4652,7 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab("delivery-settings")}
             >
               <DollarSign size={20} />
-              {!isSidebarCollapsed && <span>Taxa e Pedido Mínimo</span>}
-            </S.NavButton>
-
-            <S.NavButton
-              $active={activeTab === "categories"}
-              onClick={() => setActiveTab("categories")}
-            >
-              <FolderPlus size={20} />
-              {!isSidebarCollapsed && <span>Criar Categoria</span>}
+              {!isSidebarCollapsed && <span>Taxa e Pedido Minimo</span>}
             </S.NavButton>
 
             <S.NavButton
@@ -4609,18 +4666,7 @@ export default function AdminDashboard() {
               }}
             >
               <PlusCircle size={20} />
-              {!isSidebarCollapsed && <span>Criar Produto</span>}
-            </S.NavButton>
-
-            <S.NavButton
-              $active={activeTab === "products-manage"}
-              onClick={() => {
-                setActiveTab("products-manage");
-                setProductSearchTerm("");
-              }}
-            >
-              <Package size={20} />
-              {!isSidebarCollapsed && <span>Gerenciar Produtos</span>}
+              {!isSidebarCollapsed && <span>Cardápio</span>}
             </S.NavButton>
 
             <S.NavButton
@@ -4636,7 +4682,7 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab("employees")}
             >
               <Users size={20} />
-              {!isSidebarCollapsed && <span>Equipe / Funcionários</span>}
+              {!isSidebarCollapsed && <span>Equipe / Funcionarios</span>}
             </S.NavButton>
 
             <div
@@ -4661,7 +4707,7 @@ export default function AdminDashboard() {
                       background: "rgba(255, 255, 255, 0.34)",
                     }}
                   />
-                  <span>Configurações da Marca</span>
+                  <span>Configuracoes da Marca</span>
                   <span
                     style={{
                       flex: 1,
@@ -4678,7 +4724,7 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab("digital-menu")}
             >
               <ImageIcon size={20} />
-              {!isSidebarCollapsed && <span>Editar Cardápio Digital</span>}
+              {!isSidebarCollapsed && <span>Editar Cardapio Digital</span>}
             </S.NavButton>
 
             <S.NavButton
@@ -5302,6 +5348,7 @@ export default function AdminDashboard() {
                 isPayOnDeliveryOrder={isPayOnDeliveryOrder}
                 formatRequestTime={formatRequestTime}
                 getOrderTableLabel={getOrderTableLabel}
+                onClearOrdersAndCategories={handleClearOrdersAndCategories}
               />
             </Suspense>
           )}
@@ -5359,6 +5406,9 @@ export default function AdminDashboard() {
                 setShowPassword={setShowPassword}
                 employees={employees}
                 handleDeactivateEmployee={handleDeactivateEmployee}
+                restaurantId={currentRestaurantId}
+                onImportedCatalog={refreshCatalogData}
+                onNavigateTab={setActiveTab}
               />
             </Suspense>
           )}
@@ -5604,7 +5654,7 @@ export default function AdminDashboard() {
                   }}
                 >
                   <strong style={{ fontSize: "0.84rem" }}>
-                    {latestOrderIssue.customerName} • Pedido #
+                    {latestOrderIssue.customerName} ÔÇó Pedido #
                     {latestOrderIssue.orderId}
                   </strong>
                   {latestOrderIssue.customerPhone ? (
@@ -5622,7 +5672,7 @@ export default function AdminDashboard() {
                   </small>
                   {latestOrderIssue.addressLabel ? (
                     <small style={{ opacity: 0.95 }}>
-                      Endereço: {latestOrderIssue.addressLabel}
+                      Endere├ºo: {latestOrderIssue.addressLabel}
                     </small>
                   ) : null}
                   {latestOrderIssue.itemsSummary?.length ? (
@@ -5676,7 +5726,7 @@ export default function AdminDashboard() {
                           <small style={{ fontWeight: 800, opacity: 0.86 }}>
                             {String(messageItem?.senderName || "").trim() ||
                               (isAdminMessage ? "Admin" : "Cliente")}{" "}
-                            • {sentAtLabel}
+                            ÔÇó {sentAtLabel}
                           </small>
                           <span
                             style={{
@@ -5810,7 +5860,7 @@ export default function AdminDashboard() {
             <button
               type="button"
               disabled
-              title="Disponível apenas para planos Profissional e Premium"
+              title="Dispon├¡vel apenas para planos Profissional e Premium"
               style={{
                 position: "fixed",
                 right: "max(14px, env(safe-area-inset-right))",
@@ -5831,7 +5881,7 @@ export default function AdminDashboard() {
               }}
             >
               <MessageCircle size={14} />
-              Chat Super Admin indisponível no plano{" "}
+              Chat Super Admin indispon├¡vel no plano{" "}
               {supportChatPlanName || "BASICO"}
             </button>
           ) : isSupportChatMinimized ? (
@@ -5885,7 +5935,7 @@ export default function AdminDashboard() {
                 }}
               >
                 <strong style={{ fontSize: "0.85rem" }}>
-                  Suporte em tempo real • Super Admin
+                  Suporte em tempo real ÔÇó Super Admin
                 </strong>
                 <button
                   type="button"
@@ -6108,7 +6158,7 @@ export default function AdminDashboard() {
                           letterSpacing: "0.01em",
                         }}
                       >
-                        Segurança da conta ADMIN
+                        Seguran├ºa da conta ADMIN
                       </strong>
                       <small style={{ color: "#9a3412", opacity: 0.92 }}>
                         Primeiro acesso detectado. Troque sua senha para
@@ -6246,7 +6296,7 @@ export default function AdminDashboard() {
                   }}
                 >
                   <small style={{ color: "#9a3412", fontWeight: 600 }}>
-                    Você pode minimizar agora e concluir depois pelo atalho
+                    Voc├¬ pode minimizar agora e concluir depois pelo atalho
                     flutuante.
                   </small>
 

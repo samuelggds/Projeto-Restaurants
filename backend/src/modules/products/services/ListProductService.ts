@@ -27,9 +27,25 @@ class ListProductsService {
 
     const products = await productRepository.findAll(normalizedRestaurantId);
 
+    const normalizedProducts = products.map((product) => {
+      const stockValue =
+        product?.stock === null || product?.stock === undefined
+          ? null
+          : Number(product.stock);
+
+      if (Number.isFinite(stockValue) && stockValue <= 0) {
+        return {
+          ...product,
+          active: false,
+        };
+      }
+
+      return product;
+    });
+
     return {
-      products,
-      count: products.length,
+      products: normalizedProducts,
+      count: normalizedProducts.length,
     };
   }
 }

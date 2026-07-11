@@ -96,6 +96,17 @@ class CategoryRepository {
       },
     });
   }
+
+  async deleteAllByRestaurant(
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.category.deleteMany({
+      where: {
+        restaurantId,
+      },
+    });
+  }
 }
 
 export default new CategoryRepository();

@@ -49,7 +49,7 @@ type ProductItem = {
   image?: string | null;
   price?: number | string;
   active?: boolean;
-  stock?: number | null;
+  stock?: number | string | null;
   category?: {
     name?: string | null;
   } | null;
@@ -64,12 +64,18 @@ function isProductUnavailable(product: ProductItem | null | undefined) {
     return true;
   }
 
-  const stockValue =
-    product.stock === null || product.stock === undefined
-      ? null
-      : Number(product.stock);
+  const rawStock = product.stock;
 
-  return Number.isInteger(stockValue) && stockValue <= 0;
+  if (rawStock === null || rawStock === undefined || rawStock === "") {
+    return false;
+  }
+
+  const stockValue =
+    typeof rawStock === "string"
+      ? Number(rawStock.replace(",", "."))
+      : Number(rawStock);
+
+  return Number.isFinite(stockValue) && stockValue <= 0;
 }
 
 type ProductRipplePoint = {

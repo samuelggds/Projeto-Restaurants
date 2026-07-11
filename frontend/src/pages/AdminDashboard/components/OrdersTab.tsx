@@ -107,6 +107,7 @@ type OrdersTabProps = {
   isPayOnDeliveryOrder: (order: Order) => boolean;
   formatRequestTime: (requestedAt?: string) => string;
   getOrderTableLabel: (order: Order) => string | null;
+  onClearOrdersAndCategories: () => void | Promise<void>;
 };
 
 const PIX_PENDING_ALERT_DELAY_MS = 2 * 60 * 1000;
@@ -170,6 +171,7 @@ export default function OrdersTab({
   isPayOnDeliveryOrder,
   formatRequestTime,
   getOrderTableLabel,
+  onClearOrdersAndCategories,
 }: OrdersTabProps) {
   const INITIAL_VISIBLE_ORDERS = 12;
   const LOAD_MORE_STEP = 12;
@@ -210,6 +212,24 @@ export default function OrdersTab({
           Pedidos em Tempo Real
         </h2>
         <p>Painel no estilo motoqueiro com filtros avancados do admin.</p>
+        <div style={{ marginTop: "1rem" }}>
+          <button
+            type="button"
+            onClick={onClearOrdersAndCategories}
+            style={{
+              border: "1px solid rgba(185, 28, 28, 0.42)",
+              background: "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)",
+              color: "#ffffff",
+              borderRadius: 12,
+              padding: "0.7rem 1rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: "0 12px 20px rgba(153, 27, 27, 0.18)",
+            }}
+          >
+            Excluir pedidos e categorias
+          </button>
+        </div>
       </S.PageHeader>
 
       <div
