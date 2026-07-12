@@ -376,23 +376,206 @@ export default function OrderDrawer({
                   />
                 </S.Label>
 
-                <S.Label>
-                  Forma de pagamento
-                  <select
-                    value={paymentMethod}
-                    onChange={(event) => setPaymentMethod(event.target.value)}
+                <div
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    background: "#ffffff",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "1rem 1rem 0.75rem",
+                      borderBottom: "1px solid #eef2f7",
+                      background: "#ffffff",
+                    }}
                   >
-                    <option value="PIX">PIX</option>
-                    <option value="CARTAO">Cartao</option>
-                    <option value="DINHEIRO">Dinheiro</option>
-                  </select>
-                </S.Label>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 800,
+                        lineHeight: 1.2,
+                        color: "#111827",
+                      }}
+                    >
+                      Meios de pagamento
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    style={{
+                      width: "100%",
+                      border: "none",
+                      borderBottom: "1px solid #eef2f7",
+                      background:
+                        paymentMethod === "CARTAO" ? "#f3f7ff" : "#ffffff",
+                      padding: "0.85rem 0.95rem",
+                      display: "grid",
+                      gridTemplateColumns: "auto auto 1fr",
+                      gap: "0.75rem",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      color: "#111827",
+                      textAlign: "left",
+                    }}
+                    onClick={() => setPaymentMethod("CARTAO")}
+                  >
+                    <span
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "999px",
+                        border:
+                          paymentMethod === "CARTAO"
+                            ? "5px solid #3b82f6"
+                            : "2px solid #cbd5e1",
+                        background: "#ffffff",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <span
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: "999px",
+                        border: "1px solid #e5e7eb",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#1f2937",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <CreditCard size={19} />
+                    </span>
+                    <span>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Cartao de credito
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 5,
+                          display: "inline-flex",
+                          padding: "0.2rem 0.55rem",
+                          borderRadius: 999,
+                          background: "#dcfce7",
+                          color: "#059669",
+                          fontWeight: 700,
+                          fontSize: 11,
+                        }}
+                      >
+                        Parcelamento disponivel
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        {["Mastercard", "Visa", "Elo", "American Express"].map(
+                          (brand) => (
+                            <span
+                              key={brand}
+                              style={{
+                                width: 34,
+                                height: 22,
+                                borderRadius: 6,
+                                border: "1px solid #e5e7eb",
+                                background: "#ffffff",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: 2,
+                              }}
+                            >
+                              <img
+                                src={getCardBrandLogo(brand)}
+                                alt={`Bandeira ${brand}`}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      width: "100%",
+                      border: "none",
+                      background:
+                        paymentMethod === "PIX" ? "#f3f7ff" : "#ffffff",
+                      padding: "0.85rem 0.95rem",
+                      display: "grid",
+                      gridTemplateColumns: "auto auto 1fr",
+                      gap: "0.75rem",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      color: "#111827",
+                      textAlign: "left",
+                    }}
+                    onClick={() => setPaymentMethod("PIX")}
+                  >
+                    <span
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "999px",
+                        border:
+                          paymentMethod === "PIX"
+                            ? "5px solid #3b82f6"
+                            : "2px solid #cbd5e1",
+                        background: "#ffffff",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <span
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: "999px",
+                        border: "1px solid #e5e7eb",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#111827",
+                        background: "#ffffff",
+                        fontSize: 18,
+                        fontWeight: 800,
+                      }}
+                    >
+                      ◈
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Pix
+                    </span>
+                  </button>
+                </div>
 
                 <S.InlineInfo style={{ marginTop: -4 }}>
                   O pedido sera enviado agora. PIX sera confirmado
                   automaticamente apos a aprovacao do provedor; cartao continua
-                  pendente ate a confirmacao da equipe; dinheiro pode ser
-                  acertado na entrega.
+                  pendente ate a confirmacao da equipe.
                 </S.InlineInfo>
 
                 {paymentMethod === "PIX" ? (

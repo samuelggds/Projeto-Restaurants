@@ -65,19 +65,7 @@ class InvoiceService {
       return invoiceExists;
     }
 
-    // Busca pedidos pagos
-    const orders = await billingRepository.findPaidOrdersByPeriod(
-      restaurantId,
-      startDate,
-      endDate,
-    );
-
-    const systemFees = orders.reduce(
-      (total, order) => total + Number(order.systemFee || 0),
-      0,
-    );
-
-    const total = plan.monthlyFee + systemFees;
+    const total = plan.monthlyFee;
 
     const trialEndsAtDate = subscription.trialEndsAt
       ? new Date(subscription.trialEndsAt)
@@ -95,7 +83,7 @@ class InvoiceService {
       month,
       year,
       monthlyFee: plan.monthlyFee,
-      systemFees,
+      systemFees: 0,
       total,
       dueDate,
       status: "PENDENTE",

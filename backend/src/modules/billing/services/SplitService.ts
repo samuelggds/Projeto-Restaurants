@@ -21,9 +21,7 @@ class SplitService {
       throw new Error("Plano inválido.");
     }
 
-    const systemFee = Number((orderTotal * plan.splitRate).toFixed(2));
-
-    return systemFee;
+    return 0;
   }
 }
 

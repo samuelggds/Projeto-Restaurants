@@ -65,7 +65,7 @@ const MIN_CONFIRMATION_DELAY_MS = 5000;
 const CONFIRMED_STATE_DELAY_MS = 2000;
 const PRODUCT_DETAIL_CLOSE_MS = 240;
 const PIX_AUTO_STATUS_CHECK_INTERVAL_MS = 4000;
-const ALLOWED_PAYMENT_METHODS = new Set(["PIX", "CARTAO", "DINHEIRO"]);
+const ALLOWED_PAYMENT_METHODS = new Set(["PIX", "CARTAO"]);
 
 function parseLastMesaOrder(raw) {
   if (!raw || typeof raw !== "object") {

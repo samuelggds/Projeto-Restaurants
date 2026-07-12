@@ -3,7 +3,6 @@ import orderRepository from "../repositories/OrderRepository.js";
 import productRepository from "../../products/repositories/ProductRepository.js";
 import { io } from "../../../server.js";
 import { createOrderSchema } from "../../../validators/OrderValidator.js";
-import splitService from "../../billing/services/SplitService.js";
 import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
 import orderPixPaymentService from "./OrderPixPaymentService.js";
 import {
@@ -420,11 +419,6 @@ class CreateOrderService {
         0,
       );
 
-      const systemFee = await splitService.execute({
-        restaurantId: resolvedRestaurantId,
-        orderTotal: total,
-      });
-
       const formattedCpf = this.formatCpf(customerCpf);
       const guestSummary =
         !userId && customerName
@@ -457,7 +451,7 @@ class CreateOrderService {
       const order = await orderRepository.create(
         {
           total,
-          systemFee,
+          systemFee: 0,
           type,
           paymentMethod,
           paid: shouldMarkAsPaid,

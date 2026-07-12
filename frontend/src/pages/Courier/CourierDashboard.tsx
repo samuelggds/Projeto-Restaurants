@@ -26,7 +26,6 @@ const STATUS_LABEL = {
 };
 
 const PAYMENT_LABEL = {
-  DINHEIRO: "Dinheiro",
   PIX: "PIX",
   CARTAO: "Cartão",
   CARTAO_DEBITO: "Débito",
@@ -39,6 +38,42 @@ const DIGITAL_PAYMENT_METHODS = new Set([
   "CARTAO_CREDITO",
 ]);
 
+function getNormalizedOrderType(order: { type?: string }) {
+  return String(order?.type || "").toUpperCase();
+}
+
+function getNormalizedOrderStatus(order: { status?: string }) {
+  return String(order?.status || "").toUpperCase();
+}
+
+function isCourierDeliveryOrder(order: { type?: string }) {
+  return getNormalizedOrderType(order) === "DELIVERY";
+}
+
+function isReadyForCourierPickup(order: { type?: string; status?: string }) {
+  return (
+    isCourierDeliveryOrder(order) &&
+    getNormalizedOrderStatus(order) === "PRONTO"
+  );
+}
+
+function getOrderCreatedAtMs(order: { createdAt?: string }) {
+  const createdAtMs = Date.parse(String(order?.createdAt || ""));
+  return Number.isFinite(createdAtMs) ? createdAtMs : Number.MAX_SAFE_INTEGER;
+}
+
+function compareReadyForPickupOrders(
+  a: { createdAt?: string; id?: number },
+  b: { createdAt?: string; id?: number },
+) {
+  const byCreatedAt = getOrderCreatedAtMs(a) - getOrderCreatedAtMs(b);
+  if (byCreatedAt !== 0) {
+    return byCreatedAt;
+  }
+
+  return Number(a?.id || 0) - Number(b?.id || 0);
+}
+
 export default function CourierDashboard() {
   const INITIAL_VISIBLE_ORDERS = 12;
   const LOAD_MORE_STEP = 12;
@@ -47,7 +82,7 @@ export default function CourierDashboard() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("SAIU_PARA_ENTREGA");
+  const [activeTab, setActiveTab] = useState("PRONTO");
   const [deliveredCount, setDeliveredCount] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ORDERS);
@@ -80,10 +115,9 @@ export default function CourierDashboard() {
           id?: number;
           type?: string;
           status?: string;
+          createdAt?: string;
         }>;
-        const deliveryOrders = allOrders.filter(
-          (o) => String(o.type || "").toUpperCase() === "DELIVERY",
-        );
+        const deliveryOrders = allOrders.filter(isCourierDeliveryOrder);
         setOrders(deliveryOrders);
         setDeliveredCount(
           deliveryOrders.filter((o) => o.status === "ENTREGUE").length,
@@ -138,7 +172,24 @@ export default function CourierDashboard() {
     );
   }
 
-  const filteredOrders = orders.filter((o) => o.status === activeTab);
+  const readyForPickupOrders = [...orders]
+    .filter(isReadyForCourierPickup)
+    .sort(compareReadyForPickupOrders);
+  const inRouteOrders = orders.filter(
+    (o) => getNormalizedOrderStatus(o) === "SAIU_PARA_ENTREGA",
+  );
+  const deliveredOrders = orders.filter(
+    (o) => getNormalizedOrderStatus(o) === "ENTREGUE",
+  );
+
+  const filteredOrders =
+    activeTab === "PRONTO"
+      ? readyForPickupOrders
+      : activeTab === "SAIU_PARA_ENTREGA"
+        ? inRouteOrders
+        : activeTab === "ENTREGUE"
+          ? deliveredOrders
+          : [];
   const searchedOrders = filteredOrders.filter((order) => {
     const normalizedSearch = orderIdSearch.trim();
 
@@ -153,11 +204,9 @@ export default function CourierDashboard() {
     searchedOrders.length - displayedOrders.length,
     0,
   );
-  const prontoCount = orders.filter((o) => o.status === "PRONTO").length;
-  const saiuCount = orders.filter(
-    (o) => o.status === "SAIU_PARA_ENTREGA",
-  ).length;
-  const entregueCount = orders.filter((o) => o.status === "ENTREGUE").length;
+  const prontoCount = readyForPickupOrders.length;
+  const saiuCount = inRouteOrders.length;
+  const entregueCount = deliveredOrders.length;
 
   return (
     <S.PageWrapper>

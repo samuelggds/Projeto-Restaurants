@@ -1,0 +1,62 @@
+import createRestaurantSettingsService from "../services/CreateRestaurantSettingsService.js";
+class CreateRestaurantSettingsController {
+    async handle(req, res) {
+        try {
+            const restaurantId = req.user.restaurantId;
+            const { deliveryFee, minimumOrder, pixProvider, pixKey, legalDocumentType, companyDocument, companyLegalName, companyTradeName, companyAddress, companyCnae, monthlyRevenue, ownerFullName, ownerCpf, ownerBirthDate, ownerEmail, ownerPhone, ownerAddress, bankName, bankCode, bankAccountType, bankBranch, bankAccount, bankHolderDocument, cardGateway, gatewayMerchantId, stripeSecretKey, mercadoPagoAccessToken, picpayToken, asaasAccessToken, pagbankEmail, pagbankToken, pagbankEnvironment, ownerDocumentFileUrl, bankProofFileUrl, companyContractFileUrl, whatsapp, instagram, facebook, restaurantName, restaurantLogo, restaurantCoverImage, } = req.body;
+            const settings = await createRestaurantSettingsService.execute({
+                restaurantId,
+                deliveryFee,
+                minimumOrder,
+                pixProvider,
+                pixKey,
+                legalDocumentType,
+                companyDocument,
+                companyLegalName,
+                companyTradeName,
+                companyAddress,
+                companyCnae,
+                monthlyRevenue,
+                ownerFullName,
+                ownerCpf,
+                ownerBirthDate,
+                ownerEmail,
+                ownerPhone,
+                ownerAddress,
+                bankName,
+                bankCode,
+                bankAccountType,
+                bankBranch,
+                bankAccount,
+                bankHolderDocument,
+                cardGateway,
+                gatewayMerchantId,
+                stripeSecretKey,
+                mercadoPagoAccessToken,
+                picpayToken,
+                asaasAccessToken,
+                pagbankEmail,
+                pagbankToken,
+                pagbankEnvironment,
+                ownerDocumentFileUrl,
+                bankProofFileUrl,
+                companyContractFileUrl,
+                whatsapp,
+                instagram,
+                facebook,
+                restaurantName,
+                restaurantLogo,
+                restaurantCoverImage,
+            });
+            return res.status(201).json(settings);
+        }
+        catch (error) {
+            return res.status(400).json({
+                error: error instanceof Error
+                    ? error.message
+                    : "Erro ao criar configuracoes do restaurante",
+            });
+        }
+    }
+}
+export default new CreateRestaurantSettingsController();
