@@ -195,8 +195,10 @@ export default function SuperAdminMaster() {
       currentPlan === "PROFISSIONAL" || currentPlan === "PREMIUM";
 
     if (!currentPlanAllowsChat) {
-      setSupportChatMessages([]);
-      setSupportChatHasMoreHistory(false);
+      setTimeout(() => {
+        setSupportChatMessages([]);
+        setSupportChatHasMoreHistory(false);
+      }, 0);
       return undefined;
     }
 
@@ -733,7 +735,7 @@ export default function SuperAdminMaster() {
                     currentRestaurantId
                   );
                 })
-                .map((messageItem) => {
+                .map((messageItem, index) => {
                   const senderRole = String(
                     messageItem?.senderRole || "SUPER_ADMIN",
                   ).toUpperCase();
@@ -741,7 +743,7 @@ export default function SuperAdminMaster() {
 
                   return (
                     <div
-                      key={String(messageItem?.id || `${Math.random()}`)}
+                      key={String(messageItem?.id || `msg-${index}`)}
                       style={{
                         marginLeft: isMine ? "auto" : 0,
                         marginRight: isMine ? 0 : "auto",

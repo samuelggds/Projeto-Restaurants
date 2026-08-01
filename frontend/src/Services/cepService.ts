@@ -76,7 +76,9 @@ async function lookupViaCepOnce(
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Consulta de CEP demorou demais. Tente novamente.");
+      throw new Error("Consulta de CEP demorou demais. Tente novamente.", {
+        cause: error,
+      });
     }
 
     throw error;

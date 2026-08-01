@@ -1,6 +1,5 @@
 import {
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
   type Dispatch,
@@ -175,21 +174,21 @@ export default function OperationalTabs({
   handleStartEditProduct,
   handleDeleteProduct,
   editingProductId,
-  handleCancelEditProduct,
-  handleCreateTable,
-  tableNumber,
-  setTableNumber,
+  handleCancelEditProduct: _handleCancelEditProduct,
+  handleCreateTable: _handleCreateTable,
+  tableNumber: _tableNumber,
+  setTableNumber: _setTableNumber,
   tables,
-  deactivatingTableIds,
-  activatingTableIds,
-  getTableQrValue,
-  qrCardRefs,
-  handlePreviewTableQr,
-  handleCopyTableQrLink,
-  handleDownloadTableQr,
-  handlePrintTableQr,
-  handleDeactivateTable,
-  handleActivateTable,
+  deactivatingTableIds: _deactivatingTableIds,
+  activatingTableIds: _activatingTableIds,
+  getTableQrValue: _getTableQrValue,
+  qrCardRefs: _qrCardRefs,
+  handlePreviewTableQr: _handlePreviewTableQr,
+  handleCopyTableQrLink: _handleCopyTableQrLink,
+  handleDownloadTableQr: _handleDownloadTableQr,
+  handlePrintTableQr: _handlePrintTableQr,
+  handleDeactivateTable: _handleDeactivateTable,
+  handleActivateTable: _handleActivateTable,
   handleCreateEmployee,
   employeeData,
   setEmployeeData,
@@ -200,7 +199,7 @@ export default function OperationalTabs({
   restaurantId,
   onImportedCatalog,
 }: OperationalTabsProps) {
-  const [tableFilter, setTableFilter] = useState<
+  const [tableFilter, _setTableFilter] = useState<
     "ATIVAS" | "INATIVAS" | "TODAS"
   >("ATIVAS");
   const [isProductsDrawerOpen, setIsProductsDrawerOpen] = useState(true);
@@ -208,7 +207,7 @@ export default function OperationalTabs({
     "create" | "ifood" | "ai" | "manage" | "categories"
   >("create");
 
-  const tableCounters = useMemo(() => {
+  const _tableCounters = useMemo(() => {
     const total = tables.length;
     const activeCount = tables.filter(
       (table) => table?.active !== false,
@@ -224,7 +223,7 @@ export default function OperationalTabs({
     };
   }, [tables]);
 
-  const filteredTables = useMemo(() => {
+  const _filteredTables = useMemo(() => {
     if (tableFilter === "TODAS") {
       return tables;
     }

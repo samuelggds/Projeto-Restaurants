@@ -825,7 +825,10 @@ export default function StaffDashboard() {
     }
   }
 
-  async function handleRetryPixPaymentStatus(order, options = {}) {
+  async function handleRetryPixPaymentStatus(
+    order,
+    options: { silent?: boolean } = {},
+  ) {
     const silent = options?.silent === true;
     const orderId = Number(order?.id || 0);
     const paymentId = String(order?.pixPaymentId || "").trim();

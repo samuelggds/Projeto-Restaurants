@@ -247,11 +247,13 @@ export default function CourierDashboard() {
         emitLocationForOrdersInRoute();
       }, LOCATION_UPDATE_INTERVAL_MS);
     } else {
-      setGeoStatus("unsupported");
-      setGeoNotice(
-        "Seu dispositivo não oferece geolocalização neste navegador.",
-      );
-      setGeoActionHint("");
+      setTimeout(() => {
+        setGeoStatus("unsupported");
+        setGeoNotice(
+          "Seu dispositivo não oferece geolocalização neste navegador.",
+        );
+        setGeoActionHint("");
+      }, 0);
     }
 
     function onStatusChanged(updatedOrder) {
