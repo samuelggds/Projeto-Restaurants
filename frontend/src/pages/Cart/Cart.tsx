@@ -545,20 +545,6 @@ export default function Cart() {
   const shouldUseCardCheckout = !isPayOnDelivery && paymentMethod === "CARTAO";
 
   useEffect(() => {
-    if (!shouldUseCardCheckout) {
-      return;
-    }
-
-    setCardCvv("");
-  }, [shouldUseCardCheckout]);
-
-  useEffect(() => {
-    if (!isDelivery && isPayOnDelivery) {
-      setIsPayOnDelivery(false);
-    }
-  }, [isDelivery, isPayOnDelivery]);
-
-  useEffect(() => {
     let mounted = true;
 
     async function loadPublicRestaurantSettings() {
@@ -1130,6 +1116,7 @@ export default function Cart() {
           pixCode: String(pixPayment?.qrCode || ""),
           qrCodeBase64: pixPayment?.qrCodeBase64 || null,
           requiresStatusCheck: Boolean(pixPayment?.requiresStatusCheck),
+          savedAt: Date.now(),
         });
         setIsPixPaymentPanelMinimized(false);
         setPendingPixOrderPayload(null);
@@ -1748,7 +1735,10 @@ export default function Cart() {
                       cursor: "pointer",
                       color: "inherit",
                     }}
-                    onClick={() => setOrderType("RETIRADA")}
+                    onClick={() => {
+                      setOrderType("RETIRADA");
+                      setIsPayOnDelivery(false);
+                    }}
                   >
                     Retirada
                   </button>
@@ -1926,6 +1916,7 @@ export default function Cart() {
                   onClick={() => {
                     setIsPayOnDelivery(false);
                     setPaymentMethod("CARTAO");
+                    setCardCvv("");
                   }}
                 >
                   Cartão

@@ -45,7 +45,7 @@ function formatCurrency(value: number | null) {
 }
 
 export default function AsaasWalletTab({
-  defaultPixKey,
+  defaultPixKey: _defaultPixKey,
   isMobileViewport,
   isExpanded,
   currentBalance,

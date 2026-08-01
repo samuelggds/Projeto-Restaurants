@@ -109,7 +109,7 @@ function isLikelyPixKey(value: string) {
   const isCpf = digits.length === 11;
   const isCnpj = digits.length === 14;
   const isPhone = digits.length >= 10 && digits.length <= 13;
-  const isRandomKey = /^[a-zA-Z0-9\-]{32,36}$/.test(normalized);
+  const isRandomKey = /^[a-zA-Z0-9-]{32,36}$/.test(normalized);
 
   return isEmail || isCpf || isCnpj || isPhone || isRandomKey;
 }

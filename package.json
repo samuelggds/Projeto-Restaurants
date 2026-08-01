@@ -1,0 +1,10 @@
+{
+  "name": "pizza-ia-delivery",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build && node scripts/report.mjs",
+    "check": "node scripts/check.mjs"
+  }
+}

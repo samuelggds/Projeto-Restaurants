@@ -272,7 +272,7 @@ export default function MyOrders() {
     Record<number, DeliveryLocationSnapshot>
   >({});
   const [isLoadingPedidos, setIsLoadingPedidos] = useState(true);
-  const [reportingIssueOrderId, setReportingIssueOrderId] = useState<
+  const [reportingIssueOrderId, _setReportingIssueOrderId] = useState<
     number | null
   >(null);
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
@@ -1067,7 +1067,7 @@ export default function MyOrders() {
                   </small>
                 </div>
               ) : (
-                (activeIssueThread.messages || []).map((messageItem) => {
+                (activeIssueThread.messages || []).map((messageItem, index) => {
                   const senderType = String(
                     messageItem?.senderType || "CLIENT",
                   ).toUpperCase();
@@ -1083,7 +1083,7 @@ export default function MyOrders() {
 
                   return (
                     <div
-                      key={String(messageItem?.id || `${Math.random()}`)}
+                      key={String(messageItem?.id || `msg-${index}`)}
                       className={`chat-message ${
                         isAdminMessage ? "admin" : "client"
                       }`}
