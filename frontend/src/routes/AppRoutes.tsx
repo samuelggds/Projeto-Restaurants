@@ -13,11 +13,9 @@ const Login = lazy(() => import("../pages/Login/Login"));
 const RecoverPassword = lazy(
   () => import("../pages/RecoverPassword/RecoverPassword"),
 );
-const AdminDashboard = lazy(
-  () => import("../pages/AdminDashboard/AdminDashboard"),
-);
+const AdminDashboard = lazy(() => import("../pages/admin/Admin"));
 const Register = lazy(() => import("../pages/Register/Register"));
-const UserProfile = lazy(() => import("../pages/Profile/Profile"));
+const UserProfile = lazy(() => import("../pages/profile/Profile"));
 const MyOrders = lazy(() => import("../pages/MyOrders/MyOrders"));
 const EmployeesDashboard = lazy(
   () => import("../pages/Employees/EmployeesDashboard"),
@@ -31,7 +29,6 @@ const SuperAdminDashboard = lazy(
 const SuperAdminCreateRestaurant = lazy(
   () => import("../pages/SuperAdmin/SuperAdminCreateRestaurant"),
 );
-const Cart = lazy(() => import("../pages/Cart/Cart"));
 const BillingPage = lazy(() => import("../pages/Billing/BillingPage"));
 const SystemBlockedPage = lazy(
   () => import("../pages/SystemBlocked/SystemBlocked"),
@@ -39,8 +36,13 @@ const SystemBlockedPage = lazy(
 const SystemMaintenancePage = lazy(
   () => import("../pages/SystemMaintenance/SystemMaintenance"),
 );
-const Home = lazy(() => import("../pages/Home/Home"));
+const Home = lazy(() => import("../pages/home/Home"));
 const DigitalMenu = lazy(() => import("../pages/DigitalMenu/DigitalMenu"));
+const SettingsPage = lazy(() =>
+  import("../modules/settings/pages/SettingsPage").then((m) => ({
+    default: m.SettingsPage,
+  })),
+);
 import api from "../Services/api";
 import { useAuth } from "../contexts/authContext";
 import {
@@ -280,12 +282,12 @@ export default function AppRoutes() {
               element={<DigitalMenu />}
             />
 
-            <Route element={<RequireAuth />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/menu" element={<Home />} />
-              <Route path="/cardapio" element={<Home />} />
-              <Route path="/cart" element={<Cart />} />
+            {/* rotas públicas da loja — não exigem login */}
+            <Route path="/" element={<Home />} />
+            <Route path="/menu" element={<Home />} />
+            <Route path="/cardapio" element={<Home />} />
 
+            <Route element={<RequireAuth />}>
               <Route path="/system-blocked" element={<SystemBlockedPage />} />
               <Route
                 path="/system-maintenance"
@@ -293,7 +295,7 @@ export default function AppRoutes() {
               />
 
               <Route element={<BillingGate />}>
-                <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
+                <Route element={<RequireRole roles={["CLIENTE"]} />}>
                   <Route path="/profile" element={<UserProfile />} />
                   <Route path="/profile/orders" element={<MyOrders />} />
                 </Route>
@@ -301,11 +303,13 @@ export default function AppRoutes() {
                 <Route element={<RequireRole roles={["ADMIN"]} />}>
                   <Route path="/billing" element={<BillingPage />} />
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route
+                    path="/admin/configuracoes"
+                    element={<SettingsPage />}
+                  />
                 </Route>
 
-                <Route
-                  element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}
-                >
+                <Route element={<RequireRole roles={["MOTOQUEIRO"]} />}>
                   <Route path="/courier" element={<CourierDashboard />} />
                 </Route>
 

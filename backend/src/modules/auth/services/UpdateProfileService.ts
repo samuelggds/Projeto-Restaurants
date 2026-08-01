@@ -12,6 +12,7 @@ type UpdateProfilePayload = {
   state?: string;
   zipCode?: string;
   complement?: string;
+  avatar?: string;
 };
 
 class UpdateProfileService {
@@ -45,6 +46,7 @@ class UpdateProfileService {
       state: String(profileData.state || "").trim() || null,
       zipCode: String(profileData.zipCode || "").trim() || null,
       complement: String(profileData.complement || "").trim() || null,
+      avatar: String(profileData.avatar || "").trim() || null,
     });
   }
 }

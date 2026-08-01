@@ -29,6 +29,7 @@ model User {
   resetPasswordCodeExpiresAt DateTime?
   resetPasswordCodeHash      String?
   mustChangePassword         Boolean              @default(false)
+  avatar                     String?
   authMfaChallenge           AuthMfaChallenge?
   authRefreshSession         AuthRefreshSession?
   orders                     Order[]

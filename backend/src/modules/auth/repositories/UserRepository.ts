@@ -71,6 +71,7 @@ class UserRepository {
         zipCode: true,
         complement: true,
         restaurantId: true,
+        avatar: true,
       },
     });
   }
@@ -102,6 +103,7 @@ class UserRepository {
         zipCode: true,
         complement: true,
         restaurantId: true,
+        avatar: true,
       },
     });
   }

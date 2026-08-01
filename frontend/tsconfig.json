@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "strict": false,
+    "forceConsistentCasingInFileNames": false,
     "types": ["vite/client"]
   },
   "include": ["src"],

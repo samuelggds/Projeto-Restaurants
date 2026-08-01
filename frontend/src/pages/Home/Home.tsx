@@ -1,238 +1,194 @@
-import {
-  lazy,
-  Suspense,
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  type MouseEvent as ReactMouseEvent,
-} from "react";
-import {
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
-import { ThemeProvider } from "styled-components";
-import {
-  Utensils,
-  User,
-  LogOut,
-  ShoppingBag,
-  ShoppingCart,
-  Sun,
-  Moon,
-  Layers,
-  Shield,
-  ArrowLeft,
-} from "lucide-react";
-import { toast } from "react-toastify";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import menuService from "../../Services/menuService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import tableSessionService from "../../Services/tableSessionService";
-import { resolveCategoryIcon } from "../../config/categoryIconMap";
 import { useAuth } from "../../contexts/authContext";
-import * as S from "./styles";
+import { HomePage } from "./HomePage";
+import { homeMockData } from "./data";
+import type { HomeData, HomeProduct, HomeCategory } from "./types";
+import * as S from "./Home.styles";
 
-const HomeAddressPicker = lazy(() => import("./components/HomeAddressPicker"));
-const HomeFooter = lazy(() => import("./components/HomeFooter"));
-
-const ADDRESS_STORAGE_KEY = "@PecaJaFood:enderecos";
-const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
-const PRODUCT_DETAIL_CLOSE_MS = 240;
-const PRODUCT_CARD_CLICK_ANIMATION_MS = 180;
-
-type ProductItem = {
-  id: number;
-  name: string;
-  description?: string | null;
-  image?: string | null;
-  price?: number | string;
-  active?: boolean;
-  stock?: number | string | null;
-  category?: {
-    name?: string | null;
-  } | null;
+// ── Fallback images by category name keyword
+const CAT_IMGS: Record<string, string> = {
+  pizza:
+    "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80",
+  burger:
+    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80",
+  hamburguer:
+    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80",
+  lanche:
+    "https://images.unsplash.com/photo-1561626423-a51b45aef0a1?auto=format&fit=crop&w=800&q=80",
+  frango:
+    "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=800&q=80",
+  carne:
+    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=800&q=80",
+  massa:
+    "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=800&q=80",
+  salada:
+    "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
+  sobremesa:
+    "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=800&q=80",
+  bebida:
+    "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=800&q=80",
+  cerveja:
+    "https://images.unsplash.com/photo-1608270586620-248524c67de9?auto=format&fit=crop&w=800&q=80",
+  combo:
+    "https://images.unsplash.com/photo-1571091718767-18b5b1457add?auto=format&fit=crop&w=800&q=80",
+  acompanhamento:
+    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
 };
 
-function isProductUnavailable(product: ProductItem | null | undefined) {
-  if (!product) {
-    return true;
+const PRODUCT_FALLBACKS = [
+  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80",
+];
+
+function getProductImage(p: Record<string, unknown>, index: number): string {
+  if (p.image && String(p.image).startsWith("http")) return String(p.image);
+  const terms = [p.name, p.description, (p.category as { name?: string })?.name]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  for (const [key, url] of Object.entries(CAT_IMGS)) {
+    if (terms.includes(key)) return url;
   }
-
-  if (product.active === false) {
-    return true;
-  }
-
-  const rawStock = product.stock;
-
-  if (rawStock === null || rawStock === undefined || rawStock === "") {
-    return false;
-  }
-
-  const stockValue =
-    typeof rawStock === "string"
-      ? Number(rawStock.replace(",", "."))
-      : Number(rawStock);
-
-  return Number.isFinite(stockValue) && stockValue <= 0;
+  return PRODUCT_FALLBACKS[index % PRODUCT_FALLBACKS.length];
 }
 
-type ProductRipplePoint = {
-  x: number;
-  y: number;
-};
-
-function toPositiveNumber(value) {
-  const parsed = Number(value || 0);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+function isUnavailable(p: Record<string, unknown>): boolean {
+  if (p.active === false) return true;
+  const s = p.stock;
+  if (s === null || s === undefined || s === "") return false;
+  const v = typeof s === "string" ? Number(s.replace(",", ".")) : Number(s);
+  return Number.isFinite(v) && v <= 0;
 }
 
-function readJsonStorage(key, fallback) {
-  const raw = localStorage.getItem(key);
+function toPositiveNumber(v: unknown): number | null {
+  const n = Number(v || 0);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
 
-  if (!raw) {
-    return fallback;
-  }
-
+function readJson<T>(key: string, fallback: T): T {
   try {
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
   }
 }
 
-function normalizeAddress(address) {
-  return {
-    id: Number(address?.id || Date.now()),
-    rotulo: String(address?.rotulo || "Principal"),
-    rua: String(address?.rua || ""),
-    numero: String(address?.numero || ""),
-    bairro: String(address?.bairro || ""),
-    cidade: String(address?.cidade || ""),
-    estado: String(address?.estado || ""),
-    cep: String(address?.cep || ""),
-    complemento: String(address?.complemento || ""),
-  };
-}
+type NotifType = "success" | "error" | "info" | "warning";
+type Notif = {
+  id: number;
+  type: NotifType;
+  title: string;
+  msg?: string;
+  visible: boolean;
+};
 
-function getInitialAddresses(user) {
-  const storedAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, null);
+const NOTIF_ICONS: Record<NotifType, string> = {
+  success: "✓",
+  error: "✕",
+  info: "ℹ",
+  warning: "!",
+};
 
-  if (Array.isArray(storedAddresses)) {
-    return storedAddresses.map(normalizeAddress);
-  }
-
-  if (user?.address || user?.district || user?.city) {
-    return [
-      normalizeAddress({
-        id: user?.defaultAddressId || 1,
-        rotulo: user?.defaultAddressLabel || "Principal",
-        rua: user?.address || "",
-        numero: user?.number || "",
-        bairro: user?.district || "",
-        cidade: user?.city || "",
-        estado: user?.state || "",
-        cep: user?.zipCode || "",
-        complemento: user?.complement || "",
-      }),
-    ];
-  }
-
-  return [];
-}
-
-function getInitialSelectedAddressId(addresses) {
-  const storedSelected = Number(
-    localStorage.getItem(ADDRESS_SELECTED_KEY) || 0,
-  );
-
-  if (
-    storedSelected &&
-    addresses.some((address) => address.id === storedSelected)
-  ) {
-    return storedSelected;
-  }
-
-  return addresses[0]?.id || null;
-}
+type CartItem = {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+};
 
 export default function Home() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { tableNumber: routeTableNumber, restaurantSlug: routeRestaurantSlug } =
-    useParams();
+  const { tableNumber: routeTableNumber, restaurantSlug } = useParams();
   const [searchParams] = useSearchParams();
-  const { user, logout, login } = useAuth();
-  const normalizedRouteRestaurantSlug = String(routeRestaurantSlug || "")
+  const { user, logout } = useAuth();
+
+  const normalizedSlug = String(restaurantSlug || "")
     .trim()
     .toLowerCase();
-
   const routeTableNumberValue = toPositiveNumber(routeTableNumber);
   const routeRestaurantId = toPositiveNumber(
-    searchParams.get("restaurantId") ||
-      searchParams.get("restauranteId") ||
-      searchParams.get("rid"),
+    searchParams.get("restaurantId") || searchParams.get("rid"),
   );
   const routeTableId =
-    toPositiveNumber(
-      searchParams.get("tableId") ||
-        searchParams.get("mesaId") ||
-        searchParams.get("tid"),
-    ) || routeTableNumberValue;
+    toPositiveNumber(searchParams.get("tableId") || searchParams.get("tid")) ||
+    routeTableNumberValue;
   const mesaMode = Boolean(routeTableNumberValue || routeTableId);
   const hasRouteRestaurantId = Boolean(routeRestaurantId);
+
   const [resolvedRestaurantId, setResolvedRestaurantId] = useState<
     number | null
   >(null);
-
-  const [products, setProducts] = useState<ProductItem[]>([]);
-  const [cart, setCart] = useState(() =>
-    readJsonStorage("cartItems", []).map((item) => ({
-      ...item,
-      price: Number(item?.price || 0),
-      quantity: Number(item?.quantity || 1),
+  const [backendProducts, setBackendProducts] = useState<
+    Record<string, unknown>[]
+  >([]);
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const [cart, setCart] = useState<CartItem[]>(() =>
+    readJson<CartItem[]>("cartItems", []).map((i) => ({
+      ...i,
+      price: Number(i.price || 0),
+      quantity: Number(i.quantity || 1),
     })),
-  );
-  const [activeCategory, setActiveCategory] = useState("todos");
-  const [isDarkMode, setIsDarkMode] = useState(
-    () => readJsonStorage("isDarkMode", false) === true,
-  );
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isAddressMenuOpen, setIsAddressMenuOpen] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(
-    typeof window !== "undefined" ? window.innerWidth <= 640 : false,
   );
   const [tablePin, setTablePin] = useState("");
   const [pinError, setPinError] = useState("");
   const [isPinValidating, setIsPinValidating] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
+  const [cardOpen, setCardOpen] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [notifs, setNotifs] = useState<Notif[]>([]);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [tableSession, setTableSession] = useState(() =>
-    readJsonStorage("tableSession", null),
-  );
-  const [clickedProductId, setClickedProductId] = useState<number | null>(null);
-  const [clickedProductRipple, setClickedProductRipple] =
-    useState<ProductRipplePoint | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
-    null,
-  );
-  const [isClosingProductDetail, setIsClosingProductDetail] = useState(false);
-  const [addresses] = useState(() => getInitialAddresses(user));
-  const [selectedAddressId, setSelectedAddressId] = useState(() =>
-    getInitialSelectedAddressId(getInitialAddresses(user)),
+    readJson<Record<string, unknown> | null>("tableSession", null),
   );
 
-  const dropdownRef = useRef(null);
-  const openProductDetailTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  const closeProductDetailTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
+  // ── Notification system (defined early so useEffects can use it)
+  const notify = useCallback(
+    (type: NotifType, title: string, msg?: string, duration = 3500) => {
+      const id = Date.now();
+      setNotifs((prev) => [
+        ...prev.slice(-3),
+        { id, type, title, msg, visible: false },
+      ]);
+      requestAnimationFrame(() =>
+        setNotifs((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, visible: true } : n)),
+        ),
+      );
+      setTimeout(() => {
+        setNotifs((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, visible: false } : n)),
+        );
+        setTimeout(
+          () => setNotifs((prev) => prev.filter((n) => n.id !== id)),
+          400,
+        );
+      }, duration);
+    },
+    [],
+  );
 
-  const selectedAddress =
-    addresses.find((address) => address.id === selectedAddressId) ||
-    addresses[0] ||
-    null;
+  function dismissNotif(id: number) {
+    setNotifs((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, visible: false } : n)),
+    );
+    setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
+  }
+
   const mesaLabel =
     routeTableNumberValue ||
     tableSession?.tableNumber ||
@@ -250,75 +206,99 @@ export default function Home() {
         Number(tableSession?.restaurantId) === Number(routeRestaurantId)),
     );
 
+  const storedSessionRestaurantId = Number(
+    readJson<{ restaurantId?: number } | null>("tableSession", null)
+      ?.restaurantId || 0,
+  );
+  const restaurantId = mesaMode
+    ? routeRestaurantId ||
+      storedSessionRestaurantId ||
+      resolvedRestaurantId ||
+      null
+    : normalizedSlug
+      ? resolvedRestaurantId
+      : (user as { restaurantId?: number })?.restaurantId ||
+        Number(localStorage.getItem("menuRestaurantId")) ||
+        storedSessionRestaurantId ||
+        null;
+
+  // Resolve slug → restaurantId
   useEffect(() => {
-    if (!normalizedRouteRestaurantSlug) {
-      setTimeout(() => setResolvedRestaurantId(null), 0);
-      return;
-    }
-
+    if (!normalizedSlug) return;
     let mounted = true;
-
-    async function resolveRestaurantSlug() {
-      try {
-        const settings =
-          await restaurantSettingsService.getPublicSettingsBySlug(
-            normalizedRouteRestaurantSlug,
-          );
-        const nextRestaurantId = toPositiveNumber(settings?.restaurantId);
-
-        if (!mounted) {
-          return;
-        }
-
-        setResolvedRestaurantId(nextRestaurantId);
-        localStorage.setItem(
-          "menuRestaurantSlug",
-          normalizedRouteRestaurantSlug,
-        );
-
-        if (nextRestaurantId) {
-          localStorage.setItem("menuRestaurantId", String(nextRestaurantId));
-        }
-      } catch (error) {
-        if (!mounted) {
-          return;
-        }
-
-        setResolvedRestaurantId(null);
-        toast.error(
-          error?.response?.data?.error ||
-            error?.response?.data?.message ||
-            "Restaurante não encontrado.",
-        );
-      }
-    }
-
-    resolveRestaurantSlug();
-
+    restaurantSettingsService
+      .getPublicSettingsBySlug(normalizedSlug)
+      .then((s) => {
+        if (!mounted) return;
+        const id = toPositiveNumber(s?.restaurantId);
+        setResolvedRestaurantId(id);
+        if (id) localStorage.setItem("menuRestaurantId", String(id));
+      })
+      .catch(() => {
+        /* silent */
+      });
     return () => {
       mounted = false;
     };
-  }, [normalizedRouteRestaurantSlug]);
+  }, [normalizedSlug]);
 
+  // Load restaurant settings (brand, colors)
   useEffect(() => {
-    localStorage.setItem("isDarkMode", JSON.stringify(isDarkMode));
-  }, [isDarkMode]);
+    if (!restaurantId) return;
+    let mounted = true;
+    restaurantSettingsService
+      .getPublicSettings(Number(restaurantId))
+      .then((d) => {
+        if (mounted) setSettings(d ?? null);
+      })
+      .catch(() => {
+        /* silent */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [restaurantId]);
 
+  // Load products
   useEffect(() => {
-    localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(addresses));
-  }, [addresses]);
+    if (!restaurantId) return;
+    let mounted = true;
+    localStorage.setItem("menuRestaurantId", String(restaurantId));
+    const req = normalizedSlug
+      ? menuService.listProductsBySlug(normalizedSlug)
+      : menuService.listProducts(Number(restaurantId));
+    req
+      .then((data) => {
+        if (mounted)
+          setBackendProducts(
+            Array.isArray(data) ? (data as Record<string, unknown>[]) : [],
+          );
+      })
+      .catch((err) =>
+        notify(
+          "error",
+          "Erro ao carregar cardápio",
+          err?.response?.data?.error,
+        ),
+      );
+    return () => {
+      mounted = false;
+    };
+  }, [restaurantId, normalizedSlug, notify]);
 
+  // Persist cart
   useEffect(() => {
-    if (!mesaMode || !tableSession?.sessionToken) {
-      return;
-    }
+    localStorage.setItem("cartItems", JSON.stringify(cart));
+  }, [cart]);
 
-    const isSameTable = Number(tableSession?.tableId) === Number(routeTableId);
-    const isSameRestaurant =
+  // Clear stale mesa session
+  useEffect(() => {
+    if (!mesaMode || !tableSession?.sessionToken) return;
+    const sameTable = Number(tableSession?.tableId) === Number(routeTableId);
+    const sameRestaurant =
       !hasRouteRestaurantId ||
       Number(tableSession?.restaurantId) === Number(routeRestaurantId);
-
-    if (!isSameTable || !isSameRestaurant) {
+    if (!sameTable || !sameRestaurant) {
       localStorage.removeItem("tableSession");
       localStorage.removeItem("tableSessionToken");
     }
@@ -332,958 +312,785 @@ export default function Home() {
     tableSession?.restaurantId,
   ]);
 
-  const storedTableSessionRestaurantId = Number(
-    JSON.parse(localStorage.getItem("tableSession") || "null")?.restaurantId,
-  );
-  const restaurantId = mesaMode
-    ? routeRestaurantId ||
-      storedTableSessionRestaurantId ||
-      resolvedRestaurantId ||
-      null
-    : normalizedRouteRestaurantSlug
-      ? resolvedRestaurantId
-      : user?.restaurantId ||
-        routeRestaurantId ||
-        Number(localStorage.getItem("menuRestaurantId")) ||
-        storedTableSessionRestaurantId ||
-        null;
-
-  const dynamicCategories = Array.from(
-    new Set(products.map((item) => item?.category?.name).filter(Boolean)),
-  ).map((name) => {
-    const Icon = resolveCategoryIcon(name);
-
-    return {
-      id: name,
-      label: name,
-      icon: <Icon size={16} />,
-    };
-  });
-
-  const allCategories = [
-    { id: "todos", label: "Todos", icon: <Layers size={16} /> },
-    ...dynamicCategories,
-  ];
-
-  useEffect(() => {
-    if (!restaurantId) {
-      return;
-    }
-
-    let mounted = true;
-
-    async function loadProducts() {
-      try {
-        localStorage.setItem("menuRestaurantId", String(restaurantId));
-        const data = normalizedRouteRestaurantSlug
-          ? await menuService.listProductsBySlug(normalizedRouteRestaurantSlug)
-          : await menuService.listProducts(Number(restaurantId));
-        if (mounted) {
-          setProducts(Array.isArray(data) ? data : []);
-        }
-      } catch (err) {
-        toast.error(err?.response?.data?.error || "Erro ao carregar cardápio");
-      }
-    }
-
-    loadProducts();
-
-    return () => {
-      mounted = false;
-    };
-  }, [restaurantId, normalizedRouteRestaurantSlug]);
-
-  useEffect(() => {
-    if (!mesaMode || !mesaSessionIsActive) {
-      return;
-    }
-
-    if (tableSession?.restaurantId) {
-      localStorage.setItem(
-        "menuRestaurantId",
-        String(tableSession.restaurantId),
-      );
-    }
-  }, [mesaMode, mesaSessionIsActive, tableSession]);
-
-  useEffect(() => {
-    localStorage.setItem("cartItems", JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    function handleResize() {
-      setIsMobileViewport(window.innerWidth <= 640);
-    }
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-
-      if (
-        !event.target.closest?.("[data-address-picker]") &&
-        !event.target.closest?.("[data-address-menu]")
-      ) {
-        setIsAddressMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (openProductDetailTimeoutRef.current) {
-        clearTimeout(openProductDetailTimeoutRef.current);
-      }
-
-      if (closeProductDetailTimeoutRef.current) {
-        clearTimeout(closeProductDetailTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  function handleSelectAddress(address) {
-    setSelectedAddressId(address.id);
-    localStorage.setItem(ADDRESS_SELECTED_KEY, String(address.id));
-
-    const token = localStorage.getItem("token");
-    const currentUser = readJsonStorage("user", user || {});
-
-    const nextUser = {
-      ...currentUser,
-      address: address.rua,
-      number: address.numero,
-      district: address.bairro,
-      city: address.cidade,
-      state: address.estado,
-      zipCode: address.cep,
-      complement: address.complemento,
-      defaultAddressId: address.id,
-      defaultAddressLabel: address.rotulo,
-    };
-
-    if (token) {
-      login(nextUser, token);
-    } else {
-      localStorage.setItem("user", JSON.stringify(nextUser));
-    }
-
-    setIsAddressMenuOpen(false);
-  }
-
-  function addToCart(product) {
-    if (isProductUnavailable(product)) {
-      toast.error(
-        `Produto indisponivel no momento: ${product?.name || "Item"}`,
-      );
-      return;
-    }
-
-    setCart((prevCart) => {
-      const existing = prevCart.find((item) => item.productId === product.id);
-
-      if (existing) {
-        return prevCart.map((item) =>
-          item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item,
-        );
-      }
-
-      return [
-        ...prevCart,
-        {
-          productId: product.id,
-          name: product.name,
-          price: Number(product.price),
-          quantity: 1,
-        },
-      ];
-    });
-  }
-
-  function handleOpenProductDetail(
-    product: ProductItem,
-    event: ReactMouseEvent<HTMLDivElement>,
-  ) {
-    if (openProductDetailTimeoutRef.current) {
-      clearTimeout(openProductDetailTimeoutRef.current);
-      openProductDetailTimeoutRef.current = null;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const rippleX = Math.min(
-      100,
-      Math.max(0, ((event.clientX - rect.left) / rect.width) * 100),
-    );
-    const rippleY = Math.min(
-      100,
-      Math.max(0, ((event.clientY - rect.top) / rect.height) * 100),
-    );
-
-    setClickedProductId(product.id);
-    setClickedProductRipple({ x: rippleX, y: rippleY });
-
-    openProductDetailTimeoutRef.current = setTimeout(() => {
-      setClickedProductId(null);
-      setClickedProductRipple(null);
-
-      if (closeProductDetailTimeoutRef.current) {
-        clearTimeout(closeProductDetailTimeoutRef.current);
-        closeProductDetailTimeoutRef.current = null;
-      }
-
-      setIsClosingProductDetail(false);
-      setSelectedProduct(product);
-      openProductDetailTimeoutRef.current = null;
-    }, PRODUCT_CARD_CLICK_ANIMATION_MS);
-  }
-
-  function handleCloseProductDetail() {
-    setIsClosingProductDetail(true);
-
-    if (closeProductDetailTimeoutRef.current) {
-      clearTimeout(closeProductDetailTimeoutRef.current);
-    }
-
-    closeProductDetailTimeoutRef.current = setTimeout(() => {
-      setSelectedProduct(null);
-      setIsClosingProductDetail(false);
-      closeProductDetailTimeoutRef.current = null;
-    }, PRODUCT_DETAIL_CLOSE_MS);
-  }
-
-  function handleLogout() {
-    logout();
-    navigate("/login");
-  }
-
-  async function handleValidateTablePin(event) {
+  async function handleValidateTablePin(event: React.FormEvent) {
     event.preventDefault();
-
     if (!routeTableId || !routeTableNumberValue) {
-      toast.error("QR da mesa inválido. Tente escanear novamente.");
+      notify(
+        "error",
+        "QR inválido",
+        "Escaneie o QR oficial da mesa novamente.",
+      );
       return;
     }
-
     if (!tablePin.trim()) {
-      toast.error("Digite o PIN da mesa.");
+      notify(
+        "warning",
+        "PIN obrigatório",
+        "Digite o PIN informado pelo garçom.",
+      );
       return;
     }
-
     try {
       setIsPinValidating(true);
       setPinError("");
-
       const result = await tableSessionService.validatePin({
         tableId: routeTableId,
         pin: tablePin.trim(),
       });
-
-      const nextTableSession = {
+      const next = {
         sessionToken: result.sessionToken,
         sessionId: result.sessionId,
         tableId: Number(result.tableId || routeTableId),
-        tableNumber:
-          Number(
-            result.tableNumber ||
-              mesaLabel ||
-              routeTableNumberValue ||
-              routeTableId,
-          ) || null,
+        tableNumber: Number(result.tableNumber || mesaLabel) || null,
         restaurantId:
-          Number(
-            result.restaurantId ||
-              routeRestaurantId ||
-              resolvedRestaurantId ||
-              0,
-          ) || null,
+          Number(result.restaurantId || routeRestaurantId || 0) || null,
       };
-
-      if (
-        Number(nextTableSession.tableId) !== Number(routeTableId) ||
-        (hasRouteRestaurantId &&
-          Number(nextTableSession.restaurantId) !== Number(routeRestaurantId))
-      ) {
-        throw new Error("Sessão da mesa inválida para este QR.");
-      }
-
-      localStorage.setItem("tableSession", JSON.stringify(nextTableSession));
+      localStorage.setItem("tableSession", JSON.stringify(next));
       localStorage.setItem("tableSessionToken", result.sessionToken);
-
-      if (nextTableSession.restaurantId) {
-        localStorage.setItem(
-          "menuRestaurantId",
-          String(nextTableSession.restaurantId),
-        );
-      }
-
-      setTableSession(nextTableSession);
+      if (next.restaurantId)
+        localStorage.setItem("menuRestaurantId", String(next.restaurantId));
+      setTableSession(next);
       setTablePin("");
-      toast.success(`Mesa ${nextTableSession.tableNumber} liberada!`);
-    } catch (error) {
-      const message =
-        error?.response?.data?.error || error?.message || "Erro ao validar PIN";
-      setPinError(message);
-      toast.error(message);
+      notify(
+        "success",
+        `Mesa ${next.tableNumber} liberada!`,
+        "Cardápio disponível. Bom apetite!",
+      );
+    } catch (err) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ||
+        (err as { message?: string })?.message ||
+        "Erro ao validar PIN";
+      setPinError(msg);
+      notify("error", "Erro no PIN", msg);
     } finally {
       setIsPinValidating(false);
     }
   }
 
-  const filteredProducts =
-    activeCategory === "todos"
-      ? products
-      : products.filter((item) => item?.category?.name === activeCategory);
-  const groupedProducts = useMemo<Record<string, ProductItem[]>>(() => {
-    const source = activeCategory === "todos" ? products : filteredProducts;
+  // ── Map backend → HomeData
+  const homeData: HomeData = useMemo(() => {
+    const r = (settings?.restaurant as Record<string, unknown>) ?? {};
+    const brand = {
+      name: String(
+        r?.name || settings?.restaurantName || homeMockData.brand.name,
+      ),
+      monogram:
+        String(r?.name || "")
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((w: string) => w[0])
+          .join("")
+          .toUpperCase() || "R",
+      address: String(settings?.address || homeMockData.brand.address),
+      primaryColor: String(
+        settings?.primaryColor || homeMockData.brand.primaryColor,
+      ),
+      whatsapp: String(settings?.whatsapp || homeMockData.brand.whatsapp || ""),
+      logoUrl: String(r?.logo || ""),
+    };
 
-    return source.reduce(
-      (acc, product) => {
-        const categoryName = String(product?.category?.name || "Outros").trim();
-        const key = categoryName || "Outros";
+    if (backendProducts.length === 0) {
+      return { ...homeMockData, brand };
+    }
 
-        if (!acc[key]) {
-          acc[key] = [];
-        }
+    const availableProducts = backendProducts.filter((p) => !isUnavailable(p));
 
-        acc[key].push(product);
-        return acc;
-      },
-      {} as Record<string, ProductItem[]>,
+    const products: HomeProduct[] = availableProducts.map((p, i) => ({
+      id: String(p.id),
+      categoryId: String((p.category as { name?: string })?.name || "outros"),
+      name: String(p.name || ""),
+      description: String(p.description || ""),
+      price: Number(p.price || 0),
+      image: getProductImage(p, i),
+      rating:
+        Number((p as { averageRating?: number }).averageRating || 0) || 4.5,
+    }));
+
+    const seen = new Set<string>();
+    const categories: HomeCategory[] = [
+      { id: "todos", name: "Todos", image: PRODUCT_FALLBACKS[0] },
+      ...(availableProducts
+        .map((p) => {
+          const name = String((p.category as { name?: string })?.name || "");
+          if (!name || seen.has(name)) return null;
+          seen.add(name);
+          return { id: name, name, image: getProductImage(p, 0) };
+        })
+        .filter(Boolean) as HomeCategory[]),
+    ];
+
+    return {
+      brand,
+      hero: homeMockData.hero,
+      banners: homeMockData.banners,
+      categories,
+      products,
+      deliveryTime: String(
+        settings?.averageDeliveryTime || homeMockData.deliveryTime,
+      ),
+      minimumOrder: Number(settings?.minimumOrder || homeMockData.minimumOrder),
+      freeDeliveryFrom: homeMockData.freeDeliveryFrom,
+      isOpen: true,
+      about: String(settings?.description || homeMockData.about),
+    };
+  }, [backendProducts, settings]);
+
+  function addToCart(productId: string) {
+    const product = homeData.products.find((p) => p.id === productId);
+    if (!product) return;
+    setCart((prev) => {
+      const existing = prev.find((i) => i.productId === productId);
+      if (existing)
+        return prev.map((i) =>
+          i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i,
+        );
+      return [
+        ...prev,
+        {
+          productId,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          image: product.image,
+        },
+      ];
+    });
+    notify("success", product.name, "Adicionado à sacola!", 2000);
+  }
+
+  function decreaseCart(productId: string) {
+    setCart((prev) =>
+      prev
+        .map((i) =>
+          i.productId === productId ? { ...i, quantity: i.quantity - 1 } : i,
+        )
+        .filter((i) => i.quantity > 0),
     );
-  }, [activeCategory, products, filteredProducts]);
+  }
 
+  const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
+  const cartTotal = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+
+  const primary = homeData.brand.primaryColor || "#d64d08";
+
+  // ── PIN Gate: invalid QR
   if (mesaMode && !hasValidQrContext) {
     return (
-      <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
-        <S.HomeLayout>
-          <S.Navbar>
-            <S.Brand>
-              <Utensils size={24} strokeWidth={2.5} />
-              <span>Peça Já Food</span>
-            </S.Brand>
-
-            <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </S.ThemeToggleButton>
-          </S.Navbar>
-
-          <div
-            style={{
-              minHeight: "calc(100vh - 72px)",
-              display: "grid",
-              placeItems: "center",
-              padding: "1.25rem",
-              background: isDarkMode
-                ? "radial-gradient(circle at top, rgba(249,115,22,0.18), transparent 30%), linear-gradient(180deg, #0f172a 0%, #111827 100%)"
-                : "radial-gradient(circle at top, rgba(234,179,8,0.18), transparent 30%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
-            }}
-          >
+      <S.HomeRoot $primary={primary}>
+        <S.Main
+          style={{ display: "grid", placeItems: "center", minHeight: "80vh" }}
+        >
+          <div style={{ maxWidth: 480, textAlign: "center" }}>
             <div
               style={{
-                width: "100%",
-                maxWidth: 560,
-                background: isDarkMode ? "#111827" : "#ffffff",
-                border: `1px solid ${isDarkMode ? "#243041" : "#e2e8f0"}`,
-                borderRadius: 28,
-                padding: "1.5rem",
-                boxShadow: isDarkMode
-                  ? "0 22px 70px rgba(0,0,0,0.32)"
-                  : "0 22px 70px rgba(15,23,42,0.12)",
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: ".1em",
+                color: primary,
+                marginBottom: 10,
               }}
             >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: isDarkMode ? "#fdba74" : "#c2410c",
-                  marginBottom: 10,
-                }}
-              >
-                Acesso por QR Code
-              </div>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: "clamp(1.6rem, 6vw, 2.2rem)",
-                  lineHeight: 1.1,
-                  color: isDarkMode ? "#f8fafc" : "#0f172a",
-                }}
-              >
-                Link inválido da mesa
-              </h1>
-              <p
-                style={{
-                  margin: "0.8rem 0 0",
-                  fontSize: 15,
-                  lineHeight: 1.6,
-                  color: isDarkMode ? "#cbd5e1" : "#475569",
-                }}
-              >
-                Para abrir o cardápio digital, escaneie o QR oficial da mesa. O
-                link precisa conter a identificação completa da mesa e do
-                restaurante.
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  toast.info(
-                    `Peça ao funcionário para escanear o QR oficial${mesaLabel ? ` da Mesa ${mesaLabel}` : " da sua mesa"}.`,
-                  )
-                }
-                style={{
-                  marginTop: "1rem",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "0.6rem 0.95rem",
-                  background: isDarkMode
-                    ? "linear-gradient(135deg, #f59e0b, #fb7185)"
-                    : "linear-gradient(135deg, #f59e0b, #facc15)",
-                  color: "#0f172a",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  boxShadow: "0 8px 18px rgba(217, 119, 6, 0.22)",
-                }}
-              >
-                Como acessar com QR oficial
-              </button>
+              Acesso por QR Code
             </div>
+            <h1
+              style={{ fontSize: "clamp(22px,4vw,32px)", margin: "0 0 10px" }}
+            >
+              Link inválido da mesa
+            </h1>
+            <p style={{ color: "#6f6a63" }}>
+              Escaneie o QR oficial da mesa para acessar o cardápio.
+            </p>
           </div>
-        </S.HomeLayout>
-      </ThemeProvider>
+        </S.Main>
+      </S.HomeRoot>
     );
   }
 
+  // ── PIN Gate: awaiting PIN
   if (mesaMode && !mesaSessionIsActive) {
     return (
-      <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
-        <S.HomeLayout>
-          <S.Navbar>
-            <S.Brand>
-              <Utensils size={24} strokeWidth={2.5} />
-              <span>Peça Já Food</span>
-            </S.Brand>
-
-            <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </S.ThemeToggleButton>
-          </S.Navbar>
-
+      <S.HomeRoot $primary={primary}>
+        <S.Main
+          style={{ display: "grid", placeItems: "center", minHeight: "80vh" }}
+        >
           <div
             style={{
-              minHeight: "calc(100vh - 72px)",
-              display: "grid",
-              placeItems: "center",
-              padding: "1.25rem",
-              background: isDarkMode
-                ? "radial-gradient(circle at top, rgba(249,115,22,0.18), transparent 30%), linear-gradient(180deg, #0f172a 0%, #111827 100%)"
-                : "radial-gradient(circle at top, rgba(234,179,8,0.18), transparent 30%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
+              width: "min(480px,100%)",
+              background: "#fff",
+              border: "1px solid #eadfd3",
+              borderRadius: 20,
+              padding: "clamp(28px,4vw,44px)",
             }}
           >
             <div
               style={{
-                width: "100%",
-                maxWidth: 560,
-                background: isDarkMode ? "#111827" : "#ffffff",
-                border: `1px solid ${isDarkMode ? "#243041" : "#e2e8f0"}`,
-                borderRadius: 28,
-                padding: "1.4rem",
-                boxShadow: isDarkMode
-                  ? "0 22px 70px rgba(0,0,0,0.32)"
-                  : "0 22px 70px rgba(15,23,42,0.12)",
+                display: "inline-block",
+                padding: "6px 14px",
+                background: "#fdeee7",
+                borderRadius: 999,
+                color: primary,
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: ".06em",
+                marginBottom: 12,
               }}
             >
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "0.6rem 0.9rem",
-                  borderRadius: 999,
-                  background: isDarkMode
-                    ? "rgba(249,115,22,0.12)"
-                    : "rgba(249,115,22,0.10)",
-                  color: isDarkMode ? "#fdba74" : "#c2410c",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  fontSize: 12,
-                  marginBottom: 18,
-                }}
-              >
-                Mesa {mesaLabel || ""}
-              </div>
-
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: "clamp(2rem, 7vw, 2.7rem)",
-                  lineHeight: 1.05,
-                  color: isDarkMode ? "#f8fafc" : "#0f172a",
-                }}
-              >
-                Cardápio digital da mesa
-              </h1>
-              <p
-                style={{
-                  margin: "0.75rem 0 0",
-                  fontSize: 16,
-                  lineHeight: 1.6,
-                  color: isDarkMode ? "#cbd5e1" : "#475569",
-                }}
-              >
-                O QR da Mesa {mesaLabel || ""} foi reconhecido. Agora digite o
-                PIN que o funcionário informou para liberar os pedidos desta
-                mesa.
-              </p>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
-                  gap: 10,
-                  marginTop: 18,
-                }}
-              >
-                {["Escaneie o QR", "Digite o PIN", "Faça o pedido"].map(
-                  (step) => (
-                    <div
-                      key={step}
-                      style={{
-                        borderRadius: 18,
-                        padding: "0.8rem",
-                        background: isDarkMode ? "#1f2937" : "#f8fafc",
-                        color: isDarkMode ? "#e2e8f0" : "#0f172a",
-                        border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        textAlign: "center",
-                      }}
-                    >
-                      {step}
-                    </div>
-                  ),
-                )}
-              </div>
-
-              <form onSubmit={handleValidateTablePin}>
-                <div style={{ marginTop: "1.5rem" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: 8,
-                      fontWeight: 700,
-                      color: isDarkMode ? "#e2e8f0" : "#334155",
-                    }}
-                  >
-                    PIN da Mesa {mesaLabel || ""}
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="Ex: 1234"
-                    value={tablePin}
-                    onChange={(event) => setTablePin(event.target.value)}
-                    style={{ width: "100%", borderRadius: 16 }}
-                  />
-                </div>
-
-                {pinError && (
-                  <p style={{ color: "#ef4444", marginTop: "0.75rem" }}>
-                    {pinError}
-                  </p>
-                )}
-
-                <S.AddToCartButton
-                  as="button"
-                  type="submit"
-                  style={{ marginTop: "1.25rem", width: "100%" }}
-                  disabled={isPinValidating}
-                >
-                  {isPinValidating ? "Validando..." : "Liberar cardápio"}
-                </S.AddToCartButton>
-              </form>
+              Mesa {String(mesaLabel)}
             </div>
+            <h1
+              style={{
+                fontSize: "clamp(22px,4vw,30px)",
+                fontWeight: 800,
+                margin: "0 0 8px",
+              }}
+            >
+              Cardápio digital
+            </h1>
+            <p style={{ color: "#6f6a63", fontSize: 14, marginBottom: 20 }}>
+              Digite o PIN de 4 dígitos informado pelo garçom.
+            </p>
+            <form
+              onSubmit={handleValidateTablePin}
+              style={{ display: "grid", gap: 10 }}
+            >
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="PIN da mesa"
+                value={tablePin}
+                onChange={(e) =>
+                  setTablePin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                style={{
+                  width: "100%",
+                  height: 52,
+                  border: `2px solid ${tablePin ? primary : "#eadfd3"}`,
+                  borderRadius: 12,
+                  fontSize: 22,
+                  letterSpacing: ".3em",
+                  textAlign: "center",
+                  outline: "none",
+                  fontFamily: "inherit",
+                }}
+              />
+              {pinError && (
+                <p style={{ color: "#b91c1c", fontSize: 13, margin: 0 }}>
+                  {pinError}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={isPinValidating}
+                style={{
+                  height: 50,
+                  background: primary,
+                  color: "white",
+                  border: "none",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  fontSize: 15,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  opacity: isPinValidating ? 0.6 : 1,
+                }}
+              >
+                {isPinValidating ? "Validando..." : "Liberar cardápio"}
+              </button>
+            </form>
           </div>
-        </S.HomeLayout>
-      </ThemeProvider>
+        </S.Main>
+      </S.HomeRoot>
     );
   }
 
-  const totalItens = cart.reduce(
-    (acc, item) => acc + Number(item.quantity || 0),
-    0,
-  );
-
-  const addressPanelBackground = isDarkMode
-    ? "linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96))"
-    : "linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96))";
-  const addressPanelText = isDarkMode ? "#f8fafc" : "#0f172a";
-  const addressPanelMuted = isDarkMode ? "#cbd5e1" : "#475569";
-  const addressPanelBorder = isDarkMode
-    ? "rgba(148, 163, 184, 0.25)"
-    : "rgba(148, 163, 184, 0.22)";
-  const addressDropdownBackground = isDarkMode
-    ? "linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98))"
-    : "linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.98))";
-  const currentReturnTo = `${location.pathname}${location.search}`;
-  const cartReturnQuery = `?from=home${currentReturnTo ? `&returnTo=${encodeURIComponent(currentReturnTo)}` : ""}`;
-
+  // ── Main render
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
-      <S.HomeLayout>
-        <S.Navbar>
-          <S.Brand>
-            <Utensils size={24} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
-          </S.Brand>
+    <>
+      <HomePage
+        data={homeData}
+        cartCount={cartCount}
+        userName={
+          user
+            ? String((user as Record<string, unknown>).name || "")
+            : undefined
+        }
+        userEmail={
+          user
+            ? String((user as Record<string, unknown>).email || "")
+            : undefined
+        }
+        userLoggedIn={!!user}
+        onOpenCart={() => setCartOpen(true)}
+        onOpenProfile={() => navigate("/profile")}
+        onAddProduct={addToCart}
+        onLogout={() => {
+          logout();
+          navigate("/login");
+        }}
+        onSelectCategory={() => {
+          /* handled inside HomePage */
+        }}
+      />
 
-          <S.NavRight>
-            {user?.role === "ADMIN" ? (
-              <S.AdminQuickButton onClick={() => navigate("/admin")}>
-                <Shield size={16} /> Admin
-              </S.AdminQuickButton>
-            ) : null}
+      {/* ── Cart drawer */}
+      <S.CartOverlay
+        $open={cartOpen}
+        onClick={() => setCartOpen(false)}
+        aria-label="Fechar sacola"
+      />
+      <S.CartDrawer $open={cartOpen}>
+        <S.CartHead>
+          <div className="cart-title">
+            <h2>Minha sacola</h2>
+            <small>
+              {cartCount === 0
+                ? "Nenhum item"
+                : `${cartCount} ${cartCount === 1 ? "item" : "itens"}`}
+            </small>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCartOpen(false)}
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </S.CartHead>
 
-            <S.CartButtonContainer
-              onClick={() => navigate(`/cart${cartReturnQuery}`)}
-            >
-              <ShoppingCart size={20} />
-              {totalItens > 0 && <S.Badge>{totalItens}</S.Badge>}
-            </S.CartButtonContainer>
+        <S.CartItems>
+          {cart.length ? (
+            cart.map((item) => (
+              <S.CartItemRow key={item.productId}>
+                <img
+                  src={
+                    item.image ||
+                    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=80&q=80"
+                  }
+                  alt=""
+                />
+                <S.CartItemInfo>
+                  <strong>{item.name}</strong>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <S.CartQty>
+                      <button
+                        type="button"
+                        onClick={() => decreaseCart(item.productId)}
+                      >
+                        −
+                      </button>
+                      <b>{item.quantity}</b>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(item.productId)}
+                      >
+                        +
+                      </button>
+                    </S.CartQty>
+                    <span className="item-price">
+                      {(item.price * item.quantity).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                </S.CartItemInfo>
+              </S.CartItemRow>
+            ))
+          ) : (
+            <S.CartEmpty>
+              <div className="icon">🛒</div>
+              <strong>Sacola vazia</strong>
+              <p>Adicione itens do cardápio para começar seu pedido.</p>
+            </S.CartEmpty>
+          )}
+        </S.CartItems>
 
-            <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </S.ThemeToggleButton>
+        <S.CartFoot>
+          {/* ── Delivery / pickup */}
+          {cart.length > 0 && !mesaMode && (
+            <>
+              <S.CartSectionLabel>Como deseja receber?</S.CartSectionLabel>
+              <S.DeliveryToggle>
+                <S.DeliveryBtn
+                  type="button"
+                  $active={orderType === "delivery"}
+                  onClick={() => setOrderType("delivery")}
+                >
+                  <span className="btn-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 640 640"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fill="currentColor"
+                        d="M64 160C64 124.7 92.7 96 128 96L416 96C451.3 96 480 124.7 480 160L480 192L530.7 192C547.7 192 564 198.7 576 210.7L621.3 256C633.3 268 640 284.3 640 301.3L640 448C640 483.3 611.3 512 576 512L572.7 512C562.3 548.9 528.3 576 488 576C447.7 576 413.8 548.9 403.3 512L300.7 512C290.3 548.9 256.3 576 216 576C175.7 576 141.8 548.9 131.3 512L128 512C92.7 512 64 483.3 64 448L64 400L24 400C10.7 400 0 389.3 0 376C0 362.7 10.7 352 24 352L136 352C149.3 352 160 341.3 160 328C160 314.7 149.3 304 136 304L24 304C10.7 304 0 293.3 0 280C0 266.7 10.7 256 24 256L200 256C213.3 256 224 245.3 224 232C224 218.7 213.3 208 200 208L24 208C10.7 208 0 197.3 0 184C0 170.7 10.7 160 24 160L64 160zM576 352L576 301.3L530.7 256L480 256L480 352L576 352zM256 488C256 465.9 238.1 448 216 448C193.9 448 176 465.9 176 488C176 510.1 193.9 528 216 528C238.1 528 256 510.1 256 488zM488 528C510.1 528 528 510.1 528 488C528 465.9 510.1 448 488 448C465.9 448 448 465.9 448 488C448 510.1 465.9 528 488 528z"
+                      />
+                    </svg>
+                  </span>
+                  Delivery
+                </S.DeliveryBtn>
+                <S.DeliveryBtn
+                  type="button"
+                  $active={orderType === "pickup"}
+                  onClick={() => setOrderType("pickup")}
+                >
+                  <span className="btn-icon">
+                    {/* sacola de retirada */}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <line
+                        x1="3"
+                        y1="6"
+                        x2="21"
+                        y2="6"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M16 10a4 4 0 0 1-8 0"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  Retirada
+                </S.DeliveryBtn>
+              </S.DeliveryToggle>
+            </>
+          )}
 
-            {user && (
-              <S.UserMenuContainer ref={dropdownRef}>
-                <S.AvatarButton
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: isDarkMode ? "#2d2d3a" : "#f3f4f6",
-                    color: isDarkMode ? "#fff" : "#1f2937",
-                    border: "2px solid var(--primary, #eab308)",
+          {/* ── Payment method */}
+          {cart.length > 0 && (
+            <>
+              <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
+              <S.PaymentGrid>
+                <S.PaymentCard
+                  type="button"
+                  $active={paymentMethod === "pix"}
+                  $color="#32BCAD"
+                  onClick={() => setPaymentMethod("pix")}
+                >
+                  <div className="pm-badge">
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 640 640"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fill={paymentMethod === "pix" ? "#fff" : "#32BCAD"}
+                        d="M306.4 356.5C311.8 351.1 321.1 351.1 326.5 356.5L403.5 433.5C417.7 447.7 436.6 455.5 456.6 455.5L471.7 455.5L374.6 552.6C344.3 582.1 295.1 582.1 264.8 552.6L167.3 455.2L176.6 455.2C196.6 455.2 215.5 447.4 229.7 433.2L306.4 356.5zM326.5 282.9C320.1 288.4 311.9 288.5 306.4 282.9L229.7 206.2C215.5 191.1 196.6 184.2 176.6 184.2L167.3 184.2L264.7 86.8C295.1 56.5 344.3 56.5 374.6 86.8L471.8 183.9L456.6 183.9C436.6 183.9 417.7 191.7 403.5 205.9L326.5 282.9zM176.6 206.7C190.4 206.7 203.1 212.3 213.7 222.1L290.4 298.8C297.6 305.1 307 309.6 316.5 309.6C325.9 309.6 335.3 305.1 342.5 298.8L419.5 221.8C429.3 212.1 442.8 206.5 456.6 206.5L494.3 206.5L552.6 264.8C582.9 295.1 582.9 344.3 552.6 374.6L494.3 432.9L456.6 432.9C442.8 432.9 429.3 427.3 419.5 417.5L342.5 340.5C328.6 326.6 304.3 326.6 290.4 340.6L213.7 417.2C203.1 427 190.4 432.6 176.6 432.6L144.8 432.6L86.8 374.6C56.5 344.3 56.5 295.1 86.8 264.8L144.8 206.7L176.6 206.7z"
+                      />
+                    </svg>
+                  </div>
+                  <span className="pm-name">Pix</span>
+                  <span className="pm-desc">Aprovação instantânea</span>
+                </S.PaymentCard>
+                <S.PaymentCard
+                  type="button"
+                  $active={paymentMethod === "card"}
+                  $color="#3b6cf6"
+                  onClick={() => {
+                    setPaymentMethod("card");
+                    setCardOpen(true);
                   }}
                 >
-                  <User size={25} />
-                </S.AvatarButton>
+                  <div className="pm-badge">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <rect
+                        x="2"
+                        y="5"
+                        width="20"
+                        height="14"
+                        rx="2"
+                        stroke={paymentMethod === "card" ? "#fff" : "#3b6cf6"}
+                        strokeWidth="1.8"
+                      />
+                      <path
+                        d="M2 10h20"
+                        stroke={paymentMethod === "card" ? "#fff" : "#3b6cf6"}
+                        strokeWidth="1.8"
+                      />
+                      <rect
+                        x="5"
+                        y="14"
+                        width="5"
+                        height="2"
+                        rx="1"
+                        fill={paymentMethod === "card" ? "#fff" : "#3b6cf6"}
+                      />
+                      <rect
+                        x="12"
+                        y="14"
+                        width="3"
+                        height="2"
+                        rx="1"
+                        fill={
+                          paymentMethod === "card"
+                            ? "rgba(255,255,255,0.5)"
+                            : "rgba(59,108,246,0.4)"
+                        }
+                      />
+                    </svg>
+                  </div>
+                  <span className="pm-name">Cartão</span>
+                  <span className="pm-desc">
+                    {cardNumber
+                      ? `•••• ${cardNumber.replace(/\s/g, "").slice(-4)}`
+                      : "Crédito ou débito"}
+                  </span>
+                </S.PaymentCard>
+              </S.PaymentGrid>
+            </>
+          )}
 
-                {isDropdownOpen && (
-                  <S.DropdownMenu>
-                    <S.DropdownHeader>
-                      <span className="name">{user?.name || "Usuário"}</span>
-                      <span className="email">{user?.email || "-"}</span>
-                    </S.DropdownHeader>
-                    <S.DropdownItem onClick={() => navigate("/profile")}>
-                      <User size={18} /> Meu Perfil
-                    </S.DropdownItem>
-                    <S.DropdownItem onClick={() => navigate("/profile/orders")}>
-                      <ShoppingBag size={18} /> Meus Pedidos
-                    </S.DropdownItem>
-                    <S.DropdownItem $danger onClick={handleLogout}>
-                      <LogOut size={18} /> Fazer Logout
-                    </S.DropdownItem>
-                  </S.DropdownMenu>
-                )}
-              </S.UserMenuContainer>
-            )}
-          </S.NavRight>
-        </S.Navbar>
-
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: "1rem auto 0 auto",
-            padding: "0 clamp(0.85rem, 4vw, 2rem)",
-          }}
-        >
-          {mesaMode && mesaSessionIsActive && (
-            <div
+          {/* ── Summary */}
+          {cart.length > 0 && (
+            <S.CartSummaryRow>
+              <span>
+                Subtotal ({cartCount} {cartCount === 1 ? "item" : "itens"})
+              </span>
+              <span>
+                {cartTotal.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </span>
+            </S.CartSummaryRow>
+          )}
+          <S.CartTotal>
+            <span>Total</span>
+            <span>
+              {cartTotal.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </span>
+          </S.CartTotal>
+          <S.CartCheckout
+            type="button"
+            disabled={!cart.length || (paymentMethod === "card" && !cardNumber)}
+            onClick={() => {
+              setCartOpen(false);
+              notify(
+                "info",
+                "Em breve",
+                "Finalização do pedido em desenvolvimento.",
+              );
+            }}
+          >
+            {paymentMethod === "pix"
+              ? "⚡ Gerar código Pix"
+              : "💳 Confirmar pedido"}{" "}
+            →
+          </S.CartCheckout>
+          {paymentMethod === "card" && !cardNumber && cart.length > 0 && (
+            <p
               style={{
-                marginBottom: 16,
-                padding: "0.95rem 1rem",
-                borderRadius: 20,
-                background: isDarkMode
-                  ? "linear-gradient(135deg, rgba(249,115,22,0.18), rgba(15,23,42,0.9))"
-                  : "linear-gradient(135deg, rgba(249,115,22,0.10), rgba(255,255,255,0.98))",
-                border: `1px solid ${isDarkMode ? "rgba(249,115,22,0.25)" : "rgba(249,115,22,0.20)"}`,
-                boxShadow: isDarkMode
-                  ? "0 18px 40px rgba(0,0,0,0.20)"
-                  : "0 18px 40px rgba(15,23,42,0.08)",
+                fontSize: 11,
+                color: "var(--home-muted)",
+                textAlign: "center",
+                margin: "8px 0 0",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: isDarkMode ? "#fdba74" : "#c2410c",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Mesa ativa
-                  </div>
-                  <strong style={{ fontSize: 18 }}>
-                    Mesa {mesaLabel || ""}
-                  </strong>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: isDarkMode ? "#cbd5e1" : "#475569",
-                      marginTop: 2,
-                    }}
-                  >
-                    Seu pedido será enviado com essa mesa.
-                  </div>
-                </div>
-                <div
-                  style={{
-                    padding: "0.55rem 0.85rem",
-                    borderRadius: 999,
-                    background: isDarkMode ? "#1f2937" : "#ffffff",
-                    border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`,
-                    fontSize: 13,
-                    fontWeight: 700,
-                  }}
-                >
-                  Cardápio liberado
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!mesaMode && (
-            <Suspense fallback={null}>
-              <HomeAddressPicker
-                isDarkMode={isDarkMode}
-                isMobileViewport={isMobileViewport}
-                isAddressMenuOpen={isAddressMenuOpen}
-                addresses={addresses}
-                selectedAddress={selectedAddress}
-                selectedAddressId={selectedAddressId}
-                addressPanelBackground={addressPanelBackground}
-                addressPanelText={addressPanelText}
-                addressPanelMuted={addressPanelMuted}
-                addressPanelBorder={addressPanelBorder}
-                addressDropdownBackground={addressDropdownBackground}
-                onToggleAddressMenu={() =>
-                  setIsAddressMenuOpen((current) => !current)
-                }
-                onSelectAddress={handleSelectAddress}
-                onNavigateProfile={() => navigate("/profile")}
-              />
-            </Suspense>
-          )}
-        </div>
-
-        <S.MenuSection id="vitrine">
-          <h2>Explore Nosso Cardápio</h2>
-
-          <S.CategoriesContainer>
-            {allCategories.map((cat) => (
-              <S.CategoryButton
-                key={cat.id}
-                $active={activeCategory === cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                {cat.icon}
-                {cat.label}
-              </S.CategoryButton>
-            ))}
-          </S.CategoriesContainer>
-
-          {(Object.entries(groupedProducts) as [string, ProductItem[]][]).map(
-            ([categoryName, items]) => (
-              <S.CategorySection key={categoryName}>
-                <S.CategorySectionTitle>{categoryName}</S.CategorySectionTitle>
-
-                <S.ProductsGrid>
-                  {items.map((item) => {
-                    const unavailable = isProductUnavailable(item);
-
-                    return (
-                      <S.ProductCard
-                        key={item.id}
-                        $clicking={clickedProductId === item.id}
-                        $rippleX={
-                          clickedProductId === item.id
-                            ? (clickedProductRipple?.x ?? 50)
-                            : 50
-                        }
-                        $rippleY={
-                          clickedProductId === item.id
-                            ? (clickedProductRipple?.y ?? 50)
-                            : 50
-                        }
-                        onClick={(event) =>
-                          handleOpenProductDetail(item, event)
-                        }
-                      >
-                        <S.ProductImage>
-                          <img
-                            src={
-                              item.image ||
-                              "https://via.placeholder.com/400x260?text=Produto"
-                            }
-                            alt={item.name}
-                          />
-                        </S.ProductImage>
-                        <S.ProductInfo>
-                          <div className="title-row">
-                            <h4>{item.name}</h4>
-                            <span className="price">
-                              R$ {Number(item.price || 0).toFixed(2)}
-                            </span>
-                          </div>
-                          <p>{item.description || "Sem descrição"}</p>
-                          {unavailable && (
-                            <p
-                              style={{
-                                marginTop: "0.35rem",
-                                color: "#b91c1c",
-                                fontWeight: 700,
-                                fontSize: "0.82rem",
-                                opacity: 1,
-                              }}
-                            >
-                              Produto indisponivel
-                            </p>
-                          )}
-                          <S.AddToCartButton
-                            type="button"
-                            disabled={unavailable}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              addToCart(item);
-                            }}
-                          >
-                            <ShoppingCart size={18} />
-                            {unavailable
-                              ? "Indisponivel"
-                              : "Adicionar ao Pedido"}
-                          </S.AddToCartButton>
-                        </S.ProductInfo>
-                      </S.ProductCard>
-                    );
-                  })}
-                </S.ProductsGrid>
-              </S.CategorySection>
-            ),
-          )}
-
-          {restaurantId == null && (
-            <p style={{ marginTop: "1rem", opacity: 0.7 }}>
-              Nenhum restaurante vinculado para carregar o cardápio.
+              Informe os dados do cartão para continuar
             </p>
           )}
-        </S.MenuSection>
+        </S.CartFoot>
+      </S.CartDrawer>
 
-        <Suspense fallback={null}>
-          <HomeFooter
-            onScrollMenu={() =>
-              document
-                .getElementById("vitrine")
-                ?.scrollIntoView({ behavior: "smooth" })
+      {/* ── Card payment modal */}
+      <S.CardModalBg
+        $open={cardOpen}
+        onClick={(e) => e.target === e.currentTarget && setCardOpen(false)}
+      >
+        <S.CardModal $open={cardOpen}>
+          <h3>
+            💳 Dados do cartão
+            <S.CardModalClose type="button" onClick={() => setCardOpen(false)}>
+              ×
+            </S.CardModalClose>
+          </h3>
+
+          <S.CardPreview>
+            <div
+              style={{
+                fontSize: 11,
+                opacity: 0.6,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              {cardNumber ? "Visa / Mastercard" : "Cartão de crédito/débito"}
+            </div>
+            <div className="card-number">
+              {cardNumber
+                ? cardNumber
+                    .replace(/(\d{4})/g, "$1 ")
+                    .trim()
+                    .padEnd(19, "•")
+                : "•••• •••• •••• ••••"}
+            </div>
+            <div className="card-row">
+              <div>
+                <div>Titular</div>
+                <div className="card-name">{cardName || "SEU NOME"}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div>Validade</div>
+                <div className="card-expiry">{cardExpiry || "MM/AA"}</div>
+              </div>
+            </div>
+          </S.CardPreview>
+
+          <S.CardField>
+            Número do cartão
+            <input
+              placeholder="0000 0000 0000 0000"
+              value={cardNumber}
+              maxLength={19}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 16);
+                setCardNumber(v.replace(/(\d{4})(?=\d)/g, "$1 ").trim());
+              }}
+            />
+          </S.CardField>
+
+          <S.CardField>
+            Nome do titular
+            <input
+              placeholder="Como está no cartão"
+              value={cardName}
+              onChange={(e) => setCardName(e.target.value.toUpperCase())}
+            />
+          </S.CardField>
+
+          <S.CardFieldRow>
+            <S.CardField>
+              Validade
+              <input
+                placeholder="MM/AA"
+                value={cardExpiry}
+                maxLength={5}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                  setCardExpiry(
+                    v.length > 2 ? `${v.slice(0, 2)}/${v.slice(2)}` : v,
+                  );
+                }}
+              />
+            </S.CardField>
+            <S.CardField>
+              CVV
+              <input
+                placeholder="•••"
+                value={cardCvv}
+                maxLength={4}
+                type="password"
+                onChange={(e) =>
+                  setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+              />
+            </S.CardField>
+          </S.CardFieldRow>
+
+          <S.CardSubmit
+            type="button"
+            disabled={
+              !cardNumber ||
+              !cardName ||
+              cardExpiry.length < 5 ||
+              cardCvv.length < 3
             }
-            onNavigateCart={() => navigate(`/cart${cartReturnQuery}`)}
-          />
-        </Suspense>
-
-        {selectedProduct && (
-          <S.ProductDetailOverlay
-            $closing={isClosingProductDetail}
-            onClick={handleCloseProductDetail}
+            onClick={() => {
+              setCardOpen(false);
+              notify(
+                "success",
+                "Cartão salvo",
+                `•••• ${cardNumber.replace(/\s/g, "").slice(-4)} adicionado com sucesso.`,
+              );
+            }}
           >
-            <S.ProductDetailImage
-              $image={
-                selectedProduct.image ||
-                "https://via.placeholder.com/1200x900?text=Produto"
-              }
-              $closing={isClosingProductDetail}
-              onClick={(event) => event.stopPropagation()}
+            Confirmar cartão
+          </S.CardSubmit>
+        </S.CardModal>
+      </S.CardModalBg>
+
+      {/* ── Login nudge (public users only, not in mesa mode) */}
+      {!user && !mesaMode && !nudgeDismissed && (
+        <S.LoginNudge>
+          <span>🔔 Faça login para acompanhar seus pedidos em tempo real</span>
+          <button
+            className="nudge-login"
+            type="button"
+            onClick={() => navigate("/login")}
+          >
+            Entrar
+          </button>
+          <button
+            className="nudge-dismiss"
+            type="button"
+            onClick={() => setNudgeDismissed(true)}
+          >
+            Agora não
+          </button>
+        </S.LoginNudge>
+      )}
+
+      {/* ── In-app notifications */}
+      <S.NotifStack>
+        {notifs.map((n) => (
+          <S.NotifItem key={n.id} $type={n.type} $visible={n.visible}>
+            <div className="notif-icon">{NOTIF_ICONS[n.type]}</div>
+            <div className="notif-body">
+              <span className="notif-title">{n.title}</span>
+              {n.msg && <span className="notif-msg">{n.msg}</span>}
+            </div>
+            <button
+              className="notif-close"
+              type="button"
+              onClick={() => dismissNotif(n.id)}
             >
-              <S.ProductDetailBackButton
-                type="button"
-                onClick={handleCloseProductDetail}
-              >
-                <ArrowLeft size={20} />
-              </S.ProductDetailBackButton>
-            </S.ProductDetailImage>
-
-            <S.ProductDetailBody
-              $closing={isClosingProductDetail}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h2>{selectedProduct.name}</h2>
-              <p>
-                {selectedProduct.description ||
-                  "Sem descricao disponivel para este item."}
-              </p>
-
-              <S.ProductDetailPrice>
-                R$ {Number(selectedProduct.price || 0).toFixed(2)}
-              </S.ProductDetailPrice>
-
-              {isProductUnavailable(selectedProduct) && (
-                <p
-                  style={{
-                    marginTop: "0.6rem",
-                    marginBottom: 0,
-                    color: "#b91c1c",
-                    fontWeight: 700,
-                  }}
-                >
-                  Produto indisponivel no momento.
-                </p>
-              )}
-
-              <S.ProductDetailActions>
-                <S.AddToCartButton
-                  type="button"
-                  disabled={isProductUnavailable(selectedProduct)}
-                  onClick={() => {
-                    addToCart(selectedProduct);
-                    handleCloseProductDetail();
-                  }}
-                >
-                  <ShoppingCart size={18} />
-                  {isProductUnavailable(selectedProduct)
-                    ? "Indisponivel"
-                    : "Adicionar ao Pedido"}
-                </S.AddToCartButton>
-              </S.ProductDetailActions>
-            </S.ProductDetailBody>
-          </S.ProductDetailOverlay>
-        )}
-      </S.HomeLayout>
-    </ThemeProvider>
+              ×
+            </button>
+          </S.NotifItem>
+        ))}
+      </S.NotifStack>
+    </>
   );
 }
