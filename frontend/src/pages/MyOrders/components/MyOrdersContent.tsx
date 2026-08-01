@@ -162,7 +162,7 @@ export default function MyOrdersContent({
   };
 
   useEffect(() => {
-    setVisibleLimit(INITIAL_VISIBLE_ORDERS);
+    setTimeout(() => setVisibleLimit(INITIAL_VISIBLE_ORDERS), 0);
   }, [activeFilter]);
 
   useEffect(() => {

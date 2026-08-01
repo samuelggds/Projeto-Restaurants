@@ -252,7 +252,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!normalizedRouteRestaurantSlug) {
-      setResolvedRestaurantId(null);
+      setTimeout(() => setResolvedRestaurantId(null), 0);
       return;
     }
 

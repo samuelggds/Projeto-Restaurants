@@ -6,7 +6,6 @@ import {
   Home,
   DollarSign,
   User,
-  FolderPlus,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -1303,12 +1302,16 @@ export default function AdminDashboard() {
 
     if (mpOauthStatus === "success") {
       toast.success("Conta Mercado Pago conectada com sucesso.");
-      setSettingsForm((prev) => ({
-        ...prev,
-        pixProvider: "MERCADO_PAGO",
-        cardGateway: "MERCADO_PAGO",
-        mercadoPagoAccessTokenConfigured: true,
-      }));
+      setTimeout(
+        () =>
+          setSettingsForm((prev) => ({
+            ...prev,
+            pixProvider: "MERCADO_PAGO",
+            cardGateway: "MERCADO_PAGO",
+            mercadoPagoAccessTokenConfigured: true,
+          })),
+        0,
+      );
     } else {
       toast.error(oauthMessage || "Nao foi possivel conectar o Mercado Pago.");
     }
@@ -3752,13 +3755,17 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    handleRefreshAsaasWalletBalance();
+    const initialId = window.setTimeout(
+      () => handleRefreshAsaasWalletBalance(),
+      0,
+    );
 
     const intervalId = window.setInterval(() => {
       handleRefreshAsaasWalletBalance();
     }, 30 * 1000);
 
     return () => {
+      window.clearTimeout(initialId);
       window.clearInterval(intervalId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4059,7 +4066,7 @@ export default function AdminDashboard() {
   };
 
   const currentPixKey = String(settingsForm.pixKey || "").trim();
-  const currentPixKeyType = getPixKeyType(currentPixKey);
+  const _currentPixKeyType = getPixKeyType(currentPixKey);
   const isBrandingUploadInProgress =
     brandingUploadState.restaurantLogo ||
     brandingUploadState.restaurantCoverImage;
