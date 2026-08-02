@@ -56,6 +56,7 @@ class LoginService {
     const tokenPayload = {
       id: user.id,
       role: user.role,
+      subRole: user.subRole ?? null,
       restaurantId: user.restaurantId,
     };
     const token = authTokenService.createAccessToken(tokenPayload);
@@ -68,6 +69,7 @@ class LoginService {
         name: user.name,
         email: user.email,
         role: user.role,
+        subRole: user.subRole ?? null,
         active: user.active,
         mustChangePassword: user.mustChangePassword,
         phone: user.phone,

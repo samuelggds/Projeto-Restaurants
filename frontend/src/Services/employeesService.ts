@@ -6,12 +6,20 @@ class EmployeesService {
     return response.data;
   }
 
-  async createEmployee(payload) {
+  async createEmployee(payload: Record<string, unknown>) {
     const response = await api.post("/employees", payload);
     return response.data;
   }
 
-  async deactivateEmployee(employeeId) {
+  async updateEmployee(
+    employeeId: string | number,
+    payload: Record<string, unknown>,
+  ) {
+    const response = await api.put(`/employees/${employeeId}`, payload);
+    return response.data;
+  }
+
+  async deactivateEmployee(employeeId: string | number) {
     const response = await api.patch(`/employees/${employeeId}`);
     return response.data;
   }

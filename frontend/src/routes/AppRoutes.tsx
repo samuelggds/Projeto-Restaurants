@@ -16,18 +16,11 @@ const RecoverPassword = lazy(
 const AdminDashboard = lazy(() => import("../pages/admin/Admin"));
 const Register = lazy(() => import("../pages/Register/Register"));
 const UserProfile = lazy(() => import("../pages/profile/Profile"));
-const MyOrders = lazy(() => import("../pages/MyOrders/MyOrders"));
-const EmployeesDashboard = lazy(
-  () => import("../pages/Employees/EmployeesDashboard"),
-);
 const CourierDashboard = lazy(
   () => import("../pages/Courier/CourierDashboard"),
 );
-const SuperAdminDashboard = lazy(
-  () => import("../pages/SuperAdmin/SuperAdminDashboard"),
-);
-const SuperAdminCreateRestaurant = lazy(
-  () => import("../pages/SuperAdmin/SuperAdminCreateRestaurant"),
+const SuperAdminPage = lazy(
+  () => import("../pages/super_admin/SuperAdminPage"),
 );
 const BillingPage = lazy(() => import("../pages/Billing/BillingPage"));
 const SystemBlockedPage = lazy(
@@ -37,7 +30,11 @@ const SystemMaintenancePage = lazy(
   () => import("../pages/SystemMaintenance/SystemMaintenance"),
 );
 const Home = lazy(() => import("../pages/home/Home"));
-const DigitalMenu = lazy(() => import("../pages/DigitalMenu/DigitalMenu"));
+const DigitalMenu = lazy(
+  () => import("../pages/digital-menu/DigitalMenuEntryPage"),
+);
+const KitchenPage = lazy(() => import("../pages/kitchen/KitchenPage"));
+const WaiterPage = lazy(() => import("../pages/waiter/WaiterPage"));
 const SettingsPage = lazy(() =>
   import("../modules/settings/pages/SettingsPage").then((m) => ({
     default: m.SettingsPage,
@@ -53,14 +50,18 @@ import {
 
 const ROLE_HOME = {
   CLIENTE: "/",
-  FUNCIONARIO: "/employees",
   MOTOQUEIRO: "/courier",
   ADMIN: "/admin",
   SUPER_ADMIN: "/super_admin",
 };
 
-function getRoleHome(role) {
-  return ROLE_HOME[role] || "/login";
+function getRoleHome(role?: string, subRole?: string) {
+  if (role === "FUNCIONARIO") {
+    if (subRole === "COZINHA") return "/kitchen";
+    if (subRole === "GARCOM") return "/waiter";
+    return "/login";
+  }
+  return ROLE_HOME[role ?? ""] || "/login";
 }
 
 function RestaurantLoginRedirect() {
@@ -124,7 +125,25 @@ function RequireRole({ roles }) {
   }
 
   if (!user || !roles.includes(user.role)) {
-    return <Navigate to={getRoleHome(user?.role)} replace />;
+    return (
+      <Navigate to={getRoleHome(user?.role, user?.subRole as string)} replace />
+    );
+  }
+
+  return <Outlet />;
+}
+
+function RequireSubRole({ subRole }: { subRole: string }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!user || user.role !== "FUNCIONARIO" || user.subRole !== subRole) {
+    return (
+      <Navigate to={getRoleHome(user?.role, user?.subRole as string)} replace />
+    );
   }
 
   return <Outlet />;
@@ -151,10 +170,56 @@ function SuperAdminScopeGuard() {
     user.role !== "SUPER_ADMIN" &&
     location.pathname.startsWith("/super_admin")
   ) {
-    return <Navigate to={getRoleHome(user.role)} replace />;
+    return (
+      <Navigate to={getRoleHome(user.role, user.subRole as string)} replace />
+    );
   }
 
   return <Outlet />;
+}
+
+// Impede FUNCIONARIO de acessar qualquer rota fora da sua área designada
+function FuncionarioScopeGuard() {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading || user?.role !== "FUNCIONARIO") return <Outlet />;
+
+  const home = getRoleHome("FUNCIONARIO", user.subRole as string);
+
+  const allowed = ["/login", "/system-blocked", "/system-maintenance"];
+  if (allowed.some((p) => location.pathname.startsWith(p))) return <Outlet />;
+
+  if (home === "/login" || !location.pathname.startsWith(home)) {
+    return <Navigate to={home === "/login" ? "/login" : home} replace />;
+  }
+
+  return <Outlet />;
+}
+
+// Impede CLIENTE de acessar qualquer rota além de / e /profile
+function ClienteScopeGuard() {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading || user?.role !== "CLIENTE") return <Outlet />;
+
+  const allowed = [
+    "/",
+    "/profile",
+    "/login",
+    "/system-blocked",
+    "/system-maintenance",
+  ];
+  if (
+    allowed.some((p) =>
+      p === "/" ? location.pathname === "/" : location.pathname.startsWith(p),
+    )
+  ) {
+    return <Outlet />;
+  }
+
+  return <Navigate to="/" replace />;
 }
 
 function BillingGate() {
@@ -267,68 +332,74 @@ export default function AppRoutes() {
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
-          <Route element={<SuperAdminScopeGuard />}>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/:restaurantSlug/login"
-              element={<RestaurantLoginRedirect />}
-            />
-            <Route path="/recover-password" element={<RecoverPassword />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-            <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
-            <Route
-              path="/:restaurantSlug/mesa/:tableNumber"
-              element={<DigitalMenu />}
-            />
-
-            {/* rotas públicas da loja — não exigem login */}
-            <Route path="/" element={<Home />} />
-            <Route path="/menu" element={<Home />} />
-            <Route path="/cardapio" element={<Home />} />
-
-            <Route element={<RequireAuth />}>
-              <Route path="/system-blocked" element={<SystemBlockedPage />} />
-              <Route
-                path="/system-maintenance"
-                element={<SystemMaintenancePage />}
-              />
-
-              <Route element={<BillingGate />}>
-                <Route element={<RequireRole roles={["CLIENTE"]} />}>
-                  <Route path="/profile" element={<UserProfile />} />
-                  <Route path="/profile/orders" element={<MyOrders />} />
-                </Route>
-
-                <Route element={<RequireRole roles={["ADMIN"]} />}>
-                  <Route path="/billing" element={<BillingPage />} />
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route
-                    path="/admin/configuracoes"
-                    element={<SettingsPage />}
-                  />
-                </Route>
-
-                <Route element={<RequireRole roles={["MOTOQUEIRO"]} />}>
-                  <Route path="/courier" element={<CourierDashboard />} />
-                </Route>
-
+          <Route element={<ClienteScopeGuard />}>
+            <Route element={<FuncionarioScopeGuard />}>
+              <Route element={<SuperAdminScopeGuard />}>
+                <Route path="/login" element={<Login />} />
                 <Route
-                  element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}
-                >
-                  <Route path="/employees" element={<EmployeesDashboard />} />
+                  path="/:restaurantSlug/login"
+                  element={<RestaurantLoginRedirect />}
+                />
+                <Route path="/recover-password" element={<RecoverPassword />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+                <Route
+                  path="/:restaurantSlug"
+                  element={<RestaurantMenuGate />}
+                />
+                <Route
+                  path="/:restaurantSlug/mesa/:tableNumber"
+                  element={<DigitalMenu />}
+                />
+
+                {/* rota pública da loja */}
+                <Route path="/" element={<Home />} />
+
+                <Route element={<RequireAuth />}>
+                  <Route
+                    path="/system-blocked"
+                    element={<SystemBlockedPage />}
+                  />
+                  <Route
+                    path="/system-maintenance"
+                    element={<SystemMaintenancePage />}
+                  />
+
+                  <Route element={<BillingGate />}>
+                    <Route element={<RequireRole roles={["CLIENTE"]} />}>
+                      <Route path="/profile" element={<UserProfile />} />
+                    </Route>
+
+                    <Route element={<RequireRole roles={["ADMIN"]} />}>
+                      <Route path="/billing" element={<BillingPage />} />
+                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route
+                        path="/admin/configuracoes"
+                        element={<SettingsPage />}
+                      />
+                    </Route>
+
+                    <Route element={<RequireRole roles={["MOTOQUEIRO"]} />}>
+                      <Route path="/courier" element={<CourierDashboard />} />
+                    </Route>
+
+                    <Route element={<RequireSubRole subRole="COZINHA" />}>
+                      <Route path="/kitchen" element={<KitchenPage />} />
+                    </Route>
+
+                    <Route element={<RequireSubRole subRole="GARCOM" />}>
+                      <Route path="/waiter" element={<WaiterPage />} />
+                    </Route>
+                  </Route>
                 </Route>
               </Route>
-            </Route>
-          </Route>
 
-          <Route element={<RequireAuth />}>
-            <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
-              <Route path="/super_admin" element={<SuperAdminDashboard />} />
-              <Route
-                path="/super_admin/cadastro"
-                element={<SuperAdminCreateRestaurant />}
-              />
+              <Route element={<RequireAuth />}>
+                <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
+                  <Route path="/super_admin" element={<SuperAdminPage />} />
+                  <Route path="/super_admin/*" element={<SuperAdminPage />} />
+                </Route>
+              </Route>
             </Route>
           </Route>
 

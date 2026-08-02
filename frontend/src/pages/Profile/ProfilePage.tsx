@@ -100,7 +100,13 @@ export function ProfilePage(props: ProfilePageProps) {
             onUploadAvatar={props.onUploadAvatar}
           />
           <S.Main>
-            {view === "overview" && <Overview {...props} data={data} />}
+            {view === "overview" && (
+              <Overview
+                {...props}
+                onViewAllOrders={() => setView("orders")}
+                data={data}
+              />
+            )}
             {view === "orders" && <Orders {...props} data={data} />}
             {view === "addresses" && <Addresses {...props} data={data} />}
             {view === "favorites" && <Favorites {...props} data={data} />}

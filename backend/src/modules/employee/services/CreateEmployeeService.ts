@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { FuncionarioSubRole, UserRole } from "@prisma/client";
 import employeeRepository from "../repositories/EmployeeRepository.js";
 import bcrypt from "bcrypt";
 
@@ -9,6 +9,7 @@ type CreateEmployeePayload = {
   phone?: string | null;
   restaurantId: number;
   role?: UserRole;
+  subRole?: FuncionarioSubRole | null;
   cpf?: string | null;
 };
 
@@ -20,6 +21,7 @@ class CreateEmployeeService {
     phone,
     restaurantId,
     role,
+    subRole,
     cpf,
   }: CreateEmployeePayload) {
     const exists = await employeeRepository.findByEmail(email);
@@ -38,6 +40,7 @@ class CreateEmployeeService {
       cpf: cpf ? String(cpf).replace(/\D/g, "") : undefined,
       restaurantId,
       role: role || UserRole.FUNCIONARIO,
+      subRole: subRole ?? null,
     });
 
     return employee;

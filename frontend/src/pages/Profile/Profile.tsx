@@ -14,7 +14,6 @@ const ACTIVE_STATUSES = new Set([
   "PRONTO",
   "SAIU_PARA_ENTREGA",
 ]);
-const DONE_STATUSES = new Set(["ENTREGUE"]);
 const ORDER_IMG =
   "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80";
 
@@ -183,8 +182,12 @@ export default function Profile() {
       : undefined;
 
     const recentOrders: ProfileOrder[] = orders
-      .filter((o) => DONE_STATUSES.has(String(o.status || "").toUpperCase()))
-      .slice(0, 10)
+      .filter(
+        (o) =>
+          !["", undefined].includes(
+            String(o.status || "").toUpperCase() as never,
+          ),
+      )
       .map((o) => ({
         id: `#${String(o.id).padStart(4, "0")}`,
         summary: buildSummary(o),
@@ -193,7 +196,7 @@ export default function Profile() {
           : "",
         total: Number(o.total || 0),
         image: ORDER_IMG,
-        status: "delivered" as ProfileOrderStatus,
+        status: mapStatus(String(o.status || "")),
       }));
 
     const addresses = user?.address
@@ -251,9 +254,8 @@ export default function Profile() {
       data={data}
       cartCount={0}
       onGoHome={() => navigate("/")}
-      onOpenMenu={() => navigate("/cardapio")}
+      onOpenMenu={() => navigate("/")}
       onLogout={handleLogout}
-      onViewAllOrders={() => navigate("/profile/orders")}
       onUploadAvatar={handleUploadAvatar}
       onSavePersonalData={handleSavePersonalData}
       onChangePassword={handleChangePassword}

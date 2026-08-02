@@ -25,6 +25,7 @@ model User {
   restaurantId               Int?
   updatedAt                  DateTime             @updatedAt
   role                       UserRole             @default(CLIENTE)
+  subRole                    FuncionarioSubRole?
   cpf                        String?
   resetPasswordCodeExpiresAt DateTime?
   resetPasswordCodeHash      String?
@@ -398,12 +399,34 @@ model AuthMfaChallenge {
   @@index([expiresAt])
 }
 
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  userName       String?
+  userRole       String?
+  restaurantId   Int?
+  restaurantName String?
+  action         String
+  resource       String?
+  ipAddress      String?
+  result         String   @default("SUCCESS")
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
   FUNCIONARIO
   CLIENTE
   MOTOQUEIRO
+}
+
+enum FuncionarioSubRole {
+  COZINHA
+  GARCOM
 }
 
 enum OrderStatus {

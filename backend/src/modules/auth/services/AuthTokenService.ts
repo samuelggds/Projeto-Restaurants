@@ -11,6 +11,7 @@ import {
 type AuthPayload = {
   id: number;
   role: string;
+  subRole?: string | null;
   restaurantId: number | null;
 };
 
@@ -28,6 +29,7 @@ function normalizePayload(payload: AuthPayload) {
   return {
     id: Number(payload.id || 0),
     role: String(payload.role || ""),
+    subRole: payload.subRole ?? null,
     restaurantId:
       payload.restaurantId === null || payload.restaurantId === undefined
         ? null

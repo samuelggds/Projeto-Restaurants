@@ -1,3 +1,4 @@
+import { FuncionarioSubRole } from "@prisma/client";
 import employeeRepository from "../repositories/EmployeeRepository.js";
 
 type UpdateEmployeePayload = {
@@ -6,6 +7,7 @@ type UpdateEmployeePayload = {
   name?: string;
   phone?: string | null;
   email: string;
+  subRole?: FuncionarioSubRole | null;
 };
 
 class UpdateEmployeeService {
@@ -15,6 +17,7 @@ class UpdateEmployeeService {
     name,
     phone,
     email,
+    subRole,
   }: UpdateEmployeePayload) {
     const employee = await employeeRepository.findById(id, restaurantId);
 
@@ -28,7 +31,11 @@ class UpdateEmployeeService {
       throw new Error("Email já está em uso!");
     }
 
-    return employeeRepository.update(id, { name, phone, email }, restaurantId);
+    return employeeRepository.update(
+      id,
+      { name, phone, email, subRole: subRole ?? null },
+      restaurantId,
+    );
   }
 }
 

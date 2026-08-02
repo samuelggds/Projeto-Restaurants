@@ -43,6 +43,7 @@ class RestaurantRepository {
             id: true,
             plan: true,
             status: true,
+            currentPeriodEnd: true,
           },
         },
       },

@@ -1042,15 +1042,15 @@ function Employees({
     <S.Card>
       <S.EmployeeHeader>
         <div>
-          <h2>Employees cadastrados</h2>
+          <h2>Funcionários cadastrados</h2>
           <p>
-            Cozinheiros, garçons e atendentes são employees com permissões
+            Cozinheiros, garçons e atendentes são funcionários com permissões
             diferentes.
           </p>
         </div>
         <button onClick={onNew}>
           <Plus />
-          New employee
+          Novo funcionário
         </button>
       </S.EmployeeHeader>
       <S.EmployeeList>
@@ -1070,9 +1070,11 @@ function Employees({
             <div className="role">
               <b>{roleLabel[e.role]}</b>
               <span>
-                {e.permissions.manageQrTables
-                  ? "Gerencia mesas QR"
-                  : "Operação de pedidos"}
+                {e.role === "COOK"
+                  ? "Acessa a tela de cozinha"
+                  : e.role === "WAITER"
+                    ? "Acessa a tela de garçom"
+                    : "Operação de pedidos"}
               </span>
             </div>
             <span className="status">{e.active ? "● Ativo" : "○ Inativo"}</span>
@@ -1097,7 +1099,8 @@ function EmployeeDrawer({
 }) {
   const [name, setName] = useState(employee?.name ?? "");
   const [email, setEmail] = useState(employee?.email ?? "");
-  const [role, setRole] = useState<EmployeeRole>(employee?.role ?? "WAITER");
+  const [role, setRole] = useState<EmployeeRole>(employee?.role ?? "ATTENDANT");
+  const [password, setPassword] = useState("");
   const [permissions, setPermissions] = useState(
     employee?.permissions ?? {
       viewOrders: true,
@@ -1107,9 +1110,16 @@ function EmployeeDrawer({
   );
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name && email.includes("@"))
+    if (name && email.includes("@") && (employee || password.length >= 6))
       save(
-        { name, email, role, active: employee?.active ?? true, permissions },
+        {
+          name,
+          email,
+          role,
+          active: employee?.active ?? true,
+          permissions,
+          ...(password ? { password, confirmPassword: password } : {}),
+        } as Omit<Employee, "id">,
         employee?.id,
       );
   };
@@ -1117,7 +1127,7 @@ function EmployeeDrawer({
     <S.Overlay onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <S.Drawer onSubmit={submit}>
         <header>
-          <h2>{employee ? "Edit employee" : "New employee"}</h2>
+          <h2>{employee ? "Editar funcionário" : "Novo funcionário"}</h2>
           <button type="button" onClick={close}>
             <X />
           </button>
@@ -1134,15 +1144,28 @@ function EmployeeDrawer({
             onChange={(e) => setEmail(e.target.value)}
           />
         </S.Field>
+        {!employee && (
+          <S.Field>
+            Senha de acesso
+            <input
+              type="password"
+              value={password}
+              placeholder="Mínimo 6 caracteres"
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </S.Field>
+        )}
         <S.Field>
-          Função
+          Cargo
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as EmployeeRole)}
           >
-            <option value="COOK">Cozinheiro</option>
-            <option value="WAITER">Garçom</option>
-            <option value="ATTENDANT">Atendente</option>
+            <option value="COOK">Cozinheiro — acessa a tela de cozinha</option>
+            <option value="WAITER">Garçom — acessa a tela de garçom</option>
+            <option value="ATTENDANT">
+              Atendente — acessa o painel de funcionários
+            </option>
           </select>
         </S.Field>
         <div className="permissions">
@@ -1171,7 +1194,7 @@ function EmployeeDrawer({
             Cancelar
           </button>
           <button className="primary" type="submit">
-            {employee ? "Save employee" : "Create employee"}
+            {employee ? "Salvar" : "Criar funcionário"}
           </button>
         </footer>
       </S.Drawer>

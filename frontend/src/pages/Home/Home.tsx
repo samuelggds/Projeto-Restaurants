@@ -5,7 +5,6 @@ import restaurantSettingsService from "../../Services/restaurantSettingsService"
 import tableSessionService from "../../Services/tableSessionService";
 import { useAuth } from "../../contexts/authContext";
 import { HomePage } from "./HomePage";
-import { homeMockData } from "./data";
 import type { HomeData, HomeProduct, HomeCategory } from "./types";
 import * as S from "./Home.styles";
 
@@ -373,9 +372,7 @@ export default function Home() {
   const homeData: HomeData = useMemo(() => {
     const r = (settings?.restaurant as Record<string, unknown>) ?? {};
     const brand = {
-      name: String(
-        r?.name || settings?.restaurantName || homeMockData.brand.name,
-      ),
+      name: String(r?.name || settings?.restaurantName || ""),
       monogram:
         String(r?.name || "")
           .split(" ")
@@ -384,16 +381,25 @@ export default function Home() {
           .map((w: string) => w[0])
           .join("")
           .toUpperCase() || "R",
-      address: String(settings?.address || homeMockData.brand.address),
-      primaryColor: String(
-        settings?.primaryColor || homeMockData.brand.primaryColor,
-      ),
-      whatsapp: String(settings?.whatsapp || homeMockData.brand.whatsapp || ""),
+      address: String(settings?.address || ""),
+      primaryColor: String(settings?.primaryColor || "#d64d08"),
+      whatsapp: String(settings?.whatsapp || ""),
       logoUrl: String(r?.logo || ""),
     };
 
     if (backendProducts.length === 0) {
-      return { ...homeMockData, brand };
+      return {
+        brand,
+        hero: { title: "", highlight: "", description: "", image: "" },
+        banners: [],
+        categories: [],
+        products: [],
+        deliveryTime: String(settings?.averageDeliveryTime || ""),
+        minimumOrder: Number(settings?.minimumOrder || 0),
+        freeDeliveryFrom: 0,
+        isOpen: false,
+        about: String(settings?.description || ""),
+      };
     }
 
     const availableProducts = backendProducts.filter((p) => !isUnavailable(p));
@@ -405,13 +411,12 @@ export default function Home() {
       description: String(p.description || ""),
       price: Number(p.price || 0),
       image: getProductImage(p, i),
-      rating:
-        Number((p as { averageRating?: number }).averageRating || 0) || 4.5,
+      rating: Number((p as { averageRating?: number }).averageRating || 0),
     }));
 
     const seen = new Set<string>();
     const categories: HomeCategory[] = [
-      { id: "todos", name: "Todos", image: PRODUCT_FALLBACKS[0] },
+      { id: "todos", name: "Todos", image: "" },
       ...(availableProducts
         .map((p) => {
           const name = String((p.category as { name?: string })?.name || "");
@@ -424,17 +429,15 @@ export default function Home() {
 
     return {
       brand,
-      hero: homeMockData.hero,
-      banners: homeMockData.banners,
+      hero: { title: "", highlight: "", description: "", image: "" },
+      banners: [],
       categories,
       products,
-      deliveryTime: String(
-        settings?.averageDeliveryTime || homeMockData.deliveryTime,
-      ),
-      minimumOrder: Number(settings?.minimumOrder || homeMockData.minimumOrder),
-      freeDeliveryFrom: homeMockData.freeDeliveryFrom,
-      isOpen: true,
-      about: String(settings?.description || homeMockData.about),
+      deliveryTime: String(settings?.averageDeliveryTime || ""),
+      minimumOrder: Number(settings?.minimumOrder || 0),
+      freeDeliveryFrom: 0,
+      isOpen: false,
+      about: String(settings?.description || ""),
     };
   }, [backendProducts, settings]);
 

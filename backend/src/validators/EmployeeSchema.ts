@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { FuncionarioSubRole, UserRole } from "@prisma/client";
 import { z } from "zod";
 
 const phoneRegex =
@@ -26,6 +26,7 @@ export const EmployeeUserSchema = z
       .string()
       .min(1, "Telefone obrigatório")
       .regex(phoneRegex, "Número de telefone inválido!"),
+    subRole: z.nativeEnum(FuncionarioSubRole).optional().nullable(),
     cpf: z
       .string()
       .optional()

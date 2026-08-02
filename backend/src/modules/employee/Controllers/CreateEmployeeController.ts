@@ -7,8 +7,16 @@ class CreateEmployeeController {
     try {
       const restaurantId = req.user.restaurantId;
 
-      const { name, email, password, confirmPassword, phone, role, cpf } =
-        req.body;
+      const {
+        name,
+        email,
+        password,
+        confirmPassword,
+        phone,
+        role,
+        cpf,
+        subRole,
+      } = req.body;
 
       EmployeeUserSchema.parse({
         name,
@@ -17,6 +25,7 @@ class CreateEmployeeController {
         confirmPassword,
         phone,
         role,
+        subRole,
         cpf,
       });
 
@@ -26,6 +35,7 @@ class CreateEmployeeController {
         password,
         phone,
         role,
+        subRole: subRole ?? null,
         cpf,
         restaurantId,
       });

@@ -63,11 +63,16 @@ export default function BillingPage() {
     PREMIUM: "Premium",
   };
 
-  const PLAN_PRICES = {
-    BASICO: "R$ 100,00 / mes",
-    PROFISSIONAL: "R$ 200,00 / mes",
-    PREMIUM: "R$ 300,00 / mes",
-  };
+  const [plans, setPlans] = useState<
+    Record<string, { name: string; monthlyFee: number }>
+  >({});
+
+  const PLAN_PRICES = Object.fromEntries(
+    Object.entries(plans).map(([key, p]) => [
+      key,
+      `R$ ${p.monthlyFee.toFixed(2).replace(".", ",")} / mes`,
+    ]),
+  );
 
   const PLAN_BENEFITS = {
     PROFISSIONAL: [
@@ -180,6 +185,19 @@ export default function BillingPage() {
     const timeoutId = setTimeout(() => {
       fetchInvoices();
       fetchSubscription();
+      api
+        .get("/billing/plans")
+        .then((r) => {
+          const arr = Array.isArray(r.data) ? r.data : [];
+          const map: Record<string, { name: string; monthlyFee: number }> = {};
+          arr.forEach(
+            (p: { plan: string; name: string; monthlyFee: number }) => {
+              map[p.plan] = { name: p.name, monthlyFee: p.monthlyFee };
+            },
+          );
+          setPlans(map);
+        })
+        .catch(() => {});
     }, 0);
 
     return () => {

@@ -10,7 +10,7 @@ class UpdateEmployeeController {
         ? req.params.id[0]
         : req.params.id;
 
-      const { name, email, phone } = req.body;
+      const { name, email, phone, subRole } = req.body;
 
       const employee = await updateEmployeeService.execute({
         id,
@@ -18,6 +18,7 @@ class UpdateEmployeeController {
         name,
         email,
         phone,
+        subRole: subRole ?? null,
       });
 
       return res.status(200).json(employee);

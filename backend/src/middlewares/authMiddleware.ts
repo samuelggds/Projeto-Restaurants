@@ -24,6 +24,10 @@ export function authMiddleware(
     req.user = {
       id: Number(decoded.id || 0),
       role: String(decoded.role || ""),
+      subRole:
+        decoded.subRole === null || decoded.subRole === undefined
+          ? null
+          : String(decoded.subRole),
       restaurantId:
         decoded.restaurantId === null || decoded.restaurantId === undefined
           ? null

@@ -47,18 +47,15 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
 }
 
 function mapEmployee(raw: Record<string, unknown>): Employee {
-  const roleMap: Record<string, Employee["role"]> = {
-    FUNCIONARIO: "ATTENDANT",
-    COOK: "COOK",
-    WAITER: "WAITER",
-    ATTENDANT: "ATTENDANT",
-    ADMIN: "ATTENDANT",
-  };
+  const sub = String(raw?.subRole ?? "");
+  let role: Employee["role"] = "ATTENDANT";
+  if (sub === "COZINHA") role = "COOK";
+  else if (sub === "GARCOM") role = "WAITER";
   return {
     id: String(raw?.id ?? ""),
     name: String(raw?.name ?? ""),
     email: String(raw?.email ?? ""),
-    role: roleMap[String(raw?.role ?? "")] ?? "ATTENDANT",
+    role,
     active: raw?.active !== false,
     permissions: {
       viewOrders: true,
@@ -69,6 +66,12 @@ function mapEmployee(raw: Record<string, unknown>): Employee {
     },
   };
 }
+
+const subRoleMap: Record<Employee["role"], string | null> = {
+  COOK: "COZINHA",
+  WAITER: "GARCOM",
+  ATTENDANT: null,
+};
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -137,7 +140,8 @@ export default function Admin() {
       const created = await employeesService.createEmployee({
         name: employee.name,
         email: employee.email,
-        role: employee.role,
+        role: "FUNCIONARIO",
+        subRole: subRoleMap[employee.role],
       });
       setEmployees((prev) => [
         ...prev,
@@ -149,9 +153,15 @@ export default function Admin() {
   }
 
   async function handleUpdateEmployee(employee: Employee) {
-    // backend usa deactivate para toggles; sem endpoint de update completo
     try {
-      await employeesService.deactivateEmployee(employee.id);
+      await employeesService.updateEmployee(employee.id, {
+        name: employee.name,
+        email: employee.email,
+        subRole: subRoleMap[employee.role],
+      });
+      setEmployees((prev) =>
+        prev.map((e) => (e.id === employee.id ? employee : e)),
+      );
     } catch {
       /* silent */
     }

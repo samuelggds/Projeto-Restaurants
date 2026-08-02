@@ -79,6 +79,7 @@ class ListRestaurantsService {
         ? PLAN_PRICES[restaurant.subscription.plan]
         : 0,
       revenue: revenueMap.get(restaurant.id) || 0,
+      nextBillingAt: restaurant.subscription?.currentPeriodEnd ?? null,
     }));
   }
 }

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
-import { Utensils, Sun, Moon } from "lucide-react";
+import { CheckCircle2, AlertCircle, Utensils, Sun, Moon } from "lucide-react";
 import authService from "../../Services/authService";
 import { useAuth } from "../../contexts/authContext.js";
 import * as S from "./styles";
@@ -15,6 +14,11 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [googleStatus, setGoogleStatus] = useState("loading");
   const [googleMessage, setGoogleMessage] = useState("");
   const googleButtonRef = useRef(null);
@@ -121,7 +125,14 @@ export default function Login() {
       }
 
       if (user?.role === "FUNCIONARIO") {
-        navigate("/employees");
+        const subRole = (user as Record<string, unknown>)?.subRole;
+        navigate(
+          subRole === "COZINHA"
+            ? "/kitchen"
+            : subRole === "GARCOM"
+              ? "/waiter"
+              : "/login",
+        );
         return;
       }
 
@@ -195,12 +206,11 @@ export default function Login() {
                 await completeLoginWithMfaIfNeeded(firstStep);
 
               login(authResponse.user, authResponse.token);
-              toast.success("Login com Google realizado com sucesso!");
               redirectByRole(authResponse.user);
             } catch (error) {
               const message =
                 error?.response?.data?.error || "Erro ao autenticar com Google";
-              toast.error(message);
+              setFeedback({ type: "error", message });
             }
           },
         });
@@ -255,6 +265,8 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFeedback(null);
+    setIsLoading(true);
     try {
       const firstStep = await authService.login({
         email,
@@ -262,10 +274,7 @@ export default function Login() {
       });
       const response = await completeLoginWithMfaIfNeeded(firstStep);
 
-      // Save to context and localStorage
       login(response.user, response.token);
-
-      toast.success("Login realizado com sucesso!");
 
       if (rememberMe) {
         localStorage.setItem("rememberedEmail", email);
@@ -273,14 +282,17 @@ export default function Login() {
         localStorage.removeItem("rememberedEmail");
       }
 
-      redirectByRole(response.user);
+      setFeedback({ type: "success", message: "Login realizado com sucesso!" });
+      setTimeout(() => redirectByRole(response.user), 700);
     } catch (error) {
       const message =
         error?.response?.data?.error ||
         (error.request
           ? "Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente."
-          : "Erro ao fazer login!");
-      toast.error(message);
+          : "E-mail ou senha incorretos.");
+      setFeedback({ type: "error", message });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -314,6 +326,41 @@ export default function Login() {
             <S.FormSubtitle>
               Por favor, insira seus dados de acesso para continuar.
             </S.FormSubtitle>
+
+            {feedback && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "0.6rem",
+                  padding: "0.75rem 1rem",
+                  borderRadius: "10px",
+                  marginBottom: "0.5rem",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  lineHeight: 1.45,
+                  background:
+                    feedback.type === "success"
+                      ? "rgba(16,185,129,0.1)"
+                      : "rgba(239,68,68,0.08)",
+                  border: `1px solid ${feedback.type === "success" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.25)"}`,
+                  color: feedback.type === "success" ? "#059669" : "#dc2626",
+                }}
+              >
+                {feedback.type === "success" ? (
+                  <CheckCircle2
+                    size={17}
+                    style={{ flexShrink: 0, marginTop: 1 }}
+                  />
+                ) : (
+                  <AlertCircle
+                    size={17}
+                    style={{ flexShrink: 0, marginTop: 1 }}
+                  />
+                )}
+                <span>{feedback.message}</span>
+              </div>
+            )}
 
             <S.Form onSubmit={handleSubmit}>
               <S.InputGroup>
@@ -358,7 +405,9 @@ export default function Login() {
                 </S.ForgotLink>
               </S.Row>
 
-              <S.Button type="submit">Entrar no Sistema</S.Button>
+              <S.Button type="submit" disabled={isLoading}>
+                {isLoading ? "Entrando..." : "Entrar no Sistema"}
+              </S.Button>
             </S.Form>
 
             <S.Divider>ou</S.Divider>
