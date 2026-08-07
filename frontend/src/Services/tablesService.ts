@@ -23,6 +23,13 @@ class TablesService {
     });
     return response.data;
   }
+
+  async openTableSession(tableId) {
+    const response = await api.post("/sessions-tables/open", {
+      tableId,
+    });
+    return response.data;
+  }
 }
 
 export default new TablesService();
