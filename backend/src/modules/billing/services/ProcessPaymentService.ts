@@ -9,53 +9,78 @@ type ProcessPaymentPayload = {
 
 class ProcessPaymentService {
   async execute({ invoiceId }: ProcessPaymentPayload) {
-    const invoice = await billingRepository.updateInvoice(invoiceId, {
-      status: "PAGO",
-      paidAt: new Date(),
-    });
+    const normalizedInvoiceId = Number(invoiceId);
 
-    const subscription = await billingRepository.findSubscriptionByRestaurantId(
-      invoice.restaurantId,
-    );
-
-    const openInvoices = await prisma.invoice.findMany({
-      where: {
-        restaurantId: invoice.restaurantId,
-        status: {
-          in: ["PENDENTE", "ATRASADO"],
-        },
-      },
-    });
-
-    const hasBlockingInvoice = hasBlockingInvoices(openInvoices, new Date());
-
-    if (!hasBlockingInvoice) {
-      if (subscription) {
-        await billingRepository.updateSubscription(subscription.id, {
-          status: "ATIVA",
-        });
-      }
-
-      await billingRepository.activateRestaurant(invoice.restaurantId);
-      info("payment processed and restaurant activated", {
-        invoiceId,
-        restaurantId: invoice.restaurantId,
-      });
-    } else {
-      if (subscription) {
-        await billingRepository.updateSubscription(subscription.id, {
-          status: "EXPIRADA",
-        });
-      }
-
-      await billingRepository.deactivateRestaurant(invoice.restaurantId);
-      info("payment processed but restaurant remains blocked", {
-        invoiceId,
-        restaurantId: invoice.restaurantId,
-      });
+    if (!Number.isInteger(normalizedInvoiceId) || normalizedInvoiceId <= 0) {
+      throw new Error("Fatura inválida.");
     }
 
-    return invoice;
+    const result = await prisma.$transaction(async (tx) => {
+      const existingInvoice = await billingRepository.findInvoiceById(
+        normalizedInvoiceId,
+        tx,
+      );
+
+      if (!existingInvoice) {
+        throw new Error("Fatura não encontrada.");
+      }
+
+      const invoice =
+        existingInvoice.status === "PAGO"
+          ? existingInvoice
+          : await billingRepository.updateInvoice(
+              normalizedInvoiceId,
+              {
+                status: "PAGO",
+                paidAt: new Date(),
+              },
+              tx,
+            );
+
+      const subscription =
+        await billingRepository.findSubscriptionByRestaurantId(
+          invoice.restaurantId,
+          tx,
+        );
+
+      const openInvoices = await tx.invoice.findMany({
+        where: {
+          restaurantId: invoice.restaurantId,
+          status: {
+            in: ["PENDENTE", "ATRASADO"],
+          },
+        },
+      });
+      const remainsBlocked = hasBlockingInvoices(openInvoices, new Date());
+
+      if (subscription) {
+        await billingRepository.updateSubscription(
+          subscription.id,
+          { status: remainsBlocked ? "EXPIRADA" : "ATIVA" },
+          tx,
+        );
+      }
+
+      if (remainsBlocked) {
+        await billingRepository.deactivateRestaurant(invoice.restaurantId, tx);
+      } else {
+        await billingRepository.activateRestaurant(invoice.restaurantId, tx);
+      }
+
+      return { invoice, remainsBlocked };
+    });
+
+    info(
+      result.remainsBlocked
+        ? "payment processed but restaurant remains blocked"
+        : "payment processed and restaurant activated",
+      {
+        invoiceId: normalizedInvoiceId,
+        restaurantId: result.invoice.restaurantId,
+      },
+    );
+
+    return result.invoice;
   }
 }
 

@@ -92,6 +92,7 @@ export function AdminPage({
   const [mobile, setMobile] = useState(false);
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [saved, setSaved] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
   const logoInput = useRef<HTMLInputElement>(null);
   const areaTitles: Record<Exclude<AdminSection, "settings">, string> = {
     overview: "Visão geral",
@@ -110,24 +111,59 @@ export function AdminPage({
     if (file) update("logoUrl", URL.createObjectURL(file));
   };
   const save = async () => {
-    await onSaveSettings?.(settings);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1800);
+    setFeedbackError("");
+    try {
+      await onSaveSettings?.(settings);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1800);
+    } catch {
+      setSaved(false);
+      setFeedbackError(
+        "Não foi possível salvar. Confira sua conexão e tente novamente.",
+      );
+    }
   };
   const saveEmployee = async (employee: Omit<Employee, "id">, id?: string) => {
-    if (id) {
-      const full = { ...employee, id };
-      setEmployees((x) => x.map((item) => (item.id === id ? full : item)));
-      await onUpdateEmployee?.(full);
-    } else {
-      const full = { ...employee, id: crypto.randomUUID() };
-      setEmployees((x) => [...x, full]);
-      await onCreateEmployee?.(employee);
+    setFeedbackError("");
+    try {
+      if (id) {
+        const full = { ...employee, id };
+        const savedEmployee = (await onUpdateEmployee?.(full)) ?? full;
+        setEmployees((x) =>
+          x.map((item) => (item.id === id ? savedEmployee : item)),
+        );
+      } else {
+        const createdEmployee = await onCreateEmployee?.(employee);
+        if (createdEmployee) {
+          setEmployees((x) => [...x, createdEmployee]);
+        }
+      }
+      setEditing(undefined);
+    } catch {
+      setFeedbackError("Não foi possível salvar o funcionário. Tente novamente.");
     }
-    setEditing(undefined);
   };
   return (
     <S.Root $primary={settings.primaryColor} $settings={area === "settings"}>
+      {feedbackError && (
+        <div
+          role="alert"
+          style={{
+            position: "fixed",
+            right: 24,
+            top: 24,
+            zIndex: 1000,
+            maxWidth: 420,
+            borderRadius: 10,
+            background: "#991b1b",
+            color: "white",
+            padding: "12px 16px",
+            boxShadow: "0 12px 30px rgba(0, 0, 0, 0.2)",
+          }}
+        >
+          {feedbackError}
+        </div>
+      )}
       <S.MainSidebar $open={mobile}>
         <S.Brand>
           <span>S&amp;C</span>

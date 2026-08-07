@@ -6,7 +6,7 @@ export type BrandIdentity = {
   logoUrl: string;
 };
 
-const DEFAULT_BRAND_NAME = "Peça já food";
+const DEFAULT_BRAND_NAME = "Peça Já Food";
 
 function normalizeText(value: unknown) {
   return String(value || "").trim();

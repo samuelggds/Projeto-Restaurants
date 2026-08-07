@@ -5,6 +5,7 @@ class CloseTableSessionController {
   async handle(req: Request, res: Response) {
     try {
       const closedById = req.user.id;
+      const restaurantId = req.user.restaurantId;
       const sessionId = Array.isArray(req.params.id)
         ? req.params.id[0]
         : req.params.id;
@@ -12,6 +13,7 @@ class CloseTableSessionController {
       const session = await closeTableSessionService.execute({
         sessionId,
         closedById,
+        restaurantId,
       });
 
       return res.status(200).json(session);

@@ -335,6 +335,24 @@ export const Input = styled.input`
   }
 `;
 
+export const Select = styled.select`
+  width: 100%;
+  height: 44px;
+  padding: 0 13px;
+  border: 1px solid #ddd3cb;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  background: white;
+  color: #25211e;
+
+  &:focus {
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 3px rgba(201, 93, 61, 0.09);
+  }
+`;
+
 export const Textarea = styled.textarea`
   width: 100%;
   min-height: 120px;

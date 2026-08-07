@@ -49,6 +49,12 @@ const sections: Array<{
     label: "Pedidos e entrega",
     description: "Regras comerciais",
   },
+  {
+    id: "payments",
+    icon: "R$",
+    label: "Pagamentos",
+    description: "Pix, cartão e webhooks",
+  },
 ];
 
 type SettingsSidebarProps = {

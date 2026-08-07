@@ -19,27 +19,40 @@ class BannerRepository {
     });
   }
 
-  async findById(id: number | string) {
-    return prisma.banner.findUnique({
+  async findById(id: number | string, restaurantId: number | string) {
+    return prisma.banner.findFirst({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
     });
   }
 
-  async update(id: number | string, data: Prisma.BannerUpdateInput) {
-    return prisma.banner.update({
+  async update(
+    id: number | string,
+    restaurantId: number | string,
+    data: Prisma.BannerUpdateInput,
+  ) {
+    const result = await prisma.banner.updateMany({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
       data,
     });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findById(id, restaurantId);
   }
 
-  async delete(id: number | string) {
-    return prisma.banner.delete({
+  async delete(id: number | string, restaurantId: number | string) {
+    return prisma.banner.deleteMany({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
     });
   }

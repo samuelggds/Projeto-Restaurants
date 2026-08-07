@@ -14,10 +14,14 @@ import { loginRateLimitMiddleware } from "../../../middlewares/security/loginRat
 import RefreshTokenController from "../controllers/RefreshTokenController.js";
 import LogoutController from "../controllers/LogoutController.js";
 import VerifyLoginMfaController from "../controllers/VerifyLoginMfaController.js";
+import {
+  passwordResetRateLimitMiddleware,
+  registrationRateLimitMiddleware,
+} from "../../../middlewares/security/accountActionRateLimitMiddleware.js";
 
 const router = Router();
 
-router.post("/register", (req, res) => {
+router.post("/register", registrationRateLimitMiddleware, (req, res) => {
   RegisterController.handle(req, res);
 });
 
@@ -25,11 +29,11 @@ router.post("/login", loginRateLimitMiddleware, (req, res) => {
   LoginController.handle(req, res);
 });
 
-router.post("/forgot-password", (req, res) => {
+router.post("/forgot-password", passwordResetRateLimitMiddleware, (req, res) => {
   RequestPasswordResetController.handle(req, res);
 });
 
-router.post("/reset-password", (req, res) => {
+router.post("/reset-password", passwordResetRateLimitMiddleware, (req, res) => {
   ResetPasswordByCodeController.handle(req, res);
 });
 
@@ -45,7 +49,7 @@ router.post("/logout", (req, res) => {
   LogoutController.handle(req, res);
 });
 
-router.post("/login/verify-2fa", (req, res) => {
+router.post("/login/verify-2fa", loginRateLimitMiddleware, (req, res) => {
   VerifyLoginMfaController.handle(req, res);
 });
 

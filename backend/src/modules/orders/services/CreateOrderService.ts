@@ -126,7 +126,7 @@ class CreateOrderService {
     }
 
     if (cpfDigits.length !== 11) {
-      throw new Error("Informe um CPF vÃ¡lido com 11 dÃ­gitos.");
+      throw new Error("Informe um CPF válido com 11 dígitos.");
     }
 
     const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
@@ -258,7 +258,7 @@ class CreateOrderService {
     const resolvedRestaurantId =
       Number(restaurantId) || Number(userRestaurantId) || null;
     if (!resolvedRestaurantId) {
-      throw new Error("Restaurante nÃ£o informado para o pedido");
+      throw new Error("Restaurante não informado para o pedido");
     }
 
     const shouldPayOnDelivery = payOnDelivery === true;
@@ -331,7 +331,7 @@ class CreateOrderService {
     if (type === "MESA") {
       if (!tableSessionId) {
         throw new Error(
-          "SessÃ£o da mesa nÃ£o informada. Valide o PIN da mesa para continuar.",
+          "Sessão da mesa não informada. Valide o PIN da mesa para continuar.",
         );
       }
 
@@ -339,19 +339,19 @@ class CreateOrderService {
 
       if (!session || session.status !== TableSessionStatus.OPEN) {
         throw new Error(
-          "Essa mesa estÃ¡ fechada. Gere um novo PIN com a equipe para continuar.",
+          "Essa mesa está fechada. Gere um novo PIN com a equipe para continuar.",
         );
       }
 
       if (Number(tableId || 0) && Number(tableId) !== Number(session.tableId)) {
-        throw new Error("Mesa do pedido nÃ£o confere com a sessÃ£o validada.");
+        throw new Error("Mesa do pedido não confere com a sessão validada.");
       }
 
       if (
         Number(tableSessionTableId || 0) > 0 &&
         Number(tableSessionTableId) !== Number(session.tableId)
       ) {
-        throw new Error("SessÃ£o da mesa invÃ¡lida para este pedido.");
+        throw new Error("Sessão da mesa inválida para este pedido.");
       }
 
       tableId = Number(session.tableId);
@@ -364,7 +364,7 @@ class CreateOrderService {
 
       if (requiredAddressFields.length < 5) {
         throw new Error(
-          "Informe o endereÃ§o completo para pedidos de delivery.",
+          "Informe o endereço completo para pedidos de delivery.",
         );
       }
 
@@ -418,17 +418,17 @@ class CreateOrderService {
         const item = items[index];
 
         if (!product) {
-          throw new Error(`Produto nÃ£o encontrado: ${items[index].productId}`);
+          throw new Error(`Produto não encontrado: ${items[index].productId}`);
         }
 
         if (product.active === false) {
-          throw new Error(`Produto indisponÃ­vel: ${product.name}`);
+          throw new Error(`Produto indisponível: ${product.name}`);
         }
 
         const quantity = Number(item.quantity || 0);
 
         if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Quantidade invÃ¡lida para ${product.name}.`);
+          throw new Error(`Quantidade inválida para ${product.name}.`);
         }
 
         const stockValue =
@@ -442,7 +442,7 @@ class CreateOrderService {
           quantity > stockValue
         ) {
           throw new Error(
-            `Estoque insuficiente para ${product.name}. DisponÃ­vel: ${stockValue}.`,
+            `Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`,
           );
         }
       });

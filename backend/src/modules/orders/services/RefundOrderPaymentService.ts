@@ -60,20 +60,24 @@ class RefundOrderPaymentService {
   }
 
   private async getPagBankCredentials(restaurantId?: number) {
+    const allowGlobalFallback =
+      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
     const settings = restaurantId
       ? await restaurantSettingsRepository.findByRestaurantId(restaurantId)
       : null;
 
     const email = String(
       settings?.pagbankEmail ||
-        process.env.PAGBANK_EMAIL ||
-        process.env.PAGSEGURO_EMAIL ||
+        (allowGlobalFallback
+          ? process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL
+          : "") ||
         "",
     ).trim();
     const token = String(
       settings?.pagbankToken ||
-        process.env.PAGBANK_TOKEN ||
-        process.env.PAGSEGURO_TOKEN ||
+        (allowGlobalFallback
+          ? process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN
+          : "") ||
         "",
     ).trim();
 
@@ -100,6 +104,8 @@ class RefundOrderPaymentService {
   private async getMercadoPagoAccessTokenByRestaurant(
     restaurantId?: number | string | null,
   ) {
+    const allowGlobalFallback =
+      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
     const normalizedRestaurantId = Number(restaurantId || 0);
     const settings =
       Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
@@ -109,7 +115,9 @@ class RefundOrderPaymentService {
         : null;
 
     const token = String(
-      settings?.mercadoPagoAccessToken || process.env.MP_ACCESS_TOKEN || "",
+      settings?.mercadoPagoAccessToken ||
+        (allowGlobalFallback ? process.env.MP_ACCESS_TOKEN : "") ||
+        "",
     ).trim();
 
     if (!token) {
@@ -192,8 +200,12 @@ class RefundOrderPaymentService {
     const settings = restaurantId
       ? await restaurantSettingsRepository.findByRestaurantId(restaurantId)
       : null;
+    const allowGlobalFallback =
+      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
     const secretKey = String(
-      settings?.stripeSecretKey || process.env.STRIPE_SECRET_KEY || "",
+      settings?.stripeSecretKey ||
+        (allowGlobalFallback ? process.env.STRIPE_SECRET_KEY : "") ||
+        "",
     ).trim();
     if (!secretKey) {
       throw new Error(

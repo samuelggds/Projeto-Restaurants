@@ -11,6 +11,7 @@ import { HoursSettings } from "../components/HoursSettings";
 import { OrderSettings } from "../components/OrderSettings";
 import { SettingsSidebar } from "../components/SettingsSidebar";
 import { WhatsappSettings } from "../components/WhatsappSettings";
+import { PaymentSettings } from "../components/PaymentSettings";
 import type {
   RestaurantSettings,
   SettingsSectionId,
@@ -87,6 +88,22 @@ function buildSettingsFromApi(
     instagram: String(raw?.instagram ?? ""),
     pixProvider: String(raw?.pixProvider ?? ""),
     pixKey: String(raw?.pixKey ?? ""),
+    cardGateway: String(raw?.cardGateway ?? ""),
+    stripeSecretKey: "",
+    stripeSecretKeyConfigured: Boolean(raw?.stripeSecretKeyConfigured),
+    stripeWebhookSecret: "",
+    stripeWebhookSecretConfigured: Boolean(
+      raw?.stripeWebhookSecretConfigured,
+    ),
+    mercadoPagoAccessToken: "",
+    mercadoPagoAccessTokenConfigured: Boolean(
+      raw?.mercadoPagoAccessTokenConfigured,
+    ),
+    asaasAccessToken: "",
+    asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
+    pagbankEmail: String(raw?.pagbankEmail ?? ""),
+    pagbankToken: "",
+    pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     social: {
       instagram: String(raw?.instagram ?? ""),
       facebook: String(raw?.facebook ?? ""),
@@ -144,6 +161,25 @@ function buildApiPayload(settings: RestaurantSettings) {
     slogan: settings.slogan,
     email: settings.email,
     address: settings.address,
+    pixProvider: settings.pixProvider,
+    pixKey: settings.pixKey,
+    cardGateway: settings.cardGateway,
+    pagbankEmail: settings.pagbankEmail,
+    ...(settings.stripeSecretKey
+      ? { stripeSecretKey: settings.stripeSecretKey }
+      : {}),
+    ...(settings.stripeWebhookSecret
+      ? { stripeWebhookSecret: settings.stripeWebhookSecret }
+      : {}),
+    ...(settings.mercadoPagoAccessToken
+      ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
+      : {}),
+    ...(settings.asaasAccessToken
+      ? { asaasAccessToken: settings.asaasAccessToken }
+      : {}),
+    ...(settings.pagbankToken
+      ? { pagbankToken: settings.pagbankToken }
+      : {}),
   };
 }
 
@@ -274,6 +310,9 @@ export function SettingsPage() {
           {activeSection === "about" && <AboutSettings {...sectionProps} />}
           {activeSection === "hours" && <HoursSettings {...sectionProps} />}
           {activeSection === "orders" && <OrderSettings {...sectionProps} />}
+          {activeSection === "payments" && (
+            <PaymentSettings {...sectionProps} />
+          )}
         </S.ContentBody>
       </S.Content>
     </S.Page>

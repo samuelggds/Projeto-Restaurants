@@ -1,4 +1,5 @@
 import tableSessionRepository from "../repositories/TableSessionRepository.js";
+import tableRepository from "../../table/repositories/TableRepository.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
@@ -14,6 +15,12 @@ class OpenTableSessionService {
     restaurantId,
     openedById,
   }: OpenTableSessionPayload) {
+    const table = await tableRepository.findById(tableId);
+
+    if (!table || table.restaurantId !== restaurantId || !table.active) {
+      throw new Error("Mesa não encontrada!");
+    }
+
     const sessionOpened =
       await tableSessionRepository.findOpenedByTable(tableId);
 

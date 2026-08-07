@@ -69,8 +69,10 @@ export type AdminPageProps = {
   initialOrders?: AdminOrder[];
   initialProducts?: AdminProduct[];
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
-  onCreateEmployee?: (employee: Omit<Employee, "id">) => void | Promise<void>;
-  onUpdateEmployee?: (employee: Employee) => void | Promise<void>;
+  onCreateEmployee?: (
+    employee: Omit<Employee, "id">,
+  ) => Employee | Promise<Employee>;
+  onUpdateEmployee?: (employee: Employee) => Employee | Promise<Employee>;
   onViewStore?: () => void;
   onLogout?: () => void;
 };

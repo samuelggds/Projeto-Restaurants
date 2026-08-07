@@ -8,6 +8,8 @@ import prisma from "../../../config/prisma.js";
 const originalConsoleLog = console.log;
 
 const originalMethods = {
+  transaction: prisma.$transaction,
+  findInvoiceById: billingRepository.findInvoiceById,
   updateInvoice: billingRepository.updateInvoice,
   findSubscriptionByRestaurantId:
     billingRepository.findSubscriptionByRestaurantId,
@@ -20,6 +22,8 @@ const originalMethods = {
 afterEach(() => {
   console.log = originalConsoleLog;
 
+  prisma.$transaction = originalMethods.transaction;
+  billingRepository.findInvoiceById = originalMethods.findInvoiceById;
   billingRepository.updateInvoice = originalMethods.updateInvoice;
   billingRepository.findSubscriptionByRestaurantId =
     originalMethods.findSubscriptionByRestaurantId;
@@ -29,12 +33,23 @@ afterEach(() => {
   prisma.invoice.findMany = originalMethods.invoiceFindMany;
 });
 
+function useImmediateTransaction() {
+  prisma.$transaction = async (callback) => callback(prisma);
+}
+
 function silenceServiceLogs() {
   console.log = () => {};
 }
 
 test("pagando deve liberar o sistema para o dono do restaurante", async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 10,
+    status: "PENDENTE",
+  });
 
   const calls = {
     updateSubscriptionStatus: null,
@@ -93,6 +108,13 @@ test("pagando deve liberar o sistema para o dono do restaurante", async () => {
 
 test("deve manter bloqueio quando existir invoice bloqueante em aberto", async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 20,
+    status: "PENDENTE",
+  });
 
   const calls = {
     updateSubscriptionStatus: null,
@@ -145,6 +167,13 @@ test("deve manter bloqueio quando existir invoice bloqueante em aberto", async (
 
 test("deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio", async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 30,
+    status: "PENDENTE",
+  });
 
   const calls = {
     updateSubscriptionCalled: false,
@@ -194,6 +223,13 @@ test("deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio"
 
 test("deve manter bloqueio sem assinatura quando houver invoice bloqueante", async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 40,
+    status: "PENDENTE",
+  });
 
   const calls = {
     updateSubscriptionCalled: false,
@@ -239,4 +275,35 @@ test("deve manter bloqueio sem assinatura quando houver invoice bloqueante", asy
   assert.equal(calls.updateSubscriptionCalled, false);
   assert.equal(calls.activatedRestaurantId, null);
   assert.equal(calls.deactivatedRestaurantId, 40);
+});
+
+test("nao deve registrar novamente uma fatura que ja esta paga", async () => {
+  silenceServiceLogs();
+  useImmediateTransaction();
+
+  const paidAt = new Date("2026-08-01T12:00:00.000Z");
+  let updateInvoiceCalled = false;
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 50,
+    status: "PAGO",
+    paidAt,
+  });
+  billingRepository.updateInvoice = async () => {
+    updateInvoiceCalled = true;
+    throw new Error("nao deveria atualizar a fatura");
+  };
+  billingRepository.findSubscriptionByRestaurantId = async () => null;
+  prisma.invoice.findMany = async () => [];
+  billingRepository.activateRestaurant = async (restaurantId) => ({
+    id: restaurantId,
+    active: true,
+  });
+
+  const result = await processPaymentService.execute({ invoiceId: 321 });
+
+  assert.equal(updateInvoiceCalled, false);
+  assert.equal(result.status, "PAGO");
+  assert.equal(result.paidAt, paidAt);
 });

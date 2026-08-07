@@ -4,10 +4,12 @@ import deleteCouponService from "../services/DeleteCouponService.js";
 class DeleteCouponController {
   async handle(req: Request, res: Response) {
     try {
+      const restaurantId = req.user.restaurantId;
       const { id } = req.params;
 
       const result = await deleteCouponService.execute({
         id,
+        restaurantId,
       });
 
       return res.status(200).json(result);

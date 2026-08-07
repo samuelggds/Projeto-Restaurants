@@ -86,6 +86,33 @@ export function validateCriticalEnv() {
     );
   }
 
+  const paymentPinSecret = String(
+    process.env.PAYMENT_PIN_SECRET ||
+      process.env.JWT_MFA_SECRET ||
+      jwtSecret,
+  ).trim();
+  if (paymentPinSecret.length < 32) {
+    errors.push(
+      "PAYMENT_PIN_SECRET deve ter pelo menos 32 caracteres em producao.",
+    );
+  }
+
+  const enableTestPaymentWebhook =
+    String(process.env.ENABLE_TEST_PAYMENT_WEBHOOK || "false").trim() ===
+    "true";
+  if (enableTestPaymentWebhook) {
+    errors.push(
+      "ENABLE_TEST_PAYMENT_WEBHOOK nao pode ser true em producao.",
+    );
+  }
+
+  const enableDestructiveCleanup =
+    String(process.env.ENABLE_DESTRUCTIVE_CLEANUP || "false").trim() ===
+    "true";
+  if (enableDestructiveCleanup) {
+    errors.push("ENABLE_DESTRUCTIVE_CLEANUP nao pode ser true em producao.");
+  }
+
   if (errors.length) {
     throw new Error(`Falha na validacao de ambiente: ${errors.join(" ")}`);
   }

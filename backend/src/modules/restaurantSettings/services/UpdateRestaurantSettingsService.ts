@@ -30,6 +30,7 @@ type UpdateRestaurantSettingsPayload = {
   cardGateway?: string | null;
   gatewayMerchantId?: string | null;
   stripeSecretKey?: string | null;
+  stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
@@ -108,6 +109,7 @@ class UpdateRestaurantSettingsService {
     cardGateway,
     gatewayMerchantId,
     stripeSecretKey,
+    stripeWebhookSecret,
     mercadoPagoAccessToken,
     picpayToken,
     asaasAccessToken,
@@ -171,6 +173,10 @@ class UpdateRestaurantSettingsService {
       stripeSecretKey === undefined
         ? undefined
         : String(stripeSecretKey || "").trim() || null;
+    const normalizedStripeWebhookSecret =
+      stripeWebhookSecret === undefined
+        ? undefined
+        : String(stripeWebhookSecret || "").trim() || null;
     const normalizedMercadoPagoAccessToken =
       mercadoPagoAccessToken === undefined
         ? undefined
@@ -369,6 +375,7 @@ class UpdateRestaurantSettingsService {
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: resolvedGatewayMerchantId,
       stripeSecretKey: normalizedStripeSecretKey,
+      stripeWebhookSecret: normalizedStripeWebhookSecret,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
@@ -421,12 +428,16 @@ class UpdateRestaurantSettingsService {
     return {
       ...updated,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(updated?.stripeSecretKey || "").trim(),
+      ),
+      stripeWebhookSecretConfigured: Boolean(
+        String(updated?.stripeWebhookSecret || "").trim(),
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(updated?.mercadoPagoAccessToken || "").trim(),

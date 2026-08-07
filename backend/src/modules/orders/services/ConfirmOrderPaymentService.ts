@@ -10,9 +10,9 @@ class ConfirmOrderPaymentService {
   ) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
 
-    if (String(role || "").toUpperCase() === "MOTOQUEIRO") {
+    if (String(role || "").toUpperCase() !== "ADMIN") {
       throw new Error(
-        "Motoqueiro não pode confirmar pagamento direto. Use o PIN do dono/admin.",
+        "Somente o administrador pode confirmar pagamento diretamente.",
       );
     }
 

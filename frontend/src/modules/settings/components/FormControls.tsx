@@ -1,4 +1,8 @@
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+} from "react";
 import * as S from "../styles/settings.styles";
 
 type FieldProps = {
@@ -21,6 +25,12 @@ type InputProps = InputHTMLAttributes<HTMLInputElement>;
 
 export function FormInput(props: InputProps) {
   return <S.Input {...props} />;
+}
+
+type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
+
+export function FormSelect(props: SelectProps) {
+  return <S.Select {...props} />;
 }
 
 type SwitchProps = {

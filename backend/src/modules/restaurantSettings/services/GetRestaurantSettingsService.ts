@@ -33,6 +33,7 @@ type RestaurantSettingsFallback = {
   cardGateway: string | null;
   gatewayMerchantId: string | null;
   stripeSecretKey: string | null;
+  stripeWebhookSecret: string | null;
   mercadoPagoAccessToken: string | null;
   picpayToken: string | null;
   asaasAccessToken: string | null;
@@ -40,6 +41,7 @@ type RestaurantSettingsFallback = {
   pagbankToken: string | null;
   pagbankEnvironment: string | null;
   stripeSecretKeyConfigured: boolean;
+  stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessTokenConfigured: boolean;
   picpayTokenConfigured: boolean;
   asaasAccessTokenConfigured: boolean;
@@ -103,6 +105,7 @@ class GetRestaurantSettingsService {
         cardGateway: null,
         gatewayMerchantId: null,
         stripeSecretKey: null,
+        stripeWebhookSecret: null,
         mercadoPagoAccessToken: null,
         picpayToken: null,
         asaasAccessToken: null,
@@ -110,6 +113,7 @@ class GetRestaurantSettingsService {
         pagbankToken: null,
         pagbankEnvironment: null,
         stripeSecretKeyConfigured: false,
+        stripeWebhookSecretConfigured: false,
         mercadoPagoAccessTokenConfigured: false,
         picpayTokenConfigured: false,
         asaasAccessTokenConfigured: false,
@@ -134,12 +138,16 @@ class GetRestaurantSettingsService {
     return {
       ...settings,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(settings?.stripeSecretKey || "").trim(),
+      ),
+      stripeWebhookSecretConfigured: Boolean(
+        String(settings?.stripeWebhookSecret || "").trim(),
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(settings?.mercadoPagoAccessToken || "").trim(),

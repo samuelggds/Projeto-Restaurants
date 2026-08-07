@@ -41,6 +41,18 @@ export type RestaurantSettings = {
   instagram: string;
   pixProvider: string;
   pixKey: string;
+  cardGateway: string;
+  stripeSecretKey: string;
+  stripeSecretKeyConfigured: boolean;
+  stripeWebhookSecret: string;
+  stripeWebhookSecretConfigured: boolean;
+  mercadoPagoAccessToken: string;
+  mercadoPagoAccessTokenConfigured: boolean;
+  asaasAccessToken: string;
+  asaasAccessTokenConfigured: boolean;
+  pagbankEmail: string;
+  pagbankToken: string;
+  pagbankTokenConfigured: boolean;
 };
 
 export type SettingsSectionId =
@@ -50,4 +62,5 @@ export type SettingsSectionId =
   | "whatsapp"
   | "about"
   | "hours"
-  | "orders";
+  | "orders"
+  | "payments";

@@ -186,19 +186,31 @@ class PagBankOrderWebhookController {
       if (externalReference.startsWith("ordercard:")) {
         const [, orderId = "", restaurantId = ""] =
           externalReference.split(":");
+        const referenceRestaurantId = Number(restaurantId || 0);
+
+        if (
+          !Number.isInteger(referenceRestaurantId) ||
+          referenceRestaurantId <= 0 ||
+          (restaurantIdHint && referenceRestaurantId !== restaurantIdHint)
+        ) {
+          return res.status(400).json({
+            error:
+              "Webhook PagBank rejeitado: restaurante da transação não confere.",
+          });
+        }
 
         if (orderId) {
           if (details.code) {
             await orderRepository.setCardCheckoutSessionId(
               orderId,
-              Number(restaurantId || 0),
+              referenceRestaurantId,
               `pagbank_tx:${details.code}`,
             );
           }
 
           await finalizeOrderCardPaymentService.execute({
             orderId,
-            restaurantId: Number(restaurantId || 0) || undefined,
+            restaurantId: referenceRestaurantId,
             allowMissingOrder: true,
           });
         }

@@ -39,6 +39,17 @@ Servicos:
 - Healthcheck backend: http://localhost:3000/health
 - PostgreSQL: localhost:5432
 
+## Supabase
+
+O Supabase pode ser usado como PostgreSQL gerenciado sem substituir a API
+Express, o Prisma, a autenticacao atual ou o Socket.IO. O projeto usa duas URLs:
+
+- `DATABASE_URL`: conexao da aplicacao, normalmente pelo pooler.
+- `DIRECT_URL`: conexao usada pelo Prisma CLI para migrations.
+
+Consulte [`SUPABASE_SETUP.md`](./SUPABASE_SETUP.md) para configurar o projeto,
+aplicar migrations, validar a conexao e migrar dados com seguranca.
+
 Parar:
 
 ```bash

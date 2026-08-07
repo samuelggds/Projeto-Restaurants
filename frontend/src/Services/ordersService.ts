@@ -77,8 +77,10 @@ class OrdersService {
     return response.data;
   }
 
-  async clearOrdersAndCategories() {
-    const response = await api.delete("/orders/cleanup/orders-categories");
+  async clearOrdersAndCategories(confirmation: string) {
+    const response = await api.delete("/orders/cleanup/orders-categories", {
+      data: { confirmation },
+    });
     return response.data;
   }
 

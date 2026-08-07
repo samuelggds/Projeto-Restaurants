@@ -4,11 +4,13 @@ import updateCouponService from "../services/UpdateCouponService.js";
 class UpdateCouponController {
   async handle(req: Request, res: Response) {
     try {
+      const restaurantId = req.user.restaurantId;
       const { id } = req.params;
       const { code, discount, expiration } = req.body;
 
       const coupon = await updateCouponService.execute({
         id,
+        restaurantId,
         code,
         discount,
         expiration,

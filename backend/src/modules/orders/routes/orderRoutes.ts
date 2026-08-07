@@ -29,6 +29,10 @@ import { billingMiddleware } from "../../../middlewares/billingMiddleware.js";
 import { orderAccessMiddleware } from "../../../middlewares/orderAccessMiddleware.js";
 import { authMiddleware } from "../../../middlewares/authMiddleware.js";
 import { sessionMiddleware } from "../../../middlewares/sessionMiddleware.js";
+import {
+  paymentPinAttemptRateLimitMiddleware,
+  paymentPinRequestRateLimitMiddleware,
+} from "../../../middlewares/security/orderPaymentRateLimitMiddleware.js";
 
 const router = Router();
 
@@ -83,7 +87,7 @@ router.put("/:id/status", authMiddleware, staffMiddleware, (req, res) => {
 router.patch(
   "/:id/confirm-payment",
   authMiddleware,
-  staffMiddleware,
+  adminMiddleware,
   (req, res) => {
     ConfirmOrderPaymentController.handle(req, res);
   },
@@ -102,6 +106,7 @@ router.post(
   "/:id/request-payment-confirmation-pin",
   authMiddleware,
   staffMiddleware,
+  paymentPinRequestRateLimitMiddleware,
   (req, res) => {
     RequestOrderPaymentConfirmationPinController.handle(req, res);
   },
@@ -111,6 +116,7 @@ router.patch(
   "/:id/confirm-payment-with-pin",
   authMiddleware,
   staffMiddleware,
+  paymentPinAttemptRateLimitMiddleware,
   (req, res) => {
     ConfirmOrderPaymentWithPinController.handle(req, res);
   },

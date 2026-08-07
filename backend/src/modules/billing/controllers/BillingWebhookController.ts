@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import crypto from "node:crypto";
 import billingRepository from "../repositories/BillingRepository.js";
 import processPaymentService from "../services/ProcessPaymentService.js";
 import {
@@ -10,6 +11,32 @@ import { debug, info, error as logError } from "../utils/billingLogger.js";
 class BillingWebhookController {
   async handle(req: Request, res: Response) {
     try {
+      const isEnabled =
+        process.env.NODE_ENV !== "production" &&
+        String(
+          process.env.ENABLE_TEST_PAYMENT_WEBHOOK || "false",
+        ).toLowerCase() === "true";
+      const configuredSecret = String(
+        process.env.TEST_PAYMENT_WEBHOOK_SECRET || "",
+      ).trim();
+      const receivedSecret = String(
+        req.headers["x-test-webhook-secret"] || "",
+      ).trim();
+
+      if (!isEnabled || !configuredSecret || !receivedSecret) {
+        return res.sendStatus(404);
+      }
+
+      const configuredBuffer = Buffer.from(configuredSecret);
+      const receivedBuffer = Buffer.from(receivedSecret);
+      const secretMatches =
+        configuredBuffer.length === receivedBuffer.length &&
+        crypto.timingSafeEqual(configuredBuffer, receivedBuffer);
+
+      if (!secretMatches) {
+        return res.sendStatus(404);
+      }
+
       const payment = req.body;
 
       const paymentId =

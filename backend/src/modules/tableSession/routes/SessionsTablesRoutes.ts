@@ -10,12 +10,20 @@ import CloseTableSessionController from "../controllers/CloseTableSessionControl
 import ListOpenSessionsController from "../controllers/ListOpenSessionsController.js";
 import RequestPinAssistanceController from "../controllers/RequestPinAssistanceController.js";
 import GetCurrentSessionController from "../controllers/GetCurrentSessionController.js";
+import {
+  tablePinAssistanceRateLimitMiddleware,
+  tablePinRateLimitMiddleware,
+} from "../../../middlewares/security/tableSessionRateLimitMiddleware.js";
 
 const router = Router();
 
-router.post("/validate", (req, res) => ValidatePinController.handle(req, res));
-router.post("/request-pin", (req, res) =>
-  RequestPinAssistanceController.handle(req, res),
+router.post("/validate", tablePinRateLimitMiddleware, (req, res) =>
+  ValidatePinController.handle(req, res),
+);
+router.post(
+  "/request-pin",
+  tablePinAssistanceRateLimitMiddleware,
+  (req, res) => RequestPinAssistanceController.handle(req, res),
 );
 router.get("/current", sessionMiddleware, (req, res) =>
   GetCurrentSessionController.handle(req, res),

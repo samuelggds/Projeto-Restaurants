@@ -67,20 +67,35 @@ class MercadoPagoOrderWebhookController {
       if (externalReference.startsWith("ordercard:")) {
         const [, orderId = "", restaurantId = ""] =
           externalReference.split(":");
+        const referenceRestaurantId = Number(restaurantId || 0);
         const normalizedPaymentId = String(paymentId || "").trim();
+
+        if (
+          !Number.isInteger(referenceRestaurantId) ||
+          referenceRestaurantId <= 0 ||
+          (hintedRestaurantId > 0 &&
+            referenceRestaurantId !== hintedRestaurantId) ||
+          (metadataRestaurantId > 0 &&
+            referenceRestaurantId !== metadataRestaurantId)
+        ) {
+          return res.status(400).json({
+            error:
+              "Webhook Mercado Pago rejeitado: restaurante da transação não confere.",
+          });
+        }
 
         if (orderId) {
           if (normalizedPaymentId) {
             await orderRepository.setCardCheckoutSessionId(
               orderId,
-              Number(restaurantId || 0),
+              referenceRestaurantId,
               `mp_pay:${normalizedPaymentId}`,
             );
           }
 
           await finalizeOrderCardPaymentService.execute({
             orderId,
-            restaurantId: Number(restaurantId || 0) || undefined,
+            restaurantId: referenceRestaurantId,
             allowMissingOrder: true,
           });
         }

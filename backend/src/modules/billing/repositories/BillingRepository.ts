@@ -1,9 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
+
 class BillingRepository {
-  async findSubscriptionByRestaurantId(restaurantId: number) {
-    return prisma.subscription.findUnique({
+  async findSubscriptionByRestaurantId(
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.subscription.findUnique({
       where: {
         restaurantId,
       },
@@ -13,8 +18,9 @@ class BillingRepository {
   async updateSubscription(
     id: number | string,
     data: Prisma.SubscriptionUpdateInput,
+    db: PrismaClientLike = prisma,
   ) {
-    return prisma.subscription.update({
+    return db.subscription.update({
       where: {
         id: Number(id),
       },
@@ -49,8 +55,12 @@ class BillingRepository {
     });
   }
 
-  async updateInvoice(id: number | string, data: Prisma.InvoiceUpdateInput) {
-    return prisma.invoice.update({
+  async updateInvoice(
+    id: number | string,
+    data: Prisma.InvoiceUpdateInput,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.invoice.update({
       where: {
         id: Number(id),
       },
@@ -58,8 +68,11 @@ class BillingRepository {
     });
   }
 
-  async deactivateRestaurant(id: number | string) {
-    return prisma.restaurant.update({
+  async deactivateRestaurant(
+    id: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.restaurant.update({
       where: {
         id: Number(id),
       },
@@ -69,8 +82,11 @@ class BillingRepository {
     });
   }
 
-  async activateRestaurant(id: number | string) {
-    return prisma.restaurant.update({
+  async activateRestaurant(
+    id: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.restaurant.update({
       where: {
         id: Number(id),
       },
@@ -125,8 +141,11 @@ class BillingRepository {
     });
   }
 
-  async findInvoiceById(id: number | string) {
-    return prisma.invoice.findUnique({
+  async findInvoiceById(
+    id: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.invoice.findUnique({
       where: { id: Number(id) },
     });
   }

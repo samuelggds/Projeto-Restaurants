@@ -92,8 +92,8 @@ export default function Admin() {
         );
         setSettings(mapSettingsFromApi(data as Record<string, unknown>));
       })
-      .catch(() => {
-        /* usar mock */
+      .catch((error) => {
+        console.error("Não foi possível carregar as configurações.", error);
       });
     return () => {
       mounted = false;
@@ -111,8 +111,8 @@ export default function Admin() {
             data.map((e) => mapEmployee(e as Record<string, unknown>)),
           );
       })
-      .catch(() => {
-        /* usar mock */
+      .catch((error) => {
+        console.error("Não foi possível carregar os funcionários.", error);
       });
     return () => {
       mounted = false;
@@ -130,8 +130,9 @@ export default function Admin() {
           Number((created as Record<string, unknown>)?.id ?? 0) || null,
         );
       }
-    } catch {
-      /* silent — UI já mostra "Salvo" */
+    } catch (error) {
+      console.error("Não foi possível salvar as configurações.", error);
+      throw error;
     }
   }
 
@@ -143,12 +144,15 @@ export default function Admin() {
         role: "FUNCIONARIO",
         subRole: subRoleMap[employee.role],
       });
+      const mappedEmployee = mapEmployee(created as Record<string, unknown>);
       setEmployees((prev) => [
         ...prev,
-        mapEmployee(created as Record<string, unknown>),
+        mappedEmployee,
       ]);
-    } catch {
-      /* silent */
+      return mappedEmployee;
+    } catch (error) {
+      console.error("Não foi possível criar o funcionário.", error);
+      throw error;
     }
   }
 
@@ -162,8 +166,10 @@ export default function Admin() {
       setEmployees((prev) =>
         prev.map((e) => (e.id === employee.id ? employee : e)),
       );
-    } catch {
-      /* silent */
+      return employee;
+    } catch (error) {
+      console.error("Não foi possível atualizar o funcionário.", error);
+      throw error;
     }
   }
 

@@ -9,6 +9,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"]!,
+    // Migrations should bypass a transaction pooler when DIRECT_URL is set.
+    // Local development remains compatible with DATABASE_URL only.
+    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"]!,
   },
 });

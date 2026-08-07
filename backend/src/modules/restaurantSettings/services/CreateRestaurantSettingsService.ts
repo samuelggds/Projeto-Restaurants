@@ -30,6 +30,7 @@ type CreateRestaurantSettingsPayload = {
   cardGateway?: string | null;
   gatewayMerchantId?: string | null;
   stripeSecretKey?: string | null;
+  stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
@@ -76,6 +77,7 @@ class CreateRestaurantSettingsService {
     cardGateway,
     gatewayMerchantId,
     stripeSecretKey,
+    stripeWebhookSecret,
     mercadoPagoAccessToken,
     picpayToken,
     asaasAccessToken,
@@ -198,6 +200,8 @@ class CreateRestaurantSettingsService {
       cardGateway: String(cardGateway || "").trim() || null,
       gatewayMerchantId: String(gatewayMerchantId || "").trim() || null,
       stripeSecretKey: String(stripeSecretKey || "").trim() || null,
+      stripeWebhookSecret:
+        String(stripeWebhookSecret || "").trim() || null,
       mercadoPagoAccessToken:
         String(mercadoPagoAccessToken || "").trim() || null,
       picpayToken: String(picpayToken || "").trim() || null,
@@ -243,12 +247,16 @@ class CreateRestaurantSettingsService {
     return {
       ...created,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(created?.stripeSecretKey || "").trim(),
+      ),
+      stripeWebhookSecretConfigured: Boolean(
+        String(created?.stripeWebhookSecret || "").trim(),
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(created?.mercadoPagoAccessToken || "").trim(),

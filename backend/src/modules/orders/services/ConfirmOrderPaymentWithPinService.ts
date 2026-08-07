@@ -1,6 +1,7 @@
 import { PaymentMethod } from "@prisma/client";
 import { io } from "../../../server.js";
 import orderRepository from "../repositories/OrderRepository.js";
+import { verifyPaymentConfirmationPin } from "../utils/paymentConfirmationPin.js";
 
 class ConfirmOrderPaymentWithPinService {
   async execute(
@@ -72,7 +73,12 @@ class ConfirmOrderPaymentWithPinService {
       throw new Error("PIN expirado. Solicite um novo PIN ao dono/admin.");
     }
 
-    if (String(order.paymentConfirmationPin) !== normalizedPin) {
+    if (
+      !verifyPaymentConfirmationPin(
+        normalizedPin,
+        String(order.paymentConfirmationPin),
+      )
+    ) {
       throw new Error("PIN incorreto. Confira com o dono/admin.");
     }
 

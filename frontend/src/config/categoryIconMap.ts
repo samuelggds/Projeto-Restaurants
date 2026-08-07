@@ -21,7 +21,7 @@ export function resolveCategoryIcon(categoryName) {
   const normalized = normalizeCategoryLabel(categoryName);
 
   if (
-    /(entrada|entradas|petisco|petiscos|aperitivo|aperitivos|acompanhamento|acompanhamentos|porcao|porcoes|porção|porções|tira-gosto|tiragosto)/.test(
+    /(entrada|entradas|petisco|petiscos|aperitivo|aperitivos|acompanhamento|acompanhamentos|porcao|porcoes|tira-gosto|tiragosto)/.test(
       normalized,
     )
   ) {
@@ -33,7 +33,7 @@ export function resolveCategoryIcon(categoryName) {
   }
 
   if (
-    /(bebida|bebidas|drink|drinks|suco|sucos|refrigerante|refrigerantes|cerveja|cervejas|chopp|agua|água|energetico|energético|cha|chá|cafe|café)/.test(
+    /(bebida|bebidas|drink|drinks|suco|sucos|refrigerante|refrigerantes|cerveja|cervejas|chopp|agua|energetico|cha|cafe)/.test(
       normalized,
     )
   ) {
@@ -41,7 +41,7 @@ export function resolveCategoryIcon(categoryName) {
   }
 
   if (
-    /(hamburguer|hamburgueres|burger|burgers|lanche|lanches|sanduiche|sanduiches|sanduíche|sanduíches|hot dog|cachorro-quente)/.test(
+    /(hamburguer|hamburgueres|burger|burgers|lanche|lanches|sanduiche|sanduiches|hot dog|cachorro-quente)/.test(
       normalized,
     )
   ) {
@@ -53,7 +53,7 @@ export function resolveCategoryIcon(categoryName) {
   }
 
   if (
-    /(sobremesa|sobremesas|doce|doces|acai|açaí|sorvete|sorvetes|milkshake|milkshakes|bolo|bolos|torta|tortas|brownie|pudim|mousse)/.test(
+    /(sobremesa|sobremesas|doce|doces|acai|sorvete|sorvetes|milkshake|milkshakes|bolo|bolos|torta|tortas|brownie|pudim|mousse)/.test(
       normalized,
     )
   ) {
@@ -61,7 +61,7 @@ export function resolveCategoryIcon(categoryName) {
   }
 
   if (
-    /(prato|pratos|refeicao|refeição|refeicoes|refeições|executivo|executivos|carne|carnes|churrasco|frango|frangos|peixe|peixes|camarao|camarão|japones|japonês|sushi|temaki|yakisoba|almoco|almoço|jantar|marmita|marmitas)/.test(
+    /(prato|pratos|refeicao|refeicoes|executivo|executivos|carne|carnes|churrasco|frango|frangos|peixe|peixes|camarao|japones|sushi|temaki|yakisoba|almoco|jantar|marmita|marmitas)/.test(
       normalized,
     )
   ) {

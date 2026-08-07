@@ -1,21 +1,42 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
 import finalizeOrderCardPaymentService from "../services/FinalizeOrderCardPaymentService.js";
+import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
 
 class StripeOrderWebhookController {
   async handle(req: Request, res: Response) {
     try {
-      const stripeWebhookSecret = String(
-        process.env.STRIPE_WEBHOOK_SECRET || "",
-      ).trim();
       const allowInsecureWebhookInDev =
         process.env.ALLOW_INSECURE_STRIPE_WEBHOOK === "true";
+      const allowGlobalFallback =
+        process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
       const stripeSignature = String(
         req.headers["stripe-signature"] || "",
       ).trim();
       const rawBody = Buffer.isBuffer(req.body)
         ? req.body
         : Buffer.from(JSON.stringify(req.body || {}), "utf-8");
+      const untrustedPayload = JSON.parse(rawBody.toString("utf-8") || "{}");
+      const untrustedRestaurantId = Number(
+        untrustedPayload?.data?.object?.metadata?.restaurantId || 0,
+      );
+      const settings =
+        Number.isInteger(untrustedRestaurantId) && untrustedRestaurantId > 0
+          ? await restaurantSettingsRepository.findByRestaurantId(
+              untrustedRestaurantId,
+            )
+          : null;
+      const tenantWebhookSecret = String(
+        settings?.stripeWebhookSecret || "",
+      ).trim();
+      const globalWebhookSecret = String(
+        process.env.STRIPE_WEBHOOK_SECRET || "",
+      ).trim();
+      const stripeWebhookSecret =
+        tenantWebhookSecret ||
+        (allowGlobalFallback || process.env.NODE_ENV !== "production"
+          ? globalWebhookSecret
+          : "");
 
       let eventPayload: Record<string, any> = {};
 
@@ -44,7 +65,7 @@ class StripeOrderWebhookController {
           });
         }
 
-        eventPayload = JSON.parse(rawBody.toString("utf-8") || "{}");
+        eventPayload = untrustedPayload;
       }
 
       const eventType = String(eventPayload?.type || "").trim();

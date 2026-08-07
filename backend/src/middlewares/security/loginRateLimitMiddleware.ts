@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 function normalizeEmail(value: unknown) {
   return String(value || "")
@@ -38,7 +38,7 @@ export const loginRateLimitMiddleware = rateLimit({
   skipSuccessfulRequests: true,
   keyGenerator: (req) => {
     const email = normalizeEmail((req.body as { email?: unknown })?.email);
-    const ip = String(getClientIp(req) || "unknown").trim();
+    const ip = ipKeyGenerator(String(getClientIp(req) || "unknown").trim());
     return `${ip}:${email || "no-email"}`;
   },
   message: {

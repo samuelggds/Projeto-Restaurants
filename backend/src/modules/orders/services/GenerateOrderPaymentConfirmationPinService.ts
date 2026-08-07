@@ -1,9 +1,11 @@
 import { PaymentMethod } from "@prisma/client";
+import crypto from "node:crypto";
 import { io } from "../../../server.js";
 import orderRepository from "../repositories/OrderRepository.js";
+import { hashPaymentConfirmationPin } from "../utils/paymentConfirmationPin.js";
 
 function generateFourDigitPin() {
-  return String(Math.floor(1000 + Math.random() * 9000));
+  return String(crypto.randomInt(1000, 10000));
 }
 
 class GenerateOrderPaymentConfirmationPinService {
@@ -42,12 +44,13 @@ class GenerateOrderPaymentConfirmationPinService {
     }
 
     const pin = generateFourDigitPin();
+    const pinHash = hashPaymentConfirmationPin(pin);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     const updatedOrder = await orderRepository.setPaymentConfirmationPin(
       orderId,
       restaurantId,
-      pin,
+      pinHash,
       expiresAt,
     );
 

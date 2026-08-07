@@ -303,6 +303,7 @@ model RestaurantSettings {
   picpayToken            String?
   asaasAccessToken       String?
   stripeSecretKey        String?
+  stripeWebhookSecret    String?
   restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 

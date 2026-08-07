@@ -5,13 +5,18 @@ import { io } from "../../../server.js";
 type CloseTableSessionPayload = {
   sessionId: number | string;
   closedById: number | null;
+  restaurantId: number;
 };
 
 class CloseTableSessionService {
-  async execute({ sessionId, closedById }: CloseTableSessionPayload) {
+  async execute({
+    sessionId,
+    closedById,
+    restaurantId,
+  }: CloseTableSessionPayload) {
     const session = await tableSessionRepository.findById(sessionId);
 
-    if (!session) {
+    if (!session || session.table.restaurantId !== restaurantId) {
       throw new Error("Sessão não encontrada!");
     }
 
