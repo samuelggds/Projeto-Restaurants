@@ -322,14 +322,9 @@ model RestaurantSettings {
   companyContractFileUrl String?
 
   // Credenciais dos gateways
-  pagbankEmail           String?
-  pagbankToken           String?
-  pagbankEnvironment     String?
   mercadoPagoAccessToken String?
   picpayToken            String?
   asaasAccessToken       String?
-  stripeSecretKey        String?
-  stripeWebhookSecret    String?
 
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
