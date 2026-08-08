@@ -185,9 +185,16 @@ export default function WaiterPage() {
       employee={employee}
       restaurant={restaurant}
       data={data}
-      onGenerateAccessCode={async () =>
-        String(Math.floor(1000 + Math.random() * 9000))
-      }
+      onGenerateAccessCode={async (tableId) => {
+        const result = await tablesService.openTableSession(tableId);
+        const pin = String(result?.pin || "").trim();
+
+        if (!/^\d{4}$/.test(pin)) {
+          throw new Error("Código de acesso inválido retornado pelo servidor.");
+        }
+
+        return pin;
+      }}
       onLogout={() => {
         logout();
         navigate("/login");
