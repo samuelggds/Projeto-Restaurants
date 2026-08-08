@@ -259,6 +259,9 @@ export default function Profile() {
       onUploadAvatar={handleUploadAvatar}
       onSavePersonalData={handleSavePersonalData}
       onChangePassword={handleChangePassword}
+      onTrackOrder={(orderId) =>
+        navigate(`/orders/${String(orderId).replace(/^#/, "")}/tracking`)
+      }
     />
   );
 }

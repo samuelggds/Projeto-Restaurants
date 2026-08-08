@@ -30,6 +30,7 @@ export type RestaurantSettings = {
   acceptsPickup: boolean;
   minimumOrder: number;
   deliveryFee: number;
+  courierFeePerDelivery: number;
   averageDeliveryTime: string;
   acceptsPix: boolean;
   acceptsCard: boolean;

@@ -8,6 +8,7 @@ class CreateRestaurantSettingsController {
 
       const {
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -54,6 +55,7 @@ class CreateRestaurantSettingsController {
       const settings = await createRestaurantSettingsService.execute({
         restaurantId,
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,

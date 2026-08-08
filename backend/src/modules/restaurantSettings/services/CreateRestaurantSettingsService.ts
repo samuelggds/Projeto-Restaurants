@@ -5,6 +5,7 @@ import prisma from "../../../config/prisma.js";
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee: number;
+  courierFeePerDelivery?: number;
   minimumOrder: number;
   pixProvider?: string;
   pixKey?: string | null;
@@ -52,6 +53,7 @@ class CreateRestaurantSettingsService {
   async execute({
     restaurantId,
     deliveryFee,
+    courierFeePerDelivery,
     minimumOrder,
     pixProvider,
     pixKey,
@@ -167,6 +169,7 @@ class CreateRestaurantSettingsService {
     const created = await restaurantSettingsRepository.create({
       restaurantId: Number(restaurantId),
       deliveryFee,
+      courierFeePerDelivery: Math.max(Number(courierFeePerDelivery || 0), 0),
       minimumOrder,
       pixProvider: String(pixProvider || "MERCADO_PAGO")
         .trim()

@@ -17,6 +17,8 @@ class ListOrdersController {
       const orders = await listOrdersService.execute(
         restaurantId,
         normalizedStatus,
+        req.user.role,
+        req.user.id,
       );
 
       return res.json(orders);

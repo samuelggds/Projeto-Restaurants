@@ -8,6 +8,7 @@ class UpdateRestaurantSettingsController {
 
       const {
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -54,6 +55,7 @@ class UpdateRestaurantSettingsController {
       const settings = await updateRestaurantSettingsService.execute({
         restaurantId,
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,

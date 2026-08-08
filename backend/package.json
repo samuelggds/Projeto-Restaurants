@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/middlewares/billingMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts src/modules/restaurantSettings/services/CreateRestaurantSettingsService.test.ts src/modules/orders/services/CreateOrderCardCheckoutService.test.ts src/modules/orders/controllers/PagBankOrderWebhookController.test.ts src/modules/orders/controllers/PaymentWebhookHardening.test.ts src/modules/auth/services/AuthTokenService.test.ts src/modules/auth/services/LoginLockoutService.test.ts src/modules/auth/services/LoginMfaService.test.ts src/modules/security/TenantIsolationServices.test.ts src/modules/orders/utils/paymentConfirmationPin.test.ts",
+    "test": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/middlewares/billingMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts src/modules/restaurantSettings/services/CreateRestaurantSettingsService.test.ts src/modules/orders/services/CreateOrderCardCheckoutService.test.ts src/modules/orders/services/ListCourierOrdersService.test.ts src/modules/orders/controllers/PagBankOrderWebhookController.test.ts src/modules/orders/controllers/PaymentWebhookHardening.test.ts src/modules/auth/services/AuthTokenService.test.ts src/modules/auth/services/LoginLockoutService.test.ts src/modules/auth/services/LoginMfaService.test.ts src/modules/security/TenantIsolationServices.test.ts src/modules/orders/utils/paymentConfirmationPin.test.ts",
     "test:billing": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/middlewares/billingMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts",
     "dev": "tsx watch src/server.ts",
     "build": "tsup",
@@ -14,7 +14,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
-    "db:check": "tsx scripts/checkDatabaseConnection.ts",
+    "db:check": "node scripts/checkDatabaseConnection.mjs",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "loadtest:orders": "tsx scripts/loadTestOrders.ts",

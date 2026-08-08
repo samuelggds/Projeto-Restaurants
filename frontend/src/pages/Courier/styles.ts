@@ -81,6 +81,35 @@ export const SidebarStats = styled.div`
   }
 `;
 
+export const WorkspaceStatsGrid = styled.div<{ $columns?: number }>`
+  display: grid;
+  grid-template-columns: repeat(${(p) => p.$columns || 3}, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+
+  & > div {
+    min-height: 96px;
+    padding: 18px;
+    border: 1px solid #e5e1dc;
+    border-radius: 14px;
+    background: #fff;
+    color: #17191b !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  }
+
+  & > div svg {
+    color: #d64d08;
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 export const SideStatItem = styled.div`
   display: flex;
   align-items: center;

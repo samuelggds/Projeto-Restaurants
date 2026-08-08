@@ -51,6 +51,17 @@ export function OrderSettings({ settings, onChange }: Props) {
               }
             />
           </Field>
+          <Field label="Ganho do motoqueiro por entrega (R$)">
+            <FormInput
+              type="number"
+              min="0"
+              step="0.01"
+              value={settings.courierFeePerDelivery}
+              onChange={(e) =>
+                onChange({ courierFeePerDelivery: Number(e.target.value) })
+              }
+            />
+          </Field>
           <Field label="Tempo médio de entrega">
             <FormInput
               value={settings.averageDeliveryTime}

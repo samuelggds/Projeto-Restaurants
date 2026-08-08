@@ -98,6 +98,50 @@ class OrderRepository {
     });
   }
 
+  async findCourierOrders(
+    restaurantId: number,
+    courierId: number,
+    status?: OrderStatus,
+    db: PrismaClientLike = prisma,
+  ) {
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.PRONTO,
+      OrderStatus.SAIU_PARA_ENTREGA,
+      OrderStatus.ENTREGUE,
+    ];
+
+    if (status && !allowedStatuses.includes(status)) {
+      return [];
+    }
+
+    return db.order.findMany({
+      where: {
+        restaurantId,
+        type: OrderType.DELIVERY,
+        status: status || { in: allowedStatuses },
+        OR: [
+          { status: OrderStatus.PRONTO, assignedCourierId: null },
+          { assignedCourierId: courierId },
+        ],
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, phone: true },
+        },
+        restaurant: {
+          select: { id: true, name: true, whatsapp: true },
+        },
+        items: { include: { product: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   async updateStatus(
     id: number | string,
     status: OrderStatus,

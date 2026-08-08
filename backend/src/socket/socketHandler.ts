@@ -43,6 +43,7 @@ export function socketHandler(socket: AppSocket) {
   }
 
   const { id, role, restaurantId } = user;
+  let lastLocationStoredAt = 0;
 
   socket.join(`restaurant:${restaurantId}`);
   socket.join(`user:${id}`);
@@ -77,6 +78,12 @@ export function socketHandler(socket: AppSocket) {
         ok: false,
         error: "Somente motoqueiros podem enviar localização.",
       });
+      return;
+    }
+
+    const receivedAt = Date.now();
+    if (receivedAt - lastLocationStoredAt < 3_000) {
+      reply({ ok: true });
       return;
     }
 
@@ -117,6 +124,7 @@ export function socketHandler(socket: AppSocket) {
         restaurantId: true,
         type: true,
         status: true,
+        assignedCourierId: true,
       },
     });
 
@@ -140,6 +148,11 @@ export function socketHandler(socket: AppSocket) {
       return;
     }
 
+    if (Number(order.assignedCourierId || 0) !== Number(id || 0)) {
+      reply({ ok: false, error: "Esta entrega não está atribuída a você." });
+      return;
+    }
+
     const payload = {
       orderId: order.id,
       latitude,
@@ -151,8 +164,23 @@ export function socketHandler(socket: AppSocket) {
           ? Math.round(accuracy)
           : null,
       sentAt,
+      recordedAt: sentAt,
       updatedAt: new Date().toISOString(),
     };
+
+    await prisma.deliveryLocation.create({
+      data: {
+        orderId: order.id,
+        courierId: Number(id),
+        latitude,
+        longitude,
+        heading: Number.isFinite(heading) ? heading : null,
+        speed: Number.isFinite(speed) ? speed : null,
+        accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null,
+        recordedAt: new Date(sentAt),
+      },
+    });
+    lastLocationStoredAt = receivedAt;
 
     socket.to(`user:${order.userId}`).emit("order:delivery-location", payload);
     socket

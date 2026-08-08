@@ -5,6 +5,7 @@ import prisma from "../../../config/prisma.js";
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee?: number;
+  courierFeePerDelivery?: number;
   minimumOrder?: number;
   pixProvider?: string;
   pixKey?: string | null;
@@ -84,6 +85,7 @@ class UpdateRestaurantSettingsService {
   async execute({
     restaurantId,
     deliveryFee,
+    courierFeePerDelivery,
     minimumOrder,
     pixProvider,
     pixKey,
@@ -316,6 +318,10 @@ class UpdateRestaurantSettingsService {
 
     const updated = await restaurantSettingsRepository.update(restaurantId, {
       deliveryFee,
+      courierFeePerDelivery:
+        courierFeePerDelivery === undefined
+          ? undefined
+          : Math.max(Number(courierFeePerDelivery || 0), 0),
       minimumOrder,
       pixProvider: resolvedPixProvider,
       pixKey,

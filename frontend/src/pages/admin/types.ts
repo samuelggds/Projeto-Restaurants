@@ -22,20 +22,30 @@ export type EmployeeRole = "COOK" | "WAITER" | "ATTENDANT";
 
 export type AdminOrder = {
   id: string;
+  numericId: number;
+  userId?: string;
   customerName: string;
+  customerEmail?: string;
   status: string;
-  total: string;
+  total: number;
+  paid?: boolean;
+  type?: string;
   createdAt?: string;
 };
 
 export type AdminProduct = {
   id: string;
+  categoryId: number;
   name: string;
   category: string;
-  price: string;
+  price: number;
   image: string;
+  description?: string;
+  stock?: number;
   active?: boolean;
 };
+
+export type AdminCategory = { id: number; name: string; active?: boolean };
 
 export type AdminSettings = {
   restaurantName: string;
@@ -68,11 +78,20 @@ export type AdminPageProps = {
   initialEmployees?: Employee[];
   initialOrders?: AdminOrder[];
   initialProducts?: AdminProduct[];
+  initialCategories?: AdminCategory[];
+  onUpdateOrderStatus?: (id: number, status: string) => void | Promise<void>;
+  onSaveProduct?: (product: AdminProduct) => void | Promise<void>;
+  onDeleteProduct?: (id: string) => void | Promise<void>;
+  onCreateCategory?: (name: string) => void | Promise<void>;
+  onUpdateCategory?: (id: number, name: string) => void | Promise<void>;
+  onDeleteCategory?: (id: number) => void | Promise<void>;
+  onOpenSettings?: () => void;
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
   onCreateEmployee?: (
     employee: Omit<Employee, "id">,
   ) => Employee | Promise<Employee>;
   onUpdateEmployee?: (employee: Employee) => Employee | Promise<Employee>;
+  onDeactivateEmployee?: (id: string) => void | Promise<void>;
   onViewStore?: () => void;
   onLogout?: () => void;
 };

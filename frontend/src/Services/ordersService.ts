@@ -131,6 +131,21 @@ class OrdersService {
     return response.data;
   }
 
+  async claimDelivery(orderId: string | number) {
+    const response = await api.patch(`/orders/${orderId}/claim-delivery`);
+    return normalizeOrder(response.data);
+  }
+
+  async getCourierFinance() {
+    const response = await api.get("/orders/courier/finance");
+    return response.data;
+  }
+
+  async getDeliveryTracking(orderId: string | number) {
+    const response = await api.get(`/orders/${orderId}/tracking`);
+    return response.data;
+  }
+
   async cancelOrder(orderId: string | number) {
     const response = await api.patch(`/orders/${orderId}/cancel`);
     return response.data;

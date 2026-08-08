@@ -134,7 +134,7 @@ export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
   height: 100vh;
   position: sticky;
   top: 0;
-  background: #fff;
+  background: linear-gradient(180deg, #fff 0%, #fcfaf7 100%);
   border-right: 1px solid var(--border);
   padding: 30px 14px;
   overflow-y: auto;
@@ -145,13 +145,20 @@ export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
 `;
 export const Search = styled.label`
   height: 50px;
-  border: 1px solid #d8d1c9;
-  border-radius: 7px;
+  border: 1px solid #e3ddd6;
+  border-radius: 12px;
+  background: #f8f6f3;
   padding: 0 13px;
   display: flex;
   align-items: center;
   gap: 11px;
   margin-bottom: 26px;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--a) 65%, #fff);
+    background: #fff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 10%, transparent);
+  }
   input {
     min-width: 0;
     width: 100%;
@@ -183,6 +190,12 @@ export const SettingsNav = styled.nav`
     gap: 12px;
     padding: 0 12px;
     text-align: left;
+    transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+  }
+  button:hover {
+    background: #f7f3ef;
+    color: #26221f;
+    transform: translateX(2px);
   }
   button.active {
     background: #fbf0e7;
@@ -200,7 +213,8 @@ export const Top = styled.header`
   min-height: 154px;
   padding: 27px 34px 20px;
   border-bottom: 1px solid var(--border);
-  background: #fffdf9;
+  background: rgba(255, 253, 249, 0.94);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   gap: 15px;
@@ -253,6 +267,10 @@ export const TopActions = styled.div`
     align-items: center;
     gap: 9px;
     white-space: nowrap;
+    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  }
+  button:hover {
+    transform: translateY(-1px);
   }
   .preview {
     border: 1px solid var(--border);
@@ -262,6 +280,11 @@ export const TopActions = styled.div`
     border: 0;
     background: var(--a);
     color: #fff;
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--a) 24%, transparent);
+  }
+  .save:hover {
+    filter: brightness(0.96);
+    box-shadow: 0 11px 26px color-mix(in srgb, var(--a) 32%, transparent);
   }
   @media (max-width: 580px) {
     button {
@@ -280,21 +303,38 @@ export const Content = styled.div`
   width: 100%;
   max-width: 1120px;
   margin: auto;
-  padding: 22px 28px 70px;
+  padding: 28px 34px 80px;
+  > * {
+    animation: admin-content-enter 240ms cubic-bezier(.22, .8, .35, 1) both;
+  }
+  @keyframes admin-content-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
   @media (max-width: 760px) {
     padding: 14px 10px 50px;
   }
 `;
 export const Stack = styled.div`
   display: grid;
-  gap: 17px;
+  gap: 22px;
+  animation: settings-enter 260ms ease both;
+  @keyframes settings-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 `;
 export const Card = styled.section`
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border: 1px solid #e9e3dc;
+  border-radius: 18px;
   background: #fff;
-  padding: 28px 25px;
-  box-shadow: 0 3px 12px rgba(30, 20, 10, 0.025);
+  padding: 30px 28px;
+  box-shadow: 0 8px 30px rgba(51, 35, 22, 0.045);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+  &:hover {
+    border-color: #ddd3c9;
+    box-shadow: 0 12px 34px rgba(51, 35, 22, 0.065);
+  }
   h2 {
     margin: 0;
     font-size: 18px;
@@ -363,45 +403,63 @@ export const LogoCard = styled.div`
 export const FormGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 20px;
+  gap: 22px 20px;
+  margin-top: 24px;
   @media (max-width: 600px) {
     grid-template-columns: 1fr;
   }
 `;
 export const Field = styled.label<{ $full?: boolean }>`
   display: grid;
-  gap: 7px;
+  gap: 9px;
+  color: #39342f;
   font-size: 12px;
-  font-weight: 600;
-  ${({ $full }) => ($full ? "grid-column:1/-1" : "")}input,textarea,select {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  ${({ $full }) => ($full ? "grid-column:1/-1" : "")}
+  input, textarea, select {
     width: 100%;
-    border: 1px solid #d8d1c9;
-    border-radius: 8px;
-    background: #fff;
-    padding: 12px;
+    border: 1px solid #ded7cf;
+    border-radius: 12px;
+    background: #fcfbf9;
+    color: #1f1c19;
+    padding: 0 15px;
     outline: 0;
     font-weight: 400;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+  input:hover, textarea:hover, select:hover {
+    border-color: #c8beb4;
+    background: #fff;
   }
   input {
-    height: 51px;
+    height: 54px;
+  }
+  select {
+    height: 54px;
+    cursor: pointer;
   }
   textarea {
     resize: vertical;
-    min-height: 108px;
+    min-height: 118px;
+    padding-top: 15px;
+    line-height: 1.55;
   }
   :focus-within input,
-  :focus-within textarea {
+  :focus-within textarea,
+  :focus-within select {
     border-color: var(--a);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 12%, transparent);
+    background: #fff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 11%, transparent);
   }
 `;
 export const Color = styled.div`
   display: grid;
   grid-template-columns: 52px 1fr;
   input[type="color"] {
-    padding: 5px;
+    padding: 6px;
     width: 52px;
+    cursor: pointer;
   }
 `;
 export const Banners = styled.div`
@@ -412,14 +470,20 @@ export const Banners = styled.div`
   button {
     min-height: 170px;
     border: 1px dashed #bdb4aa;
-    border-radius: 10px;
-    background: #fff;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #fff, #faf7f3);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 8px;
     color: #333;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+  button:hover {
+    transform: translateY(-2px);
+    border-color: var(--a);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--a) 10%, transparent);
   }
   span {
     color: var(--muted);
@@ -546,6 +610,11 @@ export const Overlay = styled.div`
   background: #1118;
   display: flex;
   justify-content: flex-end;
+  animation: overlay-enter 180ms ease both;
+  @keyframes overlay-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 `;
 export const Drawer = styled.form`
   width: min(100%, 530px);
@@ -556,6 +625,11 @@ export const Drawer = styled.form`
   display: flex;
   flex-direction: column;
   gap: 17px;
+  animation: drawer-enter 260ms cubic-bezier(.22, .8, .35, 1) both;
+  @keyframes drawer-enter {
+    from { opacity: 0; transform: translateX(22px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
   header {
     display: flex;
     align-items: center;
@@ -698,6 +772,13 @@ export const Toolbar = styled.div`
     border-radius: 8px;
     background: #fff;
     padding: 0 11px;
+    outline: none;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+  input:focus,
+  select:focus {
+    border-color: var(--a);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 11%, transparent);
   }
   input {
     min-width: 0;
@@ -767,16 +848,28 @@ export const Product = styled.article`
 `;
 export const SettingSection = styled.div`
   display: grid;
-  gap: 17px;
+  gap: 22px;
+  animation: section-enter 240ms ease both;
+  @keyframes section-enter {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 `;
 export const ToggleRows = styled.div`
   display: grid;
   .toggle-row {
-    min-height: 70px;
+    min-height: 78px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 13px;
+    padding: 4px 2px;
+    transition: padding 160ms ease, background 160ms ease;
+  }
+  .toggle-row:hover {
+    padding-left: 8px;
+    padding-right: 8px;
+    background: #fcfaf7;
   }
   .toggle-row div {
     display: grid;
@@ -788,9 +881,36 @@ export const ToggleRows = styled.div`
   }
   .toggle-row input {
     margin-left: auto;
-    width: 20px;
-    height: 20px;
-    accent-color: var(--a);
+    appearance: none;
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    background: #d9d4cf;
+    position: relative;
+    cursor: pointer;
+    transition: background 180ms ease;
+  }
+  .toggle-row input::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 5px #0002;
+    transition: transform 180ms ease;
+  }
+  .toggle-row input:checked {
+    background: var(--a);
+  }
+  .toggle-row input:checked::after {
+    transform: translateX(20px);
+  }
+  .toggle-row input:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--a) 18%, transparent);
+    outline-offset: 2px;
   }
 `;
 export const DayRow = styled.div`
@@ -801,10 +921,23 @@ export const DayRow = styled.div`
   align-items: center;
   gap: 10px;
   input {
-    height: 40px;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    padding: 0 9px;
+    height: 46px;
+    border: 1px solid #ded7cf;
+    border-radius: 11px;
+    background: #fcfbf9;
+    padding: 0 12px;
+    outline: 0;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  }
+  input:focus {
+    border-color: var(--a);
+    background: #fff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 10%, transparent);
+  }
+  input:disabled {
+    background: #f1efec;
+    color: #a29c96;
+    cursor: not-allowed;
   }
   @media (max-width: 560px) {
     grid-template-columns: 1fr 1fr;

@@ -27,6 +27,7 @@ class UpdateOrderStatusService {
     status: OrderStatus,
     role: UserRole | string,
     deliveryConfirmationCode?: string,
+    actorUserId?: number | null,
   ) {
     const order = await orderRepository.findById(orderId, restaurantId);
 
@@ -50,6 +51,15 @@ class UpdateOrderStatusService {
 
     if (!canUserChange) {
       throw new Error("Usuário não tem permissão para isso!");
+    }
+
+    if (normalizedRole === UserRole.MOTOQUEIRO) {
+      if (order.type !== OrderType.DELIVERY) {
+        throw new Error("Motoqueiros só podem atualizar pedidos de entrega.");
+      }
+      if (order.assignedCourierId !== Number(actorUserId || 0)) {
+        throw new Error("Esta entrega não está atribuída a você.");
+      }
     }
 
     if (
@@ -136,6 +146,21 @@ class UpdateOrderStatusService {
         status,
         restaurantId,
       );
+    }
+
+    if (status === OrderStatus.ENTREGUE && updatedOrder) {
+      updatedOrder = await prisma.order.update({
+        where: { id: updatedOrder.id },
+        data: { deliveredAt: new Date() },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+          restaurant: {
+            select: { id: true, name: true, whatsapp: true },
+          },
+          table: true,
+          items: { include: { product: true } },
+        },
+      });
     }
 
     if (

@@ -45,6 +45,7 @@ type Order = {
 
 type OrderCardProps = {
   order: Order;
+  onClaimDelivery?: (orderId: number) => Promise<void>;
   onMarkDelivered: (
     orderId: number,
     deliveryConfirmationCode: string,
@@ -136,6 +137,7 @@ function getPayOnDeliveryMethod(order: Order) {
 
 export default function OrderCard({
   order,
+  onClaimDelivery,
   onMarkDelivered,
   digitalPaymentMethods,
   paymentLabel,
@@ -145,6 +147,7 @@ export default function OrderCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deliveryCode, setDeliveryCode] = useState("");
+  const canClaim = order.status === "PRONTO" && Boolean(onClaimDelivery);
 
   const statusInfo = statusLabel[order.status] || {
     label: order.status,
@@ -196,6 +199,22 @@ export default function OrderCard({
           ?.error ||
         (err as { message?: string })?.message ||
         "Erro ao atualizar";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleClaimDelivery() {
+    if (!onClaimDelivery) return;
+    setLoading(true);
+    setError("");
+    try {
+      await onClaimDelivery(order.id);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || "Não foi possível retirar este pedido.";
       setError(message);
     } finally {
       setLoading(false);
@@ -292,10 +311,21 @@ export default function OrderCard({
         </S.ErrorMsg>
       )}
 
+      {canClaim && (
+        <S.CardActions>
+          <S.DeliveryHint>
+            Confirme a retirada somente quando o pedido estiver com você.
+          </S.DeliveryHint>
+          <S.ActionButton type="button" onClick={handleClaimDelivery} disabled={loading}>
+            {loading ? "Confirmando retirada..." : "Retirar e iniciar entrega"}
+          </S.ActionButton>
+        </S.CardActions>
+      )}
+
       {canDeliver && (
         <S.CardActions>
           <S.DeliveryHint>
-            Peca ao cliente os 4 ultimos digitos do celular e digite abaixo para
+            Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para
             concluir a entrega.
           </S.DeliveryHint>
           <S.DeliveryCodeInput
@@ -312,7 +342,7 @@ export default function OrderCard({
                 setError("");
               }
             }}
-            placeholder="4 ultimos digitos do celular"
+            placeholder="4 últimos dígitos do celular"
           />
           <S.DeliverButton
             onClick={handleMarkDelivered}

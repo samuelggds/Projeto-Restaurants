@@ -17,7 +17,10 @@ const AdminDashboard = lazy(() => import("../pages/admin/Admin"));
 const Register = lazy(() => import("../pages/Register/Register"));
 const UserProfile = lazy(() => import("../pages/profile/Profile"));
 const CourierDashboard = lazy(
-  () => import("../pages/Courier/CourierDashboard"),
+  () => import("../pages/Courier/CourierWorkspace"),
+);
+const DeliveryTrackingPage = lazy(
+  () => import("../pages/tracking/DeliveryTrackingPage"),
 );
 const SuperAdminPage = lazy(
   () => import("../pages/super_admin/SuperAdminPage"),
@@ -115,6 +118,16 @@ function RequireAuth() {
   }
 
   return <Outlet />;
+}
+
+function PageTransition() {
+  const location = useLocation();
+
+  return (
+    <div className="app-page-transition" key={location.pathname}>
+      <Outlet />
+    </div>
+  );
 }
 
 function RequireRole({ roles }) {
@@ -332,6 +345,7 @@ export default function AppRoutes() {
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
+          <Route element={<PageTransition />}>
           <Route element={<ClienteScopeGuard />}>
             <Route element={<FuncionarioScopeGuard />}>
               <Route element={<SuperAdminScopeGuard />}>
@@ -368,6 +382,7 @@ export default function AppRoutes() {
                   <Route element={<BillingGate />}>
                     <Route element={<RequireRole roles={["CLIENTE"]} />}>
                       <Route path="/profile" element={<UserProfile />} />
+                      <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
                     </Route>
 
                     <Route element={<RequireRole roles={["ADMIN"]} />}>
@@ -404,6 +419,7 @@ export default function AppRoutes() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
         </Routes>
       </Suspense>
     </BrowserRouter>

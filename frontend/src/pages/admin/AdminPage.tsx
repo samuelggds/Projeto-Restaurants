@@ -33,6 +33,7 @@ import type {
   AdminSection,
   AdminOrder,
   AdminProduct,
+  AdminCategory,
   Employee,
   EmployeeRole,
   SettingsSection,
@@ -72,25 +73,42 @@ const roleLabel: Record<EmployeeRole, string> = {
   ATTENDANT: "Atendente",
 };
 
+function errorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") return fallback;
+  const response = (error as { response?: { data?: Record<string, unknown> } }).response;
+  return String(response?.data?.error || response?.data?.message || fallback);
+}
+
 export function AdminPage({
   initialSettings = adminMockSettings,
   initialEmployees = adminMockEmployees,
   initialOrders = [],
   initialProducts = [],
+  initialCategories = [],
+  onUpdateOrderStatus,
+  onSaveProduct,
+  onDeleteProduct,
+  onCreateCategory,
+  onUpdateCategory,
+  onDeleteCategory,
+  onOpenSettings,
   onSaveSettings,
   onCreateEmployee,
   onUpdateEmployee,
+  onDeactivateEmployee,
   onViewStore,
   onLogout,
 }: AdminPageProps) {
-  const [area, setArea] = useState<AdminSection>("settings");
+  const [area, setArea] = useState<AdminSection>("overview");
   const [section, setSection] = useState<SettingsSection>("brand");
   const [settings, setSettings] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
-  const [_orders] = useState<AdminOrder[]>(initialOrders);
-  const [_products] = useState<AdminProduct[]>(initialProducts);
+  const orders = initialOrders;
+  const products = initialProducts;
+  const categories = initialCategories;
   const [mobile, setMobile] = useState(false);
   const [editing, setEditing] = useState<Employee | null | undefined>();
+  const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
   const [saved, setSaved] = useState(false);
   const [feedbackError, setFeedbackError] = useState("");
   const logoInput = useRef<HTMLInputElement>(null);
@@ -224,7 +242,8 @@ export function AdminPage({
           <button
             className={area === "settings" ? "active" : ""}
             onClick={() => {
-              setArea("settings");
+              if (onOpenSettings) onOpenSettings();
+              else setArea("settings");
               setMobile(false);
             }}
           >
@@ -321,6 +340,11 @@ export function AdminPage({
               employees={employees}
               onNew={() => setEditing(null)}
               onEdit={setEditing}
+              onDeactivate={async (employee) => {
+                if (!window.confirm(`Desativar ${employee.name}?`)) return;
+                await onDeactivateEmployee?.(employee.id);
+                setEmployees((current) => current.map((item) => item.id === employee.id ? { ...item, active: false } : item));
+              }}
             />
           ) : area === "settings" ? (
             section === "brand" ? (
@@ -339,7 +363,20 @@ export function AdminPage({
               />
             )
           ) : (
-            <Management area={area} />
+            <Management
+              area={area}
+              orders={orders}
+              products={products}
+              categories={categories}
+              onUpdateOrderStatus={async (id, status) => {
+                await onUpdateOrderStatus?.(id, status);
+              }}
+              onEditProduct={setEditingProduct}
+              onNewProduct={() => setEditingProduct(null)}
+              onCreateCategory={async (name) => { await onCreateCategory?.(name); }}
+              onUpdateCategory={async (id, name) => { await onUpdateCategory?.(id, name); }}
+              onDeleteCategory={async (id) => { await onDeleteCategory?.(id); }}
+            />
           )}
         </S.Content>
       </S.Main>
@@ -350,6 +387,15 @@ export function AdminPage({
           save={saveEmployee}
         />
       )}{" "}
+      {editingProduct !== undefined && (
+        <ProductDrawer
+          product={editingProduct}
+          categories={categories}
+          close={() => setEditingProduct(undefined)}
+          save={async (product) => { await onSaveProduct?.(product); setEditingProduct(undefined); }}
+          remove={editingProduct ? async () => { await onDeleteProduct?.(editingProduct.id); setEditingProduct(undefined); } : undefined}
+        />
+      )}
       {mobile && (
         <div
           onClick={() => setMobile(false)}
@@ -874,166 +920,190 @@ function SettingsContent({
 
 function Management({
   area,
+  orders,
+  products,
+  categories,
+  onUpdateOrderStatus,
+  onEditProduct,
+  onNewProduct,
+  onCreateCategory,
+  onUpdateCategory,
+  onDeleteCategory,
 }: {
   area: Exclude<AdminSection, "settings" | "employees">;
+  orders: AdminOrder[];
+  products: AdminProduct[];
+  categories: AdminCategory[];
+  onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
+  onEditProduct: (product: AdminProduct) => void;
+  onNewProduct: () => void;
+  onCreateCategory: (name: string) => Promise<void>;
+  onUpdateCategory: (id: number, name: string) => Promise<void>;
+  onDeleteCategory: (id: number) => Promise<void>;
 }) {
-  const pizza =
-    "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=500&q=85";
-  const burger =
-    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=500&q=85";
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  const [categoryFeedback, setCategoryFeedback] = useState("");
+  const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const todayOrders = orders.filter((order) => order.createdAt && new Date(order.createdAt).toDateString() === new Date().toDateString() && order.status !== "CANCELADO");
+  const sales = todayOrders.reduce((sum, order) => sum + order.total, 0);
+  const customers = Array.from(orders.reduce((map, order) => {
+    const key = order.userId || order.customerEmail || order.customerName;
+    const value = map.get(key) || { name: order.customerName, email: order.customerEmail || "Sem e-mail", count: 0, total: 0 };
+    value.count += 1; value.total += order.total; map.set(key, value); return map;
+  }, new Map<string, { name: string; email: string; count: number; total: number }>()).values());
   if (area === "overview")
     return (
       <>
         <S.Metrics>
           <S.Metric>
             <span>Vendas de hoje</span>
-            <b>R$ 2.486</b>
-            <em>↑ 12% desde ontem</em>
+            <b>{money(sales)}</b>
+            <small>Dados reais de hoje</small>
           </S.Metric>
           <S.Metric>
             <span>Pedidos</span>
-            <b>38</b>
-            <small>7 em preparo</small>
+            <b>{todayOrders.length}</b>
+            <small>{orders.filter((order) => order.status === "PREPARANDO").length} em preparo</small>
           </S.Metric>
           <S.Metric>
             <span>Ticket médio</span>
-            <b>R$ 65,42</b>
-            <em>↑ 4,8%</em>
+            <b>{money(todayOrders.length ? sales / todayOrders.length : 0)}</b>
+            <small>Hoje</small>
           </S.Metric>
           <S.Metric>
             <span>Clientes ativos</span>
-            <b>1.284</b>
-            <small>36 novos este mês</small>
+            <b>{customers.length}</b>
+            <small>Com pedidos registrados</small>
           </S.Metric>
         </S.Metrics>
         <S.AdminGrid>
           <S.Card>
             <h2>Pedidos recentes</h2>
             <S.DataList>
-              {[
-                ["#SC-2051", "Ana Silva", "R$ 69,90"],
-                ["#SC-2050", "Lucas Melo", "R$ 42,90"],
-                ["#SC-2049", "Marina Costa", "R$ 89,90"],
-              ].map((x) => (
-                <div className="data-row" key={x[0]}>
+              {orders.slice(0, 5).map((order) => (
+                <div className="data-row" key={order.numericId}>
                   <div>
-                    <b>
-                      {x[0]} • {x[1]}
-                    </b>
-                    <span>Recebido há poucos minutos</span>
+                    <b>{order.id} • {order.customerName}</b>
+                    <span>{order.status.replaceAll("_", " ")}</span>
                   </div>
-                  <strong>{x[2]}</strong>
+                  <strong>{money(order.total)}</strong>
                 </div>
               ))}
             </S.DataList>
           </S.Card>
           <S.Card>
-            <h2>Mais vendidos</h2>
+            <h2>Produtos disponíveis</h2>
             <S.DataList>
-              <div className="data-row">
-                <img src={pizza} />
-                <div>
-                  <b>Pizza Margherita</b>
-                  <span>84 pedidos</span>
-                </div>
-                <strong>R$ 54,90</strong>
-              </div>
-              <div className="data-row">
-                <img src={burger} />
-                <div>
-                  <b>Burger da Casa</b>
-                  <span>67 pedidos</span>
-                </div>
-                <strong>R$ 42,90</strong>
-              </div>
+              {products.filter((product) => product.active).slice(0, 5).map((product) => (
+                <div className="data-row" key={product.id}>{product.image && <img src={product.image} alt="" />}<div><b>{product.name}</b><span>{product.category}</span></div><strong>{money(product.price)}</strong></div>
+              ))}
             </S.DataList>
           </S.Card>
         </S.AdminGrid>
       </>
     );
   if (area === "orders")
+    {
+    const visibleOrders = orders.filter((order) => (!filter || order.status === filter) && `${order.id} ${order.customerName}`.toLowerCase().includes(search.toLowerCase()));
     return (
       <S.Card>
         <S.Toolbar>
-          <input placeholder="Buscar pedido ou cliente" />
-          <select>
-            <option>Todos os status</option>
-            <option>Recebido</option>
-            <option>Em preparo</option>
-            <option>Pronto</option>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar pedido ou cliente" />
+          <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+            <option value="">Todos os status</option>
+            {["PENDENTE", "PREPARANDO", "PRONTO", "SAIU_PARA_ENTREGA", "ENTREGUE", "CANCELADO"].map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
           </select>
         </S.Toolbar>
         <S.DataList>
-          {[
-            ["#SC-2051", "Ana Silva", "Em preparo", "R$ 69,90"],
-            ["#SC-2050", "Lucas Melo", "Recebido", "R$ 42,90"],
-            ["#SC-2049", "Marina Costa", "Saiu para entrega", "R$ 89,90"],
-            ["#SC-2048", "Pedro Alves", "Entregue", "R$ 54,90"],
-          ].map((x) => (
-            <div className="data-row" key={x[0]}>
+          {visibleOrders.map((order) => (
+            <div className="data-row" key={order.numericId}>
               <div>
-                <b>
-                  {x[0]} • {x[1]}
-                </b>
-                <span>{x[2]}</span>
+                <b>{order.id} • {order.customerName}</b>
+                <span>{order.status.replaceAll("_", " ")}</span>
               </div>
-              <strong>{x[3]}</strong>
-              <button>Detalhes</button>
+              <strong>{money(order.total)}</strong>
+              <select value={order.status} aria-label={`Status do pedido ${order.id}`} onChange={(event) => void onUpdateOrderStatus(order.numericId, event.target.value)}>
+                <option value={order.status}>{order.status.replaceAll("_", " ")}</option>
+                {(order.status === "PENDENTE" ? ["PREPARANDO", "CANCELADO"] : order.status === "PREPARANDO" ? ["PRONTO"] : order.status === "PRONTO" ? ["SAIU_PARA_ENTREGA", "ENTREGUE"] : order.status === "SAIU_PARA_ENTREGA" ? ["ENTREGUE"] : []).map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+              </select>
             </div>
           ))}
         </S.DataList>
       </S.Card>
     );
+    }
   if (area === "catalog")
+    {
+    const visibleProducts = products.filter((product) => (!filter || String(product.categoryId) === filter) && product.name.toLowerCase().includes(search.toLowerCase()));
     return (
       <>
         <S.Toolbar>
-          <input placeholder="Buscar produto" />
-          <select>
-            <option>Todas as categorias</option>
-            <option>Pizzas</option>
-            <option>Hambúrgueres</option>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto" />
+          <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+            <option value="">Todas as categorias</option>
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
           </select>
-          <button>+ Novo produto</button>
+          <button onClick={onNewProduct}>+ Novo produto</button>
         </S.Toolbar>
         <S.ProductGrid>
-          {[
-            [pizza, "Pizza Margherita", "Pizzas", "R$ 54,90"],
-            [burger, "Burger da Casa", "Hambúrgueres", "R$ 42,90"],
-            [pizza, "Pizza Calabresa", "Pizzas", "R$ 49,90"],
-          ].map((x) => (
-            <S.Product key={x[1]}>
-              <img src={x[0]} />
+          {visibleProducts.map((product) => (
+            <S.Product key={product.id}>
+              {product.image && <img src={product.image} alt="" />}
               <div>
-                <b>{x[1]}</b>
-                <span>{x[2]} • Disponível</span>
+                <b>{product.name}</b>
+                <span>{product.category} • {product.active ? "Disponível" : "Indisponível"}</span>
                 <footer>
-                  <strong>{x[3]}</strong>
-                  <button>Editar</button>
+                  <strong>{money(product.price)}</strong>
+                  <button onClick={() => onEditProduct(product)}>Editar</button>
                 </footer>
               </div>
             </S.Product>
           ))}
         </S.ProductGrid>
+        <S.Card style={{ marginTop: 24 }}>
+          <h2>Gerenciar categorias</h2>
+          <p>Crie categorias e use as ações ao lado de cada item para renomear ou excluir.</p>
+          {categoryFeedback && <p role="alert" style={{ color: categoryFeedback.startsWith("Categoria") ? "#166534" : "#b91c1c" }}>{categoryFeedback}</p>}
+          <S.Toolbar>
+            <input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Nome da nova categoria" />
+            <button disabled={categoryBusy || !newCategory.trim()} onClick={() => {
+              const name = newCategory.trim(); setCategoryBusy(true); setCategoryFeedback("");
+              void onCreateCategory(name).then(() => { setNewCategory(""); setCategoryFeedback("Categoria criada com sucesso."); })
+                .catch((error) => setCategoryFeedback(errorMessage(error, "Não foi possível criar a categoria."))).finally(() => setCategoryBusy(false));
+            }}>{categoryBusy ? "Salvando..." : "+ Criar categoria"}</button>
+          </S.Toolbar>
+          <S.DataList>
+            {categories.map((category) => <div className="data-row" key={category.id}>
+              <div><b>{category.name}</b><span>{products.filter((product) => product.categoryId === category.id).length} produto(s)</span></div>
+              <button disabled={categoryBusy} onClick={() => {
+                const name = window.prompt("Novo nome da categoria", category.name)?.trim(); if (!name || name === category.name) return;
+                setCategoryBusy(true); setCategoryFeedback("");
+                void onUpdateCategory(category.id, name).then(() => setCategoryFeedback("Categoria renomeada com sucesso."))
+                  .catch((error) => setCategoryFeedback(errorMessage(error, "Não foi possível renomear a categoria."))).finally(() => setCategoryBusy(false));
+              }}>Renomear</button>
+              <button disabled={categoryBusy} onClick={() => {
+                if (!window.confirm(`Excluir a categoria ${category.name}?`)) return;
+                setCategoryBusy(true); setCategoryFeedback("");
+                void onDeleteCategory(category.id).then(() => setCategoryFeedback("Categoria excluída com sucesso."))
+                  .catch((error) => setCategoryFeedback(errorMessage(error, "Não foi possível excluir a categoria."))).finally(() => setCategoryBusy(false));
+              }}>Excluir</button>
+            </div>)}
+          </S.DataList>
+        </S.Card>
       </>
     );
+    }
   return (
     <S.Card>
       <S.Toolbar>
-        <input placeholder="Buscar cliente" />
-        <select>
-          <option>Todos os clientes</option>
-          <option>Mais frequentes</option>
-          <option>Novos</option>
-        </select>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar cliente" />
       </S.Toolbar>
       <S.DataList>
-        {[
-          ["Ana Silva", "ana@email.com", "12 pedidos • R$ 842,50"],
-          ["Lucas Melo", "lucas@email.com", "8 pedidos • R$ 486,20"],
-          ["Marina Costa", "marina@email.com", "5 pedidos • R$ 319,90"],
-        ].map((x, _index) => (
-          <div className="data-row" key={x[1]}>
+        {customers.filter((customer) => `${customer.name} ${customer.email}`.toLowerCase().includes(search.toLowerCase())).map((customer) => (
+          <div className="data-row" key={`${customer.email}-${customer.name}`}>
             <div
               style={{
                 width: 40,
@@ -1046,18 +1116,15 @@ function Management({
                 fontWeight: 800,
               }}
             >
-              {x[0]
+              {customer.name
                 .split(" ")
                 .map((y) => y[0])
                 .join("")}
             </div>
             <div>
-              <b>{x[0]}</b>
-              <span>
-                {x[1]} • {x[2]}
-              </span>
+              <b>{customer.name}</b>
+              <span>{customer.email} • {customer.count} pedidos • {money(customer.total)}</span>
             </div>
-            <button>Ver perfil</button>
           </div>
         ))}
       </S.DataList>
@@ -1069,10 +1136,12 @@ function Employees({
   employees,
   onNew,
   onEdit,
+  onDeactivate,
 }: {
   employees: Employee[];
   onNew: () => void;
   onEdit: (e: Employee) => void;
+  onDeactivate: (e: Employee) => Promise<void>;
 }) {
   return (
     <S.Card>
@@ -1117,11 +1186,59 @@ function Employees({
             <button className="edit" onClick={() => onEdit(e)}>
               <MoreVertical />
             </button>
+            {e.active && <button onClick={() => void onDeactivate(e)}>Desativar</button>}
           </S.EmployeeRow>
         ))}
       </S.EmployeeList>
     </S.Card>
   );
+}
+
+function ProductDrawer({ product, categories, close, save, remove }: {
+  product: AdminProduct | null;
+  categories: AdminCategory[];
+  close: () => void;
+  save: (product: AdminProduct) => Promise<void>;
+  remove?: () => Promise<void>;
+}) {
+  const [name, setName] = useState(product?.name ?? "");
+  const [description, setDescription] = useState(product?.description ?? "");
+  const [image, setImage] = useState(product?.image ?? "");
+  const [price, setPrice] = useState(String(product?.price ?? ""));
+  const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? 0);
+  const [stock, setStock] = useState(String(product?.stock ?? ""));
+  const [active, setActive] = useState(product?.active !== false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async (event: FormEvent) => {
+    event.preventDefault(); setError("");
+    if (!name.trim() || Number(price) < 0 || !categoryId) { setError("Preencha nome, preço e categoria."); return; }
+    setBusy(true);
+    try {
+      await save({ id: product?.id ?? "", name: name.trim(), description: description.trim(), image: image.trim(),
+        price: Number(price), categoryId, category: categories.find((item) => item.id === categoryId)?.name ?? "",
+        stock: stock === "" ? undefined : Number(stock), active });
+    } catch { setError("Não foi possível salvar o produto."); setBusy(false); }
+  };
+  return <S.Overlay onMouseDown={(event) => event.target === event.currentTarget && close()}>
+    <S.Drawer onSubmit={(event) => void submit(event)}>
+      <header><h2>{product ? "Editar produto" : "Novo produto"}</h2><button type="button" onClick={close}><X /></button></header>
+      {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
+      <S.Field>Nome<input required value={name} onChange={(event) => setName(event.target.value)} /></S.Field>
+      <S.Field>Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></S.Field>
+      <S.Field>URL da imagem<input value={image} onChange={(event) => setImage(event.target.value)} /></S.Field>
+      <S.Field>Preço<input required type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></S.Field>
+      <S.Field>Categoria<select required value={categoryId} onChange={(event) => setCategoryId(Number(event.target.value))}>
+        <option value={0}>Selecione</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select></S.Field>
+      <S.Field>Estoque (vazio = ilimitado)<input type="number" min="0" value={stock} onChange={(event) => setStock(event.target.value)} /></S.Field>
+      <label><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} /> Produto disponível</label>
+      <footer>
+        {remove && <button type="button" onClick={() => { if (window.confirm("Excluir este produto?")) { setBusy(true); void remove().catch(() => { setError("Não foi possível excluir o produto."); setBusy(false); }); } }}>Excluir</button>}
+        <button type="button" onClick={close}>Cancelar</button><button className="primary" disabled={busy} type="submit">{busy ? "Salvando..." : "Salvar produto"}</button>
+      </footer>
+    </S.Drawer>
+  </S.Overlay>;
 }
 
 function EmployeeDrawer({

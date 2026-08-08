@@ -2,6 +2,9 @@ import { Router } from "express";
 import CreateOrderController from "../controllers/CreateOrderController.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 import UpdateOrderStatusController from "../controllers/UpdateOrderStatusController.js";
+import ClaimOrderForDeliveryController from "../controllers/ClaimOrderForDeliveryController.js";
+import GetCourierFinanceController from "../controllers/GetCourierFinanceController.js";
+import GetDeliveryTrackingController from "../controllers/GetDeliveryTrackingController.js";
 import ListOrdersController from "../controllers/ListOrdersController.js";
 import GetOrderByIdController from "../controllers/GetOrderByIdController.js";
 import ListMyOrdersController from "../controllers/ListMyOrdersController.js";
@@ -84,6 +87,10 @@ router.put("/:id/status", authMiddleware, staffMiddleware, (req, res) => {
   UpdateOrderStatusController.handle(req, res);
 });
 
+router.patch("/:id/claim-delivery", authMiddleware, (req, res) => {
+  ClaimOrderForDeliveryController.handle(req, res);
+});
+
 router.patch(
   "/:id/confirm-payment",
   authMiddleware,
@@ -126,6 +133,10 @@ router.get("/", authMiddleware, staffMiddleware, (req, res) => {
   ListOrdersController.handle(req, res);
 });
 
+router.get("/courier/finance", authMiddleware, (req, res) => {
+  GetCourierFinanceController.handle(req, res);
+});
+
 router.delete(
   "/cleanup/orders-categories",
   authMiddleware,
@@ -141,6 +152,10 @@ router.get("/my-orders", authMiddleware, (req, res) => {
 
 router.get("/table/current", sessionMiddleware, (req, res) => {
   GetCurrentTableOrderController.handle(req, res);
+});
+
+router.get("/:id/tracking", authMiddleware, (req, res) => {
+  GetDeliveryTrackingController.handle(req, res);
 });
 
 router.get("/:id", authMiddleware, staffMiddleware, (req, res) => {
