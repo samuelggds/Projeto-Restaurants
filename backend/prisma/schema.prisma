@@ -41,6 +41,7 @@ model User {
   openedTableSessions        TableSession[]       @relation("OpenedTableSessions")
   restaurant                 Restaurant?          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages        SupportChatMessage[]
+  productFavorites           ProductFavorite[]
 }
 
 model Restaurant {
@@ -124,6 +125,21 @@ model Product {
   category        Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ratings         ProductRating[]
+  favorites       ProductFavorite[]
+}
+
+model ProductFavorite {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  productId    Int
+  restaurantId Int
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, restaurantId])
+  @@index([productId])
 }
 
 model ProductRating {
@@ -309,6 +325,11 @@ model RestaurantSettings {
   pixProvider            String     @default("MERCADO_PAGO")
   cardGateway            String?
   gatewayMerchantId      String?
+  stripeSecretKey        String?
+  stripeWebhookSecret    String?
+  pagbankEmail           String?
+  pagbankToken           String?
+  pagbankEnvironment     String?
 
   // Dados financeiros / onboarding
   bankName               String?

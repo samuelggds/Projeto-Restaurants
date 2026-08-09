@@ -1,4 +1,15 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+
+const productReveal = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+`;
 
 export const HomeRoot = styled.div<{ $primary: string }>`
   --home-primary: ${({ $primary }) => $primary};
@@ -38,60 +49,70 @@ export const Main = styled.main`
   width: 100%;
   max-width: 1480px;
   margin: 0 auto;
-  padding: 8px 48px 60px;
+  padding: 18px 48px 64px;
   @media (max-width: 800px) {
     padding: 10px 12px 82px;
   }
 `;
 export const HeroGrid = styled.section`
   display: grid;
-  grid-template-columns: 2fr 1.05fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 10px;
-  height: 335px;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.95fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  height: clamp(320px, 28vw, 390px);
+  margin-bottom: 26px;
   @media (max-width: 800px) {
-    height: 400px;
     grid-template-columns: 1fr;
-    grid-template-rows: 2.2fr 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    gap: 10px;
   }
 `;
 export const MainBanner = styled.article`
-  grid-row: 1/3;
+  grid-row: 1 / 3;
   position: relative;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 20px;
   background: #111;
+  box-shadow: 0 18px 45px rgba(52, 31, 14, 0.14);
   img {
+    position: absolute;
+    inset: 0;
+    display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     filter: brightness(0.54);
   }
   @media (max-width: 800px) {
     grid-row: auto;
+    aspect-ratio: 16 / 9;
   }
 `;
 export const BannerCopy = styled.div`
   position: absolute;
   inset: 0;
-  padding: 46px 40px;
+  padding: clamp(24px, 3vw, 42px);
   color: #fff;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   h1 {
-    font-size: clamp(38px, 4vw, 60px);
-    line-height: 0.98;
-    margin: 0 0 16px;
+    max-width: 520px;
+    font-size: clamp(34px, 3.4vw, 52px);
+    line-height: 1;
+    margin: 0 0 12px;
   }
   em {
     font-style: normal;
     color: #f17435;
   }
   p {
-    font-size: 18px;
-    margin: 0 0 25px;
+    font-size: 16px;
+    margin: 0 0 20px;
   }
   button {
     border: 0;
@@ -122,24 +143,30 @@ export const BannerCopy = styled.div`
 export const MiniBanner = styled.article<{ $second?: boolean }>`
   position: relative;
   overflow: hidden;
-  border-radius: 16px;
+  min-height: 0;
+  border-radius: 18px;
   background: #111;
+  box-shadow: 0 12px 30px rgba(52, 31, 14, 0.11);
   img {
+    position: absolute;
+    inset: 0;
+    display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     filter: brightness(0.48);
   }
   div {
     position: absolute;
-    left: 30px;
+    left: 24px;
     top: 50%;
     transform: translateY(-50%);
     color: #fff;
   }
   strong {
     display: block;
-    font-size: 28px;
+    font-size: clamp(20px, 2vw, 27px);
     line-height: 1.08;
   }
   em {
@@ -152,7 +179,8 @@ export const MiniBanner = styled.article<{ $second?: boolean }>`
     font-size: 14px;
   }
   @media (max-width: 800px) {
-    ${({ $second }) => ($second ? "display:none;" : "")}div {
+    aspect-ratio: 16 / 8;
+    div {
       left: 20px;
     }
     strong {
@@ -195,40 +223,61 @@ export const InfoBar = styled.div`
   }
 `;
 export const SectionTitle = styled.h2`
-  font-size: 23px;
-  margin: 15px 0 10px;
+  font-size: clamp(21px, 2vw, 25px);
+  margin: 34px 0 15px;
+  letter-spacing: -0.025em;
 `;
 export const CategoryRow = styled.div`
   display: flex;
   align-items: stretch;
-  gap: 16px;
+  gap: 14px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding: 16px;
+  border: 1px solid #eee5dc;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 35px rgba(70, 45, 20, 0.055);
+  scroll-behavior: smooth;
   &::-webkit-scrollbar {
     display: none;
   }
   @media (max-width: 760px) {
     width: calc(100% + 24px);
     margin-inline: -12px;
-    padding-inline: 12px;
+    padding: 12px;
+    border-inline: 0;
+    border-radius: 0;
   }
 `;
 export const CategoryButton = styled.button<{ $active: boolean }>`
-  flex: 1 0 150px;
+  flex: 1 0 145px;
   min-width: 0;
   border: 1px solid
     ${({ $active }) => ($active ? "var(--home-primary)" : "var(--home-border)")};
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #fff;
+  background: ${({ $active }) => ($active ? "#fffaf6" : "#fff")};
   cursor: pointer;
   color: ${({ $active }) =>
     $active ? "var(--home-primary)" : "var(--home-text)"};
   scroll-snap-align: start;
   box-shadow: ${({ $active }) =>
-    $active ? "0 0 0 1px var(--home-primary)" : "none"};
+    $active
+      ? "0 0 0 1px var(--home-primary), 0 10px 24px rgba(70, 45, 20, 0.09)"
+      : "0 6px 18px rgba(70, 45, 20, 0.045)"};
+  transform: ${({ $active }) => ($active ? "translateY(-2px)" : "none")};
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--home-primary);
+    box-shadow: 0 10px 26px rgba(70, 45, 20, 0.1);
+  }
   img {
     width: 100%;
     height: 95px;
@@ -236,7 +285,7 @@ export const CategoryButton = styled.button<{ $active: boolean }>`
   }
   b {
     display: block;
-    padding: 8px;
+    padding: 11px 9px 12px;
     font-size: 14px;
   }
   @media (max-width: 760px) {
@@ -273,6 +322,14 @@ export const ProductCard = styled.article`
   overflow: hidden;
   background: #fff;
   box-shadow: 0 9px 25px rgba(70, 45, 20, 0.035);
+  animation: ${productReveal} 260ms ease both;
+  &:nth-child(2) { animation-delay: 35ms; }
+  &:nth-child(3) { animation-delay: 70ms; }
+  &:nth-child(4) { animation-delay: 105ms; }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+  }
   > div:last-child {
     padding: 11px 14px;
   }
@@ -384,6 +441,103 @@ export const Whatsapp = styled.a`
     width: 52px;
     height: 52px;
   }
+`;
+export const CategoryPlaceholder = styled.span`
+  width: 100%;
+  height: 95px;
+  display: grid;
+  place-items: center;
+  color: var(--home-primary);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.95), transparent 38%),
+    color-mix(in srgb, var(--home-primary) 9%, #fff);
+  svg {
+    padding: 8px;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 7px 20px rgba(70, 45, 20, 0.08);
+  }
+  @media (max-width: 760px) {
+    height: 82px;
+  }
+`;
+
+export const Footer = styled.footer`
+  margin-top: 64px;
+  background: #201d1a;
+  color: #fff;
+`;
+export const FooterContent = styled.div`
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 44px 0 36px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1.5fr) 1fr 1fr;
+  gap: 48px;
+  @media (max-width: 760px) {
+    width: min(100% - 24px, 560px);
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 36px 0 30px;
+  }
+`;
+export const FooterBrand = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  img,
+  > span {
+    width: 58px;
+    height: 58px;
+    border-radius: 15px;
+  }
+  img { object-fit: cover; }
+  > span {
+    display: grid;
+    place-items: center;
+    background: var(--home-primary);
+    font-size: 22px;
+    font-weight: 800;
+  }
+  div { display: grid; gap: 6px; }
+  strong { font-size: 18px; }
+  small { color: #aaa39c; line-height: 1.45; }
+`;
+export const FooterColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 11px;
+  > strong { margin-bottom: 4px; font-size: 14px; }
+  a,
+  span {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #aaa39c;
+    font-size: 14px;
+    line-height: 1.45;
+    text-decoration: none;
+  }
+  a {
+    cursor: pointer;
+    transition: color 180ms ease, transform 180ms ease;
+  }
+  a:hover { color: #fff; transform: translateX(3px); }
+  svg {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    color: var(--home-primary);
+  }
+`;
+export const FooterBottom = styled.div`
+  border-top: 1px solid #ffffff14;
+  padding: 18px 20px;
+  color: #817b75;
+  font-size: 12px;
+  text-align: center;
 `;
 
 // ── Cart drawer

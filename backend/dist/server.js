@@ -5,10 +5,10 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit2 from "express-rate-limit";
+import rateLimit5 from "express-rate-limit";
 
 // src/routes/index.ts
-import { Router as Router16 } from "express";
+import { Router as Router17 } from "express";
 
 // src/modules/auth/routes/authRoutes.ts
 import { Router } from "express";
@@ -1343,7 +1343,7 @@ var ResetPasswordByCodeController = class {
 var ResetPasswordByCodeController_default = new ResetPasswordByCodeController();
 
 // src/middlewares/security/loginRateLimitMiddleware.ts
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase().slice(0, 255);
 }
@@ -1369,7 +1369,7 @@ var loginRateLimitMiddleware = rateLimit({
   skipSuccessfulRequests: true,
   keyGenerator: (req) => {
     const email = normalizeEmail(req.body?.email);
-    const ip = String(getClientIp(req) || "unknown").trim();
+    const ip = ipKeyGenerator(String(getClientIp(req) || "unknown").trim());
     return `${ip}:${email || "no-email"}`;
   },
   message: {
@@ -1453,18 +1453,50 @@ var VerifyLoginMfaController = class {
 };
 var VerifyLoginMfaController_default = new VerifyLoginMfaController();
 
+// src/middlewares/security/accountActionRateLimitMiddleware.ts
+import rateLimit2, { ipKeyGenerator as ipKeyGenerator2 } from "express-rate-limit";
+function getEmailKey(req) {
+  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 255);
+  const ip = ipKeyGenerator2(String(req.ip || "unknown").trim());
+  return `${ip}:${email || "no-email"}`;
+}
+var passwordResetRateLimitMiddleware = rateLimit2({
+  windowMs: Number(
+    process.env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS || 60 * 60 * 1e3
+  ),
+  max: Number(process.env.PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS || 5),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getEmailKey,
+  message: {
+    error: "Muitas solicita\xE7\xF5es de recupera\xE7\xE3o. Aguarde antes de tentar novamente."
+  }
+});
+var registrationRateLimitMiddleware = rateLimit2({
+  windowMs: Number(
+    process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS || 60 * 60 * 1e3
+  ),
+  max: Number(process.env.REGISTRATION_RATE_LIMIT_MAX_REQUESTS || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator2(String(req.ip || "unknown").trim()),
+  message: {
+    error: "Muitos cadastros originados deste endere\xE7o. Tente mais tarde."
+  }
+});
+
 // src/modules/auth/routes/authRoutes.ts
 var router = Router();
-router.post("/register", (req, res) => {
+router.post("/register", registrationRateLimitMiddleware, (req, res) => {
   RegisterController_default.handle(req, res);
 });
 router.post("/login", loginRateLimitMiddleware, (req, res) => {
   LoginController_default.handle(req, res);
 });
-router.post("/forgot-password", (req, res) => {
+router.post("/forgot-password", passwordResetRateLimitMiddleware, (req, res) => {
   RequestPasswordResetController_default.handle(req, res);
 });
-router.post("/reset-password", (req, res) => {
+router.post("/reset-password", passwordResetRateLimitMiddleware, (req, res) => {
   ResetPasswordByCodeController_default.handle(req, res);
 });
 router.post("/google", (req, res) => {
@@ -1476,7 +1508,7 @@ router.post("/refresh", (req, res) => {
 router.post("/logout", (req, res) => {
   LogoutController_default.handle(req, res);
 });
-router.post("/login/verify-2fa", (req, res) => {
+router.post("/login/verify-2fa", loginRateLimitMiddleware, (req, res) => {
   VerifyLoginMfaController_default.handle(req, res);
 });
 router.get("/google/client-id", (req, res) => {
@@ -2105,7 +2137,7 @@ var productsRoutes_default = router2;
 import { Router as Router3 } from "express";
 
 // src/modules/orders/repositories/OrderRepository.ts
-import { PaymentMethod } from "@prisma/client";
+import { OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
 var OrderRepository = class {
   async create(data, db = prisma_default) {
     return db.order.create({
@@ -2189,6 +2221,42 @@ var OrderRepository = class {
       orderBy: {
         createdAt: "desc"
       }
+    });
+  }
+  async findCourierOrders(restaurantId, courierId, status, db = prisma_default) {
+    const allowedStatuses = [
+      OrderStatus.PRONTO,
+      OrderStatus.SAIU_PARA_ENTREGA,
+      OrderStatus.ENTREGUE
+    ];
+    if (status && !allowedStatuses.includes(status)) {
+      return [];
+    }
+    return db.order.findMany({
+      where: {
+        restaurantId,
+        type: OrderType.DELIVERY,
+        status: status || { in: allowedStatuses },
+        OR: [
+          { status: OrderStatus.PRONTO, assignedCourierId: null },
+          { assignedCourierId: courierId }
+        ],
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false
+        }
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, phone: true }
+        },
+        restaurant: {
+          select: { id: true, name: true, whatsapp: true }
+        },
+        items: { include: { product: true } }
+      },
+      orderBy: { createdAt: "asc" }
     });
   }
   async updateStatus(id, status, restaurantId, db = prisma_default) {
@@ -2641,7 +2709,12 @@ var RestaurantSettingsRepository = class {
         slug: true,
         logo: true,
         coverImage: true,
-        whatsapp: true
+        whatsapp: true,
+        banners: {
+          where: { active: true },
+          select: { id: true, title: true, image: true },
+          orderBy: { id: "asc" }
+        }
       }
     });
   }
@@ -2657,12 +2730,18 @@ var RestaurantSettingsRepository = class {
         pixProvider: true,
         pixKey: true,
         instagram: true,
+        facebook: true,
         restaurant: {
           select: {
             name: true,
             slug: true,
             logo: true,
-            coverImage: true
+            coverImage: true,
+            banners: {
+              where: { active: true },
+              select: { id: true, title: true, image: true },
+              orderBy: { id: "asc" }
+            }
           }
         }
       }
@@ -2686,15 +2765,15 @@ var RestaurantSettingsRepository_default = new RestaurantSettingsRepository();
 
 // src/modules/billing/repositories/BillingRepository.ts
 var BillingRepository = class {
-  async findSubscriptionByRestaurantId(restaurantId) {
-    return prisma_default.subscription.findUnique({
+  async findSubscriptionByRestaurantId(restaurantId, db = prisma_default) {
+    return db.subscription.findUnique({
       where: {
         restaurantId
       }
     });
   }
-  async updateSubscription(id, data) {
-    return prisma_default.subscription.update({
+  async updateSubscription(id, data, db = prisma_default) {
+    return db.subscription.update({
       where: {
         id: Number(id)
       },
@@ -2725,16 +2804,16 @@ var BillingRepository = class {
       }
     });
   }
-  async updateInvoice(id, data) {
-    return prisma_default.invoice.update({
+  async updateInvoice(id, data, db = prisma_default) {
+    return db.invoice.update({
       where: {
         id: Number(id)
       },
       data
     });
   }
-  async deactivateRestaurant(id) {
-    return prisma_default.restaurant.update({
+  async deactivateRestaurant(id, db = prisma_default) {
+    return db.restaurant.update({
       where: {
         id: Number(id)
       },
@@ -2743,8 +2822,8 @@ var BillingRepository = class {
       }
     });
   }
-  async activateRestaurant(id) {
-    return prisma_default.restaurant.update({
+  async activateRestaurant(id, db = prisma_default) {
+    return db.restaurant.update({
       where: {
         id: Number(id)
       },
@@ -2791,8 +2870,8 @@ var BillingRepository = class {
       }
     });
   }
-  async findInvoiceById(id) {
-    return prisma_default.invoice.findUnique({
+  async findInvoiceById(id, db = prisma_default) {
+    return db.invoice.findUnique({
       where: { id: Number(id) }
     });
   }
@@ -4099,7 +4178,7 @@ var CreateOrderService = class {
       throw new Error("Informe o nome para finalizar o pedido.");
     }
     if (cpfDigits.length !== 11) {
-      throw new Error("Informe um CPF v\xC3\xA1lido com 11 d\xC3\xADgitos.");
+      throw new Error("Informe um CPF v\xE1lido com 11 d\xEDgitos.");
     }
     const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
     const guestPassword = `guest-${restaurantId}-${cpfDigits}`;
@@ -4212,7 +4291,7 @@ var CreateOrderService = class {
   }) {
     const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || null;
     if (!resolvedRestaurantId) {
-      throw new Error("Restaurante n\xC3\xA3o informado para o pedido");
+      throw new Error("Restaurante n\xE3o informado para o pedido");
     }
     const shouldPayOnDelivery = payOnDelivery === true;
     const effectivePaymentMethod = shouldPayOnDelivery ? payOnDeliveryMethod || paymentMethod : paymentMethod;
@@ -4269,20 +4348,20 @@ var CreateOrderService = class {
     if (type === "MESA") {
       if (!tableSessionId) {
         throw new Error(
-          "Sess\xC3\xA3o da mesa n\xC3\xA3o informada. Valide o PIN da mesa para continuar."
+          "Sess\xE3o da mesa n\xE3o informada. Valide o PIN da mesa para continuar."
         );
       }
       const session = await TableSessionRepository_default.findById(tableSessionId);
       if (!session || session.status !== TableSessionStatus2.OPEN) {
         throw new Error(
-          "Essa mesa est\xC3\xA1 fechada. Gere um novo PIN com a equipe para continuar."
+          "Essa mesa est\xE1 fechada. Gere um novo PIN com a equipe para continuar."
         );
       }
       if (Number(tableId || 0) && Number(tableId) !== Number(session.tableId)) {
-        throw new Error("Mesa do pedido n\xC3\xA3o confere com a sess\xC3\xA3o validada.");
+        throw new Error("Mesa do pedido n\xE3o confere com a sess\xE3o validada.");
       }
       if (Number(tableSessionTableId || 0) > 0 && Number(tableSessionTableId) !== Number(session.tableId)) {
-        throw new Error("Sess\xC3\xA3o da mesa inv\xC3\xA1lida para este pedido.");
+        throw new Error("Sess\xE3o da mesa inv\xE1lida para este pedido.");
       }
       tableId = Number(session.tableId);
     }
@@ -4290,7 +4369,7 @@ var CreateOrderService = class {
       const requiredAddressFields = [address, number, district, city, state].map((value) => String(value || "").trim()).filter(Boolean);
       if (requiredAddressFields.length < 5) {
         throw new Error(
-          "Informe o endere\xC3\xA7o completo para pedidos de delivery."
+          "Informe o endere\xE7o completo para pedidos de delivery."
         );
       }
       const normalizedCustomerPhone = this.normalizePhone(customerPhone);
@@ -4335,19 +4414,19 @@ var CreateOrderService = class {
       products.forEach((product, index) => {
         const item = items[index];
         if (!product) {
-          throw new Error(`Produto n\xC3\xA3o encontrado: ${items[index].productId}`);
+          throw new Error(`Produto n\xE3o encontrado: ${items[index].productId}`);
         }
         if (product.active === false) {
-          throw new Error(`Produto indispon\xC3\xADvel: ${product.name}`);
+          throw new Error(`Produto indispon\xEDvel: ${product.name}`);
         }
         const quantity = Number(item.quantity || 0);
         if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Quantidade inv\xC3\xA1lida para ${product.name}.`);
+          throw new Error(`Quantidade inv\xE1lida para ${product.name}.`);
         }
         const stockValue = product.stock === null || product.stock === void 0 ? null : Number(product.stock);
         if (Number.isInteger(stockValue) && stockValue >= 0 && quantity > stockValue) {
           throw new Error(
-            `Estoque insuficiente para ${product.name}. Dispon\xC3\xADvel: ${stockValue}.`
+            `Estoque insuficiente para ${product.name}. Dispon\xEDvel: ${stockValue}.`
           );
         }
       });
@@ -4637,7 +4716,7 @@ var UpdateOrderStatusService = class {
   hasLegacyPayOnDeliveryMarker(observation) {
     return String(observation || "").toUpperCase().includes(this.PAY_ON_DELIVERY_MARKER);
   }
-  async execute(orderId, restaurantId, status, role, deliveryConfirmationCode) {
+  async execute(orderId, restaurantId, status, role, deliveryConfirmationCode, actorUserId) {
     const order = await OrderRepository_default.findById(orderId, restaurantId);
     if (!order) {
       throw new Error("Pedido n\xE3o encontrado!");
@@ -4654,6 +4733,14 @@ var UpdateOrderStatusService = class {
     );
     if (!canUserChange) {
       throw new Error("Usu\xE1rio n\xE3o tem permiss\xE3o para isso!");
+    }
+    if (normalizedRole === UserRole6.MOTOQUEIRO) {
+      if (order.type !== OrderType4.DELIVERY) {
+        throw new Error("Motoqueiros s\xF3 podem atualizar pedidos de entrega.");
+      }
+      if (order.assignedCourierId !== Number(actorUserId || 0)) {
+        throw new Error("Esta entrega n\xE3o est\xE1 atribu\xEDda a voc\xEA.");
+      }
     }
     if (status === OrderStatus4.ENTREGUE && normalizedRole === UserRole6.MOTOQUEIRO && order.type === OrderType4.DELIVERY) {
       const customerPhoneDigits = String(order?.user?.phone || "").replace(
@@ -4708,6 +4795,20 @@ var UpdateOrderStatusService = class {
         status,
         restaurantId
       );
+    }
+    if (status === OrderStatus4.ENTREGUE && updatedOrder) {
+      updatedOrder = await prisma_default.order.update({
+        where: { id: updatedOrder.id },
+        data: { deliveredAt: /* @__PURE__ */ new Date() },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+          restaurant: {
+            select: { id: true, name: true, whatsapp: true }
+          },
+          table: true,
+          items: { include: { product: true } }
+        }
+      });
     }
     if (status === OrderStatus4.ENTREGUE && (order.paymentMethod === PaymentMethod4.DINHEIRO || isPayOnDelivery) && updatedOrder?.paid !== true) {
       updatedOrder = await OrderRepository_default.confirmPayment(
@@ -4766,7 +4867,8 @@ var UpdateOrderStatusController = class {
         restaurantId,
         normalizedStatus,
         role,
-        deliveryConfirmationCode
+        deliveryConfirmationCode,
+        req.user.id
       );
       return res.status(200).json(updatedOrder);
     } catch (error2) {
@@ -4778,9 +4880,237 @@ var UpdateOrderStatusController = class {
 };
 var UpdateOrderStatusController_default = new UpdateOrderStatusController();
 
+// src/modules/orders/services/ClaimOrderForDeliveryService.ts
+import { OrderStatus as OrderStatus5, OrderType as OrderType5, UserRole as UserRole7 } from "@prisma/client";
+var ClaimOrderForDeliveryService = class {
+  async execute({
+    orderId,
+    restaurantId,
+    courierId,
+    role
+  }) {
+    const normalizedOrderId = Number(orderId);
+    if (String(role || "").toUpperCase() !== UserRole7.MOTOQUEIRO) {
+      throw new Error("Somente motoqueiros podem retirar pedidos para entrega.");
+    }
+    if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
+      throw new Error("Pedido inv\xE1lido.");
+    }
+    const updatedOrder = await prisma_default.$transaction(async (tx) => {
+      const settings = await tx.restaurantSettings.findUnique({
+        where: { restaurantId },
+        select: { courierFeePerDelivery: true }
+      });
+      const courierEarning = settings?.courierFeePerDelivery || 0;
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: normalizedOrderId,
+          restaurantId,
+          type: OrderType5.DELIVERY,
+          status: OrderStatus5.PRONTO,
+          assignedCourierId: null,
+          NOT: {
+            paid: false,
+            paymentMethod: { in: ["PIX", "CARTAO"] },
+            payOnDelivery: false
+          }
+        },
+        data: {
+          assignedCourierId: courierId,
+          deliveryStartedAt: /* @__PURE__ */ new Date(),
+          courierEarning,
+          status: OrderStatus5.SAIU_PARA_ENTREGA
+        }
+      });
+      if (claimed.count !== 1) {
+        const current = await tx.order.findFirst({
+          where: { id: normalizedOrderId, restaurantId },
+          select: { type: true, status: true, assignedCourierId: true }
+        });
+        if (!current) throw new Error("Pedido n\xE3o encontrado.");
+        if (current.type !== OrderType5.DELIVERY)
+          throw new Error("Este pedido n\xE3o \xE9 uma entrega.");
+        if (current.assignedCourierId)
+          throw new Error("Este pedido j\xE1 foi retirado por outro motoqueiro.");
+        throw new Error("O pedido n\xE3o est\xE1 dispon\xEDvel para retirada.");
+      }
+      return OrderRepository_default.findById(normalizedOrderId, restaurantId, tx);
+    });
+    if (!updatedOrder) throw new Error("N\xE3o foi poss\xEDvel carregar o pedido.");
+    notifyCustomerOrderStatusChanged({
+      customerPhone: updatedOrder.user?.phone,
+      customerName: updatedOrder.user?.name,
+      restaurantName: updatedOrder.restaurant?.name,
+      restaurantWhatsapp: updatedOrder.restaurant?.whatsapp,
+      orderId: updatedOrder.id,
+      status: updatedOrder.status
+    }).catch((error2) => {
+      console.error(
+        "[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]",
+        error2 instanceof Error ? error2.message : String(error2)
+      );
+    });
+    io.to(`restaurant:${restaurantId}`).emit("order:status-changed", updatedOrder);
+    io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+    return updatedOrder;
+  }
+};
+var ClaimOrderForDeliveryService_default = new ClaimOrderForDeliveryService();
+
+// src/modules/orders/controllers/ClaimOrderForDeliveryController.ts
+var ClaimOrderForDeliveryController = class {
+  async handle(req, res) {
+    try {
+      const order = await ClaimOrderForDeliveryService_default.execute({
+        orderId: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
+        restaurantId: Number(req.user.restaurantId || 0),
+        courierId: Number(req.user.id || 0),
+        role: req.user.role
+      });
+      return res.status(200).json(order);
+    } catch (error2) {
+      return res.status(400).json({
+        error: error2 instanceof Error ? error2.message : "Erro ao retirar pedido"
+      });
+    }
+  }
+};
+var ClaimOrderForDeliveryController_default = new ClaimOrderForDeliveryController();
+
+// src/modules/orders/services/GetCourierFinanceService.ts
+import { OrderStatus as OrderStatus6, UserRole as UserRole8 } from "@prisma/client";
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+var GetCourierFinanceService = class {
+  async execute({ courierId, restaurantId, role }) {
+    if (String(role || "").toUpperCase() !== UserRole8.MOTOQUEIRO) {
+      throw new Error("Financeiro dispon\xEDvel somente para motoqueiros.");
+    }
+    const now = /* @__PURE__ */ new Date();
+    const today = startOfDay(now);
+    const week = new Date(today);
+    week.setDate(today.getDate() - (today.getDay() + 6) % 7);
+    const month = new Date(today.getFullYear(), today.getMonth(), 1);
+    const baseWhere = {
+      assignedCourierId: courierId,
+      restaurantId,
+      status: OrderStatus6.ENTREGUE
+    };
+    const [todayData, weekData, monthData, pendingData, deliveries] = await Promise.all([
+      prisma_default.order.aggregate({ where: { ...baseWhere, deliveredAt: { gte: today } }, _sum: { courierEarning: true }, _count: true }),
+      prisma_default.order.aggregate({ where: { ...baseWhere, deliveredAt: { gte: week } }, _sum: { courierEarning: true }, _count: true }),
+      prisma_default.order.aggregate({ where: { ...baseWhere, deliveredAt: { gte: month } }, _sum: { courierEarning: true }, _count: true }),
+      prisma_default.order.aggregate({ where: { ...baseWhere, courierPaidAt: null }, _sum: { courierEarning: true }, _count: true }),
+      prisma_default.order.findMany({
+        where: baseWhere,
+        select: { id: true, courierEarning: true, courierPaidAt: true, deliveredAt: true, deliveryStartedAt: true, city: true, district: true },
+        orderBy: { deliveredAt: "desc" },
+        take: 100
+      })
+    ]);
+    const format = (entry) => ({ amount: Number(entry._sum.courierEarning || 0), deliveries: entry._count });
+    return {
+      today: format(todayData),
+      week: format(weekData),
+      month: format(monthData),
+      pending: format(pendingData),
+      deliveries: deliveries.map((order) => ({ ...order, courierEarning: Number(order.courierEarning || 0) }))
+    };
+  }
+};
+var GetCourierFinanceService_default = new GetCourierFinanceService();
+
+// src/modules/orders/controllers/GetCourierFinanceController.ts
+var GetCourierFinanceController = class {
+  async handle(req, res) {
+    try {
+      const result = await GetCourierFinanceService_default.execute({
+        courierId: Number(req.user.id || 0),
+        restaurantId: Number(req.user.restaurantId || 0),
+        role: req.user.role
+      });
+      return res.json(result);
+    } catch (error2) {
+      return res.status(403).json({ error: error2 instanceof Error ? error2.message : "Erro ao consultar financeiro" });
+    }
+  }
+};
+var GetCourierFinanceController_default = new GetCourierFinanceController();
+
+// src/modules/orders/services/GetDeliveryTrackingService.ts
+import { UserRole as UserRole9 } from "@prisma/client";
+var GetDeliveryTrackingService = class {
+  async execute({ orderId, userId, restaurantId, role }) {
+    const id = Number(orderId);
+    const order = await prisma_default.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        restaurantId: true,
+        assignedCourierId: true,
+        status: true,
+        type: true,
+        address: true,
+        number: true,
+        district: true,
+        city: true,
+        state: true,
+        deliveryStartedAt: true,
+        deliveredAt: true,
+        assignedCourier: { select: { id: true, name: true, phone: true, avatar: true } }
+      }
+    });
+    if (!order) throw new Error("Pedido n\xE3o encontrado.");
+    const normalizedRole = String(role || "").toUpperCase();
+    const allowed = order.userId === userId || normalizedRole === UserRole9.MOTOQUEIRO && order.assignedCourierId === userId || normalizedRole === UserRole9.ADMIN && order.restaurantId === restaurantId;
+    if (!allowed) throw new Error("Voc\xEA n\xE3o pode acompanhar esta entrega.");
+    const locations = await prisma_default.deliveryLocation.findMany({
+      where: { orderId: id },
+      orderBy: { recordedAt: "desc" },
+      take: 1e3,
+      select: { latitude: true, longitude: true, heading: true, speed: true, accuracy: true, recordedAt: true }
+    });
+    locations.reverse();
+    return {
+      order,
+      locations: locations.map((point) => ({ ...point, latitude: Number(point.latitude), longitude: Number(point.longitude) })),
+      latestLocation: locations.length ? { ...locations[locations.length - 1], latitude: Number(locations[locations.length - 1].latitude), longitude: Number(locations[locations.length - 1].longitude) } : null
+    };
+  }
+};
+var GetDeliveryTrackingService_default = new GetDeliveryTrackingService();
+
+// src/modules/orders/controllers/GetDeliveryTrackingController.ts
+var GetDeliveryTrackingController = class {
+  async handle(req, res) {
+    try {
+      const result = await GetDeliveryTrackingService_default.execute({
+        orderId: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
+        userId: Number(req.user.id || 0),
+        restaurantId: req.user.restaurantId,
+        role: req.user.role
+      });
+      return res.json(result);
+    } catch (error2) {
+      return res.status(403).json({ error: error2 instanceof Error ? error2.message : "Erro ao consultar rastreamento" });
+    }
+  }
+};
+var GetDeliveryTrackingController_default = new GetDeliveryTrackingController();
+
 // src/modules/orders/services/ListOrdersService.ts
+import { UserRole as UserRole10 } from "@prisma/client";
 var ListOrdersService = class {
-  async execute(restaurantId, status) {
+  async execute(restaurantId, status, role, userId) {
+    if (String(role || "").toUpperCase() === UserRole10.MOTOQUEIRO) {
+      const courierId = Number(userId || 0);
+      if (!Number.isInteger(courierId) || courierId <= 0) {
+        throw new Error("Motoqueiro inv\xE1lido.");
+      }
+      return OrderRepository_default.findCourierOrders(restaurantId, courierId, status);
+    }
     return OrderRepository_default.findAll(restaurantId, status);
   }
 };
@@ -4795,7 +5125,9 @@ var ListOrdersController = class {
       const restaurantId = req.user.restaurantId;
       const orders = await ListOrdersService_default.execute(
         restaurantId,
-        normalizedStatus
+        normalizedStatus,
+        req.user.role,
+        req.user.id
       );
       return res.json(orders);
     } catch (error2) {
@@ -4861,7 +5193,7 @@ var ListMyOrdersController = class {
 var ListMyOrdersController_default = new ListMyOrdersController();
 
 // src/modules/orders/services/CancelOrderService.ts
-import { OrderStatus as OrderStatus5, PaymentMethod as PaymentMethod6 } from "@prisma/client";
+import { OrderStatus as OrderStatus8, PaymentMethod as PaymentMethod6 } from "@prisma/client";
 
 // src/modules/orders/services/RefundOrderPaymentService.ts
 import Stripe from "stripe";
@@ -4929,12 +5261,13 @@ var RefundOrderPaymentService = class {
     };
   }
   async getPagBankCredentials(restaurantId) {
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
     const settings = restaurantId ? await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId) : null;
     const email = String(
-      settings?.pagbankEmail || process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || ""
+      settings?.pagbankEmail || (allowGlobalFallback ? process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL : "") || ""
     ).trim();
     const token = String(
-      settings?.pagbankToken || process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || ""
+      settings?.pagbankToken || (allowGlobalFallback ? process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN : "") || ""
     ).trim();
     if (!email || !token) {
       throw new Error(
@@ -4952,12 +5285,13 @@ var RefundOrderPaymentService = class {
     return Number.isFinite(amount) && amount > 0 ? Number(amount.toFixed(2)) : void 0;
   }
   async getMercadoPagoAccessTokenByRestaurant(restaurantId) {
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
     const normalizedRestaurantId = Number(restaurantId || 0);
     const settings = Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0 ? await RestaurantSettingsRepository_default.findByRestaurantId(
       normalizedRestaurantId
     ) : null;
     const token = String(
-      settings?.mercadoPagoAccessToken || process.env.MP_ACCESS_TOKEN || ""
+      settings?.mercadoPagoAccessToken || (allowGlobalFallback ? process.env.MP_ACCESS_TOKEN : "") || ""
     ).trim();
     if (!token) {
       throw new Error(
@@ -5015,8 +5349,9 @@ var RefundOrderPaymentService = class {
     }
     const restaurantId = Number(order.restaurantId || 0) || void 0;
     const settings = restaurantId ? await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId) : null;
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
     const secretKey = String(
-      settings?.stripeSecretKey || process.env.STRIPE_SECRET_KEY || ""
+      settings?.stripeSecretKey || (allowGlobalFallback ? process.env.STRIPE_SECRET_KEY : "") || ""
     ).trim();
     if (!secretKey) {
       throw new Error(
@@ -5187,7 +5522,7 @@ var CancelOrderService = class {
     }
     const canCancel = OrderStateMachine.canTransition(
       order.status,
-      OrderStatus5.CANCELADO
+      OrderStatus8.CANCELADO
     );
     if (!canCancel) {
       throw new Error("Pedido n\xE3o pode ser cancelado!");
@@ -5200,7 +5535,7 @@ var CancelOrderService = class {
       await restoreOrderItemsStock(tx, order);
       return OrderRepository_default.updateStatus(
         normalizedOrderId,
-        OrderStatus5.CANCELADO,
+        OrderStatus8.CANCELADO,
         restaurantId,
         tx
       );
@@ -5253,9 +5588,9 @@ import { PaymentMethod as PaymentMethod7 } from "@prisma/client";
 var ConfirmOrderPaymentService = class {
   async execute(orderId, restaurantId, role) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
-    if (String(role || "").toUpperCase() === "MOTOQUEIRO") {
+    if (String(role || "").toUpperCase() !== "ADMIN") {
       throw new Error(
-        "Motoqueiro n\xE3o pode confirmar pagamento direto. Use o PIN do dono/admin."
+        "Somente o administrador pode confirmar pagamento diretamente."
       );
     }
     const order = await OrderRepository_default.findById(
@@ -5334,6 +5669,39 @@ var ConfirmOrderPaymentController_default = new ConfirmOrderPaymentController();
 
 // src/modules/orders/services/ConfirmOrderPaymentWithPinService.ts
 import { PaymentMethod as PaymentMethod8 } from "@prisma/client";
+
+// src/modules/orders/utils/paymentConfirmationPin.ts
+import crypto4 from "crypto";
+var HASH_PREFIX = "hmac:v1:";
+function getSecret() {
+  const secret = String(
+    process.env.PAYMENT_PIN_SECRET || process.env.JWT_MFA_SECRET || process.env.JWT_SECRET || "development-payment-pin-secret"
+  ).trim();
+  if (process.env.NODE_ENV === "production" && secret.length < 32) {
+    throw new Error(
+      "PAYMENT_PIN_SECRET deve ter pelo menos 32 caracteres em produ\xE7\xE3o."
+    );
+  }
+  return secret;
+}
+function hashPaymentConfirmationPin(pin) {
+  const digest = crypto4.createHmac("sha256", getSecret()).update(String(pin)).digest("hex");
+  return `${HASH_PREFIX}${digest}`;
+}
+function verifyPaymentConfirmationPin(pin, stored) {
+  const normalizedStored = String(stored || "");
+  if (!normalizedStored.startsWith(HASH_PREFIX)) {
+    const providedBuffer = Buffer.from(String(pin));
+    const storedBuffer2 = Buffer.from(normalizedStored);
+    return providedBuffer.length === storedBuffer2.length && crypto4.timingSafeEqual(providedBuffer, storedBuffer2);
+  }
+  const expected = hashPaymentConfirmationPin(pin);
+  const expectedBuffer = Buffer.from(expected);
+  const storedBuffer = Buffer.from(normalizedStored);
+  return expectedBuffer.length === storedBuffer.length && crypto4.timingSafeEqual(expectedBuffer, storedBuffer);
+}
+
+// src/modules/orders/services/ConfirmOrderPaymentWithPinService.ts
 var ConfirmOrderPaymentWithPinService = class {
   async execute(orderId, restaurantId, role, pin) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
@@ -5382,7 +5750,10 @@ var ConfirmOrderPaymentWithPinService = class {
     if (new Date(order.paymentConfirmationPinExpiresAt).getTime() < Date.now()) {
       throw new Error("PIN expirado. Solicite um novo PIN ao dono/admin.");
     }
-    if (String(order.paymentConfirmationPin) !== normalizedPin) {
+    if (!verifyPaymentConfirmationPin(
+      normalizedPin,
+      String(order.paymentConfirmationPin)
+    )) {
       throw new Error("PIN incorreto. Confira com o dono/admin.");
     }
     const updatedOrder = await OrderRepository_default.confirmPayment(
@@ -5447,8 +5818,9 @@ var ConfirmOrderPaymentWithPinController_default = new ConfirmOrderPaymentWithPi
 
 // src/modules/orders/services/GenerateOrderPaymentConfirmationPinService.ts
 import { PaymentMethod as PaymentMethod9 } from "@prisma/client";
+import crypto5 from "crypto";
 function generateFourDigitPin() {
-  return String(Math.floor(1e3 + Math.random() * 9e3));
+  return String(crypto5.randomInt(1e3, 1e4));
 }
 var GenerateOrderPaymentConfirmationPinService = class {
   async execute(orderId, restaurantId) {
@@ -5479,11 +5851,12 @@ var GenerateOrderPaymentConfirmationPinService = class {
       );
     }
     const pin = generateFourDigitPin();
+    const pinHash = hashPaymentConfirmationPin(pin);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1e3);
     const updatedOrder = await OrderRepository_default.setPaymentConfirmationPin(
       orderId,
       restaurantId,
-      pin,
+      pinHash,
       expiresAt
     );
     io.to(`restaurant:${restaurantId}`).emit("order:payment-pin-generated", {
@@ -5528,11 +5901,11 @@ var GenerateOrderPaymentConfirmationPinController = class {
 var GenerateOrderPaymentConfirmationPinController_default = new GenerateOrderPaymentConfirmationPinController();
 
 // src/modules/orders/services/RequestOrderPaymentConfirmationPinService.ts
-import { PaymentMethod as PaymentMethod10, UserRole as UserRole7 } from "@prisma/client";
+import { PaymentMethod as PaymentMethod10, UserRole as UserRole11 } from "@prisma/client";
 var RequestOrderPaymentConfirmationPinService = class {
   async execute(orderId, restaurantId, role) {
     const normalizedRole = String(role || "").toUpperCase();
-    const allowedRoles = [UserRole7.MOTOQUEIRO, UserRole7.ADMIN];
+    const allowedRoles = [UserRole11.MOTOQUEIRO, UserRole11.ADMIN];
     if (!allowedRoles.includes(normalizedRole)) {
       throw new Error(
         "Somente admin ou motoqueiro podem solicitar PIN de confirma\xE7\xE3o de pagamento."
@@ -7136,7 +7509,7 @@ var ResolveOrderIssueController = class {
 var ResolveOrderIssueController_default = new ResolveOrderIssueController();
 
 // src/modules/orders/services/RefundOrderByAdminService.ts
-import { OrderStatus as OrderStatus6 } from "@prisma/client";
+import { OrderStatus as OrderStatus9 } from "@prisma/client";
 var REFUND_REQUEST_PATTERN = /(estorno|reembolso|devolver|devolucao|devolução|cancelar\s+pedido|quero\s+cancelar|quero\s+estorno|quero\s+reembolso)/i;
 var RefundOrderByAdminService = class {
   hasClientRefundRequest(thread) {
@@ -7200,7 +7573,7 @@ var RefundOrderByAdminService = class {
     if (!order) {
       throw new Error("Pedido n\xE3o encontrado para este restaurante.");
     }
-    if (order.status === OrderStatus6.CANCELADO) {
+    if (order.status === OrderStatus9.CANCELADO) {
       throw new Error("Este pedido j\xE1 est\xE1 cancelado.");
     }
     if (!this.hasClientRefundRequest(issueThread)) {
@@ -7214,7 +7587,7 @@ var RefundOrderByAdminService = class {
       await restoreOrderItemsStock(tx, order);
       return OrderRepository_default.updateStatus(
         order.id,
-        OrderStatus6.CANCELADO,
+        OrderStatus9.CANCELADO,
         normalizedRestaurantId,
         tx
       );
@@ -7390,6 +7763,16 @@ var ClearOrdersAndCategoriesService_default = new ClearOrdersAndCategoriesServic
 var ClearOrdersAndCategoriesController = class {
   async handle(req, res) {
     try {
+      const isEnabled = process.env.NODE_ENV !== "production" && String(process.env.ENABLE_DESTRUCTIVE_CLEANUP || "false") === "true";
+      const confirmation = String(req.body?.confirmation || "").trim();
+      if (!isEnabled) {
+        return res.status(404).json({ error: "Opera\xE7\xE3o n\xE3o dispon\xEDvel." });
+      }
+      if (confirmation !== "EXCLUIR TODOS OS PEDIDOS") {
+        return res.status(400).json({
+          error: 'Confirma\xE7\xE3o inv\xE1lida. Informe "EXCLUIR TODOS OS PEDIDOS".'
+        });
+      }
       await ClearOrdersAndCategoriesService_default.execute(req.user.restaurantId);
       return res.status(200).json({
         message: "Pedidos e categorias exclu\xEDdos com sucesso!"
@@ -7518,18 +7901,24 @@ var MercadoPagoOrderWebhookController = class {
       const resolvedRestaurantId = Number.isInteger(hintedRestaurantId) && hintedRestaurantId > 0 ? hintedRestaurantId : Number.isInteger(metadataRestaurantId) && metadataRestaurantId > 0 ? metadataRestaurantId : void 0;
       if (externalReference.startsWith("ordercard:")) {
         const [, orderId = "", restaurantId = ""] = externalReference.split(":");
+        const referenceRestaurantId = Number(restaurantId || 0);
         const normalizedPaymentId = String(paymentId || "").trim();
+        if (!Number.isInteger(referenceRestaurantId) || referenceRestaurantId <= 0 || hintedRestaurantId > 0 && referenceRestaurantId !== hintedRestaurantId || metadataRestaurantId > 0 && referenceRestaurantId !== metadataRestaurantId) {
+          return res.status(400).json({
+            error: "Webhook Mercado Pago rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+          });
+        }
         if (orderId) {
           if (normalizedPaymentId) {
             await OrderRepository_default.setCardCheckoutSessionId(
               orderId,
-              Number(restaurantId || 0),
+              referenceRestaurantId,
               `mp_pay:${normalizedPaymentId}`
             );
           }
           await FinalizeOrderCardPaymentService_default.execute({
             orderId,
-            restaurantId: Number(restaurantId || 0) || void 0,
+            restaurantId: referenceRestaurantId,
             allowMissingOrder: true
           });
         }
@@ -7557,14 +7946,26 @@ import Stripe3 from "stripe";
 var StripeOrderWebhookController = class {
   async handle(req, res) {
     try {
-      const stripeWebhookSecret = String(
-        process.env.STRIPE_WEBHOOK_SECRET || ""
-      ).trim();
       const allowInsecureWebhookInDev = process.env.ALLOW_INSECURE_STRIPE_WEBHOOK === "true";
+      const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
       const stripeSignature = String(
         req.headers["stripe-signature"] || ""
       ).trim();
       const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}), "utf-8");
+      const untrustedPayload = JSON.parse(rawBody.toString("utf-8") || "{}");
+      const untrustedRestaurantId = Number(
+        untrustedPayload?.data?.object?.metadata?.restaurantId || 0
+      );
+      const settings = Number.isInteger(untrustedRestaurantId) && untrustedRestaurantId > 0 ? await RestaurantSettingsRepository_default.findByRestaurantId(
+        untrustedRestaurantId
+      ) : null;
+      const tenantWebhookSecret = String(
+        settings?.stripeWebhookSecret || ""
+      ).trim();
+      const globalWebhookSecret = String(
+        process.env.STRIPE_WEBHOOK_SECRET || ""
+      ).trim();
+      const stripeWebhookSecret = tenantWebhookSecret || (allowGlobalFallback || process.env.NODE_ENV !== "production" ? globalWebhookSecret : "");
       let eventPayload = {};
       if (stripeWebhookSecret) {
         if (!stripeSignature) {
@@ -7585,7 +7986,7 @@ var StripeOrderWebhookController = class {
             error: "Webhook Stripe indisponivel sem STRIPE_WEBHOOK_SECRET em producao."
           });
         }
-        eventPayload = JSON.parse(rawBody.toString("utf-8") || "{}");
+        eventPayload = untrustedPayload;
       }
       const eventType = String(eventPayload?.type || "").trim();
       const session = eventPayload?.data?.object || {};
@@ -7740,17 +8141,23 @@ var PagBankOrderWebhookController = class {
       const externalReference = String(details.reference || "").trim();
       if (externalReference.startsWith("ordercard:")) {
         const [, orderId = "", restaurantId = ""] = externalReference.split(":");
+        const referenceRestaurantId = Number(restaurantId || 0);
+        if (!Number.isInteger(referenceRestaurantId) || referenceRestaurantId <= 0 || restaurantIdHint && referenceRestaurantId !== restaurantIdHint) {
+          return res.status(400).json({
+            error: "Webhook PagBank rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+          });
+        }
         if (orderId) {
           if (details.code) {
             await OrderRepository_default.setCardCheckoutSessionId(
               orderId,
-              Number(restaurantId || 0),
+              referenceRestaurantId,
               `pagbank_tx:${details.code}`
             );
           }
           await FinalizeOrderCardPaymentService_default.execute({
             orderId,
-            restaurantId: Number(restaurantId || 0) || void 0,
+            restaurantId: referenceRestaurantId,
             allowMissingOrder: true
           });
         }
@@ -7798,7 +8205,7 @@ var GetCurrentTableOrderController = class {
 var GetCurrentTableOrderController_default = new GetCurrentTableOrderController();
 
 // src/middlewares/staffMiddleware.ts
-import { UserRole as UserRole8 } from "@prisma/client";
+import { UserRole as UserRole12 } from "@prisma/client";
 function staffMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({
@@ -7806,9 +8213,9 @@ function staffMiddleware(req, res, next) {
     });
   }
   const allowedRoles = [
-    UserRole8.ADMIN,
-    UserRole8.FUNCIONARIO,
-    UserRole8.MOTOQUEIRO
+    UserRole12.ADMIN,
+    UserRole12.FUNCIONARIO,
+    UserRole12.MOTOQUEIRO
   ];
   if (!allowedRoles.includes(
     String(req.user.role)
@@ -8028,6 +8435,40 @@ async function orderAccessMiddleware(req, res, next) {
   return res.status(401).json({ error: "Token n\xE3o informado!" });
 }
 
+// src/middlewares/security/orderPaymentRateLimitMiddleware.ts
+import rateLimit3, { ipKeyGenerator as ipKeyGenerator3 } from "express-rate-limit";
+function getOrderActorKey(req) {
+  const orderId = String(req.params.id || "").trim().slice(0, 32);
+  const userId = String(req.user?.id || "anonymous").slice(0, 32);
+  const ip = ipKeyGenerator3(String(req.ip || "unknown").trim());
+  return `${ip}:${userId}:${orderId || "no-order"}`;
+}
+var paymentPinAttemptRateLimitMiddleware = rateLimit3({
+  windowMs: Number(
+    process.env.PAYMENT_PIN_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1e3
+  ),
+  max: Number(process.env.PAYMENT_PIN_RATE_LIMIT_MAX_REQUESTS || 8),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: getOrderActorKey,
+  message: {
+    error: "Muitas tentativas de PIN para este pedido. Aguarde alguns minutos."
+  }
+});
+var paymentPinRequestRateLimitMiddleware = rateLimit3({
+  windowMs: Number(
+    process.env.PAYMENT_PIN_REQUEST_RATE_LIMIT_WINDOW_MS || 60 * 1e3
+  ),
+  max: Number(process.env.PAYMENT_PIN_REQUEST_RATE_LIMIT_MAX_REQUESTS || 3),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getOrderActorKey,
+  message: {
+    error: "Muitas solicita\xE7\xF5es de PIN para este pedido. Aguarde um instante."
+  }
+});
+
 // src/modules/orders/routes/orderRoutes.ts
 var router3 = Router3();
 router3.post("/webhook/mercadopago", MercadoPagoOrderWebhookController_default.handle);
@@ -8071,10 +8512,13 @@ router3.post(
 router3.put("/:id/status", authMiddleware, staffMiddleware, (req, res) => {
   UpdateOrderStatusController_default.handle(req, res);
 });
+router3.patch("/:id/claim-delivery", authMiddleware, (req, res) => {
+  ClaimOrderForDeliveryController_default.handle(req, res);
+});
 router3.patch(
   "/:id/confirm-payment",
   authMiddleware,
-  staffMiddleware,
+  adminMiddleware,
   (req, res) => {
     ConfirmOrderPaymentController_default.handle(req, res);
   }
@@ -8091,6 +8535,7 @@ router3.post(
   "/:id/request-payment-confirmation-pin",
   authMiddleware,
   staffMiddleware,
+  paymentPinRequestRateLimitMiddleware,
   (req, res) => {
     RequestOrderPaymentConfirmationPinController_default.handle(req, res);
   }
@@ -8099,12 +8544,16 @@ router3.patch(
   "/:id/confirm-payment-with-pin",
   authMiddleware,
   staffMiddleware,
+  paymentPinAttemptRateLimitMiddleware,
   (req, res) => {
     ConfirmOrderPaymentWithPinController_default.handle(req, res);
   }
 );
 router3.get("/", authMiddleware, staffMiddleware, (req, res) => {
   ListOrdersController_default.handle(req, res);
+});
+router3.get("/courier/finance", authMiddleware, (req, res) => {
+  GetCourierFinanceController_default.handle(req, res);
 });
 router3.delete(
   "/cleanup/orders-categories",
@@ -8119,6 +8568,9 @@ router3.get("/my-orders", authMiddleware, (req, res) => {
 });
 router3.get("/table/current", sessionMiddleware, (req, res) => {
   GetCurrentTableOrderController_default.handle(req, res);
+});
+router3.get("/:id/tracking", authMiddleware, (req, res) => {
+  GetDeliveryTrackingController_default.handle(req, res);
 });
 router3.get("/:id", authMiddleware, staffMiddleware, (req, res) => {
   GetOrderByIdController_default.handle(req, res);
@@ -8152,12 +8604,12 @@ var orderRoutes_default = router3;
 import { Router as Router4 } from "express";
 
 // src/middlewares/superAdminMiddleware.ts
-import { UserRole as UserRole9 } from "@prisma/client";
+import { UserRole as UserRole13 } from "@prisma/client";
 function superAdminMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "N\xE3o autenticado" });
   }
-  if (req.user.role !== UserRole9.SUPER_ADMIN) {
+  if (req.user.role !== UserRole13.SUPER_ADMIN) {
     return res.status(403).json({ message: "Acesso negado!" });
   }
   return next();
@@ -8192,7 +8644,7 @@ var SubscriptionRepository = class {
 var SubscriptionRepository_default = new SubscriptionRepository();
 
 // src/modules/restaurants/services/CreateRestaurantService.ts
-import { PlanType as PlanType2, SubscriptionStatus, UserRole as UserRole10 } from "@prisma/client";
+import { PlanType as PlanType2, SubscriptionStatus, UserRole as UserRole14 } from "@prisma/client";
 
 // src/validators/RestaurantValidator.ts
 import { z as z6 } from "zod";
@@ -8340,7 +8792,7 @@ var CreateRestaurantService = class {
           name: parsedAdmin.name,
           email: parsedAdmin.email,
           password: passwordHash,
-          role: UserRole10.ADMIN,
+          role: UserRole14.ADMIN,
           active: true,
           mustChangePassword: true,
           restaurantId: createdRestaurant.id
@@ -8788,10 +9240,10 @@ var CategoryRoutes_default = router5;
 import { Router as Router6 } from "express";
 
 // src/modules/employee/services/CreateEmployeeService.ts
-import { UserRole as UserRole12 } from "@prisma/client";
+import { UserRole as UserRole16 } from "@prisma/client";
 
 // src/modules/employee/repositories/EmployeeRepository.ts
-import { UserRole as UserRole11 } from "@prisma/client";
+import { UserRole as UserRole15 } from "@prisma/client";
 var EmployeeRepository = class {
   async findByEmail(email, db = prisma_default) {
     return db.user.findFirst({
@@ -8808,7 +9260,7 @@ var EmployeeRepository = class {
       where: {
         restaurantId,
         role: {
-          in: [UserRole11.FUNCIONARIO, UserRole11.MOTOQUEIRO]
+          in: [UserRole15.FUNCIONARIO, UserRole15.MOTOQUEIRO]
         }
       }
     });
@@ -8819,7 +9271,7 @@ var EmployeeRepository = class {
         id: Number(id),
         restaurantId,
         role: {
-          in: [UserRole11.FUNCIONARIO, UserRole11.MOTOQUEIRO]
+          in: [UserRole15.FUNCIONARIO, UserRole15.MOTOQUEIRO]
         }
       }
     });
@@ -8878,7 +9330,7 @@ var CreateEmployeeService = class {
       phone,
       cpf: cpf ? String(cpf).replace(/\D/g, "") : void 0,
       restaurantId,
-      role: role || UserRole12.FUNCIONARIO,
+      role: role || UserRole16.FUNCIONARIO,
       subRole: subRole ?? null
     });
     return employee;
@@ -8887,7 +9339,7 @@ var CreateEmployeeService = class {
 var CreateEmployeeService_default = new CreateEmployeeService();
 
 // src/validators/EmployeeSchema.ts
-import { FuncionarioSubRole as FuncionarioSubRole2, UserRole as UserRole13 } from "@prisma/client";
+import { FuncionarioSubRole as FuncionarioSubRole2, UserRole as UserRole17 } from "@prisma/client";
 import { z as z8 } from "zod";
 var phoneRegex = /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
 var EmployeeUserSchema = z8.object({
@@ -8895,8 +9347,8 @@ var EmployeeUserSchema = z8.object({
   email: z8.string().email("Email inv\xE1lido"),
   password: z8.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
   confirmPassword: z8.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
-  role: z8.nativeEnum(UserRole13).optional().refine(
-    (value) => !value || value === UserRole13.FUNCIONARIO || value === UserRole13.MOTOQUEIRO,
+  role: z8.nativeEnum(UserRole17).optional().refine(
+    (value) => !value || value === UserRole17.FUNCIONARIO || value === UserRole17.MOTOQUEIRO,
     {
       message: "Cargo inv\xE1lido"
     }
@@ -9094,22 +9546,90 @@ var EmployeeRoutes_default = router6;
 // src/modules/tableSession/routes/SessionsTablesRoutes.ts
 import { Router as Router7 } from "express";
 
+// src/modules/table/repositories/TableRepository.ts
+var TableRepository = class {
+  async create(data, db = prisma_default) {
+    return db.table.create({
+      data
+    });
+  }
+  async findById(id, db = prisma_default) {
+    return db.table.findUnique({
+      where: {
+        id: Number(id)
+      },
+      include: {
+        restaurant: true
+      }
+    });
+  }
+  async findByNumber(number, restaurantId, db = prisma_default) {
+    return db.table.findFirst({
+      where: {
+        number: Number(number),
+        restaurantId
+      }
+    });
+  }
+  async findAllByRestaurant(restaurantId, db = prisma_default) {
+    return db.table.findMany({
+      where: {
+        restaurantId
+      },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            tableSessions: true
+          }
+        }
+      },
+      orderBy: {
+        number: "asc"
+      }
+    });
+  }
+  async update(id, data) {
+    return prisma_default.table.update({
+      where: {
+        id: Number(id)
+      },
+      data
+    });
+  }
+  async deactivate(id, db = prisma_default) {
+    return db.table.update({
+      where: {
+        id: Number(id)
+      },
+      data: {
+        active: false
+      }
+    });
+  }
+};
+var TableRepository_default = new TableRepository();
+
 // src/modules/tableSession/services/OpenTableSessionService.ts
 import bcrypt10 from "bcrypt";
-import crypto4 from "crypto";
+import crypto6 from "crypto";
 var OpenTableSessionService = class {
   async execute({
     tableId,
     restaurantId,
     openedById
   }) {
+    const table = await TableRepository_default.findById(tableId);
+    if (!table || table.restaurantId !== restaurantId || !table.active) {
+      throw new Error("Mesa n\xE3o encontrada!");
+    }
     const sessionOpened = await TableSessionRepository_default.findOpenedByTable(tableId);
     if (sessionOpened) {
       throw new Error("Essa mesa j\xE1 est\xE1 aberta!");
     }
-    const pin = crypto4.randomInt(1e3, 1e4).toString();
+    const pin = crypto6.randomInt(1e3, 1e4).toString();
     const pinHash = await bcrypt10.hash(pin, 10);
-    const sessionToken = await crypto4.randomBytes(32).toString("hex");
+    const sessionToken = await crypto6.randomBytes(32).toString("hex");
     const normalizedTableId = Number(tableId);
     const normalizedOpenedById = Number(openedById);
     if (!Number.isInteger(normalizedTableId) || normalizedTableId <= 0) {
@@ -9196,9 +9716,13 @@ var ValidatePinController_default = new ValidatePinController();
 // src/modules/tableSession/services/CloseTableSessionService.ts
 import { TableSessionStatus as TableSessionStatus4 } from "@prisma/client";
 var CloseTableSessionService = class {
-  async execute({ sessionId, closedById }) {
+  async execute({
+    sessionId,
+    closedById,
+    restaurantId
+  }) {
     const session = await TableSessionRepository_default.findById(sessionId);
-    if (!session) {
+    if (!session || session.table.restaurantId !== restaurantId) {
       throw new Error("Sess\xE3o n\xE3o encontrada!");
     }
     if (session.status === TableSessionStatus4.CLOSED) {
@@ -9225,10 +9749,12 @@ var CloseTableSessionController = class {
   async handle(req, res) {
     try {
       const closedById = req.user.id;
+      const restaurantId = req.user.restaurantId;
       const sessionId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const session = await CloseTableSessionService_default.execute({
         sessionId,
-        closedById
+        closedById,
+        restaurantId
       });
       return res.status(200).json(session);
     } catch (error2) {
@@ -9266,70 +9792,6 @@ var ListOpenSessionsController = class {
   }
 };
 var ListOpenSessionsController_default = new ListOpenSessionsController();
-
-// src/modules/table/repositories/TableRepository.ts
-var TableRepository = class {
-  async create(data, db = prisma_default) {
-    return db.table.create({
-      data
-    });
-  }
-  async findById(id, db = prisma_default) {
-    return db.table.findUnique({
-      where: {
-        id: Number(id)
-      },
-      include: {
-        restaurant: true
-      }
-    });
-  }
-  async findByNumber(number, restaurantId, db = prisma_default) {
-    return db.table.findFirst({
-      where: {
-        number: Number(number),
-        restaurantId
-      }
-    });
-  }
-  async findAllByRestaurant(restaurantId, db = prisma_default) {
-    return db.table.findMany({
-      where: {
-        restaurantId
-      },
-      include: {
-        _count: {
-          select: {
-            orders: true,
-            tableSessions: true
-          }
-        }
-      },
-      orderBy: {
-        number: "asc"
-      }
-    });
-  }
-  async update(id, data) {
-    return prisma_default.table.update({
-      where: {
-        id: Number(id)
-      },
-      data
-    });
-  }
-  async deactivate(id, db = prisma_default) {
-    return db.table.update({
-      where: {
-        id: Number(id)
-      },
-      data: {
-        active: false
-      }
-    });
-  }
-};
-var TableRepository_default = new TableRepository();
 
 // src/modules/tableSession/services/RequestPinAssistanceService.ts
 var RequestPinAssistanceService = class {
@@ -9395,11 +9857,47 @@ var GetCurrentSessionController = class {
 };
 var GetCurrentSessionController_default = new GetCurrentSessionController();
 
+// src/middlewares/security/tableSessionRateLimitMiddleware.ts
+import rateLimit4, { ipKeyGenerator as ipKeyGenerator4 } from "express-rate-limit";
+function getTableKey(req) {
+  const tableId = String(req.body?.tableId || "").trim().slice(0, 32);
+  const ip = ipKeyGenerator4(String(req.ip || "unknown").trim());
+  return `${ip}:${tableId || "no-table"}`;
+}
+var tablePinRateLimitMiddleware = rateLimit4({
+  windowMs: Number(process.env.TABLE_PIN_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1e3),
+  max: Number(process.env.TABLE_PIN_RATE_LIMIT_MAX_REQUESTS || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: getTableKey,
+  message: {
+    error: "Muitas tentativas de PIN. Aguarde alguns minutos."
+  }
+});
+var tablePinAssistanceRateLimitMiddleware = rateLimit4({
+  windowMs: Number(
+    process.env.TABLE_PIN_ASSISTANCE_RATE_LIMIT_WINDOW_MS || 60 * 1e3
+  ),
+  max: Number(process.env.TABLE_PIN_ASSISTANCE_RATE_LIMIT_MAX_REQUESTS || 3),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getTableKey,
+  message: {
+    error: "Muitas solicita\xE7\xF5es de ajuda. Aguarde um instante."
+  }
+});
+
 // src/modules/tableSession/routes/SessionsTablesRoutes.ts
 var router7 = Router7();
-router7.post("/validate", (req, res) => ValidatePinController_default.handle(req, res));
+router7.post(
+  "/validate",
+  tablePinRateLimitMiddleware,
+  (req, res) => ValidatePinController_default.handle(req, res)
+);
 router7.post(
   "/request-pin",
+  tablePinAssistanceRateLimitMiddleware,
   (req, res) => RequestPinAssistanceController_default.handle(req, res)
 );
 router7.get(
@@ -9431,7 +9929,7 @@ var SessionsTablesRoutes_default = router7;
 import { Router as Router8 } from "express";
 
 // src/modules/table/services/CreateTableService.ts
-import crypto5 from "crypto";
+import crypto7 from "crypto";
 var CreateTableService = class {
   async execute({ number, restaurantId }) {
     const tableExists = await TableRepository_default.findByNumber(
@@ -9441,7 +9939,7 @@ var CreateTableService = class {
     if (tableExists) {
       throw new Error("J\xE1 existe uma mesa com esse n\xFAmero!");
     }
-    const token = crypto5.randomBytes(16).toString("hex");
+    const token = crypto7.randomBytes(16).toString("hex");
     return TableRepository_default.create({
       number: Number(number),
       restaurantId,
@@ -9658,11 +10156,31 @@ var TablesRoutes_default = router8;
 // src/modules/restaurantSettings/routes/RestaurantSettingsRoutes.ts
 import { Router as Router9 } from "express";
 
+// src/modules/restaurantSettings/utils/normalizeRestaurantImage.ts
+var MAX_PERSISTENT_IMAGE_LENGTH = 75e4;
+function normalizeRestaurantImage(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  if (normalized.startsWith("blob:")) {
+    throw new Error("A imagem enviada \xE9 tempor\xE1ria. Selecione o arquivo novamente.");
+  }
+  const isPersistentUrl = /^https?:\/\//i.test(normalized);
+  const isPersistentImageData = /^data:image\/(jpeg|png|webp);base64,/i.test(normalized);
+  if (!isPersistentUrl && !isPersistentImageData) {
+    throw new Error("Formato de imagem inv\xE1lido.");
+  }
+  if (normalized.length > MAX_PERSISTENT_IMAGE_LENGTH) {
+    throw new Error("A imagem ultrapassa o tamanho permitido.");
+  }
+  return normalized;
+}
+
 // src/modules/restaurantSettings/services/CreateRestaurantSettingsService.ts
 var CreateRestaurantSettingsService = class {
   async execute({
     restaurantId,
     deliveryFee,
+    courierFeePerDelivery,
     minimumOrder,
     pixProvider,
     pixKey,
@@ -9688,6 +10206,7 @@ var CreateRestaurantSettingsService = class {
     cardGateway,
     gatewayMerchantId,
     stripeSecretKey,
+    stripeWebhookSecret,
     mercadoPagoAccessToken,
     picpayToken,
     asaasAccessToken,
@@ -9710,7 +10229,7 @@ var CreateRestaurantSettingsService = class {
     }
     const normalizedWhatsapp = whatsapp === void 0 ? void 0 : String(whatsapp || "").trim() || null;
     const normalizedRestaurantName = restaurantName === void 0 ? void 0 : String(restaurantName || "").trim();
-    const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : String(restaurantLogo || "").trim() || null;
+    const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage = restaurantCoverImage === void 0 ? void 0 : String(restaurantCoverImage || "").trim() || null;
     if (restaurantName !== void 0 && String(normalizedRestaurantName || "").length < 2) {
       throw new Error("Nome do restaurante inv\xE1lido.");
@@ -9739,6 +10258,7 @@ var CreateRestaurantSettingsService = class {
     const created = await RestaurantSettingsRepository_default.create({
       restaurantId: Number(restaurantId),
       deliveryFee,
+      courierFeePerDelivery: Math.max(Number(courierFeePerDelivery || 0), 0),
       minimumOrder,
       pixProvider: String(pixProvider || "MERCADO_PAGO").trim().toUpperCase(),
       pixKey,
@@ -9764,6 +10284,7 @@ var CreateRestaurantSettingsService = class {
       cardGateway: String(cardGateway || "").trim() || null,
       gatewayMerchantId: String(gatewayMerchantId || "").trim() || null,
       stripeSecretKey: String(stripeSecretKey || "").trim() || null,
+      stripeWebhookSecret: String(stripeWebhookSecret || "").trim() || null,
       mercadoPagoAccessToken: String(mercadoPagoAccessToken || "").trim() || null,
       picpayToken: String(picpayToken || "").trim() || null,
       asaasAccessToken: String(asaasAccessToken || "").trim() || null,
@@ -9800,12 +10321,16 @@ var CreateRestaurantSettingsService = class {
     return {
       ...created,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(created?.stripeSecretKey || "").trim()
+      ),
+      stripeWebhookSecretConfigured: Boolean(
+        String(created?.stripeWebhookSecret || "").trim()
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(created?.mercadoPagoAccessToken || "").trim()
@@ -9833,6 +10358,7 @@ var CreateRestaurantSettingsController = class {
       const restaurantId = req.user.restaurantId;
       const {
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -9858,6 +10384,7 @@ var CreateRestaurantSettingsController = class {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
         picpayToken,
         asaasAccessToken,
@@ -9877,6 +10404,7 @@ var CreateRestaurantSettingsController = class {
       const settings = await CreateRestaurantSettingsService_default.execute({
         restaurantId,
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -9902,6 +10430,7 @@ var CreateRestaurantSettingsController = class {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
         picpayToken,
         asaasAccessToken,
@@ -9971,6 +10500,7 @@ var GetRestaurantSettingsService = class {
         cardGateway: null,
         gatewayMerchantId: null,
         stripeSecretKey: null,
+        stripeWebhookSecret: null,
         mercadoPagoAccessToken: null,
         picpayToken: null,
         asaasAccessToken: null,
@@ -9978,6 +10508,7 @@ var GetRestaurantSettingsService = class {
         pagbankToken: null,
         pagbankEnvironment: null,
         stripeSecretKeyConfigured: false,
+        stripeWebhookSecretConfigured: false,
         mercadoPagoAccessTokenConfigured: false,
         picpayTokenConfigured: false,
         asaasAccessTokenConfigured: false,
@@ -10000,12 +10531,16 @@ var GetRestaurantSettingsService = class {
     return {
       ...settings,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(settings?.stripeSecretKey || "").trim()
+      ),
+      stripeWebhookSecretConfigured: Boolean(
+        String(settings?.stripeWebhookSecret || "").trim()
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(settings?.mercadoPagoAccessToken || "").trim()
@@ -10069,6 +10604,7 @@ var UpdateRestaurantSettingsService = class {
   async execute({
     restaurantId,
     deliveryFee,
+    courierFeePerDelivery,
     minimumOrder,
     pixProvider,
     pixKey,
@@ -10094,6 +10630,7 @@ var UpdateRestaurantSettingsService = class {
     cardGateway,
     gatewayMerchantId,
     stripeSecretKey,
+    stripeWebhookSecret,
     mercadoPagoAccessToken,
     picpayToken,
     asaasAccessToken,
@@ -10116,7 +10653,7 @@ var UpdateRestaurantSettingsService = class {
     }
     const normalizedWhatsapp = whatsapp === void 0 ? void 0 : String(whatsapp || "").trim() || null;
     const normalizedRestaurantName = restaurantName === void 0 ? void 0 : String(restaurantName || "").trim();
-    const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : String(restaurantLogo || "").trim() || null;
+    const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage = restaurantCoverImage === void 0 ? void 0 : String(restaurantCoverImage || "").trim() || null;
     const normalizedBankName = bankName === void 0 ? void 0 : String(bankName || "").trim() || null;
     const normalizedBankBranch = bankBranch === void 0 ? void 0 : String(bankBranch || "").trim() || null;
@@ -10124,6 +10661,7 @@ var UpdateRestaurantSettingsService = class {
     const normalizedCardGateway = cardGateway === void 0 ? void 0 : String(cardGateway || "").trim() || null;
     const normalizedGatewayMerchantId = gatewayMerchantId === void 0 ? void 0 : String(gatewayMerchantId || "").trim() || null;
     const normalizedStripeSecretKey = stripeSecretKey === void 0 ? void 0 : String(stripeSecretKey || "").trim() || null;
+    const normalizedStripeWebhookSecret = stripeWebhookSecret === void 0 ? void 0 : String(stripeWebhookSecret || "").trim() || null;
     const normalizedMercadoPagoAccessToken = mercadoPagoAccessToken === void 0 ? void 0 : String(mercadoPagoAccessToken || "").trim() || null;
     const normalizedPicPayToken = picpayToken === void 0 ? void 0 : String(picpayToken || "").trim() || null;
     const normalizedAsaasAccessToken = asaasAccessToken === void 0 ? void 0 : String(asaasAccessToken || "").trim() || null;
@@ -10175,6 +10713,7 @@ var UpdateRestaurantSettingsService = class {
     }
     const updated = await RestaurantSettingsRepository_default.update(restaurantId, {
       deliveryFee,
+      courierFeePerDelivery: courierFeePerDelivery === void 0 ? void 0 : Math.max(Number(courierFeePerDelivery || 0), 0),
       minimumOrder,
       pixProvider: resolvedPixProvider,
       pixKey,
@@ -10200,6 +10739,7 @@ var UpdateRestaurantSettingsService = class {
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: resolvedGatewayMerchantId,
       stripeSecretKey: normalizedStripeSecretKey,
+      stripeWebhookSecret: normalizedStripeWebhookSecret,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
@@ -10236,12 +10776,16 @@ var UpdateRestaurantSettingsService = class {
     return {
       ...updated,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
       stripeSecretKeyConfigured: Boolean(
         String(updated?.stripeSecretKey || "").trim()
+      ),
+      stripeWebhookSecretConfigured: Boolean(
+        String(updated?.stripeWebhookSecret || "").trim()
       ),
       mercadoPagoAccessTokenConfigured: Boolean(
         String(updated?.mercadoPagoAccessToken || "").trim()
@@ -10274,6 +10818,7 @@ var UpdateRestaurantSettingsController = class {
       const restaurantId = req.user.restaurantId;
       const {
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -10299,7 +10844,10 @@ var UpdateRestaurantSettingsController = class {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
+        picpayToken,
+        asaasAccessToken,
         pagbankEmail,
         pagbankToken,
         pagbankEnvironment,
@@ -10316,6 +10864,7 @@ var UpdateRestaurantSettingsController = class {
       const settings = await UpdateRestaurantSettingsService_default.execute({
         restaurantId,
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -10341,7 +10890,10 @@ var UpdateRestaurantSettingsController = class {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
+        picpayToken,
+        asaasAccessToken,
         pagbankEmail,
         pagbankToken,
         pagbankEnvironment,
@@ -10392,11 +10944,13 @@ var GetPublicRestaurantSettingsService = class {
         pixProvider: "MERCADO_PAGO",
         pixKey: null,
         instagram: null,
+        facebook: null,
         restaurant: {
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
-          coverImage: restaurant?.coverImage || null
+          coverImage: restaurant?.coverImage || null,
+          banners: restaurant?.banners || []
         }
       };
       return fallback;
@@ -11071,25 +11625,32 @@ var BannerRepository = class {
       }
     });
   }
-  async findById(id) {
-    return prisma_default.banner.findUnique({
+  async findById(id, restaurantId) {
+    return prisma_default.banner.findFirst({
       where: {
-        id: Number(id)
+        id: Number(id),
+        restaurantId: Number(restaurantId)
       }
     });
   }
-  async update(id, data) {
-    return prisma_default.banner.update({
+  async update(id, restaurantId, data) {
+    const result = await prisma_default.banner.updateMany({
       where: {
-        id: Number(id)
+        id: Number(id),
+        restaurantId: Number(restaurantId)
       },
       data
     });
+    if (result.count === 0) {
+      return null;
+    }
+    return this.findById(id, restaurantId);
   }
-  async delete(id) {
-    return prisma_default.banner.delete({
+  async delete(id, restaurantId) {
+    return prisma_default.banner.deleteMany({
       where: {
-        id: Number(id)
+        id: Number(id),
+        restaurantId: Number(restaurantId)
       }
     });
   }
@@ -11160,12 +11721,12 @@ var ListBannerController_default = new ListBannerController();
 
 // src/modules/banner/services/UpdateBannerService.ts
 var UpdateBannerService = class {
-  async execute({ id, title, image }) {
-    const banner = await BannerRepository_default.findById(id);
+  async execute({ id, restaurantId, title, image }) {
+    const banner = await BannerRepository_default.findById(id, restaurantId);
     if (!banner) {
       throw new Error("Banner n\xE3o encontrado");
     }
-    return await BannerRepository_default.update(id, {
+    return await BannerRepository_default.update(id, restaurantId, {
       title,
       image
     });
@@ -11177,10 +11738,12 @@ var UpdateBannerService_default = new UpdateBannerService();
 var UpdateBannerController = class {
   async handle(req, res) {
     try {
+      const restaurantId = req.user.restaurantId;
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { title, image } = req.body;
       const banner = await UpdateBannerService_default.execute({
         id,
+        restaurantId,
         title,
         image
       });
@@ -11196,12 +11759,12 @@ var UpdateBannerController_default = new UpdateBannerController();
 
 // src/modules/banner/services/DeleteBannerService.ts
 var DeleteBannerService = class {
-  async execute({ id }) {
-    const banner = await BannerRepository_default.findById(id);
+  async execute({ id, restaurantId }) {
+    const banner = await BannerRepository_default.findById(id, restaurantId);
     if (!banner) {
       throw new Error("Banner n\xE3o encontrado");
     }
-    await BannerRepository_default.delete(id);
+    await BannerRepository_default.delete(id, restaurantId);
     return { message: "Banner removido com sucesso" };
   }
 };
@@ -11211,9 +11774,11 @@ var DeleteBannerService_default = new DeleteBannerService();
 var DeleteBannerController = class {
   async handle(req, res) {
     try {
+      const restaurantId = req.user.restaurantId;
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const result = await DeleteBannerService_default.execute({
-        id
+        id,
+        restaurantId
       });
       return res.status(200).json(result);
     } catch (error2) {
@@ -11274,10 +11839,11 @@ var CouponRepository = class {
       }
     });
   }
-  async findById(id) {
-    return prisma_default.coupon.findUnique({
+  async findById(id, restaurantId) {
+    return prisma_default.coupon.findFirst({
       where: {
-        id: Number(id)
+        id: Number(id),
+        restaurantId: Number(restaurantId)
       }
     });
   }
@@ -11289,18 +11855,24 @@ var CouponRepository = class {
       }
     });
   }
-  async update(id, data) {
-    return prisma_default.coupon.update({
+  async update(id, restaurantId, data) {
+    const result = await prisma_default.coupon.updateMany({
       where: {
-        id: Number(id)
+        id: Number(id),
+        restaurantId: Number(restaurantId)
       },
       data
     });
+    if (result.count === 0) {
+      return null;
+    }
+    return this.findById(id, restaurantId);
   }
-  async delete(id) {
-    return prisma_default.coupon.delete({
+  async delete(id, restaurantId) {
+    return prisma_default.coupon.deleteMany({
       where: {
-        id: Number(id)
+        id: Number(id),
+        restaurantId: Number(restaurantId)
       }
     });
   }
@@ -11379,13 +11951,19 @@ var ListCouponController_default = new ListCouponController();
 
 // src/modules/coupon/services/UpdateCouponService.ts
 var UpdateCouponService = class {
-  async execute({ id, code, discount, expiration }) {
+  async execute({
+    id,
+    restaurantId,
+    code,
+    discount,
+    expiration
+  }) {
     const normalizedId = Array.isArray(id) ? id[0] : id;
-    const coupon = await CouponRepository_default.findById(normalizedId);
+    const coupon = await CouponRepository_default.findById(normalizedId, restaurantId);
     if (!coupon) {
       throw new Error("Cupom n\xE3o encontrado");
     }
-    return await CouponRepository_default.update(normalizedId, {
+    return await CouponRepository_default.update(normalizedId, restaurantId, {
       code,
       discount,
       expiration
@@ -11398,10 +11976,12 @@ var UpdateCouponService_default = new UpdateCouponService();
 var UpdateCouponController = class {
   async handle(req, res) {
     try {
+      const restaurantId = req.user.restaurantId;
       const { id } = req.params;
       const { code, discount, expiration } = req.body;
       const coupon = await UpdateCouponService_default.execute({
         id,
+        restaurantId,
         code,
         discount,
         expiration
@@ -11418,13 +11998,13 @@ var UpdateCouponController_default = new UpdateCouponController();
 
 // src/modules/coupon/services/DeleteCouponService.ts
 var DeleteCouponService = class {
-  async execute({ id }) {
+  async execute({ id, restaurantId }) {
     const normalizedId = Array.isArray(id) ? id[0] : id;
-    const coupon = await CouponRepository_default.findById(normalizedId);
+    const coupon = await CouponRepository_default.findById(normalizedId, restaurantId);
     if (!coupon) {
       throw new Error("Cupom n\xE3o encontrado");
     }
-    await CouponRepository_default.delete(normalizedId);
+    await CouponRepository_default.delete(normalizedId, restaurantId);
     return { message: "Cupom removido com sucesso" };
   }
 };
@@ -11434,9 +12014,11 @@ var DeleteCouponService_default = new DeleteCouponService();
 var DeleteCouponController = class {
   async handle(req, res) {
     try {
+      const restaurantId = req.user.restaurantId;
       const { id } = req.params;
       const result = await DeleteCouponService_default.execute({
-        id
+        id,
+        restaurantId
       });
       return res.status(200).json(result);
     } catch (error2) {
@@ -12523,6 +13105,50 @@ router15.get(
 );
 var AuditRoutes_default = router15;
 
+// src/modules/favorites/routes/FavoriteRoutes.ts
+import { Router as Router16 } from "express";
+var router16 = Router16();
+function clientContext(req, res) {
+  if (req.user.role !== "CLIENTE" || !req.user.id || !req.user.restaurantId) {
+    res.status(403).json({ error: "Favoritos s\xE3o exclusivos para clientes." });
+    return null;
+  }
+  return { userId: Number(req.user.id), restaurantId: Number(req.user.restaurantId) };
+}
+router16.get("/", authMiddleware, async (req, res) => {
+  const context = clientContext(req, res);
+  if (!context) return;
+  const favorites = await prisma_default.productFavorite.findMany({
+    where: context,
+    include: { product: { include: { category: true } } },
+    orderBy: { createdAt: "desc" }
+  });
+  res.json({ favorites: favorites.map((item) => item.product) });
+});
+router16.post("/:productId", authMiddleware, async (req, res) => {
+  const context = clientContext(req, res);
+  if (!context) return;
+  const productId = Number(req.params.productId);
+  const product = await prisma_default.product.findFirst({ where: { id: productId, restaurantId: context.restaurantId, active: true } });
+  if (!product) {
+    res.status(404).json({ error: "Produto n\xE3o encontrado." });
+    return;
+  }
+  await prisma_default.productFavorite.upsert({
+    where: { userId_productId: { userId: context.userId, productId } },
+    update: { restaurantId: context.restaurantId },
+    create: { ...context, productId }
+  });
+  res.status(201).json({ favorite: true, product });
+});
+router16.delete("/:productId", authMiddleware, async (req, res) => {
+  const context = clientContext(req, res);
+  if (!context) return;
+  await prisma_default.productFavorite.deleteMany({ where: { userId: context.userId, productId: Number(req.params.productId), restaurantId: context.restaurantId } });
+  res.json({ favorite: false });
+});
+var FavoriteRoutes_default = router16;
+
 // src/modules/orders/controllers/AsaasOrderWebhookController.ts
 var AsaasOrderWebhookController = class {
   async handle(req, res) {
@@ -12691,38 +13317,39 @@ var AsaasWithdrawValidationWebhookController = class {
 var AsaasWithdrawValidationWebhookController_default = new AsaasWithdrawValidationWebhookController();
 
 // src/routes/index.ts
-var router16 = Router16();
-router16.post("/api/webhooks/asaas", (req, res) => {
+var router17 = Router17();
+router17.post("/api/webhooks/asaas", (req, res) => {
   AsaasOrderWebhookController_default.handle(req, res);
 });
-router16.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
+router17.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
   AsaasWithdrawValidationWebhookController_default.handle(req, res);
 });
-router16.use("/auth", authRoutes_default);
-router16.use("/restaurants", restaurantRoutes_default);
-router16.use("/categories", CategoryRoutes_default);
-router16.use("/products", productsRoutes_default);
-router16.use("/orders", orderRoutes_default);
-router16.use("/employees", EmployeeRoutes_default);
-router16.use("/table-sessions", SessionsTablesRoutes_default);
-router16.use("/tables", TablesRoutes_default);
-router16.use("/settings", RestaurantSettingsRoutes_default);
-router16.use("/banners", BannerRoutes_default);
-router16.use("/coupons", CouponRoutes_default);
-router16.use("/subscription", SubscriptionRoutes_default);
-router16.use("/ai-support", AiSupportRoutes_default);
-router16.use("/menu-import", MenuImportRoutes_default);
-router16.use("/audit-logs", AuditRoutes_default);
-router16.get("/profile", authMiddleware, (req, res) => {
+router17.use("/auth", authRoutes_default);
+router17.use("/restaurants", restaurantRoutes_default);
+router17.use("/categories", CategoryRoutes_default);
+router17.use("/products", productsRoutes_default);
+router17.use("/orders", orderRoutes_default);
+router17.use("/employees", EmployeeRoutes_default);
+router17.use("/table-sessions", SessionsTablesRoutes_default);
+router17.use("/tables", TablesRoutes_default);
+router17.use("/settings", RestaurantSettingsRoutes_default);
+router17.use("/banners", BannerRoutes_default);
+router17.use("/coupons", CouponRoutes_default);
+router17.use("/subscription", SubscriptionRoutes_default);
+router17.use("/ai-support", AiSupportRoutes_default);
+router17.use("/menu-import", MenuImportRoutes_default);
+router17.use("/audit-logs", AuditRoutes_default);
+router17.use("/favorites", FavoriteRoutes_default);
+router17.get("/profile", authMiddleware, (req, res) => {
   return res.json({
     message: "Rota protegida!",
     user: req.user
   });
 });
-var routes_default = router16;
+var routes_default = router17;
 
 // src/modules/billing/routes/BillingRoutes.ts
-import { Router as Router17 } from "express";
+import { Router as Router18 } from "express";
 
 // src/modules/billing/controllers/MercadoPagoWebhookController.ts
 import { MercadoPagoConfig as MercadoPagoConfig3, Payment as Payment3 } from "mercadopago";
@@ -12766,46 +13393,61 @@ function debug(message, meta) {
 // src/modules/billing/services/ProcessPaymentService.ts
 var ProcessPaymentService = class {
   async execute({ invoiceId }) {
-    const invoice = await BillingRepository_default.updateInvoice(invoiceId, {
-      status: "PAGO",
-      paidAt: /* @__PURE__ */ new Date()
-    });
-    const subscription = await BillingRepository_default.findSubscriptionByRestaurantId(
-      invoice.restaurantId
-    );
-    const openInvoices = await prisma_default.invoice.findMany({
-      where: {
-        restaurantId: invoice.restaurantId,
-        status: {
-          in: ["PENDENTE", "ATRASADO"]
-        }
-      }
-    });
-    const hasBlockingInvoice = hasBlockingInvoices(openInvoices, /* @__PURE__ */ new Date());
-    if (!hasBlockingInvoice) {
-      if (subscription) {
-        await BillingRepository_default.updateSubscription(subscription.id, {
-          status: "ATIVA"
-        });
-      }
-      await BillingRepository_default.activateRestaurant(invoice.restaurantId);
-      info("payment processed and restaurant activated", {
-        invoiceId,
-        restaurantId: invoice.restaurantId
-      });
-    } else {
-      if (subscription) {
-        await BillingRepository_default.updateSubscription(subscription.id, {
-          status: "EXPIRADA"
-        });
-      }
-      await BillingRepository_default.deactivateRestaurant(invoice.restaurantId);
-      info("payment processed but restaurant remains blocked", {
-        invoiceId,
-        restaurantId: invoice.restaurantId
-      });
+    const normalizedInvoiceId = Number(invoiceId);
+    if (!Number.isInteger(normalizedInvoiceId) || normalizedInvoiceId <= 0) {
+      throw new Error("Fatura inv\xE1lida.");
     }
-    return invoice;
+    const result = await prisma_default.$transaction(async (tx) => {
+      const existingInvoice = await BillingRepository_default.findInvoiceById(
+        normalizedInvoiceId,
+        tx
+      );
+      if (!existingInvoice) {
+        throw new Error("Fatura n\xE3o encontrada.");
+      }
+      const invoice = existingInvoice.status === "PAGO" ? existingInvoice : await BillingRepository_default.updateInvoice(
+        normalizedInvoiceId,
+        {
+          status: "PAGO",
+          paidAt: /* @__PURE__ */ new Date()
+        },
+        tx
+      );
+      const subscription = await BillingRepository_default.findSubscriptionByRestaurantId(
+        invoice.restaurantId,
+        tx
+      );
+      const openInvoices = await tx.invoice.findMany({
+        where: {
+          restaurantId: invoice.restaurantId,
+          status: {
+            in: ["PENDENTE", "ATRASADO"]
+          }
+        }
+      });
+      const remainsBlocked = hasBlockingInvoices(openInvoices, /* @__PURE__ */ new Date());
+      if (subscription) {
+        await BillingRepository_default.updateSubscription(
+          subscription.id,
+          { status: remainsBlocked ? "EXPIRADA" : "ATIVA" },
+          tx
+        );
+      }
+      if (remainsBlocked) {
+        await BillingRepository_default.deactivateRestaurant(invoice.restaurantId, tx);
+      } else {
+        await BillingRepository_default.activateRestaurant(invoice.restaurantId, tx);
+      }
+      return { invoice, remainsBlocked };
+    });
+    info(
+      result.remainsBlocked ? "payment processed but restaurant remains blocked" : "payment processed and restaurant activated",
+      {
+        invoiceId: normalizedInvoiceId,
+        restaurantId: result.invoice.restaurantId
+      }
+    );
+    return result.invoice;
   }
 };
 var ProcessPaymentService_default = new ProcessPaymentService();
@@ -12915,9 +13557,28 @@ var MercadoPagoWebhookController = class {
 var MercadoPagoWebhookController_default = new MercadoPagoWebhookController();
 
 // src/modules/billing/controllers/BillingWebhookController.ts
+import crypto8 from "crypto";
 var BillingWebhookController = class {
   async handle(req, res) {
     try {
+      const isEnabled = process.env.NODE_ENV !== "production" && String(
+        process.env.ENABLE_TEST_PAYMENT_WEBHOOK || "false"
+      ).toLowerCase() === "true";
+      const configuredSecret = String(
+        process.env.TEST_PAYMENT_WEBHOOK_SECRET || ""
+      ).trim();
+      const receivedSecret = String(
+        req.headers["x-test-webhook-secret"] || ""
+      ).trim();
+      if (!isEnabled || !configuredSecret || !receivedSecret) {
+        return res.sendStatus(404);
+      }
+      const configuredBuffer = Buffer.from(configuredSecret);
+      const receivedBuffer = Buffer.from(receivedSecret);
+      const secretMatches = configuredBuffer.length === receivedBuffer.length && crypto8.timingSafeEqual(configuredBuffer, receivedBuffer);
+      if (!secretMatches) {
+        return res.sendStatus(404);
+      }
       const payment = req.body;
       const paymentId = payment.data?.id || payment.id || payment.data?.payment_id;
       debug("test webhook received", { paymentId });
@@ -13169,40 +13830,40 @@ var RegenerateInvoicePaymentLinkController = class {
 var RegenerateInvoicePaymentLinkController_default = new RegenerateInvoicePaymentLinkController();
 
 // src/modules/billing/routes/BillingRoutes.ts
-var router17 = Router17();
-router17.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
-router17.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
-router17.get(
+var router18 = Router18();
+router18.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
+router18.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
+router18.get(
   "/plans",
   authMiddleware,
   adminMiddleware,
   (req, res) => GetPlansController_default.handle(req, res)
 );
-router17.get(
+router18.get(
   "/invoices",
   authMiddleware,
   adminMiddleware,
   (req, res) => GetInvoicesController_default.handle(req, res)
 );
-router17.get(
+router18.get(
   "/invoices/all",
   authMiddleware,
   superAdminMiddleware,
   (req, res) => GetAllInvoicesController_default.handle(req, res)
 );
-router17.post(
+router18.post(
   "/invoices/:id/regenerate-link",
   authMiddleware,
   adminMiddleware,
   (req, res) => RegenerateInvoicePaymentLinkController_default.handle(req, res)
 );
-var BillingRoutes_default = router17;
+var BillingRoutes_default = router18;
 
 // src/middlewares/security/requestIdMiddleware.ts
-import crypto6 from "crypto";
+import crypto9 from "crypto";
 function requestIdMiddleware(req, res, next) {
   const rawRequestId = req.headers["x-request-id"];
-  const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId || crypto6.randomUUID();
+  const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId || crypto9.randomUUID();
   req.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);
   next();
@@ -13397,7 +14058,7 @@ var rateLimitWindowMs = Number(
   process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1e3
 );
 var rateLimitMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 300);
-var globalRateLimit = rateLimit2({
+var globalRateLimit = rateLimit5({
   windowMs: rateLimitWindowMs,
   max: rateLimitMax,
   standardHeaders: true,
@@ -13406,7 +14067,7 @@ var globalRateLimit = rateLimit2({
     error: "Muitas requisicoes. Tente novamente em instantes."
   }
 });
-var authRateLimit = rateLimit2({
+var authRateLimit = rateLimit5({
   windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1e3),
   max: Number(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 50),
   standardHeaders: true,
@@ -13526,6 +14187,7 @@ function socketHandler(socket) {
     return;
   }
   const { id, role, restaurantId } = user;
+  let lastLocationStoredAt = 0;
   socket.join(`restaurant:${restaurantId}`);
   socket.join(`user:${id}`);
   if (role === "FUNCIONARIO") {
@@ -13553,6 +14215,11 @@ function socketHandler(socket) {
       });
       return;
     }
+    const receivedAt = Date.now();
+    if (receivedAt - lastLocationStoredAt < 3e3) {
+      reply({ ok: true });
+      return;
+    }
     const orderId = Number(rawPayload?.orderId || 0);
     const latitude = Number(rawPayload?.latitude);
     const longitude = Number(rawPayload?.longitude);
@@ -13576,7 +14243,8 @@ function socketHandler(socket) {
         userId: true,
         restaurantId: true,
         type: true,
-        status: true
+        status: true,
+        assignedCourierId: true
       }
     });
     if (!order) {
@@ -13595,6 +14263,10 @@ function socketHandler(socket) {
       reply({ ok: false, error: "Rastreio dispon\xEDvel apenas em entrega." });
       return;
     }
+    if (Number(order.assignedCourierId || 0) !== Number(id || 0)) {
+      reply({ ok: false, error: "Esta entrega n\xE3o est\xE1 atribu\xEDda a voc\xEA." });
+      return;
+    }
     const payload = {
       orderId: order.id,
       latitude,
@@ -13603,8 +14275,22 @@ function socketHandler(socket) {
       speed: Number.isFinite(speed) ? speed : null,
       accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? Math.round(accuracy) : null,
       sentAt,
+      recordedAt: sentAt,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
+    await prisma_default.deliveryLocation.create({
+      data: {
+        orderId: order.id,
+        courierId: Number(id),
+        latitude,
+        longitude,
+        heading: Number.isFinite(heading) ? heading : null,
+        speed: Number.isFinite(speed) ? speed : null,
+        accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null,
+        recordedAt: new Date(sentAt)
+      }
+    });
+    lastLocationStoredAt = receivedAt;
     socket.to(`user:${order.userId}`).emit("order:delivery-location", payload);
     socket.to(`restaurant:${order.restaurantId}`).emit("order:delivery-location", payload);
     reply({ ok: true });
@@ -14002,6 +14688,21 @@ var ReconcileMercadoPagoInvoicesService = class {
 };
 var ReconcileMercadoPagoInvoicesService_default = new ReconcileMercadoPagoInvoicesService();
 
+// src/modules/orders/jobs/DeliveryLocationCleanupJob.ts
+var DeliveryLocationCleanupJob = class {
+  async execute() {
+    const configuredDays = Number(
+      process.env.DELIVERY_LOCATION_RETENTION_DAYS || 30
+    );
+    const retentionDays = Number.isFinite(configuredDays) ? Math.min(Math.max(Math.floor(configuredDays), 1), 365) : 30;
+    const cutoff = new Date(Date.now() - retentionDays * 864e5);
+    return prisma_default.deliveryLocation.deleteMany({
+      where: { recordedAt: { lt: cutoff } }
+    });
+  }
+};
+var DeliveryLocationCleanupJob_default = new DeliveryLocationCleanupJob();
+
 // src/modules/billing/jobs/scheduler.ts
 function startJobs() {
   cron.schedule(
@@ -14035,6 +14736,20 @@ function startJobs() {
     {
       timezone: "America/Sao_Paulo"
     }
+  );
+  cron.schedule(
+    "30 3 * * *",
+    async () => {
+      try {
+        const result = await DeliveryLocationCleanupJob_default.execute();
+        info("old delivery locations removed", { count: result.count });
+      } catch (err) {
+        error("delivery location cleanup failed", {
+          message: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    { timezone: "America/Sao_Paulo" }
   );
 }
 
@@ -14107,6 +14822,24 @@ function validateCriticalEnv() {
     errors.push(
       "ALLOW_GLOBAL_PAYMENT_FALLBACK nao pode ser true em producao multi-tenant."
     );
+  }
+  const paymentPinSecret = String(
+    process.env.PAYMENT_PIN_SECRET || process.env.JWT_MFA_SECRET || jwtSecret
+  ).trim();
+  if (paymentPinSecret.length < 32) {
+    errors.push(
+      "PAYMENT_PIN_SECRET deve ter pelo menos 32 caracteres em producao."
+    );
+  }
+  const enableTestPaymentWebhook = String(process.env.ENABLE_TEST_PAYMENT_WEBHOOK || "false").trim() === "true";
+  if (enableTestPaymentWebhook) {
+    errors.push(
+      "ENABLE_TEST_PAYMENT_WEBHOOK nao pode ser true em producao."
+    );
+  }
+  const enableDestructiveCleanup = String(process.env.ENABLE_DESTRUCTIVE_CLEANUP || "false").trim() === "true";
+  if (enableDestructiveCleanup) {
+    errors.push("ENABLE_DESTRUCTIVE_CLEANUP nao pode ser true em producao.");
   }
   if (errors.length) {
     throw new Error(`Falha na validacao de ambiente: ${errors.join(" ")}`);

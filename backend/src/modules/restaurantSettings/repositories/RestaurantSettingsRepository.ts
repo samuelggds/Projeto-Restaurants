@@ -33,6 +33,11 @@ class RestaurantSettingsRepository {
         logo: true,
         coverImage: true,
         whatsapp: true,
+        banners: {
+          where: { active: true },
+          select: { id: true, title: true, image: true },
+          orderBy: { id: "asc" },
+        },
       },
     });
   }
@@ -49,12 +54,18 @@ class RestaurantSettingsRepository {
         pixProvider: true,
         pixKey: true,
         instagram: true,
+        facebook: true,
         restaurant: {
           select: {
             name: true,
             slug: true,
             logo: true,
             coverImage: true,
+            banners: {
+              where: { active: true },
+              select: { id: true, title: true, image: true },
+              orderBy: { id: "asc" },
+            },
           },
         },
       },

@@ -10,6 +10,9 @@ export const adminMockSettings: AdminSettings = {
   minimumOrder: 0,
   deliveryTime: 0,
   tableOrderingEnabled: false,
+  mainBannerUrl: "",
+  promotion1Url: "",
+  promotion2Url: "",
 };
 
 export const adminMockEmployees: Employee[] = [];

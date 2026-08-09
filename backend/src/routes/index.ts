@@ -16,6 +16,7 @@ import subscriptionRoutes from "../modules/subscription/routes/SubscriptionRoute
 import aiSupportRoutes from "../modules/aiSupport/routes/AiSupportRoutes.js";
 import menuImportRoutes from "../modules/menuImport/routes/MenuImportRoutes.js";
 import auditRoutes from "../modules/audit/routes/AuditRoutes.js";
+import favoriteRoutes from "../modules/favorites/routes/FavoriteRoutes.js";
 import AsaasOrderWebhookController from "../modules/orders/controllers/AsaasOrderWebhookController.js";
 import AsaasWithdrawValidationWebhookController from "../modules/restaurantSettings/controllers/AsaasWithdrawValidationWebhookController.js";
 
@@ -44,6 +45,7 @@ router.use("/subscription", subscriptionRoutes);
 router.use("/ai-support", aiSupportRoutes);
 router.use("/menu-import", menuImportRoutes);
 router.use("/audit-logs", auditRoutes);
+router.use("/favorites", favoriteRoutes);
 
 router.get("/profile", authMiddleware, (req, res) => {
   return res.json({

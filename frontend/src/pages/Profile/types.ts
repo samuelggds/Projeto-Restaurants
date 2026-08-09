@@ -85,6 +85,7 @@ export type ProfilePageProps = {
   onEditAddress?: () => void;
   onEditPayment?: () => void;
   onOpenFavorites?: () => void;
+  onToggleFavorite?: (productId: string) => void | Promise<void>;
   onOpenPersonalData?: () => void;
   onOpenSecurity?: () => void;
   onSupport?: () => void;

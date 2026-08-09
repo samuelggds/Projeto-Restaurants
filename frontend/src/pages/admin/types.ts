@@ -58,6 +58,12 @@ export type AdminSettings = {
   minimumOrder: number;
   deliveryTime: number;
   tableOrderingEnabled: boolean;
+  mainBannerId?: number;
+  mainBannerUrl?: string;
+  promotion1Id?: number;
+  promotion1Url?: string;
+  promotion2Id?: number;
+  promotion2Url?: string;
 };
 
 export type Employee = {

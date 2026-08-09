@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import api from "../../Services/api";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
+import favoritesService from "../../Services/favoritesService";
 import { useAuth } from "../../contexts/authContext";
 import { ProfilePage } from "./ProfilePage";
 import { profileMockData } from "./data";
-import type { ProfileData, ProfileOrder, ProfileOrderStatus } from "./types";
+import type { ProfileData, ProfileFavorite, ProfileOrder, ProfileOrderStatus } from "./types";
 
 const ACTIVE_STATUSES = new Set([
   "PENDENTE",
@@ -76,6 +77,7 @@ export default function Profile() {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(
     null,
   );
@@ -124,6 +126,14 @@ export default function Profile() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    favoritesService.list().then((items) => {
+      if (active) setFavorites(items as Record<string, unknown>[]);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
   const data: ProfileData = useMemo(() => {
     const r = (settings?.restaurant as Record<string, unknown>) ?? {};
     const brand = {
@@ -167,7 +177,7 @@ export default function Profile() {
       phone: String((user as Record<string, unknown>)?.phone || ""),
       avatarUrl,
       mainAddress,
-      favoriteCount: 0,
+      favoriteCount: favorites.length,
     };
 
     const activeRaw = orders.find((o) =>
@@ -213,8 +223,17 @@ export default function Profile() {
         ]
       : [];
 
-    return { brand, user: profileUser, activeOrder, recentOrders, addresses };
-  }, [user, settings, orders, avatarUrl]);
+    const profileFavorites: ProfileFavorite[] = favorites.map((item) => ({
+      id: String(item.id || ""),
+      name: String(item.name || ""),
+      description: String(item.description || ""),
+      price: Number(item.price || 0),
+      image: String(item.image || ""),
+      rating: Number(item.averageRating || 0),
+    }));
+
+    return { brand, user: profileUser, activeOrder, recentOrders, addresses, favorites: profileFavorites };
+  }, [user, settings, orders, favorites, avatarUrl]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -259,6 +278,10 @@ export default function Profile() {
       onUploadAvatar={handleUploadAvatar}
       onSavePersonalData={handleSavePersonalData}
       onChangePassword={handleChangePassword}
+      onToggleFavorite={async (productId) => {
+        await favoritesService.remove(productId);
+        setFavorites((current) => current.filter((item) => String(item.id) !== productId));
+      }}
       onTrackOrder={(orderId) =>
         navigate(`/orders/${String(orderId).replace(/^#/, "")}/tracking`)
       }

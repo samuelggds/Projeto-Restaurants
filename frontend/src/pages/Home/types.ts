@@ -5,6 +5,8 @@ export type HomeBrand = {
   address: string;
   primaryColor?: string;
   whatsapp?: string;
+  instagram?: string;
+  facebook?: string;
 };
 
 export type HomeCategory = {
@@ -49,8 +51,11 @@ export type HomePageProps = {
   userName?: string;
   userEmail?: string;
   userLoggedIn?: boolean;
+  isAdmin?: boolean;
+  favoriteProductIds?: string[];
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenAdmin?: () => void;
   onOpenCart?: () => void;
   onSearch?: () => void;
   onSelectCategory?: (categoryId: string) => void;

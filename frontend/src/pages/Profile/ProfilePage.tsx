@@ -104,6 +104,7 @@ export function ProfilePage(props: ProfilePageProps) {
               <Overview
                 {...props}
                 onViewAllOrders={() => setView("orders")}
+                onOpenFavorites={() => setView("favorites")}
                 data={data}
               />
             )}
@@ -466,7 +467,7 @@ function Addresses({
   );
 }
 
-function Favorites({ data = profileMockData, onReorder }: ProfilePageProps) {
+function Favorites({ data = profileMockData, onReorder, onToggleFavorite }: ProfilePageProps) {
   const favorites = data.favorites ?? [];
   return (
     <>
@@ -481,7 +482,11 @@ function Favorites({ data = profileMockData, onReorder }: ProfilePageProps) {
           {favorites.map((item) => (
             <S.FavoriteCard key={item.id}>
               <img src={item.image} alt={item.name} />
-              <button className="heart" aria-label="Remover favorito">
+              <button
+                className="heart"
+                aria-label="Remover favorito"
+                onClick={() => onToggleFavorite?.(item.id)}
+              >
                 <Heart fill="currentColor" size={19} />
               </button>
               <div>

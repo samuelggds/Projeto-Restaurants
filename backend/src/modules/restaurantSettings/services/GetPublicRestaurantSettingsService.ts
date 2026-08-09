@@ -13,11 +13,13 @@ type PublicSettingsFallback = {
   pixProvider: string;
   pixKey: string | null;
   instagram: string | null;
+  facebook: string | null;
   restaurant: {
     name: string | null;
     slug: string | null;
     logo: string | null;
     coverImage: string | null;
+    banners: Array<{ id: number; title: string; image: string }>;
   };
 };
 
@@ -60,11 +62,13 @@ class GetPublicRestaurantSettingsService {
         pixProvider: "MERCADO_PAGO",
         pixKey: null,
         instagram: null,
+        facebook: null,
         restaurant: {
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
           coverImage: restaurant?.coverImage || null,
+          banners: restaurant?.banners || [],
         },
       };
 

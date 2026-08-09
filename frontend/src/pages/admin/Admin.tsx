@@ -10,6 +10,13 @@ import { AdminPage } from "./AdminPage";
 import { adminMockSettings, adminMockEmployees } from "./data";
 import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from "./types";
 import { isPersistentImageSource } from "../../utils/persistentImage";
+import bannerService, { type BannerRecord } from "../../Services/bannerService";
+
+const BANNER_TITLES = {
+  main: "Banner principal",
+  promotion1: "Promoção 1",
+  promotion2: "Promoção 2",
+} as const;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -34,9 +41,13 @@ function mapProduct(value: unknown): AdminProduct {
     description: String(raw.description ?? ""), stock: Number(raw.stock ?? 0), active: raw.active !== false };
 }
 
-function mapSettingsFromApi(raw: Record<string, unknown>): AdminSettings {
+function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[] = []): AdminSettings {
   const r = (raw?.restaurant as Record<string, unknown>) ?? {};
   const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? "";
+  const banner = (title: string) => banners.find((item) => item.title === title);
+  const mainBanner = banner(BANNER_TITLES.main);
+  const promotion1 = banner(BANNER_TITLES.promotion1);
+  const promotion2 = banner(BANNER_TITLES.promotion2);
   return {
     restaurantName: String(
       r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName,
@@ -54,6 +65,12 @@ function mapSettingsFromApi(raw: Record<string, unknown>): AdminSettings {
     tableOrderingEnabled: Boolean(
       raw?.tableOrderingEnabled ?? adminMockSettings.tableOrderingEnabled,
     ),
+    mainBannerId: mainBanner?.id,
+    mainBannerUrl: mainBanner?.image ?? "",
+    promotion1Id: promotion1?.id,
+    promotion1Url: promotion1?.image ?? "",
+    promotion2Id: promotion2?.id,
+    promotion2Url: promotion2?.image ?? "",
   };
 }
 
@@ -128,14 +145,13 @@ export default function Admin() {
 
   useEffect(() => {
     let mounted = true;
-    restaurantSettingsService
-      .getMySettings()
-      .then((data) => {
+    Promise.all([restaurantSettingsService.getMySettings(), bannerService.list()])
+      .then(([data, banners]) => {
         if (!mounted) return;
         setSettingsId(
           Number((data as Record<string, unknown>)?.id ?? 0) || null,
         );
-        setSettings(mapSettingsFromApi(data as Record<string, unknown>));
+        setSettings(mapSettingsFromApi(data as Record<string, unknown>, banners));
       })
       .catch((error) => {
         console.error("Não foi possível carregar as configurações.", error);
@@ -175,6 +191,22 @@ export default function Admin() {
           Number((created as Record<string, unknown>)?.id ?? 0) || null,
         );
       }
+      const slots = [
+        { id: updated.mainBannerId, title: BANNER_TITLES.main, image: updated.mainBannerUrl },
+        { id: updated.promotion1Id, title: BANNER_TITLES.promotion1, image: updated.promotion1Url },
+        { id: updated.promotion2Id, title: BANNER_TITLES.promotion2, image: updated.promotion2Url },
+      ];
+      const persisted = await Promise.all(slots.filter((slot) => Boolean(slot.image)).map((slot) =>
+        slot.id
+          ? bannerService.update(slot.id, { title: slot.title, image: String(slot.image) })
+          : bannerService.create({ title: slot.title, image: String(slot.image) }),
+      ));
+      setSettings((current) => ({
+        ...current,
+        mainBannerId: persisted.find((item) => item.title === BANNER_TITLES.main)?.id ?? current.mainBannerId,
+        promotion1Id: persisted.find((item) => item.title === BANNER_TITLES.promotion1)?.id ?? current.promotion1Id,
+        promotion2Id: persisted.find((item) => item.title === BANNER_TITLES.promotion2)?.id ?? current.promotion2Id,
+      }));
     } catch (error) {
       console.error("Não foi possível salvar as configurações.", error);
       throw error;

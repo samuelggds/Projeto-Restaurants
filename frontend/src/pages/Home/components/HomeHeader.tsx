@@ -1,5 +1,6 @@
 import {
   LogOut,
+  LayoutDashboard,
   MapPin,
   Menu,
   Search,
@@ -17,8 +18,10 @@ type Props = {
   userName?: string;
   userEmail?: string;
   userLoggedIn?: boolean;
+  isAdmin?: boolean;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenAdmin?: () => void;
   onOpenCart?: () => void;
   onSearch?: () => void;
   onLogout?: () => void;
@@ -30,8 +33,10 @@ export function HomeHeader({
   userName,
   userEmail,
   userLoggedIn = false,
+  isAdmin = false,
   onOpenMenu,
   onOpenProfile,
+  onOpenAdmin,
   onOpenCart,
   onSearch,
   onLogout,
@@ -128,6 +133,17 @@ export function HomeHeader({
               </div>
             </DropdownUser>
             <DropdownDivider />
+            {isAdmin && (
+              <DropdownItem
+                onClick={() => {
+                  setProfileOpen(false);
+                  onOpenAdmin?.();
+                }}
+              >
+                <LayoutDashboard size={16} />
+                Painel administrativo
+              </DropdownItem>
+            )}
             <DropdownItem
               onClick={() => {
                 setProfileOpen(false);

@@ -140,6 +140,21 @@ export function AdminPage({
       event.target.value = "";
     }
   };
+  const banner = async (
+    key: "mainBannerUrl" | "promotion1Url" | "promotion2Url",
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFeedbackError("");
+    try {
+      update(key, await createPersistentImageDataUrl(file, 1440));
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Não foi possível processar a imagem.");
+    } finally {
+      event.target.value = "";
+    }
+  };
   const save = async () => {
     setFeedbackError("");
     try {
@@ -371,6 +386,7 @@ export function AdminPage({
                 update={update}
                 input={logoInput}
                 logo={logo}
+                banner={banner}
               />
             ) : (
               <SettingsContent
@@ -434,6 +450,7 @@ function Brand({
   update,
   input,
   logo,
+  banner,
 }: {
   settings: typeof adminMockSettings;
   update: <K extends keyof typeof adminMockSettings>(
@@ -442,7 +459,15 @@ function Brand({
   ) => void;
   input: React.RefObject<HTMLInputElement | null>;
   logo: (e: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  banner: (
+    key: "mainBannerUrl" | "promotion1Url" | "promotion2Url",
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void | Promise<void>;
 }) {
+  const mainBannerInput = useRef<HTMLInputElement>(null);
+  const promotion1Input = useRef<HTMLInputElement>(null);
+  const promotion2Input = useRef<HTMLInputElement>(null);
+
   return (
     <S.Stack>
       <S.Card>
@@ -518,18 +543,21 @@ function Brand({
         <h2>Banners da home</h2>
         <p>Adicione banners para destacar promoções e novidades.</p>
         <S.Banners>
-          <button>
-            <ImagePlus />
+          <input ref={mainBannerInput} hidden type="file" accept="image/*" onChange={(event) => banner("mainBannerUrl", event)} />
+          <button type="button" onClick={() => mainBannerInput.current?.click()}>
+            {settings.mainBannerUrl ? <img src={settings.mainBannerUrl} alt="Banner principal" /> : <ImagePlus />}
             <b>Banner principal</b>
             <span>1440 × 560 px</span>
           </button>
-          <button>
-            <ImagePlus />
+          <input ref={promotion1Input} hidden type="file" accept="image/*" onChange={(event) => banner("promotion1Url", event)} />
+          <button type="button" onClick={() => promotion1Input.current?.click()}>
+            {settings.promotion1Url ? <img src={settings.promotion1Url} alt="Promoção 1" /> : <ImagePlus />}
             <b>Promoção 1</b>
             <span>600 × 400 px</span>
           </button>
-          <button>
-            <ImagePlus />
+          <input ref={promotion2Input} hidden type="file" accept="image/*" onChange={(event) => banner("promotion2Url", event)} />
+          <button type="button" onClick={() => promotion2Input.current?.click()}>
+            {settings.promotion2Url ? <img src={settings.promotion2Url} alt="Promoção 2" /> : <ImagePlus />}
             <b>Promoção 2</b>
             <span>600 × 400 px</span>
           </button>

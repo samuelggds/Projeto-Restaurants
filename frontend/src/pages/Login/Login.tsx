@@ -211,8 +211,14 @@ export default function Login() {
               const authResponse =
                 await completeLoginWithMfaIfNeeded(firstStep);
 
-              login(authResponse.user, authResponse.token);
-              redirectByRole(authResponse.user);
+              setFeedback({
+                type: "success",
+                message: "Login realizado com sucesso!",
+              });
+              setTimeout(() => {
+                login(authResponse.user, authResponse.token);
+                redirectByRole(authResponse.user);
+              }, 700);
             } catch (error) {
               const message =
                 error?.response?.data?.error || "Erro ao autenticar com Google";
@@ -280,8 +286,6 @@ export default function Login() {
       });
       const response = await completeLoginWithMfaIfNeeded(firstStep);
 
-      login(response.user, response.token);
-
       if (rememberMe) {
         localStorage.setItem("rememberedEmail", email);
       } else {
@@ -289,7 +293,10 @@ export default function Login() {
       }
 
       setFeedback({ type: "success", message: "Login realizado com sucesso!" });
-      setTimeout(() => redirectByRole(response.user), 700);
+      setTimeout(() => {
+        login(response.user, response.token);
+        redirectByRole(response.user);
+      }, 700);
     } catch (error) {
       const message =
         error?.response?.data?.error ||

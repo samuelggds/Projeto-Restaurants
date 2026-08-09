@@ -29,8 +29,22 @@ export const Root = styled.div<{ $primary: string; $settings?: boolean }>`
   select {
     font: inherit;
   }
-  button {
+  button,
+  a,
+  [role="button"],
+  label[for],
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="color"],
+  input[type="file"] {
     cursor: pointer;
+  }
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
   }
   @media (max-width: 1080px) {
     grid-template-columns: ${({ $settings }) =>
@@ -468,6 +482,7 @@ export const Banners = styled.div`
   gap: 14px;
   margin-top: 20px;
   button {
+    position: relative;
     min-height: 170px;
     border: 1px dashed #bdb4aa;
     border-radius: 14px;
@@ -478,7 +493,16 @@ export const Banners = styled.div`
     justify-content: center;
     gap: 8px;
     color: #333;
+    cursor: pointer;
+    overflow: hidden;
     transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+  button:has(img)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.68));
+    pointer-events: none;
   }
   button:hover {
     transform: translateY(-2px);
@@ -488,6 +512,23 @@ export const Banners = styled.div`
   span {
     color: var(--muted);
     font-size: 12px;
+  }
+  button:has(img) b,
+  button:has(img) span {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    border-radius: inherit;
   }
   @media (max-width: 620px) {
     display: flex;

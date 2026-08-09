@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import menuService from "../../Services/menuService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import tableSessionService from "../../Services/tableSessionService";
+import favoritesService from "../../Services/favoritesService";
 import { useAuth } from "../../contexts/authContext";
 import { HomePage } from "./HomePage";
 import type { HomeData, HomeProduct, HomeCategory } from "./types";
@@ -129,6 +130,7 @@ export default function Home() {
   const [backendProducts, setBackendProducts] = useState<
     Record<string, unknown>[]
   >([]);
+  const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(
     null,
   );
@@ -155,6 +157,38 @@ export default function Home() {
   const [tableSession, setTableSession] = useState(() =>
     readJson<Record<string, unknown> | null>("tableSession", null),
   );
+
+  useEffect(() => {
+    if (user?.role !== "CLIENTE") {
+      return;
+    }
+    let active = true;
+    favoritesService.list().then((items) => {
+      if (active) setFavoriteProductIds(items.map((item) => String(item.id)));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [user]);
+
+  const toggleFavorite = useCallback(async (productId: string) => {
+    if (!user) {
+      navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    if (user.role !== "CLIENTE") return;
+    const isFavorite = favoriteProductIds.includes(productId);
+    setFavoriteProductIds((current) => isFavorite
+      ? current.filter((id) => id !== productId)
+      : [productId, ...current]);
+    try {
+      if (isFavorite) await favoritesService.remove(productId);
+      else await favoritesService.add(productId);
+    } catch {
+      setFavoriteProductIds((current) => isFavorite
+        ? [productId, ...current]
+        : current.filter((id) => id !== productId));
+      // O estado otimista é revertido quando a API rejeita a operação.
+    }
+  }, [favoriteProductIds, navigate, user]);
 
   // ── Notification system (defined early so useEffects can use it)
   const notify = useCallback(
@@ -372,6 +406,32 @@ export default function Home() {
   // ── Map backend → HomeData
   const homeData: HomeData = useMemo(() => {
     const r = (settings?.restaurant as Record<string, unknown>) ?? {};
+    const persistedBanners = Array.isArray(r?.banners)
+      ? (r.banners as Record<string, unknown>[])
+      : [];
+    const bannerByTitle = (title: string) =>
+      persistedBanners.find((item) => String(item.title || "") === title);
+    const mainBanner = bannerByTitle("Banner principal");
+    const promotionBanners = [
+      bannerByTitle("Promoção 1"),
+      bannerByTitle("Promoção 2"),
+    ].filter(Boolean) as Record<string, unknown>[];
+    const hero = mainBanner && isPersistentImageSource(mainBanner.image)
+      ? {
+          title: "Confira nossas",
+          highlight: "promoções",
+          description: "Ofertas especiais preparadas para você.",
+          image: String(mainBanner.image),
+        }
+      : { title: "", highlight: "", description: "", image: "" };
+    const banners = promotionBanners
+      .filter((item) => isPersistentImageSource(item.image))
+      .map((item) => ({
+        title: String(item.title || ""),
+        highlight: "",
+        description: "",
+        image: String(item.image),
+      }));
     const brand = {
       name: String(r?.name || settings?.restaurantName || ""),
       monogram:
@@ -385,14 +445,16 @@ export default function Home() {
       address: String(settings?.address || ""),
       primaryColor: String(settings?.primaryColor || "#d64d08"),
       whatsapp: String(settings?.whatsapp || ""),
+      instagram: String(settings?.instagram || ""),
+      facebook: String(settings?.facebook || ""),
       logoUrl: isPersistentImageSource(r?.logo) ? String(r.logo) : "",
     };
 
     if (backendProducts.length === 0) {
       return {
         brand,
-        hero: { title: "", highlight: "", description: "", image: "" },
-        banners: [],
+        hero,
+        banners,
         categories: [],
         products: [],
         deliveryTime: String(settings?.averageDeliveryTime || ""),
@@ -430,8 +492,8 @@ export default function Home() {
 
     return {
       brand,
-      hero: { title: "", highlight: "", description: "", image: "" },
-      banners: [],
+      hero,
+      banners,
       categories,
       products,
       deliveryTime: String(settings?.averageDeliveryTime || ""),
@@ -630,9 +692,13 @@ export default function Home() {
             : undefined
         }
         userLoggedIn={!!user}
+        isAdmin={user?.role === "ADMIN"}
+        favoriteProductIds={user?.role === "CLIENTE" ? favoriteProductIds : []}
         onOpenCart={() => setCartOpen(true)}
         onOpenProfile={() => navigate("/profile")}
+        onOpenAdmin={() => navigate("/admin")}
         onAddProduct={addToCart}
+        onToggleFavorite={toggleFavorite}
         onLogout={() => {
           logout();
         }}
