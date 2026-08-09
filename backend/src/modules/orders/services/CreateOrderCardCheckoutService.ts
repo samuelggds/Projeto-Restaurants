@@ -2,7 +2,6 @@ import createOrderService from "./CreateOrderService.js";
 import orderRepository from "../repositories/OrderRepository.js";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
 import {
-  CARD_PROVIDERS,
   type CardProvider,
   normalizeCardProvider,
 } from "../../payments/providers/providerCatalog.js";
@@ -13,17 +12,11 @@ import {
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
-    const requestedProvider = normalizeCardProvider(payload.cardProvider);
-
-    if (payload.cardProvider) {
-      return requestedProvider;
-    }
-
     const resolvedRestaurantId =
       Number(payload.restaurantId) || Number(payload.userRestaurantId) || 0;
 
     if (!resolvedRestaurantId) {
-      return CARD_PROVIDERS.MERCADO_PAGO;
+      throw new Error("Restaurante inválido para pagamento com cartão.");
     }
 
     const settings =
@@ -31,7 +24,20 @@ class CreateOrderCardCheckoutService {
         resolvedRestaurantId,
       );
 
-    return normalizeCardProvider(settings?.cardGateway);
+    const configuredProvider = String(settings?.cardGateway || "").trim();
+    if (!configuredProvider) {
+      throw new Error(
+        "Pagamento com cartão indisponível. Configure o gateway nas configurações do restaurante.",
+      );
+    }
+
+    if (!["MERCADO_PAGO", "ASAAS", "PAGBANK"].includes(configuredProvider.toUpperCase())) {
+      throw new Error(
+        "Gateway inválido. Escolha Mercado Pago, Asaas ou PagBank.",
+      );
+    }
+
+    return normalizeCardProvider(configuredProvider);
   }
 
   ensureCardProviderSupported(provider: CardProvider) {

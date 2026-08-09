@@ -4,8 +4,10 @@ import menuService from "../../Services/menuService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import tableSessionService from "../../Services/tableSessionService";
 import favoritesService from "../../Services/favoritesService";
+import ordersService from "../../Services/ordersService";
 import { useAuth } from "../../contexts/authContext";
 import { HomePage } from "./HomePage";
+import PixPaymentPanel from "../Cart/components/PixPaymentPanel";
 import type { HomeData, HomeProduct, HomeCategory } from "./types";
 import * as S from "./Home.styles";
 import { isPersistentImageSource } from "../../utils/persistentImage";
@@ -105,6 +107,17 @@ type CartItem = {
   image: string;
 };
 
+type PixPaymentData = {
+  orderId: number | null;
+  total: number;
+  paymentId?: string;
+  provider: string;
+  pixCode: string;
+  qrCodeBase64: string | null;
+  requiresStatusCheck?: boolean;
+  paid?: boolean;
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { tableNumber: routeTableNumber, restaurantSlug } = useParams();
@@ -147,27 +160,14 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
-  const [cardOpen, setCardOpen] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [pixPaymentData, setPixPaymentData] =
+    useState<PixPaymentData | null>(null);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [tableSession, setTableSession] = useState(() =>
     readJson<Record<string, unknown> | null>("tableSession", null),
   );
-
-  useEffect(() => {
-    if (user?.role !== "CLIENTE") {
-      return;
-    }
-    let active = true;
-    favoritesService.list().then((items) => {
-      if (active) setFavoriteProductIds(items.map((item) => String(item.id)));
-    }).catch(() => {});
-    return () => { active = false; };
-  }, [user]);
 
   const toggleFavorite = useCallback(async (productId: string) => {
     if (!user) {
@@ -255,6 +255,72 @@ export default function Home() {
         Number(localStorage.getItem("menuRestaurantId")) ||
         storedSessionRestaurantId ||
         null;
+
+  useEffect(() => {
+    if (user?.role !== "CLIENTE" || !restaurantId) {
+      return;
+    }
+    let active = true;
+    favoritesService
+      .list(restaurantId)
+      .then((items) => {
+        if (active) {
+          setFavoriteProductIds(items.map((item) => String(item.id)));
+        }
+      })
+      .catch(() => {
+        if (active) setFavoriteProductIds([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [restaurantId, user]);
+
+  useEffect(() => {
+    if (
+      !pixPaymentData?.requiresStatusCheck ||
+      pixPaymentData.paid ||
+      !pixPaymentData.paymentId ||
+      !pixPaymentData.orderId ||
+      !restaurantId
+    ) return;
+
+    let active = true;
+    let checking = false;
+    const checkPayment = async () => {
+      if (!active || checking) return;
+      checking = true;
+      try {
+        const status = await ordersService.getPixPaymentStatus({
+          paymentId: pixPaymentData.paymentId,
+          restaurantId,
+        });
+        if (status?.isApproved && active) {
+          await ordersService.confirmPixPayment({
+            orderId: pixPaymentData.orderId,
+            paymentId: pixPaymentData.paymentId,
+            restaurantId,
+          });
+          if (active) {
+            setPixPaymentData((current) =>
+              current ? { ...current, paid: true } : current,
+            );
+          }
+        }
+      } catch {
+        // A próxima consulta repete a verificação enquanto o QR estiver aberto.
+      } finally {
+        checking = false;
+      }
+    };
+
+    void checkPayment();
+    const intervalId = window.setInterval(checkPayment, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [pixPaymentData, restaurantId]);
 
   // Resolve slug → restaurantId
   useEffect(() => {
@@ -540,7 +606,123 @@ export default function Home() {
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const cartTotal = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
+  async function handleCheckout() {
+    if (!restaurantId || !cart.length || checkoutLoading) return;
+
+    const customer = (user || {}) as Record<string, unknown>;
+    const type = mesaMode
+      ? "MESA"
+      : orderType === "delivery"
+        ? "DELIVERY"
+        : "RETIRADA";
+
+    if (!mesaMode && !user) {
+      navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+
+    if (
+      type === "DELIVERY" &&
+      [customer.address, customer.number, customer.district, customer.city, customer.state]
+        .some((value) => !String(value || "").trim())
+    ) {
+      notify(
+        "warning",
+        "Complete seu endereço",
+        "Cadastre o endereço completo no perfil antes de finalizar o delivery.",
+      );
+      navigate("/profile");
+      return;
+    }
+
+    const payload = {
+      restaurantId,
+      type,
+      paymentMethod: paymentMethod === "pix" ? "PIX" : "CARTAO",
+      items: cart.map((item) => ({
+        productId: Number(item.productId),
+        quantity: item.quantity,
+      })),
+      tableId: mesaMode ? routeTableId : undefined,
+      customerName: String(customer.name || "Cliente"),
+      customerPhone: String(customer.phone || ""),
+      address: String(customer.address || ""),
+      number: String(customer.number || ""),
+      district: String(customer.district || ""),
+      city: String(customer.city || ""),
+      state: String(customer.state || ""),
+      zipCode: String(customer.zipCode || ""),
+      complement: String(customer.complement || ""),
+    };
+
+    setCheckoutLoading(true);
+    try {
+      if (paymentMethod === "pix") {
+        const result = await ordersService.createPixPayment({
+          ...payload,
+          pixProvider: String(settings?.pixProvider || ""),
+        });
+        setPixPaymentData({
+          orderId: Number(result.orderId) || null,
+          total: Number(result.totalAmount || cartTotal),
+          paymentId: String(result.paymentId || ""),
+          provider: String(result.provider || "PIX"),
+          pixCode: String(result.qrCode || ""),
+          qrCodeBase64: result.qrCodeBase64
+            ? String(result.qrCodeBase64)
+            : null,
+          requiresStatusCheck: Boolean(result.requiresStatusCheck),
+        });
+        setCart([]);
+        setCartOpen(false);
+        return;
+      }
+
+      const result = await ordersService.createCardCheckout({
+        ...payload,
+        successUrl: window.location.href,
+        cancelUrl: window.location.href,
+      });
+      const checkoutUrl = String(result.checkoutUrl || "");
+      if (!/^https:\/\//i.test(checkoutUrl)) {
+        throw new Error("O gateway não retornou um endereço seguro de pagamento.");
+      }
+      setCart([]);
+      window.location.assign(checkoutUrl);
+    } catch (error: unknown) {
+      const responseMessage =
+        typeof error === "object" && error !== null
+          ? String(
+              (error as { response?: { data?: { error?: unknown } }; message?: unknown })
+                .response?.data?.error ||
+                (error as { message?: unknown }).message ||
+                "",
+            )
+          : "";
+      notify(
+        "error",
+        "Não foi possível iniciar o pagamento",
+        responseMessage || "Confira as configurações de pagamento do restaurante.",
+      );
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
   const primary = homeData.brand.primaryColor || "#d64d08";
+
+  if (pixPaymentData) {
+    return (
+      <PixPaymentPanel
+        pixPaymentData={pixPaymentData}
+        formatCurrency={(value) =>
+          value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+        }
+        onCopyPixKey={() => navigator.clipboard.writeText(pixPaymentData.pixCode)}
+        onBackToCart={() => setPixPaymentData(null)}
+      />
+    );
+  }
 
   // ── PIN Gate: invalid QR
   if (mesaMode && !hasValidQrContext) {
@@ -888,10 +1070,7 @@ export default function Home() {
                   type="button"
                   $active={paymentMethod === "card"}
                   $color="#3b6cf6"
-                  onClick={() => {
-                    setPaymentMethod("card");
-                    setCardOpen(true);
-                  }}
+                  onClick={() => setPaymentMethod("card")}
                 >
                   <div className="pm-badge">
                     <svg
@@ -939,9 +1118,7 @@ export default function Home() {
                   </div>
                   <span className="pm-name">Cartão</span>
                   <span className="pm-desc">
-                    {cardNumber
-                      ? `•••• ${cardNumber.replace(/\s/g, "").slice(-4)}`
-                      : "Crédito ou débito"}
+                    Ambiente seguro do gateway
                   </span>
                 </S.PaymentCard>
               </S.PaymentGrid>
@@ -973,152 +1150,18 @@ export default function Home() {
           </S.CartTotal>
           <S.CartCheckout
             type="button"
-            disabled={!cart.length || (paymentMethod === "card" && !cardNumber)}
-            onClick={() => {
-              setCartOpen(false);
-              notify(
-                "info",
-                "Em breve",
-                "Finalização do pedido em desenvolvimento.",
-              );
-            }}
+            disabled={!cart.length || checkoutLoading}
+            onClick={handleCheckout}
           >
-            {paymentMethod === "pix"
-              ? "⚡ Gerar código Pix"
-              : "💳 Confirmar pedido"}{" "}
+            {checkoutLoading
+              ? "Processando..."
+              : paymentMethod === "pix"
+                ? "⚡ Gerar código Pix"
+                : "💳 Ir para pagamento seguro"}{" "}
             →
           </S.CartCheckout>
-          {paymentMethod === "card" && !cardNumber && cart.length > 0 && (
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--home-muted)",
-                textAlign: "center",
-                margin: "8px 0 0",
-              }}
-            >
-              Informe os dados do cartão para continuar
-            </p>
-          )}
         </S.CartFoot>
       </S.CartDrawer>
-
-      {/* ── Card payment modal */}
-      <S.CardModalBg
-        $open={cardOpen}
-        onClick={(e) => e.target === e.currentTarget && setCardOpen(false)}
-      >
-        <S.CardModal $open={cardOpen}>
-          <h3>
-            💳 Dados do cartão
-            <S.CardModalClose type="button" onClick={() => setCardOpen(false)}>
-              ×
-            </S.CardModalClose>
-          </h3>
-
-          <S.CardPreview>
-            <div
-              style={{
-                fontSize: 11,
-                opacity: 0.6,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
-              {cardNumber ? "Visa / Mastercard" : "Cartão de crédito/débito"}
-            </div>
-            <div className="card-number">
-              {cardNumber
-                ? cardNumber
-                    .replace(/(\d{4})/g, "$1 ")
-                    .trim()
-                    .padEnd(19, "•")
-                : "•••• •••• •••• ••••"}
-            </div>
-            <div className="card-row">
-              <div>
-                <div>Titular</div>
-                <div className="card-name">{cardName || "SEU NOME"}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div>Validade</div>
-                <div className="card-expiry">{cardExpiry || "MM/AA"}</div>
-              </div>
-            </div>
-          </S.CardPreview>
-
-          <S.CardField>
-            Número do cartão
-            <input
-              placeholder="0000 0000 0000 0000"
-              value={cardNumber}
-              maxLength={19}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 16);
-                setCardNumber(v.replace(/(\d{4})(?=\d)/g, "$1 ").trim());
-              }}
-            />
-          </S.CardField>
-
-          <S.CardField>
-            Nome do titular
-            <input
-              placeholder="Como está no cartão"
-              value={cardName}
-              onChange={(e) => setCardName(e.target.value.toUpperCase())}
-            />
-          </S.CardField>
-
-          <S.CardFieldRow>
-            <S.CardField>
-              Validade
-              <input
-                placeholder="MM/AA"
-                value={cardExpiry}
-                maxLength={5}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                  setCardExpiry(
-                    v.length > 2 ? `${v.slice(0, 2)}/${v.slice(2)}` : v,
-                  );
-                }}
-              />
-            </S.CardField>
-            <S.CardField>
-              CVV
-              <input
-                placeholder="•••"
-                value={cardCvv}
-                maxLength={4}
-                type="password"
-                onChange={(e) =>
-                  setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
-                }
-              />
-            </S.CardField>
-          </S.CardFieldRow>
-
-          <S.CardSubmit
-            type="button"
-            disabled={
-              !cardNumber ||
-              !cardName ||
-              cardExpiry.length < 5 ||
-              cardCvv.length < 3
-            }
-            onClick={() => {
-              setCardOpen(false);
-              notify(
-                "success",
-                "Cartão salvo",
-                `•••• ${cardNumber.replace(/\s/g, "").slice(-4)} adicionado com sucesso.`,
-              );
-            }}
-          >
-            Confirmar cartão
-          </S.CardSubmit>
-        </S.CardModal>
-      </S.CardModalBg>
 
       {/* ── Login nudge (public users only, not in mesa mode) */}
       {!user && !mesaMode && !nudgeDismissed && (

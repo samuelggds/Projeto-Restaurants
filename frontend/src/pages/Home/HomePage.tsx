@@ -143,7 +143,7 @@ export function HomePage({
                 <S.ProductCard key={product.id}>
                   <S.ImageWrap>
                     <img src={product.image} alt={product.name} />
-                    <button aria-label={`Remover ${product.name} dos favoritos`} onClick={() => onToggleFavorite?.(product.id)}>
+                    <button className="favorite" aria-label={`Remover ${product.name} dos favoritos`} onClick={() => onToggleFavorite?.(product.id)}>
                       <Heart size={21} fill="currentColor" />
                     </button>
                   </S.ImageWrap>
@@ -198,6 +198,7 @@ export function HomePage({
                   <S.ImageWrap>
                     <img src={product.image} alt={product.name} />
                     <button
+                      className={favoriteIds.has(product.id) ? "favorite" : undefined}
                       aria-label={`Favoritar ${product.name}`}
                       onClick={() => onToggleFavorite?.(product.id)}
                     >

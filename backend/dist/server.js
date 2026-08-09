@@ -372,7 +372,7 @@ var LoginLockoutService = class {
 var LoginLockoutService_default = new LoginLockoutService();
 
 // src/modules/auth/services/AuthTokenService.ts
-import crypto from "crypto";
+import crypto2 from "crypto";
 import jwt from "jsonwebtoken";
 
 // src/config/auth.ts
@@ -423,7 +423,7 @@ var AuthTokenService = class {
   }
   async createRefreshToken(payload) {
     const normalized = normalizePayload(payload);
-    const jti = crypto.randomUUID();
+    const jti = crypto2.randomUUID();
     const refreshPayload = {
       ...normalized,
       type: "refresh",
@@ -520,7 +520,7 @@ var AuthTokenService_default = new AuthTokenService();
 
 // src/modules/auth/services/LoginMfaService.ts
 import bcrypt2 from "bcrypt";
-import crypto2 from "crypto";
+import crypto3 from "crypto";
 import jwt2 from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { UserRole } from "@prisma/client";
@@ -622,7 +622,7 @@ var LoginMfaService = class {
         }
       }
     });
-    const code = String(crypto2.randomInt(1e5, 1e6));
+    const code = String(crypto3.randomInt(1e5, 1e6));
     const codeHash = await bcrypt2.hash(code, 10);
     const ttlMinutes = Number(process.env.MFA_CODE_TTL_MIN || 10);
     const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1e3);
@@ -1139,7 +1139,7 @@ var ReactivateUserController_default = new ReactivateUserController();
 
 // src/modules/auth/services/RequestPasswordResetService.ts
 import bcrypt6 from "bcrypt";
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 import nodemailer2 from "nodemailer";
 
 // src/validators/ForgotPasswordValidator.ts
@@ -1228,7 +1228,7 @@ var RequestPasswordResetService = class {
     if (!user) {
       return { message: safeMessage };
     }
-    const code = String(crypto3.randomInt(1e5, 1e6));
+    const code = String(crypto4.randomInt(1e5, 1e6));
     const codeHash = await bcrypt6.hash(code, 10);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1e3);
     await UserRepository_default.savePasswordResetCode(user.id, codeHash, expiresAt);
@@ -2939,6 +2939,7 @@ var SplitService_default = new SplitService();
 var PIX_PROVIDERS = {
   MERCADO_PAGO: "MERCADO_PAGO",
   ASAAS: "ASAAS",
+  PAGBANK: "PAGBANK",
   NUBANK: "NUBANK",
   PICPAY: "PICPAY"
 };
@@ -2999,6 +3000,12 @@ function parseProviderPaymentId(paymentId) {
       rawPaymentId: normalizedPaymentId.slice("asaas:".length).trim()
     };
   }
+  if (normalizedPaymentId.toLowerCase().startsWith("pagbank:")) {
+    return {
+      provider: PIX_PROVIDERS.PAGBANK,
+      rawPaymentId: normalizedPaymentId.slice("pagbank:".length).trim()
+    };
+  }
   return {
     provider: PIX_PROVIDERS.MERCADO_PAGO,
     rawPaymentId: normalizedPaymentId
@@ -3020,6 +3027,34 @@ function doesProofContainTransactionId(paymentProof, transactionId) {
   return normalizedProof.includes(normalizedTransactionId);
 }
 var OrderPixPaymentService = class {
+  getPagBankBaseUrl() {
+    return String(
+      process.env.PAGBANK_API_BASE_URL || "https://api.pagseguro.com"
+    ).trim().replace(/\/+$/, "");
+  }
+  async getPagBankToken(restaurantId) {
+    const settings = await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId);
+    const token = String(settings?.pagbankToken || "").trim();
+    if (!token) {
+      throw new Error(
+        "Pagamento PIX PagBank indispon\xEDvel. Configure o token PagBank nas configura\xE7\xF5es do restaurante."
+      );
+    }
+    return token;
+  }
+  async fetchPagBankJson(url, token, init2 = {}) {
+    const response = await fetch(url, {
+      ...init2,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...init2.headers || {}
+      }
+    });
+    const body = await response.json();
+    return { ok: response.ok, body };
+  }
   getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com").trim().replace(/\/+$/, "");
   }
@@ -3214,8 +3249,10 @@ var OrderPixPaymentService = class {
     const settings = await RestaurantSettingsRepository_default.findPublicByRestaurantId(
       normalizedRestaurantId
     );
-    const requestedPixProvider = String(pixProvider || "").trim().toUpperCase();
-    const resolvedPixProvider = requestedPixProvider ? this.normalizePixProvider(requestedPixProvider) : this.normalizePixProvider(settings?.pixProvider);
+    void pixProvider;
+    const resolvedPixProvider = this.normalizePixProvider(
+      settings?.pixProvider
+    );
     const pixKey = String(settings?.pixKey || "").trim();
     if (!pixKey) {
       throw new Error("Chave PIX n\xE3o configurada para este restaurante.");
@@ -3244,6 +3281,72 @@ var OrderPixPaymentService = class {
     const payerName = String(customerName || "Cliente").trim();
     const cpf = this.normalizeCpf(customerCpf);
     const normalizedSystemFee = Number(systemFee || 0);
+    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
+      const token = await this.getPagBankToken(normalizedRestaurantId);
+      const backendUrl = String(process.env.BACKEND_URL || "").trim().replace(/\/+$/, "");
+      const notificationUrl = backendUrl ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${normalizedRestaurantId}` : "";
+      const result = await this.fetchPagBankJson(
+        `${this.getPagBankBaseUrl()}/orders`,
+        token,
+        {
+          method: "POST",
+          headers: { "x-idempotency-key": crypto.randomUUID() },
+          body: JSON.stringify({
+            reference_id: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+            customer: {
+              name: payerName || "Cliente",
+              email: payerEmail,
+              ...cpf ? { tax_id: cpf } : {}
+            },
+            items: [
+              {
+                reference_id: `restaurant-${normalizedRestaurantId}`,
+                name: `Pedido restaurante ${normalizedRestaurantId}`,
+                quantity: 1,
+                unit_amount: Math.round(totalAmount * 100)
+              }
+            ],
+            qr_codes: [
+              { amount: { value: Math.round(totalAmount * 100) } }
+            ],
+            ...notificationUrl ? { notification_urls: [notificationUrl] } : {}
+          })
+        }
+      );
+      const providerError = String(
+        result.body?.error_messages?.[0]?.description || ""
+      ).trim();
+      const orderId = String(result.body?.id || "").trim();
+      const qrCode2 = String(result.body?.qr_codes?.[0]?.text || "").trim();
+      if (!result.ok || !orderId || !qrCode2) {
+        throw new Error(
+          providerError || "N\xE3o foi poss\xEDvel gerar o Pix no PagBank."
+        );
+      }
+      const base64Url = String(
+        result.body?.qr_codes?.[0]?.links?.find(
+          (link) => link.rel === "QRCODE.BASE64"
+        )?.href || ""
+      ).trim();
+      let qrCodeBase642 = null;
+      if (base64Url) {
+        const imageResponse = await fetch(base64Url, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (imageResponse.ok) {
+          qrCodeBase642 = (await imageResponse.text()).trim() || null;
+        }
+      }
+      return {
+        paymentId: `pagbank:${orderId}`,
+        status: "WAITING",
+        provider: resolvedPixProvider,
+        totalAmount,
+        qrCode: qrCode2,
+        qrCodeBase64: qrCodeBase642,
+        requiresStatusCheck: true
+      };
+    }
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
       const accessToken = await this.getAsaasAccessToken(
         normalizedRestaurantId
@@ -3489,6 +3592,31 @@ var OrderPixPaymentService = class {
         status: status2,
         provider: PIX_PROVIDERS.ASAAS,
         isApproved: APPROVED_ASAAS_PAYMENT_STATUSES.has(status2),
+        sameRestaurant: true,
+        requiresStatusCheck: true
+      };
+    }
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
+      if (!normalizedRestaurantIdNumber) {
+        throw new Error("Restaurante inv\xE1lido para consultar Pix PagBank.");
+      }
+      const token = await this.getPagBankToken(normalizedRestaurantIdNumber);
+      const result = await this.fetchPagBankJson(
+        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        token
+      );
+      if (!result.ok) {
+        throw new Error("N\xE3o foi poss\xEDvel consultar o Pix no PagBank.");
+      }
+      const statuses = (result.body?.charges || []).map(
+        (charge) => String(charge.status || "").toUpperCase()
+      );
+      const isApproved = statuses.includes("PAID");
+      return {
+        paymentId: normalizedPaymentId,
+        status: isApproved ? "paid" : statuses[0] || "waiting",
+        provider: PIX_PROVIDERS.PAGBANK,
+        isApproved,
         sameRestaurant: true,
         requiresStatusCheck: true
       };
@@ -5671,7 +5799,7 @@ var ConfirmOrderPaymentController_default = new ConfirmOrderPaymentController();
 import { PaymentMethod as PaymentMethod8 } from "@prisma/client";
 
 // src/modules/orders/utils/paymentConfirmationPin.ts
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 var HASH_PREFIX = "hmac:v1:";
 function getSecret() {
   const secret = String(
@@ -5685,7 +5813,7 @@ function getSecret() {
   return secret;
 }
 function hashPaymentConfirmationPin(pin) {
-  const digest = crypto4.createHmac("sha256", getSecret()).update(String(pin)).digest("hex");
+  const digest = crypto5.createHmac("sha256", getSecret()).update(String(pin)).digest("hex");
   return `${HASH_PREFIX}${digest}`;
 }
 function verifyPaymentConfirmationPin(pin, stored) {
@@ -5693,12 +5821,12 @@ function verifyPaymentConfirmationPin(pin, stored) {
   if (!normalizedStored.startsWith(HASH_PREFIX)) {
     const providedBuffer = Buffer.from(String(pin));
     const storedBuffer2 = Buffer.from(normalizedStored);
-    return providedBuffer.length === storedBuffer2.length && crypto4.timingSafeEqual(providedBuffer, storedBuffer2);
+    return providedBuffer.length === storedBuffer2.length && crypto5.timingSafeEqual(providedBuffer, storedBuffer2);
   }
   const expected = hashPaymentConfirmationPin(pin);
   const expectedBuffer = Buffer.from(expected);
   const storedBuffer = Buffer.from(normalizedStored);
-  return expectedBuffer.length === storedBuffer.length && crypto4.timingSafeEqual(expectedBuffer, storedBuffer);
+  return expectedBuffer.length === storedBuffer.length && crypto5.timingSafeEqual(expectedBuffer, storedBuffer);
 }
 
 // src/modules/orders/services/ConfirmOrderPaymentWithPinService.ts
@@ -5818,9 +5946,9 @@ var ConfirmOrderPaymentWithPinController_default = new ConfirmOrderPaymentWithPi
 
 // src/modules/orders/services/GenerateOrderPaymentConfirmationPinService.ts
 import { PaymentMethod as PaymentMethod9 } from "@prisma/client";
-import crypto5 from "crypto";
+import crypto6 from "crypto";
 function generateFourDigitPin() {
-  return String(crypto5.randomInt(1e3, 1e4));
+  return String(crypto6.randomInt(1e3, 1e4));
 }
 var GenerateOrderPaymentConfirmationPinService = class {
   async execute(orderId, restaurantId) {
@@ -6523,18 +6651,25 @@ function getCardCheckoutProviderHandler(provider) {
 // src/modules/orders/services/CreateOrderCardCheckoutService.ts
 var CreateOrderCardCheckoutService = class {
   async resolveCardProvider(payload) {
-    const requestedProvider = normalizeCardProvider(payload.cardProvider);
-    if (payload.cardProvider) {
-      return requestedProvider;
-    }
     const resolvedRestaurantId = Number(payload.restaurantId) || Number(payload.userRestaurantId) || 0;
     if (!resolvedRestaurantId) {
-      return CARD_PROVIDERS.MERCADO_PAGO;
+      throw new Error("Restaurante inv\xE1lido para pagamento com cart\xE3o.");
     }
     const settings = await RestaurantSettingsRepository_default.findByRestaurantId(
       resolvedRestaurantId
     );
-    return normalizeCardProvider(settings?.cardGateway);
+    const configuredProvider3 = String(settings?.cardGateway || "").trim();
+    if (!configuredProvider3) {
+      throw new Error(
+        "Pagamento com cart\xE3o indispon\xEDvel. Configure o gateway nas configura\xE7\xF5es do restaurante."
+      );
+    }
+    if (!["MERCADO_PAGO", "ASAAS", "PAGBANK"].includes(configuredProvider3.toUpperCase())) {
+      throw new Error(
+        "Gateway inv\xE1lido. Escolha Mercado Pago, Asaas ou PagBank."
+      );
+    }
+    return normalizeCardProvider(configuredProvider3);
   }
   ensureCardProviderSupported(provider) {
     getCardCheckoutProviderHandler(provider);
@@ -9612,7 +9747,7 @@ var TableRepository_default = new TableRepository();
 
 // src/modules/tableSession/services/OpenTableSessionService.ts
 import bcrypt10 from "bcrypt";
-import crypto6 from "crypto";
+import crypto7 from "crypto";
 var OpenTableSessionService = class {
   async execute({
     tableId,
@@ -9627,9 +9762,9 @@ var OpenTableSessionService = class {
     if (sessionOpened) {
       throw new Error("Essa mesa j\xE1 est\xE1 aberta!");
     }
-    const pin = crypto6.randomInt(1e3, 1e4).toString();
+    const pin = crypto7.randomInt(1e3, 1e4).toString();
     const pinHash = await bcrypt10.hash(pin, 10);
-    const sessionToken = await crypto6.randomBytes(32).toString("hex");
+    const sessionToken = await crypto7.randomBytes(32).toString("hex");
     const normalizedTableId = Number(tableId);
     const normalizedOpenedById = Number(openedById);
     if (!Number.isInteger(normalizedTableId) || normalizedTableId <= 0) {
@@ -9929,7 +10064,7 @@ var SessionsTablesRoutes_default = router7;
 import { Router as Router8 } from "express";
 
 // src/modules/table/services/CreateTableService.ts
-import crypto7 from "crypto";
+import crypto8 from "crypto";
 var CreateTableService = class {
   async execute({ number, restaurantId }) {
     const tableExists = await TableRepository_default.findByNumber(
@@ -9939,7 +10074,7 @@ var CreateTableService = class {
     if (tableExists) {
       throw new Error("J\xE1 existe uma mesa com esse n\xFAmero!");
     }
-    const token = crypto7.randomBytes(16).toString("hex");
+    const token = crypto8.randomBytes(16).toString("hex");
     return TableRepository_default.create({
       number: Number(number),
       restaurantId,
@@ -11547,6 +11682,161 @@ var MercadoPagoOAuthCallbackController = class {
 };
 var MercadoPagoOAuthCallbackController_default = new MercadoPagoOAuthCallbackController();
 
+// src/modules/restaurantSettings/services/StartPagBankOAuthService.ts
+import jwt6 from "jsonwebtoken";
+var StartPagBankOAuthService = class {
+  async execute({ restaurantId, userId }) {
+    const normalizedRestaurantId = Number(restaurantId);
+    const normalizedUserId = Number(userId);
+    const clientId = String(process.env.PAGBANK_CONNECT_CLIENT_ID || "").trim();
+    const jwtSecret = String(process.env.JWT_SECRET || "").trim();
+    if (!normalizedRestaurantId || !normalizedUserId) {
+      throw new Error("Restaurante ou administrador inv\xE1lido para conectar PagBank.");
+    }
+    if (!clientId) {
+      throw new Error("PAGBANK_CONNECT_CLIENT_ID n\xE3o configurado no backend.");
+    }
+    if (jwtSecret.length < 32) {
+      throw new Error("JWT_SECRET inv\xE1lido para iniciar conex\xE3o PagBank.");
+    }
+    const backendUrl = String(process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3e3}`).trim().replace(/\/+$/, "");
+    const redirectUri = String(
+      process.env.PAGBANK_CONNECT_REDIRECT_URI || `${backendUrl}/settings/pagbank/oauth/callback`
+    ).trim();
+    const state = jwt6.sign(
+      { restaurantId: normalizedRestaurantId, userId: normalizedUserId },
+      jwtSecret,
+      { expiresIn: "10m" }
+    );
+    const authBaseUrl = String(
+      process.env.PAGBANK_CONNECT_AUTH_URL || "https://connect.pagbank.com.br/oauth2/authorize"
+    ).trim();
+    const query = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "payments.read payments.create payments.refund checkout.create checkout.view",
+      state
+    });
+    return { authorizationUrl: `${authBaseUrl}?${query.toString()}` };
+  }
+};
+var StartPagBankOAuthService_default = new StartPagBankOAuthService();
+
+// src/modules/restaurantSettings/controllers/StartPagBankOAuthController.ts
+var StartPagBankOAuthController = class {
+  async handle(req, res) {
+    try {
+      const result = await StartPagBankOAuthService_default.execute({
+        restaurantId: req.user?.restaurantId,
+        userId: req.user?.id
+      });
+      return res.json(result);
+    } catch (error2) {
+      return res.status(400).json({
+        error: error2 instanceof Error ? error2.message : "Erro ao conectar PagBank."
+      });
+    }
+  }
+};
+var StartPagBankOAuthController_default = new StartPagBankOAuthController();
+
+// src/modules/restaurantSettings/services/CompletePagBankOAuthService.ts
+import jwt7 from "jsonwebtoken";
+var CompletePagBankOAuthService = class {
+  async execute({ code, state }) {
+    const normalizedCode = String(code || "").trim();
+    const normalizedState = String(state || "").trim();
+    const jwtSecret = String(process.env.JWT_SECRET || "").trim();
+    if (!normalizedCode || !normalizedState) {
+      throw new Error("C\xF3digo de autoriza\xE7\xE3o PagBank n\xE3o recebido.");
+    }
+    const decoded = jwt7.verify(normalizedState, jwtSecret);
+    const restaurantId = Number(decoded.restaurantId || 0);
+    if (!restaurantId) throw new Error("Estado OAuth PagBank inv\xE1lido.");
+    const clientId = String(process.env.PAGBANK_CONNECT_CLIENT_ID || "").trim();
+    const clientSecret = String(process.env.PAGBANK_CONNECT_CLIENT_SECRET || "").trim();
+    const platformToken = String(process.env.PAGBANK_CONNECT_PLATFORM_TOKEN || "").trim();
+    if (!clientId || !clientSecret || !platformToken) {
+      throw new Error("Credenciais da aplica\xE7\xE3o PagBank Connect n\xE3o configuradas.");
+    }
+    const backendUrl = String(process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3e3}`).trim().replace(/\/+$/, "");
+    const redirectUri = String(
+      process.env.PAGBANK_CONNECT_REDIRECT_URI || `${backendUrl}/settings/pagbank/oauth/callback`
+    ).trim();
+    const apiBaseUrl = String(
+      process.env.PAGBANK_CONNECT_API_URL || "https://api.pagseguro.com"
+    ).trim().replace(/\/+$/, "");
+    const response = await fetch(`${apiBaseUrl}/oauth2/token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${platformToken}`,
+        X_CLIENT_ID: clientId,
+        X_CLIENT_SECRET: clientSecret,
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code: normalizedCode,
+        redirect_uri: redirectUri
+      })
+    });
+    const body = await response.json();
+    const accessToken = String(body.access_token || "").trim();
+    if (!response.ok || !accessToken) {
+      throw new Error(
+        String(body.error_description || body.error || "PagBank recusou a conex\xE3o.")
+      );
+    }
+    const refreshToken = String(body.refresh_token || "").trim() || null;
+    const expiresIn = Number(body.expires_in || 0);
+    const expiresAt = expiresIn > 0 ? new Date(Date.now() + Math.max(expiresIn - 300, 60) * 1e3) : null;
+    const existing = await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId);
+    const data = {
+      pixProvider: "PAGBANK",
+      cardGateway: "PAGBANK",
+      pagbankToken: accessToken,
+      pagbankRefreshToken: refreshToken,
+      pagbankTokenExpiresAt: expiresAt,
+      pagbankEnvironment: "production"
+    };
+    if (existing) await RestaurantSettingsRepository_default.update(restaurantId, data);
+    else await RestaurantSettingsRepository_default.create({
+      restaurantId,
+      deliveryFee: 0,
+      minimumOrder: 0,
+      ...data
+    });
+    return { restaurantId, connected: true };
+  }
+};
+var CompletePagBankOAuthService_default = new CompletePagBankOAuthService();
+
+// src/modules/restaurantSettings/controllers/PagBankOAuthCallbackController.ts
+var PagBankOAuthCallbackController = class {
+  async handle(req, res) {
+    const frontendUrl = String(process.env.FRONTEND_URL || "http://localhost:5173").trim().replace(/\/+$/, "");
+    try {
+      if (req.query.error) {
+        throw new Error(String(req.query.error_description || req.query.error));
+      }
+      await CompletePagBankOAuthService_default.execute({
+        code: String(req.query.code || ""),
+        state: String(req.query.state || "")
+      });
+      return res.redirect(`${frontendUrl}/admin?pagbank_oauth=success`);
+    } catch (error2) {
+      const query = new URLSearchParams({
+        pagbank_oauth: "error",
+        message: error2 instanceof Error ? error2.message : "Erro ao conectar PagBank."
+      });
+      return res.redirect(`${frontendUrl}/admin?${query.toString()}`);
+    }
+  }
+};
+var PagBankOAuthCallbackController_default = new PagBankOAuthCallbackController();
+
 // src/modules/restaurantSettings/routes/RestaurantSettingsRoutes.ts
 var router9 = Router9();
 router9.get(
@@ -11578,6 +11868,16 @@ router9.post(
 router9.get(
   "/mercado-pago/oauth/callback",
   (req, res) => MercadoPagoOAuthCallbackController_default.handle(req, res)
+);
+router9.post(
+  "/pagbank/oauth/start",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => StartPagBankOAuthController_default.handle(req, res)
+);
+router9.get(
+  "/pagbank/oauth/callback",
+  (req, res) => PagBankOAuthCallbackController_default.handle(req, res)
 );
 router9.post(
   "/asaas/onboard",
@@ -13109,17 +13409,21 @@ var AuditRoutes_default = router15;
 import { Router as Router16 } from "express";
 var router16 = Router16();
 function clientContext(req, res) {
-  if (req.user.role !== "CLIENTE" || !req.user.id || !req.user.restaurantId) {
+  if (req.user.role !== "CLIENTE" || !req.user.id) {
     res.status(403).json({ error: "Favoritos s\xE3o exclusivos para clientes." });
     return null;
   }
-  return { userId: Number(req.user.id), restaurantId: Number(req.user.restaurantId) };
+  return { userId: Number(req.user.id) };
 }
 router16.get("/", authMiddleware, async (req, res) => {
   const context = clientContext(req, res);
   if (!context) return;
+  const restaurantId = Number(req.query.restaurantId);
   const favorites = await prisma_default.productFavorite.findMany({
-    where: context,
+    where: {
+      userId: context.userId,
+      ...Number.isInteger(restaurantId) && restaurantId > 0 ? { restaurantId } : {}
+    },
     include: { product: { include: { category: true } } },
     orderBy: { createdAt: "desc" }
   });
@@ -13129,22 +13433,30 @@ router16.post("/:productId", authMiddleware, async (req, res) => {
   const context = clientContext(req, res);
   if (!context) return;
   const productId = Number(req.params.productId);
-  const product = await prisma_default.product.findFirst({ where: { id: productId, restaurantId: context.restaurantId, active: true } });
+  const product = await prisma_default.product.findFirst({
+    where: { id: productId, active: true }
+  });
   if (!product) {
     res.status(404).json({ error: "Produto n\xE3o encontrado." });
     return;
   }
   await prisma_default.productFavorite.upsert({
     where: { userId_productId: { userId: context.userId, productId } },
-    update: { restaurantId: context.restaurantId },
-    create: { ...context, productId }
+    update: { restaurantId: product.restaurantId },
+    create: {
+      userId: context.userId,
+      productId,
+      restaurantId: product.restaurantId
+    }
   });
   res.status(201).json({ favorite: true, product });
 });
 router16.delete("/:productId", authMiddleware, async (req, res) => {
   const context = clientContext(req, res);
   if (!context) return;
-  await prisma_default.productFavorite.deleteMany({ where: { userId: context.userId, productId: Number(req.params.productId), restaurantId: context.restaurantId } });
+  await prisma_default.productFavorite.deleteMany({
+    where: { userId: context.userId, productId: Number(req.params.productId) }
+  });
   res.json({ favorite: false });
 });
 var FavoriteRoutes_default = router16;
@@ -13557,7 +13869,7 @@ var MercadoPagoWebhookController = class {
 var MercadoPagoWebhookController_default = new MercadoPagoWebhookController();
 
 // src/modules/billing/controllers/BillingWebhookController.ts
-import crypto8 from "crypto";
+import crypto9 from "crypto";
 var BillingWebhookController = class {
   async handle(req, res) {
     try {
@@ -13575,7 +13887,7 @@ var BillingWebhookController = class {
       }
       const configuredBuffer = Buffer.from(configuredSecret);
       const receivedBuffer = Buffer.from(receivedSecret);
-      const secretMatches = configuredBuffer.length === receivedBuffer.length && crypto8.timingSafeEqual(configuredBuffer, receivedBuffer);
+      const secretMatches = configuredBuffer.length === receivedBuffer.length && crypto9.timingSafeEqual(configuredBuffer, receivedBuffer);
       if (!secretMatches) {
         return res.sendStatus(404);
       }
@@ -13860,10 +14172,10 @@ router18.post(
 var BillingRoutes_default = router18;
 
 // src/middlewares/security/requestIdMiddleware.ts
-import crypto9 from "crypto";
+import crypto10 from "crypto";
 function requestIdMiddleware(req, res, next) {
   const rawRequestId = req.headers["x-request-id"];
-  const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId || crypto9.randomUUID();
+  const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId || crypto10.randomUUID();
   req.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);
   next();
@@ -14136,14 +14448,14 @@ if (dsn) {
 }
 
 // src/socket/socketAuth.ts
-import jwt6 from "jsonwebtoken";
+import jwt8 from "jsonwebtoken";
 import { TableSessionStatus as TableSessionStatus5 } from "@prisma/client";
 async function socketAuth(socket, next) {
   try {
     const token = socket.handshake.auth?.token;
     const sessionToken = socket.handshake.auth?.sessionToken;
     if (token) {
-      const decoded = jwt6.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt8.verify(token, process.env.JWT_SECRET);
       socket.user = decoded;
       socket.authType = "user";
       return next();

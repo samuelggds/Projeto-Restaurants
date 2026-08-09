@@ -65,6 +65,20 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
     tableOrderingEnabled: Boolean(
       raw?.tableOrderingEnabled ?? adminMockSettings.tableOrderingEnabled,
     ),
+    pixProvider: String(raw?.pixProvider ?? "MERCADO_PAGO"),
+    pixKey: String(raw?.pixKey ?? ""),
+    cardGateway: String(raw?.cardGateway ?? ""),
+    stripeSecretKey: "",
+    stripeSecretKeyConfigured: Boolean(raw?.stripeSecretKeyConfigured),
+    stripeWebhookSecret: "",
+    stripeWebhookSecretConfigured: Boolean(raw?.stripeWebhookSecretConfigured),
+    mercadoPagoAccessToken: "",
+    mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
+    asaasAccessToken: "",
+    asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
+    pagbankEmail: String(raw?.pagbankEmail ?? ""),
+    pagbankToken: "",
+    pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     mainBannerId: mainBanner?.id,
     mainBannerUrl: mainBanner?.image ?? "",
     promotion1Id: promotion1?.id,
@@ -86,6 +100,25 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
     minimumOrder: settings.minimumOrder,
     averageDeliveryTime: settings.deliveryTime,
     tableOrderingEnabled: settings.tableOrderingEnabled,
+    pixProvider: settings.pixProvider,
+    pixKey: settings.pixKey,
+    cardGateway: settings.cardGateway,
+    pagbankEmail: settings.pagbankEmail,
+    ...(settings.stripeSecretKey
+      ? { stripeSecretKey: settings.stripeSecretKey }
+      : {}),
+    ...(settings.stripeWebhookSecret
+      ? { stripeWebhookSecret: settings.stripeWebhookSecret }
+      : {}),
+    ...(settings.mercadoPagoAccessToken
+      ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
+      : {}),
+    ...(settings.asaasAccessToken
+      ? { asaasAccessToken: settings.asaasAccessToken }
+      : {}),
+    ...(settings.pagbankToken
+      ? { pagbankToken: settings.pagbankToken }
+      : {}),
   };
 }
 
@@ -271,6 +304,31 @@ export default function Admin() {
       onUpdateCategory={async (id, name) => { await categoriesService.updateCategory(id, { name }); await loadOperations(); }}
       onDeleteCategory={async (id) => { await categoriesService.deleteCategory(id); await loadOperations(); }}
       onSaveSettings={handleSaveSettings}
+      onConnectMercadoPago={async () => {
+        const result = await restaurantSettingsService.startMercadoPagoOAuth();
+        const authorizationUrl = String(
+          (result as Record<string, unknown>)?.authorizationUrl || "",
+        );
+        if (!/^https:\/\//i.test(authorizationUrl)) {
+          throw new Error("O Mercado Pago não retornou uma URL segura de autorização.");
+        }
+        window.location.assign(authorizationUrl);
+      }}
+      onConnectPagBank={async () => {
+        const result = await restaurantSettingsService.startPagBankOAuth();
+        const authorizationUrl = String(
+          (result as Record<string, unknown>)?.authorizationUrl || "",
+        );
+        if (!/^https:\/\//i.test(authorizationUrl)) {
+          throw new Error("O PagBank não retornou uma URL segura de autorização.");
+        }
+        window.location.assign(authorizationUrl);
+      }}
+      onOnboardAsaas={async (payload) => {
+        await restaurantSettingsService.onboardAsaas(payload);
+        const refreshed = await restaurantSettingsService.getMySettings();
+        setSettings(mapSettingsFromApi(refreshed as Record<string, unknown>));
+      }}
       onCreateEmployee={handleCreateEmployee}
       onUpdateEmployee={handleUpdateEmployee}
       onDeactivateEmployee={async (id) => {

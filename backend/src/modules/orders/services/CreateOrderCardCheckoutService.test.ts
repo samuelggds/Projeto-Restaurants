@@ -89,6 +89,7 @@ test("deve abrir checkout de cartao usando a configuracao PagBank do restaurante
   const result = await createOrderCardCheckoutService.execute({
     restaurantId: 7,
     userRestaurantId: 7,
+    cardProvider: "STRIPE",
     type: "DELIVERY",
     paymentMethod: "CARTAO",
     items: [{ productId: 1, quantity: 2 }],

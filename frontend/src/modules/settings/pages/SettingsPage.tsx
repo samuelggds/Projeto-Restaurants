@@ -167,12 +167,6 @@ function buildApiPayload(settings: RestaurantSettings) {
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
     pagbankEmail: settings.pagbankEmail,
-    ...(settings.stripeSecretKey
-      ? { stripeSecretKey: settings.stripeSecretKey }
-      : {}),
-    ...(settings.stripeWebhookSecret
-      ? { stripeWebhookSecret: settings.stripeWebhookSecret }
-      : {}),
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),

@@ -43,7 +43,8 @@ export const Page = styled.main`
   }
   h1 em {
     font-style: normal;
-    color: var(--p);
+    color: #e53935;
+    cursor: pointer;
   }
   @media (max-width: 700px) {
     padding: 18px 12px 50px;

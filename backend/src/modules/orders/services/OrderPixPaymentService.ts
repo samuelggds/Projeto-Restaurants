@@ -80,6 +80,16 @@ type AsaasPixQrCodePayload = {
   errors?: AsaasErrorItem[];
 };
 
+type PagBankOrderPayload = {
+  id?: string;
+  qr_codes?: Array<{
+    text?: string;
+    links?: Array<{ rel?: string; href?: string }>;
+  }>;
+  charges?: Array<{ status?: string }>;
+  error_messages?: Array<{ description?: string }>;
+};
+
 type ParsedProviderPaymentId = {
   provider: PixProvider;
   rawPaymentId: string;
@@ -129,6 +139,13 @@ function parseProviderPaymentId(paymentId: string): ParsedProviderPaymentId {
     return {
       provider: PIX_PROVIDERS.ASAAS,
       rawPaymentId: normalizedPaymentId.slice("asaas:".length).trim(),
+    };
+  }
+
+  if (normalizedPaymentId.toLowerCase().startsWith("pagbank:")) {
+    return {
+      provider: PIX_PROVIDERS.PAGBANK,
+      rawPaymentId: normalizedPaymentId.slice("pagbank:".length).trim(),
     };
   }
 
@@ -350,6 +367,44 @@ type ParsedManualPixPaymentId = {
 };
 
 class OrderPixPaymentService {
+  getPagBankBaseUrl() {
+    return String(
+      process.env.PAGBANK_API_BASE_URL || "https://api.pagseguro.com",
+    )
+      .trim()
+      .replace(/\/+$/, "");
+  }
+
+  async getPagBankToken(restaurantId: number) {
+    const settings =
+      await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const token = String(settings?.pagbankToken || "").trim();
+    if (!token) {
+      throw new Error(
+        "Pagamento PIX PagBank indisponível. Configure o token PagBank nas configurações do restaurante.",
+      );
+    }
+    return token;
+  }
+
+  async fetchPagBankJson<T>(
+    url: string,
+    token: string,
+    init: RequestInit = {},
+  ) {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(init.headers || {}),
+      },
+    });
+    const body = (await response.json()) as T;
+    return { ok: response.ok, body };
+  }
+
   getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com")
       .trim()
@@ -628,12 +683,10 @@ class OrderPixPaymentService {
         normalizedRestaurantId,
       );
 
-    const requestedPixProvider = String(pixProvider || "")
-      .trim()
-      .toUpperCase();
-    const resolvedPixProvider = requestedPixProvider
-      ? this.normalizePixProvider(requestedPixProvider)
-      : this.normalizePixProvider(settings?.pixProvider);
+    void pixProvider;
+    const resolvedPixProvider = this.normalizePixProvider(
+      settings?.pixProvider,
+    );
     const pixKey = String(settings?.pixKey || "").trim();
 
     if (!pixKey) {
@@ -674,6 +727,79 @@ class OrderPixPaymentService {
     const payerName = String(customerName || "Cliente").trim();
     const cpf = this.normalizeCpf(customerCpf);
     const normalizedSystemFee = Number(systemFee || 0);
+
+    if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
+      const token = await this.getPagBankToken(normalizedRestaurantId);
+      const backendUrl = String(process.env.BACKEND_URL || "")
+        .trim()
+        .replace(/\/+$/, "");
+      const notificationUrl = backendUrl
+        ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${normalizedRestaurantId}`
+        : "";
+      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
+        `${this.getPagBankBaseUrl()}/orders`,
+        token,
+        {
+          method: "POST",
+          headers: { "x-idempotency-key": crypto.randomUUID() },
+          body: JSON.stringify({
+            reference_id: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+            customer: {
+              name: payerName || "Cliente",
+              email: payerEmail,
+              ...(cpf ? { tax_id: cpf } : {}),
+            },
+            items: [
+              {
+                reference_id: `restaurant-${normalizedRestaurantId}`,
+                name: `Pedido restaurante ${normalizedRestaurantId}`,
+                quantity: 1,
+                unit_amount: Math.round(totalAmount * 100),
+              },
+            ],
+            qr_codes: [
+              { amount: { value: Math.round(totalAmount * 100) } },
+            ],
+            ...(notificationUrl
+              ? { notification_urls: [notificationUrl] }
+              : {}),
+          }),
+        },
+      );
+      const providerError = String(
+        result.body?.error_messages?.[0]?.description || "",
+      ).trim();
+      const orderId = String(result.body?.id || "").trim();
+      const qrCode = String(result.body?.qr_codes?.[0]?.text || "").trim();
+      if (!result.ok || !orderId || !qrCode) {
+        throw new Error(
+          providerError || "Não foi possível gerar o Pix no PagBank.",
+        );
+      }
+      const base64Url = String(
+        result.body?.qr_codes?.[0]?.links?.find(
+          (link) => link.rel === "QRCODE.BASE64",
+        )?.href || "",
+      ).trim();
+      let qrCodeBase64: string | null = null;
+      if (base64Url) {
+        const imageResponse = await fetch(base64Url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (imageResponse.ok) {
+          qrCodeBase64 = (await imageResponse.text()).trim() || null;
+        }
+      }
+      return {
+        paymentId: `pagbank:${orderId}`,
+        status: "WAITING",
+        provider: resolvedPixProvider,
+        totalAmount,
+        qrCode,
+        qrCodeBase64,
+        requiresStatusCheck: true,
+      };
+    }
 
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
       const accessToken = await this.getAsaasAccessToken(
@@ -977,6 +1103,32 @@ class OrderPixPaymentService {
         status,
         provider: PIX_PROVIDERS.ASAAS,
         isApproved: APPROVED_ASAAS_PAYMENT_STATUSES.has(status),
+        sameRestaurant: true,
+        requiresStatusCheck: true,
+      };
+    }
+
+    if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
+      if (!normalizedRestaurantIdNumber) {
+        throw new Error("Restaurante inválido para consultar Pix PagBank.");
+      }
+      const token = await this.getPagBankToken(normalizedRestaurantIdNumber);
+      const result = await this.fetchPagBankJson<PagBankOrderPayload>(
+        `${this.getPagBankBaseUrl()}/orders/${encodeURIComponent(parsedPaymentId.rawPaymentId)}`,
+        token,
+      );
+      if (!result.ok) {
+        throw new Error("Não foi possível consultar o Pix no PagBank.");
+      }
+      const statuses = (result.body?.charges || []).map((charge) =>
+        String(charge.status || "").toUpperCase(),
+      );
+      const isApproved = statuses.includes("PAID");
+      return {
+        paymentId: normalizedPaymentId,
+        status: isApproved ? "paid" : statuses[0] || "waiting",
+        provider: PIX_PROVIDERS.PAGBANK,
+        isApproved,
         sameRestaurant: true,
         requiresStatusCheck: true,
       };

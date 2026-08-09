@@ -58,6 +58,20 @@ export type AdminSettings = {
   minimumOrder: number;
   deliveryTime: number;
   tableOrderingEnabled: boolean;
+  pixProvider: string;
+  pixKey: string;
+  cardGateway: string;
+  stripeSecretKey: string;
+  stripeSecretKeyConfigured: boolean;
+  stripeWebhookSecret: string;
+  stripeWebhookSecretConfigured: boolean;
+  mercadoPagoAccessToken: string;
+  mercadoPagoAccessTokenConfigured: boolean;
+  asaasAccessToken: string;
+  asaasAccessTokenConfigured: boolean;
+  pagbankEmail: string;
+  pagbankToken: string;
+  pagbankTokenConfigured: boolean;
   mainBannerId?: number;
   mainBannerUrl?: string;
   promotion1Id?: number;
@@ -93,6 +107,14 @@ export type AdminPageProps = {
   onDeleteCategory?: (id: number) => void | Promise<void>;
   onOpenSettings?: () => void;
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
+  onConnectMercadoPago?: () => void | Promise<void>;
+  onConnectPagBank?: () => void | Promise<void>;
+  onOnboardAsaas?: (payload: {
+    cpf?: string;
+    cnpj?: string;
+    restaurantName: string;
+    pixKey: string;
+  }) => void | Promise<void>;
   onCreateEmployee?: (
     employee: Omit<Employee, "id">,
   ) => Employee | Promise<Employee>;

@@ -10,6 +10,7 @@ type PixPaymentData = {
   pixCode: string;
   qrCodeBase64: string | null;
   requiresStatusCheck?: boolean;
+  paid?: boolean;
 };
 
 type Props = {
@@ -118,6 +119,15 @@ const WaitMsg = styled.p`
   margin: 0;
 `;
 
+const BackButton = styled.button`
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: #475569;
+  font-weight: 700;
+  cursor: pointer;
+`;
+
 const OrderId = styled.p`
   font-size: 12px;
   color: #94a3b8;
@@ -128,6 +138,7 @@ export default function PixPaymentPanel({
   pixPaymentData,
   formatCurrency,
   onCopyPixKey,
+  onBackToCart,
 }: Props) {
   const [copied, setCopied] = useState(false);
 
@@ -172,15 +183,18 @@ export default function PixPaymentPanel({
         )}
 
         <WaitMsg>
-          Aguardando confirmação do pagamento
-          {pixPaymentData.provider === "MERCADO_PAGO"
-            ? " (automático via Mercado Pago)"
-            : ""}
-          …
+          {pixPaymentData.paid
+            ? "Pagamento confirmado! Seu pedido já foi enviado ao restaurante."
+            : `Aguardando confirmação automática via ${pixPaymentData.provider}…`}
         </WaitMsg>
 
         {pixPaymentData.orderId && (
           <OrderId>Pedido #{pixPaymentData.orderId}</OrderId>
+        )}
+        {onBackToCart && (
+          <BackButton type="button" onClick={onBackToCart}>
+            Voltar para o cardápio
+          </BackButton>
         )}
       </Card>
     </Wrap>

@@ -11,6 +11,8 @@ import GetAsaasWalletBalanceController from "../controllers/GetAsaasWalletBalanc
 import WithdrawAsaasWalletController from "../controllers/WithdrawAsaasWalletController.js";
 import StartMercadoPagoOAuthController from "../controllers/StartMercadoPagoOAuthController.js";
 import MercadoPagoOAuthCallbackController from "../controllers/MercadoPagoOAuthCallbackController.js";
+import StartPagBankOAuthController from "../controllers/StartPagBankOAuthController.js";
+import PagBankOAuthCallbackController from "../controllers/PagBankOAuthCallbackController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 
@@ -41,6 +43,17 @@ router.post(
 
 router.get("/mercado-pago/oauth/callback", (req, res) =>
   MercadoPagoOAuthCallbackController.handle(req, res),
+);
+
+router.post(
+  "/pagbank/oauth/start",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => StartPagBankOAuthController.handle(req, res),
+);
+
+router.get("/pagbank/oauth/callback", (req, res) =>
+  PagBankOAuthCallbackController.handle(req, res),
 );
 
 router.post("/asaas/onboard", authMiddleware, adminMiddleware, (req, res) =>

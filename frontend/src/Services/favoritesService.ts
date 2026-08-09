@@ -1,8 +1,10 @@
 import api from "./api";
 
 class FavoritesService {
-  async list() {
-    const response = await api.get("/favorites");
+  async list(restaurantId?: string | number | null) {
+    const response = await api.get("/favorites", {
+      params: restaurantId ? { restaurantId } : undefined,
+    });
     return Array.isArray(response.data?.favorites) ? response.data.favorites : [];
   }
   async add(productId: string | number) {

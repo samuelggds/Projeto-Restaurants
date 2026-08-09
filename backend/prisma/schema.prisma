@@ -329,6 +329,8 @@ model RestaurantSettings {
   stripeWebhookSecret    String?
   pagbankEmail           String?
   pagbankToken           String?
+  pagbankRefreshToken    String?
+  pagbankTokenExpiresAt  DateTime?
   pagbankEnvironment     String?
 
   // Dados financeiros / onboarding

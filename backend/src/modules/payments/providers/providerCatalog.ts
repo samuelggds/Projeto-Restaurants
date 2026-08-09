@@ -1,6 +1,7 @@
 export const PIX_PROVIDERS = {
   MERCADO_PAGO: "MERCADO_PAGO",
   ASAAS: "ASAAS",
+  PAGBANK: "PAGBANK",
   NUBANK: "NUBANK",
   PICPAY: "PICPAY",
 } as const;

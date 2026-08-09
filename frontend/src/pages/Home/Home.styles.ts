@@ -392,6 +392,14 @@ export const ImageWrap = styled.div`
     place-items: center;
     cursor: pointer;
     backdrop-filter: blur(6px);
+    transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+  button:hover {
+    transform: scale(1.06);
+  }
+  button.favorite {
+    color: #e53935;
+    background: rgba(255, 255, 255, 0.94);
   }
 `;
 export const About = styled.section`

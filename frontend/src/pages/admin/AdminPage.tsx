@@ -95,6 +95,9 @@ export function AdminPage({
   onDeleteCategory,
   onOpenSettings,
   onSaveSettings,
+  onConnectMercadoPago,
+  onConnectPagBank,
+  onOnboardAsaas,
   onCreateEmployee,
   onUpdateEmployee,
   onDeactivateEmployee,
@@ -102,8 +105,16 @@ export function AdminPage({
   onLogout,
 }: AdminPageProps) {
   const { confirmDialog } = useAppDialog();
-  const [area, setArea] = useState<AdminSection>("overview");
-  const [section, setSection] = useState<SettingsSection>("brand");
+  const oauthParams = new URLSearchParams(window.location.search);
+  const mercadoPagoOAuthStatus = oauthParams.get("mp_oauth");
+  const pagBankOAuthStatus = oauthParams.get("pagbank_oauth");
+  const paymentOAuthStatus = mercadoPagoOAuthStatus || pagBankOAuthStatus;
+  const [area, setArea] = useState<AdminSection>(
+    paymentOAuthStatus ? "settings" : "overview",
+  );
+  const [section, setSection] = useState<SettingsSection>(
+    paymentOAuthStatus ? "payments" : "brand",
+  );
   const [settings, setSettings] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
   const orders = initialOrders;
@@ -112,8 +123,12 @@ export function AdminPage({
   const [mobile, setMobile] = useState(false);
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
-  const [saved, setSaved] = useState(false);
-  const [feedbackError, setFeedbackError] = useState("");
+  const [saved, setSaved] = useState(paymentOAuthStatus === "success");
+  const [feedbackError, setFeedbackError] = useState(
+    paymentOAuthStatus === "error"
+      ? oauthParams.get("message") || "Não foi possível conectar ao Mercado Pago."
+      : "",
+  );
   const logoInput = useRef<HTMLInputElement>(null);
   const areaTitles: Record<Exclude<AdminSection, "settings">, string> = {
     overview: "Visão geral",
@@ -159,6 +174,27 @@ export function AdminPage({
     setFeedbackError("");
     try {
       await onSaveSettings?.(settings);
+      setSettings((current) => ({
+        ...current,
+        stripeSecretKey: "",
+        stripeSecretKeyConfigured:
+          current.stripeSecretKeyConfigured || Boolean(current.stripeSecretKey),
+        stripeWebhookSecret: "",
+        stripeWebhookSecretConfigured:
+          current.stripeWebhookSecretConfigured ||
+          Boolean(current.stripeWebhookSecret),
+        mercadoPagoAccessToken: "",
+        mercadoPagoAccessTokenConfigured:
+          current.mercadoPagoAccessTokenConfigured ||
+          Boolean(current.mercadoPagoAccessToken),
+        asaasAccessToken: "",
+        asaasAccessTokenConfigured:
+          current.asaasAccessTokenConfigured ||
+          Boolean(current.asaasAccessToken),
+        pagbankToken: "",
+        pagbankTokenConfigured:
+          current.pagbankTokenConfigured || Boolean(current.pagbankToken),
+      }));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
     } catch {
@@ -394,6 +430,9 @@ export function AdminPage({
                 settings={settings}
                 update={update}
                 openEmployees={() => setArea("employees")}
+                onConnectMercadoPago={onConnectMercadoPago}
+                onConnectPagBank={onConnectPagBank}
+                onOnboardAsaas={onOnboardAsaas}
               />
             )
           ) : (
@@ -572,6 +611,9 @@ function SettingsContent({
   settings,
   update,
   openEmployees,
+  onConnectMercadoPago,
+  onConnectPagBank,
+  onOnboardAsaas,
 }: {
   section: SettingsSection;
   settings: typeof adminMockSettings;
@@ -580,7 +622,68 @@ function SettingsContent({
     value: (typeof adminMockSettings)[K],
   ) => void;
   openEmployees: () => void;
+  onConnectMercadoPago?: () => void | Promise<void>;
+  onConnectPagBank?: () => void | Promise<void>;
+  onOnboardAsaas?: (payload: {
+    cpf?: string;
+    cnpj?: string;
+    restaurantName: string;
+    pixKey: string;
+  }) => void | Promise<void>;
 }) {
+  const [connectingMercadoPago, setConnectingMercadoPago] = useState(false);
+  const [paymentConnectionError, setPaymentConnectionError] = useState("");
+  const [connectingPagBank, setConnectingPagBank] = useState(false);
+  const [onboardingAsaas, setOnboardingAsaas] = useState(false);
+  const [asaasDocument, setAsaasDocument] = useState("");
+
+  async function connectMercadoPago() {
+    setPaymentConnectionError("");
+    setConnectingMercadoPago(true);
+    try {
+      await onConnectMercadoPago?.();
+    } catch (error) {
+      setPaymentConnectionError(
+        errorMessage(error, "Não foi possível conectar ao Mercado Pago."),
+      );
+      setConnectingMercadoPago(false);
+    }
+  }
+
+  async function connectPagBank() {
+    setPaymentConnectionError("");
+    setConnectingPagBank(true);
+    try {
+      await onConnectPagBank?.();
+    } catch (error) {
+      setPaymentConnectionError(
+        errorMessage(error, "Não foi possível conectar ao PagBank."),
+      );
+      setConnectingPagBank(false);
+    }
+  }
+
+  async function onboardAsaas() {
+    const document = asaasDocument.replace(/\D/g, "");
+    setPaymentConnectionError("");
+    setOnboardingAsaas(true);
+    try {
+      await onOnboardAsaas?.({
+        ...(document.length === 14 ? { cnpj: document } : { cpf: document }),
+        restaurantName: settings.restaurantName,
+        pixKey: settings.pixKey,
+      });
+      update("asaasAccessTokenConfigured", true);
+      update("pixProvider", "ASAAS");
+      update("cardGateway", "ASAAS");
+    } catch (error) {
+      setPaymentConnectionError(
+        errorMessage(error, "Não foi possível criar a conta Asaas."),
+      );
+    } finally {
+      setOnboardingAsaas(false);
+    }
+  }
   const toggles = (items: [string, string, boolean][]) => (
     <S.ToggleRows>
       {items.map(([title, description, checked]) => (
@@ -830,16 +933,106 @@ function SettingsContent({
     );
   if (section === "payments")
     return (
-      <S.Card>
-        <h2>Formas de pagamento</h2>
-        <p>Escolha o que estará disponível no checkout.</p>
-        {toggles([
-          ["Pix", "Pagamento instantâneo.", true],
-          ["Cartão de crédito", "Pagamento online ou na entrega.", true],
-          ["Cartão de débito", "Maquininha na entrega.", true],
-          ["Dinheiro", "Permitir informar troco.", false],
-        ])}
-      </S.Card>
+      <S.SettingSection>
+        <S.Card>
+          <h2>Pix do restaurante</h2>
+          <p>A cobrança será criada na conta configurada por este administrador.</p>
+          <S.FormGrid>
+            <S.Field>
+              Provedor Pix
+              <select value={settings.pixProvider} onChange={(e) => update("pixProvider", e.target.value)}>
+                <option value="MERCADO_PAGO">Mercado Pago</option>
+                <option value="ASAAS">Asaas</option>
+                <option value="PAGBANK">PagBank</option>
+              </select>
+            </S.Field>
+            <S.Field>
+              Chave Pix
+              <input value={settings.pixKey} placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória" autoComplete="off" onChange={(e) => update("pixKey", e.target.value)} />
+            </S.Field>
+          </S.FormGrid>
+          {(settings.pixProvider === "MERCADO_PAGO" ||
+            settings.cardGateway === "MERCADO_PAGO") && (
+            <>
+              <button
+                type="button"
+                onClick={connectMercadoPago}
+                disabled={connectingMercadoPago}
+                style={{
+                  minHeight: 46,
+                  padding: "0 18px",
+                  border: 0,
+                  borderRadius: 10,
+                  background: "#009ee3",
+                  color: "#fff",
+                  fontWeight: 800,
+                  cursor: connectingMercadoPago ? "wait" : "pointer",
+                  marginTop: 16,
+                  marginBottom: 10,
+                }}
+              >
+                {connectingMercadoPago
+                  ? "Abrindo Mercado Pago..."
+                  : settings.mercadoPagoAccessTokenConfigured
+                    ? "Reconectar conta Mercado Pago"
+                    : "Conectar minha conta Mercado Pago"}
+              </button>
+              <p>
+                Você entrará no Mercado Pago e autorizará o recebimento. Não é
+                necessário copiar o Access Token.
+              </p>
+              {paymentConnectionError && (
+                <p style={{ color: "#b91c1c", fontWeight: 700 }}>
+                  {paymentConnectionError}
+                </p>
+              )}
+            </>
+          )}
+          {(settings.pixProvider === "ASAAS" ||
+            settings.cardGateway === "ASAAS") && (
+            <>
+              <S.Field>
+                CPF ou CNPJ do responsável
+                <input value={asaasDocument} inputMode="numeric" placeholder="Somente números" onChange={(e) => setAsaasDocument(e.target.value)} />
+              </S.Field>
+              <button type="button" onClick={onboardAsaas} disabled={onboardingAsaas} style={{ minHeight: 46, padding: "0 18px", border: 0, borderRadius: 10, background: "#0b7", color: "#fff", fontWeight: 800, cursor: onboardingAsaas ? "wait" : "pointer", marginTop: 16, marginBottom: 10 }}>
+                {onboardingAsaas
+                  ? "Criando conta Asaas..."
+                  : settings.asaasAccessTokenConfigured
+                    ? "Conta Asaas configurada"
+                    : "Criar e conectar conta Asaas"}
+              </button>
+            </>
+          )}
+        </S.Card>
+        <S.Card>
+          <h2>Pagamento com cartão</h2>
+          <p>O cliente informará o cartão no ambiente seguro do gateway.</p>
+          <S.Field>
+            Gateway de cartão
+            <select value={settings.cardGateway} onChange={(e) => update("cardGateway", e.target.value)}>
+              <option value="">Selecione o gateway</option>
+              <option value="MERCADO_PAGO">Mercado Pago</option>
+              <option value="PAGBANK">PagBank</option>
+              <option value="ASAAS">Asaas</option>
+            </select>
+          </S.Field>
+          {(settings.cardGateway === "PAGBANK" ||
+            settings.pixProvider === "PAGBANK") && (
+            <>
+              <button type="button" onClick={connectPagBank} disabled={connectingPagBank} style={{ minHeight: 46, padding: "0 18px", border: 0, borderRadius: 10, background: "#22a64a", color: "#fff", fontWeight: 800, cursor: connectingPagBank ? "wait" : "pointer", marginTop: 16, marginBottom: 10 }}>
+                {connectingPagBank
+                  ? "Abrindo PagBank..."
+                  : settings.pagbankTokenConfigured
+                    ? "Reconectar conta PagBank"
+                    : "Conectar minha conta PagBank"}
+              </button>
+              <p>Você entrará no PagBank e autorizará Pix e cartão.</p>
+            </>
+          )}
+          {paymentConnectionError && <p style={{ color: "#b91c1c", fontWeight: 700 }}>{paymentConnectionError}</p>}
+        </S.Card>
+      </S.SettingSection>
     );
   if (section === "social")
     return (

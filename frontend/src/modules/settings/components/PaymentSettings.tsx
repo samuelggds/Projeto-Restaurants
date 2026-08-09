@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { RestaurantSettings } from "../types/settings.types";
+import restaurantSettingsService from "../../../Services/restaurantSettingsService";
 import * as S from "../styles/settings.styles";
 import { Field, FormInput, FormSelect } from "./FormControls";
 
@@ -7,13 +9,65 @@ type Props = {
   onChange: (patch: Partial<RestaurantSettings>) => void;
 };
 
-function configuredHint(configured: boolean) {
-  return configured
-    ? "Credencial configurada. Preencha somente para substituir."
-    : "Credencial ainda não configurada.";
-}
-
 export function PaymentSettings({ settings, onChange }: Props) {
+  const [connecting, setConnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
+  const [connectingPagBank, setConnectingPagBank] = useState(false);
+  const [onboardingAsaas, setOnboardingAsaas] = useState(false);
+  const [asaasDocument, setAsaasDocument] = useState("");
+
+  async function connectMercadoPago() {
+    setConnecting(true);
+    setConnectionError("");
+    try {
+      const result = await restaurantSettingsService.startMercadoPagoOAuth();
+      const authorizationUrl = String(result?.authorizationUrl || "");
+      if (!/^https:\/\//i.test(authorizationUrl)) {
+        throw new Error("URL de autorização inválida.");
+      }
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      setConnectionError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível conectar ao Mercado Pago.",
+      );
+      setConnecting(false);
+    }
+  }
+
+  async function connectPagBank() {
+    setConnectingPagBank(true);
+    setConnectionError("");
+    try {
+      const result = await restaurantSettingsService.startPagBankOAuth();
+      const authorizationUrl = String(result?.authorizationUrl || "");
+      if (!/^https:\/\//i.test(authorizationUrl)) throw new Error("URL de autorização inválida.");
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : "Não foi possível conectar ao PagBank.");
+      setConnectingPagBank(false);
+    }
+  }
+
+  async function onboardAsaas() {
+    setOnboardingAsaas(true);
+    setConnectionError("");
+    try {
+      const document = asaasDocument.replace(/\D/g, "");
+      await restaurantSettingsService.onboardAsaas({
+        ...(document.length === 14 ? { cnpj: document } : { cpf: document }),
+        restaurantName: settings.restaurantName,
+        pixKey: settings.pixKey,
+      });
+      onChange({ asaasAccessTokenConfigured: true });
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : "Não foi possível criar a conta Asaas.");
+    } finally {
+      setOnboardingAsaas(false);
+    }
+  }
+
   return (
     <S.Panel>
       <header>
@@ -36,10 +90,10 @@ export function PaymentSettings({ settings, onChange }: Props) {
             >
               <option value="MERCADO_PAGO">Mercado Pago</option>
               <option value="ASAAS">Asaas</option>
-              <option value="MANUAL">Chave Pix manual</option>
+              <option value="PAGBANK">PagBank</option>
             </FormSelect>
           </Field>
-          <Field label="Chave Pix" hint="Usada quando o Pix manual estiver ativo.">
+          <Field label="Chave Pix" hint="Chave ativa na conta do provedor selecionado.">
             <FormInput
               value={settings.pixKey}
               onChange={(event) => onChange({ pixKey: event.target.value })}
@@ -54,7 +108,6 @@ export function PaymentSettings({ settings, onChange }: Props) {
               }
             >
               <option value="">Selecione</option>
-              <option value="STRIPE">Stripe</option>
               <option value="MERCADO_PAGO">Mercado Pago</option>
               <option value="PAGBANK">PagBank</option>
               <option value="ASAAS">Asaas</option>
@@ -62,100 +115,48 @@ export function PaymentSettings({ settings, onChange }: Props) {
           </Field>
         </S.Grid>
 
-        {settings.cardGateway === "STRIPE" && (
-          <S.Grid>
-            <Field
-              label="Stripe Secret Key"
-              hint={configuredHint(settings.stripeSecretKeyConfigured)}
-            >
-              <FormInput
-                type="password"
-                value={settings.stripeSecretKey}
-                placeholder={settings.stripeSecretKeyConfigured ? "••••••••" : "sk_live_..."}
-                autoComplete="new-password"
-                onChange={(event) =>
-                  onChange({ stripeSecretKey: event.target.value })
-                }
-              />
-            </Field>
-            <Field
-              label="Stripe Webhook Secret"
-              hint={configuredHint(settings.stripeWebhookSecretConfigured)}
-            >
-              <FormInput
-                type="password"
-                value={settings.stripeWebhookSecret}
-                placeholder={settings.stripeWebhookSecretConfigured ? "••••••••" : "whsec_..."}
-                autoComplete="new-password"
-                onChange={(event) =>
-                  onChange({ stripeWebhookSecret: event.target.value })
-                }
-              />
-            </Field>
-          </S.Grid>
+        {(settings.cardGateway === "MERCADO_PAGO" ||
+          settings.pixProvider === "MERCADO_PAGO") && (
+          <>
+            <S.SaveButton type="button" onClick={connectMercadoPago} disabled={connecting}>
+              {connecting
+                ? "Abrindo Mercado Pago..."
+                : settings.mercadoPagoAccessTokenConfigured
+                  ? "Reconectar conta Mercado Pago"
+                  : "Conectar minha conta Mercado Pago"}
+            </S.SaveButton>
+            {connectionError && <S.InfoBox>{connectionError}</S.InfoBox>}
+          </>
         )}
 
-        {settings.cardGateway === "MERCADO_PAGO" && (
-          <Field
-            label="Mercado Pago Access Token"
-            hint={configuredHint(settings.mercadoPagoAccessTokenConfigured)}
-          >
-            <FormInput
-              type="password"
-              value={settings.mercadoPagoAccessToken}
-              placeholder={settings.mercadoPagoAccessTokenConfigured ? "••••••••" : "APP_USR-..."}
-              autoComplete="new-password"
-              onChange={(event) =>
-                onChange({ mercadoPagoAccessToken: event.target.value })
-              }
-            />
-          </Field>
+        {(settings.cardGateway === "ASAAS" ||
+          settings.pixProvider === "ASAAS") && (
+          <>
+            <Field label="CPF ou CNPJ do responsável">
+              <FormInput value={asaasDocument} inputMode="numeric" placeholder="Somente números" onChange={(event) => setAsaasDocument(event.target.value)} />
+            </Field>
+            <S.SaveButton type="button" onClick={onboardAsaas} disabled={onboardingAsaas}>
+              {onboardingAsaas
+                ? "Criando conta Asaas..."
+                : settings.asaasAccessTokenConfigured
+                  ? "Conta Asaas configurada"
+                  : "Criar e conectar conta Asaas"}
+            </S.SaveButton>
+          </>
         )}
 
-        {settings.cardGateway === "ASAAS" && (
-          <Field
-            label="Asaas Access Token"
-            hint={configuredHint(settings.asaasAccessTokenConfigured)}
-          >
-            <FormInput
-              type="password"
-              value={settings.asaasAccessToken}
-              placeholder={settings.asaasAccessTokenConfigured ? "••••••••" : "$aact_..."}
-              autoComplete="new-password"
-              onChange={(event) =>
-                onChange({ asaasAccessToken: event.target.value })
-              }
-            />
-          </Field>
+        {(settings.cardGateway === "PAGBANK" ||
+          settings.pixProvider === "PAGBANK") && (
+          <S.SaveButton type="button" onClick={connectPagBank} disabled={connectingPagBank}>
+            {connectingPagBank
+              ? "Abrindo PagBank..."
+              : settings.pagbankTokenConfigured
+                ? "Reconectar conta PagBank"
+                : "Conectar minha conta PagBank"}
+          </S.SaveButton>
         )}
 
-        {settings.cardGateway === "PAGBANK" && (
-          <S.Grid>
-            <Field label="E-mail PagBank">
-              <FormInput
-                type="email"
-                value={settings.pagbankEmail}
-                onChange={(event) =>
-                  onChange({ pagbankEmail: event.target.value })
-                }
-              />
-            </Field>
-            <Field
-              label="Token PagBank"
-              hint={configuredHint(settings.pagbankTokenConfigured)}
-            >
-              <FormInput
-                type="password"
-                value={settings.pagbankToken}
-                placeholder={settings.pagbankTokenConfigured ? "••••••••" : "Token de produção"}
-                autoComplete="new-password"
-                onChange={(event) =>
-                  onChange({ pagbankToken: event.target.value })
-                }
-              />
-            </Field>
-          </S.Grid>
-        )}
+        {connectionError && <S.InfoBox>{connectionError}</S.InfoBox>}
 
         <S.InfoBox>
           Configure os webhooks no painel do provedor apontando para a URL do
