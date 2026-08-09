@@ -1,6 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import api from "../Services/api";
+import { clearSystemBlockState } from "../Services/systemBlock";
+import { disconnectSocket } from "../Services/socketService";
+import {
+  clearAuthSession,
+  getStoredAccessToken,
+  isAuthSnapshotCurrent,
+  persistAuthSession,
+} from "../modules/auth/session/authSession";
 
 type AuthUser = {
   id?: number;
@@ -51,6 +59,7 @@ function sanitizeUserRole<T extends Record<string, unknown> | null>(
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const authRevision = useRef(0);
 
   function readStoredUser(): AuthUser {
     const storedUserRaw = localStorage.getItem("user");
@@ -100,7 +109,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function bootstrapAuth() {
       const storedUser = readStoredUser();
-      const token = localStorage.getItem("token");
+      const token = getStoredAccessToken();
+      const bootstrapRevision = authRevision.current;
+
+      const sessionIsStillCurrent = () =>
+        mounted && isAuthSnapshotCurrent({
+          snapshotToken: token,
+          currentToken: getStoredAccessToken(),
+          snapshotRevision: bootstrapRevision,
+          currentRevision: authRevision.current,
+        });
 
       if (!token) {
         if (mounted) {
@@ -115,22 +133,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const remoteUser = response?.data?.user || response?.data;
         const mergedUser = mergeUserData(remoteUser, storedUser);
 
-        if (mergedUser?.id) {
+        if (mergedUser?.id && sessionIsStillCurrent()) {
           localStorage.setItem("user", JSON.stringify(mergedUser));
-          if (mounted) {
-            setUser(mergedUser);
-          }
-        } else if (storedUser && mounted) {
+          setUser(mergedUser);
+        } else if (storedUser && sessionIsStillCurrent()) {
           setUser(storedUser);
         }
       } catch {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        if (mounted) {
+        if (sessionIsStillCurrent()) {
+          clearAuthSession();
           setUser(null);
         }
       } finally {
-        if (mounted) {
+        if (sessionIsStillCurrent() || (mounted && !getStoredAccessToken())) {
           setIsLoading(false);
         }
       }
@@ -144,16 +159,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   function login(userData: AuthUser, token: string) {
+    authRevision.current += 1;
     const normalizedUserData = sanitizeUserRole(userData);
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(normalizedUserData));
+    persistAuthSession(normalizedUserData, token);
     setUser(normalizedUserData);
+    setIsLoading(false);
   }
 
   function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    authRevision.current += 1;
+    clearAuthSession();
+    clearSystemBlockState();
+    disconnectSocket();
     setUser(null);
+    setIsLoading(false);
   }
 
   function hasRole(...roles: string[]) {

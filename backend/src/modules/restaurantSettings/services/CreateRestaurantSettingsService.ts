@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 import prisma from "../../../config/prisma.js";
+import { normalizeRestaurantImage } from "../utils/normalizeRestaurantImage.js";
 
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -114,7 +115,7 @@ class CreateRestaurantSettingsService {
     const normalizedRestaurantLogo =
       restaurantLogo === undefined
         ? undefined
-        : String(restaurantLogo || "").trim() || null;
+        : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage =
       restaurantCoverImage === undefined
         ? undefined

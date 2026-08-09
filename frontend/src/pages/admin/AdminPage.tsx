@@ -27,6 +27,8 @@ import {
   X,
 } from "lucide-react";
 import { adminMockEmployees, adminMockSettings } from "./data";
+import { useAppDialog } from "../../components/AppDialog/context";
+import { createPersistentImageDataUrl } from "../../utils/persistentImage";
 import * as S from "./Admin.styles";
 import type {
   AdminPageProps,
@@ -99,6 +101,7 @@ export function AdminPage({
   onViewStore,
   onLogout,
 }: AdminPageProps) {
+  const { confirmDialog } = useAppDialog();
   const [area, setArea] = useState<AdminSection>("overview");
   const [section, setSection] = useState<SettingsSection>("brand");
   const [settings, setSettings] = useState(initialSettings);
@@ -124,9 +127,18 @@ export function AdminPage({
     key: K,
     value: (typeof settings)[K],
   ) => setSettings((current) => ({ ...current, [key]: value }));
-  const logo = (event: ChangeEvent<HTMLInputElement>) => {
+  const logo = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) update("logoUrl", URL.createObjectURL(file));
+    if (!file) return;
+    setFeedbackError("");
+    try {
+      const persistentImage = await createPersistentImageDataUrl(file);
+      update("logoUrl", persistentImage);
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Não foi possível processar a imagem.");
+    } finally {
+      event.target.value = "";
+    }
   };
   const save = async () => {
     setFeedbackError("");
@@ -341,7 +353,13 @@ export function AdminPage({
               onNew={() => setEditing(null)}
               onEdit={setEditing}
               onDeactivate={async (employee) => {
-                if (!window.confirm(`Desativar ${employee.name}?`)) return;
+                const confirmed = await confirmDialog({
+                  title: "Desativar funcionário?",
+                  description: `${employee.name} perderá o acesso ao sistema até ser reativado.`,
+                  confirmLabel: "Desativar",
+                  tone: "danger",
+                });
+                if (!confirmed) return;
                 await onDeactivateEmployee?.(employee.id);
                 setEmployees((current) => current.map((item) => item.id === employee.id ? { ...item, active: false } : item));
               }}
@@ -423,7 +441,7 @@ function Brand({
     value: (typeof adminMockSettings)[K],
   ) => void;
   input: React.RefObject<HTMLInputElement | null>;
-  logo: (e: ChangeEvent<HTMLInputElement>) => void;
+  logo: (e: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
 }) {
   return (
     <S.Stack>
@@ -941,6 +959,7 @@ function Management({
   onUpdateCategory: (id: number, name: string) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
 }) {
+  const { confirmDialog, promptDialog } = useAppDialog();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
   const [newCategory, setNewCategory] = useState("");
@@ -1078,18 +1097,31 @@ function Management({
           <S.DataList>
             {categories.map((category) => <div className="data-row" key={category.id}>
               <div><b>{category.name}</b><span>{products.filter((product) => product.categoryId === category.id).length} produto(s)</span></div>
-              <button disabled={categoryBusy} onClick={() => {
-                const name = window.prompt("Novo nome da categoria", category.name)?.trim(); if (!name || name === category.name) return;
+              <button disabled={categoryBusy} onClick={() => { void (async () => {
+                const name = await promptDialog({
+                  title: "Renomear categoria",
+                  description: "Escolha um nome claro para facilitar a organização do cardápio.",
+                  inputLabel: "Novo nome",
+                  initialValue: category.name,
+                  confirmLabel: "Salvar nome",
+                });
+                if (!name || name === category.name) return;
                 setCategoryBusy(true); setCategoryFeedback("");
                 void onUpdateCategory(category.id, name).then(() => setCategoryFeedback("Categoria renomeada com sucesso."))
                   .catch((error) => setCategoryFeedback(errorMessage(error, "Não foi possível renomear a categoria."))).finally(() => setCategoryBusy(false));
-              }}>Renomear</button>
-              <button disabled={categoryBusy} onClick={() => {
-                if (!window.confirm(`Excluir a categoria ${category.name}?`)) return;
+              })(); }}>Renomear</button>
+              <button disabled={categoryBusy} onClick={() => { void (async () => {
+                const confirmed = await confirmDialog({
+                  title: "Excluir categoria?",
+                  description: `A categoria “${category.name}” será removida. Categorias com produtos não podem ser excluídas.`,
+                  confirmLabel: "Excluir categoria",
+                  tone: "danger",
+                });
+                if (!confirmed) return;
                 setCategoryBusy(true); setCategoryFeedback("");
                 void onDeleteCategory(category.id).then(() => setCategoryFeedback("Categoria excluída com sucesso."))
                   .catch((error) => setCategoryFeedback(errorMessage(error, "Não foi possível excluir a categoria."))).finally(() => setCategoryBusy(false));
-              }}>Excluir</button>
+              })(); }}>Excluir</button>
             </div>)}
           </S.DataList>
         </S.Card>
@@ -1201,6 +1233,7 @@ function ProductDrawer({ product, categories, close, save, remove }: {
   save: (product: AdminProduct) => Promise<void>;
   remove?: () => Promise<void>;
 }) {
+  const { confirmDialog } = useAppDialog();
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [image, setImage] = useState(product?.image ?? "");
@@ -1234,7 +1267,17 @@ function ProductDrawer({ product, categories, close, save, remove }: {
       <S.Field>Estoque (vazio = ilimitado)<input type="number" min="0" value={stock} onChange={(event) => setStock(event.target.value)} /></S.Field>
       <label><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} /> Produto disponível</label>
       <footer>
-        {remove && <button type="button" onClick={() => { if (window.confirm("Excluir este produto?")) { setBusy(true); void remove().catch(() => { setError("Não foi possível excluir o produto."); setBusy(false); }); } }}>Excluir</button>}
+        {remove && <button type="button" onClick={() => { void (async () => {
+          const confirmed = await confirmDialog({
+            title: "Excluir produto?",
+            description: `“${product?.name}” será removido permanentemente do cardápio.`,
+            confirmLabel: "Excluir produto",
+            tone: "danger",
+          });
+          if (!confirmed) return;
+          setBusy(true);
+          void remove().catch(() => { setError("Não foi possível excluir o produto."); setBusy(false); });
+        })(); }}>Excluir</button>}
         <button type="button" onClick={close}>Cancelar</button><button className="primary" disabled={busy} type="submit">{busy ? "Salvando..." : "Salvar produto"}</button>
       </footer>
     </S.Drawer>

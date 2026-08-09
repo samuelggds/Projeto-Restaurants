@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/authContext";
 import { HomePage } from "./HomePage";
 import type { HomeData, HomeProduct, HomeCategory } from "./types";
 import * as S from "./Home.styles";
+import { isPersistentImageSource } from "../../utils/persistentImage";
 
 // ── Fallback images by category name keyword
 const CAT_IMGS: Record<string, string> = {
@@ -384,7 +385,7 @@ export default function Home() {
       address: String(settings?.address || ""),
       primaryColor: String(settings?.primaryColor || "#d64d08"),
       whatsapp: String(settings?.whatsapp || ""),
-      logoUrl: String(r?.logo || ""),
+      logoUrl: isPersistentImageSource(r?.logo) ? String(r.logo) : "",
     };
 
     if (backendProducts.length === 0) {
@@ -634,7 +635,6 @@ export default function Home() {
         onAddProduct={addToCart}
         onLogout={() => {
           logout();
-          navigate("/login");
         }}
         onSelectCategory={() => {
           /* handled inside HomePage */

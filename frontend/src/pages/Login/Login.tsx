@@ -5,11 +5,13 @@ import { CheckCircle2, AlertCircle, Utensils, Sun, Moon } from "lucide-react";
 import authService from "../../Services/authService";
 import { useAuth } from "../../contexts/authContext.js";
 import * as S from "./styles";
+import { useAppDialog } from "../../components/AppDialog/context";
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -146,9 +148,13 @@ export default function Login() {
       return authResponse;
     }
 
-    const code = window.prompt(
-      "Digite o codigo de verificacao (2FA) enviado para o seu e-mail:",
-    );
+    const code = await promptDialog({
+      title: "Verificação em duas etapas",
+      description: "Digite o código de segurança enviado para o seu e-mail.",
+      inputLabel: "Código de verificação",
+      placeholder: "000000",
+      confirmLabel: "Verificar",
+    });
 
     if (!code || !String(code).trim()) {
       throw new Error("Codigo 2FA nao informado.");
@@ -158,7 +164,7 @@ export default function Login() {
       mfaToken: authResponse.mfaToken,
       code: String(code).trim(),
     });
-  }, []);
+  }, [promptDialog]);
 
   const initializeGoogleLogin = useCallback(async () => {
     if (googleInitInFlightRef.current) {

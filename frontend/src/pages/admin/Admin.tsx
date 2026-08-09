@@ -9,6 +9,7 @@ import categoriesService from "../../Services/categoriesService";
 import { AdminPage } from "./AdminPage";
 import { adminMockSettings, adminMockEmployees } from "./data";
 import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from "./types";
+import { isPersistentImageSource } from "../../utils/persistentImage";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -35,13 +36,12 @@ function mapProduct(value: unknown): AdminProduct {
 
 function mapSettingsFromApi(raw: Record<string, unknown>): AdminSettings {
   const r = (raw?.restaurant as Record<string, unknown>) ?? {};
+  const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? "";
   return {
     restaurantName: String(
       r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName,
     ),
-    logoUrl: String(
-      r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? "",
-    ),
+    logoUrl: isPersistentImageSource(logoCandidate) ? String(logoCandidate) : "",
     primaryColor: String(raw?.primaryColor ?? adminMockSettings.primaryColor),
     description: String(raw?.description ?? adminMockSettings.description),
     whatsapp: String(raw?.whatsapp ?? adminMockSettings.whatsapp),
