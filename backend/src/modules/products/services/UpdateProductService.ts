@@ -18,6 +18,7 @@ class UpdateProductService {
       throw new Error("Produto não encontrado!");
     }
 
+    const stockWasProvided = Object.prototype.hasOwnProperty.call(data, "stock");
     const normalizedStock =
       data.stock === null || data.stock === undefined
         ? null
@@ -25,8 +26,8 @@ class UpdateProductService {
 
     let nextActive = data.active;
 
-    if (Number.isInteger(normalizedStock) && normalizedStock >= 0) {
-      nextActive = normalizedStock > 0;
+    if (stockWasProvided) {
+      nextActive = normalizedStock === null || normalizedStock > 0;
     }
 
     const payload: UpdateProductInput = {

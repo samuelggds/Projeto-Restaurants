@@ -59,6 +59,7 @@ export async function restoreOrderItemsStock(
       },
       data: {
         stock: stockValue + quantity,
+        active: true,
       },
     });
   }

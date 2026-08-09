@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/authContext";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
+import { connectSocket, disconnectSocket } from "../../Services/socketService";
+import { getStoredAccessToken } from "../../modules/auth/session/authSession";
 import { KitchenModule } from "./KitchenModule";
 import type {
   EmployeeWorkspaceData,
@@ -29,9 +31,9 @@ function formatElapsed(createdAt: string): string {
 
 function mapOrders(raw: unknown[]): Order[] {
   return (raw as Record<string, unknown>[]).map((r) => {
-    const type = String(r.orderType || "");
+    const type = String(r.type || r.orderType || "").toUpperCase();
     const channel: OrderChannel =
-      type === "TABLE_SESSION"
+      type === "MESA" || type === "TABLE_SESSION"
         ? "TABLE"
         : type === "DELIVERY"
           ? "DELIVERY"
@@ -101,6 +103,14 @@ export default function KitchenPage() {
   const restaurantId =
     Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
 
+  const loadOrders = useCallback(async () => {
+    const raw = await ordersService.listRestaurantOrders();
+    setData((prev) => ({
+      ...prev,
+      orders: mapOrders(Array.isArray(raw) ? raw : []),
+    }));
+  }, []);
+
   useEffect(() => {
     if (!restaurantId) return;
     restaurantSettingsService
@@ -127,11 +137,7 @@ export default function KitchenPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const raw = await ordersService.listRestaurantOrders();
-        setData((prev) => ({
-          ...prev,
-          orders: mapOrders(Array.isArray(raw) ? raw : []),
-        }));
+        await loadOrders();
       } catch {
         /* silent */
       }
@@ -141,7 +147,28 @@ export default function KitchenPage() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [restaurantId]);
+  }, [restaurantId, loadOrders]);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token || !restaurantId) return;
+
+    const socket = connectSocket(token, "kitchen-orders");
+    const refreshOrders = () => {
+      void loadOrders().catch(() => {});
+    };
+
+    socket.on("new-order", refreshOrders);
+    socket.on("order:payment-confirmed", refreshOrders);
+    socket.on("order:status-changed", refreshOrders);
+
+    return () => {
+      socket.off("new-order", refreshOrders);
+      socket.off("order:payment-confirmed", refreshOrders);
+      socket.off("order:status-changed", refreshOrders);
+      disconnectSocket();
+    };
+  }, [restaurantId, loadOrders]);
 
   const u = user as Record<string, unknown>;
   const employee = {
@@ -164,11 +191,7 @@ export default function KitchenPage() {
         const numericId = orderId.replace(/^#/, "");
         await ordersService.updateStatus(numericId, status);
         try {
-          const raw = await ordersService.listRestaurantOrders();
-          setData((prev) => ({
-            ...prev,
-            orders: mapOrders(Array.isArray(raw) ? raw : []),
-          }));
+          await loadOrders();
         } catch {
           /* silent */
         }

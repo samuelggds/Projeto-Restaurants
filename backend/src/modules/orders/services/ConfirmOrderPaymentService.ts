@@ -1,4 +1,3 @@
-import { PaymentMethod } from "@prisma/client";
 import { io } from "../../../server.js";
 import orderRepository from "../repositories/OrderRepository.js";
 
@@ -25,14 +24,9 @@ class ConfirmOrderPaymentService {
       throw new Error("Pedido não encontrado!");
     }
 
-    const digitalMethods = new Set<PaymentMethod>([
-      PaymentMethod.PIX,
-      PaymentMethod.CARTAO,
-    ]);
-
-    if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
+    if (order.payOnDelivery !== true || !order.paymentMethod) {
       throw new Error(
-        "Confirmação manual de pagamento disponível apenas para PIX ou CARTAO.",
+        "A confirmação manual está disponível apenas para pedidos com pagamento na entrega.",
       );
     }
 

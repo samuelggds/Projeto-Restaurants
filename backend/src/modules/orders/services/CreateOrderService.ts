@@ -548,10 +548,15 @@ class CreateOrderService {
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
     });
 
+    // Pedidos pagos na entrega precisam aparecer imediatamente na operação.
+    // Somente cobranças digitais online aguardam a confirmação do provedor.
     const isUnpaidDelivery =
-      type === OrderType.DELIVERY && shouldMarkAsPaid !== true;
+      type === OrderType.DELIVERY &&
+      shouldPayOnDelivery !== true &&
+      shouldMarkAsPaid !== true;
     const isUnpaidDigitalPayment =
       shouldMarkAsPaid !== true &&
+      shouldPayOnDelivery !== true &&
       (normalizedPaymentMethod === PaymentMethod.PIX ||
         normalizedPaymentMethod === PaymentMethod.CARTAO);
     const shouldDeferRealtimeUntilPaid =

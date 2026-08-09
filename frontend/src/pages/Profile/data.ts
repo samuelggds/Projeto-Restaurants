@@ -19,7 +19,7 @@ export const profileMockData: ProfileData = {
     paymentLastDigits: '4821',
     favoriteCount: 8,
   },
-  activeOrder: { id: '#SC-2048', status: 'onTheWay', estimatedArrival: '20:35' },
+  activeOrder: { id: '#SC-2048', status: 'onTheWay', estimatedArrival: '20:35', summary: 'Pizza Margherita', image: pizza, total: 54.9 },
   recentOrders: [
     { id: '#SC-2046', summary: 'Pizza Margherita + 2 itens', date: '12/05/2026', total: 69.9, image: pizza, status: 'delivered' },
     { id: '#SC-2039', summary: 'Burger da Casa + 1 item', date: '08/05/2026', total: 54.9, image: burger, status: 'delivered' },

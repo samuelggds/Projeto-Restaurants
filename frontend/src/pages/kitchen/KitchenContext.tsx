@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useMemo,
-  useState,
   type PropsWithChildren,
 } from "react";
 import { workspaceMock } from "./data";
@@ -29,7 +28,8 @@ export function KitchenProvider({
   data = workspaceMock,
   ...props
 }: PropsWithChildren<KitchenModuleProps>) {
-  const [orders, setOrders] = useState(data.orders);
+  const orders = data.orders;
+
   const updateOrderStatus = useCallback(
     async (id: string, status: OrderStatus) => {
       const current = orders.find((order) => order.id === id);
@@ -38,9 +38,6 @@ export function KitchenProvider({
         ((current.status === "PENDENTE" && status === "PREPARANDO") ||
           (current.status === "PREPARANDO" && status === "PRONTO"));
       if (!allowed) return;
-      setOrders((items) =>
-        items.map((order) => (order.id === id ? { ...order, status } : order)),
-      );
       await props.onUpdateOrderStatus?.(id, status);
     },
     [orders, props],

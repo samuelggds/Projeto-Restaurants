@@ -88,6 +88,7 @@ export function AdminPage({
   initialProducts = [],
   initialCategories = [],
   onUpdateOrderStatus,
+  onConfirmOrderPayment,
   onSaveProduct,
   onDeleteProduct,
   onCreateCategory,
@@ -444,7 +445,11 @@ export function AdminPage({
               onUpdateOrderStatus={async (id, status) => {
                 await onUpdateOrderStatus?.(id, status);
               }}
+              onConfirmOrderPayment={async (id) => {
+                await onConfirmOrderPayment?.(id);
+              }}
               onEditProduct={setEditingProduct}
+              onDeleteProduct={async (id) => { await onDeleteProduct?.(id); }}
               onNewProduct={() => setEditingProduct(null)}
               onCreateCategory={async (name) => { await onCreateCategory?.(name); }}
               onUpdateCategory={async (id, name) => { await onUpdateCategory?.(id, name); }}
@@ -466,7 +471,6 @@ export function AdminPage({
           categories={categories}
           close={() => setEditingProduct(undefined)}
           save={async (product) => { await onSaveProduct?.(product); setEditingProduct(undefined); }}
-          remove={editingProduct ? async () => { await onDeleteProduct?.(editingProduct.id); setEditingProduct(undefined); } : undefined}
         />
       )}
       {mobile && (
@@ -1163,7 +1167,9 @@ function Management({
   products,
   categories,
   onUpdateOrderStatus,
+  onConfirmOrderPayment,
   onEditProduct,
+  onDeleteProduct,
   onNewProduct,
   onCreateCategory,
   onUpdateCategory,
@@ -1174,7 +1180,9 @@ function Management({
   products: AdminProduct[];
   categories: AdminCategory[];
   onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
+  onConfirmOrderPayment: (id: number) => Promise<void>;
   onEditProduct: (product: AdminProduct) => void;
+  onDeleteProduct: (id: string) => Promise<void>;
   onNewProduct: () => void;
   onCreateCategory: (name: string) => Promise<void>;
   onUpdateCategory: (id: number, name: string) => Promise<void>;
@@ -1186,6 +1194,7 @@ function Management({
   const [newCategory, setNewCategory] = useState("");
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState("");
+  const [openProductMenu, setOpenProductMenu] = useState<string | null>(null);
   const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const todayOrders = orders.filter((order) => order.createdAt && new Date(order.createdAt).toDateString() === new Date().toDateString() && order.status !== "CANCELADO");
   const sales = todayOrders.reduce((sum, order) => sum + order.total, 0);
@@ -1262,9 +1271,17 @@ function Management({
             <div className="data-row" key={order.numericId}>
               <div>
                 <b>{order.id} • {order.customerName}</b>
-                <span>{order.status.replaceAll("_", " ")}</span>
+                <span>
+                  {order.status.replaceAll("_", " ")} • {order.paid ? "Pago" : "Não pago"}
+                  {order.payOnDelivery ? ` • Pagar na entrega (${order.payOnDeliveryMethod || order.paymentMethod})` : ""}
+                </span>
               </div>
               <strong>{money(order.total)}</strong>
+              {!order.paid && order.payOnDelivery && (
+                <button type="button" onClick={() => void onConfirmOrderPayment(order.numericId)}>
+                  Confirmar pagamento
+                </button>
+              )}
               <select value={order.status} aria-label={`Status do pedido ${order.id}`} onChange={(event) => void onUpdateOrderStatus(order.numericId, event.target.value)}>
                 <option value={order.status}>{order.status.replaceAll("_", " ")}</option>
                 {(order.status === "PENDENTE" ? ["PREPARANDO", "CANCELADO"] : order.status === "PREPARANDO" ? ["PRONTO"] : order.status === "PRONTO" ? ["SAIU_PARA_ENTREGA", "ENTREGUE"] : order.status === "SAIU_PARA_ENTREGA" ? ["ENTREGUE"] : []).map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
@@ -1294,10 +1311,39 @@ function Management({
               {product.image && <img src={product.image} alt="" />}
               <div>
                 <b>{product.name}</b>
-                <span>{product.category} • {product.active ? "Disponível" : "Indisponível"}</span>
+                <span>{product.category} • {product.active ? "Disponível" : "Indisponível"} • {product.stock === null || product.stock === undefined ? "Estoque ilimitado" : `${product.stock} em estoque`}</span>
                 <footer>
                   <strong>{money(product.price)}</strong>
-                  <button onClick={() => onEditProduct(product)}>Editar</button>
+                  <div className="product-actions">
+                    <button
+                      className="product-menu-trigger"
+                      type="button"
+                      aria-label={`Opções de ${product.name}`}
+                      onClick={() => setOpenProductMenu((current) => current === product.id ? null : product.id)}
+                    >
+                      <MoreVertical size={20} />
+                    </button>
+                    {openProductMenu === product.id && (
+                      <div className="product-menu">
+                        <button type="button" onClick={() => { setOpenProductMenu(null); onEditProduct(product); }}>
+                          Editar produto
+                        </button>
+                        <button className="danger" type="button" onClick={() => { void (async () => {
+                          const confirmed = await confirmDialog({
+                            title: "Excluir produto?",
+                            description: `“${product.name}” será removido permanentemente do cardápio.`,
+                            confirmLabel: "Excluir produto",
+                            tone: "danger",
+                          });
+                          if (!confirmed) return;
+                          setOpenProductMenu(null);
+                          await onDeleteProduct(product.id);
+                        })(); }}>
+                          Excluir produto
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </footer>
               </div>
             </S.Product>
@@ -1447,31 +1493,43 @@ function Employees({
   );
 }
 
-function ProductDrawer({ product, categories, close, save, remove }: {
+function ProductDrawer({ product, categories, close, save }: {
   product: AdminProduct | null;
   categories: AdminCategory[];
   close: () => void;
   save: (product: AdminProduct) => Promise<void>;
-  remove?: () => Promise<void>;
 }) {
-  const { confirmDialog } = useAppDialog();
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [image, setImage] = useState(product?.image ?? "");
   const [price, setPrice] = useState(String(product?.price ?? ""));
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? 0);
   const [stock, setStock] = useState(String(product?.stock ?? ""));
-  const [active, setActive] = useState(product?.active !== false);
+  const [unlimitedStock, setUnlimitedStock] = useState(product?.stock === null || product?.stock === undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const uploadImage = async (file?: File) => {
+    if (!file) return;
+    setError("");
+    try {
+      setImage(await createPersistentImageDataUrl(file, 960));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Não foi possível carregar a imagem.");
+    }
+  };
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError("");
     if (!name.trim() || Number(price) < 0 || !categoryId) { setError("Preencha nome, preço e categoria."); return; }
+    if (!unlimitedStock && (stock === "" || !Number.isInteger(Number(stock)) || Number(stock) < 0)) {
+      setError("Informe uma quantidade válida para o estoque.");
+      return;
+    }
     setBusy(true);
     try {
+      const normalizedStock = unlimitedStock ? null : Number(stock);
       await save({ id: product?.id ?? "", name: name.trim(), description: description.trim(), image: image.trim(),
         price: Number(price), categoryId, category: categories.find((item) => item.id === categoryId)?.name ?? "",
-        stock: stock === "" ? undefined : Number(stock), active });
+        stock: normalizedStock, active: normalizedStock === null || normalizedStock > 0 });
     } catch { setError("Não foi possível salvar o produto."); setBusy(false); }
   };
   return <S.Overlay onMouseDown={(event) => event.target === event.currentTarget && close()}>
@@ -1480,25 +1538,27 @@ function ProductDrawer({ product, categories, close, save, remove }: {
       {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
       <S.Field>Nome<input required value={name} onChange={(event) => setName(event.target.value)} /></S.Field>
       <S.Field>Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></S.Field>
-      <S.Field>URL da imagem<input value={image} onChange={(event) => setImage(event.target.value)} /></S.Field>
+      <S.Field>
+        Foto do produto
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadImage(event.target.files?.[0])} />
+      </S.Field>
+      {image && <img src={image} alt={`Prévia de ${name || "produto"}`} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 12 }} />}
+      <S.Field>Ou use a URL da imagem<input value={image} onChange={(event) => setImage(event.target.value)} /></S.Field>
       <S.Field>Preço<input required type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></S.Field>
       <S.Field>Categoria<select required value={categoryId} onChange={(event) => setCategoryId(Number(event.target.value))}>
         <option value={0}>Selecione</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></S.Field>
-      <S.Field>Estoque (vazio = ilimitado)<input type="number" min="0" value={stock} onChange={(event) => setStock(event.target.value)} /></S.Field>
-      <label><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} /> Produto disponível</label>
+      <S.Field>
+        Controle de estoque
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <input type="checkbox" checked={unlimitedStock} onChange={(event) => setUnlimitedStock(event.target.checked)} />
+          Estoque ilimitado (produto feito sob demanda)
+        </label>
+        {!unlimitedStock && (
+          <input required type="number" min="0" step="1" placeholder="Quantidade disponível" value={stock} onChange={(event) => setStock(event.target.value.replace(/\D/g, ""))} />
+        )}
+      </S.Field>
       <footer>
-        {remove && <button type="button" onClick={() => { void (async () => {
-          const confirmed = await confirmDialog({
-            title: "Excluir produto?",
-            description: `“${product?.name}” será removido permanentemente do cardápio.`,
-            confirmLabel: "Excluir produto",
-            tone: "danger",
-          });
-          if (!confirmed) return;
-          setBusy(true);
-          void remove().catch(() => { setError("Não foi possível excluir o produto."); setBusy(false); });
-        })(); }}>Excluir</button>}
         <button type="button" onClick={close}>Cancelar</button><button className="primary" disabled={busy} type="submit">{busy ? "Salvando..." : "Salvar produto"}</button>
       </footer>
     </S.Drawer>

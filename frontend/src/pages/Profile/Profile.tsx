@@ -188,12 +188,21 @@ export default function Profile() {
           id: `#${String(activeRaw.id).padStart(4, "0")}`,
           status: mapStatus(String(activeRaw.status)),
           estimatedArrival: "--:--",
+          summary: buildSummary(activeRaw),
+          image: String(
+            (
+              ((activeRaw.items as Record<string, unknown>[]) || [])[0]
+                ?.product as Record<string, unknown> | undefined
+            )?.image || ORDER_IMG,
+          ),
+          total: Number(activeRaw.total || 0),
         }
       : undefined;
 
     const recentOrders: ProfileOrder[] = orders
       .filter(
         (o) =>
+          String(o.id) !== String(activeRaw?.id || "") &&
           !["", undefined].includes(
             String(o.status || "").toUpperCase() as never,
           ),

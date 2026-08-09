@@ -60,6 +60,9 @@ export type ActiveProfileOrder = {
   id: string;
   status: ProfileOrderStatus;
   estimatedArrival: string;
+  summary: string;
+  image: string;
+  total: number;
 };
 
 export type ProfileData = {

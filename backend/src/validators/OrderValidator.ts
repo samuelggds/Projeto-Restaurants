@@ -66,6 +66,39 @@ export const createOrderSchema = z
       });
     }
 
+    const requiredAddressFields = [
+      ["address", data.address],
+      ["number", data.number],
+      ["district", data.district],
+      ["city", data.city],
+    ] as const;
+    requiredAddressFields.forEach(([field, value]) => {
+      const minimumLength = field === "number" ? 1 : 2;
+      if (String(value || "").trim().length < minimumLength) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `Informe ${field === "address" ? "a rua" : field === "number" ? "o número" : field === "district" ? "o bairro" : "a cidade"}.`,
+        });
+      }
+    });
+
+    if (!/^\d{8}$/.test(String(data.zipCode || "").replace(/\D/g, ""))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["zipCode"],
+        message: "Informe um CEP válido com 8 números.",
+      });
+    }
+
+    if (!/^[A-Za-z]{2}$/.test(String(data.state || "").trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["state"],
+        message: "Informe uma UF válida com duas letras.",
+      });
+    }
+
     if (data.payOnDelivery === true) {
       if (data.type !== OrderType.DELIVERY) {
         ctx.addIssue({

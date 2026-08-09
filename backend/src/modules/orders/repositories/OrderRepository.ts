@@ -50,6 +50,7 @@ class OrderRepository {
           paymentMethod: {
             in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
           },
+          payOnDelivery: false,
         },
         ...(status && { status }),
       },

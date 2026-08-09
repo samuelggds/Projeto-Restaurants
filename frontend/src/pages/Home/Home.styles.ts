@@ -572,14 +572,21 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   width: min(480px, 100%);
   height: 100dvh;
   background: #fffdf9;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transform: translateX(${({ $open }) => ($open ? "0" : "105%")});
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: -24px 0 80px rgba(70, 45, 20, 0.22);
 `;
 
 export const CartHead = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -627,8 +634,10 @@ export const CartHead = styled.div`
 `;
 
 export const CartItems = styled.div`
+  flex: 0 0 auto;
+  max-height: 230px;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 14px 20px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -754,9 +763,17 @@ export const CartEmpty = styled.div`
 `;
 
 export const CartFoot = styled.div`
-  padding: 16px 20px 20px;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 390px;
+  padding: 12px 20px 20px;
   border-top: 1px solid var(--home-border);
   background: #fff;
+
+  @media (max-height: 720px) {
+    min-height: 330px;
+  }
 `;
 
 export const CartSummaryRow = styled.div`
@@ -765,6 +782,7 @@ export const CartSummaryRow = styled.div`
   align-items: center;
   font-size: 13px;
   color: var(--home-muted);
+  margin-top: auto;
   margin-bottom: 6px;
 `;
 
@@ -889,7 +907,7 @@ export const DeliveryToggle = styled.div`
   border-radius: 12px;
   padding: 4px;
   gap: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 `;
 
 export const DeliveryBtn = styled.button<{ $active: boolean }>`
@@ -925,9 +943,63 @@ export const DeliveryBtn = styled.button<{ $active: boolean }>`
 
 export const PaymentGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const AddressForm = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e9dfd5;
+  border-radius: 14px;
+  background: #fcfaf7;
+
+  .cep-field, .full { grid-column: 1 / -1; }
+  .street { grid-column: 1; }
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr;
+    .cep-field, .full, .street { grid-column: 1; }
+  }
+`;
+
+export const AddressField = styled.label`
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+
+  > span {
+    color: #514b44;
+    font-size: 11px;
+    font-weight: 750;
+  }
+  i { color: #8b837a; font-style: normal; font-weight: 500; }
+  input {
+    width: 100%;
+    height: 39px;
+    padding: 0 12px;
+    border: 1px solid #dcd2c7;
+    border-radius: 10px;
+    background: #fff;
+    color: #191816;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input:focus { border-color: var(--primary, #d64d08); box-shadow: 0 0 0 3px rgba(214,77,8,.1); }
+  small { font-size: 10px; }
+  small.loading { color: #7c5b20; }
+  small.success { color: #18773a; }
+  small.error { color: #b42318; }
 `;
 
 export const PaymentCard = styled.button<{ $active: boolean; $color: string }>`

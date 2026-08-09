@@ -11,6 +11,8 @@ import { adminMockSettings, adminMockEmployees } from "./data";
 import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from "./types";
 import { isPersistentImageSource } from "../../utils/persistentImage";
 import bannerService, { type BannerRecord } from "../../Services/bannerService";
+import { connectSocket, disconnectSocket } from "../../Services/socketService";
+import { getStoredAccessToken } from "../../modules/auth/session/authSession";
 
 const BANNER_TITLES = {
   main: "Banner principal",
@@ -30,6 +32,9 @@ function mapOrder(value: unknown): AdminOrder {
     customerEmail: String(user.email ?? raw.customerEmail ?? "") || undefined,
     status: String(raw.status ?? "PENDENTE"), total: Number(raw.total ?? raw.totalAmount ?? 0),
     paid: Boolean(raw.paid ?? raw.paymentConfirmed), type: String(raw.type ?? raw.orderType ?? ""),
+    paymentMethod: String(raw.paymentMethod ?? "") || undefined,
+    payOnDelivery: Boolean(raw.payOnDelivery),
+    payOnDeliveryMethod: String(raw.payOnDeliveryMethod ?? "") || undefined,
     createdAt: String(raw.createdAt ?? "") || undefined };
 }
 
@@ -38,7 +43,9 @@ function mapProduct(value: unknown): AdminProduct {
   return { id: String(raw.id ?? ""), categoryId: Number(raw.categoryId ?? category.id ?? 0),
     name: String(raw.name ?? "Produto"), category: String(category.name ?? raw.categoryName ?? "Sem categoria"),
     price: Number(raw.price ?? 0), image: String(raw.image ?? raw.imageUrl ?? ""),
-    description: String(raw.description ?? ""), stock: Number(raw.stock ?? 0), active: raw.active !== false };
+    description: String(raw.description ?? ""),
+    stock: raw.stock === null || raw.stock === undefined ? null : Number(raw.stock),
+    active: raw.active !== false };
 }
 
 function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[] = []): AdminSettings {
@@ -177,6 +184,29 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+
+    const socket = connectSocket(token, "admin-orders");
+    const refreshOrders = () => {
+      void loadOperations().catch((error) =>
+        console.error("Não foi possível atualizar os pedidos em tempo real.", error),
+      );
+    };
+
+    socket.on("new-order", refreshOrders);
+    socket.on("order:payment-confirmed", refreshOrders);
+    socket.on("order:status-changed", refreshOrders);
+
+    return () => {
+      socket.off("new-order", refreshOrders);
+      socket.off("order:payment-confirmed", refreshOrders);
+      socket.off("order:status-changed", refreshOrders);
+      disconnectSocket();
+    };
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
     Promise.all([restaurantSettingsService.getMySettings(), bannerService.list()])
       .then(([data, banners]) => {
@@ -292,9 +322,11 @@ export default function Admin() {
       initialProducts={products}
       initialCategories={categories}
       onUpdateOrderStatus={async (id, status) => { await ordersService.updateStatus(id, status); await loadOperations(); }}
+      onConfirmOrderPayment={async (id) => { await ordersService.confirmPayment(id); await loadOperations(); }}
       onSaveProduct={async (product) => {
+        const activeFromStock = product.stock === null || product.stock === undefined || product.stock > 0;
         const payload = { name: product.name, description: product.description || "", image: product.image || "", price: product.price,
-          categoryId: product.categoryId, active: product.active !== false, featured: false, preparationTime: 20, stock: product.stock ?? null };
+          categoryId: product.categoryId, active: activeFromStock, featured: false, preparationTime: 20, stock: product.stock ?? null };
         if (product.id) await productsService.updateProduct(product.id, payload);
         else await productsService.createProduct(payload);
         await loadOperations();

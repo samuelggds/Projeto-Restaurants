@@ -10,6 +10,7 @@ import { HomePage } from "./HomePage";
 import PixPaymentPanel from "../Cart/components/PixPaymentPanel";
 import type { HomeData, HomeProduct, HomeCategory } from "./types";
 import * as S from "./Home.styles";
+import { lookupCep } from "../../Services/cepService";
 import { isPersistentImageSource } from "../../utils/persistentImage";
 
 // ── Fallback images by category name keyword
@@ -105,6 +106,7 @@ type CartItem = {
   price: number;
   quantity: number;
   image: string;
+  stock?: number | null;
 };
 
 type PixPaymentData = {
@@ -159,8 +161,52 @@ export default function Home() {
   const [isPinValidating, setIsPinValidating] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "pix" | "card" | "delivery_pix" | "delivery_card"
+  >("pix");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState(() => {
+    const customer = (user || {}) as Record<string, unknown>;
+    return {
+      address: String(customer.address || ""),
+      number: String(customer.number || ""),
+      district: String(customer.district || ""),
+      city: String(customer.city || ""),
+      state: String(customer.state || ""),
+      zipCode: String(customer.zipCode || ""),
+      complement: String(customer.complement || ""),
+    };
+  });
+  const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [cepMessage, setCepMessage] = useState("");
+
+  async function handleCepLookup(value: string) {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setCepStatus("error");
+      setCepMessage("Digite os 8 números do CEP.");
+      return;
+    }
+    setCepStatus("loading");
+    setCepMessage("Buscando endereço...");
+    try {
+      const result = await lookupCep(digits);
+      setDeliveryAddress((current) => ({
+        ...current,
+        zipCode: result.cep,
+        address: result.address || current.address,
+        district: result.district || current.district,
+        city: result.city || current.city,
+        state: result.state || current.state,
+        complement: current.complement || result.complement,
+      }));
+      setCepStatus("success");
+      setCepMessage("Endereço localizado.");
+    } catch (error) {
+      setCepStatus("error");
+      setCepMessage(error instanceof Error ? error.message : "CEP inválido.");
+    }
+  }
   const [pixPaymentData, setPixPaymentData] =
     useState<PixPaymentData | null>(null);
   const [notifs, setNotifs] = useState<Notif[]>([]);
@@ -541,6 +587,7 @@ export default function Home() {
       price: Number(p.price || 0),
       image: getProductImage(p, i),
       rating: Number((p as { averageRating?: number }).averageRating || 0),
+      stock: p.stock === null || p.stock === undefined ? null : Number(p.stock),
     }));
 
     const seen = new Set<string>();
@@ -573,6 +620,11 @@ export default function Home() {
   function addToCart(productId: string) {
     const product = homeData.products.find((p) => p.id === productId);
     if (!product) return;
+    const currentQuantity = cart.find((item) => item.productId === productId)?.quantity || 0;
+    if (product.stock !== null && product.stock !== undefined && currentQuantity >= product.stock) {
+      notify("warning", "Limite de estoque", `Disponível: ${product.stock} unidade${product.stock === 1 ? "" : "s"}.`);
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === productId);
       if (existing)
@@ -587,6 +639,7 @@ export default function Home() {
           price: product.price,
           quantity: 1,
           image: product.image,
+          stock: product.stock,
         },
       ];
     });
@@ -606,6 +659,26 @@ export default function Home() {
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const cartTotal = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
+  function applyPurchasedStockToHome() {
+    const purchased = new Map(
+      cart.map((item) => [String(item.productId), Number(item.quantity)]),
+    );
+    setBackendProducts((products) =>
+      products.map((product) => {
+        const quantity = purchased.get(String(product.id));
+        if (!quantity || product.stock === null || product.stock === undefined) {
+          return product;
+        }
+        const nextStock = Math.max(Number(product.stock) - quantity, 0);
+        return {
+          ...product,
+          stock: nextStock,
+          active: nextStock > 0 && product.active !== false,
+        };
+      }),
+    );
+  }
+
   async function handleCheckout() {
     if (!restaurantId || !cart.length || checkoutLoading) return;
 
@@ -623,22 +696,51 @@ export default function Home() {
 
     if (
       type === "DELIVERY" &&
-      [customer.address, customer.number, customer.district, customer.city, customer.state]
+      [deliveryAddress.address, deliveryAddress.number, deliveryAddress.district, deliveryAddress.city, deliveryAddress.state]
         .some((value) => !String(value || "").trim())
     ) {
       notify(
         "warning",
         "Complete seu endereço",
-        "Cadastre o endereço completo no perfil antes de finalizar o delivery.",
+        "Preencha o endereço completo no próprio carrinho.",
       );
-      navigate("/profile");
+      return;
+    }
+
+    const phoneDigits = String(customer.phone || "").replace(/\D/g, "");
+    if (type === "DELIVERY" && (phoneDigits.length < 10 || phoneDigits.length > 13)) {
+      notify("warning", "Celular inválido", "Cadastre um celular com DDD para receber atualizações do pedido.");
+      return;
+    }
+    if (type === "DELIVERY" && cepStatus !== "success") {
+      notify("warning", "Confirme o CEP", "Informe um CEP válido e aguarde o preenchimento do endereço.");
+      return;
+    }
+    if (type === "DELIVERY" && !/^\d+[A-Za-z]?$/i.test(deliveryAddress.number.trim())) {
+      notify("warning", "Número inválido", "Informe o número do endereço, como 123 ou 123A.");
+      return;
+    }
+    if (type === "DELIVERY" && !/^[A-Z]{2}$/.test(deliveryAddress.state.trim().toUpperCase())) {
+      notify("warning", "Estado inválido", "Informe a UF com duas letras, como CE ou SP.");
+      return;
+    }
+
+    const payOnDelivery = paymentMethod.startsWith("delivery_");
+    const resolvedPaymentMethod = paymentMethod.includes("pix")
+      ? "PIX"
+      : "CARTAO";
+
+    if (payOnDelivery && type !== "DELIVERY") {
+      notify("warning", "Opção indisponível", "Pagar na entrega só está disponível para delivery.");
       return;
     }
 
     const payload = {
       restaurantId,
       type,
-      paymentMethod: paymentMethod === "pix" ? "PIX" : "CARTAO",
+      paymentMethod: resolvedPaymentMethod,
+      payOnDelivery,
+      payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
       items: cart.map((item) => ({
         productId: Number(item.productId),
         quantity: item.quantity,
@@ -646,17 +748,31 @@ export default function Home() {
       tableId: mesaMode ? routeTableId : undefined,
       customerName: String(customer.name || "Cliente"),
       customerPhone: String(customer.phone || ""),
-      address: String(customer.address || ""),
-      number: String(customer.number || ""),
-      district: String(customer.district || ""),
-      city: String(customer.city || ""),
-      state: String(customer.state || ""),
-      zipCode: String(customer.zipCode || ""),
-      complement: String(customer.complement || ""),
+      address: deliveryAddress.address.trim(),
+      number: deliveryAddress.number.trim(),
+      district: deliveryAddress.district.trim(),
+      city: deliveryAddress.city.trim(),
+      state: deliveryAddress.state.trim().toUpperCase(),
+      zipCode: deliveryAddress.zipCode.trim(),
+      complement: deliveryAddress.complement.trim(),
     };
 
     setCheckoutLoading(true);
     try {
+      if (payOnDelivery) {
+        const order = await ordersService.createOrder(payload);
+        applyPurchasedStockToHome();
+        setCart([]);
+        setCartOpen(false);
+        notify(
+          "success",
+          `Pedido #${String(order?.id || "")} recebido`,
+          `Pagamento na entrega por ${resolvedPaymentMethod === "PIX" ? "Pix" : "cartão"}.`,
+          5000,
+        );
+        return;
+      }
+
       if (paymentMethod === "pix") {
         const result = await ordersService.createPixPayment({
           ...payload,
@@ -673,6 +789,7 @@ export default function Home() {
             : null,
           requiresStatusCheck: Boolean(result.requiresStatusCheck),
         });
+        applyPurchasedStockToHome();
         setCart([]);
         setCartOpen(false);
         return;
@@ -687,6 +804,7 @@ export default function Home() {
       if (!/^https:\/\//i.test(checkoutUrl)) {
         throw new Error("O gateway não retornou um endereço seguro de pagamento.");
       }
+      applyPurchasedStockToHome();
       setCart([]);
       window.location.assign(checkoutUrl);
     } catch (error: unknown) {
@@ -997,7 +1115,10 @@ export default function Home() {
                 <S.DeliveryBtn
                   type="button"
                   $active={orderType === "pickup"}
-                  onClick={() => setOrderType("pickup")}
+                  onClick={() => {
+                    setOrderType("pickup");
+                    if (paymentMethod.startsWith("delivery_")) setPaymentMethod("pix");
+                  }}
                 >
                   <span className="btn-icon">
                     {/* sacola de retirada */}
@@ -1037,6 +1158,28 @@ export default function Home() {
                 </S.DeliveryBtn>
               </S.DeliveryToggle>
             </>
+          )}
+
+          {cart.length > 0 && !mesaMode && orderType === "delivery" && (
+            <S.AddressForm>
+              <S.AddressField className="cep-field">
+                <span>CEP</span>
+                <input aria-label="CEP" inputMode="numeric" placeholder="00000-000" maxLength={9} value={deliveryAddress.zipCode} onBlur={(event) => void handleCepLookup(event.target.value)} onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
+                  const formatted = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+                  setDeliveryAddress((current) => ({ ...current, zipCode: formatted }));
+                  setCepStatus("idle"); setCepMessage("");
+                  if (digits.length === 8) void handleCepLookup(digits);
+                }} />
+                {cepMessage && <small className={cepStatus}>{cepMessage}</small>}
+              </S.AddressField>
+              <S.AddressField className="street"><span>Rua ou avenida</span><input aria-label="Rua" placeholder="Ex.: Rua das Flores" value={deliveryAddress.address} onChange={(event) => setDeliveryAddress((current) => ({ ...current, address: event.target.value }))} /></S.AddressField>
+              <S.AddressField><span>Número</span><input aria-label="Número" inputMode="text" placeholder="123" value={deliveryAddress.number} onChange={(event) => setDeliveryAddress((current) => ({ ...current, number: event.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 10) }))} /></S.AddressField>
+              <S.AddressField><span>Bairro</span><input aria-label="Bairro" placeholder="Seu bairro" value={deliveryAddress.district} onChange={(event) => setDeliveryAddress((current) => ({ ...current, district: event.target.value }))} /></S.AddressField>
+              <S.AddressField className="city"><span>Cidade</span><input aria-label="Cidade" placeholder="Sua cidade" value={deliveryAddress.city} onChange={(event) => setDeliveryAddress((current) => ({ ...current, city: event.target.value }))} /></S.AddressField>
+              <S.AddressField className="state"><span>UF</span><input aria-label="Estado" placeholder="CE" maxLength={2} value={deliveryAddress.state} onChange={(event) => setDeliveryAddress((current) => ({ ...current, state: event.target.value.replace(/[^A-Za-z]/g, "").toUpperCase() }))} /></S.AddressField>
+              <S.AddressField className="full"><span>Complemento <i>(opcional)</i></span><input aria-label="Complemento" placeholder="Apartamento, bloco ou referência" value={deliveryAddress.complement} onChange={(event) => setDeliveryAddress((current) => ({ ...current, complement: event.target.value }))} /></S.AddressField>
+            </S.AddressForm>
           )}
 
           {/* ── Payment method */}
@@ -1122,6 +1265,47 @@ export default function Home() {
                   </span>
                 </S.PaymentCard>
               </S.PaymentGrid>
+              {!mesaMode && orderType === "delivery" && (
+                <>
+                  <S.CartSectionLabel>Pagar na entrega</S.CartSectionLabel>
+                  <S.PaymentGrid>
+                    <S.PaymentCard
+                      type="button"
+                      $active={paymentMethod === "delivery_pix"}
+                      $color="#32BCAD"
+                      onClick={() => setPaymentMethod("delivery_pix")}
+                    >
+                      <div className="pm-badge">
+                        <svg width="22" height="22" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
+                          <path
+                            fill={paymentMethod === "delivery_pix" ? "#fff" : "#32BCAD"}
+                            d="M306.4 356.5C311.8 351.1 321.1 351.1 326.5 356.5L403.5 433.5C417.7 447.7 436.6 455.5 456.6 455.5L471.7 455.5L374.6 552.6C344.3 582.1 295.1 582.1 264.8 552.6L167.3 455.2L176.6 455.2C196.6 455.2 215.5 447.4 229.7 433.2L306.4 356.5zM326.5 282.9C320.1 288.4 311.9 288.5 306.4 282.9L229.7 206.2C215.5 191.1 196.6 184.2 176.6 184.2L167.3 184.2L264.7 86.8C295.1 56.5 344.3 56.5 374.6 86.8L471.8 183.9L456.6 183.9C436.6 183.9 417.7 191.7 403.5 205.9L326.5 282.9zM176.6 206.7C190.4 206.7 203.1 212.3 213.7 222.1L290.4 298.8C297.6 305.1 307 309.6 316.5 309.6C325.9 309.6 335.3 305.1 342.5 298.8L419.5 221.8C429.3 212.1 442.8 206.5 456.6 206.5L494.3 206.5L552.6 264.8C582.9 295.1 582.9 344.3 552.6 374.6L494.3 432.9L456.6 432.9C442.8 432.9 429.3 427.3 419.5 417.5L342.5 340.5C328.6 326.6 304.3 326.6 290.4 340.6L213.7 417.2C203.1 427 190.4 432.6 176.6 432.6L144.8 432.6L86.8 374.6C56.5 344.3 56.5 295.1 86.8 264.8L144.8 206.7L176.6 206.7z"
+                          />
+                        </svg>
+                      </div>
+                      <span className="pm-name">Pix na entrega</span>
+                      <span className="pm-desc">Pago ao entregador</span>
+                    </S.PaymentCard>
+                    <S.PaymentCard
+                      type="button"
+                      $active={paymentMethod === "delivery_card"}
+                      $color="#3b6cf6"
+                      onClick={() => setPaymentMethod("delivery_card")}
+                    >
+                      <div className="pm-badge">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect x="2" y="5" width="20" height="14" rx="2" stroke={paymentMethod === "delivery_card" ? "#fff" : "#3b6cf6"} strokeWidth="1.8" />
+                          <path d="M2 10h20" stroke={paymentMethod === "delivery_card" ? "#fff" : "#3b6cf6"} strokeWidth="1.8" />
+                          <rect x="5" y="14" width="5" height="2" rx="1" fill={paymentMethod === "delivery_card" ? "#fff" : "#3b6cf6"} />
+                          <rect x="12" y="14" width="3" height="2" rx="1" fill={paymentMethod === "delivery_card" ? "rgba(255,255,255,0.5)" : "rgba(59,108,246,0.4)"} />
+                        </svg>
+                      </div>
+                      <span className="pm-name">Cartão na entrega</span>
+                      <span className="pm-desc">Maquininha ao receber</span>
+                    </S.PaymentCard>
+                  </S.PaymentGrid>
+                </>
+              )}
             </>
           )}
 
@@ -1157,7 +1341,9 @@ export default function Home() {
               ? "Processando..."
               : paymentMethod === "pix"
                 ? "⚡ Gerar código Pix"
-                : "💳 Ir para pagamento seguro"}{" "}
+                : paymentMethod === "card"
+                  ? "💳 Ir para pagamento seguro"
+                  : "✓ Fazer pedido e pagar na entrega"}{" "}
             →
           </S.CartCheckout>
         </S.CartFoot>

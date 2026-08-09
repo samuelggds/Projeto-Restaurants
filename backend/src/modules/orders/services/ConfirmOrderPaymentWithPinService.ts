@@ -1,4 +1,3 @@
-import { PaymentMethod } from "@prisma/client";
 import { io } from "../../../server.js";
 import orderRepository from "../repositories/OrderRepository.js";
 import { verifyPaymentConfirmationPin } from "../utils/paymentConfirmationPin.js";
@@ -35,14 +34,9 @@ class ConfirmOrderPaymentWithPinService {
       );
     }
 
-    const digitalMethods = new Set<PaymentMethod>([
-      PaymentMethod.PIX,
-      PaymentMethod.CARTAO,
-    ]);
-
-    if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
+    if (order.payOnDelivery !== true || !order.paymentMethod) {
       throw new Error(
-        "Confirmação por PIN disponível apenas para PIX ou CARTAO.",
+        "Confirmação por PIN disponível apenas para pagamento na entrega.",
       );
     }
 

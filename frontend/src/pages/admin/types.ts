@@ -30,6 +30,9 @@ export type AdminOrder = {
   total: number;
   paid?: boolean;
   type?: string;
+  paymentMethod?: string;
+  payOnDelivery?: boolean;
+  payOnDeliveryMethod?: string;
   createdAt?: string;
 };
 
@@ -41,7 +44,7 @@ export type AdminProduct = {
   price: number;
   image: string;
   description?: string;
-  stock?: number;
+  stock?: number | null;
   active?: boolean;
 };
 
@@ -100,6 +103,7 @@ export type AdminPageProps = {
   initialProducts?: AdminProduct[];
   initialCategories?: AdminCategory[];
   onUpdateOrderStatus?: (id: number, status: string) => void | Promise<void>;
+  onConfirmOrderPayment?: (id: number) => void | Promise<void>;
   onSaveProduct?: (product: AdminProduct) => void | Promise<void>;
   onDeleteProduct?: (id: string) => void | Promise<void>;
   onCreateCategory?: (name: string) => void | Promise<void>;

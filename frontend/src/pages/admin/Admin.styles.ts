@@ -855,6 +855,7 @@ export const ProductGrid = styled.div`
   }
 `;
 export const Product = styled.article`
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
@@ -885,6 +886,50 @@ export const Product = styled.article`
     border: 0;
     background: transparent;
     color: var(--a);
+    cursor: pointer;
+  }
+  footer .product-actions {
+    position: relative;
+    display: block;
+    padding: 0;
+  }
+  footer .product-menu-trigger {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    color: #4f4a45;
+  }
+  footer .product-menu-trigger:hover {
+    background: #f4eee8;
+  }
+  footer .product-menu {
+    position: absolute;
+    right: 0;
+    bottom: 42px;
+    z-index: 8;
+    width: 170px;
+    padding: 6px;
+    display: grid;
+    gap: 2px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgba(45, 31, 20, .18);
+  }
+  footer .product-menu button {
+    width: 100%;
+    padding: 10px;
+    border-radius: 7px;
+    text-align: left;
+    color: #332f2b;
+  }
+  footer .product-menu button:hover {
+    background: #f8f3ee;
+  }
+  footer .product-menu button.danger {
+    color: #b42318;
   }
 `;
 export const SettingSection = styled.div`

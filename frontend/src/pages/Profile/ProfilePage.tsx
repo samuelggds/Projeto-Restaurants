@@ -379,29 +379,20 @@ function Orders({
       <S.PageCard>
         {data.activeOrder && (
           <S.FullOrder>
-            <div
-              style={{
-                width: 82,
-                height: 72,
-                borderRadius: 10,
-                background: "#f8e9df",
-                display: "grid",
-                placeItems: "center",
-                color: "var(--p)",
-              }}
-            >
-              <Package />
-            </div>
+            <img
+              src={data.activeOrder.image}
+              alt={data.activeOrder.summary}
+            />
             <div className="info">
               <small>AGORA</small>
-              <b>Pedido {data.activeOrder.id}</b>
+              <b>{data.activeOrder.summary}</b>
               <span>
-                {statusLabel[data.activeOrder.status]} • previsão{" "}
-                {data.activeOrder.estimatedArrival}
+                Pedido {data.activeOrder.id} • {statusLabel[data.activeOrder.status]}
               </span>
             </div>
             <aside>
               <small>● Em andamento</small>
+              <strong>{brl(data.activeOrder.total)}</strong>
               <button onClick={() => onViewOrder?.(data.activeOrder!.id)}>
                 Acompanhar
               </button>

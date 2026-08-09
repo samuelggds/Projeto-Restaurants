@@ -28,6 +28,7 @@ export const createProductSchema = z.object({
     .number()
     .int("Estoque deve ser inteiro.")
     .min(0, "Estoque não pode ser negativo.")
+    .nullable()
     .optional(),
 
   categoryId: z

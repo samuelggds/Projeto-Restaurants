@@ -30,10 +30,6 @@ class CreateOrderPixPaymentController {
         req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
       const resolvedRestaurantId =
         Number(restaurantId) || Number(userRestaurantId);
-      const normalizedType = String(type || "")
-        .trim()
-        .toUpperCase();
-
       const result = await orderPixPaymentService.createPixPayment({
         restaurantId: resolvedRestaurantId,
         type,
@@ -57,7 +53,7 @@ class CreateOrderPixPaymentController {
         userRestaurantId,
         tableSessionId: req.tableSession?.id ?? null,
         tableSessionTableId: req.tableSession?.tableId ?? null,
-        deferRealtimeUntilPaid: normalizedType === "DELIVERY",
+        deferRealtimeUntilPaid: true,
         type,
         paymentMethod,
         paid: false,

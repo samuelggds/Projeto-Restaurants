@@ -28,8 +28,7 @@ class CreateProductService {
       parsedData.stock === null || parsedData.stock === undefined
         ? null
         : Number(parsedData.stock);
-    const shouldForceUnavailable =
-      Number.isInteger(normalizedStock) && normalizedStock === 0;
+    const activeFromStock = normalizedStock === null || normalizedStock > 0;
 
     const requiredName = requireDefined(
       parsedData.name,
@@ -49,7 +48,7 @@ class CreateProductService {
       name: requiredName,
       price: requiredPrice,
       categoryId: requiredCategoryId,
-      active: shouldForceUnavailable ? false : parsedData.active,
+      active: activeFromStock,
     };
 
     const product = await productRepository.create(payload, restaurantId);

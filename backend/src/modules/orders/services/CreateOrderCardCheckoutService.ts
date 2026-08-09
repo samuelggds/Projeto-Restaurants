@@ -50,7 +50,7 @@ class CreateOrderCardCheckoutService {
 
     const createdOrder = await createOrderService.execute({
       ...payload,
-      deferRealtimeUntilPaid: false,
+      deferRealtimeUntilPaid: true,
       paid: false,
     });
 

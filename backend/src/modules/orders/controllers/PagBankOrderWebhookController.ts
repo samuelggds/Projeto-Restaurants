@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import finalizeOrderCardPaymentService from "../services/FinalizeOrderCardPaymentService.js";
+import finalizeOrderPixPaymentService from "../services/FinalizeOrderPixPaymentService.js";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
 import orderRepository from "../repositories/OrderRepository.js";
 
@@ -152,6 +153,36 @@ class PagBankOrderWebhookController {
       const restaurantIdHint =
         Number(req.body?.restaurantId || req.query?.restaurantId || 0) ||
         undefined;
+
+      // A API Orders usada pelo Pix envia o próprio pedido PagBank no webhook,
+      // enquanto o checkout clássico envia notificationCode/transactionCode.
+      const pagBankOrderId = String(
+        req.body?.id || req.body?.order?.id || "",
+      ).trim();
+      const referenceId = String(
+        req.body?.reference_id || req.body?.order?.reference_id || "",
+      ).trim();
+      const chargeStatuses = [
+        ...(Array.isArray(req.body?.charges) ? req.body.charges : []),
+        ...(Array.isArray(req.body?.order?.charges)
+          ? req.body.order.charges
+          : []),
+      ].map((charge: { status?: unknown }) =>
+        String(charge?.status || "").toUpperCase(),
+      );
+
+      if (
+        pagBankOrderId &&
+        referenceId.startsWith("orderpix:") &&
+        chargeStatuses.includes("PAID")
+      ) {
+        await finalizeOrderPixPaymentService.execute({
+          paymentId: `pagbank:${pagBankOrderId}`,
+          restaurantId: restaurantIdHint,
+          allowMissingOrder: true,
+        });
+        return res.sendStatus(200);
+      }
 
       if (
         !restaurantIdHint &&
