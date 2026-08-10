@@ -1,24 +1,20 @@
 import {
-  Camera,
   ChevronRight,
   Clock3,
-  Grid2X2,
   Heart,
   Headphones,
   KeyRound,
-  LockKeyhole,
-  LogOut,
   MapPin,
   Package,
   Plus,
   ShieldCheck,
-  ShoppingBag,
   Trash2,
-  UserRound,
   WalletCards,
 } from "lucide-react";
 import { useState } from "react";
 import { ProfileHeader } from "./components/ProfileHeader";
+import { ProfileNavigation } from "./components/ProfileNavigation";
+import { profileTabs as tabs } from "./config/profileTabs";
 import { profileMockData } from "./data";
 import * as S from "./Profile.styles";
 import type {
@@ -41,15 +37,6 @@ const statusLabel: Record<ProfileOrderStatus, string> = {
   onTheWay: "Saiu para entrega",
   delivered: "Entregue",
 };
-const tabs: [ProfileView, string][] = [
-  ["overview", "Visão geral"],
-  ["orders", "Meus pedidos"],
-  ["addresses", "Endereços"],
-  ["favorites", "Favoritos"],
-  ["personalData", "Dados pessoais"],
-  ["security", "Segurança"],
-];
-
 export function ProfilePage(props: ProfilePageProps) {
   const {
     data = profileMockData,
@@ -117,92 +104,6 @@ export function ProfilePage(props: ProfilePageProps) {
         </S.Layout>
       </S.Page>
     </S.Root>
-  );
-}
-
-function ProfileNavigation({
-  view,
-  setView,
-  data,
-  onLogout,
-  onUploadAvatar,
-}: {
-  view: ProfileView;
-  setView: (view: ProfileView) => void;
-  data: NonNullable<ProfilePageProps["data"]>;
-  onLogout?: () => void;
-  onUploadAvatar?: (file: File) => Promise<void>;
-}) {
-  const { user } = data;
-  const initials = user.fullName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-  const icons = {
-    overview: Grid2X2,
-    orders: ShoppingBag,
-    addresses: MapPin,
-    favorites: Heart,
-    personalData: UserRound,
-    security: LockKeyhole,
-  };
-  return (
-    <S.Side>
-      <S.AvatarWrap title="Alterar foto de perfil">
-        {user.avatarUrl ? (
-          <S.AvatarImg src={user.avatarUrl} alt="" />
-        ) : (
-          <S.AvatarInitials>{initials}</S.AvatarInitials>
-        )}
-        <S.AvatarOverlay>
-          <Camera size={18} />
-          <span>Alterar foto</span>
-        </S.AvatarOverlay>
-        <input
-          type="file"
-          accept="image/*"
-          title=""
-          aria-label="Carregar foto de perfil"
-          style={{
-            position: "absolute",
-            inset: 0,
-            opacity: 0,
-            cursor: "pointer",
-            width: "100%",
-            height: "100%",
-          }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUploadAvatar?.(file);
-            e.target.value = "";
-          }}
-        />
-      </S.AvatarWrap>
-      <h2>{user.fullName}</h2>
-      <p>{user.email}</p>
-      <nav>
-        {tabs.map(([id, label]) => {
-          const Icon = icons[id];
-          return (
-            <button
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => setView(id)}
-            >
-              <Icon />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
-      <button className="logout" onClick={onLogout}>
-        <LogOut />
-        Sair da conta
-      </button>
-    </S.Side>
   );
 }
 

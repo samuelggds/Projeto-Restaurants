@@ -1,2 +1,6 @@
 .env.docker
 .env
+.npm-cache/
+.playwright-browsers/
+playwright-report/
+test-results/

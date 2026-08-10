@@ -6,40 +6,8 @@ import restaurantSettingsService from "../../Services/restaurantSettingsService"
 import favoritesService from "../../Services/favoritesService";
 import { useAuth } from "../../contexts/authContext";
 import { ProfilePage } from "./ProfilePage";
-import { profileMockData } from "./data";
-import type { ProfileData, ProfileFavorite, ProfileOrder, ProfileOrderStatus } from "./types";
+import { buildProfileData } from "../profile/adapters/profileDataAdapter";
 
-const ACTIVE_STATUSES = new Set([
-  "PENDENTE",
-  "PREPARANDO",
-  "PRONTO",
-  "SAIU_PARA_ENTREGA",
-]);
-const ORDER_IMG =
-  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80";
-
-function mapStatus(s: string): ProfileOrderStatus {
-  const n = String(s || "").toUpperCase();
-  if (n === "SAIU_PARA_ENTREGA") return "onTheWay";
-  if (n === "ENTREGUE") return "delivered";
-  if (n === "PREPARANDO" || n === "PRONTO") return "preparing";
-  return "confirmed";
-}
-
-function buildSummary(order: Record<string, unknown>): string {
-  const items = Array.isArray(order.items)
-    ? (order.items as Record<string, unknown>[])
-    : [];
-  if (!items.length) return "Pedido";
-  const first = String(
-    (items[0]?.product as Record<string, unknown>)?.name ||
-      items[0]?.name ||
-      "Item",
-  );
-  return items.length > 1
-    ? `${first} + ${items.length - 1} ${items.length === 2 ? "item" : "itens"}`
-    : first;
-}
 
 function resizeToSquareBase64(
   file: File,
@@ -134,115 +102,17 @@ export default function Profile() {
     return () => { active = false; };
   }, []);
 
-  const data: ProfileData = useMemo(() => {
-    const r = (settings?.restaurant as Record<string, unknown>) ?? {};
-    const brand = {
-      name: String(
-        r?.name || settings?.restaurantName || profileMockData.brand.name,
-      ),
-      monogram:
-        String(r?.name || "")
-          .split(" ")
-          .filter(Boolean)
-          .slice(0, 2)
-          .map((w: string) => w[0])
-          .join("")
-          .toUpperCase() || "R",
-      address: String(settings?.address || profileMockData.brand.address),
-      primaryColor: String(
-        settings?.primaryColor || profileMockData.brand.primaryColor,
-      ),
-      logoUrl: String(r?.logo || ""),
-    };
-
-    const fullName = String(user?.name || "");
-    const firstName = fullName.split(" ").filter(Boolean)[0] || "";
-    const mainAddress =
-      [
-        user?.address,
-        (user as Record<string, unknown>)?.number
-          ? `nº ${(user as Record<string, unknown>).number}`
-          : "",
-        (user as Record<string, unknown>)?.district,
-        user?.city,
-        (user as Record<string, unknown>)?.state,
-      ]
-        .filter(Boolean)
-        .join(", ") || profileMockData.user.mainAddress;
-
-    const profileUser = {
-      firstName,
-      fullName,
-      email: String(user?.email || ""),
-      phone: String((user as Record<string, unknown>)?.phone || ""),
-      avatarUrl,
-      mainAddress,
-      favoriteCount: favorites.length,
-    };
-
-    const activeRaw = orders.find((o) =>
-      ACTIVE_STATUSES.has(String(o.status || "").toUpperCase()),
-    );
-    const activeOrder = activeRaw
-      ? {
-          id: `#${String(activeRaw.id).padStart(4, "0")}`,
-          status: mapStatus(String(activeRaw.status)),
-          estimatedArrival: "--:--",
-          summary: buildSummary(activeRaw),
-          image: String(
-            (
-              ((activeRaw.items as Record<string, unknown>[]) || [])[0]
-                ?.product as Record<string, unknown> | undefined
-            )?.image || ORDER_IMG,
-          ),
-          total: Number(activeRaw.total || 0),
-        }
-      : undefined;
-
-    const recentOrders: ProfileOrder[] = orders
-      .filter(
-        (o) =>
-          String(o.id) !== String(activeRaw?.id || "") &&
-          !["", undefined].includes(
-            String(o.status || "").toUpperCase() as never,
-          ),
-      )
-      .map((o) => ({
-        id: `#${String(o.id).padStart(4, "0")}`,
-        summary: buildSummary(o),
-        date: o.createdAt
-          ? new Date(String(o.createdAt)).toLocaleDateString("pt-BR")
-          : "",
-        total: Number(o.total || 0),
-        image: ORDER_IMG,
-        status: mapStatus(String(o.status || "")),
-      }));
-
-    const addresses = user?.address
-      ? [
-          {
-            id: "1",
-            label: "Principal",
-            address: String(user.address),
-            complement: String(
-              (user as Record<string, unknown>).complement || "",
-            ),
-            isDefault: true,
-          },
-        ]
-      : [];
-
-    const profileFavorites: ProfileFavorite[] = favorites.map((item) => ({
-      id: String(item.id || ""),
-      name: String(item.name || ""),
-      description: String(item.description || ""),
-      price: Number(item.price || 0),
-      image: String(item.image || ""),
-      rating: Number(item.averageRating || 0),
-    }));
-
-    return { brand, user: profileUser, activeOrder, recentOrders, addresses, favorites: profileFavorites };
-  }, [user, settings, orders, favorites, avatarUrl]);
+  const data = useMemo(
+    () =>
+      buildProfileData({
+        user: (user as Record<string, unknown> | null) || null,
+        settings,
+        orders,
+        favorites,
+        avatarUrl,
+      }),
+    [user, settings, orders, favorites, avatarUrl],
+  );
 
   const handleLogout = useCallback(() => {
     logout();

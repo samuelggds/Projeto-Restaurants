@@ -18,6 +18,12 @@ import * as S from "./styles";
 import ordersService from "../../Services/ordersService";
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
 import { useAuth } from "../../contexts/authContext";
+import {
+  compareReadyForPickupOrders,
+  getNormalizedOrderStatus,
+  isCourierDeliveryOrder,
+  isReadyForCourierPickup,
+} from "./domain/courierOrders";
 
 const ProfilePanel = lazy(() => import("./components/ProfilePanel"));
 const OrderCard = lazy(() => import("./components/OrderCard"));
@@ -43,42 +49,6 @@ const DIGITAL_PAYMENT_METHODS = new Set([
 const LOCATION_UPDATE_INTERVAL_MS = 5000;
 
 type GeoStatus = "checking" | "enabled" | "blocked" | "unsupported";
-
-function getNormalizedOrderType(order: { type?: string }) {
-  return String(order?.type || "").toUpperCase();
-}
-
-function getNormalizedOrderStatus(order: { status?: string }) {
-  return String(order?.status || "").toUpperCase();
-}
-
-function isCourierDeliveryOrder(order: { type?: string }) {
-  return getNormalizedOrderType(order) === "DELIVERY";
-}
-
-function isReadyForCourierPickup(order: { type?: string; status?: string }) {
-  return (
-    isCourierDeliveryOrder(order) &&
-    getNormalizedOrderStatus(order) === "PRONTO"
-  );
-}
-
-function getOrderCreatedAtMs(order: { createdAt?: string }) {
-  const createdAtMs = Date.parse(String(order?.createdAt || ""));
-  return Number.isFinite(createdAtMs) ? createdAtMs : Number.MAX_SAFE_INTEGER;
-}
-
-function compareReadyForPickupOrders(
-  a: { createdAt?: string; id?: number },
-  b: { createdAt?: string; id?: number },
-) {
-  const byCreatedAt = getOrderCreatedAtMs(a) - getOrderCreatedAtMs(b);
-  if (byCreatedAt !== 0) {
-    return byCreatedAt;
-  }
-
-  return Number(a?.id || 0) - Number(b?.id || 0);
-}
 
 export default function CourierDashboard() {
   const INITIAL_VISIBLE_ORDERS = 12;

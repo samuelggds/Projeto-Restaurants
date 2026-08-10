@@ -297,9 +297,6 @@ test("deve cadastrar o restaurante, abrir checkout de cartao e marcar o pedido c
   }
 });
 
-import prisma from "../../../config/prisma.js";
-import orderRepository from "../repositories/OrderRepository.js";
-
 const originalOrderUpdateMany = prisma.order.updateMany;
 const originalFindById = orderRepository.findById;
 

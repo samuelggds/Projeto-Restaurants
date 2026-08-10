@@ -1729,7 +1729,7 @@ var createProductSchema = z4.object({
   active: z4.boolean().optional(),
   featured: z4.boolean().optional(),
   preparationTime: z4.number().int("Tempo deve ser inteiro.").positive("Tempo deve ser maior que zero.").optional(),
-  stock: z4.number().int("Estoque deve ser inteiro.").min(0, "Estoque n\xE3o pode ser negativo.").optional(),
+  stock: z4.number().int("Estoque deve ser inteiro.").min(0, "Estoque n\xE3o pode ser negativo.").nullable().optional(),
   categoryId: z4.number({
     invalid_type_error: "Categoria \xE9 obrigat\xF3ria.",
     required_error: "Categoria \xE9 obrigat\xF3ria."
@@ -1750,7 +1750,7 @@ var CreateProductService = class {
     }
     const parsedData = createProductSchema.parse(data);
     const normalizedStock = parsedData.stock === null || parsedData.stock === void 0 ? null : Number(parsedData.stock);
-    const shouldForceUnavailable = Number.isInteger(normalizedStock) && normalizedStock === 0;
+    const activeFromStock = normalizedStock === null || normalizedStock > 0;
     const requiredName = requireDefined(
       parsedData.name,
       "Nome do produto \xE9 obrigat\xF3rio."
@@ -1768,7 +1768,7 @@ var CreateProductService = class {
       name: requiredName,
       price: requiredPrice,
       categoryId: requiredCategoryId,
-      active: shouldForceUnavailable ? false : parsedData.active
+      active: activeFromStock
     };
     const product = await ProductRepository_default.create(payload, restaurantId);
     return {
@@ -1825,10 +1825,11 @@ var UpdateProductService = class {
     if (!product) {
       throw new Error("Produto n\xE3o encontrado!");
     }
+    const stockWasProvided = Object.prototype.hasOwnProperty.call(data, "stock");
     const normalizedStock = data.stock === null || data.stock === void 0 ? null : Number(data.stock);
     let nextActive = data.active;
-    if (Number.isInteger(normalizedStock) && normalizedStock >= 0) {
-      nextActive = normalizedStock > 0;
+    if (stockWasProvided) {
+      nextActive = normalizedStock === null || normalizedStock > 0;
     }
     const payload = {
       ...data,
@@ -2175,7 +2176,8 @@ var OrderRepository = class {
           paid: false,
           paymentMethod: {
             in: [PaymentMethod.PIX, PaymentMethod.CARTAO]
-          }
+          },
+          payOnDelivery: false
         },
         ...status && { status }
       },
@@ -2571,6 +2573,36 @@ var createOrderSchema = z5.object({
       message: "Informe um celular/WhatsApp v\xE1lido para pedidos de delivery."
     });
   }
+  const requiredAddressFields = [
+    ["address", data.address],
+    ["number", data.number],
+    ["district", data.district],
+    ["city", data.city]
+  ];
+  requiredAddressFields.forEach(([field, value]) => {
+    const minimumLength = field === "number" ? 1 : 2;
+    if (String(value || "").trim().length < minimumLength) {
+      ctx.addIssue({
+        code: z5.ZodIssueCode.custom,
+        path: [field],
+        message: `Informe ${field === "address" ? "a rua" : field === "number" ? "o n\xFAmero" : field === "district" ? "o bairro" : "a cidade"}.`
+      });
+    }
+  });
+  if (!/^\d{8}$/.test(String(data.zipCode || "").replace(/\D/g, ""))) {
+    ctx.addIssue({
+      code: z5.ZodIssueCode.custom,
+      path: ["zipCode"],
+      message: "Informe um CEP v\xE1lido com 8 n\xFAmeros."
+    });
+  }
+  if (!/^[A-Za-z]{2}$/.test(String(data.state || "").trim())) {
+    ctx.addIssue({
+      code: z5.ZodIssueCode.custom,
+      path: ["state"],
+      message: "Informe uma UF v\xE1lida com duas letras."
+    });
+  }
   if (data.payOnDelivery === true) {
     if (data.type !== OrderType2.DELIVERY) {
       ctx.addIssue({
@@ -2677,6 +2709,81 @@ var TableSessionRepository_default = new TableSessionRepository();
 
 // src/modules/orders/services/OrderPixPaymentService.ts
 import { MercadoPagoConfig, Payment } from "mercadopago";
+
+// src/modules/payments/providers/providerCatalog.ts
+var PIX_PROVIDERS = {
+  MERCADO_PAGO: "MERCADO_PAGO",
+  ASAAS: "ASAAS",
+  PAGBANK: "PAGBANK",
+  NUBANK: "NUBANK",
+  PICPAY: "PICPAY"
+};
+var CARD_PROVIDERS = {
+  STRIPE: "STRIPE",
+  MERCADO_PAGO: "MERCADO_PAGO",
+  ASAAS: "ASAAS",
+  PAGARME: "PAGARME",
+  PAGBANK: "PAGBANK",
+  STONE: "STONE",
+  ZOOP: "ZOOP"
+};
+function normalizePixProvider(value) {
+  const provider = String(value || PIX_PROVIDERS.MERCADO_PAGO).trim().toUpperCase();
+  if (Object.values(PIX_PROVIDERS).includes(provider)) {
+    return provider;
+  }
+  return PIX_PROVIDERS.MERCADO_PAGO;
+}
+function normalizeCardProvider(value) {
+  const provider = String(value || CARD_PROVIDERS.MERCADO_PAGO).trim().toUpperCase();
+  if (Object.values(CARD_PROVIDERS).includes(provider)) {
+    return provider;
+  }
+  return CARD_PROVIDERS.MERCADO_PAGO;
+}
+
+// src/modules/orders/services/pixPayload.ts
+function extractErrorText(error2) {
+  if (typeof error2 === "string") {
+    return error2.trim().toLowerCase();
+  }
+  const asRecord = typeof error2 === "object" && error2 !== null ? error2 : null;
+  const message = String(
+    asRecord?.message || asRecord?.cause?.message || ""
+  );
+  const causeText = String(asRecord?.cause || "");
+  return `${message} ${causeText}`.trim().toLowerCase();
+}
+function isMarketplaceSplitConfigurationError(error2) {
+  const text = extractErrorText(error2);
+  if (!text) {
+    return false;
+  }
+  return text.includes("application_fee") || text.includes("marketplace") || text.includes("split") || text.includes("collector") || text.includes("platform") || text.includes("not allowed") || text.includes("unauthorized") || text.includes("invalid");
+}
+function parseProviderPaymentId(paymentId) {
+  const normalizedPaymentId = String(paymentId || "").trim();
+  if (normalizedPaymentId.toLowerCase().startsWith("asaas:")) {
+    return {
+      provider: PIX_PROVIDERS.ASAAS,
+      rawPaymentId: normalizedPaymentId.slice("asaas:".length).trim()
+    };
+  }
+  if (normalizedPaymentId.toLowerCase().startsWith("pagbank:")) {
+    return {
+      provider: PIX_PROVIDERS.PAGBANK,
+      rawPaymentId: normalizedPaymentId.slice("pagbank:".length).trim()
+    };
+  }
+  return {
+    provider: PIX_PROVIDERS.MERCADO_PAGO,
+    rawPaymentId: normalizedPaymentId
+  };
+}
+function normalizeTxid(value) {
+  const normalized = String(value || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 25);
+  return normalized || "***";
+}
 
 // src/modules/restaurantSettings/repositories/RestaurantSettingsRepository.ts
 var RestaurantSettingsRepository = class {
@@ -2935,38 +3042,6 @@ var SplitService = class {
 };
 var SplitService_default = new SplitService();
 
-// src/modules/payments/providers/providerCatalog.ts
-var PIX_PROVIDERS = {
-  MERCADO_PAGO: "MERCADO_PAGO",
-  ASAAS: "ASAAS",
-  PAGBANK: "PAGBANK",
-  NUBANK: "NUBANK",
-  PICPAY: "PICPAY"
-};
-var CARD_PROVIDERS = {
-  STRIPE: "STRIPE",
-  MERCADO_PAGO: "MERCADO_PAGO",
-  ASAAS: "ASAAS",
-  PAGARME: "PAGARME",
-  PAGBANK: "PAGBANK",
-  STONE: "STONE",
-  ZOOP: "ZOOP"
-};
-function normalizePixProvider(value) {
-  const provider = String(value || PIX_PROVIDERS.MERCADO_PAGO).trim().toUpperCase();
-  if (Object.values(PIX_PROVIDERS).includes(provider)) {
-    return provider;
-  }
-  return PIX_PROVIDERS.MERCADO_PAGO;
-}
-function normalizeCardProvider(value) {
-  const provider = String(value || CARD_PROVIDERS.MERCADO_PAGO).trim().toUpperCase();
-  if (Object.values(CARD_PROVIDERS).includes(provider)) {
-    return provider;
-  }
-  return CARD_PROVIDERS.MERCADO_PAGO;
-}
-
 // src/modules/orders/services/OrderPixPaymentService.ts
 var APPROVED_PAYMENT_STATUSES = /* @__PURE__ */ new Set(["approved", "accredited", "paid"]);
 var APPROVED_ASAAS_PAYMENT_STATUSES = /* @__PURE__ */ new Set([
@@ -2974,47 +3049,6 @@ var APPROVED_ASAAS_PAYMENT_STATUSES = /* @__PURE__ */ new Set([
   "confirmed",
   "received_in_cash"
 ]);
-function extractErrorText(error2) {
-  if (typeof error2 === "string") {
-    return error2.trim().toLowerCase();
-  }
-  const asRecord = typeof error2 === "object" && error2 !== null ? error2 : null;
-  const message = String(
-    asRecord?.message || asRecord?.cause?.message || ""
-  );
-  const causeText = String(asRecord?.cause || "");
-  return `${message} ${causeText}`.trim().toLowerCase();
-}
-function isMarketplaceSplitConfigurationError(error2) {
-  const text = extractErrorText(error2);
-  if (!text) {
-    return false;
-  }
-  return text.includes("application_fee") || text.includes("marketplace") || text.includes("split") || text.includes("collector") || text.includes("platform") || text.includes("not allowed") || text.includes("unauthorized") || text.includes("invalid");
-}
-function parseProviderPaymentId(paymentId) {
-  const normalizedPaymentId = String(paymentId || "").trim();
-  if (normalizedPaymentId.toLowerCase().startsWith("asaas:")) {
-    return {
-      provider: PIX_PROVIDERS.ASAAS,
-      rawPaymentId: normalizedPaymentId.slice("asaas:".length).trim()
-    };
-  }
-  if (normalizedPaymentId.toLowerCase().startsWith("pagbank:")) {
-    return {
-      provider: PIX_PROVIDERS.PAGBANK,
-      rawPaymentId: normalizedPaymentId.slice("pagbank:".length).trim()
-    };
-  }
-  return {
-    provider: PIX_PROVIDERS.MERCADO_PAGO,
-    rawPaymentId: normalizedPaymentId
-  };
-}
-function normalizeTxid(value) {
-  const normalized = String(value || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 25);
-  return normalized || "***";
-}
 function normalizeReferenceToken(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
 }
@@ -4632,8 +4666,8 @@ var CreateOrderService = class {
       );
       return OrderRepository_default.findById(order.id, resolvedRestaurantId, tx);
     });
-    const isUnpaidDelivery = type === OrderType3.DELIVERY && shouldMarkAsPaid !== true;
-    const isUnpaidDigitalPayment = shouldMarkAsPaid !== true && (normalizedPaymentMethod === PaymentMethod3.PIX || normalizedPaymentMethod === PaymentMethod3.CARTAO);
+    const isUnpaidDelivery = type === OrderType3.DELIVERY && shouldPayOnDelivery !== true && shouldMarkAsPaid !== true;
+    const isUnpaidDigitalPayment = shouldMarkAsPaid !== true && shouldPayOnDelivery !== true && (normalizedPaymentMethod === PaymentMethod3.PIX || normalizedPaymentMethod === PaymentMethod3.CARTAO);
     const shouldDeferRealtimeUntilPaid = deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit(
@@ -4706,6 +4740,11 @@ var CreateOrderController = class {
       } = req.body;
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+      if (payOnDelivery === true && String(payOnDeliveryMethod || paymentMethod || "").toUpperCase() === "DINHEIRO" && String(req.user?.role || "").toUpperCase() !== "ADMIN") {
+        throw new Error(
+          "Pagamento em dinheiro \xE9 registrado somente pelo administrador."
+        );
+      }
       const order = await CreateOrderService_default.execute({
         userId,
         restaurantId,
@@ -4832,7 +4871,8 @@ async function restoreOrderItemsStock(tx, order) {
         id: product.id
       },
       data: {
-        stock: stockValue + quantity
+        stock: stockValue + quantity,
+        active: true
       }
     });
   }
@@ -5712,7 +5752,6 @@ var CancelOrderController = class {
 var CancelOrderController_default = new CancelOrderController();
 
 // src/modules/orders/services/ConfirmOrderPaymentService.ts
-import { PaymentMethod as PaymentMethod7 } from "@prisma/client";
 var ConfirmOrderPaymentService = class {
   async execute(orderId, restaurantId, role) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
@@ -5728,13 +5767,9 @@ var ConfirmOrderPaymentService = class {
     if (!order) {
       throw new Error("Pedido n\xE3o encontrado!");
     }
-    const digitalMethods = /* @__PURE__ */ new Set([
-      PaymentMethod7.PIX,
-      PaymentMethod7.CARTAO
-    ]);
-    if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
+    if (order.payOnDelivery !== true || !order.paymentMethod) {
       throw new Error(
-        "Confirma\xE7\xE3o manual de pagamento dispon\xEDvel apenas para PIX ou CARTAO."
+        "A confirma\xE7\xE3o manual est\xE1 dispon\xEDvel apenas para pedidos com pagamento na entrega."
       );
     }
     if (order.paid === true) {
@@ -5795,9 +5830,6 @@ var ConfirmOrderPaymentController = class {
 };
 var ConfirmOrderPaymentController_default = new ConfirmOrderPaymentController();
 
-// src/modules/orders/services/ConfirmOrderPaymentWithPinService.ts
-import { PaymentMethod as PaymentMethod8 } from "@prisma/client";
-
 // src/modules/orders/utils/paymentConfirmationPin.ts
 import crypto5 from "crypto";
 var HASH_PREFIX = "hmac:v1:";
@@ -5852,13 +5884,9 @@ var ConfirmOrderPaymentWithPinService = class {
         "Confirma\xE7\xE3o por PIN dispon\xEDvel apenas para pedidos DELIVERY."
       );
     }
-    const digitalMethods = /* @__PURE__ */ new Set([
-      PaymentMethod8.PIX,
-      PaymentMethod8.CARTAO
-    ]);
-    if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
+    if (order.payOnDelivery !== true || !order.paymentMethod) {
       throw new Error(
-        "Confirma\xE7\xE3o por PIN dispon\xEDvel apenas para PIX ou CARTAO."
+        "Confirma\xE7\xE3o por PIN dispon\xEDvel apenas para pagamento na entrega."
       );
     }
     if (order.paid === true) {
@@ -5945,7 +5973,6 @@ var ConfirmOrderPaymentWithPinController = class {
 var ConfirmOrderPaymentWithPinController_default = new ConfirmOrderPaymentWithPinController();
 
 // src/modules/orders/services/GenerateOrderPaymentConfirmationPinService.ts
-import { PaymentMethod as PaymentMethod9 } from "@prisma/client";
 import crypto6 from "crypto";
 function generateFourDigitPin() {
   return String(crypto6.randomInt(1e3, 1e4));
@@ -5969,13 +5996,9 @@ var GenerateOrderPaymentConfirmationPinService = class {
     if (order.paid === true) {
       throw new Error("Pagamento deste pedido j\xE1 est\xE1 confirmado.");
     }
-    const digitalMethods = /* @__PURE__ */ new Set([
-      PaymentMethod9.PIX,
-      PaymentMethod9.CARTAO
-    ]);
-    if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
+    if (order.payOnDelivery !== true || !order.paymentMethod) {
       throw new Error(
-        "PIN de confirma\xE7\xE3o dispon\xEDvel apenas para PIX ou CARTAO."
+        "PIN de confirma\xE7\xE3o dispon\xEDvel apenas para pagamento na entrega."
       );
     }
     const pin = generateFourDigitPin();
@@ -6029,7 +6052,7 @@ var GenerateOrderPaymentConfirmationPinController = class {
 var GenerateOrderPaymentConfirmationPinController_default = new GenerateOrderPaymentConfirmationPinController();
 
 // src/modules/orders/services/RequestOrderPaymentConfirmationPinService.ts
-import { PaymentMethod as PaymentMethod10, UserRole as UserRole11 } from "@prisma/client";
+import { UserRole as UserRole11 } from "@prisma/client";
 var RequestOrderPaymentConfirmationPinService = class {
   async execute(orderId, restaurantId, role) {
     const normalizedRole = String(role || "").toUpperCase();
@@ -6051,13 +6074,9 @@ var RequestOrderPaymentConfirmationPinService = class {
     if (order.paid === true) {
       throw new Error("Pagamento deste pedido j\xE1 est\xE1 confirmado.");
     }
-    const digitalMethods = /* @__PURE__ */ new Set([
-      PaymentMethod10.PIX,
-      PaymentMethod10.CARTAO
-    ]);
-    if (!order.paymentMethod || !digitalMethods.has(order.paymentMethod)) {
+    if (order.payOnDelivery !== true || !order.paymentMethod) {
       throw new Error(
-        "Solicita\xE7\xE3o de PIN dispon\xEDvel apenas para PIX ou CARTAO."
+        "Solicita\xE7\xE3o de PIN dispon\xEDvel apenas para pagamento na entrega."
       );
     }
     const requestedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -6133,7 +6152,6 @@ var CreateOrderPixPaymentController = class {
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
       const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId);
-      const normalizedType = String(type || "").trim().toUpperCase();
       const result = await OrderPixPaymentService_default.createPixPayment({
         restaurantId: resolvedRestaurantId,
         type,
@@ -6156,7 +6174,7 @@ var CreateOrderPixPaymentController = class {
         userRestaurantId,
         tableSessionId: req.tableSession?.id ?? null,
         tableSessionTableId: req.tableSession?.tableId ?? null,
-        deferRealtimeUntilPaid: normalizedType === "DELIVERY",
+        deferRealtimeUntilPaid: true,
         type,
         paymentMethod,
         paid: false,
@@ -6679,7 +6697,7 @@ var CreateOrderCardCheckoutService = class {
     this.ensureCardProviderSupported(resolvedCardProvider);
     const createdOrder = await CreateOrderService_default.execute({
       ...payload,
-      deferRealtimeUntilPaid: false,
+      deferRealtimeUntilPaid: true,
       paid: false
     });
     const successUrlBase = String(
@@ -8255,6 +8273,26 @@ var PagBankOrderWebhookController = class {
         req.body?.transactionCode || req.body?.code || req.query?.transactionCode || req.query?.code || ""
       ).trim();
       const restaurantIdHint = Number(req.body?.restaurantId || req.query?.restaurantId || 0) || void 0;
+      const pagBankOrderId = String(
+        req.body?.id || req.body?.order?.id || ""
+      ).trim();
+      const referenceId = String(
+        req.body?.reference_id || req.body?.order?.reference_id || ""
+      ).trim();
+      const chargeStatuses = [
+        ...Array.isArray(req.body?.charges) ? req.body.charges : [],
+        ...Array.isArray(req.body?.order?.charges) ? req.body.order.charges : []
+      ].map(
+        (charge) => String(charge?.status || "").toUpperCase()
+      );
+      if (pagBankOrderId && referenceId.startsWith("orderpix:") && chargeStatuses.includes("PAID")) {
+        await FinalizeOrderPixPaymentService_default.execute({
+          paymentId: `pagbank:${pagBankOrderId}`,
+          restaurantId: restaurantIdHint,
+          allowMissingOrder: true
+        });
+        return res.sendStatus(200);
+      }
       if (!restaurantIdHint && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK !== "true") {
         return res.status(400).json({
           error: "restaurantId obrigatorio no webhook PagBank para ambiente multi-tenant."
