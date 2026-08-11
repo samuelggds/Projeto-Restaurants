@@ -14,6 +14,8 @@ import {
 import { adminMockEmployees, adminMockSettings } from "./data";
 import { useAppDialog } from "../../components/AppDialog/context";
 import { createPersistentImageDataUrl } from "../../utils/persistentImage";
+import imageEnhancementService from "../../Services/imageEnhancementService";
+import { createRestaurantMonogram } from "../../utils/restaurantMonogram";
 import { EmployeeDrawer } from "./components/EmployeeDrawer";
 import { EmployeeList } from "./components/EmployeeList";
 import { ProductDrawer } from "./components/ProductDrawer";
@@ -76,6 +78,7 @@ export function AdminPage({
     AdminProduct | null | undefined
   >();
   const [saved, setSaved] = useState(paymentOAuthStatus === "success");
+  const [isEnhancingCover, setIsEnhancingCover] = useState(false);
   const [feedbackError, setFeedbackError] = useState(
     paymentOAuthStatus === "error"
       ? oauthParams.get("message") ||
@@ -100,7 +103,7 @@ export function AdminPage({
     if (!file) return;
     setFeedbackError("");
     try {
-      const persistentImage = await createPersistentImageDataUrl(file);
+      const persistentImage = await createPersistentImageDataUrl(file, 1600);
       update("logoUrl", persistentImage);
     } catch (error) {
       setFeedbackError(
@@ -112,6 +115,49 @@ export function AdminPage({
       event.target.value = "";
     }
   };
+  const cover = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFeedbackError("");
+    try {
+      update("coverImageUrl", await createPersistentImageDataUrl(file, 1920, {
+        upscale: true,
+        targetWidth: 1920,
+        targetHeight: 1080,
+      }));
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Não foi possível processar a imagem.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+  const enhanceCover = async () => {
+    if (!settings.coverImageUrl || isEnhancingCover) return;
+    setFeedbackError("");
+    setIsEnhancingCover(true);
+    try {
+      const enhanced = await imageEnhancementService.enhanceRestaurantImage(settings.coverImageUrl);
+      if (!enhanced) throw new Error("A IA não retornou uma imagem.");
+      const response = await fetch(enhanced);
+      const blob = await response.blob();
+      const file = new File([blob], "capa-melhorada.png", { type: blob.type || "image/png" });
+      const processedImage = await createPersistentImageDataUrl(file, 1440, {
+        upscale: true,
+        targetWidth: 1440,
+        targetHeight: 1440,
+      });
+      const updatedSettings = { ...settings, coverImageUrl: processedImage };
+      setSettings(updatedSettings);
+      await onSaveSettings?.(updatedSettings);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1800);
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
+      setFeedbackError(apiError.response?.data?.error || (error instanceof Error ? error.message : "Não foi possível melhorar a imagem com IA."));
+    } finally {
+      setIsEnhancingCover(false);
+    }
+  };
   const banner = async (
     key: "mainBannerUrl" | "promotion1Url" | "promotion2Url",
     event: ChangeEvent<HTMLInputElement>,
@@ -120,7 +166,12 @@ export function AdminPage({
     if (!file) return;
     setFeedbackError("");
     try {
-      update(key, await createPersistentImageDataUrl(file, 1440));
+      const isMainBanner = key === "mainBannerUrl";
+      update(key, await createPersistentImageDataUrl(file, 1440, {
+        upscale: true,
+        targetWidth: isMainBanner ? 1440 : 600,
+        targetHeight: isMainBanner ? 560 : 400,
+      }));
     } catch (error) {
       setFeedbackError(
         error instanceof Error
@@ -210,7 +261,7 @@ export function AdminPage({
       )}
       <S.MainSidebar $open={mobile}>
         <S.Brand>
-          <span>S&amp;C</span>
+          <span>{createRestaurantMonogram(settings.restaurantName)}</span>
           <b>{settings.restaurantName}</b>
           <small>PAINEL ADMINISTRATIVO</small>
         </S.Brand>
@@ -389,6 +440,9 @@ export function AdminPage({
                 update={update}
                 logoInput={logoInput}
                 onLogoChange={logo}
+                onCoverChange={cover}
+                onEnhanceCover={enhanceCover}
+                isEnhancingCover={isEnhancingCover}
                 onBannerChange={banner}
               />
             ) : (

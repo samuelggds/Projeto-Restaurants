@@ -42,7 +42,7 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("pix");
-  const { deliveryAddress, setDeliveryAddress, cepStatus, cepMessage, handleCepLookup, handleCepChange } = useDeliveryAddress(user);
+  const { deliveryAddress, setDeliveryAddress, cepStatus, cepMessage, handleCepLookup, handleCepChange, savedAddresses, selectedAddressId, handleSavedAddressChange } = useDeliveryAddress(user);
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
 
@@ -119,6 +119,9 @@ export default function Home() {
     user,
     restaurantId,
     onRequireLogin: requireFavoriteLogin,
+    onAdded: () => notify("success", "Adicionado aos favoritos", "Você pode encontrar este produto em Favoritos no seu perfil."),
+    onRemoved: () => notify("info", "Removido dos favoritos"),
+    onError: () => notify("error", "Não foi possível atualizar os favoritos", "Tente novamente em alguns instantes."),
   });
   const handleCatalogError = useCallback((message?: string) => {
     notify("error", "Erro ao carregar cardápio", message);
@@ -146,7 +149,6 @@ export default function Home() {
         return {
           ...product,
           stock: nextStock,
-          active: nextStock > 0 && product.active !== false,
         };
       }),
     );
@@ -302,39 +304,44 @@ export default function Home() {
         />
 
         <S.CartFoot>
-          {cart.length > 0 && !mesaMode && (
-            <DeliveryMethodSelector
-              value={orderType}
-              onChange={(nextType) => {
-                setOrderType(nextType);
-                if (
-                  nextType === "pickup" &&
-                  paymentMethod.startsWith("delivery_")
-                ) {
-                  setPaymentMethod("pix");
-                }
-              }}
-            />
-          )}
+          <S.CartOptions>
+            {cart.length > 0 && !mesaMode && (
+              <DeliveryMethodSelector
+                value={orderType}
+                onChange={(nextType) => {
+                  setOrderType(nextType);
+                  if (
+                    nextType === "pickup" &&
+                    paymentMethod.startsWith("delivery_")
+                  ) {
+                    setPaymentMethod("pix");
+                  }
+                }}
+              />
+            )}
 
-          {cart.length > 0 && !mesaMode && orderType === "delivery" && (
-            <DeliveryAddressForm
-              address={deliveryAddress}
-              setAddress={setDeliveryAddress}
-              cepStatus={cepStatus}
-              cepMessage={cepMessage}
-              onCepChange={handleCepChange}
-              onCepLookup={handleCepLookup}
-            />
-          )}
+            {cart.length > 0 && !mesaMode && orderType === "delivery" && (
+              <DeliveryAddressForm
+                address={deliveryAddress}
+                setAddress={setDeliveryAddress}
+                cepStatus={cepStatus}
+                cepMessage={cepMessage}
+                onCepChange={handleCepChange}
+                savedAddresses={savedAddresses}
+                selectedAddressId={selectedAddressId}
+                onSavedAddressChange={handleSavedAddressChange}
+                onCepLookup={handleCepLookup}
+              />
+            )}
 
-          {cart.length > 0 && (
-            <PaymentOptions
-              paymentMethod={paymentMethod}
-              allowPayOnDelivery={!mesaMode && orderType === "delivery"}
-              onChange={setPaymentMethod}
-            />
-          )}
+            {cart.length > 0 && (
+              <PaymentOptions
+                paymentMethod={paymentMethod}
+                allowPayOnDelivery={!mesaMode && orderType === "delivery"}
+                onChange={setPaymentMethod}
+              />
+            )}
+          </S.CartOptions>
 
           <CartCheckoutSummary
             count={cartCount}

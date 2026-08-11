@@ -53,6 +53,7 @@ export type AdminCategory = { id: number; name: string; active?: boolean };
 export type AdminSettings = {
   restaurantName: string;
   logoUrl?: string;
+  coverImageUrl?: string;
   primaryColor: string;
   description: string;
   whatsapp: string;

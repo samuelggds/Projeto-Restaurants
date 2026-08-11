@@ -33,8 +33,12 @@ router.post("/:productId", authMiddleware, async (req, res): Promise<void> => {
   const context = clientContext(req, res);
   if (!context) return;
   const productId = Number(req.params.productId);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    res.status(400).json({ error: "Produto inválido." });
+    return;
+  }
   const product = await prisma.product.findFirst({
-    where: { id: productId, active: true },
+    where: { id: productId },
   });
   if (!product) {
     res.status(404).json({ error: "Produto não encontrado." });

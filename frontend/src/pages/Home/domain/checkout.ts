@@ -1,5 +1,6 @@
 import type { CartItem } from "../hooks/useCart";
 import type { DeliveryAddress } from "../hooks/useDeliveryAddress";
+import { validateDeliveryAddress } from "./deliveryAddress";
 
 export type CheckoutPaymentMethod = "pix" | "card" | "delivery_pix" | "delivery_card";
 export type OrderType = "MESA" | "DELIVERY" | "RETIRADA";
@@ -21,19 +22,15 @@ export function resolveOrderType(mesaMode: boolean, orderType: "delivery" | "pic
 export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
   const { type, customerPhone, deliveryAddress, cepStatus, paymentMethod } = input;
   if (type === "DELIVERY") {
-    const required = [deliveryAddress.address, deliveryAddress.number, deliveryAddress.district, deliveryAddress.city, deliveryAddress.state];
-    if (required.some((value) => !String(value || "").trim()))
-      return { title: "Complete seu endereço", message: "Preencha o endereço completo no próprio carrinho." };
+    const addressErrors = validateDeliveryAddress(deliveryAddress);
+    const firstAddressError = Object.values(addressErrors)[0];
+    if (firstAddressError) return { title: "Revise seu endereço", message: firstAddressError };
 
     const phoneDigits = String(customerPhone || "").replace(/\D/g, "");
     if (phoneDigits.length < 10 || phoneDigits.length > 13)
       return { title: "Celular inválido", message: "Cadastre um celular com DDD para receber atualizações do pedido." };
     if (cepStatus !== "success")
       return { title: "Confirme o CEP", message: "Informe um CEP válido e aguarde o preenchimento do endereço." };
-    if (!/^\d+[A-Za-z]?$/i.test(deliveryAddress.number.trim()))
-      return { title: "Número inválido", message: "Informe o número do endereço, como 123 ou 123A." };
-    if (!/^[A-Z]{2}$/.test(deliveryAddress.state.trim().toUpperCase()))
-      return { title: "Estado inválido", message: "Informe a UF com duas letras, como CE ou SP." };
   }
   if (paymentMethod.startsWith("delivery_") && type !== "DELIVERY")
     return { title: "Opção indisponível", message: "Pagar na entrega só está disponível para delivery." };

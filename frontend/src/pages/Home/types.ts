@@ -24,6 +24,7 @@ export type HomeProduct = {
   image: string;
   rating: number;
   stock?: number | null;
+  available: boolean;
 };
 
 export type HomeBanner = {

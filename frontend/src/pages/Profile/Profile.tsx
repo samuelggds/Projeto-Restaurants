@@ -4,9 +4,11 @@ import api from "../../Services/api";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import favoritesService from "../../Services/favoritesService";
+import customerAddressService, { type CustomerAddressInput } from "../../Services/customerAddressService";
 import { useAuth } from "../../contexts/authContext";
 import { ProfilePage } from "./ProfilePage";
 import { buildProfileData } from "../profile/adapters/profileDataAdapter";
+import { AddressModal } from "./components/AddressModal";
 
 
 function resizeToSquareBase64(
@@ -46,6 +48,8 @@ export default function Profile() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
   const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
+  const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(
     null,
   );
@@ -96,6 +100,12 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
+    customerAddressService.list().then((items) => { if (active) setAddresses(items); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     favoritesService.list().then((items) => {
       if (active) setFavorites(items as Record<string, unknown>[]);
     }).catch(() => {});
@@ -109,9 +119,10 @@ export default function Profile() {
         settings,
         orders,
         favorites,
+        addresses,
         avatarUrl,
       }),
-    [user, settings, orders, favorites, avatarUrl],
+    [user, settings, orders, favorites, addresses, avatarUrl],
   );
 
   const handleLogout = useCallback(() => {
@@ -147,7 +158,18 @@ export default function Profile() {
     [],
   );
 
-  return (
+  const saveAddress = useCallback(async (payload: CustomerAddressInput) => {
+    const created = await customerAddressService.create(payload);
+    setAddresses((current) => [created, ...current].map((item) => ({ ...item, isDefault: created.isDefault ? String(item.id) === String(created.id) : Boolean(item.isDefault) })));
+  }, []);
+
+  const selectAddress = useCallback(async (id: string) => {
+    const selected = await customerAddressService.makeDefault(Number(id));
+    setAddresses((current) => current.map((item) => ({ ...item, isDefault: String(item.id) === String(selected.id) })));
+    localStorage.setItem("selectedCustomerAddressId", String(selected.id));
+  }, []);
+
+  return <>
     <ProfilePage
       data={data}
       cartCount={0}
@@ -157,6 +179,8 @@ export default function Profile() {
       onUploadAvatar={handleUploadAvatar}
       onSavePersonalData={handleSavePersonalData}
       onChangePassword={handleChangePassword}
+      onNewAddress={() => setAddressModalOpen(true)}
+      onSelectAddress={selectAddress}
       onToggleFavorite={async (productId) => {
         await favoritesService.remove(productId);
         setFavorites((current) => current.filter((item) => String(item.id) !== productId));
@@ -165,5 +189,6 @@ export default function Profile() {
         navigate(`/orders/${String(orderId).replace(/^#/, "")}/tracking`)
       }
     />
-  );
+    {addressModalOpen && <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />}
+  </>;
 }

@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
 import { Utensils, Sun, Moon } from "lucide-react";
 import authService from "../../Services/authService"; // Ajuste o caminho conforme seu projeto
 import * as S from "./styles";
+import { useRestaurantLoginBranding } from "../Login/hooks/useRestaurantLoginBranding";
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const branding = useRestaurantLoginBranding(searchParams);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [name, setName] = useState("");
@@ -43,7 +46,7 @@ export default function Register() {
   };
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
+    <ThemeProvider theme={{ ...(isDarkMode ? S.darkTheme : S.lightTheme), primary: branding.primaryColor, primaryHover: branding.primaryColor }}>
       <S.Container>
         {/* INTERRUPTOR DE TEMA (SOL/LUA) NO TOPO */}
         <S.TopBar>
@@ -53,10 +56,10 @@ export default function Register() {
         </S.TopBar>
 
         {/* LADO ESQUERDO: BANNER INSTITUCIONAL PADRÃO */}
-        <S.BannerSection>
+        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
-            <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
+            {branding.logoUrl ? <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} /> : <Utensils size={32} strokeWidth={2.5} />}
+            <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
             Crie sua conta em poucos segundos e tenha acesso completo ao nosso

@@ -4,6 +4,7 @@ import menuService from "../../Services/menuService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import { DigitalMenuPage } from "./DigitalMenuPage";
 import type { DigitalMenuData, MenuCategory, MenuProduct } from "./types";
+import { createRestaurantMonogram } from "../../utils/restaurantMonogram";
 
 const FALLBACK_CATEGORY_IMG =
   "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=60";
@@ -95,14 +96,7 @@ export default function DigitalMenuEntryPage() {
         const name = String(
           restaurant?.name || settingsValue?.restaurantName || "Restaurante",
         );
-        const monogram =
-          name
-            .split(" ")
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((w: string) => w[0])
-            .join("")
-            .toUpperCase() || "R";
+        const monogram = createRestaurantMonogram(name);
 
         setData({
           restaurantName: name,

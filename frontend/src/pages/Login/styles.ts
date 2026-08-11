@@ -63,12 +63,12 @@ export const ThemeToggleButton = styled.button`
   }
 `;
 
-export const BannerSection = styled.div`
+export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 4rem;
+  padding: ${(props) => (props.$hasLogo ? "0" : "4rem")};
   background: linear-gradient(
     135deg,
     ${(props) => props.theme.surface} 0%,
@@ -76,6 +76,54 @@ export const BannerSection = styled.div`
   );
   border-right: 1px solid ${(props) => props.theme.border};
   position: relative;
+  overflow: hidden;
+
+  ${({ $hasLogo, theme }) => $hasLogo && `
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 4rem;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 30%, rgba(0, 0, 0, 0.78) 100%);
+      pointer-events: none;
+    }
+
+    > h1 > span,
+    > p {
+      position: relative;
+      z-index: 2;
+      color: #fff;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+    }
+
+    > h1 {
+      margin: 0 0 14px;
+    }
+
+    > h1 > span {
+      display: inline-block;
+      max-width: 620px;
+      font-size: clamp(2.5rem, 5vw, 4.8rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      font-weight: 900;
+    }
+
+    > p {
+      max-width: 540px;
+      margin: 0;
+      padding: 4px 0 4px 18px;
+      border-left: 4px solid ${theme.primary};
+      font-size: clamp(1rem, 1.35vw, 1.2rem);
+      line-height: 1.65;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+    }
+  `}
 
   @media (max-width: 968px) {
     display: none;
@@ -95,6 +143,17 @@ export const BrandTitle = styled.h1`
   span {
     color: ${(props) => props.theme.primary};
   }
+`;
+
+export const RestaurantLogo = styled.img`
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.72;
 `;
 
 export const BrandSubtitle = styled.p`

@@ -54,6 +54,11 @@ export type ProfileAddress = {
   address: string;
   complement?: string;
   isDefault: boolean;
+  number?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 };
 
 export type ActiveProfileOrder = {
@@ -85,7 +90,8 @@ export type ProfilePageProps = {
   onViewOrder?: (orderId: string) => void;
   onReorder?: (orderId: string) => void;
   onViewAllOrders?: () => void;
-  onEditAddress?: () => void;
+  onNewAddress?: () => void;
+  onSelectAddress?: (addressId: string) => void | Promise<void>;
   onEditPayment?: () => void;
   onOpenFavorites?: () => void;
   onToggleFavorite?: (productId: string) => void | Promise<void>;

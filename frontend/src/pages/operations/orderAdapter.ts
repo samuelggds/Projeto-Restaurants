@@ -40,7 +40,8 @@ export function mapRestaurantBrand(settings: Record<string, unknown>): Restauran
   const name = String(restaurant.name || settings.restaurantName || "");
   return {
     restaurantName: name,
-    monogram: name.split(" ").filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "R",
+    monogram: createRestaurantMonogram(name),
     primaryColor: String(settings.primaryColor || "#d64d08"),
   };
 }
+import { createRestaurantMonogram } from "../../utils/restaurantMonogram";

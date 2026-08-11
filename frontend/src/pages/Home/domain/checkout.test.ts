@@ -11,7 +11,7 @@ describe("checkout", () => {
   });
 
   it("exige endereço completo no delivery", () => {
-    expect(validateCheckout({ type: "DELIVERY", customerPhone: "85999999999", deliveryAddress: { ...address, city: "" }, cepStatus: "success", paymentMethod: "pix" })?.title).toBe("Complete seu endereço");
+    expect(validateCheckout({ type: "DELIVERY", customerPhone: "85999999999", deliveryAddress: { ...address, city: "" }, cepStatus: "success", paymentMethod: "pix" })?.title).toBe("Revise seu endereço");
   });
 
   it("impede pagamento na entrega para retirada", () => {

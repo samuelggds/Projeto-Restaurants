@@ -14,6 +14,7 @@ class RestaurantSettingsRepository {
             slug: true,
             logo: true,
             coverImage: true,
+            description: true,
             whatsapp: true,
           },
         },
@@ -32,6 +33,7 @@ class RestaurantSettingsRepository {
         slug: true,
         logo: true,
         coverImage: true,
+        description: true,
         whatsapp: true,
         banners: {
           where: { active: true },
@@ -49,6 +51,7 @@ class RestaurantSettingsRepository {
       },
       select: {
         restaurantId: true,
+        primaryColor: true,
         deliveryFee: true,
         minimumOrder: true,
         pixProvider: true,
@@ -61,6 +64,7 @@ class RestaurantSettingsRepository {
             slug: true,
             logo: true,
             coverImage: true,
+            description: true,
             banners: {
               where: { active: true },
               select: { id: true, title: true, image: true },

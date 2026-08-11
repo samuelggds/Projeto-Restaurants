@@ -1,5 +1,6 @@
 import { profileMockData } from "../data";
-import type { ProfileData, ProfileFavorite, ProfileOrder, ProfileOrderStatus } from "../types";
+import type { ProfileAddress, ProfileData, ProfileFavorite, ProfileOrder, ProfileOrderStatus } from "../types";
+import { createRestaurantMonogram } from "../../../utils/restaurantMonogram";
 
 const ACTIVE_STATUSES = new Set(["PENDENTE", "PREPARANDO", "PRONTO", "SAIU_PARA_ENTREGA"]);
 const ORDER_IMAGE = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80";
@@ -25,6 +26,7 @@ type Input = {
   settings: Record<string, unknown> | null;
   orders: Record<string, unknown>[];
   favorites: Record<string, unknown>[];
+  addresses: Record<string, unknown>[];
   avatarUrl: string;
 };
 
@@ -34,18 +36,21 @@ function firstProductImage(order: Record<string, unknown>): string {
   return String(product?.image || items[0]?.image || ORDER_IMAGE);
 }
 
-export function buildProfileData({ user, settings, orders, favorites, avatarUrl }: Input): ProfileData {
+export function buildProfileData({ user, settings, orders, favorites, addresses: rawAddresses, avatarUrl }: Input): ProfileData {
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const restaurantName = String(restaurant.name || "");
   const brand = {
     name: String(restaurantName || settings?.restaurantName || profileMockData.brand.name),
-    monogram: restaurantName.split(" ").filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "R",
+    monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     address: String(settings?.address || profileMockData.brand.address),
     primaryColor: String(settings?.primaryColor || profileMockData.brand.primaryColor),
     logoUrl: String(restaurant.logo || ""),
   };
   const fullName = String(user?.name || "");
-  const mainAddress = [user?.address, user?.number ? `nº ${user.number}` : "", user?.district, user?.city, user?.state].filter(Boolean).join(", ") || profileMockData.user.mainAddress;
+  const defaultAddress = rawAddresses.find((item) => Boolean(item.isDefault)) || rawAddresses[0];
+  const mainAddress = defaultAddress
+    ? [defaultAddress.address, defaultAddress.number ? `nº ${defaultAddress.number}` : "", defaultAddress.district, defaultAddress.city, defaultAddress.state].filter(Boolean).join(", ")
+    : [user?.address, user?.number ? `nº ${user.number}` : "", user?.district, user?.city, user?.state].filter(Boolean).join(", ") || "Nenhum endereço cadastrado";
   const profileUser = {
     firstName: fullName.split(" ").filter(Boolean)[0] || "",
     fullName,
@@ -63,7 +68,13 @@ export function buildProfileData({ user, settings, orders, favorites, avatarUrl 
     date: order.createdAt ? new Date(String(order.createdAt)).toLocaleDateString("pt-BR") : "",
     total: Number(order.total || 0), image: firstProductImage(order), status: mapOrderStatus(order.status),
   }));
-  const addresses = user?.address ? [{ id: "1", label: "Principal", address: String(user.address), complement: String(user.complement || ""), isDefault: true }] : [];
+  const addresses: ProfileAddress[] = rawAddresses.map((item) => ({
+    id: String(item.id), label: String(item.label || "Endereço"),
+    address: `${String(item.address || "")}, ${String(item.number || "")}`,
+    number: String(item.number || ""), district: String(item.district || ""),
+    city: String(item.city || ""), state: String(item.state || ""), zipCode: String(item.zipCode || ""),
+    complement: String(item.complement || ""), isDefault: Boolean(item.isDefault),
+  }));
   const profileFavorites: ProfileFavorite[] = favorites.map((item) => ({
     id: String(item.id || ""), name: String(item.name || ""), description: String(item.description || ""),
     price: Number(item.price || 0), image: String(item.image || ""), rating: Number(item.averageRating || 0),

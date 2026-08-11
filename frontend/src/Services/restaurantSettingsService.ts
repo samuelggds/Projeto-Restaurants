@@ -42,12 +42,16 @@ class RestaurantSettingsService {
   }
 
   async getPublicSettings(restaurantId) {
-    const response = await api.get(`/settings/public/${restaurantId}`);
+    const response = await api.get(`/settings/public/${restaurantId}`, {
+      params: { _t: Date.now() },
+    });
     return response.data;
   }
 
   async getPublicSettingsBySlug(slug) {
-    const response = await api.get(`/settings/public/slug/${slug}`);
+    const response = await api.get(`/settings/public/slug/${slug}`, {
+      params: { _t: Date.now() },
+    });
     return response.data;
   }
 }

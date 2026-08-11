@@ -2,12 +2,17 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import { ThemeProvider } from "styled-components";
 import { Moon, Sun, Utensils } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import authService from "../../Services/authService";
 import * as S from "./styles";
+import { useRestaurantLoginBranding } from "../Login/hooks/useRestaurantLoginBranding";
 
 type ContactMethod = "email" | "phone";
 
 export default function RecoverPassword() {
+  const [searchParams] = useSearchParams();
+  const branding = useRestaurantLoginBranding(searchParams);
+  const restaurantQuery = searchParams.toString();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [step, setStep] = useState<"request" | "reset">("request");
   const [contactMethod, setContactMethod] = useState<ContactMethod>("phone");
@@ -83,7 +88,7 @@ export default function RecoverPassword() {
   };
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
+    <ThemeProvider theme={{ ...(isDarkMode ? S.darkTheme : S.lightTheme), primary: branding.primaryColor, primaryHover: branding.primaryColor }}>
       <S.Container>
         <S.TopBar>
           <S.ThemeToggleButton onClick={() => setIsDarkMode((prev) => !prev)}>
@@ -91,10 +96,10 @@ export default function RecoverPassword() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection>
+        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
-            <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
+            {branding.logoUrl ? <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} /> : <Utensils size={32} strokeWidth={2.5} />}
+            <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
             Recupere seu acesso de forma segura usando e-mail ou telefone
@@ -227,9 +232,9 @@ export default function RecoverPassword() {
             </S.Form>
 
             <S.FooterRow>
-              <S.BackLink to="/login">Voltar para login</S.BackLink>
+              <S.BackLink to={`/login${restaurantQuery ? `?${restaurantQuery}` : ""}`}>Voltar para login</S.BackLink>
               <span>|</span>
-              <S.BackLink to="/register">Criar conta</S.BackLink>
+              <S.BackLink to={`/register${restaurantQuery ? `?${restaurantQuery}` : ""}`}>Criar conta</S.BackLink>
             </S.FooterRow>
           </S.FormWrapper>
         </S.FormSection>

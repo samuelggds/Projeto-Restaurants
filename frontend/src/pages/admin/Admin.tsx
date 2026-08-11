@@ -51,6 +51,7 @@ function mapProduct(value: unknown): AdminProduct {
 function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[] = []): AdminSettings {
   const r = (raw?.restaurant as Record<string, unknown>) ?? {};
   const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? "";
+  const coverCandidate = r?.coverImage ?? raw?.restaurantCoverImage ?? adminMockSettings.coverImageUrl ?? "";
   const banner = (title: string) => banners.find((item) => item.title === title);
   const mainBanner = banner(BANNER_TITLES.main);
   const promotion1 = banner(BANNER_TITLES.promotion1);
@@ -60,8 +61,9 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
       r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName,
     ),
     logoUrl: isPersistentImageSource(logoCandidate) ? String(logoCandidate) : "",
+    coverImageUrl: isPersistentImageSource(coverCandidate) ? String(coverCandidate) : "",
     primaryColor: String(raw?.primaryColor ?? adminMockSettings.primaryColor),
-    description: String(raw?.description ?? adminMockSettings.description),
+    description: String(r?.description ?? raw?.restaurantDescription ?? raw?.description ?? adminMockSettings.description),
     whatsapp: String(raw?.whatsapp ?? adminMockSettings.whatsapp),
     instagram: String(raw?.instagram ?? adminMockSettings.instagram),
     facebook: String(raw?.facebook ?? adminMockSettings.facebook),
@@ -99,8 +101,10 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
   return {
     restaurantName: settings.restaurantName,
     restaurantLogo: settings.logoUrl,
+    restaurantCoverImage: settings.coverImageUrl,
     primaryColor: settings.primaryColor,
     description: settings.description,
+    restaurantDescription: settings.description,
     whatsapp: settings.whatsapp,
     instagram: settings.instagram,
     facebook: settings.facebook,

@@ -48,6 +48,7 @@ type CreateRestaurantSettingsPayload = {
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
+  restaurantDescription?: string | null;
 };
 
 class CreateRestaurantSettingsService {
@@ -96,6 +97,7 @@ class CreateRestaurantSettingsService {
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
+    restaurantDescription,
   }: CreateRestaurantSettingsPayload) {
     const settingsExists =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -120,6 +122,9 @@ class CreateRestaurantSettingsService {
       restaurantCoverImage === undefined
         ? undefined
         : String(restaurantCoverImage || "").trim() || null;
+    const normalizedRestaurantDescription = restaurantDescription === undefined
+      ? undefined
+      : String(restaurantDescription || "").trim() || null;
 
     if (
       restaurantName !== undefined &&
@@ -238,6 +243,9 @@ class CreateRestaurantSettingsService {
     if (normalizedRestaurantCoverImage !== undefined) {
       restaurantData.coverImage = normalizedRestaurantCoverImage;
     }
+    if (normalizedRestaurantDescription !== undefined) {
+      restaurantData.description = normalizedRestaurantDescription;
+    }
 
     if (Object.keys(restaurantData).length > 0) {
       await prisma.restaurant.update({
@@ -276,6 +284,7 @@ class CreateRestaurantSettingsService {
       restaurantName: normalizedRestaurantName ?? null,
       restaurantLogo: normalizedRestaurantLogo ?? null,
       restaurantCoverImage: normalizedRestaurantCoverImage ?? null,
+      restaurantDescription: normalizedRestaurantDescription ?? null,
     };
   }
 }

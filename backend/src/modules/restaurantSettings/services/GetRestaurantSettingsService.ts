@@ -56,6 +56,7 @@ type RestaurantSettingsFallback = {
     name: string;
     logo: string | null;
     coverImage: string | null;
+    description: string | null;
     whatsapp: string | null;
   };
 };
@@ -128,6 +129,7 @@ class GetRestaurantSettingsService {
           name: restaurant.name,
           logo: restaurant.logo,
           coverImage: restaurant.coverImage,
+          description: restaurant.description,
           whatsapp: String(restaurant.whatsapp || "").trim() || null,
         },
       };

@@ -20,7 +20,7 @@ export function CartCheckoutSummary({ count, total, loading, paymentMethod, onCh
         ? "💳 Ir para pagamento seguro"
         : "✓ Fazer pedido e pagar na entrega";
   return (
-    <>
+    <div className="cart-checkout-area">
       {count > 0 && (
         <S.CartSummaryRow>
           <span>Subtotal ({count} {count === 1 ? "item" : "itens"})</span>
@@ -31,6 +31,6 @@ export function CartCheckoutSummary({ count, total, loading, paymentMethod, onCh
       <S.CartCheckout type="button" disabled={!count || loading} onClick={onCheckout}>
         {buttonLabel} →
       </S.CartCheckout>
-    </>
+    </div>
   );
 }

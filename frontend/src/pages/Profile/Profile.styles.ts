@@ -678,6 +678,36 @@ export const AddressCard = styled.article`
     color: var(--p);
   }
 `;
+export const ModalOverlay = styled.div`
+  position: fixed; inset: 0; z-index: 100; background: rgba(20, 16, 12, .56);
+  display: grid; place-items: center; padding: 20px;
+`;
+export const AddressModalCard = styled.form`
+  width: min(650px, 100%); max-height: 92vh; overflow-y: auto; background: #fff;
+  border-radius: 20px; padding: 24px; box-shadow: 0 24px 70px rgba(30, 20, 12, .25);
+  color: #191816;
+  header { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
+  h2 { margin: 0 0 5px; color: #191816; font-size: 25px; } p { margin: 0; color: #70675f; }
+  header button { border: 0; background: #f4eee8; border-radius: 50%; width: 38px; height: 38px; display: grid; place-items: center; }
+  .default { display: flex; gap: 9px; align-items: center; margin-top: 17px; font-weight: 700; color: #292521; }
+  .default input { accent-color: var(--p, #d64d08); }
+  footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  footer button { border: 1px solid var(--border, #ded5cc); border-radius: 11px; padding: 12px 18px; background: #fff; color: #292521; font-weight: 700; }
+  footer .primary { border-color: var(--p, #d64d08); background: var(--p, #d64d08); color: #fff; box-shadow: 0 8px 18px rgba(214, 77, 8, .2); }
+  footer .primary:disabled { opacity: .65; }
+`;
+export const AddressFormGrid = styled.div`
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px;
+  label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; color: #39342f; }
+  input { width: 100%; height: 48px; border: 1px solid var(--border, #ded5cc); border-radius: 11px; padding: 0 13px; outline: none; background: #fcfbf9; color: #191816; font: inherit; }
+  input:hover { border-color: #bfb4aa; background: #fff; }
+  input:focus { border-color: var(--p, #d64d08); background: #fff; box-shadow: 0 0 0 3px rgba(214, 77, 8, .12); }
+  .street, .full { grid-column: 1 / -1; }
+  @media (max-width: 560px) { grid-template-columns: 1fr; .street, .full { grid-column: auto; } }
+`;
+export const AddressMessage = styled.p`
+  margin-top: 12px !important; color: var(--p, #d64d08) !important; font-size: 12px; font-weight: 700;
+`;
 export const FavoriteGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

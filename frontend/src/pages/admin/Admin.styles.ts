@@ -399,6 +399,16 @@ export const LogoCard = styled.div`
     align-items: center;
     gap: 9px;
   }
+  .upload button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .upload .spin {
+    animation: admin-image-spin 0.9s linear infinite;
+  }
+  @keyframes admin-image-spin {
+    to { transform: rotate(360deg); }
+  }
   .upload small {
     color: var(--muted);
     line-height: 1.5;
@@ -462,6 +472,30 @@ export const Field = styled.label<{ $full?: boolean }>`
   :focus-within input,
   :focus-within textarea,
   :focus-within select {
+    border-color: var(--a);
+    background: #fff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 11%, transparent);
+  }
+`;
+export const IdentityNameInput = styled.input`
+  && {
+    height: 54px;
+    width: 100%;
+    border: 1px solid #ded7cf;
+    border-radius: 12px;
+    background: #fcfbf9;
+    color: #1f1c19;
+    padding: 0 15px;
+    outline: 0;
+    font-weight: 400;
+    line-height: 1.55;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  }
+  &&:hover {
+    border-color: #c8beb4;
+    background: #fff;
+  }
+  &&:focus {
     border-color: var(--a);
     background: #fff;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 11%, transparent);

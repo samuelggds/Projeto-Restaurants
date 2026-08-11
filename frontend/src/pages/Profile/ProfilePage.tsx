@@ -114,7 +114,7 @@ function Overview(props: ProfilePageProps) {
     onViewOrder,
     onReorder,
     onViewAllOrders,
-    onEditAddress,
+    onNewAddress,
     onEditPayment,
     onOpenFavorites,
     onSupport,
@@ -225,7 +225,7 @@ function Overview(props: ProfilePageProps) {
               <b>Endereço principal</b>
               <span>{user.mainAddress}</span>
             </div>
-            <button onClick={onEditAddress}>Editar</button>
+            <button onClick={onNewAddress}>Gerenciar</button>
           </S.Account>
           <S.Account>
             <i>
@@ -325,7 +325,8 @@ function Orders({
 
 function Addresses({
   data = profileMockData,
-  onEditAddress,
+  onNewAddress,
+  onSelectAddress,
 }: ProfilePageProps) {
   const addresses = data.addresses ?? [];
   return (
@@ -335,7 +336,7 @@ function Addresses({
           <h2>Meus endereços</h2>
           <p>Gerencie os locais usados para suas entregas.</p>
         </div>
-        <button onClick={onEditAddress}>
+        <button onClick={onNewAddress}>
           <Plus size={17} /> Novo endereço
         </button>
       </S.ViewHeader>
@@ -351,7 +352,7 @@ function Addresses({
               <span>{address.complement}</span>
               {address.isDefault && <small>Endereço principal</small>}
             </div>
-            <button onClick={onEditAddress}>Editar</button>
+            <button disabled={address.isDefault} onClick={() => onSelectAddress?.(address.id)}>{address.isDefault ? "Selecionado" : "Usar endereço"}</button>
           </S.AddressCard>
         ))}
       </S.AddressGrid>

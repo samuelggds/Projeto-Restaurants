@@ -50,6 +50,7 @@ class CreateRestaurantSettingsController {
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
+        restaurantDescription,
       } = req.body;
 
       const settings = await createRestaurantSettingsService.execute({
@@ -97,6 +98,7 @@ class CreateRestaurantSettingsController {
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
+        restaurantDescription,
       });
 
       return res.status(201).json(settings);

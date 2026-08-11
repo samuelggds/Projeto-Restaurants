@@ -6,10 +6,13 @@ import authService from "../../Services/authService";
 import { useAuth } from "../../contexts/authContext.js";
 import * as S from "./styles";
 import { useAppDialog } from "../../components/AppDialog/context";
+import { useRestaurantLoginBranding } from "./hooks/useRestaurantLoginBranding";
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const branding = useRestaurantLoginBranding(searchParams);
+  const restaurantQuery = searchParams.toString();
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -310,7 +313,7 @@ export default function Login() {
   };
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
+    <ThemeProvider theme={{ ...(isDarkMode ? S.darkTheme : S.lightTheme), primary: branding.primaryColor, primaryHover: branding.primaryColor }}>
       <S.Container>
         {/* INTERRUPTOR DE TEMA (SOL/LUA) NO TOPO */}
         <S.TopBar>
@@ -320,10 +323,10 @@ export default function Login() {
         </S.TopBar>
 
         {/* LADO ESQUERDO: BANNER INSTITUCIONAL PADRÃO */}
-        <S.BannerSection>
+        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
-            <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
+            {branding.logoUrl ? <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} /> : <Utensils size={32} strokeWidth={2.5} />}
+            <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
             Acesse nosso menu interativo global. Faça seus pedidos de forma
@@ -412,7 +415,7 @@ export default function Login() {
                 </S.CheckboxLabel>
                 <S.ForgotLink
                   type="button"
-                  onClick={() => navigate("/recover-password")}
+                  onClick={() => navigate(`/recover-password${restaurantQuery ? `?${restaurantQuery}` : ""}`)}
                 >
                   Esqueceu a senha?
                 </S.ForgotLink>

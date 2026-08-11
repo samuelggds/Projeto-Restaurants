@@ -26,7 +26,19 @@ function loadImage(source: string) {
   });
 }
 
-export async function createPersistentImageDataUrl(file: File, maxDimension = 512) {
+type PersistentImageOptions = {
+  minimumWidth?: number;
+  minimumHeight?: number;
+  upscale?: boolean;
+  targetWidth?: number;
+  targetHeight?: number;
+};
+
+export async function createPersistentImageDataUrl(
+  file: File,
+  maxDimension = 512,
+  options: PersistentImageOptions = {},
+) {
   if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
     throw new Error("Use uma imagem JPG, PNG ou WebP.");
   }
@@ -37,9 +49,15 @@ export async function createPersistentImageDataUrl(file: File, maxDimension = 51
 
   const originalDataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(originalDataUrl);
-  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  if ((options.minimumWidth && image.naturalWidth < options.minimumWidth) ||
+      (options.minimumHeight && image.naturalHeight < options.minimumHeight)) {
+    throw new Error(`A imagem possui ${image.naturalWidth} × ${image.naturalHeight} px. Use uma imagem com no mínimo ${options.minimumWidth || 1} × ${options.minimumHeight || 1} px.`);
+  }
+  const hasTargetSize = Boolean(options.targetWidth && options.targetHeight);
+  const requestedScale = maxDimension / Math.max(image.naturalWidth, image.naturalHeight);
+  const scale = options.upscale ? requestedScale : Math.min(1, requestedScale);
+  const width = hasTargetSize ? Number(options.targetWidth) : Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = hasTargetSize ? Number(options.targetHeight) : Math.max(1, Math.round(image.naturalHeight * scale));
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -49,7 +67,17 @@ export async function createPersistentImageDataUrl(file: File, maxDimension = 51
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  context.drawImage(image, 0, 0, width, height);
+  context.filter = "contrast(1.04) saturate(1.03)";
+  if (hasTargetSize) {
+    const coverScale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+    const sourceWidth = width / coverScale;
+    const sourceHeight = height / coverScale;
+    const sourceX = (image.naturalWidth - sourceWidth) / 2;
+    const sourceY = (image.naturalHeight - sourceHeight) / 2;
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
+  } else {
+    context.drawImage(image, 0, 0, width, height);
+  }
 
   let quality = 0.88;
   let result = canvas.toDataURL("image/webp", quality);

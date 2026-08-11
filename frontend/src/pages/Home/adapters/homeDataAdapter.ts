@@ -1,4 +1,5 @@
 import { isPersistentImageSource } from "../../../utils/persistentImage";
+import { createRestaurantMonogram } from "../../../utils/restaurantMonogram";
 import type { HomeCategory, HomeData, HomeProduct } from "../../Home/types";
 import { isProductUnavailable } from "../domain/productAvailability";
 
@@ -48,21 +49,21 @@ export function buildHomeData(productsFromApi: Record<string, unknown>[], settin
   const restaurantName = String(restaurant.name || "");
   const brand = {
     name: String(restaurantName || settings?.restaurantName || ""),
-    monogram: restaurantName.split(" ").filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "R",
+    monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     address: String(settings?.address || ""),
     primaryColor: String(settings?.primaryColor || "#d64d08"),
     whatsapp: String(settings?.whatsapp || ""), instagram: String(settings?.instagram || ""), facebook: String(settings?.facebook || ""),
     logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : "",
   };
-  const availableProducts = productsFromApi.filter((product) => !isProductUnavailable(product));
-  const products: HomeProduct[] = availableProducts.map((product, index) => ({
+  const products: HomeProduct[] = productsFromApi.map((product, index) => ({
     id: String(product.id), categoryId: String((product.category as { name?: string })?.name || "outros"),
     name: String(product.name || ""), description: String(product.description || ""), price: Number(product.price || 0),
     image: resolveProductImage(product, index), rating: Number(product.averageRating || 0),
     stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
+    available: !isProductUnavailable(product),
   }));
   const seen = new Set<string>();
-  const categories: HomeCategory[] = [{ id: "todos", name: "Todos", image: "" }, ...availableProducts.map((product) => {
+  const categories: HomeCategory[] = [{ id: "todos", name: "Todos", image: "" }, ...productsFromApi.map((product) => {
     const name = String((product.category as { name?: string })?.name || "");
     if (!name || seen.has(name)) return null;
     seen.add(name);
@@ -71,6 +72,6 @@ export function buildHomeData(productsFromApi: Record<string, unknown>[], settin
   return {
     brand, hero, banners, categories, products,
     deliveryTime: String(settings?.averageDeliveryTime || ""), minimumOrder: Number(settings?.minimumOrder || 0),
-    freeDeliveryFrom: 0, isOpen: false, about: String(settings?.description || ""),
+    freeDeliveryFrom: 0, isOpen: false, about: String(restaurant.description || settings?.restaurantDescription || settings?.description || ""),
   };
 }

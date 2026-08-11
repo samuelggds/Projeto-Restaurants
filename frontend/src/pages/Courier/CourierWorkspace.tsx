@@ -25,6 +25,7 @@ import { useAuth } from "../../contexts/authContext";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
 import { connectSocket, disconnectSocket } from "../../Services/socketService";
+import { createRestaurantMonogram } from "../../utils/restaurantMonogram";
 import * as L from "../kitchen/Kitchen.styles";
 import * as S from "./styles";
 
@@ -74,15 +75,7 @@ const DIGITAL_PAYMENT_METHODS = new Set(["PIX", "CARTAO", "CARTAO_DEBITO", "CART
 const LOCATION_UPDATE_INTERVAL_MS = 5_000;
 
 function monogram(name: string) {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase() || "R"
-  );
+  return createRestaurantMonogram(name);
 }
 
 export default function CourierWorkspace() {

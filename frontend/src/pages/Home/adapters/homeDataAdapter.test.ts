@@ -5,13 +5,14 @@ describe("homeDataAdapter", () => {
   it("preserva a imagem real do produto", () => {
     expect(resolveProductImage({ image: "https://cdn.test/pizza.webp" }, 0)).toBe("https://cdn.test/pizza.webp");
   });
-  it("remove produtos sem estoque e cria categorias únicas", () => {
+  it("mantém produtos sem estoque visíveis, mas indisponíveis, e cria categorias únicas", () => {
     const data = buildHomeData([
       { id: 1, name: "Pizza A", price: 20, stock: 2, category: { name: "Pizzas" } },
       { id: 2, name: "Pizza B", price: 30, stock: 0, category: { name: "Pizzas" } },
       { id: 3, name: "Suco", price: 8, stock: null, category: { name: "Bebidas" } },
     ], null);
-    expect(data.products.map((product) => product.id)).toEqual(["1", "3"]);
+    expect(data.products.map((product) => product.id)).toEqual(["1", "2", "3"]);
+    expect(data.products.map((product) => product.available)).toEqual([true, false, true]);
     expect(data.categories.map((category) => category.name)).toEqual(["Todos", "Pizzas", "Bebidas"]);
   });
   it("monta marca e os três banners configurados", () => {

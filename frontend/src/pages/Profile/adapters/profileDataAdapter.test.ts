@@ -11,7 +11,7 @@ describe("profileDataAdapter", () => {
     expect(buildOrderSummary({ items: [{ product: { name: "Pizza" } }, { name: "Suco" }] })).toBe("Pizza + 1 item");
   });
   it("preserva a foto real do produto no histórico", () => {
-    const data = buildProfileData({ user: { name: "Samuel", email: "cliente@demo.com" }, settings: null, favorites: [], avatarUrl: "", orders: [{ id: 48, status: "ENTREGUE", items: [{ product: { name: "Pizza", image: "https://cdn.test/pizza.png" } }] }] });
+    const data = buildProfileData({ user: { name: "Samuel", email: "cliente@demo.com" }, settings: null, favorites: [], addresses: [], avatarUrl: "", orders: [{ id: 48, status: "ENTREGUE", items: [{ product: { name: "Pizza", image: "https://cdn.test/pizza.png" } }] }] });
     expect(data.recentOrders[0]).toMatchObject({ id: "#0048", image: "https://cdn.test/pizza.png" });
   });
 });

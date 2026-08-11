@@ -17,6 +17,8 @@ import aiSupportRoutes from "../modules/aiSupport/routes/AiSupportRoutes.js";
 import menuImportRoutes from "../modules/menuImport/routes/MenuImportRoutes.js";
 import auditRoutes from "../modules/audit/routes/AuditRoutes.js";
 import favoriteRoutes from "../modules/favorites/routes/FavoriteRoutes.js";
+import imageEnhancementRoutes from "../modules/imageEnhancement/routes/ImageEnhancementRoutes.js";
+import customerAddressRoutes from "../modules/customerAddresses/routes/CustomerAddressRoutes.js";
 import AsaasOrderWebhookController from "../modules/orders/controllers/AsaasOrderWebhookController.js";
 import AsaasWithdrawValidationWebhookController from "../modules/restaurantSettings/controllers/AsaasWithdrawValidationWebhookController.js";
 
@@ -46,6 +48,8 @@ router.use("/ai-support", aiSupportRoutes);
 router.use("/menu-import", menuImportRoutes);
 router.use("/audit-logs", auditRoutes);
 router.use("/favorites", favoriteRoutes);
+router.use("/image-enhancement", imageEnhancementRoutes);
+router.use("/customer-addresses", customerAddressRoutes);
 
 router.get("/profile", authMiddleware, (req, res) => {
   return res.json({

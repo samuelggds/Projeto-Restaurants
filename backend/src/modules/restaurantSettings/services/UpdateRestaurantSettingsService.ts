@@ -48,6 +48,7 @@ type UpdateRestaurantSettingsPayload = {
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
+  restaurantDescription?: string | null;
 };
 
 class UpdateRestaurantSettingsService {
@@ -128,6 +129,7 @@ class UpdateRestaurantSettingsService {
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
+    restaurantDescription,
   }: UpdateRestaurantSettingsPayload) {
     const settings =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -152,6 +154,9 @@ class UpdateRestaurantSettingsService {
       restaurantCoverImage === undefined
         ? undefined
         : String(restaurantCoverImage || "").trim() || null;
+    const normalizedRestaurantDescription = restaurantDescription === undefined
+      ? undefined
+      : String(restaurantDescription || "").trim() || null;
     const normalizedBankName =
       bankName === undefined
         ? undefined
@@ -422,6 +427,9 @@ class UpdateRestaurantSettingsService {
     if (normalizedRestaurantCoverImage !== undefined) {
       restaurantData.coverImage = normalizedRestaurantCoverImage;
     }
+    if (normalizedRestaurantDescription !== undefined) {
+      restaurantData.description = normalizedRestaurantDescription;
+    }
 
     if (Object.keys(restaurantData).length > 0) {
       await prisma.restaurant.update({
@@ -472,6 +480,10 @@ class UpdateRestaurantSettingsService {
         restaurantCoverImage !== undefined
           ? normalizedRestaurantCoverImage
           : String(settings?.restaurant?.coverImage || "").trim() || null,
+      restaurantDescription:
+        restaurantDescription !== undefined
+          ? normalizedRestaurantDescription
+          : String(settings?.restaurant?.description || "").trim() || null,
       gatewayMerchantIdConfigured: Boolean(
         String(updated?.gatewayMerchantId || "").trim(),
       ),

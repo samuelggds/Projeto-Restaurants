@@ -6,9 +6,12 @@ type Options = {
   user: User;
   restaurantId: number | null;
   onRequireLogin: () => void;
+  onAdded?: () => void;
+  onRemoved?: () => void;
+  onError?: () => void;
 };
 
-export function useFavorites({ user, restaurantId, onRequireLogin }: Options) {
+export function useFavorites({ user, restaurantId, onRequireLogin, onAdded, onRemoved, onError }: Options) {
   const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -33,12 +36,18 @@ export function useFavorites({ user, restaurantId, onRequireLogin }: Options) {
     const isFavorite = favoriteProductIds.includes(productId);
     setFavoriteProductIds((current) => isFavorite ? current.filter((id) => id !== productId) : [productId, ...current]);
     try {
-      if (isFavorite) await favoritesService.remove(productId);
-      else await favoritesService.add(productId);
+      if (isFavorite) {
+        await favoritesService.remove(productId);
+        onRemoved?.();
+      } else {
+        await favoritesService.add(productId);
+        onAdded?.();
+      }
     } catch {
       setFavoriteProductIds((current) => isFavorite ? [productId, ...current] : current.filter((id) => id !== productId));
+      onError?.();
     }
-  }, [favoriteProductIds, onRequireLogin, user]);
+  }, [favoriteProductIds, onAdded, onError, onRemoved, onRequireLogin, user]);
 
   return {
     favoriteProductIds: user?.role === "CLIENTE" && restaurantId ? favoriteProductIds : [],

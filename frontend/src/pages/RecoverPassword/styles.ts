@@ -9,6 +9,7 @@ export {
   ThemeToggleButton,
   BannerSection,
   BrandTitle,
+  RestaurantLogo,
   BrandSubtitle,
   FormSection,
   FormWrapper,

@@ -2,6 +2,7 @@ import type { AdminSettings, Employee } from "./types";
 
 export const adminMockSettings: AdminSettings = {
   restaurantName: "",
+  coverImageUrl: "",
   primaryColor: "#d64d08",
   description: "",
   whatsapp: "",

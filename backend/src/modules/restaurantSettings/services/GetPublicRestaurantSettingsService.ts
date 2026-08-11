@@ -8,6 +8,7 @@ type RestaurantIdPayload = {
 
 type PublicSettingsFallback = {
   restaurantId: number;
+  primaryColor: string;
   deliveryFee: number;
   minimumOrder: number;
   pixProvider: string;
@@ -19,6 +20,7 @@ type PublicSettingsFallback = {
     slug: string | null;
     logo: string | null;
     coverImage: string | null;
+    description: string | null;
     banners: Array<{ id: number; title: string; image: string }>;
   };
 };
@@ -57,6 +59,7 @@ class GetPublicRestaurantSettingsService {
 
       const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
+        primaryColor: "#c95d3d",
         deliveryFee: 0,
         minimumOrder: 0,
         pixProvider: "MERCADO_PAGO",
@@ -68,6 +71,7 @@ class GetPublicRestaurantSettingsService {
           slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
           coverImage: restaurant?.coverImage || null,
+          description: restaurant?.description || null,
           banners: restaurant?.banners || [],
         },
       };

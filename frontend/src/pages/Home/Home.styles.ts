@@ -365,6 +365,15 @@ export const ProductCard = styled.article`
     place-items: center;
     cursor: pointer;
   }
+  footer button:disabled {
+    width: auto;
+    padding: 0 12px;
+    background: #e9e5e1;
+    color: #746d66;
+    cursor: not-allowed;
+    font-size: 12px;
+    font-weight: 700;
+  }
   @media (max-width: 560px) {
     flex: 0 0 82vw;
     scroll-snap-align: center;
@@ -403,31 +412,40 @@ export const ImageWrap = styled.div`
   }
 `;
 export const About = styled.section`
-  margin-top: 36px;
-  padding: 34px 8px;
-  border-top: 1px solid var(--home-border);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  width: min(860px, 100%);
+  margin: 24px auto 34px;
+  padding: 0 24px;
+  text-align: center;
   small {
+    display: inline-block;
+    font-family: "Segoe UI", Arial, sans-serif;
     color: var(--home-primary);
-    letter-spacing: 0.16em;
-  }
-  h2 {
-    font-family: Georgia, serif;
-    font-size: 37px;
-    margin: 8px 0;
+    letter-spacing: 0.24em;
+    font-weight: 900;
+    font-size: 11px;
+    text-transform: uppercase;
+    text-shadow:
+      0 2px 10px color-mix(in srgb, var(--home-primary) 24%, transparent),
+      0 1px 0 rgba(255, 255, 255, 0.9);
   }
   p {
-    color: var(--home-muted);
-    line-height: 1.8;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    font-size: clamp(20px, 2.2vw, 29px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.42;
+    margin: 11px 0 0;
+    white-space: pre-line;
+    text-wrap: balance;
+    color: #27221e;
+    text-shadow:
+      0 2px 12px rgba(55, 38, 26, 0.14),
+      0 1px 1px rgba(255, 255, 255, 0.95);
   }
   @media (max-width: 700px) {
-    grid-template-columns: 1fr;
-    gap: 5px;
-    h2 {
-      font-size: 30px;
-    }
+    margin: 18px auto 25px;
+    padding: 0 12px;
+    p { font-size: 19px; line-height: 1.5; }
   }
 `;
 export const Whatsapp = styled.a`
@@ -575,7 +593,7 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
   transform: translateX(${({ $open }) => ($open ? "0" : "105%")});
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
@@ -634,8 +652,9 @@ export const CartHead = styled.div`
 `;
 
 export const CartItems = styled.div`
-  flex: 0 0 auto;
-  max-height: 230px;
+  flex: 0 1 auto;
+  width: 100%;
+  max-height: 32dvh;
   overflow-y: auto;
   padding: 14px 20px 10px;
   display: flex;
@@ -763,16 +782,44 @@ export const CartEmpty = styled.div`
 `;
 
 export const CartFoot = styled.div`
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 390px;
-  padding: 12px 20px 20px;
+  padding: 0 20px 20px;
   border-top: 1px solid var(--home-border);
   background: #fff;
+  overflow: hidden;
 
-  @media (max-height: 720px) {
-    min-height: 330px;
+  > * {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .cart-checkout-area {
+    flex: 0 0 auto;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 14px;
+    background: #fff;
+    border-top: 1px solid var(--home-border);
+  }
+`;
+
+export const CartOptions = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding-top: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  > * {
+    flex: 0 0 auto;
+    width: 100%;
   }
 `;
 
@@ -782,7 +829,6 @@ export const CartSummaryRow = styled.div`
   align-items: center;
   font-size: 13px;
   color: var(--home-muted);
-  margin-top: auto;
   margin-bottom: 6px;
 `;
 
@@ -945,6 +991,14 @@ export const PaymentGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  background: #fffdf9;
+
+  @media (max-width: 820px) {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: 34dvh;
+    padding: 14px 16px 10px;
+  }
   margin-bottom: 10px;
 
   @media (max-width: 420px) {
@@ -982,7 +1036,7 @@ export const AddressField = styled.label`
     font-weight: 750;
   }
   i { color: #8b837a; font-style: normal; font-weight: 500; }
-  input {
+  input, select {
     width: 100%;
     height: 39px;
     padding: 0 12px;
@@ -995,7 +1049,7 @@ export const AddressField = styled.label`
     outline: none;
     transition: border-color .2s, box-shadow .2s;
   }
-  input:focus { border-color: var(--primary, #d64d08); box-shadow: 0 0 0 3px rgba(214,77,8,.1); }
+  input:focus, select:focus { border-color: var(--primary, #d64d08); box-shadow: 0 0 0 3px rgba(214,77,8,.1); }
   small { font-size: 10px; }
   small.loading { color: #7c5b20; }
   small.success { color: #18773a; }

@@ -62,10 +62,6 @@ export function HomePage({
     () => new Set(favoriteProductIds),
     [favoriteProductIds],
   );
-  const favoriteProducts = useMemo(
-    () => data.products.filter((product) => favoriteIds.has(product.id)),
-    [data.products, favoriteIds],
-  );
   const primary = data.brand.primaryColor ?? "#d64d08";
 
   const selectCategory = (id: string) => {
@@ -90,6 +86,13 @@ export function HomePage({
         onLogout={onLogout}
       />
       <S.Main>
+        {data.about && (
+          <S.About id="sobre">
+            <small>{data.brand.name || "NOSSA CASA"}</small>
+            <p>{data.about}</p>
+          </S.About>
+        )}
+
         {data.hero.image && (
           <S.HeroGrid>
             <S.MainBanner>
@@ -133,33 +136,6 @@ export function HomePage({
               Pedido mínimo {brl(data.minimumOrder)}
             </span>
           </S.InfoBar>
-        )}
-
-        {favoriteProducts.length > 0 && (
-          <>
-            <S.SectionTitle>Seus favoritos</S.SectionTitle>
-            <S.ProductGrid key={`favorites-${favoriteProductIds.join("-")}`}>
-              {favoriteProducts.map((product) => (
-                <S.ProductCard key={product.id}>
-                  <S.ImageWrap>
-                    <img src={product.image} alt={product.name} />
-                    <button className="favorite" aria-label={`Remover ${product.name} dos favoritos`} onClick={() => onToggleFavorite?.(product.id)}>
-                      <Heart size={21} fill="currentColor" />
-                    </button>
-                  </S.ImageWrap>
-                  <div>
-                    <h3>{product.name}</h3>
-                    <p>{product.description}</p>
-                    <footer>
-                      {product.rating > 0 && <span>⭐ {product.rating}</span>}
-                      <strong>{brl(product.price)}</strong>
-                      <button aria-label={`Adicionar ${product.name}`} onClick={() => onAddProduct?.(product.id)}><Plus /></button>
-                    </footer>
-                  </div>
-                </S.ProductCard>
-              ))}
-            </S.ProductGrid>
-          </>
         )}
 
         {data.categories.length > 0 && (
@@ -215,10 +191,11 @@ export function HomePage({
                       {product.rating > 0 && <span>⭐ {product.rating}</span>}
                       <strong>{brl(product.price)}</strong>
                       <button
-                        aria-label={`Adicionar ${product.name}`}
+                        aria-label={product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`}
+                        disabled={!product.available}
                         onClick={() => onAddProduct?.(product.id)}
                       >
-                        <Plus />
+                        {product.available ? <Plus /> : "Esgotado"}
                       </button>
                     </footer>
                   </div>
@@ -228,11 +205,6 @@ export function HomePage({
           </>
         )}
 
-        {data.about && (
-          <S.About id="sobre">
-            <p>{data.about}</p>
-          </S.About>
-        )}
       </S.Main>
 
       <S.Footer>
