@@ -7,6 +7,7 @@ import ListProductRatingsController from "../controllers/ListProductRatingsContr
 import RateProductController from "../controllers/RateProductController.js";
 import { authMiddleware } from "../../../middlewares/authMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
+import { publicRestaurantBillingMiddleware } from "../../../middlewares/publicRestaurantBillingMiddleware.js";
 
 const router = Router();
 
@@ -17,7 +18,7 @@ router.post(
   CreateProductController.handle,
 );
 
-router.get("/", ListProductsController.handle);
+router.get("/", publicRestaurantBillingMiddleware, ListProductsController.handle);
 router.get("/ratings", ListProductRatingsController.handle);
 router.post("/:id/rating", RateProductController.handle);
 

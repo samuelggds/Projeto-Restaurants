@@ -1,5 +1,20 @@
 import api from "./api";
 
+export type CreateRestaurantPayload = {
+  plan: "BASICO" | "PREMIUM";
+  restaurant: {
+    name: string;
+    slug: string;
+    email: string;
+    phone?: string;
+  };
+  admin: {
+    name: string;
+    email: string;
+    password: string;
+  };
+};
+
 class RestaurantsService {
   async listRestaurants() {
     const response = await api.get("/restaurants");
@@ -26,7 +41,7 @@ class RestaurantsService {
     return response.data;
   }
 
-  async createRestaurant(payload) {
+  async createRestaurant(payload: CreateRestaurantPayload) {
     const response = await api.post("/restaurants", payload);
     return response.data;
   }

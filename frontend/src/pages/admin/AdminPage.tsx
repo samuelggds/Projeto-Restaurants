@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   LogOut,
   Menu,
+  ReceiptText,
   Save,
   Search as SearchIcon,
   Settings2,
@@ -22,6 +23,7 @@ import { ProductDrawer } from "./components/ProductDrawer";
 import { BrandSettings } from "./components/BrandSettings";
 import { AdminSettingsContent } from "./components/AdminSettingsContent";
 import { AdminManagement } from "./components/AdminManagement";
+import { MonthlyBilling } from "./components/MonthlyBilling";
 import { sectionTitle, settingItems } from "./config/adminNavigation";
 import * as S from "./Admin.styles";
 import type {
@@ -40,6 +42,7 @@ export function AdminPage({
   initialCategories = [],
   onUpdateOrderStatus,
   onConfirmOrderPayment,
+  onCancelOrder,
   onSaveProduct,
   onDeleteProduct,
   onCreateCategory,
@@ -53,6 +56,7 @@ export function AdminPage({
   onCreateEmployee,
   onUpdateEmployee,
   onDeactivateEmployee,
+  onReactivateEmployee,
   onViewStore,
   onLogout,
 }: AdminPageProps) {
@@ -91,7 +95,8 @@ export function AdminPage({
     orders: "Pedidos",
     catalog: "Cardápio",
     customers: "Clientes",
-    employees: "Employees",
+    subscriptions: "Cobranças e assinaturas",
+    employees: "Funcionários",
   };
   const title = area === "settings" ? sectionTitle[section] : areaTitles[area];
   const update = <K extends keyof typeof settings>(
@@ -159,18 +164,17 @@ export function AdminPage({
     }
   };
   const banner = async (
-    key: "mainBannerUrl" | "promotion1Url" | "promotion2Url",
+    key: "mainBannerUrl",
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setFeedbackError("");
     try {
-      const isMainBanner = key === "mainBannerUrl";
       update(key, await createPersistentImageDataUrl(file, 1440, {
         upscale: true,
-        targetWidth: isMainBanner ? 1440 : 600,
-        targetHeight: isMainBanner ? 560 : 400,
+        targetWidth: 1440,
+        targetHeight: 560,
       }));
     } catch (error) {
       setFeedbackError(
@@ -314,7 +318,17 @@ export function AdminPage({
             }}
           >
             <Users />
-            Employees
+            Funcionários
+          </button>
+          <button
+            className={area === "subscriptions" ? "active" : ""}
+            onClick={() => {
+              setArea("subscriptions");
+              setMobile(false);
+            }}
+          >
+            <ReceiptText />
+            Cobranças e assinaturas
           </button>
           <button
             className={area === "settings" ? "active" : ""}
@@ -391,6 +405,8 @@ export function AdminPage({
             <p>
               {area === "employees"
                 ? "Somente o administrador cria e edita funcionários."
+                : area === "subscriptions"
+                  ? "Troque seu plano e acompanhe o pagamento das mensalidades."
                 : area === "settings"
                   ? "Personalize e gerencie as informações do restaurante."
                   : "Acompanhe e gerencie a operação em um só lugar."}
@@ -432,7 +448,23 @@ export function AdminPage({
                   ),
                 );
               }}
+              onReactivate={async (employee) => {
+                const confirmed = await confirmDialog({
+                  title: "Reativar funcionário?",
+                  description: `${employee.name} voltará a ter acesso ao sistema.`,
+                  confirmLabel: "Reativar",
+                });
+                if (!confirmed) return;
+                await onReactivateEmployee?.(employee.id);
+                setEmployees((current) =>
+                  current.map((item) =>
+                    item.id === employee.id ? { ...item, active: true } : item,
+                  ),
+                );
+              }}
             />
+          ) : area === "subscriptions" ? (
+            <MonthlyBilling />
           ) : area === "settings" ? (
             section === "brand" ? (
               <BrandSettings
@@ -467,6 +499,9 @@ export function AdminPage({
               }}
               onConfirmOrderPayment={async (id) => {
                 await onConfirmOrderPayment?.(id);
+              }}
+              onCancelOrder={async (id) => {
+                await onCancelOrder?.(id);
               }}
               onEditProduct={setEditingProduct}
               onDeleteProduct={async (id) => {

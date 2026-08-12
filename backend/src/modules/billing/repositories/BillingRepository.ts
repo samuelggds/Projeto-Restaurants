@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import prisma from "../../../config/prisma.js";
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -11,6 +12,21 @@ class BillingRepository {
     return db.subscription.findUnique({
       where: {
         restaurantId,
+      },
+      include: {
+        restaurant: {
+          select: {
+            name: true,
+            email: true,
+            createdAt: true,
+            users: {
+              where: { role: UserRole.ADMIN },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+              select: { id: true, name: true, email: true, createdAt: true },
+            },
+          },
+        },
       },
     });
   }
@@ -47,7 +63,9 @@ class BillingRepository {
   async findPendingInvoices() {
     return prisma.invoice.findMany({
       where: {
-        status: "PENDENTE",
+        status: {
+          in: ["PENDENTE", "ATRASADO"],
+        },
       },
       include: {
         restaurant: true,
@@ -158,6 +176,9 @@ class BillingRepository {
       where: {
         id: Number(id),
         restaurantId,
+      },
+      include: {
+        restaurant: { select: { name: true, email: true } },
       },
     });
   }

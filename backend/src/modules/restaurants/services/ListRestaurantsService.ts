@@ -1,15 +1,15 @@
 import prisma from "../../../config/prisma.js";
 import restaurantRepository from "../repositories/RestaurantRepository.js";
 import { PlanType } from "@prisma/client";
+import { PLAN_CONFIG } from "../../billing/config/planConfig.js";
 
 type ListedRestaurant = Awaited<
   ReturnType<typeof restaurantRepository.listAll>
 >[number];
 
 const PLAN_PRICES: Record<PlanType, number> = {
-  BASICO: 299,
-  PROFISSIONAL: 499,
-  PREMIUM: 799,
+  BASICO: PLAN_CONFIG.BASICO.monthlyFee,
+  PREMIUM: PLAN_CONFIG.PREMIUM.monthlyFee,
 };
 
 function getRestaurantStatus(restaurant: ListedRestaurant) {

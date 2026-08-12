@@ -186,22 +186,6 @@ export function HomePage({
                 </button>
               </S.BannerCopy>
             </S.MainBanner>
-            {data.banners.slice(0, 2).map((banner, index) => (
-              <S.MiniBanner
-                key={`${banner.title}-${index}`}
-                $second={index === 1}
-              >
-                <img src={banner.image} alt="" />
-                <div>
-                  <strong>
-                    {banner.title}
-                    <br />
-                    <em>{banner.highlight}</em>
-                  </strong>
-                  {banner.description && <small>{banner.description}</small>}
-                </div>
-              </S.MiniBanner>
-            ))}
           </S.HeroGrid>
         )}
 

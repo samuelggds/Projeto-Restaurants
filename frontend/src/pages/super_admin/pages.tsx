@@ -255,8 +255,8 @@ export function RestaurantsPage({
         />
         <select>
           <option>Todos os planos</option>
-          <option>Essencial</option>
-          <option>Pro</option>
+          <option>Básico</option>
+          <option>Premium</option>
         </select>
         <select>
           <option>Todos os status</option>

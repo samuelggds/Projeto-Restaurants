@@ -90,6 +90,27 @@ class EmployeeRepository {
       },
     });
   }
+
+  async reactivate(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    const employee = await this.findById(id, restaurantId, db);
+
+    if (!employee) {
+      throw new Error("Funcionário não encontrado!");
+    }
+
+    return db.user.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        active: true,
+      },
+    });
+  }
 }
 
 export default new EmployeeRepository();

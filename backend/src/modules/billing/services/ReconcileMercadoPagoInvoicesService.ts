@@ -2,6 +2,7 @@ import billingRepository from "../repositories/BillingRepository.js";
 import processPaymentService from "./ProcessPaymentService.js";
 import { isApprovedPaymentStatus } from "../utils/webhookUtils.js";
 import { debug, error, info, warn } from "../utils/billingLogger.js";
+import { getPlatformMercadoPagoAccessToken } from "../config/platformMercadoPago.js";
 
 type MercadoPagoSearchResponse = {
   results?: Array<{
@@ -20,7 +21,7 @@ class ReconcileMercadoPagoInvoicesService {
   }
 
   private getAccessToken() {
-    return String(process.env.MP_ACCESS_TOKEN || "").trim();
+    return getPlatformMercadoPagoAccessToken();
   }
 
   private getApiBaseUrl() {
@@ -82,7 +83,9 @@ class ReconcileMercadoPagoInvoicesService {
     const accessToken = this.getAccessToken();
 
     if (!accessToken) {
-      warn("MP auto reconciliation skipped: missing MP_ACCESS_TOKEN");
+      warn(
+        "MP auto reconciliation skipped: missing PLATFORM_MP_ACCESS_TOKEN",
+      );
       return;
     }
 

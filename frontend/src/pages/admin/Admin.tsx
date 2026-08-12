@@ -16,8 +16,6 @@ import { getStoredAccessToken } from "../../modules/auth/session/authSession";
 
 const BANNER_TITLES = {
   main: "Banner principal",
-  promotion1: "Promoção 1",
-  promotion2: "Promoção 2",
 } as const;
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -54,8 +52,6 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
   const coverCandidate = r?.coverImage ?? raw?.restaurantCoverImage ?? adminMockSettings.coverImageUrl ?? "";
   const banner = (title: string) => banners.find((item) => item.title === title);
   const mainBanner = banner(BANNER_TITLES.main);
-  const promotion1 = banner(BANNER_TITLES.promotion1);
-  const promotion2 = banner(BANNER_TITLES.promotion2);
   return {
     restaurantName: String(
       r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName,
@@ -90,10 +86,6 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
     pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     mainBannerId: mainBanner?.id,
     mainBannerUrl: mainBanner?.image ?? "",
-    promotion1Id: promotion1?.id,
-    promotion1Url: promotion1?.image ?? "",
-    promotion2Id: promotion2?.id,
-    promotion2Url: promotion2?.image ?? "",
   };
 }
 
@@ -260,8 +252,6 @@ export default function Admin() {
       }
       const slots = [
         { id: updated.mainBannerId, title: BANNER_TITLES.main, image: updated.mainBannerUrl },
-        { id: updated.promotion1Id, title: BANNER_TITLES.promotion1, image: updated.promotion1Url },
-        { id: updated.promotion2Id, title: BANNER_TITLES.promotion2, image: updated.promotion2Url },
       ];
       const persisted = await Promise.all(slots.filter((slot) => Boolean(slot.image)).map((slot) =>
         slot.id
@@ -271,8 +261,6 @@ export default function Admin() {
       setSettings((current) => ({
         ...current,
         mainBannerId: persisted.find((item) => item.title === BANNER_TITLES.main)?.id ?? current.mainBannerId,
-        promotion1Id: persisted.find((item) => item.title === BANNER_TITLES.promotion1)?.id ?? current.promotion1Id,
-        promotion2Id: persisted.find((item) => item.title === BANNER_TITLES.promotion2)?.id ?? current.promotion2Id,
       }));
     } catch (error) {
       console.error("Não foi possível salvar as configurações.", error);
@@ -327,6 +315,7 @@ export default function Admin() {
       initialCategories={categories}
       onUpdateOrderStatus={async (id, status) => { await ordersService.updateStatus(id, status); await loadOperations(); }}
       onConfirmOrderPayment={async (id) => { await ordersService.confirmPayment(id); await loadOperations(); }}
+      onCancelOrder={async (id) => { await ordersService.refundOrder(id); await loadOperations(); }}
       onSaveProduct={async (product) => {
         const activeFromStock = product.stock === null || product.stock === undefined || product.stock > 0;
         const payload = { name: product.name, description: product.description || "", image: product.image || "", price: product.price,
@@ -370,6 +359,10 @@ export default function Admin() {
       onDeactivateEmployee={async (id) => {
         await employeesService.deactivateEmployee(id);
         setEmployees((current) => current.map((employee) => employee.id === id ? { ...employee, active: false } : employee));
+      }}
+      onReactivateEmployee={async (id) => {
+        await employeesService.reactivateEmployee(id);
+        setEmployees((current) => current.map((employee) => employee.id === id ? { ...employee, active: true } : employee));
       }}
       onViewStore={() => navigate("/")}
       onLogout={() => {

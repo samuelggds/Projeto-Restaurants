@@ -68,21 +68,19 @@ export const Main = styled.main`
 `;
 export const HeroGrid = styled.section`
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.95fr);
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
   width: 100%;
-  height: clamp(320px, 28vw, 390px);
+  height: clamp(300px, 34vw, 470px);
   margin-bottom: 26px;
   @media (max-width: 800px) {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
     height: auto;
-    gap: 10px;
+    margin-bottom: 26px;
   }
 `;
 export const MainBanner = styled.article`
-  grid-row: 1 / 3;
   position: relative;
   overflow: hidden;
   border-radius: 20px;
@@ -94,7 +92,7 @@ export const MainBanner = styled.article`
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     object-position: center;
     filter: brightness(0.54);
   }
@@ -235,18 +233,35 @@ export const InfoBar = styled.div`
   }
 `;
 export const SectionTitle = styled.h2`
-  font-size: clamp(21px, 2vw, 25px);
-  margin: 34px 0 15px;
+  font-size: clamp(22px, 2vw, 26px);
+  margin: 42px 0 18px;
   letter-spacing: -0.025em;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  &::before {
+    content: "";
+    width: 5px;
+    height: 28px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--home-primary);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--home-primary) 28%, transparent);
+  }
+  @media (max-width: 760px) {
+    margin: 32px 0 15px;
+    font-size: 21px;
+    &::before { height: 24px; width: 4px; }
+  }
 `;
 export const CategoryRow = styled.div`
   display: flex;
   align-items: stretch;
-  gap: 14px;
+  gap: 16px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid #eee5dc;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.72);
@@ -258,7 +273,7 @@ export const CategoryRow = styled.div`
   @media (max-width: 760px) {
     width: calc(100% + 24px);
     margin-inline: -12px;
-    padding: 12px;
+    padding: 14px 12px;
     border-inline: 0;
     border-radius: 0;
   }
@@ -323,19 +338,29 @@ export const ProductGrid = styled.div`
 export const ProductCategoryGroups = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 42px;
   width: min(980px, 100%);
   margin-inline: auto;
-  @media (max-width: 760px) { gap: 28px; }
+  @media (max-width: 760px) { gap: 34px; }
 `;
 export const ProductCategoryGroup = styled.section`
+  padding: 18px;
+  border: 1px solid #eee5dc;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #fff 0%, #fffcf8 100%);
+  box-shadow: 0 12px 32px rgba(70, 45, 20, 0.045);
   h3 {
-    margin: 0 0 12px;
-    padding-left: 10px;
+    margin: 0 0 16px;
+    padding-left: 12px;
     border-left: 4px solid var(--home-primary);
     color: var(--home-text);
     font-size: 19px;
     line-height: 1.2;
+  }
+  @media (max-width: 760px) {
+    padding: 14px 10px 16px;
+    border-radius: 16px;
+    h3 { margin-bottom: 13px; font-size: 17px; }
   }
 `;
 export const ProductCard = styled.article`
@@ -417,11 +442,12 @@ export const ProductCard = styled.article`
     min-width: 0;
     flex: none;
     cursor: pointer;
-    display: block;
-    min-height: 0;
+    display: grid;
+    grid-template-columns: 126px minmax(0, 1fr);
+    min-height: 126px;
     > div:last-child {
-      min-height: 104px;
-      padding: 11px 12px;
+      min-height: 126px;
+      padding: 12px 13px;
     }
     h3 { font-size: 15px; }
     p {
@@ -437,6 +463,14 @@ export const ProductCard = styled.article`
       width: 34px;
       height: 34px;
       border-radius: 9px;
+    }
+    @media (max-width: 390px) {
+      grid-template-columns: 112px minmax(0, 1fr);
+      min-height: 116px;
+      > div:last-child {
+        min-height: 116px;
+        padding: 10px 11px;
+      }
     }
   }
 `;
@@ -544,9 +578,11 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
   }
 `;
 export const ImageWrap = styled.div`
-  height: 100%;
-  min-height: 190px;
+  height: 190px;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
+  background: #f6f3ee;
   img {
     width: 100%;
     height: 100%;
@@ -578,13 +614,17 @@ export const ImageWrap = styled.div`
     background: rgba(255, 255, 255, 0.94);
   }
   @media (max-width: 760px) {
-    height: 138px;
-    min-height: 138px;
+    height: 126px;
+    min-height: 126px;
     button {
       width: 32px;
       height: 32px;
       right: 8px;
       top: 8px;
+    }
+    @media (max-width: 390px) {
+      height: 116px;
+      min-height: 116px;
     }
   }
 `;

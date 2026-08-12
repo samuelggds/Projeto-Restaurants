@@ -238,6 +238,10 @@ export default function AppRoutes() {
                 />
                 <Route path="/recover-password" element={<RecoverPassword />} />
                 <Route path="/register" element={<Register />} />
+                <Route
+                  path="/system-maintenance"
+                  element={<SystemMaintenancePage />}
+                />
                 <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
                 <Route
                   path="/:restaurantSlug"
@@ -255,16 +259,12 @@ export default function AppRoutes() {
                     path="/system-blocked"
                     element={<SystemBlockedPage />}
                   />
-                  <Route
-                    path="/system-maintenance"
-                    element={<SystemMaintenancePage />}
-                  />
+                  <Route path="/billing" element={<BillingPage />} />
 
                   <Route element={<BillingGate />}>
                       <Route path="/profile" element={<UserProfile />} />
                       <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
 
-                      <Route path="/billing" element={<BillingPage />} />
                       <Route path="/admin" element={<AdminDashboard />} />
                       <Route
                         path="/admin/configuracoes"

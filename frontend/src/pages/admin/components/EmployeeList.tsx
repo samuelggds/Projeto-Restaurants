@@ -1,4 +1,4 @@
-import { MoreVertical, Plus } from "lucide-react";
+import { MoreVertical, Plus, UserRoundCheck, UserRoundX } from "lucide-react";
 import * as S from "../Admin.styles";
 import type { Employee, EmployeeRole } from "../types";
 
@@ -13,9 +13,10 @@ type EmployeeListProps = {
   onNew: () => void;
   onEdit: (employee: Employee) => void;
   onDeactivate: (employee: Employee) => Promise<void>;
+  onReactivate: (employee: Employee) => Promise<void>;
 };
 
-export function EmployeeList({ employees, onNew, onEdit, onDeactivate }: EmployeeListProps) {
+export function EmployeeList({ employees, onNew, onEdit, onDeactivate, onReactivate }: EmployeeListProps) {
   return (
     <S.Card>
       <S.EmployeeHeader>
@@ -41,7 +42,28 @@ export function EmployeeList({ employees, onNew, onEdit, onDeactivate }: Employe
             </div>
             <span className="status">{employee.active ? "● Ativo" : "○ Inativo"}</span>
             <button className="edit" onClick={() => onEdit(employee)}><MoreVertical /></button>
-            {employee.active && <button onClick={() => void onDeactivate(employee)}>Desativar</button>}
+            {employee.active && (
+              <button
+                className="deactivate"
+                type="button"
+                onClick={() => void onDeactivate(employee)}
+                aria-label={`Desativar ${employee.name}`}
+              >
+                <UserRoundX size={15} aria-hidden="true" />
+                Desativar
+              </button>
+            )}
+            {!employee.active && (
+              <button
+                className="reactivate"
+                type="button"
+                onClick={() => void onReactivate(employee)}
+                aria-label={`Reativar ${employee.name}`}
+              >
+                <UserRoundCheck size={15} aria-hidden="true" />
+                Reativar
+              </button>
+            )}
           </S.EmployeeRow>
         ))}
       </S.EmployeeList>

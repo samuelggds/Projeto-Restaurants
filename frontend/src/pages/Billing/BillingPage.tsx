@@ -59,7 +59,6 @@ export default function BillingPage() {
 
   const PLAN_DISPLAY = {
     BASICO: "Basico",
-    PROFISSIONAL: "Profissional",
     PREMIUM: "Premium",
   };
 
@@ -75,18 +74,10 @@ export default function BillingPage() {
   );
 
   const PLAN_BENEFITS = {
-    PROFISSIONAL: [
-      "Mais controle financeiro com alertas inteligentes",
-      "Prioridade media no suporte",
-      "Taxa de split reduzida para 3%",
-      "Relatorios de desempenho mensal para acelerar decisoes",
-    ],
     PREMIUM: [
-      "Tudo do Profissional",
-      "Suporte prioritario dedicado",
-      "Taxa de split reduzida para 2%",
-      "Insights avancados de vendas e recompra",
-      "Novas funcionalidades premium liberadas primeiro",
+      "Sistema de delivery",
+      "Cardapio digital com QR Code de mesa",
+      "Suporte prioritario",
     ],
   };
 
@@ -475,7 +466,7 @@ export default function BillingPage() {
                     </S.PlanTitle>
                     <S.PlanPrice>{PLAN_PRICES.BASICO}</S.PlanPrice>
                     <S.PlanMutedText>
-                      Taxa de split de 4% por pedido.
+                      Sistema de delivery e suporte.
                     </S.PlanMutedText>
                     <S.PlanActionButton
                       $tone="basic"
@@ -488,30 +479,6 @@ export default function BillingPage() {
                       onClick={() => handleRequestPlanChange("BASICO")}
                     >
                       Solicitar Basico
-                    </S.PlanActionButton>
-                  </S.PlanCard>
-
-                  <S.PlanCard $highlighted={false} $tone="pro">
-                    <S.PlanTitle>
-                      <Gem size={18} /> Profissional
-                    </S.PlanTitle>
-                    <S.PlanPrice>{PLAN_PRICES.PROFISSIONAL}</S.PlanPrice>
-                    <S.PlanList>
-                      {PLAN_BENEFITS.PROFISSIONAL.map((benefit) => (
-                        <li key={benefit}>{benefit}</li>
-                      ))}
-                    </S.PlanList>
-                    <S.PlanActionButton
-                      $tone="pro"
-                      disabled={
-                        isChangingPlan ||
-                        Boolean(getScheduledPlanLabel()) ||
-                        !isPlanChangeAllowedByInvoice ||
-                        subscription?.plan === "PROFISSIONAL"
-                      }
-                      onClick={() => handleRequestPlanChange("PROFISSIONAL")}
-                    >
-                      Solicitar Profissional
                     </S.PlanActionButton>
                   </S.PlanCard>
 

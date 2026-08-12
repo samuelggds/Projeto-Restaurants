@@ -1,5 +1,6 @@
 import type { PlanType, SubscriptionStatus } from "@prisma/client";
 import subscriptionRepository from "../repositories/SubscriptionRepository.js";
+import { isAvailablePlan } from "../../billing/config/planConfig.js";
 
 type SubscriptionUpdatePayload = {
   restaurantId: number | string;
@@ -15,6 +16,10 @@ class UpdateSubscriptionService {
     status,
     trialEndsAt,
   }: SubscriptionUpdatePayload) {
+    if (plan && !isAvailablePlan(plan)) {
+      throw new Error("Plano indisponível para contratação.");
+    }
+
     const subscription =
       await subscriptionRepository.findByRestaurantId(restaurantId);
 

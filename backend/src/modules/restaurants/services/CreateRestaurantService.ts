@@ -22,10 +22,11 @@ function requireDefined<T>(
 }
 
 class CreateRestaurantService {
-  async execute({ restaurant, admin }: CreateRestaurantPayload) {
+  async execute({ restaurant, admin, plan }: CreateRestaurantPayload) {
     const parsedPayloadResult = createRestaurantSchema.safeParse({
       restaurant,
       admin,
+      plan,
     });
 
     if (!parsedPayloadResult.success) {
@@ -110,7 +111,7 @@ class CreateRestaurantService {
       await subscriptionRepository.create(
         {
           restaurantId: createdRestaurant.id,
-          plan: PlanType.BASICO,
+          plan: parsedPayload.plan as PlanType,
           status: SubscriptionStatus.TESTE,
           trialEndsAt,
           currentPeriodStart: today,

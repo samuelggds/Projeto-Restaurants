@@ -3,6 +3,7 @@ export type AdminSection =
   | "orders"
   | "catalog"
   | "customers"
+  | "subscriptions"
   | "settings"
   | "employees";
 export type SettingsSection =
@@ -78,10 +79,6 @@ export type AdminSettings = {
   pagbankTokenConfigured: boolean;
   mainBannerId?: number;
   mainBannerUrl?: string;
-  promotion1Id?: number;
-  promotion1Url?: string;
-  promotion2Id?: number;
-  promotion2Url?: string;
 };
 
 export type Employee = {
@@ -105,6 +102,7 @@ export type AdminPageProps = {
   initialCategories?: AdminCategory[];
   onUpdateOrderStatus?: (id: number, status: string) => void | Promise<void>;
   onConfirmOrderPayment?: (id: number) => void | Promise<void>;
+  onCancelOrder?: (id: number) => void | Promise<void>;
   onSaveProduct?: (product: AdminProduct) => void | Promise<void>;
   onDeleteProduct?: (id: string) => void | Promise<void>;
   onCreateCategory?: (name: string) => void | Promise<void>;
@@ -125,6 +123,7 @@ export type AdminPageProps = {
   ) => Employee | Promise<Employee>;
   onUpdateEmployee?: (employee: Employee) => Employee | Promise<Employee>;
   onDeactivateEmployee?: (id: string) => void | Promise<void>;
+  onReactivateEmployee?: (id: string) => void | Promise<void>;
   onViewStore?: () => void;
   onLogout?: () => void;
 };

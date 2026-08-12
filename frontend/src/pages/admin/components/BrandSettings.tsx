@@ -5,7 +5,7 @@ import * as S from "../Admin.styles";
 import { createRestaurantMonogram } from "../../../utils/restaurantMonogram";
 
 type Settings = typeof adminMockSettings;
-type BannerKey = "mainBannerUrl" | "promotion1Url" | "promotion2Url";
+type BannerKey = "mainBannerUrl";
 
 type Props = {
   settings: Settings;
@@ -21,8 +21,6 @@ type Props = {
 export function BrandSettings({ settings, update, logoInput, onLogoChange, onCoverChange, onEnhanceCover, isEnhancingCover, onBannerChange }: Props) {
   const coverInput = useRef<HTMLInputElement>(null);
   const mainBannerInput = useRef<HTMLInputElement>(null);
-  const promotion1Input = useRef<HTMLInputElement>(null);
-  const promotion2Input = useRef<HTMLInputElement>(null);
   const bannerPicker = (key: BannerKey, label: string, size: string, input: RefObject<HTMLInputElement | null>) => <>
     <input ref={input} hidden type="file" accept="image/*" onChange={(event) => onBannerChange(key, event)} />
     <button type="button" onClick={() => input.current?.click()}>{settings[key] ? <img src={String(settings[key])} alt={label} /> : <ImagePlus />}<b>{label}</b><span>{size}</span></button>
@@ -44,10 +42,8 @@ export function BrandSettings({ settings, update, logoInput, onLogoChange, onCov
       <S.Field>Cor principal<S.Color><input type="color" value={settings.primaryColor} onChange={(event) => update("primaryColor", event.target.value)} /><input value={settings.primaryColor} onChange={(event) => update("primaryColor", event.target.value)} /></S.Color></S.Field>
       <S.Field>Descrição do restaurante<textarea value={settings.description} onChange={(event) => update("description", event.target.value)} /></S.Field>
     </S.FormGrid></S.Card>
-    <S.Card><h2>Banners da home</h2><p>Adicione banners para destacar promoções e novidades.</p><S.Banners>
-      {bannerPicker("mainBannerUrl", "Banner principal", "1440 × 560 px", mainBannerInput)}
-      {bannerPicker("promotion1Url", "Promoção 1", "600 × 400 px", promotion1Input)}
-      {bannerPicker("promotion2Url", "Promoção 2", "600 × 400 px", promotion2Input)}
+    <S.Card><h2>Banner da home</h2><p>Use uma imagem horizontal para destacar sua principal promoção.</p><S.Banners>
+      {bannerPicker("mainBannerUrl", "Banner de promoção", "1440 × 560 px", mainBannerInput)}
     </S.Banners></S.Card>
   </S.Stack>;
 }

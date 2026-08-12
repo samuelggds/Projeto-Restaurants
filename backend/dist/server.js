@@ -869,8 +869,8 @@ var GoogleAuthService = class {
         "Login com Google indispon\xEDvel. Configure GOOGLE_CLIENT_ID (ou GOOGLE_CLIENT_IDS) no backend."
       );
     }
-    const client3 = new OAuth2Client(googleClientId);
-    const ticket = await client3.verifyIdToken({
+    const client = new OAuth2Client(googleClientId);
+    const ticket = await client.verifyIdToken({
       idToken,
       audience: googleClientIds
     });
@@ -970,6 +970,137 @@ var MeController_default = new MeController();
 
 // src/middlewares/authMiddleware.ts
 import jwt3 from "jsonwebtoken";
+
+// src/middlewares/billingMiddleware.ts
+import { InvoiceStatus } from "@prisma/client";
+
+// src/modules/billing/utils/dateUtils.ts
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+function addBusinessDays(date, businessDays) {
+  const result = new Date(date);
+  let added = 0;
+  while (added < businessDays) {
+    result.setDate(result.getDate() + 1);
+    const dayOfWeek = result.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    if (!isWeekend) {
+      added += 1;
+    }
+  }
+  return result;
+}
+
+// src/modules/billing/utils/billingRules.ts
+function getGraceLimitDate(dueDate) {
+  return addBusinessDays(dueDate, 5);
+}
+function isInvoiceBlocking(invoice, now = /* @__PURE__ */ new Date()) {
+  if (invoice.status === "ATRASADO") {
+    return true;
+  }
+  if (invoice.status !== "PENDENTE") {
+    return false;
+  }
+  const graceLimitDate = getGraceLimitDate(invoice.dueDate);
+  return now > graceLimitDate;
+}
+function hasBlockingInvoices(invoices = [], now = /* @__PURE__ */ new Date()) {
+  return invoices.some((invoice) => isInvoiceBlocking(invoice, now));
+}
+
+// src/middlewares/billingMiddleware.ts
+var checkedRequests = /* @__PURE__ */ new WeakSet();
+async function billingMiddleware(req, res, next) {
+  try {
+    if (checkedRequests.has(req)) {
+      return next();
+    }
+    checkedRequests.add(req);
+    const restaurantId = req.user.restaurantId;
+    if (String(req.user.role || "").toUpperCase() === "SUPER_ADMIN" || !restaurantId) {
+      return next();
+    }
+    const openInvoices = await prisma_default.invoice.findMany({
+      where: {
+        restaurantId: Number(restaurantId),
+        status: {
+          in: [InvoiceStatus.PENDENTE, InvoiceStatus.ATRASADO]
+        }
+      },
+      orderBy: {
+        dueDate: "asc"
+      }
+    });
+    if (!openInvoices.length) {
+      return next();
+    }
+    const now = /* @__PURE__ */ new Date();
+    const shouldBlock = hasBlockingInvoices(openInvoices, now);
+    if (shouldBlock) {
+      const blockingInvoices = openInvoices.filter(
+        (invoice) => isInvoiceBlocking(invoice, now)
+      );
+      const blockingInvoice = blockingInvoices.find((invoice) => Boolean(invoice.paymentLink)) || blockingInvoices[0] || null;
+      const pendingToOverdue = openInvoices.filter((invoice) => invoice.status === InvoiceStatus.PENDENTE).filter((invoice) => isInvoiceBlocking(invoice, now));
+      if (pendingToOverdue.length) {
+        await prisma_default.invoice.updateMany({
+          where: {
+            id: {
+              in: pendingToOverdue.map((invoice) => invoice.id)
+            }
+          },
+          data: {
+            status: InvoiceStatus.ATRASADO
+          }
+        });
+      }
+      const subscription = await prisma_default.subscription.findUnique({
+        where: {
+          restaurantId: Number(restaurantId)
+        }
+      });
+      if (subscription) {
+        await prisma_default.subscription.update({
+          where: { id: subscription.id },
+          data: { status: "EXPIRADA" }
+        });
+      }
+      await prisma_default.restaurant.update({
+        where: { id: Number(restaurantId) },
+        data: { active: false }
+      });
+      return res.status(403).json({
+        code: "BILLING_BLOCKED",
+        blocked: true,
+        error: "Restaurante bloqueado por inadimpl\xEAncia",
+        invoiceId: blockingInvoice?.id ?? null,
+        paymentLink: blockingInvoice?.paymentLink ?? null,
+        dueDate: blockingInvoice?.dueDate ?? null
+      });
+    }
+    return next();
+  } catch (_error) {
+    return res.status(500).json({
+      error: "Erro ao validar cobran\xE7a"
+    });
+  }
+}
+
+// src/middlewares/authMiddleware.ts
+function canBypassBillingCheck(req) {
+  const role = String(req.user?.role || "").toUpperCase();
+  if (role === "SUPER_ADMIN") {
+    return true;
+  }
+  if (req.baseUrl === "/auth" && req.path === "/me") {
+    return true;
+  }
+  return req.baseUrl === "/billing" || req.path.startsWith("/billing/");
+}
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -988,7 +1119,10 @@ function authMiddleware(req, res, next) {
       restaurantId: decoded.restaurantId === null || decoded.restaurantId === void 0 ? null : Number(decoded.restaurantId),
       email: decoded.email === null || decoded.email === void 0 ? null : String(decoded.email)
     };
-    return next();
+    if (canBypassBillingCheck(req)) {
+      return next();
+    }
+    return billingMiddleware(req, res, next);
   } catch (_error) {
     return res.status(401).json({ error: "Token inv\xE1lido!" });
   }
@@ -2120,6 +2254,60 @@ function adminMiddleware(req, res, next) {
   return next();
 }
 
+// src/middlewares/publicRestaurantBillingMiddleware.ts
+import { InvoiceStatus as InvoiceStatus2 } from "@prisma/client";
+async function resolveRestaurantId(req) {
+  const directId = Number(
+    req.params.restaurantId || req.query.restaurantId || req.body?.restaurantId || 0
+  );
+  if (Number.isInteger(directId) && directId > 0) {
+    return directId;
+  }
+  const slug = String(req.params.slug || req.query.slug || "").trim();
+  if (slug) {
+    const restaurant = await prisma_default.restaurant.findUnique({
+      where: { slug },
+      select: { id: true }
+    });
+    return restaurant?.id || null;
+  }
+  if (req.path.endsWith("/default")) {
+    const restaurant = await prisma_default.restaurant.findFirst({
+      select: { id: true },
+      orderBy: { id: "asc" }
+    });
+    return restaurant?.id || null;
+  }
+  return null;
+}
+async function publicRestaurantBillingMiddleware(req, res, next) {
+  try {
+    const restaurantId = await resolveRestaurantId(req);
+    if (!restaurantId) {
+      return next();
+    }
+    const openInvoices = await prisma_default.invoice.findMany({
+      where: {
+        restaurantId,
+        status: { in: [InvoiceStatus2.PENDENTE, InvoiceStatus2.ATRASADO] }
+      },
+      select: { status: true, dueDate: true }
+    });
+    if (!hasBlockingInvoices(openInvoices, /* @__PURE__ */ new Date())) {
+      return next();
+    }
+    return res.status(403).json({
+      code: "BILLING_BLOCKED",
+      blocked: true,
+      error: "Restaurante temporariamente indispon\xEDvel"
+    });
+  } catch {
+    return res.status(500).json({
+      error: "Erro ao validar disponibilidade do restaurante"
+    });
+  }
+}
+
 // src/modules/products/routes/productsRoutes.ts
 var router2 = Router2();
 router2.post(
@@ -2128,7 +2316,7 @@ router2.post(
   adminMiddleware,
   CreateProductController_default.handle
 );
-router2.get("/", ListProductController_default.handle);
+router2.get("/", publicRestaurantBillingMiddleware, ListProductController_default.handle);
 router2.get("/ratings", ListProductRatingsController_default.handle);
 router2.post("/:id/rating", RateProductController_default.handle);
 router2.put(
@@ -2279,7 +2467,9 @@ var OrderRepository = class {
         restaurantId
       },
       data: {
-        status
+        status,
+        ...status === OrderStatus.PREPARANDO ? { preparationStartedAt: /* @__PURE__ */ new Date(), readyAt: null } : {},
+        ...status === OrderStatus.PRONTO ? { readyAt: /* @__PURE__ */ new Date() } : {}
       }
     });
     return this.findById(id, restaurantId, db);
@@ -2893,11 +3083,27 @@ var RestaurantSettingsRepository = class {
 var RestaurantSettingsRepository_default = new RestaurantSettingsRepository();
 
 // src/modules/billing/repositories/BillingRepository.ts
+import { UserRole as UserRole5 } from "@prisma/client";
 var BillingRepository = class {
   async findSubscriptionByRestaurantId(restaurantId, db = prisma_default) {
     return db.subscription.findUnique({
       where: {
         restaurantId
+      },
+      include: {
+        restaurant: {
+          select: {
+            name: true,
+            email: true,
+            createdAt: true,
+            users: {
+              where: { role: UserRole5.ADMIN },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+              select: { id: true, name: true, email: true, createdAt: true }
+            }
+          }
+        }
       }
     });
   }
@@ -2926,7 +3132,9 @@ var BillingRepository = class {
   async findPendingInvoices() {
     return prisma_default.invoice.findMany({
       where: {
-        status: "PENDENTE"
+        status: {
+          in: ["PENDENTE", "ATRASADO"]
+        }
       },
       include: {
         restaurant: true
@@ -3009,6 +3217,9 @@ var BillingRepository = class {
       where: {
         id: Number(id),
         restaurantId
+      },
+      include: {
+        restaurant: { select: { name: true, email: true } }
       }
     });
   }
@@ -3033,20 +3244,27 @@ import { PlanType } from "@prisma/client";
 var PLAN_CONFIG = {
   [PlanType.BASICO]: {
     name: "B\xE1sico",
-    monthlyFee: 100,
-    trialDays: 30
-  },
-  [PlanType.PROFISSIONAL]: {
-    name: "Profissional",
-    monthlyFee: 200,
-    trialDays: 30
+    monthlyFee: 149.9,
+    trialDays: 30,
+    availableForSale: true,
+    features: ["Sistema de delivery", "Suporte padr\xE3o"]
   },
   [PlanType.PREMIUM]: {
     name: "Premium",
-    monthlyFee: 300,
-    trialDays: 30
+    monthlyFee: 249.9,
+    trialDays: 30,
+    availableForSale: true,
+    features: [
+      "Sistema de delivery",
+      "Card\xE1pio digital com QR Code de mesa",
+      "Suporte priorit\xE1rio"
+    ]
   }
 };
+var AVAILABLE_PLAN_TYPES = [PlanType.BASICO, PlanType.PREMIUM];
+function isAvailablePlan(plan) {
+  return AVAILABLE_PLAN_TYPES.some((availablePlan) => availablePlan === plan);
+}
 
 // src/modules/billing/services/SplitService.ts
 var SplitService = class {
@@ -3227,8 +3445,8 @@ var OrderPixPaymentService = class {
         "Pagamento PIX indisponivel no momento. Configure access token Mercado Pago nas configuracoes do restaurante."
       );
     }
-    const client3 = new MercadoPagoConfig({ accessToken });
-    return new Payment(client3);
+    const client = new MercadoPagoConfig({ accessToken });
+    return new Payment(client);
   }
   normalizeCpf(value) {
     const digits = String(value || "").replace(/\D/g, "");
@@ -4823,9 +5041,9 @@ var OrderStateMachine = {
 };
 
 // src/modules/orders/permissions/orderPermissions.ts
-import { OrderStatus as OrderStatus3, UserRole as UserRole5 } from "@prisma/client";
+import { OrderStatus as OrderStatus3, UserRole as UserRole6 } from "@prisma/client";
 var permissions = {
-  [UserRole5.ADMIN]: [
+  [UserRole6.ADMIN]: [
     OrderStatus3.PENDENTE,
     OrderStatus3.PREPARANDO,
     OrderStatus3.PRONTO,
@@ -4833,14 +5051,14 @@ var permissions = {
     OrderStatus3.ENTREGUE,
     OrderStatus3.CANCELADO
   ],
-  [UserRole5.FUNCIONARIO]: [
+  [UserRole6.FUNCIONARIO]: [
     OrderStatus3.PREPARANDO,
     OrderStatus3.PRONTO,
     OrderStatus3.SAIU_PARA_ENTREGA,
     OrderStatus3.ENTREGUE
   ],
-  [UserRole5.MOTOQUEIRO]: [OrderStatus3.ENTREGUE],
-  [UserRole5.CLIENTE]: [OrderStatus3.CANCELADO]
+  [UserRole6.MOTOQUEIRO]: [OrderStatus3.ENTREGUE],
+  [UserRole6.CLIENTE]: [OrderStatus3.CANCELADO]
 };
 function canUserChangeStatus(role, status) {
   const allowed = permissions[role] || [];
@@ -4856,7 +5074,7 @@ import {
   OrderStatus as OrderStatus4,
   OrderType as OrderType4,
   PaymentMethod as PaymentMethod4,
-  UserRole as UserRole6
+  UserRole as UserRole7
 } from "@prisma/client";
 
 // src/modules/orders/services/restoreOrderItemsStock.ts
@@ -4924,7 +5142,7 @@ var UpdateOrderStatusService = class {
     if (!canUserChange) {
       throw new Error("Usu\xE1rio n\xE3o tem permiss\xE3o para isso!");
     }
-    if (normalizedRole === UserRole6.MOTOQUEIRO) {
+    if (normalizedRole === UserRole7.MOTOQUEIRO) {
       if (order.type !== OrderType4.DELIVERY) {
         throw new Error("Motoqueiros s\xF3 podem atualizar pedidos de entrega.");
       }
@@ -4932,7 +5150,7 @@ var UpdateOrderStatusService = class {
         throw new Error("Esta entrega n\xE3o est\xE1 atribu\xEDda a voc\xEA.");
       }
     }
-    if (status === OrderStatus4.ENTREGUE && normalizedRole === UserRole6.MOTOQUEIRO && order.type === OrderType4.DELIVERY) {
+    if (status === OrderStatus4.ENTREGUE && normalizedRole === UserRole7.MOTOQUEIRO && order.type === OrderType4.DELIVERY) {
       const customerPhoneDigits = String(order?.user?.phone || "").replace(
         /\D/g,
         ""
@@ -5071,7 +5289,7 @@ var UpdateOrderStatusController = class {
 var UpdateOrderStatusController_default = new UpdateOrderStatusController();
 
 // src/modules/orders/services/ClaimOrderForDeliveryService.ts
-import { OrderStatus as OrderStatus5, OrderType as OrderType5, UserRole as UserRole7 } from "@prisma/client";
+import { OrderStatus as OrderStatus5, OrderType as OrderType5, UserRole as UserRole8 } from "@prisma/client";
 var ClaimOrderForDeliveryService = class {
   async execute({
     orderId,
@@ -5080,7 +5298,7 @@ var ClaimOrderForDeliveryService = class {
     role
   }) {
     const normalizedOrderId = Number(orderId);
-    if (String(role || "").toUpperCase() !== UserRole7.MOTOQUEIRO) {
+    if (String(role || "").toUpperCase() !== UserRole8.MOTOQUEIRO) {
       throw new Error("Somente motoqueiros podem retirar pedidos para entrega.");
     }
     if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
@@ -5168,13 +5386,13 @@ var ClaimOrderForDeliveryController = class {
 var ClaimOrderForDeliveryController_default = new ClaimOrderForDeliveryController();
 
 // src/modules/orders/services/GetCourierFinanceService.ts
-import { OrderStatus as OrderStatus6, UserRole as UserRole8 } from "@prisma/client";
+import { OrderStatus as OrderStatus6, UserRole as UserRole9 } from "@prisma/client";
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 var GetCourierFinanceService = class {
   async execute({ courierId, restaurantId, role }) {
-    if (String(role || "").toUpperCase() !== UserRole8.MOTOQUEIRO) {
+    if (String(role || "").toUpperCase() !== UserRole9.MOTOQUEIRO) {
       throw new Error("Financeiro dispon\xEDvel somente para motoqueiros.");
     }
     const now = /* @__PURE__ */ new Date();
@@ -5229,7 +5447,7 @@ var GetCourierFinanceController = class {
 var GetCourierFinanceController_default = new GetCourierFinanceController();
 
 // src/modules/orders/services/GetDeliveryTrackingService.ts
-import { UserRole as UserRole9 } from "@prisma/client";
+import { UserRole as UserRole10 } from "@prisma/client";
 var GetDeliveryTrackingService = class {
   async execute({ orderId, userId, restaurantId, role }) {
     const id = Number(orderId);
@@ -5254,7 +5472,7 @@ var GetDeliveryTrackingService = class {
     });
     if (!order) throw new Error("Pedido n\xE3o encontrado.");
     const normalizedRole = String(role || "").toUpperCase();
-    const allowed = order.userId === userId || normalizedRole === UserRole9.MOTOQUEIRO && order.assignedCourierId === userId || normalizedRole === UserRole9.ADMIN && order.restaurantId === restaurantId;
+    const allowed = order.userId === userId || normalizedRole === UserRole10.MOTOQUEIRO && order.assignedCourierId === userId || normalizedRole === UserRole10.ADMIN && order.restaurantId === restaurantId;
     if (!allowed) throw new Error("Voc\xEA n\xE3o pode acompanhar esta entrega.");
     const locations = await prisma_default.deliveryLocation.findMany({
       where: { orderId: id },
@@ -5291,10 +5509,10 @@ var GetDeliveryTrackingController = class {
 var GetDeliveryTrackingController_default = new GetDeliveryTrackingController();
 
 // src/modules/orders/services/ListOrdersService.ts
-import { UserRole as UserRole10 } from "@prisma/client";
+import { UserRole as UserRole11 } from "@prisma/client";
 var ListOrdersService = class {
   async execute(restaurantId, status, role, userId) {
-    if (String(role || "").toUpperCase() === UserRole10.MOTOQUEIRO) {
+    if (String(role || "").toUpperCase() === UserRole11.MOTOQUEIRO) {
       const courierId = Number(userId || 0);
       if (!Number.isInteger(courierId) || courierId <= 0) {
         throw new Error("Motoqueiro inv\xE1lido.");
@@ -6074,11 +6292,11 @@ var GenerateOrderPaymentConfirmationPinController = class {
 var GenerateOrderPaymentConfirmationPinController_default = new GenerateOrderPaymentConfirmationPinController();
 
 // src/modules/orders/services/RequestOrderPaymentConfirmationPinService.ts
-import { UserRole as UserRole11 } from "@prisma/client";
+import { UserRole as UserRole12 } from "@prisma/client";
 var RequestOrderPaymentConfirmationPinService = class {
   async execute(orderId, restaurantId, role) {
     const normalizedRole = String(role || "").toUpperCase();
-    const allowedRoles = [UserRole11.MOTOQUEIRO, UserRole11.ADMIN];
+    const allowedRoles = [UserRole12.MOTOQUEIRO, UserRole12.ADMIN];
     if (!allowedRoles.includes(normalizedRole)) {
       throw new Error(
         "Somente admin ou motoqueiro podem solicitar PIN de confirma\xE7\xE3o de pagamento."
@@ -6483,12 +6701,12 @@ var mercadoPagoCardCheckoutProvider = {
         body: buildPreferenceBody(false)
       });
     }
-    const preference2 = typeof response === "object" && response !== null ? response.body ?? response : {};
+    const preference = typeof response === "object" && response !== null ? response.body ?? response : {};
     const preferenceId = String(
-      preference2.id || ""
+      preference.id || ""
     ).trim();
     const checkoutUrl = String(
-      preference2.init_point || ""
+      preference.init_point || ""
     ).trim();
     if (!preferenceId || !checkoutUrl) {
       throw new Error(
@@ -7685,18 +7903,7 @@ var ResolveOrderIssueController_default = new ResolveOrderIssueController();
 
 // src/modules/orders/services/RefundOrderByAdminService.ts
 import { OrderStatus as OrderStatus9 } from "@prisma/client";
-var REFUND_REQUEST_PATTERN = /(estorno|reembolso|devolver|devolucao|devolução|cancelar\s+pedido|quero\s+cancelar|quero\s+estorno|quero\s+reembolso)/i;
 var RefundOrderByAdminService = class {
-  hasClientRefundRequest(thread) {
-    if (!thread) {
-      return false;
-    }
-    return thread.messages.some((message) => {
-      const senderType = String(message?.senderType || "").toUpperCase();
-      const text = String(message?.message || "").replace(/\s+/g, " ").trim();
-      return senderType === "CLIENT" && REFUND_REQUEST_PATTERN.test(text);
-    });
-  }
   async execute({
     orderId,
     restaurantId,
@@ -7751,13 +7958,11 @@ var RefundOrderByAdminService = class {
     if (order.status === OrderStatus9.CANCELADO) {
       throw new Error("Este pedido j\xE1 est\xE1 cancelado.");
     }
-    if (!this.hasClientRefundRequest(issueThread)) {
-      throw new Error(
-        "O cliente ainda n\xE3o solicitou estorno no chat deste pedido."
-      );
-    }
     const wasPaid = order.paid === true;
-    await RefundOrderPaymentService_default.execute(order);
+    const hasOnlinePaymentToRefund = wasPaid && order.payOnDelivery !== true;
+    if (hasOnlinePaymentToRefund) {
+      await RefundOrderPaymentService_default.execute(order);
+    }
     const updatedOrder = await prisma_default.$transaction(async (tx) => {
       await restoreOrderItemsStock(tx, order);
       return OrderRepository_default.updateStatus(
@@ -7809,8 +8014,8 @@ var RefundOrderByAdminService = class {
     }
     return {
       order: updatedOrder,
-      refunded: wasPaid,
-      info: wasPaid ? "Solicita\xE7\xE3o de estorno atendida. Pedido estornado com sucesso." : "Solicita\xE7\xE3o de estorno atendida. Pedido cancelado com sucesso.",
+      refunded: hasOnlinePaymentToRefund,
+      info: hasOnlinePaymentToRefund ? "Pagamento estornado e pedido cancelado com sucesso." : "Pedido cancelado com sucesso. Nenhum estorno online foi realizado.",
       issueThread: threadPayload
     };
   }
@@ -8400,7 +8605,7 @@ var GetCurrentTableOrderController = class {
 var GetCurrentTableOrderController_default = new GetCurrentTableOrderController();
 
 // src/middlewares/staffMiddleware.ts
-import { UserRole as UserRole12 } from "@prisma/client";
+import { UserRole as UserRole13 } from "@prisma/client";
 function staffMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({
@@ -8408,9 +8613,9 @@ function staffMiddleware(req, res, next) {
     });
   }
   const allowedRoles = [
-    UserRole12.ADMIN,
-    UserRole12.FUNCIONARIO,
-    UserRole12.MOTOQUEIRO
+    UserRole13.ADMIN,
+    UserRole13.FUNCIONARIO,
+    UserRole13.MOTOQUEIRO
   ];
   if (!allowedRoles.includes(
     String(req.user.role)
@@ -8420,117 +8625,6 @@ function staffMiddleware(req, res, next) {
     });
   }
   return next();
-}
-
-// src/middlewares/billingMiddleware.ts
-import { InvoiceStatus } from "@prisma/client";
-
-// src/modules/billing/utils/dateUtils.ts
-function addDays(date, days) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-function addBusinessDays(date, businessDays) {
-  const result = new Date(date);
-  let added = 0;
-  while (added < businessDays) {
-    result.setDate(result.getDate() + 1);
-    const dayOfWeek = result.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    if (!isWeekend) {
-      added += 1;
-    }
-  }
-  return result;
-}
-
-// src/modules/billing/utils/billingRules.ts
-function getGraceLimitDate(dueDate) {
-  return addBusinessDays(dueDate, 5);
-}
-function isInvoiceBlocking(invoice, now = /* @__PURE__ */ new Date()) {
-  if (invoice.status === "ATRASADO") {
-    return true;
-  }
-  if (invoice.status !== "PENDENTE") {
-    return false;
-  }
-  const graceLimitDate = getGraceLimitDate(invoice.dueDate);
-  return now > graceLimitDate;
-}
-function hasBlockingInvoices(invoices = [], now = /* @__PURE__ */ new Date()) {
-  return invoices.some((invoice) => isInvoiceBlocking(invoice, now));
-}
-
-// src/middlewares/billingMiddleware.ts
-async function billingMiddleware(req, res, next) {
-  try {
-    const restaurantId = req.user.restaurantId;
-    const openInvoices = await prisma_default.invoice.findMany({
-      where: {
-        restaurantId: Number(restaurantId),
-        status: {
-          in: [InvoiceStatus.PENDENTE, InvoiceStatus.ATRASADO]
-        }
-      },
-      orderBy: {
-        dueDate: "asc"
-      }
-    });
-    if (!openInvoices.length) {
-      return next();
-    }
-    const now = /* @__PURE__ */ new Date();
-    const shouldBlock = hasBlockingInvoices(openInvoices, now);
-    if (shouldBlock) {
-      const blockingInvoices = openInvoices.filter(
-        (invoice) => isInvoiceBlocking(invoice, now)
-      );
-      const blockingInvoice = blockingInvoices.find((invoice) => Boolean(invoice.paymentLink)) || blockingInvoices[0] || null;
-      const pendingToOverdue = openInvoices.filter((invoice) => invoice.status === InvoiceStatus.PENDENTE).filter((invoice) => isInvoiceBlocking(invoice, now));
-      if (pendingToOverdue.length) {
-        await prisma_default.invoice.updateMany({
-          where: {
-            id: {
-              in: pendingToOverdue.map((invoice) => invoice.id)
-            }
-          },
-          data: {
-            status: InvoiceStatus.ATRASADO
-          }
-        });
-      }
-      const subscription = await prisma_default.subscription.findUnique({
-        where: {
-          restaurantId: Number(restaurantId)
-        }
-      });
-      if (subscription) {
-        await prisma_default.subscription.update({
-          where: { id: subscription.id },
-          data: { status: "EXPIRADA" }
-        });
-      }
-      await prisma_default.restaurant.update({
-        where: { id: Number(restaurantId) },
-        data: { active: false }
-      });
-      return res.status(403).json({
-        code: "BILLING_BLOCKED",
-        blocked: true,
-        error: "Restaurante bloqueado por inadimpl\xEAncia",
-        invoiceId: blockingInvoice?.id ?? null,
-        paymentLink: blockingInvoice?.paymentLink ?? null,
-        dueDate: blockingInvoice?.dueDate ?? null
-      });
-    }
-    return next();
-  } catch (_error) {
-    return res.status(500).json({
-      error: "Erro ao validar cobran\xE7a"
-    });
-  }
 }
 
 // src/middlewares/sessionMiddleware.ts
@@ -8799,12 +8893,12 @@ var orderRoutes_default = router3;
 import { Router as Router4 } from "express";
 
 // src/middlewares/superAdminMiddleware.ts
-import { UserRole as UserRole13 } from "@prisma/client";
+import { UserRole as UserRole14 } from "@prisma/client";
 function superAdminMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "N\xE3o autenticado" });
   }
-  if (req.user.role !== UserRole13.SUPER_ADMIN) {
+  if (req.user.role !== UserRole14.SUPER_ADMIN) {
     return res.status(403).json({ message: "Acesso negado!" });
   }
   return next();
@@ -8839,7 +8933,7 @@ var SubscriptionRepository = class {
 var SubscriptionRepository_default = new SubscriptionRepository();
 
 // src/modules/restaurants/services/CreateRestaurantService.ts
-import { PlanType as PlanType2, SubscriptionStatus, UserRole as UserRole14 } from "@prisma/client";
+import { SubscriptionStatus, UserRole as UserRole15 } from "@prisma/client";
 
 // src/validators/RestaurantValidator.ts
 import { z as z6 } from "zod";
@@ -8871,6 +8965,9 @@ function validateEmailDomainTypos(value) {
   };
 }
 var createRestaurantSchema = z6.object({
+  plan: z6.enum(["BASICO", "PREMIUM"], {
+    errorMap: () => ({ message: "Escolha o plano B\xE1sico ou Premium." })
+  }),
   restaurant: z6.object({
     name: z6.string().trim().min(2, "Nome do restaurante deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do restaurante muito longo!"),
     slug: z6.string().trim().toLowerCase().min(3, "Slug deve ter no m\xEDnimo 3 caracteres!").max(60, "Slug muito longo!").regex(
@@ -8930,10 +9027,11 @@ function requireDefined2(value, message) {
   return value;
 }
 var CreateRestaurantService = class {
-  async execute({ restaurant, admin }) {
+  async execute({ restaurant, admin, plan }) {
     const parsedPayloadResult = createRestaurantSchema.safeParse({
       restaurant,
-      admin
+      admin,
+      plan
     });
     if (!parsedPayloadResult.success) {
       const firstIssue = parsedPayloadResult.error.issues[0];
@@ -8987,7 +9085,7 @@ var CreateRestaurantService = class {
           name: parsedAdmin.name,
           email: parsedAdmin.email,
           password: passwordHash,
-          role: UserRole14.ADMIN,
+          role: UserRole15.ADMIN,
           active: true,
           mustChangePassword: true,
           restaurantId: createdRestaurant.id
@@ -9001,7 +9099,7 @@ var CreateRestaurantService = class {
       await SubscriptionRepository_default.create(
         {
           restaurantId: createdRestaurant.id,
-          plan: PlanType2.BASICO,
+          plan: parsedPayload.plan,
           status: SubscriptionStatus.TESTE,
           trialEndsAt,
           currentPeriodStart: today,
@@ -9026,10 +9124,11 @@ var CreateRestaurantService_default = new CreateRestaurantService();
 var CreateRestaurantController = class {
   async handle(req, res) {
     try {
-      const { restaurant, admin } = req.body;
+      const { restaurant, admin, plan } = req.body;
       const result = await CreateRestaurantService_default.execute({
         restaurant,
-        admin
+        admin,
+        plan
       });
       return res.status(201).json(result);
     } catch (error2) {
@@ -9043,9 +9142,8 @@ var CreateRestaurantController_default = new CreateRestaurantController();
 
 // src/modules/restaurants/services/ListRestaurantsService.ts
 var PLAN_PRICES = {
-  BASICO: 299,
-  PROFISSIONAL: 499,
-  PREMIUM: 799
+  BASICO: PLAN_CONFIG.BASICO.monthlyFee,
+  PREMIUM: PLAN_CONFIG.PREMIUM.monthlyFee
 };
 function getRestaurantStatus(restaurant) {
   if (!restaurant.active) {
@@ -9435,10 +9533,10 @@ var CategoryRoutes_default = router5;
 import { Router as Router6 } from "express";
 
 // src/modules/employee/services/CreateEmployeeService.ts
-import { UserRole as UserRole16 } from "@prisma/client";
+import { UserRole as UserRole17 } from "@prisma/client";
 
 // src/modules/employee/repositories/EmployeeRepository.ts
-import { UserRole as UserRole15 } from "@prisma/client";
+import { UserRole as UserRole16 } from "@prisma/client";
 var EmployeeRepository = class {
   async findByEmail(email, db = prisma_default) {
     return db.user.findFirst({
@@ -9455,7 +9553,7 @@ var EmployeeRepository = class {
       where: {
         restaurantId,
         role: {
-          in: [UserRole15.FUNCIONARIO, UserRole15.MOTOQUEIRO]
+          in: [UserRole16.FUNCIONARIO, UserRole16.MOTOQUEIRO]
         }
       }
     });
@@ -9466,7 +9564,7 @@ var EmployeeRepository = class {
         id: Number(id),
         restaurantId,
         role: {
-          in: [UserRole15.FUNCIONARIO, UserRole15.MOTOQUEIRO]
+          in: [UserRole16.FUNCIONARIO, UserRole16.MOTOQUEIRO]
         }
       }
     });
@@ -9494,6 +9592,20 @@ var EmployeeRepository = class {
       },
       data: {
         active: false
+      }
+    });
+  }
+  async reactivate(id, restaurantId, db = prisma_default) {
+    const employee = await this.findById(id, restaurantId, db);
+    if (!employee) {
+      throw new Error("Funcion\xE1rio n\xE3o encontrado!");
+    }
+    return db.user.update({
+      where: {
+        id: Number(id)
+      },
+      data: {
+        active: true
       }
     });
   }
@@ -9525,7 +9637,7 @@ var CreateEmployeeService = class {
       phone,
       cpf: cpf ? String(cpf).replace(/\D/g, "") : void 0,
       restaurantId,
-      role: role || UserRole16.FUNCIONARIO,
+      role: role || UserRole17.FUNCIONARIO,
       subRole: subRole ?? null
     });
     return employee;
@@ -9534,7 +9646,7 @@ var CreateEmployeeService = class {
 var CreateEmployeeService_default = new CreateEmployeeService();
 
 // src/validators/EmployeeSchema.ts
-import { FuncionarioSubRole as FuncionarioSubRole2, UserRole as UserRole17 } from "@prisma/client";
+import { FuncionarioSubRole as FuncionarioSubRole2, UserRole as UserRole18 } from "@prisma/client";
 import { z as z8 } from "zod";
 var phoneRegex = /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
 var EmployeeUserSchema = z8.object({
@@ -9542,8 +9654,8 @@ var EmployeeUserSchema = z8.object({
   email: z8.string().email("Email inv\xE1lido"),
   password: z8.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
   confirmPassword: z8.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
-  role: z8.nativeEnum(UserRole17).optional().refine(
-    (value) => !value || value === UserRole17.FUNCIONARIO || value === UserRole17.MOTOQUEIRO,
+  role: z8.nativeEnum(UserRole18).optional().refine(
+    (value) => !value || value === UserRole18.FUNCIONARIO || value === UserRole18.MOTOQUEIRO,
     {
       message: "Cargo inv\xE1lido"
     }
@@ -9722,6 +9834,38 @@ var DeactivateEmployeeController = class {
 };
 var DeactivateEmployeeController_default = new DeactivateEmployeeController();
 
+// src/modules/employee/services/ReactivateEmployeeService.ts
+var ReactivateEmployeeService = class {
+  async execute(id, restaurantId) {
+    const employee = await EmployeeRepository_default.findById(id, restaurantId);
+    if (!employee) {
+      throw new Error("Funcion\xE1rio n\xE3o encontrado!");
+    }
+    return EmployeeRepository_default.reactivate(id, restaurantId);
+  }
+};
+var ReactivateEmployeeService_default = new ReactivateEmployeeService();
+
+// src/modules/employee/Controllers/ReactivateEmployeeController.ts
+var ReactivateEmployeeController = class {
+  async handle(req, res) {
+    try {
+      const restaurantId = req.user.restaurantId;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const employee = await ReactivateEmployeeService_default.execute(
+        id,
+        restaurantId
+      );
+      return res.status(200).json(employee);
+    } catch (error2) {
+      return res.status(400).json({
+        error: error2 instanceof Error ? error2.message : "Erro ao reativar funcion\xE1rio"
+      });
+    }
+  }
+};
+var ReactivateEmployeeController_default = new ReactivateEmployeeController();
+
 // src/modules/employee/routes/EmployeeRoutes.ts
 var router6 = Router6();
 router6.post("/", authMiddleware, adminMiddleware, (req, res) => {
@@ -9735,6 +9879,9 @@ router6.put("/:id", authMiddleware, adminMiddleware, (req, res) => {
 });
 router6.patch("/:id", authMiddleware, adminMiddleware, (req, res) => {
   DeactivateEmployeeController_default.handle(req, res);
+});
+router6.patch("/:id/reactivate", authMiddleware, adminMiddleware, (req, res) => {
+  ReactivateEmployeeController_default.handle(req, res);
 });
 var EmployeeRoutes_default = router6;
 
@@ -10083,6 +10230,32 @@ var tablePinAssistanceRateLimitMiddleware = rateLimit4({
   }
 });
 
+// src/middlewares/premiumTablePlanMiddleware.ts
+async function premiumTablePlanMiddleware(req, res, next) {
+  try {
+    const restaurantId = Number(req.user?.restaurantId || 0);
+    if (!restaurantId) {
+      return res.status(400).json({ error: "Restaurante n\xE3o identificado." });
+    }
+    const subscription = await prisma_default.subscription.findUnique({
+      where: { restaurantId },
+      select: { plan: true, status: true }
+    });
+    const isActive = subscription?.status === "ATIVA" || subscription?.status === "TESTE";
+    if (!isActive || subscription?.plan !== "PREMIUM") {
+      return res.status(403).json({
+        error: "O card\xE1pio digital com QR Code de mesa est\xE1 dispon\xEDvel no plano Premium.",
+        code: "PREMIUM_TABLE_PLAN_REQUIRED"
+      });
+    }
+    return next();
+  } catch {
+    return res.status(500).json({
+      error: "N\xE3o foi poss\xEDvel validar o plano do restaurante."
+    });
+  }
+}
+
 // src/modules/tableSession/routes/SessionsTablesRoutes.ts
 var router7 = Router7();
 router7.post(
@@ -10104,18 +10277,21 @@ router7.post(
   "/open",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => OpenTableSessionController_default.handle(req, res)
 );
 router7.patch(
   "/:id/close",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => CloseTableSessionController_default.handle(req, res)
 );
 router7.get(
   "/open",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => ListOpenSessionsController_default.handle(req, res)
 );
 var SessionsTablesRoutes_default = router7;
@@ -10320,30 +10496,35 @@ router8.post(
   authMiddleware,
   staffMiddleware,
   billingMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => CreateTableController_default.handle(req, res)
 );
 router8.get(
   "/",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => ListTableController_default.handle(req, res)
 );
 router8.get(
   "/:id",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => GetTableByIdController_default.handle(req, res)
 );
 router8.put(
   "/:id",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => UpdateTableController_default.handle(req, res)
 );
 router8.patch(
   "/:id",
   authMiddleware,
   staffMiddleware,
+  premiumTablePlanMiddleware,
   (req, res) => DeactivateTableController_default.handle(req, res)
 );
 var TablesRoutes_default = router8;
@@ -11926,14 +12107,17 @@ var PagBankOAuthCallbackController_default = new PagBankOAuthCallbackController(
 var router9 = Router9();
 router9.get(
   "/public/default",
+  publicRestaurantBillingMiddleware,
   (req, res) => GetPublicRestaurantSettingsController_default.handle(req, res)
 );
 router9.get(
   "/public/slug/:slug",
+  publicRestaurantBillingMiddleware,
   (req, res) => GetPublicRestaurantSettingsController_default.handle(req, res)
 );
 router9.get(
   "/public/:restaurantId",
+  publicRestaurantBillingMiddleware,
   (req, res) => GetPublicRestaurantSettingsController_default.handle(req, res)
 );
 router9.post(
@@ -12459,6 +12643,9 @@ var CreateSubscriptionService = class {
     status,
     trialEndsAt
   }) {
+    if (!isAvailablePlan(plan)) {
+      throw new Error("Plano indispon\xEDvel para contrata\xE7\xE3o.");
+    }
     const exists = await SubscriptionRepository_default.findByRestaurantId(restaurantId);
     if (exists) {
       throw new Error("Assinatura j\xE1 existe para esse restaurante!");
@@ -12495,6 +12682,59 @@ var CreateSubscriptionController = class {
 };
 var CreateSubscriptionController_default = new CreateSubscriptionController();
 
+// src/modules/subscription/services/PlanChangePolicy.ts
+var normalizeDate = (value) => new Date(value);
+function evaluatePlanChangeEligibility({
+  invoices,
+  consumedInvoiceId,
+  hasScheduledPlan = false,
+  now = /* @__PURE__ */ new Date()
+}) {
+  if (hasScheduledPlan) {
+    return {
+      allowed: false,
+      invoiceId: consumedInvoiceId || null,
+      reason: "A escolha deste ciclo j\xE1 foi registrada e a troca est\xE1 agendada."
+    };
+  }
+  const overdueOpenInvoice = invoices.find((invoice) => {
+    const status = String(invoice.status || "").toUpperCase();
+    return status === "ATRASADO" || status === "VENCIDO" || status === "PENDENTE" && normalizeDate(invoice.dueDate) < now;
+  });
+  if (overdueOpenInvoice) {
+    return {
+      allowed: false,
+      invoiceId: null,
+      reason: "Pague a fatura vencida para liberar a escolha do pr\xF3ximo plano."
+    };
+  }
+  const paidOverdueInvoice = [...invoices].filter((invoice) => {
+    if (String(invoice.status || "").toUpperCase() !== "PAGO" || !invoice.paidAt) {
+      return false;
+    }
+    return normalizeDate(invoice.paidAt) > normalizeDate(invoice.dueDate);
+  }).sort((left, right) => Number(right.id) - Number(left.id))[0];
+  if (!paidOverdueInvoice) {
+    return {
+      allowed: false,
+      invoiceId: null,
+      reason: "A escolha ser\xE1 liberada ap\xF3s o pagamento de uma fatura vencida."
+    };
+  }
+  if (Number(consumedInvoiceId) === paidOverdueInvoice.id) {
+    return {
+      allowed: false,
+      invoiceId: paidOverdueInvoice.id,
+      reason: "A escolha referente \xE0 \xFAltima fatura paga j\xE1 foi registrada."
+    };
+  }
+  return {
+    allowed: true,
+    invoiceId: paidOverdueInvoice.id,
+    reason: "Fatura vencida paga. Escolha manter o plano atual ou trocar no pr\xF3ximo ciclo."
+  };
+}
+
 // src/modules/subscription/services/GetSubscriptionService.ts
 var GetSubscriptionService = class {
   async execute({ restaurantId }) {
@@ -12502,7 +12742,18 @@ var GetSubscriptionService = class {
     if (!subscription) {
       throw new Error("Assinatura n\xE3o encontrada!");
     }
-    return subscription;
+    const invoices = await BillingRepository_default.findInvoicesByRestaurantId(
+      Number(restaurantId)
+    );
+    const planChangeEligibility = evaluatePlanChangeEligibility({
+      invoices,
+      consumedInvoiceId: subscription.planChangeInvoiceId,
+      hasScheduledPlan: Boolean(subscription.scheduledPlan)
+    });
+    return {
+      ...subscription,
+      planChangeEligibility
+    };
   }
 };
 var GetSubscriptionService_default = new GetSubscriptionService();
@@ -12533,6 +12784,9 @@ var UpdateSubscriptionService = class {
     status,
     trialEndsAt
   }) {
+    if (plan && !isAvailablePlan(plan)) {
+      throw new Error("Plano indispon\xEDvel para contrata\xE7\xE3o.");
+    }
     const subscription = await SubscriptionRepository_default.findByRestaurantId(restaurantId);
     if (!subscription) {
       throw new Error("Assinatura n\xE3o encontrada!");
@@ -12577,74 +12831,55 @@ function getNextMonthPeriod(fromDate) {
   const next = new Date(fromDate);
   next.setDate(1);
   next.setMonth(next.getMonth() + 1);
-  const lockUntil = new Date(next);
-  lockUntil.setMonth(lockUntil.getMonth() + 1);
   return {
     month: next.getMonth() + 1,
-    year: next.getFullYear(),
-    lockUntil
+    year: next.getFullYear()
   };
 }
 var RequestPlanChangeService = class {
   async execute({ restaurantId, plan }) {
-    if (!Object.values(PlanType3).includes(plan)) {
-      throw new Error("Plano invalido para troca.");
+    if (!Object.values(PlanType3).includes(plan) || !isAvailablePlan(plan)) {
+      throw new Error("Escolha um plano dispon\xEDvel: B\xE1sico ou Premium.");
     }
     const subscription = await SubscriptionRepository_default.findByRestaurantId(restaurantId);
     if (!subscription) {
-      throw new Error("Assinatura nao encontrada.");
+      throw new Error("Assinatura n\xE3o encontrada.");
     }
-    const now = /* @__PURE__ */ new Date();
     const invoices = await BillingRepository_default.findInvoicesByRestaurantId(
       Number(restaurantId)
     );
-    const latestInvoice = invoices[0] || null;
-    if (!latestInvoice || latestInvoice.status !== "PAGO") {
-      throw new Error(
-        "Para trocar de plano, a ultima fatura precisa estar paga."
-      );
-    }
-    const hasOpenInvoice = invoices.some(
-      (invoice) => ["PENDENTE", "ATRASADO", "VENCIDO"].includes(
-        String(invoice.status || "").toUpperCase()
-      )
-    );
-    if (hasOpenInvoice) {
-      throw new Error(
-        "Regularize as faturas pendentes para liberar a troca de plano."
-      );
-    }
-    const referenceDate = latestInvoice.paidAt ? new Date(latestInvoice.paidAt) : new Date(latestInvoice.createdAt);
-    const planChangeDeadline = new Date(referenceDate);
-    planChangeDeadline.setDate(planChangeDeadline.getDate() + 30);
-    if (now > planChangeDeadline) {
-      throw new Error(
-        `A troca de plano so pode ser solicitada em ate 30 dias apos o pagamento da fatura. Prazo encerrado em ${planChangeDeadline.toLocaleDateString("pt-BR")}.`
-      );
-    }
-    if (subscription.planChangeLockedUntil && now < new Date(subscription.planChangeLockedUntil)) {
-      throw new Error(
-        `Voce ja solicitou uma troca. Nova alteracao disponivel apos ${new Date(subscription.planChangeLockedUntil).toLocaleDateString("pt-BR")}.`
-      );
+    const eligibility = evaluatePlanChangeEligibility({
+      invoices,
+      consumedInvoiceId: subscription.planChangeInvoiceId,
+      hasScheduledPlan: Boolean(subscription.scheduledPlan)
+    });
+    if (!eligibility.allowed || !eligibility.invoiceId) {
+      throw new Error(eligibility.reason);
     }
     if (subscription.plan === plan) {
-      throw new Error("Esse ja e o plano atual da assinatura.");
+      const updated2 = await SubscriptionRepository_default.update(restaurantId, {
+        planChangeInvoiceId: eligibility.invoiceId,
+        planChangeLockedUntil: null,
+        scheduledPlan: null,
+        scheduledPlanEffectiveMonth: null,
+        scheduledPlanEffectiveYear: null
+      });
+      return {
+        ...updated2,
+        message: "Plano atual mantido para o pr\xF3ximo ciclo de faturamento."
+      };
     }
-    if (subscription.scheduledPlan) {
-      throw new Error(
-        "Ja existe uma troca de plano agendada para o proximo ciclo."
-      );
-    }
-    const nextPeriod = getNextMonthPeriod(now);
+    const nextPeriod = getNextMonthPeriod(/* @__PURE__ */ new Date());
     const updated = await SubscriptionRepository_default.update(restaurantId, {
+      planChangeInvoiceId: eligibility.invoiceId,
       scheduledPlan: plan,
       scheduledPlanEffectiveMonth: nextPeriod.month,
       scheduledPlanEffectiveYear: nextPeriod.year,
-      planChangeLockedUntil: nextPeriod.lockUntil
+      planChangeLockedUntil: null
     });
     return {
       ...updated,
-      message: "Troca de plano agendada para o proximo ciclo de faturamento."
+      message: "Troca de plano agendada para o pr\xF3ximo ciclo de faturamento."
     };
   }
 };
@@ -13570,7 +13805,7 @@ var EnhanceRestaurantImageService = class {
     if (!input.length || input.length > 5 * 1024 * 1024) {
       throw new Error("A imagem deve ter no m\xE1ximo 5 MB.");
     }
-    const client3 = new OpenAI2({ apiKey });
+    const client = new OpenAI2({ apiKey });
     const editRequest = {
       model: "gpt-image-2",
       image: await toFile(input, "restaurant-cover.webp", { type: match[1] }),
@@ -13578,7 +13813,7 @@ var EnhanceRestaurantImageService = class {
       size: "1024x1024",
       quality: "high"
     };
-    const result = await client3.images.edit(editRequest);
+    const result = await client.images.edit(editRequest);
     const base64 = result.data?.[0]?.b64_json;
     if (!base64) throw new Error("A IA n\xE3o retornou a imagem melhorada.");
     return { imageDataUrl: `data:image/png;base64,${base64}` };
@@ -13880,8 +14115,34 @@ var routes_default = router19;
 // src/modules/billing/routes/BillingRoutes.ts
 import { Router as Router20 } from "express";
 
-// src/modules/billing/controllers/MercadoPagoWebhookController.ts
+// src/modules/billing/services/MercadoPagoClient.ts
 import { MercadoPagoConfig as MercadoPagoConfig3, Payment as Payment3 } from "mercadopago";
+
+// src/modules/billing/config/platformMercadoPago.ts
+function getPlatformMercadoPagoAccessToken() {
+  return String(
+    process.env.PLATFORM_MP_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || ""
+  ).trim();
+}
+function requirePlatformMercadoPagoAccessToken() {
+  const accessToken = getPlatformMercadoPagoAccessToken();
+  if (!accessToken) {
+    throw new Error(
+      "Mercado Pago da plataforma n\xE3o configurado. Defina PLATFORM_MP_ACCESS_TOKEN no backend."
+    );
+  }
+  return accessToken;
+}
+
+// src/modules/billing/services/MercadoPagoClient.ts
+function createPlatformClient() {
+  return new MercadoPagoConfig3({
+    accessToken: requirePlatformMercadoPagoAccessToken()
+  });
+}
+function getPlatformPaymentClient() {
+  return new Payment3(createPlatformClient());
+}
 
 // src/modules/billing/utils/billingLogger.ts
 var DEBUG_ENABLED = process.env.BILLING_DEBUG === "true";
@@ -14042,9 +14303,6 @@ function extractInvoiceId(payload = {}, paymentDetails = {}) {
 }
 
 // src/modules/billing/controllers/MercadoPagoWebhookController.ts
-var client = new MercadoPagoConfig3({
-  accessToken: process.env.MP_ACCESS_TOKEN
-});
 var MercadoPagoWebhookController = class {
   async handle(req, res) {
     try {
@@ -14054,7 +14312,7 @@ var MercadoPagoWebhookController = class {
         debug("webhook ignored: missing paymentId");
         return res.sendStatus(200);
       }
-      const paymentApi = new Payment3(client);
+      const paymentApi = getPlatformPaymentClient();
       const payment = await paymentApi.get({ id: paymentId });
       const paymentDetails = typeof payment === "object" && payment !== null ? payment.body ?? payment : {};
       const paymentDetailsRecord = typeof paymentDetails === "object" && paymentDetails !== null ? paymentDetails : {};
@@ -14149,6 +14407,38 @@ var BillingWebhookController = class {
 };
 var BillingWebhookController_default = new BillingWebhookController();
 
+// src/modules/billing/utils/billingTimeline.ts
+function getBillingStartDate(restaurantCreatedAt, adminCreatedAt) {
+  if (!adminCreatedAt) return new Date(restaurantCreatedAt);
+  return new Date(
+    Math.max(restaurantCreatedAt.getTime(), adminCreatedAt.getTime())
+  );
+}
+function getCompletedSubscriptionMonths(startedAt, referenceDate = /* @__PURE__ */ new Date()) {
+  if (referenceDate <= startedAt) return 0;
+  let months = (referenceDate.getFullYear() - startedAt.getFullYear()) * 12 + referenceDate.getMonth() - startedAt.getMonth();
+  if (referenceDate.getDate() < startedAt.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+// src/modules/billing/utils/billingPaymentWindow.ts
+function getPixAvailableAt(dueDate) {
+  const availableAt = new Date(dueDate);
+  const configuredDays = Number(
+    process.env.BILLING_PIX_OPEN_DAYS_BEFORE_DUE || 5
+  );
+  const daysBeforeDue = Number.isFinite(configuredDays) && configuredDays >= 0 ? Math.floor(configuredDays) : 5;
+  availableAt.setDate(availableAt.getDate() - daysBeforeDue);
+  return availableAt;
+}
+function isInvoicePixAvailable(invoice, now = /* @__PURE__ */ new Date()) {
+  const status = String(invoice.status || "").toUpperCase();
+  if (!["PENDENTE", "ATRASADO", "VENCIDO"].includes(status)) {
+    return false;
+  }
+  return now >= getPixAvailableAt(invoice.dueDate);
+}
+
 // src/modules/billing/controllers/GetInvoicesController.ts
 var GetInvoicesController = class {
   async handle(req, res) {
@@ -14167,10 +14457,27 @@ var GetInvoicesController = class {
         subscription?.status || ""
       ).toUpperCase();
       const isPlanActive = subscriptionStatus === "ATIVA" || subscriptionStatus === "TESTE";
+      const admin = subscription?.restaurant.users[0] || null;
+      const restaurantCreatedAt = subscription?.restaurant.createdAt || null;
+      const billingStartedAt = restaurantCreatedAt ? getBillingStartDate(restaurantCreatedAt, admin?.createdAt) : subscription?.createdAt || null;
+      const payableInvoice = invoices.find(
+        (invoice) => ["PENDENTE", "ATRASADO"].includes(invoice.status)
+      );
       const billing = {
         plan: String(subscription?.plan || "BASICO").toUpperCase(),
         subscriptionStatus,
-        isPlanActive
+        isPlanActive,
+        restaurantCreatedAt,
+        adminCreatedAt: admin?.createdAt || null,
+        adminName: admin?.name || null,
+        billingStartedAt,
+        completedMonths: billingStartedAt ? getCompletedSubscriptionMonths(billingStartedAt) : 0,
+        currentCycle: billingStartedAt ? getCompletedSubscriptionMonths(billingStartedAt) + 1 : 1,
+        currentInvoiceId: payableInvoice?.id || null,
+        dueDate: payableInvoice?.dueDate || null,
+        graceLimitDate: payableInvoice?.dueDate ? getGraceLimitDate(payableInvoice.dueDate) : null,
+        pixAvailableAt: payableInvoice?.dueDate ? getPixAvailableAt(payableInvoice.dueDate) : null,
+        pixAvailable: payableInvoice ? isInvoicePixAvailable(payableInvoice) : false
       };
       return res.status(200).json({
         invoices,
@@ -14224,23 +14531,17 @@ var GetAllInvoicesController_default = new GetAllInvoicesController();
 // src/modules/billing/controllers/GetPlansController.ts
 var GetPlansController = class {
   handle(_req, res) {
-    const plans = Object.entries(PLAN_CONFIG).map(([key, config]) => ({
+    const plans = Object.entries(PLAN_CONFIG).filter(([, config]) => config.availableForSale).map(([key, config]) => ({
       plan: key,
       name: config.name,
       monthlyFee: config.monthlyFee,
-      trialDays: config.trialDays
+      trialDays: config.trialDays,
+      features: config.features
     }));
     return res.status(200).json(plans);
   }
 };
 var GetPlansController_default = new GetPlansController();
-
-// src/modules/billing/services/MercadoPagoClient.ts
-import { MercadoPagoConfig as MercadoPagoConfig4, Preference as Preference2 } from "mercadopago";
-var client2 = new MercadoPagoConfig4({
-  accessToken: process.env.MP_ACCESS_TOKEN
-});
-var preference = new Preference2(client2);
 
 // src/modules/billing/services/MercadoPagoService.ts
 var MercadoPagoService = class {
@@ -14248,58 +14549,57 @@ var MercadoPagoService = class {
     invoiceId,
     title,
     description,
-    amount
+    amount,
+    payerEmail
   }) {
     const isProduction3 = process.env.NODE_ENV === "production";
     const port2 = process.env.PORT || 3e3;
     const backendBaseUrl = String(process.env.BACKEND_URL || "").trim();
-    const fallbackNotificationUrl = backendBaseUrl ? `${backendBaseUrl}/billing/webhook/mercadopago` : `http://localhost:${port2}/billing/webhook/mercadopago`;
+    const fallbackUrl = backendBaseUrl ? `${backendBaseUrl}/billing/webhook/mercadopago` : `http://localhost:${port2}/billing/webhook/mercadopago`;
     const notificationUrl = String(
-      process.env.MP_NOTIFICATION_URL || fallbackNotificationUrl
+      process.env.MP_NOTIFICATION_URL || fallbackUrl
     ).trim();
-    const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     if (isProduction3 && (!notificationUrl || notificationUrl.includes("localhost"))) {
       throw new Error(
-        "Webhook Mercado Pago invalido para producao. Configure MP_NOTIFICATION_URL com uma URL publica HTTPS."
+        "Webhook Mercado Pago inv\xE1lido para produ\xE7\xE3o. Configure MP_NOTIFICATION_URL com uma URL p\xFAblica HTTPS."
       );
     }
-    const body = {
-      items: [
-        {
-          id: String(invoiceId),
-          title,
-          quantity: 1,
-          unit_price: Number(amount),
-          currency_id: "BRL"
-        }
-      ],
-      external_reference: String(invoiceId),
-      additional_info: description,
-      notification_url: notificationUrl,
-      back_urls: {
-        success: `${frontendBaseUrl}/pagamento-sucesso`,
-        failure: `${frontendBaseUrl}/pagamento-erro`,
-        pending: `${frontendBaseUrl}/pagamento-pendente`
-      }
-    };
-    debug("creating MP preference", {
-      invoiceId,
-      amount: Number(amount)
-    });
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1e3).toISOString();
+    debug("creating Mercado Pago Pix", { invoiceId, amount: Number(amount) });
     try {
-      const response = await preference.create({ body });
-      debug("MP preference created", { id: response?.id });
-      if (!response?.init_point) {
-        throw new Error("Mercado Pago n\xE3o retornou init_point");
-      }
-      debug("MP init_point generated", { invoiceId });
-      return response;
-    } catch (err) {
-      error("failed to create MP preference", {
-        invoiceId,
-        message: err instanceof Error ? err.message : String(err)
+      const payment = getPlatformPaymentClient();
+      const response = await payment.create({
+        body: {
+          transaction_amount: Number(amount),
+          payment_method_id: "pix",
+          description: `${title} - ${description}`,
+          external_reference: String(invoiceId),
+          notification_url: notificationUrl,
+          date_of_expiration: expiresAt,
+          payer: { email: payerEmail }
+        },
+        requestOptions: {
+          idempotencyKey: `invoice-pix-${invoiceId}-${Date.now()}`
+        }
       });
-      throw err;
+      const transaction = response.point_of_interaction?.transaction_data;
+      if (!response.id || !transaction?.qr_code || !transaction.qr_code_base64) {
+        throw new Error("Mercado Pago n\xE3o retornou os dados do Pix.");
+      }
+      return {
+        id: String(response.id),
+        status: response.status || null,
+        qrCode: transaction.qr_code,
+        qrCodeBase64: transaction.qr_code_base64,
+        ticketUrl: transaction.ticket_url || null,
+        expiresAt: response.date_of_expiration || expiresAt
+      };
+    } catch (error2) {
+      error("failed to create Mercado Pago Pix", {
+        invoiceId,
+        message: error2 instanceof Error ? error2.message : String(error2)
+      });
+      throw error2;
     }
   }
 };
@@ -14318,18 +14618,34 @@ var RegenerateInvoicePaymentLinkService = class {
     if (!invoice) {
       throw new Error("Fatura n\xE3o encontrada para este restaurante.");
     }
+    if (!["PENDENTE", "ATRASADO"].includes(invoice.status)) {
+      throw new Error("Esta mensalidade n\xE3o est\xE1 dispon\xEDvel para pagamento.");
+    }
+    if (!isInvoicePixAvailable(invoice)) {
+      throw new Error(
+        `O Pix desta mensalidade estar\xE1 dispon\xEDvel em ${getPixAvailableAt(invoice.dueDate).toLocaleDateString("pt-BR")}.`
+      );
+    }
     const payment = await MercadoPagoService_default.createPayment({
       invoiceId: invoice.id,
       title: `Mensalidade restaurante ${invoice.restaurantId}`,
       description: `Fatura ${invoice.month}/${invoice.year}`,
-      amount: invoice.total
+      amount: invoice.total,
+      payerEmail: invoice.restaurant.email
     });
     const updatedInvoice = await BillingRepository_default.updateInvoice(invoice.id, {
-      paymentLink: payment.init_point
+      paymentLink: payment.ticketUrl,
+      paymentExternalId: payment.id,
+      pixQrCode: payment.qrCode,
+      pixQrCodeBase64: payment.qrCodeBase64,
+      pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null
     });
     return {
       invoice: updatedInvoice,
-      paymentLink: payment.init_point
+      paymentLink: payment.ticketUrl,
+      pixQrCode: payment.qrCode,
+      pixQrCodeBase64: payment.qrCodeBase64,
+      pixExpiresAt: payment.expiresAt
     };
   }
 };
@@ -14866,11 +15182,11 @@ function socketHandler(socket) {
       }
     });
     const plan = String(subscription?.plan || "").toUpperCase();
-    const supportChatEnabledPlan = plan === "PROFISSIONAL" || plan === "PREMIUM";
+    const supportChatEnabledPlan = plan === "BASICO" || plan === "PREMIUM";
     if (!supportChatEnabledPlan) {
       reply({
         ok: false,
-        error: "Chat com Super Admin dispon\xEDvel apenas para planos Profissional e Premium."
+        error: "Chat com Super Admin dispon\xEDvel nos planos ativos do sistema."
       });
       return;
     }
@@ -14982,7 +15298,7 @@ var InvoiceService = class {
     const total = plan.monthlyFee;
     const trialEndsAtDate = subscription.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
     const dueDate = subscription.status === "TESTE" && trialEndsAtDate && !Number.isNaN(trialEndsAtDate.getTime()) ? trialEndsAtDate : addDays(/* @__PURE__ */ new Date(), 30);
-    const invoice = await BillingRepository_default.createInvoice({
+    return BillingRepository_default.createInvoice({
       restaurantId,
       month,
       year,
@@ -14992,25 +15308,6 @@ var InvoiceService = class {
       dueDate,
       status: "PENDENTE"
     });
-    try {
-      const payment = await MercadoPagoService_default.createPayment({
-        invoiceId: invoice.id,
-        title: `Plano ${activePlan}`,
-        description: `Mensalidade ${month}/${year}`,
-        amount: invoice.total
-      });
-      const updatedInvoice = await BillingRepository_default.updateInvoice(invoice.id, {
-        paymentLink: payment.init_point
-      });
-      console.log(`Link Mercado Pago criado para invoice ${invoice.id}`);
-      return updatedInvoice;
-    } catch (error2) {
-      console.error(
-        "Erro ao criar pagamento Mercado Pago:",
-        error2 instanceof Error ? error2.message : String(error2)
-      );
-      return invoice;
-    }
   }
 };
 var InvoiceService_default = new InvoiceService();
@@ -15121,7 +15418,7 @@ var ReconcileMercadoPagoInvoicesService = class {
     return enabled !== "false";
   }
   getAccessToken() {
-    return String(process.env.MP_ACCESS_TOKEN || "").trim();
+    return getPlatformMercadoPagoAccessToken();
   }
   getApiBaseUrl() {
     return String(
@@ -15166,7 +15463,9 @@ var ReconcileMercadoPagoInvoicesService = class {
     }
     const accessToken = this.getAccessToken();
     if (!accessToken) {
-      warn("MP auto reconciliation skipped: missing MP_ACCESS_TOKEN");
+      warn(
+        "MP auto reconciliation skipped: missing PLATFORM_MP_ACCESS_TOKEN"
+      );
       return;
     }
     const pendingInvoices = await BillingRepository_default.findPendingInvoices();

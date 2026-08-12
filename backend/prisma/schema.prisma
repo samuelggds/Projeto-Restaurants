@@ -245,6 +245,8 @@ model Order {
   assignedCourierId               Int?
   deliveryStartedAt               DateTime?
   deliveredAt                     DateTime?
+  preparationStartedAt            DateTime?
+  readyAt                         DateTime?
   courierEarning                  Decimal           @default(0) @db.Decimal(10, 2)
   courierPaidAt                   DateTime?
   restaurant                      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -438,6 +440,7 @@ model Subscription {
   updatedAt                   DateTime           @updatedAt
   balanceDebt                 Decimal            @default(0) @db.Decimal(10, 2)
   planChangeLockedUntil       DateTime?
+  planChangeInvoiceId         Int?
   scheduledPlan               PlanType?
   scheduledPlanEffectiveMonth Int?
   scheduledPlanEffectiveYear  Int?
@@ -457,6 +460,10 @@ model Invoice {
   dueDate      DateTime
   paidAt       DateTime?
   paymentLink  String?
+  paymentExternalId String?
+  pixQrCode     String?
+  pixQrCodeBase64 String?
+  pixExpiresAt  DateTime?
   restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, month, year])
@@ -561,7 +568,6 @@ enum SupportChatSenderRole {
 
 enum PlanType {
   BASICO
-  PROFISSIONAL
   PREMIUM
 }
 

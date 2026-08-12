@@ -156,6 +156,10 @@ class OrderRepository {
       },
       data: {
         status,
+        ...(status === OrderStatus.PREPARANDO
+          ? { preparationStartedAt: new Date(), readyAt: null }
+          : {}),
+        ...(status === OrderStatus.PRONTO ? { readyAt: new Date() } : {}),
       },
     });
 

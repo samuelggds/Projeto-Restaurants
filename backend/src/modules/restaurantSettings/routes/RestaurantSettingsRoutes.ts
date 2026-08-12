@@ -15,18 +15,19 @@ import StartPagBankOAuthController from "../controllers/StartPagBankOAuthControl
 import PagBankOAuthCallbackController from "../controllers/PagBankOAuthCallbackController.js";
 import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
 import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
+import { publicRestaurantBillingMiddleware } from "../../../middlewares/publicRestaurantBillingMiddleware.js";
 
 const router = Router();
 
-router.get("/public/default", (req, res) =>
+router.get("/public/default", publicRestaurantBillingMiddleware, (req, res) =>
   GetPublicRestaurantSettingsController.handle(req, res),
 );
 
-router.get("/public/slug/:slug", (req, res) =>
+router.get("/public/slug/:slug", publicRestaurantBillingMiddleware, (req, res) =>
   GetPublicRestaurantSettingsController.handle(req, res),
 );
 
-router.get("/public/:restaurantId", (req, res) =>
+router.get("/public/:restaurantId", publicRestaurantBillingMiddleware, (req, res) =>
   GetPublicRestaurantSettingsController.handle(req, res),
 );
 

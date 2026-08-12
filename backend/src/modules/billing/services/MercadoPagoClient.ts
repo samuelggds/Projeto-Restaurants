@@ -1,7 +1,12 @@
-import { MercadoPagoConfig, Preference } from "mercadopago";
+import { MercadoPagoConfig, Payment } from "mercadopago";
+import { requirePlatformMercadoPagoAccessToken } from "../config/platformMercadoPago.js";
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
-});
+function createPlatformClient() {
+  return new MercadoPagoConfig({
+    accessToken: requirePlatformMercadoPagoAccessToken(),
+  });
+}
 
-export const preference = new Preference(client);
+export function getPlatformPaymentClient() {
+  return new Payment(createPlatformClient());
+}

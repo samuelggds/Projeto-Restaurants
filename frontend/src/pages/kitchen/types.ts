@@ -7,7 +7,7 @@ export type CallStatus='WAITING'|'IN_PROGRESS'|'RESOLVED'
 
 export interface RestaurantBrand{restaurantName:string;monogram:string;primaryColor:string}
 export interface Employee{id:string;name:string;email:string;role:EmployeeRole;shift:string}
-export interface Order{id:string;channel:OrderChannel;reference:string;customer?:string;items:string[];createdAt:string;elapsed:string;status:OrderStatus;total:number;observation?:string;completedAt?:string}
+export interface Order{id:string;channel:OrderChannel;reference:string;customer?:string;items:string[];createdAt:string;createdAtIso?:string;preparationStartedAt?:string;readyAt?:string;elapsed:string;status:OrderStatus;total:number;observation?:string;completedAt?:string}
 export interface RestaurantTable{id:string;number:number;status:TableStatus;accessCode?:string;guests:number;openedAt?:string;total:number}
 export interface ServiceCall{id:string;tableNumber:number;type:CallType;status:CallStatus;elapsed:string;employeeName?:string}
 export interface EmployeeWorkspaceData{orders:Order[];tables:RestaurantTable[];calls:ServiceCall[]}

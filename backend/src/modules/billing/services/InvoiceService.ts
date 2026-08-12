@@ -1,6 +1,5 @@
 import billingRepository from "../repositories/BillingRepository.js";
 import { PLAN_CONFIG } from "../config/planConfig.js";
-import mercadoPagoService from "./MercadoPagoService.js";
 import { addDays } from "../utils/dateUtils.js";
 
 type InvoicePayload = {
@@ -78,7 +77,7 @@ class InvoiceService {
         : addDays(new Date(), 30);
 
     // Cria invoice
-    const invoice = await billingRepository.createInvoice({
+    return billingRepository.createInvoice({
       restaurantId,
       month,
       year,
@@ -89,29 +88,6 @@ class InvoiceService {
       status: "PENDENTE",
     });
 
-    try {
-      const payment = await mercadoPagoService.createPayment({
-        invoiceId: invoice.id,
-        title: `Plano ${activePlan}`,
-        description: `Mensalidade ${month}/${year}`,
-        amount: invoice.total,
-      });
-
-      const updatedInvoice = await billingRepository.updateInvoice(invoice.id, {
-        paymentLink: payment.init_point,
-      });
-
-      console.log(`Link Mercado Pago criado para invoice ${invoice.id}`);
-
-      return updatedInvoice;
-    } catch (error: unknown) {
-      console.error(
-        "Erro ao criar pagamento Mercado Pago:",
-        error instanceof Error ? error.message : String(error),
-      );
-
-      return invoice;
-    }
   }
 }
 

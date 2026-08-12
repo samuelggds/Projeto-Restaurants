@@ -1,4 +1,7 @@
 import {
+  Bike,
+  CheckCircle2,
+  ChefHat,
   ChevronRight,
   Clock3,
   Heart,
@@ -6,6 +9,7 @@ import {
   KeyRound,
   MapPin,
   Package,
+  PackageCheck,
   Plus,
   ShieldCheck,
   Trash2,
@@ -37,6 +41,12 @@ const statusLabel: Record<ProfileOrderStatus, string> = {
   onTheWay: "Saiu para entrega",
   delivered: "Entregue",
 };
+const trackingSteps = [
+  { label: "Confirmado", icon: CheckCircle2 },
+  { label: "Em preparo", icon: ChefHat },
+  { label: "Saiu para entrega", icon: Bike },
+  { label: "Entregue", icon: PackageCheck },
+] as const;
 export function ProfilePage(props: ProfilePageProps) {
   const {
     data = profileMockData,
@@ -135,15 +145,12 @@ function Overview(props: ProfilePageProps) {
               <span>{activeOrder.id}</span>
             </S.Heading>
             <S.Tracking>
-              {[
-                "Confirmado",
-                "Em preparo",
-                "Saiu para entrega",
-                "Entregue",
-              ].map((label, index) => (
+              {trackingSteps.map(({ label, icon: Icon }, index) => (
                 <span key={label} style={{ display: "contents" }}>
                   <S.Step $done={index < step} $active={index === step}>
-                    <i />
+                    <i aria-hidden="true">
+                      <Icon size={18} strokeWidth={2.25} />
+                    </i>
                   </S.Step>
                   {index < 3 && <S.Line $done={index < step} />}
                 </span>
@@ -158,13 +165,8 @@ function Overview(props: ProfilePageProps) {
                 marginTop: -18,
               }}
             >
-              {[
-                "Confirmado",
-                "Em preparo",
-                "Saiu para entrega",
-                "Entregue",
-              ].map((x) => (
-                <span key={x}>{x}</span>
+              {trackingSteps.map(({ label }) => (
+                <span key={label}>{label}</span>
               ))}
             </div>
             <S.Eta>

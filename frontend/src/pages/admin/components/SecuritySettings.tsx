@@ -22,7 +22,7 @@ export function SecuritySettings({ openEmployees }: Props) {
             </div>
           ))}
         </S.ToggleRows>
-        <button onClick={openEmployees} style={{ marginTop: 16, height: 44, border: 0, borderRadius: 8, background: "var(--a)", color: "#fff", padding: "0 16px" }}>Gerenciar employees</button>
+        <button onClick={openEmployees} style={{ marginTop: 16, height: 44, border: 0, borderRadius: 8, background: "var(--a)", color: "#fff", padding: "0 16px" }}>Gerenciar funcionários</button>
       </S.Card>
       <S.Card>
         <h2>Sessões administrativas</h2>

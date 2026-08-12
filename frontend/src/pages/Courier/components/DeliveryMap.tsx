@@ -25,7 +25,14 @@ function RecenterButton({ point }: { point: RoutePoint }) {
 
 const courierIcon = divIcon({
   className: "delivery-courier-marker",
-  html: '<div class="delivery-courier-marker__pin"><span>🛵</span></div>',
+  html: `<div class="delivery-courier-marker__pin" aria-label="Posicao do motoqueiro">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="18.5" cy="17.5" r="3.5" />
+      <circle cx="5.5" cy="17.5" r="3.5" />
+      <circle cx="15" cy="5" r="1" />
+      <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+    </svg>
+  </div>`,
   iconSize: [68, 68],
   iconAnchor: [34, 34],
   popupAnchor: [0, -34],
@@ -42,7 +49,7 @@ export default function DeliveryMap({ points, label = "Motoqueiro", statusMessag
         .delivery-courier-marker { background: transparent; border: 0; }
         .delivery-courier-marker__pin { width: 62px; height: 62px; border-radius: 50%; background: white; display: grid; place-items: center; box-shadow: 0 8px 28px rgba(15,23,42,.28); border: 4px solid rgba(255,255,255,.9); position: relative; }
         .delivery-courier-marker__pin::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: #d64d08; z-index: 0; }
-        .delivery-courier-marker__pin span { position: relative; z-index: 1; font-size: 27px; transform: scaleX(-1); }
+        .delivery-courier-marker__pin svg { position: relative; z-index: 1; width: 32px; height: 32px; fill: none; stroke: white; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
         @media (max-width: 560px) { .delivery-map-shell { min-height: 520px !important; border-radius: 0 !important; } }
       `}</style>
       <MapContainer center={[latest.latitude, latest.longitude]} zoom={16} zoomControl={false} style={{ width: "100%", height: "100%" }}>

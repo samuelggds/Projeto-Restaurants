@@ -33,7 +33,7 @@ const OrderCard = lazy(() => import("./components/OrderCard"));
 const ProfilePanel = lazy(() => import("./components/ProfilePanel"));
 const DeliveryMap = lazy(() => import("./components/DeliveryMap"));
 
-type CourierView = "overview" | "ready" | "route" | "map" | "finance" | "history" | "profile";
+type CourierView = "overview" | "ready" | "route" | "map" | "history" | "profile";
 type GeoStatus = "checking" | "enabled" | "blocked" | "unsupported";
 type CourierOrder = {
   id: number;
@@ -72,7 +72,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   ENTREGUE: { label: "Entregue", color: "#16a34a" },
 };
 const DIGITAL_PAYMENT_METHODS = new Set(["PIX", "CARTAO", "CARTAO_DEBITO", "CARTAO_CREDITO"]);
-const LOCATION_UPDATE_INTERVAL_MS = 5_000;
+const LOCATION_UPDATE_INTERVAL_MS = 2_000;
 
 function monogram(name: string) {
   return createRestaurantMonogram(name);
@@ -92,9 +92,12 @@ export default function CourierWorkspace() {
   const [refresh, setRefresh] = useState(0);
   const [brand, setBrand] = useState({ name: "Restaurante", color: "#d64d08" });
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("checking");
+  const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
   const [geoMessage, setGeoMessage] = useState("Ative a localização para o cliente acompanhar a entrega.");
   const [finance, setFinance] = useState<FinanceData | null>(null);
+  const [financeError, setFinanceError] = useState("");
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
   const ordersRef = useRef<CourierOrder[]>([]);
   const restaurantId = Number(user?.restaurantId || 0);
 
@@ -121,7 +124,10 @@ export default function CourierWorkspace() {
     ordersService
       .listRestaurantOrders()
       .then((data) => {
-        if (active) setOrders((Array.isArray(data) ? data : []) as CourierOrder[]);
+        if (active) {
+          setOrders((Array.isArray(data) ? data : []) as CourierOrder[]);
+          setLastUpdatedAt(new Date());
+        }
       })
       .catch(() => {
         if (active) setLoadError("Não foi possível carregar as entregas.");
@@ -135,18 +141,25 @@ export default function CourierWorkspace() {
   }, [refresh]);
 
   useEffect(() => {
-    if (view !== "finance") return;
+    if (view !== "overview") return;
     ordersService
       .getCourierFinance()
-      .then((data) => setFinance(data as FinanceData))
-      .catch(() => setLoadError("Não foi possível carregar o financeiro."));
+      .then((data) => {
+        setFinance(data as FinanceData);
+        setFinanceError("");
+        setLastUpdatedAt(new Date());
+      })
+      .catch(() => setFinanceError("Não foi possível carregar seus dados financeiros."))
   }, [view, refresh]);
 
   useEffect(() => {
     const activeOrder = orders.find((order) => order.status === "SAIU_PARA_ENTREGA");
     if (view !== "map" || !activeOrder) return;
     ordersService.getDeliveryTracking(activeOrder.id)
-      .then((data) => setRoutePoints((data?.locations || []) as RoutePoint[]))
+      .then((data) => {
+        setRoutePoints((data?.locations || []) as RoutePoint[]);
+        setLastUpdatedAt(new Date());
+      })
       .catch(() => setLoadError("Não foi possível carregar o percurso."));
   }, [view, orders]);
 
@@ -174,7 +187,7 @@ export default function CourierWorkspace() {
         });
     };
 
-    if (navigator.geolocation) {
+    if (locationTrackingRequested && navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           latestPosition = position;
@@ -191,6 +204,7 @@ export default function CourierWorkspace() {
           );
           setGeoStatus("enabled");
           setGeoMessage("Rastreamento ativo durante as entregas em andamento.");
+          setLastUpdatedAt(new Date());
           sendLocation();
         },
         (error) => {
@@ -201,32 +215,38 @@ export default function CourierWorkspace() {
               : "Não foi possível obter sua localização. Verifique o GPS e a internet.",
           );
         },
-        { enableHighAccuracy: true, maximumAge: 5_000, timeout: 10_000 },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 6_000 },
       );
-    } else {
+    } else if (locationTrackingRequested) {
       window.setTimeout(() => {
         setGeoStatus("unsupported");
         setGeoMessage("Este aparelho não oferece geolocalização neste navegador.");
       }, 0);
     }
 
-    const timer = window.setInterval(sendLocation, LOCATION_UPDATE_INTERVAL_MS);
-    const onChanged = (_updated: CourierOrder) => setRefresh((value) => value + 1);
+    const timer = locationTrackingRequested
+      ? window.setInterval(sendLocation, LOCATION_UPDATE_INTERVAL_MS)
+      : null;
+    const onChanged = (_updated: CourierOrder) => {
+      setLastUpdatedAt(new Date());
+      setRefresh((value) => value + 1);
+    };
     const onLocation = (point: RoutePoint & { orderId: number }) => {
       if (ordersRef.current.some((order) => order.id === point.orderId)) {
         setRoutePoints((current) => [...current, point].slice(-1000));
+        setLastUpdatedAt(new Date());
       }
     };
     socket.on("order:status-changed", onChanged);
     socket.on("order:delivery-location", onLocation);
     return () => {
-      window.clearInterval(timer);
+      if (timer) window.clearInterval(timer);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       socket.off("order:status-changed", onChanged);
       socket.off("order:delivery-location", onLocation);
       disconnectSocket();
     };
-  }, []);
+  }, [locationTrackingRequested]);
 
   const ready = useMemo(() => orders.filter((order) => order.status === "PRONTO"), [orders]);
   const inRoute = useMemo(() => orders.filter((order) => order.status === "SAIU_PARA_ENTREGA"), [orders]);
@@ -239,24 +259,25 @@ export default function CourierWorkspace() {
     ready: ["Prontos para retirada", "Assuma um pedido quando ele estiver com você"],
     route: ["Entregas em andamento", "Pedidos atribuídos a você e em rota"],
     history: ["Histórico", "Entregas concluídas por você"],
-    finance: ["Financeiro", "Veja seus ganhos por entrega e por período"],
     map: ["Minha rota", "Acompanhe seu percurso e sua posição atual"],
     profile: ["Meu perfil", "Dados da sua conta de motoqueiro"],
   };
   const [title, subtitle] = titles[view];
+  const isDedicatedView = view === "map" || view === "overview";
   const go = (next: CourierView) => {
     setView(next);
     setSearch("");
     if (window.innerWidth <= 820) setSidebarOpen(false);
   };
   const requestLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setGeoStatus("unsupported");
+      setGeoMessage("Este navegador não oferece suporte à localização.");
+      return;
+    }
     setGeoStatus("checking");
-    navigator.geolocation.getCurrentPosition(
-      () => setGeoStatus("enabled"),
-      () => setGeoStatus("blocked"),
-      { enableHighAccuracy: true, timeout: 10_000 },
-    );
+    setGeoMessage("Aguardando sua permissão para ativar o rastreamento.");
+    setLocationTrackingRequested(true);
   };
   const updateLocalOrder = (updated: unknown) => {
     const order = updated as CourierOrder;
@@ -264,18 +285,17 @@ export default function CourierWorkspace() {
   };
 
   return (
-    <L.Root $primary={brand.color} $sidebarOpen={sidebarOpen}>
-      <L.Sidebar $open={sidebarOpen}>
+    <S.CourierShell $primary={brand.color} $sidebarOpen={sidebarOpen}>
+      <S.CourierSidebar $open={sidebarOpen}>
         <L.CollapseBtn onClick={() => setSidebarOpen(false)}><ChevronLeft /></L.CollapseBtn>
-        <L.Brand><span>{monogram(brand.name)}</span><b>{brand.name}</b><small>ÁREA DO MOTOQUEIRO</small></L.Brand>
+        <S.CourierBrand><span>{monogram(brand.name)}</span><b>{brand.name}</b><small>ÁREA DO MOTOQUEIRO</small></S.CourierBrand>
         <L.CloseMenu onClick={() => setSidebarOpen(false)}><X /></L.CloseMenu>
-        <L.Nav>
+        <S.CourierNav>
           {([
             ["overview", "Visão geral", LayoutGrid, ready.length + inRoute.length],
             ["ready", "Para retirar", PackageCheck, ready.length],
             ["route", "Em entrega", Bike, inRoute.length],
             ["map", "Minha rota", MapPinned, inRoute.length],
-            ["finance", "Financeiro", DollarSign, 0],
             ["history", "Histórico", History, delivered.length],
             ["profile", "Meu perfil", User, 0],
           ] as const).map(([id, label, Icon, count]) => (
@@ -283,105 +303,111 @@ export default function CourierWorkspace() {
               <Icon /> {label} {count > 0 && <S.NavBadge>{count}</S.NavBadge>}
             </a>
           ))}
-        </L.Nav>
-        <L.User>
+        </S.CourierNav>
+        <S.CourierUser>
           <span className="avatar">{monogram(user?.name || "Motoqueiro")}</span>
           <span><b>{user?.name || "Motoqueiro"}</b><small>Motoqueiro</small></span>
           <button onClick={() => { logout(); navigate("/login"); }} title="Sair"><LogOut /></button>
-        </L.User>
-      </L.Sidebar>
+        </S.CourierUser>
+      </S.CourierSidebar>
       {sidebarOpen && <L.Overlay onClick={() => setSidebarOpen(false)} />}
       {!sidebarOpen && <L.SidebarOpenTab onClick={() => setSidebarOpen(true)}><ChevronRight /></L.SidebarOpenTab>}
 
-      <L.Main>
-        <L.Top>
+      <S.CourierMain>
+        <S.CourierTop>
           <L.MobileMenu onClick={() => setSidebarOpen(true)}><Menu /></L.MobileMenu>
           <div><h1>{title}</h1><p>{subtitle}</p></div>
-          <L.Live><Clock3 /> Em turno <i /> {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</L.Live>
-        </L.Top>
-        <L.Content>
-          {geoStatus !== "enabled" ? (
+          <L.Live title="Horário da atualização mais recente dos dados"><Clock3 /> Última atualização <i /> {lastUpdatedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</L.Live>
+        </S.CourierTop>
+        <S.CourierContent>
+          {view === "map" && geoStatus !== "enabled" ? (
             <S.LocationAlertCard>
               <S.LocationAlertIcon>{geoStatus === "unsupported" ? <MapPinOff /> : <LocateFixed />}</S.LocationAlertIcon>
               <S.LocationAlertContent><strong>Localização necessária durante a rota</strong><p>{geoMessage}</p></S.LocationAlertContent>
               {geoStatus !== "unsupported" && <S.LocationAlertButton onClick={requestLocation}><Navigation /> Ativar localização</S.LocationAlertButton>}
             </S.LocationAlertCard>
           ) : view === "map" ? (
-            inRoute.length ? (
+            <S.RouteSection>
+              <S.SectionHeader>
+                <div>
+                  <h2>Minha rota</h2>
+                  <p>Acompanhe sua posicao e as entregas em andamento.</p>
+                </div>
+                <S.LocationStatusChip><LocateFixed /> Localizacao ativa</S.LocationStatusChip>
+              </S.SectionHeader>
+              {inRoute.length ? (
               <Suspense fallback={<S.EmptyState><RefreshCw className="spinning" /></S.EmptyState>}>
                 <DeliveryMap points={routePoints} label={user?.name || "Motoqueiro"} statusMessage="Sua rota está em andamento" statusDetail="Sua localização está sendo compartilhada com o cliente." />
               </Suspense>
-            ) : (
+              ) : (
               <S.EmptyState><MapPinned /><p>Retire um pedido para iniciar a rota.</p></S.EmptyState>
-            )
-          ) : view === "finance" ? (
-            <div>
-              <S.WorkspaceStatsGrid $columns={4}>
-                {finance &&
-                  ([
-                    ["Hoje", finance.today],
-                    ["Esta semana", finance.week],
-                    ["Este mês", finance.month],
-                    ["A receber", finance.pending],
-                  ] as const).map(([label, value]) => (
-                    <S.SideStatItem key={label}>
-                      <DollarSign />
-                      <div>
-                        <span>{label}</span>
-                        <strong>
-                          {value.amount.toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </strong>
-                        <small>{value.deliveries} entregas</small>
-                      </div>
-                    </S.SideStatItem>
-                  ))}
-              </S.WorkspaceStatsGrid>
-              <S.OrdersList>
-                {(finance?.deliveries || []).map((delivery) => (
-                  <S.OrderCard key={delivery.id}>
-                    <S.OrderCardHeader>
-                      <S.OrderMeta>
-                        <S.OrderId>Entrega #{delivery.id}</S.OrderId>
-                        <S.InfoChip>
-                          {delivery.courierPaidAt ? "Pago" : "A receber"}
-                        </S.InfoChip>
-                      </S.OrderMeta>
-                      <S.OrderTotal>
-                        {delivery.courierEarning.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                      </S.OrderTotal>
-                    </S.OrderCardHeader>
-                    <S.AddressRow>
-                      {[delivery.district, delivery.city]
-                        .filter(Boolean)
-                        .join(", ") || "Destino não informado"}
-                    </S.AddressRow>
-                  </S.OrderCard>
-                ))}
-              </S.OrdersList>
-            </div>
+              )}
+            </S.RouteSection>
           ) : (
             <S.LocationStatusChip><LocateFixed /> {geoMessage}</S.LocationStatusChip>
           )}
 
           {view === "overview" && (
-            <S.WorkspaceStatsGrid $columns={3}>
-              <S.SideStatItem><PackageCheck /><div><span>Para retirar</span><strong>{ready.length}</strong></div></S.SideStatItem>
-              <S.SideStatItem><Bike /><div><span>Em rota</span><strong>{inRoute.length}</strong></div></S.SideStatItem>
-              <S.SideStatItem><CheckCircle2 /><div><span>Entregues</span><strong>{delivered.length}</strong></div></S.SideStatItem>
-            </S.WorkspaceStatsGrid>
+            <>
+              <S.OverviewHero>
+                <div><small>RESUMO DO TURNO</small><h2>Olá, {user?.name?.split(" ")[0] || "Motoqueiro"}</h2><p>Acompanhe entregas e ganhos em um só lugar.</p></div>
+                <S.OverviewCounters>
+                  <span><PackageCheck /><b>{ready.length}</b><small>Para retirar</small></span>
+                  <span><Bike /><b>{inRoute.length}</b><small>Em rota</small></span>
+                  <span><CheckCircle2 /><b>{delivered.length}</b><small>Entregues</small></span>
+                </S.OverviewCounters>
+              </S.OverviewHero>
+              <S.EarningsPanel>
+                <S.EarningsHeading>
+                  <div><DollarSign /><span><small>SEUS GANHOS</small><h2>Resumo financeiro</h2></span></div>
+                  <S.RefreshButton onClick={() => setRefresh((value) => value + 1)}><RefreshCw /> Atualizar</S.RefreshButton>
+                </S.EarningsHeading>
+                {financeError && <S.ErrorMsg>{financeError}</S.ErrorMsg>}
+                {!finance && !financeError ? <S.EmptyState><RefreshCw className="spinning" /><p>Carregando ganhos...</p></S.EmptyState> : finance && (
+                  <S.EarningsGrid>
+                    {([['Hoje', finance.today], ['Semana', finance.week], ['Mês', finance.month], ['A receber', finance.pending]] as const).map(([label, value], index) => (
+                      <S.EarningCard key={label} $featured={index === 0}>
+                        <span>{label}</span>
+                        <strong>{value.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                        <small>{value.deliveries} {value.deliveries === 1 ? 'entrega' : 'entregas'}</small>
+                      </S.EarningCard>
+                    ))}
+                  </S.EarningsGrid>
+                )}
+              </S.EarningsPanel>
+              <S.PickupPanel>
+                <S.EarningsHeading>
+                  <div><PackageCheck /><span><small>PRÓXIMAS RETIRADAS</small><h2>Pedidos aguardando você</h2></span></div>
+                  <S.PickupCount>{ready.length}</S.PickupCount>
+                </S.EarningsHeading>
+                {ready.length ? (
+                  <S.CompactOrders>
+                    {ready.slice(0, 5).map((order) => (
+                      <S.CompactOrderButton
+                        key={order.id}
+                        type="button"
+                        onClick={() => {
+                          setView("ready");
+                          setSearch(String(order.id));
+                        }}
+                      >
+                        <span><PackageCheck /><b>Pedido #{order.id}</b><small>Pronto para retirada</small></span>
+                        <ChevronRight />
+                      </S.CompactOrderButton>
+                    ))}
+                  </S.CompactOrders>
+                ) : (
+                  <S.CompactEmpty><CheckCircle2 /><span><b>Tudo certo por aqui</b><small>Nenhum pedido aguardando retirada.</small></span></S.CompactEmpty>
+                )}
+              </S.PickupPanel>
+            </>
           )}
 
           {view === "profile" ? (
             <Suspense fallback={<S.EmptyState><RefreshCw className="spinning" /></S.EmptyState>}>
               <ProfilePanel user={user} onUpdated={(updated) => { const token = localStorage.getItem("token"); if (token) login(updated, token); }} />
             </Suspense>
-          ) : (
+          ) : isDedicatedView ? null : (
             <>
               <S.TopBar>
                 <div style={{ position: "relative", width: "min(340px, 100%)" }}>
@@ -410,8 +436,8 @@ export default function CourierWorkspace() {
               )}
             </>
           )}
-        </L.Content>
-      </L.Main>
-    </L.Root>
+        </S.CourierContent>
+      </S.CourierMain>
+    </S.CourierShell>
   );
 }

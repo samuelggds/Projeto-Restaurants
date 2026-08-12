@@ -682,3 +682,75 @@ export const AccessDenied = styled.div`
     max-width: 460px;
   }
 `;
+
+export const CreateBackdrop = styled.div`
+  --brand: #e9530b;
+  --muted: #687078;
+  --border: #e7e2dc;
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(13, 18, 21, 0.68);
+  backdrop-filter: blur(5px);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+`;
+
+export const CreateDialog = styled.form`
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
+  border-radius: 18px;
+  background: #fffdfb;
+  box-shadow: 0 28px 80px #0005;
+  padding: 26px;
+  display: grid;
+  gap: 18px;
+  header { display: flex; justify-content: space-between; gap: 18px; }
+  h2 { margin: 0 0 5px; font-size: 25px; }
+  p { margin: 0; color: var(--muted); font-size: 13px; }
+  .close {
+    width: 38px; height: 38px; border: 1px solid var(--border);
+    border-radius: 10px; background: #fff; cursor: pointer;
+  }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+  label {
+    display: grid; gap: 6px; color: #34393d;
+    font-size: 11px; font-weight: 750;
+  }
+  label.wide { grid-column: 1 / -1; }
+  input, select {
+    width: 100%; height: 46px; border: 1px solid var(--border);
+    border-radius: 10px; background: #fff; padding: 0 13px; outline: none;
+  }
+  input:focus, select:focus {
+    border-color: var(--brand); box-shadow: 0 0 0 3px #e9530b16;
+  }
+  .plan-help {
+    grid-column: 1 / -1; border: 1px solid #f1d7c5;
+    background: #fff7f1; color: #744328; border-radius: 10px;
+    padding: 11px 13px; font-size: 11px;
+  }
+  .form-error {
+    grid-column: 1 / -1; border-radius: 9px; padding: 10px 12px;
+    background: #fdebea; color: #b42b20; font-size: 11px; font-weight: 700;
+  }
+  footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    border-top: 1px solid var(--border); padding-top: 17px;
+  }
+  footer button {
+    min-height: 43px; border-radius: 9px; padding: 0 17px;
+    cursor: pointer; font-weight: 750;
+  }
+  .cancel { border: 1px solid var(--border); background: #fff; }
+  .submit { border: 0; background: var(--brand); color: #fff; }
+  .submit:disabled { opacity: 0.55; cursor: wait; }
+  @media (max-width: 600px) {
+    padding: 19px 15px;
+    .fields { grid-template-columns: 1fr; }
+    label.wide, .plan-help, .form-error { grid-column: auto; }
+    footer { display: grid; grid-template-columns: 1fr 1fr; }
+  }
+`;

@@ -1,4 +1,6 @@
 import subscriptionRepository from "../repositories/SubscriptionRepository.js";
+import billingRepository from "../../billing/repositories/BillingRepository.js";
+import { evaluatePlanChangeEligibility } from "./PlanChangePolicy.js";
 
 type GetSubscriptionPayload = {
   restaurantId: number | string;
@@ -13,7 +15,19 @@ class GetSubscriptionService {
       throw new Error("Assinatura não encontrada!");
     }
 
-    return subscription;
+    const invoices = await billingRepository.findInvoicesByRestaurantId(
+      Number(restaurantId),
+    );
+    const planChangeEligibility = evaluatePlanChangeEligibility({
+      invoices,
+      consumedInvoiceId: subscription.planChangeInvoiceId,
+      hasScheduledPlan: Boolean(subscription.scheduledPlan),
+    });
+
+    return {
+      ...subscription,
+      planChangeEligibility,
+    };
   }
 }
 

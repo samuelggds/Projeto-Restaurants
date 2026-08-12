@@ -41,11 +41,10 @@ export function buildHomeData(productsFromApi: Record<string, unknown>[], settin
   const persistedBanners = Array.isArray(restaurant.banners) ? restaurant.banners as Record<string, unknown>[] : [];
   const bannerByTitle = (title: string) => persistedBanners.find((item) => String(item.title || "") === title);
   const mainBanner = bannerByTitle("Banner principal");
-  const promotionBanners = [bannerByTitle("Promoção 1"), bannerByTitle("Promoção 2")].filter(Boolean) as Record<string, unknown>[];
   const hero = mainBanner && isPersistentImageSource(mainBanner.image)
     ? { title: "Confira nossas", highlight: "promoções", description: "Ofertas especiais preparadas para você.", image: String(mainBanner.image) }
     : { title: "", highlight: "", description: "", image: "" };
-  const banners = promotionBanners.filter((item) => isPersistentImageSource(item.image)).map((item) => ({ title: String(item.title || ""), highlight: "", description: "", image: String(item.image) }));
+  const banners = [];
   const restaurantName = String(restaurant.name || "");
   const brand = {
     name: String(restaurantName || settings?.restaurantName || ""),

@@ -26,8 +26,6 @@ export const adminMockSettings: AdminSettings = {
   pagbankToken: "",
   pagbankTokenConfigured: false,
   mainBannerUrl: "",
-  promotion1Url: "",
-  promotion2Url: "",
 };
 
 export const adminMockEmployees: Employee[] = [];

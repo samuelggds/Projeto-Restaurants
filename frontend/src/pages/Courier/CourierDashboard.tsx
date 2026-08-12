@@ -46,7 +46,7 @@ const DIGITAL_PAYMENT_METHODS = new Set([
   "CARTAO_DEBITO",
   "CARTAO_CREDITO",
 ]);
-const LOCATION_UPDATE_INTERVAL_MS = 5000;
+const LOCATION_UPDATE_INTERVAL_MS = 2000;
 
 type GeoStatus = "checking" | "enabled" | "blocked" | "unsupported";
 
@@ -65,6 +65,7 @@ export default function CourierDashboard() {
   const [orderIdSearch, setOrderIdSearch] = useState("");
   const ordersRef = useRef<Array<{ id?: number; status?: string }>>([]);
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("checking");
+  const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
   const [geoNotice, setGeoNotice] = useState(
     "Ative sua localização para que o cliente acompanhe a entrega em tempo real.",
   );
@@ -125,7 +126,7 @@ export default function CourierDashboard() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token || !locationTrackingRequested) return;
 
     const socket = connectSocket(token, "courier-dashboard");
     let watchId: number | null = null;
@@ -181,7 +182,7 @@ export default function CourierDashboard() {
           latestPositionRef.current = position;
           setGeoStatus("enabled");
           setGeoNotice(
-            "Localização ativa. O cliente recebe sua posição automaticamente a cada 5 segundos.",
+            "Localização ativa. O cliente recebe sua posição automaticamente a cada 2 segundos.",
           );
           setGeoActionHint("");
           emitLocationForOrdersInRoute();
@@ -208,8 +209,8 @@ export default function CourierDashboard() {
         },
         {
           enableHighAccuracy: true,
-          maximumAge: LOCATION_UPDATE_INTERVAL_MS,
-          timeout: 10000,
+          maximumAge: 0,
+          timeout: 6000,
         },
       );
 
@@ -253,7 +254,7 @@ export default function CourierDashboard() {
       socket.off("order:status-changed", onStatusChanged);
       disconnectSocket();
     };
-  }, []);
+  }, [locationTrackingRequested]);
 
   async function handleMarkDelivered(orderId, deliveryConfirmationCode) {
     const updated = await ordersService.updateStatus(
@@ -311,6 +312,7 @@ export default function CourierDashboard() {
       return;
     }
 
+    setLocationTrackingRequested(true);
     setGeoStatus("checking");
     setGeoNotice("Aguardando sua confirmação para ativar a localização.");
     setGeoActionHint(
@@ -321,7 +323,7 @@ export default function CourierDashboard() {
       () => {
         setGeoStatus("enabled");
         setGeoNotice(
-          "Localização ativa. O cliente recebe sua posição automaticamente a cada 5 segundos.",
+          "Localização ativa. O cliente recebe sua posição automaticamente a cada 2 segundos.",
         );
         setGeoActionHint("");
       },
@@ -347,7 +349,8 @@ export default function CourierDashboard() {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        maximumAge: 0,
+        timeout: 6000,
       },
     );
   };
@@ -476,7 +479,7 @@ export default function CourierDashboard() {
         ) : (
           <S.LocationStatusChip>
             <LocateFixed size={14} />
-            Rastreamento ativo: envio automático a cada 5s
+            Rastreamento ativo: envio automático a cada 2s
           </S.LocationStatusChip>
         )}
 

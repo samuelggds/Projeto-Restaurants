@@ -6,13 +6,27 @@ import {
   isInvoiceBlocking,
 } from "../modules/billing/utils/billingRules.js";
 
+const checkedRequests = new WeakSet<Request>();
+
 export async function billingMiddleware(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
   try {
+    if (checkedRequests.has(req)) {
+      return next();
+    }
+
+    checkedRequests.add(req);
     const restaurantId = req.user.restaurantId;
+
+    if (
+      String(req.user.role || "").toUpperCase() === "SUPER_ADMIN" ||
+      !restaurantId
+    ) {
+      return next();
+    }
 
     const openInvoices = await prisma.invoice.findMany({
       where: {

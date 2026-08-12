@@ -15,7 +15,7 @@ export function isPublicRoute(pathname: string) {
   const path = normalizePath(pathname);
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
-  return path === "/" || /^\/mesa\/[^/]+$/.test(path) ||
+  return path === "/" || path === "/system-maintenance" || /^\/mesa\/[^/]+$/.test(path) ||
     Boolean(singleSegment && !RESERVED_ROOTS.has(singleSegment)) ||
     Boolean(restaurantTable && !RESERVED_ROOTS.has(restaurantTable));
 }

@@ -11,27 +11,7 @@ import {
   toOrderIssueThreadPayload,
 } from "./orderIssueChatStore.js";
 
-const REFUND_REQUEST_PATTERN =
-  /(estorno|reembolso|devolver|devolucao|devolução|cancelar\s+pedido|quero\s+cancelar|quero\s+estorno|quero\s+reembolso)/i;
-
 class RefundOrderByAdminService {
-  private hasClientRefundRequest(
-    thread: Awaited<ReturnType<typeof getOrderIssueThread>>,
-  ) {
-    if (!thread) {
-      return false;
-    }
-
-    return thread.messages.some((message) => {
-      const senderType = String(message?.senderType || "").toUpperCase();
-      const text = String(message?.message || "")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      return senderType === "CLIENT" && REFUND_REQUEST_PATTERN.test(text);
-    });
-  }
-
   async execute({
     orderId,
     restaurantId,
@@ -103,14 +83,12 @@ class RefundOrderByAdminService {
       throw new Error("Este pedido já está cancelado.");
     }
 
-    if (!this.hasClientRefundRequest(issueThread)) {
-      throw new Error(
-        "O cliente ainda não solicitou estorno no chat deste pedido.",
-      );
-    }
-
     const wasPaid = order.paid === true;
-    await refundOrderPaymentService.execute(order);
+    const hasOnlinePaymentToRefund = wasPaid && order.payOnDelivery !== true;
+
+    if (hasOnlinePaymentToRefund) {
+      await refundOrderPaymentService.execute(order);
+    }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
       await restoreOrderItemsStock(tx, order);
@@ -172,10 +150,10 @@ class RefundOrderByAdminService {
 
     return {
       order: updatedOrder,
-      refunded: wasPaid,
-      info: wasPaid
-        ? "Solicitação de estorno atendida. Pedido estornado com sucesso."
-        : "Solicitação de estorno atendida. Pedido cancelado com sucesso.",
+      refunded: hasOnlinePaymentToRefund,
+      info: hasOnlinePaymentToRefund
+        ? "Pagamento estornado e pedido cancelado com sucesso."
+        : "Pedido cancelado com sucesso. Nenhum estorno online foi realizado.",
       issueThread: threadPayload,
     };
   }

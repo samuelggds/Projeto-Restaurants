@@ -1,4 +1,9 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+
+const progressLineReveal = keyframes`
+  from { transform: scaleX(0); opacity: 0.35; }
+  to { transform: scaleX(1); opacity: 1; }
+`;
 
 export const Root = styled.div<{ $primary: string }>`
   --p: ${({ $primary }) => $primary};
@@ -229,15 +234,19 @@ export const Step = styled.div<{ $done?: boolean; $active?: boolean }>`
   i {
     width: 38px;
     height: 38px;
-    border: 2px solid currentColor;
+    border: 2px solid
+      ${({ $done, $active }) => ($done || $active ? "var(--p)" : "#aaa")};
     border-radius: 50%;
     display: grid;
     place-items: center;
     font-style: normal;
     background: ${({ $done, $active }) =>
-      $done || $active ? "currentColor" : "transparent"};
-    box-shadow: inset 0 0 0 8px
-      ${({ $done, $active }) => ($done || $active ? "var(--p)" : "transparent")};
+      $done || $active ? "var(--p)" : "#fff"};
+    color: ${({ $done, $active }) => ($done || $active ? "#fff" : "#a5a5a5")};
+    transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+    svg {
+      display: block;
+    }
   }
   span {
     display: block;
@@ -260,9 +269,22 @@ export const Step = styled.div<{ $done?: boolean; $active?: boolean }>`
   }
 `;
 export const Line = styled.div<{ $done?: boolean }>`
+  position: relative;
   height: 2px;
   margin-top: 18px;
-  background: ${({ $done }) => ($done ? "var(--p)" : "var(--border)")};
+  overflow: hidden;
+  background: var(--border);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--p);
+    transform-origin: left center;
+    transform: scaleX(${({ $done }) => ($done ? 1 : 0)});
+    transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: ${({ $done }) => ($done ? progressLineReveal : "none")} 500ms
+      cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 `;
 export const Eta = styled.p`
   display: flex;

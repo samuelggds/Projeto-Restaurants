@@ -1,15 +1,11 @@
 import { Request, Response } from "express";
-import { MercadoPagoConfig, Payment } from "mercadopago";
+import { getPlatformPaymentClient } from "../services/MercadoPagoClient.js";
 import processPaymentService from "../services/ProcessPaymentService.js";
 import {
   extractInvoiceId,
   isApprovedPaymentStatus,
 } from "../utils/webhookUtils.js";
 import { debug, info, error as logError } from "../utils/billingLogger.js";
-
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
-});
 
 class MercadoPagoWebhookController {
   async handle(req: Request, res: Response) {
@@ -22,7 +18,7 @@ class MercadoPagoWebhookController {
         return res.sendStatus(200);
       }
 
-      const paymentApi = new Payment(client);
+      const paymentApi = getPlatformPaymentClient();
       const payment = (await paymentApi.get({ id: paymentId })) as unknown;
       const paymentDetails =
         typeof payment === "object" && payment !== null

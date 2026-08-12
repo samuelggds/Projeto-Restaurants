@@ -14,6 +14,7 @@ import {
   tablePinAssistanceRateLimitMiddleware,
   tablePinRateLimitMiddleware,
 } from "../../../middlewares/security/tableSessionRateLimitMiddleware.js";
+import { premiumTablePlanMiddleware } from "../../../middlewares/premiumTablePlanMiddleware.js";
 
 const router = Router();
 
@@ -29,15 +30,15 @@ router.get("/current", sessionMiddleware, (req, res) =>
   GetCurrentSessionController.handle(req, res),
 );
 
-router.post("/open", authMiddleware, staffMiddleware, (req, res) =>
+router.post("/open", authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
   OpenTableSessionController.handle(req, res),
 );
 
-router.patch("/:id/close", authMiddleware, staffMiddleware, (req, res) =>
+router.patch("/:id/close", authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
   CloseTableSessionController.handle(req, res),
 );
 
-router.get("/open", authMiddleware, staffMiddleware, (req, res) =>
+router.get("/open", authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
   ListOpenSessionsController.handle(req, res),
 );
 

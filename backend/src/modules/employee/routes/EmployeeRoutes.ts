@@ -5,6 +5,7 @@ import CreateEmployeeController from "../Controllers/CreateEmployeeController.js
 import ListEmployeeController from "../Controllers/ListEmployeeController.js";
 import UpdateEmployeeController from "../Controllers/UpdateEmployeeController.js";
 import DeactivateEmployeeController from "../Controllers/DeactivateEmployeeController.js";
+import ReactivateEmployeeController from "../Controllers/ReactivateEmployeeController.js";
 
 const router = Router();
 
@@ -21,6 +22,10 @@ router.put("/:id", authMiddleware, adminMiddleware, (req, res) => {
 
 router.patch("/:id", authMiddleware, adminMiddleware, (req, res) => {
   DeactivateEmployeeController.handle(req, res);
+});
+
+router.patch("/:id/reactivate", authMiddleware, adminMiddleware, (req, res) => {
+  ReactivateEmployeeController.handle(req, res);
 });
 
 export default router;

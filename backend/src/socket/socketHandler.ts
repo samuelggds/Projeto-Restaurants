@@ -247,14 +247,13 @@ export function socketHandler(socket: AppSocket) {
     });
 
     const plan = String(subscription?.plan || "").toUpperCase();
-    const supportChatEnabledPlan =
-      plan === "PROFISSIONAL" || plan === "PREMIUM";
+    const supportChatEnabledPlan = plan === "BASICO" || plan === "PREMIUM";
 
     if (!supportChatEnabledPlan) {
       reply({
         ok: false,
         error:
-          "Chat com Super Admin disponível apenas para planos Profissional e Premium.",
+          "Chat com Super Admin disponível nos planos ativos do sistema.",
       });
       return;
     }

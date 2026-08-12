@@ -10,7 +10,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   KitchenProvider,
   type KitchenModuleProps as BaseProps,
@@ -25,6 +25,7 @@ import {
 import * as S from "./Kitchen.styles";
 
 export type KitchenView = "overview" | "queue" | "ready" | "history";
+const INITIAL_SHIFT_TIME = new Date();
 export interface KitchenModuleProps extends BaseProps {
   initialView?: KitchenView;
   onViewChange?: (view: KitchenView) => void;
@@ -49,7 +50,14 @@ function KitchenShell({
   onViewChange?: KitchenModuleProps["onViewChange"];
 }) {
   const { employee, restaurant, onLogout } = useKitchenWorkspace();
+  const [currentTime, setCurrentTime] = useState(INITIAL_SHIFT_TIME);
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [view, setView] = useState(initialView);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
+  const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(
     () => typeof window !== "undefined" && window.innerWidth > 820,
   );
@@ -70,12 +78,6 @@ function KitchenShell({
     ready: ["Pedidos prontos", "Acompanhe os pedidos que aguardam retirada"],
     history: ["Histórico", "Consulte os pedidos concluídos no turno"],
   };
-  const Page = {
-    overview: KitchenOverviewPage,
-    queue: KitchenQueuePage,
-    ready: KitchenReadyPage,
-    history: KitchenHistoryPage,
-  }[view];
   const [title, subtitle] = titles[view];
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
@@ -137,11 +139,26 @@ function KitchenShell({
           </div>
           <S.Live>
             <Clock3 />
-            Em turno <i /> {employee.shift}
+            Em turno <i /> {currentTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </S.Live>
         </S.Top>
         <S.Content>
-          <Page />
+          {view === "overview" && (
+            <KitchenOverviewPage
+              onOpenOrder={(orderId) => {
+                setFocusedOrderId(orderId);
+                navigate("queue");
+              }}
+            />
+          )}
+          {view === "queue" && (
+            <KitchenQueuePage
+              focusedOrderId={focusedOrderId}
+              onFocusComplete={clearFocusedOrder}
+            />
+          )}
+          {view === "ready" && <KitchenReadyPage />}
+          {view === "history" && <KitchenHistoryPage />}
         </S.Content>
       </S.Main>
     </S.Root>

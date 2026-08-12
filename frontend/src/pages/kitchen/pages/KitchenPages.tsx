@@ -7,7 +7,7 @@ import {
   ShoppingBag,
   UtensilsCrossed,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Order, OrderChannel, OrderStatus } from "../types";
 import { useKitchenWorkspace as useWorkspace } from "../useKitchenWorkspace";
 import {
@@ -20,13 +20,59 @@ import {
 import * as S from "../Kitchen.styles";
 
 const activeStatuses: OrderStatus[] = ["PENDENTE", "PREPARANDO", "PRONTO"];
+const INITIAL_KITCHEN_TIME = Date.now();
 
-export function KitchenOverviewPage() {
+function useKitchenClock() {
+  const [now, setNow] = useState(INITIAL_KITCHEN_TIME);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
+
+function elapsedFrom(timestamp: string | undefined, now: number) {
+  if (!timestamp) return "00:00";
+  const seconds = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  const minuteClock = `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+  return hours > 0 ? `${String(hours).padStart(2, "0")}:${minuteClock}` : minuteClock;
+}
+
+function orderElapsed(order: Order, now: number) {
+  if (order.status === "PREPARANDO") {
+    return elapsedFrom(order.preparationStartedAt ?? order.createdAtIso, now);
+  }
+  if (order.status === "PRONTO") {
+    return elapsedFrom(order.readyAt ?? order.preparationStartedAt ?? order.createdAtIso, now);
+  }
+  return elapsedFrom(order.createdAtIso, now);
+}
+
+function averagePreparationTime(orders: Order[]) {
+  const durations = orders.flatMap((order) => {
+    if (!order.preparationStartedAt || !order.readyAt) return [];
+    const duration = new Date(order.readyAt).getTime() - new Date(order.preparationStartedAt).getTime();
+    return duration >= 0 ? [duration] : [];
+  });
+  if (!durations.length) return "—";
+  const averageMinutes = Math.round(durations.reduce((total, value) => total + value, 0) / durations.length / 60_000);
+  return `${averageMinutes} min`;
+}
+
+export function KitchenOverviewPage({
+  onOpenOrder,
+}: {
+  onOpenOrder?: (orderId: string) => void;
+}) {
   const { orders } = useWorkspace();
+  const now = useKitchenClock();
   const active = orders.filter((o) => activeStatuses.includes(o.status));
   const urgent = active
     .filter((o) => o.status !== "PRONTO")
-    .sort((a, b) => b.elapsed.localeCompare(a.elapsed))
+    .sort((a, b) => new Date(a.createdAtIso ?? 0).getTime() - new Date(b.createdAtIso ?? 0).getTime())
     .slice(0, 4);
   return (
     <>
@@ -61,14 +107,20 @@ export function KitchenOverviewPage() {
           </header>
           <S.Stack>
             {urgent.map((order) => (
-              <S.PriorityOrder key={order.id}>
+              <S.PriorityOrder
+                key={order.id}
+                as="button"
+                type="button"
+                onClick={() => onOpenOrder?.(order.id)}
+                aria-label={`Abrir ${order.id} na fila de pedidos`}
+              >
                 <div className="identity">
                   <b>{order.id}</b>
                   <span>
                     {order.channel === "TABLE"
                       ? order.reference
                       : channelLabel[order.channel]}{" "}
-                    • {order.elapsed}
+                    • aguardando há {orderElapsed(order, now)}
                   </span>
                 </div>
                 <OrderItems order={order} />
@@ -141,7 +193,7 @@ function ChannelFilter({
   );
 }
 
-function KitchenCard({ order }: { order: Order }) {
+function KitchenCard({ order, highlighted = false, now }: { order: Order; highlighted?: boolean; now: number }) {
   const { role, updateOrderStatus } = useWorkspace();
   const next =
     order.status === "PENDENTE"
@@ -150,7 +202,11 @@ function KitchenCard({ order }: { order: Order }) {
         ? "PRONTO"
         : null;
   return (
-    <S.KitchenOrder>
+    <S.KitchenOrder
+      id={`kitchen-order-${order.id.replace(/^#/, "")}`}
+      data-order-id={order.id}
+      className={highlighted ? "highlighted" : undefined}
+    >
       <div className="head">
         <span className="identity">
           <b>{order.id}</b>
@@ -165,10 +221,12 @@ function KitchenCard({ order }: { order: Order }) {
       </div>
       <OrderItems order={order} />
       {order.status === "PRONTO" ? (
-        <span className="waiting">Aguardando retirada pelo responsável</span>
+        <span className="waiting">Pronto há {orderElapsed(order, now)} • aguardando retirada</span>
       ) : (
         <span className="elapsed">
-          <Clock3 size={17} /> {order.elapsed}
+          <Clock3 size={17} />
+          {order.status === "PREPARANDO" ? "Em preparo há " : "Aguardando há "}
+          {orderElapsed(order, now)}
         </span>
       )}
       {next && role === "KITCHEN" && (
@@ -185,11 +243,52 @@ function KitchenCard({ order }: { order: Order }) {
   );
 }
 
-export function KitchenQueuePage() {
+export function KitchenQueuePage({
+  focusedOrderId,
+  onFocusComplete,
+}: {
+  focusedOrderId?: string | null;
+  onFocusComplete?: () => void;
+}) {
   const { orders } = useWorkspace();
+  const now = useKitchenClock();
+  const focusedOrder = focusedOrderId
+    ? orders.find((order) => order.id === focusedOrderId)
+    : undefined;
   const [query, setQuery] = useState("");
-  const [channel, setChannel] = useState<OrderChannel>("TABLE");
+  const [channel, setChannel] = useState<OrderChannel>(
+    focusedOrder?.channel ?? "TABLE",
+  );
   const [status, setStatus] = useState<OrderStatus | "ALL">("ALL");
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
+    focusedOrder?.id ?? null,
+  );
+
+  useEffect(() => {
+    if (!focusedOrderId) return;
+    const targetOrder = orders.find((order) => order.id === focusedOrderId);
+    if (!targetOrder) {
+      onFocusComplete?.();
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(`[data-order-id="${focusedOrderId}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+    const timer = window.setTimeout(() => {
+      setHighlightedOrderId(null);
+      onFocusComplete?.();
+    }, 2600);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [focusedOrderId, onFocusComplete, orders]);
   const visible = useMemo(
     () =>
       orders.filter(
@@ -246,7 +345,7 @@ export function KitchenQueuePage() {
             value: visible.filter((o) => o.status === "PRONTO").length,
             tone: "green",
           },
-          { label: "Tempo médio", value: "18 min", icon: "clock" },
+          { label: "Tempo médio", value: averagePreparationTime(orders), icon: "clock" },
         ]}
       />
       <S.StatusColumns>
@@ -262,7 +361,12 @@ export function KitchenQueuePage() {
               {visible
                 .filter((o) => o.status === item)
                 .map((order) => (
-                  <KitchenCard key={order.id} order={order} />
+                  <KitchenCard
+                    key={order.id}
+                    order={order}
+                    highlighted={highlightedOrderId === order.id}
+                    now={now}
+                  />
                 ))}
               {!visible.some((o) => o.status === item) && (
                 <Empty>Nenhum pedido neste status.</Empty>
@@ -276,10 +380,17 @@ export function KitchenQueuePage() {
 
 export function KitchenReadyPage() {
   const { orders } = useWorkspace();
+  const now = useKitchenClock();
   const [channel, setChannel] = useState<OrderChannel>("TABLE");
   const ready = orders.filter(
     (o) => o.status === "PRONTO" && o.channel === channel,
   );
+  const longestReadyOrder = ready.reduce<Order | undefined>((longest, order) => {
+    if (!longest) return order;
+    const orderTime = new Date(order.readyAt ?? order.createdAtIso ?? 0).getTime();
+    const longestTime = new Date(longest.readyAt ?? longest.createdAtIso ?? 0).getTime();
+    return orderTime < longestTime ? order : longest;
+  }, undefined);
   return (
     <>
       <S.Toolbar>
@@ -291,7 +402,9 @@ export function KitchenReadyPage() {
           { label: "Prontos", value: ready.length, tone: "green" },
           {
             label: "Maior espera",
-            value: ready[0]?.elapsed ?? "00:00",
+            value: longestReadyOrder
+              ? orderElapsed(longestReadyOrder, now)
+              : "00:00",
             icon: "clock",
           },
         ]}
@@ -316,7 +429,7 @@ export function KitchenReadyPage() {
                   {order.channel === "TABLE"
                     ? order.reference
                     : channelLabel[order.channel]}{" "}
-                  • pronto há {order.elapsed}
+                  • pronto há {orderElapsed(order, now)}
                 </span>
               </div>
               <OrderItems order={order} />

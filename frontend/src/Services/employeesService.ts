@@ -23,6 +23,11 @@ class EmployeesService {
     const response = await api.patch(`/employees/${employeeId}`);
     return response.data;
   }
+
+  async reactivateEmployee(employeeId: string | number) {
+    const response = await api.patch(`/employees/${employeeId}/reactivate`);
+    return response.data;
+  }
 }
 
 export default new EmployeesService();

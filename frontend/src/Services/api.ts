@@ -185,7 +185,7 @@ api.interceptors.response.use(
     })();
     const role = currentUser?.role || null;
     const blockedByBilling =
-      status === 403 &&
+      (status === 403 || status === 423) &&
       (data?.code === "BILLING_BLOCKED" ||
         String(data?.error || "")
           .toLowerCase()

@@ -502,13 +502,34 @@ export const Stack = styled.div`
   gap: 11px;
 `;
 export const PriorityOrder = styled.article`
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: 11px;
   padding: 14px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   display: grid;
   grid-template-columns: minmax(130px, 0.8fr) minmax(180px, 1.2fr) auto;
   align-items: center;
   gap: 15px;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    background 180ms ease;
+  &:hover {
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+    background: color-mix(in srgb, var(--brand) 3%, #fff);
+    box-shadow: 0 9px 22px rgba(41, 25, 11, 0.1);
+    transform: translateY(-2px);
+  }
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--brand) 22%, transparent);
+    outline-offset: 3px;
+  }
   .identity {
     display: grid;
     gap: 5px;
@@ -783,6 +804,25 @@ export const KitchenOrder = styled.article`
   display: grid;
   gap: 11px;
   box-shadow: 0 3px 12px #29190b08;
+  scroll-margin: 120px;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease,
+    background 220ms ease;
+  &.highlighted {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 7%, #fff);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent),
+      0 14px 30px color-mix(in srgb, var(--brand) 18%, transparent);
+    animation: kitchen-order-focus 720ms ease both;
+  }
+  @keyframes kitchen-order-focus {
+    0% { transform: scale(0.98); }
+    55% { transform: scale(1.018); }
+    100% { transform: scale(1); }
+  }
   .head {
     display: flex;
     align-items: start;
