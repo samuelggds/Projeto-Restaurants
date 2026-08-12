@@ -16,15 +16,13 @@ export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
         ? restaurantSettingsService.getPublicSettings(restaurantId)
         : storedRestaurantId > 0
           ? restaurantSettingsService.getPublicSettings(storedRestaurantId)
-          : null;
-    if (!request) {
-      Promise.resolve().then(() => {
-        if (active) setBranding(DEFAULT_LOGIN_BRANDING);
-      });
-      return () => { active = false; };
-    }
+          : restaurantSettingsService.getDefaultPublicSettings();
     Promise.resolve(request).then((settings) => {
-      if (active) setBranding(mapLoginBranding(settings));
+      if (!active) return;
+      if (Number(settings?.restaurantId) > 0) {
+        localStorage.setItem("menuRestaurantId", String(settings.restaurantId));
+      }
+      setBranding(mapLoginBranding(settings));
     }).catch(() => {
       if (active) setBranding(DEFAULT_LOGIN_BRANDING);
     });

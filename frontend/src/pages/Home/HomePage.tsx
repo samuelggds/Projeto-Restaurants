@@ -1,8 +1,9 @@
-import { ChevronRight, Heart, LayoutGrid, MapPin, Plus, Tag } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronRight, Heart, LayoutGrid, MapPin, Plus, Tag, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { HomeHeader } from "./components/HomeHeader";
 import * as S from "./Home.styles";
-import type { HomePageProps } from "./types";
+import type { HomePageProps, HomeProduct } from "./types";
 import {
   FacebookIcon,
   InstagramIcon,
@@ -27,6 +28,9 @@ export function HomePage({
   userLoggedIn = false,
   isAdmin = false,
   favoriteProductIds = [],
+  savedAddresses = [],
+  selectedAddressId,
+  onSelectAddress,
   onOpenMenu,
   onOpenProfile,
   onOpenAdmin,
@@ -40,6 +44,21 @@ export function HomePage({
   const [activeCategory, setActiveCategory] = useState(
     data.categories[0]?.id ?? "",
   );
+  const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedProduct(null);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedProduct]);
   const selectedCategory = data.categories.some(
     (category) => category.id === activeCategory,
   )
@@ -69,6 +88,61 @@ export function HomePage({
     onSelectCategory?.(id);
   };
 
+  const openProductDetails = (product: HomeProduct) => {
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      setSelectedProduct(product);
+    }
+  };
+
+  const renderProduct = (product: (typeof products)[number]) => (
+    <S.ProductCard
+      key={product.id}
+      role="button"
+      tabIndex={0}
+      aria-label={`Ver detalhes de ${product.name}`}
+      onClick={() => openProductDetails(product)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") openProductDetails(product);
+      }}
+    >
+      <S.ImageWrap>
+        <img src={product.image} alt={product.name} />
+        <button
+          className={favoriteIds.has(product.id) ? "favorite" : undefined}
+          aria-label={`Favoritar ${product.name}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleFavorite?.(product.id);
+          }}
+        >
+          <Heart
+            size={21}
+            fill={favoriteIds.has(product.id) ? "currentColor" : "none"}
+          />
+        </button>
+      </S.ImageWrap>
+      <div>
+        <h3>{product.name}</h3>
+        <p>{product.description}</p>
+        <footer>
+          {product.rating > 0 && <span>⭐ {product.rating}</span>}
+          <strong>{brl(product.price)}</strong>
+          <button
+            aria-label={product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`}
+            disabled={!product.available}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddProduct?.(product.id);
+            }}
+          >
+            {product.available ? <Plus /> : "Esgotado"}
+          </button>
+        </footer>
+      </div>
+    </S.ProductCard>
+  );
+
   return (
     <S.HomeRoot $primary={primary} id="inicio">
       <HomeHeader
@@ -78,6 +152,9 @@ export function HomePage({
         userEmail={userEmail}
         userLoggedIn={userLoggedIn}
         isAdmin={isAdmin}
+        savedAddresses={savedAddresses}
+        selectedAddressId={selectedAddressId}
+        onSelectAddress={onSelectAddress}
         onOpenMenu={onOpenMenu}
         onOpenProfile={onOpenProfile}
         onOpenAdmin={onOpenAdmin}
@@ -168,40 +245,30 @@ export function HomePage({
             <S.SectionTitle>
               {selectedCategory === "todos" ? "Todos os produtos" : activeCategoryName}
             </S.SectionTitle>
-            <S.ProductGrid key={selectedCategory}>
-              {products.map((product) => (
-                <S.ProductCard key={product.id}>
-                  <S.ImageWrap>
-                    <img src={product.image} alt={product.name} />
-                    <button
-                      className={favoriteIds.has(product.id) ? "favorite" : undefined}
-                      aria-label={`Favoritar ${product.name}`}
-                      onClick={() => onToggleFavorite?.(product.id)}
-                    >
-                      <Heart
-                        size={21}
-                        fill={favoriteIds.has(product.id) ? "currentColor" : "none"}
-                      />
-                    </button>
-                  </S.ImageWrap>
-                  <div>
-                    <h3>{product.name}</h3>
-                    <p>{product.description}</p>
-                    <footer>
-                      {product.rating > 0 && <span>⭐ {product.rating}</span>}
-                      <strong>{brl(product.price)}</strong>
-                      <button
-                        aria-label={product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`}
-                        disabled={!product.available}
-                        onClick={() => onAddProduct?.(product.id)}
-                      >
-                        {product.available ? <Plus /> : "Esgotado"}
-                      </button>
-                    </footer>
-                  </div>
-                </S.ProductCard>
-              ))}
-            </S.ProductGrid>
+            {selectedCategory === "todos" ? (
+              <>
+                <S.ProductCategoryGroups>
+                  {data.categories
+                    .filter((category) => category.id !== "todos")
+                    .map((category) => {
+                      const categoryProducts = products.filter(
+                        (product) => product.categoryId === category.id,
+                      );
+                      if (!categoryProducts.length) return null;
+                      return (
+                        <S.ProductCategoryGroup key={category.id}>
+                          <h3>{category.name}</h3>
+                          <S.ProductGrid>{categoryProducts.map(renderProduct)}</S.ProductGrid>
+                        </S.ProductCategoryGroup>
+                      );
+                    })}
+                </S.ProductCategoryGroups>
+              </>
+            ) : (
+              <S.ProductGrid key={selectedCategory}>
+                {products.map(renderProduct)}
+              </S.ProductGrid>
+            )}
           </>
         )}
 
@@ -262,6 +329,37 @@ export function HomePage({
         >
           <WhatsAppIcon size={24} />
         </S.Whatsapp>
+      )}
+
+      {selectedProduct && createPortal(
+        <>
+          <S.ProductModalOverlay
+            type="button"
+            $open
+            aria-label="Fechar detalhes do produto"
+            onClick={() => setSelectedProduct(null)}
+          />
+          <S.ProductModal
+            $open
+            $primary={primary}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedProduct.name}
+          >
+            <>
+              <img className="modal-image" src={selectedProduct.image} alt={selectedProduct.name} />
+            <button className="modal-close" type="button" aria-label="Fechar" onClick={() => setSelectedProduct(null)}>
+              <X size={21} />
+            </button>
+            <div className="modal-content">
+              <h2>{selectedProduct.name}</h2>
+              <p>{selectedProduct.description || "Conheça este produto preparado especialmente para você."}</p>
+              <strong>{brl(selectedProduct.price)}</strong>
+            </div>
+            </>
+          </S.ProductModal>
+        </>,
+        document.body,
       )}
     </S.HomeRoot>
   );

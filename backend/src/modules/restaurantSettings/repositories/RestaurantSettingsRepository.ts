@@ -44,6 +44,14 @@ class RestaurantSettingsRepository {
     });
   }
 
+  async findDefaultActiveRestaurant() {
+    return prisma.restaurant.findFirst({
+      where: { active: true },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+  }
+
   async findPublicByRestaurantId(restaurantId: number | string) {
     return prisma.restaurantSettings.findUnique({
       where: {

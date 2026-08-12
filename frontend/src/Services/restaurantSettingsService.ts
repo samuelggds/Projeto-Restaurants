@@ -48,6 +48,13 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async getDefaultPublicSettings() {
+    const response = await api.get("/settings/public/default", {
+      params: { _t: Date.now() },
+    });
+    return response.data;
+  }
+
   async getPublicSettingsBySlug(slug) {
     const response = await api.get(`/settings/public/slug/${slug}`, {
       params: { _t: Date.now() },

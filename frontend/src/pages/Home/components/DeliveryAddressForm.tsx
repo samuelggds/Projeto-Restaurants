@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { DeliveryAddress } from "../hooks/useDeliveryAddress";
-import type { CustomerAddress } from "../../../Services/customerAddressService";
 import * as S from "../../Home/Home.styles";
 
 type Props = {
@@ -9,9 +8,6 @@ type Props = {
   cepStatus: "idle" | "loading" | "success" | "error";
   cepMessage: string;
   onCepChange: (value: string) => void;
-  savedAddresses?: CustomerAddress[];
-  selectedAddressId?: string;
-  onSavedAddressChange?: (id: string) => void;
   onCepLookup: (value: string) => Promise<void>;
 };
 
@@ -21,12 +17,6 @@ export function DeliveryAddressForm(props: Props) {
 
   return (
     <S.AddressForm>
-      {!!props.savedAddresses?.length && <S.AddressField className="full saved-address">
-        <span>Endereço salvo</span>
-        <select aria-label="Endereço salvo" value={props.selectedAddressId} onChange={(event) => props.onSavedAddressChange?.(event.target.value)}>
-          {props.savedAddresses.map((item) => <option key={item.id} value={item.id}>{item.label} — {item.address}, {item.number}</option>)}
-        </select>
-      </S.AddressField>}
       <S.AddressField className="cep-field">
         <span>CEP</span>
         <input aria-label="CEP" inputMode="numeric" placeholder="00000-000" maxLength={9} value={props.address.zipCode} onBlur={(event) => void props.onCepLookup(event.target.value)} onChange={(event) => props.onCepChange(event.target.value)} />

@@ -4,6 +4,7 @@ import restaurantRepository from "../../restaurants/repositories/RestaurantRepos
 type RestaurantIdPayload = {
   restaurantId?: number | string;
   slug?: string;
+  useDefault?: boolean;
 };
 
 type PublicSettingsFallback = {
@@ -26,7 +27,7 @@ type PublicSettingsFallback = {
 };
 
 class GetPublicRestaurantSettingsService {
-  async execute({ restaurantId, slug }: RestaurantIdPayload) {
+  async execute({ restaurantId, slug, useDefault }: RestaurantIdPayload) {
     let normalizedRestaurantId = Number(restaurantId);
 
     if (
@@ -37,6 +38,15 @@ class GetPublicRestaurantSettingsService {
       const restaurant = await restaurantRepository.findBySlug(
         String(slug).trim(),
       );
+      normalizedRestaurantId = Number(restaurant?.id || 0);
+    }
+
+    if (
+      useDefault &&
+      (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0)
+    ) {
+      const restaurant =
+        await restaurantSettingsRepository.findDefaultActiveRestaurant();
       normalizedRestaurantId = Number(restaurant?.id || 0);
     }
 

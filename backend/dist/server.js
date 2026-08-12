@@ -8,7 +8,7 @@ import helmet from "helmet";
 import rateLimit5 from "express-rate-limit";
 
 // src/routes/index.ts
-import { Router as Router17 } from "express";
+import { Router as Router19 } from "express";
 
 // src/modules/auth/routes/authRoutes.ts
 import { Router } from "express";
@@ -1218,6 +1218,9 @@ function isBasicAuthDisabledError2(error2) {
   const normalized = message.toLowerCase();
   return normalized.includes("535") && normalized.includes("basic authentication is disabled");
 }
+function canLogPasswordResetCode(nodeEnv = process.env.NODE_ENV) {
+  return nodeEnv !== "production";
+}
 var RequestPasswordResetService = class {
   async execute({ email, phone }) {
     forgotPasswordSchema.parse({ email, phone });
@@ -1250,6 +1253,12 @@ var RequestPasswordResetService = class {
 Se preferir, abra: ${frontendUrl}/recover-password`
         });
       } catch (error2) {
+        if (process.env.NODE_ENV === "production") {
+          console.error(
+            "[password-reset] Nao foi possivel enviar o e-mail de recuperacao."
+          );
+          return { message: safeMessage };
+        }
         if (isBasicAuthDisabledError2(error2)) {
           throw new Error(
             "Falha no SMTP: o provedor bloqueou login por usuario/senha (basic auth). Configure SMTP_AUTH_TYPE=oauth2 com credenciais OAuth2 ou use um provedor com app password."
@@ -1257,10 +1266,12 @@ Se preferir, abra: ${frontendUrl}/recover-password`
         }
         throw error2;
       }
-    } else {
+    } else if (canLogPasswordResetCode()) {
       console.warn(
         `[password-reset] SMTP nao configurado. Codigo para ${user.email}: ${code}`
       );
+    } else {
+      return { message: safeMessage };
     }
     return { message: safeMessage };
   }
@@ -2799,6 +2810,7 @@ var RestaurantSettingsRepository = class {
             slug: true,
             logo: true,
             coverImage: true,
+            description: true,
             whatsapp: true
           }
         }
@@ -2816,6 +2828,7 @@ var RestaurantSettingsRepository = class {
         slug: true,
         logo: true,
         coverImage: true,
+        description: true,
         whatsapp: true,
         banners: {
           where: { active: true },
@@ -2825,6 +2838,13 @@ var RestaurantSettingsRepository = class {
       }
     });
   }
+  async findDefaultActiveRestaurant() {
+    return prisma_default.restaurant.findFirst({
+      where: { active: true },
+      select: { id: true },
+      orderBy: { id: "asc" }
+    });
+  }
   async findPublicByRestaurantId(restaurantId) {
     return prisma_default.restaurantSettings.findUnique({
       where: {
@@ -2832,6 +2852,7 @@ var RestaurantSettingsRepository = class {
       },
       select: {
         restaurantId: true,
+        primaryColor: true,
         deliveryFee: true,
         minimumOrder: true,
         pixProvider: true,
@@ -2844,6 +2865,7 @@ var RestaurantSettingsRepository = class {
             slug: true,
             logo: true,
             coverImage: true,
+            description: true,
             banners: {
               where: { active: true },
               select: { id: true, title: true, image: true },
@@ -3410,13 +3432,13 @@ var OrderPixPaymentService = class {
           )
         );
       }
-      const customerId = String(customerResult.responseBody.id || "").trim();
+      const customerId2 = String(customerResult.responseBody.id || "").trim();
       const walletId = String(privateSettings?.gatewayMerchantId || "").trim();
       const platformWalletId = String(
         process.env.ASAAS_PLATFORM_WALLET_ID || ""
       ).trim();
       const buildAsaasPaymentBody = (includeSplit) => ({
-        customer: customerId,
+        customer: customerId2,
         billingType: "PIX",
         value: totalAmount,
         dueDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
@@ -6562,7 +6584,7 @@ var asaasCardCheckoutProvider = {
         )
       );
     }
-    const customerId = String(customerResult.responseBody.id || "").trim();
+    const customerId2 = String(customerResult.responseBody.id || "").trim();
     const settings = await RestaurantSettingsRepository_default.findByRestaurantId(
       order.restaurantId
     );
@@ -6572,7 +6594,7 @@ var asaasCardCheckoutProvider = {
     ).trim();
     const systemFee = Number(order.systemFee || 0);
     const buildPaymentBody = (includeSplit) => ({
-      customer: customerId,
+      customer: customerId2,
       billingType: "UNDEFINED",
       value: Number(order.total || 0),
       dueDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
@@ -10394,7 +10416,8 @@ var CreateRestaurantSettingsService = class {
     facebook,
     restaurantName,
     restaurantLogo,
-    restaurantCoverImage
+    restaurantCoverImage,
+    restaurantDescription
   }) {
     const settingsExists = await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId);
     if (settingsExists) {
@@ -10404,6 +10427,7 @@ var CreateRestaurantSettingsService = class {
     const normalizedRestaurantName = restaurantName === void 0 ? void 0 : String(restaurantName || "").trim();
     const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage = restaurantCoverImage === void 0 ? void 0 : String(restaurantCoverImage || "").trim() || null;
+    const normalizedRestaurantDescription = restaurantDescription === void 0 ? void 0 : String(restaurantDescription || "").trim() || null;
     if (restaurantName !== void 0 && String(normalizedRestaurantName || "").length < 2) {
       throw new Error("Nome do restaurante inv\xE1lido.");
     }
@@ -10483,6 +10507,9 @@ var CreateRestaurantSettingsService = class {
     if (normalizedRestaurantCoverImage !== void 0) {
       restaurantData.coverImage = normalizedRestaurantCoverImage;
     }
+    if (normalizedRestaurantDescription !== void 0) {
+      restaurantData.description = normalizedRestaurantDescription;
+    }
     if (Object.keys(restaurantData).length > 0) {
       await prisma_default.restaurant.update({
         where: {
@@ -10518,7 +10545,8 @@ var CreateRestaurantSettingsService = class {
       whatsapp: normalizedWhatsapp ?? null,
       restaurantName: normalizedRestaurantName ?? null,
       restaurantLogo: normalizedRestaurantLogo ?? null,
-      restaurantCoverImage: normalizedRestaurantCoverImage ?? null
+      restaurantCoverImage: normalizedRestaurantCoverImage ?? null,
+      restaurantDescription: normalizedRestaurantDescription ?? null
     };
   }
 };
@@ -10572,7 +10600,8 @@ var CreateRestaurantSettingsController = class {
         facebook,
         restaurantName,
         restaurantLogo,
-        restaurantCoverImage
+        restaurantCoverImage,
+        restaurantDescription
       } = req.body;
       const settings = await CreateRestaurantSettingsService_default.execute({
         restaurantId,
@@ -10618,7 +10647,8 @@ var CreateRestaurantSettingsController = class {
         facebook,
         restaurantName,
         restaurantLogo,
-        restaurantCoverImage
+        restaurantCoverImage,
+        restaurantDescription
       });
       return res.status(201).json(settings);
     } catch (error2) {
@@ -10696,6 +10726,7 @@ var GetRestaurantSettingsService = class {
           name: restaurant.name,
           logo: restaurant.logo,
           coverImage: restaurant.coverImage,
+          description: restaurant.description,
           whatsapp: String(restaurant.whatsapp || "").trim() || null
         }
       };
@@ -10818,7 +10849,8 @@ var UpdateRestaurantSettingsService = class {
     facebook,
     restaurantName,
     restaurantLogo,
-    restaurantCoverImage
+    restaurantCoverImage,
+    restaurantDescription
   }) {
     const settings = await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId);
     if (!settings) {
@@ -10828,6 +10860,7 @@ var UpdateRestaurantSettingsService = class {
     const normalizedRestaurantName = restaurantName === void 0 ? void 0 : String(restaurantName || "").trim();
     const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage = restaurantCoverImage === void 0 ? void 0 : String(restaurantCoverImage || "").trim() || null;
+    const normalizedRestaurantDescription = restaurantDescription === void 0 ? void 0 : String(restaurantDescription || "").trim() || null;
     const normalizedBankName = bankName === void 0 ? void 0 : String(bankName || "").trim() || null;
     const normalizedBankBranch = bankBranch === void 0 ? void 0 : String(bankBranch || "").trim() || null;
     const normalizedBankAccount = bankAccount === void 0 ? void 0 : String(bankAccount || "").trim() || null;
@@ -10938,6 +10971,9 @@ var UpdateRestaurantSettingsService = class {
     if (normalizedRestaurantCoverImage !== void 0) {
       restaurantData.coverImage = normalizedRestaurantCoverImage;
     }
+    if (normalizedRestaurantDescription !== void 0) {
+      restaurantData.description = normalizedRestaurantDescription;
+    }
     if (Object.keys(restaurantData).length > 0) {
       await prisma_default.restaurant.update({
         where: {
@@ -10974,6 +11010,7 @@ var UpdateRestaurantSettingsService = class {
       restaurantName: restaurantName !== void 0 ? normalizedRestaurantName : String(settings?.restaurant?.name || "").trim() || null,
       restaurantLogo: restaurantLogo !== void 0 ? normalizedRestaurantLogo : String(settings?.restaurant?.logo || "").trim() || null,
       restaurantCoverImage: restaurantCoverImage !== void 0 ? normalizedRestaurantCoverImage : String(settings?.restaurant?.coverImage || "").trim() || null,
+      restaurantDescription: restaurantDescription !== void 0 ? normalizedRestaurantDescription : String(settings?.restaurant?.description || "").trim() || null,
       gatewayMerchantIdConfigured: Boolean(
         String(updated?.gatewayMerchantId || "").trim()
       ),
@@ -11032,7 +11069,8 @@ var UpdateRestaurantSettingsController = class {
         facebook,
         restaurantName,
         restaurantLogo,
-        restaurantCoverImage
+        restaurantCoverImage,
+        restaurantDescription
       } = req.body;
       const settings = await UpdateRestaurantSettingsService_default.execute({
         restaurantId,
@@ -11078,7 +11116,8 @@ var UpdateRestaurantSettingsController = class {
         facebook,
         restaurantName,
         restaurantLogo,
-        restaurantCoverImage
+        restaurantCoverImage,
+        restaurantDescription
       });
       return res.status(200).json(settings);
     } catch (error2) {
@@ -11092,12 +11131,16 @@ var UpdateRestaurantSettingsController_default = new UpdateRestaurantSettingsCon
 
 // src/modules/restaurantSettings/services/GetPublicRestaurantSettingsService.ts
 var GetPublicRestaurantSettingsService = class {
-  async execute({ restaurantId, slug }) {
+  async execute({ restaurantId, slug, useDefault }) {
     let normalizedRestaurantId = Number(restaurantId);
     if ((!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) && slug) {
       const restaurant = await RestaurantRepository_default.findBySlug(
         String(slug).trim()
       );
+      normalizedRestaurantId = Number(restaurant?.id || 0);
+    }
+    if (useDefault && (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0)) {
+      const restaurant = await RestaurantSettingsRepository_default.findDefaultActiveRestaurant();
       normalizedRestaurantId = Number(restaurant?.id || 0);
     }
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
@@ -11112,6 +11155,7 @@ var GetPublicRestaurantSettingsService = class {
       );
       const fallback = {
         restaurantId: normalizedRestaurantId,
+        primaryColor: "#c95d3d",
         deliveryFee: 0,
         minimumOrder: 0,
         pixProvider: "MERCADO_PAGO",
@@ -11123,6 +11167,7 @@ var GetPublicRestaurantSettingsService = class {
           slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
           coverImage: restaurant?.coverImage || null,
+          description: restaurant?.description || null,
           banners: restaurant?.banners || []
         }
       };
@@ -11139,9 +11184,11 @@ var GetPublicRestaurantSettingsController = class {
     try {
       const restaurantId = Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId;
       const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
+      const useDefault = req.path.endsWith("/default");
       const settings = await GetPublicRestaurantSettingsService_default.execute({
         restaurantId,
-        slug
+        slug,
+        useDefault
       });
       return res.status(200).json(settings);
     } catch (error2) {
@@ -11877,6 +11924,10 @@ var PagBankOAuthCallbackController_default = new PagBankOAuthCallbackController(
 
 // src/modules/restaurantSettings/routes/RestaurantSettingsRoutes.ts
 var router9 = Router9();
+router9.get(
+  "/public/default",
+  (req, res) => GetPublicRestaurantSettingsController_default.handle(req, res)
+);
 router9.get(
   "/public/slug/:slug",
   (req, res) => GetPublicRestaurantSettingsController_default.handle(req, res)
@@ -13471,8 +13522,12 @@ router16.post("/:productId", authMiddleware, async (req, res) => {
   const context = clientContext(req, res);
   if (!context) return;
   const productId = Number(req.params.productId);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    res.status(400).json({ error: "Produto inv\xE1lido." });
+    return;
+  }
   const product = await prisma_default.product.findFirst({
-    where: { id: productId, active: true }
+    where: { id: productId }
   });
   if (!product) {
     res.status(404).json({ error: "Produto n\xE3o encontrado." });
@@ -13498,6 +13553,128 @@ router16.delete("/:productId", authMiddleware, async (req, res) => {
   res.json({ favorite: false });
 });
 var FavoriteRoutes_default = router16;
+
+// src/modules/imageEnhancement/routes/ImageEnhancementRoutes.ts
+import { Router as Router17 } from "express";
+
+// src/modules/imageEnhancement/services/EnhanceRestaurantImageService.ts
+import OpenAI2, { toFile } from "openai";
+var DATA_URL_PATTERN = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$/;
+var EnhanceRestaurantImageService = class {
+  async execute(imageDataUrl) {
+    const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    if (!apiKey) throw new Error("OPENAI_API_KEY n\xE3o configurada no servidor.");
+    const match = String(imageDataUrl || "").match(DATA_URL_PATTERN);
+    if (!match) throw new Error("Envie uma imagem JPG, PNG ou WebP v\xE1lida.");
+    const input = Buffer.from(match[2], "base64");
+    if (!input.length || input.length > 5 * 1024 * 1024) {
+      throw new Error("A imagem deve ter no m\xE1ximo 5 MB.");
+    }
+    const client3 = new OpenAI2({ apiKey });
+    const editRequest = {
+      model: "gpt-image-2",
+      image: await toFile(input, "restaurant-cover.webp", { type: match[1] }),
+      prompt: "Create a polished high-definition square login hero from this restaurant brand image. Faithfully restore the complete original logo, lettering, colors and identity with crisp clean edges. Place the entire logo centered and clearly visible, occupying at most 55 percent of the canvas, with generous space around it. Build a tasteful, softly lit pizza restaurant background that complements the logo. Remove blur, pixelation and compression artifacts. Do not crop the logo, do not enlarge it to fill the canvas, do not alter its wording, and do not add new text, brands or watermarks.",
+      size: "1024x1024",
+      quality: "high"
+    };
+    const result = await client3.images.edit(editRequest);
+    const base64 = result.data?.[0]?.b64_json;
+    if (!base64) throw new Error("A IA n\xE3o retornou a imagem melhorada.");
+    return { imageDataUrl: `data:image/png;base64,${base64}` };
+  }
+};
+var EnhanceRestaurantImageService_default = new EnhanceRestaurantImageService();
+
+// src/modules/imageEnhancement/controllers/EnhanceRestaurantImageController.ts
+var EnhanceRestaurantImageController = class {
+  async handle(req, res) {
+    try {
+      return res.json(await EnhanceRestaurantImageService_default.execute(req.body?.imageDataUrl));
+    } catch (error2) {
+      return res.status(400).json({ error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel melhorar a imagem." });
+    }
+  }
+};
+var EnhanceRestaurantImageController_default = new EnhanceRestaurantImageController();
+
+// src/modules/imageEnhancement/routes/ImageEnhancementRoutes.ts
+var router17 = Router17();
+router17.post("/restaurant", authMiddleware, adminMiddleware, (req, res) => EnhanceRestaurantImageController_default.handle(req, res));
+var ImageEnhancementRoutes_default = router17;
+
+// src/modules/customerAddresses/routes/CustomerAddressRoutes.ts
+import { Router as Router18 } from "express";
+import { z as z11 } from "zod";
+var router18 = Router18();
+router18.use(authMiddleware);
+var addressSchema = z11.object({
+  label: z11.string().trim().min(1).max(40),
+  address: z11.string().trim().min(3).max(160),
+  number: z11.string().trim().regex(/^\d+[A-Za-z]?$/).max(10),
+  district: z11.string().trim().min(2).max(100),
+  city: z11.string().trim().min(2).max(100),
+  state: z11.string().trim().length(2).transform((value) => value.toUpperCase()),
+  zipCode: z11.string().transform((value) => value.replace(/\D/g, "")).refine((value) => value.length === 8),
+  complement: z11.string().trim().max(160).optional().default(""),
+  isDefault: z11.boolean().optional().default(false)
+});
+function customerId(req, res) {
+  if (req.user.role !== "CLIENTE" || !req.user.id) {
+    res.status(403).json({ error: "Endere\xE7os s\xE3o exclusivos para clientes." });
+    return null;
+  }
+  return Number(req.user.id);
+}
+router18.get("/", async (req, res) => {
+  const userId = customerId(req, res);
+  if (!userId) return;
+  const addresses = await prisma_default.userAddress.findMany({ where: { userId }, orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] });
+  res.json({ addresses });
+});
+router18.post("/", async (req, res) => {
+  const userId = customerId(req, res);
+  if (!userId) return;
+  const parsed = addressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Preencha todos os dados do endere\xE7o corretamente." });
+    return;
+  }
+  const count = await prisma_default.userAddress.count({ where: { userId } });
+  const makeDefault = parsed.data.isDefault || count === 0;
+  const address = await prisma_default.$transaction(async (tx) => {
+    if (makeDefault) await tx.userAddress.updateMany({ where: { userId }, data: { isDefault: false } });
+    return tx.userAddress.create({ data: {
+      userId,
+      label: parsed.data.label,
+      address: parsed.data.address,
+      number: parsed.data.number,
+      district: parsed.data.district,
+      city: parsed.data.city,
+      state: parsed.data.state,
+      zipCode: parsed.data.zipCode,
+      complement: parsed.data.complement || null,
+      isDefault: makeDefault
+    } });
+  });
+  res.status(201).json({ address });
+});
+router18.put("/:id/default", async (req, res) => {
+  const userId = customerId(req, res);
+  if (!userId) return;
+  const id = Number(req.params.id);
+  const exists = await prisma_default.userAddress.findFirst({ where: { id, userId } });
+  if (!exists) {
+    res.status(404).json({ error: "Endere\xE7o n\xE3o encontrado." });
+    return;
+  }
+  const address = await prisma_default.$transaction(async (tx) => {
+    await tx.userAddress.updateMany({ where: { userId }, data: { isDefault: false } });
+    return tx.userAddress.update({ where: { id }, data: { isDefault: true } });
+  });
+  res.json({ address });
+});
+var CustomerAddressRoutes_default = router18;
 
 // src/modules/orders/controllers/AsaasOrderWebhookController.ts
 var AsaasOrderWebhookController = class {
@@ -13667,39 +13844,41 @@ var AsaasWithdrawValidationWebhookController = class {
 var AsaasWithdrawValidationWebhookController_default = new AsaasWithdrawValidationWebhookController();
 
 // src/routes/index.ts
-var router17 = Router17();
-router17.post("/api/webhooks/asaas", (req, res) => {
+var router19 = Router19();
+router19.post("/api/webhooks/asaas", (req, res) => {
   AsaasOrderWebhookController_default.handle(req, res);
 });
-router17.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
+router19.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
   AsaasWithdrawValidationWebhookController_default.handle(req, res);
 });
-router17.use("/auth", authRoutes_default);
-router17.use("/restaurants", restaurantRoutes_default);
-router17.use("/categories", CategoryRoutes_default);
-router17.use("/products", productsRoutes_default);
-router17.use("/orders", orderRoutes_default);
-router17.use("/employees", EmployeeRoutes_default);
-router17.use("/table-sessions", SessionsTablesRoutes_default);
-router17.use("/tables", TablesRoutes_default);
-router17.use("/settings", RestaurantSettingsRoutes_default);
-router17.use("/banners", BannerRoutes_default);
-router17.use("/coupons", CouponRoutes_default);
-router17.use("/subscription", SubscriptionRoutes_default);
-router17.use("/ai-support", AiSupportRoutes_default);
-router17.use("/menu-import", MenuImportRoutes_default);
-router17.use("/audit-logs", AuditRoutes_default);
-router17.use("/favorites", FavoriteRoutes_default);
-router17.get("/profile", authMiddleware, (req, res) => {
+router19.use("/auth", authRoutes_default);
+router19.use("/restaurants", restaurantRoutes_default);
+router19.use("/categories", CategoryRoutes_default);
+router19.use("/products", productsRoutes_default);
+router19.use("/orders", orderRoutes_default);
+router19.use("/employees", EmployeeRoutes_default);
+router19.use("/table-sessions", SessionsTablesRoutes_default);
+router19.use("/tables", TablesRoutes_default);
+router19.use("/settings", RestaurantSettingsRoutes_default);
+router19.use("/banners", BannerRoutes_default);
+router19.use("/coupons", CouponRoutes_default);
+router19.use("/subscription", SubscriptionRoutes_default);
+router19.use("/ai-support", AiSupportRoutes_default);
+router19.use("/menu-import", MenuImportRoutes_default);
+router19.use("/audit-logs", AuditRoutes_default);
+router19.use("/favorites", FavoriteRoutes_default);
+router19.use("/image-enhancement", ImageEnhancementRoutes_default);
+router19.use("/customer-addresses", CustomerAddressRoutes_default);
+router19.get("/profile", authMiddleware, (req, res) => {
   return res.json({
     message: "Rota protegida!",
     user: req.user
   });
 });
-var routes_default = router17;
+var routes_default = router19;
 
 // src/modules/billing/routes/BillingRoutes.ts
-import { Router as Router18 } from "express";
+import { Router as Router20 } from "express";
 
 // src/modules/billing/controllers/MercadoPagoWebhookController.ts
 import { MercadoPagoConfig as MercadoPagoConfig3, Payment as Payment3 } from "mercadopago";
@@ -14180,34 +14359,34 @@ var RegenerateInvoicePaymentLinkController = class {
 var RegenerateInvoicePaymentLinkController_default = new RegenerateInvoicePaymentLinkController();
 
 // src/modules/billing/routes/BillingRoutes.ts
-var router18 = Router18();
-router18.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
-router18.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
-router18.get(
+var router20 = Router20();
+router20.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
+router20.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
+router20.get(
   "/plans",
   authMiddleware,
   adminMiddleware,
   (req, res) => GetPlansController_default.handle(req, res)
 );
-router18.get(
+router20.get(
   "/invoices",
   authMiddleware,
   adminMiddleware,
   (req, res) => GetInvoicesController_default.handle(req, res)
 );
-router18.get(
+router20.get(
   "/invoices/all",
   authMiddleware,
   superAdminMiddleware,
   (req, res) => GetAllInvoicesController_default.handle(req, res)
 );
-router18.post(
+router20.post(
   "/invoices/:id/regenerate-link",
   authMiddleware,
   adminMiddleware,
   (req, res) => RegenerateInvoicePaymentLinkController_default.handle(req, res)
 );
-var BillingRoutes_default = router18;
+var BillingRoutes_default = router20;
 
 // src/middlewares/security/requestIdMiddleware.ts
 import crypto10 from "crypto";

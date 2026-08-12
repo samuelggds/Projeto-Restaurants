@@ -69,6 +69,10 @@ function isBasicAuthDisabledError(error: unknown) {
   );
 }
 
+export function canLogPasswordResetCode(nodeEnv = process.env.NODE_ENV) {
+  return nodeEnv !== "production";
+}
+
 class RequestPasswordResetService {
   async execute({ email, phone }: { email?: string; phone?: string }) {
     forgotPasswordSchema.parse({ email, phone });
@@ -115,6 +119,15 @@ class RequestPasswordResetService {
           text: `Seu codigo para redefinir a senha e: ${code}. Ele expira em 15 minutos.\n\nSe preferir, abra: ${frontendUrl}/recover-password`,
         });
       } catch (error) {
+        if (process.env.NODE_ENV === "production") {
+          // Keep the public response indistinguishable from a successful request
+          // and never expose the recovery code or the account e-mail in logs.
+          console.error(
+            "[password-reset] Nao foi possivel enviar o e-mail de recuperacao.",
+          );
+          return { message: safeMessage };
+        }
+
         if (isBasicAuthDisabledError(error)) {
           throw new Error(
             "Falha no SMTP: o provedor bloqueou login por usuario/senha (basic auth). Configure SMTP_AUTH_TYPE=oauth2 com credenciais OAuth2 ou use um provedor com app password.",
@@ -123,10 +136,13 @@ class RequestPasswordResetService {
 
         throw error;
       }
-    } else {
+    } else if (canLogPasswordResetCode()) {
       console.warn(
         `[password-reset] SMTP nao configurado. Codigo para ${user.email}: ${code}`,
       );
+    } else {
+      // Do not disclose whether the account exists and never print its reset code.
+      return { message: safeMessage };
     }
 
     return { message: safeMessage };

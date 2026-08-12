@@ -6,10 +6,12 @@ import GetPublicRestaurantSettingsService from "./GetPublicRestaurantSettingsSer
 
 const originalFindPublic = restaurantSettingsRepository.findPublicByRestaurantId;
 const originalFindRestaurant = restaurantSettingsRepository.findRestaurantById;
+const originalFindDefault = restaurantSettingsRepository.findDefaultActiveRestaurant;
 
 afterEach(() => {
   restaurantSettingsRepository.findPublicByRestaurantId = originalFindPublic;
   restaurantSettingsRepository.findRestaurantById = originalFindRestaurant;
+  restaurantSettingsRepository.findDefaultActiveRestaurant = originalFindDefault;
 });
 
 test("mantém a cor personalizada na configuração pública", async () => {
@@ -36,4 +38,23 @@ test("usa uma cor segura quando o restaurante ainda não possui configurações"
     });
 
     assert.equal(settings.primaryColor, "#c95d3d");
+});
+
+test("carrega a identidade do restaurante ativo ao abrir o login diretamente", async () => {
+    restaurantSettingsRepository.findDefaultActiveRestaurant = async () =>
+      ({ id: 3 }) as never;
+    restaurantSettingsRepository.findPublicByRestaurantId = async (id) =>
+      ({
+        restaurantId: Number(id),
+        primaryColor: "#c95d3d",
+        restaurant: { name: "North Pizza", coverImage: "capa-salva" },
+      }) as never;
+
+    const settings = await GetPublicRestaurantSettingsService.execute({
+      useDefault: true,
+    });
+
+    assert.equal(settings.restaurantId, 3);
+    assert.equal(settings.restaurant.name, "North Pizza");
+    assert.equal(settings.restaurant.coverImage, "capa-salva");
 });

@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import type { HomeBrand } from "../types";
+import type { CustomerAddress } from "../../../Services/customerAddressService";
 
 type Props = {
   brand: HomeBrand;
@@ -19,6 +20,9 @@ type Props = {
   userEmail?: string;
   userLoggedIn?: boolean;
   isAdmin?: boolean;
+  savedAddresses?: CustomerAddress[];
+  selectedAddressId?: string;
+  onSelectAddress?: (addressId: string) => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
@@ -34,6 +38,9 @@ export function HomeHeader({
   userEmail,
   userLoggedIn = false,
   isAdmin = false,
+  savedAddresses = [],
+  selectedAddressId,
+  onSelectAddress,
   onOpenMenu,
   onOpenProfile,
   onOpenAdmin,
@@ -43,7 +50,9 @@ export function HomeHeader({
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -52,6 +61,12 @@ export function HomeHeader({
         !profileRef.current.contains(e.target as Node)
       ) {
         setProfileOpen(false);
+      }
+      if (
+        locationRef.current &&
+        !locationRef.current.contains(e.target as Node)
+      ) {
+        setLocationOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -67,6 +82,12 @@ export function HomeHeader({
         .join("")
         .toUpperCase()
     : "U";
+  const selectedAddress = savedAddresses.find(
+    (address) => String(address.id) === String(selectedAddressId),
+  );
+  const locationText = selectedAddress
+    ? `${selectedAddress.address}, ${selectedAddress.number}`
+    : brand.address;
 
   return (
     <Header $primary={brand.primaryColor ?? "#d64d08"}>
@@ -79,11 +100,40 @@ export function HomeHeader({
         <strong>{brand.name}</strong>
       </Brand>
 
-      <Location>
-        <MapPin size={17} />
-        <span>Entregar em</span>
-        <b>• {brand.address}</b>
-      </Location>
+      <LocationWrap ref={locationRef}>
+        <Location
+          type="button"
+          aria-label="Escolher endereço de entrega"
+          aria-expanded={locationOpen}
+          onClick={() => savedAddresses.length > 0 && setLocationOpen((open) => !open)}
+        >
+          <MapPin size={17} />
+          <span>Entregar em</span>
+          <b>• {locationText || "Escolha um endereço"}</b>
+        </Location>
+        {savedAddresses.length > 0 && (
+          <LocationDropdown $open={locationOpen}>
+            <strong>Onde deseja receber?</strong>
+            {savedAddresses.map((address) => (
+              <LocationOption
+                type="button"
+                key={address.id}
+                $active={String(address.id) === String(selectedAddressId)}
+                onClick={() => {
+                  onSelectAddress?.(String(address.id));
+                  setLocationOpen(false);
+                }}
+              >
+                <MapPin size={17} />
+                <span>
+                  <b>{address.label}</b>
+                  <small>{address.address}, {address.number} • {address.district}</small>
+                </span>
+              </LocationOption>
+            ))}
+          </LocationDropdown>
+        )}
+      </LocationWrap>
 
       <Navigation $open={mobileOpen}>
         <a href="#inicio" onClick={() => setMobileOpen(false)}>
@@ -204,6 +254,11 @@ const Header = styled.header<{ $primary: string }>`
     padding: 0 14px;
     gap: 10px;
   }
+  @media (max-width: 760px) {
+    height: 118px;
+    padding: 14px 14px 50px;
+    align-items: flex-start;
+  }
 `;
 const Brand = styled.a`
   display: flex;
@@ -237,8 +292,22 @@ const Monogram = styled.span`
     font-size: 25px;
   }
 `;
-const Location = styled.div`
+const LocationWrap = styled.div`
   margin-left: auto;
+  position: relative;
+  @media (max-width: 980px) {
+    display: none;
+  }
+  @media (max-width: 760px) {
+    display: block;
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 8px;
+    margin-left: 0;
+  }
+`;
+const Location = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
@@ -246,14 +315,83 @@ const Location = styled.div`
   border: 1px solid #eadfd3;
   border-radius: 999px;
   font-size: 14px;
+  background: #fffdf9;
+  color: #191816;
+  cursor: pointer;
+  max-width: 360px;
   span {
     font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   b {
     font-weight: 500;
+    min-width: 0;
+    max-width: 210px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  @media (max-width: 980px) {
-    display: none;
+  @media (max-width: 760px) {
+    width: 100%;
+    height: 40px;
+    padding: 8px 12px;
+    max-width: none;
+    font-size: 12px;
+    b {
+      max-width: none;
+      flex: 1;
+      text-align: left;
+    }
+  }
+`;
+const LocationDropdown = styled.div<{ $open: boolean }>`
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(360px, 86vw);
+  padding: 10px;
+  border: 1px solid #eadfd3;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(50, 30, 15, 0.16);
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  transform: translateY(${({ $open }) => ($open ? "0" : "-8px")});
+  pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 210;
+  > strong {
+    display: block;
+    padding: 7px 9px 9px;
+    font-size: 14px;
+  }
+  @media (max-width: 760px) {
+    width: 100%;
+    max-height: min(360px, 55vh);
+    overflow-y: auto;
+  }
+`;
+const LocationOption = styled.button<{ $active: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid ${({ $active }) => ($active ? "var(--home-primary)" : "transparent")};
+  border-radius: 11px;
+  background: ${({ $active }) => ($active ? "#fff5ef" : "transparent")};
+  color: #191816;
+  text-align: left;
+  cursor: pointer;
+  &:hover { background: #fbf4ec; }
+  > span { min-width: 0; }
+  b, small { display: block; }
+  b { font-size: 13px; margin-bottom: 3px; }
+  small {
+    color: #746d66;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;
 const Navigation = styled.nav<{ $open: boolean }>`
@@ -277,7 +415,7 @@ const Navigation = styled.nav<{ $open: boolean }>`
   @media (max-width: 760px) {
     display: ${({ $open }) => ($open ? "flex" : "none")};
     position: fixed;
-    top: 68px;
+    top: 118px;
     left: 0;
     right: 0;
     height: auto;

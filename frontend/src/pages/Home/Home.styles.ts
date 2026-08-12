@@ -10,6 +10,18 @@ const productReveal = keyframes`
     transform: translateY(0) scale(1);
   }
 `;
+const modalBackdropReveal = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+const productModalReveal = keyframes`
+  from { opacity: 0; transform: translateY(18px) scale(0.965); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+const modalContentReveal = keyframes`
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
 export const HomeRoot = styled.div<{ $primary: string }>`
   --home-primary: ${({ $primary }) => $primary};
@@ -297,26 +309,47 @@ export const CategoryButton = styled.button<{ $active: boolean }>`
 `;
 export const ProductGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
-  @media (max-width: 1000px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(980px, 100%);
+  margin-inline: auto;
+  @media (max-width: 760px) {
+    width: min(380px, calc(100% - 12px));
+    margin-inline: auto;
+    gap: 14px;
+    overflow: visible;
   }
-  @media (max-width: 560px) {
-    display: flex;
-    width: calc(100% + 24px);
-    margin-inline: -12px;
-    padding: 0 12px 4px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    &::-webkit-scrollbar {
-      display: none;
-    }
+`;
+export const ProductCategoryGroups = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  width: min(980px, 100%);
+  margin-inline: auto;
+  @media (max-width: 760px) { gap: 28px; }
+`;
+export const ProductCategoryGroup = styled.section`
+  h3 {
+    margin: 0 0 12px;
+    padding-left: 10px;
+    border-left: 4px solid var(--home-primary);
+    color: var(--home-text);
+    font-size: 19px;
+    line-height: 1.2;
   }
 `;
 export const ProductCard = styled.article`
   min-width: 0;
+  cursor: default;
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  &:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--home-primary) 38%, var(--home-border));
+    box-shadow: 0 16px 38px rgba(70, 45, 20, 0.1);
+  }
+  display: grid;
+  grid-template-columns: minmax(230px, 320px) minmax(0, 1fr);
+  min-height: 190px;
   border: 1px solid var(--home-border);
   border-radius: 15px;
   overflow: hidden;
@@ -331,18 +364,21 @@ export const ProductCard = styled.article`
     transition: none;
   }
   > div:last-child {
-    padding: 11px 14px;
+    min-width: 0;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
   }
   h3 {
     margin: 0;
-    font-size: 16px;
+    font-size: 18px;
   }
   p {
-    min-height: 34px;
-    margin: 5px 0;
+    min-height: 0;
+    margin: 8px 0 18px;
     color: var(--home-muted);
-    font-size: 12px;
-    line-height: 1.4;
+    font-size: 13px;
+    line-height: 1.5;
   }
   footer {
     display: flex;
@@ -374,18 +410,149 @@ export const ProductCard = styled.article`
     font-size: 12px;
     font-weight: 700;
   }
-  @media (max-width: 560px) {
-    flex: 0 0 82vw;
-    scroll-snap-align: center;
+  @media (max-width: 760px) {
+    width: 100%;
+    max-width: 380px;
+    margin-inline: auto;
+    min-width: 0;
+    flex: none;
+    cursor: pointer;
+    display: block;
+    min-height: 0;
+    > div:last-child {
+      min-height: 104px;
+      padding: 11px 12px;
+    }
+    h3 { font-size: 15px; }
+    p {
+      margin: 4px 0 10px;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    footer {
+      gap: 7px;
+      font-size: 12px;
+    }
+    footer button {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+    }
+  }
+`;
+export const ProductModalOverlay = styled.button<{ $open: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  border: 0;
+  background: rgba(18, 14, 11, 0.68);
+  backdrop-filter: blur(7px);
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
+  transition: opacity 200ms ease, visibility 200ms ease;
+  animation: ${modalBackdropReveal} 280ms ease both;
+  cursor: pointer;
+`;
+export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
+  --home-primary: ${({ $primary }) => $primary || "#d64d08"};
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 301;
+  width: min(520px, calc(100vw - 28px));
+  height: fit-content;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden auto;
+  border-radius: 22px;
+  background: #fffdf9;
+  box-shadow: 0 30px 90px rgba(20, 12, 7, 0.35);
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
+  transform: scale(${({ $open }) => ($open ? 1 : 0.96)});
+  transition: opacity 200ms ease, transform 220ms ease, visibility 200ms ease;
+  animation: ${productModalReveal} 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  .modal-image {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    object-position: center;
+    aspect-ratio: 16 / 9;
+    display: block;
+    animation: ${modalContentReveal} 380ms 50ms ease both;
+  }
+  .modal-close {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.94);
+    color: #191816;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
+    cursor: pointer;
+    transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    &:hover { transform: rotate(5deg) scale(1.06); background: #fff; }
+  }
+  .modal-content {
+    padding: 22px 24px 25px;
+    background: linear-gradient(145deg, #fff9f4 0%, #f8efe6 100%);
+    border-top: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 18%, #eadfd3);
+    animation: ${modalContentReveal} 360ms 80ms ease both;
+  }
+  h2 {
+    margin: 0;
+    color: #201a16;
+    font-size: 25px;
+    letter-spacing: -0.025em;
+  }
+  p {
+    margin: 10px 0 20px;
+    color: #665b52;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  strong {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 8px 13px;
+    border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 24%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
+    color: var(--home-primary, #d64d08);
+    font-size: 20px;
+    line-height: 1;
+    box-shadow: 0 5px 14px color-mix(in srgb, var(--home-primary, #d64d08) 10%, transparent);
+  }
+  @media (max-width: 760px) {
+    width: min(390px, calc(100vw - 20px));
+    max-height: calc(100dvh - 20px);
+    border-radius: 18px;
+    .modal-image { height: 220px; }
+    .modal-content { padding: 17px 18px 20px; }
+    h2 { font-size: 21px; }
+    p { margin-bottom: 16px; font-size: 13px; }
+    strong { padding: 7px 11px; font-size: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    .modal-image, .modal-content { animation: none; }
   }
 `;
 export const ImageWrap = styled.div`
-  height: 145px;
+  height: 100%;
+  min-height: 190px;
   position: relative;
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    display: block;
   }
   button {
     position: absolute;
@@ -409,6 +576,16 @@ export const ImageWrap = styled.div`
   button.favorite {
     color: #e53935;
     background: rgba(255, 255, 255, 0.94);
+  }
+  @media (max-width: 760px) {
+    height: 138px;
+    min-height: 138px;
+    button {
+      width: 32px;
+      height: 32px;
+      right: 8px;
+      top: 8px;
+    }
   }
 `;
 export const About = styled.section`
@@ -544,6 +721,7 @@ export const FooterColumn = styled.div`
     gap: 8px;
     color: #aaa39c;
     font-size: 14px;
+    margin-top: auto;
     line-height: 1.45;
     text-decoration: none;
   }
@@ -1401,20 +1579,21 @@ export const NotifItem = styled.div<{
   .notif-body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
+    min-width: 0;
   }
 
   .notif-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: #191816;
-    line-height: 1.3;
+    line-height: 1.25;
   }
 
   .notif-msg {
-    font-size: 12px;
+    font-size: 13px;
     color: #6f6a63;
-    line-height: 1.4;
+    line-height: 1.35;
   }
 
   .notif-close {

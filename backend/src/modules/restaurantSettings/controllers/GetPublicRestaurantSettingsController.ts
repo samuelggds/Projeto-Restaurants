@@ -10,10 +10,12 @@ class GetPublicRestaurantSettingsController {
       const slug = Array.isArray(req.params.slug)
         ? req.params.slug[0]
         : req.params.slug;
+      const useDefault = req.path.endsWith("/default");
 
       const settings = await getPublicRestaurantSettingsService.execute({
         restaurantId,
         slug,
+        useDefault,
       });
 
       return res.status(200).json(settings);

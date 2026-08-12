@@ -50,10 +50,17 @@ export default function Home() {
   const notify = useCallback(
     (type: NotifType, title: string, msg?: string, duration = 3500) => {
       const id = Date.now();
-      setNotifs((prev) => [
-        ...prev.slice(-3),
-        { id, type, title, msg, visible: false },
-      ]);
+      setNotifs((prev) => {
+        const duplicate = prev.some(
+          (notification) =>
+            notification.title === title && notification.msg === msg,
+        );
+        if (duplicate) return prev;
+        return [
+          ...prev.slice(-3),
+          { id, type, title, msg, visible: false },
+        ];
+      });
       requestAnimationFrame(() =>
         setNotifs((prev) =>
           prev.map((n) => (n.id === id ? { ...n, visible: true } : n)),
@@ -259,6 +266,16 @@ export default function Home() {
         userLoggedIn={!!user}
         isAdmin={user?.role === "ADMIN"}
         favoriteProductIds={user?.role === "CLIENTE" ? favoriteProductIds : []}
+        savedAddresses={savedAddresses}
+        selectedAddressId={selectedAddressId}
+        onSelectAddress={(addressId) => {
+          handleSavedAddressChange(addressId);
+          notify(
+            "success",
+            "Endereço selecionado",
+            "Este endereço será usado automaticamente no carrinho.",
+          );
+        }}
         onOpenCart={() => setCartOpen(true)}
         onOpenProfile={() => navigate("/profile")}
         onOpenAdmin={() => navigate("/admin")}
@@ -327,9 +344,6 @@ export default function Home() {
                 cepStatus={cepStatus}
                 cepMessage={cepMessage}
                 onCepChange={handleCepChange}
-                savedAddresses={savedAddresses}
-                selectedAddressId={selectedAddressId}
-                onSavedAddressChange={handleSavedAddressChange}
                 onCepLookup={handleCepLookup}
               />
             )}

@@ -18,6 +18,10 @@ import { adminMiddleware } from "../../../middlewares/adminMiddleware.js";
 
 const router = Router();
 
+router.get("/public/default", (req, res) =>
+  GetPublicRestaurantSettingsController.handle(req, res),
+);
+
 router.get("/public/slug/:slug", (req, res) =>
   GetPublicRestaurantSettingsController.handle(req, res),
 );

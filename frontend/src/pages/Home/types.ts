@@ -1,3 +1,5 @@
+import type { CustomerAddress } from "../../Services/customerAddressService";
+
 export type HomeBrand = {
   name: string;
   monogram?: string;
@@ -55,6 +57,9 @@ export type HomePageProps = {
   userLoggedIn?: boolean;
   isAdmin?: boolean;
   favoriteProductIds?: string[];
+  savedAddresses?: CustomerAddress[];
+  selectedAddressId?: string;
+  onSelectAddress?: (addressId: string) => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
