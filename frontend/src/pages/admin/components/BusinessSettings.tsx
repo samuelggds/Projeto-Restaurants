@@ -1,35 +1,27 @@
 import * as S from "../Admin.styles";
+import { formatBusinessPhone, formatCpf, formatCnpj, validateBusinessSettings } from "../domain/businessSettingsValidation";
+import type { AdminSettings } from "../types";
 
-export function BusinessSettings() {
+type Props = {
+  settings: AdminSettings;
+  update: <K extends keyof AdminSettings>(key: K, value: AdminSettings[K]) => void;
+};
+
+export function BusinessSettings({ settings, update }: Props) {
+  const errors = validateBusinessSettings(settings);
   return (
     <S.SettingSection>
       <S.Card>
         <h2>Informações comerciais</h2>
         <p>Dados legais e de contato do estabelecimento.</p>
         <S.FormGrid>
-          <S.Field>Razão social<input defaultValue="Sabor & Casa Restaurante LTDA" /></S.Field>
-          <S.Field>CNPJ<input defaultValue="12.345.678/0001-90" /></S.Field>
-          <S.Field>Telefone<input defaultValue="(85) 3333-4455" /></S.Field>
-          <S.Field>E-mail comercial<input type="email" defaultValue="contato@saborecasa.com" /></S.Field>
+          <S.Field>Razão social<input value={settings.companyLegalName} maxLength={150} onChange={(event) => update("companyLegalName", event.target.value)} aria-invalid={Boolean(errors.companyLegalName)} />{errors.companyLegalName && <small>{errors.companyLegalName}</small>}</S.Field>
+          <S.Field>Tipo de documento<select value={settings.legalDocumentType} onChange={(event) => { update("legalDocumentType", event.target.value as "CPF" | "CNPJ"); update("companyDocument", ""); }}><option value="CNPJ">CNPJ</option><option value="CPF">CPF</option></select></S.Field>
+          <S.Field>{settings.legalDocumentType}<input inputMode="numeric" value={settings.legalDocumentType === "CPF" ? formatCpf(settings.companyDocument) : formatCnpj(settings.companyDocument)} onChange={(event) => update("companyDocument", settings.legalDocumentType === "CPF" ? formatCpf(event.target.value) : formatCnpj(event.target.value))} aria-invalid={Boolean(errors.companyDocument)} />{errors.companyDocument && <small>{errors.companyDocument}</small>}</S.Field>
+          <S.Field>Telefone<input inputMode="tel" value={formatBusinessPhone(settings.businessPhone)} onChange={(event) => update("businessPhone", formatBusinessPhone(event.target.value))} aria-invalid={Boolean(errors.businessPhone)} />{errors.businessPhone && <small>{errors.businessPhone}</small>}</S.Field>
+          <S.Field>E-mail comercial<input type="email" value={settings.businessEmail} maxLength={160} onChange={(event) => update("businessEmail", event.target.value)} aria-invalid={Boolean(errors.businessEmail)} />{errors.businessEmail && <small>{errors.businessEmail}</small>}</S.Field>
         </S.FormGrid>
       </S.Card>
     </S.SettingSection>
-  );
-}
-
-export function AddressSettings() {
-  return (
-    <S.Card>
-      <h2>Endereço do estabelecimento</h2>
-      <p>Origem das entregas e local de retirada.</p>
-      <S.FormGrid>
-        <S.Field>CEP<input defaultValue="60100-000" /></S.Field>
-        <S.Field>Rua<input defaultValue="Rua das Flores" /></S.Field>
-        <S.Field>Número<input defaultValue="123" /></S.Field>
-        <S.Field>Complemento<input placeholder="Opcional" /></S.Field>
-        <S.Field>Bairro<input defaultValue="Centro" /></S.Field>
-        <S.Field>Cidade<input defaultValue="Fortaleza - CE" /></S.Field>
-      </S.FormGrid>
-    </S.Card>
   );
 }

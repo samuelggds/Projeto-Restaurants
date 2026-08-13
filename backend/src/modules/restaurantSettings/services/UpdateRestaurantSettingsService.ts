@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 import prisma from "../../../config/prisma.js";
 import { normalizeRestaurantImage } from "../utils/normalizeRestaurantImage.js";
+import { normalizeEstablishmentAddress, validateEstablishmentAddress } from "../utils/establishmentAddress.js";
 
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -49,9 +50,40 @@ type UpdateRestaurantSettingsPayload = {
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
   restaurantDescription?: string | null;
+  restaurantAddress?: string | null;
+  restaurantAddressNumber?: string | null;
+  restaurantAddressComplement?: string | null;
+  restaurantAddressDistrict?: string | null;
+  restaurantCity?: string | null;
+  restaurantState?: string | null;
+  restaurantZipCode?: string | null;
+  businessHours?: unknown;
+  isOpenForOrders?: boolean;
 };
 
 class UpdateRestaurantSettingsService {
+  private isValidCpf(value: string) {
+    if (!/^\d{11}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const digit = (base: string, factor: number) => {
+      const sum = base.split("").reduce((total, number, index) => total + Number(number) * (factor - index), 0);
+      const result = (sum * 10) % 11;
+      return result === 10 ? 0 : result;
+    };
+    return value.endsWith(`${digit(value.slice(0, 9), 10)}${digit(value.slice(0, 10), 11)}`);
+  }
+
+  private isValidCnpj(value: string) {
+    if (!/^\d{14}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const digit = (base: string, weights: number[]) => {
+      const sum = base.split("").reduce((total, number, index) => total + Number(number) * weights[index], 0);
+      const remainder = sum % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    const first = digit(value.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = digit(value.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return value.endsWith(`${first}${second}`);
+  }
+
   private getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com")
       .trim()
@@ -130,6 +162,15 @@ class UpdateRestaurantSettingsService {
     restaurantLogo,
     restaurantCoverImage,
     restaurantDescription,
+    restaurantAddress,
+    restaurantAddressNumber,
+    restaurantAddressComplement,
+    restaurantAddressDistrict,
+    restaurantCity,
+    restaurantState,
+    restaurantZipCode,
+    businessHours,
+    isOpenForOrders,
   }: UpdateRestaurantSettingsPayload) {
     const settings =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -157,6 +198,18 @@ class UpdateRestaurantSettingsService {
     const normalizedRestaurantDescription = restaurantDescription === undefined
       ? undefined
       : String(restaurantDescription || "").trim() || null;
+    const establishmentAddress = normalizeEstablishmentAddress({
+      address: restaurantAddress,
+      number: restaurantAddressNumber,
+      complement: restaurantAddressComplement,
+      district: restaurantAddressDistrict,
+      city: restaurantCity,
+      state: restaurantState,
+      zipCode: restaurantZipCode,
+    });
+    const hasAddressPayload = [restaurantAddress, restaurantAddressNumber, restaurantAddressComplement, restaurantAddressDistrict, restaurantCity, restaurantState, restaurantZipCode].some((value) => value !== undefined);
+    const addressValidationError = hasAddressPayload ? validateEstablishmentAddress(establishmentAddress) : null;
+    if (addressValidationError) throw new Error(addressValidationError);
     const normalizedBankName =
       bankName === undefined
         ? undefined
@@ -206,6 +259,8 @@ class UpdateRestaurantSettingsService {
         ? undefined
         : String(pagbankToken || "").trim() || null;
     const normalizedPagBankEnvironment = "production";
+    const normalizedBusinessHours = businessHours === undefined ? undefined : businessHours;
+    const normalizedIsOpenForOrders = isOpenForOrders === undefined ? undefined : Boolean(isOpenForOrders);
     const normalizedLegalDocumentType =
       legalDocumentType === undefined
         ? undefined
@@ -224,6 +279,10 @@ class UpdateRestaurantSettingsService {
       ownerPhone === undefined
         ? undefined
         : String(ownerPhone || "").replace(/\D/g, "") || null;
+    const normalizedOwnerEmail =
+      ownerEmail === undefined
+        ? undefined
+        : String(ownerEmail || "").trim().toLowerCase() || null;
     const normalizedBankHolderDocument =
       bankHolderDocument === undefined
         ? undefined
@@ -299,7 +358,7 @@ class UpdateRestaurantSettingsService {
     if (
       resolvedDocumentType === "CNPJ" &&
       resolvedCompanyDocument &&
-      resolvedCompanyDocument.length !== 14
+      !this.isValidCnpj(resolvedCompanyDocument)
     ) {
       throw new Error("CNPJ inválido para cadastro da empresa.");
     }
@@ -307,7 +366,7 @@ class UpdateRestaurantSettingsService {
     if (
       resolvedDocumentType === "CPF" &&
       resolvedCompanyDocument &&
-      resolvedCompanyDocument.length !== 11
+      !this.isValidCpf(resolvedCompanyDocument)
     ) {
       throw new Error("CPF inválido para cadastro de autônomo.");
     }
@@ -320,6 +379,16 @@ class UpdateRestaurantSettingsService {
       throw new Error(
         "A titularidade da conta bancária deve ser igual ao documento cadastrado (CPF/CNPJ).",
       );
+    }
+
+    if (companyLegalName !== undefined && String(companyLegalName || "").trim().length < 2) {
+      throw new Error("Razão social inválida.");
+    }
+    if (normalizedOwnerPhone !== undefined && (!normalizedOwnerPhone || !/^\d{10,11}$/.test(normalizedOwnerPhone))) {
+      throw new Error("Telefone comercial inválido.");
+    }
+    if (normalizedOwnerEmail !== undefined && (!normalizedOwnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedOwnerEmail))) {
+      throw new Error("E-mail comercial inválido.");
     }
 
     const updated = await restaurantSettingsRepository.update(restaurantId, {
@@ -361,10 +430,7 @@ class UpdateRestaurantSettingsService {
           : String(ownerFullName || "").trim() || null,
       ownerCpf: normalizedOwnerCpf,
       ownerBirthDate: normalizedOwnerBirthDate,
-      ownerEmail:
-        ownerEmail === undefined
-          ? undefined
-          : String(ownerEmail || "").trim() || null,
+      ownerEmail: normalizedOwnerEmail,
       ownerPhone: normalizedOwnerPhone,
       ownerAddress:
         ownerAddress === undefined
@@ -408,6 +474,8 @@ class UpdateRestaurantSettingsService {
           : String(companyContractFileUrl || "").trim() || null,
       instagram,
       facebook,
+      businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
+      isOpenForOrders: normalizedIsOpenForOrders,
     });
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
@@ -429,6 +497,15 @@ class UpdateRestaurantSettingsService {
     }
     if (normalizedRestaurantDescription !== undefined) {
       restaurantData.description = normalizedRestaurantDescription;
+    }
+    if (hasAddressPayload && establishmentAddress.address) {
+      restaurantData.address = establishmentAddress.address;
+      restaurantData.addressNumber = establishmentAddress.number;
+      restaurantData.addressComplement = establishmentAddress.complement || null;
+      restaurantData.addressDistrict = establishmentAddress.district;
+      restaurantData.city = establishmentAddress.city;
+      restaurantData.state = establishmentAddress.state;
+      restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
     if (Object.keys(restaurantData).length > 0) {

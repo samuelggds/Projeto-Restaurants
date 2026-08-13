@@ -1,4 +1,5 @@
 import type { CustomerAddress } from "../../Services/customerAddressService";
+import type { BusinessHour } from "../admin/types";
 
 export type HomeBrand = {
   name: string;
@@ -9,6 +10,9 @@ export type HomeBrand = {
   whatsapp?: string;
   instagram?: string;
   facebook?: string;
+  legalName?: string;
+  phone?: string;
+  email?: string;
 };
 
 export type HomeCategory = {
@@ -47,6 +51,7 @@ export type HomeData = {
   freeDeliveryFrom: number;
   isOpen: boolean;
   about: string;
+  businessHours?: BusinessHour[];
 };
 
 export type HomePageProps = {

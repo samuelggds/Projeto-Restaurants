@@ -77,6 +77,9 @@ model Restaurant {
   coverImage          String?
   description         String?
   address             String?
+  addressNumber       String?
+  addressComplement   String?
+  addressDistrict     String?
   city                String?
   state               String?
   zipCode             String?
@@ -336,6 +339,7 @@ model RestaurantSettings {
 
   // Horários
   businessHours          Json?
+  isOpenForOrders        Boolean    @default(true)
 
   // WhatsApp
   whatsappEnabled            Boolean @default(false)

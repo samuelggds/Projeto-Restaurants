@@ -16,12 +16,24 @@ type PublicSettingsFallback = {
   pixKey: string | null;
   instagram: string | null;
   facebook: string | null;
+  companyLegalName: string | null;
+  ownerEmail: string | null;
+  ownerPhone: string | null;
+  businessHours: unknown;
+  isOpenForOrders: boolean;
   restaurant: {
     name: string | null;
     slug: string | null;
     logo: string | null;
     coverImage: string | null;
     description: string | null;
+    address: string | null;
+    addressNumber: string | null;
+    addressComplement: string | null;
+    addressDistrict: string | null;
+    city: string | null;
+    state: string | null;
+    zipCode: string | null;
     banners: Array<{ id: number; title: string; image: string }>;
   };
 };
@@ -76,12 +88,24 @@ class GetPublicRestaurantSettingsService {
         pixKey: null,
         instagram: null,
         facebook: null,
+        companyLegalName: null,
+        ownerEmail: null,
+        ownerPhone: null,
+        businessHours: null,
+        isOpenForOrders: true,
         restaurant: {
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
           coverImage: restaurant?.coverImage || null,
           description: restaurant?.description || null,
+          address: restaurant?.address || null,
+          addressNumber: restaurant?.addressNumber || null,
+          addressComplement: restaurant?.addressComplement || null,
+          addressDistrict: restaurant?.addressDistrict || null,
+          city: restaurant?.city || null,
+          state: restaurant?.state || null,
+          zipCode: restaurant?.zipCode || null,
           banners: restaurant?.banners || [],
         },
       };

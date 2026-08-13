@@ -13,6 +13,8 @@ import {
 } from "@prisma/client";
 import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
 import { z } from "zod";
+import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
+import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
 
 type OrderItemInput = z.infer<typeof createOrderSchema>["items"][number];
 
@@ -260,6 +262,10 @@ class CreateOrderService {
     if (!resolvedRestaurantId) {
       throw new Error("Restaurante não informado para o pedido");
     }
+
+    const restaurantSettings =
+      await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
+    assertRestaurantIsOpenForOrders(restaurantSettings?.isOpenForOrders);
 
     const shouldPayOnDelivery = payOnDelivery === true;
     const effectivePaymentMethod = shouldPayOnDelivery

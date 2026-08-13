@@ -33,6 +33,9 @@ import type {
   Employee,
   SettingsSection,
 } from "./types";
+import { validateBusinessSettings } from "./domain/businessSettingsValidation";
+import { validateEstablishmentAddress } from "./domain/establishmentAddress";
+import { validateBusinessHours } from "./domain/businessHours";
 
 export function AdminPage({
   initialSettings = adminMockSettings,
@@ -188,6 +191,20 @@ export function AdminPage({
   };
   const save = async () => {
     setFeedbackError("");
+    if (section === "business" && Object.keys(validateBusinessSettings(settings)).length > 0) {
+      setArea("settings");
+      setSection("business");
+      setFeedbackError("Revise os dados do negócio destacados antes de salvar.");
+      return;
+    }
+    if (section === "address" && Object.keys(validateEstablishmentAddress(settings)).length > 0) {
+      setFeedbackError("Revise os dados do endereço destacados antes de salvar.");
+      return;
+    }
+    if (section === "hours" && Object.keys(validateBusinessHours(settings.businessHours)).length > 0) {
+      setFeedbackError("Revise os horários destacados antes de salvar.");
+      return;
+    }
     try {
       await onSaveSettings?.(settings);
       setSettings((current) => ({

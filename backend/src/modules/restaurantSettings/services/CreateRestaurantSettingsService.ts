@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
 import prisma from "../../../config/prisma.js";
 import { normalizeRestaurantImage } from "../utils/normalizeRestaurantImage.js";
+import { normalizeEstablishmentAddress, validateEstablishmentAddress } from "../utils/establishmentAddress.js";
 
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -49,6 +50,15 @@ type CreateRestaurantSettingsPayload = {
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
   restaurantDescription?: string | null;
+  restaurantAddress?: string | null;
+  restaurantAddressNumber?: string | null;
+  restaurantAddressComplement?: string | null;
+  restaurantAddressDistrict?: string | null;
+  restaurantCity?: string | null;
+  restaurantState?: string | null;
+  restaurantZipCode?: string | null;
+  businessHours?: unknown;
+  isOpenForOrders?: boolean;
 };
 
 class CreateRestaurantSettingsService {
@@ -98,6 +108,15 @@ class CreateRestaurantSettingsService {
     restaurantLogo,
     restaurantCoverImage,
     restaurantDescription,
+    restaurantAddress,
+    restaurantAddressNumber,
+    restaurantAddressComplement,
+    restaurantAddressDistrict,
+    restaurantCity,
+    restaurantState,
+    restaurantZipCode,
+    businessHours,
+    isOpenForOrders,
   }: CreateRestaurantSettingsPayload) {
     const settingsExists =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -125,6 +144,9 @@ class CreateRestaurantSettingsService {
     const normalizedRestaurantDescription = restaurantDescription === undefined
       ? undefined
       : String(restaurantDescription || "").trim() || null;
+    const establishmentAddress = normalizeEstablishmentAddress({ address: restaurantAddress, number: restaurantAddressNumber, complement: restaurantAddressComplement, district: restaurantAddressDistrict, city: restaurantCity, state: restaurantState, zipCode: restaurantZipCode });
+    const addressValidationError = validateEstablishmentAddress(establishmentAddress);
+    if (addressValidationError) throw new Error(addressValidationError);
 
     if (
       restaurantName !== undefined &&
@@ -224,6 +246,8 @@ class CreateRestaurantSettingsService {
         String(companyContractFileUrl || "").trim() || null,
       instagram,
       facebook,
+      businessHours: businessHours === undefined ? undefined : businessHours as Prisma.InputJsonValue,
+      isOpenForOrders: isOpenForOrders === undefined ? true : Boolean(isOpenForOrders),
     });
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
@@ -245,6 +269,15 @@ class CreateRestaurantSettingsService {
     }
     if (normalizedRestaurantDescription !== undefined) {
       restaurantData.description = normalizedRestaurantDescription;
+    }
+    if (establishmentAddress.address) {
+      restaurantData.address = establishmentAddress.address;
+      restaurantData.addressNumber = establishmentAddress.number;
+      restaurantData.addressComplement = establishmentAddress.complement || null;
+      restaurantData.addressDistrict = establishmentAddress.district;
+      restaurantData.city = establishmentAddress.city;
+      restaurantData.state = establishmentAddress.state;
+      restaurantData.zipCode = establishmentAddress.zipCode;
     }
 
     if (Object.keys(restaurantData).length > 0) {

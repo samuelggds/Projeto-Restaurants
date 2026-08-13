@@ -6,6 +6,7 @@ import {
 } from "./pixPayload.js";
 import productRepository from "../../products/repositories/ProductRepository.js";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
+import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
 import splitService from "../../billing/services/SplitService.js";
 import {
   PIX_PROVIDERS,
@@ -439,6 +440,8 @@ class OrderPixPaymentService {
       await restaurantSettingsRepository.findPublicByRestaurantId(
         normalizedRestaurantId,
       );
+
+    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(

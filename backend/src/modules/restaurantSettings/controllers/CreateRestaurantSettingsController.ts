@@ -51,6 +51,15 @@ class CreateRestaurantSettingsController {
         restaurantLogo,
         restaurantCoverImage,
         restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
       } = req.body;
 
       const settings = await createRestaurantSettingsService.execute({
@@ -99,6 +108,15 @@ class CreateRestaurantSettingsController {
         restaurantLogo,
         restaurantCoverImage,
         restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
       });
 
       return res.status(201).json(settings);

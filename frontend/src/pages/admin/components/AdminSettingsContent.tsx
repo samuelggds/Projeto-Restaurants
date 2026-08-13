@@ -1,6 +1,7 @@
 import { adminMockSettings } from "../data";
 import type { SettingsSection } from "../types";
-import { AddressSettings, BusinessSettings } from "./BusinessSettings";
+import { BusinessSettings } from "./BusinessSettings";
+import { AddressSettings } from "./AddressSettings";
 import { OpeningHoursSettings } from "./OpeningHoursSettings";
 import { OrderFlowSettings } from "./OrderFlowSettings";
 import { DeliverySettings } from "./DeliverySettings";
@@ -24,9 +25,9 @@ type Props = {
 
 export function AdminSettingsContent(props: Props) {
   const { section, settings, update } = props;
-  if (section === "business") return <BusinessSettings />;
-  if (section === "address") return <AddressSettings />;
-  if (section === "hours") return <OpeningHoursSettings />;
+  if (section === "business") return <BusinessSettings settings={settings} update={update} />;
+  if (section === "address") return <AddressSettings settings={settings} update={update} />;
+  if (section === "hours") return <OpeningHoursSettings settings={settings} update={update} />;
   if (section === "orders") return <OrderFlowSettings settings={settings} update={update} />;
   if (section === "delivery") return <DeliverySettings settings={settings} update={update} />;
   if (section === "table") return <TableMenuSettings settings={settings} />;

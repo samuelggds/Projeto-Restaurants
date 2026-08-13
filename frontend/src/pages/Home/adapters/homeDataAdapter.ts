@@ -2,6 +2,14 @@ import { isPersistentImageSource } from "../../../utils/persistentImage";
 import { createRestaurantMonogram } from "../../../utils/restaurantMonogram";
 import type { HomeCategory, HomeData, HomeProduct } from "../../Home/types";
 import { isProductUnavailable } from "../domain/productAvailability";
+import { isRestaurantOpenForOrders, normalizeBusinessHours } from "../../admin/domain/businessHours";
+import { defaultBusinessHours } from "../../admin/data";
+
+function formatFooterAddress(restaurant: Record<string, unknown>) {
+  const street = [String(restaurant.address || "").trim(), String(restaurant.addressNumber || "").trim()].filter(Boolean).join(", ");
+  const city = [String(restaurant.city || "").trim(), String(restaurant.state || "").trim().toUpperCase()].filter(Boolean).join(" - ");
+  return [street, String(restaurant.addressDistrict || "").trim(), city].filter(Boolean).join(" • ");
+}
 
 const CATEGORY_IMAGES: Record<string, string> = {
   pizza: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80",
@@ -49,9 +57,12 @@ export function buildHomeData(productsFromApi: Record<string, unknown>[], settin
   const brand = {
     name: String(restaurantName || settings?.restaurantName || ""),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
-    address: String(settings?.address || ""),
+    address: formatFooterAddress(restaurant),
     primaryColor: String(settings?.primaryColor || "#d64d08"),
     whatsapp: String(settings?.whatsapp || ""), instagram: String(settings?.instagram || ""), facebook: String(settings?.facebook || ""),
+    legalName: String(settings?.companyLegalName || ""),
+    phone: String(settings?.ownerPhone || ""),
+    email: String(settings?.ownerEmail || ""),
     logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : "",
   };
   const products: HomeProduct[] = productsFromApi.map((product, index) => ({
@@ -68,9 +79,11 @@ export function buildHomeData(productsFromApi: Record<string, unknown>[], settin
     seen.add(name);
     return { id: name, name, image: resolveProductImage(product, 0) };
   }).filter(Boolean) as HomeCategory[]];
+  const businessHours = normalizeBusinessHours(settings?.businessHours, defaultBusinessHours);
   return {
     brand, hero, banners, categories, products,
     deliveryTime: String(settings?.averageDeliveryTime || ""), minimumOrder: Number(settings?.minimumOrder || 0),
-    freeDeliveryFrom: 0, isOpen: false, about: String(restaurant.description || settings?.restaurantDescription || settings?.description || ""),
+    freeDeliveryFrom: 0, isOpen: isRestaurantOpenForOrders(settings?.isOpenForOrders), about: String(restaurant.description || settings?.restaurantDescription || settings?.description || ""),
+    businessHours,
   };
 }

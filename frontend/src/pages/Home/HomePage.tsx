@@ -1,4 +1,5 @@
-import { ChevronRight, Heart, LayoutGrid, MapPin, Plus, Tag, X } from "lucide-react";
+import { ChevronRight, Heart, LayoutGrid, Mail, MapPin, Phone, Plus, Tag, X } from "lucide-react";
+import { getTodayBusinessHours } from "../admin/domain/businessHours";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { HomeHeader } from "./components/HomeHeader";
@@ -161,6 +162,8 @@ export function HomePage({
         onOpenCart={onOpenCart}
         onSearch={onSearch}
         onLogout={onLogout}
+        isRestaurantOpen={data.isOpen}
+        businessHoursLabel={data.businessHours ? getTodayBusinessHours(data.businessHours) : "Horário não informado"}
       />
       <S.Main>
         {data.about && (
@@ -279,6 +282,7 @@ export function HomePage({
           </S.FooterColumn>
           <S.FooterColumn>
             <strong>Contato</strong>
+            {data.brand.legalName && <span>{data.brand.legalName}</span>}
             {data.brand.address && (
               <span><MapPin size={17} /> {data.brand.address}</span>
             )}
@@ -286,6 +290,12 @@ export function HomePage({
               <a href={`https://wa.me/${data.brand.whatsapp}`} target="_blank" rel="noreferrer">
                 <WhatsAppIcon size={17} /> WhatsApp
               </a>
+            )}
+            {data.brand.phone && (
+              <a href={`tel:${data.brand.phone.replace(/\D/g, "")}`}><Phone size={17} /> {data.brand.phone}</a>
+            )}
+            {data.brand.email && (
+              <a href={`mailto:${data.brand.email}`}><Mail size={17} /> {data.brand.email}</a>
             )}
             {data.brand.instagram && (
               <a href={socialUrl(data.brand.instagram, "instagram")} target="_blank" rel="noreferrer">

@@ -7,7 +7,8 @@ import ordersService from "../../Services/ordersService";
 import productsService from "../../Services/productsService";
 import categoriesService from "../../Services/categoriesService";
 import { AdminPage } from "./AdminPage";
-import { adminMockSettings, adminMockEmployees } from "./data";
+import { adminMockSettings, adminMockEmployees, defaultBusinessHours } from "./data";
+import { normalizeBusinessHours } from "./domain/businessHours";
 import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from "./types";
 import { isPersistentImageSource } from "../../utils/persistentImage";
 import bannerService, { type BannerRecord } from "../../Services/bannerService";
@@ -56,6 +57,20 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
     restaurantName: String(
       r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName,
     ),
+    companyLegalName: String(raw?.companyLegalName ?? ""),
+    legalDocumentType: String(raw?.legalDocumentType ?? "CNPJ").toUpperCase() === "CPF" ? "CPF" : "CNPJ",
+    companyDocument: String(raw?.companyDocument ?? ""),
+    businessPhone: String(raw?.ownerPhone ?? ""),
+    businessEmail: String(raw?.ownerEmail ?? ""),
+    businessZipCode: String(r?.zipCode ?? ""),
+    businessAddress: String(r?.address ?? ""),
+    businessAddressNumber: String(r?.addressNumber ?? ""),
+    businessAddressComplement: String(r?.addressComplement ?? ""),
+    businessAddressDistrict: String(r?.addressDistrict ?? ""),
+    businessCity: String(r?.city ?? ""),
+    businessState: String(r?.state ?? ""),
+    businessHours: normalizeBusinessHours(raw?.businessHours, defaultBusinessHours),
+    isOpenForOrders: raw?.isOpenForOrders !== false,
     logoUrl: isPersistentImageSource(logoCandidate) ? String(logoCandidate) : "",
     coverImageUrl: isPersistentImageSource(coverCandidate) ? String(coverCandidate) : "",
     primaryColor: String(raw?.primaryColor ?? adminMockSettings.primaryColor),
@@ -92,6 +107,20 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
 function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
   return {
     restaurantName: settings.restaurantName,
+    legalDocumentType: settings.legalDocumentType,
+    companyLegalName: settings.companyLegalName.trim(),
+    companyDocument: settings.companyDocument.replace(/\D/g, ""),
+    ownerPhone: settings.businessPhone.replace(/\D/g, ""),
+    ownerEmail: settings.businessEmail.trim().toLowerCase(),
+    restaurantZipCode: settings.businessZipCode.replace(/\D/g, ""),
+    restaurantAddress: settings.businessAddress.trim(),
+    restaurantAddressNumber: settings.businessAddressNumber.trim(),
+    restaurantAddressComplement: settings.businessAddressComplement.trim(),
+    restaurantAddressDistrict: settings.businessAddressDistrict.trim(),
+    restaurantCity: settings.businessCity.trim(),
+    restaurantState: settings.businessState.trim().toUpperCase(),
+    businessHours: settings.businessHours,
+    isOpenForOrders: settings.isOpenForOrders,
     restaurantLogo: settings.logoUrl,
     restaurantCoverImage: settings.coverImageUrl,
     primaryColor: settings.primaryColor,

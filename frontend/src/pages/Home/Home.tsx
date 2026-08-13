@@ -179,6 +179,11 @@ export default function Home() {
   async function handleCheckout() {
     if (!restaurantId || !cart.length || checkoutLoading) return;
 
+    if (!homeData.isOpen) {
+      notify("warning", "Restaurante fechado", "O restaurante não está recebendo pedidos no momento.");
+      return;
+    }
+
     const customer = (user || {}) as Record<string, unknown>;
     const type = resolveOrderType(mesaMode, orderType);
 
@@ -362,6 +367,7 @@ export default function Home() {
             total={cartTotal}
             loading={checkoutLoading}
             paymentMethod={paymentMethod}
+            isRestaurantOpen={homeData.isOpen}
             onCheckout={() => void handleCheckout()}
           />
         </S.CartFoot>

@@ -51,6 +51,15 @@ class UpdateRestaurantSettingsController {
         restaurantLogo,
         restaurantCoverImage,
         restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
       } = req.body;
 
       const settings = await updateRestaurantSettingsService.execute({
@@ -99,6 +108,15 @@ class UpdateRestaurantSettingsController {
         restaurantLogo,
         restaurantCoverImage,
         restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
       });
 
       return res.status(200).json(settings);

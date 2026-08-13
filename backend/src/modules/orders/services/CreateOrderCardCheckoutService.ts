@@ -1,6 +1,7 @@
 import createOrderService from "./CreateOrderService.js";
 import orderRepository from "../repositories/OrderRepository.js";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
+import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
 import {
   type CardProvider,
   normalizeCardProvider,
@@ -23,6 +24,8 @@ class CreateOrderCardCheckoutService {
       await restaurantSettingsRepository.findByRestaurantId(
         resolvedRestaurantId,
       );
+
+    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
 
     const configuredProvider = String(settings?.cardGateway || "").trim();
     if (!configuredProvider) {

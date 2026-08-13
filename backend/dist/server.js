@@ -3049,6 +3049,9 @@ var RestaurantSettingsRepository = class {
         pixKey: true,
         instagram: true,
         facebook: true,
+        companyLegalName: true,
+        ownerEmail: true,
+        ownerPhone: true,
         restaurant: {
           select: {
             name: true,
@@ -10965,6 +10968,17 @@ var GetRestaurantSettingsController_default = new GetRestaurantSettingsControlle
 
 // src/modules/restaurantSettings/services/UpdateRestaurantSettingsService.ts
 var UpdateRestaurantSettingsService = class {
+  isValidCnpj(value) {
+    if (!/^\d{14}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const digit = (base, weights) => {
+      const sum = base.split("").reduce((total, number, index) => total + Number(number) * weights[index], 0);
+      const remainder = sum % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    const first = digit(value.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = digit(value.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return value.endsWith(`${first}${second}`);
+  }
   getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com").trim().replace(/\/+$/, "");
   }
@@ -11059,6 +11073,7 @@ var UpdateRestaurantSettingsService = class {
     const normalizedCompanyDocument = companyDocument === void 0 ? void 0 : String(companyDocument || "").replace(/\D/g, "") || null;
     const normalizedOwnerCpf = ownerCpf === void 0 ? void 0 : String(ownerCpf || "").replace(/\D/g, "") || null;
     const normalizedOwnerPhone = ownerPhone === void 0 ? void 0 : String(ownerPhone || "").replace(/\D/g, "") || null;
+    const normalizedOwnerEmail = ownerEmail === void 0 ? void 0 : String(ownerEmail || "").trim().toLowerCase() || null;
     const normalizedBankHolderDocument = bankHolderDocument === void 0 ? void 0 : String(bankHolderDocument || "").replace(/\D/g, "") || null;
     const normalizedOwnerBirthDate = ownerBirthDate === void 0 ? void 0 : ownerBirthDate ? new Date(ownerBirthDate) : null;
     const resolvedAsaasToken = normalizedAsaasAccessToken === void 0 ? String(settings.asaasAccessToken || "").trim() : String(normalizedAsaasAccessToken || "").trim();
@@ -11087,7 +11102,7 @@ var UpdateRestaurantSettingsService = class {
     const resolvedDocumentType = normalizedLegalDocumentType || String(settings.legalDocumentType || "");
     const resolvedCompanyDocument = normalizedCompanyDocument || String(settings.companyDocument || "");
     const resolvedBankHolderDocument = normalizedBankHolderDocument || String(settings.bankHolderDocument || "");
-    if (resolvedDocumentType === "CNPJ" && resolvedCompanyDocument && resolvedCompanyDocument.length !== 14) {
+    if (resolvedDocumentType === "CNPJ" && resolvedCompanyDocument && !this.isValidCnpj(resolvedCompanyDocument)) {
       throw new Error("CNPJ inv\xE1lido para cadastro da empresa.");
     }
     if (resolvedDocumentType === "CPF" && resolvedCompanyDocument && resolvedCompanyDocument.length !== 11) {
@@ -11097,6 +11112,15 @@ var UpdateRestaurantSettingsService = class {
       throw new Error(
         "A titularidade da conta banc\xE1ria deve ser igual ao documento cadastrado (CPF/CNPJ)."
       );
+    }
+    if (companyLegalName !== void 0 && String(companyLegalName || "").trim().length < 2) {
+      throw new Error("Raz\xE3o social inv\xE1lida.");
+    }
+    if (normalizedOwnerPhone !== void 0 && (!normalizedOwnerPhone || !/^\d{10,11}$/.test(normalizedOwnerPhone))) {
+      throw new Error("Telefone comercial inv\xE1lido.");
+    }
+    if (normalizedOwnerEmail !== void 0 && (!normalizedOwnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedOwnerEmail))) {
+      throw new Error("E-mail comercial inv\xE1lido.");
     }
     const updated = await RestaurantSettingsRepository_default.update(restaurantId, {
       deliveryFee,
@@ -11114,7 +11138,7 @@ var UpdateRestaurantSettingsService = class {
       ownerFullName: ownerFullName === void 0 ? void 0 : String(ownerFullName || "").trim() || null,
       ownerCpf: normalizedOwnerCpf,
       ownerBirthDate: normalizedOwnerBirthDate,
-      ownerEmail: ownerEmail === void 0 ? void 0 : String(ownerEmail || "").trim() || null,
+      ownerEmail: normalizedOwnerEmail,
       ownerPhone: normalizedOwnerPhone,
       ownerAddress: ownerAddress === void 0 ? void 0 : String(ownerAddress || "").trim() || null,
       bankName: normalizedBankName,
@@ -11343,6 +11367,9 @@ var GetPublicRestaurantSettingsService = class {
         pixKey: null,
         instagram: null,
         facebook: null,
+        companyLegalName: null,
+        ownerEmail: null,
+        ownerPhone: null,
         restaurant: {
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,

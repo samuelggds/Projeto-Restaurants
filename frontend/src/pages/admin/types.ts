@@ -20,6 +20,7 @@ export type SettingsSection =
   | "appearance"
   | "security";
 export type EmployeeRole = "COOK" | "WAITER" | "ATTENDANT";
+export type BusinessHour = { id: string; label: string; enabled: boolean; openingTime: string; closingTime: string };
 
 export type AdminOrder = {
   id: string;
@@ -53,6 +54,20 @@ export type AdminCategory = { id: number; name: string; active?: boolean };
 
 export type AdminSettings = {
   restaurantName: string;
+  companyLegalName: string;
+  legalDocumentType: "CPF" | "CNPJ";
+  companyDocument: string;
+  businessPhone: string;
+  businessEmail: string;
+  businessZipCode: string;
+  businessAddress: string;
+  businessAddressNumber: string;
+  businessAddressComplement: string;
+  businessAddressDistrict: string;
+  businessCity: string;
+  businessState: string;
+  businessHours: BusinessHour[];
+  isOpenForOrders: boolean;
   logoUrl?: string;
   coverImageUrl?: string;
   primaryColor: string;
