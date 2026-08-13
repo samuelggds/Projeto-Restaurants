@@ -956,6 +956,43 @@ export const DataList = styled.div`
     }
   }
 `;
+export const OverviewFilters = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 9px;
+  margin: 16px 0 5px;
+  label { position: relative; display: block; }
+  label svg { position: absolute; left: 11px; top: 50%; width: 16px; color: #887d75; transform: translateY(-50%); pointer-events: none; }
+  input, select { width: 100%; height: 40px; border: 1px solid #e5ddd6; border-radius: 10px; outline: 0; background: #fcfbfa; color: #282522; font: inherit; font-size: 12px; }
+  input { padding: 0 12px 0 36px; }
+  select { padding: 0 9px; }
+  input:focus, select:focus { border-color: var(--a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 12%, transparent); }
+  @media (max-width: 560px) { grid-template-columns: 1fr; }
+`;
+export const OverviewPagination = styled.div`
+  min-height: 50px;
+  padding-top: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  & > div { display: flex; gap: 7px; }
+  button { height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 4px; border: 1px solid #e1d8d0; border-radius: 9px; color: #b94715; background: #fff; font-size: 11px; font-weight: 650; transition: .16s ease; }
+  button:hover:not(:disabled) { border-color: var(--a); background: #fff7f2; transform: translateY(-1px); }
+  button:disabled { opacity: .38; cursor: not-allowed; }
+  button svg { width: 14px; }
+  @media (max-width: 480px) { align-items: flex-start; flex-direction: column; & > div { width: 100%; } button { flex: 1; justify-content: center; } }
+`;
+export const OverviewEmpty = styled.div`
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+`;
 export const Toolbar = styled.div`
   display: flex;
   align-items: center;
