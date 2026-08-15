@@ -875,6 +875,52 @@ export const SecurityList = styled.div`
     color: var(--p);
     height: 38px;
     padding: 0 13px;
+    cursor: pointer;
+  }
+  .security-row button:disabled,
+  .security-confirmation button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+  .security-confirmation {
+    display: grid;
+    gap: 7px;
+    margin: 10px 0 2px 58px;
+    padding: 14px;
+    border: 1px solid #f0c6c0;
+    border-radius: 10px;
+    background: #fff7f5;
+  }
+  .security-confirmation > span,
+  .security-error {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .security-confirmation > div {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .security-confirmation button {
+    border: 1px solid var(--p);
+    border-radius: 8px;
+    background: var(--p);
+    color: #fff;
+    height: 36px;
+    padding: 0 12px;
+    cursor: pointer;
+  }
+  .security-confirmation button.secondary {
+    background: #fff;
+    color: var(--p);
+  }
+  .security-confirmation button.danger {
+    background: #c94040;
+    border-color: #c94040;
+  }
+  .security-error {
+    color: #c94040;
+    margin: 10px 0;
   }
   @media (max-width: 520px) {
     .security-row {
@@ -886,6 +932,9 @@ export const SecurityList = styled.div`
       grid-column: 1/-1;
       width: 100%;
       margin: 0;
+    }
+    .security-confirmation {
+      margin-left: 0;
     }
   }
 `;

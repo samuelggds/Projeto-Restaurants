@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import api from "../../Services/api";
 import ordersService from "../../Services/ordersService";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
@@ -153,10 +154,32 @@ export default function Profile() {
 
   const handleChangePassword = useCallback(
     async (payload: { currentPassword: string; newPassword: string }) => {
-      await api.put("/auth/password", payload);
+      await api.put("/auth/password", {
+        oldPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
+      });
     },
     [],
   );
+
+  const handleToggleTwoFactor = useCallback(
+    async (enabled: boolean) => {
+      const { data: updated } = await api.patch("/auth/mfa", { enabled });
+      const token = localStorage.getItem("token") || "";
+      if (token) {
+        login({ ...(user ?? {}), mfaEnabled: Boolean(updated?.mfaEnabled) }, token);
+      }
+      toast.success(enabled ? "Verificação em duas etapas ativada." : "Verificação em duas etapas desativada.");
+    },
+    [login, user],
+  );
+
+  const handleDeactivateAccount = useCallback(async () => {
+    await api.patch("/auth/deactivate");
+    logout();
+    toast.success("Solicitação concluída: sua conta foi desativada.");
+    navigate("/");
+  }, [logout, navigate]);
 
   const saveAddress = useCallback(async (payload: CustomerAddressInput) => {
     const created = await customerAddressService.create(payload);
@@ -179,6 +202,9 @@ export default function Profile() {
       onUploadAvatar={handleUploadAvatar}
       onSavePersonalData={handleSavePersonalData}
       onChangePassword={handleChangePassword}
+      twoFactorEnabled={Boolean((user as Record<string, unknown>)?.mfaEnabled)}
+      onToggleTwoFactor={handleToggleTwoFactor}
+      onDeactivateAccount={handleDeactivateAccount}
       onNewAddress={() => setAddressModalOpen(true)}
       onSelectAddress={selectAddress}
       onToggleFavorite={async (productId) => {

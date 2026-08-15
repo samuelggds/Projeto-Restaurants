@@ -30,6 +30,7 @@ model User {
   resetPasswordCodeExpiresAt DateTime?
   resetPasswordCodeHash      String?
   mustChangePassword         Boolean              @default(false)
+  mfaEnabled                 Boolean              @default(false)
   avatar                     String?
   authMfaChallenge           AuthMfaChallenge?
   authRefreshSession         AuthRefreshSession?

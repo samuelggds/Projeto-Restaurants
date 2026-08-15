@@ -124,6 +124,27 @@ test("deve ignorar 2FA para role nao configurada", async () => {
   assert.equal(result, null);
 });
 
+test("deve exigir 2FA quando o proprio cliente o habilita", async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = "ADMIN,SUPER_ADMIN";
+  process.env.JWT_SECRET = "test_jwt_secret_with_minimum_32_chars_123456";
+  process.env.JWT_MFA_SECRET = "test_mfa_secret_with_minimum_32_chars_123456";
+
+  const result = await loginMfaService.beginIfRequired({
+    id: 12,
+    role: "CLIENTE",
+    restaurantId: null,
+    email: "cliente-2fa@pizza.com",
+    name: "Cliente",
+    active: true,
+    mustChangePassword: false,
+    mfaEnabled: true,
+  });
+
+  assert.equal(result.mfaRequired, true);
+  assert.equal(challenges.has(12), true);
+});
+
 test("deve validar codigo 2FA e emitir tokens", async () => {
   installPrismaMocks();
   process.env.MFA_REQUIRED_ROLES = "ADMIN";

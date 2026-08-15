@@ -20,6 +20,7 @@ type LoginUser = {
   name: string;
   active: boolean;
   mustChangePassword: boolean;
+  mfaEnabled?: boolean;
   phone?: string | null;
   address?: string | null;
   number?: string | null;
@@ -114,9 +115,9 @@ function getRequiredMfaRoles() {
   );
 }
 
-function requiresMfa(role: string) {
-  return getRequiredMfaRoles().has(
-    String(role || "")
+function requiresMfa(user: Pick<LoginUser, "role" | "mfaEnabled">) {
+  return Boolean(user.mfaEnabled) || getRequiredMfaRoles().has(
+    String(user.role || "")
       .trim()
       .toUpperCase(),
   );
@@ -139,12 +140,13 @@ function mapUser(user: any) {
     zipCode: user.zipCode,
     complement: user.complement,
     restaurantId: user.restaurantId,
+    mfaEnabled: Boolean(user.mfaEnabled),
   };
 }
 
 class LoginMfaService {
   async beginIfRequired(user: LoginUser) {
-    if (!requiresMfa(user.role)) {
+    if (!requiresMfa(user)) {
       return null;
     }
 

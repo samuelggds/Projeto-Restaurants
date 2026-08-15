@@ -1,5 +1,6 @@
 .env.docker
 .env
+routing-data/
 .npm-cache/
 .playwright-browsers/
 playwright-report/

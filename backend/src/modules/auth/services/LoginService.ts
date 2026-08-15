@@ -72,6 +72,7 @@ class LoginService {
         subRole: user.subRole ?? null,
         active: user.active,
         mustChangePassword: user.mustChangePassword,
+        mfaEnabled: user.mfaEnabled,
         phone: user.phone,
         address: user.address,
         number: user.number,

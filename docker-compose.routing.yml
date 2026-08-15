@@ -1,0 +1,22 @@
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    restart: unless-stopped
+    command: osrm-routed --algorithm mld /data/nordeste-latest.osrm
+    volumes:
+      - ./routing-data/osrm:/data:ro
+    expose:
+      - "5000"
+
+  nominatim:
+    image: mediagis/nominatim:5.3
+    restart: unless-stopped
+    environment:
+      PBF_URL: ${ROUTING_PBF_URL:?Defina ROUTING_PBF_URL no .env.docker}
+    volumes:
+      - nominatim_data:/var/lib/postgresql/14/main
+    expose:
+      - "8080"
+
+volumes:
+  nominatim_data:

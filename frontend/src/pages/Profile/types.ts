@@ -108,5 +108,8 @@ export type ProfilePageProps = {
     currentPassword: string;
     newPassword: string;
   }) => Promise<void>;
+  twoFactorEnabled?: boolean;
+  onToggleTwoFactor?: (enabled: boolean) => Promise<void>;
+  onDeactivateAccount?: () => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<void>;
 };

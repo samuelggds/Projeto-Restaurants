@@ -61,6 +61,7 @@ class UserRepository {
         role: true,
         active: true,
         mustChangePassword: true,
+        mfaEnabled: true,
         phone: true,
         cpf: true,
         address: true,
@@ -93,6 +94,7 @@ class UserRepository {
         role: true,
         active: true,
         mustChangePassword: true,
+        mfaEnabled: true,
         phone: true,
         cpf: true,
         address: true,
@@ -120,6 +122,21 @@ class UserRepository {
       data: {
         password,
         mustChangePassword: false,
+      },
+    });
+  }
+
+  async updateMfaEnabled(
+    id: number | string,
+    mfaEnabled: boolean,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.user.update({
+      where: { id: Number(id) },
+      data: { mfaEnabled },
+      select: {
+        id: true,
+        mfaEnabled: true,
       },
     });
   }

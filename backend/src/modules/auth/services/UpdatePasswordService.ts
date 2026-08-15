@@ -7,6 +7,15 @@ class UpdatePasswordService {
     oldPassword: string,
     newPassword: string,
   ) {
+    if (
+      typeof oldPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      !oldPassword ||
+      newPassword.length < 6
+    ) {
+      throw new Error("Informe a senha atual e uma nova senha com ao menos 6 caracteres");
+    }
+
     const user = await userRepository.findByIdWithPassword(userId);
 
     if (!user) {

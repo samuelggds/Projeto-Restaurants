@@ -14,6 +14,7 @@ import { loginRateLimitMiddleware } from "../../../middlewares/security/loginRat
 import RefreshTokenController from "../controllers/RefreshTokenController.js";
 import LogoutController from "../controllers/LogoutController.js";
 import VerifyLoginMfaController from "../controllers/VerifyLoginMfaController.js";
+import UpdateMfaPreferenceController from "../controllers/UpdateMfaPreferenceController.js";
 import {
   passwordResetRateLimitMiddleware,
   registrationRateLimitMiddleware,
@@ -76,6 +77,10 @@ router.put("/password", authMiddleware, (req, res) => {
 
 router.put("/profile", authMiddleware, (req, res) => {
   UpdateProfileController.handle(req, res);
+});
+
+router.patch("/mfa", authMiddleware, (req, res) => {
+  UpdateMfaPreferenceController.handle(req, res);
 });
 
 router.patch("/deactivate", authMiddleware, (req, res) => {

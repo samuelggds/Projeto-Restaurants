@@ -17,6 +17,7 @@ type AuthUser = {
   phone?: string;
   role?: string;
   mustChangePassword?: boolean;
+  mfaEnabled?: boolean;
   restaurantId?: number;
   restaurant?: {
     id?: number;

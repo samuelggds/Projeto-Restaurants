@@ -492,7 +492,12 @@ function PersonalData({
   );
 }
 
-function Security({ onChangePassword }: ProfilePageProps) {
+function Security({
+  onChangePassword,
+  twoFactorEnabled = false,
+  onToggleTwoFactor,
+  onDeactivateAccount,
+}: ProfilePageProps) {
   const [showForm, setShowForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -500,6 +505,10 @@ function Security({ onChangePassword }: ProfilePageProps) {
   const [saving, setSaving] = useState(false);
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState(false);
+  const [updatingTwoFactor, setUpdatingTwoFactor] = useState(false);
+  const [showDeactivateConfirmation, setShowDeactivateConfirmation] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [securityError, setSecurityError] = useState("");
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -524,6 +533,29 @@ function Security({ onChangePassword }: ProfilePageProps) {
       setPwError("Senha atual incorreta ou erro ao alterar.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleToggleTwoFactor() {
+    setUpdatingTwoFactor(true);
+    setSecurityError("");
+    try {
+      await onToggleTwoFactor?.(!twoFactorEnabled);
+    } catch {
+      setSecurityError("Não foi possível atualizar a verificação em duas etapas.");
+    } finally {
+      setUpdatingTwoFactor(false);
+    }
+  }
+
+  async function handleDeactivate() {
+    setDeactivating(true);
+    setSecurityError("");
+    try {
+      await onDeactivateAccount?.();
+    } catch {
+      setSecurityError("Não foi possível solicitar a exclusão da conta agora.");
+      setDeactivating(false);
     }
   }
 
@@ -615,9 +647,23 @@ function Security({ onChangePassword }: ProfilePageProps) {
             </i>
             <div>
               <b>Verificação em duas etapas</b>
-              <span>Adicione uma camada extra de proteção</span>
+              <span>
+                {twoFactorEnabled
+                  ? "Ativa: será enviado um código ao seu e-mail no login"
+                  : "Receba um código no e-mail ao entrar na conta"}
+              </span>
             </div>
-            <button type="button">Ativar</button>
+            <button
+              type="button"
+              onClick={handleToggleTwoFactor}
+              disabled={updatingTwoFactor}
+            >
+              {updatingTwoFactor
+                ? "Atualizando..."
+                : twoFactorEnabled
+                  ? "Desativar"
+                  : "Ativar"}
+            </button>
           </div>
           <div className="security-row">
             <i>
@@ -625,10 +671,40 @@ function Security({ onChangePassword }: ProfilePageProps) {
             </i>
             <div>
               <b>Excluir minha conta</b>
-              <span>Apaga permanentemente seus dados e histórico</span>
+              <span>A solicitação desativa o acesso, sem apagar seus dados</span>
             </div>
-            <button type="button">Solicitar exclusão</button>
+            <button
+              type="button"
+              onClick={() => setShowDeactivateConfirmation(true)}
+            >
+              Solicitar exclusão
+            </button>
           </div>
+          {showDeactivateConfirmation && (
+            <div className="security-confirmation" role="alert">
+              <b>Deseja desativar sua conta?</b>
+              <span>Você perderá o acesso até que a conta seja reativada.</span>
+              <div>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setShowDeactivateConfirmation(false)}
+                  disabled={deactivating}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={handleDeactivate}
+                  disabled={deactivating}
+                >
+                  {deactivating ? "Desativando..." : "Confirmar exclusão"}
+                </button>
+              </div>
+            </div>
+          )}
+          {securityError && <span className="security-error">{securityError}</span>}
         </S.SecurityList>
       </S.PageCard>
     </>
