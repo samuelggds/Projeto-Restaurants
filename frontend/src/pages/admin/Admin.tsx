@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/authContext";
 import restaurantSettingsService from "../../Services/restaurantSettingsService";
@@ -12,8 +12,13 @@ import { normalizeBusinessHours } from "./domain/businessHours";
 import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from "./types";
 import { isPersistentImageSource } from "../../utils/persistentImage";
 import bannerService, { type BannerRecord } from "../../Services/bannerService";
-import { connectSocket, disconnectSocket } from "../../Services/socketService";
+import {
+  connectSocket,
+  disconnectSocket,
+  waitForSocketConnection,
+} from "../../Services/socketService";
 import { getStoredAccessToken } from "../../modules/auth/session/authSession";
+import { playOrderNotificationSound } from "./domain/orderNotificationSound";
 
 const BANNER_TITLES = {
   main: "Banner principal",
@@ -82,6 +87,10 @@ function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[
     deliveryTime: Number(
       raw?.averageDeliveryTime ?? adminMockSettings.deliveryTime,
     ),
+    autoAcceptOrders: raw?.autoAcceptOrders === true,
+    trackingRequiresLogin: raw?.trackingRequiresLogin !== false,
+    soundNotifications: raw?.soundNotifications !== false,
+    maxConcurrentOrders: Math.max(1, Number(raw?.maxConcurrentOrders ?? adminMockSettings.maxConcurrentOrders)),
     tableOrderingEnabled: Boolean(
       raw?.tableOrderingEnabled ?? adminMockSettings.tableOrderingEnabled,
     ),
@@ -131,6 +140,10 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
     facebook: settings.facebook,
     minimumOrder: settings.minimumOrder,
     averageDeliveryTime: settings.deliveryTime,
+    autoAcceptOrders: settings.autoAcceptOrders,
+    trackingRequiresLogin: settings.trackingRequiresLogin,
+    soundNotifications: settings.soundNotifications,
+    maxConcurrentOrders: settings.maxConcurrentOrders,
     tableOrderingEnabled: settings.tableOrderingEnabled,
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
@@ -191,6 +204,11 @@ export default function Admin() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const soundNotificationsRef = useRef(settings.soundNotifications);
+
+  useEffect(() => {
+    soundNotificationsRef.current = settings.soundNotifications;
+  }, [settings.soundNotifications]);
 
   async function loadOperations() {
     const [orderData, productData, categoryData] = await Promise.all([
@@ -218,13 +236,17 @@ export default function Admin() {
         console.error("Não foi possível atualizar os pedidos em tempo real.", error),
       );
     };
+    const onNewOrder = () => {
+      if (soundNotificationsRef.current) playOrderNotificationSound();
+      refreshOrders();
+    };
 
-    socket.on("new-order", refreshOrders);
+    socket.on("new-order", onNewOrder);
     socket.on("order:payment-confirmed", refreshOrders);
     socket.on("order:status-changed", refreshOrders);
 
     return () => {
-      socket.off("new-order", refreshOrders);
+      socket.off("new-order", onNewOrder);
       socket.off("order:payment-confirmed", refreshOrders);
       socket.off("order:status-changed", refreshOrders);
       disconnectSocket();
@@ -334,6 +356,27 @@ export default function Admin() {
     }
   }
 
+  async function handleReportSupport(payload: {
+    subject: string;
+    message: string;
+  }) {
+    const token = getStoredAccessToken();
+    if (!token) throw new Error("Sessão não encontrada.");
+
+    const socket = connectSocket(token, "admin-help");
+    await waitForSocketConnection();
+    await new Promise<void>((resolve, reject) => {
+      socket.emit(
+        "support:chat-send",
+        { message: `[${payload.subject}] ${payload.message}` },
+        (result: { ok?: boolean; error?: string }) => {
+          if (result?.ok) resolve();
+          else reject(new Error(result?.error || "Não foi possível enviar o relato."));
+        },
+      );
+    });
+  }
+
   return (
     <AdminPage
       key={`${settingsId}-${employees.length}`}
@@ -358,6 +401,7 @@ export default function Admin() {
       onUpdateCategory={async (id, name) => { await categoriesService.updateCategory(id, { name }); await loadOperations(); }}
       onDeleteCategory={async (id) => { await categoriesService.deleteCategory(id); await loadOperations(); }}
       onSaveSettings={handleSaveSettings}
+      onReportSupport={handleReportSupport}
       onConnectMercadoPago={async () => {
         const result = await restaurantSettingsService.startMercadoPagoOAuth();
         const authorizationUrl = String(

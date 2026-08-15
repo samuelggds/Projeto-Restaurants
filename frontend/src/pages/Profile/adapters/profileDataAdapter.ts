@@ -36,6 +36,14 @@ function firstProductImage(order: Record<string, unknown>): string {
   return String(product?.image || items[0]?.image || ORDER_IMAGE);
 }
 
+function estimateArrival(order: Record<string, unknown>, settings: Record<string, unknown> | null) {
+  const minutes = Math.max(0, Number(settings?.averageDeliveryTime || 0));
+  const createdAt = new Date(String(order.createdAt || ""));
+  if (!minutes || Number.isNaN(createdAt.getTime())) return "--:--";
+  createdAt.setMinutes(createdAt.getMinutes() + minutes);
+  return createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 export function buildProfileData({ user, settings, orders, favorites, addresses: rawAddresses, avatarUrl }: Input): ProfileData {
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const restaurantName = String(restaurant.name || "");
@@ -60,7 +68,7 @@ export function buildProfileData({ user, settings, orders, favorites, addresses:
   const activeRaw = orders.find((order) => ACTIVE_STATUSES.has(String(order.status || "").toUpperCase()));
   const activeOrder = activeRaw ? {
     id: `#${String(activeRaw.id).padStart(4, "0")}`,
-    status: mapOrderStatus(activeRaw.status), estimatedArrival: "--:--",
+    status: mapOrderStatus(activeRaw.status), estimatedArrival: estimateArrival(activeRaw, settings),
     summary: buildOrderSummary(activeRaw), image: firstProductImage(activeRaw), total: Number(activeRaw.total || 0),
   } : undefined;
   const recentOrders: ProfileOrder[] = orders.filter((order) => String(order.id) !== String(activeRaw?.id || "") && Boolean(String(order.status || ""))).map((order) => ({

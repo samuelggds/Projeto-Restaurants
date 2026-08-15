@@ -21,6 +21,11 @@ type PublicSettingsFallback = {
   ownerPhone: string | null;
   businessHours: unknown;
   isOpenForOrders: boolean;
+  averageDeliveryTime: string | null;
+  autoAcceptOrders: boolean;
+  trackingRequiresLogin: boolean;
+  soundNotifications: boolean;
+  maxConcurrentOrders: number;
   restaurant: {
     name: string | null;
     slug: string | null;
@@ -93,6 +98,11 @@ class GetPublicRestaurantSettingsService {
         ownerPhone: null,
         businessHours: null,
         isOpenForOrders: true,
+        averageDeliveryTime: null,
+        autoAcceptOrders: false,
+        trackingRequiresLogin: true,
+        soundNotifications: true,
+        maxConcurrentOrders: 20,
         restaurant: {
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,

@@ -325,7 +325,11 @@ model RestaurantSettings {
   minimumOrder           Decimal    @default(0) @db.Decimal(10, 2)
   acceptsDelivery        Boolean    @default(true)
   acceptsPickup          Boolean    @default(true)
-  averageDeliveryTime    String?
+    averageDeliveryTime    String?
+    autoAcceptOrders       Boolean    @default(false)
+    trackingRequiresLogin  Boolean    @default(true)
+    soundNotifications     Boolean    @default(true)
+    maxConcurrentOrders    Int        @default(20)
   acceptsPix             Boolean    @default(true)
   acceptsCard            Boolean    @default(true)
 

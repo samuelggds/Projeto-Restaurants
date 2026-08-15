@@ -143,6 +143,12 @@ export const SideFooter = styled.div`
     gap: 13px;
     text-align: left;
   }
+  button:hover,
+  button.active {
+    color: #ff6c21;
+    background: #2c241e;
+    border-radius: 9px;
+  }
 `;
 export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
   height: 100vh;

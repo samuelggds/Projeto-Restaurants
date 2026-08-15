@@ -9,8 +9,9 @@ class GetDeliveryTrackingService {
       select: {
         id: true, userId: true, restaurantId: true, assignedCourierId: true,
         status: true, type: true, address: true, number: true, district: true,
-        city: true, state: true, deliveryStartedAt: true, deliveredAt: true,
+        city: true, state: true, createdAt: true, deliveryStartedAt: true, deliveredAt: true,
         assignedCourier: { select: { id: true, name: true, phone: true, avatar: true } },
+        restaurant: { select: { settings: { select: { averageDeliveryTime: true } } } },
       },
     });
     if (!order) throw new Error("Pedido não encontrado.");
@@ -28,8 +29,13 @@ class GetDeliveryTrackingService {
       select: { latitude: true, longitude: true, heading: true, speed: true, accuracy: true, recordedAt: true },
     });
     locations.reverse();
+    const preparationMinutes = Math.max(0, Number(order.restaurant.settings?.averageDeliveryTime || 0));
+    const estimatedArrival = preparationMinutes
+      ? new Date(order.createdAt.getTime() + preparationMinutes * 60_000).toISOString()
+      : null;
+    const { restaurant: _restaurant, ...trackingOrder } = order;
     return {
-      order,
+      order: { ...trackingOrder, estimatedArrival },
       locations: locations.map((point) => ({ ...point, latitude: Number(point.latitude), longitude: Number(point.longitude) })),
       latestLocation: locations.length
         ? { ...locations[locations.length - 1], latitude: Number(locations[locations.length - 1].latitude), longitude: Number(locations[locations.length - 1].longitude) }

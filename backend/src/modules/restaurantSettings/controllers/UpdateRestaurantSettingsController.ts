@@ -60,6 +60,11 @@ class UpdateRestaurantSettingsController {
         restaurantZipCode,
         businessHours,
         isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       } = req.body;
 
       const settings = await updateRestaurantSettingsService.execute({
@@ -117,6 +122,11 @@ class UpdateRestaurantSettingsController {
         restaurantZipCode,
         businessHours,
         isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       });
 
       return res.status(200).json(settings);

@@ -59,6 +59,11 @@ type UpdateRestaurantSettingsPayload = {
   restaurantZipCode?: string | null;
   businessHours?: unknown;
   isOpenForOrders?: boolean;
+  averageDeliveryTime?: string | number | null;
+  autoAcceptOrders?: boolean;
+  trackingRequiresLogin?: boolean;
+  soundNotifications?: boolean;
+  maxConcurrentOrders?: number;
 };
 
 class UpdateRestaurantSettingsService {
@@ -171,6 +176,11 @@ class UpdateRestaurantSettingsService {
     restaurantZipCode,
     businessHours,
     isOpenForOrders,
+    averageDeliveryTime,
+    autoAcceptOrders,
+    trackingRequiresLogin,
+    soundNotifications,
+    maxConcurrentOrders,
   }: UpdateRestaurantSettingsPayload) {
     const settings =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -261,6 +271,11 @@ class UpdateRestaurantSettingsService {
     const normalizedPagBankEnvironment = "production";
     const normalizedBusinessHours = businessHours === undefined ? undefined : businessHours;
     const normalizedIsOpenForOrders = isOpenForOrders === undefined ? undefined : Boolean(isOpenForOrders);
+    const normalizedAverageDeliveryTime = averageDeliveryTime === undefined ? undefined : String(Math.max(1, Number(averageDeliveryTime) || 1));
+    const normalizedAutoAcceptOrders = autoAcceptOrders === undefined ? undefined : Boolean(autoAcceptOrders);
+    const normalizedTrackingRequiresLogin = trackingRequiresLogin === undefined ? undefined : Boolean(trackingRequiresLogin);
+    const normalizedSoundNotifications = soundNotifications === undefined ? undefined : Boolean(soundNotifications);
+    const normalizedMaxConcurrentOrders = maxConcurrentOrders === undefined ? undefined : Math.min(500, Math.max(1, Number(maxConcurrentOrders) || 1));
     const normalizedLegalDocumentType =
       legalDocumentType === undefined
         ? undefined
@@ -476,6 +491,11 @@ class UpdateRestaurantSettingsService {
       facebook,
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
       isOpenForOrders: normalizedIsOpenForOrders,
+      averageDeliveryTime: normalizedAverageDeliveryTime,
+      autoAcceptOrders: normalizedAutoAcceptOrders,
+      trackingRequiresLogin: normalizedTrackingRequiresLogin,
+      soundNotifications: normalizedSoundNotifications,
+      maxConcurrentOrders: normalizedMaxConcurrentOrders,
     });
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};

@@ -99,6 +99,20 @@ class OrderRepository {
     });
   }
 
+  async countActiveOperationalOrders(restaurantId: number, db: PrismaClientLike = prisma) {
+    return db.order.count({
+      where: {
+        restaurantId,
+        status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+    });
+  }
+
   async findCourierOrders(
     restaurantId: number,
     courierId: number,

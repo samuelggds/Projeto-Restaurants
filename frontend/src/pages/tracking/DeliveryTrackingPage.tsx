@@ -12,6 +12,7 @@ type TrackingData = {
     id: number;
     status: string;
     deliveryStartedAt?: string | null;
+    estimatedArrival?: string | null;
     assignedCourier?: { name?: string; phone?: string; avatar?: string } | null;
   };
   locations: RoutePoint[];
@@ -62,7 +63,7 @@ export default function DeliveryTrackingPage() {
             <Summary>
               <article><span>Status</span><strong>{data.order.status === "SAIU_PARA_ENTREGA" ? "Saiu para entrega" : data.order.status === "ENTREGUE" ? "Entregue" : data.order.status}</strong></article>
               <article><span>Motoqueiro</span><strong>{data.order.assignedCourier?.name || "Aguardando retirada"}</strong></article>
-              <article><span>Última atualização</span><strong>{latest?.recordedAt ? new Date(latest.recordedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Aguardando GPS"}</strong></article>
+              <article><span>Previsão de chegada</span><strong>{data.order.estimatedArrival ? new Date(data.order.estimatedArrival).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : latest?.recordedAt ? new Date(latest.recordedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Aguardando GPS"}</strong></article>
             </Summary>
             {data.order.assignedCourier?.phone && <Contact href={`tel:${data.order.assignedCourier.phone}`}><Phone /> Ligar para o motoqueiro</Contact>}
             {data.locations.length ? (

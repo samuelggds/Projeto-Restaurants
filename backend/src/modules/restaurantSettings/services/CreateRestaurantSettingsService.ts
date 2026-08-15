@@ -59,6 +59,11 @@ type CreateRestaurantSettingsPayload = {
   restaurantZipCode?: string | null;
   businessHours?: unknown;
   isOpenForOrders?: boolean;
+  averageDeliveryTime?: string | number | null;
+  autoAcceptOrders?: boolean;
+  trackingRequiresLogin?: boolean;
+  soundNotifications?: boolean;
+  maxConcurrentOrders?: number;
 };
 
 class CreateRestaurantSettingsService {
@@ -117,6 +122,11 @@ class CreateRestaurantSettingsService {
     restaurantZipCode,
     businessHours,
     isOpenForOrders,
+    averageDeliveryTime,
+    autoAcceptOrders,
+    trackingRequiresLogin,
+    soundNotifications,
+    maxConcurrentOrders,
   }: CreateRestaurantSettingsPayload) {
     const settingsExists =
       await restaurantSettingsRepository.findByRestaurantId(restaurantId);
@@ -248,6 +258,11 @@ class CreateRestaurantSettingsService {
       facebook,
       businessHours: businessHours === undefined ? undefined : businessHours as Prisma.InputJsonValue,
       isOpenForOrders: isOpenForOrders === undefined ? true : Boolean(isOpenForOrders),
+      averageDeliveryTime: averageDeliveryTime === undefined ? undefined : String(Math.max(1, Number(averageDeliveryTime) || 1)),
+      autoAcceptOrders: autoAcceptOrders === undefined ? false : Boolean(autoAcceptOrders),
+      trackingRequiresLogin: trackingRequiresLogin === undefined ? true : Boolean(trackingRequiresLogin),
+      soundNotifications: soundNotifications === undefined ? true : Boolean(soundNotifications),
+      maxConcurrentOrders: Math.min(500, Math.max(1, Number(maxConcurrentOrders) || 20)),
     });
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};

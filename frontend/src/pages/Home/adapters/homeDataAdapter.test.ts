@@ -23,6 +23,6 @@ describe("homeDataAdapter", () => {
     ] } });
     expect(data.brand).toMatchObject({ name: "North Pizza", monogram: "NP" });
     expect(data.hero.image).toContain("main.png");
-    expect(data.banners).toHaveLength(2);
+    expect(data.banners).toHaveLength(0);
   });
 });

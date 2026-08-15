@@ -24,6 +24,7 @@ import { BrandSettings } from "./components/BrandSettings";
 import { AdminSettingsContent } from "./components/AdminSettingsContent";
 import { AdminManagement } from "./components/AdminManagement";
 import { MonthlyBilling } from "./components/MonthlyBilling";
+import { HelpCenter } from "./components/HelpCenter";
 import { sectionTitle, settingItems } from "./config/adminNavigation";
 import * as S from "./Admin.styles";
 import type {
@@ -61,6 +62,7 @@ export function AdminPage({
   onDeactivateEmployee,
   onReactivateEmployee,
   onViewStore,
+  onReportSupport,
   onLogout,
 }: AdminPageProps) {
   const { confirmDialog } = useAppDialog();
@@ -93,7 +95,7 @@ export function AdminPage({
       : "",
   );
   const logoInput = useRef<HTMLInputElement>(null);
-  const areaTitles: Record<Exclude<AdminSection, "settings">, string> = {
+  const areaTitles: Record<Exclude<AdminSection, "settings" | "help">, string> = {
     overview: "Visão geral",
     orders: "Pedidos",
     catalog: "Cardápio",
@@ -101,7 +103,7 @@ export function AdminPage({
     subscriptions: "Cobranças e assinaturas",
     employees: "Funcionários",
   };
-  const title = area === "settings" ? sectionTitle[section] : areaTitles[area];
+  const title = area === "settings" ? sectionTitle[section] : area === "help" ? "Central de ajuda" : areaTitles[area];
   const update = <K extends keyof typeof settings>(
     key: K,
     value: (typeof settings)[K],
@@ -360,7 +362,13 @@ export function AdminPage({
           </button>
         </S.MainNav>
         <S.SideFooter>
-          <button>
+          <button
+            className={area === "help" ? "active" : ""}
+            onClick={() => {
+              setArea("help");
+              setMobile(false);
+            }}
+          >
             <HelpCircle />
             Central de ajuda
           </button>
@@ -445,7 +453,14 @@ export function AdminPage({
           </S.TopActions>
         </S.Top>
         <S.Content>
-          {area === "employees" ? (
+          {area === "help" ? (
+            <HelpCenter onReport={async (payload) => {
+              if (!onReportSupport) {
+                throw new Error("O canal de suporte não está disponível agora.");
+              }
+              await onReportSupport(payload);
+            }} />
+          ) : area === "employees" ? (
             <EmployeeList
               employees={employees}
               onNew={() => setEditing(null)}

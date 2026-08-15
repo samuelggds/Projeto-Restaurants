@@ -4,6 +4,7 @@ export type AdminSection =
   | "catalog"
   | "customers"
   | "subscriptions"
+  | "help"
   | "settings"
   | "employees";
 export type SettingsSection =
@@ -77,6 +78,10 @@ export type AdminSettings = {
   facebook: string;
   minimumOrder: number;
   deliveryTime: number;
+  autoAcceptOrders: boolean;
+  trackingRequiresLogin: boolean;
+  soundNotifications: boolean;
+  maxConcurrentOrders: number;
   tableOrderingEnabled: boolean;
   pixProvider: string;
   pixKey: string;
@@ -140,5 +145,9 @@ export type AdminPageProps = {
   onDeactivateEmployee?: (id: string) => void | Promise<void>;
   onReactivateEmployee?: (id: string) => void | Promise<void>;
   onViewStore?: () => void;
+  onReportSupport?: (payload: {
+    subject: string;
+    message: string;
+  }) => Promise<void>;
   onLogout?: () => void;
 };

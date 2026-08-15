@@ -10,11 +10,13 @@ import {
   Prisma,
   TableSessionStatus,
   OrderType,
+  OrderStatus,
 } from "@prisma/client";
 import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
 import { z } from "zod";
 import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
 import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
+import { assertOrderCapacity } from "../utils/orderCapacity.js";
 
 type OrderItemInput = z.infer<typeof createOrderSchema>["items"][number];
 
@@ -334,6 +336,13 @@ class CreateOrderService {
       restaurantId: resolvedRestaurantId,
     });
 
+    const activeOrders = await orderRepository.countActiveOperationalOrders(resolvedRestaurantId);
+    assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
+
+    const initialStatus = restaurantSettings?.autoAcceptOrders
+      ? OrderStatus.PREPARANDO
+      : OrderStatus.PENDENTE;
+
     if (type === "MESA") {
       if (!tableSessionId) {
         throw new Error(
@@ -511,6 +520,8 @@ class CreateOrderService {
           state,
           zipCode,
           complement,
+          status: initialStatus,
+          preparationStartedAt: initialStatus === OrderStatus.PREPARANDO ? new Date() : null,
         },
         tx,
       );

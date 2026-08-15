@@ -60,6 +60,11 @@ class CreateRestaurantSettingsController {
         restaurantZipCode,
         businessHours,
         isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       } = req.body;
 
       const settings = await createRestaurantSettingsService.execute({
@@ -117,6 +122,11 @@ class CreateRestaurantSettingsController {
         restaurantZipCode,
         businessHours,
         isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       });
 
       return res.status(201).json(settings);

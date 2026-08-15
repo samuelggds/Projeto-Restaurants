@@ -144,7 +144,7 @@ export function HomeHeader({
         <i />
         <Clock3 size={15} />
         <span>{isRestaurantOpen ? "Aberto" : "Fechado"}</span>
-        <small>{businessHoursLabel.replace("Hoje: ", "")}</small>
+        {isRestaurantOpen && <small>{businessHoursLabel.replace("Hoje: ", "")}</small>}
       </BusinessStatus>
 
       <Navigation $open={mobileOpen}>
@@ -456,15 +456,15 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
   gap: 6px;
   min-width: 0;
   padding: 8px 11px;
-  border: 1px solid ${({ $open }) => ($open ? "#bfe4ca" : "#eadfd3")};
+  border: 1px solid ${({ $open }) => ($open ? "#bfe4ca" : "#f1aaa4")};
   border-radius: 999px;
-  background: ${({ $open }) => ($open ? "#f0faf1" : "#fbf8f4")};
-  color: ${({ $open }) => ($open ? "#23743b" : "#766d64")};
+  background: ${({ $open }) => ($open ? "#f0faf1" : "#fff1f0")};
+  color: ${({ $open }) => ($open ? "#23743b" : "#bf3029")};
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
-  i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px ${({ $open }) => ($open ? "#dff3e3" : "#eee8e0")}; }
-  small { color: #7a746d; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+  i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px ${({ $open }) => ($open ? "#dff3e3" : "#ffe0dd")}; }
+  small { color: ${({ $open }) => ($open ? "#7a746d" : "#a43a35")}; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
   @media (max-width: 1160px) { small { display: none; } }
   @media (max-width: 980px) { display: none; }
 `;

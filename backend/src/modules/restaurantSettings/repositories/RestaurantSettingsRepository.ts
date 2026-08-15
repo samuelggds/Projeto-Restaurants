@@ -85,6 +85,11 @@ class RestaurantSettingsRepository {
         ownerPhone: true,
         businessHours: true,
         isOpenForOrders: true,
+        averageDeliveryTime: true,
+        autoAcceptOrders: true,
+        trackingRequiresLogin: true,
+        soundNotifications: true,
+        maxConcurrentOrders: true,
         restaurant: {
           select: {
             name: true,
