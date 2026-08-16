@@ -1,12 +1,10 @@
-import { Request, Response } from "express";
-import resolveOrderIssueService from "../services/ResolveOrderIssueService.js";
+import { Request, Response } from 'express';
+import resolveOrderIssueService from '../services/ResolveOrderIssueService.js';
 
 class ResolveOrderIssueController {
   async handle(req: Request, res: Response) {
     try {
-      const id = Array.isArray(req.params.id)
-        ? req.params.id[0]
-        : req.params.id;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { restaurantId, id: adminUserId } = req.user;
 
       const result = await resolveOrderIssueService.execute({
@@ -18,10 +16,7 @@ class ResolveOrderIssueController {
       return res.status(200).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao resolver problema do pedido",
+        error: error instanceof Error ? error.message : 'Erro ao resolver problema do pedido',
       });
     }
   }

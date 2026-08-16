@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 type OrderPayload = Record<string, unknown>;
 type PixPaymentPayload = Record<string, unknown>;
@@ -6,7 +6,7 @@ type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): GenericRecord | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
 
@@ -21,8 +21,7 @@ function normalizeOrderItem(item: unknown) {
 
   const productRecord = asRecord(record.product) || {};
   const fallbackName =
-    String(record.productName || record.name || record.title || "").trim() ||
-    undefined;
+    String(record.productName || record.name || record.title || '').trim() || undefined;
 
   return {
     ...record,
@@ -65,7 +64,7 @@ function normalizeOrdersPayload(payload: unknown) {
 
 class OrdersService {
   async listRestaurantOrders(status?: string) {
-    const response = await api.get("/orders", {
+    const response = await api.get('/orders', {
       params: status ? { status } : undefined,
     });
 
@@ -73,53 +72,49 @@ class OrdersService {
   }
 
   async listMyOrders() {
-    const response = await api.get("/orders/my-orders");
+    const response = await api.get('/orders/my-orders');
     return response.data;
   }
 
   async clearOrdersAndCategories(confirmation: string) {
-    const response = await api.delete("/orders/cleanup/orders-categories", {
+    const response = await api.delete('/orders/cleanup/orders-categories', {
       data: { confirmation },
     });
     return response.data;
   }
 
   async getCurrentTableOrder() {
-    const response = await api.get("/orders/table/current");
+    const response = await api.get('/orders/table/current');
     const order = response.data?.order || null;
     return order ? normalizeOrder(order) : null;
   }
 
   async createOrder(payload: OrderPayload) {
-    const response = await api.post("/orders", payload);
+    const response = await api.post('/orders', payload);
     return response.data;
   }
 
   async createPixPayment(payload: PixPaymentPayload) {
-    const response = await api.post("/orders/pix/payment", payload);
+    const response = await api.post('/orders/pix/payment', payload);
     return response.data;
   }
 
   async createCardCheckout(payload: PixPaymentPayload) {
-    const response = await api.post("/orders/card/checkout", payload);
+    const response = await api.post('/orders/card/checkout', payload);
     return response.data;
   }
 
   async getPixPaymentStatus(payload: PixPaymentStatusPayload) {
-    const response = await api.post("/orders/pix/payment/status", payload);
+    const response = await api.post('/orders/pix/payment/status', payload);
     return response.data;
   }
 
   async confirmPixPayment(payload: PixPaymentStatusPayload) {
-    const response = await api.post("/orders/pix/payment/confirm", payload);
+    const response = await api.post('/orders/pix/payment/confirm', payload);
     return response.data;
   }
 
-  async updateStatus(
-    orderId: string | number,
-    status: string,
-    deliveryConfirmationCode?: string,
-  ) {
+  async updateStatus(orderId: string | number, status: string, deliveryConfirmationCode?: string) {
     const response = await api.put(`/orders/${orderId}/status`, {
       status,
       ...(deliveryConfirmationCode
@@ -136,8 +131,13 @@ class OrdersService {
     return normalizeOrder(response.data);
   }
 
+  async confirmDeliveryReceived(orderId: string | number) {
+    const response = await api.patch(`/orders/${orderId}/confirm-delivery-received`);
+    return normalizeOrder(response.data);
+  }
+
   async getCourierFinance() {
-    const response = await api.get("/orders/courier/finance");
+    const response = await api.get('/orders/courier/finance');
     return response.data;
   }
 
@@ -157,26 +157,19 @@ class OrdersService {
   }
 
   async generatePaymentConfirmationPin(orderId: string | number) {
-    const response = await api.post(
-      `/orders/${orderId}/payment-confirmation-pin`,
-    );
+    const response = await api.post(`/orders/${orderId}/payment-confirmation-pin`);
     return response.data;
   }
 
   async requestPaymentConfirmationPin(orderId: string | number) {
-    const response = await api.post(
-      `/orders/${orderId}/request-payment-confirmation-pin`,
-    );
+    const response = await api.post(`/orders/${orderId}/request-payment-confirmation-pin`);
     return response.data;
   }
 
   async confirmPaymentWithPin(orderId: string | number, pin: string) {
-    const response = await api.patch(
-      `/orders/${orderId}/confirm-payment-with-pin`,
-      {
-        pin,
-      },
-    );
+    const response = await api.patch(`/orders/${orderId}/confirm-payment-with-pin`, {
+      pin,
+    });
     return response.data;
   }
 

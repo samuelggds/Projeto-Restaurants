@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/coverage
+**/.vite
+**/*.min.*
+**/.env*
+backend/prisma/migrations
+backend/load-test-reports
+frontend/test-results

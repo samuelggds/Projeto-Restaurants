@@ -1,6 +1,6 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
-import mercadoPagoService from "../src/modules/billing/services/MercadoPagoService.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
+import mercadoPagoService from '../src/modules/billing/services/MercadoPagoService.js';
 
 const restaurantId = Number(process.argv[2] || 15);
 
@@ -30,9 +30,7 @@ async function findAvailablePeriod(restaurantId) {
     }
   }
 
-  throw new Error(
-    "Nao foi encontrado periodo livre para invoice nos proximos 24 meses",
-  );
+  throw new Error('Nao foi encontrado periodo livre para invoice nos proximos 24 meses');
 }
 
 (async () => {
@@ -59,7 +57,7 @@ async function findAvailablePeriod(restaurantId) {
         monthlyFee: 1,
         systemFees: 0,
         total: 1,
-        status: "PENDENTE",
+        status: 'PENDENTE',
         dueDate,
       },
     });
@@ -76,7 +74,7 @@ async function findAvailablePeriod(restaurantId) {
       data: { paymentLink: payment.init_point },
     });
 
-    console.log("INVOICE_CRIADA");
+    console.log('INVOICE_CRIADA');
     console.log(
       JSON.stringify(
         {
@@ -93,7 +91,7 @@ async function findAvailablePeriod(restaurantId) {
       ),
     );
   } catch (err) {
-    console.error("ERRO_AO_CRIAR_INVOICE", err?.message || err);
+    console.error('ERRO_AO_CRIAR_INVOICE', err?.message || err);
     process.exitCode = 1;
   } finally {
     await prisma.$disconnect();

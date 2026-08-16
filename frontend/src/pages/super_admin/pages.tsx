@@ -11,30 +11,30 @@ import {
   Store,
   Ticket,
   Users,
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import type { PlatformSettings, SuperAdminData, TenantStatus } from "./types";
-import * as S from "./SuperAdmin.styles";
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { PlatformSettings, SuperAdminData, TenantStatus } from './types';
+import * as S from './SuperAdmin.styles';
 
 const brl = (value: number) =>
-  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const tenantLabel: Record<TenantStatus, string> = {
-  ACTIVE: "ATIVO",
-  TRIAL: "TRIAL",
-  OVERDUE: "EM ATRASO",
-  BLOCKED: "BLOQUEADO",
-  CANCELED: "CANCELADO",
+  ACTIVE: 'ATIVO',
+  TRIAL: 'TRIAL',
+  OVERDUE: 'EM ATRASO',
+  BLOCKED: 'BLOQUEADO',
+  CANCELED: 'CANCELADO',
 };
-const tone = (status: string): "green" | "red" | "yellow" | "blue" | "gray" =>
-  ["ACTIVE", "ATIVA", "PAID", "SUCCESS"].includes(status)
-    ? "green"
-    : ["OVERDUE", "BLOCKED", "CRITICAL", "FAILURE"].includes(status)
-      ? "red"
-      : ["TRIAL", "PENDING", "INVITED", "WAITING_CUSTOMER"].includes(status)
-        ? "yellow"
-        : ["IN_PROGRESS"].includes(status)
-          ? "blue"
-          : "gray";
+const tone = (status: string): 'green' | 'red' | 'yellow' | 'blue' | 'gray' =>
+  ['ACTIVE', 'ATIVA', 'PAID', 'SUCCESS'].includes(status)
+    ? 'green'
+    : ['OVERDUE', 'BLOCKED', 'CRITICAL', 'FAILURE'].includes(status)
+      ? 'red'
+      : ['TRIAL', 'PENDING', 'INVITED', 'WAITING_CUSTOMER'].includes(status)
+        ? 'yellow'
+        : ['IN_PROGRESS'].includes(status)
+          ? 'blue'
+          : 'gray';
 function Metrics({
   items,
 }: {
@@ -61,7 +61,7 @@ function Metrics({
   );
 }
 function Toolbar({
-  placeholder = "Buscar...",
+  placeholder = 'Buscar...',
   children,
 }: {
   placeholder?: string;
@@ -85,30 +85,30 @@ export function OverviewPage({
   data: SuperAdminData;
   onSelect?: (id: string) => void;
 }) {
-  const active = data.restaurants.filter((r) => r.status === "ACTIVE").length;
+  const active = data.restaurants.filter((r) => r.status === 'ACTIVE').length;
   return (
     <>
       <Metrics
         items={[
           {
-            label: "Restaurantes ativos",
+            label: 'Restaurantes ativos',
             value: data.metrics?.restaurantsActive ?? active,
             icon: <Building2 />,
             hint: `${data.metrics?.restaurantsTotal ?? data.restaurants.length} no total`,
           },
           {
-            label: "Receita mensal",
-            value: data.metrics ? brl(data.metrics.mrr) : "R$ 0",
+            label: 'Receita mensal',
+            value: data.metrics ? brl(data.metrics.mrr) : 'R$ 0',
             icon: <DollarSign />,
-            hint: "MRR atual",
+            hint: 'MRR atual',
           },
           {
-            label: "Em período de teste",
+            label: 'Em período de teste',
             value: data.metrics?.restaurantsTrial ?? 0,
             icon: <Clock3 />,
           },
           {
-            label: "Faturas pendentes",
+            label: 'Faturas pendentes',
             value: data.metrics?.pendingInvoicesCount ?? 0,
             icon: <AlertTriangle />,
           },
@@ -124,10 +124,7 @@ export function OverviewPage({
           </header>
           <S.Chart>
             {(data.metrics?.monthlyGrowth ?? []).map((m) => {
-              const max = Math.max(
-                ...(data.metrics?.monthlyGrowth ?? []).map((x) => x.count),
-                1,
-              );
+              const max = Math.max(...(data.metrics?.monthlyGrowth ?? []).map((x) => x.count), 1);
               return (
                 <div
                   key={m.label}
@@ -235,13 +232,11 @@ export function RestaurantsPage({
   data: SuperAdminData;
   onSelect?: (id: string) => void;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const visible = useMemo(
     () =>
       data.restaurants.filter((r) =>
-        `${r.name} ${r.responsible} ${r.email}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
+        `${r.name} ${r.responsible} ${r.email}`.toLowerCase().includes(query.toLowerCase()),
       ),
     [data, query],
   );
@@ -266,21 +261,21 @@ export function RestaurantsPage({
       <Metrics
         items={[
           {
-            label: "Total",
+            label: 'Total',
             value: data.metrics?.restaurantsTotal ?? data.restaurants.length,
           },
           {
-            label: "Ativos",
+            label: 'Ativos',
             value: data.metrics?.restaurantsActive ?? 0,
             icon: <CheckCircle2 />,
           },
           {
-            label: "Em teste",
+            label: 'Em teste',
             value: data.metrics?.restaurantsTrial ?? 0,
             icon: <Clock3 />,
           },
           {
-            label: "Bloqueados",
+            label: 'Bloqueados',
             value: data.metrics?.restaurantsBlocked ?? 0,
             icon: <LockKeyhole />,
           },
@@ -288,27 +283,22 @@ export function RestaurantsPage({
       />
       <S.Grid>
         <S.Card>
-          <RestaurantTable
-            data={{ ...data, restaurants: visible }}
-            onSelect={onSelect}
-          />
+          <RestaurantTable data={{ ...data, restaurants: visible }} onSelect={onSelect} />
         </S.Card>
         <S.Card>
           <header>
             <h2>Ações rápidas</h2>
           </header>
           <S.Stack>
-            {["Reenviar acesso", "Alterar plano", "Bloquear restaurante"].map(
-              (item) => (
-                <S.ListItem key={item}>
-                  <span className="info">
-                    <b>{item}</b>
-                    <span>Selecione um restaurante para continuar</span>
-                  </span>
-                  <span>›</span>
-                </S.ListItem>
-              ),
-            )}
+            {['Reenviar acesso', 'Alterar plano', 'Bloquear restaurante'].map((item) => (
+              <S.ListItem key={item}>
+                <span className="info">
+                  <b>{item}</b>
+                  <span>Selecione um restaurante para continuar</span>
+                </span>
+                <span>›</span>
+              </S.ListItem>
+            ))}
           </S.Stack>
         </S.Card>
       </S.Grid>
@@ -333,22 +323,22 @@ export function SubscriptionsPage({ data }: { data: SuperAdminData }) {
       <Metrics
         items={[
           {
-            label: "Ativas",
-            value: data.restaurants.filter((r) => r.status === "ACTIVE").length,
+            label: 'Ativas',
+            value: data.restaurants.filter((r) => r.status === 'ACTIVE').length,
             icon: <CheckCircle2 />,
           },
           {
-            label: "Trials",
+            label: 'Trials',
             value: data.metrics?.restaurantsTrial ?? 0,
             icon: <Clock3 />,
           },
           {
-            label: "Renovam este mês",
+            label: 'Renovam este mês',
             value: data.metrics?.restaurantsActive ?? 0,
             icon: <CreditCard />,
           },
           {
-            label: "Em atraso",
+            label: 'Em atraso',
             value: data.metrics?.restaurantsOverdue ?? 0,
             icon: <AlertTriangle />,
           },
@@ -369,11 +359,9 @@ export function SubscriptionsPage({ data }: { data: SuperAdminData }) {
               <div className="row" key={r.id}>
                 <b>{r.name}</b>
                 <span>{r.plan}</span>
-                <S.Badge $tone={tone(r.status)}>
-                  {tenantLabel[r.status]}
-                </S.Badge>
+                <S.Badge $tone={tone(r.status)}>{tenantLabel[r.status]}</S.Badge>
                 <span>{r.createdAt}</span>
-                <span>{r.status === "BLOCKED" ? "—" : "15/08/2026"}</span>
+                <span>{r.status === 'BLOCKED' ? '—' : '15/08/2026'}</span>
                 <span>{brl(r.monthlyRevenue)}</span>
               </div>
             ))}
@@ -388,7 +376,7 @@ export function SubscriptionsPage({ data }: { data: SuperAdminData }) {
               <S.ListItem key={r.id}>
                 <span className="info">
                   <b>{r.name}</b>
-                  <span>{r.nextBillingAt ?? "\u2014"}</span>
+                  <span>{r.nextBillingAt ?? '\u2014'}</span>
                 </span>
                 <strong>{brl(r.monthlyRevenue)}</strong>
               </S.ListItem>
@@ -398,11 +386,7 @@ export function SubscriptionsPage({ data }: { data: SuperAdminData }) {
             <header>
               <h2>Ações rápidas</h2>
             </header>
-            {[
-              "Estender trial",
-              "Alterar vencimento",
-              "Cancelar assinatura",
-            ].map((x) => (
+            {['Estender trial', 'Alterar vencimento', 'Cancelar assinatura'].map((x) => (
               <S.ListItem key={x}>
                 <b>{x}</b>
                 <span>›</span>
@@ -420,15 +404,15 @@ export function PlansPage({ data }: { data: SuperAdminData }) {
     <>
       <Metrics
         items={[
-          { label: "Planos ativos", value: data.plans.length },
+          { label: 'Planos ativos', value: data.plans.length },
           {
-            label: "Assinaturas pagas",
+            label: 'Assinaturas pagas',
             value: data.metrics?.restaurantsActive ?? 0,
             icon: <Users />,
           },
           {
-            label: "MRR",
-            value: data.metrics ? brl(data.metrics.mrr) : "R$ 0",
+            label: 'MRR',
+            value: data.metrics ? brl(data.metrics.mrr) : 'R$ 0',
             icon: <DollarSign />,
           },
         ]}
@@ -438,7 +422,7 @@ export function PlansPage({ data }: { data: SuperAdminData }) {
           <S.PlanCard key={plan.id} $featured={plan.featured}>
             <h2>{plan.name}</h2>
             <div className="price">
-              {plan.price ? brl(plan.price) : "Preço sob consulta"}
+              {plan.price ? brl(plan.price) : 'Preço sob consulta'}
               {plan.price && <small>/mês</small>}
             </div>
             <small>{plan.restaurants} restaurantes</small>
@@ -461,24 +445,22 @@ export function BillingPage({ data }: { data: SuperAdminData }) {
       <Metrics
         items={[
           {
-            label: "MRR",
-            value: data.metrics ? brl(data.metrics.mrr) : "R$ 0",
+            label: 'MRR',
+            value: data.metrics ? brl(data.metrics.mrr) : 'R$ 0',
             icon: <DollarSign />,
           },
           {
-            label: "Gerado no período",
-            value: data.metrics ? brl(data.metrics.totalGenerated) : "R$ 0",
+            label: 'Gerado no período',
+            value: data.metrics ? brl(data.metrics.totalGenerated) : 'R$ 0',
             icon: <CreditCard />,
           },
           {
-            label: "Faturas pendentes",
-            value: data.metrics
-              ? brl(data.metrics.pendingInvoicesTotal)
-              : "R$ 0",
+            label: 'Faturas pendentes',
+            value: data.metrics ? brl(data.metrics.pendingInvoicesTotal) : 'R$ 0',
             icon: <Clock3 />,
           },
           {
-            label: "Qtd. faturas abertas",
+            label: 'Qtd. faturas abertas',
             value: data.metrics?.pendingInvoicesCount ?? 0,
             icon: <AlertTriangle />,
           },
@@ -491,10 +473,7 @@ export function BillingPage({ data }: { data: SuperAdminData }) {
           </header>
           <S.Chart>
             {(data.metrics?.monthlyRevenue ?? []).map((m) => {
-              const max = Math.max(
-                ...(data.metrics?.monthlyRevenue ?? []).map((x) => x.value),
-                1,
-              );
+              const max = Math.max(...(data.metrics?.monthlyRevenue ?? []).map((x) => x.value), 1);
               return (
                 <div
                   className="bar"
@@ -513,23 +492,15 @@ export function BillingPage({ data }: { data: SuperAdminData }) {
           </header>
           <S.ListItem key="gerado">
             <b>Total gerado (pedidos)</b>
-            <strong>
-              {data.metrics ? brl(data.metrics.totalGenerated) : "R$\u00a00"}
-            </strong>
+            <strong>{data.metrics ? brl(data.metrics.totalGenerated) : 'R$\u00a00'}</strong>
           </S.ListItem>
           <S.ListItem key="recebiveis">
             <b>Taxa da plataforma (recebíveis)</b>
-            <strong>
-              {data.metrics ? brl(data.metrics.totalReceivable) : "R$\u00a00"}
-            </strong>
+            <strong>{data.metrics ? brl(data.metrics.totalReceivable) : 'R$\u00a00'}</strong>
           </S.ListItem>
           <S.ListItem key="pendente">
             <b>Faturas pendentes</b>
-            <strong>
-              {data.metrics
-                ? brl(data.metrics.pendingInvoicesTotal)
-                : "R$\u00a00"}
-            </strong>
+            <strong>{data.metrics ? brl(data.metrics.pendingInvoicesTotal) : 'R$\u00a00'}</strong>
           </S.ListItem>
         </S.Card>
       </S.Grid>
@@ -576,26 +547,23 @@ export function AdministratorsPage({ data }: { data: SuperAdminData }) {
       <Metrics
         items={[
           {
-            label: "Administradores",
+            label: 'Administradores',
             value: data.administrators.length,
             icon: <Users />,
           },
           {
-            label: "Ativos",
-            value: data.administrators.filter((a) => a.status === "ACTIVE")
-              .length,
+            label: 'Ativos',
+            value: data.administrators.filter((a) => a.status === 'ACTIVE').length,
             icon: <CheckCircle2 />,
           },
           {
-            label: "Convites pendentes",
-            value: data.administrators.filter((a) => a.status === "INVITED")
-              .length,
+            label: 'Convites pendentes',
+            value: data.administrators.filter((a) => a.status === 'INVITED').length,
             icon: <Clock3 />,
           },
           {
-            label: "Acessos bloqueados",
-            value: data.administrators.filter((a) => a.status === "BLOCKED")
-              .length,
+            label: 'Acessos bloqueados',
+            value: data.administrators.filter((a) => a.status === 'BLOCKED').length,
             icon: <LockKeyhole />,
           },
         ]}
@@ -620,7 +588,7 @@ export function AdministratorsPage({ data }: { data: SuperAdminData }) {
                 <span>{a.restaurant}</span>
                 <S.Badge $tone={tone(a.status)}>{a.status}</S.Badge>
                 <span>{a.lastAccess}</span>
-                <span>{a.twoFactor ? "Ativado" : "Não ativado"}</span>
+                <span>{a.twoFactor ? 'Ativado' : 'Não ativado'}</span>
                 <button className="action">Ver detalhes</button>
               </div>
             ))}
@@ -630,11 +598,7 @@ export function AdministratorsPage({ data }: { data: SuperAdminData }) {
           <header>
             <h2>Segurança de acesso</h2>
           </header>
-          <Metrics
-            items={[
-              { label: "2FA habilitado", value: "81%", icon: <ShieldCheck /> },
-            ]}
-          />
+          <Metrics items={[{ label: '2FA habilitado', value: '81%', icon: <ShieldCheck /> }]} />
           <S.ListItem>
             <b>Senhas redefinidas</b>
             <strong>4</strong>
@@ -663,23 +627,22 @@ export function SupportPage({ data }: { data: SuperAdminData }) {
       <Metrics
         items={[
           {
-            label: "Abertos",
-            value: data.tickets.filter((t) => t.status === "OPEN").length,
+            label: 'Abertos',
+            value: data.tickets.filter((t) => t.status === 'OPEN').length,
             icon: <Ticket />,
           },
           {
-            label: "Críticos",
-            value: data.tickets.filter((t) => t.priority === "CRITICAL").length,
+            label: 'Críticos',
+            value: data.tickets.filter((t) => t.priority === 'CRITICAL').length,
             icon: <AlertTriangle />,
           },
           {
-            label: "Em atendimento",
-            value: data.tickets.filter((t) => t.status === "IN_PROGRESS")
-              .length,
+            label: 'Em atendimento',
+            value: data.tickets.filter((t) => t.status === 'IN_PROGRESS').length,
             icon: <Users />,
           },
           {
-            label: "Total de chamados",
+            label: 'Total de chamados',
             value: data.tickets.length,
             icon: <Clock3 />,
           },
@@ -714,7 +677,7 @@ export function SupportPage({ data }: { data: SuperAdminData }) {
               <h2>Fila crítica</h2>
             </header>
             {data.tickets
-              .filter((t) => t.priority === "CRITICAL")
+              .filter((t) => t.priority === 'CRITICAL')
               .map((t) => (
                 <S.ListItem key={t.id}>
                   <span className="info">
@@ -729,11 +692,7 @@ export function SupportPage({ data }: { data: SuperAdminData }) {
             <header>
               <h2>SLA de hoje</h2>
             </header>
-            <Metrics
-              items={[
-                { label: "Meta: 90%", value: "94%", icon: <CheckCircle2 /> },
-              ]}
-            />
+            <Metrics items={[{ label: 'Meta: 90%', value: '94%', icon: <CheckCircle2 /> }]} />
           </S.Card>
         </S.Stack>
       </S.Grid>
@@ -757,17 +716,16 @@ export function AuditPage({ data }: { data: SuperAdminData }) {
       </Toolbar>
       <Metrics
         items={[
-          { label: "Eventos registrados", value: data.auditLogs.length },
+          { label: 'Eventos registrados', value: data.auditLogs.length },
           {
-            label: "Ações críticas",
-            value: data.auditLogs.filter(
-              (l) => l.result === "FAILURE" || l.result === "BLOCKED",
-            ).length,
+            label: 'Ações críticas',
+            value: data.auditLogs.filter((l) => l.result === 'FAILURE' || l.result === 'BLOCKED')
+              .length,
             icon: <ShieldCheck />,
           },
           {
-            label: "Falhas de acesso",
-            value: data.auditLogs.filter((l) => l.result === "FAILURE").length,
+            label: 'Falhas de acesso',
+            value: data.auditLogs.filter((l) => l.result === 'FAILURE').length,
             icon: <LockKeyhole />,
           },
         ]}
@@ -803,9 +761,9 @@ export function AuditPage({ data }: { data: SuperAdminData }) {
             <h2>Eventos críticos</h2>
           </header>
           {[
-            "Bloqueio manual de assinatura",
-            "Exclusão de restaurante solicitada",
-            "Múltiplas falhas de login",
+            'Bloqueio manual de assinatura',
+            'Exclusão de restaurante solicitada',
+            'Múltiplas falhas de login',
           ].map((x) => (
             <S.ListItem key={x}>
               <span className="info">
@@ -829,24 +787,22 @@ export function SettingsPage({
   onSave?: (settings: PlatformSettings) => void | Promise<void>;
 }) {
   const [settings, setSettings] = useState(initial);
-  const set = <K extends keyof PlatformSettings>(
-    key: K,
-    value: PlatformSettings[K],
-  ) => setSettings((prev) => ({ ...prev, [key]: value }));
+  const set = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) =>
+    setSettings((prev) => ({ ...prev, [key]: value }));
   return (
     <S.SettingsLayout>
       <S.SettingsNav>
         <input placeholder="Buscar configurações..." />
         {[
-          "Geral",
-          "Assinaturas e trial",
-          "Cobranças",
-          "E-mails",
-          "Integrações",
-          "Segurança",
-          "Manutenção",
+          'Geral',
+          'Assinaturas e trial',
+          'Cobranças',
+          'E-mails',
+          'Integrações',
+          'Segurança',
+          'Manutenção',
         ].map((x, i) => (
-          <button key={x} className={i === 0 ? "active" : ""}>
+          <button key={x} className={i === 0 ? 'active' : ''}>
             {x}
           </button>
         ))}
@@ -861,28 +817,25 @@ export function SettingsPage({
               Nome da plataforma
               <input
                 value={settings.platformName}
-                onChange={(e) => set("platformName", e.target.value)}
+                onChange={(e) => set('platformName', e.target.value)}
               />
             </label>
             <label>
               Domínio
-              <input
-                value={settings.domain}
-                onChange={(e) => set("domain", e.target.value)}
-              />
+              <input value={settings.domain} onChange={(e) => set('domain', e.target.value)} />
             </label>
             <label>
               E-mail de suporte
               <input
                 value={settings.supportEmail}
-                onChange={(e) => set("supportEmail", e.target.value)}
+                onChange={(e) => set('supportEmail', e.target.value)}
               />
             </label>
             <label>
               Cor principal
               <input
                 value={settings.primaryColor}
-                onChange={(e) => set("primaryColor", e.target.value)}
+                onChange={(e) => set('primaryColor', e.target.value)}
               />
             </label>
           </S.FormCard>
@@ -900,10 +853,7 @@ export function SettingsPage({
             </label>
             <label>
               Fuso horário
-              <input
-                value={settings.timezone}
-                onChange={(e) => set("timezone", e.target.value)}
-              />
+              <input value={settings.timezone} onChange={(e) => set('timezone', e.target.value)} />
             </label>
             <label>
               Formato de data
@@ -917,15 +867,15 @@ export function SettingsPage({
             <div className="line">
               <span>Permitir auto cadastro</span>
               <button
-                className={`toggle ${settings.allowSignup ? "on" : ""}`}
-                onClick={() => set("allowSignup", !settings.allowSignup)}
+                className={`toggle ${settings.allowSignup ? 'on' : ''}`}
+                onClick={() => set('allowSignup', !settings.allowSignup)}
               />
             </div>
             <div className="line">
               <span>Aprovação manual</span>
               <button
-                className={`toggle ${settings.manualApproval ? "on" : ""}`}
-                onClick={() => set("manualApproval", !settings.manualApproval)}
+                className={`toggle ${settings.manualApproval ? 'on' : ''}`}
+                onClick={() => set('manualApproval', !settings.manualApproval)}
               />
             </div>
             <label>
@@ -933,7 +883,7 @@ export function SettingsPage({
               <input
                 type="number"
                 value={settings.trialDays}
-                onChange={(e) => set("trialDays", Number(e.target.value))}
+                onChange={(e) => set('trialDays', Number(e.target.value))}
               />
             </label>
           </S.FormCard>
@@ -946,7 +896,7 @@ export function SettingsPage({
               <input
                 type="number"
                 value={settings.uploadLimitMb}
-                onChange={(e) => set("uploadLimitMb", Number(e.target.value))}
+                onChange={(e) => set('uploadLimitMb', Number(e.target.value))}
               />
             </label>
             <label>
@@ -954,23 +904,17 @@ export function SettingsPage({
               <input
                 type="number"
                 value={settings.logRetentionDays}
-                onChange={(e) =>
-                  set("logRetentionDays", Number(e.target.value))
-                }
+                onChange={(e) => set('logRetentionDays', Number(e.target.value))}
               />
             </label>
             <div className="line">
               <span>Modo manutenção</span>
               <button
-                className={`toggle ${settings.maintenanceMode ? "on" : ""}`}
-                onClick={() =>
-                  set("maintenanceMode", !settings.maintenanceMode)
-                }
+                className={`toggle ${settings.maintenanceMode ? 'on' : ''}`}
+                onClick={() => set('maintenanceMode', !settings.maintenanceMode)}
               />
             </div>
-            <button onClick={() => onSave?.(settings)}>
-              Salvar alterações
-            </button>
+            <button onClick={() => onSave?.(settings)}>Salvar alterações</button>
           </S.FormCard>
         </S.FormGrid>
       </div>

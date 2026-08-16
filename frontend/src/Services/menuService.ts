@@ -1,8 +1,8 @@
-import api from "./api";
+import api from './api';
 
 class MenuService {
   async listProducts(restaurantId) {
-    const response = await api.get("/products", {
+    const response = await api.get('/products', {
       params: { restaurantId },
     });
 
@@ -10,7 +10,7 @@ class MenuService {
   }
 
   async listProductsBySlug(slug) {
-    const response = await api.get("/products", {
+    const response = await api.get('/products', {
       params: { slug },
     });
 
@@ -18,7 +18,7 @@ class MenuService {
   }
 
   async listProductRatings(restaurantId, clientKey) {
-    const response = await api.get("/products/ratings", {
+    const response = await api.get('/products/ratings', {
       params: {
         restaurantId,
         clientKey,

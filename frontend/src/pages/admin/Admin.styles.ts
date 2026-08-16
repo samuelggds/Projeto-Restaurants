@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export const Root = styled.div<{ $primary: string; $settings?: boolean }>`
   --a: ${({ $primary }) => $primary};
@@ -13,11 +13,11 @@ export const Root = styled.div<{ $primary: string; $settings?: boolean }>`
     ui-sans-serif,
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     sans-serif;
   display: grid;
   grid-template-columns: ${({ $settings }) =>
-    $settings ? "236px 298px minmax(0,1fr)" : "236px minmax(0,1fr)"};
+    $settings ? '236px 298px minmax(0,1fr)' : '236px minmax(0,1fr)'};
   *,
   *::before,
   *::after {
@@ -31,24 +31,24 @@ export const Root = styled.div<{ $primary: string; $settings?: boolean }>`
   }
   button,
   a,
-  [role="button"],
+  [role='button'],
   label[for],
   select,
-  input[type="checkbox"],
-  input[type="radio"],
-  input[type="color"],
-  input[type="file"] {
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='color'],
+  input[type='file'] {
     cursor: pointer;
   }
   button:disabled,
   input:disabled,
   select:disabled,
-  [aria-disabled="true"] {
+  [aria-disabled='true'] {
     cursor: not-allowed;
   }
   @media (max-width: 1080px) {
     grid-template-columns: ${({ $settings }) =>
-      $settings ? "220px minmax(0,1fr)" : "220px minmax(0,1fr)"};
+      $settings ? '220px minmax(0,1fr)' : '220px minmax(0,1fr)'};
   }
   @media (max-width: 760px) {
     display: block;
@@ -65,7 +65,7 @@ export const MainSidebar = styled.aside<{ $open: boolean }>`
   flex-direction: column;
   z-index: 60;
   @media (max-width: 760px) {
-    display: ${({ $open }) => ($open ? "flex" : "none")};
+    display: ${({ $open }) => ($open ? 'flex' : 'none')};
     position: fixed;
     inset: 0 auto 0 0;
     width: min(86vw, 300px);
@@ -158,7 +158,7 @@ export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
   border-right: 1px solid var(--border);
   padding: 30px 14px;
   overflow-y: auto;
-  display: ${({ $visible }) => ($visible ? "block" : "none")};
+  display: ${({ $visible }) => ($visible ? 'block' : 'none')};
   @media (max-width: 1080px) {
     display: none;
   }
@@ -173,7 +173,10 @@ export const Search = styled.label`
   align-items: center;
   gap: 11px;
   margin-bottom: 26px;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
   &:focus-within {
     border-color: color-mix(in srgb, var(--a) 65%, #fff);
     background: #fff;
@@ -210,7 +213,10 @@ export const SettingsNav = styled.nav`
     gap: 12px;
     padding: 0 12px;
     text-align: left;
-    transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+    transition:
+      background 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
   }
   button:hover {
     background: #f7f3ef;
@@ -287,7 +293,10 @@ export const TopActions = styled.div`
     align-items: center;
     gap: 9px;
     white-space: nowrap;
-    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+    transition:
+      transform 160ms ease,
+      box-shadow 160ms ease,
+      filter 160ms ease;
   }
   button:hover {
     transform: translateY(-1px);
@@ -325,11 +334,17 @@ export const Content = styled.div`
   margin: auto;
   padding: 28px 34px 80px;
   > * {
-    animation: admin-content-enter 240ms cubic-bezier(.22, .8, .35, 1) both;
+    animation: admin-content-enter 240ms cubic-bezier(0.22, 0.8, 0.35, 1) both;
   }
   @keyframes admin-content-enter {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   @media (max-width: 760px) {
     padding: 14px 10px 50px;
@@ -340,8 +355,14 @@ export const Stack = styled.div`
   gap: 22px;
   animation: settings-enter 260ms ease both;
   @keyframes settings-enter {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 `;
 export const Card = styled.section`
@@ -350,7 +371,9 @@ export const Card = styled.section`
   background: #fff;
   padding: 30px 28px;
   box-shadow: 0 8px 30px rgba(51, 35, 22, 0.045);
-  transition: box-shadow 200ms ease, border-color 200ms ease;
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease;
   &:hover {
     border-color: #ddd3c9;
     box-shadow: 0 12px 34px rgba(51, 35, 22, 0.065);
@@ -413,7 +436,9 @@ export const LogoCard = styled.div`
     animation: admin-image-spin 0.9s linear infinite;
   }
   @keyframes admin-image-spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
   .upload small {
     color: var(--muted);
@@ -446,7 +471,7 @@ export const Field = styled.label<{ $full?: boolean }>`
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  ${({ $full }) => ($full ? "grid-column:1/-1" : "")}
+  ${({ $full }) => ($full ? 'grid-column:1/-1' : '')}
   input, textarea, select {
     width: 100%;
     border: 1px solid #ded7cf;
@@ -456,9 +481,15 @@ export const Field = styled.label<{ $full?: boolean }>`
     padding: 0 15px;
     outline: 0;
     font-weight: 400;
-    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease,
+      transform 180ms ease;
   }
-  input:hover, textarea:hover, select:hover {
+  input:hover,
+  textarea:hover,
+  select:hover {
     border-color: #c8beb4;
     background: #fff;
   }
@@ -495,7 +526,10 @@ export const IdentityNameInput = styled.input`
     outline: 0;
     font-weight: 400;
     line-height: 1.55;
-    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease;
   }
   &&:hover {
     border-color: #c8beb4;
@@ -510,7 +544,7 @@ export const IdentityNameInput = styled.input`
 export const Color = styled.div`
   display: grid;
   grid-template-columns: 52px 1fr;
-  input[type="color"] {
+  input[type='color'] {
     padding: 6px;
     width: 52px;
     cursor: pointer;
@@ -535,10 +569,13 @@ export const Banners = styled.div`
     color: #333;
     cursor: pointer;
     overflow: hidden;
-    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
   }
   button:has(img)::after {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.68));
@@ -598,7 +635,7 @@ export const Generic = styled.div`
     color: var(--muted);
     font-size: 12px;
   }
-  .row input[type="checkbox"] {
+  .row input[type='checkbox'] {
     margin-left: auto;
     width: 20px;
     height: 20px;
@@ -677,7 +714,9 @@ export const EmployeeRow = styled.article`
     background: transparent;
     border-radius: 9px;
     cursor: pointer;
-    transition: background 160ms ease, color 160ms ease;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
     &:hover {
       color: var(--a);
       background: #fff3ed;
@@ -759,8 +798,12 @@ export const Overlay = styled.div`
   justify-content: flex-end;
   animation: overlay-enter 180ms ease both;
   @keyframes overlay-enter {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 `;
 export const Drawer = styled.form`
@@ -772,10 +815,16 @@ export const Drawer = styled.form`
   display: flex;
   flex-direction: column;
   gap: 17px;
-  animation: drawer-enter 260ms cubic-bezier(.22, .8, .35, 1) both;
+  animation: drawer-enter 260ms cubic-bezier(0.22, 0.8, 0.35, 1) both;
   @keyframes drawer-enter {
-    from { opacity: 0; transform: translateX(22px); }
-    to { opacity: 1; transform: translateX(0); }
+    from {
+      opacity: 0;
+      transform: translateX(22px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
   header {
     display: flex;
@@ -922,7 +971,10 @@ export const DataList = styled.div`
     border-radius: 8px;
     background: #fff;
     color: var(--a);
-    transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+    transition:
+      background 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
   }
   .category-actions button:hover:not(:disabled) {
     background: #fff3ed;
@@ -937,7 +989,7 @@ export const DataList = styled.div`
   }
   .category-actions button:disabled {
     cursor: not-allowed;
-    opacity: .55;
+    opacity: 0.55;
   }
   @media (max-width: 560px) {
     .data-row {
@@ -967,13 +1019,45 @@ export const OverviewFilters = styled.div`
   grid-template-columns: minmax(0, 1fr) 150px;
   gap: 9px;
   margin: 16px 0 5px;
-  label { position: relative; display: block; }
-  label svg { position: absolute; left: 11px; top: 50%; width: 16px; color: #887d75; transform: translateY(-50%); pointer-events: none; }
-  input, select { width: 100%; height: 40px; border: 1px solid #e5ddd6; border-radius: 10px; outline: 0; background: #fcfbfa; color: #282522; font: inherit; font-size: 12px; }
-  input { padding: 0 12px 0 36px; }
-  select { padding: 0 9px; }
-  input:focus, select:focus { border-color: var(--a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 12%, transparent); }
-  @media (max-width: 560px) { grid-template-columns: 1fr; }
+  label {
+    position: relative;
+    display: block;
+  }
+  label svg {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    width: 16px;
+    color: #887d75;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  input,
+  select {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #e5ddd6;
+    border-radius: 10px;
+    outline: 0;
+    background: #fcfbfa;
+    color: #282522;
+    font: inherit;
+    font-size: 12px;
+  }
+  input {
+    padding: 0 12px 0 36px;
+  }
+  select {
+    padding: 0 9px;
+  }
+  input:focus,
+  select:focus {
+    border-color: var(--a);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 12%, transparent);
+  }
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
 `;
 export const OverviewPagination = styled.div`
   min-height: 50px;
@@ -984,12 +1068,47 @@ export const OverviewPagination = styled.div`
   gap: 10px;
   color: var(--muted);
   font-size: 11px;
-  & > div { display: flex; gap: 7px; }
-  button { height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 4px; border: 1px solid #e1d8d0; border-radius: 9px; color: #b94715; background: #fff; font-size: 11px; font-weight: 650; transition: .16s ease; }
-  button:hover:not(:disabled) { border-color: var(--a); background: #fff7f2; transform: translateY(-1px); }
-  button:disabled { opacity: .38; cursor: not-allowed; }
-  button svg { width: 14px; }
-  @media (max-width: 480px) { align-items: flex-start; flex-direction: column; & > div { width: 100%; } button { flex: 1; justify-content: center; } }
+  & > div {
+    display: flex;
+    gap: 7px;
+  }
+  button {
+    height: 34px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #e1d8d0;
+    border-radius: 9px;
+    color: #b94715;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 650;
+    transition: 0.16s ease;
+  }
+  button:hover:not(:disabled) {
+    border-color: var(--a);
+    background: #fff7f2;
+    transform: translateY(-1px);
+  }
+  button:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+  button svg {
+    width: 14px;
+  }
+  @media (max-width: 480px) {
+    align-items: flex-start;
+    flex-direction: column;
+    & > div {
+      width: 100%;
+    }
+    button {
+      flex: 1;
+      justify-content: center;
+    }
+  }
 `;
 export const OverviewEmpty = styled.div`
   min-height: 92px;
@@ -1012,7 +1131,9 @@ export const Toolbar = styled.div`
     background: #fff;
     padding: 0 11px;
     outline: none;
-    transition: border-color 180ms ease, box-shadow 180ms ease;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease;
   }
   input:focus,
   select:focus {
@@ -1058,7 +1179,9 @@ export const OrdersToolbar = styled.div`
     gap: 10px;
     padding: 0 13px;
     color: var(--muted);
-    transition: border-color 180ms ease, box-shadow 180ms ease;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease;
   }
   .search-field:focus-within,
   .status-filter:focus-within {
@@ -1147,7 +1270,10 @@ export const OrdersList = styled.div`
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
-    transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+    transition:
+      background 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
     &:hover {
       background: var(--a);
       color: #fff;
@@ -1196,12 +1322,30 @@ export const OrdersList = styled.div`
     box-shadow: 0 0 0 3px currentColor;
     opacity: 0.7;
   }
-  .status-pendente { background: #fff5e8; color: #b96a18; }
-  .status-preparando { background: #fff0e6; color: #c95522; }
-  .status-pronto { background: #edf8ec; color: #378044; }
-  .status-saiu_para_entrega { background: #eaf4ff; color: #286da8; }
-  .status-entregue { background: #e9f7ef; color: #217644; }
-  .status-cancelado { background: #f8eceb; color: #a9433c; }
+  .status-pendente {
+    background: #fff5e8;
+    color: #b96a18;
+  }
+  .status-preparando {
+    background: #fff0e6;
+    color: #c95522;
+  }
+  .status-pronto {
+    background: #edf8ec;
+    color: #378044;
+  }
+  .status-saiu_para_entrega {
+    background: #eaf4ff;
+    color: #286da8;
+  }
+  .status-entregue {
+    background: #e9f7ef;
+    color: #217644;
+  }
+  .status-cancelado {
+    background: #f8eceb;
+    color: #a9433c;
+  }
   @media (max-width: 760px) {
     .data-row {
       grid-template-columns: minmax(0, 1fr) auto;
@@ -1252,7 +1396,10 @@ export const OrdersPagination = styled.footer`
     font: inherit;
     font-weight: 700;
     cursor: pointer;
-    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      background 160ms ease;
     &:hover:not(:disabled) {
       border-color: var(--a);
       color: var(--a);
@@ -1396,7 +1543,7 @@ export const Product = styled.article`
     border: 1px solid var(--border);
     border-radius: 10px;
     background: #fff;
-    box-shadow: 0 14px 34px rgba(45, 31, 20, .18);
+    box-shadow: 0 14px 34px rgba(45, 31, 20, 0.18);
   }
   footer .product-menu button {
     width: 100%;
@@ -1429,8 +1576,14 @@ export const SettingSection = styled.div`
   gap: 22px;
   animation: section-enter 240ms ease both;
   @keyframes section-enter {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 `;
 export const ToggleRows = styled.div`
@@ -1442,7 +1595,9 @@ export const ToggleRows = styled.div`
     align-items: center;
     gap: 13px;
     padding: 4px 2px;
-    transition: padding 160ms ease, background 160ms ease;
+    transition:
+      padding 160ms ease,
+      background 160ms ease;
   }
   .toggle-row:hover {
     padding-left: 8px;
@@ -1469,7 +1624,7 @@ export const ToggleRows = styled.div`
     transition: background 180ms ease;
   }
   .toggle-row input::after {
-    content: "";
+    content: '';
     position: absolute;
     width: 18px;
     height: 18px;
@@ -1505,7 +1660,10 @@ export const DayRow = styled.div`
     background: #fcfbf9;
     padding: 0 12px;
     outline: 0;
-    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease;
   }
   input:focus {
     border-color: var(--a);

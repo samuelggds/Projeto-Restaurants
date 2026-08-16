@@ -1,13 +1,11 @@
-import { Request, Response } from "express";
-import importIfoodMenuScraperService from "../services/ImportIfoodMenuScraperService.js";
+import { Request, Response } from 'express';
+import importIfoodMenuScraperService from '../services/ImportIfoodMenuScraperService.js';
 
 class ImportIfoodMenuController {
   async handle(req: Request, res: Response) {
     try {
       const { url, restaurantId: bodyRestaurantId } = req.body;
-      const resolvedRestaurantId = Number(
-        req.user?.restaurantId || bodyRestaurantId || 0,
-      );
+      const resolvedRestaurantId = Number(req.user?.restaurantId || bodyRestaurantId || 0);
 
       const summary = await importIfoodMenuScraperService.execute({
         url,
@@ -17,10 +15,7 @@ class ImportIfoodMenuController {
       return res.status(201).json(summary);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao importar cardapio do iFood",
+        error: error instanceof Error ? error.message : 'Erro ao importar cardapio do iFood',
       });
     }
   }

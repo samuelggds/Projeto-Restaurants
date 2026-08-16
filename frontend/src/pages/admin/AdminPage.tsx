@@ -1,4 +1,4 @@
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useRef, useState } from 'react';
 import {
   ExternalLink,
   HelpCircle,
@@ -11,32 +11,32 @@ import {
   Settings2,
   ShoppingBag,
   Users,
-} from "lucide-react";
-import { adminMockEmployees, adminMockSettings } from "./data";
-import { useAppDialog } from "../../components/AppDialog/context";
-import { createPersistentImageDataUrl } from "../../utils/persistentImage";
-import imageEnhancementService from "../../Services/imageEnhancementService";
-import { createRestaurantMonogram } from "../../utils/restaurantMonogram";
-import { EmployeeDrawer } from "./components/EmployeeDrawer";
-import { EmployeeList } from "./components/EmployeeList";
-import { ProductDrawer } from "./components/ProductDrawer";
-import { BrandSettings } from "./components/BrandSettings";
-import { AdminSettingsContent } from "./components/AdminSettingsContent";
-import { AdminManagement } from "./components/AdminManagement";
-import { MonthlyBilling } from "./components/MonthlyBilling";
-import { HelpCenter } from "./components/HelpCenter";
-import { sectionTitle, settingItems } from "./config/adminNavigation";
-import * as S from "./Admin.styles";
+} from 'lucide-react';
+import { adminMockEmployees, adminMockSettings } from './data';
+import { useAppDialog } from '../../components/AppDialog/context';
+import { createPersistentImageDataUrl } from '../../utils/persistentImage';
+import imageEnhancementService from '../../Services/imageEnhancementService';
+import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
+import { EmployeeDrawer } from './components/EmployeeDrawer';
+import { EmployeeList } from './components/EmployeeList';
+import { ProductDrawer } from './components/ProductDrawer';
+import { BrandSettings } from './components/BrandSettings';
+import { AdminSettingsContent } from './components/AdminSettingsContent';
+import { AdminManagement } from './components/AdminManagement';
+import { MonthlyBilling } from './components/MonthlyBilling';
+import { HelpCenter } from './components/HelpCenter';
+import { sectionTitle, settingItems } from './config/adminNavigation';
+import * as S from './Admin.styles';
 import type {
   AdminPageProps,
   AdminSection,
   AdminProduct,
   Employee,
   SettingsSection,
-} from "./types";
-import { validateBusinessSettings } from "./domain/businessSettingsValidation";
-import { validateEstablishmentAddress } from "./domain/establishmentAddress";
-import { validateBusinessHours } from "./domain/businessHours";
+} from './types';
+import { validateBusinessSettings } from './domain/businessSettingsValidation';
+import { validateEstablishmentAddress } from './domain/establishmentAddress';
+import { validateBusinessHours } from './domain/businessHours';
 
 export function AdminPage({
   initialSettings = adminMockSettings,
@@ -67,14 +67,12 @@ export function AdminPage({
 }: AdminPageProps) {
   const { confirmDialog } = useAppDialog();
   const oauthParams = new URLSearchParams(window.location.search);
-  const mercadoPagoOAuthStatus = oauthParams.get("mp_oauth");
-  const pagBankOAuthStatus = oauthParams.get("pagbank_oauth");
+  const mercadoPagoOAuthStatus = oauthParams.get('mp_oauth');
+  const pagBankOAuthStatus = oauthParams.get('pagbank_oauth');
   const paymentOAuthStatus = mercadoPagoOAuthStatus || pagBankOAuthStatus;
-  const [area, setArea] = useState<AdminSection>(
-    paymentOAuthStatus ? "settings" : "overview",
-  );
+  const [area, setArea] = useState<AdminSection>(paymentOAuthStatus ? 'settings' : 'overview');
   const [section, setSection] = useState<SettingsSection>(
-    paymentOAuthStatus ? "payments" : "brand",
+    paymentOAuthStatus ? 'payments' : 'brand',
   );
   const [settings, setSettings] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
@@ -83,74 +81,77 @@ export function AdminPage({
   const categories = initialCategories;
   const [mobile, setMobile] = useState(false);
   const [editing, setEditing] = useState<Employee | null | undefined>();
-  const [editingProduct, setEditingProduct] = useState<
-    AdminProduct | null | undefined
-  >();
-  const [saved, setSaved] = useState(paymentOAuthStatus === "success");
+  const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
+  const [saved, setSaved] = useState(paymentOAuthStatus === 'success');
   const [isEnhancingCover, setIsEnhancingCover] = useState(false);
   const [feedbackError, setFeedbackError] = useState(
-    paymentOAuthStatus === "error"
-      ? oauthParams.get("message") ||
-          "Não foi possível conectar ao Mercado Pago."
-      : "",
+    paymentOAuthStatus === 'error'
+      ? oauthParams.get('message') || 'Não foi possível conectar ao Mercado Pago.'
+      : '',
   );
   const logoInput = useRef<HTMLInputElement>(null);
-  const areaTitles: Record<Exclude<AdminSection, "settings" | "help">, string> = {
-    overview: "Visão geral",
-    orders: "Pedidos",
-    catalog: "Cardápio",
-    customers: "Clientes",
-    subscriptions: "Cobranças e assinaturas",
-    employees: "Funcionários",
+  const areaTitles: Record<Exclude<AdminSection, 'settings' | 'help'>, string> = {
+    overview: 'Visão geral',
+    orders: 'Pedidos',
+    catalog: 'Cardápio',
+    customers: 'Clientes',
+    subscriptions: 'Cobranças e assinaturas',
+    employees: 'Funcionários',
   };
-  const title = area === "settings" ? sectionTitle[section] : area === "help" ? "Central de ajuda" : areaTitles[area];
-  const update = <K extends keyof typeof settings>(
-    key: K,
-    value: (typeof settings)[K],
-  ) => setSettings((current) => ({ ...current, [key]: value }));
+  const title =
+    area === 'settings'
+      ? sectionTitle[section]
+      : area === 'help'
+        ? 'Central de ajuda'
+        : areaTitles[area];
+  const update = <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) =>
+    setSettings((current) => ({ ...current, [key]: value }));
   const logo = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setFeedbackError("");
+    setFeedbackError('');
     try {
       const persistentImage = await createPersistentImageDataUrl(file, 1600);
-      update("logoUrl", persistentImage);
+      update('logoUrl', persistentImage);
     } catch (error) {
       setFeedbackError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível processar a imagem.",
+        error instanceof Error ? error.message : 'Não foi possível processar a imagem.',
       );
     } finally {
-      event.target.value = "";
+      event.target.value = '';
     }
   };
   const cover = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setFeedbackError("");
+    setFeedbackError('');
     try {
-      update("coverImageUrl", await createPersistentImageDataUrl(file, 1920, {
-        upscale: true,
-        targetWidth: 1920,
-        targetHeight: 1080,
-      }));
+      update(
+        'coverImageUrl',
+        await createPersistentImageDataUrl(file, 1920, {
+          upscale: true,
+          targetWidth: 1920,
+          targetHeight: 1080,
+        }),
+      );
     } catch (error) {
-      setFeedbackError(error instanceof Error ? error.message : "Não foi possível processar a imagem.");
+      setFeedbackError(
+        error instanceof Error ? error.message : 'Não foi possível processar a imagem.',
+      );
     } finally {
-      event.target.value = "";
+      event.target.value = '';
     }
   };
   const enhanceCover = async () => {
     if (!settings.coverImageUrl || isEnhancingCover) return;
-    setFeedbackError("");
+    setFeedbackError('');
     setIsEnhancingCover(true);
     try {
       const enhanced = await imageEnhancementService.enhanceRestaurantImage(settings.coverImageUrl);
-      if (!enhanced) throw new Error("A IA não retornou uma imagem.");
+      if (!enhanced) throw new Error('A IA não retornou uma imagem.');
       const response = await fetch(enhanced);
       const blob = await response.blob();
-      const file = new File([blob], "capa-melhorada.png", { type: blob.type || "image/png" });
+      const file = new File([blob], 'capa-melhorada.png', { type: blob.type || 'image/png' });
       const processedImage = await createPersistentImageDataUrl(file, 1440, {
         upscale: true,
         targetWidth: 1440,
@@ -163,91 +164,87 @@ export function AdminPage({
       window.setTimeout(() => setSaved(false), 1800);
     } catch (error: unknown) {
       const apiError = error as { response?: { data?: { error?: string } } };
-      setFeedbackError(apiError.response?.data?.error || (error instanceof Error ? error.message : "Não foi possível melhorar a imagem com IA."));
+      setFeedbackError(
+        apiError.response?.data?.error ||
+          (error instanceof Error ? error.message : 'Não foi possível melhorar a imagem com IA.'),
+      );
     } finally {
       setIsEnhancingCover(false);
     }
   };
-  const banner = async (
-    key: "mainBannerUrl",
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
+  const banner = async (key: 'mainBannerUrl', event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setFeedbackError("");
+    setFeedbackError('');
     try {
-      update(key, await createPersistentImageDataUrl(file, 1440, {
-        upscale: true,
-        targetWidth: 1440,
-        targetHeight: 560,
-      }));
+      update(
+        key,
+        await createPersistentImageDataUrl(file, 1440, {
+          upscale: true,
+          targetWidth: 1440,
+          targetHeight: 560,
+        }),
+      );
     } catch (error) {
       setFeedbackError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível processar a imagem.",
+        error instanceof Error ? error.message : 'Não foi possível processar a imagem.',
       );
     } finally {
-      event.target.value = "";
+      event.target.value = '';
     }
   };
   const save = async () => {
-    setFeedbackError("");
-    if (section === "business" && Object.keys(validateBusinessSettings(settings)).length > 0) {
-      setArea("settings");
-      setSection("business");
-      setFeedbackError("Revise os dados do negócio destacados antes de salvar.");
+    setFeedbackError('');
+    if (section === 'business' && Object.keys(validateBusinessSettings(settings)).length > 0) {
+      setArea('settings');
+      setSection('business');
+      setFeedbackError('Revise os dados do negócio destacados antes de salvar.');
       return;
     }
-    if (section === "address" && Object.keys(validateEstablishmentAddress(settings)).length > 0) {
-      setFeedbackError("Revise os dados do endereço destacados antes de salvar.");
+    if (section === 'address' && Object.keys(validateEstablishmentAddress(settings)).length > 0) {
+      setFeedbackError('Revise os dados do endereço destacados antes de salvar.');
       return;
     }
-    if (section === "hours" && Object.keys(validateBusinessHours(settings.businessHours)).length > 0) {
-      setFeedbackError("Revise os horários destacados antes de salvar.");
+    if (
+      section === 'hours' &&
+      Object.keys(validateBusinessHours(settings.businessHours)).length > 0
+    ) {
+      setFeedbackError('Revise os horários destacados antes de salvar.');
       return;
     }
     try {
       await onSaveSettings?.(settings);
       setSettings((current) => ({
         ...current,
-        stripeSecretKey: "",
+        stripeSecretKey: '',
         stripeSecretKeyConfigured:
           current.stripeSecretKeyConfigured || Boolean(current.stripeSecretKey),
-        stripeWebhookSecret: "",
+        stripeWebhookSecret: '',
         stripeWebhookSecretConfigured:
-          current.stripeWebhookSecretConfigured ||
-          Boolean(current.stripeWebhookSecret),
-        mercadoPagoAccessToken: "",
+          current.stripeWebhookSecretConfigured || Boolean(current.stripeWebhookSecret),
+        mercadoPagoAccessToken: '',
         mercadoPagoAccessTokenConfigured:
-          current.mercadoPagoAccessTokenConfigured ||
-          Boolean(current.mercadoPagoAccessToken),
-        asaasAccessToken: "",
+          current.mercadoPagoAccessTokenConfigured || Boolean(current.mercadoPagoAccessToken),
+        asaasAccessToken: '',
         asaasAccessTokenConfigured:
-          current.asaasAccessTokenConfigured ||
-          Boolean(current.asaasAccessToken),
-        pagbankToken: "",
-        pagbankTokenConfigured:
-          current.pagbankTokenConfigured || Boolean(current.pagbankToken),
+          current.asaasAccessTokenConfigured || Boolean(current.asaasAccessToken),
+        pagbankToken: '',
+        pagbankTokenConfigured: current.pagbankTokenConfigured || Boolean(current.pagbankToken),
       }));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
     } catch {
       setSaved(false);
-      setFeedbackError(
-        "Não foi possível salvar. Confira sua conexão e tente novamente.",
-      );
+      setFeedbackError('Não foi possível salvar. Confira sua conexão e tente novamente.');
     }
   };
-  const saveEmployee = async (employee: Omit<Employee, "id">, id?: string) => {
-    setFeedbackError("");
+  const saveEmployee = async (employee: Omit<Employee, 'id'>, id?: string) => {
+    setFeedbackError('');
     try {
       if (id) {
         const full = { ...employee, id };
         const savedEmployee = (await onUpdateEmployee?.(full)) ?? full;
-        setEmployees((x) =>
-          x.map((item) => (item.id === id ? savedEmployee : item)),
-        );
+        setEmployees((x) => x.map((item) => (item.id === id ? savedEmployee : item)));
       } else {
         const createdEmployee = await onCreateEmployee?.(employee);
         if (createdEmployee) {
@@ -256,27 +253,25 @@ export function AdminPage({
       }
       setEditing(undefined);
     } catch {
-      setFeedbackError(
-        "Não foi possível salvar o funcionário. Tente novamente.",
-      );
+      setFeedbackError('Não foi possível salvar o funcionário. Tente novamente.');
     }
   };
   return (
-    <S.Root $primary={settings.primaryColor} $settings={area === "settings"}>
+    <S.Root $primary={settings.primaryColor} $settings={area === 'settings'}>
       {feedbackError && (
         <div
           role="alert"
           style={{
-            position: "fixed",
+            position: 'fixed',
             right: 24,
             top: 24,
             zIndex: 1000,
             maxWidth: 420,
             borderRadius: 10,
-            background: "#991b1b",
-            color: "white",
-            padding: "12px 16px",
-            boxShadow: "0 12px 30px rgba(0, 0, 0, 0.2)",
+            background: '#991b1b',
+            color: 'white',
+            padding: '12px 16px',
+            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.2)',
           }}
         >
           {feedbackError}
@@ -290,9 +285,9 @@ export function AdminPage({
         </S.Brand>
         <S.MainNav>
           <button
-            className={area === "overview" ? "active" : ""}
+            className={area === 'overview' ? 'active' : ''}
             onClick={() => {
-              setArea("overview");
+              setArea('overview');
               setMobile(false);
             }}
           >
@@ -300,9 +295,9 @@ export function AdminPage({
             Visão geral
           </button>
           <button
-            className={area === "orders" ? "active" : ""}
+            className={area === 'orders' ? 'active' : ''}
             onClick={() => {
-              setArea("orders");
+              setArea('orders');
               setMobile(false);
             }}
           >
@@ -310,9 +305,9 @@ export function AdminPage({
             Pedidos
           </button>
           <button
-            className={area === "catalog" ? "active" : ""}
+            className={area === 'catalog' ? 'active' : ''}
             onClick={() => {
-              setArea("catalog");
+              setArea('catalog');
               setMobile(false);
             }}
           >
@@ -320,9 +315,9 @@ export function AdminPage({
             Cardápio
           </button>
           <button
-            className={area === "customers" ? "active" : ""}
+            className={area === 'customers' ? 'active' : ''}
             onClick={() => {
-              setArea("customers");
+              setArea('customers');
               setMobile(false);
             }}
           >
@@ -330,9 +325,9 @@ export function AdminPage({
             Clientes
           </button>
           <button
-            className={area === "employees" ? "active employees" : "employees"}
+            className={area === 'employees' ? 'active employees' : 'employees'}
             onClick={() => {
-              setArea("employees");
+              setArea('employees');
               setMobile(false);
             }}
           >
@@ -340,9 +335,9 @@ export function AdminPage({
             Funcionários
           </button>
           <button
-            className={area === "subscriptions" ? "active" : ""}
+            className={area === 'subscriptions' ? 'active' : ''}
             onClick={() => {
-              setArea("subscriptions");
+              setArea('subscriptions');
               setMobile(false);
             }}
           >
@@ -350,10 +345,10 @@ export function AdminPage({
             Cobranças e assinaturas
           </button>
           <button
-            className={area === "settings" ? "active" : ""}
+            className={area === 'settings' ? 'active' : ''}
             onClick={() => {
               if (onOpenSettings) onOpenSettings();
-              else setArea("settings");
+              else setArea('settings');
               setMobile(false);
             }}
           >
@@ -363,9 +358,9 @@ export function AdminPage({
         </S.MainNav>
         <S.SideFooter>
           <button
-            className={area === "help" ? "active" : ""}
+            className={area === 'help' ? 'active' : ''}
             onClick={() => {
-              setArea("help");
+              setArea('help');
               setMobile(false);
             }}
           >
@@ -378,7 +373,7 @@ export function AdminPage({
           </button>
         </S.SideFooter>
       </S.MainSidebar>
-      <S.SettingsSidebar $visible={area === "settings"}>
+      <S.SettingsSidebar $visible={area === 'settings'}>
         <S.Search>
           <SearchIcon />
           <input placeholder="Buscar configuração" />
@@ -388,7 +383,7 @@ export function AdminPage({
           {settingItems.slice(0, 4).map(([id, label, Icon]) => (
             <button
               key={id}
-              className={section === id ? "active" : ""}
+              className={section === id ? 'active' : ''}
               onClick={() => setSection(id)}
             >
               <Icon />
@@ -399,7 +394,7 @@ export function AdminPage({
           {settingItems.slice(4, 9).map(([id, label, Icon]) => (
             <button
               key={id}
-              className={section === id ? "active" : ""}
+              className={section === id ? 'active' : ''}
               onClick={() => setSection(id)}
             >
               <Icon />
@@ -410,7 +405,7 @@ export function AdminPage({
           {settingItems.slice(9).map(([id, label, Icon]) => (
             <button
               key={id}
-              className={section === id ? "active" : ""}
+              className={section === id ? 'active' : ''}
               onClick={() => setSection(id)}
             >
               <Icon />
@@ -428,17 +423,17 @@ export function AdminPage({
             <small>PAINEL &nbsp;/&nbsp; {area.toUpperCase()}</small>
             <h1>{title}</h1>
             <p>
-              {area === "employees"
-                ? "Somente o administrador cria e edita funcionários."
-                : area === "subscriptions"
-                  ? "Troque seu plano e acompanhe o pagamento das mensalidades."
-                : area === "settings"
-                  ? "Personalize e gerencie as informações do restaurante."
-                  : "Acompanhe e gerencie a operação em um só lugar."}
+              {area === 'employees'
+                ? 'Somente o administrador cria e edita funcionários.'
+                : area === 'subscriptions'
+                  ? 'Troque seu plano e acompanhe o pagamento das mensalidades.'
+                  : area === 'settings'
+                    ? 'Personalize e gerencie as informações do restaurante.'
+                    : 'Acompanhe e gerencie a operação em um só lugar.'}
             </p>
           </div>
           <S.TopActions>
-            {area === "settings" && (
+            {area === 'settings' && (
               <>
                 <button className="preview" onClick={onViewStore}>
                   <ExternalLink />
@@ -446,31 +441,33 @@ export function AdminPage({
                 </button>
                 <button className="save" onClick={save}>
                   <Save />
-                  {saved ? "Salvo" : "Salvar alterações"}
+                  {saved ? 'Salvo' : 'Salvar alterações'}
                 </button>
               </>
             )}
           </S.TopActions>
         </S.Top>
         <S.Content>
-          {area === "help" ? (
-            <HelpCenter onReport={async (payload) => {
-              if (!onReportSupport) {
-                throw new Error("O canal de suporte não está disponível agora.");
-              }
-              await onReportSupport(payload);
-            }} />
-          ) : area === "employees" ? (
+          {area === 'help' ? (
+            <HelpCenter
+              onReport={async (payload) => {
+                if (!onReportSupport) {
+                  throw new Error('O canal de suporte não está disponível agora.');
+                }
+                await onReportSupport(payload);
+              }}
+            />
+          ) : area === 'employees' ? (
             <EmployeeList
               employees={employees}
               onNew={() => setEditing(null)}
               onEdit={setEditing}
               onDeactivate={async (employee) => {
                 const confirmed = await confirmDialog({
-                  title: "Desativar funcionário?",
+                  title: 'Desativar funcionário?',
                   description: `${employee.name} perderá o acesso ao sistema até ser reativado.`,
-                  confirmLabel: "Desativar",
-                  tone: "danger",
+                  confirmLabel: 'Desativar',
+                  tone: 'danger',
                 });
                 if (!confirmed) return;
                 await onDeactivateEmployee?.(employee.id);
@@ -482,9 +479,9 @@ export function AdminPage({
               }}
               onReactivate={async (employee) => {
                 const confirmed = await confirmDialog({
-                  title: "Reativar funcionário?",
+                  title: 'Reativar funcionário?',
                   description: `${employee.name} voltará a ter acesso ao sistema.`,
-                  confirmLabel: "Reativar",
+                  confirmLabel: 'Reativar',
                 });
                 if (!confirmed) return;
                 await onReactivateEmployee?.(employee.id);
@@ -495,10 +492,10 @@ export function AdminPage({
                 );
               }}
             />
-          ) : area === "subscriptions" ? (
+          ) : area === 'subscriptions' ? (
             <MonthlyBilling />
-          ) : area === "settings" ? (
-            section === "brand" ? (
+          ) : area === 'settings' ? (
+            section === 'brand' ? (
               <BrandSettings
                 settings={settings}
                 update={update}
@@ -514,7 +511,7 @@ export function AdminPage({
                 section={section}
                 settings={settings}
                 update={update}
-                openEmployees={() => setArea("employees")}
+                openEmployees={() => setArea('employees')}
                 onConnectMercadoPago={onConnectMercadoPago}
                 onConnectPagBank={onConnectPagBank}
                 onOnboardAsaas={onOnboardAsaas}
@@ -559,7 +556,7 @@ export function AdminPage({
           close={() => setEditing(undefined)}
           save={saveEmployee}
         />
-      )}{" "}
+      )}{' '}
       {editingProduct !== undefined && (
         <ProductDrawer
           product={editingProduct}
@@ -575,14 +572,13 @@ export function AdminPage({
         <div
           onClick={() => setMobile(false)}
           style={{
-            position: "fixed",
+            position: 'fixed',
             inset: 0,
             zIndex: 55,
-            background: "#0005",
+            background: '#0005',
           }}
         />
       )}
     </S.Root>
   );
 }
-

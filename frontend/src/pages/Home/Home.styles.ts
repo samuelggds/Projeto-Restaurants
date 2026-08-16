@@ -1,4 +1,4 @@
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes } from 'styled-components';
 
 const productReveal = keyframes`
   from {
@@ -37,7 +37,7 @@ export const HomeRoot = styled.div<{ $primary: string }>`
     ui-sans-serif,
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     sans-serif;
   *,
   *::before,
@@ -240,7 +240,7 @@ export const SectionTitle = styled.h2`
   align-items: center;
   gap: 11px;
   &::before {
-    content: "";
+    content: '';
     width: 5px;
     height: 28px;
     flex: 0 0 auto;
@@ -251,7 +251,10 @@ export const SectionTitle = styled.h2`
   @media (max-width: 760px) {
     margin: 32px 0 15px;
     font-size: 21px;
-    &::before { height: 24px; width: 4px; }
+    &::before {
+      height: 24px;
+      width: 4px;
+    }
   }
 `;
 export const CategoryRow = styled.div`
@@ -281,20 +284,18 @@ export const CategoryRow = styled.div`
 export const CategoryButton = styled.button<{ $active: boolean }>`
   flex: 1 0 145px;
   min-width: 0;
-  border: 1px solid
-    ${({ $active }) => ($active ? "var(--home-primary)" : "var(--home-border)")};
+  border: 1px solid ${({ $active }) => ($active ? 'var(--home-primary)' : 'var(--home-border)')};
   border-radius: 16px;
   overflow: hidden;
-  background: ${({ $active }) => ($active ? "#fffaf6" : "#fff")};
+  background: ${({ $active }) => ($active ? '#fffaf6' : '#fff')};
   cursor: pointer;
-  color: ${({ $active }) =>
-    $active ? "var(--home-primary)" : "var(--home-text)"};
+  color: ${({ $active }) => ($active ? 'var(--home-primary)' : 'var(--home-text)')};
   scroll-snap-align: start;
   box-shadow: ${({ $active }) =>
     $active
-      ? "0 0 0 1px var(--home-primary), 0 10px 24px rgba(70, 45, 20, 0.09)"
-      : "0 6px 18px rgba(70, 45, 20, 0.045)"};
-  transform: ${({ $active }) => ($active ? "translateY(-2px)" : "none")};
+      ? '0 0 0 1px var(--home-primary), 0 10px 24px rgba(70, 45, 20, 0.09)'
+      : '0 6px 18px rgba(70, 45, 20, 0.045)'};
+  transform: ${({ $active }) => ($active ? 'translateY(-2px)' : 'none')};
   transition:
     color 180ms ease,
     border-color 180ms ease,
@@ -341,7 +342,9 @@ export const ProductCategoryGroups = styled.div`
   gap: 42px;
   width: min(980px, 100%);
   margin-inline: auto;
-  @media (max-width: 760px) { gap: 34px; }
+  @media (max-width: 760px) {
+    gap: 34px;
+  }
 `;
 export const ProductCategoryGroup = styled.section`
   padding: 18px;
@@ -360,13 +363,19 @@ export const ProductCategoryGroup = styled.section`
   @media (max-width: 760px) {
     padding: 14px 10px 16px;
     border-radius: 16px;
-    h3 { margin-bottom: 13px; font-size: 17px; }
+    h3 {
+      margin-bottom: 13px;
+      font-size: 17px;
+    }
   }
 `;
 export const ProductCard = styled.article`
   min-width: 0;
   cursor: default;
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
   &:hover {
     transform: translateY(-3px);
     border-color: color-mix(in srgb, var(--home-primary) 38%, var(--home-border));
@@ -381,9 +390,15 @@ export const ProductCard = styled.article`
   background: #fff;
   box-shadow: 0 9px 25px rgba(70, 45, 20, 0.035);
   animation: ${productReveal} 260ms ease both;
-  &:nth-child(2) { animation-delay: 35ms; }
-  &:nth-child(3) { animation-delay: 70ms; }
-  &:nth-child(4) { animation-delay: 105ms; }
+  &:nth-child(2) {
+    animation-delay: 35ms;
+  }
+  &:nth-child(3) {
+    animation-delay: 70ms;
+  }
+  &:nth-child(4) {
+    animation-delay: 105ms;
+  }
   @media (prefers-reduced-motion: reduce) {
     animation: none;
     transition: none;
@@ -449,7 +464,9 @@ export const ProductCard = styled.article`
       min-height: 126px;
       padding: 12px 13px;
     }
-    h3 { font-size: 15px; }
+    h3 {
+      font-size: 15px;
+    }
     p {
       margin: 4px 0 10px;
       font-size: 11px;
@@ -482,13 +499,15 @@ export const ProductModalOverlay = styled.button<{ $open: boolean }>`
   background: rgba(18, 14, 11, 0.68);
   backdrop-filter: blur(7px);
   opacity: ${({ $open }) => ($open ? 1 : 0)};
-  visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
-  transition: opacity 200ms ease, visibility 200ms ease;
+  visibility: ${({ $open }) => ($open ? 'visible' : 'hidden')};
+  transition:
+    opacity 200ms ease,
+    visibility 200ms ease;
   animation: ${modalBackdropReveal} 280ms ease both;
   cursor: pointer;
 `;
 export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
-  --home-primary: ${({ $primary }) => $primary || "#d64d08"};
+  --home-primary: ${({ $primary }) => $primary || '#d64d08'};
   position: fixed;
   inset: 0;
   margin: auto;
@@ -501,9 +520,12 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
   background: #fffdf9;
   box-shadow: 0 30px 90px rgba(20, 12, 7, 0.35);
   opacity: ${({ $open }) => ($open ? 1 : 0)};
-  visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
+  visibility: ${({ $open }) => ($open ? 'visible' : 'hidden')};
   transform: scale(${({ $open }) => ($open ? 1 : 0.96)});
-  transition: opacity 200ms ease, transform 220ms ease, visibility 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 220ms ease,
+    visibility 200ms ease;
   animation: ${productModalReveal} 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
   .modal-image {
     width: 100%;
@@ -528,8 +550,14 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
     color: #191816;
     box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
     cursor: pointer;
-    transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
-    &:hover { transform: rotate(5deg) scale(1.06); background: #fff; }
+    transition:
+      transform 180ms ease,
+      background 180ms ease,
+      box-shadow 180ms ease;
+    &:hover {
+      transform: rotate(5deg) scale(1.06);
+      background: #fff;
+    }
   }
   .modal-content {
     padding: 22px 24px 25px;
@@ -566,15 +594,30 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
     width: min(390px, calc(100vw - 20px));
     max-height: calc(100dvh - 20px);
     border-radius: 18px;
-    .modal-image { height: 220px; }
-    .modal-content { padding: 17px 18px 20px; }
-    h2 { font-size: 21px; }
-    p { margin-bottom: 16px; font-size: 13px; }
-    strong { padding: 7px 11px; font-size: 18px; }
+    .modal-image {
+      height: 220px;
+    }
+    .modal-content {
+      padding: 17px 18px 20px;
+    }
+    h2 {
+      font-size: 21px;
+    }
+    p {
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    strong {
+      padding: 7px 11px;
+      font-size: 18px;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     animation: none;
-    .modal-image, .modal-content { animation: none; }
+    .modal-image,
+    .modal-content {
+      animation: none;
+    }
   }
 `;
 export const ImageWrap = styled.div`
@@ -604,7 +647,10 @@ export const ImageWrap = styled.div`
     place-items: center;
     cursor: pointer;
     backdrop-filter: blur(6px);
-    transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+    transition:
+      color 180ms ease,
+      background 180ms ease,
+      transform 180ms ease;
   }
   button:hover {
     transform: scale(1.06);
@@ -635,7 +681,7 @@ export const About = styled.section`
   text-align: center;
   small {
     display: inline-block;
-    font-family: "Segoe UI", Arial, sans-serif;
+    font-family: 'Segoe UI', Arial, sans-serif;
     color: var(--home-primary);
     letter-spacing: 0.24em;
     font-weight: 900;
@@ -646,7 +692,7 @@ export const About = styled.section`
       0 1px 0 rgba(255, 255, 255, 0.9);
   }
   p {
-    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
     font-size: clamp(20px, 2.2vw, 29px);
     font-weight: 700;
     letter-spacing: -0.025em;
@@ -662,7 +708,10 @@ export const About = styled.section`
   @media (max-width: 700px) {
     margin: 18px auto 25px;
     padding: 0 12px;
-    p { font-size: 19px; line-height: 1.5; }
+    p {
+      font-size: 19px;
+      line-height: 1.5;
+    }
   }
 `;
 export const Whatsapp = styled.a`
@@ -736,7 +785,9 @@ export const FooterBrand = styled.div`
     height: 58px;
     border-radius: 15px;
   }
-  img { object-fit: cover; }
+  img {
+    object-fit: cover;
+  }
   > span {
     display: grid;
     place-items: center;
@@ -744,16 +795,27 @@ export const FooterBrand = styled.div`
     font-size: 22px;
     font-weight: 800;
   }
-  div { display: grid; gap: 6px; }
-  strong { font-size: 18px; }
-  small { color: #aaa39c; line-height: 1.45; }
+  div {
+    display: grid;
+    gap: 6px;
+  }
+  strong {
+    font-size: 18px;
+  }
+  small {
+    color: #aaa39c;
+    line-height: 1.45;
+  }
 `;
 export const FooterColumn = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 11px;
-  > strong { margin-bottom: 4px; font-size: 14px; }
+  > strong {
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
   a,
   span {
     display: flex;
@@ -767,9 +829,14 @@ export const FooterColumn = styled.div`
   }
   a {
     cursor: pointer;
-    transition: color 180ms ease, transform 180ms ease;
+    transition:
+      color 180ms ease,
+      transform 180ms ease;
   }
-  a:hover { color: #fff; transform: translateX(3px); }
+  a:hover {
+    color: #fff;
+    transform: translateX(3px);
+  }
   svg {
     flex: 0 0 auto;
     margin-top: 2px;
@@ -792,7 +859,7 @@ export const CartOverlay = styled.button<{ $open: boolean }>`
   background: rgba(15, 12, 10, 0.6);
   backdrop-filter: blur(6px);
   border: 0;
-  visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
+  visibility: ${({ $open }) => ($open ? 'visible' : 'hidden')};
   opacity: ${({ $open }) => ($open ? 1 : 0)};
   transition:
     opacity 0.28s,
@@ -813,7 +880,7 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior: contain;
-  transform: translateX(${({ $open }) => ($open ? "0" : "105%")});
+  transform: translateX(${({ $open }) => ($open ? '0' : '105%')});
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: -24px 0 80px rgba(70, 45, 20, 0.22);
 `;
@@ -1105,10 +1172,9 @@ export const OrderTypeBtn = styled.button<{ $active: boolean }>`
   gap: 6px;
   transition: all 0.18s;
 
-  background: ${({ $active }) => ($active ? "#fff" : "transparent")};
-  color: ${({ $active }) => ($active ? "#d64d08" : "#6f6a63")};
-  box-shadow: ${({ $active }) =>
-    $active ? "0 2px 8px rgba(70,45,20,0.10)" : "none"};
+  background: ${({ $active }) => ($active ? '#fff' : 'transparent')};
+  color: ${({ $active }) => ($active ? '#d64d08' : '#6f6a63')};
+  box-shadow: ${({ $active }) => ($active ? '0 2px 8px rgba(70,45,20,0.10)' : 'none')};
 `;
 
 export const CartCheckout = styled.button`
@@ -1187,16 +1253,15 @@ export const DeliveryBtn = styled.button<{ $active: boolean }>`
   justify-content: center;
   gap: 7px;
   transition: all 0.2s;
-  background: ${({ $active }) => ($active ? "#fff" : "transparent")};
-  color: ${({ $active }) => ($active ? "#d64d08" : "#6f6a63")};
-  box-shadow: ${({ $active }) =>
-    $active ? "0 2px 10px rgba(70,45,20,.12)" : "none"};
+  background: ${({ $active }) => ($active ? '#fff' : 'transparent')};
+  color: ${({ $active }) => ($active ? '#d64d08' : '#6f6a63')};
+  box-shadow: ${({ $active }) => ($active ? '0 2px 10px rgba(70,45,20,.12)' : 'none')};
 
   .btn-icon {
     width: 24px;
     height: 24px;
     border-radius: 6px;
-    background: ${({ $active }) => ($active ? "#fdeee7" : "#e8e3dc")};
+    background: ${({ $active }) => ($active ? '#fdeee7' : '#e8e3dc')};
     display: grid;
     place-items: center;
     font-size: 14px;
@@ -1234,12 +1299,21 @@ export const AddressForm = styled.div`
   border-radius: 14px;
   background: #fcfaf7;
 
-  .cep-field, .full { grid-column: 1 / -1; }
-  .street { grid-column: 1; }
+  .cep-field,
+  .full {
+    grid-column: 1 / -1;
+  }
+  .street {
+    grid-column: 1;
+  }
 
   @media (max-width: 420px) {
     grid-template-columns: 1fr;
-    .cep-field, .full, .street { grid-column: 1; }
+    .cep-field,
+    .full,
+    .street {
+      grid-column: 1;
+    }
   }
 `;
 
@@ -1253,8 +1327,13 @@ export const AddressField = styled.label`
     font-size: 11px;
     font-weight: 750;
   }
-  i { color: #8b837a; font-style: normal; font-weight: 500; }
-  input, select {
+  i {
+    color: #8b837a;
+    font-style: normal;
+    font-weight: 500;
+  }
+  input,
+  select {
     width: 100%;
     height: 39px;
     padding: 0 12px;
@@ -1265,20 +1344,34 @@ export const AddressField = styled.label`
     font: inherit;
     font-size: 13px;
     outline: none;
-    transition: border-color .2s, box-shadow .2s;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
   }
-  input:focus, select:focus { border-color: var(--primary, #d64d08); box-shadow: 0 0 0 3px rgba(214,77,8,.1); }
-  small { font-size: 10px; }
-  small.loading { color: #7c5b20; }
-  small.success { color: #18773a; }
-  small.error { color: #b42318; }
+  input:focus,
+  select:focus {
+    border-color: var(--primary, #d64d08);
+    box-shadow: 0 0 0 3px rgba(214, 77, 8, 0.1);
+  }
+  small {
+    font-size: 10px;
+  }
+  small.loading {
+    color: #7c5b20;
+  }
+  small.success {
+    color: #18773a;
+  }
+  small.error {
+    color: #b42318;
+  }
 `;
 
 export const PaymentCard = styled.button<{ $active: boolean; $color: string }>`
   padding: 13px 11px;
   border-radius: 12px;
-  border: 2px solid ${({ $active, $color }) => ($active ? $color : "#e4ddd5")};
-  background: ${({ $active, $color }) => ($active ? `${$color}12` : "#fff")};
+  border: 2px solid ${({ $active, $color }) => ($active ? $color : '#e4ddd5')};
+  background: ${({ $active, $color }) => ($active ? `${$color}12` : '#fff')};
   cursor: pointer;
   font-family: inherit;
   text-align: left;
@@ -1293,7 +1386,7 @@ export const PaymentCard = styled.button<{ $active: boolean; $color: string }>`
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: ${({ $active, $color }) => ($active ? $color : "#f0ece6")};
+    background: ${({ $active, $color }) => ($active ? $color : '#f0ece6')};
     display: grid;
     place-items: center;
     margin-bottom: 8px;
@@ -1327,7 +1420,7 @@ export const CardModalBg = styled.div<{ $open: boolean }>`
   display: grid;
   place-items: center;
   padding: 20px;
-  visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
+  visibility: ${({ $open }) => ($open ? 'visible' : 'hidden')};
   opacity: ${({ $open }) => ($open ? 1 : 0)};
   transition:
     opacity 0.25s,
@@ -1340,7 +1433,7 @@ export const CardModal = styled.div<{ $open: boolean }>`
   border-radius: 20px;
   padding: clamp(24px, 4vw, 36px);
   box-shadow: 0 28px 80px rgba(15, 12, 10, 0.3);
-  transform: translateY(${({ $open }) => ($open ? "0" : "16px")});
+  transform: translateY(${({ $open }) => ($open ? '0' : '16px')});
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 
   h3 {
@@ -1379,7 +1472,7 @@ export const CardPreview = styled.div`
   margin-bottom: 20px;
 
   &::before {
-    content: "";
+    content: '';
     position: absolute;
     top: -40px;
     right: -40px;
@@ -1565,7 +1658,7 @@ export const NotifStack = styled.div`
 `;
 
 export const NotifItem = styled.div<{
-  $type: "success" | "error" | "info" | "warning";
+  $type: 'success' | 'error' | 'info' | 'warning';
   $visible: boolean;
 }>`
   pointer-events: auto;
@@ -1582,17 +1675,15 @@ export const NotifItem = styled.div<{
     0 0 0 1px rgba(0, 0, 0, 0.05);
   border-left: 4px solid
     ${({ $type }) =>
-      $type === "success"
-        ? "#4f8b40"
-        : $type === "error"
-          ? "#c94040"
-          : $type === "warning"
-            ? "#d97706"
-            : "#d64d08"};
+      $type === 'success'
+        ? '#4f8b40'
+        : $type === 'error'
+          ? '#c94040'
+          : $type === 'warning'
+            ? '#d97706'
+            : '#d64d08'};
 
-  transform: translateX(
-    ${({ $visible }) => ($visible ? "0" : "calc(100% + 40px)")}
-  );
+  transform: translateX(${({ $visible }) => ($visible ? '0' : 'calc(100% + 40px)')});
   opacity: ${({ $visible }) => ($visible ? 1 : 0)};
   transition:
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1607,13 +1698,13 @@ export const NotifItem = styled.div<{
     font-size: 16px;
     flex-shrink: 0;
     background: ${({ $type }) =>
-      $type === "success"
-        ? "#edfaeb"
-        : $type === "error"
-          ? "#fdf0f0"
-          : $type === "warning"
-            ? "#fef9ec"
-            : "#fdeee7"};
+      $type === 'success'
+        ? '#edfaeb'
+        : $type === 'error'
+          ? '#fdf0f0'
+          : $type === 'warning'
+            ? '#fef9ec'
+            : '#fdeee7'};
   }
 
   .notif-body {

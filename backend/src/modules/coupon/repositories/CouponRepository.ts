@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 class CouponRepository {
   async create(data: Prisma.CouponUncheckedCreateInput) {
@@ -14,7 +14,7 @@ class CouponRepository {
         restaurantId: Number(restaurantId),
       },
       orderBy: {
-        id: "desc",
+        id: 'desc',
       },
     });
   }
@@ -37,11 +37,7 @@ class CouponRepository {
     });
   }
 
-  async update(
-    id: number | string,
-    restaurantId: number | string,
-    data: Prisma.CouponUpdateInput,
-  ) {
+  async update(id: number | string, restaurantId: number | string, data: Prisma.CouponUpdateInput) {
     const result = await prisma.coupon.updateMany({
       where: {
         id: Number(id),

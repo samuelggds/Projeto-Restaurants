@@ -11,13 +11,13 @@ npm install styled-components lucide-react
 ## Uso
 
 ```tsx
-import { DigitalMenuPage } from './modules/digital-menu'
+import { DigitalMenuPage } from './modules/digital-menu';
 
 <DigitalMenuPage
   onCallWaiter={() => api.callWaiter()}
   onRequestBill={() => api.requestBill()}
   onSubmitOrder={(items) => api.createTableOrder(items)}
-/>
+/>;
 ```
 
 Passe `data` com restaurante, mesa, categorias, produtos e status retornados pelo backend. Sem essa propriedade, a tela utiliza dados demonstrativos.

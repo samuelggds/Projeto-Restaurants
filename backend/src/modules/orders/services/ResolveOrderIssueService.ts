@@ -1,9 +1,6 @@
-import prisma from "../../../config/prisma.js";
-import { io } from "../../../server.js";
-import {
-  resolveOrderIssueThread,
-  toOrderIssueThreadPayload,
-} from "./orderIssueChatStore.js";
+import prisma from '../../../config/prisma.js';
+import { io } from '../../../server.js';
+import { resolveOrderIssueThread, toOrderIssueThreadPayload } from './orderIssueChatStore.js';
 
 class ResolveOrderIssueService {
   async execute({
@@ -20,21 +17,15 @@ class ResolveOrderIssueService {
     const normalizedRestaurantId = Number(restaurantId || 0);
 
     if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
-      throw new Error("Pedido inválido para resolver conversa.");
+      throw new Error('Pedido inválido para resolver conversa.');
     }
 
-    if (
-      !Number.isInteger(normalizedAdminUserId) ||
-      normalizedAdminUserId <= 0
-    ) {
-      throw new Error("Admin inválido para resolver conversa.");
+    if (!Number.isInteger(normalizedAdminUserId) || normalizedAdminUserId <= 0) {
+      throw new Error('Admin inválido para resolver conversa.');
     }
 
-    if (
-      !Number.isInteger(normalizedRestaurantId) ||
-      normalizedRestaurantId <= 0
-    ) {
-      throw new Error("Restaurante inválido para resolver conversa.");
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante inválido para resolver conversa.');
     }
 
     const [order, adminUser] = await Promise.all([
@@ -60,10 +51,10 @@ class ResolveOrderIssueService {
     ]);
 
     if (!order) {
-      throw new Error("Pedido não encontrado para este restaurante.");
+      throw new Error('Pedido não encontrado para este restaurante.');
     }
 
-    const resolvedByName = String(adminUser?.name || "Admin").trim() || "Admin";
+    const resolvedByName = String(adminUser?.name || 'Admin').trim() || 'Admin';
     const thread = await resolveOrderIssueThread({
       orderId: order.id,
       resolvedByName,
@@ -71,7 +62,7 @@ class ResolveOrderIssueService {
 
     const threadPayload = toOrderIssueThreadPayload(thread);
     if (!threadPayload) {
-      throw new Error("Não foi possível resolver a conversa do pedido.");
+      throw new Error('Não foi possível resolver a conversa do pedido.');
     }
     const resolvedPayload = {
       orderId: order.id,
@@ -80,15 +71,12 @@ class ResolveOrderIssueService {
       resolvedByName,
     };
 
-    io.to(`restaurant:${order.restaurantId}:admin`).emit(
-      "order:issue-resolved",
-      resolvedPayload,
-    );
-    io.to(`user:${order.userId}`).emit("order:issue-resolved", resolvedPayload);
+    io.to(`restaurant:${order.restaurantId}:admin`).emit('order:issue-resolved', resolvedPayload);
+    io.to(`user:${order.userId}`).emit('order:issue-resolved', resolvedPayload);
 
     return {
       ...threadPayload,
-      info: "Problema marcado como resolvido e chat encerrado.",
+      info: 'Problema marcado como resolvido e chat encerrado.',
     };
   }
 }

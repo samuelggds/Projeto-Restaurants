@@ -1,5 +1,5 @@
-import prisma from "../../../config/prisma.js";
-import type { OrderIssueSenderType } from "@prisma/client";
+import prisma from '../../../config/prisma.js';
+import type { OrderIssueSenderType } from '@prisma/client';
 
 type EnsureThreadInput = {
   orderId: number;
@@ -24,7 +24,7 @@ async function loadThread(orderId: number) {
     include: {
       messages: {
         orderBy: {
-          sentAt: "asc",
+          sentAt: 'asc',
         },
       },
     },
@@ -65,7 +65,7 @@ export async function ensureOrderIssueThread(input: EnsureThreadInput) {
 
   const thread = await loadThread(input.orderId);
   if (!thread) {
-    throw new Error("Não foi possível preparar o chat do pedido.");
+    throw new Error('Não foi possível preparar o chat do pedido.');
   }
 
   return thread;
@@ -97,11 +97,11 @@ export async function addOrderIssueMessage({
   });
 
   if (!thread) {
-    throw new Error("Conversa não encontrada para este pedido.");
+    throw new Error('Conversa não encontrada para este pedido.');
   }
 
   if (thread.isResolved) {
-    throw new Error("Este problema já foi resolvido e o chat foi encerrado.");
+    throw new Error('Este problema já foi resolvido e o chat foi encerrado.');
   }
 
   const chatMessage = await prisma.orderIssueMessage.create({
@@ -115,7 +115,7 @@ export async function addOrderIssueMessage({
 
   const fullThread = await loadThread(orderId);
   if (!fullThread) {
-    throw new Error("Não foi possível atualizar a conversa do pedido.");
+    throw new Error('Não foi possível atualizar a conversa do pedido.');
   }
 
   return {
@@ -142,13 +142,13 @@ export async function resolveOrderIssueThread({
   });
 
   if (!thread) {
-    throw new Error("Conversa não encontrada para este pedido.");
+    throw new Error('Conversa não encontrada para este pedido.');
   }
 
   if (thread.isResolved) {
     const existing = await loadThread(orderId);
     if (!existing) {
-      throw new Error("Conversa não encontrada para este pedido.");
+      throw new Error('Conversa não encontrada para este pedido.');
     }
     return existing;
   }
@@ -160,21 +160,19 @@ export async function resolveOrderIssueThread({
     data: {
       isResolved: true,
       resolvedAt: new Date(),
-      resolvedByName: String(resolvedByName || "Admin").trim() || "Admin",
+      resolvedByName: String(resolvedByName || 'Admin').trim() || 'Admin',
     },
   });
 
   const resolved = await loadThread(orderId);
   if (!resolved) {
-    throw new Error("Conversa não encontrada para este pedido.");
+    throw new Error('Conversa não encontrada para este pedido.');
   }
 
   return resolved;
 }
 
-export function toOrderIssueThreadPayload(
-  thread: Awaited<ReturnType<typeof loadThread>>,
-) {
+export function toOrderIssueThreadPayload(thread: Awaited<ReturnType<typeof loadThread>>) {
   if (!thread) {
     return null;
   }

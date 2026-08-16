@@ -9,29 +9,26 @@ import {
   LogOut,
   Menu,
   X,
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import {
-  KitchenProvider,
-  type KitchenModuleProps as BaseProps,
-} from "./KitchenContext";
-import { useKitchenWorkspace } from "./useKitchenWorkspace";
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { KitchenProvider, type KitchenModuleProps as BaseProps } from './KitchenContext';
+import { useKitchenWorkspace } from './useKitchenWorkspace';
 import {
   KitchenHistoryPage,
   KitchenOverviewPage,
   KitchenQueuePage,
   KitchenReadyPage,
-} from "./pages/KitchenPages";
-import * as S from "./Kitchen.styles";
+} from './pages/KitchenPages';
+import * as S from './Kitchen.styles';
 
-export type KitchenView = "overview" | "queue" | "ready" | "history";
+export type KitchenView = 'overview' | 'queue' | 'ready' | 'history';
 const INITIAL_SHIFT_TIME = new Date();
 export interface KitchenModuleProps extends BaseProps {
   initialView?: KitchenView;
   onViewChange?: (view: KitchenView) => void;
 }
 export function KitchenModule({
-  initialView = "overview",
+  initialView = 'overview',
   onViewChange,
   ...props
 }: KitchenModuleProps) {
@@ -47,7 +44,7 @@ function KitchenShell({
   onViewChange,
 }: {
   initialView: KitchenView;
-  onViewChange?: KitchenModuleProps["onViewChange"];
+  onViewChange?: KitchenModuleProps['onViewChange'];
 }) {
   const { employee, restaurant, onLogout } = useKitchenWorkspace();
   const [currentTime, setCurrentTime] = useState(INITIAL_SHIFT_TIME);
@@ -58,25 +55,23 @@ function KitchenShell({
   const [view, setView] = useState(initialView);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
-  const [open, setOpen] = useState(
-    () => typeof window !== "undefined" && window.innerWidth > 820,
-  );
+  const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
   const navigate = (next: KitchenView) => {
     setView(next);
     if (window.innerWidth <= 820) setOpen(false);
     onViewChange?.(next);
   };
   const nav = [
-    ["overview", "Visão geral", LayoutGrid],
-    ["queue", "Fila de pedidos", ChefHat],
-    ["ready", "Prontos", CheckCircle2],
-    ["history", "Histórico", History],
+    ['overview', 'Visão geral', LayoutGrid],
+    ['queue', 'Fila de pedidos', ChefHat],
+    ['ready', 'Prontos', CheckCircle2],
+    ['history', 'Histórico', History],
   ] as const;
   const titles: Record<KitchenView, [string, string]> = {
-    overview: ["Visão geral", "Área operacional exclusiva da cozinha"],
-    queue: ["Fila da cozinha", "Prepare os pedidos na ordem correta"],
-    ready: ["Pedidos prontos", "Acompanhe os pedidos que aguardam retirada"],
-    history: ["Histórico", "Consulte os pedidos concluídos no turno"],
+    overview: ['Visão geral', 'Área operacional exclusiva da cozinha'],
+    queue: ['Fila da cozinha', 'Prepare os pedidos na ordem correta'],
+    ready: ['Pedidos prontos', 'Acompanhe os pedidos que aguardam retirada'],
+    history: ['Histórico', 'Consulte os pedidos concluídos no turno'],
   };
   const [title, subtitle] = titles[view];
   return (
@@ -95,11 +90,7 @@ function KitchenShell({
         </S.CloseMenu>
         <S.Nav>
           {nav.map(([id, label, Icon]) => (
-            <a
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => navigate(id)}
-            >
+            <a key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}>
               <Icon />
               {label}
             </a>
@@ -108,10 +99,10 @@ function KitchenShell({
         <S.User>
           <span className="avatar">
             {employee.name
-              .split(" ")
+              .split(' ')
               .map((x) => x[0])
               .slice(0, 2)
-              .join("")}
+              .join('')}
           </span>
           <span>
             <b>{employee.name}</b>
@@ -139,26 +130,24 @@ function KitchenShell({
           </div>
           <S.Live>
             <Clock3 />
-            Em turno <i /> {currentTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            Em turno <i />{' '}
+            {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </S.Live>
         </S.Top>
         <S.Content>
-          {view === "overview" && (
+          {view === 'overview' && (
             <KitchenOverviewPage
               onOpenOrder={(orderId) => {
                 setFocusedOrderId(orderId);
-                navigate("queue");
+                navigate('queue');
               }}
             />
           )}
-          {view === "queue" && (
-            <KitchenQueuePage
-              focusedOrderId={focusedOrderId}
-              onFocusComplete={clearFocusedOrder}
-            />
+          {view === 'queue' && (
+            <KitchenQueuePage focusedOrderId={focusedOrderId} onFocusComplete={clearFocusedOrder} />
           )}
-          {view === "ready" && <KitchenReadyPage />}
-          {view === "history" && <KitchenHistoryPage />}
+          {view === 'ready' && <KitchenReadyPage />}
+          {view === 'history' && <KitchenHistoryPage />}
         </S.Content>
       </S.Main>
     </S.Root>

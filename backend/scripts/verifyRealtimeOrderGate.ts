@@ -1,7 +1,7 @@
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import jwt from "jsonwebtoken";
-import { io as ioClient, Socket } from "socket.io-client";
+import 'dotenv/config';
+import { PrismaClient } from '@prisma/client';
+import jwt from 'jsonwebtoken';
+import { io as ioClient, Socket } from 'socket.io-client';
 
 type NewOrderPayload = {
   id?: number | string;
@@ -15,9 +15,9 @@ async function postJson<TResponse>(
   headers: Record<string, string> = {},
 ) {
   const response = await fetch(url, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...headers,
     },
     body: JSON.stringify(body),
@@ -26,9 +26,7 @@ async function postJson<TResponse>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(
-      `POST ${url} falhou (${response.status}): ${JSON.stringify(data)}`,
-    );
+    throw new Error(`POST ${url} falhou (${response.status}): ${JSON.stringify(data)}`);
   }
 
   return data as TResponse;
@@ -40,9 +38,9 @@ async function patchJson<TResponse>(
   headers: Record<string, string> = {},
 ) {
   const response = await fetch(url, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...headers,
     },
     body: JSON.stringify(body),
@@ -51,9 +49,7 @@ async function patchJson<TResponse>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(
-      `PATCH ${url} falhou (${response.status}): ${JSON.stringify(data)}`,
-    );
+    throw new Error(`PATCH ${url} falhou (${response.status}): ${JSON.stringify(data)}`);
   }
 
   return data as TResponse;
@@ -71,7 +67,7 @@ async function waitForSocketConnect(socket: Socket, timeoutMs = 8000) {
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error("Timeout conectando no Socket.IO"));
+      reject(new Error('Timeout conectando no Socket.IO'));
     }, timeoutMs);
 
     const onConnect = () => {
@@ -82,20 +78,18 @@ async function waitForSocketConnect(socket: Socket, timeoutMs = 8000) {
     const onError = (error: unknown) => {
       cleanup();
       reject(
-        new Error(
-          `Falha no socket: ${error instanceof Error ? error.message : String(error)}`,
-        ),
+        new Error(`Falha no socket: ${error instanceof Error ? error.message : String(error)}`),
       );
     };
 
     const cleanup = () => {
       clearTimeout(timer);
-      socket.off("connect", onConnect);
-      socket.off("connect_error", onError);
+      socket.off('connect', onConnect);
+      socket.off('connect_error', onError);
     };
 
-    socket.on("connect", onConnect);
-    socket.on("connect_error", onError);
+    socket.on('connect', onConnect);
+    socket.on('connect_error', onError);
   });
 }
 
@@ -119,13 +113,11 @@ async function waitForOrderEvent(
 
 async function main() {
   const suffix = Date.now();
-  const baseUrl = String(
-    process.env.BACKEND_URL || "http://127.0.0.1:3000",
-  ).trim();
-  const jwtSecret = String(process.env.JWT_SECRET || "").trim();
+  const baseUrl = String(process.env.BACKEND_URL || 'http://127.0.0.1:3000').trim();
+  const jwtSecret = String(process.env.JWT_SECRET || '').trim();
 
   if (!jwtSecret) {
-    throw new Error("JWT_SECRET nao configurado para o teste realtime.");
+    throw new Error('JWT_SECRET nao configurado para o teste realtime.');
   }
 
   const restaurant = await prisma.restaurant.create({
@@ -144,8 +136,8 @@ async function main() {
       data: {
         name: `Admin Realtime ${suffix}`,
         email: `admin.realtime.${suffix}@example.com`,
-        password: "123456",
-        role: "ADMIN",
+        password: '123456',
+        role: 'ADMIN',
         active: true,
         restaurantId: restaurant.id,
       },
@@ -155,8 +147,8 @@ async function main() {
       data: {
         name: `Abertura Mesa ${suffix}`,
         email: `mesa.realtime.${suffix}@example.com`,
-        password: "123456",
-        role: "ADMIN",
+        password: '123456',
+        role: 'ADMIN',
         active: true,
         restaurantId: restaurant.id,
       },
@@ -194,24 +186,24 @@ async function main() {
         openedById: opener.id,
         pinHash: `hash-${suffix}`,
         sessionToken: `sessao-${suffix}`,
-        status: "OPEN",
+        status: 'OPEN',
       },
     });
 
     const adminToken = jwt.sign(
       {
         id: admin.id,
-        role: "ADMIN",
+        role: 'ADMIN',
         restaurantId: restaurant.id,
         email: admin.email,
       },
       jwtSecret,
-      { expiresIn: "2h" },
+      { expiresIn: '2h' },
     );
 
     socket = ioClient(baseUrl, {
       auth: { token: adminToken },
-      transports: ["websocket", "polling"],
+      transports: ['websocket', 'polling'],
       timeout: 8000,
     });
 
@@ -219,7 +211,7 @@ async function main() {
 
     const seenOrderIds = new Set<number>();
 
-    socket.on("new-order", (payload: NewOrderPayload) => {
+    socket.on('new-order', (payload: NewOrderPayload) => {
       const orderId = Number(payload?.id || 0);
       if (Number.isInteger(orderId) && orderId > 0) {
         seenOrderIds.add(orderId);
@@ -228,27 +220,24 @@ async function main() {
 
     const baseOrderPayload = {
       restaurantId: restaurant.id,
-      paymentMethod: "PIX",
+      paymentMethod: 'PIX',
       paid: false,
-      customerName: "Cliente Realtime",
-      customerCpf: "12345678901",
-      customerPhone: "85999999999",
+      customerName: 'Cliente Realtime',
+      customerCpf: '12345678901',
+      customerPhone: '85999999999',
       items: [{ productId: product.id, quantity: 1 }],
     };
 
-    const deliveryResponse = await postJson<{ id?: number }>(
-      `${baseUrl}/orders`,
-      {
-        ...baseOrderPayload,
-        type: "DELIVERY",
-        address: "Rua A",
-        number: "123",
-        district: "Centro",
-        city: "Fortaleza",
-        state: "CE",
-        zipCode: "60000000",
-      },
-    );
+    const deliveryResponse = await postJson<{ id?: number }>(`${baseUrl}/orders`, {
+      ...baseOrderPayload,
+      type: 'DELIVERY',
+      address: 'Rua A',
+      number: '123',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000000',
+    });
 
     const deliveryOrderId = Number(deliveryResponse?.id || 0);
     const deliveryAppearedBeforePayment = await waitForOrderEvent(
@@ -257,39 +246,28 @@ async function main() {
       1200,
     );
 
-    const retiradaResponse = await postJson<{ id?: number }>(
-      `${baseUrl}/orders`,
-      {
-        ...baseOrderPayload,
-        type: "RETIRADA",
-      },
-    );
+    const retiradaResponse = await postJson<{ id?: number }>(`${baseUrl}/orders`, {
+      ...baseOrderPayload,
+      type: 'RETIRADA',
+    });
 
     const retiradaOrderId = Number(retiradaResponse?.id || 0);
-    const retiradaAppeared = await waitForOrderEvent(
-      seenOrderIds,
-      retiradaOrderId,
-      3500,
-    );
+    const retiradaAppeared = await waitForOrderEvent(seenOrderIds, retiradaOrderId, 3500);
 
     const mesaResponse = await postJson<{ id?: number }>(
       `${baseUrl}/orders`,
       {
         ...baseOrderPayload,
-        type: "MESA",
+        type: 'MESA',
         tableId: table.id,
       },
       {
-        "x-session-token": tableSession.sessionToken,
+        'x-session-token': tableSession.sessionToken,
       },
     );
 
     const mesaOrderId = Number(mesaResponse?.id || 0);
-    const mesaAppeared = await waitForOrderEvent(
-      seenOrderIds,
-      mesaOrderId,
-      3500,
-    );
+    const mesaAppeared = await waitForOrderEvent(seenOrderIds, mesaOrderId, 3500);
 
     await patchJson(
       `${baseUrl}/orders/${deliveryOrderId}/confirm-payment`,
@@ -312,7 +290,7 @@ async function main() {
       mesaAppeared,
     };
 
-    console.log("=== RESULTADO TESTE REALTIME SOCKET ===");
+    console.log('=== RESULTADO TESTE REALTIME SOCKET ===');
     console.log(JSON.stringify(result, null, 2));
 
     const passed =
@@ -323,14 +301,12 @@ async function main() {
 
     if (!passed) {
       process.exitCode = 1;
-      console.error(
-        "FALHOU: comportamento realtime divergente da regra esperada.",
-      );
+      console.error('FALHOU: comportamento realtime divergente da regra esperada.');
       return;
     }
 
     console.log(
-      "PASSOU: DELIVERY so entra no realtime apos pagamento; MESA/RETIRADA entram normalmente.",
+      'PASSOU: DELIVERY so entra no realtime apos pagamento; MESA/RETIRADA entram normalmente.',
     );
   } finally {
     if (socket) {
@@ -393,7 +369,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Erro no teste realtime:", error);
+    console.error('Erro no teste realtime:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

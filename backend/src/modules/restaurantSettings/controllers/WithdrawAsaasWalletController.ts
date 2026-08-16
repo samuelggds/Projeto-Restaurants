@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import withdrawAsaasWalletService from "../services/WithdrawAsaasWalletService.js";
+import { Request, Response } from 'express';
+import withdrawAsaasWalletService from '../services/WithdrawAsaasWalletService.js';
 
 class WithdrawAsaasWalletController {
   async handle(req: Request, res: Response) {
@@ -18,9 +18,7 @@ class WithdrawAsaasWalletController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao solicitar saque da carteira Asaas.",
+          error instanceof Error ? error.message : 'Erro ao solicitar saque da carteira Asaas.',
       });
     }
   }

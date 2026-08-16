@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import updateSubscriptionService from "../services/UpdateSubscriptionService.js";
+import { Request, Response } from 'express';
+import updateSubscriptionService from '../services/UpdateSubscriptionService.js';
 
 class UpdateSubscriptionController {
   async handle(req: Request, res: Response) {
@@ -17,10 +17,7 @@ class UpdateSubscriptionController {
       return res.status(200).json(subscription);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao atualizar assinatura",
+        error: error instanceof Error ? error.message : 'Erro ao atualizar assinatura',
       });
     }
   }

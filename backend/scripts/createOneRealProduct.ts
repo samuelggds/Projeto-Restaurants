@@ -1,13 +1,13 @@
-import { config as loadEnv } from "dotenv";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import prisma from "../src/config/prisma.js";
+import { config as loadEnv } from 'dotenv';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import prisma from '../src/config/prisma.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-loadEnv({ path: resolve(__dirname, "../.env") });
+loadEnv({ path: resolve(__dirname, '../.env') });
 
 const restaurantId = Number(process.argv[2] || 1);
-const productName = process.argv[3] || "Produto 1 Real";
+const productName = process.argv[3] || 'Produto 1 Real';
 
 async function main() {
   const restaurant = await prisma.restaurant.findUnique({
@@ -18,7 +18,7 @@ async function main() {
       categories: {
         where: { active: true },
         select: { id: true, name: true },
-        orderBy: { id: "asc" },
+        orderBy: { id: 'asc' },
       },
     },
   });
@@ -31,7 +31,7 @@ async function main() {
     restaurant.categories[0] ||
     (await prisma.category.create({
       data: {
-        name: "Promocoes",
+        name: 'Promocoes',
         active: true,
         restaurantId: restaurant.id,
       },
@@ -61,7 +61,7 @@ async function main() {
     : await prisma.product.create({
         data: {
           name: productName,
-          description: "Produto promocional de um real.",
+          description: 'Produto promocional de um real.',
           price: 1.0,
           active: true,
           restaurantId: restaurant.id,

@@ -6,7 +6,7 @@ export type DeliveryCoordinates = {
 export type DeliveryRouteEstimate = {
   durationSeconds: number;
   distanceMeters: number | null;
-  provider: "OSRM";
+  provider: 'OSRM';
 };
 
 type OsrmRoute = {
@@ -26,22 +26,13 @@ export function buildDeliveryDestination(address: {
   city?: string | null;
   state?: string | null;
 }) {
-  return [
-    address.address,
-    address.number,
-    address.district,
-    address.city,
-    address.state,
-    "Brasil",
-  ]
-    .map((part) => String(part || "").trim())
+  return [address.address, address.number, address.district, address.city, address.state, 'Brasil']
+    .map((part) => String(part || '').trim())
     .filter(Boolean)
-    .join(", ");
+    .join(', ');
 }
 
-export function parseOsrmRouteEstimate(
-  response: OsrmRoutesResponse,
-): DeliveryRouteEstimate | null {
+export function parseOsrmRouteEstimate(response: OsrmRoutesResponse): DeliveryRouteEstimate | null {
   const route = response.routes?.[0];
   const durationSeconds = Number(route?.duration);
 
@@ -49,8 +40,11 @@ export function parseOsrmRouteEstimate(
 
   return {
     durationSeconds: Math.round(durationSeconds),
-    distanceMeters: typeof route?.distance === "number" && route.distance >= 0 ? Math.round(route.distance) : null,
-    provider: "OSRM",
+    distanceMeters:
+      typeof route?.distance === 'number' && route.distance >= 0
+        ? Math.round(route.distance)
+        : null,
+    provider: 'OSRM',
   };
 }
 

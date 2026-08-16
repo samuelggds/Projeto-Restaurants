@@ -1,4 +1,4 @@
-import { toPositiveInteger } from "./productAvailability";
+import { toPositiveInteger } from './productAvailability';
 
 export type StoredTableSession = {
   sessionToken?: string;
@@ -12,14 +12,36 @@ export function resolveTableRoute(tableNumber: unknown, restaurantId: unknown, t
   const routeTableNumber = toPositiveInteger(tableNumber);
   const routeRestaurantId = toPositiveInteger(restaurantId);
   const routeTableId = toPositiveInteger(tableId) || routeTableNumber;
-  return { routeTableNumber, routeRestaurantId, routeTableId, mesaMode: Boolean(routeTableNumber || routeTableId), hasRouteRestaurantId: Boolean(routeRestaurantId) };
+  return {
+    routeTableNumber,
+    routeRestaurantId,
+    routeTableId,
+    mesaMode: Boolean(routeTableNumber || routeTableId),
+    hasRouteRestaurantId: Boolean(routeRestaurantId),
+  };
 }
 
-export function isTableSessionActive(session: StoredTableSession | null, mesaMode: boolean, tableId: number | null, restaurantId: number | null): boolean {
+export function isTableSessionActive(
+  session: StoredTableSession | null,
+  mesaMode: boolean,
+  tableId: number | null,
+  restaurantId: number | null,
+): boolean {
   if (!mesaMode) return true;
-  return Boolean(session?.sessionToken && Number(session.tableId) === Number(tableId) && (!restaurantId || Number(session.restaurantId) === Number(restaurantId)));
+  return Boolean(
+    session?.sessionToken &&
+    Number(session.tableId) === Number(tableId) &&
+    (!restaurantId || Number(session.restaurantId) === Number(restaurantId)),
+  );
 }
 
-export function belongsToTableRoute(session: StoredTableSession, tableId: number | null, restaurantId: number | null): boolean {
-  return Number(session.tableId) === Number(tableId) && (!restaurantId || Number(session.restaurantId) === Number(restaurantId));
+export function belongsToTableRoute(
+  session: StoredTableSession,
+  tableId: number | null,
+  restaurantId: number | null,
+): boolean {
+  return (
+    Number(session.tableId) === Number(tableId) &&
+    (!restaurantId || Number(session.restaurantId) === Number(restaurantId))
+  );
 }

@@ -1,88 +1,87 @@
-import { useState, useCallback } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useAuth } from "../../contexts/authContext";
-import { HomePage } from "./HomePage";
-import PixPaymentPanel from "../Cart/components/PixPaymentPanel";
-import * as S from "./Home.styles";
-import { useResolvedRestaurantId, useRestaurantCatalog } from "./hooks/useRestaurantCatalog";
-import { useFavorites } from "./hooks/useFavorites";
-import { useCart } from "./hooks/useCart";
-import { useDeliveryAddress } from "./hooks/useDeliveryAddress";
-import { useCheckoutPayments } from "./hooks/useCheckoutPayments";
-import { useTableSession } from "./hooks/useTableSession";
-import { buildHomeData } from "../home/adapters/homeDataAdapter";
-import { TableAccessGate } from "../home/components/TableAccessGate";
-import { CartItemsList } from "../home/components/CartItemsList";
-import { DeliveryAddressForm } from "../home/components/DeliveryAddressForm";
-import { PaymentOptions } from "../home/components/PaymentOptions";
-import { DeliveryMethodSelector } from "../home/components/DeliveryMethodSelector";
-import { CartCheckoutSummary } from "../home/components/CartCheckoutSummary";
-import {
-  HomeFeedback,
-  type HomeNotification,
-} from "../home/components/HomeFeedback";
+import { useState, useCallback } from 'react';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/authContext';
+import { HomePage } from './HomePage';
+import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
+import * as S from './Home.styles';
+import { useResolvedRestaurantId, useRestaurantCatalog } from './hooks/useRestaurantCatalog';
+import { useFavorites } from './hooks/useFavorites';
+import { useCart } from './hooks/useCart';
+import { useDeliveryAddress } from './hooks/useDeliveryAddress';
+import { useCheckoutPayments } from './hooks/useCheckoutPayments';
+import { useTableSession } from './hooks/useTableSession';
+import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
+import { buildHomeData } from '../home/adapters/homeDataAdapter';
+import { TableAccessGate } from '../home/components/TableAccessGate';
+import { CartItemsList } from '../home/components/CartItemsList';
+import { DeliveryAddressForm } from '../home/components/DeliveryAddressForm';
+import { PaymentOptions } from '../home/components/PaymentOptions';
+import { DeliveryMethodSelector } from '../home/components/DeliveryMethodSelector';
+import { CartCheckoutSummary } from '../home/components/CartCheckoutSummary';
+import { HomeFeedback, type HomeNotification } from '../home/components/HomeFeedback';
 import {
   buildOrderPayload,
   resolveOrderType,
   validateCheckout,
   type CheckoutPaymentMethod,
-} from "./domain/checkout";
+} from './domain/checkout';
+import { ActiveOrderNotice } from './components/ActiveOrderNotice';
+import ordersService from '../../Services/ordersService';
 
-type NotifType = "success" | "error" | "info" | "warning";
+type NotifType = 'success' | 'error' | 'info' | 'warning';
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tableNumber: routeTableNumber, restaurantSlug } = useParams();
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
 
-  const normalizedSlug = String(restaurantSlug || "")
+  const normalizedSlug = String(restaurantSlug || '')
     .trim()
     .toLowerCase();
   const resolvedRestaurantId = useResolvedRestaurantId(normalizedSlug);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("pix");
-  const { deliveryAddress, setDeliveryAddress, cepStatus, cepMessage, handleCepLookup, handleCepChange, savedAddresses, selectedAddressId, handleSavedAddressChange } = useDeliveryAddress(user);
+  const [cartOpen, setCartOpen] = useState(() =>
+    Boolean((location.state as { openCart?: boolean } | null)?.openCart),
+  );
+  const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('pix');
+  const {
+    deliveryAddress,
+    setDeliveryAddress,
+    cepStatus,
+    cepMessage,
+    handleCepLookup,
+    handleCepChange,
+    savedAddresses,
+    selectedAddressId,
+    handleSavedAddressChange,
+  } = useDeliveryAddress(user);
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
+  const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(customerId);
 
   // ── Notification system (defined early so useEffects can use it)
-  const notify = useCallback(
-    (type: NotifType, title: string, msg?: string, duration = 3500) => {
-      const id = Date.now();
-      setNotifs((prev) => {
-        const duplicate = prev.some(
-          (notification) =>
-            notification.title === title && notification.msg === msg,
-        );
-        if (duplicate) return prev;
-        return [
-          ...prev.slice(-3),
-          { id, type, title, msg, visible: false },
-        ];
-      });
-      requestAnimationFrame(() =>
-        setNotifs((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, visible: true } : n)),
-        ),
+  const notify = useCallback((type: NotifType, title: string, msg?: string, duration = 3500) => {
+    const id = Date.now();
+    setNotifs((prev) => {
+      const duplicate = prev.some(
+        (notification) => notification.title === title && notification.msg === msg,
       );
-      setTimeout(() => {
-        setNotifs((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, visible: false } : n)),
-        );
-        setTimeout(
-          () => setNotifs((prev) => prev.filter((n) => n.id !== id)),
-          400,
-        );
-      }, duration);
-    },
-    [],
-  );
+      if (duplicate) return prev;
+      return [...prev.slice(-3), { id, type, title, msg, visible: false }];
+    });
+    requestAnimationFrame(() =>
+      setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: true } : n))),
+    );
+    setTimeout(() => {
+      setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
+      setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
+    }, duration);
+  }, []);
 
   function dismissNotif(id: number) {
-    setNotifs((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, visible: false } : n)),
-    );
+    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
     setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
   }
 
@@ -101,21 +100,17 @@ export default function Home() {
     handleValidateTablePin,
   } = useTableSession({
     tableNumber: routeTableNumber,
-    restaurantId:
-      searchParams.get("restaurantId") || searchParams.get("rid"),
-    tableId: searchParams.get("tableId") || searchParams.get("tid"),
+    restaurantId: searchParams.get('restaurantId') || searchParams.get('rid'),
+    tableId: searchParams.get('tableId') || searchParams.get('tid'),
     notify,
   });
 
   const restaurantId = mesaMode
-    ? routeRestaurantId ||
-      storedSessionRestaurantId ||
-      resolvedRestaurantId ||
-      null
+    ? routeRestaurantId || storedSessionRestaurantId || resolvedRestaurantId || null
     : normalizedSlug
       ? resolvedRestaurantId
       : (user as { restaurantId?: number })?.restaurantId ||
-        Number(localStorage.getItem("menuRestaurantId")) ||
+        Number(localStorage.getItem('menuRestaurantId')) ||
         storedSessionRestaurantId ||
         null;
 
@@ -126,14 +121,31 @@ export default function Home() {
     user,
     restaurantId,
     onRequireLogin: requireFavoriteLogin,
-    onAdded: () => notify("success", "Adicionado aos favoritos", "Você pode encontrar este produto em Favoritos no seu perfil."),
-    onRemoved: () => notify("info", "Removido dos favoritos"),
-    onError: () => notify("error", "Não foi possível atualizar os favoritos", "Tente novamente em alguns instantes."),
+    onAdded: () =>
+      notify(
+        'success',
+        'Adicionado aos favoritos',
+        'Você pode encontrar este produto em Favoritos no seu perfil.',
+      ),
+    onRemoved: () => notify('info', 'Removido dos favoritos'),
+    onError: () =>
+      notify(
+        'error',
+        'Não foi possível atualizar os favoritos',
+        'Tente novamente em alguns instantes.',
+      ),
   });
-  const handleCatalogError = useCallback((message?: string) => {
-    notify("error", "Erro ao carregar cardápio", message);
-  }, [notify]);
-  const { products: backendProducts, setProducts: setBackendProducts, settings } = useRestaurantCatalog({
+  const handleCatalogError = useCallback(
+    (message?: string) => {
+      notify('error', 'Erro ao carregar cardápio', message);
+    },
+    [notify],
+  );
+  const {
+    products: backendProducts,
+    setProducts: setBackendProducts,
+    settings,
+  } = useRestaurantCatalog({
     restaurantId,
     slug: normalizedSlug,
     onError: handleCatalogError,
@@ -141,11 +153,12 @@ export default function Home() {
 
   const homeData = buildHomeData(backendProducts, settings);
 
-  const { cart, setCart, addToCart, decreaseCart, cartCount, cartTotal } = useCart(homeData.products, notify);
+  const { cart, setCart, addToCart, decreaseCart, cartCount, cartTotal } = useCart(
+    homeData.products,
+    notify,
+  );
   function applyPurchasedStockToHome() {
-    const purchased = new Map(
-      cart.map((item) => [String(item.productId), Number(item.quantity)]),
-    );
+    const purchased = new Map(cart.map((item) => [String(item.productId), Number(item.quantity)]));
     setBackendProducts((products) =>
       products.map((product) => {
         const quantity = purchased.get(String(product.id));
@@ -161,26 +174,26 @@ export default function Home() {
     );
   }
 
-  const {
-    checkoutLoading,
-    pixPaymentData,
-    setPixPaymentData,
-    executePayment,
-  } = useCheckoutPayments({
-    restaurantId,
-    pixProvider: settings?.pixProvider,
-    cartTotal,
-    notify,
-    onPurchased: applyPurchasedStockToHome,
-    onClearCart: () => setCart([]),
-    onCloseCart: () => setCartOpen(false),
-  });
+  const { checkoutLoading, pixPaymentData, setPixPaymentData, executePayment } =
+    useCheckoutPayments({
+      restaurantId,
+      pixProvider: settings?.pixProvider,
+      cartTotal,
+      notify,
+      onPurchased: applyPurchasedStockToHome,
+      onClearCart: () => setCart([]),
+      onCloseCart: () => setCartOpen(false),
+    });
 
   async function handleCheckout() {
     if (!restaurantId || !cart.length || checkoutLoading) return;
 
     if (!homeData.isOpen) {
-      notify("warning", "Restaurante fechado", "O restaurante não está recebendo pedidos no momento.");
+      notify(
+        'warning',
+        'Restaurante fechado',
+        'O restaurante não está recebendo pedidos no momento.',
+      );
       return;
     }
 
@@ -200,7 +213,7 @@ export default function Home() {
       paymentMethod,
     });
     if (issue) {
-      notify("warning", issue.title, issue.message);
+      notify('warning', issue.title, issue.message);
       return;
     }
 
@@ -214,22 +227,17 @@ export default function Home() {
       deliveryAddress,
     });
 
-    await executePayment(
-      payload,
-      paymentMethod,
-      payOnDelivery,
-      resolvedPaymentMethod,
-    );
+    await executePayment(payload, paymentMethod, payOnDelivery, resolvedPaymentMethod);
   }
 
-  const primary = homeData.brand.primaryColor || "#d64d08";
+  const primary = homeData.brand.primaryColor || '#d64d08';
 
   if (pixPaymentData) {
     return (
       <PixPaymentPanel
         pixPaymentData={pixPaymentData}
         formatCurrency={(value) =>
-          value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+          value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
         }
         onCopyPixKey={() => navigator.clipboard.writeText(pixPaymentData.pixCode)}
         onBackToCart={() => setPixPaymentData(null)}
@@ -258,32 +266,24 @@ export default function Home() {
       <HomePage
         data={homeData}
         cartCount={cartCount}
-        userName={
-          user
-            ? String((user as Record<string, unknown>).name || "")
-            : undefined
-        }
-        userEmail={
-          user
-            ? String((user as Record<string, unknown>).email || "")
-            : undefined
-        }
+        userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
+        userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
         userLoggedIn={!!user}
-        isAdmin={user?.role === "ADMIN"}
-        favoriteProductIds={user?.role === "CLIENTE" ? favoriteProductIds : []}
+        isAdmin={user?.role === 'ADMIN'}
+        favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : []}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={(addressId) => {
           handleSavedAddressChange(addressId);
           notify(
-            "success",
-            "Endereço selecionado",
-            "Este endereço será usado automaticamente no carrinho.",
+            'success',
+            'Endereço selecionado',
+            'Este endereço será usado automaticamente no carrinho.',
           );
         }}
         onOpenCart={() => setCartOpen(true)}
-        onOpenProfile={() => navigate("/profile")}
-        onOpenAdmin={() => navigate("/admin")}
+        onOpenProfile={() => navigate('/profile')}
+        onOpenAdmin={() => navigate('/admin')}
         onAddProduct={addToCart}
         onToggleFavorite={toggleFavorite}
         onLogout={() => {
@@ -306,24 +306,16 @@ export default function Home() {
             <h2>Minha sacola</h2>
             <small>
               {cartCount === 0
-                ? "Nenhum item"
-                : `${cartCount} ${cartCount === 1 ? "item" : "itens"}`}
+                ? 'Nenhum item'
+                : `${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
             </small>
           </div>
-          <button
-            type="button"
-            onClick={() => setCartOpen(false)}
-            aria-label="Fechar"
-          >
+          <button type="button" onClick={() => setCartOpen(false)} aria-label="Fechar">
             ×
           </button>
         </S.CartHead>
 
-        <CartItemsList
-          items={cart}
-          onIncrease={addToCart}
-          onDecrease={decreaseCart}
-        />
+        <CartItemsList items={cart} onIncrease={addToCart} onDecrease={decreaseCart} />
 
         <S.CartFoot>
           <S.CartOptions>
@@ -332,17 +324,14 @@ export default function Home() {
                 value={orderType}
                 onChange={(nextType) => {
                   setOrderType(nextType);
-                  if (
-                    nextType === "pickup" &&
-                    paymentMethod.startsWith("delivery_")
-                  ) {
-                    setPaymentMethod("pix");
+                  if (nextType === 'pickup' && paymentMethod.startsWith('delivery_')) {
+                    setPaymentMethod('pix');
                   }
                 }}
               />
             )}
 
-            {cart.length > 0 && !mesaMode && orderType === "delivery" && (
+            {cart.length > 0 && !mesaMode && orderType === 'delivery' && (
               <DeliveryAddressForm
                 address={deliveryAddress}
                 setAddress={setDeliveryAddress}
@@ -356,7 +345,7 @@ export default function Home() {
             {cart.length > 0 && (
               <PaymentOptions
                 paymentMethod={paymentMethod}
-                allowPayOnDelivery={!mesaMode && orderType === "delivery"}
+                allowPayOnDelivery={!mesaMode && orderType === 'delivery'}
                 onChange={setPaymentMethod}
               />
             )}
@@ -376,9 +365,18 @@ export default function Home() {
       <HomeFeedback
         showLoginNudge={!user && !mesaMode && !nudgeDismissed}
         notifications={notifs}
-        onLogin={() => navigate("/login")}
+        onLogin={() => navigate('/login')}
         onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
+      />
+      <ActiveOrderNotice
+        order={activeOrder}
+        onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+        onConfirmDelivery={async (orderId) => {
+          await ordersService.confirmDeliveryReceived(orderId);
+          await refreshActiveOrder();
+          notify('success', 'Recebimento confirmado', 'A cozinha e o restaurante foram avisados.');
+        }}
       />
     </>
   );

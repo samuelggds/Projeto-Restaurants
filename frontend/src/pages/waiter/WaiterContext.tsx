@@ -1,24 +1,11 @@
-import {
-  createContext,
-  useCallback,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from "react";
-import { workspaceMock } from "./data";
-import type {
-  CallStatus,
-  EmployeeWorkspaceData,
-  EmployeeWorkspaceProps,
-} from "./types";
+import { createContext, useCallback, useMemo, useState, type PropsWithChildren } from 'react';
+import { workspaceMock } from './data';
+import type { CallStatus, EmployeeWorkspaceData, EmployeeWorkspaceProps } from './types';
 
-export type WaiterModuleProps = Omit<
-  EmployeeWorkspaceProps,
-  "role" | "onUpdateOrderStatus"
->;
+export type WaiterModuleProps = Omit<EmployeeWorkspaceProps, 'role' | 'onUpdateOrderStatus'>;
 export type WaiterContextValue = WaiterModuleProps &
   EmployeeWorkspaceData & {
-    role: "WAITER";
+    role: 'WAITER';
     generateAccessCode: (tableId: string) => Promise<string>;
     updateCall: (id: string, status: CallStatus) => Promise<void>;
   };
@@ -40,7 +27,7 @@ export function WaiterProvider({
       setTables((items) =>
         items.map((table) =>
           table.id === tableId
-            ? { ...table, accessCode: generated, status: "AWAITING_CODE" }
+            ? { ...table, accessCode: generated, status: 'AWAITING_CODE' }
             : table,
         ),
       );
@@ -56,10 +43,7 @@ export function WaiterProvider({
             ? {
                 ...call,
                 status,
-                employeeName:
-                  status === "IN_PROGRESS"
-                    ? props.employee.name
-                    : call.employeeName,
+                employeeName: status === 'IN_PROGRESS' ? props.employee.name : call.employeeName,
               }
             : call,
         ),
@@ -72,7 +56,7 @@ export function WaiterProvider({
     () => ({
       ...props,
       data,
-      role: "WAITER" as const,
+      role: 'WAITER' as const,
       orders: data.orders,
       tables,
       calls,
@@ -81,7 +65,5 @@ export function WaiterProvider({
     }),
     [props, data, tables, calls, generateAccessCode, updateCall],
   );
-  return (
-    <WaiterContext.Provider value={value}>{children}</WaiterContext.Provider>
-  );
+  return <WaiterContext.Provider value={value}>{children}</WaiterContext.Provider>;
 }

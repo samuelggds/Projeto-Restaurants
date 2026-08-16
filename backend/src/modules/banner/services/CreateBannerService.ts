@@ -1,4 +1,4 @@
-import bannerRepository from "../repositories/BannerRepository.js";
+import bannerRepository from '../repositories/BannerRepository.js';
 
 type CreateBannerPayload = {
   title: string;
@@ -9,7 +9,7 @@ type CreateBannerPayload = {
 class CreateBannerService {
   async execute({ title, image, restaurantId }: CreateBannerPayload) {
     if (!title || !image) {
-      throw new Error("Título e imagem são obrigatórios");
+      throw new Error('Título e imagem são obrigatórios');
     }
 
     return await bannerRepository.create({

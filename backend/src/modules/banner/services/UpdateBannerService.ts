@@ -1,4 +1,4 @@
-import bannerRepository from "../repositories/BannerRepository.js";
+import bannerRepository from '../repositories/BannerRepository.js';
 
 type UpdateBannerPayload = {
   id: number | string;
@@ -12,7 +12,7 @@ class UpdateBannerService {
     const banner = await bannerRepository.findById(id, restaurantId);
 
     if (!banner) {
-      throw new Error("Banner não encontrado");
+      throw new Error('Banner não encontrado');
     }
 
     return await bannerRepository.update(id, restaurantId, {

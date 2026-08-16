@@ -1,4 +1,4 @@
-import tableSessionRepository from "../repositories/TableSessionRepository.js";
+import tableSessionRepository from '../repositories/TableSessionRepository.js';
 
 type ListOpenSessionPayload = {
   restaurantId: number;
@@ -6,8 +6,7 @@ type ListOpenSessionPayload = {
 
 class ListOpenSessionService {
   async execute({ restaurantId }: ListOpenSessionPayload) {
-    const sessions =
-      await tableSessionRepository.listOpenByRestaurant(restaurantId);
+    const sessions = await tableSessionRepository.listOpenByRestaurant(restaurantId);
 
     return sessions;
   }

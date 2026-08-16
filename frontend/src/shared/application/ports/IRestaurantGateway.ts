@@ -1,4 +1,4 @@
-import type { Product, RestaurantProfile } from "../../domain/models";
+import type { Product, RestaurantProfile } from '../../domain/models';
 
 export interface IRestaurantGateway {
   listProducts(restaurantId: number): Promise<Product[]>;

@@ -1,6 +1,6 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
-import orderRepository from "../src/modules/orders/repositories/OrderRepository.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
+import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';
 
 (async () => {
   try {
@@ -11,7 +11,7 @@ import orderRepository from "../src/modules/orders/repositories/OrderRepository.
       .filter((value) => Number.isInteger(value) && value > 0);
 
     if (!ids.length) {
-      throw new Error("Informe ao menos um ID de pedido.");
+      throw new Error('Informe ao menos um ID de pedido.');
     }
 
     const visible = await orderRepository.findAll(restaurantId);
@@ -32,7 +32,7 @@ import orderRepository from "../src/modules/orders/repositories/OrderRepository.
         createdAt: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 

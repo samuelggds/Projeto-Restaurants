@@ -1,5 +1,5 @@
-import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
-import restaurantRepository from "../../restaurants/repositories/RestaurantRepository.js";
+import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
+import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -47,49 +47,33 @@ class GetPublicRestaurantSettingsService {
   async execute({ restaurantId, slug, useDefault }: RestaurantIdPayload) {
     let normalizedRestaurantId = Number(restaurantId);
 
-    if (
-      (!Number.isInteger(normalizedRestaurantId) ||
-        normalizedRestaurantId <= 0) &&
-      slug
-    ) {
-      const restaurant = await restaurantRepository.findBySlug(
-        String(slug).trim(),
-      );
+    if ((!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) && slug) {
+      const restaurant = await restaurantRepository.findBySlug(String(slug).trim());
       normalizedRestaurantId = Number(restaurant?.id || 0);
     }
 
-    if (
-      useDefault &&
-      (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0)
-    ) {
-      const restaurant =
-        await restaurantSettingsRepository.findDefaultActiveRestaurant();
+    if (useDefault && (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0)) {
+      const restaurant = await restaurantSettingsRepository.findDefaultActiveRestaurant();
       normalizedRestaurantId = Number(restaurant?.id || 0);
     }
 
-    if (
-      !Number.isInteger(normalizedRestaurantId) ||
-      normalizedRestaurantId <= 0
-    ) {
-      throw new Error("Restaurante inválido.");
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante inválido.');
     }
 
     const settings =
-      await restaurantSettingsRepository.findPublicByRestaurantId(
-        normalizedRestaurantId,
-      );
+      await restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId);
 
     if (!settings) {
-      const restaurant = await restaurantSettingsRepository.findRestaurantById(
-        normalizedRestaurantId,
-      );
+      const restaurant =
+        await restaurantSettingsRepository.findRestaurantById(normalizedRestaurantId);
 
       const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
-        primaryColor: "#c95d3d",
+        primaryColor: '#c95d3d',
         deliveryFee: 0,
         minimumOrder: 0,
-        pixProvider: "MERCADO_PAGO",
+        pixProvider: 'MERCADO_PAGO',
         pixKey: null,
         instagram: null,
         facebook: null,

@@ -1,4 +1,4 @@
-﻿import type { HomeData } from './types'
+﻿import type { HomeData } from './types';
 
 export const homeMockData: HomeData = {
   brand: {
@@ -22,4 +22,4 @@ export const homeMockData: HomeData = {
   freeDeliveryFrom: 0,
   isOpen: false,
   about: '',
-}
+};

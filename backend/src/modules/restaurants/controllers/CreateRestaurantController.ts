@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createRestaurantService from "../services/CreateRestaurantService.js";
+import { Request, Response } from 'express';
+import createRestaurantService from '../services/CreateRestaurantService.js';
 
 class CreateRestaurantController {
   async handle(req: Request, res: Response) {
@@ -15,8 +15,7 @@ class CreateRestaurantController {
       return res.status(201).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        message:
-          error instanceof Error ? error.message : "Erro ao criar restaurante",
+        message: error instanceof Error ? error.message : 'Erro ao criar restaurante',
       });
     }
   }

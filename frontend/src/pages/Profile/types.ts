@@ -17,18 +17,9 @@ export type ProfileUser = {
   favoriteCount: number;
 };
 
-export type ProfileOrderStatus =
-  | "confirmed"
-  | "preparing"
-  | "onTheWay"
-  | "delivered";
+export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
 export type ProfileView =
-  | "overview"
-  | "orders"
-  | "addresses"
-  | "favorites"
-  | "personalData"
-  | "security";
+  'overview' | 'orders' | 'addresses' | 'favorites' | 'personalData' | 'security';
 
 export type ProfileOrder = {
   id: string;
@@ -46,6 +37,7 @@ export type ProfileFavorite = {
   price: number;
   image: string;
   rating: number;
+  stock?: number | null;
 };
 
 export type ProfileAddress = {
@@ -95,19 +87,13 @@ export type ProfilePageProps = {
   onEditPayment?: () => void;
   onOpenFavorites?: () => void;
   onToggleFavorite?: (productId: string) => void | Promise<void>;
+  onAddFavoriteToCart?: (favorite: ProfileFavorite) => void;
   onOpenPersonalData?: () => void;
   onOpenSecurity?: () => void;
   onSupport?: () => void;
   onLogout?: () => void;
-  onSavePersonalData?: (data: {
-    name: string;
-    email: string;
-    phone: string;
-  }) => Promise<void>;
-  onChangePassword?: (data: {
-    currentPassword: string;
-    newPassword: string;
-  }) => Promise<void>;
+  onSavePersonalData?: (data: { name: string; email: string; phone: string }) => Promise<void>;
+  onChangePassword?: (data: { currentPassword: string; newPassword: string }) => Promise<void>;
   twoFactorEnabled?: boolean;
   onToggleTwoFactor?: (enabled: boolean) => Promise<void>;
   onDeactivateAccount?: () => Promise<void>;

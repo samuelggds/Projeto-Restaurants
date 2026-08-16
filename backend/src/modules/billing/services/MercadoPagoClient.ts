@@ -1,5 +1,5 @@
-import { MercadoPagoConfig, Payment } from "mercadopago";
-import { requirePlatformMercadoPagoAccessToken } from "../config/platformMercadoPago.js";
+import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { requirePlatformMercadoPagoAccessToken } from '../config/platformMercadoPago.js';
 
 function createPlatformClient() {
   return new MercadoPagoConfig({

@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -12,7 +12,7 @@ type ProductRatingUpsertData = {
 
 class ProductRepository {
   async create(
-    data: Omit<Prisma.ProductUncheckedCreateInput, "restaurantId">,
+    data: Omit<Prisma.ProductUncheckedCreateInput, 'restaurantId'>,
     restaurantId: number,
     db: PrismaClientLike = prisma,
   ) {
@@ -33,8 +33,8 @@ class ProductRepository {
       where: {
         restaurantId,
         name: {
-          equals: String(name || "").trim(),
-          mode: "insensitive",
+          equals: String(name || '').trim(),
+          mode: 'insensitive',
         },
       },
     });
@@ -49,7 +49,7 @@ class ProductRepository {
         category: true,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }
@@ -69,11 +69,7 @@ class ProductRepository {
     });
   }
 
-  async findById(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findById(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     return db.product.findFirst({
       where: {
         id: Number(id),
@@ -85,11 +81,7 @@ class ProductRepository {
     });
   }
 
-  async delete(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async delete(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     const productId = Number(id);
 
     const hasOrders = await db.orderItem.findFirst({
@@ -102,9 +94,7 @@ class ProductRepository {
     });
 
     if (hasOrders) {
-      throw new Error(
-        "Não é possível excluir um produto que já possui pedidos.",
-      );
+      throw new Error('Não é possível excluir um produto que já possui pedidos.');
     }
 
     return db.product.deleteMany({
@@ -121,7 +111,7 @@ class ProductRepository {
     db: PrismaClientLike = prisma,
   ) {
     const summaries = await db.productRating.groupBy({
-      by: ["productId"],
+      by: ['productId'],
       where: {
         restaurantId,
       },
@@ -148,10 +138,7 @@ class ProductRepository {
       });
 
       userRatingsMap = new Map(
-        userRatings.map((item) => [
-          Number(item.productId),
-          Number(item.rating),
-        ]),
+        userRatings.map((item) => [Number(item.productId), Number(item.rating)]),
       );
     }
 
@@ -163,10 +150,7 @@ class ProductRepository {
     }));
   }
 
-  async upsertRating(
-    data: ProductRatingUpsertData,
-    db: PrismaClientLike = prisma,
-  ) {
+  async upsertRating(data: ProductRatingUpsertData, db: PrismaClientLike = prisma) {
     const { restaurantId, productId, clientKey, rating } = data;
 
     return db.productRating.upsert({
@@ -196,7 +180,7 @@ class ProductRepository {
     db: PrismaClientLike = prisma,
   ) {
     const grouped = await db.productRating.groupBy({
-      by: ["productId"],
+      by: ['productId'],
       where: {
         restaurantId,
         productId,

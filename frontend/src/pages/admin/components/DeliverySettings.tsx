@@ -1,5 +1,5 @@
-import { adminMockSettings } from "../data";
-import * as S from "../Admin.styles";
+import { adminMockSettings } from '../data';
+import * as S from '../Admin.styles';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -8,8 +8,8 @@ type Props = {
 };
 
 const CHANNELS: [string, string, boolean][] = [
-  ["Delivery", "Entregas no endereço do cliente.", true],
-  ["Retirada no balcão", "Cliente retira o pedido no restaurante.", true],
+  ['Delivery', 'Entregas no endereço do cliente.', true],
+  ['Retirada no balcão', 'Cliente retira o pedido no restaurante.', true],
 ];
 
 export function DeliverySettings({ settings, update }: Props) {
@@ -20,7 +20,10 @@ export function DeliverySettings({ settings, update }: Props) {
         <S.ToggleRows>
           {CHANNELS.map(([title, description, checked]) => (
             <div className="toggle-row" key={title}>
-              <div><b>{title}</b><span>{description}</span></div>
+              <div>
+                <b>{title}</b>
+                <span>{description}</span>
+              </div>
               <input type="checkbox" defaultChecked={checked} />
             </div>
           ))}
@@ -29,10 +32,26 @@ export function DeliverySettings({ settings, update }: Props) {
       <S.Card>
         <h2>Regras de entrega</h2>
         <S.FormGrid>
-          <S.Field>Pedido mínimo (R$)<input type="number" value={settings.minimumOrder} onChange={(event) => update("minimumOrder", Number(event.target.value))} /></S.Field>
-          <S.Field>Taxa padrão (R$)<input type="number" defaultValue="6" /></S.Field>
-          <S.Field>Raio máximo (km)<input type="number" defaultValue="8" /></S.Field>
-          <S.Field>Frete grátis acima de (R$)<input type="number" defaultValue="60" /></S.Field>
+          <S.Field>
+            Pedido mínimo (R$)
+            <input
+              type="number"
+              value={settings.minimumOrder}
+              onChange={(event) => update('minimumOrder', Number(event.target.value))}
+            />
+          </S.Field>
+          <S.Field>
+            Taxa padrão (R$)
+            <input type="number" defaultValue="6" />
+          </S.Field>
+          <S.Field>
+            Raio máximo (km)
+            <input type="number" defaultValue="8" />
+          </S.Field>
+          <S.Field>
+            Frete grátis acima de (R$)
+            <input type="number" defaultValue="60" />
+          </S.Field>
         </S.FormGrid>
       </S.Card>
     </S.SettingSection>

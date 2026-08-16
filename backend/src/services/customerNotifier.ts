@@ -1,15 +1,9 @@
-const configuredProvider = String(
-  process.env.CUSTOMER_NOTIFICATION_PROVIDER || "none",
-)
+const configuredProvider = String(process.env.CUSTOMER_NOTIFICATION_PROVIDER || 'none')
   .trim()
   .toLowerCase();
 
-const whatsappWebhookUrl = String(
-  process.env.WHATSAPP_WEBHOOK_URL || "",
-).trim();
-const whatsappWebhookToken = String(
-  process.env.WHATSAPP_WEBHOOK_TOKEN || "",
-).trim();
+const whatsappWebhookUrl = String(process.env.WHATSAPP_WEBHOOK_URL || '').trim();
+const whatsappWebhookToken = String(process.env.WHATSAPP_WEBHOOK_TOKEN || '').trim();
 
 type PaymentConfirmedPayload = {
   restaurantWhatsapp?: string | null;
@@ -54,26 +48,26 @@ type RestaurantOrderIssueReportedPayload = {
 };
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "unknown";
+  return error instanceof Error ? error.message : 'unknown';
 }
 
 function resolveProvider() {
-  if (configuredProvider && configuredProvider !== "none") {
+  if (configuredProvider && configuredProvider !== 'none') {
     return configuredProvider;
   }
 
   if (whatsappWebhookUrl) {
-    return "whatsapp_webhook";
+    return 'whatsapp_webhook';
   }
 
-  return "none";
+  return 'none';
 }
 
 function normalizeToE164Br(phone: string | number | null | undefined) {
-  const digits = String(phone || "").replace(/\D/g, "");
+  const digits = String(phone || '').replace(/\D/g, '');
 
   if (!digits) {
-    return "";
+    return '';
   }
 
   if (/^55\d{10,11}$/.test(digits)) {
@@ -88,17 +82,15 @@ function normalizeToE164Br(phone: string | number | null | undefined) {
     return `+55${digits}`;
   }
 
-  return "";
+  return '';
 }
 
-function formatCurrencyBrl(
-  value: number | string | { toString(): string } | null | undefined,
-) {
+function formatCurrencyBrl(value: number | string | { toString(): string } | null | undefined) {
   const amount = Number(value || 0);
 
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   }).format(Number.isFinite(amount) ? amount : 0);
 }
 
@@ -109,17 +101,17 @@ function buildCustomerMessage({
   total,
   paymentMethod,
 }: PaymentConfirmedPayload) {
-  const resolvedCustomerName = String(customerName || "Cliente").trim();
-  const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
-  const resolvedPaymentMethod = String(paymentMethod || "PIX").toUpperCase();
+  const resolvedCustomerName = String(customerName || 'Cliente').trim();
+  const resolvedRestaurantName = String(restaurantName || 'restaurante').trim();
+  const resolvedPaymentMethod = String(paymentMethod || 'PIX').toUpperCase();
 
   return [
     `Oi, ${resolvedCustomerName}!`,
     `Seu pagamento via ${resolvedPaymentMethod} foi confirmado com sucesso.`,
     `Pedido #${orderId} confirmado no ${resolvedRestaurantName}.`,
     `Total: ${formatCurrencyBrl(total)}.`,
-    "Agora e so aguardar, seu pedido entrou em preparo.",
-  ].join("\n");
+    'Agora e so aguardar, seu pedido entrou em preparo.',
+  ].join('\n');
 }
 
 function buildOrderStatusChangedMessage({
@@ -128,17 +120,17 @@ function buildOrderStatusChangedMessage({
   orderId,
   status,
 }: OrderStatusChangedPayload) {
-  const resolvedCustomerName = String(customerName || "Cliente").trim();
-  const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
-  const resolvedStatus = String(status || "EM ANDAMENTO")
-    .replace(/_/g, " ")
+  const resolvedCustomerName = String(customerName || 'Cliente').trim();
+  const resolvedRestaurantName = String(restaurantName || 'restaurante').trim();
+  const resolvedStatus = String(status || 'EM ANDAMENTO')
+    .replace(/_/g, ' ')
     .toUpperCase();
 
   return [
     `Oi, ${resolvedCustomerName}!`,
     `Atualizacao do seu pedido #${orderId} no ${resolvedRestaurantName}.`,
     `Novo status: ${resolvedStatus}.`,
-  ].join("\n");
+  ].join('\n');
 }
 
 function buildRestaurantPinRequestMessage({
@@ -146,15 +138,15 @@ function buildRestaurantPinRequestMessage({
   orderId,
   requestedByRole,
 }: RestaurantPinRequestedPayload) {
-  const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
-  const normalizedRole = String(requestedByRole || "MOTOQUEIRO").toUpperCase();
-  const requesterLabel = normalizedRole === "ADMIN" ? "Admin" : "Motoqueiro";
+  const resolvedRestaurantName = String(restaurantName || 'restaurante').trim();
+  const normalizedRole = String(requestedByRole || 'MOTOQUEIRO').toUpperCase();
+  const requesterLabel = normalizedRole === 'ADMIN' ? 'Admin' : 'Motoqueiro';
 
   return [
     `Notificacao - ${resolvedRestaurantName}`,
     `${requesterLabel} solicitou PIN de confirmacao de pagamento.`,
     `Pedido #${orderId}.`,
-  ].join("\n");
+  ].join('\n');
 }
 
 function buildRestaurantOrderIssueReportedMessage({
@@ -171,53 +163,49 @@ function buildRestaurantOrderIssueReportedMessage({
   itemsSummary,
   createdAt,
 }: RestaurantOrderIssueReportedPayload) {
-  const resolvedRestaurantName = String(restaurantName || "restaurante").trim();
-  const resolvedCustomerName = String(customerName || "Cliente").trim();
-  const resolvedCustomerPhone = String(customerPhone || "").trim();
-  const resolvedIssueMessage = String(issueMessage || "")
+  const resolvedRestaurantName = String(restaurantName || 'restaurante').trim();
+  const resolvedCustomerName = String(customerName || 'Cliente').trim();
+  const resolvedCustomerPhone = String(customerPhone || '').trim();
+  const resolvedIssueMessage = String(issueMessage || '')
     .trim()
     .slice(0, 600);
-  const resolvedOrderStatus = String(orderStatus || "N/A")
+  const resolvedOrderStatus = String(orderStatus || 'N/A')
     .trim()
-    .replace(/_/g, " ")
+    .replace(/_/g, ' ')
     .toUpperCase();
-  const resolvedOrderType = String(orderType || "N/A")
+  const resolvedOrderType = String(orderType || 'N/A')
     .trim()
-    .replace(/_/g, " ")
+    .replace(/_/g, ' ')
     .toUpperCase();
-  const resolvedPaymentMethod = String(paymentMethod || "N/A")
+  const resolvedPaymentMethod = String(paymentMethod || 'N/A')
     .trim()
-    .replace(/_/g, " ")
+    .replace(/_/g, ' ')
     .toUpperCase();
-  const resolvedAddressLabel = String(addressLabel || "").trim();
+  const resolvedAddressLabel = String(addressLabel || '').trim();
   const resolvedItemsSummary = Array.isArray(itemsSummary)
     ? itemsSummary
-        .map((item) => String(item || "").trim())
+        .map((item) => String(item || '').trim())
         .filter(Boolean)
         .slice(0, 8)
     : [];
-  const resolvedCreatedAt = String(createdAt || "").trim();
+  const resolvedCreatedAt = String(createdAt || '').trim();
   const resolvedCreatedAtText = resolvedCreatedAt
-    ? new Date(resolvedCreatedAt).toLocaleString("pt-BR")
-    : "N/A";
+    ? new Date(resolvedCreatedAt).toLocaleString('pt-BR')
+    : 'N/A';
 
   return [
     `Notificacao - ${resolvedRestaurantName}`,
     `Cliente ${resolvedCustomerName} relatou problema no pedido #${orderId}.`,
-    resolvedCustomerPhone
-      ? `Telefone do cliente: ${resolvedCustomerPhone}.`
-      : null,
+    resolvedCustomerPhone ? `Telefone do cliente: ${resolvedCustomerPhone}.` : null,
     `Status: ${resolvedOrderStatus} | Tipo: ${resolvedOrderType} | Pagamento: ${resolvedPaymentMethod}.`,
     `Total: ${formatCurrencyBrl(total)}.`,
     resolvedAddressLabel ? `Endereco: ${resolvedAddressLabel}.` : null,
-    resolvedItemsSummary.length > 0
-      ? `Itens: ${resolvedItemsSummary.join("; ")}.`
-      : null,
+    resolvedItemsSummary.length > 0 ? `Itens: ${resolvedItemsSummary.join('; ')}.` : null,
     `Criado em: ${resolvedCreatedAtText}.`,
-    `Mensagem: ${resolvedIssueMessage || "(sem detalhes)"}`,
+    `Mensagem: ${resolvedIssueMessage || '(sem detalhes)'}`,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 }
 
 async function notifyViaWhatsappWebhook({
@@ -232,7 +220,7 @@ async function notifyViaWhatsappWebhook({
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
-      reason: "webhook_not_configured",
+      reason: 'webhook_not_configured',
     };
   }
 
@@ -240,7 +228,7 @@ async function notifyViaWhatsappWebhook({
   if (!from) {
     return {
       sent: false,
-      reason: "restaurant_whatsapp_not_configured",
+      reason: 'restaurant_whatsapp_not_configured',
     };
   }
 
@@ -248,7 +236,7 @@ async function notifyViaWhatsappWebhook({
   if (!to) {
     return {
       sent: false,
-      reason: "invalid_or_missing_phone",
+      reason: 'invalid_or_missing_phone',
     };
   }
 
@@ -261,7 +249,7 @@ async function notifyViaWhatsappWebhook({
   });
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   if (whatsappWebhookToken) {
@@ -269,10 +257,10 @@ async function notifyViaWhatsappWebhook({
   }
 
   const response = await fetch(whatsappWebhookUrl, {
-    method: "POST",
+    method: 'POST',
     headers,
     body: JSON.stringify({
-      channel: "whatsapp",
+      channel: 'whatsapp',
       from,
       to,
       message,
@@ -284,13 +272,13 @@ async function notifyViaWhatsappWebhook({
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
+    const body = await response.text().catch(() => '');
     throw new Error(`Webhook respondeu ${response.status}: ${body}`.trim());
   }
 
   return {
     sent: true,
-    provider: "whatsapp_webhook",
+    provider: 'whatsapp_webhook',
     from,
     to,
   };
@@ -307,7 +295,7 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
-      reason: "webhook_not_configured",
+      reason: 'webhook_not_configured',
     };
   }
 
@@ -315,7 +303,7 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   if (!from) {
     return {
       sent: false,
-      reason: "restaurant_whatsapp_not_configured",
+      reason: 'restaurant_whatsapp_not_configured',
     };
   }
 
@@ -323,7 +311,7 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   if (!to) {
     return {
       sent: false,
-      reason: "invalid_or_missing_phone",
+      reason: 'invalid_or_missing_phone',
     };
   }
 
@@ -335,7 +323,7 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   });
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   if (whatsappWebhookToken) {
@@ -343,10 +331,10 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   }
 
   const response = await fetch(whatsappWebhookUrl, {
-    method: "POST",
+    method: 'POST',
     headers,
     body: JSON.stringify({
-      channel: "whatsapp",
+      channel: 'whatsapp',
       from,
       to,
       message,
@@ -359,13 +347,13 @@ async function notifyOrderStatusChangedViaWhatsappWebhook({
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
+    const body = await response.text().catch(() => '');
     throw new Error(`Webhook respondeu ${response.status}: ${body}`.trim());
   }
 
   return {
     sent: true,
-    provider: "whatsapp_webhook",
+    provider: 'whatsapp_webhook',
     from,
     to,
   };
@@ -380,7 +368,7 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
-      reason: "webhook_not_configured",
+      reason: 'webhook_not_configured',
     };
   }
 
@@ -388,7 +376,7 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   if (!from) {
     return {
       sent: false,
-      reason: "restaurant_whatsapp_not_configured",
+      reason: 'restaurant_whatsapp_not_configured',
     };
   }
 
@@ -401,7 +389,7 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   });
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   if (whatsappWebhookToken) {
@@ -409,10 +397,10 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   }
 
   const response = await fetch(whatsappWebhookUrl, {
-    method: "POST",
+    method: 'POST',
     headers,
     body: JSON.stringify({
-      channel: "whatsapp",
+      channel: 'whatsapp',
       from,
       to,
       message,
@@ -425,13 +413,13 @@ async function notifyRestaurantPinRequestedViaWhatsappWebhook({
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
+    const body = await response.text().catch(() => '');
     throw new Error(`Webhook respondeu ${response.status}: ${body}`.trim());
   }
 
   return {
     sent: true,
-    provider: "whatsapp_webhook",
+    provider: 'whatsapp_webhook',
     from,
     to,
   };
@@ -454,7 +442,7 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
   if (!whatsappWebhookUrl) {
     return {
       sent: false,
-      reason: "webhook_not_configured",
+      reason: 'webhook_not_configured',
     };
   }
 
@@ -462,7 +450,7 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
   if (!from) {
     return {
       sent: false,
-      reason: "restaurant_whatsapp_not_configured",
+      reason: 'restaurant_whatsapp_not_configured',
     };
   }
 
@@ -483,7 +471,7 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
   });
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   if (whatsappWebhookToken) {
@@ -491,10 +479,10 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
   }
 
   const response = await fetch(whatsappWebhookUrl, {
-    method: "POST",
+    method: 'POST',
     headers,
     body: JSON.stringify({
-      channel: "whatsapp",
+      channel: 'whatsapp',
       from,
       to,
       message,
@@ -515,13 +503,13 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
+    const body = await response.text().catch(() => '');
     throw new Error(`Webhook respondeu ${response.status}: ${body}`.trim());
   }
 
   return {
     sent: true,
-    provider: "whatsapp_webhook",
+    provider: 'whatsapp_webhook',
     from,
     to,
   };
@@ -538,15 +526,15 @@ export async function notifyCustomerPaymentConfirmed({
 }: PaymentConfirmedPayload) {
   const provider = resolveProvider();
 
-  if (provider === "none") {
+  if (provider === 'none') {
     return {
       sent: false,
-      reason: "provider_not_configured",
+      reason: 'provider_not_configured',
     };
   }
 
   try {
-    if (provider === "whatsapp_webhook") {
+    if (provider === 'whatsapp_webhook') {
       return await notifyViaWhatsappWebhook({
         restaurantWhatsapp,
         customerPhone,
@@ -560,14 +548,14 @@ export async function notifyCustomerPaymentConfirmed({
 
     return {
       sent: false,
-      reason: "provider_not_supported",
+      reason: 'provider_not_supported',
       provider,
     };
   } catch (error: unknown) {
-    console.error("[CUSTOMER_NOTIFICATION_ERROR]", getErrorMessage(error));
+    console.error('[CUSTOMER_NOTIFICATION_ERROR]', getErrorMessage(error));
     return {
       sent: false,
-      reason: "send_failed",
+      reason: 'send_failed',
       provider,
       error: getErrorMessage(error),
     };
@@ -584,15 +572,15 @@ export async function notifyCustomerOrderStatusChanged({
 }: OrderStatusChangedPayload) {
   const provider = resolveProvider();
 
-  if (provider === "none") {
+  if (provider === 'none') {
     return {
       sent: false,
-      reason: "provider_not_configured",
+      reason: 'provider_not_configured',
     };
   }
 
   try {
-    if (provider === "whatsapp_webhook") {
+    if (provider === 'whatsapp_webhook') {
       return await notifyOrderStatusChangedViaWhatsappWebhook({
         restaurantWhatsapp,
         customerPhone,
@@ -605,17 +593,14 @@ export async function notifyCustomerOrderStatusChanged({
 
     return {
       sent: false,
-      reason: "provider_not_supported",
+      reason: 'provider_not_supported',
       provider,
     };
   } catch (error: unknown) {
-    console.error(
-      "[CUSTOMER_STATUS_NOTIFICATION_ERROR]",
-      getErrorMessage(error),
-    );
+    console.error('[CUSTOMER_STATUS_NOTIFICATION_ERROR]', getErrorMessage(error));
     return {
       sent: false,
-      reason: "send_failed",
+      reason: 'send_failed',
       provider,
       error: getErrorMessage(error),
     };
@@ -630,15 +615,15 @@ export async function notifyRestaurantPaymentPinRequested({
 }: RestaurantPinRequestedPayload) {
   const provider = resolveProvider();
 
-  if (provider === "none") {
+  if (provider === 'none') {
     return {
       sent: false,
-      reason: "provider_not_configured",
+      reason: 'provider_not_configured',
     };
   }
 
   try {
-    if (provider === "whatsapp_webhook") {
+    if (provider === 'whatsapp_webhook') {
       return await notifyRestaurantPinRequestedViaWhatsappWebhook({
         restaurantWhatsapp,
         restaurantName,
@@ -649,17 +634,14 @@ export async function notifyRestaurantPaymentPinRequested({
 
     return {
       sent: false,
-      reason: "provider_not_supported",
+      reason: 'provider_not_supported',
       provider,
     };
   } catch (error: unknown) {
-    console.error(
-      "[RESTAURANT_PIN_NOTIFICATION_ERROR]",
-      getErrorMessage(error),
-    );
+    console.error('[RESTAURANT_PIN_NOTIFICATION_ERROR]', getErrorMessage(error));
     return {
       sent: false,
-      reason: "send_failed",
+      reason: 'send_failed',
       provider,
       error: getErrorMessage(error),
     };
@@ -682,15 +664,15 @@ export async function notifyRestaurantOrderIssueReported({
 }: RestaurantOrderIssueReportedPayload) {
   const provider = resolveProvider();
 
-  if (provider === "none") {
+  if (provider === 'none') {
     return {
       sent: false,
-      reason: "provider_not_configured",
+      reason: 'provider_not_configured',
     };
   }
 
   try {
-    if (provider === "whatsapp_webhook") {
+    if (provider === 'whatsapp_webhook') {
       return await notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
         restaurantWhatsapp,
         restaurantName,
@@ -709,17 +691,14 @@ export async function notifyRestaurantOrderIssueReported({
 
     return {
       sent: false,
-      reason: "provider_not_supported",
+      reason: 'provider_not_supported',
       provider,
     };
   } catch (error: unknown) {
-    console.error(
-      "[RESTAURANT_ORDER_ISSUE_NOTIFICATION_ERROR]",
-      getErrorMessage(error),
-    );
+    console.error('[RESTAURANT_ORDER_ISSUE_NOTIFICATION_ERROR]', getErrorMessage(error));
     return {
       sent: false,
-      reason: "send_failed",
+      reason: 'send_failed',
       provider,
       error: getErrorMessage(error),
     };

@@ -1,11 +1,11 @@
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
     const admins = await prisma.user.findMany({
       where: {
         role: {
-          in: ["ADMIN", "SUPER_ADMIN"],
+          in: ['ADMIN', 'SUPER_ADMIN'],
         },
       },
       select: {
@@ -15,11 +15,11 @@ import prisma from "../src/config/prisma.js";
         restaurantId: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
-    console.log("ADMINS:", JSON.stringify(admins, null, 2));
+    console.log('ADMINS:', JSON.stringify(admins, null, 2));
   } catch (err) {
     console.error(err);
     process.exitCode = 1;

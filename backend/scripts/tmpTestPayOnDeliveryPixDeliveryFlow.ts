@@ -1,37 +1,35 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "backend/.env" });
+import dotenv from 'dotenv';
+dotenv.config({ path: 'backend/.env' });
 
-import prisma from "../src/config/prisma.js";
-import orderRepository from "../src/modules/orders/repositories/OrderRepository.js";
-import updateOrderStatusService from "../src/modules/orders/services/UpdateOrderStatusService.js";
-import { OrderStatus, UserRole } from "@prisma/client";
+import prisma from '../src/config/prisma.js';
+import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';
+import updateOrderStatusService from '../src/modules/orders/services/UpdateOrderStatusService.js';
+import { OrderStatus, UserRole } from '@prisma/client';
 
 async function main() {
   const order = await prisma.order.findFirst({
     where: {
-      type: "DELIVERY",
-      status: "SAIU_PARA_ENTREGA",
+      type: 'DELIVERY',
+      status: 'SAIU_PARA_ENTREGA',
       payOnDelivery: true,
-      payOnDeliveryMethod: "PIX",
+      payOnDeliveryMethod: 'PIX',
       paid: false,
     },
-    orderBy: { id: "desc" },
+    orderBy: { id: 'desc' },
     include: {
       user: { select: { phone: true } },
     },
   });
 
   if (!order) {
-    throw new Error("Pedido PAY_ON_DELIVERY PIX nao encontrado para teste.");
+    throw new Error('Pedido PAY_ON_DELIVERY PIX nao encontrado para teste.');
   }
 
   const listedOrders = await orderRepository.findAll(order.restaurantId);
-  const listedBefore = listedOrders.some(
-    (o) => Number(o.id) === Number(order.id),
-  );
+  const listedBefore = listedOrders.some((o) => Number(o.id) === Number(order.id));
 
-  const code = String(order.user?.phone || "")
-    .replace(/\D/g, "")
+  const code = String(order.user?.phone || '')
+    .replace(/\D/g, '')
     .slice(-4);
 
   const updated = await updateOrderStatusService.execute(

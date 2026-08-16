@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import prisma from "../../../config/prisma.js";
+import { Request, Response } from 'express';
+import prisma from '../../../config/prisma.js';
 
 function formatElapsed(date: Date): string {
   const diffMs = Date.now() - new Date(date).getTime();
@@ -14,10 +14,10 @@ class GetAllSupportTicketsController {
   async handle(_req: Request, res: Response) {
     try {
       const grouped = await prisma.supportChatMessage.groupBy({
-        by: ["restaurantId"],
+        by: ['restaurantId'],
         _max: { sentAt: true },
         _count: { id: true },
-        orderBy: { _max: { sentAt: "desc" } },
+        orderBy: { _max: { sentAt: 'desc' } },
         take: 100,
       });
 
@@ -33,37 +33,31 @@ class GetAllSupportTicketsController {
         prisma.supportChatMessage.findMany({
           where: {
             restaurantId: { in: restaurantIds },
-            senderRole: { not: "SUPER_ADMIN" },
+            senderRole: { not: 'SUPER_ADMIN' },
           },
-          orderBy: { sentAt: "asc" },
+          orderBy: { sentAt: 'asc' },
           select: { restaurantId: true, message: true },
-          distinct: ["restaurantId"],
+          distinct: ['restaurantId'],
         }),
       ]);
 
       const restaurantMap = new Map(restaurants.map((r) => [r.id, r.name]));
-      const subjectMap = new Map(
-        firstMessages.map((m) => [m.restaurantId, m.message]),
-      );
+      const subjectMap = new Map(firstMessages.map((m) => [m.restaurantId, m.message]));
 
       const tickets = grouped.map((g) => ({
-        id: `#SUP-${String(g.restaurantId).padStart(4, "0")}`,
-        restaurant: restaurantMap.get(g.restaurantId) ?? "Desconhecido",
-        subject: (subjectMap.get(g.restaurantId) ?? "Sem mensagem").slice(
-          0,
-          60,
-        ),
-        priority: "MEDIUM",
-        status: "OPEN",
-        responsible: "Suporte",
-        elapsed: g._max.sentAt ? formatElapsed(g._max.sentAt) : "—",
+        id: `#SUP-${String(g.restaurantId).padStart(4, '0')}`,
+        restaurant: restaurantMap.get(g.restaurantId) ?? 'Desconhecido',
+        subject: (subjectMap.get(g.restaurantId) ?? 'Sem mensagem').slice(0, 60),
+        priority: 'MEDIUM',
+        status: 'OPEN',
+        responsible: 'Suporte',
+        elapsed: g._max.sentAt ? formatElapsed(g._max.sentAt) : '—',
       }));
 
       return res.status(200).json(tickets);
     } catch (error: unknown) {
       return res.status(400).json({
-        message:
-          error instanceof Error ? error.message : "Erro ao listar tickets",
+        message: error instanceof Error ? error.message : 'Erro ao listar tickets',
       });
     }
   }

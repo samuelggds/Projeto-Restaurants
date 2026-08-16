@@ -1,11 +1,9 @@
-import prisma from "../../../config/prisma.js";
-import restaurantRepository from "../repositories/RestaurantRepository.js";
-import { PlanType } from "@prisma/client";
-import { PLAN_CONFIG } from "../../billing/config/planConfig.js";
+import prisma from '../../../config/prisma.js';
+import restaurantRepository from '../repositories/RestaurantRepository.js';
+import { PlanType } from '@prisma/client';
+import { PLAN_CONFIG } from '../../billing/config/planConfig.js';
 
-type ListedRestaurant = Awaited<
-  ReturnType<typeof restaurantRepository.listAll>
->[number];
+type ListedRestaurant = Awaited<ReturnType<typeof restaurantRepository.listAll>>[number];
 
 const PLAN_PRICES: Record<PlanType, number> = {
   BASICO: PLAN_CONFIG.BASICO.monthlyFee,
@@ -14,21 +12,21 @@ const PLAN_PRICES: Record<PlanType, number> = {
 
 function getRestaurantStatus(restaurant: ListedRestaurant) {
   if (!restaurant.active) {
-    return "Bloqueado";
+    return 'Bloqueado';
   }
 
   if (
-    restaurant.subscription?.status === "EXPIRADA" ||
-    restaurant.subscription?.status === "CANCELADA"
+    restaurant.subscription?.status === 'EXPIRADA' ||
+    restaurant.subscription?.status === 'CANCELADA'
   ) {
-    return "Expirado";
+    return 'Expirado';
   }
 
-  if (!restaurant.subscription || restaurant.subscription?.status === "TESTE") {
-    return "Aviso";
+  if (!restaurant.subscription || restaurant.subscription?.status === 'TESTE') {
+    return 'Aviso';
   }
 
-  return "Ativo";
+  return 'Ativo';
 }
 
 class ListRestaurantsService {
@@ -40,10 +38,10 @@ class ListRestaurantsService {
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const revenueByRestaurant = await prisma.order.groupBy({
-      by: ["restaurantId"],
+      by: ['restaurantId'],
       where: {
         paid: true,
-        status: { not: "CANCELADO" },
+        status: { not: 'CANCELADO' },
         createdAt: {
           gte: periodStart,
           lt: periodEnd,
@@ -55,10 +53,7 @@ class ListRestaurantsService {
     });
 
     const revenueMap = new Map(
-      revenueByRestaurant.map((item) => [
-        item.restaurantId,
-        Number(item._sum.total || 0),
-      ]),
+      revenueByRestaurant.map((item) => [item.restaurantId, Number(item._sum.total || 0)]),
     );
 
     return restaurants.map((restaurant) => ({
@@ -75,9 +70,7 @@ class ListRestaurantsService {
       subscription: restaurant.subscription || null,
       status: getRestaurantStatus(restaurant),
       uptime: restaurant.active ? 100 : 0,
-      price: restaurant.subscription?.plan
-        ? PLAN_PRICES[restaurant.subscription.plan]
-        : 0,
+      price: restaurant.subscription?.plan ? PLAN_PRICES[restaurant.subscription.plan] : 0,
       revenue: revenueMap.get(restaurant.id) || 0,
       nextBillingAt: restaurant.subscription?.currentPeriodEnd ?? null,
     }));

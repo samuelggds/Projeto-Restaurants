@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import startMercadoPagoOAuthService from "../services/StartMercadoPagoOAuthService.js";
+import { Request, Response } from 'express';
+import startMercadoPagoOAuthService from '../services/StartMercadoPagoOAuthService.js';
 
 class StartMercadoPagoOAuthController {
   async handle(req: Request, res: Response) {
@@ -15,10 +15,7 @@ class StartMercadoPagoOAuthController {
       return res.status(200).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao iniciar conexao com Mercado Pago.",
+        error: error instanceof Error ? error.message : 'Erro ao iniciar conexao com Mercado Pago.',
       });
     }
   }

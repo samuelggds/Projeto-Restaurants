@@ -4,7 +4,7 @@ import {
   parseOsrmRouteEstimate,
   type DeliveryCoordinates,
   type DeliveryRouteEstimate,
-} from "../utils/deliveryRouteEstimate.js";
+} from '../utils/deliveryRouteEstimate.js';
 
 const ROUTE_CACHE_TTL_MS = 20_000;
 const GEOCODE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -23,7 +23,7 @@ type CachedValue<T> = { expiresAt: number; value: T };
 type GeocodingResult = { lat?: string; lon?: string };
 
 function normalizedBaseUrl(value: string) {
-  return value.replace(/\/$/, "");
+  return value.replace(/\/$/, '');
 }
 
 class GetOsrmDeliveryRouteService {
@@ -31,11 +31,11 @@ class GetOsrmDeliveryRouteService {
   private geocodeCache = new Map<string, CachedValue<DeliveryCoordinates | null>>();
 
   private get osrmBaseUrl() {
-    return normalizedBaseUrl(String(process.env.OSRM_BASE_URL || "").trim());
+    return normalizedBaseUrl(String(process.env.OSRM_BASE_URL || '').trim());
   }
 
   private get geocoderBaseUrl() {
-    return normalizedBaseUrl(String(process.env.GEOCODER_BASE_URL || "").trim());
+    return normalizedBaseUrl(String(process.env.GEOCODER_BASE_URL || '').trim());
   }
 
   private async geocode(destination: string): Promise<DeliveryCoordinates | null> {
@@ -45,13 +45,13 @@ class GetOsrmDeliveryRouteService {
 
     try {
       const url = new URL(`${this.geocoderBaseUrl}/search`);
-      url.searchParams.set("q", destination);
-      url.searchParams.set("format", "jsonv2");
-      url.searchParams.set("limit", "1");
-      url.searchParams.set("countrycodes", "br");
+      url.searchParams.set('q', destination);
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('limit', '1');
+      url.searchParams.set('countrycodes', 'br');
 
       const response = await fetch(url, {
-        headers: { "User-Agent": String(process.env.ROUTING_USER_AGENT || "PizzaIADelivery/1.0") },
+        headers: { 'User-Agent': String(process.env.ROUTING_USER_AGENT || 'PizzaIADelivery/1.0') },
       });
       const result = response.ok ? ((await response.json()) as GeocodingResult[])?.[0] : null;
       const coordinates = result
@@ -61,7 +61,10 @@ class GetOsrmDeliveryRouteService {
       this.geocodeCache.set(destination, { value, expiresAt: Date.now() + GEOCODE_CACHE_TTL_MS });
       return value;
     } catch (error) {
-      console.warn("[delivery-route] Nao foi possivel localizar o endereco do pedido", error instanceof Error ? error.message : String(error));
+      console.warn(
+        '[delivery-route] Nao foi possivel localizar o endereco do pedido',
+        error instanceof Error ? error.message : String(error),
+      );
       return null;
     }
   }
@@ -79,12 +82,20 @@ class GetOsrmDeliveryRouteService {
 
     try {
       const coordinates = `${input.longitude},${input.latitude};${destinationCoordinates.longitude},${destinationCoordinates.latitude}`;
-      const response = await fetch(`${this.osrmBaseUrl}/route/v1/driving/${coordinates}?overview=false`);
+      const response = await fetch(
+        `${this.osrmBaseUrl}/route/v1/driving/${coordinates}?overview=false`,
+      );
       const estimate = response.ok ? parseOsrmRouteEstimate(await response.json()) : null;
-      this.routeCache.set(cacheKey, { value: estimate, expiresAt: Date.now() + ROUTE_CACHE_TTL_MS });
+      this.routeCache.set(cacheKey, {
+        value: estimate,
+        expiresAt: Date.now() + ROUTE_CACHE_TTL_MS,
+      });
       return estimate;
     } catch (error) {
-      console.warn("[delivery-route] Nao foi possivel calcular a rota do pedido", error instanceof Error ? error.message : String(error));
+      console.warn(
+        '[delivery-route] Nao foi possivel calcular a rota do pedido',
+        error instanceof Error ? error.message : String(error),
+      );
       return null;
     }
   }

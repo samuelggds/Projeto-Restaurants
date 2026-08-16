@@ -1,5 +1,5 @@
-import styled from "styled-components";
-import type { OrderStatus } from "./types";
+import styled from 'styled-components';
+import type { OrderStatus } from './types';
 
 export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   --brand: ${(p) => p.$primary};
@@ -12,8 +12,7 @@ export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   background: #fbfaf8;
   color: var(--ink);
   display: grid;
-  grid-template-columns: ${(p) =>
-      p.$sidebarOpen === false ? "0px" : "244px"} minmax(0, 1fr);
+  grid-template-columns: ${(p) => (p.$sidebarOpen === false ? '0px' : '244px')} minmax(0, 1fr);
   transition: grid-template-columns 0.25s ease;
   button {
     cursor: pointer;
@@ -43,7 +42,7 @@ export const Sidebar = styled.aside<{ $open: boolean }>`
     position: fixed;
     inset: 0 auto 0 0;
     width: min(86vw, 310px);
-    transform: translateX(${(p) => (p.$open ? "0" : "-105%")});
+    transform: translateX(${(p) => (p.$open ? '0' : '-105%')});
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 24px 0 60px #0009;
   }
@@ -376,7 +375,7 @@ export const Toolbar = styled.div`
     font-size: 12px;
   }
   .live::before {
-    content: "";
+    content: '';
     display: inline-block;
     width: 8px;
     height: 8px;
@@ -423,7 +422,7 @@ export const Metrics = styled.div`
     scrollbar-width: none;
   }
 `;
-export const Metric = styled.article<{ $tone?: "green" }>`
+export const Metric = styled.article<{ $tone?: 'green' }>`
   min-height: 112px;
   border: 1px solid var(--border);
   border-radius: 13px;
@@ -439,8 +438,8 @@ export const Metric = styled.article<{ $tone?: "green" }>`
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background: ${(p) => (p.$tone ? "#e9f6ea" : "#fff0e8")};
-    color: ${(p) => (p.$tone ? "#208139" : "var(--brand)")};
+    background: ${(p) => (p.$tone ? '#e9f6ea' : '#fff0e8')};
+    color: ${(p) => (p.$tone ? '#208139' : 'var(--brand)')};
   }
   i svg {
     width: 27px;
@@ -455,7 +454,7 @@ export const Metric = styled.article<{ $tone?: "green" }>`
   }
   b {
     font-size: 30px;
-    color: ${(p) => (p.$tone ? "#168132" : "var(--brand)")};
+    color: ${(p) => (p.$tone ? '#168132' : 'var(--brand)')};
   }
   @media (max-width: 480px) {
     flex: 0 0 210px;
@@ -593,25 +592,25 @@ export const Status = styled.span<{ $status: OrderStatus }>`
   font-weight: 800;
   text-transform: uppercase;
   color: ${(p) =>
-    p.$status === "PENDENTE"
-      ? "#174fc4"
-      : p.$status === "PREPARANDO"
-        ? "#e74a0b"
-        : p.$status === "PRONTO"
-          ? "#187a31"
-          : p.$status === "CANCELADO"
-            ? "#a51f1f"
-            : "#5f4a94"};
+    p.$status === 'PENDENTE'
+      ? '#174fc4'
+      : p.$status === 'PREPARANDO'
+        ? '#e74a0b'
+        : p.$status === 'PRONTO'
+          ? '#187a31'
+          : p.$status === 'CANCELADO'
+            ? '#a51f1f'
+            : '#5f4a94'};
   background: ${(p) =>
-    p.$status === "PENDENTE"
-      ? "#eaf1ff"
-      : p.$status === "PREPARANDO"
-        ? "#fff0e6"
-        : p.$status === "PRONTO"
-          ? "#e7f5e9"
-          : p.$status === "CANCELADO"
-            ? "#fde9e9"
-            : "#f0ebff"};
+    p.$status === 'PENDENTE'
+      ? '#eaf1ff'
+      : p.$status === 'PREPARANDO'
+        ? '#fff0e6'
+        : p.$status === 'PRONTO'
+          ? '#e7f5e9'
+          : p.$status === 'CANCELADO'
+            ? '#fde9e9'
+            : '#f0ebff'};
 `;
 export const LinkButton = styled.button`
   height: 38px;
@@ -819,9 +818,15 @@ export const KitchenOrder = styled.article`
     animation: kitchen-order-focus 720ms ease both;
   }
   @keyframes kitchen-order-focus {
-    0% { transform: scale(0.98); }
-    55% { transform: scale(1.018); }
-    100% { transform: scale(1); }
+    0% {
+      transform: scale(0.98);
+    }
+    55% {
+      transform: scale(1.018);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
   .head {
     display: flex;
@@ -946,14 +951,14 @@ export const TableCard = styled.article`
   }
 `;
 export const TableState = styled.span<{
-  $state: "FREE" | "OCCUPIED" | "AWAITING_CODE";
+  $state: 'FREE' | 'OCCUPIED' | 'AWAITING_CODE';
 }>`
   font-size: 9px;
   font-weight: 800;
   padding: 5px 7px;
   border-radius: 6px;
-  color: ${(p) => (p.$state === "FREE" ? "#18742e" : "#df4d12")};
-  background: ${(p) => (p.$state === "FREE" ? "#e8f5e9" : "#fff0e7")};
+  color: ${(p) => (p.$state === 'FREE' ? '#18742e' : '#df4d12')};
+  background: ${(p) => (p.$state === 'FREE' ? '#e8f5e9' : '#fff0e7')};
 `;
 export const FilterTabs = styled.div`
   display: flex;

@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import getCurrentTableOrderService from "../services/GetCurrentTableOrderService.js";
+import { Request, Response } from 'express';
+import getCurrentTableOrderService from '../services/GetCurrentTableOrderService.js';
 
 class GetCurrentTableOrderController {
   async handle(req: Request, res: Response) {
@@ -15,10 +15,7 @@ class GetCurrentTableOrderController {
       return res.status(200).json({ order });
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao obter pedido atual da mesa",
+        error: error instanceof Error ? error.message : 'Erro ao obter pedido atual da mesa',
       });
     }
   }

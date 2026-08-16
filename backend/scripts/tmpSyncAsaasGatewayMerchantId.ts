@@ -1,12 +1,10 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 const RESTAURANT_ID = Number(process.env.E2E_RESTAURANT_ID || 2);
-const ASAAS_BASE_URL = String(
-  process.env.ASAAS_API_BASE_URL || "https://api.asaas.com",
-)
+const ASAAS_BASE_URL = String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
   .trim()
-  .replace(/\/+$/, "");
+  .replace(/\/+$/, '');
 
 type AsaasErrorItem = {
   description?: string;
@@ -37,8 +35,8 @@ type AsaasPaymentDetailsPayload = {
 };
 
 function providerError(payload: AsaasMyAccountPayload) {
-  const first = String(payload?.errors?.[0]?.description || "").trim();
-  return first || "Falha ao consultar conta no Asaas.";
+  const first = String(payload?.errors?.[0]?.description || '').trim();
+  return first || 'Falha ao consultar conta no Asaas.';
 }
 
 (async () => {
@@ -52,18 +50,18 @@ function providerError(payload: AsaasMyAccountPayload) {
     });
 
     if (!settings) {
-      throw new Error("Configuracoes do restaurante nao encontradas.");
+      throw new Error('Configuracoes do restaurante nao encontradas.');
     }
 
-    const token = String(settings.asaasAccessToken || "").trim();
+    const token = String(settings.asaasAccessToken || '').trim();
     if (!token) {
-      throw new Error("asaasAccessToken nao configurado para o restaurante.");
+      throw new Error('asaasAccessToken nao configurado para o restaurante.');
     }
 
     const response = await fetch(`${ASAAS_BASE_URL}/v3/myAccount`, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         access_token: token,
       },
     });
@@ -73,32 +71,28 @@ function providerError(payload: AsaasMyAccountPayload) {
       throw new Error(providerError(body));
     }
 
-    let walletId = String(body.walletId || body.id || "").trim();
+    let walletId = String(body.walletId || body.id || '').trim();
 
     if (!walletId) {
-      const paymentsResponse = await fetch(
-        `${ASAAS_BASE_URL}/v3/payments?limit=10&offset=0`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            access_token: token,
-          },
+      const paymentsResponse = await fetch(`${ASAAS_BASE_URL}/v3/payments?limit=10&offset=0`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          access_token: token,
         },
-      );
+      });
 
-      const paymentsBody =
-        (await paymentsResponse.json()) as AsaasPaymentsPayload;
+      const paymentsBody = (await paymentsResponse.json()) as AsaasPaymentsPayload;
 
       if (!paymentsResponse.ok) {
         throw new Error(providerError(paymentsBody));
       }
 
       const firstWithWallet = Array.isArray(paymentsBody.data)
-        ? paymentsBody.data.find((item) => String(item?.walletId || "").trim())
+        ? paymentsBody.data.find((item) => String(item?.walletId || '').trim())
         : null;
 
-      walletId = String(firstWithWallet?.walletId || "").trim();
+      walletId = String(firstWithWallet?.walletId || '').trim();
     }
 
     if (!walletId) {
@@ -106,23 +100,23 @@ function providerError(payload: AsaasMyAccountPayload) {
         where: {
           restaurantId: RESTAURANT_ID,
           cardCheckoutSessionId: {
-            startsWith: "asaas_pay:",
+            startsWith: 'asaas_pay:',
           },
         },
         select: {
           cardCheckoutSessionId: true,
         },
         orderBy: {
-          id: "desc",
+          id: 'desc',
         },
         take: 10,
       });
 
       const asaasPaymentIds = recentOrders
         .map((row) =>
-          String(row.cardCheckoutSessionId || "")
+          String(row.cardCheckoutSessionId || '')
             .trim()
-            .replace(/^asaas_pay:/i, ""),
+            .replace(/^asaas_pay:/i, ''),
         )
         .filter((id) => id.length > 0);
 
@@ -130,9 +124,9 @@ function providerError(payload: AsaasMyAccountPayload) {
         const paymentDetailsResponse = await fetch(
           `${ASAAS_BASE_URL}/v3/payments/${encodeURIComponent(paymentId)}`,
           {
-            method: "GET",
+            method: 'GET',
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
               access_token: token,
             },
           },
@@ -145,7 +139,7 @@ function providerError(payload: AsaasMyAccountPayload) {
           continue;
         }
 
-        const candidate = String(paymentDetailsBody.walletId || "").trim();
+        const candidate = String(paymentDetailsBody.walletId || '').trim();
         if (candidate) {
           walletId = candidate;
           break;
@@ -155,11 +149,11 @@ function providerError(payload: AsaasMyAccountPayload) {
 
     if (!walletId) {
       throw new Error(
-        "Asaas nao retornou walletId/id em /v3/myAccount, /v3/payments ou detalhes dos pagamentos locais.",
+        'Asaas nao retornou walletId/id em /v3/myAccount, /v3/payments ou detalhes dos pagamentos locais.',
       );
     }
 
-    const previous = String(settings.gatewayMerchantId || "").trim();
+    const previous = String(settings.gatewayMerchantId || '').trim();
 
     await prisma.restaurantSettings.update({
       where: { restaurantId: RESTAURANT_ID },
@@ -177,8 +171,8 @@ function providerError(payload: AsaasMyAccountPayload) {
           previousGatewayMerchantIdConfigured: Boolean(previous),
           gatewayMerchantIdConfigured: true,
           gatewayMerchantIdLength: walletId.length,
-          accountName: String(body.name || "").trim() || null,
-          accountEmailConfigured: Boolean(String(body.email || "").trim()),
+          accountName: String(body.name || '').trim() || null,
+          accountEmailConfigured: Boolean(String(body.email || '').trim()),
         },
         null,
         2,

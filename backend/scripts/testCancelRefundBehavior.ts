@@ -1,6 +1,6 @@
-import "dotenv/config";
-import jwt from "jsonwebtoken";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
+import prisma from '../src/config/prisma.js';
 
 type CancelResult = {
   orderId: number;
@@ -11,26 +11,22 @@ type CancelResult = {
   orderPaidAfter: boolean | null;
 };
 
-function buildToken(
-  userId: number,
-  restaurantId: number,
-  email: string | null,
-) {
-  const secret = String(process.env.JWT_SECRET || "").trim();
+function buildToken(userId: number, restaurantId: number, email: string | null) {
+  const secret = String(process.env.JWT_SECRET || '').trim();
 
   if (!secret) {
-    throw new Error("JWT_SECRET nao configurado.");
+    throw new Error('JWT_SECRET nao configurado.');
   }
 
   return jwt.sign(
     {
       id: userId,
-      role: "CLIENTE",
+      role: 'CLIENTE',
       restaurantId,
       email,
     },
     secret,
-    { expiresIn: "30m" },
+    { expiresIn: '30m' },
   );
 }
 
@@ -44,10 +40,10 @@ async function cancelOrderAsCustomer(
   const token = buildToken(userId, restaurantId, email);
 
   const response = await fetch(`${baseUrl}/orders/${orderId}/cancel`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({}),
   });
@@ -74,30 +70,26 @@ async function cancelOrderAsCustomer(
 (async () => {
   try {
     const restaurantId = Number(process.argv[2] || 1);
-    const baseUrl = String(
-      process.env.BACKEND_URL || "http://127.0.0.1:3000",
-    ).trim();
+    const baseUrl = String(process.env.BACKEND_URL || 'http://127.0.0.1:3000').trim();
     const marker = `TESTE_CANCEL_REFUND_${Date.now()}`;
 
     const user = await prisma.user.findFirst({
       where: {
         restaurantId,
         active: true,
-        role: "CLIENTE",
+        role: 'CLIENTE',
       },
       select: {
         id: true,
         email: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!user) {
-      throw new Error(
-        `Nenhum cliente ativo encontrado para restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum cliente ativo encontrado para restaurante ${restaurantId}.`);
     }
 
     const product = await prisma.product.findFirst({
@@ -110,14 +102,12 @@ async function cancelOrderAsCustomer(
         price: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!product) {
-      throw new Error(
-        `Nenhum produto ativo encontrado para restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum produto ativo encontrado para restaurante ${restaurantId}.`);
     }
 
     const price = Number(product.price || 0);
@@ -125,20 +115,20 @@ async function cancelOrderAsCustomer(
     const paidPixOrder = await prisma.order.create({
       data: {
         total: price,
-        status: "PENDENTE",
-        type: "DELIVERY",
-        paymentMethod: "PIX",
+        status: 'PENDENTE',
+        type: 'DELIVERY',
+        paymentMethod: 'PIX',
         paid: true,
         paidAt: new Date(),
         pixPaymentId: `manual:PICPAY:${restaurantId}:${Date.now()}`,
         paymentProof: `proof-${Date.now()}`,
         observation: `${marker} | PIX_PAGO`,
-        address: "Rua Teste",
-        number: "1",
-        district: "Centro",
-        city: "Fortaleza",
-        state: "CE",
-        zipCode: "60000000",
+        address: 'Rua Teste',
+        number: '1',
+        district: 'Centro',
+        city: 'Fortaleza',
+        state: 'CE',
+        zipCode: '60000000',
         userId: user.id,
         restaurantId,
       },
@@ -157,17 +147,17 @@ async function cancelOrderAsCustomer(
     const unpaidMoneyOrder = await prisma.order.create({
       data: {
         total: price,
-        status: "PENDENTE",
-        type: "DELIVERY",
-        paymentMethod: "DINHEIRO",
+        status: 'PENDENTE',
+        type: 'DELIVERY',
+        paymentMethod: 'DINHEIRO',
         paid: false,
         observation: `${marker} | DINHEIRO_NAO_PAGO`,
-        address: "Rua Teste",
-        number: "2",
-        district: "Centro",
-        city: "Fortaleza",
-        state: "CE",
-        zipCode: "60000000",
+        address: 'Rua Teste',
+        number: '2',
+        district: 'Centro',
+        city: 'Fortaleza',
+        state: 'CE',
+        zipCode: '60000000',
         userId: user.id,
         restaurantId,
       },

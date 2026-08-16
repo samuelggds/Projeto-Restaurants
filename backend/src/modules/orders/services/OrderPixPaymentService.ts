@@ -1,25 +1,21 @@
-import { MercadoPagoConfig, Payment } from "mercadopago";
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 import {
   isMarketplaceSplitConfigurationError,
   parseProviderPaymentId,
   normalizeTxid,
-} from "./pixPayload.js";
-import productRepository from "../../products/repositories/ProductRepository.js";
-import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
-import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
-import splitService from "../../billing/services/SplitService.js";
+} from './pixPayload.js';
+import productRepository from '../../products/repositories/ProductRepository.js';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
+import splitService from '../../billing/services/SplitService.js';
 import {
   PIX_PROVIDERS,
   type PixProvider,
   normalizePixProvider,
-} from "../../payments/providers/providerCatalog.js";
+} from '../../payments/providers/providerCatalog.js';
 
-const APPROVED_PAYMENT_STATUSES = new Set(["approved", "accredited", "paid"]);
-const APPROVED_ASAAS_PAYMENT_STATUSES = new Set([
-  "received",
-  "confirmed",
-  "received_in_cash",
-]);
+const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
+const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
 
 type OrderItemInput = {
   productId: number;
@@ -97,16 +93,13 @@ type PagBankOrderPayload = {
 };
 
 function normalizeReferenceToken(value: string | number | null | undefined) {
-  return String(value || "")
+  return String(value || '')
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
+    .replace(/[^a-z0-9]/g, '')
     .trim();
 }
 
-function doesProofContainTransactionId(
-  paymentProof: string,
-  transactionId: string,
-) {
+function doesProofContainTransactionId(paymentProof: string, transactionId: string) {
   const normalizedProof = normalizeReferenceToken(paymentProof);
   const normalizedTransactionId = normalizeReferenceToken(transactionId);
 
@@ -126,36 +119,29 @@ type ParsedManualPixPaymentId = {
 
 class OrderPixPaymentService {
   getPagBankBaseUrl() {
-    return String(
-      process.env.PAGBANK_API_BASE_URL || "https://api.pagseguro.com",
-    )
+    return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
       .trim()
-      .replace(/\/+$/, "");
+      .replace(/\/+$/, '');
   }
 
   async getPagBankToken(restaurantId: number) {
-    const settings =
-      await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-    const token = String(settings?.pagbankToken || "").trim();
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const token = String(settings?.pagbankToken || '').trim();
     if (!token) {
       throw new Error(
-        "Pagamento PIX PagBank indisponível. Configure o token PagBank nas configurações do restaurante.",
+        'Pagamento PIX PagBank indisponível. Configure o token PagBank nas configurações do restaurante.',
       );
     }
     return token;
   }
 
-  async fetchPagBankJson<T>(
-    url: string,
-    token: string,
-    init: RequestInit = {},
-  ) {
+  async fetchPagBankJson<T>(url: string, token: string, init: RequestInit = {}) {
     const response = await fetch(url, {
       ...init,
       headers: {
         Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
         ...(init.headers || {}),
       },
     });
@@ -164,55 +150,49 @@ class OrderPixPaymentService {
   }
 
   getAsaasBaseUrl() {
-    return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com")
+    return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
-      .replace(/\/+$/, "");
+      .replace(/\/+$/, '');
   }
 
   async getAsaasAccessToken(restaurantId: number) {
-    const allowGlobalFallback =
-      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
-    const settings =
-      await restaurantSettingsRepository.findByRestaurantId(restaurantId);
-    const settingsToken = String(settings?.asaasAccessToken || "").trim();
-    const globalToken = String(process.env.ASAAS_API_KEY || "").trim();
-    const accessToken =
-      settingsToken || (allowGlobalFallback ? globalToken : "");
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const settingsToken = String(settings?.asaasAccessToken || '').trim();
+    const globalToken = String(process.env.ASAAS_API_KEY || '').trim();
+    const accessToken = settingsToken || (allowGlobalFallback ? globalToken : '');
 
     if (!accessToken) {
       throw new Error(
-        "Pagamento PIX Asaas indisponivel. Configure token Asaas nas configuracoes do restaurante.",
+        'Pagamento PIX Asaas indisponivel. Configure token Asaas nas configuracoes do restaurante.',
       );
     }
 
     return accessToken;
   }
 
-  getAsaasError(
-    payload: { errors?: AsaasErrorItem[] },
-    fallbackMessage: string,
-  ) {
+  getAsaasError(payload: { errors?: AsaasErrorItem[] }, fallbackMessage: string) {
     if (!Array.isArray(payload?.errors) || payload.errors.length === 0) {
       return fallbackMessage;
     }
 
-    const message = String(payload.errors[0]?.description || "").trim();
+    const message = String(payload.errors[0]?.description || '').trim();
     return message || fallbackMessage;
   }
 
   normalizeAsaasStatus(value: unknown) {
-    return String(value || "")
+    return String(value || '')
       .trim()
       .toLowerCase();
   }
 
   normalizeAsaasPaymentId(paymentId: string) {
-    const normalized = String(paymentId || "").trim();
+    const normalized = String(paymentId || '').trim();
     if (!normalized) {
-      return "";
+      return '';
     }
 
-    if (normalized.toLowerCase().startsWith("asaas:")) {
+    if (normalized.toLowerCase().startsWith('asaas:')) {
       return normalized;
     }
 
@@ -223,17 +203,17 @@ class OrderPixPaymentService {
     url: string,
     accessToken: string,
     {
-      method = "GET",
+      method = 'GET',
       body,
     }: {
-      method?: "GET" | "POST";
+      method?: 'GET' | 'POST';
       body?: unknown;
     } = {},
   ) {
     const response = await fetch(url, {
       method,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         access_token: accessToken,
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -248,28 +228,24 @@ class OrderPixPaymentService {
   }
 
   parseManualPaymentId(paymentId: string): ParsedManualPixPaymentId {
-    const normalizedPaymentId = String(paymentId || "").trim();
+    const normalizedPaymentId = String(paymentId || '').trim();
     const [
-      prefix = "",
-      provider = "",
-      restaurant = "",
-      createdAtMs = "",
-      transactionIdFromId = "",
-    ] = normalizedPaymentId.split(":");
+      prefix = '',
+      provider = '',
+      restaurant = '',
+      createdAtMs = '',
+      transactionIdFromId = '',
+    ] = normalizedPaymentId.split(':');
 
-    if (prefix !== "manual") {
-      throw new Error("Pagamento PIX manual inválido.");
+    if (prefix !== 'manual') {
+      throw new Error('Pagamento PIX manual inválido.');
     }
 
     const restaurantId = Number(restaurant || 0);
     const createdAtTimestamp = Number(createdAtMs || 0);
     const createdAt = new Date(createdAtTimestamp);
-    const fallbackTransactionId = normalizeTxid(
-      `${provider}${restaurantId}${createdAtTimestamp}`,
-    );
-    const transactionId = normalizeTxid(
-      transactionIdFromId || fallbackTransactionId,
-    );
+    const fallbackTransactionId = normalizeTxid(`${provider}${restaurantId}${createdAtTimestamp}`);
+    const transactionId = normalizeTxid(transactionIdFromId || fallbackTransactionId);
 
     if (
       !Number.isInteger(restaurantId) ||
@@ -278,7 +254,7 @@ class OrderPixPaymentService {
       Number.isNaN(createdAt.getTime()) ||
       !transactionId
     ) {
-      throw new Error("Pagamento PIX manual inválido.");
+      throw new Error('Pagamento PIX manual inválido.');
     }
 
     return {
@@ -297,38 +273,34 @@ class OrderPixPaymentService {
     paymentProof: string;
   }) {
     const parsed = this.parseManualPaymentId(paymentId);
-    const normalizedProof = String(paymentProof || "").trim();
+    const normalizedProof = String(paymentProof || '').trim();
     if (normalizedProof.length < 6) {
       throw new Error(
-        "Informe no comprovante o código/ID da transação PIX para confirmar este pagamento.",
+        'Informe no comprovante o código/ID da transação PIX para confirmar este pagamento.',
       );
     }
 
     if (!doesProofContainTransactionId(normalizedProof, parsed.transactionId)) {
       throw new Error(
-        "Comprovante PIX inválido: o ID da transação não corresponde ao pagamento deste pedido.",
+        'Comprovante PIX inválido: o ID da transação não corresponde ao pagamento deste pedido.',
       );
     }
   }
 
   async getMercadoPagoPaymentApi(restaurantId?: number) {
     const normalizedRestaurantId = Number(restaurantId || 0);
-    const allowGlobalFallback =
-      process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
     const settings =
       Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
-        ? await restaurantSettingsRepository.findByRestaurantId(
-            normalizedRestaurantId,
-          )
+        ? await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId)
         : null;
-    const settingsToken = String(settings?.mercadoPagoAccessToken || "").trim();
-    const globalToken = String(process.env.MP_ACCESS_TOKEN || "").trim();
-    const accessToken =
-      settingsToken || (allowGlobalFallback ? globalToken : "");
+    const settingsToken = String(settings?.mercadoPagoAccessToken || '').trim();
+    const globalToken = String(process.env.MP_ACCESS_TOKEN || '').trim();
+    const accessToken = settingsToken || (allowGlobalFallback ? globalToken : '');
 
     if (!accessToken) {
       throw new Error(
-        "Pagamento PIX indisponivel no momento. Configure access token Mercado Pago nas configuracoes do restaurante.",
+        'Pagamento PIX indisponivel no momento. Configure access token Mercado Pago nas configuracoes do restaurante.',
       );
     }
 
@@ -337,14 +309,14 @@ class OrderPixPaymentService {
   }
 
   normalizeCpf(value: string | number | null | undefined) {
-    const digits = String(value || "").replace(/\D/g, "");
+    const digits = String(value || '').replace(/\D/g, '');
     return digits.length === 11 ? digits : null;
   }
 
   normalizeEmail(email: string | null | undefined, restaurantId: number) {
-    const trimmed = String(email || "").trim();
+    const trimmed = String(email || '').trim();
 
-    if (trimmed && trimmed.includes("@")) {
+    if (trimmed && trimmed.includes('@')) {
       return trimmed;
     }
 
@@ -352,7 +324,7 @@ class OrderPixPaymentService {
   }
 
   normalizePaymentStatus(status: unknown) {
-    return String(status || "")
+    return String(status || '')
       .trim()
       .toLowerCase();
   }
@@ -369,9 +341,7 @@ class OrderPixPaymentService {
     items: OrderItemInput[];
   }) {
     const products = await Promise.all(
-      items.map((item) =>
-        productRepository.findById(item.productId, restaurantId),
-      ),
+      items.map((item) => productRepository.findById(item.productId, restaurantId)),
     );
 
     products.forEach((product, index) => {
@@ -403,54 +373,43 @@ class OrderPixPaymentService {
     userEmail,
   }: CreatePixPayload) {
     const normalizedRestaurantId = Number(restaurantId);
-    const normalizedType = String(type || "").toUpperCase();
-    const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
+    const normalizedType = String(type || '').toUpperCase();
+    const normalizedPaymentMethod = String(paymentMethod || '').toUpperCase();
 
-    if (
-      !Number.isInteger(normalizedRestaurantId) ||
-      normalizedRestaurantId <= 0
-    ) {
-      throw new Error("Restaurante inválido para gerar PIX.");
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante inválido para gerar PIX.');
     }
 
     const allowsPixType =
-      normalizedType === "DELIVERY" ||
-      normalizedType === "MESA" ||
-      normalizedType === "RETIRADA";
+      normalizedType === 'DELIVERY' || normalizedType === 'MESA' || normalizedType === 'RETIRADA';
 
-    if (!allowsPixType || normalizedPaymentMethod !== "PIX") {
+    if (!allowsPixType || normalizedPaymentMethod !== 'PIX') {
       throw new Error(
-        "A geracao de PIX e permitida para pedidos DELIVERY, MESA ou RETIRADA com pagamento PIX.",
+        'A geracao de PIX e permitida para pedidos DELIVERY, MESA ou RETIRADA com pagamento PIX.',
       );
     }
 
-    if (normalizedType === "DELIVERY") {
+    if (normalizedType === 'DELIVERY') {
       const requiredAddressFields = [address, number, district, city, state]
-        .map((value) => String(value || "").trim())
+        .map((value) => String(value || '').trim())
         .filter(Boolean);
 
       if (requiredAddressFields.length < 5) {
-        throw new Error(
-          "Informe o endereco completo para pedidos de delivery.",
-        );
+        throw new Error('Informe o endereco completo para pedidos de delivery.');
       }
     }
 
     const settings =
-      await restaurantSettingsRepository.findPublicByRestaurantId(
-        normalizedRestaurantId,
-      );
+      await restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId);
 
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
 
     void pixProvider;
-    const resolvedPixProvider = this.normalizePixProvider(
-      settings?.pixProvider,
-    );
-    const pixKey = String(settings?.pixKey || "").trim();
+    const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
+    const pixKey = String(settings?.pixKey || '').trim();
 
     if (!pixKey) {
-      throw new Error("Chave PIX não configurada para este restaurante.");
+      throw new Error('Chave PIX não configurada para este restaurante.');
     }
 
     const minimumOrder = Number(settings?.minimumOrder || 0);
@@ -461,18 +420,13 @@ class OrderPixPaymentService {
       items,
     });
 
-    if (
-      normalizedType === "DELIVERY" &&
-      minimumOrder > 0 &&
-      subtotal < minimumOrder
-    ) {
+    if (normalizedType === 'DELIVERY' && minimumOrder > 0 && subtotal < minimumOrder) {
       throw new Error(
         `Pedido mínimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega é cobrada à parte.`,
       );
     }
 
-    const additionalFee =
-      normalizedType === "DELIVERY" ? Math.max(deliveryFee, 0) : 0;
+    const additionalFee = normalizedType === 'DELIVERY' ? Math.max(deliveryFee, 0) : 0;
     const systemFee = await splitService.execute({
       restaurantId: normalizedRestaurantId,
       orderTotal: subtotal,
@@ -480,32 +434,32 @@ class OrderPixPaymentService {
     const totalAmount = Number((subtotal + additionalFee).toFixed(2));
 
     if (totalAmount <= 0) {
-      throw new Error("Total do pedido inválido para gerar cobrança PIX.");
+      throw new Error('Total do pedido inválido para gerar cobrança PIX.');
     }
 
     const payerEmail = this.normalizeEmail(userEmail, normalizedRestaurantId);
-    const payerName = String(customerName || "Cliente").trim();
+    const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
     const normalizedSystemFee = Number(systemFee || 0);
 
     if (resolvedPixProvider === PIX_PROVIDERS.PAGBANK) {
       const token = await this.getPagBankToken(normalizedRestaurantId);
-      const backendUrl = String(process.env.BACKEND_URL || "")
+      const backendUrl = String(process.env.BACKEND_URL || '')
         .trim()
-        .replace(/\/+$/, "");
+        .replace(/\/+$/, '');
       const notificationUrl = backendUrl
         ? `${backendUrl}/orders/webhook/pagbank?restaurantId=${normalizedRestaurantId}`
-        : "";
+        : '';
       const result = await this.fetchPagBankJson<PagBankOrderPayload>(
         `${this.getPagBankBaseUrl()}/orders`,
         token,
         {
-          method: "POST",
-          headers: { "x-idempotency-key": crypto.randomUUID() },
+          method: 'POST',
+          headers: { 'x-idempotency-key': crypto.randomUUID() },
           body: JSON.stringify({
             reference_id: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
             customer: {
-              name: payerName || "Cliente",
+              name: payerName || 'Cliente',
               email: payerEmail,
               ...(cpf ? { tax_id: cpf } : {}),
             },
@@ -517,29 +471,19 @@ class OrderPixPaymentService {
                 unit_amount: Math.round(totalAmount * 100),
               },
             ],
-            qr_codes: [
-              { amount: { value: Math.round(totalAmount * 100) } },
-            ],
-            ...(notificationUrl
-              ? { notification_urls: [notificationUrl] }
-              : {}),
+            qr_codes: [{ amount: { value: Math.round(totalAmount * 100) } }],
+            ...(notificationUrl ? { notification_urls: [notificationUrl] } : {}),
           }),
         },
       );
-      const providerError = String(
-        result.body?.error_messages?.[0]?.description || "",
-      ).trim();
-      const orderId = String(result.body?.id || "").trim();
-      const qrCode = String(result.body?.qr_codes?.[0]?.text || "").trim();
+      const providerError = String(result.body?.error_messages?.[0]?.description || '').trim();
+      const orderId = String(result.body?.id || '').trim();
+      const qrCode = String(result.body?.qr_codes?.[0]?.text || '').trim();
       if (!result.ok || !orderId || !qrCode) {
-        throw new Error(
-          providerError || "Não foi possível gerar o Pix no PagBank.",
-        );
+        throw new Error(providerError || 'Não foi possível gerar o Pix no PagBank.');
       }
       const base64Url = String(
-        result.body?.qr_codes?.[0]?.links?.find(
-          (link) => link.rel === "QRCODE.BASE64",
-        )?.href || "",
+        result.body?.qr_codes?.[0]?.links?.find((link) => link.rel === 'QRCODE.BASE64')?.href || '',
       ).trim();
       let qrCodeBase64: string | null = null;
       if (base64Url) {
@@ -552,7 +496,7 @@ class OrderPixPaymentService {
       }
       return {
         paymentId: `pagbank:${orderId}`,
-        status: "WAITING",
+        status: 'WAITING',
         provider: resolvedPixProvider,
         totalAmount,
         qrCode,
@@ -562,52 +506,41 @@ class OrderPixPaymentService {
     }
 
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
-      const accessToken = await this.getAsaasAccessToken(
-        normalizedRestaurantId,
-      );
+      const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
       const privateSettings =
-        await restaurantSettingsRepository.findByRestaurantId(
-          normalizedRestaurantId,
-        );
+        await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
 
       const customerResult = await this.fetchAsaasJson<AsaasCustomerPayload>(
         `${asaasBaseUrl}/v3/customers`,
         accessToken,
         {
-          method: "POST",
+          method: 'POST',
           body: {
-            name: payerName || "Cliente",
+            name: payerName || 'Cliente',
             email: payerEmail,
             ...(cpf ? { cpfCnpj: cpf } : {}),
-            ...(customerPhone
-              ? { mobilePhone: String(customerPhone).replace(/\D/g, "") }
-              : {}),
+            ...(customerPhone ? { mobilePhone: String(customerPhone).replace(/\D/g, '') } : {}),
           },
         },
       );
 
-      if (
-        !customerResult.ok ||
-        !String(customerResult.responseBody?.id || "").trim()
-      ) {
+      if (!customerResult.ok || !String(customerResult.responseBody?.id || '').trim()) {
         throw new Error(
           this.getAsaasError(
             customerResult.responseBody,
-            "Nao foi possivel criar/identificar cliente para pagamento PIX no Asaas.",
+            'Nao foi possivel criar/identificar cliente para pagamento PIX no Asaas.',
           ),
         );
       }
 
-      const customerId = String(customerResult.responseBody.id || "").trim();
-      const walletId = String(privateSettings?.gatewayMerchantId || "").trim();
-      const platformWalletId = String(
-        process.env.ASAAS_PLATFORM_WALLET_ID || "",
-      ).trim();
+      const customerId = String(customerResult.responseBody.id || '').trim();
+      const walletId = String(privateSettings?.gatewayMerchantId || '').trim();
+      const platformWalletId = String(process.env.ASAAS_PLATFORM_WALLET_ID || '').trim();
 
       const buildAsaasPaymentBody = (includeSplit: boolean) => ({
         customer: customerId,
-        billingType: "PIX",
+        billingType: 'PIX',
         value: totalAmount,
         dueDate: new Date().toISOString().slice(0, 10),
         description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
@@ -636,7 +569,7 @@ class OrderPixPaymentService {
         `${asaasBaseUrl}/v3/payments`,
         accessToken,
         {
-          method: "POST",
+          method: 'POST',
           body: buildAsaasPaymentBody(normalizedSystemFee > 0),
         },
       );
@@ -645,15 +578,12 @@ class OrderPixPaymentService {
         normalizedSystemFee > 0 &&
         !paymentResult.ok &&
         isMarketplaceSplitConfigurationError(
-          this.getAsaasError(
-            paymentResult.responseBody,
-            "Erro ao criar pagamento PIX no Asaas.",
-          ),
+          this.getAsaasError(paymentResult.responseBody, 'Erro ao criar pagamento PIX no Asaas.'),
         );
 
       if (shouldRetryWithoutSplit) {
         console.warn(
-          "[ASAAS_PIX_SPLIT_FALLBACK] Asaas rejeitou split. Recriando pagamento sem split.",
+          '[ASAAS_PIX_SPLIT_FALLBACK] Asaas rejeitou split. Recriando pagamento sem split.',
           {
             restaurantId: normalizedRestaurantId,
             systemFee: normalizedSystemFee,
@@ -664,7 +594,7 @@ class OrderPixPaymentService {
           `${asaasBaseUrl}/v3/payments`,
           accessToken,
           {
-            method: "POST",
+            method: 'POST',
             body: buildAsaasPaymentBody(false),
           },
         );
@@ -674,16 +604,14 @@ class OrderPixPaymentService {
         throw new Error(
           this.getAsaasError(
             paymentResult.responseBody,
-            "Nao foi possivel gerar cobranca PIX no Asaas.",
+            'Nao foi possivel gerar cobranca PIX no Asaas.',
           ),
         );
       }
 
-      const asaasPaymentId = String(
-        paymentResult.responseBody?.id || "",
-      ).trim();
+      const asaasPaymentId = String(paymentResult.responseBody?.id || '').trim();
       if (!asaasPaymentId) {
-        throw new Error("Asaas nao retornou id do pagamento PIX.");
+        throw new Error('Asaas nao retornou id do pagamento PIX.');
       }
 
       const qrResult = await this.fetchAsaasJson<AsaasPixQrCodePayload>(
@@ -693,25 +621,20 @@ class OrderPixPaymentService {
 
       if (!qrResult.ok) {
         throw new Error(
-          this.getAsaasError(
-            qrResult.responseBody,
-            "Nao foi possivel gerar QR Code PIX no Asaas.",
-          ),
+          this.getAsaasError(qrResult.responseBody, 'Nao foi possivel gerar QR Code PIX no Asaas.'),
         );
       }
 
-      const qrCode = String(qrResult.responseBody?.payload || "").trim();
-      const qrCodeBase64 = String(
-        qrResult.responseBody?.encodedImage || "",
-      ).trim();
+      const qrCode = String(qrResult.responseBody?.payload || '').trim();
+      const qrCodeBase64 = String(qrResult.responseBody?.encodedImage || '').trim();
 
       if (!qrCode) {
-        throw new Error("Asaas nao retornou payload PIX para pagamento.");
+        throw new Error('Asaas nao retornou payload PIX para pagamento.');
       }
 
       return {
         paymentId: this.normalizeAsaasPaymentId(asaasPaymentId),
-        status: String(paymentResult.responseBody?.status || "PENDING"),
+        status: String(paymentResult.responseBody?.status || 'PENDING'),
         provider: resolvedPixProvider,
         totalAmount,
         qrCode,
@@ -722,25 +645,23 @@ class OrderPixPaymentService {
 
     if (resolvedPixProvider !== PIX_PROVIDERS.MERCADO_PAGO) {
       throw new Error(
-        "Este provedor PIX ainda nao possui confirmacao automatica. Selecione Mercado Pago ou Asaas.",
+        'Este provedor PIX ainda nao possui confirmacao automatica. Selecione Mercado Pago ou Asaas.',
       );
     }
 
-    const paymentApi = await this.getMercadoPagoPaymentApi(
-      normalizedRestaurantId,
-    );
+    const paymentApi = await this.getMercadoPagoPaymentApi(normalizedRestaurantId);
 
     const baseBody = {
       transaction_amount: totalAmount,
       description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
-      payment_method_id: "pix",
+      payment_method_id: 'pix',
       payer: {
         email: payerEmail,
-        first_name: payerName || "Cliente",
+        first_name: payerName || 'Cliente',
         ...(cpf
           ? {
               identification: {
-                type: "CPF",
+                type: 'CPF',
                 number: cpf,
               },
             }
@@ -748,7 +669,7 @@ class OrderPixPaymentService {
       },
       metadata: {
         restaurant_id: String(normalizedRestaurantId),
-        source: "order_checkout",
+        source: 'order_checkout',
         provider: resolvedPixProvider,
       },
       external_reference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
@@ -770,7 +691,7 @@ class OrderPixPaymentService {
         }
 
         console.warn(
-          "[PIX_SPLIT_FALLBACK] Mercado Pago rejeitou application_fee. Recriando pagamento sem split.",
+          '[PIX_SPLIT_FALLBACK] Mercado Pago rejeitou application_fee. Recriando pagamento sem split.',
           {
             restaurantId: normalizedRestaurantId,
             systemFee: normalizedSystemFee,
@@ -788,22 +709,21 @@ class OrderPixPaymentService {
     }
 
     const payment =
-      typeof response === "object" && response !== null
+      typeof response === 'object' && response !== null
         ? ((response as { body?: unknown }).body ?? response)
         : {};
     const paymentData = payment as PixPaymentPayload;
-    const transactionData =
-      paymentData?.point_of_interaction?.transaction_data || {};
-    const qrCode = String(transactionData?.qr_code || "").trim();
-    const qrCodeBase64 = String(transactionData?.qr_code_base64 || "").trim();
+    const transactionData = paymentData?.point_of_interaction?.transaction_data || {};
+    const qrCode = String(transactionData?.qr_code || '').trim();
+    const qrCodeBase64 = String(transactionData?.qr_code_base64 || '').trim();
 
     if (!paymentData?.id || !qrCode) {
-      throw new Error("Não foi possível gerar o QR Code PIX no momento.");
+      throw new Error('Não foi possível gerar o QR Code PIX no momento.');
     }
 
     return {
       paymentId: String(paymentData.id),
-      status: String(paymentData.status || "pending"),
+      status: String(paymentData.status || 'pending'),
       provider: resolvedPixProvider,
       totalAmount,
       qrCode,
@@ -813,13 +733,13 @@ class OrderPixPaymentService {
   }
 
   async getPaymentStatus({ paymentId, restaurantId }: PaymentStatusPayload) {
-    const normalizedPaymentId = String(paymentId || "").trim();
+    const normalizedPaymentId = String(paymentId || '').trim();
     if (!normalizedPaymentId) {
-      throw new Error("Pagamento PIX inválido.");
+      throw new Error('Pagamento PIX inválido.');
     }
 
-    if (normalizedPaymentId.startsWith("manual:")) {
-      throw new Error("Pagamento PIX manual nao e permitido.");
+    if (normalizedPaymentId.startsWith('manual:')) {
+      throw new Error('Pagamento PIX manual nao e permitido.');
     }
 
     const parsedPaymentId = parseProviderPaymentId(normalizedPaymentId);
@@ -827,15 +747,12 @@ class OrderPixPaymentService {
 
     if (parsedPaymentId.provider === PIX_PROVIDERS.ASAAS) {
       const effectiveRestaurantId =
-        Number.isInteger(normalizedRestaurantIdNumber) &&
-        normalizedRestaurantIdNumber > 0
+        Number.isInteger(normalizedRestaurantIdNumber) && normalizedRestaurantIdNumber > 0
           ? normalizedRestaurantIdNumber
           : 0;
 
       if (!effectiveRestaurantId) {
-        throw new Error(
-          "Restaurante inválido para consulta de pagamento PIX Asaas.",
-        );
+        throw new Error('Restaurante inválido para consulta de pagamento PIX Asaas.');
       }
 
       const accessToken = await this.getAsaasAccessToken(effectiveRestaurantId);
@@ -849,14 +766,12 @@ class OrderPixPaymentService {
         throw new Error(
           this.getAsaasError(
             statusResult.responseBody,
-            "Nao foi possivel consultar pagamento PIX Asaas.",
+            'Nao foi possivel consultar pagamento PIX Asaas.',
           ),
         );
       }
 
-      const status = this.normalizeAsaasStatus(
-        statusResult.responseBody?.status,
-      );
+      const status = this.normalizeAsaasStatus(statusResult.responseBody?.status);
 
       return {
         paymentId: normalizedPaymentId,
@@ -870,7 +785,7 @@ class OrderPixPaymentService {
 
     if (parsedPaymentId.provider === PIX_PROVIDERS.PAGBANK) {
       if (!normalizedRestaurantIdNumber) {
-        throw new Error("Restaurante inválido para consultar Pix PagBank.");
+        throw new Error('Restaurante inválido para consultar Pix PagBank.');
       }
       const token = await this.getPagBankToken(normalizedRestaurantIdNumber);
       const result = await this.fetchPagBankJson<PagBankOrderPayload>(
@@ -878,15 +793,15 @@ class OrderPixPaymentService {
         token,
       );
       if (!result.ok) {
-        throw new Error("Não foi possível consultar o Pix no PagBank.");
+        throw new Error('Não foi possível consultar o Pix no PagBank.');
       }
       const statuses = (result.body?.charges || []).map((charge) =>
-        String(charge.status || "").toUpperCase(),
+        String(charge.status || '').toUpperCase(),
       );
-      const isApproved = statuses.includes("PAID");
+      const isApproved = statuses.includes('PAID');
       return {
         paymentId: normalizedPaymentId,
-        status: isApproved ? "paid" : statuses[0] || "waiting",
+        status: isApproved ? 'paid' : statuses[0] || 'waiting',
         provider: PIX_PROVIDERS.PAGBANK,
         isApproved,
         sameRestaurant: true,
@@ -895,8 +810,7 @@ class OrderPixPaymentService {
     }
 
     const paymentApi = await this.getMercadoPagoPaymentApi(
-      Number.isInteger(normalizedRestaurantIdNumber) &&
-        normalizedRestaurantIdNumber > 0
+      Number.isInteger(normalizedRestaurantIdNumber) && normalizedRestaurantIdNumber > 0
         ? normalizedRestaurantIdNumber
         : undefined,
     );
@@ -905,15 +819,13 @@ class OrderPixPaymentService {
       id: parsedPaymentId.rawPaymentId,
     })) as unknown;
     const payment =
-      typeof response === "object" && response !== null
+      typeof response === 'object' && response !== null
         ? ((response as { body?: unknown }).body ?? response)
         : {};
     const paymentData = payment as PixPaymentPayload;
     const status = this.normalizePaymentStatus(paymentData?.status);
-    const metadataRestaurantId = String(
-      paymentData?.metadata?.restaurant_id || "",
-    ).trim();
-    const normalizedRestaurantId = String(restaurantId || "").trim();
+    const metadataRestaurantId = String(paymentData?.metadata?.restaurant_id || '').trim();
+    const normalizedRestaurantId = String(restaurantId || '').trim();
 
     const sameRestaurant =
       !normalizedRestaurantId ||
@@ -930,23 +842,18 @@ class OrderPixPaymentService {
     };
   }
 
-  async ensurePaymentApproved({
-    paymentId,
-    restaurantId,
-  }: PaymentStatusPayload) {
+  async ensurePaymentApproved({ paymentId, restaurantId }: PaymentStatusPayload) {
     const statusResult = await this.getPaymentStatus({
       paymentId,
       restaurantId,
     });
 
     if (!statusResult.sameRestaurant) {
-      throw new Error(
-        "Este pagamento PIX não pertence ao restaurante do pedido.",
-      );
+      throw new Error('Este pagamento PIX não pertence ao restaurante do pedido.');
     }
 
     if (!statusResult.isApproved) {
-      throw new Error("Pagamento PIX ainda não foi aprovado.");
+      throw new Error('Pagamento PIX ainda não foi aprovado.');
     }
 
     return statusResult;

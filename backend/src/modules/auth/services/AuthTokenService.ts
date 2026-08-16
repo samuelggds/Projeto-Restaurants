@@ -1,12 +1,12 @@
-import crypto from "crypto";
-import jwt from "jsonwebtoken";
-import prisma from "../../../config/prisma.js";
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import prisma from '../../../config/prisma.js';
 import {
   getJwtExpiresIn,
   getJwtRefreshExpiresIn,
   getJwtRefreshSecret,
   getJwtSecret,
-} from "../../../config/auth.js";
+} from '../../../config/auth.js';
 
 type AuthPayload = {
   id: number;
@@ -16,7 +16,7 @@ type AuthPayload = {
 };
 
 type RefreshPayload = AuthPayload & {
-  type: "refresh";
+  type: 'refresh';
   jti: string;
 };
 
@@ -28,7 +28,7 @@ function getSafeRefreshSecret() {
 function normalizePayload(payload: AuthPayload) {
   return {
     id: Number(payload.id || 0),
-    role: String(payload.role || ""),
+    role: String(payload.role || ''),
     subRole: payload.subRole ?? null,
     restaurantId:
       payload.restaurantId === null || payload.restaurantId === undefined
@@ -50,7 +50,7 @@ class AuthTokenService {
     const jti = crypto.randomUUID();
     const refreshPayload: RefreshPayload = {
       ...normalized,
-      type: "refresh",
+      type: 'refresh',
       jti,
     };
 
@@ -60,11 +60,9 @@ class AuthTokenService {
 
     const decoded = jwt.decode(refreshToken);
     const exp =
-      decoded && typeof decoded !== "string"
-        ? Number((decoded as jwt.JwtPayload).exp || 0)
-        : 0;
+      decoded && typeof decoded !== 'string' ? Number((decoded as jwt.JwtPayload).exp || 0) : 0;
     if (!exp) {
-      throw new Error("Falha ao gerar refresh token");
+      throw new Error('Falha ao gerar refresh token');
     }
 
     await prisma.authRefreshSession.upsert({
@@ -87,25 +85,25 @@ class AuthTokenService {
 
   async rotateRefreshToken(refreshToken: string) {
     const decoded = jwt.verify(refreshToken, getSafeRefreshSecret());
-    if (!decoded || typeof decoded === "string") {
-      throw new Error("Refresh token invalido");
+    if (!decoded || typeof decoded === 'string') {
+      throw new Error('Refresh token invalido');
     }
 
     const userId = Number(decoded.id || 0);
-    const role = String(decoded.role || "");
+    const role = String(decoded.role || '');
     const restaurantId =
       decoded.restaurantId === null || decoded.restaurantId === undefined
         ? null
         : Number(decoded.restaurantId);
-    const jti = String(decoded.jti || "").trim();
-    const tokenType = String(decoded.type || "").trim();
+    const jti = String(decoded.jti || '').trim();
+    const tokenType = String(decoded.type || '').trim();
 
     if (!Number.isInteger(userId) || userId <= 0 || !role || !jti) {
-      throw new Error("Refresh token invalido");
+      throw new Error('Refresh token invalido');
     }
 
-    if (tokenType !== "refresh") {
-      throw new Error("Refresh token invalido");
+    if (tokenType !== 'refresh') {
+      throw new Error('Refresh token invalido');
     }
 
     const session = await prisma.authRefreshSession.findUnique({
@@ -118,14 +116,14 @@ class AuthTokenService {
       },
     });
 
-    const latestJti = String(session?.jti || "");
+    const latestJti = String(session?.jti || '');
     if (!latestJti || latestJti !== jti) {
-      throw new Error("Refresh token expirado");
+      throw new Error('Refresh token expirado');
     }
 
     const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
     if (!expiresAt || expiresAt.getTime() <= Date.now()) {
-      throw new Error("Refresh token expirado");
+      throw new Error('Refresh token expirado');
     }
 
     const payload = {
@@ -145,14 +143,14 @@ class AuthTokenService {
 
   async revokeRefreshToken(refreshToken: string) {
     const decoded = jwt.verify(refreshToken, getSafeRefreshSecret());
-    if (!decoded || typeof decoded === "string") {
-      throw new Error("Refresh token invalido");
+    if (!decoded || typeof decoded === 'string') {
+      throw new Error('Refresh token invalido');
     }
 
     const userId = Number(decoded.id || 0);
-    const jti = String(decoded.jti || "").trim();
+    const jti = String(decoded.jti || '').trim();
     if (!Number.isInteger(userId) || userId <= 0 || !jti) {
-      throw new Error("Refresh token invalido");
+      throw new Error('Refresh token invalido');
     }
 
     await prisma.authRefreshSession.deleteMany({

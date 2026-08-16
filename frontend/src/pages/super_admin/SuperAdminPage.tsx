@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/authContext";
-import restaurantsService from "../../Services/restaurantsService";
-import { SuperAdminModule } from "./SuperAdminModule";
-import { superAdminMockData } from "./data";
-import type { SuperAdminData } from "./types";
-import { CreateRestaurantDialog } from "./components/CreateRestaurantDialog";
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/authContext';
+import restaurantsService from '../../Services/restaurantsService';
+import { SuperAdminModule } from './SuperAdminModule';
+import { superAdminMockData } from './data';
+import type { SuperAdminData } from './types';
+import { CreateRestaurantDialog } from './components/CreateRestaurantDialog';
 import {
   buildPlatformMetrics,
   deriveAdministrators,
   derivePlans,
   mapRestaurantTenant,
-} from "./adapters/superAdminDataAdapter";
+} from './adapters/superAdminDataAdapter';
 
 export default function SuperAdminPage() {
   const { user, logout } = useAuth();
@@ -27,34 +27,25 @@ export default function SuperAdminPage() {
       restaurantsService.getAllSupportTickets(),
       restaurantsService.getAuditLogs(),
     ]);
-    const [
-      restaurantsResult,
-      metricsResult,
-      invoicesResult,
-      ticketsResult,
-      auditResult,
-    ] = results;
+    const [restaurantsResult, metricsResult, invoicesResult, ticketsResult, auditResult] = results;
     const rawList =
-      restaurantsResult.status === "fulfilled" &&
-      Array.isArray(restaurantsResult.value)
+      restaurantsResult.status === 'fulfilled' && Array.isArray(restaurantsResult.value)
         ? restaurantsResult.value
         : null;
     const rawMetrics =
-      metricsResult.status === "fulfilled" && metricsResult.value
+      metricsResult.status === 'fulfilled' && metricsResult.value
         ? (metricsResult.value as Record<string, unknown>)
         : {};
     const rawInvoices =
-      invoicesResult.status === "fulfilled" &&
-      Array.isArray(invoicesResult.value)
+      invoicesResult.status === 'fulfilled' && Array.isArray(invoicesResult.value)
         ? invoicesResult.value
         : null;
     const rawTickets =
-      ticketsResult.status === "fulfilled" &&
-      Array.isArray(ticketsResult.value)
+      ticketsResult.status === 'fulfilled' && Array.isArray(ticketsResult.value)
         ? ticketsResult.value
         : null;
     const rawAuditLogs =
-      auditResult.status === "fulfilled" && Array.isArray(auditResult.value)
+      auditResult.status === 'fulfilled' && Array.isArray(auditResult.value)
         ? auditResult.value
         : null;
 
@@ -90,10 +81,10 @@ export default function SuperAdminPage() {
     <>
       <SuperAdminModule
         currentUser={{
-          id: String(u?.id || ""),
-          name: String(u?.name || "Super Admin"),
-          email: String(u?.email || ""),
-          role: "SUPER_ADMIN",
+          id: String(u?.id || ''),
+          name: String(u?.name || 'Super Admin'),
+          email: String(u?.email || ''),
+          role: 'SUPER_ADMIN',
         }}
         data={data}
         onCreateRestaurant={() => setCreateOpen(true)}
@@ -105,14 +96,11 @@ export default function SuperAdminPage() {
         }}
         onLogout={() => {
           logout();
-          navigate("/login");
+          navigate('/login');
         }}
       />
       {createOpen ? (
-        <CreateRestaurantDialog
-          onClose={() => setCreateOpen(false)}
-          onCreated={loadData}
-        />
+        <CreateRestaurantDialog onClose={() => setCreateOpen(false)} onCreated={loadData} />
       ) : null}
     </>
   );

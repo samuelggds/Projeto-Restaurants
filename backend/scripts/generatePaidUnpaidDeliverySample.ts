@@ -1,6 +1,6 @@
-import "dotenv/config";
-import { PrismaClient, OrderType, PaymentMethod } from "@prisma/client";
-import orderRepository from "../src/modules/orders/repositories/OrderRepository.js";
+import 'dotenv/config';
+import { PrismaClient, OrderType, PaymentMethod } from '@prisma/client';
+import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';
 
 const prisma = new PrismaClient();
 
@@ -21,8 +21,8 @@ async function main() {
       data: {
         name: `Cliente Sample ${suffix}`,
         email: `cliente.sample.${suffix}@example.com`,
-        password: "123456",
-        role: "CLIENTE",
+        password: '123456',
+        role: 'CLIENTE',
         active: true,
         restaurantId: restaurant.id,
       },
@@ -55,12 +55,12 @@ async function main() {
           paidAt: paid ? new Date() : null,
           userId: user.id,
           restaurantId: restaurant.id,
-          address: "Rua Exemplo",
-          number: "100",
-          district: "Centro",
-          city: "Fortaleza",
-          state: "CE",
-          zipCode: "60000000",
+          address: 'Rua Exemplo',
+          number: '100',
+          district: 'Centro',
+          city: 'Fortaleza',
+          state: 'CE',
+          zipCode: '60000000',
           items: {
             create: [
               {
@@ -78,9 +78,7 @@ async function main() {
     const paidOrder = await createDelivery(true);
 
     const visibleOrders = await orderRepository.findAll(restaurant.id);
-    const visibleOrderIds = new Set(
-      visibleOrders.map((order) => Number(order.id)),
-    );
+    const visibleOrderIds = new Set(visibleOrders.map((order) => Number(order.id)));
 
     const [unpaidOrderFull, paidOrderFull] = await Promise.all([
       prisma.order.findUnique({
@@ -111,7 +109,7 @@ async function main() {
       }),
     ]);
 
-    console.log("=== PEDIDO NAO PAGO ===");
+    console.log('=== PEDIDO NAO PAGO ===');
     console.log(
       JSON.stringify(
         {
@@ -123,7 +121,7 @@ async function main() {
       ),
     );
 
-    console.log("=== PEDIDO PAGO ===");
+    console.log('=== PEDIDO PAGO ===');
     console.log(
       JSON.stringify(
         {
@@ -177,7 +175,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Erro ao gerar pedidos de exemplo:", error);
+    console.error('Erro ao gerar pedidos de exemplo:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

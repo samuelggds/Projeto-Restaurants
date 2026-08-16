@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const createProductSchema = z.object({
-  name: z.string().trim().min(1, "Nome obrigatório!"),
+  name: z.string().trim().min(1, 'Nome obrigatório!'),
 
   description: z.string().trim().optional(),
 
@@ -9,10 +9,10 @@ export const createProductSchema = z.object({
 
   price: z
     .number({
-      invalid_type_error: "Preço deve ser um número.",
-      required_error: "Preço deve ser um número.",
+      invalid_type_error: 'Preço deve ser um número.',
+      required_error: 'Preço deve ser um número.',
     })
-    .positive("Preço deve ser maior que zero!"),
+    .positive('Preço deve ser maior que zero!'),
 
   active: z.boolean().optional(),
 
@@ -20,21 +20,21 @@ export const createProductSchema = z.object({
 
   preparationTime: z
     .number()
-    .int("Tempo deve ser inteiro.")
-    .positive("Tempo deve ser maior que zero.")
+    .int('Tempo deve ser inteiro.')
+    .positive('Tempo deve ser maior que zero.')
     .optional(),
 
   stock: z
     .number()
-    .int("Estoque deve ser inteiro.")
-    .min(0, "Estoque não pode ser negativo.")
+    .int('Estoque deve ser inteiro.')
+    .min(0, 'Estoque não pode ser negativo.')
     .nullable()
     .optional(),
 
   categoryId: z
     .number({
-      invalid_type_error: "Categoria é obrigatória.",
-      required_error: "Categoria é obrigatória.",
+      invalid_type_error: 'Categoria é obrigatória.',
+      required_error: 'Categoria é obrigatória.',
     })
     .int(),
 });

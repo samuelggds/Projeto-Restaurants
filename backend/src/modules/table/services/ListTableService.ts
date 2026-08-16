@@ -1,4 +1,4 @@
-import tableRepository from "../repositories/TableRepository.js";
+import tableRepository from '../repositories/TableRepository.js';
 
 type ListTablePayload = {
   restaurantId: number;

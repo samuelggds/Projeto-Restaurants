@@ -1,27 +1,27 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export const lightTheme = {
-  background: "#fdfbf7",
-  surface: "#ffffff",
-  text: "#2d2219",
-  textMuted: "#7c6e65",
-  border: "#f1ede4",
-  primary: "#e65c00",
-  primaryHover: "#cc5200",
-  shadow: "rgba(230, 92, 0, 0.05)",
-  success: "#10b981",
+  background: '#fdfbf7',
+  surface: '#ffffff',
+  text: '#2d2219',
+  textMuted: '#7c6e65',
+  border: '#f1ede4',
+  primary: '#e65c00',
+  primaryHover: '#cc5200',
+  shadow: 'rgba(230, 92, 0, 0.05)',
+  success: '#10b981',
 };
 
 export const darkTheme = {
-  background: "#18130f",
-  surface: "#241c16",
-  text: "#fdfbf7",
-  textMuted: "#a39385",
-  border: "#362b22",
-  primary: "#ff6b00",
-  primaryHover: "#e65c00",
-  shadow: "rgba(0, 0, 0, 0.4)",
-  success: "#10b981",
+  background: '#18130f',
+  surface: '#241c16',
+  text: '#fdfbf7',
+  textMuted: '#a39385',
+  border: '#362b22',
+  primary: '#ff6b00',
+  primaryHover: '#e65c00',
+  shadow: 'rgba(0, 0, 0, 0.4)',
+  success: '#10b981',
 };
 
 export const Container = styled.div`
@@ -30,7 +30,7 @@ export const Container = styled.div`
   width: 100vw;
   background-color: ${(props) => props.theme.background};
   color: ${(props) => props.theme.text};
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
@@ -68,7 +68,7 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: ${(props) => (props.$hasLogo ? "0" : "4rem")};
+  padding: ${(props) => (props.$hasLogo ? '0' : '4rem')};
   background: linear-gradient(
     135deg,
     ${(props) => props.theme.surface} 0%,
@@ -78,7 +78,9 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
   position: relative;
   overflow: hidden;
 
-  ${({ $hasLogo, theme }) => $hasLogo && `
+  ${({ $hasLogo, theme }) =>
+    $hasLogo &&
+    `
     justify-content: flex-end;
     align-items: flex-start;
     padding: 4rem;
@@ -306,7 +308,7 @@ export const Divider = styled.div`
 
   &::before,
   &::after {
-    content: "";
+    content: '';
     flex: 1;
     border-bottom: 1px solid ${(props) => props.theme.border};
   }

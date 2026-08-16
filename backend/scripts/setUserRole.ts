@@ -1,18 +1,18 @@
-import "dotenv/config";
-import { UserRole } from "@prisma/client";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import { UserRole } from '@prisma/client';
+import prisma from '../src/config/prisma.js';
 
-const emailArg = String(process.argv[2] || "")
+const emailArg = String(process.argv[2] || '')
   .trim()
   .toLowerCase();
-const roleArg = String(process.argv[3] || "")
+const roleArg = String(process.argv[3] || '')
   .trim()
   .toUpperCase();
 
 async function main() {
   if (!emailArg || !roleArg) {
     throw new Error(
-      "Uso: tsx scripts/setUserRole.ts <email> <ADMIN|SUPER_ADMIN|FUNCIONARIO|CLIENTE|MOTOQUEIRO>",
+      'Uso: tsx scripts/setUserRole.ts <email> <ADMIN|SUPER_ADMIN|FUNCIONARIO|CLIENTE|MOTOQUEIRO>',
     );
   }
 
@@ -26,7 +26,7 @@ async function main() {
     where: {
       email: {
         equals: emailArg,
-        mode: "insensitive",
+        mode: 'insensitive',
       },
     },
     select: {
@@ -41,7 +41,7 @@ async function main() {
     console.log(
       JSON.stringify(
         {
-          status: "not_found",
+          status: 'not_found',
           email: emailArg,
         },
         null,
@@ -70,7 +70,7 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        status: "role_updated",
+        status: 'role_updated',
         before: user,
         after: updated,
       },

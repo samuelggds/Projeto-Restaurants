@@ -8,11 +8,11 @@ import {
   ShoppingBag,
   UserRound,
   X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import styled from "styled-components";
-import type { HomeBrand } from "../types";
-import type { CustomerAddress } from "../../../Services/customerAddressService";
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
+import type { HomeBrand } from '../types';
+import type { CustomerAddress } from '../../../Services/customerAddressService';
 
 type Props = {
   brand: HomeBrand;
@@ -51,7 +51,7 @@ export function HomeHeader({
   onSearch,
   onLogout,
   isRestaurantOpen = false,
-  businessHoursLabel = "Horário não informado",
+  businessHoursLabel = 'Horário não informado',
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -61,32 +61,26 @@ export function HomeHeader({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(e.target as Node)
-      ) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
       }
-      if (
-        locationRef.current &&
-        !locationRef.current.contains(e.target as Node)
-      ) {
+      if (locationRef.current && !locationRef.current.contains(e.target as Node)) {
         setLocationOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const initials = userName
     ? userName
-        .split(" ")
+        .split(' ')
         .filter(Boolean)
         .slice(0, 2)
         .map((w) => w[0])
-        .join("")
+        .join('')
         .toUpperCase()
-    : "U";
+    : 'U';
   const selectedAddress = savedAddresses.find(
     (address) => String(address.id) === String(selectedAddressId),
   );
@@ -95,7 +89,7 @@ export function HomeHeader({
     : brand.address;
 
   return (
-    <Header $primary={brand.primaryColor ?? "#d64d08"}>
+    <Header $primary={brand.primaryColor ?? '#d64d08'}>
       <Brand href="#inicio" aria-label={brand.name}>
         {brand.logoUrl ? (
           <Logo src={brand.logoUrl} alt={brand.name} />
@@ -114,7 +108,7 @@ export function HomeHeader({
         >
           <MapPin size={17} />
           <span>Entregar em</span>
-          <b>• {locationText || "Escolha um endereço"}</b>
+          <b>• {locationText || 'Escolha um endereço'}</b>
         </Location>
         {savedAddresses.length > 0 && (
           <LocationDropdown $open={locationOpen}>
@@ -132,7 +126,9 @@ export function HomeHeader({
                 <MapPin size={17} />
                 <span>
                   <b>{address.label}</b>
-                  <small>{address.address}, {address.number} • {address.district}</small>
+                  <small>
+                    {address.address}, {address.number} • {address.district}
+                  </small>
                 </span>
               </LocationOption>
             ))}
@@ -143,8 +139,8 @@ export function HomeHeader({
       <BusinessStatus $open={isRestaurantOpen} title={businessHoursLabel}>
         <i />
         <Clock3 size={15} />
-        <span>{isRestaurantOpen ? "Aberto" : "Fechado"}</span>
-        {isRestaurantOpen && <small>{businessHoursLabel.replace("Hoje: ", "")}</small>}
+        <span>{isRestaurantOpen ? 'Aberto' : 'Fechado'}</span>
+        {isRestaurantOpen && <small>{businessHoursLabel.replace('Hoje: ', '')}</small>}
       </BusinessStatus>
 
       <Navigation $open={mobileOpen}>
@@ -190,7 +186,7 @@ export function HomeHeader({
             <DropdownUser>
               <DropdownAvatar>{initials}</DropdownAvatar>
               <div>
-                <span className="name">{userName || "Usuário"}</span>
+                <span className="name">{userName || 'Usuário'}</span>
                 {userEmail && <span className="email">{userEmail}</span>}
               </div>
             </DropdownUser>
@@ -228,18 +224,12 @@ export function HomeHeader({
           </ProfileDropdown>
         </ProfileWrap>
 
-        <CartButton
-          aria-label={`Sacola com ${cartCount} itens`}
-          onClick={onOpenCart}
-        >
+        <CartButton aria-label={`Sacola com ${cartCount} itens`} onClick={onOpenCart}>
           <ShoppingBag size={19} />
           <span>Sacola</span>
           <i>{cartCount}</i>
         </CartButton>
-        <MobileMenu
-          aria-label="Abrir menu"
-          onClick={() => setMobileOpen((value) => !value)}
-        >
+        <MobileMenu aria-label="Abrir menu" onClick={() => setMobileOpen((value) => !value)}>
           {mobileOpen ? <X /> : <Menu />}
         </MobileMenu>
       </Actions>
@@ -368,9 +358,11 @@ const LocationDropdown = styled.div<{ $open: boolean }>`
   background: #fff;
   box-shadow: 0 18px 40px rgba(50, 30, 15, 0.16);
   opacity: ${({ $open }) => ($open ? 1 : 0)};
-  transform: translateY(${({ $open }) => ($open ? "0" : "-8px")});
-  pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
+  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   z-index: 210;
   > strong {
     display: block;
@@ -389,16 +381,26 @@ const LocationOption = styled.button<{ $active: boolean }>`
   align-items: center;
   gap: 10px;
   padding: 11px;
-  border: 1px solid ${({ $active }) => ($active ? "var(--home-primary)" : "transparent")};
+  border: 1px solid ${({ $active }) => ($active ? 'var(--home-primary)' : 'transparent')};
   border-radius: 11px;
-  background: ${({ $active }) => ($active ? "#fff5ef" : "transparent")};
+  background: ${({ $active }) => ($active ? '#fff5ef' : 'transparent')};
   color: #191816;
   text-align: left;
   cursor: pointer;
-  &:hover { background: #fbf4ec; }
-  > span { min-width: 0; }
-  b, small { display: block; }
-  b { font-size: 13px; margin-bottom: 3px; }
+  &:hover {
+    background: #fbf4ec;
+  }
+  > span {
+    min-width: 0;
+  }
+  b,
+  small {
+    display: block;
+  }
+  b {
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
   small {
     color: #746d66;
     overflow: hidden;
@@ -425,7 +427,7 @@ const Navigation = styled.nav<{ $open: boolean }>`
     font-weight: 700;
   }
   @media (max-width: 760px) {
-    display: ${({ $open }) => ($open ? "flex" : "none")};
+    display: ${({ $open }) => ($open ? 'flex' : 'none')};
     position: fixed;
     top: 118px;
     left: 0;
@@ -456,17 +458,36 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
   gap: 6px;
   min-width: 0;
   padding: 8px 11px;
-  border: 1px solid ${({ $open }) => ($open ? "#bfe4ca" : "#f1aaa4")};
+  border: 1px solid ${({ $open }) => ($open ? '#bfe4ca' : '#f1aaa4')};
   border-radius: 999px;
-  background: ${({ $open }) => ($open ? "#f0faf1" : "#fff1f0")};
-  color: ${({ $open }) => ($open ? "#23743b" : "#bf3029")};
+  background: ${({ $open }) => ($open ? '#f0faf1' : '#fff1f0')};
+  color: ${({ $open }) => ($open ? '#23743b' : '#bf3029')};
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
-  i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px ${({ $open }) => ($open ? "#dff3e3" : "#ffe0dd")}; }
-  small { color: ${({ $open }) => ($open ? "#7a746d" : "#a43a35")}; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
-  @media (max-width: 1160px) { small { display: none; } }
-  @media (max-width: 980px) { display: none; }
+  i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 4px ${({ $open }) => ($open ? '#dff3e3' : '#ffe0dd')};
+  }
+  small {
+    color: ${({ $open }) => ($open ? '#7a746d' : '#a43a35')};
+    font-size: 11px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+  }
+  @media (max-width: 1160px) {
+    small {
+      display: none;
+    }
+  }
+  @media (max-width: 980px) {
+    display: none;
+  }
 `;
 const Actions = styled.div`
   display: flex;
@@ -495,10 +516,9 @@ const AvatarButton = styled.button<{ $open: boolean }>`
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid
-    ${({ $open }) => ($open ? "var(--home-primary)" : "#eadfd3")};
-  background: ${({ $open }) => ($open ? "#fdeee7" : "#fff")};
-  color: ${({ $open }) => ($open ? "var(--home-primary)" : "#191816")};
+  border: 2px solid ${({ $open }) => ($open ? 'var(--home-primary)' : '#eadfd3')};
+  background: ${({ $open }) => ($open ? '#fdeee7' : '#fff')};
+  color: ${({ $open }) => ($open ? 'var(--home-primary)' : '#191816')};
   font-weight: 800;
   font-size: 13px;
   cursor: pointer;
@@ -524,9 +544,9 @@ const ProfileDropdown = styled.div<{ $open: boolean }>`
     0 8px 32px rgba(50, 30, 15, 0.12),
     0 2px 8px rgba(50, 30, 15, 0.06);
   padding: 8px;
-  pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
+  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
   opacity: ${({ $open }) => ($open ? 1 : 0)};
-  transform: translateY(${({ $open }) => ($open ? "0" : "-8px")});
+  transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
   transition:
     opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -602,12 +622,12 @@ const DropdownItem = styled.button<{ $danger?: boolean }>`
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  color: ${({ $danger }) => ($danger ? "#c94040" : "#191816")};
+  color: ${({ $danger }) => ($danger ? '#c94040' : '#191816')};
   text-align: left;
   transition: background 0.15s;
 
   &:hover {
-    background: ${({ $danger }) => ($danger ? "#fef2f2" : "#f5f0ea")};
+    background: ${({ $danger }) => ($danger ? '#fef2f2' : '#f5f0ea')};
   }
 
   svg {

@@ -1,4 +1,4 @@
-import couponRepository from "../repositories/CouponRepository.js";
+import couponRepository from '../repositories/CouponRepository.js';
 
 type CreateCouponPayload = {
   code: string;
@@ -8,16 +8,11 @@ type CreateCouponPayload = {
 };
 
 class CreateCouponService {
-  async execute({
-    code,
-    discount,
-    expiration,
-    restaurantId,
-  }: CreateCouponPayload) {
+  async execute({ code, discount, expiration, restaurantId }: CreateCouponPayload) {
     const exists = await couponRepository.findByCode(code, restaurantId);
 
     if (exists) {
-      throw new Error("Cupom já existe!");
+      throw new Error('Cupom já existe!');
     }
 
     return await couponRepository.create({

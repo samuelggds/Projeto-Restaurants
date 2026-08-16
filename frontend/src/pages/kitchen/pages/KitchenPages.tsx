@@ -6,20 +6,14 @@ import {
   History,
   ShoppingBag,
   UtensilsCrossed,
-} from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import type { Order, OrderChannel, OrderStatus } from "../types";
-import { useKitchenWorkspace as useWorkspace } from "../useKitchenWorkspace";
-import {
-  Empty,
-  MetricCards,
-  OrderItems,
-  StatusBadge,
-  channelLabel,
-} from "../components/Shared";
-import * as S from "../Kitchen.styles";
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { Order, OrderChannel, OrderStatus } from '../types';
+import { useKitchenWorkspace as useWorkspace } from '../useKitchenWorkspace';
+import { Empty, MetricCards, OrderItems, StatusBadge, channelLabel } from '../components/Shared';
+import * as S from '../Kitchen.styles';
 
-const activeStatuses: OrderStatus[] = ["PENDENTE", "PREPARANDO", "PRONTO"];
+const activeStatuses: OrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
 const INITIAL_KITCHEN_TIME = Date.now();
 
 function useKitchenClock() {
@@ -32,20 +26,20 @@ function useKitchenClock() {
 }
 
 function elapsedFrom(timestamp: string | undefined, now: number) {
-  if (!timestamp) return "00:00";
+  if (!timestamp) return '00:00';
   const seconds = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 1000));
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
-  const minuteClock = `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
-  return hours > 0 ? `${String(hours).padStart(2, "0")}:${minuteClock}` : minuteClock;
+  const minuteClock = `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  return hours > 0 ? `${String(hours).padStart(2, '0')}:${minuteClock}` : minuteClock;
 }
 
 function orderElapsed(order: Order, now: number) {
-  if (order.status === "PREPARANDO") {
+  if (order.status === 'PREPARANDO') {
     return elapsedFrom(order.preparationStartedAt ?? order.createdAtIso, now);
   }
-  if (order.status === "PRONTO") {
+  if (order.status === 'PRONTO') {
     return elapsedFrom(order.readyAt ?? order.preparationStartedAt ?? order.createdAtIso, now);
   }
   return elapsedFrom(order.createdAtIso, now);
@@ -54,45 +48,46 @@ function orderElapsed(order: Order, now: number) {
 function averagePreparationTime(orders: Order[]) {
   const durations = orders.flatMap((order) => {
     if (!order.preparationStartedAt || !order.readyAt) return [];
-    const duration = new Date(order.readyAt).getTime() - new Date(order.preparationStartedAt).getTime();
+    const duration =
+      new Date(order.readyAt).getTime() - new Date(order.preparationStartedAt).getTime();
     return duration >= 0 ? [duration] : [];
   });
-  if (!durations.length) return "—";
-  const averageMinutes = Math.round(durations.reduce((total, value) => total + value, 0) / durations.length / 60_000);
+  if (!durations.length) return '—';
+  const averageMinutes = Math.round(
+    durations.reduce((total, value) => total + value, 0) / durations.length / 60_000,
+  );
   return `${averageMinutes} min`;
 }
 
-export function KitchenOverviewPage({
-  onOpenOrder,
-}: {
-  onOpenOrder?: (orderId: string) => void;
-}) {
+export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: string) => void }) {
   const { orders } = useWorkspace();
   const now = useKitchenClock();
   const active = orders.filter((o) => activeStatuses.includes(o.status));
   const urgent = active
-    .filter((o) => o.status !== "PRONTO")
-    .sort((a, b) => new Date(a.createdAtIso ?? 0).getTime() - new Date(b.createdAtIso ?? 0).getTime())
+    .filter((o) => o.status !== 'PRONTO')
+    .sort(
+      (a, b) => new Date(a.createdAtIso ?? 0).getTime() - new Date(b.createdAtIso ?? 0).getTime(),
+    )
     .slice(0, 4);
   return (
     <>
       <MetricCards
         items={[
-          { label: "Pedidos ativos", value: active.length },
+          { label: 'Pedidos ativos', value: active.length },
           {
-            label: "Pendentes",
-            value: active.filter((o) => o.status === "PENDENTE").length,
-            icon: "clock",
+            label: 'Pendentes',
+            value: active.filter((o) => o.status === 'PENDENTE').length,
+            icon: 'clock',
           },
           {
-            label: "Preparando",
-            value: active.filter((o) => o.status === "PREPARANDO").length,
-            icon: "chef",
+            label: 'Preparando',
+            value: active.filter((o) => o.status === 'PREPARANDO').length,
+            icon: 'chef',
           },
           {
-            label: "Prontos",
-            value: active.filter((o) => o.status === "PRONTO").length,
-            tone: "green",
+            label: 'Prontos',
+            value: active.filter((o) => o.status === 'PRONTO').length,
+            tone: 'green',
           },
         ]}
       />
@@ -117,10 +112,8 @@ export function KitchenOverviewPage({
                 <div className="identity">
                   <b>{order.id}</b>
                   <span>
-                    {order.channel === "TABLE"
-                      ? order.reference
-                      : channelLabel[order.channel]}{" "}
-                    • aguardando há {orderElapsed(order, now)}
+                    {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
+                    aguardando há {orderElapsed(order, now)}
                   </span>
                 </div>
                 <OrderItems order={order} />
@@ -140,23 +133,17 @@ export function KitchenOverviewPage({
             <UtensilsCrossed />
           </header>
           <S.Stack>
-            {(["TABLE", "PICKUP", "DELIVERY"] as OrderChannel[]).map(
-              (channel) => (
-                <S.CodeBox key={channel}>
-                  <span className="label">
-                    <b>{channelLabel[channel]}</b>
-                    <small>Pendente e em preparo</small>
-                  </span>
-                  <span className="code">
-                    {
-                      active.filter(
-                        (o) => o.channel === channel && o.status !== "PRONTO",
-                      ).length
-                    }
-                  </span>
-                </S.CodeBox>
-              ),
-            )}
+            {(['TABLE', 'PICKUP', 'DELIVERY'] as OrderChannel[]).map((channel) => (
+              <S.CodeBox key={channel}>
+                <span className="label">
+                  <b>{channelLabel[channel]}</b>
+                  <small>Pendente e em preparo</small>
+                </span>
+                <span className="code">
+                  {active.filter((o) => o.channel === channel && o.status !== 'PRONTO').length}
+                </span>
+              </S.CodeBox>
+            ))}
           </S.Stack>
         </S.Card>
       </S.Grid>
@@ -175,16 +162,12 @@ function ChannelFilter({
     <S.ChannelButtons>
       {(
         [
-          ["TABLE", "Mesa", UtensilsCrossed],
-          ["PICKUP", "Retirada", ShoppingBag],
-          ["DELIVERY", "Delivery", Bike],
+          ['TABLE', 'Mesa', UtensilsCrossed],
+          ['PICKUP', 'Retirada', ShoppingBag],
+          ['DELIVERY', 'Delivery', Bike],
         ] as const
       ).map(([id, label, Icon]) => (
-        <button
-          key={id}
-          className={value === id ? "active" : ""}
-          onClick={() => onChange(id)}
-        >
+        <button key={id} className={value === id ? 'active' : ''} onClick={() => onChange(id)}>
           <Icon />
           {label}
         </button>
@@ -193,50 +176,50 @@ function ChannelFilter({
   );
 }
 
-function KitchenCard({ order, highlighted = false, now }: { order: Order; highlighted?: boolean; now: number }) {
+function KitchenCard({
+  order,
+  highlighted = false,
+  now,
+}: {
+  order: Order;
+  highlighted?: boolean;
+  now: number;
+}) {
   const { role, updateOrderStatus } = useWorkspace();
   const next =
-    order.status === "PENDENTE"
-      ? "PREPARANDO"
-      : order.status === "PREPARANDO"
-        ? "PRONTO"
-        : null;
+    order.status === 'PENDENTE' ? 'PREPARANDO' : order.status === 'PREPARANDO' ? 'PRONTO' : null;
   return (
     <S.KitchenOrder
-      id={`kitchen-order-${order.id.replace(/^#/, "")}`}
+      id={`kitchen-order-${order.id.replace(/^#/, '')}`}
       data-order-id={order.id}
-      className={highlighted ? "highlighted" : undefined}
+      className={highlighted ? 'highlighted' : undefined}
     >
       <div className="head">
         <span className="identity">
           <b>{order.id}</b>
           <small>
-            {order.channel === "TABLE"
-              ? order.reference
-              : channelLabel[order.channel]}
-            {order.customer ? ` • ${order.customer}` : ""}
+            {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]}
+            {order.customer ? ` • ${order.customer}` : ''}
           </small>
         </span>
         <StatusBadge status={order.status} />
       </div>
       <OrderItems order={order} />
-      {order.status === "PRONTO" ? (
+      {order.status === 'PRONTO' ? (
         <span className="waiting">Pronto há {orderElapsed(order, now)} • aguardando retirada</span>
       ) : (
         <span className="elapsed">
           <Clock3 size={17} />
-          {order.status === "PREPARANDO" ? "Em preparo há " : "Aguardando há "}
+          {order.status === 'PREPARANDO' ? 'Em preparo há ' : 'Aguardando há '}
           {orderElapsed(order, now)}
         </span>
       )}
-      {next && role === "KITCHEN" && (
+      {next && role === 'KITCHEN' && (
         <button
-          className={`action ${order.status === "PENDENTE" ? "pending" : "preparing"}`}
+          className={`action ${order.status === 'PENDENTE' ? 'pending' : 'preparing'}`}
           onClick={() => updateOrderStatus(order.id, next)}
         >
-          {order.status === "PENDENTE"
-            ? "Iniciar preparo"
-            : "Marcar como pronto"}
+          {order.status === 'PENDENTE' ? 'Iniciar preparo' : 'Marcar como pronto'}
         </button>
       )}
     </S.KitchenOrder>
@@ -255,11 +238,9 @@ export function KitchenQueuePage({
   const focusedOrder = focusedOrderId
     ? orders.find((order) => order.id === focusedOrderId)
     : undefined;
-  const [query, setQuery] = useState("");
-  const [channel, setChannel] = useState<OrderChannel>(
-    focusedOrder?.channel ?? "TABLE",
-  );
-  const [status, setStatus] = useState<OrderStatus | "ALL">("ALL");
+  const [query, setQuery] = useState('');
+  const [channel, setChannel] = useState<OrderChannel>(focusedOrder?.channel ?? 'TABLE');
+  const [status, setStatus] = useState<OrderStatus | 'ALL'>('ALL');
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
     focusedOrder?.id ?? null,
   );
@@ -276,7 +257,7 @@ export function KitchenQueuePage({
       window.requestAnimationFrame(() => {
         document
           .querySelector<HTMLElement>(`[data-order-id="${focusedOrderId}"]`)
-          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
     const timer = window.setTimeout(() => {
@@ -295,8 +276,8 @@ export function KitchenQueuePage({
         (o) =>
           o.channel === channel &&
           activeStatuses.includes(o.status) &&
-          (status === "ALL" || o.status === status) &&
-          `${o.id} ${o.reference} ${o.customer ?? ""} ${o.items.join(" ")}`
+          (status === 'ALL' || o.status === status) &&
+          `${o.id} ${o.reference} ${o.customer ?? ''} ${o.items.join(' ')}`
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
@@ -314,13 +295,10 @@ export function KitchenQueuePage({
           value={channel}
           onChange={(value) => {
             setChannel(value);
-            setStatus("ALL");
+            setStatus('ALL');
           }}
         />
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as OrderStatus | "ALL")}
-        >
+        <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus | 'ALL')}>
           <option value="ALL">Todos os status</option>
           <option value="PENDENTE">Pendente</option>
           <option value="PREPARANDO">Preparando</option>
@@ -331,26 +309,26 @@ export function KitchenQueuePage({
       <MetricCards
         items={[
           {
-            label: "Pendentes",
-            value: visible.filter((o) => o.status === "PENDENTE").length,
-            icon: "clock",
+            label: 'Pendentes',
+            value: visible.filter((o) => o.status === 'PENDENTE').length,
+            icon: 'clock',
           },
           {
-            label: "Preparando",
-            value: visible.filter((o) => o.status === "PREPARANDO").length,
-            icon: "chef",
+            label: 'Preparando',
+            value: visible.filter((o) => o.status === 'PREPARANDO').length,
+            icon: 'chef',
           },
           {
-            label: "Prontos",
-            value: visible.filter((o) => o.status === "PRONTO").length,
-            tone: "green",
+            label: 'Prontos',
+            value: visible.filter((o) => o.status === 'PRONTO').length,
+            tone: 'green',
           },
-          { label: "Tempo médio", value: averagePreparationTime(orders), icon: "clock" },
+          { label: 'Tempo médio', value: averagePreparationTime(orders), icon: 'clock' },
         ]}
       />
       <S.StatusColumns>
         {activeStatuses
-          .filter((item) => status === "ALL" || item === status)
+          .filter((item) => status === 'ALL' || item === status)
           .map((item) => (
             <S.StatusColumn key={item}>
               <header>
@@ -381,10 +359,8 @@ export function KitchenQueuePage({
 export function KitchenReadyPage() {
   const { orders } = useWorkspace();
   const now = useKitchenClock();
-  const [channel, setChannel] = useState<OrderChannel>("TABLE");
-  const ready = orders.filter(
-    (o) => o.status === "PRONTO" && o.channel === channel,
-  );
+  const [channel, setChannel] = useState<OrderChannel>('TABLE');
+  const ready = orders.filter((o) => o.status === 'PRONTO' && o.channel === channel);
   const longestReadyOrder = ready.reduce<Order | undefined>((longest, order) => {
     if (!longest) return order;
     const orderTime = new Date(order.readyAt ?? order.createdAtIso ?? 0).getTime();
@@ -399,13 +375,11 @@ export function KitchenReadyPage() {
       </S.Toolbar>
       <MetricCards
         items={[
-          { label: "Prontos", value: ready.length, tone: "green" },
+          { label: 'Prontos', value: ready.length, tone: 'green' },
           {
-            label: "Maior espera",
-            value: longestReadyOrder
-              ? orderElapsed(longestReadyOrder, now)
-              : "00:00",
-            icon: "clock",
+            label: 'Maior espera',
+            value: longestReadyOrder ? orderElapsed(longestReadyOrder, now) : '00:00',
+            icon: 'clock',
           },
         ]}
       />
@@ -413,10 +387,7 @@ export function KitchenReadyPage() {
         <header>
           <div>
             <h2>Aguardando retirada</h2>
-            <p>
-              A cozinha finalizou estes pedidos; não é necessário alterar outro
-              status.
-            </p>
+            <p>A cozinha finalizou estes pedidos; não é necessário alterar outro status.</p>
           </div>
           <CheckCircle2 />
         </header>
@@ -426,10 +397,8 @@ export function KitchenReadyPage() {
               <div className="identity">
                 <b>{order.id}</b>
                 <span>
-                  {order.channel === "TABLE"
-                    ? order.reference
-                    : channelLabel[order.channel]}{" "}
-                  • pronto há {orderElapsed(order, now)}
+                  {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
+                  pronto há {orderElapsed(order, now)}
                 </span>
               </div>
               <OrderItems order={order} />
@@ -447,11 +416,9 @@ export function KitchenReadyPage() {
 
 export function KitchenHistoryPage() {
   const { orders } = useWorkspace();
-  const [channel, setChannel] = useState<OrderChannel>("TABLE");
+  const [channel, setChannel] = useState<OrderChannel>('TABLE');
   const completed = orders.filter(
-    (o) =>
-      o.channel === channel &&
-      (o.status === "ENTREGUE" || o.status === "CANCELADO"),
+    (o) => o.channel === channel && (o.status === 'ENTREGUE' || o.status === 'CANCELADO'),
   );
   return (
     <>
@@ -462,15 +429,15 @@ export function KitchenHistoryPage() {
       <MetricCards
         items={[
           {
-            label: "Concluídos hoje",
-            value: completed.filter((o) => o.status === "ENTREGUE").length,
-            tone: "green",
+            label: 'Concluídos hoje',
+            value: completed.filter((o) => o.status === 'ENTREGUE').length,
+            tone: 'green',
           },
           {
-            label: "Cancelados",
-            value: completed.filter((o) => o.status === "CANCELADO").length,
+            label: 'Cancelados',
+            value: completed.filter((o) => o.status === 'CANCELADO').length,
           },
-          { label: "Tempo médio", value: "18 min", icon: "clock" },
+          { label: 'Tempo médio', value: '18 min', icon: 'clock' },
         ]}
       />
       <S.SectionTitle>
@@ -491,26 +458,20 @@ export function KitchenHistoryPage() {
         {completed.map((order) => (
           <div className="row" key={order.id}>
             <b>{order.id}</b>
-            <span>
-              {order.channel === "TABLE"
-                ? order.reference
-                : channelLabel[order.channel]}
-            </span>
+            <span>{order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]}</span>
             <span>{order.completedAt ?? order.createdAt}</span>
             <span>
               <StatusBadge status={order.status} />
             </span>
             <span>
-              {order.total.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
+              {order.total.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
               })}
             </span>
           </div>
         ))}
-        {!completed.length && (
-          <Empty>Nenhum pedido encontrado neste canal.</Empty>
-        )}
+        {!completed.length && <Empty>Nenhum pedido encontrado neste canal.</Empty>}
       </S.HistoryTable>
     </>
   );

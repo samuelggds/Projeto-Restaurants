@@ -9,8 +9,8 @@ export function isProductActiveFromStock(stock: number | null | undefined) {
 export function normalizeProductStock(value: string, unlimited: boolean) {
   if (unlimited) return null;
   const stock = Number(value);
-  if (value === "" || !Number.isInteger(stock) || stock < 0) {
-    throw new Error("Informe uma quantidade válida para o estoque.");
+  if (value === '' || !Number.isInteger(stock) || stock < 0) {
+    throw new Error('Informe uma quantidade válida para o estoque.');
   }
   return stock;
 }

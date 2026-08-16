@@ -1,21 +1,18 @@
-import { NextFunction, Request, Response } from "express";
-import { InvoiceStatus } from "@prisma/client";
-import prisma from "../config/prisma.js";
-import { hasBlockingInvoices } from "../modules/billing/utils/billingRules.js";
+import { NextFunction, Request, Response } from 'express';
+import { InvoiceStatus } from '@prisma/client';
+import prisma from '../config/prisma.js';
+import { hasBlockingInvoices } from '../modules/billing/utils/billingRules.js';
 
 async function resolveRestaurantId(req: Request) {
   const directId = Number(
-    req.params.restaurantId ||
-      req.query.restaurantId ||
-      req.body?.restaurantId ||
-      0,
+    req.params.restaurantId || req.query.restaurantId || req.body?.restaurantId || 0,
   );
 
   if (Number.isInteger(directId) && directId > 0) {
     return directId;
   }
 
-  const slug = String(req.params.slug || req.query.slug || "").trim();
+  const slug = String(req.params.slug || req.query.slug || '').trim();
   if (slug) {
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
@@ -24,10 +21,10 @@ async function resolveRestaurantId(req: Request) {
     return restaurant?.id || null;
   }
 
-  if (req.path.endsWith("/default")) {
+  if (req.path.endsWith('/default')) {
     const restaurant = await prisma.restaurant.findFirst({
       select: { id: true },
-      orderBy: { id: "asc" },
+      orderBy: { id: 'asc' },
     });
     return restaurant?.id || null;
   }
@@ -60,13 +57,13 @@ export async function publicRestaurantBillingMiddleware(
     }
 
     return res.status(403).json({
-      code: "BILLING_BLOCKED",
+      code: 'BILLING_BLOCKED',
       blocked: true,
-      error: "Restaurante temporariamente indisponível",
+      error: 'Restaurante temporariamente indisponível',
     });
   } catch {
     return res.status(500).json({
-      error: "Erro ao validar disponibilidade do restaurante",
+      error: 'Erro ao validar disponibilidade do restaurante',
     });
   }
 }

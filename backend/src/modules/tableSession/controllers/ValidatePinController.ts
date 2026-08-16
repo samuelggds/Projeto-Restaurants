@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import validatePinService from "../services/ValidatePinService.js";
+import { Request, Response } from 'express';
+import validatePinService from '../services/ValidatePinService.js';
 
 class ValidatePinController {
   async handle(req: Request, res: Response) {
@@ -11,7 +11,7 @@ class ValidatePinController {
       return res.status(200).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro ao validar PIN",
+        error: error instanceof Error ? error.message : 'Erro ao validar PIN',
       });
     }
   }

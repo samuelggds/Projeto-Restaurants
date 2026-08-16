@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 export type CustomerAddress = {
   id: number;
@@ -13,16 +13,16 @@ export type CustomerAddress = {
   isDefault: boolean;
 };
 
-export type CustomerAddressInput = Omit<CustomerAddress, "id">;
+export type CustomerAddressInput = Omit<CustomerAddress, 'id'>;
 
 class CustomerAddressService {
   async list(): Promise<CustomerAddress[]> {
-    const response = await api.get("/customer-addresses");
+    const response = await api.get('/customer-addresses');
     return Array.isArray(response.data?.addresses) ? response.data.addresses : [];
   }
 
   async create(payload: CustomerAddressInput): Promise<CustomerAddress> {
-    const response = await api.post("/customer-addresses", payload);
+    const response = await api.post('/customer-addresses', payload);
     return response.data.address;
   }
 

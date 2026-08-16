@@ -1,6 +1,6 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
-import mercadoPagoService from "../src/modules/billing/services/MercadoPagoService.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
+import mercadoPagoService from '../src/modules/billing/services/MercadoPagoService.js';
 
 const restaurantId = Number(process.argv[2] || 15);
 
@@ -9,15 +9,13 @@ const restaurantId = Number(process.argv[2] || 15);
     const invoice = await prisma.invoice.findFirst({
       where: {
         restaurantId,
-        status: { in: ["PENDENTE", "ATRASADO"] },
+        status: { in: ['PENDENTE', 'ATRASADO'] },
       },
-      orderBy: { id: "desc" },
+      orderBy: { id: 'desc' },
     });
 
     if (!invoice) {
-      throw new Error(
-        `Nenhuma invoice aberta encontrada para restaurante ${restaurantId}`,
-      );
+      throw new Error(`Nenhuma invoice aberta encontrada para restaurante ${restaurantId}`);
     }
 
     const updated = await prisma.invoice.update({
@@ -46,7 +44,7 @@ const restaurantId = Number(process.argv[2] || 15);
       data: { paymentLink: payment.init_point },
     });
 
-    console.log("INVOICE_ATUALIZADA");
+    console.log('INVOICE_ATUALIZADA');
     console.log(
       JSON.stringify(
         {
@@ -62,7 +60,7 @@ const restaurantId = Number(process.argv[2] || 15);
       ),
     );
   } catch (err) {
-    console.error("ERRO_AO_AJUSTAR_INVOICE", err?.message || err);
+    console.error('ERRO_AO_AJUSTAR_INVOICE', err?.message || err);
     process.exitCode = 1;
   } finally {
     await prisma.$disconnect();

@@ -1,12 +1,10 @@
-import { Request, Response } from "express";
-import requestOrderPaymentConfirmationPinService from "../services/RequestOrderPaymentConfirmationPinService.js";
+import { Request, Response } from 'express';
+import requestOrderPaymentConfirmationPinService from '../services/RequestOrderPaymentConfirmationPinService.js';
 
 class RequestOrderPaymentConfirmationPinController {
   async handle(req: Request, res: Response) {
     try {
-      const id = Array.isArray(req.params.id)
-        ? req.params.id[0]
-        : req.params.id;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { restaurantId, role } = req.user;
 
       const result = await requestOrderPaymentConfirmationPinService.execute(
@@ -21,7 +19,7 @@ class RequestOrderPaymentConfirmationPinController {
         error:
           error instanceof Error
             ? error.message
-            : "Erro ao solicitar PIN de confirmacao de pagamento",
+            : 'Erro ao solicitar PIN de confirmacao de pagamento',
       });
     }
   }

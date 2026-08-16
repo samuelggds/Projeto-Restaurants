@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import ordersService from "../../../Services/ordersService";
-import type { CheckoutPaymentMethod } from "../domain/checkout";
+import { useEffect, useState } from 'react';
+import ordersService from '../../../Services/ordersService';
+import type { CheckoutPaymentMethod } from '../domain/checkout';
 
 export type PixPaymentData = {
   orderId: number | null;
@@ -14,7 +14,7 @@ export type PixPaymentData = {
 };
 
 type Notify = (
-  type: "success" | "error",
+  type: 'success' | 'error',
   title: string,
   message?: string,
   duration?: number,
@@ -31,24 +31,17 @@ type Options = {
 };
 
 export function getCheckoutErrorMessage(error: unknown): string {
-  if (typeof error !== "object" || error === null) return "";
+  if (typeof error !== 'object' || error === null) return '';
   const typed = error as {
     response?: { data?: { error?: unknown } };
     message?: unknown;
   };
-  return String(typed.response?.data?.error || typed.message || "");
+  return String(typed.response?.data?.error || typed.message || '');
 }
 
 export function useCheckoutPayments(options: Options) {
-  const {
-    restaurantId,
-    pixProvider,
-    cartTotal,
-    notify,
-    onPurchased,
-    onClearCart,
-    onCloseCart,
-  } = options;
+  const { restaurantId, pixProvider, cartTotal, notify, onPurchased, onClearCart, onCloseCart } =
+    options;
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState<PixPaymentData | null>(null);
 
@@ -59,7 +52,8 @@ export function useCheckoutPayments(options: Options) {
       !pixPaymentData.paymentId ||
       !pixPaymentData.orderId ||
       !restaurantId
-    ) return;
+    )
+      return;
 
     let active = true;
     let checking = false;
@@ -78,9 +72,7 @@ export function useCheckoutPayments(options: Options) {
             restaurantId,
           });
           if (active) {
-            setPixPaymentData((current) =>
-              current ? { ...current, paid: true } : current,
-            );
+            setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
           }
         }
       } catch {
@@ -102,7 +94,7 @@ export function useCheckoutPayments(options: Options) {
     payload: Record<string, unknown>,
     paymentMethod: CheckoutPaymentMethod,
     payOnDelivery: boolean,
-    resolvedPaymentMethod: "PIX" | "CARTAO",
+    resolvedPaymentMethod: 'PIX' | 'CARTAO',
   ) => {
     if (checkoutLoading) return;
     setCheckoutLoading(true);
@@ -113,25 +105,25 @@ export function useCheckoutPayments(options: Options) {
         onClearCart();
         onCloseCart();
         notify(
-          "success",
-          `Pedido #${String(order?.id || "")} recebido`,
-          `Pagamento na entrega por ${resolvedPaymentMethod === "PIX" ? "Pix" : "cartão"}.`,
+          'success',
+          `Pedido #${String(order?.id || '')} recebido`,
+          `Pagamento na entrega por ${resolvedPaymentMethod === 'PIX' ? 'Pix' : 'cartão'}.`,
           5000,
         );
         return;
       }
 
-      if (paymentMethod === "pix") {
+      if (paymentMethod === 'pix') {
         const result = await ordersService.createPixPayment({
           ...payload,
-          pixProvider: String(pixProvider || ""),
+          pixProvider: String(pixProvider || ''),
         });
         setPixPaymentData({
           orderId: Number(result.orderId) || null,
           total: Number(result.totalAmount || cartTotal),
-          paymentId: String(result.paymentId || ""),
-          provider: String(result.provider || "PIX"),
-          pixCode: String(result.qrCode || ""),
+          paymentId: String(result.paymentId || ''),
+          provider: String(result.provider || 'PIX'),
+          pixCode: String(result.qrCode || ''),
           qrCodeBase64: result.qrCodeBase64 ? String(result.qrCodeBase64) : null,
           requiresStatusCheck: Boolean(result.requiresStatusCheck),
         });
@@ -146,19 +138,18 @@ export function useCheckoutPayments(options: Options) {
         successUrl: window.location.href,
         cancelUrl: window.location.href,
       });
-      const checkoutUrl = String(result.checkoutUrl || "");
+      const checkoutUrl = String(result.checkoutUrl || '');
       if (!/^https:\/\//i.test(checkoutUrl)) {
-        throw new Error("O gateway não retornou um endereço seguro de pagamento.");
+        throw new Error('O gateway não retornou um endereço seguro de pagamento.');
       }
       onPurchased();
       onClearCart();
       window.location.assign(checkoutUrl);
     } catch (error: unknown) {
       notify(
-        "error",
-        "Não foi possível iniciar o pagamento",
-        getCheckoutErrorMessage(error) ||
-          "Confira as configurações de pagamento do restaurante.",
+        'error',
+        'Não foi possível iniciar o pagamento',
+        getCheckoutErrorMessage(error) || 'Confira as configurações de pagamento do restaurante.',
       );
     } finally {
       setCheckoutLoading(false);

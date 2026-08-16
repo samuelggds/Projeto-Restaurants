@@ -1,21 +1,19 @@
-import "dotenv/config";
-import jwt from "jsonwebtoken";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
     const orderId = Number(process.argv[2] || 33);
     const restaurantId = Number(process.argv[3] || 2);
-    const baseUrl = String(
-      process.env.BACKEND_URL || "http://127.0.0.1:3000",
-    ).trim();
+    const baseUrl = String(process.env.BACKEND_URL || 'http://127.0.0.1:3000').trim();
 
     const admin = await prisma.user.findFirst({
       where: {
         restaurantId,
         active: true,
         role: {
-          in: ["ADMIN", "SUPER_ADMIN"],
+          in: ['ADMIN', 'SUPER_ADMIN'],
         },
       },
       select: {
@@ -25,19 +23,17 @@ import prisma from "../src/config/prisma.js";
         restaurantId: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!admin) {
-      throw new Error(
-        `Nenhum admin encontrado para restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum admin encontrado para restaurante ${restaurantId}.`);
     }
 
-    const secret = String(process.env.JWT_SECRET || "").trim();
+    const secret = String(process.env.JWT_SECRET || '').trim();
     if (!secret) {
-      throw new Error("JWT_SECRET nao configurado.");
+      throw new Error('JWT_SECRET nao configurado.');
     }
 
     const token = jwt.sign(
@@ -48,14 +44,14 @@ import prisma from "../src/config/prisma.js";
         restaurantId: admin.restaurantId,
       },
       secret,
-      { expiresIn: "30m" },
+      { expiresIn: '30m' },
     );
 
     const response = await fetch(`${baseUrl}/orders/${orderId}/resolve-issue`, {
-      method: "PATCH",
+      method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
 

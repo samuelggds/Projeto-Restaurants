@@ -1,20 +1,15 @@
 export type SuperAdminView =
-  | "overview"
-  | "restaurants"
-  | "subscriptions"
-  | "plans"
-  | "billing"
-  | "administrators"
-  | "support"
-  | "audit"
-  | "settings";
-export type TenantStatus =
-  | "ACTIVE"
-  | "TRIAL"
-  | "OVERDUE"
-  | "BLOCKED"
-  | "CANCELED";
-export type PaymentStatus = "PAID" | "PENDING" | "OVERDUE" | "REFUNDED";
+  | 'overview'
+  | 'restaurants'
+  | 'subscriptions'
+  | 'plans'
+  | 'billing'
+  | 'administrators'
+  | 'support'
+  | 'audit'
+  | 'settings';
+export type TenantStatus = 'ACTIVE' | 'TRIAL' | 'OVERDUE' | 'BLOCKED' | 'CANCELED';
+export type PaymentStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'REFUNDED';
 export interface SuperAdminUser {
   id: string;
   name: string;
@@ -54,7 +49,7 @@ export interface PlatformAdministrator {
   name: string;
   restaurant: string;
   email: string;
-  status: "ACTIVE" | "INVITED" | "BLOCKED";
+  status: 'ACTIVE' | 'INVITED' | 'BLOCKED';
   lastAccess: string;
   twoFactor: boolean;
 }
@@ -62,8 +57,8 @@ export interface SupportTicket {
   id: string;
   restaurant: string;
   subject: string;
-  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  status: "OPEN" | "IN_PROGRESS" | "WAITING_CUSTOMER";
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER';
   responsible: string;
   elapsed: string;
 }
@@ -76,7 +71,7 @@ export interface AuditLog {
   action: string;
   resource: string;
   ip: string;
-  result: "SUCCESS" | "FAILURE" | "BLOCKED";
+  result: 'SUCCESS' | 'FAILURE' | 'BLOCKED';
 }
 export interface PlatformSettings {
   platformName: string;

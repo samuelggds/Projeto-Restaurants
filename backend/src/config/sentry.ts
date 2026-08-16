@@ -1,7 +1,7 @@
-import * as Sentry from "@sentry/node";
+import * as Sentry from '@sentry/node';
 
-const dsn = process.env.SENTRY_DSN || "";
-const environment = process.env.NODE_ENV || "development";
+const dsn = process.env.SENTRY_DSN || '';
+const environment = process.env.NODE_ENV || 'development';
 
 if (dsn) {
   Sentry.init({

@@ -1,4 +1,4 @@
-import orderRepository from "../repositories/OrderRepository.js";
+import orderRepository from '../repositories/OrderRepository.js';
 
 class GetCurrentTableOrderService {
   async execute(tableId: number | string, restaurantId: number | string) {

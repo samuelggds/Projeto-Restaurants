@@ -1,13 +1,13 @@
-import api from "./api";
+import api from './api';
 
 class TableSessionService {
   async getCurrentSession() {
-    const response = await api.get("/table-sessions/current");
+    const response = await api.get('/table-sessions/current');
     return response.data;
   }
 
   async requestPinAssistance(tableId) {
-    const response = await api.post("/table-sessions/request-pin", {
+    const response = await api.post('/table-sessions/request-pin', {
       tableId,
     });
 
@@ -15,7 +15,7 @@ class TableSessionService {
   }
 
   async validatePin({ tableId, pin }) {
-    const response = await api.post("/table-sessions/validate", {
+    const response = await api.post('/table-sessions/validate', {
       tableId,
       pin,
     });
@@ -24,12 +24,12 @@ class TableSessionService {
   }
 
   async listOpenSessions() {
-    const response = await api.get("/table-sessions/open");
+    const response = await api.get('/table-sessions/open');
     return response.data;
   }
 
   async openSession(tableId) {
-    const response = await api.post("/table-sessions/open", { tableId });
+    const response = await api.post('/table-sessions/open', { tableId });
     return response.data;
   }
 

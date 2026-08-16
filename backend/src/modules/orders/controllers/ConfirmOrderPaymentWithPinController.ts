@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import confirmOrderPaymentWithPinService from "../services/ConfirmOrderPaymentWithPinService.js";
+import { Request, Response } from 'express';
+import confirmOrderPaymentWithPinService from '../services/ConfirmOrderPaymentWithPinService.js';
 
 class ConfirmOrderPaymentWithPinController {
   async handle(req: Request, res: Response) {
@@ -18,10 +18,7 @@ class ConfirmOrderPaymentWithPinController {
       return res.status(200).json(updatedOrder);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao confirmar pagamento com PIN",
+        error: error instanceof Error ? error.message : 'Erro ao confirmar pagamento com PIN',
       });
     }
   }

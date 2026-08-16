@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createRestaurantSettingsService from "../services/CreateRestaurantSettingsService.js";
+import { Request, Response } from 'express';
+import createRestaurantSettingsService from '../services/CreateRestaurantSettingsService.js';
 
 class CreateRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -133,9 +133,7 @@ class CreateRestaurantSettingsController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar configuracoes do restaurante",
+          error instanceof Error ? error.message : 'Erro ao criar configuracoes do restaurante',
       });
     }
   }

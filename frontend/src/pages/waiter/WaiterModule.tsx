@@ -9,29 +9,26 @@ import {
   QrCode,
   ShoppingBag,
   X,
-} from "lucide-react";
-import { useState } from "react";
-import {
-  WaiterProvider,
-  type WaiterModuleProps as BaseProps,
-} from "./WaiterContext";
-import { useWaiterWorkspace } from "./useWaiterWorkspace";
+} from 'lucide-react';
+import { useState } from 'react';
+import { WaiterProvider, type WaiterModuleProps as BaseProps } from './WaiterContext';
+import { useWaiterWorkspace } from './useWaiterWorkspace';
 import {
   WaiterCallsPage,
   WaiterDeliveriesPage,
   WaiterOverviewPage,
   WaiterTablesPage,
-} from "./pages/WaiterPages";
-import * as S from "./Waiter.styles";
+} from './pages/WaiterPages';
+import * as S from './Waiter.styles';
 
-export type WaiterView = "overview" | "deliveries" | "tables" | "calls";
+export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls';
 export interface WaiterModuleProps extends BaseProps {
   initialView?: WaiterView;
   onViewChange?: (view: WaiterView) => void;
 }
 
 export function WaiterModule({
-  initialView = "overview",
+  initialView = 'overview',
   onViewChange,
   ...props
 }: WaiterModuleProps) {
@@ -47,32 +44,27 @@ function WaiterShell({
   onViewChange,
 }: {
   initialView: WaiterView;
-  onViewChange?: WaiterModuleProps["onViewChange"];
+  onViewChange?: WaiterModuleProps['onViewChange'];
 }) {
   const { employee, restaurant, onLogout } = useWaiterWorkspace();
   const [view, setView] = useState(initialView);
-  const [open, setOpen] = useState(
-    () => typeof window !== "undefined" && window.innerWidth > 820,
-  );
+  const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
   const navigate = (next: WaiterView) => {
     setView(next);
     if (window.innerWidth <= 820) setOpen(false);
     onViewChange?.(next);
   };
   const nav = [
-    ["overview", "Visão geral", LayoutGrid],
-    ["deliveries", "Para entregar", ShoppingBag],
-    ["tables", "Mesas e códigos", QrCode],
-    ["calls", "Chamados", BellRing],
+    ['overview', 'Visão geral', LayoutGrid],
+    ['deliveries', 'Para entregar', ShoppingBag],
+    ['tables', 'Mesas e códigos', QrCode],
+    ['calls', 'Chamados', BellRing],
   ] as const;
   const titles: Record<WaiterView, [string, string]> = {
-    overview: ["Visão geral", "Área operacional exclusiva do garçom"],
-    deliveries: [
-      "Pedidos para entregar",
-      "Veja os pedidos prontos e leve-os até a mesa",
-    ],
-    tables: ["Mesas e QR Codes", "Gerencie códigos de acesso das mesas"],
-    calls: ["Chamados", "Atenda rapidamente as solicitações do salão"],
+    overview: ['Visão geral', 'Área operacional exclusiva do garçom'],
+    deliveries: ['Pedidos para entregar', 'Veja os pedidos prontos e leve-os até a mesa'],
+    tables: ['Mesas e QR Codes', 'Gerencie códigos de acesso das mesas'],
+    calls: ['Chamados', 'Atenda rapidamente as solicitações do salão'],
   };
   const Page = {
     overview: WaiterOverviewPage,
@@ -97,11 +89,7 @@ function WaiterShell({
         </S.CloseMenu>
         <S.Nav>
           {nav.map(([id, label, Icon]) => (
-            <a
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => navigate(id)}
-            >
+            <a key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}>
               <Icon />
               {label}
             </a>
@@ -110,10 +98,10 @@ function WaiterShell({
         <S.User>
           <span className="avatar">
             {employee.name
-              .split(" ")
+              .split(' ')
               .map((x) => x[0])
               .slice(0, 2)
-              .join("")}
+              .join('')}
           </span>
           <span>
             <b>{employee.name}</b>

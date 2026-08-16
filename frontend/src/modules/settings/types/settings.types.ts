@@ -57,11 +57,4 @@ export type RestaurantSettings = {
 };
 
 export type SettingsSectionId =
-  | "business"
-  | "appearance"
-  | "contact"
-  | "whatsapp"
-  | "about"
-  | "hours"
-  | "orders"
-  | "payments";
+  'business' | 'appearance' | 'contact' | 'whatsapp' | 'about' | 'hours' | 'orders' | 'payments';

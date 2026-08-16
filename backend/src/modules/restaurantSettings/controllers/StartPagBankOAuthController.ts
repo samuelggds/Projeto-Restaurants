@@ -1,5 +1,5 @@
-import type { Request, Response } from "express";
-import service from "../services/StartPagBankOAuthService.js";
+import type { Request, Response } from 'express';
+import service from '../services/StartPagBankOAuthService.js';
 
 class StartPagBankOAuthController {
   async handle(req: Request, res: Response) {
@@ -11,7 +11,7 @@ class StartPagBankOAuthController {
       return res.json(result);
     } catch (error) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro ao conectar PagBank.",
+        error: error instanceof Error ? error.message : 'Erro ao conectar PagBank.',
       });
     }
   }

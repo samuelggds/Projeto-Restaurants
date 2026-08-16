@@ -1,9 +1,9 @@
 // @ts-nocheck
-import assert from "node:assert/strict";
-import test, { afterEach } from "node:test";
-import { OrderStatus, UserRole } from "@prisma/client";
-import orderRepository from "../repositories/OrderRepository.js";
-import listOrdersService from "./ListOrdersService.js";
+import assert from 'node:assert/strict';
+import test, { afterEach } from 'node:test';
+import { OrderStatus, UserRole } from '@prisma/client';
+import orderRepository from '../repositories/OrderRepository.js';
+import listOrdersService from './ListOrdersService.js';
 
 const originalFindAll = orderRepository.findAll;
 const originalFindCourierOrders = orderRepository.findCourierOrders;
@@ -13,7 +13,7 @@ afterEach(() => {
   orderRepository.findCourierOrders = originalFindCourierOrders;
 });
 
-test("motoqueiro usa consulta exclusiva e vinculada ao proprio usuario", async () => {
+test('motoqueiro usa consulta exclusiva e vinculada ao proprio usuario', async () => {
   let genericQueryCalled = false;
   orderRepository.findAll = async () => {
     genericQueryCalled = true;
@@ -37,14 +37,14 @@ test("motoqueiro usa consulta exclusiva e vinculada ao proprio usuario", async (
   assert.deepEqual(result, [{ id: 99, assignedCourierId: 31 }]);
 });
 
-test("motoqueiro sem id autenticado nao acessa entregas", async () => {
+test('motoqueiro sem id autenticado nao acessa entregas', async () => {
   await assert.rejects(
     () => listOrdersService.execute(7, undefined, UserRole.MOTOQUEIRO, null),
     /Motoqueiro inválido/,
   );
 });
 
-test("cozinha continua usando a consulta operacional do restaurante", async () => {
+test('cozinha continua usando a consulta operacional do restaurante', async () => {
   let courierQueryCalled = false;
   orderRepository.findCourierOrders = async () => {
     courierQueryCalled = true;
@@ -56,12 +56,7 @@ test("cozinha continua usando a consulta operacional do restaurante", async () =
     return [{ id: 10 }];
   };
 
-  const result = await listOrdersService.execute(
-    7,
-    OrderStatus.PRONTO,
-    UserRole.FUNCIONARIO,
-    5,
-  );
+  const result = await listOrdersService.execute(7, OrderStatus.PRONTO, UserRole.FUNCIONARIO, 5);
 
   assert.equal(courierQueryCalled, false);
   assert.deepEqual(result, [{ id: 10 }]);

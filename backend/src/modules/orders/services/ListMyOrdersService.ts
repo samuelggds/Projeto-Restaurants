@@ -1,4 +1,4 @@
-import orderRepository from "../repositories/OrderRepository.js";
+import orderRepository from '../repositories/OrderRepository.js';
 
 class ListMyOrdersService {
   async execute(userId: number | string, restaurantId: number | string) {

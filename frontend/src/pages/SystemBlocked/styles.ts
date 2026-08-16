@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export const Page = styled.div`
   min-height: 100vh;
@@ -66,11 +66,7 @@ export const IconWrap = styled.div`
   display: grid;
   place-items: center;
   color: #1f1a16;
-  background: linear-gradient(
-    135deg,
-    ${(p) => p.theme.accent},
-    ${(p) => p.theme.accentAlt}
-  );
+  background: linear-gradient(135deg, ${(p) => p.theme.accent}, ${(p) => p.theme.accentAlt});
 `;
 
 export const Title = styled.h1`
@@ -112,11 +108,7 @@ export const PrimaryButton = styled.button`
   gap: 10px;
   font-weight: 700;
   cursor: pointer;
-  background: linear-gradient(
-    135deg,
-    ${(p) => p.theme.accent},
-    ${(p) => p.theme.accentAlt}
-  );
+  background: linear-gradient(135deg, ${(p) => p.theme.accent}, ${(p) => p.theme.accentAlt});
   color: #1b130a;
 `;
 

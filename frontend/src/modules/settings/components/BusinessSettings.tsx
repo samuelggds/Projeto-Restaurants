@@ -1,6 +1,6 @@
-import type { RestaurantSettings } from "../types/settings.types";
-import * as S from "../styles/settings.styles";
-import { Field, FormInput } from "./FormControls";
+import type { RestaurantSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
+import { Field, FormInput } from './FormControls';
 
 type Props = {
   settings: RestaurantSettings;
@@ -17,10 +17,7 @@ export function BusinessSettings({ settings, onChange }: Props) {
       </header>
       <S.Card>
         <S.Grid>
-          <Field
-            label="Nome do restaurante"
-            hint="Nome público exibido para os clientes."
-          >
+          <Field label="Nome do restaurante" hint="Nome público exibido para os clientes.">
             <FormInput
               value={settings.restaurantName}
               onChange={(e) => onChange({ restaurantName: e.target.value })}

@@ -1,15 +1,7 @@
-import {
-  LogOut,
-  MapPin,
-  Menu,
-  Search,
-  ShoppingBag,
-  UserRound,
-  X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import styled from "styled-components";
-import type { ProfileBrand, ProfileUser } from "../types";
+import { LogOut, MapPin, Menu, Search, ShoppingBag, UserRound, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
+import type { ProfileBrand, ProfileUser } from '../types';
 
 type Props = {
   brand: ProfileBrand;
@@ -38,27 +30,24 @@ export function ProfileHeader({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(e.target as Node)
-      ) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const initials = user.fullName
-    .split(" ")
+    .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0])
-    .join("")
+    .join('')
     .toUpperCase();
 
   return (
-    <Header $primary={brand.primaryColor ?? "#d64d08"}>
+    <Header $primary={brand.primaryColor ?? '#d64d08'}>
       <Brand type="button" onClick={onGoHome}>
         {brand.logoUrl ? (
           <Logo src={brand.logoUrl} alt={brand.name} />
@@ -70,7 +59,7 @@ export function ProfileHeader({
       <Location>
         <MapPin size={17} />
         <span>Entregar em</span>
-        <b>• {brand.address}</b>
+        <b>• {user.mainAddress || brand.address}</b>
       </Location>
       <Nav $open={open}>
         <button onClick={onGoHome}>Início</button>
@@ -89,22 +78,14 @@ export function ProfileHeader({
             $open={profileOpen}
             onClick={() => setProfileOpen((o) => !o)}
           >
-            {user.avatarUrl ? (
-              <AvatarImg src={user.avatarUrl} alt="" />
-            ) : (
-              initials
-            )}
+            {user.avatarUrl ? <AvatarImg src={user.avatarUrl} alt="" /> : initials}
           </AvatarButton>
 
           <ProfileDropdown $open={profileOpen}>
             <DropdownArrow />
             <DropdownUser>
               <DropdownAvatar>
-                {user.avatarUrl ? (
-                  <AvatarImgSm src={user.avatarUrl} alt="" />
-                ) : (
-                  initials
-                )}
+                {user.avatarUrl ? <AvatarImgSm src={user.avatarUrl} alt="" /> : initials}
               </DropdownAvatar>
               <div>
                 <span className="name">{user.fullName}</span>
@@ -237,7 +218,7 @@ const Nav = styled.nav<{ $open: boolean }>`
     font-weight: 700;
   }
   @media (max-width: 760px) {
-    display: ${({ $open }) => ($open ? "flex" : "none")};
+    display: ${({ $open }) => ($open ? 'flex' : 'none')};
     position: fixed;
     top: 68px;
     left: 0;
@@ -346,10 +327,9 @@ const AvatarButton = styled.button<{ $open: boolean }>`
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid
-    ${({ $open }) => ($open ? "var(--profile-primary)" : "#eadfd3")};
-  background: ${({ $open }) => ($open ? "#fdeee7" : "#fff")};
-  color: ${({ $open }) => ($open ? "var(--profile-primary)" : "#191816")};
+  border: 2px solid ${({ $open }) => ($open ? 'var(--profile-primary)' : '#eadfd3')};
+  background: ${({ $open }) => ($open ? '#fdeee7' : '#fff')};
+  color: ${({ $open }) => ($open ? 'var(--profile-primary)' : '#191816')};
   font-weight: 800;
   font-size: 13px;
   cursor: pointer;
@@ -376,9 +356,9 @@ const ProfileDropdown = styled.div<{ $open: boolean }>`
     0 8px 32px rgba(50, 30, 15, 0.12),
     0 2px 8px rgba(50, 30, 15, 0.06);
   padding: 8px;
-  pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
+  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
   opacity: ${({ $open }) => ($open ? 1 : 0)};
-  transform: translateY(${({ $open }) => ($open ? "0" : "-8px")});
+  transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
   transition:
     opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -454,11 +434,11 @@ const DropdownItem = styled.button<{ $danger?: boolean }>`
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  color: ${({ $danger }) => ($danger ? "#c94040" : "#191816")};
+  color: ${({ $danger }) => ($danger ? '#c94040' : '#191816')};
   text-align: left;
   transition: background 0.15s;
   &:hover {
-    background: ${({ $danger }) => ($danger ? "#fef2f2" : "#f5f0ea")};
+    background: ${({ $danger }) => ($danger ? '#fef2f2' : '#f5f0ea')};
   }
   svg {
     flex-shrink: 0;

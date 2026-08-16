@@ -1,20 +1,17 @@
-import api from "./api";
+import api from './api';
 
 class EmployeesService {
   async listEmployees() {
-    const response = await api.get("/employees");
+    const response = await api.get('/employees');
     return response.data;
   }
 
   async createEmployee(payload: Record<string, unknown>) {
-    const response = await api.post("/employees", payload);
+    const response = await api.post('/employees', payload);
     return response.data;
   }
 
-  async updateEmployee(
-    employeeId: string | number,
-    payload: Record<string, unknown>,
-  ) {
+  async updateEmployee(employeeId: string | number, payload: Record<string, unknown>) {
     const response = await api.put(`/employees/${employeeId}`, payload);
     return response.data;
   }

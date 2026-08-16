@@ -1,8 +1,5 @@
-import type {
-  BusinessHours,
-  RestaurantSettings,
-} from "../types/settings.types";
-import * as S from "../styles/settings.styles";
+import type { BusinessHours, RestaurantSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
 
 type Props = {
   settings: RestaurantSettings;
@@ -41,17 +38,13 @@ export function HoursSettings({ settings, onChange }: Props) {
                   <input
                     type="time"
                     value={day.openingTime}
-                    onChange={(e) =>
-                      updateDay(day.id, { openingTime: e.target.value })
-                    }
+                    onChange={(e) => updateDay(day.id, { openingTime: e.target.value })}
                   />
                   <span>até</span>
                   <input
                     type="time"
                     value={day.closingTime}
-                    onChange={(e) =>
-                      updateDay(day.id, { closingTime: e.target.value })
-                    }
+                    onChange={(e) => updateDay(day.id, { closingTime: e.target.value })}
                   />
                 </S.TimeRange>
               ) : (

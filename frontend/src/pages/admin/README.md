@@ -13,16 +13,19 @@ npm install styled-components lucide-react
 ## Uso
 
 ```tsx
-import { AdminPage } from './modules/admin'
+import { AdminPage } from './modules/admin';
 
-<Route path="/admin" element={
-  <AdminPage
-    onSaveSettings={(settings) => api.saveSettings(settings)}
-    onCreateEmployee={(employee) => api.createEmployee(employee)}
-    onUpdateEmployee={(employee) => api.updateEmployee(employee)}
-    onViewStore={() => navigate('/home')}
-  />
-} />
+<Route
+  path="/admin"
+  element={
+    <AdminPage
+      onSaveSettings={(settings) => api.saveSettings(settings)}
+      onCreateEmployee={(employee) => api.createEmployee(employee)}
+      onUpdateEmployee={(employee) => api.updateEmployee(employee)}
+      onViewStore={() => navigate('/home')}
+    />
+  }
+/>;
 ```
 
 Sem propriedades, a tela usa dados demonstrativos. O componente não depende de `react-router-dom` nem de `ThemeProvider`.

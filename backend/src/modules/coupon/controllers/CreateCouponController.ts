@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createCouponService from "../services/CreateCouponService.js";
+import { Request, Response } from 'express';
+import createCouponService from '../services/CreateCouponService.js';
 
 class CreateCouponController {
   async handle(req: Request, res: Response) {
@@ -17,7 +17,7 @@ class CreateCouponController {
       return res.status(201).json(coupon);
     } catch (error: unknown) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro ao criar cupom",
+        error: error instanceof Error ? error.message : 'Erro ao criar cupom',
       });
     }
   }

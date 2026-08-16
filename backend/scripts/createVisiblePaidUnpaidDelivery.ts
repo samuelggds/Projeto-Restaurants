@@ -1,16 +1,16 @@
-import "dotenv/config";
-import { OrderType, PaymentMethod } from "@prisma/client";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import { OrderType, PaymentMethod } from '@prisma/client';
+import prisma from '../src/config/prisma.js';
 
 async function resolveUserId(restaurantId: number) {
   const client = await prisma.user.findFirst({
     where: {
       restaurantId,
       active: true,
-      role: "CLIENTE",
+      role: 'CLIENTE',
     },
     select: { id: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (client) {
@@ -23,13 +23,11 @@ async function resolveUserId(restaurantId: number) {
       active: true,
     },
     select: { id: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!fallback) {
-    throw new Error(
-      `Nenhum usuario ativo encontrado para o restaurante ${restaurantId}.`,
-    );
+    throw new Error(`Nenhum usuario ativo encontrado para o restaurante ${restaurantId}.`);
   }
 
   return fallback.id;
@@ -47,14 +45,12 @@ async function resolveProduct(restaurantId: number) {
       name: true,
     },
     orderBy: {
-      id: "asc",
+      id: 'asc',
     },
   });
 
   if (!product) {
-    throw new Error(
-      `Nenhum produto ativo encontrado para o restaurante ${restaurantId}.`,
-    );
+    throw new Error(`Nenhum produto ativo encontrado para o restaurante ${restaurantId}.`);
   }
 
   return product;
@@ -82,18 +78,18 @@ async function resolveProduct(restaurantId: number) {
       return prisma.order.create({
         data: {
           total: itemPrice,
-          status: "PENDENTE",
+          status: 'PENDENTE',
           type: OrderType.DELIVERY,
           paymentMethod: PaymentMethod.PIX,
           paid,
           paidAt: paid ? new Date() : null,
-          observation: `${marker} | DELIVERY ${paid ? "PAGO" : "NAO_PAGO"}`,
-          address: "Rua Teste Painel",
-          number: "101",
-          district: "Centro",
-          city: "Fortaleza",
-          state: "CE",
-          zipCode: "60000000",
+          observation: `${marker} | DELIVERY ${paid ? 'PAGO' : 'NAO_PAGO'}`,
+          address: 'Rua Teste Painel',
+          number: '101',
+          district: 'Centro',
+          city: 'Fortaleza',
+          state: 'CE',
+          zipCode: '60000000',
           userId,
           restaurantId,
           items: {
@@ -129,7 +125,7 @@ async function resolveProduct(restaurantId: number) {
           marker,
           unpaidOrder,
           paidOrder,
-          hint: "Use o marker no campo de busca do painel para localizar os pedidos.",
+          hint: 'Use o marker no campo de busca do painel para localizar os pedidos.',
         },
         null,
         2,

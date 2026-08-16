@@ -1,10 +1,10 @@
-const DEBUG_ENABLED = process.env.BILLING_DEBUG === "true";
+const DEBUG_ENABLED = process.env.BILLING_DEBUG === 'true';
 
 type LogMeta = Record<string, unknown>;
 
 function formatMeta(meta?: LogMeta) {
   if (!meta) {
-    return "";
+    return '';
   }
 
   return ` ${JSON.stringify(meta)}`;
@@ -13,12 +13,12 @@ function formatMeta(meta?: LogMeta) {
 function log(level: string, message: string, meta?: LogMeta) {
   const line = `[billing] ${level} ${message}${formatMeta(meta)}`;
 
-  if (level === "ERROR") {
+  if (level === 'ERROR') {
     console.error(line);
     return;
   }
 
-  if (level === "WARN") {
+  if (level === 'WARN') {
     console.warn(line);
     return;
   }
@@ -27,15 +27,15 @@ function log(level: string, message: string, meta?: LogMeta) {
 }
 
 export function info(message: string, meta?: LogMeta) {
-  log("INFO", message, meta);
+  log('INFO', message, meta);
 }
 
 export function warn(message: string, meta?: LogMeta) {
-  log("WARN", message, meta);
+  log('WARN', message, meta);
 }
 
 export function error(message: string, meta?: LogMeta) {
-  log("ERROR", message, meta);
+  log('ERROR', message, meta);
 }
 
 export function debug(message: string, meta?: LogMeta) {
@@ -43,5 +43,5 @@ export function debug(message: string, meta?: LogMeta) {
     return;
   }
 
-  log("DEBUG", message, meta);
+  log('DEBUG', message, meta);
 }

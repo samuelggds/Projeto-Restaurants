@@ -1,15 +1,15 @@
-import createOrderService from "./CreateOrderService.js";
-import orderRepository from "../repositories/OrderRepository.js";
-import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
-import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
+import createOrderService from './CreateOrderService.js';
+import orderRepository from '../repositories/OrderRepository.js';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
 import {
   type CardProvider,
   normalizeCardProvider,
-} from "../../payments/providers/providerCatalog.js";
+} from '../../payments/providers/providerCatalog.js';
 import {
   getCardCheckoutProviderHandler,
   type CreateOrderCardCheckoutPayload,
-} from "./cardCheckoutProviders.js";
+} from './cardCheckoutProviders.js';
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
@@ -17,27 +17,22 @@ class CreateOrderCardCheckoutService {
       Number(payload.restaurantId) || Number(payload.userRestaurantId) || 0;
 
     if (!resolvedRestaurantId) {
-      throw new Error("Restaurante inválido para pagamento com cartão.");
+      throw new Error('Restaurante inválido para pagamento com cartão.');
     }
 
-    const settings =
-      await restaurantSettingsRepository.findByRestaurantId(
-        resolvedRestaurantId,
-      );
+    const settings = await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
 
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
 
-    const configuredProvider = String(settings?.cardGateway || "").trim();
+    const configuredProvider = String(settings?.cardGateway || '').trim();
     if (!configuredProvider) {
       throw new Error(
-        "Pagamento com cartão indisponível. Configure o gateway nas configurações do restaurante.",
+        'Pagamento com cartão indisponível. Configure o gateway nas configurações do restaurante.',
       );
     }
 
-    if (!["MERCADO_PAGO", "ASAAS", "PAGBANK"].includes(configuredProvider.toUpperCase())) {
-      throw new Error(
-        "Gateway inválido. Escolha Mercado Pago, Asaas ou PagBank.",
-      );
+    if (!['MERCADO_PAGO', 'ASAAS', 'PAGBANK'].includes(configuredProvider.toUpperCase())) {
+      throw new Error('Gateway inválido. Escolha Mercado Pago, Asaas ou PagBank.');
     }
 
     return normalizeCardProvider(configuredProvider);
@@ -58,15 +53,12 @@ class CreateOrderCardCheckoutService {
     });
 
     const successUrlBase = String(
-      payload.successUrl ||
-        process.env.FRONTEND_URL ||
-        "http://localhost:5173/cart",
+      payload.successUrl || process.env.FRONTEND_URL || 'http://localhost:5173/cart',
     ).trim();
     const cancelUrlBase = String(payload.cancelUrl || successUrlBase).trim();
 
     try {
-      const providerHandler =
-        getCardCheckoutProviderHandler(resolvedCardProvider);
+      const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
       const checkout = await providerHandler.createCheckout({
         payload,
         order: {
@@ -93,10 +85,7 @@ class CreateOrderCardCheckoutService {
         checkoutUrl: checkout.checkoutUrl,
       };
     } catch (error) {
-      await orderRepository.deleteById(
-        createdOrder.id,
-        createdOrder.restaurantId,
-      );
+      await orderRepository.deleteById(createdOrder.id, createdOrder.restaurantId);
       throw error;
     }
   }

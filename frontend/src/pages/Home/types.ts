@@ -1,5 +1,5 @@
-import type { CustomerAddress } from "../../Services/customerAddressService";
-import type { BusinessHour } from "../admin/types";
+import type { CustomerAddress } from '../../Services/customerAddressService';
+import type { BusinessHour } from '../admin/types';
 
 export type HomeBrand = {
   name: string;

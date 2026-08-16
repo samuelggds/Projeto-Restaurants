@@ -1,19 +1,10 @@
-import {
-  Utensils,
-  Soup,
-  Flame,
-  Pizza,
-  Sandwich,
-  CupSoda,
-  IceCream,
-  Wine,
-} from "lucide-react";
+import { Utensils, Soup, Flame, Pizza, Sandwich, CupSoda, IceCream, Wine } from 'lucide-react';
 
 export function normalizeCategoryLabel(value) {
-  return String(value || "")
+  return String(value || '')
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .trim();
 }
 

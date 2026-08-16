@@ -1,14 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useRef } from "react";
-import api from "../Services/api";
-import { clearSystemBlockState } from "../Services/systemBlock";
-import { disconnectSocket } from "../Services/socketService";
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import api from '../Services/api';
+import { clearSystemBlockState } from '../Services/systemBlock';
+import { disconnectSocket } from '../Services/socketService';
 import {
   clearAuthSession,
   getStoredAccessToken,
   isAuthSnapshotCurrent,
   persistAuthSession,
-} from "../modules/auth/session/authSession";
+} from '../modules/auth/session/authSession';
 
 type AuthUser = {
   id?: number;
@@ -37,17 +37,15 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function normalizeRole(role: unknown) {
-  if (typeof role !== "string") {
+  if (typeof role !== 'string') {
     return role;
   }
 
   return role.trim().toUpperCase();
 }
 
-function sanitizeUserRole<T extends Record<string, unknown> | null>(
-  userData: T,
-): T {
-  if (!userData || typeof userData !== "object") {
+function sanitizeUserRole<T extends Record<string, unknown> | null>(userData: T): T {
+  if (!userData || typeof userData !== 'object') {
     return userData;
   }
 
@@ -63,16 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authRevision = useRef(0);
 
   function readStoredUser(): AuthUser {
-    const storedUserRaw = localStorage.getItem("user");
+    const storedUserRaw = localStorage.getItem('user');
 
-    if (!storedUserRaw || storedUserRaw === "undefined") {
+    if (!storedUserRaw || storedUserRaw === 'undefined') {
       return null;
     }
 
     try {
       return sanitizeUserRole(JSON.parse(storedUserRaw));
     } catch {
-      localStorage.removeItem("user");
+      localStorage.removeItem('user');
       return null;
     }
   }
@@ -85,26 +83,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      const safeStoredUser =
-        storedUser && typeof storedUser === "object" ? storedUser : {};
+      const safeStoredUser = storedUser && typeof storedUser === 'object' ? storedUser : {};
 
       return {
         ...safeStoredUser,
         ...remoteUser,
         role: normalizeRole(remoteUser.role ?? safeStoredUser.role),
-        phone: remoteUser.phone ?? safeStoredUser.phone ?? "",
-        address: remoteUser.address ?? safeStoredUser.address ?? "",
-        number: remoteUser.number ?? safeStoredUser.number ?? "",
-        district: remoteUser.district ?? safeStoredUser.district ?? "",
-        city: remoteUser.city ?? safeStoredUser.city ?? "",
-        state: remoteUser.state ?? safeStoredUser.state ?? "",
-        zipCode: remoteUser.zipCode ?? safeStoredUser.zipCode ?? "",
-        complement: remoteUser.complement ?? safeStoredUser.complement ?? "",
+        phone: remoteUser.phone ?? safeStoredUser.phone ?? '',
+        address: remoteUser.address ?? safeStoredUser.address ?? '',
+        number: remoteUser.number ?? safeStoredUser.number ?? '',
+        district: remoteUser.district ?? safeStoredUser.district ?? '',
+        city: remoteUser.city ?? safeStoredUser.city ?? '',
+        state: remoteUser.state ?? safeStoredUser.state ?? '',
+        zipCode: remoteUser.zipCode ?? safeStoredUser.zipCode ?? '',
+        complement: remoteUser.complement ?? safeStoredUser.complement ?? '',
         addresses: remoteUser.addresses ?? safeStoredUser.addresses ?? [],
-        defaultAddressId:
-          remoteUser.defaultAddressId ??
-          safeStoredUser.defaultAddressId ??
-          null,
+        defaultAddressId: remoteUser.defaultAddressId ?? safeStoredUser.defaultAddressId ?? null,
       };
     }
 
@@ -114,7 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const bootstrapRevision = authRevision.current;
 
       const sessionIsStillCurrent = () =>
-        mounted && isAuthSnapshotCurrent({
+        mounted &&
+        isAuthSnapshotCurrent({
           snapshotToken: token,
           currentToken: getStoredAccessToken(),
           snapshotRevision: bootstrapRevision,
@@ -130,12 +125,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const response = await api.get("/auth/me");
+        const response = await api.get('/auth/me');
         const remoteUser = response?.data?.user || response?.data;
         const mergedUser = mergeUserData(remoteUser, storedUser);
 
         if (mergedUser?.id && sessionIsStillCurrent()) {
-          localStorage.setItem("user", JSON.stringify(mergedUser));
+          localStorage.setItem('user', JSON.stringify(mergedUser));
           setUser(mergedUser);
         } else if (storedUser && sessionIsStillCurrent()) {
           setUser(storedUser);
@@ -198,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error('useAuth must be used within AuthProvider');
   }
 
   return context;

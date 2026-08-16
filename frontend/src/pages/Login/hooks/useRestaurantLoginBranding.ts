@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
-import restaurantSettingsService from "../../../Services/restaurantSettingsService";
-import { DEFAULT_LOGIN_BRANDING, mapLoginBranding, resolveLoginRestaurant } from "../domain/loginBranding";
+import { useEffect, useState } from 'react';
+import restaurantSettingsService from '../../../Services/restaurantSettingsService';
+import {
+  DEFAULT_LOGIN_BRANDING,
+  mapLoginBranding,
+  resolveLoginRestaurant,
+} from '../domain/loginBranding';
 
 export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
   const [branding, setBranding] = useState(DEFAULT_LOGIN_BRANDING);
@@ -9,7 +13,7 @@ export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
   useEffect(() => {
     let active = true;
     const { restaurantId, slug } = resolveLoginRestaurant(new URLSearchParams(restaurantReference));
-    const storedRestaurantId = Number(localStorage.getItem("menuRestaurantId") || 0);
+    const storedRestaurantId = Number(localStorage.getItem('menuRestaurantId') || 0);
     const request = slug
       ? restaurantSettingsService.getPublicSettingsBySlug(slug)
       : restaurantId
@@ -17,16 +21,20 @@ export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
         : storedRestaurantId > 0
           ? restaurantSettingsService.getPublicSettings(storedRestaurantId)
           : restaurantSettingsService.getDefaultPublicSettings();
-    Promise.resolve(request).then((settings) => {
-      if (!active) return;
-      if (Number(settings?.restaurantId) > 0) {
-        localStorage.setItem("menuRestaurantId", String(settings.restaurantId));
-      }
-      setBranding(mapLoginBranding(settings));
-    }).catch(() => {
-      if (active) setBranding(DEFAULT_LOGIN_BRANDING);
-    });
-    return () => { active = false; };
+    Promise.resolve(request)
+      .then((settings) => {
+        if (!active) return;
+        if (Number(settings?.restaurantId) > 0) {
+          localStorage.setItem('menuRestaurantId', String(settings.restaurantId));
+        }
+        setBranding(mapLoginBranding(settings));
+      })
+      .catch(() => {
+        if (active) setBranding(DEFAULT_LOGIN_BRANDING);
+      });
+    return () => {
+      active = false;
+    };
   }, [restaurantReference]);
 
   return branding;

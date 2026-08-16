@@ -1,5 +1,5 @@
-import styled from "styled-components";
-import { Link } from "react-router-dom";
+import styled from 'styled-components';
+import { Link } from 'react-router-dom';
 
 export {
   lightTheme,
@@ -20,7 +20,7 @@ export {
   Label,
   Input,
   Button,
-} from "../Login/styles";
+} from '../Login/styles';
 
 export const SwitchRow = styled.div`
   display: grid;
@@ -30,10 +30,8 @@ export const SwitchRow = styled.div`
 
 export const SwitchButton = styled.button<{ $active: boolean }>`
   border: 1px solid ${(props) => props.theme.border};
-  border-color: ${(props) =>
-    props.$active ? props.theme.primary : props.theme.border};
-  background: ${(props) =>
-    props.$active ? `${props.theme.primary}15` : props.theme.surface};
+  border-color: ${(props) => (props.$active ? props.theme.primary : props.theme.border)};
+  background: ${(props) => (props.$active ? `${props.theme.primary}15` : props.theme.surface)};
   color: ${(props) => props.theme.text};
   border-radius: 10px;
   padding: 0.7rem 0.8rem;

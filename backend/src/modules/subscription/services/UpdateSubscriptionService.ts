@@ -1,6 +1,6 @@
-import type { PlanType, SubscriptionStatus } from "@prisma/client";
-import subscriptionRepository from "../repositories/SubscriptionRepository.js";
-import { isAvailablePlan } from "../../billing/config/planConfig.js";
+import type { PlanType, SubscriptionStatus } from '@prisma/client';
+import subscriptionRepository from '../repositories/SubscriptionRepository.js';
+import { isAvailablePlan } from '../../billing/config/planConfig.js';
 
 type SubscriptionUpdatePayload = {
   restaurantId: number | string;
@@ -10,21 +10,15 @@ type SubscriptionUpdatePayload = {
 };
 
 class UpdateSubscriptionService {
-  async execute({
-    restaurantId,
-    plan,
-    status,
-    trialEndsAt,
-  }: SubscriptionUpdatePayload) {
+  async execute({ restaurantId, plan, status, trialEndsAt }: SubscriptionUpdatePayload) {
     if (plan && !isAvailablePlan(plan)) {
-      throw new Error("Plano indisponível para contratação.");
+      throw new Error('Plano indisponível para contratação.');
     }
 
-    const subscription =
-      await subscriptionRepository.findByRestaurantId(restaurantId);
+    const subscription = await subscriptionRepository.findByRestaurantId(restaurantId);
 
     if (!subscription) {
-      throw new Error("Assinatura não encontrada!");
+      throw new Error('Assinatura não encontrada!');
     }
 
     return await subscriptionRepository.update(restaurantId, {

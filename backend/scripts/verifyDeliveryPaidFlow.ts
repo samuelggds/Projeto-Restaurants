@@ -1,6 +1,6 @@
-import "dotenv/config";
-import { PrismaClient, OrderType, PaymentMethod } from "@prisma/client";
-import orderRepository from "../src/modules/orders/repositories/OrderRepository.js";
+import 'dotenv/config';
+import { PrismaClient, OrderType, PaymentMethod } from '@prisma/client';
+import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';
 
 const prisma = new PrismaClient();
 
@@ -21,8 +21,8 @@ async function main() {
       data: {
         name: `Cliente Teste ${suffix}`,
         email: `cliente.teste.${suffix}@example.com`,
-        password: "123456",
-        role: "CLIENTE",
+        password: '123456',
+        role: 'CLIENTE',
         active: true,
         restaurantId: restaurant.id,
       },
@@ -54,11 +54,11 @@ async function main() {
           paymentMethod: PaymentMethod.PIX,
           userId: user.id,
           restaurantId: restaurant.id,
-          address: type === OrderType.DELIVERY ? "Rua Teste" : null,
-          number: type === OrderType.DELIVERY ? "123" : null,
-          district: type === OrderType.DELIVERY ? "Centro" : null,
-          city: type === OrderType.DELIVERY ? "Fortaleza" : null,
-          state: type === OrderType.DELIVERY ? "CE" : null,
+          address: type === OrderType.DELIVERY ? 'Rua Teste' : null,
+          number: type === OrderType.DELIVERY ? '123' : null,
+          district: type === OrderType.DELIVERY ? 'Centro' : null,
+          city: type === OrderType.DELIVERY ? 'Fortaleza' : null,
+          state: type === OrderType.DELIVERY ? 'CE' : null,
           items: {
             create: [
               {
@@ -104,7 +104,7 @@ async function main() {
       totalVisible: afterPayment.length,
     };
 
-    console.log("=== RESULTADO TESTE FLUXO DELIVERY ===");
+    console.log('=== RESULTADO TESTE FLUXO DELIVERY ===');
     console.log(JSON.stringify({ beforeResult, afterResult }, null, 2));
 
     const passed =
@@ -117,13 +117,11 @@ async function main() {
 
     if (!passed) {
       process.exitCode = 1;
-      console.error("FALHOU: o comportamento nao bate com a regra esperada.");
+      console.error('FALHOU: o comportamento nao bate com a regra esperada.');
       return;
     }
 
-    console.log(
-      "PASSOU: DELIVERY entra so apos pagamento; MESA/RETIRADA entram normalmente.",
-    );
+    console.log('PASSOU: DELIVERY entra so apos pagamento; MESA/RETIRADA entram normalmente.');
   } finally {
     await prisma.restaurant.delete({
       where: { id: restaurant.id },
@@ -133,7 +131,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Erro ao executar teste:", error);
+    console.error('Erro ao executar teste:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

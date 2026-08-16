@@ -1,4 +1,4 @@
-import type { AdminOrder } from "../types";
+import type { AdminOrder } from '../types';
 
 export type CustomerSummary = {
   name: string;
@@ -8,10 +8,11 @@ export type CustomerSummary = {
 };
 
 export function getTodayOrders(orders: AdminOrder[], now = new Date()) {
-  return orders.filter((order) =>
-    Boolean(order.createdAt) &&
-    new Date(String(order.createdAt)).toDateString() === now.toDateString() &&
-    order.status !== "CANCELADO",
+  return orders.filter(
+    (order) =>
+      Boolean(order.createdAt) &&
+      new Date(String(order.createdAt)).toDateString() === now.toDateString() &&
+      order.status !== 'CANCELADO',
   );
 }
 
@@ -20,7 +21,7 @@ export function summarizeCustomers(orders: AdminOrder[]): CustomerSummary[] {
     const key = String(order.userId || order.customerEmail || order.customerName);
     const current = map.get(key) || {
       name: order.customerName,
-      email: order.customerEmail || "Sem e-mail",
+      email: order.customerEmail || 'Sem e-mail',
       count: 0,
       total: 0,
     };
@@ -34,10 +35,10 @@ export function summarizeCustomers(orders: AdminOrder[]): CustomerSummary[] {
 }
 
 export function filterCustomerSummaries(customers: CustomerSummary[], search: string) {
-  const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
+  const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR');
   if (!normalizedSearch) return customers;
   return customers.filter((customer) =>
-    `${customer.name} ${customer.email}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch),
+    `${customer.name} ${customer.email}`.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
   );
 }
 
@@ -48,7 +49,7 @@ export function calculateOverviewMetrics(orders: AdminOrder[], now = new Date())
     todayOrders,
     sales,
     averageTicket: todayOrders.length ? sales / todayOrders.length : 0,
-    preparingOrders: orders.filter((order) => order.status === "PREPARANDO").length,
+    preparingOrders: orders.filter((order) => order.status === 'PREPARANDO').length,
     customers: summarizeCustomers(orders),
   };
 }

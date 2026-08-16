@@ -1,5 +1,5 @@
-import type { Request, Response } from "express";
-import getCourierFinanceService from "../services/GetCourierFinanceService.js";
+import type { Request, Response } from 'express';
+import getCourierFinanceService from '../services/GetCourierFinanceService.js';
 
 class GetCourierFinanceController {
   async handle(req: Request, res: Response) {
@@ -11,7 +11,9 @@ class GetCourierFinanceController {
       });
       return res.json(result);
     } catch (error: unknown) {
-      return res.status(403).json({ error: error instanceof Error ? error.message : "Erro ao consultar financeiro" });
+      return res
+        .status(403)
+        .json({ error: error instanceof Error ? error.message : 'Erro ao consultar financeiro' });
     }
   }
 }

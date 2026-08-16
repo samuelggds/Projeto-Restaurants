@@ -1,4 +1,4 @@
-import tableRepository from "../repositories/TableRepository.js";
+import tableRepository from '../repositories/TableRepository.js';
 
 type DeactivateTablePayload = {
   id: number | string;
@@ -10,7 +10,7 @@ class DeactivateTableService {
     const table = await tableRepository.findById(id);
 
     if (!table || table.restaurantId !== restaurantId) {
-      throw new Error("Mesa não encontrada!");
+      throw new Error('Mesa não encontrada!');
     }
 
     return await tableRepository.deactivate(id);

@@ -1,8 +1,8 @@
-import api from "./api";
+import api from './api';
 
 class CategoriesService {
   async listCategories() {
-    const response = await api.get("/categories");
+    const response = await api.get('/categories');
     const payload = response.data;
 
     if (Array.isArray(payload)) {
@@ -13,7 +13,7 @@ class CategoriesService {
   }
 
   async createCategory(payload) {
-    const response = await api.post("/categories", payload);
+    const response = await api.post('/categories', payload);
     return response.data;
   }
 

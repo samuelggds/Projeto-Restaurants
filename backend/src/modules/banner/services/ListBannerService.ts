@@ -1,4 +1,4 @@
-import bannerRepository from "../repositories/BannerRepository.js";
+import bannerRepository from '../repositories/BannerRepository.js';
 
 type ListBannerPayload = {
   restaurantId: number | string;

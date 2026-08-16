@@ -1,4 +1,4 @@
-import tableRepository from "../repositories/TableRepository.js";
+import tableRepository from '../repositories/TableRepository.js';
 
 type UpdateTablePayload = {
   id: number | string;
@@ -12,26 +12,22 @@ class UpdateTableService {
     const table = await tableRepository.findById(id);
 
     if (!table || table.restaurantId !== restaurantId) {
-      throw new Error("Mesa não encontrada!");
+      throw new Error('Mesa não encontrada!');
     }
 
     if (number !== undefined && number !== null && String(number).trim()) {
-      const tableExists = await tableRepository.findByNumber(
-        number,
-        restaurantId,
-      );
+      const tableExists = await tableRepository.findByNumber(number, restaurantId);
 
       if (tableExists && tableExists.id !== table.id) {
-        throw new Error("Já existe uma mesa com esse número!");
+        throw new Error('Já existe uma mesa com esse número!');
       }
     }
 
-    const hasNumber =
-      number !== undefined && number !== null && String(number).trim() !== "";
-    const hasActive = typeof active === "boolean";
+    const hasNumber = number !== undefined && number !== null && String(number).trim() !== '';
+    const hasActive = typeof active === 'boolean';
 
     if (!hasNumber && !hasActive) {
-      throw new Error("Informe número e/ou status ativo da mesa.");
+      throw new Error('Informe número e/ou status ativo da mesa.');
     }
 
     const updateData: { number?: number; active?: boolean } = {};

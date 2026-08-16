@@ -1,14 +1,22 @@
-import { OrderStatus, UserRole } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import { OrderStatus, UserRole } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 class GetCourierFinanceService {
-  async execute({ courierId, restaurantId, role }: { courierId: number; restaurantId: number; role: string }) {
-    if (String(role || "").toUpperCase() !== UserRole.MOTOQUEIRO) {
-      throw new Error("Financeiro disponível somente para motoqueiros.");
+  async execute({
+    courierId,
+    restaurantId,
+    role,
+  }: {
+    courierId: number;
+    restaurantId: number;
+    role: string;
+  }) {
+    if (String(role || '').toUpperCase() !== UserRole.MOTOQUEIRO) {
+      throw new Error('Financeiro disponível somente para motoqueiros.');
     }
     const now = new Date();
     const today = startOfDay(now);
@@ -22,25 +30,55 @@ class GetCourierFinanceService {
     } as const;
 
     const [todayData, weekData, monthData, pendingData, deliveries] = await Promise.all([
-      prisma.order.aggregate({ where: { ...baseWhere, deliveredAt: { gte: today } }, _sum: { courierEarning: true }, _count: true }),
-      prisma.order.aggregate({ where: { ...baseWhere, deliveredAt: { gte: week } }, _sum: { courierEarning: true }, _count: true }),
-      prisma.order.aggregate({ where: { ...baseWhere, deliveredAt: { gte: month } }, _sum: { courierEarning: true }, _count: true }),
-      prisma.order.aggregate({ where: { ...baseWhere, courierPaidAt: null }, _sum: { courierEarning: true }, _count: true }),
+      prisma.order.aggregate({
+        where: { ...baseWhere, deliveredAt: { gte: today } },
+        _sum: { courierEarning: true },
+        _count: true,
+      }),
+      prisma.order.aggregate({
+        where: { ...baseWhere, deliveredAt: { gte: week } },
+        _sum: { courierEarning: true },
+        _count: true,
+      }),
+      prisma.order.aggregate({
+        where: { ...baseWhere, deliveredAt: { gte: month } },
+        _sum: { courierEarning: true },
+        _count: true,
+      }),
+      prisma.order.aggregate({
+        where: { ...baseWhere, courierPaidAt: null },
+        _sum: { courierEarning: true },
+        _count: true,
+      }),
       prisma.order.findMany({
         where: baseWhere,
-        select: { id: true, courierEarning: true, courierPaidAt: true, deliveredAt: true, deliveryStartedAt: true, city: true, district: true },
-        orderBy: { deliveredAt: "desc" },
+        select: {
+          id: true,
+          courierEarning: true,
+          courierPaidAt: true,
+          deliveredAt: true,
+          deliveryStartedAt: true,
+          city: true,
+          district: true,
+        },
+        orderBy: { deliveredAt: 'desc' },
         take: 100,
       }),
     ]);
 
-    const format = (entry: typeof todayData) => ({ amount: Number(entry._sum.courierEarning || 0), deliveries: entry._count });
+    const format = (entry: typeof todayData) => ({
+      amount: Number(entry._sum.courierEarning || 0),
+      deliveries: entry._count,
+    });
     return {
       today: format(todayData),
       week: format(weekData),
       month: format(monthData),
       pending: format(pendingData),
-      deliveries: deliveries.map((order) => ({ ...order, courierEarning: Number(order.courierEarning || 0) })),
+      deliveries: deliveries.map((order) => ({
+        ...order,
+        courierEarning: Number(order.courierEarning || 0),
+      })),
     };
   }
 }

@@ -1,23 +1,23 @@
-import { PlanType } from "@prisma/client";
+import { PlanType } from '@prisma/client';
 
 export const PLAN_CONFIG = {
   [PlanType.BASICO]: {
-    name: "Básico",
+    name: 'Básico',
     monthlyFee: 149.9,
     trialDays: 30,
     availableForSale: true,
-    features: ["Sistema de delivery", "Suporte padrão"],
+    features: ['Sistema de delivery', 'Suporte padrão'],
   },
 
   [PlanType.PREMIUM]: {
-    name: "Premium",
+    name: 'Premium',
     monthlyFee: 249.9,
     trialDays: 30,
     availableForSale: true,
     features: [
-      "Sistema de delivery",
-      "Cardápio digital com QR Code de mesa",
-      "Suporte prioritário",
+      'Sistema de delivery',
+      'Cardápio digital com QR Code de mesa',
+      'Suporte prioritário',
     ],
   },
 };

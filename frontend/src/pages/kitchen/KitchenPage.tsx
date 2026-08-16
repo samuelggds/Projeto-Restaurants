@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/authContext";
-import ordersService from "../../Services/ordersService";
-import restaurantSettingsService from "../../Services/restaurantSettingsService";
-import { connectSocket, disconnectSocket } from "../../Services/socketService";
-import { getStoredAccessToken } from "../../modules/auth/session/authSession";
-import { KitchenModule } from "./KitchenModule";
-import type {
-  EmployeeWorkspaceData,
-  RestaurantBrand,
-} from "./types";
-import { mapOperationalOrders, mapRestaurantBrand } from "../operations/orderAdapter";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/authContext';
+import ordersService from '../../Services/ordersService';
+import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { KitchenModule } from './KitchenModule';
+import type { EmployeeWorkspaceData, RestaurantBrand } from './types';
+import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
 
 const POLL_MS = 30_000;
 
@@ -23,13 +20,12 @@ export default function KitchenPage() {
     calls: [],
   });
   const [restaurant, setRestaurant] = useState<RestaurantBrand>({
-    restaurantName: "",
-    monogram: "R",
-    primaryColor: "#d64d08",
+    restaurantName: '',
+    monogram: 'R',
+    primaryColor: '#d64d08',
   });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const restaurantId =
-    Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
+  const restaurantId = Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
 
   const loadOrders = useCallback(async () => {
     const raw = await ordersService.listRestaurantOrders();
@@ -68,32 +64,32 @@ export default function KitchenPage() {
     const token = getStoredAccessToken();
     if (!token || !restaurantId) return;
 
-    const socket = connectSocket(token, "kitchen-orders");
+    const socket = connectSocket(token, 'kitchen-orders');
     const refreshOrders = () => {
       void loadOrders().catch(() => {});
     };
 
-    socket.on("new-order", refreshOrders);
-    socket.on("order:payment-confirmed", refreshOrders);
-    socket.on("order:status-changed", refreshOrders);
+    socket.on('new-order', refreshOrders);
+    socket.on('order:payment-confirmed', refreshOrders);
+    socket.on('order:status-changed', refreshOrders);
 
     return () => {
-      socket.off("new-order", refreshOrders);
-      socket.off("order:payment-confirmed", refreshOrders);
-      socket.off("order:status-changed", refreshOrders);
+      socket.off('new-order', refreshOrders);
+      socket.off('order:payment-confirmed', refreshOrders);
+      socket.off('order:status-changed', refreshOrders);
       disconnectSocket();
     };
   }, [restaurantId, loadOrders]);
 
   const u = user as Record<string, unknown>;
   const employee = {
-    id: String(u?.id || ""),
-    name: String(u?.name || "Cozinheiro"),
-    email: String(u?.email || ""),
-    role: "KITCHEN" as const,
-    shift: new Date().toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
+    id: String(u?.id || ''),
+    name: String(u?.name || 'Cozinheiro'),
+    email: String(u?.email || ''),
+    role: 'KITCHEN' as const,
+    shift: new Date().toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
     }),
   };
 
@@ -103,7 +99,7 @@ export default function KitchenPage() {
       restaurant={restaurant}
       data={data}
       onUpdateOrderStatus={async (orderId, status) => {
-        const numericId = orderId.replace(/^#/, "");
+        const numericId = orderId.replace(/^#/, '');
         await ordersService.updateStatus(numericId, status);
         try {
           await loadOrders();
@@ -113,7 +109,7 @@ export default function KitchenPage() {
       }}
       onLogout={() => {
         logout();
-        navigate("/login");
+        navigate('/login');
       }}
     />
   );

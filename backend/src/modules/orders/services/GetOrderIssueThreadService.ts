@@ -1,8 +1,5 @@
-import prisma from "../../../config/prisma.js";
-import {
-  getOrderIssueThread,
-  toOrderIssueThreadPayload,
-} from "./orderIssueChatStore.js";
+import prisma from '../../../config/prisma.js';
+import { getOrderIssueThread, toOrderIssueThreadPayload } from './orderIssueChatStore.js';
 
 class GetOrderIssueThreadService {
   async execute({
@@ -21,22 +18,19 @@ class GetOrderIssueThreadService {
     const normalizedRestaurantId = Number(requesterRestaurantId || 0);
 
     if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
-      throw new Error("Pedido inválido para carregar conversa.");
+      throw new Error('Pedido inválido para carregar conversa.');
     }
 
     if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
-      throw new Error("Usuário inválido para carregar conversa.");
+      throw new Error('Usuário inválido para carregar conversa.');
     }
 
-    const role = String(requesterRole || "").toUpperCase();
-    const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+    const role = String(requesterRole || '').toUpperCase();
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
 
     if (isAdmin) {
-      if (
-        !Number.isInteger(normalizedRestaurantId) ||
-        normalizedRestaurantId <= 0
-      ) {
-        throw new Error("Restaurante inválido para carregar conversa.");
+      if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+        throw new Error('Restaurante inválido para carregar conversa.');
       }
 
       const order = await prisma.order.findFirst({
@@ -79,7 +73,7 @@ class GetOrderIssueThreadService {
       });
 
       if (!order) {
-        throw new Error("Pedido não encontrado para este restaurante.");
+        throw new Error('Pedido não encontrado para este restaurante.');
       }
 
       const thread = await getOrderIssueThread(order.id);
@@ -115,7 +109,7 @@ class GetOrderIssueThreadService {
     });
 
     if (!order) {
-      throw new Error("Pedido não encontrado para este usuário.");
+      throw new Error('Pedido não encontrado para este usuário.');
     }
 
     const thread = await getOrderIssueThread(order.id);

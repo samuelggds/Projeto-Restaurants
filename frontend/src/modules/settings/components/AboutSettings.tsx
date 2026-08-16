@@ -1,5 +1,5 @@
-import type { RestaurantSettings } from "../types/settings.types";
-import * as S from "../styles/settings.styles";
+import type { RestaurantSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
 
 type Props = {
   settings: RestaurantSettings;
@@ -31,10 +31,7 @@ export function AboutSettings({ settings, onChange }: Props) {
         <S.AboutPreview>
           <span>Prévia</span>
           <strong>Sabores que aproximam pessoas.</strong>
-          <p>
-            {settings.description ||
-              "A descrição do seu restaurante aparecerá aqui."}
-          </p>
+          <p>{settings.description || 'A descrição do seu restaurante aparecerá aqui.'}</p>
         </S.AboutPreview>
       </S.Card>
     </S.Panel>

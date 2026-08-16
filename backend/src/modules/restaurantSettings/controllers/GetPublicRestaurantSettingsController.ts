@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import getPublicRestaurantSettingsService from "../services/GetPublicRestaurantSettingsService.js";
+import { Request, Response } from 'express';
+import getPublicRestaurantSettingsService from '../services/GetPublicRestaurantSettingsService.js';
 
 class GetPublicRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -7,10 +7,8 @@ class GetPublicRestaurantSettingsController {
       const restaurantId = Array.isArray(req.params.restaurantId)
         ? req.params.restaurantId[0]
         : req.params.restaurantId;
-      const slug = Array.isArray(req.params.slug)
-        ? req.params.slug[0]
-        : req.params.slug;
-      const useDefault = req.path.endsWith("/default");
+      const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
+      const useDefault = req.path.endsWith('/default');
 
       const settings = await getPublicRestaurantSettingsService.execute({
         restaurantId,
@@ -24,7 +22,7 @@ class GetPublicRestaurantSettingsController {
         error:
           error instanceof Error
             ? error.message
-            : "Erro ao buscar configuracoes publicas do restaurante",
+            : 'Erro ao buscar configuracoes publicas do restaurante',
       });
     }
   }

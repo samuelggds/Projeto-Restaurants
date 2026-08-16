@@ -1,35 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, CheckCircle2, Copy, CreditCard, Layers3, QrCode, Sparkles, Zap } from "lucide-react";
-import { toast } from "react-toastify";
+import { useCallback, useEffect, useState } from 'react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  Copy,
+  CreditCard,
+  Layers3,
+  QrCode,
+  Sparkles,
+  Zap,
+} from 'lucide-react';
+import { toast } from 'react-toastify';
 import monthlyBillingService, {
   type BillingPlan,
   type BillingOverview,
   type Invoice,
   type PlanCode,
   type Subscription,
-} from "../../../Services/monthlyBillingService";
-import * as S from "./MonthlyBilling.styles";
+} from '../../../Services/monthlyBillingService';
+import * as S from './MonthlyBilling.styles';
 
 const benefits: Record<PlanCode, string[]> = {
-  BASICO: ["Sistema de delivery", "Suporte padrão"],
-  PREMIUM: [
-    "Sistema de delivery",
-    "Cardápio digital com QR Code de mesa",
-    "Suporte prioritário",
-  ],
+  BASICO: ['Sistema de delivery', 'Suporte padrão'],
+  PREMIUM: ['Sistema de delivery', 'Cardápio digital com QR Code de mesa', 'Suporte prioritário'],
 };
 
 const fallbackPlans: BillingPlan[] = [
   {
-    plan: "BASICO",
-    name: "Básico",
+    plan: 'BASICO',
+    name: 'Básico',
     monthlyFee: 149.9,
     trialDays: 30,
     features: benefits.BASICO,
   },
   {
-    plan: "PREMIUM",
-    name: "Premium",
+    plan: 'PREMIUM',
+    name: 'Premium',
     monthlyFee: 249.9,
     trialDays: 30,
     features: benefits.PREMIUM,
@@ -37,41 +42,40 @@ const fallbackPlans: BillingPlan[] = [
 ];
 
 const planDescriptions: Record<PlanCode, string> = {
-  BASICO: "Para restaurantes que trabalham somente com pedidos por delivery.",
-  PREMIUM:
-    "A experiência completa para delivery e atendimento nas mesas por QR Code.",
+  BASICO: 'Para restaurantes que trabalham somente com pedidos por delivery.',
+  PREMIUM: 'A experiência completa para delivery e atendimento nas mesas por QR Code.',
 };
 
 const planIcons = { BASICO: Zap, PREMIUM: Sparkles };
 const statusLabels: Record<string, string> = {
-  TESTE: "Período de teste",
-  ATIVA: "Assinatura ativa",
-  EXPIRADA: "Assinatura expirada",
-  CANCELADA: "Assinatura cancelada",
+  TESTE: 'Período de teste',
+  ATIVA: 'Assinatura ativa',
+  EXPIRADA: 'Assinatura expirada',
+  CANCELADA: 'Assinatura cancelada',
 };
 const invoiceLabels: Record<string, string> = {
-  PENDENTE: "Pendente",
-  PAGO: "Pago",
-  ATRASADO: "Atrasado",
-  CANCELADO: "Cancelado",
+  PENDENTE: 'Pendente',
+  PAGO: 'Pago',
+  ATRASADO: 'Atrasado',
+  CANCELADO: 'Cancelado',
 };
 
 const money = (value: number | string) =>
-  Number(value || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   });
 const date = (value?: string | null) =>
-  value ? new Intl.DateTimeFormat("pt-BR").format(new Date(value)) : "--";
+  value ? new Intl.DateTimeFormat('pt-BR').format(new Date(value)) : '--';
 const errorMessage = (error: unknown) =>
   (error as { response?: { data?: { error?: string } } }).response?.data?.error;
 
 export function MonthlyBilling() {
-  const [view, setView] = useState<"plans" | "charges">("plans");
+  const [view, setView] = useState<'plans' | 'charges'>('plans');
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [billing, setBilling] = useState<BillingOverview["billing"]>();
+  const [billing, setBilling] = useState<BillingOverview['billing']>();
   const [loading, setLoading] = useState(true);
   const [changingPlan, setChangingPlan] = useState<PlanCode | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<number | null>(null);
@@ -95,7 +99,7 @@ export function MonthlyBilling() {
       setInvoices(overview.invoices || []);
       setBilling(overview.billing);
     } catch (error) {
-      toast.error(errorMessage(error) || "Não foi possível carregar as mensalidades.");
+      toast.error(errorMessage(error) || 'Não foi possível carregar as mensalidades.');
     } finally {
       setLoading(false);
     }
@@ -113,13 +117,13 @@ export function MonthlyBilling() {
       try {
         const overview = await monthlyBillingService.getOverview();
         const paidInvoice = overview.invoices.find(
-          (invoice) => invoice.id === pix.invoice.id && invoice.status === "PAGO",
+          (invoice) => invoice.id === pix.invoice.id && invoice.status === 'PAGO',
         );
 
         if (paidInvoice) {
           window.clearInterval(timer);
           setPix(null);
-          toast.success("Pagamento confirmado. A escolha do plano foi liberada.");
+          toast.success('Pagamento confirmado. A escolha do plano foi liberada.');
           await load();
         }
       } catch {
@@ -134,10 +138,10 @@ export function MonthlyBilling() {
     setChangingPlan(plan);
     try {
       const result = await monthlyBillingService.requestPlanChange(plan);
-      toast.success(result.message || "Troca de plano agendada.");
+      toast.success(result.message || 'Troca de plano agendada.');
       await load();
     } catch (error) {
-      toast.error(errorMessage(error) || "Não foi possível alterar o plano.");
+      toast.error(errorMessage(error) || 'Não foi possível alterar o plano.');
     } finally {
       setChangingPlan(null);
     }
@@ -156,7 +160,7 @@ export function MonthlyBilling() {
     } catch (error) {
       toast.error(
         errorMessage(error) ||
-          (error instanceof Error ? error.message : "Não foi possível gerar o Pix."),
+          (error instanceof Error ? error.message : 'Não foi possível gerar o Pix.'),
       );
     } finally {
       setPayingInvoice(null);
@@ -166,24 +170,24 @@ export function MonthlyBilling() {
   const copyPix = async () => {
     if (!pix?.qrCode) return;
     await navigator.clipboard.writeText(pix.qrCode);
-    toast.success("Código Pix copiado.");
+    toast.success('Código Pix copiado.');
   };
 
   if (loading) return <S.Loading>Carregando planos e mensalidades...</S.Loading>;
 
-  const active = subscription?.status === "ATIVA" || subscription?.status === "TESTE";
+  const active = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
   const displayedPlans = plans.length ? plans : fallbackPlans;
   const currentPlan = displayedPlans.find((plan) => plan.plan === subscription?.plan);
   const scheduledPlan = displayedPlans.find((plan) => plan.plan === subscription?.scheduledPlan);
   const planChoice = subscription?.planChangeEligibility;
-  const payableStatuses = new Set(["PENDENTE", "ATRASADO", "VENCIDO"]);
+  const payableStatuses = new Set(['PENDENTE', 'ATRASADO', 'VENCIDO']);
   const currentInvoice =
     invoices.find((invoice) => invoice.id === billing?.currentInvoiceId) ||
     invoices.find((invoice) => payableStatuses.has(invoice.status));
   const currentPixAvailable = Boolean(currentInvoice && billing?.pixAvailable);
 
   const invoicePixAvailable = (invoice: Invoice) => {
-    if (invoice.status === "ATRASADO") return true;
+    if (invoice.status === 'ATRASADO') return true;
     if (invoice.id === currentInvoice?.id) return currentPixAvailable;
 
     const availableAt = new Date(invoice.dueDate);
@@ -196,49 +200,46 @@ export function MonthlyBilling() {
       <S.Summary>
         <div>
           <small>SEU PLANO ATUAL</small>
-          <h2>{currentPlan?.name || subscription?.plan || "Sem plano"}</h2>
+          <h2>{currentPlan?.name || subscription?.plan || 'Sem plano'}</h2>
           <p>
             {currentPlan
               ? `${money(currentPlan.monthlyFee)} por mês`
-              : "Escolha o plano ideal para o restaurante."}
+              : 'Escolha o plano ideal para o restaurante.'}
           </p>
         </div>
         <S.Status $active={active}>
-          {statusLabels[subscription?.status || ""] ||
-            subscription?.status ||
-            "Não configurada"}
+          {statusLabels[subscription?.status || ''] || subscription?.status || 'Não configurada'}
         </S.Status>
       </S.Summary>
 
-      {subscription?.status === "TESTE" && subscription.trialEndsAt ? (
+      {subscription?.status === 'TESTE' && subscription.trialEndsAt ? (
         <S.Notice>
           Seu período de teste termina em <strong>{date(subscription.trialEndsAt)}</strong>.
         </S.Notice>
       ) : null}
       {scheduledPlan ? (
         <S.Notice>
-          A troca para <strong>{scheduledPlan.name}</strong> está agendada para{" "}
-          {String(subscription?.scheduledPlanEffectiveMonth).padStart(2, "0")}/
+          A troca para <strong>{scheduledPlan.name}</strong> está agendada para{' '}
+          {String(subscription?.scheduledPlanEffectiveMonth).padStart(2, '0')}/
           {subscription?.scheduledPlanEffectiveYear}.
         </S.Notice>
       ) : null}
 
       <S.ViewTabs aria-label="Seções de cobrança e assinatura">
-        <button className={view === "plans" ? "active" : ""} onClick={() => setView("plans")}>
+        <button className={view === 'plans' ? 'active' : ''} onClick={() => setView('plans')}>
           <Layers3 size={17} /> Assinatura e planos
         </button>
-        <button className={view === "charges" ? "active" : ""} onClick={() => setView("charges")}>
+        <button className={view === 'charges' ? 'active' : ''} onClick={() => setView('charges')}>
           <CreditCard size={17} /> Cobranças
         </button>
       </S.ViewTabs>
 
-      {view === "plans" ? (
+      {view === 'plans' ? (
         <>
           <S.SectionTitle>
             <h2>Planos disponíveis</h2>
             <p>
-              {planChoice?.reason ||
-                "A escolha é liberada depois que uma fatura vencida for paga."}
+              {planChoice?.reason || 'A escolha é liberada depois que uma fatura vencida for paga.'}
             </p>
           </S.SectionTitle>
           <S.Plans>
@@ -246,13 +247,15 @@ export function MonthlyBilling() {
               const Icon = planIcons[plan.plan];
               const current = subscription?.plan === plan.plan;
               return (
-                <S.PlanCard key={plan.plan} $featured={plan.plan === "PREMIUM"} $current={current}>
+                <S.PlanCard key={plan.plan} $featured={plan.plan === 'PREMIUM'} $current={current}>
                   {current ? <S.CurrentTag>Plano atual</S.CurrentTag> : null}
-                  {plan.plan === "PREMIUM" && !current ? (
+                  {plan.plan === 'PREMIUM' && !current ? (
                     <S.RecommendedTag>Recomendado</S.RecommendedTag>
                   ) : null}
                   <S.PlanHeading>
-                    <span><Icon size={22} /></span>
+                    <span>
+                      <Icon size={22} />
+                    </span>
                     <div>
                       <small>PLANO</small>
                       <h3>{plan.name}</h3>
@@ -281,14 +284,14 @@ export function MonthlyBilling() {
                     onClick={() => void changePlan(plan.plan)}
                   >
                     {changingPlan === plan.plan
-                      ? "Registrando escolha..."
+                      ? 'Registrando escolha...'
                       : current && planChoice?.allowed
-                        ? "Continuar neste plano"
+                        ? 'Continuar neste plano'
                         : current
-                          ? "Plano atual"
+                          ? 'Plano atual'
                           : planChoice?.allowed
-                            ? "Escolher para o próximo ciclo"
-                            : "Escolha bloqueada"}
+                            ? 'Escolher para o próximo ciclo'
+                            : 'Escolha bloqueada'}
                   </S.ChoosePlanButton>
                 </S.PlanCard>
               );
@@ -304,7 +307,9 @@ export function MonthlyBilling() {
           <S.BillingCard>
             <S.BillingCardHeader>
               <div>
-                <span className="label"><CalendarClock size={16} /> Ciclo da assinatura</span>
+                <span className="label">
+                  <CalendarClock size={16} /> Ciclo da assinatura
+                </span>
                 <h2>{billing?.completedMonths || 0} meses completos</h2>
                 <p>Contagem iniciada quando o restaurante e seu primeiro Admin foram vinculados.</p>
               </div>
@@ -320,7 +325,10 @@ export function MonthlyBilling() {
               </div>
               <div>
                 <span>Admin vinculado em</span>
-                <strong>{date(billing?.adminCreatedAt)}{billing?.adminName ? ` • ${billing.adminName}` : ""}</strong>
+                <strong>
+                  {date(billing?.adminCreatedAt)}
+                  {billing?.adminName ? ` • ${billing.adminName}` : ''}
+                </strong>
               </div>
               <div>
                 <span>Vencimento da mensalidade</span>
@@ -339,7 +347,7 @@ export function MonthlyBilling() {
                     ? `Mensalidade atual: ${money(currentInvoice.total)}. O valor é recebido pela conta Mercado Pago do dono da plataforma e a confirmação é automática.`
                     : currentInvoice
                       ? `O QR Code será liberado em ${date(billing?.pixAvailableAt)}, próximo ao vencimento da mensalidade.`
-                    : "Não existe mensalidade pendente para gerar o QR Code neste momento."}
+                      : 'Não existe mensalidade pendente para gerar o QR Code neste momento.'}
                 </p>
               </div>
               <button
@@ -348,8 +356,8 @@ export function MonthlyBilling() {
               >
                 <QrCode size={18} />
                 {currentInvoice && payingInvoice === currentInvoice.id
-                  ? "Gerando QR Code..."
-                  : "Gerar QR Code Pix"}
+                  ? 'Gerando QR Code...'
+                  : 'Gerar QR Code Pix'}
               </button>
             </S.BillingPayment>
           </S.BillingCard>
@@ -358,28 +366,32 @@ export function MonthlyBilling() {
               {invoices.map((invoice) => (
                 <S.InvoiceRow key={invoice.id}>
                   <div>
-                    <h3>Mensalidade {String(invoice.month).padStart(2, "0")}/{invoice.year}</h3>
+                    <h3>
+                      Mensalidade {String(invoice.month).padStart(2, '0')}/{invoice.year}
+                    </h3>
                     <p>
                       Vencimento em {date(invoice.dueDate)}
-                      {invoice.paidAt ? ` • Pago em ${date(invoice.paidAt)}` : ""}
+                      {invoice.paidAt ? ` • Pago em ${date(invoice.paidAt)}` : ''}
                     </p>
                   </div>
                   <strong>{money(invoice.total)}</strong>
                   <S.InvoiceStatus $status={invoice.status}>
                     {invoiceLabels[invoice.status] || invoice.status}
                   </S.InvoiceStatus>
-                  {invoice.status === "PAGO" ? (
-                    <S.PaidMark title="Mensalidade paga"><CheckCircle2 size={22} /></S.PaidMark>
+                  {invoice.status === 'PAGO' ? (
+                    <S.PaidMark title="Mensalidade paga">
+                      <CheckCircle2 size={22} />
+                    </S.PaidMark>
                   ) : payableStatuses.has(invoice.status) ? (
                     <button
                       disabled={!invoicePixAvailable(invoice) || payingInvoice === invoice.id}
                       onClick={() => void payInvoice(invoice)}
                     >
                       {payingInvoice === invoice.id
-                        ? "Gerando Pix..."
+                        ? 'Gerando Pix...'
                         : invoicePixAvailable(invoice)
-                          ? "Pagar com Pix"
-                          : "Pix ainda não disponível"}
+                          ? 'Pagar com Pix'
+                          : 'Pix ainda não disponível'}
                     </button>
                   ) : (
                     <S.InvoiceUnavailable>Pagamento indisponível</S.InvoiceUnavailable>
@@ -395,15 +407,31 @@ export function MonthlyBilling() {
 
       {pix ? (
         <S.PixBackdrop role="presentation" onMouseDown={() => setPix(null)}>
-          <S.PixModal role="dialog" aria-modal="true" aria-label="Pagamento Pix Mercado Pago" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="close" aria-label="Fechar" onClick={() => setPix(null)}>×</button>
-            <span className="brand"><QrCode size={17} /> Pix Mercado Pago</span>
+          <S.PixModal
+            role="dialog"
+            aria-modal="true"
+            aria-label="Pagamento Pix Mercado Pago"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button className="close" aria-label="Fechar" onClick={() => setPix(null)}>
+              ×
+            </button>
+            <span className="brand">
+              <QrCode size={17} /> Pix Mercado Pago
+            </span>
             <h2>Pague sua mensalidade</h2>
             <p>Escaneie o QR Code pelo aplicativo do seu banco ou copie o código Pix.</p>
-            <img src={`data:image/png;base64,${pix.qrCodeBase64}`} alt="QR Code Pix da mensalidade" />
+            <img
+              src={`data:image/png;base64,${pix.qrCodeBase64}`}
+              alt="QR Code Pix da mensalidade"
+            />
             <div className="amount">{money(pix.invoice.total)}</div>
-            <button className="copy" onClick={() => void copyPix()}><Copy size={17} /> Copiar código Pix</button>
-            <div className="expires">Válido até {date(pix.expiresAt)}. A confirmação acontece automaticamente.</div>
+            <button className="copy" onClick={() => void copyPix()}>
+              <Copy size={17} /> Copiar código Pix
+            </button>
+            <div className="expires">
+              Válido até {date(pix.expiresAt)}. A confirmação acontece automaticamente.
+            </div>
           </S.PixModal>
         </S.PixBackdrop>
       ) : null}

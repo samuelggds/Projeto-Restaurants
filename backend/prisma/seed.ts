@@ -1,8 +1,8 @@
-﻿import bcrypt from "bcrypt";
-import { FuncionarioSubRole, PrismaClient, UserRole } from "@prisma/client";
+﻿import bcrypt from 'bcrypt';
+import { FuncionarioSubRole, PrismaClient, UserRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const PASSWORD = "123456";
+const PASSWORD = '123456';
 
 async function clearDatabase() {
   await prisma.supportChatMessage.deleteMany();
@@ -45,37 +45,76 @@ async function createUser(data: {
 }
 
 async function main() {
-  console.log("Limpando banco de dados...");
+  console.log('Limpando banco de dados...');
   await clearDatabase();
-  console.log("Banco limpo.\n");
+  console.log('Banco limpo.\n');
 
   const restaurant = await prisma.restaurant.create({
     data: {
-      name: "Restaurante Demo",
-      slug: "restaurante-demo",
-      email: "contato@demo.com",
+      name: 'Restaurante Demo',
+      slug: 'restaurante-demo',
+      email: 'contato@demo.com',
       active: true,
     },
   });
 
   const users = [
-    { email: "superadmin@demo.com", name: "Super Admin",  role: UserRole.SUPER_ADMIN,  subRole: null,                        restaurantId: null },
-    { email: "admin@demo.com",      name: "Admin",        role: UserRole.ADMIN,        subRole: null,                        restaurantId: restaurant.id },
-    { email: "cozinha@demo.com",    name: "Cozinheiro",   role: UserRole.FUNCIONARIO,  subRole: FuncionarioSubRole.COZINHA,  restaurantId: restaurant.id },
-    { email: "garcom@demo.com",     name: "Garcom",       role: UserRole.FUNCIONARIO,  subRole: FuncionarioSubRole.GARCOM,   restaurantId: restaurant.id },
-    { email: "motoqueiro@demo.com", name: "Motoqueiro",   role: UserRole.MOTOQUEIRO,   subRole: null,                        restaurantId: restaurant.id },
-    { email: "cliente@demo.com",    name: "Cliente",      role: UserRole.CLIENTE,      subRole: null,                        restaurantId: null },
+    {
+      email: 'superadmin@demo.com',
+      name: 'Super Admin',
+      role: UserRole.SUPER_ADMIN,
+      subRole: null,
+      restaurantId: null,
+    },
+    {
+      email: 'admin@demo.com',
+      name: 'Admin',
+      role: UserRole.ADMIN,
+      subRole: null,
+      restaurantId: restaurant.id,
+    },
+    {
+      email: 'cozinha@demo.com',
+      name: 'Cozinheiro',
+      role: UserRole.FUNCIONARIO,
+      subRole: FuncionarioSubRole.COZINHA,
+      restaurantId: restaurant.id,
+    },
+    {
+      email: 'garcom@demo.com',
+      name: 'Garcom',
+      role: UserRole.FUNCIONARIO,
+      subRole: FuncionarioSubRole.GARCOM,
+      restaurantId: restaurant.id,
+    },
+    {
+      email: 'motoqueiro@demo.com',
+      name: 'Motoqueiro',
+      role: UserRole.MOTOQUEIRO,
+      subRole: null,
+      restaurantId: restaurant.id,
+    },
+    {
+      email: 'cliente@demo.com',
+      name: 'Cliente',
+      role: UserRole.CLIENTE,
+      subRole: null,
+      restaurantId: null,
+    },
   ] as const;
 
   for (const u of users) {
     await createUser(u);
-    const tag = u.subRole ? ` (${u.subRole})` : "";
+    const tag = u.subRole ? ` (${u.subRole})` : '';
     console.log(`  ✓ ${u.role}${tag}  ${u.email}  senha: ${PASSWORD}`);
   }
 
-  console.log("\nSeed concluido.");
+  console.log('\nSeed concluido.');
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import listEmployeeService from "../services/ListEmployeeService.js";
+import { Request, Response } from 'express';
+import listEmployeeService from '../services/ListEmployeeService.js';
 
 class ListEmployeeController {
   async handle(req: Request, res: Response) {
@@ -11,10 +11,7 @@ class ListEmployeeController {
       return res.status(200).json(employess);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao listar funcionarios",
+        error: error instanceof Error ? error.message : 'Erro ao listar funcionarios',
       });
     }
   }

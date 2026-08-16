@@ -1,6 +1,6 @@
-import { Copy, CheckCircle } from "lucide-react";
-import { useState } from "react";
-import styled from "styled-components";
+import { Copy, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import styled from 'styled-components';
 
 type PixPaymentData = {
   orderId: number | null;
@@ -158,10 +158,7 @@ export default function PixPaymentPanel({
 
         {pixPaymentData.qrCodeBase64 && (
           <QrWrap>
-            <img
-              src={`data:image/png;base64,${pixPaymentData.qrCodeBase64}`}
-              alt="QR Code Pix"
-            />
+            <img src={`data:image/png;base64,${pixPaymentData.qrCodeBase64}`} alt="QR Code Pix" />
           </QrWrap>
         )}
 
@@ -184,13 +181,11 @@ export default function PixPaymentPanel({
 
         <WaitMsg>
           {pixPaymentData.paid
-            ? "Pagamento confirmado! Seu pedido já foi enviado ao restaurante."
+            ? 'Pagamento confirmado! Seu pedido já foi enviado ao restaurante.'
             : `Aguardando confirmação automática via ${pixPaymentData.provider}…`}
         </WaitMsg>
 
-        {pixPaymentData.orderId && (
-          <OrderId>Pedido #{pixPaymentData.orderId}</OrderId>
-        )}
+        {pixPaymentData.orderId && <OrderId>Pedido #{pixPaymentData.orderId}</OrderId>}
         {onBackToCart && (
           <BackButton type="button" onClick={onBackToCart}>
             Voltar para o cardápio

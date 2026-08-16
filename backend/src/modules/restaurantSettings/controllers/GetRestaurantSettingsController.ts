@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import getRestaurantSettingsService from "../services/GetRestaurantSettingsService.js";
+import { Request, Response } from 'express';
+import getRestaurantSettingsService from '../services/GetRestaurantSettingsService.js';
 
 class GetRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -14,9 +14,7 @@ class GetRestaurantSettingsController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao buscar configuracoes do restaurante",
+          error instanceof Error ? error.message : 'Erro ao buscar configuracoes do restaurante',
       });
     }
   }

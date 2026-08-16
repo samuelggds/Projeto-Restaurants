@@ -1,23 +1,23 @@
-import "dotenv/config";
-import bcrypt from "bcrypt";
-import { UserRole } from "@prisma/client";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import bcrypt from 'bcrypt';
+import { UserRole } from '@prisma/client';
+import prisma from '../src/config/prisma.js';
 
-const emailArg = String(process.argv[2] || "emanuel@hotmail.com")
+const emailArg = String(process.argv[2] || 'emanuel@hotmail.com')
   .trim()
   .toLowerCase();
-const passwordArg = String(process.argv[3] || "123456").trim();
+const passwordArg = String(process.argv[3] || '123456').trim();
 
 async function main() {
   if (!emailArg || !passwordArg) {
-    throw new Error("Informe email e senha.");
+    throw new Error('Informe email e senha.');
   }
 
   const existing = await prisma.user.findFirst({
     where: {
       email: {
         equals: emailArg,
-        mode: "insensitive",
+        mode: 'insensitive',
       },
     },
     select: {
@@ -50,7 +50,7 @@ async function main() {
       })
     : await prisma.user.create({
         data: {
-          name: "Super Admin",
+          name: 'Super Admin',
           email: emailArg,
           password: hash,
           role: UserRole.SUPER_ADMIN,
@@ -73,7 +73,7 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        status: existing ? "updated" : "created",
+        status: existing ? 'updated' : 'created',
         before: existing,
         after: updated,
         lockoutCleared: true,

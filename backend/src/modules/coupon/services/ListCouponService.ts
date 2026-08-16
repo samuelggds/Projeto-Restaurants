@@ -1,4 +1,4 @@
-import couponRepository from "../repositories/CouponRepository.js";
+import couponRepository from '../repositories/CouponRepository.js';
 
 type ListCouponPayload = {
   restaurantId: number | string;

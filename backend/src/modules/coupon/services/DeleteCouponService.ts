@@ -1,4 +1,4 @@
-import couponRepository from "../repositories/CouponRepository.js";
+import couponRepository from '../repositories/CouponRepository.js';
 
 type DeleteCouponPayload = {
   id: number | string | string[];
@@ -11,12 +11,12 @@ class DeleteCouponService {
     const coupon = await couponRepository.findById(normalizedId, restaurantId);
 
     if (!coupon) {
-      throw new Error("Cupom não encontrado");
+      throw new Error('Cupom não encontrado');
     }
 
     await couponRepository.delete(normalizedId, restaurantId);
 
-    return { message: "Cupom removido com sucesso" };
+    return { message: 'Cupom removido com sucesso' };
   }
 }
 

@@ -1,6 +1,6 @@
-import type { Prisma } from "@prisma/client";
-import { OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import { OrderStatus, PaymentMethod, OrderType } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -37,11 +37,7 @@ class OrderRepository {
     });
   }
 
-  async findAll(
-    restaurantId: number,
-    status?: OrderStatus,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findAll(restaurantId: number, status?: OrderStatus, db: PrismaClientLike = prisma) {
     return db.order.findMany({
       where: {
         restaurantId,
@@ -82,7 +78,7 @@ class OrderRepository {
             isResolved: true,
             messages: {
               orderBy: {
-                sentAt: "desc",
+                sentAt: 'desc',
               },
               take: 40,
               select: {
@@ -94,7 +90,7 @@ class OrderRepository {
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }
@@ -153,7 +149,7 @@ class OrderRepository {
         },
         items: { include: { product: true } },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -180,11 +176,26 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
-  async confirmPayment(
+  async confirmDeliveryReceived(
     id: number | string,
     restaurantId: number,
     db: PrismaClientLike = prisma,
   ) {
+    await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+        status: OrderStatus.ENTREGUE,
+      },
+      data: {
+        deliveryConfirmedAt: new Date(),
+      },
+    });
+
+    return this.findById(id, restaurantId, db);
+  }
+
+  async confirmPayment(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     await db.order.updateMany({
       where: {
         id: Number(id),
@@ -221,8 +232,8 @@ class OrderRepository {
       data: {
         paid: true,
         paidAt: new Date(),
-        paymentProof: String(paymentProof || "").trim() || null,
-        paymentProofImage: String(paymentProofImage || "").trim() || null,
+        paymentProof: String(paymentProof || '').trim() || null,
+        paymentProofImage: String(paymentProofImage || '').trim() || null,
         paymentConfirmationPin: null,
         paymentConfirmationPinExpiresAt: null,
       },
@@ -250,11 +261,7 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
-  async deleteById(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async deleteById(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     await db.order.deleteMany({
       where: {
         id: Number(id),
@@ -263,10 +270,7 @@ class OrderRepository {
     });
   }
 
-  async deleteAllByRestaurant(
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async deleteAllByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.order.deleteMany({
       where: {
         restaurantId,
@@ -295,15 +299,47 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
-  async findById(
+  async findById(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
+    return db.order.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+          },
+        },
+        table: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findByIdForCustomer(
     id: number | string,
-    restaurantId: number,
+    customerId: number,
     db: PrismaClientLike = prisma,
   ) {
     return db.order.findFirst({
       where: {
         id: Number(id),
-        restaurantId,
+        userId: customerId,
       },
       include: {
         user: {
@@ -445,7 +481,7 @@ class OrderRepository {
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }
@@ -502,7 +538,7 @@ class OrderRepository {
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }

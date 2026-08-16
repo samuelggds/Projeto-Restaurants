@@ -1,5 +1,5 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
@@ -13,7 +13,7 @@ import prisma from "../src/config/prisma.js";
         asaasAccessToken: true,
       },
       orderBy: {
-        restaurantId: "asc",
+        restaurantId: 'asc',
       },
     });
 
@@ -23,9 +23,7 @@ import prisma from "../src/config/prisma.js";
       cardGateway: row.cardGateway,
       pixKey: row.pixKey,
       gatewayMerchantId: row.gatewayMerchantId,
-      asaasAccessTokenConfigured: Boolean(
-        String(row.asaasAccessToken || "").trim(),
-      ),
+      asaasAccessTokenConfigured: Boolean(String(row.asaasAccessToken || '').trim()),
     }));
 
     console.log(JSON.stringify(out, null, 2));

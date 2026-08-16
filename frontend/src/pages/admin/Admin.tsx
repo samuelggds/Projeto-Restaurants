@@ -1,115 +1,137 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/authContext";
-import restaurantSettingsService from "../../Services/restaurantSettingsService";
-import employeesService from "../../Services/employeesService";
-import ordersService from "../../Services/ordersService";
-import productsService from "../../Services/productsService";
-import categoriesService from "../../Services/categoriesService";
-import { AdminPage } from "./AdminPage";
-import { adminMockSettings, adminMockEmployees, defaultBusinessHours } from "./data";
-import { normalizeBusinessHours } from "./domain/businessHours";
-import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from "./types";
-import { isPersistentImageSource } from "../../utils/persistentImage";
-import bannerService, { type BannerRecord } from "../../Services/bannerService";
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/authContext';
+import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import employeesService from '../../Services/employeesService';
+import ordersService from '../../Services/ordersService';
+import productsService from '../../Services/productsService';
+import categoriesService from '../../Services/categoriesService';
+import { AdminPage } from './AdminPage';
+import { adminMockSettings, adminMockEmployees, defaultBusinessHours } from './data';
+import { normalizeBusinessHours } from './domain/businessHours';
+import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from './types';
+import { isPersistentImageSource } from '../../utils/persistentImage';
+import bannerService, { type BannerRecord } from '../../Services/bannerService';
 import {
   connectSocket,
   disconnectSocket,
   waitForSocketConnection,
-} from "../../Services/socketService";
-import { getStoredAccessToken } from "../../modules/auth/session/authSession";
-import { playOrderNotificationSound } from "./domain/orderNotificationSound";
+} from '../../Services/socketService';
+import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { playOrderNotificationSound } from './domain/orderNotificationSound';
 
 const BANNER_TITLES = {
-  main: "Banner principal",
+  main: 'Banner principal',
 } as const;
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
 function mapOrder(value: unknown): AdminOrder {
-  const raw = asRecord(value); const user = asRecord(raw.user ?? raw.customer); const numericId = Number(raw.id ?? 0);
-  return { id: String(raw.orderNumber ?? `#${numericId}`), numericId,
-    userId: String(raw.userId ?? user.id ?? "") || undefined,
-    customerName: String(user.name ?? raw.customerName ?? "Cliente"),
-    customerEmail: String(user.email ?? raw.customerEmail ?? "") || undefined,
-    status: String(raw.status ?? "PENDENTE"), total: Number(raw.total ?? raw.totalAmount ?? 0),
-    paid: Boolean(raw.paid ?? raw.paymentConfirmed), type: String(raw.type ?? raw.orderType ?? ""),
-    paymentMethod: String(raw.paymentMethod ?? "") || undefined,
+  const raw = asRecord(value);
+  const user = asRecord(raw.user ?? raw.customer);
+  const numericId = Number(raw.id ?? 0);
+  return {
+    id: String(raw.orderNumber ?? `#${numericId}`),
+    numericId,
+    userId: String(raw.userId ?? user.id ?? '') || undefined,
+    customerName: String(user.name ?? raw.customerName ?? 'Cliente'),
+    customerEmail: String(user.email ?? raw.customerEmail ?? '') || undefined,
+    status: String(raw.status ?? 'PENDENTE'),
+    total: Number(raw.total ?? raw.totalAmount ?? 0),
+    paid: Boolean(raw.paid ?? raw.paymentConfirmed),
+    type: String(raw.type ?? raw.orderType ?? ''),
+    paymentMethod: String(raw.paymentMethod ?? '') || undefined,
     payOnDelivery: Boolean(raw.payOnDelivery),
-    payOnDeliveryMethod: String(raw.payOnDeliveryMethod ?? "") || undefined,
-    createdAt: String(raw.createdAt ?? "") || undefined };
+    payOnDeliveryMethod: String(raw.payOnDeliveryMethod ?? '') || undefined,
+    createdAt: String(raw.createdAt ?? '') || undefined,
+  };
 }
 
 function mapProduct(value: unknown): AdminProduct {
-  const raw = asRecord(value); const category = asRecord(raw.category);
-  return { id: String(raw.id ?? ""), categoryId: Number(raw.categoryId ?? category.id ?? 0),
-    name: String(raw.name ?? "Produto"), category: String(category.name ?? raw.categoryName ?? "Sem categoria"),
-    price: Number(raw.price ?? 0), image: String(raw.image ?? raw.imageUrl ?? ""),
-    description: String(raw.description ?? ""),
+  const raw = asRecord(value);
+  const category = asRecord(raw.category);
+  return {
+    id: String(raw.id ?? ''),
+    categoryId: Number(raw.categoryId ?? category.id ?? 0),
+    name: String(raw.name ?? 'Produto'),
+    category: String(category.name ?? raw.categoryName ?? 'Sem categoria'),
+    price: Number(raw.price ?? 0),
+    image: String(raw.image ?? raw.imageUrl ?? ''),
+    description: String(raw.description ?? ''),
     stock: raw.stock === null || raw.stock === undefined ? null : Number(raw.stock),
-    active: raw.active !== false };
+    active: raw.active !== false,
+  };
 }
 
-function mapSettingsFromApi(raw: Record<string, unknown>, banners: BannerRecord[] = []): AdminSettings {
+function mapSettingsFromApi(
+  raw: Record<string, unknown>,
+  banners: BannerRecord[] = [],
+): AdminSettings {
   const r = (raw?.restaurant as Record<string, unknown>) ?? {};
-  const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? "";
-  const coverCandidate = r?.coverImage ?? raw?.restaurantCoverImage ?? adminMockSettings.coverImageUrl ?? "";
+  const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? '';
+  const coverCandidate =
+    r?.coverImage ?? raw?.restaurantCoverImage ?? adminMockSettings.coverImageUrl ?? '';
   const banner = (title: string) => banners.find((item) => item.title === title);
   const mainBanner = banner(BANNER_TITLES.main);
   return {
-    restaurantName: String(
-      r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName,
-    ),
-    companyLegalName: String(raw?.companyLegalName ?? ""),
-    legalDocumentType: String(raw?.legalDocumentType ?? "CNPJ").toUpperCase() === "CPF" ? "CPF" : "CNPJ",
-    companyDocument: String(raw?.companyDocument ?? ""),
-    businessPhone: String(raw?.ownerPhone ?? ""),
-    businessEmail: String(raw?.ownerEmail ?? ""),
-    businessZipCode: String(r?.zipCode ?? ""),
-    businessAddress: String(r?.address ?? ""),
-    businessAddressNumber: String(r?.addressNumber ?? ""),
-    businessAddressComplement: String(r?.addressComplement ?? ""),
-    businessAddressDistrict: String(r?.addressDistrict ?? ""),
-    businessCity: String(r?.city ?? ""),
-    businessState: String(r?.state ?? ""),
+    restaurantName: String(r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName),
+    companyLegalName: String(raw?.companyLegalName ?? ''),
+    legalDocumentType:
+      String(raw?.legalDocumentType ?? 'CNPJ').toUpperCase() === 'CPF' ? 'CPF' : 'CNPJ',
+    companyDocument: String(raw?.companyDocument ?? ''),
+    businessPhone: String(raw?.ownerPhone ?? ''),
+    businessEmail: String(raw?.ownerEmail ?? ''),
+    businessZipCode: String(r?.zipCode ?? ''),
+    businessAddress: String(r?.address ?? ''),
+    businessAddressNumber: String(r?.addressNumber ?? ''),
+    businessAddressComplement: String(r?.addressComplement ?? ''),
+    businessAddressDistrict: String(r?.addressDistrict ?? ''),
+    businessCity: String(r?.city ?? ''),
+    businessState: String(r?.state ?? ''),
     businessHours: normalizeBusinessHours(raw?.businessHours, defaultBusinessHours),
     isOpenForOrders: raw?.isOpenForOrders !== false,
-    logoUrl: isPersistentImageSource(logoCandidate) ? String(logoCandidate) : "",
-    coverImageUrl: isPersistentImageSource(coverCandidate) ? String(coverCandidate) : "",
+    logoUrl: isPersistentImageSource(logoCandidate) ? String(logoCandidate) : '',
+    coverImageUrl: isPersistentImageSource(coverCandidate) ? String(coverCandidate) : '',
     primaryColor: String(raw?.primaryColor ?? adminMockSettings.primaryColor),
-    description: String(r?.description ?? raw?.restaurantDescription ?? raw?.description ?? adminMockSettings.description),
+    description: String(
+      r?.description ??
+        raw?.restaurantDescription ??
+        raw?.description ??
+        adminMockSettings.description,
+    ),
     whatsapp: String(raw?.whatsapp ?? adminMockSettings.whatsapp),
     instagram: String(raw?.instagram ?? adminMockSettings.instagram),
     facebook: String(raw?.facebook ?? adminMockSettings.facebook),
     minimumOrder: Number(raw?.minimumOrder ?? adminMockSettings.minimumOrder),
-    deliveryTime: Number(
-      raw?.averageDeliveryTime ?? adminMockSettings.deliveryTime,
-    ),
+    deliveryTime: Number(raw?.averageDeliveryTime ?? adminMockSettings.deliveryTime),
     autoAcceptOrders: raw?.autoAcceptOrders === true,
     trackingRequiresLogin: raw?.trackingRequiresLogin !== false,
     soundNotifications: raw?.soundNotifications !== false,
-    maxConcurrentOrders: Math.max(1, Number(raw?.maxConcurrentOrders ?? adminMockSettings.maxConcurrentOrders)),
+    maxConcurrentOrders: Math.max(
+      1,
+      Number(raw?.maxConcurrentOrders ?? adminMockSettings.maxConcurrentOrders),
+    ),
     tableOrderingEnabled: Boolean(
       raw?.tableOrderingEnabled ?? adminMockSettings.tableOrderingEnabled,
     ),
-    pixProvider: String(raw?.pixProvider ?? "MERCADO_PAGO"),
-    pixKey: String(raw?.pixKey ?? ""),
-    cardGateway: String(raw?.cardGateway ?? ""),
-    stripeSecretKey: "",
+    pixProvider: String(raw?.pixProvider ?? 'MERCADO_PAGO'),
+    pixKey: String(raw?.pixKey ?? ''),
+    cardGateway: String(raw?.cardGateway ?? ''),
+    stripeSecretKey: '',
     stripeSecretKeyConfigured: Boolean(raw?.stripeSecretKeyConfigured),
-    stripeWebhookSecret: "",
+    stripeWebhookSecret: '',
     stripeWebhookSecretConfigured: Boolean(raw?.stripeWebhookSecretConfigured),
-    mercadoPagoAccessToken: "",
+    mercadoPagoAccessToken: '',
     mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
-    asaasAccessToken: "",
+    asaasAccessToken: '',
     asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
-    pagbankEmail: String(raw?.pagbankEmail ?? ""),
-    pagbankToken: "",
+    pagbankEmail: String(raw?.pagbankEmail ?? ''),
+    pagbankToken: '',
     pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
     mainBannerId: mainBanner?.id,
-    mainBannerUrl: mainBanner?.image ?? "",
+    mainBannerUrl: mainBanner?.image ?? '',
   };
 }
 
@@ -118,10 +140,10 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
     restaurantName: settings.restaurantName,
     legalDocumentType: settings.legalDocumentType,
     companyLegalName: settings.companyLegalName.trim(),
-    companyDocument: settings.companyDocument.replace(/\D/g, ""),
-    ownerPhone: settings.businessPhone.replace(/\D/g, ""),
+    companyDocument: settings.companyDocument.replace(/\D/g, ''),
+    ownerPhone: settings.businessPhone.replace(/\D/g, ''),
     ownerEmail: settings.businessEmail.trim().toLowerCase(),
-    restaurantZipCode: settings.businessZipCode.replace(/\D/g, ""),
+    restaurantZipCode: settings.businessZipCode.replace(/\D/g, ''),
     restaurantAddress: settings.businessAddress.trim(),
     restaurantAddressNumber: settings.businessAddressNumber.trim(),
     restaurantAddressComplement: settings.businessAddressComplement.trim(),
@@ -149,48 +171,38 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
     pagbankEmail: settings.pagbankEmail,
-    ...(settings.stripeSecretKey
-      ? { stripeSecretKey: settings.stripeSecretKey }
-      : {}),
-    ...(settings.stripeWebhookSecret
-      ? { stripeWebhookSecret: settings.stripeWebhookSecret }
-      : {}),
+    ...(settings.stripeSecretKey ? { stripeSecretKey: settings.stripeSecretKey } : {}),
+    ...(settings.stripeWebhookSecret ? { stripeWebhookSecret: settings.stripeWebhookSecret } : {}),
     ...(settings.mercadoPagoAccessToken
       ? { mercadoPagoAccessToken: settings.mercadoPagoAccessToken }
       : {}),
-    ...(settings.asaasAccessToken
-      ? { asaasAccessToken: settings.asaasAccessToken }
-      : {}),
-    ...(settings.pagbankToken
-      ? { pagbankToken: settings.pagbankToken }
-      : {}),
+    ...(settings.asaasAccessToken ? { asaasAccessToken: settings.asaasAccessToken } : {}),
+    ...(settings.pagbankToken ? { pagbankToken: settings.pagbankToken } : {}),
   };
 }
 
 function mapEmployee(raw: Record<string, unknown>): Employee {
-  const sub = String(raw?.subRole ?? "");
-  let role: Employee["role"] = "ATTENDANT";
-  if (sub === "COZINHA") role = "COOK";
-  else if (sub === "GARCOM") role = "WAITER";
+  const sub = String(raw?.subRole ?? '');
+  let role: Employee['role'] = 'ATTENDANT';
+  if (sub === 'COZINHA') role = 'COOK';
+  else if (sub === 'GARCOM') role = 'WAITER';
   return {
-    id: String(raw?.id ?? ""),
-    name: String(raw?.name ?? ""),
-    email: String(raw?.email ?? ""),
+    id: String(raw?.id ?? ''),
+    name: String(raw?.name ?? ''),
+    email: String(raw?.email ?? ''),
     role,
     active: raw?.active !== false,
     permissions: {
       viewOrders: true,
       updateOrderStatus: true,
-      manageQrTables: Boolean(
-        (raw?.permissions as Record<string, unknown>)?.manageQrTables,
-      ),
+      manageQrTables: Boolean((raw?.permissions as Record<string, unknown>)?.manageQrTables),
     },
   };
 }
 
-const subRoleMap: Record<Employee["role"], string | null> = {
-  COOK: "COZINHA",
-  WAITER: "GARCOM",
+const subRoleMap: Record<Employee['role'], string | null> = {
+  COOK: 'COZINHA',
+  WAITER: 'GARCOM',
   ATTENDANT: null,
 };
 
@@ -212,28 +224,40 @@ export default function Admin() {
 
   async function loadOperations() {
     const [orderData, productData, categoryData] = await Promise.all([
-      ordersService.listRestaurantOrders(), productsService.listProducts(), categoriesService.listCategories(),
+      ordersService.listRestaurantOrders(),
+      productsService.listProducts(),
+      categoriesService.listCategories(),
     ]);
-    setOrders(orderData.map(mapOrder)); setProducts(productData.map(mapProduct));
-    setCategories(categoryData.map((value: unknown) => { const raw = asRecord(value); return { id: Number(raw.id), name: String(raw.name), active: raw.active !== false }; }));
+    setOrders(orderData.map(mapOrder));
+    setProducts(productData.map(mapProduct));
+    setCategories(
+      categoryData.map((value: unknown) => {
+        const raw = asRecord(value);
+        return { id: Number(raw.id), name: String(raw.name), active: raw.active !== false };
+      }),
+    );
   }
 
   useEffect(() => {
     let mounted = true;
-    Promise.resolve().then(async () => {
-      if (mounted) await loadOperations();
-    }).catch((error) => console.error("Não foi possível carregar a operação.", error));
-    return () => { mounted = false; };
+    Promise.resolve()
+      .then(async () => {
+        if (mounted) await loadOperations();
+      })
+      .catch((error) => console.error('Não foi possível carregar a operação.', error));
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
     const token = getStoredAccessToken();
     if (!token) return;
 
-    const socket = connectSocket(token, "admin-orders");
+    const socket = connectSocket(token, 'admin-orders');
     const refreshOrders = () => {
       void loadOperations().catch((error) =>
-        console.error("Não foi possível atualizar os pedidos em tempo real.", error),
+        console.error('Não foi possível atualizar os pedidos em tempo real.', error),
       );
     };
     const onNewOrder = () => {
@@ -241,14 +265,14 @@ export default function Admin() {
       refreshOrders();
     };
 
-    socket.on("new-order", onNewOrder);
-    socket.on("order:payment-confirmed", refreshOrders);
-    socket.on("order:status-changed", refreshOrders);
+    socket.on('new-order', onNewOrder);
+    socket.on('order:payment-confirmed', refreshOrders);
+    socket.on('order:status-changed', refreshOrders);
 
     return () => {
-      socket.off("new-order", onNewOrder);
-      socket.off("order:payment-confirmed", refreshOrders);
-      socket.off("order:status-changed", refreshOrders);
+      socket.off('new-order', onNewOrder);
+      socket.off('order:payment-confirmed', refreshOrders);
+      socket.off('order:status-changed', refreshOrders);
       disconnectSocket();
     };
   }, []);
@@ -258,13 +282,11 @@ export default function Admin() {
     Promise.all([restaurantSettingsService.getMySettings(), bannerService.list()])
       .then(([data, banners]) => {
         if (!mounted) return;
-        setSettingsId(
-          Number((data as Record<string, unknown>)?.id ?? 0) || null,
-        );
+        setSettingsId(Number((data as Record<string, unknown>)?.id ?? 0) || null);
         setSettings(mapSettingsFromApi(data as Record<string, unknown>, banners));
       })
       .catch((error) => {
-        console.error("Não foi possível carregar as configurações.", error);
+        console.error('Não foi possível carregar as configurações.', error);
       });
     return () => {
       mounted = false;
@@ -278,12 +300,10 @@ export default function Admin() {
       .then((data) => {
         if (!mounted) return;
         if (Array.isArray(data) && data.length > 0)
-          setEmployees(
-            data.map((e) => mapEmployee(e as Record<string, unknown>)),
-          );
+          setEmployees(data.map((e) => mapEmployee(e as Record<string, unknown>)));
       })
       .catch((error) => {
-        console.error("Não foi possível carregar os funcionários.", error);
+        console.error('Não foi possível carregar os funcionários.', error);
       });
     return () => {
       mounted = false;
@@ -297,44 +317,44 @@ export default function Admin() {
         await restaurantSettingsService.updateSettings(settingsId, payload);
       } else {
         const created = await restaurantSettingsService.createSettings(payload);
-        setSettingsId(
-          Number((created as Record<string, unknown>)?.id ?? 0) || null,
-        );
+        setSettingsId(Number((created as Record<string, unknown>)?.id ?? 0) || null);
       }
       const slots = [
         { id: updated.mainBannerId, title: BANNER_TITLES.main, image: updated.mainBannerUrl },
       ];
-      const persisted = await Promise.all(slots.filter((slot) => Boolean(slot.image)).map((slot) =>
-        slot.id
-          ? bannerService.update(slot.id, { title: slot.title, image: String(slot.image) })
-          : bannerService.create({ title: slot.title, image: String(slot.image) }),
-      ));
+      const persisted = await Promise.all(
+        slots
+          .filter((slot) => Boolean(slot.image))
+          .map((slot) =>
+            slot.id
+              ? bannerService.update(slot.id, { title: slot.title, image: String(slot.image) })
+              : bannerService.create({ title: slot.title, image: String(slot.image) }),
+          ),
+      );
       setSettings((current) => ({
         ...current,
-        mainBannerId: persisted.find((item) => item.title === BANNER_TITLES.main)?.id ?? current.mainBannerId,
+        mainBannerId:
+          persisted.find((item) => item.title === BANNER_TITLES.main)?.id ?? current.mainBannerId,
       }));
     } catch (error) {
-      console.error("Não foi possível salvar as configurações.", error);
+      console.error('Não foi possível salvar as configurações.', error);
       throw error;
     }
   }
 
-  async function handleCreateEmployee(employee: Omit<Employee, "id">) {
+  async function handleCreateEmployee(employee: Omit<Employee, 'id'>) {
     try {
       const created = await employeesService.createEmployee({
         name: employee.name,
         email: employee.email,
-        role: "FUNCIONARIO",
+        role: 'FUNCIONARIO',
         subRole: subRoleMap[employee.role],
       });
       const mappedEmployee = mapEmployee(created as Record<string, unknown>);
-      setEmployees((prev) => [
-        ...prev,
-        mappedEmployee,
-      ]);
+      setEmployees((prev) => [...prev, mappedEmployee]);
       return mappedEmployee;
     } catch (error) {
-      console.error("Não foi possível criar o funcionário.", error);
+      console.error('Não foi possível criar o funcionário.', error);
       throw error;
     }
   }
@@ -346,32 +366,27 @@ export default function Admin() {
         email: employee.email,
         subRole: subRoleMap[employee.role],
       });
-      setEmployees((prev) =>
-        prev.map((e) => (e.id === employee.id ? employee : e)),
-      );
+      setEmployees((prev) => prev.map((e) => (e.id === employee.id ? employee : e)));
       return employee;
     } catch (error) {
-      console.error("Não foi possível atualizar o funcionário.", error);
+      console.error('Não foi possível atualizar o funcionário.', error);
       throw error;
     }
   }
 
-  async function handleReportSupport(payload: {
-    subject: string;
-    message: string;
-  }) {
+  async function handleReportSupport(payload: { subject: string; message: string }) {
     const token = getStoredAccessToken();
-    if (!token) throw new Error("Sessão não encontrada.");
+    if (!token) throw new Error('Sessão não encontrada.');
 
-    const socket = connectSocket(token, "admin-help");
+    const socket = connectSocket(token, 'admin-help');
     await waitForSocketConnection();
     await new Promise<void>((resolve, reject) => {
       socket.emit(
-        "support:chat-send",
+        'support:chat-send',
         { message: `[${payload.subject}] ${payload.message}` },
         (result: { ok?: boolean; error?: string }) => {
           if (result?.ok) resolve();
-          else reject(new Error(result?.error || "Não foi possível enviar o relato."));
+          else reject(new Error(result?.error || 'Não foi possível enviar o relato.'));
         },
       );
     });
@@ -385,40 +400,71 @@ export default function Admin() {
       initialOrders={orders}
       initialProducts={products}
       initialCategories={categories}
-      onUpdateOrderStatus={async (id, status) => { await ordersService.updateStatus(id, status); await loadOperations(); }}
-      onConfirmOrderPayment={async (id) => { await ordersService.confirmPayment(id); await loadOperations(); }}
-      onCancelOrder={async (id) => { await ordersService.refundOrder(id); await loadOperations(); }}
+      onUpdateOrderStatus={async (id, status) => {
+        await ordersService.updateStatus(id, status);
+        await loadOperations();
+      }}
+      onConfirmOrderPayment={async (id) => {
+        await ordersService.confirmPayment(id);
+        await loadOperations();
+      }}
+      onCancelOrder={async (id) => {
+        await ordersService.refundOrder(id);
+        await loadOperations();
+      }}
       onSaveProduct={async (product) => {
-        const activeFromStock = product.stock === null || product.stock === undefined || product.stock > 0;
-        const payload = { name: product.name, description: product.description || "", image: product.image || "", price: product.price,
-          categoryId: product.categoryId, active: activeFromStock, featured: false, preparationTime: 20, stock: product.stock ?? null };
+        const activeFromStock =
+          product.stock === null || product.stock === undefined || product.stock > 0;
+        const payload = {
+          name: product.name,
+          description: product.description || '',
+          image: product.image || '',
+          price: product.price,
+          categoryId: product.categoryId,
+          active: activeFromStock,
+          featured: false,
+          preparationTime: 20,
+          stock: product.stock ?? null,
+        };
         if (product.id) await productsService.updateProduct(product.id, payload);
         else await productsService.createProduct(payload);
         await loadOperations();
       }}
-      onDeleteProduct={async (id) => { await productsService.deleteProduct(id); await loadOperations(); }}
-      onCreateCategory={async (name) => { await categoriesService.createCategory({ name, active: true }); await loadOperations(); }}
-      onUpdateCategory={async (id, name) => { await categoriesService.updateCategory(id, { name }); await loadOperations(); }}
-      onDeleteCategory={async (id) => { await categoriesService.deleteCategory(id); await loadOperations(); }}
+      onDeleteProduct={async (id) => {
+        await productsService.deleteProduct(id);
+        await loadOperations();
+      }}
+      onCreateCategory={async (name) => {
+        await categoriesService.createCategory({ name, active: true });
+        await loadOperations();
+      }}
+      onUpdateCategory={async (id, name) => {
+        await categoriesService.updateCategory(id, { name });
+        await loadOperations();
+      }}
+      onDeleteCategory={async (id) => {
+        await categoriesService.deleteCategory(id);
+        await loadOperations();
+      }}
       onSaveSettings={handleSaveSettings}
       onReportSupport={handleReportSupport}
       onConnectMercadoPago={async () => {
         const result = await restaurantSettingsService.startMercadoPagoOAuth();
         const authorizationUrl = String(
-          (result as Record<string, unknown>)?.authorizationUrl || "",
+          (result as Record<string, unknown>)?.authorizationUrl || '',
         );
         if (!/^https:\/\//i.test(authorizationUrl)) {
-          throw new Error("O Mercado Pago não retornou uma URL segura de autorização.");
+          throw new Error('O Mercado Pago não retornou uma URL segura de autorização.');
         }
         window.location.assign(authorizationUrl);
       }}
       onConnectPagBank={async () => {
         const result = await restaurantSettingsService.startPagBankOAuth();
         const authorizationUrl = String(
-          (result as Record<string, unknown>)?.authorizationUrl || "",
+          (result as Record<string, unknown>)?.authorizationUrl || '',
         );
         if (!/^https:\/\//i.test(authorizationUrl)) {
-          throw new Error("O PagBank não retornou uma URL segura de autorização.");
+          throw new Error('O PagBank não retornou uma URL segura de autorização.');
         }
         window.location.assign(authorizationUrl);
       }}
@@ -431,16 +477,24 @@ export default function Admin() {
       onUpdateEmployee={handleUpdateEmployee}
       onDeactivateEmployee={async (id) => {
         await employeesService.deactivateEmployee(id);
-        setEmployees((current) => current.map((employee) => employee.id === id ? { ...employee, active: false } : employee));
+        setEmployees((current) =>
+          current.map((employee) =>
+            employee.id === id ? { ...employee, active: false } : employee,
+          ),
+        );
       }}
       onReactivateEmployee={async (id) => {
         await employeesService.reactivateEmployee(id);
-        setEmployees((current) => current.map((employee) => employee.id === id ? { ...employee, active: true } : employee));
+        setEmployees((current) =>
+          current.map((employee) =>
+            employee.id === id ? { ...employee, active: true } : employee,
+          ),
+        );
       }}
-      onViewStore={() => navigate("/")}
+      onViewStore={() => navigate('/')}
       onLogout={() => {
         logout();
-        navigate("/login");
+        navigate('/login');
       }}
     />
   );

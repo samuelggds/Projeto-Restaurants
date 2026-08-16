@@ -1,24 +1,18 @@
-﻿import prisma from "../../../config/prisma.js";
-import orderRepository from "../repositories/OrderRepository.js";
-import productRepository from "../../products/repositories/ProductRepository.js";
-import { io } from "../../../server.js";
-import { createOrderSchema } from "../../../validators/OrderValidator.js";
-import tableSessionRepository from "../../tableSession/repositories/TableSessionRepository.js";
-import orderPixPaymentService from "./OrderPixPaymentService.js";
-import {
-  PaymentMethod,
-  Prisma,
-  TableSessionStatus,
-  OrderType,
-  OrderStatus,
-} from "@prisma/client";
-import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
-import { z } from "zod";
-import restaurantSettingsRepository from "../../restaurantSettings/repositories/RestaurantSettingsRepository.js";
-import { assertRestaurantIsOpenForOrders } from "../utils/restaurantAvailability.js";
-import { assertOrderCapacity } from "../utils/orderCapacity.js";
+﻿import prisma from '../../../config/prisma.js';
+import orderRepository from '../repositories/OrderRepository.js';
+import productRepository from '../../products/repositories/ProductRepository.js';
+import { io } from '../../../server.js';
+import { createOrderSchema } from '../../../validators/OrderValidator.js';
+import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
+import orderPixPaymentService from './OrderPixPaymentService.js';
+import { PaymentMethod, Prisma, TableSessionStatus, OrderType, OrderStatus } from '@prisma/client';
+import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
+import { z } from 'zod';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
+import { assertOrderCapacity } from '../utils/orderCapacity.js';
 
-type OrderItemInput = z.infer<typeof createOrderSchema>["items"][number];
+type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
 type CreateOrderPayload = {
   userId?: number | string | null;
@@ -70,7 +64,7 @@ type ResolvePaymentStatePayload = {
 
 class CreateOrderService {
   formatCpf(value: string | number | null | undefined) {
-    const digits = String(value || "").replace(/\D/g, "");
+    const digits = String(value || '').replace(/\D/g, '');
 
     if (digits.length !== 11) {
       return null;
@@ -80,7 +74,7 @@ class CreateOrderService {
   }
 
   normalizePhone(value: string | number | null | undefined) {
-    const digits = String(value || "").replace(/\D/g, "");
+    const digits = String(value || '').replace(/\D/g, '');
 
     if (!digits) {
       return null;
@@ -122,15 +116,15 @@ class CreateOrderService {
       return Number(userId);
     }
 
-    const normalizedName = String(customerName || "").trim();
-    const cpfDigits = String(customerCpf || "").replace(/\D/g, "");
+    const normalizedName = String(customerName || '').trim();
+    const cpfDigits = String(customerCpf || '').replace(/\D/g, '');
 
     if (normalizedName.length < 2) {
-      throw new Error("Informe o nome para finalizar o pedido.");
+      throw new Error('Informe o nome para finalizar o pedido.');
     }
 
     if (cpfDigits.length !== 11) {
-      throw new Error("Informe um CPF válido com 11 dígitos.");
+      throw new Error('Informe um CPF válido com 11 dígitos.');
     }
 
     const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
@@ -153,7 +147,7 @@ class CreateOrderService {
         name: normalizedName,
         email: guestEmail,
         password: guestPassword,
-        role: "CLIENTE",
+        role: 'CLIENTE',
         active: true,
         phone: normalizedPhone,
         restaurantId,
@@ -172,8 +166,8 @@ class CreateOrderService {
     pixPaymentId,
     restaurantId,
   }: ResolvePaymentStatePayload) {
-    const normalizedPaymentMethod = String(paymentMethod || "").toUpperCase();
-    const normalizedPixPaymentId = String(pixPaymentId || "").trim();
+    const normalizedPaymentMethod = String(paymentMethod || '').toUpperCase();
+    const normalizedPixPaymentId = String(pixPaymentId || '').trim();
     const requestedAsPaid = paid === true;
 
     if (!requestedAsPaid) {
@@ -186,20 +180,14 @@ class CreateOrderService {
     }
 
     if (normalizedPaymentMethod === PaymentMethod.PIX) {
-      if (
-        normalizedPixPaymentId &&
-        !normalizedPixPaymentId.startsWith("manual:")
-      ) {
-        const paymentStatus =
-          await orderPixPaymentService.ensurePaymentApproved({
-            paymentId: normalizedPixPaymentId,
-            restaurantId,
-          });
+      if (normalizedPixPaymentId && !normalizedPixPaymentId.startsWith('manual:')) {
+        const paymentStatus = await orderPixPaymentService.ensurePaymentApproved({
+          paymentId: normalizedPixPaymentId,
+          restaurantId,
+        });
 
         if (!paymentStatus.sameRestaurant) {
-          throw new Error(
-            "O pagamento PIX informado nao pertence a este restaurante.",
-          );
+          throw new Error('O pagamento PIX informado nao pertence a este restaurante.');
         }
 
         return {
@@ -210,7 +198,7 @@ class CreateOrderService {
         };
       }
 
-      throw new Error("Pagamento PIX ainda nao foi confirmado pelo provedor.");
+      throw new Error('Pagamento PIX ainda nao foi confirmado pelo provedor.');
     }
 
     if (normalizedPaymentMethod === PaymentMethod.CARTAO) {
@@ -259,10 +247,9 @@ class CreateOrderService {
     paymentProofImage,
     complement,
   }: CreateOrderPayload) {
-    const resolvedRestaurantId =
-      Number(restaurantId) || Number(userRestaurantId) || null;
+    const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || null;
     if (!resolvedRestaurantId) {
-      throw new Error("Restaurante não informado para o pedido");
+      throw new Error('Restaurante não informado para o pedido');
     }
 
     const restaurantSettings =
@@ -275,25 +262,19 @@ class CreateOrderService {
       : paymentMethod;
 
     if (shouldPayOnDelivery && type !== OrderType.DELIVERY) {
-      throw new Error(
-        "Pagar na entrega só é permitido para pedidos de delivery.",
-      );
+      throw new Error('Pagar na entrega só é permitido para pedidos de delivery.');
     }
 
     if (shouldPayOnDelivery && !effectivePaymentMethod) {
-      throw new Error(
-        "Informe o método de pagamento para pedidos com pagar na entrega.",
-      );
+      throw new Error('Informe o método de pagamento para pedidos com pagar na entrega.');
     }
 
     if (
-      String(effectivePaymentMethod || "").toUpperCase() ===
-        PaymentMethod.PIX &&
-      (String(paymentProof || "").trim() ||
-        String(paymentProofImage || "").trim())
+      String(effectivePaymentMethod || '').toUpperCase() === PaymentMethod.PIX &&
+      (String(paymentProof || '').trim() || String(paymentProofImage || '').trim())
     ) {
       throw new Error(
-        "Nao e permitido enviar comprovante manual para PIX. O pedido sera confirmado automaticamente pelo provedor.",
+        'Nao e permitido enviar comprovante manual para PIX. O pedido sera confirmado automaticamente pelo provedor.',
       );
     }
 
@@ -305,9 +286,7 @@ class CreateOrderService {
       type,
       paymentMethod: effectivePaymentMethod,
       payOnDelivery: shouldPayOnDelivery,
-      payOnDeliveryMethod: shouldPayOnDelivery
-        ? effectivePaymentMethod
-        : undefined,
+      payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : undefined,
       paid,
       pixPaymentId,
       paymentProof,
@@ -324,17 +303,13 @@ class CreateOrderService {
       paymentProofImage,
     });
 
-    const {
-      normalizedPaymentMethod,
-      normalizedPixPaymentId,
-      shouldMarkAsPaid,
-      paidAt,
-    } = await this.resolvePaymentState({
-      paymentMethod: effectivePaymentMethod,
-      paid: shouldPayOnDelivery ? false : paid,
-      pixPaymentId,
-      restaurantId: resolvedRestaurantId,
-    });
+    const { normalizedPaymentMethod, normalizedPixPaymentId, shouldMarkAsPaid, paidAt } =
+      await this.resolvePaymentState({
+        paymentMethod: effectivePaymentMethod,
+        paid: shouldPayOnDelivery ? false : paid,
+        pixPaymentId,
+        restaurantId: resolvedRestaurantId,
+      });
 
     const activeOrders = await orderRepository.countActiveOperationalOrders(resolvedRestaurantId);
     assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
@@ -343,44 +318,38 @@ class CreateOrderService {
       ? OrderStatus.PREPARANDO
       : OrderStatus.PENDENTE;
 
-    if (type === "MESA") {
+    if (type === 'MESA') {
       if (!tableSessionId) {
-        throw new Error(
-          "Sessão da mesa não informada. Valide o PIN da mesa para continuar.",
-        );
+        throw new Error('Sessão da mesa não informada. Valide o PIN da mesa para continuar.');
       }
 
       const session = await tableSessionRepository.findById(tableSessionId);
 
       if (!session || session.status !== TableSessionStatus.OPEN) {
-        throw new Error(
-          "Essa mesa está fechada. Gere um novo PIN com a equipe para continuar.",
-        );
+        throw new Error('Essa mesa está fechada. Gere um novo PIN com a equipe para continuar.');
       }
 
       if (Number(tableId || 0) && Number(tableId) !== Number(session.tableId)) {
-        throw new Error("Mesa do pedido não confere com a sessão validada.");
+        throw new Error('Mesa do pedido não confere com a sessão validada.');
       }
 
       if (
         Number(tableSessionTableId || 0) > 0 &&
         Number(tableSessionTableId) !== Number(session.tableId)
       ) {
-        throw new Error("Sessão da mesa inválida para este pedido.");
+        throw new Error('Sessão da mesa inválida para este pedido.');
       }
 
       tableId = Number(session.tableId);
     }
 
-    if (type === "DELIVERY") {
+    if (type === 'DELIVERY') {
       const requiredAddressFields = [address, number, district, city, state]
-        .map((value) => String(value || "").trim())
+        .map((value) => String(value || '').trim())
         .filter(Boolean);
 
       if (requiredAddressFields.length < 5) {
-        throw new Error(
-          "Informe o endereço completo para pedidos de delivery.",
-        );
+        throw new Error('Informe o endereço completo para pedidos de delivery.');
       }
 
       const normalizedCustomerPhone = this.normalizePhone(customerPhone);
@@ -395,21 +364,15 @@ class CreateOrderService {
           },
         });
 
-        const normalizedExistingPhone = this.normalizePhone(
-          existingUser?.phone,
-        );
+        const normalizedExistingPhone = this.normalizePhone(existingUser?.phone);
 
         if (!normalizedExistingPhone) {
-          throw new Error(
-            "Informe um celular/WhatsApp válido para pedidos de delivery.",
-          );
+          throw new Error('Informe um celular/WhatsApp válido para pedidos de delivery.');
         }
       }
 
       if (!normalizedCustomerPhone && !userId) {
-        throw new Error(
-          "Informe um celular/WhatsApp válido para pedidos de delivery.",
-        );
+        throw new Error('Informe um celular/WhatsApp válido para pedidos de delivery.');
       }
     }
 
@@ -424,9 +387,7 @@ class CreateOrderService {
       });
 
       const products = await Promise.all(
-        items.map((item) =>
-          productRepository.findById(item.productId, resolvedRestaurantId, tx),
-        ),
+        items.map((item) => productRepository.findById(item.productId, resolvedRestaurantId, tx)),
       );
 
       products.forEach((product, index) => {
@@ -447,18 +408,10 @@ class CreateOrderService {
         }
 
         const stockValue =
-          product.stock === null || product.stock === undefined
-            ? null
-            : Number(product.stock);
+          product.stock === null || product.stock === undefined ? null : Number(product.stock);
 
-        if (
-          Number.isInteger(stockValue) &&
-          stockValue >= 0 &&
-          quantity > stockValue
-        ) {
-          throw new Error(
-            `Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`,
-          );
+        if (Number.isInteger(stockValue) && stockValue >= 0 && quantity > stockValue) {
+          throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`);
         }
       });
 
@@ -473,26 +426,21 @@ class CreateOrderService {
         };
       });
 
-      const total = orderItems.reduce(
-        (acc, item) => acc + item.price * item.quantity,
-        0,
-      );
+      const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
       const formattedCpf = this.formatCpf(customerCpf);
       const guestSummary =
         !userId && customerName
-          ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}`
-          : "";
+          ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
+          : '';
 
       const mergedObservation = [guestSummary, observation]
-        .map((item) => String(item || "").trim())
+        .map((item) => String(item || '').trim())
         .filter(Boolean)
-        .join(" | ");
+        .join(' | ');
 
       const normalizedTableId =
-        tableId === null || tableId === undefined || tableId === ""
-          ? null
-          : Number(tableId);
+        tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
 
       const order = await orderRepository.create(
         {
@@ -501,9 +449,7 @@ class CreateOrderService {
           type,
           paymentMethod: effectivePaymentMethod,
           payOnDelivery: shouldPayOnDelivery,
-          payOnDeliveryMethod: shouldPayOnDelivery
-            ? effectivePaymentMethod
-            : null,
+          payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
           paid: shouldMarkAsPaid,
           pixPaymentId: normalizedPixPaymentId || null,
           paidAt,
@@ -537,18 +483,13 @@ class CreateOrderService {
         orderItems.map(async (item, index) => {
           const product = products[index];
           const stockValue =
-            product.stock === null || product.stock === undefined
-              ? null
-              : Number(product.stock);
+            product.stock === null || product.stock === undefined ? null : Number(product.stock);
 
           if (!Number.isInteger(stockValue) || stockValue < 0) {
             return;
           }
 
-          const nextStock = Math.max(
-            stockValue - Number(item.quantity || 0),
-            0,
-          );
+          const nextStock = Math.max(stockValue - Number(item.quantity || 0), 0);
 
           await tx.product.update({
             where: {
@@ -568,39 +509,29 @@ class CreateOrderService {
     // Pedidos pagos na entrega precisam aparecer imediatamente na operação.
     // Somente cobranças digitais online aguardam a confirmação do provedor.
     const isUnpaidDelivery =
-      type === OrderType.DELIVERY &&
-      shouldPayOnDelivery !== true &&
-      shouldMarkAsPaid !== true;
+      type === OrderType.DELIVERY && shouldPayOnDelivery !== true && shouldMarkAsPaid !== true;
     const isUnpaidDigitalPayment =
       shouldMarkAsPaid !== true &&
       shouldPayOnDelivery !== true &&
       (normalizedPaymentMethod === PaymentMethod.PIX ||
         normalizedPaymentMethod === PaymentMethod.CARTAO);
     const shouldDeferRealtimeUntilPaid =
-      deferRealtimeUntilPaid === true ||
-      isUnpaidDelivery ||
-      isUnpaidDigitalPayment;
+      deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
 
     if (!shouldDeferRealtimeUntilPaid) {
-      io.to(`restaurant:${createdOrder.restaurantId}`).emit(
-        "new-order",
-        createdOrder,
-      );
-      io.to(`user:${createdOrder.userId}`).emit("new-order", createdOrder);
+      io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);
+      io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);
     }
 
     if (shouldMarkAsPaid) {
-      io.to(`restaurant:${createdOrder.restaurantId}`).emit(
-        "order:payment-confirmed",
-        {
-          orderId: createdOrder.id,
-          paymentMethod: normalizedPaymentMethod,
-          paid: true,
-          status: createdOrder.status,
-        },
-      );
+      io.to(`restaurant:${createdOrder.restaurantId}`).emit('order:payment-confirmed', {
+        orderId: createdOrder.id,
+        paymentMethod: normalizedPaymentMethod,
+        paid: true,
+        status: createdOrder.status,
+      });
 
-      io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {
+      io.to(`user:${createdOrder.userId}`).emit('payment-confirmed', {
         orderId: createdOrder.id,
         paymentMethod: normalizedPaymentMethod,
         paid: true,
@@ -617,7 +548,7 @@ class CreateOrderService {
         paymentMethod: normalizedPaymentMethod,
       }).catch((error: unknown) => {
         console.error(
-          "[CUSTOMER_NOTIFICATION_UNHANDLED]",
+          '[CUSTOMER_NOTIFICATION_UNHANDLED]',
           error instanceof Error ? error.message : String(error),
         );
       });

@@ -1,17 +1,9 @@
-export function getBillingStartDate(
-  restaurantCreatedAt: Date,
-  adminCreatedAt?: Date | null,
-) {
+export function getBillingStartDate(restaurantCreatedAt: Date, adminCreatedAt?: Date | null) {
   if (!adminCreatedAt) return new Date(restaurantCreatedAt);
-  return new Date(
-    Math.max(restaurantCreatedAt.getTime(), adminCreatedAt.getTime()),
-  );
+  return new Date(Math.max(restaurantCreatedAt.getTime(), adminCreatedAt.getTime()));
 }
 
-export function getCompletedSubscriptionMonths(
-  startedAt: Date,
-  referenceDate = new Date(),
-) {
+export function getCompletedSubscriptionMonths(startedAt: Date, referenceDate = new Date()) {
   if (referenceDate <= startedAt) return 0;
 
   let months =

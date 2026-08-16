@@ -1,4 +1,4 @@
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 function toMoney(value) {
   return Number(Number(value).toFixed(2));
@@ -37,11 +37,11 @@ async function resolveRestaurant(restaurantIdArg) {
       id: true,
       name: true,
     },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!restaurant) {
-    throw new Error("Nenhum restaurante ativo com produtos foi encontrado.");
+    throw new Error('Nenhum restaurante ativo com produtos foi encontrado.');
   }
 
   return restaurant;
@@ -52,10 +52,10 @@ async function resolveUserId(restaurantId) {
     where: {
       restaurantId,
       active: true,
-      role: "CLIENTE",
+      role: 'CLIENTE',
     },
     select: { id: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (client) {
@@ -68,13 +68,11 @@ async function resolveUserId(restaurantId) {
       active: true,
     },
     select: { id: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!fallback) {
-    throw new Error(
-      `Nenhum usuario ativo encontrado para o restaurante ${restaurantId}.`,
-    );
+    throw new Error(`Nenhum usuario ativo encontrado para o restaurante ${restaurantId}.`);
   }
 
   return fallback.id;
@@ -91,14 +89,12 @@ async function resolveProducts(restaurantId) {
       name: true,
       price: true,
     },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
     take: 12,
   });
 
   if (products.length < 2) {
-    throw new Error(
-      `Produtos insuficientes no restaurante ${restaurantId}. Minimo: 2 ativos.`,
-    );
+    throw new Error(`Produtos insuficientes no restaurante ${restaurantId}. Minimo: 2 ativos.`);
   }
 
   return products;
@@ -111,7 +107,7 @@ async function resolveTableIds(restaurantId) {
       active: true,
     },
     select: { id: true },
-    orderBy: { number: "asc" },
+    orderBy: { number: 'asc' },
     take: 3,
   });
 
@@ -126,8 +122,8 @@ async function createPendingOrders({ restaurantIdArg, quantityArg }) {
   const products = await resolveProducts(restaurant.id);
   const tableIds = await resolveTableIds(restaurant.id);
 
-  const orderTypes = ["DELIVERY", "RETIRADA", "MESA"];
-  const deliveryPayments = ["PIX", "DINHEIRO", "CARTAO"];
+  const orderTypes = ['DELIVERY', 'RETIRADA', 'MESA'];
+  const deliveryPayments = ['PIX', 'DINHEIRO', 'CARTAO'];
 
   const createdIds = [];
 
@@ -139,35 +135,30 @@ async function createPendingOrders({ restaurantIdArg, quantityArg }) {
     const quantityA = (i % 2) + 1;
     const quantityB = 1;
 
-    const total = toMoney(
-      Number(productA.price) * quantityA + Number(productB.price) * quantityB,
-    );
+    const total = toMoney(Number(productA.price) * quantityA + Number(productB.price) * quantityB);
 
     const deliveryData =
-      type === "DELIVERY"
+      type === 'DELIVERY'
         ? {
-            address: "Rua das Pizzarias",
+            address: 'Rua das Pizzarias',
             number: String(100 + i),
-            district: "Centro",
-            city: "Fortaleza",
-            state: "CE",
-            zipCode: "60000-000",
-            complement: i % 2 === 0 ? "Apto 202" : "Casa",
+            district: 'Centro',
+            city: 'Fortaleza',
+            state: 'CE',
+            zipCode: '60000-000',
+            complement: i % 2 === 0 ? 'Apto 202' : 'Casa',
           }
         : {};
 
     const tableData =
-      type === "MESA" && tableIds.length > 0
-        ? { tableId: sample(tableIds, i) }
-        : {};
+      type === 'MESA' && tableIds.length > 0 ? { tableId: sample(tableIds, i) } : {};
 
-    const paymentMethod =
-      type === "MESA" ? "DINHEIRO" : sample(deliveryPayments, i);
+    const paymentMethod = type === 'MESA' ? 'DINHEIRO' : sample(deliveryPayments, i);
 
     const createdOrder = await prisma.order.create({
       data: {
         total,
-        status: "PENDENTE",
+        status: 'PENDENTE',
         type,
         paymentMethod,
         paid: false,
@@ -182,13 +173,13 @@ async function createPendingOrders({ restaurantIdArg, quantityArg }) {
             {
               quantity: quantityA,
               price: toMoney(Number(productA.price)),
-              observation: "Sem cebola",
+              observation: 'Sem cebola',
               productId: productA.id,
             },
             {
               quantity: quantityB,
               price: toMoney(Number(productB.price)),
-              observation: "Borda recheada",
+              observation: 'Borda recheada',
               productId: productB.id,
             },
           ],

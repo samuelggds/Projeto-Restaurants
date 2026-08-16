@@ -1,8 +1,8 @@
-import { PlanType } from "@prisma/client";
-import subscriptionRepository from "../repositories/SubscriptionRepository.js";
-import billingRepository from "../../billing/repositories/BillingRepository.js";
-import { isAvailablePlan } from "../../billing/config/planConfig.js";
-import { evaluatePlanChangeEligibility } from "./PlanChangePolicy.js";
+import { PlanType } from '@prisma/client';
+import subscriptionRepository from '../repositories/SubscriptionRepository.js';
+import billingRepository from '../../billing/repositories/BillingRepository.js';
+import { isAvailablePlan } from '../../billing/config/planConfig.js';
+import { evaluatePlanChangeEligibility } from './PlanChangePolicy.js';
 
 type RequestPlanChangePayload = {
   restaurantId: number | string;
@@ -23,19 +23,16 @@ function getNextMonthPeriod(fromDate: Date) {
 class RequestPlanChangeService {
   async execute({ restaurantId, plan }: RequestPlanChangePayload) {
     if (!Object.values(PlanType).includes(plan) || !isAvailablePlan(plan)) {
-      throw new Error("Escolha um plano disponível: Básico ou Premium.");
+      throw new Error('Escolha um plano disponível: Básico ou Premium.');
     }
 
-    const subscription =
-      await subscriptionRepository.findByRestaurantId(restaurantId);
+    const subscription = await subscriptionRepository.findByRestaurantId(restaurantId);
 
     if (!subscription) {
-      throw new Error("Assinatura não encontrada.");
+      throw new Error('Assinatura não encontrada.');
     }
 
-    const invoices = await billingRepository.findInvoicesByRestaurantId(
-      Number(restaurantId),
-    );
+    const invoices = await billingRepository.findInvoicesByRestaurantId(Number(restaurantId));
     const eligibility = evaluatePlanChangeEligibility({
       invoices,
       consumedInvoiceId: subscription.planChangeInvoiceId,
@@ -57,7 +54,7 @@ class RequestPlanChangeService {
 
       return {
         ...updated,
-        message: "Plano atual mantido para o próximo ciclo de faturamento.",
+        message: 'Plano atual mantido para o próximo ciclo de faturamento.',
       };
     }
 
@@ -72,7 +69,7 @@ class RequestPlanChangeService {
 
     return {
       ...updated,
-      message: "Troca de plano agendada para o próximo ciclo de faturamento.",
+      message: 'Troca de plano agendada para o próximo ciclo de faturamento.',
     };
   }
 }

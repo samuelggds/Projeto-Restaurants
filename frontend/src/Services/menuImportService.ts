@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 type ImportIfoodMenuPayload = {
   url: string;
@@ -12,12 +12,12 @@ type ImportMenuFromImagePayload = {
 
 class MenuImportService {
   async importIfoodMenu(payload: ImportIfoodMenuPayload) {
-    const response = await api.post("/menu-import/ifood", payload);
+    const response = await api.post('/menu-import/ifood', payload);
     return response.data;
   }
 
   async importMenuFromImage(payload: ImportMenuFromImagePayload) {
-    const response = await api.post("/menu-import/image", payload);
+    const response = await api.post('/menu-import/image', payload);
     return response.data;
   }
 }

@@ -13,9 +13,9 @@ import {
   Users,
   WalletCards,
   X,
-} from "lucide-react";
-import { useState } from "react";
-import { superAdminMockData } from "./data";
+} from 'lucide-react';
+import { useState } from 'react';
+import { superAdminMockData } from './data';
 import {
   AdministratorsPage,
   AuditPage,
@@ -26,73 +26,69 @@ import {
   SettingsPage,
   SubscriptionsPage,
   SupportPage,
-} from "./pages";
-import type { SuperAdminModuleProps, SuperAdminView } from "./types";
-import * as S from "./SuperAdmin.styles";
+} from './pages';
+import type { SuperAdminModuleProps, SuperAdminView } from './types';
+import * as S from './SuperAdmin.styles';
 
 const nav = [
-  ["overview", "Visão geral", BarChart3],
-  ["restaurants", "Restaurantes", Building2],
-  ["subscriptions", "Assinaturas", CreditCard],
-  ["plans", "Planos", Layers3],
-  ["billing", "Faturamento", WalletCards],
-  ["administrators", "Administradores", Users],
-  ["support", "Suporte", Headphones],
-  ["audit", "Auditoria", FileSearch],
-  ["settings", "Configurações", Settings],
+  ['overview', 'Visão geral', BarChart3],
+  ['restaurants', 'Restaurantes', Building2],
+  ['subscriptions', 'Assinaturas', CreditCard],
+  ['plans', 'Planos', Layers3],
+  ['billing', 'Faturamento', WalletCards],
+  ['administrators', 'Administradores', Users],
+  ['support', 'Suporte', Headphones],
+  ['audit', 'Auditoria', FileSearch],
+  ['settings', 'Configurações', Settings],
 ] as const;
 const titles: Record<SuperAdminView, [string, string, string]> = {
   overview: [
-    "Visão geral da plataforma",
-    "Acompanhe os restaurantes, assinaturas e a saúde do seu SaaS.",
-    "+ Novo restaurante",
+    'Visão geral da plataforma',
+    'Acompanhe os restaurantes, assinaturas e a saúde do seu SaaS.',
+    '+ Novo restaurante',
   ],
   restaurants: [
-    "Restaurantes",
-    "Gerencie todos os tenants cadastrados na plataforma.",
-    "+ Novo restaurante",
+    'Restaurantes',
+    'Gerencie todos os tenants cadastrados na plataforma.',
+    '+ Novo restaurante',
   ],
   subscriptions: [
-    "Assinaturas",
-    "Acompanhe ciclos, trials, renovações e bloqueios.",
-    "+ Nova assinatura",
+    'Assinaturas',
+    'Acompanhe ciclos, trials, renovações e bloqueios.',
+    '+ Nova assinatura',
   ],
-  plans: [
-    "Planos",
-    "Configure preços, limites e recursos disponíveis.",
-    "+ Criar plano",
-  ],
+  plans: ['Planos', 'Configure preços, limites e recursos disponíveis.', '+ Criar plano'],
   billing: [
-    "Faturamento",
-    "Acompanhe receitas, cobranças e inadimplência da plataforma.",
-    "Exportar relatório",
+    'Faturamento',
+    'Acompanhe receitas, cobranças e inadimplência da plataforma.',
+    'Exportar relatório',
   ],
   administrators: [
-    "Administradores",
-    "Gerencie os responsáveis administrativos de cada restaurante.",
-    "+ Convidar administrador",
+    'Administradores',
+    'Gerencie os responsáveis administrativos de cada restaurante.',
+    '+ Convidar administrador',
   ],
   support: [
-    "Suporte",
-    "Acompanhe chamados enviados pelos administradores dos restaurantes.",
-    "+ Abrir chamado",
+    'Suporte',
+    'Acompanhe chamados enviados pelos administradores dos restaurantes.',
+    '+ Abrir chamado',
   ],
   audit: [
-    "Auditoria",
-    "Consulte ações sensíveis realizadas em toda a plataforma.",
-    "Exportar logs",
+    'Auditoria',
+    'Consulte ações sensíveis realizadas em toda a plataforma.',
+    'Exportar logs',
   ],
   settings: [
-    "Configurações da plataforma",
-    "Defina regras globais, segurança e integrações do SaaS.",
-    "Salvar alterações",
+    'Configurações da plataforma',
+    'Defina regras globais, segurança e integrações do SaaS.',
+    'Salvar alterações',
   ],
 };
 
 export function SuperAdminModule({
   currentUser,
   data = superAdminMockData,
-  initialView = "overview",
+  initialView = 'overview',
   onViewChange,
   onCreateRestaurant,
   onSelectRestaurant,
@@ -101,14 +97,14 @@ export function SuperAdminModule({
 }: SuperAdminModuleProps) {
   const [view, setView] = useState<SuperAdminView>(initialView);
   const [open, setOpen] = useState(false);
-  if (currentUser.role !== "SUPER_ADMIN")
+  if (currentUser.role !== 'SUPER_ADMIN')
     return (
       <S.AccessDenied>
         <ShieldAlert />
         <h1>Acesso negado</h1>
         <p>
-          Esta área é exclusiva para usuários com a função SUPER_ADMIN. Entre
-          com uma conta autorizada.
+          Esta área é exclusiva para usuários com a função SUPER_ADMIN. Entre com uma conta
+          autorizada.
         </p>
       </S.AccessDenied>
     );
@@ -120,28 +116,28 @@ export function SuperAdminModule({
   const [title, subtitle, action] = titles[view];
   const render = () => {
     switch (view) {
-      case "overview":
+      case 'overview':
         return <OverviewPage data={data} onSelect={onSelectRestaurant} />;
-      case "restaurants":
+      case 'restaurants':
         return <RestaurantsPage data={data} onSelect={onSelectRestaurant} />;
-      case "subscriptions":
+      case 'subscriptions':
         return <SubscriptionsPage data={data} />;
-      case "plans":
+      case 'plans':
         return <PlansPage data={data} />;
-      case "billing":
+      case 'billing':
         return <BillingPage data={data} />;
-      case "administrators":
+      case 'administrators':
         return <AdministratorsPage data={data} />;
-      case "support":
+      case 'support':
         return <SupportPage data={data} />;
-      case "audit":
+      case 'audit':
         return <AuditPage data={data} />;
-      case "settings":
+      case 'settings':
         return <SettingsPage initial={data.settings} onSave={onSaveSettings} />;
     }
   };
   const primary = () => {
-    if (view === "restaurants" || view === "overview") onCreateRestaurant?.();
+    if (view === 'restaurants' || view === 'overview') onCreateRestaurant?.();
   };
   return (
     <S.Root>
@@ -157,11 +153,7 @@ export function SuperAdminModule({
         </S.Close>
         <S.Nav>
           {nav.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => navigate(id)}
-            >
+            <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}>
               <Icon />
               {label}
             </button>
@@ -170,10 +162,10 @@ export function SuperAdminModule({
         <S.User>
           <span className="avatar">
             {currentUser.name
-              .split(" ")
+              .split(' ')
               .map((x) => x[0])
               .slice(0, 2)
-              .join("")}
+              .join('')}
           </span>
           <span className="info">
             <b>{currentUser.name}</b>

@@ -1,4 +1,4 @@
-import prisma from "../../../config/prisma.js";
+import prisma from '../../../config/prisma.js';
 
 function last6Months() {
   return Array.from({ length: 6 }, (_, i) => {
@@ -7,7 +7,7 @@ function last6Months() {
     d.setMonth(d.getMonth() - (5 - i));
     const start = new Date(d.getFullYear(), d.getMonth(), 1);
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
-    const label = d.toLocaleString("pt-BR", { month: "short" });
+    const label = d.toLocaleString('pt-BR', { month: 'short' });
     return { start, end, label };
   });
 }
@@ -21,11 +21,11 @@ class GetRestaurantsMetricsService {
         select: { id: true, active: true },
       }),
       prisma.order.findMany({
-        where: { paid: true, status: { not: "CANCELADO" } },
+        where: { paid: true, status: { not: 'CANCELADO' } },
         select: { total: true, systemFee: true },
       }),
       prisma.invoice.findMany({
-        where: { status: { in: ["PENDENTE", "ATRASADO"] } },
+        where: { status: { in: ['PENDENTE', 'ATRASADO'] } },
         select: { id: true, total: true },
       }),
     ]);
@@ -44,7 +44,7 @@ class GetRestaurantsMetricsService {
           const result = await prisma.order.aggregate({
             where: {
               paid: true,
-              status: { not: "CANCELADO" },
+              status: { not: 'CANCELADO' },
               createdAt: { gte: start, lte: end },
             },
             _sum: { systemFee: true },
@@ -54,18 +54,9 @@ class GetRestaurantsMetricsService {
       ),
     ]);
 
-    const totalGenerated = paidOrders.reduce(
-      (acc, o) => acc + Number(o.total || 0),
-      0,
-    );
-    const totalReceivable = paidOrders.reduce(
-      (acc, o) => acc + Number(o.systemFee || 0),
-      0,
-    );
-    const pendingInvoiceTotal = invoices.reduce(
-      (acc, i) => acc + Number(i.total || 0),
-      0,
-    );
+    const totalGenerated = paidOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+    const totalReceivable = paidOrders.reduce((acc, o) => acc + Number(o.systemFee || 0), 0);
+    const pendingInvoiceTotal = invoices.reduce((acc, i) => acc + Number(i.total || 0), 0);
     const activeRestaurants = restaurants.filter((r) => r.active).length;
 
     return {

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from '@prisma/client';
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -10,10 +10,7 @@ type OrderLike = {
   }>;
 };
 
-export async function restoreOrderItemsStock(
-  tx: TransactionClient,
-  order: OrderLike,
-) {
+export async function restoreOrderItemsStock(tx: TransactionClient, order: OrderLike) {
   const items = Array.isArray(order?.items) ? order.items : [];
 
   for (const item of items) {
@@ -44,9 +41,7 @@ export async function restoreOrderItemsStock(
     }
 
     const stockValue =
-      product.stock === null || product.stock === undefined
-        ? null
-        : Number(product.stock);
+      product.stock === null || product.stock === undefined ? null : Number(product.stock);
 
     // Produtos sem controle de estoque (null) não devem ser alterados.
     if (!Number.isInteger(stockValue) || stockValue < 0) {

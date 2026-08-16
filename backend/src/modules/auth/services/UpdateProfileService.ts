@@ -1,4 +1,5 @@
-import userRepository from "../repositories/UserRepository.js";
+import type { Prisma } from '@prisma/client';
+import userRepository from '../repositories/UserRepository.js';
 
 type UpdateProfilePayload = {
   name?: string;
@@ -20,34 +21,42 @@ class UpdateProfileService {
     const currentUser = await userRepository.findById(userId);
 
     if (!currentUser) {
-      throw new Error("Usuário não encontrado!");
+      throw new Error('Usuário não encontrado!');
     }
 
-    const nextEmail = String(profileData.email || "")
-      .trim()
-      .toLowerCase();
+    const hasField = (field: keyof UpdateProfilePayload) =>
+      Object.prototype.hasOwnProperty.call(profileData, field);
+    const nextEmail = hasField('email')
+      ? String(profileData.email || '')
+          .trim()
+          .toLowerCase()
+      : currentUser.email;
+
     if (nextEmail && nextEmail !== currentUser.email) {
       const emailInUse = await userRepository.findByEmail(nextEmail);
 
       if (emailInUse && Number(emailInUse.id) !== Number(userId)) {
-        throw new Error("Este e-mail já está em uso!");
+        throw new Error('Este e-mail já está em uso!');
       }
     }
 
-    return userRepository.updateProfile(userId, {
-      name: String(profileData.name || "").trim(),
-      email: nextEmail,
-      phone: String(profileData.phone || "").trim() || null,
-      cpf: String(profileData.cpf || "").replace(/\D/g, "") || null,
-      address: String(profileData.address || "").trim() || null,
-      number: String(profileData.number || "").trim() || null,
-      district: String(profileData.district || "").trim() || null,
-      city: String(profileData.city || "").trim() || null,
-      state: String(profileData.state || "").trim() || null,
-      zipCode: String(profileData.zipCode || "").trim() || null,
-      complement: String(profileData.complement || "").trim() || null,
-      avatar: String(profileData.avatar || "").trim() || null,
-    });
+    const updates: Prisma.UserUpdateInput = {};
+
+    if (hasField('name')) updates.name = String(profileData.name || '').trim();
+    if (hasField('email')) updates.email = nextEmail;
+    if (hasField('phone')) updates.phone = String(profileData.phone || '').trim() || null;
+    if (hasField('cpf')) updates.cpf = String(profileData.cpf || '').replace(/\D/g, '') || null;
+    if (hasField('address')) updates.address = String(profileData.address || '').trim() || null;
+    if (hasField('number')) updates.number = String(profileData.number || '').trim() || null;
+    if (hasField('district')) updates.district = String(profileData.district || '').trim() || null;
+    if (hasField('city')) updates.city = String(profileData.city || '').trim() || null;
+    if (hasField('state')) updates.state = String(profileData.state || '').trim() || null;
+    if (hasField('zipCode')) updates.zipCode = String(profileData.zipCode || '').trim() || null;
+    if (hasField('complement'))
+      updates.complement = String(profileData.complement || '').trim() || null;
+    if (hasField('avatar')) updates.avatar = String(profileData.avatar || '').trim() || null;
+
+    return userRepository.updateProfile(userId, updates);
   }
 }
 

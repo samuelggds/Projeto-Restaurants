@@ -1,6 +1,6 @@
-import type { RestaurantSettings } from "../types/settings.types";
-import * as S from "../styles/settings.styles";
-import { Field, FormInput } from "./FormControls";
+import type { RestaurantSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
+import { Field, FormInput } from './FormControls';
 
 type Props = {
   settings: RestaurantSettings;
@@ -21,19 +21,16 @@ export function AppearanceSettings({ settings, onChange }: Props) {
             {settings.logoUrl ? (
               <img src={settings.logoUrl} alt="Prévia do logo" />
             ) : (
-              (settings.restaurantName || "R").slice(0, 1)
+              (settings.restaurantName || 'R').slice(0, 1)
             )}
           </S.BrandLogo>
           <S.BrandInfo>
-            <strong>{settings.restaurantName || "Seu restaurante"}</strong>
-            <span>{settings.slogan || "Seu slogan aparecerá aqui"}</span>
+            <strong>{settings.restaurantName || 'Seu restaurante'}</strong>
+            <span>{settings.slogan || 'Seu slogan aparecerá aqui'}</span>
           </S.BrandInfo>
         </S.BrandPreview>
         <S.Grid>
-          <Field
-            label="URL do logo"
-            hint="No backend, conecte ao upload de imagens."
-          >
+          <Field label="URL do logo" hint="No backend, conecte ao upload de imagens.">
             <FormInput
               value={settings.logoUrl}
               placeholder="https://..."

@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export const Root = styled.div`
   --brand: #e9530b;
@@ -16,7 +16,7 @@ export const Root = styled.div`
     ui-sans-serif,
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     sans-serif;
   *,
   *::before,
@@ -47,7 +47,7 @@ export const Sidebar = styled.aside<{ $open: boolean }>`
     position: fixed;
     inset: 0 auto 0 0;
     width: min(86vw, 310px);
-    transform: translateX(${(p) => (p.$open ? "0" : "-105%")});
+    transform: translateX(${(p) => (p.$open ? '0' : '-105%')});
     transition: 0.25s;
     box-shadow: 24px 0 60px #0007;
   }
@@ -424,7 +424,7 @@ export const Table = styled.div`
   }
 `;
 export const Badge = styled.span<{
-  $tone?: "green" | "red" | "yellow" | "blue" | "gray";
+  $tone?: 'green' | 'red' | 'yellow' | 'blue' | 'gray';
 }>`
   display: inline-flex;
   width: max-content;
@@ -433,25 +433,25 @@ export const Badge = styled.span<{
   font-size: 9px;
   font-weight: 800;
   color: ${(p) =>
-    p.$tone === "green"
-      ? "#16752e"
-      : p.$tone === "red"
-        ? "#c92c1f"
-        : p.$tone === "yellow"
-          ? "#b86800"
-          : p.$tone === "blue"
-            ? "#2459b8"
-            : "#5f656a"};
+    p.$tone === 'green'
+      ? '#16752e'
+      : p.$tone === 'red'
+        ? '#c92c1f'
+        : p.$tone === 'yellow'
+          ? '#b86800'
+          : p.$tone === 'blue'
+            ? '#2459b8'
+            : '#5f656a'};
   background: ${(p) =>
-    p.$tone === "green"
-      ? "#e7f5e9"
-      : p.$tone === "red"
-        ? "#fde9e7"
-        : p.$tone === "yellow"
-          ? "#fff1d8"
-          : p.$tone === "blue"
-            ? "#e9f0ff"
-            : "#eee"};
+    p.$tone === 'green'
+      ? '#e7f5e9'
+      : p.$tone === 'red'
+        ? '#fde9e7'
+        : p.$tone === 'yellow'
+          ? '#fff1d8'
+          : p.$tone === 'blue'
+            ? '#e9f0ff'
+            : '#eee'};
 `;
 export const Stack = styled.div`
   display: grid;
@@ -525,7 +525,7 @@ export const PlanGrid = styled.div`
   }
 `;
 export const PlanCard = styled.article<{ $featured?: boolean }>`
-  border: 1px solid ${(p) => (p.$featured ? "var(--brand)" : "var(--border)")};
+  border: 1px solid ${(p) => (p.$featured ? 'var(--brand)' : 'var(--border)')};
   border-radius: 13px;
   background: #fff;
   padding: 19px;
@@ -554,7 +554,7 @@ export const PlanCard = styled.article<{ $featured?: boolean }>`
     font-size: 11px;
   }
   .features span::before {
-    content: "✓";
+    content: '✓';
     color: #289442;
     margin-right: 8px;
   }
@@ -647,7 +647,7 @@ export const FormCard = styled(Card)`
     background: var(--brand);
   }
   .toggle::after {
-    content: "";
+    content: '';
     position: absolute;
     top: 3px;
     left: 3px;
@@ -707,50 +707,116 @@ export const CreateDialog = styled.form`
   padding: 26px;
   display: grid;
   gap: 18px;
-  header { display: flex; justify-content: space-between; gap: 18px; }
-  h2 { margin: 0 0 5px; font-size: 25px; }
-  p { margin: 0; color: var(--muted); font-size: 13px; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  h2 {
+    margin: 0 0 5px;
+    font-size: 25px;
+  }
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
   .close {
-    width: 38px; height: 38px; border: 1px solid var(--border);
-    border-radius: 10px; background: #fff; cursor: pointer;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
   }
-  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+  .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 13px;
+  }
   label {
-    display: grid; gap: 6px; color: #34393d;
-    font-size: 11px; font-weight: 750;
+    display: grid;
+    gap: 6px;
+    color: #34393d;
+    font-size: 11px;
+    font-weight: 750;
   }
-  label.wide { grid-column: 1 / -1; }
-  input, select {
-    width: 100%; height: 46px; border: 1px solid var(--border);
-    border-radius: 10px; background: #fff; padding: 0 13px; outline: none;
+  label.wide {
+    grid-column: 1 / -1;
   }
-  input:focus, select:focus {
-    border-color: var(--brand); box-shadow: 0 0 0 3px #e9530b16;
+  input,
+  select {
+    width: 100%;
+    height: 46px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    padding: 0 13px;
+    outline: none;
+  }
+  input:focus,
+  select:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px #e9530b16;
   }
   .plan-help {
-    grid-column: 1 / -1; border: 1px solid #f1d7c5;
-    background: #fff7f1; color: #744328; border-radius: 10px;
-    padding: 11px 13px; font-size: 11px;
+    grid-column: 1 / -1;
+    border: 1px solid #f1d7c5;
+    background: #fff7f1;
+    color: #744328;
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 11px;
   }
   .form-error {
-    grid-column: 1 / -1; border-radius: 9px; padding: 10px 12px;
-    background: #fdebea; color: #b42b20; font-size: 11px; font-weight: 700;
+    grid-column: 1 / -1;
+    border-radius: 9px;
+    padding: 10px 12px;
+    background: #fdebea;
+    color: #b42b20;
+    font-size: 11px;
+    font-weight: 700;
   }
   footer {
-    display: flex; justify-content: flex-end; gap: 10px;
-    border-top: 1px solid var(--border); padding-top: 17px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 17px;
   }
   footer button {
-    min-height: 43px; border-radius: 9px; padding: 0 17px;
-    cursor: pointer; font-weight: 750;
+    min-height: 43px;
+    border-radius: 9px;
+    padding: 0 17px;
+    cursor: pointer;
+    font-weight: 750;
   }
-  .cancel { border: 1px solid var(--border); background: #fff; }
-  .submit { border: 0; background: var(--brand); color: #fff; }
-  .submit:disabled { opacity: 0.55; cursor: wait; }
+  .cancel {
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+  .submit {
+    border: 0;
+    background: var(--brand);
+    color: #fff;
+  }
+  .submit:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
   @media (max-width: 600px) {
     padding: 19px 15px;
-    .fields { grid-template-columns: 1fr; }
-    label.wide, .plan-help, .form-error { grid-column: auto; }
-    footer { display: grid; grid-template-columns: 1fr 1fr; }
+    .fields {
+      grid-template-columns: 1fr;
+    }
+    label.wide,
+    .plan-help,
+    .form-error {
+      grid-column: auto;
+    }
+    footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
   }
 `;

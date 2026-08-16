@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import updateRestaurantSettingsService from "../services/UpdateRestaurantSettingsService.js";
+import { Request, Response } from 'express';
+import updateRestaurantSettingsService from '../services/UpdateRestaurantSettingsService.js';
 
 class UpdateRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -133,9 +133,7 @@ class UpdateRestaurantSettingsController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao atualizar configuracoes do restaurante",
+          error instanceof Error ? error.message : 'Erro ao atualizar configuracoes do restaurante',
       });
     }
   }

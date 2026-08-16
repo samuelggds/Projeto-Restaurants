@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ThemeProvider } from "styled-components";
-import { CheckCircle2, AlertCircle, Utensils, Sun, Moon } from "lucide-react";
-import authService from "../../Services/authService";
-import { useAuth } from "../../contexts/authContext.js";
-import * as S from "./styles";
-import { useAppDialog } from "../../components/AppDialog/context";
-import { useRestaurantLoginBranding } from "./hooks/useRestaurantLoginBranding";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
+import { CheckCircle2, AlertCircle, Utensils, Sun, Moon } from 'lucide-react';
+import authService from '../../Services/authService';
+import { useAuth } from '../../contexts/authContext.js';
+import * as S from './styles';
+import { useAppDialog } from '../../components/AppDialog/context';
+import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -16,21 +16,21 @@ export default function Login() {
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
+    type: 'success' | 'error';
     message: string;
   } | null>(null);
-  const [googleStatus, setGoogleStatus] = useState("loading");
-  const [googleMessage, setGoogleMessage] = useState("");
+  const [googleStatus, setGoogleStatus] = useState('loading');
+  const [googleMessage, setGoogleMessage] = useState('');
   const googleButtonRef = useRef(null);
   const isGoogleMountedRef = useRef(false);
   const googleInitInFlightRef = useRef(false);
   const googleInitializedRef = useRef(false);
-  const googleInitializedClientIdRef = useRef("");
+  const googleInitializedClientIdRef = useRef('');
 
   const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
@@ -42,39 +42,39 @@ export default function Login() {
     );
 
     if (existingScript) {
-      if (existingScript.dataset.loaded === "true") {
+      if (existingScript.dataset.loaded === 'true') {
         return Promise.resolve();
       }
 
       return new Promise<void>((resolve, reject) => {
         const handleLoad = () => {
-          existingScript.dataset.loaded = "true";
-          existingScript.removeEventListener("load", handleLoad);
-          existingScript.removeEventListener("error", handleError);
+          existingScript.dataset.loaded = 'true';
+          existingScript.removeEventListener('load', handleLoad);
+          existingScript.removeEventListener('error', handleError);
           resolve();
         };
 
         const handleError = () => {
-          existingScript.removeEventListener("load", handleLoad);
-          existingScript.removeEventListener("error", handleError);
-          reject(new Error("script-error"));
+          existingScript.removeEventListener('load', handleLoad);
+          existingScript.removeEventListener('error', handleError);
+          reject(new Error('script-error'));
         };
 
-        existingScript.addEventListener("load", handleLoad);
-        existingScript.addEventListener("error", handleError);
+        existingScript.addEventListener('load', handleLoad);
+        existingScript.addEventListener('error', handleError);
       });
     }
 
     return new Promise<void>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        script.dataset.loaded = "true";
+        script.dataset.loaded = 'true';
         resolve();
       };
-      script.onerror = () => reject(new Error("script-error"));
+      script.onerror = () => reject(new Error('script-error'));
       document.head.appendChild(script);
     });
   }, []);
@@ -90,17 +90,17 @@ export default function Login() {
   }, []);
 
   const getSafeNextPath = useCallback(() => {
-    const rawNext = String(searchParams.get("next") || "").trim();
+    const rawNext = String(searchParams.get('next') || '').trim();
 
-    if (!rawNext || !rawNext.startsWith("/") || rawNext.startsWith("//")) {
-      return "";
+    if (!rawNext || !rawNext.startsWith('/') || rawNext.startsWith('//')) {
+      return '';
     }
 
-    const blockedPaths = new Set(["/login", "/register", "/recover-password"]);
+    const blockedPaths = new Set(['/login', '/register', '/recover-password']);
     const normalizedPath = rawNext.toLowerCase();
 
     if (blockedPaths.has(normalizedPath)) {
-      return "";
+      return '';
     }
 
     return rawNext;
@@ -114,60 +114,57 @@ export default function Login() {
         return;
       }
 
-      if (user?.role === "SUPER_ADMIN") {
-        navigate("/super_admin");
+      if (user?.role === 'SUPER_ADMIN') {
+        navigate('/super_admin');
         return;
       }
 
-      if (user?.role === "ADMIN") {
-        navigate("/admin");
+      if (user?.role === 'ADMIN') {
+        navigate('/admin');
         return;
       }
 
-      if (user?.role === "MOTOQUEIRO") {
-        navigate("/courier");
+      if (user?.role === 'MOTOQUEIRO') {
+        navigate('/courier');
         return;
       }
 
-      if (user?.role === "FUNCIONARIO") {
+      if (user?.role === 'FUNCIONARIO') {
         const subRole = (user as Record<string, unknown>)?.subRole;
-        navigate(
-          subRole === "COZINHA"
-            ? "/kitchen"
-            : subRole === "GARCOM"
-              ? "/waiter"
-              : "/login",
-        );
+        navigate(subRole === 'COZINHA' ? '/kitchen' : subRole === 'GARCOM' ? '/waiter' : '/login');
         return;
       }
 
-      navigate("/");
+      navigate('/');
     },
     [getSafeNextPath, navigate],
   );
 
-  const completeLoginWithMfaIfNeeded = useCallback(async (authResponse) => {
-    if (!authResponse?.mfaRequired) {
-      return authResponse;
-    }
+  const completeLoginWithMfaIfNeeded = useCallback(
+    async (authResponse) => {
+      if (!authResponse?.mfaRequired) {
+        return authResponse;
+      }
 
-    const code = await promptDialog({
-      title: "Verificação em duas etapas",
-      description: "Digite o código de segurança enviado para o seu e-mail.",
-      inputLabel: "Código de verificação",
-      placeholder: "000000",
-      confirmLabel: "Verificar",
-    });
+      const code = await promptDialog({
+        title: 'Verificação em duas etapas',
+        description: 'Digite o código de segurança enviado para o seu e-mail.',
+        inputLabel: 'Código de verificação',
+        placeholder: '000000',
+        confirmLabel: 'Verificar',
+      });
 
-    if (!code || !String(code).trim()) {
-      throw new Error("Codigo 2FA nao informado.");
-    }
+      if (!code || !String(code).trim()) {
+        throw new Error('Codigo 2FA nao informado.');
+      }
 
-    return authService.verifyLogin2fa({
-      mfaToken: authResponse.mfaToken,
-      code: String(code).trim(),
-    });
-  }, [promptDialog]);
+      return authService.verifyLogin2fa({
+        mfaToken: authResponse.mfaToken,
+        code: String(code).trim(),
+      });
+    },
+    [promptDialog],
+  );
 
   const initializeGoogleLogin = useCallback(async () => {
     if (googleInitInFlightRef.current) {
@@ -175,20 +172,17 @@ export default function Login() {
     }
 
     googleInitInFlightRef.current = true;
-    setGoogleStatus("loading");
-    setGoogleMessage("");
-    let resolvedGoogleClientId = "";
+    setGoogleStatus('loading');
+    setGoogleMessage('');
+    let resolvedGoogleClientId = '';
 
     try {
-      const [googleClientId] = await Promise.all([
-        getGoogleClientId(),
-        loadGoogleScript(),
-      ]);
+      const [googleClientId] = await Promise.all([getGoogleClientId(), loadGoogleScript()]);
 
-      resolvedGoogleClientId = String(googleClientId || "");
+      resolvedGoogleClientId = String(googleClientId || '');
 
       if (!googleClientId) {
-        throw new Error("missing-client-id");
+        throw new Error('missing-client-id');
       }
 
       if (!isGoogleMountedRef.current || !googleButtonRef.current) {
@@ -196,7 +190,7 @@ export default function Login() {
       }
 
       if (!window.google?.accounts?.id) {
-        throw new Error("google-api-unavailable");
+        throw new Error('google-api-unavailable');
       }
 
       const normalizedClientId = String(googleClientId).trim();
@@ -208,24 +202,20 @@ export default function Login() {
           client_id: normalizedClientId,
           callback: async (response) => {
             try {
-              const firstStep = await authService.loginWithGoogle(
-                response.credential,
-              );
-              const authResponse =
-                await completeLoginWithMfaIfNeeded(firstStep);
+              const firstStep = await authService.loginWithGoogle(response.credential);
+              const authResponse = await completeLoginWithMfaIfNeeded(firstStep);
 
               setFeedback({
-                type: "success",
-                message: "Login realizado com sucesso!",
+                type: 'success',
+                message: 'Login realizado com sucesso!',
               });
               setTimeout(() => {
                 login(authResponse.user, authResponse.token);
                 redirectByRole(authResponse.user);
               }, 700);
             } catch (error) {
-              const message =
-                error?.response?.data?.error || "Erro ao autenticar com Google";
-              setFeedback({ type: "error", message });
+              const message = error?.response?.data?.error || 'Erro ao autenticar com Google';
+              setFeedback({ type: 'error', message });
             }
           },
         });
@@ -234,23 +224,23 @@ export default function Login() {
         googleInitializedClientIdRef.current = normalizedClientId;
       }
 
-      googleButtonRef.current.innerHTML = "";
+      googleButtonRef.current.innerHTML = '';
       window.google.accounts.id.renderButton(googleButtonRef.current, {
-        type: "standard",
-        shape: "pill",
-        theme: isDarkMode ? "filled_black" : "outline",
-        text: "continue_with",
-        size: "large",
+        type: 'standard',
+        shape: 'pill',
+        theme: isDarkMode ? 'filled_black' : 'outline',
+        text: 'continue_with',
+        size: 'large',
         width: 320,
       });
 
-      setGoogleStatus("ready");
+      setGoogleStatus('ready');
     } catch {
       if (isGoogleMountedRef.current) {
         const origin = window.location.origin;
-        setGoogleStatus("error");
+        setGoogleStatus('error');
         setGoogleMessage(
-          `Nao foi possivel carregar o login com Google. No Google Cloud Console, adicione o origin ${origin} em Authorized JavaScript origins para o client id ${resolvedGoogleClientId || "configurado"}.`,
+          `Nao foi possivel carregar o login com Google. No Google Cloud Console, adicione o origin ${origin} em Authorized JavaScript origins para o client id ${resolvedGoogleClientId || 'configurado'}.`,
         );
       }
     } finally {
@@ -290,12 +280,12 @@ export default function Login() {
       const response = await completeLoginWithMfaIfNeeded(firstStep);
 
       if (rememberMe) {
-        localStorage.setItem("rememberedEmail", email);
+        localStorage.setItem('rememberedEmail', email);
       } else {
-        localStorage.removeItem("rememberedEmail");
+        localStorage.removeItem('rememberedEmail');
       }
 
-      setFeedback({ type: "success", message: "Login realizado com sucesso!" });
+      setFeedback({ type: 'success', message: 'Login realizado com sucesso!' });
       setTimeout(() => {
         login(response.user, response.token);
         redirectByRole(response.user);
@@ -304,16 +294,22 @@ export default function Login() {
       const message =
         error?.response?.data?.error ||
         (error.request
-          ? "Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente."
-          : "E-mail ou senha incorretos.");
-      setFeedback({ type: "error", message });
+          ? 'Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente.'
+          : 'E-mail ou senha incorretos.');
+      setFeedback({ type: 'error', message });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <ThemeProvider theme={{ ...(isDarkMode ? S.darkTheme : S.lightTheme), primary: branding.primaryColor, primaryHover: branding.primaryColor }}>
+    <ThemeProvider
+      theme={{
+        ...(isDarkMode ? S.darkTheme : S.lightTheme),
+        primary: branding.primaryColor,
+        primaryHover: branding.primaryColor,
+      }}
+    >
       <S.Container>
         {/* INTERRUPTOR DE TEMA (SOL/LUA) NO TOPO */}
         <S.TopBar>
@@ -325,13 +321,16 @@ export default function Login() {
         {/* LADO ESQUERDO: BANNER INSTITUCIONAL PADRÃO */}
         <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
-            {branding.logoUrl ? <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} /> : <Utensils size={32} strokeWidth={2.5} />}
+            {branding.logoUrl ? (
+              <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />
+            ) : (
+              <Utensils size={32} strokeWidth={2.5} />
+            )}
             <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
-            Acesse nosso menu interativo global. Faça seus pedidos de forma
-            rápida na mesa e gerencie sua experiência gastronômica sem
-            complicações.
+            Acesse nosso menu interativo global. Faça seus pedidos de forma rápida na mesa e
+            gerencie sua experiência gastronômica sem complicações.
           </S.BrandSubtitle>
         </S.BannerSection>
 
@@ -339,40 +338,30 @@ export default function Login() {
         <S.FormSection>
           <S.FormWrapper>
             <S.WelcomeText>Bem-vindo!</S.WelcomeText>
-            <S.FormSubtitle>
-              Por favor, insira seus dados de acesso para continuar.
-            </S.FormSubtitle>
+            <S.FormSubtitle>Por favor, insira seus dados de acesso para continuar.</S.FormSubtitle>
 
             {feedback && (
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "0.6rem",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "10px",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.6rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  marginBottom: '0.5rem',
+                  fontSize: '0.875rem',
                   fontWeight: 500,
                   lineHeight: 1.45,
                   background:
-                    feedback.type === "success"
-                      ? "rgba(16,185,129,0.1)"
-                      : "rgba(239,68,68,0.08)",
-                  border: `1px solid ${feedback.type === "success" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.25)"}`,
-                  color: feedback.type === "success" ? "#059669" : "#dc2626",
+                    feedback.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
+                  border: `1px solid ${feedback.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
+                  color: feedback.type === 'success' ? '#059669' : '#dc2626',
                 }}
               >
-                {feedback.type === "success" ? (
-                  <CheckCircle2
-                    size={17}
-                    style={{ flexShrink: 0, marginTop: 1 }}
-                  />
+                {feedback.type === 'success' ? (
+                  <CheckCircle2 size={17} style={{ flexShrink: 0, marginTop: 1 }} />
                 ) : (
-                  <AlertCircle
-                    size={17}
-                    style={{ flexShrink: 0, marginTop: 1 }}
-                  />
+                  <AlertCircle size={17} style={{ flexShrink: 0, marginTop: 1 }} />
                 )}
                 <span>{feedback.message}</span>
               </div>
@@ -410,34 +399,36 @@ export default function Login() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                  />{" "}
+                  />{' '}
                   Lembrar de mim
                 </S.CheckboxLabel>
                 <S.ForgotLink
                   type="button"
-                  onClick={() => navigate(`/recover-password${restaurantQuery ? `?${restaurantQuery}` : ""}`)}
+                  onClick={() =>
+                    navigate(`/recover-password${restaurantQuery ? `?${restaurantQuery}` : ''}`)
+                  }
                 >
                   Esqueceu a senha?
                 </S.ForgotLink>
               </S.Row>
 
               <S.Button type="submit" disabled={isLoading}>
-                {isLoading ? "Entrando..." : "Entrar no Sistema"}
+                {isLoading ? 'Entrando...' : 'Entrar no Sistema'}
               </S.Button>
             </S.Form>
 
             <S.Divider>ou</S.Divider>
             <S.GoogleButtonContainer>
               <div ref={googleButtonRef} />
-              {googleStatus !== "ready" && (
+              {googleStatus !== 'ready' && (
                 <S.GoogleFallbackButton
                   type="button"
                   onClick={initializeGoogleLogin}
-                  disabled={googleStatus === "loading"}
+                  disabled={googleStatus === 'loading'}
                 >
-                  {googleStatus === "loading"
-                    ? "Carregando login com Google..."
-                    : "Tentar carregar login com Google"}
+                  {googleStatus === 'loading'
+                    ? 'Carregando login com Google...'
+                    : 'Tentar carregar login com Google'}
                 </S.GoogleFallbackButton>
               )}
             </S.GoogleButtonContainer>

@@ -1,8 +1,8 @@
-import bcrypt from "bcrypt";
-import prisma from "../src/config/prisma.js";
+import bcrypt from 'bcrypt';
+import prisma from '../src/config/prisma.js';
 
-const email = process.argv[2] || "admin@hotmail.com";
-const password = process.argv[3] || "123456";
+const email = process.argv[2] || 'admin@hotmail.com';
+const password = process.argv[3] || '123456';
 
 (async () => {
   try {
@@ -19,12 +19,12 @@ const password = process.argv[3] || "123456";
     });
 
     if (!user) {
-      console.log("USER_NOT_FOUND");
+      console.log('USER_NOT_FOUND');
       return;
     }
 
-    const looksHashed = String(user.password || "").startsWith("$2");
-    const passwordMatches = await bcrypt.compare(password, user.password || "");
+    const looksHashed = String(user.password || '').startsWith('$2');
+    const passwordMatches = await bcrypt.compare(password, user.password || '');
 
     console.log(
       JSON.stringify(

@@ -1,18 +1,11 @@
-import { NextFunction, Request, Response } from "express";
-import { InvoiceStatus } from "@prisma/client";
-import prisma from "../config/prisma.js";
-import {
-  hasBlockingInvoices,
-  isInvoiceBlocking,
-} from "../modules/billing/utils/billingRules.js";
+import { NextFunction, Request, Response } from 'express';
+import { InvoiceStatus } from '@prisma/client';
+import prisma from '../config/prisma.js';
+import { hasBlockingInvoices, isInvoiceBlocking } from '../modules/billing/utils/billingRules.js';
 
 const checkedRequests = new WeakSet<Request>();
 
-export async function billingMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export async function billingMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     if (checkedRequests.has(req)) {
       return next();
@@ -21,10 +14,7 @@ export async function billingMiddleware(
     checkedRequests.add(req);
     const restaurantId = req.user.restaurantId;
 
-    if (
-      String(req.user.role || "").toUpperCase() === "SUPER_ADMIN" ||
-      !restaurantId
-    ) {
+    if (String(req.user.role || '').toUpperCase() === 'SUPER_ADMIN' || !restaurantId) {
       return next();
     }
 
@@ -36,7 +26,7 @@ export async function billingMiddleware(
         },
       },
       orderBy: {
-        dueDate: "asc",
+        dueDate: 'asc',
       },
     });
 
@@ -48,9 +38,7 @@ export async function billingMiddleware(
     const shouldBlock = hasBlockingInvoices(openInvoices, now);
 
     if (shouldBlock) {
-      const blockingInvoices = openInvoices.filter((invoice) =>
-        isInvoiceBlocking(invoice, now),
-      );
+      const blockingInvoices = openInvoices.filter((invoice) => isInvoiceBlocking(invoice, now));
 
       const blockingInvoice =
         blockingInvoices.find((invoice) => Boolean(invoice.paymentLink)) ||
@@ -83,7 +71,7 @@ export async function billingMiddleware(
       if (subscription) {
         await prisma.subscription.update({
           where: { id: subscription.id },
-          data: { status: "EXPIRADA" },
+          data: { status: 'EXPIRADA' },
         });
       }
 
@@ -93,9 +81,9 @@ export async function billingMiddleware(
       });
 
       return res.status(403).json({
-        code: "BILLING_BLOCKED",
+        code: 'BILLING_BLOCKED',
         blocked: true,
-        error: "Restaurante bloqueado por inadimplência",
+        error: 'Restaurante bloqueado por inadimplência',
         invoiceId: blockingInvoice?.id ?? null,
         paymentLink: blockingInvoice?.paymentLink ?? null,
         dueDate: blockingInvoice?.dueDate ?? null,
@@ -105,7 +93,7 @@ export async function billingMiddleware(
     return next();
   } catch (_error: unknown) {
     return res.status(500).json({
-      error: "Erro ao validar cobrança",
+      error: 'Erro ao validar cobrança',
     });
   }
 }

@@ -1,27 +1,33 @@
 export type AdminSection =
-  | "overview"
-  | "orders"
-  | "catalog"
-  | "customers"
-  | "subscriptions"
-  | "help"
-  | "settings"
-  | "employees";
+  | 'overview'
+  | 'orders'
+  | 'catalog'
+  | 'customers'
+  | 'subscriptions'
+  | 'help'
+  | 'settings'
+  | 'employees';
 export type SettingsSection =
-  | "brand"
-  | "business"
-  | "address"
-  | "hours"
-  | "orders"
-  | "delivery"
-  | "table"
-  | "whatsapp"
-  | "payments"
-  | "social"
-  | "appearance"
-  | "security";
-export type EmployeeRole = "COOK" | "WAITER" | "ATTENDANT";
-export type BusinessHour = { id: string; label: string; enabled: boolean; openingTime: string; closingTime: string };
+  | 'brand'
+  | 'business'
+  | 'address'
+  | 'hours'
+  | 'orders'
+  | 'delivery'
+  | 'table'
+  | 'whatsapp'
+  | 'payments'
+  | 'social'
+  | 'appearance'
+  | 'security';
+export type EmployeeRole = 'COOK' | 'WAITER' | 'ATTENDANT';
+export type BusinessHour = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  openingTime: string;
+  closingTime: string;
+};
 
 export type AdminOrder = {
   id: string;
@@ -56,7 +62,7 @@ export type AdminCategory = { id: number; name: string; active?: boolean };
 export type AdminSettings = {
   restaurantName: string;
   companyLegalName: string;
-  legalDocumentType: "CPF" | "CNPJ";
+  legalDocumentType: 'CPF' | 'CNPJ';
   companyDocument: string;
   businessPhone: string;
   businessEmail: string;
@@ -138,16 +144,11 @@ export type AdminPageProps = {
     restaurantName: string;
     pixKey: string;
   }) => void | Promise<void>;
-  onCreateEmployee?: (
-    employee: Omit<Employee, "id">,
-  ) => Employee | Promise<Employee>;
+  onCreateEmployee?: (employee: Omit<Employee, 'id'>) => Employee | Promise<Employee>;
   onUpdateEmployee?: (employee: Employee) => Employee | Promise<Employee>;
   onDeactivateEmployee?: (id: string) => void | Promise<void>;
   onReactivateEmployee?: (id: string) => void | Promise<void>;
   onViewStore?: () => void;
-  onReportSupport?: (payload: {
-    subject: string;
-    message: string;
-  }) => Promise<void>;
+  onReportSupport?: (payload: { subject: string; message: string }) => Promise<void>;
   onLogout?: () => void;
 };

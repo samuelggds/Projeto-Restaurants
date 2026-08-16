@@ -1,6 +1,6 @@
-import type { RestaurantSettings } from "../types/settings.types";
-import * as S from "../styles/settings.styles";
-import { Field, FormInput, Switch } from "./FormControls";
+import type { RestaurantSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
+import { Field, FormInput, Switch } from './FormControls';
 
 type Props = {
   settings: RestaurantSettings;
@@ -36,9 +36,7 @@ export function OrderSettings({ settings, onChange }: Props) {
               type="number"
               min="0"
               value={settings.minimumOrder}
-              onChange={(e) =>
-                onChange({ minimumOrder: Number(e.target.value) })
-              }
+              onChange={(e) => onChange({ minimumOrder: Number(e.target.value) })}
             />
           </Field>
           <Field label="Taxa de entrega (R$)">
@@ -46,9 +44,7 @@ export function OrderSettings({ settings, onChange }: Props) {
               type="number"
               min="0"
               value={settings.deliveryFee}
-              onChange={(e) =>
-                onChange({ deliveryFee: Number(e.target.value) })
-              }
+              onChange={(e) => onChange({ deliveryFee: Number(e.target.value) })}
             />
           </Field>
           <Field label="Ganho do motoqueiro por entrega (R$)">
@@ -57,18 +53,14 @@ export function OrderSettings({ settings, onChange }: Props) {
               min="0"
               step="0.01"
               value={settings.courierFeePerDelivery}
-              onChange={(e) =>
-                onChange({ courierFeePerDelivery: Number(e.target.value) })
-              }
+              onChange={(e) => onChange({ courierFeePerDelivery: Number(e.target.value) })}
             />
           </Field>
           <Field label="Tempo médio de entrega">
             <FormInput
               value={settings.averageDeliveryTime}
               placeholder="Ex: 35–50 min"
-              onChange={(e) =>
-                onChange({ averageDeliveryTime: e.target.value })
-              }
+              onChange={(e) => onChange({ averageDeliveryTime: e.target.value })}
             />
           </Field>
         </S.Grid>

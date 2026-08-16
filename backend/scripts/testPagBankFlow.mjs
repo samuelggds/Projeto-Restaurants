@@ -1,85 +1,76 @@
-import "dotenv/config";
+import 'dotenv/config';
 
-const mode = String(process.argv[2] || "")
+const mode = String(process.argv[2] || '')
   .trim()
   .toLowerCase();
-const inputCode = String(process.argv[3] || "").trim();
+const inputCode = String(process.argv[3] || '').trim();
 const optionalArgs = process.argv
   .slice(4)
-  .map((arg) => String(arg || "").trim())
+  .map((arg) => String(arg || '').trim())
   .filter(Boolean);
-const restaurantId = optionalArgs.find((arg) => /^\d+$/.test(arg)) || "";
+const restaurantId = optionalArgs.find((arg) => /^\d+$/.test(arg)) || '';
 const webhookOnly = optionalArgs.some((arg) => {
   const normalizedArg = arg.toLowerCase();
-  return normalizedArg === "--webhook-only" || normalizedArg === "webhook-only";
+  return normalizedArg === '--webhook-only' || normalizedArg === 'webhook-only';
 });
 
-if (!mode || !inputCode || !["notification", "transaction"].includes(mode)) {
+if (!mode || !inputCode || !['notification', 'transaction'].includes(mode)) {
   console.error(
-    "Uso: node scripts/testPagBankFlow.mjs <notification|transaction> <code> [restaurantId] [--webhook-only]",
+    'Uso: node scripts/testPagBankFlow.mjs <notification|transaction> <code> [restaurantId] [--webhook-only]',
   );
   process.exit(1);
 }
 
-const backendBaseUrl = String(
-  process.env.BACKEND_URL || "http://localhost:3000",
-)
+const backendBaseUrl = String(process.env.BACKEND_URL || 'http://localhost:3000')
   .trim()
-  .replace(/\/+$/, "");
+  .replace(/\/+$/, '');
 const webhookEndpoint = `${backendBaseUrl}/orders/webhook/pagbank`;
 
-const pagBankEmail = String(
-  process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || "",
-).trim();
-const pagBankToken = String(
-  process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || "",
-).trim();
-const pagBankApiBaseUrl = "https://ws.pagseguro.uol.com.br";
+const pagBankEmail = String(process.env.PAGBANK_EMAIL || process.env.PAGSEGURO_EMAIL || '').trim();
+const pagBankToken = String(process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN || '').trim();
+const pagBankApiBaseUrl = 'https://ws.pagseguro.uol.com.br';
 
 function isPlaceholderValue(value) {
-  const normalized = String(value || "")
+  const normalized = String(value || '')
     .trim()
     .toUpperCase();
   return (
-    normalized === "SUA_EMAIL_PAGBANK" ||
-    normalized === "SEU_TOKEN_PAGBANK" ||
-    normalized === "SEU_TRANSACTION_CODE_REAL" ||
-    normalized === "SEU_NOTIFICATION_CODE_REAL"
+    normalized === 'SUA_EMAIL_PAGBANK' ||
+    normalized === 'SEU_TOKEN_PAGBANK' ||
+    normalized === 'SEU_TRANSACTION_CODE_REAL' ||
+    normalized === 'SEU_NOTIFICATION_CODE_REAL'
   );
 }
 
 if (!webhookOnly && (!pagBankEmail || !pagBankToken)) {
   console.error(
-    "Configure PAGBANK_EMAIL e PAGBANK_TOKEN (ou PAGSEGURO_EMAIL/PAGSEGURO_TOKEN) antes de rodar este fluxo.",
+    'Configure PAGBANK_EMAIL e PAGBANK_TOKEN (ou PAGSEGURO_EMAIL/PAGSEGURO_TOKEN) antes de rodar este fluxo.',
   );
   process.exit(1);
 }
 
-if (
-  !webhookOnly &&
-  (isPlaceholderValue(pagBankEmail) || isPlaceholderValue(pagBankToken))
-) {
+if (!webhookOnly && (isPlaceholderValue(pagBankEmail) || isPlaceholderValue(pagBankToken))) {
   console.error(
-    "Credenciais PagBank ainda estao como placeholder no .env. Atualize PAGBANK_EMAIL e PAGBANK_TOKEN com valores reais.",
+    'Credenciais PagBank ainda estao como placeholder no .env. Atualize PAGBANK_EMAIL e PAGBANK_TOKEN com valores reais.',
   );
   process.exit(1);
 }
 
 if (isPlaceholderValue(inputCode)) {
   console.error(
-    "O codigo informado ainda esta como placeholder. Use um transactionCode ou notificationCode real do PagBank.",
+    'O codigo informado ainda esta como placeholder. Use um transactionCode ou notificationCode real do PagBank.',
   );
   process.exit(1);
 }
 
 function extractXmlTagValue(xml, tag) {
-  const regex = new RegExp(`<${tag}>([^<]+)</${tag}>`, "i");
-  const match = regex.exec(String(xml || ""));
-  return String(match?.[1] || "").trim();
+  const regex = new RegExp(`<${tag}>([^<]+)</${tag}>`, 'i');
+  const match = regex.exec(String(xml || ''));
+  return String(match?.[1] || '').trim();
 }
 
 function buildPagBankEndpointUrl() {
-  if (mode === "notification") {
+  if (mode === 'notification') {
     return `${pagBankApiBaseUrl}/v3/transactions/notifications/${encodeURIComponent(inputCode)}?email=${encodeURIComponent(pagBankEmail)}&token=${encodeURIComponent(pagBankToken)}`;
   }
 
@@ -87,7 +78,7 @@ function buildPagBankEndpointUrl() {
 }
 
 function redactToken(url) {
-  return String(url).replace(pagBankToken, "***");
+  return String(url).replace(pagBankToken, '***');
 }
 
 (async () => {
@@ -95,27 +86,25 @@ function redactToken(url) {
     if (!webhookOnly) {
       const pagBankEndpoint = buildPagBankEndpointUrl();
 
-      console.log(
-        `[PAGBANK_FLOW_TEST] STEP 1/2 GET ${redactToken(pagBankEndpoint)}`,
-      );
+      console.log(`[PAGBANK_FLOW_TEST] STEP 1/2 GET ${redactToken(pagBankEndpoint)}`);
 
       const transactionResponse = await fetch(pagBankEndpoint, {
-        method: "GET",
+        method: 'GET',
       });
       const transactionXml = await transactionResponse.text();
 
       const parsed = {
-        code: extractXmlTagValue(transactionXml, "code") || null,
-        status: extractXmlTagValue(transactionXml, "status") || null,
-        reference: extractXmlTagValue(transactionXml, "reference") || null,
-        grossAmount: extractXmlTagValue(transactionXml, "grossAmount") || null,
-        netAmount: extractXmlTagValue(transactionXml, "netAmount") || null,
+        code: extractXmlTagValue(transactionXml, 'code') || null,
+        status: extractXmlTagValue(transactionXml, 'status') || null,
+        reference: extractXmlTagValue(transactionXml, 'reference') || null,
+        grossAmount: extractXmlTagValue(transactionXml, 'grossAmount') || null,
+        netAmount: extractXmlTagValue(transactionXml, 'netAmount') || null,
       };
 
       console.log(
         JSON.stringify(
           {
-            step: "transaction-query",
+            step: 'transaction-query',
             ok: transactionResponse.ok,
             status: transactionResponse.status,
             statusText: transactionResponse.statusText,
@@ -127,27 +116,23 @@ function redactToken(url) {
       );
 
       if (!transactionResponse.ok) {
-        console.error(
-          "[PAGBANK_FLOW_TEST] Falha na consulta da transacao. Fluxo interrompido.",
-        );
+        console.error('[PAGBANK_FLOW_TEST] Falha na consulta da transacao. Fluxo interrompido.');
         process.exitCode = 1;
         return;
       }
     } else {
-      console.log(
-        "[PAGBANK_FLOW_TEST] STEP 1/2 SKIPPED (webhook-only mode enabled)",
-      );
+      console.log('[PAGBANK_FLOW_TEST] STEP 1/2 SKIPPED (webhook-only mode enabled)');
     }
 
     const webhookBody = new URLSearchParams();
 
-    if (mode === "notification") {
-      webhookBody.set("notificationCode", inputCode);
+    if (mode === 'notification') {
+      webhookBody.set('notificationCode', inputCode);
     } else {
-      webhookBody.set("transactionCode", inputCode);
+      webhookBody.set('transactionCode', inputCode);
     }
     if (restaurantId) {
-      webhookBody.set("restaurantId", restaurantId);
+      webhookBody.set('restaurantId', restaurantId);
     }
 
     console.log(
@@ -155,9 +140,9 @@ function redactToken(url) {
     );
 
     const webhookResponse = await fetch(webhookEndpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: webhookBody.toString(),
     });
@@ -167,7 +152,7 @@ function redactToken(url) {
     console.log(
       JSON.stringify(
         {
-          step: "webhook-dispatch",
+          step: 'webhook-dispatch',
           ok: webhookResponse.ok,
           status: webhookResponse.status,
           statusText: webhookResponse.statusText,
@@ -179,7 +164,7 @@ function redactToken(url) {
     );
   } catch (error) {
     console.error(
-      "[PAGBANK_FLOW_TEST_ERROR]",
+      '[PAGBANK_FLOW_TEST_ERROR]',
       error instanceof Error ? error.message : String(error),
     );
     process.exitCode = 1;

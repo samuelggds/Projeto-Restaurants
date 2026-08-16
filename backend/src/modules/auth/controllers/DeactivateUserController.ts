@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import deactivateUserService from "../services/DeactivateUserService.js";
+import { Request, Response } from 'express';
+import deactivateUserService from '../services/DeactivateUserService.js';
 
 class DeactivateUserController {
   async handle(req: Request, res: Response) {
@@ -11,8 +11,7 @@ class DeactivateUserController {
       return res.json(user);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao desativar usuario",
+        error: error instanceof Error ? error.message : 'Erro ao desativar usuario',
       });
     }
   }

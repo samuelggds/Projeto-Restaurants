@@ -4,12 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/modules/billing/utils/billingPaymentWindow.test.ts src/modules/subscription/services/PlanChangePolicy.test.ts src/middlewares/billingMiddleware.integration.test.ts src/middlewares/authMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts src/modules/restaurantSettings/services/CreateRestaurantSettingsService.test.ts src/modules/restaurantSettings/services/GetPublicRestaurantSettingsService.test.ts src/modules/restaurantSettings/utils/normalizeRestaurantImage.test.ts src/modules/orders/services/CreateOrderCardCheckoutService.test.ts src/modules/orders/services/ListCourierOrdersService.test.ts src/modules/orders/services/pixPayload.test.ts src/modules/orders/controllers/PagBankOrderWebhookController.test.ts src/modules/orders/controllers/PaymentWebhookHardening.test.ts src/modules/auth/services/AuthTokenService.test.ts src/modules/auth/services/LoginLockoutService.test.ts src/modules/auth/services/LoginMfaService.test.ts src/modules/auth/services/RequestPasswordResetService.test.ts src/modules/security/TenantIsolationServices.test.ts src/modules/orders/utils/paymentConfirmationPin.test.ts src/modules/orders/utils/restaurantAvailability.test.ts src/modules/orders/utils/deliveryRouteEstimate.test.ts",
+    "test": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/modules/billing/utils/billingPaymentWindow.test.ts src/modules/subscription/services/PlanChangePolicy.test.ts src/middlewares/billingMiddleware.integration.test.ts src/middlewares/authMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts src/modules/restaurantSettings/services/CreateRestaurantSettingsService.test.ts src/modules/restaurantSettings/services/GetPublicRestaurantSettingsService.test.ts src/modules/restaurantSettings/utils/normalizeRestaurantImage.test.ts src/modules/orders/services/CreateOrderCardCheckoutService.test.ts src/modules/orders/services/ListCourierOrdersService.test.ts src/modules/orders/services/pixPayload.test.ts src/modules/orders/controllers/PagBankOrderWebhookController.test.ts src/modules/orders/controllers/PaymentWebhookHardening.test.ts src/modules/auth/services/AuthTokenService.test.ts src/modules/auth/services/LoginLockoutService.test.ts src/modules/auth/services/LoginMfaService.test.ts src/modules/auth/services/UpdateProfileService.test.ts src/modules/auth/services/RequestPasswordResetService.test.ts src/modules/security/TenantIsolationServices.test.ts src/modules/orders/utils/paymentConfirmationPin.test.ts src/modules/orders/utils/restaurantAvailability.test.ts src/modules/orders/utils/deliveryRouteEstimate.test.ts src/modules/orders/utils/deliveryReceiptConfirmation.test.ts",
     "test:billing": "tsx --test src/modules/billing/utils/dateUtils.test.ts src/modules/billing/utils/billingRules.test.ts src/modules/billing/utils/billingTimeline.test.ts src/modules/billing/utils/billingPaymentWindow.test.ts src/modules/subscription/services/PlanChangePolicy.test.ts src/middlewares/billingMiddleware.integration.test.ts src/middlewares/authMiddleware.integration.test.ts src/modules/billing/services/ProcessPaymentService.integration.test.ts",
     "dev": "tsx watch src/server.ts",
     "build": "tsup",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "db:generate": "prisma generate",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -52,14 +56,19 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^8.0.1",
     "@types/prompt-sync": "^4.2.3",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
     "nodemon": "^3.1.14",
+    "prettier": "^3.9.6",
     "tsup": "^8.5.1",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0"
   }
 }

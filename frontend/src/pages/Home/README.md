@@ -13,7 +13,7 @@ npm install styled-components lucide-react
 Copie a pasta `home` para `src/modules/home` e importe:
 
 ```tsx
-import { HomePage } from './modules/home'
+import { HomePage } from './modules/home';
 
 export function App() {
   return (
@@ -23,7 +23,7 @@ export function App() {
       onOpenCart={() => navigate('/cart')}
       onAddProduct={(productId) => console.log(productId)}
     />
-  )
+  );
 }
 ```
 

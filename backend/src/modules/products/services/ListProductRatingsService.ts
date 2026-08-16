@@ -1,16 +1,16 @@
-import productRepository from "../repositories/ProductRepository.js";
+import productRepository from '../repositories/ProductRepository.js';
 
 class ListProductRatingsService {
   async execute(restaurantId: number | string, clientKey?: string) {
     const normalizedRestaurantId = Number(restaurantId);
 
     if (!normalizedRestaurantId) {
-      throw new Error("Restaurante não encontrado");
+      throw new Error('Restaurante não encontrado');
     }
 
     const ratings = await productRepository.listRatingsByRestaurant(
       normalizedRestaurantId,
-      String(clientKey || "").trim(),
+      String(clientKey || '').trim(),
     );
 
     return {

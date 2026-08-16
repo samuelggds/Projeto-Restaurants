@@ -1,9 +1,6 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import mercadoPagoService from "./MercadoPagoService.js";
-import {
-  getPixAvailableAt,
-  isInvoicePixAvailable,
-} from "../utils/billingPaymentWindow.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import mercadoPagoService from './MercadoPagoService.js';
+import { getPixAvailableAt, isInvoicePixAvailable } from '../utils/billingPaymentWindow.js';
 
 type RegenerateInvoicePaymentLinkPayload = {
   invoiceId: number | string;
@@ -11,26 +8,20 @@ type RegenerateInvoicePaymentLinkPayload = {
 };
 
 class RegenerateInvoicePaymentLinkService {
-  async execute({
-    invoiceId,
-    restaurantId,
-  }: RegenerateInvoicePaymentLinkPayload) {
-    const invoice = await billingRepository.findInvoiceByIdAndRestaurantId(
-      invoiceId,
-      restaurantId,
-    );
+  async execute({ invoiceId, restaurantId }: RegenerateInvoicePaymentLinkPayload) {
+    const invoice = await billingRepository.findInvoiceByIdAndRestaurantId(invoiceId, restaurantId);
 
     if (!invoice) {
-      throw new Error("Fatura não encontrada para este restaurante.");
+      throw new Error('Fatura não encontrada para este restaurante.');
     }
 
-    if (!["PENDENTE", "ATRASADO"].includes(invoice.status)) {
-      throw new Error("Esta mensalidade não está disponível para pagamento.");
+    if (!['PENDENTE', 'ATRASADO'].includes(invoice.status)) {
+      throw new Error('Esta mensalidade não está disponível para pagamento.');
     }
 
     if (!isInvoicePixAvailable(invoice)) {
       throw new Error(
-        `O Pix desta mensalidade estará disponível em ${getPixAvailableAt(invoice.dueDate).toLocaleDateString("pt-BR")}.`,
+        `O Pix desta mensalidade estará disponível em ${getPixAvailableAt(invoice.dueDate).toLocaleDateString('pt-BR')}.`,
       );
     }
 

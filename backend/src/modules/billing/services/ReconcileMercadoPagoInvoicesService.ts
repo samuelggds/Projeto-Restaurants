@@ -1,8 +1,8 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import processPaymentService from "./ProcessPaymentService.js";
-import { isApprovedPaymentStatus } from "../utils/webhookUtils.js";
-import { debug, error, info, warn } from "../utils/billingLogger.js";
-import { getPlatformMercadoPagoAccessToken } from "../config/platformMercadoPago.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import processPaymentService from './ProcessPaymentService.js';
+import { isApprovedPaymentStatus } from '../utils/webhookUtils.js';
+import { debug, error, info, warn } from '../utils/billingLogger.js';
+import { getPlatformMercadoPagoAccessToken } from '../config/platformMercadoPago.js';
 
 type MercadoPagoSearchResponse = {
   results?: Array<{
@@ -13,11 +13,9 @@ type MercadoPagoSearchResponse = {
 
 class ReconcileMercadoPagoInvoicesService {
   private isEnabled() {
-    const enabled = String(
-      process.env.MP_AUTO_RECONCILE_ENABLED || "true",
-    ).toLowerCase();
+    const enabled = String(process.env.MP_AUTO_RECONCILE_ENABLED || 'true').toLowerCase();
 
-    return enabled !== "false";
+    return enabled !== 'false';
   }
 
   private getAccessToken() {
@@ -25,9 +23,7 @@ class ReconcileMercadoPagoInvoicesService {
   }
 
   private getApiBaseUrl() {
-    return String(
-      process.env.MP_API_BASE_URL || "https://api.mercadopago.com",
-    ).trim();
+    return String(process.env.MP_API_BASE_URL || 'https://api.mercadopago.com').trim();
   }
 
   private getMaxInvoices() {
@@ -40,86 +36,74 @@ class ReconcileMercadoPagoInvoicesService {
     return Math.floor(parsed);
   }
 
-  private async fetchLatestPaymentStatus(
-    invoiceId: number,
-    accessToken: string,
-  ) {
+  private async fetchLatestPaymentStatus(invoiceId: number, accessToken: string) {
     const searchUrl = new URL(`${this.getApiBaseUrl()}/v1/payments/search`);
-    searchUrl.searchParams.set("external_reference", String(invoiceId));
-    searchUrl.searchParams.set("sort", "date_created");
-    searchUrl.searchParams.set("criteria", "desc");
-    searchUrl.searchParams.set("limit", "1");
+    searchUrl.searchParams.set('external_reference', String(invoiceId));
+    searchUrl.searchParams.set('sort', 'date_created');
+    searchUrl.searchParams.set('criteria', 'desc');
+    searchUrl.searchParams.set('limit', '1');
 
     const response = await fetch(searchUrl.toString(), {
-      method: "GET",
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
 
-    const payload = (await response
-      .json()
-      .catch(() => ({}))) as MercadoPagoSearchResponse;
+    const payload = (await response.json().catch(() => ({}))) as MercadoPagoSearchResponse;
 
     if (!response.ok) {
-      throw new Error(
-        `MP search failed [${response.status}] for invoice ${invoiceId}`,
-      );
+      throw new Error(`MP search failed [${response.status}] for invoice ${invoiceId}`);
     }
 
     return {
       paymentId: payload?.results?.[0]?.id || null,
-      status: String(payload?.results?.[0]?.status || "").trim(),
+      status: String(payload?.results?.[0]?.status || '').trim(),
     };
   }
 
   async execute() {
     if (!this.isEnabled()) {
-      debug("MP auto reconciliation disabled");
+      debug('MP auto reconciliation disabled');
       return;
     }
 
     const accessToken = this.getAccessToken();
 
     if (!accessToken) {
-      warn(
-        "MP auto reconciliation skipped: missing PLATFORM_MP_ACCESS_TOKEN",
-      );
+      warn('MP auto reconciliation skipped: missing PLATFORM_MP_ACCESS_TOKEN');
       return;
     }
 
     const pendingInvoices = await billingRepository.findPendingInvoices();
     const invoicesToProcess = pendingInvoices
-      .filter((invoice) => String(invoice.paymentLink || "").trim())
+      .filter((invoice) => String(invoice.paymentLink || '').trim())
       .slice(0, this.getMaxInvoices());
 
     if (!invoicesToProcess.length) {
-      debug("MP auto reconciliation: no pending invoices");
+      debug('MP auto reconciliation: no pending invoices');
       return;
     }
 
-    info("MP auto reconciliation started", {
+    info('MP auto reconciliation started', {
       pendingCount: pendingInvoices.length,
       processingCount: invoicesToProcess.length,
     });
 
     for (const invoice of invoicesToProcess) {
       try {
-        const payment = await this.fetchLatestPaymentStatus(
-          invoice.id,
-          accessToken,
-        );
+        const payment = await this.fetchLatestPaymentStatus(invoice.id, accessToken);
 
         if (!payment.paymentId) {
-          debug("MP auto reconciliation: payment not found", {
+          debug('MP auto reconciliation: payment not found', {
             invoiceId: invoice.id,
           });
           continue;
         }
 
         if (!isApprovedPaymentStatus(payment.status)) {
-          debug("MP auto reconciliation: payment not approved", {
+          debug('MP auto reconciliation: payment not approved', {
             invoiceId: invoice.id,
             paymentId: payment.paymentId,
             status: payment.status,
@@ -129,20 +113,20 @@ class ReconcileMercadoPagoInvoicesService {
 
         await processPaymentService.execute({ invoiceId: invoice.id });
 
-        info("MP auto reconciliation: invoice paid", {
+        info('MP auto reconciliation: invoice paid', {
           invoiceId: invoice.id,
           paymentId: payment.paymentId,
           status: payment.status,
         });
       } catch (err) {
-        error("MP auto reconciliation failed for invoice", {
+        error('MP auto reconciliation failed for invoice', {
           invoiceId: invoice.id,
           message: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
-    info("MP auto reconciliation finished");
+    info('MP auto reconciliation finished');
   }
 }
 

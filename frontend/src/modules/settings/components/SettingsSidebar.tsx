@@ -1,5 +1,5 @@
-import * as S from "../styles/settings.styles";
-import type { SettingsSectionId } from "../types/settings.types";
+import * as S from '../styles/settings.styles';
+import type { SettingsSectionId } from '../types/settings.types';
 
 const sections: Array<{
   id: SettingsSectionId;
@@ -8,52 +8,52 @@ const sections: Array<{
   description: string;
 }> = [
   {
-    id: "business",
-    icon: "⌂",
-    label: "Restaurante",
-    description: "Dados principais",
+    id: 'business',
+    icon: '⌂',
+    label: 'Restaurante',
+    description: 'Dados principais',
   },
   {
-    id: "appearance",
-    icon: "◐",
-    label: "Aparência",
-    description: "Marca e cores",
+    id: 'appearance',
+    icon: '◐',
+    label: 'Aparência',
+    description: 'Marca e cores',
   },
   {
-    id: "contact",
-    icon: "◎",
-    label: "Contato e redes",
-    description: "Canais públicos",
+    id: 'contact',
+    icon: '◎',
+    label: 'Contato e redes',
+    description: 'Canais públicos',
   },
   {
-    id: "whatsapp",
-    icon: "◉",
-    label: "WhatsApp",
-    description: "Atendimento e pedidos",
+    id: 'whatsapp',
+    icon: '◉',
+    label: 'WhatsApp',
+    description: 'Atendimento e pedidos',
   },
   {
-    id: "about",
-    icon: "≡",
-    label: "Sobre",
-    description: "Descrição institucional",
+    id: 'about',
+    icon: '≡',
+    label: 'Sobre',
+    description: 'Descrição institucional',
   },
   {
-    id: "hours",
-    icon: "◷",
-    label: "Horários",
-    description: "Dias e funcionamento",
+    id: 'hours',
+    icon: '◷',
+    label: 'Horários',
+    description: 'Dias e funcionamento',
   },
   {
-    id: "orders",
-    icon: "◇",
-    label: "Pedidos e entrega",
-    description: "Regras comerciais",
+    id: 'orders',
+    icon: '◇',
+    label: 'Pedidos e entrega',
+    description: 'Regras comerciais',
   },
   {
-    id: "payments",
-    icon: "R$",
-    label: "Pagamentos",
-    description: "Pix, cartão e webhooks",
+    id: 'payments',
+    icon: 'R$',
+    label: 'Pagamentos',
+    description: 'Pix, cartão e webhooks',
   },
 ];
 
@@ -62,10 +62,7 @@ type SettingsSidebarProps = {
   onSelect: (section: SettingsSectionId) => void;
 };
 
-export function SettingsSidebar({
-  activeSection,
-  onSelect,
-}: SettingsSidebarProps) {
+export function SettingsSidebar({ activeSection, onSelect }: SettingsSidebarProps) {
   return (
     <S.Sidebar>
       <S.SidebarTitle>

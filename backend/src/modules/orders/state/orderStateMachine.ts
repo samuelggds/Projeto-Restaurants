@@ -1,4 +1,4 @@
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus } from '@prisma/client';
 
 const transitions: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDENTE]: [OrderStatus.PREPARANDO, OrderStatus.CANCELADO],

@@ -1,5 +1,5 @@
-import type { Request, Response } from "express";
-import getDeliveryTrackingService from "../services/GetDeliveryTrackingService.js";
+import type { Request, Response } from 'express';
+import getDeliveryTrackingService from '../services/GetDeliveryTrackingService.js';
 
 class GetDeliveryTrackingController {
   async handle(req: Request, res: Response) {
@@ -12,7 +12,9 @@ class GetDeliveryTrackingController {
       });
       return res.json(result);
     } catch (error: unknown) {
-      return res.status(403).json({ error: error instanceof Error ? error.message : "Erro ao consultar rastreamento" });
+      return res
+        .status(403)
+        .json({ error: error instanceof Error ? error.message : 'Erro ao consultar rastreamento' });
     }
   }
 }

@@ -1,89 +1,89 @@
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 const restaurantId = Number(process.argv[2] || 15);
 
 const categoriesToCreate = [
   {
-    name: "Bebidas",
+    name: 'Bebidas',
     image:
-      "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=1200&q=80',
     products: [
       {
-        name: "Limonada da Casa",
-        description: "Limonada gelada com hortela fresca.",
+        name: 'Limonada da Casa',
+        description: 'Limonada gelada com hortela fresca.',
         price: 12.9,
         image:
-          "https://images.unsplash.com/photo-1581006852262-e4307cf6283a?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1581006852262-e4307cf6283a?auto=format&fit=crop&w=1200&q=80',
       },
       {
-        name: "Pink Soda Especial",
-        description: "Soda italiana com frutas vermelhas.",
+        name: 'Pink Soda Especial',
+        description: 'Soda italiana com frutas vermelhas.',
         price: 16.9,
         image:
-          "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80',
       },
     ],
   },
   {
-    name: "Sobremesas",
+    name: 'Sobremesas',
     image:
-      "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=1200&q=80',
     products: [
       {
-        name: "Brownie com Sorvete",
-        description: "Brownie quente com sorvete de creme.",
+        name: 'Brownie com Sorvete',
+        description: 'Brownie quente com sorvete de creme.',
         price: 23.9,
         image:
-          "https://images.unsplash.com/photo-1606313564200-e75d5e30476e?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1606313564200-e75d5e30476e?auto=format&fit=crop&w=1200&q=80',
       },
       {
-        name: "Cheesecake de Frutas Vermelhas",
-        description: "Cheesecake cremoso com calda artesanal.",
+        name: 'Cheesecake de Frutas Vermelhas',
+        description: 'Cheesecake cremoso com calda artesanal.',
         price: 24.9,
         image:
-          "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=1200&q=80',
       },
     ],
   },
   {
-    name: "Massas",
+    name: 'Massas',
     image:
-      "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=1200&q=80',
     products: [
       {
-        name: "Fettuccine Alfredo",
-        description: "Massa artesanal ao molho alfredo e parmesao.",
+        name: 'Fettuccine Alfredo',
+        description: 'Massa artesanal ao molho alfredo e parmesao.',
         price: 41.9,
         image:
-          "https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?auto=format&fit=crop&w=1200&q=80',
       },
       {
-        name: "Lasanha Bolonhesa",
-        description: "Lasanha de carne com queijo gratinado.",
+        name: 'Lasanha Bolonhesa',
+        description: 'Lasanha de carne com queijo gratinado.',
         price: 44.9,
         image:
-          "https://images.unsplash.com/photo-1619895092538-128341789043?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1619895092538-128341789043?auto=format&fit=crop&w=1200&q=80',
       },
     ],
   },
   {
-    name: "Saladas",
+    name: 'Saladas',
     image:
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
     products: [
       {
-        name: "Salada Caesar",
-        description: "Alface romana, frango grelhado e molho caesar.",
+        name: 'Salada Caesar',
+        description: 'Alface romana, frango grelhado e molho caesar.',
         price: 27.9,
         image:
-          "https://images.unsplash.com/photo-1546793665-c74683f339c1?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1546793665-c74683f339c1?auto=format&fit=crop&w=1200&q=80',
       },
       {
-        name: "Salada Tropical",
-        description: "Mix de folhas, manga e molho citrico.",
+        name: 'Salada Tropical',
+        description: 'Mix de folhas, manga e molho citrico.',
         price: 26.9,
         image:
-          "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80",
+          'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
       },
     ],
   },
@@ -165,10 +165,7 @@ async function main() {
   let productsSkipped = 0;
 
   for (const categoryData of categoriesToCreate) {
-    const { category, created } = await ensureCategory(
-      restaurant,
-      categoryData,
-    );
+    const { category, created } = await ensureCategory(restaurant, categoryData);
 
     if (created) {
       categoriesCreated += 1;
@@ -177,11 +174,7 @@ async function main() {
     }
 
     for (const productData of categoryData.products) {
-      const inserted = await ensureProduct(
-        restaurant.id,
-        category.id,
-        productData,
-      );
+      const inserted = await ensureProduct(restaurant.id, category.id, productData);
 
       if (inserted) {
         productsCreated += 1;

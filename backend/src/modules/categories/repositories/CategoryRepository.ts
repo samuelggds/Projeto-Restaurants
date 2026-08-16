@@ -1,11 +1,11 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class CategoryRepository {
   async create(
-    data: Omit<Prisma.CategoryUncheckedCreateInput, "restaurantId">,
+    data: Omit<Prisma.CategoryUncheckedCreateInput, 'restaurantId'>,
     restaurantId: number,
     db: PrismaClientLike = prisma,
   ) {
@@ -23,16 +23,12 @@ class CategoryRepository {
         restaurantId,
       },
       orderBy: {
-        name: "asc",
+        name: 'asc',
       },
     });
   }
 
-  async findById(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findById(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     return db.category.findFirst({
       where: {
         id: Number(id),
@@ -50,8 +46,8 @@ class CategoryRepository {
       where: {
         restaurantId,
         name: {
-          equals: String(name || "").trim(),
-          mode: "insensitive",
+          equals: String(name || '').trim(),
+          mode: 'insensitive',
         },
       },
     });
@@ -71,11 +67,7 @@ class CategoryRepository {
       data,
     });
   }
-  async delete(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async delete(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     const categoryId = Number(id);
 
     const hasProducts = await db.product.findFirst({
@@ -85,9 +77,7 @@ class CategoryRepository {
       },
     });
     if (hasProducts) {
-      throw new Error(
-        "Não é possivel excluir uma categoria que possui produtos!",
-      );
+      throw new Error('Não é possivel excluir uma categoria que possui produtos!');
     }
     return db.category.deleteMany({
       where: {
@@ -97,10 +87,7 @@ class CategoryRepository {
     });
   }
 
-  async deleteAllByRestaurant(
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async deleteAllByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.category.deleteMany({
       where: {
         restaurantId,

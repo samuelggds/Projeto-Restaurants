@@ -1,6 +1,6 @@
-import bcrypt from "bcrypt";
-import userRepository from "../repositories/UserRepository.js";
-import { registerSchema } from "../../../validators/RegisterValidator.js";
+import bcrypt from 'bcrypt';
+import userRepository from '../repositories/UserRepository.js';
+import { registerSchema } from '../../../validators/RegisterValidator.js';
 
 type RegisterPayload = {
   name: string;
@@ -13,13 +13,13 @@ class RegisterService {
   async execute({ name, email, password, confirmPassword }: RegisterPayload) {
     registerSchema.parse({ name, email, password, confirmPassword });
 
-    const normalizedEmail = String(email || "")
+    const normalizedEmail = String(email || '')
       .trim()
       .toLowerCase();
 
     const userExists = await userRepository.findByEmail(normalizedEmail);
     if (userExists) {
-      throw new Error("Este e-mail já está em uso!");
+      throw new Error('Este e-mail já está em uso!');
     }
 
     const passwordhash = await bcrypt.hash(password, 10);

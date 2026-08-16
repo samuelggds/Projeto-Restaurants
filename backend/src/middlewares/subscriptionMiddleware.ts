@@ -1,11 +1,7 @@
-import { NextFunction, Request, Response } from "express";
-import prisma from "../config/prisma.js";
+import { NextFunction, Request, Response } from 'express';
+import prisma from '../config/prisma.js';
 
-export async function subscriptionMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export async function subscriptionMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     const restaurantId = req.user.restaurantId;
 
@@ -17,28 +13,25 @@ export async function subscriptionMiddleware(
 
     if (!subscription) {
       return res.status(403).json({
-        error: "Assinatura não encontrada",
+        error: 'Assinatura não encontrada',
       });
     }
 
-    if (subscription.status === "CANCELADA") {
+    if (subscription.status === 'CANCELADA') {
       return res.status(403).json({
-        error: "Assinatura cancelada",
+        error: 'Assinatura cancelada',
       });
     }
 
-    if (subscription.status === "EXPIRADA") {
+    if (subscription.status === 'EXPIRADA') {
       return res.status(403).json({
-        error: "Assinatura expirada",
+        error: 'Assinatura expirada',
       });
     }
 
-    if (
-      subscription.trialEndsAt &&
-      new Date(subscription.trialEndsAt) < new Date()
-    ) {
+    if (subscription.trialEndsAt && new Date(subscription.trialEndsAt) < new Date()) {
       return res.status(403).json({
-        error: "Período de teste expirado",
+        error: 'Período de teste expirado',
       });
     }
 
@@ -47,7 +40,7 @@ export async function subscriptionMiddleware(
     return next();
   } catch (_error: unknown) {
     return res.status(500).json({
-      error: "Erro ao validar assinatura",
+      error: 'Erro ao validar assinatura',
     });
   }
 }

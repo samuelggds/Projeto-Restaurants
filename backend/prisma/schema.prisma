@@ -249,6 +249,7 @@ model Order {
   assignedCourierId               Int?
   deliveryStartedAt               DateTime?
   deliveredAt                     DateTime?
+  deliveryConfirmedAt             DateTime?
   preparationStartedAt            DateTime?
   readyAt                         DateTime?
   courierEarning                  Decimal           @default(0) @db.Decimal(10, 2)

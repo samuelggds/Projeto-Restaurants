@@ -1,37 +1,37 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "backend/.env" });
+import dotenv from 'dotenv';
+dotenv.config({ path: 'backend/.env' });
 
-import prisma from "../src/config/prisma.js";
-import updateOrderStatusService from "../src/modules/orders/services/UpdateOrderStatusService.js";
-import { PaymentMethod, OrderStatus, OrderType } from "@prisma/client";
+import prisma from '../src/config/prisma.js';
+import updateOrderStatusService from '../src/modules/orders/services/UpdateOrderStatusService.js';
+import { PaymentMethod, OrderStatus, OrderType } from '@prisma/client';
 
 async function ensureBaseData() {
   const courier = await prisma.user.findFirst({
-    where: { email: "motoqueiro@pizzaia.demo" },
+    where: { email: 'motoqueiro@pizzaia.demo' },
     select: { id: true, restaurantId: true },
   });
 
   if (!courier?.restaurantId) {
-    throw new Error("Motoqueiro de teste nao encontrado. Rode o seed e tente novamente.");
+    throw new Error('Motoqueiro de teste nao encontrado. Rode o seed e tente novamente.');
   }
 
   const restaurantId = courier.restaurantId;
 
   let customer = await prisma.user.findFirst({
-    where: { restaurantId, role: "CLIENTE", active: true },
+    where: { restaurantId, role: 'CLIENTE', active: true },
     select: { id: true, phone: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!customer) {
     customer = await prisma.user.create({
       data: {
-        name: "Cliente Teste Fluxo",
+        name: 'Cliente Teste Fluxo',
         email: `cliente.teste.fluxo.${Date.now()}@pizzaia.demo`,
-        password: "123456",
-        role: "CLIENTE",
+        password: '123456',
+        role: 'CLIENTE',
         active: true,
-        phone: "+5585999998888",
+        phone: '+5585999998888',
         restaurantId,
       },
       select: { id: true, phone: true },
@@ -41,15 +41,15 @@ async function ensureBaseData() {
   if (!customer.phone) {
     await prisma.user.update({
       where: { id: customer.id },
-      data: { phone: "+5585999998888" },
+      data: { phone: '+5585999998888' },
     });
-    customer = { ...customer, phone: "+5585999998888" };
+    customer = { ...customer, phone: '+5585999998888' };
   }
 
   let category = await prisma.category.findFirst({
     where: { restaurantId },
     select: { id: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!category) {
@@ -65,14 +65,14 @@ async function ensureBaseData() {
   let product = await prisma.product.findFirst({
     where: { restaurantId, active: true },
     select: { id: true, price: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!product) {
     product = await prisma.product.create({
       data: {
         name: `Produto Teste Fluxo ${Date.now()}`,
-        description: "Produto teste para fluxo de entrega",
+        description: 'Produto teste para fluxo de entrega',
         price: 39.9,
         active: true,
         restaurantId,
@@ -118,12 +118,12 @@ async function createOrder({
       paid,
       paidAt: paid ? new Date() : null,
       observation: `TMP_TEST_${tag}_${Date.now()}`,
-      address: "Rua Teste",
-      number: "123",
-      district: "Centro",
-      city: "Fortaleza",
-      state: "CE",
-      zipCode: "60000000",
+      address: 'Rua Teste',
+      number: '123',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000000',
       userId: customerId,
       restaurantId,
       items: {
@@ -176,7 +176,7 @@ async function testCase({
       order.id,
       restaurantId,
       OrderStatus.ENTREGUE,
-      "MOTOQUEIRO",
+      'MOTOQUEIRO',
       code,
     );
 
@@ -190,7 +190,7 @@ async function testCase({
       expectedSuccess,
       statusAfter: updated?.status,
       paidAfter: updated?.paid,
-      result: ok ? "PASS" : "FAIL_UNEXPECTED_SUCCESS",
+      result: ok ? 'PASS' : 'FAIL_UNEXPECTED_SUCCESS',
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -203,20 +203,20 @@ async function testCase({
       success: false,
       expectedSuccess,
       error: message,
-      result: ok ? "PASS" : "FAIL_UNEXPECTED_ERROR",
+      result: ok ? 'PASS' : 'FAIL_UNEXPECTED_ERROR',
     };
   }
 }
 
 async function main() {
   const base = await ensureBaseData();
-  const last4 = String(base.customerPhone).replace(/\D/g, "").slice(-4);
+  const last4 = String(base.customerPhone).replace(/\D/g, '').slice(-4);
 
   const results = [];
 
   results.push(
     await testCase({
-      label: "DINHEIRO_NAO_PAGO",
+      label: 'DINHEIRO_NAO_PAGO',
       paymentMethod: PaymentMethod.DINHEIRO,
       paid: false,
       expectedSuccess: true,
@@ -227,7 +227,7 @@ async function main() {
 
   results.push(
     await testCase({
-      label: "PIX_NAO_PAGO",
+      label: 'PIX_NAO_PAGO',
       paymentMethod: PaymentMethod.PIX,
       paid: false,
       expectedSuccess: false,
@@ -238,7 +238,7 @@ async function main() {
 
   results.push(
     await testCase({
-      label: "CARTAO_NAO_PAGO",
+      label: 'CARTAO_NAO_PAGO',
       paymentMethod: PaymentMethod.CARTAO,
       paid: false,
       expectedSuccess: false,

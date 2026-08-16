@@ -1,12 +1,10 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
     const orderId = Number(process.argv[2] || 44);
-    const baseUrl = String(
-      process.env.BACKEND_URL || "http://127.0.0.1:3000",
-    ).trim();
+    const baseUrl = String(process.env.BACKEND_URL || 'http://127.0.0.1:3000').trim();
 
     const before = await prisma.order.findUnique({
       where: { id: orderId },
@@ -26,13 +24,13 @@ import prisma from "../src/config/prisma.js";
       throw new Error(`Pedido ${orderId} nao encontrado.`);
     }
 
-    if (String(before.paymentMethod || "").toUpperCase() !== "PIX") {
+    if (String(before.paymentMethod || '').toUpperCase() !== 'PIX') {
       throw new Error(
-        `Pedido ${orderId} nao esta em PIX (metodo: ${String(before.paymentMethod || "N/A")}).`,
+        `Pedido ${orderId} nao esta em PIX (metodo: ${String(before.paymentMethod || 'N/A')}).`,
       );
     }
 
-    let paymentId = String(before.pixPaymentId || "").trim();
+    let paymentId = String(before.pixPaymentId || '').trim();
 
     if (!paymentId) {
       paymentId = `manual:PICPAY:${before.restaurantId}:${Date.now()}`;
@@ -51,14 +49,14 @@ import prisma from "../src/config/prisma.js";
       paymentId,
     };
 
-    if (paymentId.startsWith("manual:")) {
+    if (paymentId.startsWith('manual:')) {
       payload.paymentProof = `cliente-confirmou-pix-${Date.now()}`;
     }
 
     const response = await fetch(`${baseUrl}/orders/pix/payment/confirm`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
@@ -82,7 +80,7 @@ import prisma from "../src/config/prisma.js";
     console.log(
       JSON.stringify(
         {
-          mode: "client_pix_payment",
+          mode: 'client_pix_payment',
           orderId,
           requestPayload: payload,
           http: {

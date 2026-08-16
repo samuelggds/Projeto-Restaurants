@@ -1,23 +1,14 @@
-import {
-  createContext,
-  useCallback,
-  useMemo,
-  type PropsWithChildren,
-} from "react";
-import { workspaceMock } from "./data";
-import type {
-  EmployeeWorkspaceData,
-  EmployeeWorkspaceProps,
-  OrderStatus,
-} from "./types";
+import { createContext, useCallback, useMemo, type PropsWithChildren } from 'react';
+import { workspaceMock } from './data';
+import type { EmployeeWorkspaceData, EmployeeWorkspaceProps, OrderStatus } from './types';
 
 export type KitchenModuleProps = Omit<
   EmployeeWorkspaceProps,
-  "role" | "onGenerateAccessCode" | "onUpdateCall"
+  'role' | 'onGenerateAccessCode' | 'onUpdateCall'
 >;
 export type KitchenContextValue = KitchenModuleProps &
   EmployeeWorkspaceData & {
-    role: "KITCHEN";
+    role: 'KITCHEN';
     updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   };
 // eslint-disable-next-line react-refresh/only-export-components
@@ -35,8 +26,8 @@ export function KitchenProvider({
       const current = orders.find((order) => order.id === id);
       const allowed =
         current &&
-        ((current.status === "PENDENTE" && status === "PREPARANDO") ||
-          (current.status === "PREPARANDO" && status === "PRONTO"));
+        ((current.status === 'PENDENTE' && status === 'PREPARANDO') ||
+          (current.status === 'PREPARANDO' && status === 'PRONTO'));
       if (!allowed) return;
       await props.onUpdateOrderStatus?.(id, status);
     },
@@ -46,7 +37,7 @@ export function KitchenProvider({
     () => ({
       ...props,
       data,
-      role: "KITCHEN" as const,
+      role: 'KITCHEN' as const,
       orders,
       tables: data.tables,
       calls: data.calls,
@@ -54,7 +45,5 @@ export function KitchenProvider({
     }),
     [props, data, orders, updateOrderStatus],
   );
-  return (
-    <KitchenContext.Provider value={value}>{children}</KitchenContext.Provider>
-  );
+  return <KitchenContext.Provider value={value}>{children}</KitchenContext.Provider>;
 }

@@ -1,19 +1,16 @@
-import restaurantRepository from "../repositories/RestaurantRepository.js";
-import bcrypt from "bcrypt";
-import userRepository from "../../auth/repositories/UserRepository.js";
-import subscriptionRepository from "../../subscription/repositories/SubscriptionRepository.js";
-import { PlanType, SubscriptionStatus, UserRole } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
-import { createRestaurantSchema } from "../../../validators/RestaurantValidator.js";
-import { z } from "zod";
+import restaurantRepository from '../repositories/RestaurantRepository.js';
+import bcrypt from 'bcrypt';
+import userRepository from '../../auth/repositories/UserRepository.js';
+import subscriptionRepository from '../../subscription/repositories/SubscriptionRepository.js';
+import { PlanType, SubscriptionStatus, UserRole } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
+import { createRestaurantSchema } from '../../../validators/RestaurantValidator.js';
+import { z } from 'zod';
 
 type CreateRestaurantPayload = z.infer<typeof createRestaurantSchema>;
 
-function requireDefined<T>(
-  value: T | null | undefined,
-  message: string,
-): NonNullable<T> {
+function requireDefined<T>(value: T | null | undefined, message: string): NonNullable<T> {
   if (value === null || value === undefined) {
     throw new Error(message);
   }
@@ -31,47 +28,43 @@ class CreateRestaurantService {
 
     if (!parsedPayloadResult.success) {
       const firstIssue = parsedPayloadResult.error.issues[0];
-      throw new Error(firstIssue?.message || "Dados inválidos para cadastro.");
+      throw new Error(firstIssue?.message || 'Dados inválidos para cadastro.');
     }
 
     const parsedPayload = parsedPayloadResult.data;
     const parsedRestaurant = parsedPayload.restaurant;
     const parsedAdmin = parsedPayload.admin;
 
-    const restaurantExists = await restaurantRepository.findByEmail(
-      parsedRestaurant.email,
-    );
+    const restaurantExists = await restaurantRepository.findByEmail(parsedRestaurant.email);
 
     if (restaurantExists) {
-      throw new Error("Já existe um restaurante com esse e-mail.");
+      throw new Error('Já existe um restaurante com esse e-mail.');
     }
 
-    const slugExists = await restaurantRepository.findBySlug(
-      parsedRestaurant.slug,
-    );
+    const slugExists = await restaurantRepository.findBySlug(parsedRestaurant.slug);
 
     if (slugExists) {
-      throw new Error("Esse slug já existe. Escolha outro.");
+      throw new Error('Esse slug já existe. Escolha outro.');
     }
 
     const userExists = await userRepository.findByEmail(parsedAdmin.email);
 
     if (userExists) {
-      throw new Error("Já existe um admin com esse e-mail.");
+      throw new Error('Já existe um admin com esse e-mail.');
     }
 
     return prisma.$transaction(async (tx) => {
       const requiredName = requireDefined(
         parsedRestaurant.name,
-        "Nome do restaurante é obrigatório.",
+        'Nome do restaurante é obrigatório.',
       );
       const requiredSlug = requireDefined(
         parsedRestaurant.slug,
-        "Slug do restaurante é obrigatório.",
+        'Slug do restaurante é obrigatório.',
       );
       const requiredEmail = requireDefined(
         parsedRestaurant.email,
-        "Email do restaurante é obrigatório.",
+        'Email do restaurante é obrigatório.',
       );
 
       const restaurantCreateData: Prisma.RestaurantUncheckedCreateInput = {
@@ -81,10 +74,7 @@ class CreateRestaurantService {
         email: requiredEmail,
       };
 
-      const createdRestaurant = await restaurantRepository.create(
-        restaurantCreateData,
-        tx,
-      );
+      const createdRestaurant = await restaurantRepository.create(restaurantCreateData, tx);
 
       const passwordHash = await bcrypt.hash(parsedAdmin.password, 10);
 

@@ -1,13 +1,13 @@
 // @ts-nocheck
-import assert from "node:assert/strict";
-import test, { afterEach } from "node:test";
+import assert from 'node:assert/strict';
+import test, { afterEach } from 'node:test';
 
-import bannerRepository from "../banner/repositories/BannerRepository.js";
-import deleteBannerService from "../banner/services/DeleteBannerService.js";
-import updateBannerService from "../banner/services/UpdateBannerService.js";
-import couponRepository from "../coupon/repositories/CouponRepository.js";
-import deleteCouponService from "../coupon/services/DeleteCouponService.js";
-import updateCouponService from "../coupon/services/UpdateCouponService.js";
+import bannerRepository from '../banner/repositories/BannerRepository.js';
+import deleteBannerService from '../banner/services/DeleteBannerService.js';
+import updateBannerService from '../banner/services/UpdateBannerService.js';
+import couponRepository from '../coupon/repositories/CouponRepository.js';
+import deleteCouponService from '../coupon/services/DeleteCouponService.js';
+import updateCouponService from '../coupon/services/UpdateCouponService.js';
 
 const originalBannerMethods = {
   findById: bannerRepository.findById,
@@ -25,7 +25,7 @@ afterEach(() => {
   Object.assign(couponRepository, originalCouponMethods);
 });
 
-test("banner update is scoped to the authenticated restaurant", async () => {
+test('banner update is scoped to the authenticated restaurant', async () => {
   let updateCalled = false;
   bannerRepository.findById = async (id, restaurantId) => {
     assert.equal(id, 9);
@@ -41,14 +41,14 @@ test("banner update is scoped to the authenticated restaurant", async () => {
       updateBannerService.execute({
         id: 9,
         restaurantId: 2,
-        title: "Outro restaurante",
+        title: 'Outro restaurante',
       }),
     /Banner não encontrado/,
   );
   assert.equal(updateCalled, false);
 });
 
-test("banner delete is scoped to the authenticated restaurant", async () => {
+test('banner delete is scoped to the authenticated restaurant', async () => {
   let deleteCalled = false;
   bannerRepository.findById = async (_id, restaurantId) => {
     assert.equal(restaurantId, 2);
@@ -65,7 +65,7 @@ test("banner delete is scoped to the authenticated restaurant", async () => {
   assert.equal(deleteCalled, false);
 });
 
-test("coupon update is scoped to the authenticated restaurant", async () => {
+test('coupon update is scoped to the authenticated restaurant', async () => {
   let updateCalled = false;
   couponRepository.findById = async (id, restaurantId) => {
     assert.equal(id, 15);
@@ -88,7 +88,7 @@ test("coupon update is scoped to the authenticated restaurant", async () => {
   assert.equal(updateCalled, false);
 });
 
-test("coupon delete is scoped to the authenticated restaurant", async () => {
+test('coupon delete is scoped to the authenticated restaurant', async () => {
   let deleteCalled = false;
   couponRepository.findById = async (_id, restaurantId) => {
     assert.equal(restaurantId, 3);

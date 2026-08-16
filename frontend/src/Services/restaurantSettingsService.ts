@@ -1,13 +1,13 @@
-import api from "./api";
+import api from './api';
 
 class RestaurantSettingsService {
   async getMySettings() {
-    const response = await api.get("/settings");
+    const response = await api.get('/settings');
     return response.data;
   }
 
   async createSettings(payload) {
-    const response = await api.post("/settings", payload);
+    const response = await api.post('/settings', payload);
     return response.data;
   }
 
@@ -17,27 +17,27 @@ class RestaurantSettingsService {
   }
 
   async onboardAsaas(payload) {
-    const response = await api.post("/settings/asaas/onboard", payload);
+    const response = await api.post('/settings/asaas/onboard', payload);
     return response.data;
   }
 
   async getAsaasWalletBalance() {
-    const response = await api.get("/settings/asaas/wallet/balance");
+    const response = await api.get('/settings/asaas/wallet/balance');
     return response.data;
   }
 
   async withdrawAsaasWallet(payload) {
-    const response = await api.post("/settings/asaas/wallet/withdraw", payload);
+    const response = await api.post('/settings/asaas/wallet/withdraw', payload);
     return response.data;
   }
 
   async startMercadoPagoOAuth() {
-    const response = await api.post("/settings/mercado-pago/oauth/start");
+    const response = await api.post('/settings/mercado-pago/oauth/start');
     return response.data;
   }
 
   async startPagBankOAuth() {
-    const response = await api.post("/settings/pagbank/oauth/start");
+    const response = await api.post('/settings/pagbank/oauth/start');
     return response.data;
   }
 
@@ -49,7 +49,7 @@ class RestaurantSettingsService {
   }
 
   async getDefaultPublicSettings() {
-    const response = await api.get("/settings/public/default", {
+    const response = await api.get('/settings/public/default', {
       params: { _t: Date.now() },
     });
     return response.data;

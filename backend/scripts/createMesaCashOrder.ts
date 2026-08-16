@@ -1,12 +1,10 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
     const restaurantId = Number(process.argv[2] || 1);
-    const baseUrl = String(
-      process.env.BACKEND_URL || "http://127.0.0.1:3000",
-    ).trim();
+    const baseUrl = String(process.env.BACKEND_URL || 'http://127.0.0.1:3000').trim();
     const marker = `MESA_DINHEIRO_${Date.now()}`;
 
     const table = await prisma.table.findFirst({
@@ -19,14 +17,12 @@ import prisma from "../src/config/prisma.js";
         number: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!table) {
-      throw new Error(
-        `Nenhuma mesa ativa encontrada no restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhuma mesa ativa encontrada no restaurante ${restaurantId}.`);
     }
 
     const openedBy = await prisma.user.findFirst({
@@ -34,21 +30,19 @@ import prisma from "../src/config/prisma.js";
         restaurantId,
         active: true,
         role: {
-          in: ["ADMIN", "SUPER_ADMIN", "FUNCIONARIO"],
+          in: ['ADMIN', 'SUPER_ADMIN', 'FUNCIONARIO'],
         },
       },
       select: {
         id: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!openedBy) {
-      throw new Error(
-        `Nenhum usuario ativo para abrir sessao no restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum usuario ativo para abrir sessao no restaurante ${restaurantId}.`);
     }
 
     const product = await prisma.product.findFirst({
@@ -62,14 +56,12 @@ import prisma from "../src/config/prisma.js";
         name: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!product) {
-      throw new Error(
-        `Nenhum produto ativo encontrado no restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum produto ativo encontrado no restaurante ${restaurantId}.`);
     }
 
     const sessionToken = `sessao-mesa-dinheiro-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -80,7 +72,7 @@ import prisma from "../src/config/prisma.js";
         openedById: openedBy.id,
         pinHash: `hash-${Date.now()}`,
         sessionToken,
-        status: "OPEN",
+        status: 'OPEN',
       },
       select: {
         id: true,
@@ -90,20 +82,20 @@ import prisma from "../src/config/prisma.js";
     });
 
     const response = await fetch(`${baseUrl}/orders`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "x-session-token": session.sessionToken,
+        'Content-Type': 'application/json',
+        'x-session-token': session.sessionToken,
       },
       body: JSON.stringify({
         restaurantId,
-        type: "MESA",
-        paymentMethod: "DINHEIRO",
+        type: 'MESA',
+        paymentMethod: 'DINHEIRO',
         paid: false,
         tableId: table.id,
-        customerName: "Cliente Mesa Dinheiro",
-        customerCpf: "12345678909",
-        customerPhone: "85999999999",
+        customerName: 'Cliente Mesa Dinheiro',
+        customerCpf: '12345678909',
+        customerPhone: '85999999999',
         observation: marker,
         items: [
           {

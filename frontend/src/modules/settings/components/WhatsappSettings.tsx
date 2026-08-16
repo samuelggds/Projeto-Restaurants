@@ -1,6 +1,6 @@
-import type { RestaurantSettings } from "../types/settings.types";
-import * as S from "../styles/settings.styles";
-import { Field, FormInput, Switch } from "./FormControls";
+import type { RestaurantSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
+import { Field, FormInput, Switch } from './FormControls';
 
 type Props = {
   settings: RestaurantSettings;
@@ -8,7 +8,7 @@ type Props = {
 };
 
 export function WhatsappSettings({ settings, onChange }: Props) {
-  const previewNumber = settings.whatsappNumber.replace(/\D/g, "");
+  const previewNumber = settings.whatsappNumber.replace(/\D/g, '');
   const previewUrl = `https://wa.me/${previewNumber}?text=${encodeURIComponent(settings.whatsappDefaultMessage)}`;
 
   return (
@@ -16,9 +16,7 @@ export function WhatsappSettings({ settings, onChange }: Props) {
       <header>
         <span>Canal direto</span>
         <h2>Configuração do WhatsApp</h2>
-        <p>
-          Defina como o WhatsApp aparecerá para clientes e receberá pedidos.
-        </p>
+        <p>Defina como o WhatsApp aparecerá para clientes e receberá pedidos.</p>
       </header>
       <S.Card $stack>
         <S.SwitchGroup>
@@ -47,31 +45,22 @@ export function WhatsappSettings({ settings, onChange }: Props) {
             style={{ minHeight: 80 }}
             maxLength={250}
             value={settings.whatsappDefaultMessage}
-            onChange={(e) =>
-              onChange({ whatsappDefaultMessage: e.target.value })
-            }
+            onChange={(e) => onChange({ whatsappDefaultMessage: e.target.value })}
           />
-          <small>
-            Essa mensagem aparecerá preenchida quando o cliente abrir o
-            WhatsApp.
-          </small>
+          <small>Essa mensagem aparecerá preenchida quando o cliente abrir o WhatsApp.</small>
         </S.FieldLabel>
         <S.SwitchGroup>
           <Switch
             checked={settings.receiveOrdersOnWhatsapp}
             label="Receber pedidos pelo WhatsApp"
             description="Envia um resumo do pedido para o número configurado."
-            onChange={(receiveOrdersOnWhatsapp) =>
-              onChange({ receiveOrdersOnWhatsapp })
-            }
+            onChange={(receiveOrdersOnWhatsapp) => onChange({ receiveOrdersOnWhatsapp })}
           />
           <Switch
             checked={settings.receiveStatusNotifications}
             label="Enviar atualizações ao cliente"
             description="Permite mensagens de confirmação, preparo e saída para entrega."
-            onChange={(receiveStatusNotifications) =>
-              onChange({ receiveStatusNotifications })
-            }
+            onChange={(receiveStatusNotifications) => onChange({ receiveStatusNotifications })}
           />
         </S.SwitchGroup>
         <S.WhatsappPreview>
@@ -80,18 +69,14 @@ export function WhatsappSettings({ settings, onChange }: Props) {
             <span>Prévia do botão</span>
             <strong>Fale conosco pelo WhatsApp</strong>
             <small>
-              {settings.whatsappEnabled
-                ? "Visível para os clientes"
-                : "Oculto na Home"}
+              {settings.whatsappEnabled ? 'Visível para os clientes' : 'Oculto na Home'}
             </small>
           </S.WhatsappPreviewInfo>
           <S.WhatsappTestLink
             href={previewUrl}
             target="_blank"
             rel="noreferrer"
-            aria-disabled={
-              !settings.whatsappEnabled || !previewNumber || undefined
-            }
+            aria-disabled={!settings.whatsappEnabled || !previewNumber || undefined}
           >
             Testar link
           </S.WhatsappTestLink>

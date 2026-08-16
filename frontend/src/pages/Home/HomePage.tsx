@@ -1,23 +1,19 @@
-import { ChevronRight, Heart, LayoutGrid, Mail, MapPin, Phone, Plus, Tag, X } from "lucide-react";
-import { getTodayBusinessHours } from "../admin/domain/businessHours";
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { HomeHeader } from "./components/HomeHeader";
-import * as S from "./Home.styles";
-import type { HomePageProps, HomeProduct } from "./types";
-import {
-  FacebookIcon,
-  InstagramIcon,
-  WhatsAppIcon,
-} from "./components/SocialBrandIcons";
+import { ChevronRight, Heart, LayoutGrid, Mail, MapPin, Phone, Plus, Tag, X } from 'lucide-react';
+import { getTodayBusinessHours } from '../admin/domain/businessHours';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { HomeHeader } from './components/HomeHeader';
+import * as S from './Home.styles';
+import type { HomePageProps, HomeProduct } from './types';
+import { FacebookIcon, InstagramIcon, WhatsAppIcon } from './components/SocialBrandIcons';
 
 const brl = (value: number) =>
-  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function socialUrl(value: string, network: "instagram" | "facebook") {
+function socialUrl(value: string, network: 'instagram' | 'facebook') {
   const normalized = value.trim();
   if (/^https?:\/\//i.test(normalized)) return normalized;
-  const handle = normalized.replace(/^@/, "");
+  const handle = normalized.replace(/^@/, '');
   return `https://${network}.com/${handle}`;
 }
 
@@ -42,47 +38,37 @@ export function HomePage({
   onToggleFavorite,
   onLogout,
 }: HomePageProps) {
-  const [activeCategory, setActiveCategory] = useState(
-    data.categories[0]?.id ?? "",
-  );
+  const [activeCategory, setActiveCategory] = useState(data.categories[0]?.id ?? '');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
 
   useEffect(() => {
     if (!selectedProduct) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedProduct(null);
+      if (event.key === 'Escape') setSelectedProduct(null);
     };
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", closeOnEscape);
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener('keydown', closeOnEscape);
     };
   }, [selectedProduct]);
-  const selectedCategory = data.categories.some(
-    (category) => category.id === activeCategory,
-  )
+  const selectedCategory = data.categories.some((category) => category.id === activeCategory)
     ? activeCategory
-    : (data.categories[0]?.id ?? "");
+    : (data.categories[0]?.id ?? '');
 
   const products = useMemo(() => {
-    if (!selectedCategory || selectedCategory === "todos") {
+    if (!selectedCategory || selectedCategory === 'todos') {
       return data.products;
     }
 
-    return data.products.filter(
-      (product) => product.categoryId === selectedCategory,
-    );
+    return data.products.filter((product) => product.categoryId === selectedCategory);
   }, [selectedCategory, data.products]);
   const activeCategoryName =
-    data.categories.find((category) => category.id === selectedCategory)?.name ||
-    "Produtos";
-  const favoriteIds = useMemo(
-    () => new Set(favoriteProductIds),
-    [favoriteProductIds],
-  );
-  const primary = data.brand.primaryColor ?? "#d64d08";
+    data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos';
+  const favoriteIds = useMemo(() => new Set(favoriteProductIds), [favoriteProductIds]);
+  const primary = data.brand.primaryColor ?? '#d64d08';
 
   const selectCategory = (id: string) => {
     setActiveCategory(id);
@@ -90,7 +76,7 @@ export function HomePage({
   };
 
   const openProductDetails = (product: HomeProduct) => {
-    if (window.matchMedia("(max-width: 760px)").matches) {
+    if (window.matchMedia('(max-width: 760px)').matches) {
       setSelectedProduct(product);
     }
   };
@@ -104,23 +90,20 @@ export function HomePage({
       onClick={() => openProductDetails(product)}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " ") openProductDetails(product);
+        if (event.key === 'Enter' || event.key === ' ') openProductDetails(product);
       }}
     >
       <S.ImageWrap>
         <img src={product.image} alt={product.name} />
         <button
-          className={favoriteIds.has(product.id) ? "favorite" : undefined}
+          className={favoriteIds.has(product.id) ? 'favorite' : undefined}
           aria-label={`Favoritar ${product.name}`}
           onClick={(event) => {
             event.stopPropagation();
             onToggleFavorite?.(product.id);
           }}
         >
-          <Heart
-            size={21}
-            fill={favoriteIds.has(product.id) ? "currentColor" : "none"}
-          />
+          <Heart size={21} fill={favoriteIds.has(product.id) ? 'currentColor' : 'none'} />
         </button>
       </S.ImageWrap>
       <div>
@@ -130,14 +113,16 @@ export function HomePage({
           {product.rating > 0 && <span>⭐ {product.rating}</span>}
           <strong>{brl(product.price)}</strong>
           <button
-            aria-label={product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`}
+            aria-label={
+              product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`
+            }
             disabled={!product.available}
             onClick={(event) => {
               event.stopPropagation();
               onAddProduct?.(product.id);
             }}
           >
-            {product.available ? <Plus /> : "Esgotado"}
+            {product.available ? <Plus /> : 'Esgotado'}
           </button>
         </footer>
       </div>
@@ -163,12 +148,14 @@ export function HomePage({
         onSearch={onSearch}
         onLogout={onLogout}
         isRestaurantOpen={data.isOpen}
-        businessHoursLabel={data.businessHours ? getTodayBusinessHours(data.businessHours) : "Horário não informado"}
+        businessHoursLabel={
+          data.businessHours ? getTodayBusinessHours(data.businessHours) : 'Horário não informado'
+        }
       />
       <S.Main>
         {data.about && (
           <S.About id="sobre">
-            <small>{data.brand.name || "NOSSA CASA"}</small>
+            <small>{data.brand.name || 'NOSSA CASA'}</small>
             <p>{data.about}</p>
           </S.About>
         )}
@@ -212,9 +199,7 @@ export function HomePage({
                   $active={selectedCategory === category.id}
                   onClick={() => selectCategory(category.id)}
                 >
-                  {category.image && (
-                    <img src={category.image} alt={category.name} />
-                  )}
+                  {category.image && <img src={category.image} alt={category.name} />}
                   {!category.image && (
                     <S.CategoryPlaceholder>
                       <LayoutGrid size={30} />
@@ -230,13 +215,13 @@ export function HomePage({
         {products.length > 0 && (
           <>
             <S.SectionTitle>
-              {selectedCategory === "todos" ? "Todos os produtos" : activeCategoryName}
+              {selectedCategory === 'todos' ? 'Todos os produtos' : activeCategoryName}
             </S.SectionTitle>
-            {selectedCategory === "todos" ? (
+            {selectedCategory === 'todos' ? (
               <>
                 <S.ProductCategoryGroups>
                   {data.categories
-                    .filter((category) => category.id !== "todos")
+                    .filter((category) => category.id !== 'todos')
                     .map((category) => {
                       const categoryProducts = products.filter(
                         (product) => product.categoryId === category.id,
@@ -252,13 +237,10 @@ export function HomePage({
                 </S.ProductCategoryGroups>
               </>
             ) : (
-              <S.ProductGrid key={selectedCategory}>
-                {products.map(renderProduct)}
-              </S.ProductGrid>
+              <S.ProductGrid key={selectedCategory}>{products.map(renderProduct)}</S.ProductGrid>
             )}
           </>
         )}
-
       </S.Main>
 
       <S.Footer>
@@ -267,10 +249,10 @@ export function HomePage({
             {data.brand.logoUrl ? (
               <img src={data.brand.logoUrl} alt={data.brand.name} />
             ) : (
-              <span>{data.brand.monogram || "R"}</span>
+              <span>{data.brand.monogram || 'R'}</span>
             )}
             <div>
-              <strong>{data.brand.name || "Restaurante"}</strong>
+              <strong>{data.brand.name || 'Restaurante'}</strong>
               <small>Peça com facilidade, receba com carinho.</small>
             </div>
           </S.FooterBrand>
@@ -284,7 +266,9 @@ export function HomePage({
             <strong>Contato</strong>
             {data.brand.legalName && <span>{data.brand.legalName}</span>}
             {data.brand.address && (
-              <span><MapPin size={17} /> {data.brand.address}</span>
+              <span>
+                <MapPin size={17} /> {data.brand.address}
+              </span>
             )}
             {data.brand.whatsapp && (
               <a href={`https://wa.me/${data.brand.whatsapp}`} target="_blank" rel="noreferrer">
@@ -292,25 +276,34 @@ export function HomePage({
               </a>
             )}
             {data.brand.phone && (
-              <a href={`tel:${data.brand.phone.replace(/\D/g, "")}`}><Phone size={17} /> {data.brand.phone}</a>
+              <a href={`tel:${data.brand.phone.replace(/\D/g, '')}`}>
+                <Phone size={17} /> {data.brand.phone}
+              </a>
             )}
             {data.brand.email && (
-              <a href={`mailto:${data.brand.email}`}><Mail size={17} /> {data.brand.email}</a>
+              <a href={`mailto:${data.brand.email}`}>
+                <Mail size={17} /> {data.brand.email}
+              </a>
             )}
             {data.brand.instagram && (
-              <a href={socialUrl(data.brand.instagram, "instagram")} target="_blank" rel="noreferrer">
+              <a
+                href={socialUrl(data.brand.instagram, 'instagram')}
+                target="_blank"
+                rel="noreferrer"
+              >
                 <InstagramIcon size={17} /> Instagram
               </a>
             )}
             {data.brand.facebook && (
-              <a href={socialUrl(data.brand.facebook, "facebook")} target="_blank" rel="noreferrer">
+              <a href={socialUrl(data.brand.facebook, 'facebook')} target="_blank" rel="noreferrer">
                 <FacebookIcon size={17} /> Facebook
               </a>
             )}
           </S.FooterColumn>
         </S.FooterContent>
         <S.FooterBottom>
-          © {new Date().getFullYear()} {data.brand.name || "Restaurante"}. Todos os direitos reservados.
+          © {new Date().getFullYear()} {data.brand.name || 'Restaurante'}. Todos os direitos
+          reservados.
         </S.FooterBottom>
       </S.Footer>
 
@@ -325,36 +318,49 @@ export function HomePage({
         </S.Whatsapp>
       )}
 
-      {selectedProduct && createPortal(
-        <>
-          <S.ProductModalOverlay
-            type="button"
-            $open
-            aria-label="Fechar detalhes do produto"
-            onClick={() => setSelectedProduct(null)}
-          />
-          <S.ProductModal
-            $open
-            $primary={primary}
-            role="dialog"
-            aria-modal="true"
-            aria-label={selectedProduct.name}
-          >
-            <>
-              <img className="modal-image" src={selectedProduct.image} alt={selectedProduct.name} />
-            <button className="modal-close" type="button" aria-label="Fechar" onClick={() => setSelectedProduct(null)}>
-              <X size={21} />
-            </button>
-            <div className="modal-content">
-              <h2>{selectedProduct.name}</h2>
-              <p>{selectedProduct.description || "Conheça este produto preparado especialmente para você."}</p>
-              <strong>{brl(selectedProduct.price)}</strong>
-            </div>
-            </>
-          </S.ProductModal>
-        </>,
-        document.body,
-      )}
+      {selectedProduct &&
+        createPortal(
+          <>
+            <S.ProductModalOverlay
+              type="button"
+              $open
+              aria-label="Fechar detalhes do produto"
+              onClick={() => setSelectedProduct(null)}
+            />
+            <S.ProductModal
+              $open
+              $primary={primary}
+              role="dialog"
+              aria-modal="true"
+              aria-label={selectedProduct.name}
+            >
+              <>
+                <img
+                  className="modal-image"
+                  src={selectedProduct.image}
+                  alt={selectedProduct.name}
+                />
+                <button
+                  className="modal-close"
+                  type="button"
+                  aria-label="Fechar"
+                  onClick={() => setSelectedProduct(null)}
+                >
+                  <X size={21} />
+                </button>
+                <div className="modal-content">
+                  <h2>{selectedProduct.name}</h2>
+                  <p>
+                    {selectedProduct.description ||
+                      'Conheça este produto preparado especialmente para você.'}
+                  </p>
+                  <strong>{brl(selectedProduct.price)}</strong>
+                </div>
+              </>
+            </S.ProductModal>
+          </>,
+          document.body,
+        )}
     </S.HomeRoot>
   );
 }

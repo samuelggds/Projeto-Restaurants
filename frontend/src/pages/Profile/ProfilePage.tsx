@@ -14,38 +14,54 @@ import {
   ShieldCheck,
   Trash2,
   WalletCards,
-} from "lucide-react";
-import { useState } from "react";
-import { ProfileHeader } from "./components/ProfileHeader";
-import { ProfileNavigation } from "./components/ProfileNavigation";
-import { profileTabs as tabs } from "./config/profileTabs";
-import { profileMockData } from "./data";
-import * as S from "./Profile.styles";
-import type {
-  ProfileOrderStatus,
-  ProfilePageProps,
-  ProfileView,
-} from "./types";
+} from 'lucide-react';
+import { useState } from 'react';
+import { ProfileHeader } from './components/ProfileHeader';
+import { ProfileNavigation } from './components/ProfileNavigation';
+import { profileTabs as tabs } from './config/profileTabs';
+import { profileMockData } from './data';
+import * as S from './Profile.styles';
+import type { ProfileOrder, ProfileOrderStatus, ProfilePageProps, ProfileView } from './types';
 
 const brl = (value: number) =>
-  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const rank: Record<ProfileOrderStatus, number> = {
   confirmed: 0,
   preparing: 1,
   onTheWay: 2,
   delivered: 3,
+  cancelled: 0,
 };
 const statusLabel: Record<ProfileOrderStatus, string> = {
-  confirmed: "Confirmado",
-  preparing: "Em preparo",
-  onTheWay: "Saiu para entrega",
-  delivered: "Entregue",
+  confirmed: 'Confirmado',
+  preparing: 'Em preparo',
+  onTheWay: 'Saiu para entrega',
+  delivered: 'Entregue',
+  cancelled: 'Cancelado',
 };
+
+function OrderAction({
+  order,
+  onReorder,
+  onViewOrder,
+}: Pick<ProfilePageProps, 'onReorder' | 'onViewOrder'> & {
+  order: ProfileOrder;
+}) {
+  if (order.status === 'delivered') {
+    return <button onClick={() => onReorder?.(order.id)}>Pedir novamente</button>;
+  }
+
+  if (order.status !== 'cancelled') {
+    return <button onClick={() => onViewOrder?.(order.id)}>Acompanhar</button>;
+  }
+
+  return null;
+}
 const trackingSteps = [
-  { label: "Confirmado", icon: CheckCircle2 },
-  { label: "Em preparo", icon: ChefHat },
-  { label: "Saiu para entrega", icon: Bike },
-  { label: "Entregue", icon: PackageCheck },
+  { label: 'Confirmado', icon: CheckCircle2 },
+  { label: 'Em preparo', icon: ChefHat },
+  { label: 'Saiu para entrega', icon: Bike },
+  { label: 'Entregue', icon: PackageCheck },
 ] as const;
 export function ProfilePage(props: ProfilePageProps) {
   const {
@@ -57,10 +73,10 @@ export function ProfilePage(props: ProfilePageProps) {
     onOpenSearch,
     onLogout,
   } = props;
-  const [view, setView] = useState<ProfileView>("overview");
+  const [view, setView] = useState<ProfileView>('overview');
   const { brand, user } = data;
   return (
-    <S.Root $primary={brand.primaryColor ?? "#d64d08"}>
+    <S.Root $primary={brand.primaryColor ?? '#d64d08'}>
       <ProfileHeader
         brand={brand}
         user={user}
@@ -79,11 +95,7 @@ export function ProfilePage(props: ProfilePageProps) {
         <S.Subtitle>Gerencie seus pedidos e suas informações</S.Subtitle>
         <S.MobileTabs>
           {tabs.map(([id, label]) => (
-            <button
-              key={id}
-              className={view === id ? "active" : ""}
-              onClick={() => setView(id)}
-            >
+            <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
               {label}
             </button>
           ))}
@@ -97,19 +109,21 @@ export function ProfilePage(props: ProfilePageProps) {
             onUploadAvatar={props.onUploadAvatar}
           />
           <S.Main>
-            {view === "overview" && (
-              <Overview
-                {...props}
-                onViewAllOrders={() => setView("orders")}
-                onOpenFavorites={() => setView("favorites")}
-                data={data}
-              />
-            )}
-            {view === "orders" && <Orders {...props} data={data} />}
-            {view === "addresses" && <Addresses {...props} data={data} />}
-            {view === "favorites" && <Favorites {...props} data={data} />}
-            {view === "personalData" && <PersonalData {...props} data={data} />}
-            {view === "security" && <Security {...props} />}
+            <S.ViewTransition key={view}>
+              {view === 'overview' && (
+                <Overview
+                  {...props}
+                  onViewAllOrders={() => setView('orders')}
+                  onOpenFavorites={() => setView('favorites')}
+                  data={data}
+                />
+              )}
+              {view === 'orders' && <Orders {...props} data={data} />}
+              {view === 'addresses' && <Addresses {...props} data={data} />}
+              {view === 'favorites' && <Favorites {...props} data={data} />}
+              {view === 'personalData' && <PersonalData {...props} data={data} />}
+              {view === 'security' && <Security {...props} />}
+            </S.ViewTransition>
           </S.Main>
         </S.Layout>
       </S.Page>
@@ -146,7 +160,7 @@ function Overview(props: ProfilePageProps) {
             </S.Heading>
             <S.Tracking>
               {trackingSteps.map(({ label, icon: Icon }, index) => (
-                <span key={label} style={{ display: "contents" }}>
+                <span key={label} style={{ display: 'contents' }}>
                   <S.Step $done={index < step} $active={index === step}>
                     <i aria-hidden="true">
                       <Icon size={18} strokeWidth={2.25} />
@@ -158,9 +172,9 @@ function Overview(props: ProfilePageProps) {
             </S.Tracking>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                textAlign: "center",
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4,1fr)',
+                textAlign: 'center',
                 fontSize: 12,
                 marginTop: -18,
               }}
@@ -177,9 +191,7 @@ function Overview(props: ProfilePageProps) {
               <button onClick={() => onTrackOrder?.(activeOrder.id)}>
                 Acompanhar em tempo real <MapPin size={16} />
               </button>
-              <button onClick={() => onViewOrder?.(activeOrder.id)}>
-                Ver detalhes
-              </button>
+              <button onClick={() => onViewOrder?.(activeOrder.id)}>Ver detalhes</button>
             </S.Actions>
           </div>
           <S.Map>
@@ -207,9 +219,7 @@ function Overview(props: ProfilePageProps) {
               <aside>
                 <strong>{brl(order.total)}</strong>
                 <small>✓ {statusLabel[order.status]}</small>
-                <button onClick={() => onReorder?.(order.id)}>
-                  Pedir novamente
-                </button>
+                <OrderAction order={order} onReorder={onReorder} onViewOrder={onViewOrder} />
               </aside>
             </S.Order>
           ))}
@@ -236,9 +246,7 @@ function Overview(props: ProfilePageProps) {
             <div>
               <b>Forma de pagamento</b>
               <span>
-                {user.paymentLastDigits
-                  ? `•••• ${user.paymentLastDigits}`
-                  : "Não cadastrada"}
+                {user.paymentLastDigits ? `•••• ${user.paymentLastDigits}` : 'Não cadastrada'}
               </span>
             </div>
             <button onClick={onEditPayment}>Editar</button>
@@ -266,11 +274,12 @@ function Overview(props: ProfilePageProps) {
   );
 }
 
-function Orders({
-  data = profileMockData,
-  onReorder,
-  onViewOrder,
-}: ProfilePageProps) {
+function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageProps) {
+  const [ordersOffset, setOrdersOffset] = useState(0);
+  const pageSize = 5;
+  const visibleOrders = data.recentOrders.slice(ordersOffset, ordersOffset + pageSize);
+  const lastVisibleOrder = Math.min(ordersOffset + visibleOrders.length, data.recentOrders.length);
+
   return (
     <>
       <S.ViewHeader>
@@ -282,10 +291,7 @@ function Orders({
       <S.PageCard>
         {data.activeOrder && (
           <S.FullOrder>
-            <img
-              src={data.activeOrder.image}
-              alt={data.activeOrder.summary}
-            />
+            <img src={data.activeOrder.image} alt={data.activeOrder.summary} />
             <div className="info">
               <small>AGORA</small>
               <b>{data.activeOrder.summary}</b>
@@ -296,40 +302,57 @@ function Orders({
             <aside>
               <small>● Em andamento</small>
               <strong>{brl(data.activeOrder.total)}</strong>
-              <button onClick={() => onViewOrder?.(data.activeOrder!.id)}>
-                Acompanhar
-              </button>
+              <button onClick={() => onViewOrder?.(data.activeOrder!.id)}>Acompanhar</button>
             </aside>
           </S.FullOrder>
         )}
-        {data.recentOrders.map((order) => (
-          <S.FullOrder key={order.id}>
-            <img src={order.image} alt="" />
-            <div className="info">
-              <small>{order.date}</small>
-              <b>{order.summary}</b>
-              <span>
-                {order.id} • {statusLabel[order.status]}
-              </span>
-            </div>
-            <aside>
-              <strong>{brl(order.total)}</strong>
-              <button onClick={() => onReorder?.(order.id)}>
-                Pedir novamente
+        <S.OrderPage key={ordersOffset}>
+          {visibleOrders.map((order) => (
+            <S.FullOrder key={order.id}>
+              <img src={order.image} alt="" />
+              <div className="info">
+                <small>{order.date}</small>
+                <b>{order.summary}</b>
+                <span>
+                  {order.id} • {statusLabel[order.status]}
+                </span>
+              </div>
+              <aside>
+                <strong>{brl(order.total)}</strong>
+                <OrderAction order={order} onReorder={onReorder} onViewOrder={onViewOrder} />
+              </aside>
+            </S.FullOrder>
+          ))}
+        </S.OrderPage>
+        {data.recentOrders.length > pageSize && (
+          <S.OrderPagination>
+            <span>
+              Mostrando {ordersOffset + 1}–{lastVisibleOrder} de {data.recentOrders.length}
+            </span>
+            <div>
+              <button
+                type="button"
+                disabled={ordersOffset === 0}
+                onClick={() => setOrdersOffset((current) => Math.max(0, current - pageSize))}
+              >
+                ← Voltar 5
               </button>
-            </aside>
-          </S.FullOrder>
-        ))}
+              <button
+                type="button"
+                disabled={ordersOffset + pageSize >= data.recentOrders.length}
+                onClick={() => setOrdersOffset((current) => current + pageSize)}
+              >
+                Próximos 5 →
+              </button>
+            </div>
+          </S.OrderPagination>
+        )}
       </S.PageCard>
     </>
   );
 }
 
-function Addresses({
-  data = profileMockData,
-  onNewAddress,
-  onSelectAddress,
-}: ProfilePageProps) {
+function Addresses({ data = profileMockData, onNewAddress, onSelectAddress }: ProfilePageProps) {
   const addresses = data.addresses ?? [];
   return (
     <>
@@ -354,7 +377,9 @@ function Addresses({
               <span>{address.complement}</span>
               {address.isDefault && <small>Endereço principal</small>}
             </div>
-            <button disabled={address.isDefault} onClick={() => onSelectAddress?.(address.id)}>{address.isDefault ? "Selecionado" : "Usar endereço"}</button>
+            <button disabled={address.isDefault} onClick={() => onSelectAddress?.(address.id)}>
+              {address.isDefault ? 'Selecionado' : 'Usar endereço'}
+            </button>
           </S.AddressCard>
         ))}
       </S.AddressGrid>
@@ -362,7 +387,11 @@ function Addresses({
   );
 }
 
-function Favorites({ data = profileMockData, onReorder, onToggleFavorite }: ProfilePageProps) {
+function Favorites({
+  data = profileMockData,
+  onAddFavoriteToCart,
+  onToggleFavorite,
+}: ProfilePageProps) {
   const favorites = data.favorites ?? [];
   return (
     <>
@@ -388,15 +417,15 @@ function Favorites({ data = profileMockData, onReorder, onToggleFavorite }: Prof
                 <h3>{item.name}</h3>
                 <p>{item.description}</p>
                 <footer>
-                  <span>⭐ {item.rating}</span>
                   <strong>{brl(item.price)}</strong>
                   <button
-                    onClick={() => onReorder?.(item.id)}
+                    aria-label={`Adicionar ${item.name} à sacola`}
+                    onClick={() => onAddFavoriteToCart?.(item)}
                     style={{
                       border: 0,
                       borderRadius: 8,
-                      background: "var(--p)",
-                      color: "#fff",
+                      background: 'var(--p)',
+                      color: '#fff',
                       width: 34,
                       height: 34,
                     }}
@@ -413,28 +442,25 @@ function Favorites({ data = profileMockData, onReorder, onToggleFavorite }: Prof
   );
 }
 
-function PersonalData({
-  data = profileMockData,
-  onSavePersonalData,
-}: ProfilePageProps) {
+function PersonalData({ data = profileMockData, onSavePersonalData }: ProfilePageProps) {
   const { user } = data;
   const [name, setName] = useState(user.fullName);
   const [email, setEmail] = useState(user.email);
-  const [phone, setPhone] = useState(user.phone || "");
+  const [phone, setPhone] = useState(user.phone || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState("");
+  const [saveError, setSaveError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setSaved(false);
-    setSaveError("");
+    setSaveError('');
     try {
       await onSavePersonalData?.({ name, email, phone });
       setSaved(true);
     } catch {
-      setSaveError("Erro ao salvar. Tente novamente.");
+      setSaveError('Erro ao salvar. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -456,11 +482,7 @@ function PersonalData({
           </label>
           <label>
             E-mail
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label>
             Telefone
@@ -471,19 +493,13 @@ function PersonalData({
             <input placeholder="Não informado" disabled />
           </label>
           {saveError && (
-            <span
-              style={{ color: "#c94040", fontSize: 13, gridColumn: "1 / -1" }}
-            >
+            <span style={{ color: '#c94040', fontSize: 13, gridColumn: '1 / -1' }}>
               {saveError}
             </span>
           )}
           <footer>
             <button type="submit" disabled={saving}>
-              {saving
-                ? "Salvando…"
-                : saved
-                  ? "✓ Alterações salvas"
-                  : "Salvar alterações"}
+              {saving ? 'Salvando…' : saved ? '✓ Alterações salvas' : 'Salvar alterações'}
             </button>
           </footer>
         </S.SettingsForm>
@@ -499,38 +515,38 @@ function Security({
   onDeactivateAccount,
 }: ProfilePageProps) {
   const [showForm, setShowForm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
-  const [pwError, setPwError] = useState("");
+  const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
   const [updatingTwoFactor, setUpdatingTwoFactor] = useState(false);
   const [showDeactivateConfirmation, setShowDeactivateConfirmation] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
-  const [securityError, setSecurityError] = useState("");
+  const [securityError, setSecurityError] = useState('');
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setPwError("As senhas não coincidem.");
+      setPwError('As senhas não coincidem.');
       return;
     }
     if (newPassword.length < 6) {
-      setPwError("A nova senha deve ter pelo menos 6 caracteres.");
+      setPwError('A nova senha deve ter pelo menos 6 caracteres.');
       return;
     }
     setSaving(true);
-    setPwError("");
+    setPwError('');
     try {
       await onChangePassword?.({ currentPassword, newPassword });
       setPwSuccess(true);
       setShowForm(false);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch {
-      setPwError("Senha atual incorreta ou erro ao alterar.");
+      setPwError('Senha atual incorreta ou erro ao alterar.');
     } finally {
       setSaving(false);
     }
@@ -538,11 +554,11 @@ function Security({
 
   async function handleToggleTwoFactor() {
     setUpdatingTwoFactor(true);
-    setSecurityError("");
+    setSecurityError('');
     try {
       await onToggleTwoFactor?.(!twoFactorEnabled);
     } catch {
-      setSecurityError("Não foi possível atualizar a verificação em duas etapas.");
+      setSecurityError('Não foi possível atualizar a verificação em duas etapas.');
     } finally {
       setUpdatingTwoFactor(false);
     }
@@ -550,11 +566,11 @@ function Security({
 
   async function handleDeactivate() {
     setDeactivating(true);
-    setSecurityError("");
+    setSecurityError('');
     try {
       await onDeactivateAccount?.();
     } catch {
-      setSecurityError("Não foi possível solicitar a exclusão da conta agora.");
+      setSecurityError('Não foi possível solicitar a exclusão da conta agora.');
       setDeactivating(false);
     }
   }
@@ -576,26 +592,21 @@ function Security({
             <div>
               <b>Senha de acesso</b>
               <span>
-                {pwSuccess
-                  ? "✓ Senha alterada com sucesso"
-                  : "Mantenha sua senha segura e única"}
+                {pwSuccess ? '✓ Senha alterada com sucesso' : 'Mantenha sua senha segura e única'}
               </span>
             </div>
             <button
               type="button"
               onClick={() => {
                 setShowForm((v) => !v);
-                setPwError("");
+                setPwError('');
               }}
             >
-              {showForm ? "Cancelar" : "Alterar senha"}
+              {showForm ? 'Cancelar' : 'Alterar senha'}
             </button>
           </div>
           {showForm && (
-            <S.SettingsForm
-              onSubmit={handlePasswordSubmit}
-              style={{ marginTop: 8 }}
-            >
+            <S.SettingsForm onSubmit={handlePasswordSubmit} style={{ marginTop: 8 }}>
               <label>
                 Senha atual
                 <input
@@ -626,9 +637,9 @@ function Security({
               {pwError && (
                 <span
                   style={{
-                    color: "#c94040",
+                    color: '#c94040',
                     fontSize: 13,
-                    gridColumn: "1 / -1",
+                    gridColumn: '1 / -1',
                   }}
                 >
                   {pwError}
@@ -636,7 +647,7 @@ function Security({
               )}
               <footer>
                 <button type="submit" disabled={saving}>
-                  {saving ? "Salvando…" : "Confirmar nova senha"}
+                  {saving ? 'Salvando…' : 'Confirmar nova senha'}
                 </button>
               </footer>
             </S.SettingsForm>
@@ -649,20 +660,12 @@ function Security({
               <b>Verificação em duas etapas</b>
               <span>
                 {twoFactorEnabled
-                  ? "Ativa: será enviado um código ao seu e-mail no login"
-                  : "Receba um código no e-mail ao entrar na conta"}
+                  ? 'Ativa: será enviado um código ao seu e-mail no login'
+                  : 'Receba um código no e-mail ao entrar na conta'}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleToggleTwoFactor}
-              disabled={updatingTwoFactor}
-            >
-              {updatingTwoFactor
-                ? "Atualizando..."
-                : twoFactorEnabled
-                  ? "Desativar"
-                  : "Ativar"}
+            <button type="button" onClick={handleToggleTwoFactor} disabled={updatingTwoFactor}>
+              {updatingTwoFactor ? 'Atualizando...' : twoFactorEnabled ? 'Desativar' : 'Ativar'}
             </button>
           </div>
           <div className="security-row">
@@ -673,10 +676,7 @@ function Security({
               <b>Excluir minha conta</b>
               <span>A solicitação desativa o acesso, sem apagar seus dados</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowDeactivateConfirmation(true)}
-            >
+            <button type="button" onClick={() => setShowDeactivateConfirmation(true)}>
               Solicitar exclusão
             </button>
           </div>
@@ -699,7 +699,7 @@ function Security({
                   onClick={handleDeactivate}
                   disabled={deactivating}
                 >
-                  {deactivating ? "Desativando..." : "Confirmar exclusão"}
+                  {deactivating ? 'Desativando...' : 'Confirmar exclusão'}
                 </button>
               </div>
             </div>

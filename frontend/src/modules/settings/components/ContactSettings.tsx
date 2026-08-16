@@ -1,9 +1,6 @@
-import type {
-  RestaurantSettings,
-  SocialSettings,
-} from "../types/settings.types";
-import * as S from "../styles/settings.styles";
-import { Field, FormInput } from "./FormControls";
+import type { RestaurantSettings, SocialSettings } from '../types/settings.types';
+import * as S from '../styles/settings.styles';
+import { Field, FormInput } from './FormControls';
 
 const SOCIAL_FIELDS: Array<{
   key: keyof SocialSettings;
@@ -12,29 +9,29 @@ const SOCIAL_FIELDS: Array<{
   placeholder: string;
 }> = [
   {
-    key: "instagram",
-    label: "Instagram",
-    icon: "◎",
-    placeholder: "@seurestaurante",
+    key: 'instagram',
+    label: 'Instagram',
+    icon: '◎',
+    placeholder: '@seurestaurante',
   },
   {
-    key: "facebook",
-    label: "Facebook",
-    icon: "f",
-    placeholder: "facebook.com/...",
+    key: 'facebook',
+    label: 'Facebook',
+    icon: 'f',
+    placeholder: 'facebook.com/...',
   },
   {
-    key: "whatsapp",
-    label: "WhatsApp",
-    icon: "◉",
-    placeholder: "(00) 00000-0000",
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    icon: '◉',
+    placeholder: '(00) 00000-0000',
   },
-  { key: "tiktok", label: "TikTok", icon: "♪", placeholder: "@seurestaurante" },
+  { key: 'tiktok', label: 'TikTok', icon: '♪', placeholder: '@seurestaurante' },
   {
-    key: "youtube",
-    label: "YouTube",
-    icon: "▶",
-    placeholder: "youtube.com/@...",
+    key: 'youtube',
+    label: 'YouTube',
+    icon: '▶',
+    placeholder: 'youtube.com/@...',
   },
 ];
 

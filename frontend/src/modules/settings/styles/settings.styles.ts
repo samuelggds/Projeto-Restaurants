@@ -1,4 +1,4 @@
-import styled, { createGlobalStyle } from "styled-components";
+import styled, { createGlobalStyle } from 'styled-components';
 
 export const GlobalSettingsStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap');
@@ -49,7 +49,7 @@ export const SidebarTitle = styled.div`
 
   strong {
     color: #fffaf4;
-    font-family: "DM Serif Display", serif;
+    font-family: 'DM Serif Display', serif;
     font-size: 29px;
     font-weight: 400;
   }
@@ -66,14 +66,13 @@ export const SidebarButton = styled.button<{ $active?: boolean }>`
   align-items: center;
   gap: 11px;
   padding: 12px;
-  color: ${({ $active }) => ($active ? "white" : "#b7afa9")};
-  background: ${({ $active }) => ($active ? "#342f2b" : "transparent")};
+  color: ${({ $active }) => ($active ? 'white' : '#b7afa9')};
+  background: ${({ $active }) => ($active ? '#342f2b' : 'transparent')};
   border: 0;
   border-radius: 10px;
   text-align: left;
   cursor: pointer;
-  box-shadow: ${({ $active }) =>
-    $active ? "inset 3px 0 var(--admin-primary)" : "none"};
+  box-shadow: ${({ $active }) => ($active ? 'inset 3px 0 var(--admin-primary)' : 'none')};
   transition:
     background 0.18s ease,
     color 0.18s ease;
@@ -253,7 +252,7 @@ export const Panel = styled.div`
 
     h2 {
       margin: 8px 0;
-      font-family: "DM Serif Display", serif;
+      font-family: 'DM Serif Display', serif;
       font-size: 37px;
       font-weight: 400;
       letter-spacing: -0.02em;
@@ -273,14 +272,14 @@ export const Card = styled.div<{ $stack?: boolean }>`
   border: 1px solid #e5ddd5;
   border-radius: 15px;
   box-shadow: 0 12px 32px rgba(44, 35, 29, 0.04);
-  display: ${({ $stack }) => ($stack ? "grid" : "block")};
-  gap: ${({ $stack }) => ($stack ? "30px" : "0")};
+  display: ${({ $stack }) => ($stack ? 'grid' : 'block')};
+  gap: ${({ $stack }) => ($stack ? '30px' : '0')};
 `;
 
 export const Grid = styled.div<{ $three?: boolean }>`
   display: grid;
   grid-template-columns: ${({ $three }) =>
-    $three ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))"};
+    $three ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))'};
   gap: 23px;
   ${({ $three }) =>
     $three &&
@@ -410,17 +409,16 @@ export const SwitchTrack = styled.span<{ $checked?: boolean }>`
   position: relative;
   width: 42px;
   height: 24px;
-  background: ${({ $checked }) =>
-    $checked ? "var(--admin-primary)" : "#d6cfc9"};
+  background: ${({ $checked }) => ($checked ? 'var(--admin-primary)' : '#d6cfc9')};
   border-radius: 999px;
   flex-shrink: 0;
   transition: background 0.18s ease;
 
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     top: 3px;
-    left: ${({ $checked }) => ($checked ? "21px" : "3px")};
+    left: ${({ $checked }) => ($checked ? '21px' : '3px')};
     width: 18px;
     height: 18px;
     background: white;
@@ -469,11 +467,11 @@ export const BrandLogo = styled.div<{ $color?: string }>`
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background: ${({ $color }) => $color || "var(--admin-primary)"};
+  background: ${({ $color }) => $color || 'var(--admin-primary)'};
   display: grid;
   place-items: center;
   color: white;
-  font-family: "DM Serif Display", serif;
+  font-family: 'DM Serif Display', serif;
   font-size: 28px;
   overflow: hidden;
   flex-shrink: 0;
@@ -504,7 +502,7 @@ export const ColorField = styled.div`
   align-items: center;
   gap: 8px;
 
-  input[type="color"] {
+  input[type='color'] {
     width: 44px;
     height: 44px;
     border: 1px solid #ddd3cb;
@@ -530,7 +528,7 @@ export const AboutPreview = styled.div`
   strong {
     display: block;
     margin: 8px 0 6px;
-    font-family: "DM Serif Display", serif;
+    font-family: 'DM Serif Display', serif;
     font-size: 22px;
     font-weight: 400;
   }
@@ -570,7 +568,7 @@ export const DaySwitch = styled.label`
   min-width: 160px;
   cursor: pointer;
 
-  input[type="checkbox"] {
+  input[type='checkbox'] {
     display: none;
   }
 
@@ -582,18 +580,17 @@ export const DaySwitch = styled.label`
 export const DayToggle = styled.span<{ $checked?: boolean }>`
   width: 36px;
   height: 20px;
-  background: ${({ $checked }) =>
-    $checked ? "var(--admin-primary)" : "#d6cfc9"};
+  background: ${({ $checked }) => ($checked ? 'var(--admin-primary)' : '#d6cfc9')};
   border-radius: 999px;
   flex-shrink: 0;
   position: relative;
   transition: background 0.18s;
 
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     top: 2px;
-    left: ${({ $checked }) => ($checked ? "18px" : "2px")};
+    left: ${({ $checked }) => ($checked ? '18px' : '2px')};
     width: 16px;
     height: 16px;
     background: white;
@@ -607,7 +604,7 @@ export const TimeRange = styled.div`
   align-items: center;
   gap: 8px;
 
-  input[type="time"] {
+  input[type='time'] {
     height: 38px;
     padding: 0 10px;
     border: 1px solid #ddd3cb;
@@ -691,7 +688,7 @@ export const WhatsappTestLink = styled.a`
   &:hover {
     filter: brightness(1.06);
   }
-  &[aria-disabled="true"] {
+  &[aria-disabled='true'] {
     opacity: 0.45;
     pointer-events: none;
   }

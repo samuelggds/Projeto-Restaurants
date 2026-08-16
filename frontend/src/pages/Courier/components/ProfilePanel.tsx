@@ -1,17 +1,7 @@
-import { useState } from "react";
-import {
-  AlertCircle,
-  CheckCircle,
-  IdCard,
-  Mail,
-  Pencil,
-  Phone,
-  Save,
-  User,
-  X,
-} from "lucide-react";
-import authService from "../../../Services/authService";
-import * as S from "../styles";
+import { useState } from 'react';
+import { AlertCircle, CheckCircle, IdCard, Mail, Pencil, Phone, Save, User, X } from 'lucide-react';
+import authService from '../../../Services/authService';
+import * as S from '../styles';
 
 type CourierUser = {
   name?: string;
@@ -27,37 +17,37 @@ type ProfilePanelProps = {
 };
 
 function formatCpfDisplay(raw: string | undefined) {
-  const digits = String(raw || "")
-    .replace(/\D/g, "")
+  const digits = String(raw || '')
+    .replace(/\D/g, '')
     .slice(0, 11);
 
   return digits
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 }
 
 export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [form, setForm] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
     cpf: formatCpfDisplay(user?.cpf),
   });
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
 
-    if (name === "cpf") {
-      const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (name === 'cpf') {
+      const digits = value.replace(/\D/g, '').slice(0, 11);
       const masked = digits
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
       setForm((prev) => ({ ...prev, cpf: masked }));
       return;
@@ -69,8 +59,8 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setError("");
-    setSuccess("");
+    setError('');
+    setSuccess('');
 
     try {
       const updated = await authService.updateProfile({
@@ -81,12 +71,12 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
 
       onUpdated(updated);
       setEditing(false);
-      setSuccess("Perfil atualizado com sucesso!");
-      setTimeout(() => setSuccess(""), 3000);
+      setSuccess('Perfil atualizado com sucesso!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error || "Erro ao salvar perfil.";
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Erro ao salvar perfil.';
       setError(message);
     } finally {
       setSaving(false);
@@ -95,19 +85,19 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
 
   function handleCancel() {
     setForm({
-      name: user?.name || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
       cpf: formatCpfDisplay(user?.cpf),
     });
     setEditing(false);
-    setError("");
+    setError('');
   }
 
   const roleLabel: Record<string, string> = {
-    MOTOQUEIRO: "Motoqueiro",
-    FUNCIONARIO: "Funcionário",
-    ADMIN: "Administrador",
+    MOTOQUEIRO: 'Motoqueiro',
+    FUNCIONARIO: 'Funcionário',
+    ADMIN: 'Administrador',
   };
 
   return (
@@ -117,10 +107,8 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
           <User size={40} />
         </S.ProfileAvatar>
         <div>
-          <S.ProfileName>{user?.name || "-"}</S.ProfileName>
-          <S.ProfileRole>
-            {roleLabel[user?.role || ""] || user?.role}
-          </S.ProfileRole>
+          <S.ProfileName>{user?.name || '-'}</S.ProfileName>
+          <S.ProfileRole>{roleLabel[user?.role || ''] || user?.role}</S.ProfileRole>
         </div>
         {!editing && (
           <S.EditProfileBtn onClick={() => setEditing(true)} type="button">
@@ -150,12 +138,7 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
               <label>
                 <User size={13} /> Nome completo
               </label>
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />
+              <input name="name" value={form.name} onChange={handleChange} required />
             </S.ProfileField>
             <S.ProfileField>
               <label>
@@ -186,17 +169,17 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
               </label>
               <input
                 name="cpf"
-                value={form.cpf || "Não informado"}
+                value={form.cpf || 'Não informado'}
                 readOnly
                 disabled
-                style={{ cursor: "not-allowed", opacity: 0.6 }}
+                style={{ cursor: 'not-allowed', opacity: 0.6 }}
               />
             </S.ProfileField>
           </S.ProfileFieldsGrid>
           <S.ProfileActions>
             <S.SaveButton type="submit" disabled={saving}>
               <Save size={15} />
-              {saving ? "Salvando..." : "Salvar alterações"}
+              {saving ? 'Salvando...' : 'Salvar alterações'}
             </S.SaveButton>
             <S.CancelButton type="button" onClick={handleCancel}>
               <X size={15} />
@@ -210,27 +193,25 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
             <span>
               <Mail size={13} /> E-mail
             </span>
-            <strong>{user?.email || "-"}</strong>
+            <strong>{user?.email || '-'}</strong>
           </S.ProfileInfoItem>
           <S.ProfileInfoItem>
             <span>
               <Phone size={13} /> Telefone
             </span>
-            <strong>{user?.phone || "Não informado"}</strong>
+            <strong>{user?.phone || 'Não informado'}</strong>
           </S.ProfileInfoItem>
           <S.ProfileInfoItem>
             <span>
               <IdCard size={13} /> CPF
             </span>
-            <strong>
-              {user?.cpf ? formatCpfDisplay(user.cpf) : "Não informado"}
-            </strong>
+            <strong>{user?.cpf ? formatCpfDisplay(user.cpf) : 'Não informado'}</strong>
           </S.ProfileInfoItem>
           <S.ProfileInfoItem>
             <span>
               <User size={13} /> Cargo
             </span>
-            <strong>{roleLabel[user?.role || ""] || user?.role || "-"}</strong>
+            <strong>{roleLabel[user?.role || ''] || user?.role || '-'}</strong>
           </S.ProfileInfoItem>
         </S.ProfileFieldsGrid>
       )}

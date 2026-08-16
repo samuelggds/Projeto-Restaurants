@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 class RestaurantSettingsRepository {
   async findByRestaurantId(restaurantId: number | string) {
@@ -52,7 +52,7 @@ class RestaurantSettingsRepository {
         banners: {
           where: { active: true },
           select: { id: true, title: true, image: true },
-          orderBy: { id: "asc" },
+          orderBy: { id: 'asc' },
         },
       },
     });
@@ -62,7 +62,7 @@ class RestaurantSettingsRepository {
     return prisma.restaurant.findFirst({
       where: { active: true },
       select: { id: true },
-      orderBy: { id: "asc" },
+      orderBy: { id: 'asc' },
     });
   }
 
@@ -107,7 +107,7 @@ class RestaurantSettingsRepository {
             banners: {
               where: { active: true },
               select: { id: true, title: true, image: true },
-              orderBy: { id: "asc" },
+              orderBy: { id: 'asc' },
             },
           },
         },
@@ -121,10 +121,7 @@ class RestaurantSettingsRepository {
     });
   }
 
-  async update(
-    restaurantId: number | string,
-    data: Prisma.RestaurantSettingsUpdateInput,
-  ) {
+  async update(restaurantId: number | string, data: Prisma.RestaurantSettingsUpdateInput) {
     return prisma.restaurantSettings.update({
       where: {
         restaurantId: Number(restaurantId),

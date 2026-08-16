@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import { PLAN_CONFIG } from "../config/planConfig.js";
+import { Request, Response } from 'express';
+import { PLAN_CONFIG } from '../config/planConfig.js';
 
 class GetPlansController {
   handle(_req: Request, res: Response) {

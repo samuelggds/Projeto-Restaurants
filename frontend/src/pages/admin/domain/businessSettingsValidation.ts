@@ -1,14 +1,18 @@
-import type { AdminSettings } from "../types";
+import type { AdminSettings } from '../types';
 
-export type BusinessSettingsErrors = Partial<Record<"companyLegalName" | "companyDocument" | "businessPhone" | "businessEmail", string>>;
+export type BusinessSettingsErrors = Partial<
+  Record<'companyLegalName' | 'companyDocument' | 'businessPhone' | 'businessEmail', string>
+>;
 
-const digits = (value: string) => value.replace(/\D/g, "");
+const digits = (value: string) => value.replace(/\D/g, '');
 
 export function isValidCnpj(value: string) {
   const cnpj = digits(value);
   if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
   const digit = (base: string, weights: number[]) => {
-    const sum = base.split("").reduce((total, number, index) => total + Number(number) * weights[index], 0);
+    const sum = base
+      .split('')
+      .reduce((total, number, index) => total + Number(number) * weights[index], 0);
     const remainder = sum % 11;
     return remainder < 2 ? 0 : 11 - remainder;
   };
@@ -21,7 +25,9 @@ export function isValidCpf(value: string) {
   const cpf = digits(value);
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
   const digit = (base: string, factor: number) => {
-    const sum = base.split("").reduce((total, number, index) => total + Number(number) * (factor - index), 0);
+    const sum = base
+      .split('')
+      .reduce((total, number, index) => total + Number(number) * (factor - index), 0);
     const result = (sum * 10) % 11;
     return result === 10 ? 0 : result;
   };
@@ -30,13 +36,39 @@ export function isValidCpf(value: string) {
 
 export function validateBusinessSettings(settings: AdminSettings): BusinessSettingsErrors {
   const errors: BusinessSettingsErrors = {};
-  if (settings.companyLegalName.trim().length < 2) errors.companyLegalName = "Informe a razão social.";
-  if (settings.legalDocumentType === "CPF" ? !isValidCpf(settings.companyDocument) : !isValidCnpj(settings.companyDocument)) errors.companyDocument = `Informe um ${settings.legalDocumentType} válido.`;
-  if (!/^\d{10,11}$/.test(digits(settings.businessPhone))) errors.businessPhone = "Informe um telefone com DDD.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.businessEmail.trim())) errors.businessEmail = "Informe um e-mail comercial válido.";
+  if (settings.companyLegalName.trim().length < 2)
+    errors.companyLegalName = 'Informe a razão social.';
+  if (
+    settings.legalDocumentType === 'CPF'
+      ? !isValidCpf(settings.companyDocument)
+      : !isValidCnpj(settings.companyDocument)
+  )
+    errors.companyDocument = `Informe um ${settings.legalDocumentType} válido.`;
+  if (!/^\d{10,11}$/.test(digits(settings.businessPhone)))
+    errors.businessPhone = 'Informe um telefone com DDD.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.businessEmail.trim()))
+    errors.businessEmail = 'Informe um e-mail comercial válido.';
   return errors;
 }
 
-export function formatCnpj(value: string) { return digits(value).slice(0, 14).replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2"); }
-export function formatCpf(value: string) { return digits(value).slice(0, 11).replace(/^(\d{3})(\d)/, "$1.$2").replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})(\d)/, "$1-$2"); }
-export function formatBusinessPhone(value: string) { const phone = digits(value).slice(0, 11); return phone.length > 10 ? phone.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3") : phone.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3"); }
+export function formatCnpj(value: string) {
+  return digits(value)
+    .slice(0, 14)
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+export function formatCpf(value: string) {
+  return digits(value)
+    .slice(0, 11)
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/(\d{3})(\d)/, '$1-$2');
+}
+export function formatBusinessPhone(value: string) {
+  const phone = digits(value).slice(0, 11);
+  return phone.length > 10
+    ? phone.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, '($1) $2-$3')
+    : phone.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+}

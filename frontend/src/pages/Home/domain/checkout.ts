@@ -1,39 +1,48 @@
-import type { CartItem } from "../hooks/useCart";
-import type { DeliveryAddress } from "../hooks/useDeliveryAddress";
-import { validateDeliveryAddress } from "./deliveryAddress";
+import type { CartItem } from '../hooks/useCart';
+import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
+import { validateDeliveryAddress } from './deliveryAddress';
 
-export type CheckoutPaymentMethod = "pix" | "card" | "delivery_pix" | "delivery_card";
-export type OrderType = "MESA" | "DELIVERY" | "RETIRADA";
+export type CheckoutPaymentMethod = 'pix' | 'card' | 'delivery_pix' | 'delivery_card';
+export type OrderType = 'MESA' | 'DELIVERY' | 'RETIRADA';
 export type CheckoutIssue = { title: string; message: string };
 
 type ValidationInput = {
   type: OrderType;
   customerPhone: unknown;
   deliveryAddress: DeliveryAddress;
-  cepStatus: "idle" | "loading" | "success" | "error";
+  cepStatus: 'idle' | 'loading' | 'success' | 'error';
   paymentMethod: CheckoutPaymentMethod;
 };
 
-export function resolveOrderType(mesaMode: boolean, orderType: "delivery" | "pickup"): OrderType {
-  if (mesaMode) return "MESA";
-  return orderType === "delivery" ? "DELIVERY" : "RETIRADA";
+export function resolveOrderType(mesaMode: boolean, orderType: 'delivery' | 'pickup'): OrderType {
+  if (mesaMode) return 'MESA';
+  return orderType === 'delivery' ? 'DELIVERY' : 'RETIRADA';
 }
 
 export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
   const { type, customerPhone, deliveryAddress, cepStatus, paymentMethod } = input;
-  if (type === "DELIVERY") {
+  if (type === 'DELIVERY') {
     const addressErrors = validateDeliveryAddress(deliveryAddress);
     const firstAddressError = Object.values(addressErrors)[0];
-    if (firstAddressError) return { title: "Revise seu endereço", message: firstAddressError };
+    if (firstAddressError) return { title: 'Revise seu endereço', message: firstAddressError };
 
-    const phoneDigits = String(customerPhone || "").replace(/\D/g, "");
+    const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
     if (phoneDigits.length < 10 || phoneDigits.length > 13)
-      return { title: "Celular inválido", message: "Cadastre um celular com DDD para receber atualizações do pedido." };
-    if (cepStatus !== "success")
-      return { title: "Confirme o CEP", message: "Informe um CEP válido e aguarde o preenchimento do endereço." };
+      return {
+        title: 'Celular inválido',
+        message: 'Cadastre um celular com DDD para receber atualizações do pedido.',
+      };
+    if (cepStatus !== 'success')
+      return {
+        title: 'Confirme o CEP',
+        message: 'Informe um CEP válido e aguarde o preenchimento do endereço.',
+      };
   }
-  if (paymentMethod.startsWith("delivery_") && type !== "DELIVERY")
-    return { title: "Opção indisponível", message: "Pagar na entrega só está disponível para delivery." };
+  if (paymentMethod.startsWith('delivery_') && type !== 'DELIVERY')
+    return {
+      title: 'Opção indisponível',
+      message: 'Pagar na entrega só está disponível para delivery.',
+    };
   return null;
 }
 
@@ -49,19 +58,25 @@ type PayloadInput = {
 
 export function buildOrderPayload(input: PayloadInput) {
   const { restaurantId, type, paymentMethod, cart, tableId, customer, deliveryAddress } = input;
-  const payOnDelivery = paymentMethod.startsWith("delivery_");
-  const resolvedPaymentMethod = paymentMethod.includes("pix") ? "PIX" : "CARTAO";
+  const payOnDelivery = paymentMethod.startsWith('delivery_');
+  const resolvedPaymentMethod = paymentMethod.includes('pix') ? 'PIX' : 'CARTAO';
   return {
     payload: {
-      restaurantId, type, paymentMethod: resolvedPaymentMethod, payOnDelivery,
+      restaurantId,
+      type,
+      paymentMethod: resolvedPaymentMethod,
+      payOnDelivery,
       payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
       items: cart.map((item) => ({ productId: Number(item.productId), quantity: item.quantity })),
-      tableId: type === "MESA" ? tableId || undefined : undefined,
-      customerName: String(customer.name || "Cliente"),
-      customerPhone: String(customer.phone || ""),
-      address: deliveryAddress.address.trim(), number: deliveryAddress.number.trim(),
-      district: deliveryAddress.district.trim(), city: deliveryAddress.city.trim(),
-      state: deliveryAddress.state.trim().toUpperCase(), zipCode: deliveryAddress.zipCode.trim(),
+      tableId: type === 'MESA' ? tableId || undefined : undefined,
+      customerName: String(customer.name || 'Cliente'),
+      customerPhone: String(customer.phone || ''),
+      address: deliveryAddress.address.trim(),
+      number: deliveryAddress.number.trim(),
+      district: deliveryAddress.district.trim(),
+      city: deliveryAddress.city.trim(),
+      state: deliveryAddress.state.trim().toUpperCase(),
+      zipCode: deliveryAddress.zipCode.trim(),
       complement: deliveryAddress.complement.trim(),
     },
     payOnDelivery,

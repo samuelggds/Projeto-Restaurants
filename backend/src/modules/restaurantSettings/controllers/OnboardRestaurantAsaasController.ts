@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import onboardRestaurantAsaasService from "../services/OnboardRestaurantAsaasService.js";
+import { Request, Response } from 'express';
+import onboardRestaurantAsaasService from '../services/OnboardRestaurantAsaasService.js';
 
 class OnboardRestaurantAsaasController {
   async handle(req: Request, res: Response) {
@@ -19,9 +19,7 @@ class OnboardRestaurantAsaasController {
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar subconta Asaas do restaurante.",
+          error instanceof Error ? error.message : 'Erro ao criar subconta Asaas do restaurante.',
       });
     }
   }

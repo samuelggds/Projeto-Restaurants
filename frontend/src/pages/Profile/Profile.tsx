@@ -1,32 +1,34 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import api from "../../Services/api";
-import ordersService from "../../Services/ordersService";
-import restaurantSettingsService from "../../Services/restaurantSettingsService";
-import favoritesService from "../../Services/favoritesService";
-import customerAddressService, { type CustomerAddressInput } from "../../Services/customerAddressService";
-import { useAuth } from "../../contexts/authContext";
-import { ProfilePage } from "./ProfilePage";
-import { buildProfileData } from "../profile/adapters/profileDataAdapter";
-import { AddressModal } from "./components/AddressModal";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import api from '../../Services/api';
+import ordersService from '../../Services/ordersService';
+import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import favoritesService from '../../Services/favoritesService';
+import customerAddressService, {
+  type CustomerAddressInput,
+} from '../../Services/customerAddressService';
+import { useAuth } from '../../contexts/authContext';
+import { ProfilePage } from './ProfilePage';
+import { buildProfileData } from '../profile/adapters/profileDataAdapter';
+import { AddressModal } from './components/AddressModal';
+import { buildReorderCart, findOrderByDisplayId } from '../profile/domain/reorderCart';
+import { addFavoriteToCart } from '../profile/domain/favoriteCart';
+import { readJsonStorage } from '../../shared/storage/jsonStorage';
+import type { CartItem } from '../home/hooks/useCart';
+import type { ProfileFavorite } from './types';
 
-
-function resizeToSquareBase64(
-  file: File,
-  size: number,
-  quality: number,
-): Promise<string> {
+function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error("Canvas not supported"));
+        reject(new Error('Canvas not supported'));
         return;
       }
       const scale = Math.max(size / img.width, size / img.height);
@@ -34,11 +36,11 @@ function resizeToSquareBase64(
       const sh = img.height * scale;
       ctx.drawImage(img, (size - sw) / 2, (size - sh) / 2, sw, sh);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      resolve(canvas.toDataURL('image/jpeg', quality));
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Falha ao carregar imagem"));
+      reject(new Error('Falha ao carregar imagem'));
     };
     img.src = url;
   });
@@ -51,19 +53,16 @@ export default function Profile() {
   const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
   const [addressModalOpen, setAddressModalOpen] = useState(false);
-  const [settings, setSettings] = useState<Record<string, unknown> | null>(
-    null,
-  );
-  const [localAvatar, setLocalAvatar] = useState("");
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
+  const [localAvatar, setLocalAvatar] = useState('');
   // Derived: prefer a locally-uploaded photo until the auth context reflects the new avatar
-  const avatarUrl =
-    localAvatar || String((user as Record<string, unknown>)?.avatar || "");
+  const avatarUrl = localAvatar || String((user as Record<string, unknown>)?.avatar || '');
 
   // Brand info from public settings of the user's restaurant
   useEffect(() => {
     const rid = Number(
       (user as Record<string, unknown>)?.restaurantId ||
-        localStorage.getItem("menuRestaurantId") ||
+        localStorage.getItem('menuRestaurantId') ||
         0,
     );
     if (!rid) return;
@@ -101,16 +100,28 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
-    customerAddressService.list().then((items) => { if (active) setAddresses(items); }).catch(() => {});
-    return () => { active = false; };
+    customerAddressService
+      .list()
+      .then((items) => {
+        if (active) setAddresses(items);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
     let active = true;
-    favoritesService.list().then((items) => {
-      if (active) setFavorites(items as Record<string, unknown>[]);
-    }).catch(() => {});
-    return () => { active = false; };
+    favoritesService
+      .list()
+      .then((items) => {
+        if (active) setFavorites(items as Record<string, unknown>[]);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   const data = useMemo(
@@ -128,25 +139,28 @@ export default function Profile() {
 
   const handleLogout = useCallback(() => {
     logout();
-    navigate("/login");
+    navigate('/login');
   }, [logout, navigate]);
 
   const handleUploadAvatar = useCallback(
     async (file: File) => {
       const base64 = await resizeToSquareBase64(file, 160, 0.8);
-      await api.put("/auth/profile", { avatar: base64 });
-      setLocalAvatar(base64);
-      const token = localStorage.getItem("token") || "";
-      if (token) login({ ...(user ?? {}), avatar: base64 }, token);
+      const { data: updated } = await api.put('/auth/profile', {
+        avatar: base64,
+      });
+      const persistedAvatar = String(updated?.avatar || base64);
+      setLocalAvatar(persistedAvatar);
+      const token = localStorage.getItem('token') || '';
+      if (token) login({ ...(user ?? {}), ...updated, avatar: persistedAvatar }, token);
     },
     [user, login],
   );
 
   const handleSavePersonalData = useCallback(
     async (payload: { name: string; email: string; phone: string }) => {
-      const { data: updated } = await api.put("/auth/profile", payload);
+      const { data: updated } = await api.put('/auth/profile', payload);
       // Sync auth context immediately so useMemo recomputes without a refresh
-      const token = localStorage.getItem("token") || "";
+      const token = localStorage.getItem('token') || '';
       if (token && updated) login({ ...(user ?? {}), ...updated }, token);
     },
     [user, login],
@@ -154,7 +168,7 @@ export default function Profile() {
 
   const handleChangePassword = useCallback(
     async (payload: { currentPassword: string; newPassword: string }) => {
-      await api.put("/auth/password", {
+      await api.put('/auth/password', {
         oldPassword: payload.currentPassword,
         newPassword: payload.newPassword,
       });
@@ -164,57 +178,118 @@ export default function Profile() {
 
   const handleToggleTwoFactor = useCallback(
     async (enabled: boolean) => {
-      const { data: updated } = await api.patch("/auth/mfa", { enabled });
-      const token = localStorage.getItem("token") || "";
+      const { data: updated } = await api.patch('/auth/mfa', { enabled });
+      const token = localStorage.getItem('token') || '';
       if (token) {
         login({ ...(user ?? {}), mfaEnabled: Boolean(updated?.mfaEnabled) }, token);
       }
-      toast.success(enabled ? "Verificação em duas etapas ativada." : "Verificação em duas etapas desativada.");
+      toast.success(
+        enabled ? 'Verificação em duas etapas ativada.' : 'Verificação em duas etapas desativada.',
+      );
     },
     [login, user],
   );
 
   const handleDeactivateAccount = useCallback(async () => {
-    await api.patch("/auth/deactivate");
+    await api.patch('/auth/deactivate');
     logout();
-    toast.success("Solicitação concluída: sua conta foi desativada.");
-    navigate("/");
+    toast.success('Solicitação concluída: sua conta foi desativada.');
+    navigate('/');
   }, [logout, navigate]);
 
   const saveAddress = useCallback(async (payload: CustomerAddressInput) => {
     const created = await customerAddressService.create(payload);
-    setAddresses((current) => [created, ...current].map((item) => ({ ...item, isDefault: created.isDefault ? String(item.id) === String(created.id) : Boolean(item.isDefault) })));
+    setAddresses((current) =>
+      [created, ...current].map((item) => ({
+        ...item,
+        isDefault: created.isDefault
+          ? String(item.id) === String(created.id)
+          : Boolean(item.isDefault),
+      })),
+    );
   }, []);
 
   const selectAddress = useCallback(async (id: string) => {
     const selected = await customerAddressService.makeDefault(Number(id));
-    setAddresses((current) => current.map((item) => ({ ...item, isDefault: String(item.id) === String(selected.id) })));
-    localStorage.setItem("selectedCustomerAddressId", String(selected.id));
+    setAddresses((current) =>
+      current.map((item) => ({ ...item, isDefault: String(item.id) === String(selected.id) })),
+    );
+    localStorage.setItem('selectedCustomerAddressId', String(selected.id));
   }, []);
 
-  return <>
-    <ProfilePage
-      data={data}
-      cartCount={0}
-      onGoHome={() => navigate("/")}
-      onOpenMenu={() => navigate("/")}
-      onLogout={handleLogout}
-      onUploadAvatar={handleUploadAvatar}
-      onSavePersonalData={handleSavePersonalData}
-      onChangePassword={handleChangePassword}
-      twoFactorEnabled={Boolean((user as Record<string, unknown>)?.mfaEnabled)}
-      onToggleTwoFactor={handleToggleTwoFactor}
-      onDeactivateAccount={handleDeactivateAccount}
-      onNewAddress={() => setAddressModalOpen(true)}
-      onSelectAddress={selectAddress}
-      onToggleFavorite={async (productId) => {
-        await favoritesService.remove(productId);
-        setFavorites((current) => current.filter((item) => String(item.id) !== productId));
-      }}
-      onTrackOrder={(orderId) =>
-        navigate(`/orders/${String(orderId).replace(/^#/, "")}/tracking`)
+  const handleTrackOrder = useCallback(
+    (orderId: string) => {
+      navigate(`/orders/${String(orderId).replace(/^#/, '')}/tracking`);
+    },
+    [navigate],
+  );
+
+  const handleReorder = useCallback(
+    (orderId: string) => {
+      const order = findOrderByDisplayId(orders, orderId);
+      const items = order ? buildReorderCart(order) : [];
+
+      if (!items.length) {
+        toast.error('Não foi possível adicionar os itens deste pedido à sacola.');
+        return;
       }
-    />
-    {addressModalOpen && <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />}
-  </>;
+
+      localStorage.setItem('cartItems', JSON.stringify(items));
+      toast.success('Itens adicionados à sacola.');
+      navigate('/', { state: { openCart: true } });
+    },
+    [navigate, orders],
+  );
+
+  const handleAddFavoriteToCart = useCallback(
+    (favorite: ProfileFavorite) => {
+      const result = addFavoriteToCart(readJsonStorage<CartItem[]>('cartItems', []), favorite);
+
+      if (result.error === 'unavailable') {
+        toast.warning('Este produto está indisponível no momento.');
+        return;
+      }
+
+      if (result.error === 'stockLimit') {
+        toast.warning('Você já adicionou a quantidade máxima disponível.');
+        return;
+      }
+
+      localStorage.setItem('cartItems', JSON.stringify(result.cart));
+      toast.success(`${favorite.name} adicionado à sacola.`);
+      navigate('/', { state: { openCart: true } });
+    },
+    [navigate],
+  );
+
+  return (
+    <>
+      <ProfilePage
+        data={data}
+        cartCount={0}
+        onGoHome={() => navigate('/')}
+        onOpenMenu={() => navigate('/')}
+        onLogout={handleLogout}
+        onUploadAvatar={handleUploadAvatar}
+        onSavePersonalData={handleSavePersonalData}
+        onChangePassword={handleChangePassword}
+        twoFactorEnabled={Boolean((user as Record<string, unknown>)?.mfaEnabled)}
+        onToggleTwoFactor={handleToggleTwoFactor}
+        onDeactivateAccount={handleDeactivateAccount}
+        onNewAddress={() => setAddressModalOpen(true)}
+        onSelectAddress={selectAddress}
+        onAddFavoriteToCart={handleAddFavoriteToCart}
+        onToggleFavorite={async (productId) => {
+          await favoritesService.remove(productId);
+          setFavorites((current) => current.filter((item) => String(item.id) !== productId));
+        }}
+        onTrackOrder={handleTrackOrder}
+        onViewOrder={handleTrackOrder}
+        onReorder={handleReorder}
+      />
+      {addressModalOpen && (
+        <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />
+      )}
+    </>
+  );
 }

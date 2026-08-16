@@ -1,7 +1,7 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import prisma from "../../../config/prisma.js";
-import { hasBlockingInvoices } from "../utils/billingRules.js";
-import { info } from "../utils/billingLogger.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import prisma from '../../../config/prisma.js';
+import { hasBlockingInvoices } from '../utils/billingRules.js';
+import { info } from '../utils/billingLogger.js';
 
 type ProcessPaymentPayload = {
   invoiceId: number | string;
@@ -12,42 +12,38 @@ class ProcessPaymentService {
     const normalizedInvoiceId = Number(invoiceId);
 
     if (!Number.isInteger(normalizedInvoiceId) || normalizedInvoiceId <= 0) {
-      throw new Error("Fatura inválida.");
+      throw new Error('Fatura inválida.');
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const existingInvoice = await billingRepository.findInvoiceById(
-        normalizedInvoiceId,
-        tx,
-      );
+      const existingInvoice = await billingRepository.findInvoiceById(normalizedInvoiceId, tx);
 
       if (!existingInvoice) {
-        throw new Error("Fatura não encontrada.");
+        throw new Error('Fatura não encontrada.');
       }
 
       const invoice =
-        existingInvoice.status === "PAGO"
+        existingInvoice.status === 'PAGO'
           ? existingInvoice
           : await billingRepository.updateInvoice(
               normalizedInvoiceId,
               {
-                status: "PAGO",
+                status: 'PAGO',
                 paidAt: new Date(),
               },
               tx,
             );
 
-      const subscription =
-        await billingRepository.findSubscriptionByRestaurantId(
-          invoice.restaurantId,
-          tx,
-        );
+      const subscription = await billingRepository.findSubscriptionByRestaurantId(
+        invoice.restaurantId,
+        tx,
+      );
 
       const openInvoices = await tx.invoice.findMany({
         where: {
           restaurantId: invoice.restaurantId,
           status: {
-            in: ["PENDENTE", "ATRASADO"],
+            in: ['PENDENTE', 'ATRASADO'],
           },
         },
       });
@@ -56,7 +52,7 @@ class ProcessPaymentService {
       if (subscription) {
         await billingRepository.updateSubscription(
           subscription.id,
-          { status: remainsBlocked ? "EXPIRADA" : "ATIVA" },
+          { status: remainsBlocked ? 'EXPIRADA' : 'ATIVA' },
           tx,
         );
       }
@@ -72,8 +68,8 @@ class ProcessPaymentService {
 
     info(
       result.remainsBlocked
-        ? "payment processed but restaurant remains blocked"
-        : "payment processed and restaurant activated",
+        ? 'payment processed but restaurant remains blocked'
+        : 'payment processed and restaurant activated',
       {
         invoiceId: normalizedInvoiceId,
         restaurantId: result.invoice.restaurantId,

@@ -1,12 +1,10 @@
-import { Request, Response } from "express";
-import getOrderIssueThreadService from "../services/GetOrderIssueThreadService.js";
+import { Request, Response } from 'express';
+import getOrderIssueThreadService from '../services/GetOrderIssueThreadService.js';
 
 class GetOrderIssueThreadController {
   async handle(req: Request, res: Response) {
     try {
-      const id = Array.isArray(req.params.id)
-        ? req.params.id[0]
-        : req.params.id;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { id: requesterUserId, role, restaurantId } = req.user;
 
       const result = await getOrderIssueThreadService.execute({
@@ -22,7 +20,7 @@ class GetOrderIssueThreadController {
         error:
           error instanceof Error
             ? error.message
-            : "Erro ao carregar conversa do problema do pedido",
+            : 'Erro ao carregar conversa do problema do pedido',
       });
     }
   }

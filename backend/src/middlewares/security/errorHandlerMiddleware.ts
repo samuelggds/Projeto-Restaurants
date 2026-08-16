@@ -1,8 +1,8 @@
-import { ErrorRequestHandler, NextFunction, Request, Response } from "express";
-import * as Sentry from "@sentry/node";
-import { notifyCriticalError } from "../../services/alertNotifier.js";
+import { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
+import { notifyCriticalError } from '../../services/alertNotifier.js';
 
-const INTERNAL_SERVER_ERROR_MESSAGE = "Erro interno do servidor";
+const INTERNAL_SERVER_ERROR_MESSAGE = 'Erro interno do servidor';
 
 export const errorHandlerMiddleware: ErrorRequestHandler = (
   err: unknown,
@@ -11,7 +11,7 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (
   _next: NextFunction,
 ) => {
   const errObj =
-    typeof err === "object" && err !== null
+    typeof err === 'object' && err !== null
       ? (err as {
           status?: number;
           statusCode?: number;
@@ -21,11 +21,10 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (
       : {};
 
   const statusCode = Number(errObj.status || errObj.statusCode || 500);
-  const safeStatusCode =
-    statusCode >= 400 && statusCode < 600 ? statusCode : 500;
+  const safeStatusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
 
   if (safeStatusCode >= 500) {
-    console.error("[API_ERROR]", {
+    console.error('[API_ERROR]', {
       requestId: req.requestId,
       method: req.method,
       path: req.originalUrl,
@@ -34,16 +33,16 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (
     });
 
     notifyCriticalError(
-      "[CRITICAL_API_ERROR]",
-      `requestId=${req.requestId} method=${req.method} path=${req.originalUrl} message=${errObj.message || "unknown"}`,
+      '[CRITICAL_API_ERROR]',
+      `requestId=${req.requestId} method=${req.method} path=${req.originalUrl} message=${errObj.message || 'unknown'}`,
     );
   }
 
   Sentry.withScope((scope) => {
-    scope.setTag("request_id", req.requestId || "unknown");
-    scope.setTag("method", req.method || "unknown");
-    scope.setTag("path", req.originalUrl || "unknown");
-    scope.setContext("request", {
+    scope.setTag('request_id', req.requestId || 'unknown');
+    scope.setTag('method', req.method || 'unknown');
+    scope.setTag('path', req.originalUrl || 'unknown');
+    scope.setContext('request', {
       headers: req.headers,
       query: req.query,
       params: req.params,
@@ -53,9 +52,7 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (
   });
 
   const message =
-    safeStatusCode >= 500
-      ? INTERNAL_SERVER_ERROR_MESSAGE
-      : errObj.message || "Erro na requisicao";
+    safeStatusCode >= 500 ? INTERNAL_SERVER_ERROR_MESSAGE : errObj.message || 'Erro na requisicao';
 
   return res.status(safeStatusCode).json({
     error: message,

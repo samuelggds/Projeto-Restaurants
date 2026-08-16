@@ -1,28 +1,28 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
-const restaurantSlug = String(process.argv[2] || "northpizza")
+const restaurantSlug = String(process.argv[2] || 'northpizza')
   .trim()
   .toLowerCase();
 
 const productSpecs = [
   {
-    name: "Combo 1 Real 01",
-    description: "Promocao especial de 1 real - unidade 01.",
+    name: 'Combo 1 Real 01',
+    description: 'Promocao especial de 1 real - unidade 01.',
     image:
-      "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
   },
   {
-    name: "Combo 1 Real 02",
-    description: "Promocao especial de 1 real - unidade 02.",
+    name: 'Combo 1 Real 02',
+    description: 'Promocao especial de 1 real - unidade 02.',
     image:
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1200&q=80',
   },
   {
-    name: "Combo 1 Real 03",
-    description: "Promocao especial de 1 real - unidade 03.",
+    name: 'Combo 1 Real 03',
+    description: 'Promocao especial de 1 real - unidade 03.',
     image:
-      "https://images.unsplash.com/photo-1548365328-9f547fb0953b?auto=format&fit=crop&w=1200&q=80",
+      'https://images.unsplash.com/photo-1548365328-9f547fb0953b?auto=format&fit=crop&w=1200&q=80',
   },
 ];
 
@@ -37,7 +37,7 @@ async function resolveCategory(restaurantId: number) {
       name: true,
     },
     orderBy: {
-      id: "asc",
+      id: 'asc',
     },
   });
 
@@ -48,7 +48,7 @@ async function resolveCategory(restaurantId: number) {
   return prisma.category.create({
     data: {
       restaurantId,
-      name: "Promocoes",
+      name: 'Promocoes',
       active: true,
     },
     select: {
@@ -60,14 +60,14 @@ async function resolveCategory(restaurantId: number) {
 
 async function main() {
   if (!restaurantSlug) {
-    throw new Error("Informe um slug valido do restaurante.");
+    throw new Error('Informe um slug valido do restaurante.');
   }
 
   const restaurant = await prisma.restaurant.findFirst({
     where: {
       slug: {
         equals: restaurantSlug,
-        mode: "insensitive",
+        mode: 'insensitive',
       },
     },
     select: {
@@ -86,7 +86,7 @@ async function main() {
   const results: Array<{
     id: number;
     name: string;
-    action: "created" | "updated";
+    action: 'created' | 'updated';
     price: string;
     image: string | null;
   }> = [];
@@ -136,7 +136,7 @@ async function main() {
     results.push({
       id: product.id,
       name: product.name,
-      action: existing ? "updated" : "created",
+      action: existing ? 'updated' : 'created',
       price: String(product.price),
       image: product.image,
     });

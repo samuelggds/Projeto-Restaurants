@@ -1,5 +1,5 @@
-import tableRepository from "../../table/repositories/TableRepository.js";
-import { io } from "../../../server.js";
+import tableRepository from '../../table/repositories/TableRepository.js';
+import { io } from '../../../server.js';
 
 type RequestPinAssistancePayload = {
   tableId: number | string;
@@ -10,13 +10,13 @@ class RequestPinAssistanceService {
     const parsedTableId = Number(tableId);
 
     if (!Number.isInteger(parsedTableId) || parsedTableId <= 0) {
-      throw new Error("Mesa inválida para solicitar o PIN.");
+      throw new Error('Mesa inválida para solicitar o PIN.');
     }
 
     const table = await tableRepository.findById(parsedTableId);
 
     if (!table || !table.active) {
-      throw new Error("Mesa não encontrada.");
+      throw new Error('Mesa não encontrada.');
     }
 
     const payload = {
@@ -27,10 +27,7 @@ class RequestPinAssistanceService {
       message: `Cliente na mesa ${table.number} solicitou o PIN.`,
     };
 
-    io.to(`restaurant:${table.restaurantId}`).emit(
-      "table:pin-requested",
-      payload,
-    );
+    io.to(`restaurant:${table.restaurantId}`).emit('table:pin-requested', payload);
 
     return {
       ok: true,

@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 class BannerRepository {
   async create(data: Prisma.BannerUncheckedCreateInput) {
@@ -14,7 +14,7 @@ class BannerRepository {
         restaurantId: Number(restaurantId),
       },
       orderBy: {
-        id: "desc",
+        id: 'desc',
       },
     });
   }
@@ -28,11 +28,7 @@ class BannerRepository {
     });
   }
 
-  async update(
-    id: number | string,
-    restaurantId: number | string,
-    data: Prisma.BannerUpdateInput,
-  ) {
+  async update(id: number | string, restaurantId: number | string, data: Prisma.BannerUpdateInput) {
     const result = await prisma.banner.updateMany({
       where: {
         id: Number(id),

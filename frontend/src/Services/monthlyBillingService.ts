@@ -1,6 +1,6 @@
-import api from "./api";
+import api from './api';
 
-export type PlanCode = "BASICO" | "PREMIUM";
+export type PlanCode = 'BASICO' | 'PREMIUM';
 export type BillingPlan = {
   plan: PlanCode;
   name: string;
@@ -11,7 +11,7 @@ export type BillingPlan = {
 export type Subscription = {
   id: number;
   plan: PlanCode;
-  status: "TESTE" | "ATIVA" | "EXPIRADA" | "CANCELADA";
+  status: 'TESTE' | 'ATIVA' | 'EXPIRADA' | 'CANCELADA';
   trialEndsAt?: string | null;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
@@ -25,11 +25,18 @@ export type Subscription = {
   };
 };
 export type Invoice = {
-  id: number; month: number; year: number; monthlyFee: number | string;
-  systemFees: number | string; total: number | string;
-  status: "PENDENTE" | "PAGO" | "ATRASADO" | "CANCELADO";
-  dueDate: string; paidAt?: string | null; paymentLink?: string | null;
-  pixQrCode?: string | null; pixQrCodeBase64?: string | null;
+  id: number;
+  month: number;
+  year: number;
+  monthlyFee: number | string;
+  systemFees: number | string;
+  total: number | string;
+  status: 'PENDENTE' | 'PAGO' | 'ATRASADO' | 'CANCELADO';
+  dueDate: string;
+  paidAt?: string | null;
+  paymentLink?: string | null;
+  pixQrCode?: string | null;
+  pixQrCodeBase64?: string | null;
   pixExpiresAt?: string | null;
 };
 export type BillingOverview = {
@@ -53,19 +60,29 @@ export type BillingOverview = {
 };
 
 const monthlyBillingService = {
-  async getPlans() { return (await api.get<BillingPlan[]>("/billing/plans")).data },
-  async getSubscription() { return (await api.get<Subscription>("/subscription")).data },
-  async getOverview() { return (await api.get<BillingOverview>("/billing/invoices")).data },
+  async getPlans() {
+    return (await api.get<BillingPlan[]>('/billing/plans')).data;
+  },
+  async getSubscription() {
+    return (await api.get<Subscription>('/subscription')).data;
+  },
+  async getOverview() {
+    return (await api.get<BillingOverview>('/billing/invoices')).data;
+  },
   async requestPlanChange(plan: PlanCode) {
-    return (await api.post<Subscription & { message?: string }>("/subscription/change-plan", { plan })).data;
+    return (
+      await api.post<Subscription & { message?: string }>('/subscription/change-plan', { plan })
+    ).data;
   },
   async generatePix(invoiceId: number) {
-    return (await api.post<{
-      paymentLink?: string | null;
-      pixQrCode: string;
-      pixQrCodeBase64: string;
-      pixExpiresAt?: string | null;
-    }>(`/billing/invoices/${invoiceId}/regenerate-link`)).data;
+    return (
+      await api.post<{
+        paymentLink?: string | null;
+        pixQrCode: string;
+        pixQrCodeBase64: string;
+        pixExpiresAt?: string | null;
+      }>(`/billing/invoices/${invoiceId}/regenerate-link`)
+    ).data;
   },
 };
 

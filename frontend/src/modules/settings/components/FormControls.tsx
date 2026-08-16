@@ -1,9 +1,5 @@
-import type {
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-} from "react";
-import * as S from "../styles/settings.styles";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import * as S from '../styles/settings.styles';
 
 type FieldProps = {
   label: string;
@@ -49,7 +45,7 @@ export function Switch({ checked, label, description, onChange }: SwitchProps) {
       </span>
       <input
         type="checkbox"
-        style={{ display: "none" }}
+        style={{ display: 'none' }}
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />

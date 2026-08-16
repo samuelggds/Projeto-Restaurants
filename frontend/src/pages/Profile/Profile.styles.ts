@@ -1,8 +1,13 @@
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes } from 'styled-components';
 
 const progressLineReveal = keyframes`
   from { transform: scaleX(0); opacity: 0.35; }
   to { transform: scaleX(1); opacity: 1; }
+`;
+
+const contentReveal = keyframes`
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
 export const Root = styled.div<{ $primary: string }>`
@@ -18,7 +23,7 @@ export const Root = styled.div<{ $primary: string }>`
     ui-sans-serif,
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     sans-serif;
   *,
   *::before,
@@ -28,6 +33,13 @@ export const Root = styled.div<{ $primary: string }>`
   button {
     font: inherit;
     -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled),
+  [role='button'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
   }
   img {
     display: block;
@@ -152,7 +164,7 @@ export const AvatarInitials = styled.div`
   font-weight: 800;
   user-select: none;
 `;
-export const AvatarOverlay = styled.div.attrs({ className: "ov" })`
+export const AvatarOverlay = styled.div.attrs({ className: 'ov' })`
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.52);
@@ -173,6 +185,12 @@ export const AvatarOverlay = styled.div.attrs({ className: "ov" })`
 `;
 export const Main = styled.section`
   min-width: 0;
+`;
+export const ViewTransition = styled.div`
+  animation: ${contentReveal} 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 export const Active = styled.article`
   min-height: 290px;
@@ -229,21 +247,22 @@ export const Tracking = styled.div`
   margin: 28px 0 24px;
 `;
 export const Step = styled.div<{ $done?: boolean; $active?: boolean }>`
-  color: ${({ $done, $active }) => ($done || $active ? "var(--p)" : "#aaa")};
+  color: ${({ $done, $active }) => ($done || $active ? 'var(--p)' : '#aaa')};
   text-align: center;
   i {
     width: 38px;
     height: 38px;
-    border: 2px solid
-      ${({ $done, $active }) => ($done || $active ? "var(--p)" : "#aaa")};
+    border: 2px solid ${({ $done, $active }) => ($done || $active ? 'var(--p)' : '#aaa')};
     border-radius: 50%;
     display: grid;
     place-items: center;
     font-style: normal;
-    background: ${({ $done, $active }) =>
-      $done || $active ? "var(--p)" : "#fff"};
-    color: ${({ $done, $active }) => ($done || $active ? "#fff" : "#a5a5a5")};
-    transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+    background: ${({ $done, $active }) => ($done || $active ? 'var(--p)' : '#fff')};
+    color: ${({ $done, $active }) => ($done || $active ? '#fff' : '#a5a5a5')};
+    transition:
+      transform 180ms ease,
+      background 180ms ease,
+      color 180ms ease;
     svg {
       display: block;
     }
@@ -275,14 +294,14 @@ export const Line = styled.div<{ $done?: boolean }>`
   overflow: hidden;
   background: var(--border);
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     background: var(--p);
     transform-origin: left center;
     transform: scaleX(${({ $done }) => ($done ? 1 : 0)});
     transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
-    animation: ${({ $done }) => ($done ? progressLineReveal : "none")} 500ms
+    animation: ${({ $done }) => ($done ? progressLineReveal : 'none')} 500ms
       cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 `;
@@ -322,7 +341,7 @@ export const Actions = styled.div`
     }
   }
 `;
-export const Map = styled.div.attrs({ className: "map" })`
+export const Map = styled.div.attrs({ className: 'map' })`
   margin-left: 20px;
   position: relative;
   background: repeating-linear-gradient(
@@ -657,6 +676,65 @@ export const FullOrder = styled.article`
     }
   }
 `;
+export const OrderPage = styled.div`
+  animation: ${contentReveal} 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+export const OrderPagination = styled.nav`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  div {
+    display: flex;
+    gap: 8px;
+  }
+  button {
+    min-height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 11px;
+    background: #fff;
+    color: var(--p);
+    cursor: pointer;
+    transition:
+      transform 160ms ease,
+      background 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+  button:hover:not(:disabled) {
+    background: #f8e9df;
+    border-color: var(--p);
+    box-shadow: 0 5px 12px rgba(42, 27, 16, 0.08);
+    transform: translateY(-1px);
+  }
+  button:active:not(:disabled) {
+    box-shadow: none;
+    transform: translateY(0);
+  }
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  @media (max-width: 550px) {
+    align-items: stretch;
+    flex-direction: column;
+    div {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    button {
+      padding: 0 8px;
+      font-size: 12px;
+    }
+  }
+`;
 export const AddressGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -701,49 +779,139 @@ export const AddressCard = styled.article`
   }
 `;
 export const ModalOverlay = styled.div`
-  position: fixed; inset: 0; z-index: 100; background: rgba(20, 16, 12, .56);
-  display: grid; place-items: center; padding: 20px;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(20, 16, 12, 0.56);
+  display: grid;
+  place-items: center;
+  padding: 20px;
 `;
 export const AddressModalCard = styled.form`
-  width: min(650px, 100%); max-height: 92vh; overflow-y: auto; background: #fff;
-  border-radius: 20px; padding: 24px; box-shadow: 0 24px 70px rgba(30, 20, 12, .25);
+  width: min(650px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(30, 20, 12, 0.25);
   color: #191816;
-  header { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
-  h2 { margin: 0 0 5px; color: #191816; font-size: 25px; } p { margin: 0; color: #70675f; }
-  header button { border: 0; background: #f4eee8; border-radius: 50%; width: 38px; height: 38px; display: grid; place-items: center; }
-  .default { display: flex; gap: 9px; align-items: center; margin-top: 17px; font-weight: 700; color: #292521; }
-  .default input { accent-color: var(--p, #d64d08); }
-  footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
-  footer button { border: 1px solid var(--border, #ded5cc); border-radius: 11px; padding: 12px 18px; background: #fff; color: #292521; font-weight: 700; }
-  footer .primary { border-color: var(--p, #d64d08); background: var(--p, #d64d08); color: #fff; box-shadow: 0 8px 18px rgba(214, 77, 8, .2); }
-  footer .primary:disabled { opacity: .65; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: start;
+  }
+  h2 {
+    margin: 0 0 5px;
+    color: #191816;
+    font-size: 25px;
+  }
+  p {
+    margin: 0;
+    color: #70675f;
+  }
+  header button {
+    border: 0;
+    background: #f4eee8;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+  }
+  .default {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    margin-top: 17px;
+    font-weight: 700;
+    color: #292521;
+  }
+  .default input {
+    accent-color: var(--p, #d64d08);
+  }
+  footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  footer button {
+    border: 1px solid var(--border, #ded5cc);
+    border-radius: 11px;
+    padding: 12px 18px;
+    background: #fff;
+    color: #292521;
+    font-weight: 700;
+  }
+  footer .primary {
+    border-color: var(--p, #d64d08);
+    background: var(--p, #d64d08);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(214, 77, 8, 0.2);
+  }
+  footer .primary:disabled {
+    opacity: 0.65;
+  }
 `;
 export const AddressFormGrid = styled.div`
-  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px;
-  label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; color: #39342f; }
-  input { width: 100%; height: 48px; border: 1px solid var(--border, #ded5cc); border-radius: 11px; padding: 0 13px; outline: none; background: #fcfbf9; color: #191816; font: inherit; }
-  input:hover { border-color: #bfb4aa; background: #fff; }
-  input:focus { border-color: var(--p, #d64d08); background: #fff; box-shadow: 0 0 0 3px rgba(214, 77, 8, .12); }
-  .street, .full { grid-column: 1 / -1; }
-  @media (max-width: 560px) { grid-template-columns: 1fr; .street, .full { grid-column: auto; } }
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 22px;
+  label {
+    display: grid;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #39342f;
+  }
+  input {
+    width: 100%;
+    height: 48px;
+    border: 1px solid var(--border, #ded5cc);
+    border-radius: 11px;
+    padding: 0 13px;
+    outline: none;
+    background: #fcfbf9;
+    color: #191816;
+    font: inherit;
+  }
+  input:hover {
+    border-color: #bfb4aa;
+    background: #fff;
+  }
+  input:focus {
+    border-color: var(--p, #d64d08);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(214, 77, 8, 0.12);
+  }
+  .street,
+  .full {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+    .street,
+    .full {
+      grid-column: auto;
+    }
+  }
 `;
 export const AddressMessage = styled.p`
-  margin-top: 12px !important; color: var(--p, #d64d08) !important; font-size: 12px; font-weight: 700;
+  margin-top: 12px !important;
+  color: var(--p, #d64d08) !important;
+  font-size: 12px;
+  font-weight: 700;
 `;
 export const FavoriteGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  @media (max-width: 850px) {
-    grid-template-columns: 1fr 1fr;
-  }
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   @media (max-width: 520px) {
-    display: flex;
-    overflow-x: auto;
-    width: calc(100% + 26px);
-    margin-right: -13px;
-    padding-right: 13px;
-    scroll-snap-type: x mandatory;
+    width: 100%;
+    gap: 12px;
   }
 `;
 export const FavoriteCard = styled.article`
@@ -752,9 +920,22 @@ export const FavoriteCard = styled.article`
   overflow: hidden;
   min-width: 0;
   position: relative;
+  height: 132px;
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  background: #fff;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+  &:hover {
+    border-color: rgba(214, 77, 8, 0.42);
+    box-shadow: 0 10px 22px rgba(55, 38, 26, 0.09);
+    transform: translateY(-2px);
+  }
   > img {
     width: 100%;
-    height: 145px;
+    height: 100%;
     object-fit: cover;
   }
   .heart {
@@ -769,28 +950,73 @@ export const FavoriteCard = styled.article`
     color: var(--p);
   }
   div {
-    padding: 13px;
+    padding: 15px 50px 13px 16px;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+    flex-direction: column;
   }
   h3 {
     margin: 0;
+    color: #201c18;
     font-size: 16px;
+    line-height: 1.25;
   }
   p {
-    height: 34px;
+    margin: 5px 0 10px;
+    min-height: 0;
     color: var(--muted);
     font-size: 11px;
+    line-height: 1.4;
   }
   footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
+    position: absolute;
+    right: 9px;
+    bottom: 13px;
+    left: 134px;
+    margin: 0;
   }
   footer strong {
     color: var(--p);
+    font-size: 15px;
+  }
+  footer button {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    box-shadow: 0 6px 14px rgba(214, 77, 8, 0.2);
   }
   @media (max-width: 520px) {
-    flex: 0 0 78vw;
-    scroll-snap-align: center;
+    width: 100%;
+    grid-template-columns: 102px minmax(0, 1fr);
+    height: 128px;
+    div {
+      padding: 13px 43px 12px 14px;
+    }
+    > img {
+      min-height: 128px;
+    }
+    h3 {
+      font-size: 14px;
+    }
+    p {
+      margin: 4px 0 8px;
+    }
+    footer {
+      right: 7px;
+      bottom: 12px;
+      left: 116px;
+    }
+    .heart {
+      width: 31px;
+      height: 31px;
+      right: 7px;
+      top: 7px;
+    }
   }
 `;
 export const SettingsForm = styled.form`

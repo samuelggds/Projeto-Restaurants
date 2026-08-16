@@ -1,6 +1,6 @@
-import "dotenv/config";
+import 'dotenv/config';
 
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 async function main() {
   const startedAt = Date.now();
@@ -14,7 +14,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Database connection failed.");
+  console.error('Database connection failed.');
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

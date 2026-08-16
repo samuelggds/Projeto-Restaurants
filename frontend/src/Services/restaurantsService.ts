@@ -1,7 +1,7 @@
-import api from "./api";
+import api from './api';
 
 export type CreateRestaurantPayload = {
-  plan: "BASICO" | "PREMIUM";
+  plan: 'BASICO' | 'PREMIUM';
   restaurant: {
     name: string;
     slug: string;
@@ -17,32 +17,32 @@ export type CreateRestaurantPayload = {
 
 class RestaurantsService {
   async listRestaurants() {
-    const response = await api.get("/restaurants");
+    const response = await api.get('/restaurants');
     return response.data;
   }
 
   async getMetrics() {
-    const response = await api.get("/restaurants/metrics");
+    const response = await api.get('/restaurants/metrics');
     return response.data;
   }
 
   async getAllInvoices() {
-    const response = await api.get("/billing/invoices/all");
+    const response = await api.get('/billing/invoices/all');
     return response.data;
   }
 
   async getAllSupportTickets() {
-    const response = await api.get("/ai-support/tickets/all");
+    const response = await api.get('/ai-support/tickets/all');
     return response.data;
   }
 
   async getAuditLogs() {
-    const response = await api.get("/audit-logs");
+    const response = await api.get('/audit-logs');
     return response.data;
   }
 
   async createRestaurant(payload: CreateRestaurantPayload) {
-    const response = await api.post("/restaurants", payload);
+    const response = await api.post('/restaurants', payload);
     return response.data;
   }
 }

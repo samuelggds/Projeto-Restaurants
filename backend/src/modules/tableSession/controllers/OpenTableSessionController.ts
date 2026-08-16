@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import openTableSessionService from "../services/OpenTableSessionService.js";
+import { Request, Response } from 'express';
+import openTableSessionService from '../services/OpenTableSessionService.js';
 
 class OpenTableSessionController {
   async handle(req: Request, res: Response) {
@@ -17,10 +17,7 @@ class OpenTableSessionController {
       return res.status(200).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao abrir sessao de mesa",
+        error: error instanceof Error ? error.message : 'Erro ao abrir sessao de mesa',
       });
     }
   }

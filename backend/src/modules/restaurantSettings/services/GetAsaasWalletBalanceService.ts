@@ -1,4 +1,4 @@
-import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
+import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 
 type GetAsaasWalletBalancePayload = {
   restaurantId: number | string;
@@ -17,46 +17,41 @@ type AsaasBalanceResponse = {
 
 class GetAsaasWalletBalanceService {
   private getAsaasBaseUrl() {
-    return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com")
+    return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
-      .replace(/\/+$/, "");
+      .replace(/\/+$/, '');
   }
 
   private extractProviderError(payload: AsaasBalanceResponse) {
     if (!Array.isArray(payload?.errors) || payload.errors.length === 0) {
-      return "Falha ao consultar saldo no Asaas.";
+      return 'Falha ao consultar saldo no Asaas.';
     }
 
-    const firstError = String(payload.errors[0]?.description || "").trim();
-    return firstError || "Falha ao consultar saldo no Asaas.";
+    const firstError = String(payload.errors[0]?.description || '').trim();
+    return firstError || 'Falha ao consultar saldo no Asaas.';
   }
 
   async execute({ restaurantId }: GetAsaasWalletBalancePayload) {
     const normalizedRestaurantId = Number(restaurantId);
 
-    if (
-      !Number.isInteger(normalizedRestaurantId) ||
-      normalizedRestaurantId <= 0
-    ) {
-      throw new Error("Restaurante invalido para consultar carteira Asaas.");
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante invalido para consultar carteira Asaas.');
     }
 
-    const settings = await restaurantSettingsRepository.findByRestaurantId(
-      normalizedRestaurantId,
-    );
+    const settings = await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
 
-    const asaasToken = String(settings?.asaasAccessToken || "").trim();
+    const asaasToken = String(settings?.asaasAccessToken || '').trim();
     if (!asaasToken) {
       throw new Error(
-        "Conta Asaas ainda nao vinculada. Finalize o onboarding para consultar saldo.",
+        'Conta Asaas ainda nao vinculada. Finalize o onboarding para consultar saldo.',
       );
     }
 
     const asaasBaseUrl = this.getAsaasBaseUrl();
     const response = await fetch(`${asaasBaseUrl}/v3/finance/balance`, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         access_token: asaasToken,
       },
     });
