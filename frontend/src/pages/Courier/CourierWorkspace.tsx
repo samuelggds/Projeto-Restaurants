@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bike,
+  CircleHelp,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -26,6 +27,8 @@ import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
+import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
+import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import * as L from '../kitchen/Kitchen.styles';
 import * as S from './styles';
 
@@ -33,7 +36,7 @@ const OrderCard = lazy(() => import('./components/OrderCard'));
 const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
 const DeliveryMap = lazy(() => import('./components/DeliveryMap'));
 
-type CourierView = 'overview' | 'ready' | 'route' | 'map' | 'history' | 'profile';
+type CourierView = 'overview' | 'ready' | 'route' | 'map' | 'history' | 'profile' | 'help';
 type GeoStatus = 'checking' | 'enabled' | 'blocked' | 'unsupported';
 type CourierOrder = {
   id: number;
@@ -281,9 +284,10 @@ export default function CourierWorkspace() {
     history: ['Histórico', 'Entregas concluídas por você'],
     map: ['Minha rota', 'Acompanhe seu percurso e sua posição atual'],
     profile: ['Meu perfil', 'Dados da sua conta de motoqueiro'],
+    help: ['Central de ajuda', 'Manual visual da operação de entrega'],
   };
   const [title, subtitle] = titles[view];
-  const isDedicatedView = view === 'map' || view === 'overview';
+  const isDedicatedView = view === 'map' || view === 'overview' || view === 'help';
   const go = (next: CourierView) => {
     setView(next);
     setSearch('');
@@ -334,6 +338,12 @@ export default function CourierWorkspace() {
             </a>
           ))}
         </S.CourierNav>
+        <S.CourierBottomNav>
+          <a className={view === 'help' ? 'active' : ''} onClick={() => go('help')}>
+            <CircleHelp />
+            Central de ajuda
+          </a>
+        </S.CourierBottomNav>
         <S.CourierUser>
           <span className="avatar">{monogram(user?.name || 'Motoqueiro')}</span>
           <span>
@@ -377,7 +387,7 @@ export default function CourierWorkspace() {
           </L.Live>
         </S.CourierTop>
         <S.CourierContent>
-          {view === 'map' && geoStatus !== 'enabled' ? (
+          {view === 'help' ? null : view === 'map' && geoStatus !== 'enabled' ? (
             <S.LocationAlertCard>
               <S.LocationAlertIcon>
                 {geoStatus === 'unsupported' ? <MapPinOff /> : <LocateFixed />}
@@ -548,7 +558,9 @@ export default function CourierWorkspace() {
             </>
           )}
 
-          {view === 'profile' ? (
+          {view === 'help' ? (
+            <EmployeeHelpCenter role="courier" onReport={reportEmployeeIssue} />
+          ) : view === 'profile' ? (
             <Suspense
               fallback={
                 <S.EmptyState>

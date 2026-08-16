@@ -13,11 +13,14 @@ import {
   ShieldAlert,
   LogOut,
   X,
+  CircleHelp,
 } from 'lucide-react';
 import * as S from './styles';
 import ordersService from '../../Services/ordersService';
 import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import { useAuth } from '../../contexts/authContext';
+import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
+import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import {
   compareReadyForPickupOrders,
   getNormalizedOrderStatus,
@@ -389,22 +392,29 @@ export default function CourierDashboard() {
           </S.SideNavItem>
         </S.SidebarNav>
 
-        {user?.role === 'ADMIN' && (
-          <S.LogoutButton style={{ marginBottom: '0.75rem' }} onClick={() => navigate('/admin')}>
-            <ShieldAlert size={16} />
-            Entrar na tela de admin
-          </S.LogoutButton>
-        )}
+        <S.SidebarFooter>
+          <S.SideNavItem $active={activeTab === 'AJUDA'} onClick={() => handleTabChange('AJUDA')}>
+            <CircleHelp size={16} />
+            Central de ajuda
+          </S.SideNavItem>
 
-        <S.LogoutButton
-          onClick={() => {
-            logout();
-            navigate('/login');
-          }}
-        >
-          <LogOut size={16} />
-          Sair
-        </S.LogoutButton>
+          {user?.role === 'ADMIN' && (
+            <S.LogoutButton onClick={() => navigate('/admin')}>
+              <ShieldAlert size={16} />
+              Entrar na tela de admin
+            </S.LogoutButton>
+          )}
+
+          <S.LogoutButton
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+          >
+            <LogOut size={16} />
+            Sair
+          </S.LogoutButton>
+        </S.SidebarFooter>
       </S.Sidebar>
 
       {/* Conteúdo principal */}
@@ -441,10 +451,14 @@ export default function CourierDashboard() {
                 ? 'Em entrega'
                 : activeTab === 'ENTREGUE'
                   ? 'Pedidos Entregues'
-                  : 'Meu Perfil'}
-            {activeTab !== 'PERFIL' && <S.CountChip>{searchedOrders.length}</S.CountChip>}
+                  : activeTab === 'AJUDA'
+                    ? 'Central de ajuda'
+                    : 'Meu Perfil'}
+            {activeTab !== 'PERFIL' && activeTab !== 'AJUDA' && (
+              <S.CountChip>{searchedOrders.length}</S.CountChip>
+            )}
           </S.TopBarTitle>
-          {activeTab !== 'PERFIL' && (
+          {activeTab !== 'PERFIL' && activeTab !== 'AJUDA' && (
             <S.RefreshButton onClick={fetchOrders} title="Atualizar">
               <RefreshCw size={16} />
               Atualizar
@@ -472,9 +486,14 @@ export default function CourierDashboard() {
           <S.MobileTab $active={activeTab === 'PERFIL'} onClick={() => handleTabChange('PERFIL')}>
             <User size={15} /> Perfil
           </S.MobileTab>
+          <S.MobileTab $active={activeTab === 'AJUDA'} onClick={() => handleTabChange('AJUDA')}>
+            <CircleHelp size={15} /> Ajuda
+          </S.MobileTab>
         </S.MobileTabs>
 
-        {activeTab === 'PERFIL' ? (
+        {activeTab === 'AJUDA' ? (
+          <EmployeeHelpCenter role="courier" onReport={reportEmployeeIssue} />
+        ) : activeTab === 'PERFIL' ? (
           <Suspense fallback={null}>
             <ProfilePanel user={user} onUpdated={handleProfileUpdated} />
           </Suspense>

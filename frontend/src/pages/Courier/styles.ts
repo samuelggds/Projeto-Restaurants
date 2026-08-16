@@ -168,6 +168,16 @@ export const SidebarNav = styled.nav`
   }
 `;
 
+export const SidebarFooter = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
 export const SideNavItem = styled.button`
   display: flex;
   align-items: center;
@@ -218,7 +228,7 @@ export const LogoutButton = styled.button`
   background: transparent;
   transition: background 0.15s;
   width: 100%;
-  margin-top: auto;
+  margin-top: 0;
 
   &:hover {
     background: rgba(255, 255, 255, 0.15);
@@ -1146,6 +1156,7 @@ export const CourierNav = styled.nav`
     color: #aebbc4;
     font-size: 13.5px;
     font-weight: 550;
+    cursor: pointer;
     transition: 0.18s ease;
   }
   a:hover {
@@ -1164,10 +1175,46 @@ export const CourierNav = styled.nav`
   }
 `;
 
-export const CourierUser = styled.div`
+export const CourierBottomNav = styled.nav`
   margin-top: auto;
-  padding: 16px 8px 2px;
+  padding: 16px 8px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.09);
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 46px;
+    padding: 0 14px;
+    border-radius: 13px;
+    color: #aebbc4;
+    font-size: 13.5px;
+    font-weight: 550;
+    cursor: pointer;
+    transition: 0.18s ease;
+  }
+
+  a:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  a.active {
+    color: #fff;
+    background: linear-gradient(90deg, #ee5c12, #b9471d);
+    box-shadow: 0 8px 18px rgba(222, 83, 21, 0.27);
+  }
+
+  svg {
+    width: 19px;
+    flex-shrink: 0;
+  }
+`;
+
+export const CourierUser = styled.div`
+  margin-top: 8px;
+  padding: 10px 8px 2px;
+  border-top: 0;
   display: grid;
   grid-template-columns: 42px 1fr 34px;
   align-items: center;
@@ -1202,6 +1249,7 @@ export const CourierUser = styled.div`
     width: 34px;
     height: 34px;
     border: 0;
+    cursor: pointer;
     border-radius: 10px;
     display: grid;
     place-items: center;

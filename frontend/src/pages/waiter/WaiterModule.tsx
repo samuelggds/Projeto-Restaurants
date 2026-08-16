@@ -1,5 +1,6 @@
 import {
   BellRing,
+  CircleHelp,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -20,6 +21,8 @@ import {
   WaiterTablesPage,
 } from './pages/WaiterPages';
 import * as S from './Waiter.styles';
+import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
+import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 
 export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls';
 export interface WaiterModuleProps extends BaseProps {
@@ -47,12 +50,12 @@ function WaiterShell({
   onViewChange?: WaiterModuleProps['onViewChange'];
 }) {
   const { employee, restaurant, onLogout } = useWaiterWorkspace();
-  const [view, setView] = useState(initialView);
+  const [view, setView] = useState<WaiterView | 'help'>(initialView);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
-  const navigate = (next: WaiterView) => {
+  const navigate = (next: WaiterView | 'help') => {
     setView(next);
     if (window.innerWidth <= 820) setOpen(false);
-    onViewChange?.(next);
+    if (next !== 'help') onViewChange?.(next);
   };
   const nav = [
     ['overview', 'Visão geral', LayoutGrid],
@@ -60,18 +63,22 @@ function WaiterShell({
     ['tables', 'Mesas e códigos', QrCode],
     ['calls', 'Chamados', BellRing],
   ] as const;
-  const titles: Record<WaiterView, [string, string]> = {
+  const titles: Record<WaiterView | 'help', [string, string]> = {
     overview: ['Visão geral', 'Área operacional exclusiva do garçom'],
     deliveries: ['Pedidos para entregar', 'Veja os pedidos prontos e leve-os até a mesa'],
     tables: ['Mesas e QR Codes', 'Gerencie códigos de acesso das mesas'],
     calls: ['Chamados', 'Atenda rapidamente as solicitações do salão'],
+    help: ['Central de ajuda', 'Manual visual da operação do garçom'],
   };
-  const Page = {
-    overview: WaiterOverviewPage,
-    deliveries: WaiterDeliveriesPage,
-    tables: WaiterTablesPage,
-    calls: WaiterCallsPage,
-  }[view];
+  const Page =
+    view === 'help'
+      ? null
+      : {
+          overview: WaiterOverviewPage,
+          deliveries: WaiterDeliveriesPage,
+          tables: WaiterTablesPage,
+          calls: WaiterCallsPage,
+        }[view];
   const [title, subtitle] = titles[view];
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
@@ -95,6 +102,12 @@ function WaiterShell({
             </a>
           ))}
         </S.Nav>
+        <S.BottomNav>
+          <a className={view === 'help' ? 'active' : ''} onClick={() => navigate('help')}>
+            <CircleHelp />
+            Central de ajuda
+          </a>
+        </S.BottomNav>
         <S.User>
           <span className="avatar">
             {employee.name
@@ -133,7 +146,11 @@ function WaiterShell({
           </S.Live>
         </S.Top>
         <S.Content>
-          <Page />
+          {view === 'help' ? (
+            <EmployeeHelpCenter role="waiter" onReport={reportEmployeeIssue} />
+          ) : (
+            Page && <Page />
+          )}
         </S.Content>
       </S.Main>
     </S.Root>

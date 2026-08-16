@@ -574,6 +574,8 @@ enum OrderIssueSenderType {
 enum SupportChatSenderRole {
   ADMIN
   SUPER_ADMIN
+  FUNCIONARIO
+  MOTOQUEIRO
 }
 
 enum PlanType {

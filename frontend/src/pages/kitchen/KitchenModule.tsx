@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock3,
   History,
+  CircleHelp,
   LayoutGrid,
   LogOut,
   Menu,
@@ -20,6 +21,8 @@ import {
   KitchenReadyPage,
 } from './pages/KitchenPages';
 import * as S from './Kitchen.styles';
+import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
+import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 
 export type KitchenView = 'overview' | 'queue' | 'ready' | 'history';
 const INITIAL_SHIFT_TIME = new Date();
@@ -52,14 +55,14 @@ function KitchenShell({
     const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  const [view, setView] = useState(initialView);
+  const [view, setView] = useState<KitchenView | 'help'>(initialView);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
-  const navigate = (next: KitchenView) => {
+  const navigate = (next: KitchenView | 'help') => {
     setView(next);
     if (window.innerWidth <= 820) setOpen(false);
-    onViewChange?.(next);
+    if (next !== 'help') onViewChange?.(next);
   };
   const nav = [
     ['overview', 'Visão geral', LayoutGrid],
@@ -67,11 +70,12 @@ function KitchenShell({
     ['ready', 'Prontos', CheckCircle2],
     ['history', 'Histórico', History],
   ] as const;
-  const titles: Record<KitchenView, [string, string]> = {
+  const titles: Record<KitchenView | 'help', [string, string]> = {
     overview: ['Visão geral', 'Área operacional exclusiva da cozinha'],
     queue: ['Fila da cozinha', 'Prepare os pedidos na ordem correta'],
     ready: ['Pedidos prontos', 'Acompanhe os pedidos que aguardam retirada'],
     history: ['Histórico', 'Consulte os pedidos concluídos no turno'],
+    help: ['Central de ajuda', 'Manual visual da operação da cozinha'],
   };
   const [title, subtitle] = titles[view];
   return (
@@ -96,6 +100,12 @@ function KitchenShell({
             </a>
           ))}
         </S.Nav>
+        <S.BottomNav>
+          <a className={view === 'help' ? 'active' : ''} onClick={() => navigate('help')}>
+            <CircleHelp />
+            Central de ajuda
+          </a>
+        </S.BottomNav>
         <S.User>
           <span className="avatar">
             {employee.name
@@ -148,6 +158,7 @@ function KitchenShell({
           )}
           {view === 'ready' && <KitchenReadyPage />}
           {view === 'history' && <KitchenHistoryPage />}
+          {view === 'help' && <EmployeeHelpCenter role="kitchen" onReport={reportEmployeeIssue} />}
         </S.Content>
       </S.Main>
     </S.Root>

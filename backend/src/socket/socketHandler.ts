@@ -1,5 +1,11 @@
 import type { Socket } from 'socket.io';
 import prisma from '../config/prisma.js';
+import {
+  canSendSupportChat,
+  getSupportMessageSender,
+  isOperationalSupportReporter,
+  normalizeSupportChatRole,
+} from './supportChatPolicy.js';
 
 type SocketUser = {
   id: number | string;
@@ -187,10 +193,10 @@ export function socketHandler(socket: AppSocket) {
     const reply =
       typeof ack === 'function' ? ack : (_result: { ok: boolean; error?: string }) => {};
 
-    const normalizedRole = String(role || '').toUpperCase();
-    const isAdminRole = normalizedRole === 'ADMIN' || normalizedRole === 'SUPER_ADMIN';
+    const normalizedRole = normalizeSupportChatRole(role);
+    const isOperationalRole = isOperationalSupportReporter(normalizedRole);
 
-    if (!isAdminRole) {
+    if (!canSendSupportChat(normalizedRole)) {
       reply({ ok: false, error: 'Sem permissão para usar este chat.' });
       return;
     }
@@ -227,29 +233,31 @@ export function socketHandler(socket: AppSocket) {
       return;
     }
 
-    const subscription = await prisma.subscription.findUnique({
-      where: {
-        restaurantId: targetRestaurantId,
-      },
-      select: {
-        plan: true,
-      },
-    });
-
-    const plan = String(subscription?.plan || '').toUpperCase();
-    const supportChatEnabledPlan = plan === 'BASICO' || plan === 'PREMIUM';
-
-    if (!supportChatEnabledPlan) {
-      reply({
-        ok: false,
-        error: 'Chat com Super Admin disponível nos planos ativos do sistema.',
+    if (!isOperationalRole) {
+      const subscription = await prisma.subscription.findUnique({
+        where: {
+          restaurantId: targetRestaurantId,
+        },
+        select: {
+          plan: true,
+        },
       });
-      return;
+
+      const plan = String(subscription?.plan || '').toUpperCase();
+      const supportChatEnabledPlan = plan === 'BASICO' || plan === 'PREMIUM';
+
+      if (!supportChatEnabledPlan) {
+        reply({
+          ok: false,
+          error: 'Chat com Super Admin disponível nos planos ativos do sistema.',
+        });
+        return;
+      }
     }
 
     let savedMessage;
-    const senderRoleValue = normalizedRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
-    const senderLabelValue = normalizedRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin';
+    const { senderRole: senderRoleValue, senderLabel: senderLabelValue } =
+      getSupportMessageSender(normalizedRole);
 
     try {
       const insertedRows = await prisma.$queryRaw<
@@ -311,6 +319,12 @@ export function socketHandler(socket: AppSocket) {
 
     socket.to(`user:${id}`).emit('support:chat-message', payload);
     socket.emit('support:chat-message', payload);
+
+    if (isOperationalRole) {
+      socket.to(`restaurant:${targetRestaurantId}:admin`).emit('support:chat-message', payload);
+      reply({ ok: true });
+      return;
+    }
 
     if (normalizedRole === 'ADMIN') {
       socket.to('super_admin').emit('support:chat-message', payload);

@@ -132,8 +132,12 @@ export const Nav = styled.nav`
     opacity: 1;
   }
 `;
-export const User = styled.div`
+export const BottomNav = styled(Nav)`
   margin-top: auto;
+  margin-bottom: 10px;
+`;
+export const User = styled.div`
+  margin-top: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 18px 8px 0;
   display: grid;
