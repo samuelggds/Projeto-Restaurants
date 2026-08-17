@@ -5,6 +5,8 @@ import {
   getEmployeeHelpTitle,
   type EmployeeHelpRole,
 } from './employeeHelpGuides';
+import { EmployeeHelpPreview } from './EmployeeHelpPreview';
+import { employeeHelpCallouts } from './employeeHelpCallouts';
 import * as S from './EmployeeHelpCenter.styles';
 
 type Props = {
@@ -57,7 +59,7 @@ export function EmployeeHelpCenter({ role, onReport }: Props) {
               <span>
                 <strong>{guide.title}</strong>
                 <small>
-                  {guide.area} · {guide.steps.length} passos detalhados
+                  {guide.area} · {employeeHelpCallouts[guide.preview].length} itens explicados
                 </small>
               </span>
               <ChevronDown
@@ -68,11 +70,11 @@ export function EmployeeHelpCenter({ role, onReport }: Props) {
             </S.GuideButton>
             {open && (
               <S.GuideContent>
-                <S.Steps>
-                  {guide.steps.map((step, index) => (
-                    <li key={step}>
+                <S.Steps aria-label="Legenda numerada da prévia">
+                  {employeeHelpCallouts[guide.preview].map((callout, index) => (
+                    <li key={callout.label}>
                       <b>{index + 1}</b>
-                      <span>{step}</span>
+                      <span>{callout.description}</span>
                     </li>
                   ))}
                 </S.Steps>
@@ -80,34 +82,20 @@ export function EmployeeHelpCenter({ role, onReport }: Props) {
                   <aside className="side">
                     <div className="brand">PAINEL OPERACIONAL</div>
                     {guide.sidebarItems.map((item) => {
-                      const active = item === guide.title;
+                      const active = item === (guide.sidebarActiveItem ?? guide.title);
 
                       return (
-                        <span className={active ? 'active' : ''} key={item}>
-                          {active && <i className="sidebar-badge">1</i>}
+                        <span
+                          className={active ? 'active' : ''}
+                          key={item}
+                          data-marker={active ? 1 : undefined}
+                        >
                           {item}
                         </span>
                       );
                     })}
                   </aside>
-                  <div className="canvas">
-                    <div className="crumb">PAINEL / {guide.title.toUpperCase()}</div>
-                    <h4>
-                      {guide.area}
-                      <i className="badge two">2</i>
-                    </h4>
-                    <p>{guide.helper}</p>
-                    <div className="fields">
-                      <div className="field">Buscar ou selecionar</div>
-                      <div className="field">Filtrar status</div>
-                      <div className="field">Informações do pedido</div>
-                      <div className="field">Ação disponível</div>
-                    </div>
-                    <div className="action">
-                      {guide.action}
-                      <i className="badge three">3</i>
-                    </div>
-                  </div>
+                  <EmployeeHelpPreview guide={guide} />
                 </S.Preview>
               </S.GuideContent>
             )}
