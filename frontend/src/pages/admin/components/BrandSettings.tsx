@@ -123,10 +123,7 @@ export function BrandSettings({
               {isEnhancingCover ? <LoaderCircle className="spin" /> : <Sparkles />}{' '}
               {isEnhancingCover ? 'Melhorando...' : 'Melhorar com IA'}
             </button>
-            <small>
-              A IA reconstrói detalhes e prepara a capa em alta definição.
-              <br />A utilização gera custo na conta da API.
-            </small>
+            <small>A IA reconstrói detalhes e prepara a capa em alta definição.</small>
           </div>
         </S.LogoCard>
       </S.Card>
