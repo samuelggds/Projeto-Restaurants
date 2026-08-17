@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 
 class GetCurrentSessionController {
   async handle(req: Request, res: Response) {
@@ -10,8 +10,7 @@ class GetCurrentSessionController {
       });
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao obter sessao atual",
+        error: error instanceof Error ? error.message : 'Erro ao obter sessao atual',
       });
     }
   }

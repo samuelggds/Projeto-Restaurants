@@ -1,24 +1,29 @@
-import { PlanType } from "@prisma/client";
+import { PlanType } from '@prisma/client';
 
 export const PLAN_CONFIG = {
   [PlanType.BASICO]: {
-    name: "Básico",
-    monthlyFee: 100,
-    splitRate: 0.04,
+    name: 'Básico',
+    monthlyFee: 149.9,
     trialDays: 30,
-  },
-
-  [PlanType.PROFISSIONAL]: {
-    name: "Profissional",
-    monthlyFee: 200,
-    splitRate: 0.03,
-    trialDays: 30,
+    availableForSale: true,
+    features: ['Sistema de delivery', 'Suporte padrão'],
   },
 
   [PlanType.PREMIUM]: {
-    name: "Premium",
-    monthlyFee: 300,
-    splitRate: 0.02,
+    name: 'Premium',
+    monthlyFee: 249.9,
     trialDays: 30,
+    availableForSale: true,
+    features: [
+      'Sistema de delivery',
+      'Cardápio digital com QR Code de mesa',
+      'Suporte prioritário',
+    ],
   },
 };
+
+export const AVAILABLE_PLAN_TYPES = [PlanType.BASICO, PlanType.PREMIUM] as const;
+
+export function isAvailablePlan(plan: PlanType) {
+  return AVAILABLE_PLAN_TYPES.some((availablePlan) => availablePlan === plan);
+}

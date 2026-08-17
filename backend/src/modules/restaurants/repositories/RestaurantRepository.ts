@@ -1,6 +1,6 @@
-import type { Prisma } from "@prisma/client";
-import { UserRole } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -17,10 +17,7 @@ class RestaurantRepository {
     });
   }
 
-  async create(
-    data: Prisma.RestaurantUncheckedCreateInput,
-    db: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.RestaurantUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.restaurant.create({
       data,
     });
@@ -43,11 +40,12 @@ class RestaurantRepository {
             id: true,
             plan: true,
             status: true,
+            currentPeriodEnd: true,
           },
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }

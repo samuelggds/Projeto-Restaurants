@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Package,
   CheckCircle,
@@ -13,37 +13,40 @@ import {
   ShieldAlert,
   LogOut,
   X,
-} from "lucide-react";
-import * as S from "./styles";
-import ordersService from "../../Services/ordersService";
-import { connectSocket, disconnectSocket } from "../../Services/socketService";
-import { useAuth } from "../../contexts/authContext";
+  CircleHelp,
+} from 'lucide-react';
+import * as S from './styles';
+import ordersService from '../../Services/ordersService';
+import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { useAuth } from '../../contexts/authContext';
+import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
+import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
+import {
+  compareReadyForPickupOrders,
+  getNormalizedOrderStatus,
+  isCourierDeliveryOrder,
+  isReadyForCourierPickup,
+} from './domain/courierOrders';
 
-const ProfilePanel = lazy(() => import("./components/ProfilePanel"));
-const OrderCard = lazy(() => import("./components/OrderCard"));
+const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
+const OrderCard = lazy(() => import('./components/OrderCard'));
 
 const STATUS_LABEL = {
-  PRONTO: { label: "Pronto p/ retirada", color: "#f59e0b" },
-  SAIU_PARA_ENTREGA: { label: "Em entrega", color: "#3b82f6" },
-  ENTREGUE: { label: "Entregue", color: "#22c55e" },
+  PRONTO: { label: 'Pronto p/ retirada', color: '#f59e0b' },
+  SAIU_PARA_ENTREGA: { label: 'Em entrega', color: '#3b82f6' },
+  ENTREGUE: { label: 'Entregue', color: '#22c55e' },
 };
 
 const PAYMENT_LABEL = {
-  DINHEIRO: "Dinheiro",
-  PIX: "PIX",
-  CARTAO: "Cartão",
-  CARTAO_DEBITO: "Débito",
-  CARTAO_CREDITO: "Crédito",
+  PIX: 'PIX',
+  CARTAO: 'Cartão',
+  CARTAO_DEBITO: 'Débito',
+  CARTAO_CREDITO: 'Crédito',
 };
-const DIGITAL_PAYMENT_METHODS = new Set([
-  "PIX",
-  "CARTAO",
-  "CARTAO_DEBITO",
-  "CARTAO_CREDITO",
-]);
-const LOCATION_UPDATE_INTERVAL_MS = 5000;
+const DIGITAL_PAYMENT_METHODS = new Set(['PIX', 'CARTAO', 'CARTAO_DEBITO', 'CARTAO_CREDITO']);
+const LOCATION_UPDATE_INTERVAL_MS = 2000;
 
-type GeoStatus = "checking" | "enabled" | "blocked" | "unsupported";
+type GeoStatus = 'checking' | 'enabled' | 'blocked' | 'unsupported';
 
 export default function CourierDashboard() {
   const INITIAL_VISIBLE_ORDERS = 12;
@@ -53,18 +56,19 @@ export default function CourierDashboard() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("SAIU_PARA_ENTREGA");
+  const [activeTab, setActiveTab] = useState('PRONTO');
   const [deliveredCount, setDeliveredCount] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ORDERS);
-  const [orderIdSearch, setOrderIdSearch] = useState("");
+  const [orderIdSearch, setOrderIdSearch] = useState('');
   const ordersRef = useRef<Array<{ id?: number; status?: string }>>([]);
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>("checking");
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>('checking');
+  const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
   const [geoNotice, setGeoNotice] = useState(
-    "Ative sua localização para que o cliente acompanhe a entrega em tempo real.",
+    'Ative sua localização para que o cliente acompanhe a entrega em tempo real.',
   );
   const [geoActionHint, setGeoActionHint] = useState(
-    "Toque em Ativar localização para abrir o aviso de permissão.",
+    'Toque em Ativar localização para abrir o aviso de permissão.',
   );
 
   useEffect(() => {
@@ -72,7 +76,7 @@ export default function CourierDashboard() {
   }, [orders]);
 
   function handleProfileUpdated(updatedUser) {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     if (token) login(updatedUser, token);
   }
 
@@ -82,7 +86,7 @@ export default function CourierDashboard() {
 
   function handleTabChange(tab) {
     setActiveTab(tab);
-    setOrderIdSearch("");
+    setOrderIdSearch('');
     setVisibleLimit(INITIAL_VISIBLE_ORDERS);
   }
 
@@ -98,14 +102,11 @@ export default function CourierDashboard() {
           id?: number;
           type?: string;
           status?: string;
+          createdAt?: string;
         }>;
-        const deliveryOrders = allOrders.filter(
-          (o) => String(o.type || "").toUpperCase() === "DELIVERY",
-        );
+        const deliveryOrders = allOrders.filter(isCourierDeliveryOrder);
         setOrders(deliveryOrders);
-        setDeliveredCount(
-          deliveryOrders.filter((o) => o.status === "ENTREGUE").length,
-        );
+        setDeliveredCount(deliveryOrders.filter((o) => o.status === 'ENTREGUE').length);
       } catch {
         // silently fail
       } finally {
@@ -120,10 +121,10 @@ export default function CourierDashboard() {
   }, [refreshKey]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+    const token = localStorage.getItem('token');
+    if (!token || !locationTrackingRequested) return;
 
-    const socket = connectSocket(token, "courier-dashboard");
+    const socket = connectSocket(token, 'courier-dashboard');
     let watchId: number | null = null;
     let emitTimer: ReturnType<typeof setInterval> | null = null;
     const latestPositionRef: {
@@ -140,8 +141,7 @@ export default function CourierDashboard() {
       }
 
       const deliveryInRoute = ordersRef.current.filter(
-        (order) =>
-          String(order?.status || "").toUpperCase() === "SAIU_PARA_ENTREGA",
+        (order) => String(order?.status || '').toUpperCase() === 'SAIU_PARA_ENTREGA',
       );
 
       if (deliveryInRoute.length === 0) {
@@ -155,7 +155,7 @@ export default function CourierDashboard() {
           continue;
         }
 
-        socket.emit("delivery:location:update", {
+        socket.emit('delivery:location:update', {
           orderId,
           latitude: currentPosition.coords.latitude,
           longitude: currentPosition.coords.longitude,
@@ -171,41 +171,37 @@ export default function CourierDashboard() {
       }
     };
 
-    if (typeof window !== "undefined" && navigator?.geolocation) {
+    if (typeof window !== 'undefined' && navigator?.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           latestPositionRef.current = position;
-          setGeoStatus("enabled");
+          setGeoStatus('enabled');
           setGeoNotice(
-            "Localização ativa. O cliente recebe sua posição automaticamente a cada 5 segundos.",
+            'Localização ativa. O cliente recebe sua posição automaticamente a cada 2 segundos.',
           );
-          setGeoActionHint("");
+          setGeoActionHint('');
           emitLocationForOrdersInRoute();
         },
         (error) => {
           if (error?.code === 1) {
-            setGeoStatus("blocked");
+            setGeoStatus('blocked');
             setGeoNotice(
-              "Sem acesso à localização. Ative a permissão no navegador para liberar o rastreio em tempo real.",
+              'Sem acesso à localização. Ative a permissão no navegador para liberar o rastreio em tempo real.',
             );
-            setGeoActionHint(
-              "Dica: clique no cadeado ao lado da URL e permita Localização.",
-            );
+            setGeoActionHint('Dica: clique no cadeado ao lado da URL e permita Localização.');
             return;
           }
 
-          setGeoStatus("blocked");
+          setGeoStatus('blocked');
           setGeoNotice(
-            "Não foi possível obter sua localização agora. Verifique GPS/internet e tente novamente.",
+            'Não foi possível obter sua localização agora. Verifique GPS/internet e tente novamente.',
           );
-          setGeoActionHint(
-            "Se aparecer o aviso no navegador, confirme em Permitir.",
-          );
+          setGeoActionHint('Se aparecer o aviso no navegador, confirme em Permitir.');
         },
         {
           enableHighAccuracy: true,
-          maximumAge: LOCATION_UPDATE_INTERVAL_MS,
-          timeout: 10000,
+          maximumAge: 0,
+          timeout: 6000,
         },
       );
 
@@ -214,11 +210,9 @@ export default function CourierDashboard() {
       }, LOCATION_UPDATE_INTERVAL_MS);
     } else {
       setTimeout(() => {
-        setGeoStatus("unsupported");
-        setGeoNotice(
-          "Seu dispositivo não oferece geolocalização neste navegador.",
-        );
-        setGeoActionHint("");
+        setGeoStatus('unsupported');
+        setGeoNotice('Seu dispositivo não oferece geolocalização neste navegador.');
+        setGeoActionHint('');
       }, 0);
     }
 
@@ -226,18 +220,17 @@ export default function CourierDashboard() {
       setOrders((prev) => {
         const exists = prev.find((o) => o.id === updatedOrder.id);
         if (!exists) {
-          if (String(updatedOrder.type || "").toUpperCase() !== "DELIVERY")
-            return prev;
+          if (String(updatedOrder.type || '').toUpperCase() !== 'DELIVERY') return prev;
           return [updatedOrder, ...prev];
         }
         return prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
       });
-      if (updatedOrder.status === "ENTREGUE") {
+      if (updatedOrder.status === 'ENTREGUE') {
         setDeliveredCount((n) => n + 1);
       }
     }
 
-    socket.on("order:status-changed", onStatusChanged);
+    socket.on('order:status-changed', onStatusChanged);
 
     return () => {
       if (emitTimer) {
@@ -246,24 +239,31 @@ export default function CourierDashboard() {
       if (watchId !== null && navigator?.geolocation) {
         navigator.geolocation.clearWatch(watchId);
       }
-      socket.off("order:status-changed", onStatusChanged);
+      socket.off('order:status-changed', onStatusChanged);
       disconnectSocket();
     };
-  }, []);
+  }, [locationTrackingRequested]);
 
   async function handleMarkDelivered(orderId, deliveryConfirmationCode) {
-    const updated = await ordersService.updateStatus(
-      orderId,
-      "ENTREGUE",
-      deliveryConfirmationCode,
-    );
+    const updated = await ordersService.updateStatus(orderId, 'ENTREGUE', deliveryConfirmationCode);
     const updatedOrder = updated?.order || updated;
-    setOrders((prev) =>
-      prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
-    );
+    setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
   }
 
-  const filteredOrders = orders.filter((o) => o.status === activeTab);
+  const readyForPickupOrders = [...orders]
+    .filter(isReadyForCourierPickup)
+    .sort(compareReadyForPickupOrders);
+  const inRouteOrders = orders.filter((o) => getNormalizedOrderStatus(o) === 'SAIU_PARA_ENTREGA');
+  const deliveredOrders = orders.filter((o) => getNormalizedOrderStatus(o) === 'ENTREGUE');
+
+  const filteredOrders =
+    activeTab === 'PRONTO'
+      ? readyForPickupOrders
+      : activeTab === 'SAIU_PARA_ENTREGA'
+        ? inRouteOrders
+        : activeTab === 'ENTREGUE'
+          ? deliveredOrders
+          : [];
   const searchedOrders = filteredOrders.filter((order) => {
     const normalizedSearch = orderIdSearch.trim();
 
@@ -271,64 +271,57 @@ export default function CourierDashboard() {
       return true;
     }
 
-    return String(order?.id ?? "").includes(normalizedSearch);
+    return String(order?.id ?? '').includes(normalizedSearch);
   });
   const displayedOrders = searchedOrders.slice(0, visibleLimit);
-  const hiddenOrdersCount = Math.max(
-    searchedOrders.length - displayedOrders.length,
-    0,
-  );
-  const prontoCount = orders.filter((o) => o.status === "PRONTO").length;
-  const saiuCount = orders.filter(
-    (o) => o.status === "SAIU_PARA_ENTREGA",
-  ).length;
-  const entregueCount = orders.filter((o) => o.status === "ENTREGUE").length;
+  const hiddenOrdersCount = Math.max(searchedOrders.length - displayedOrders.length, 0);
+  const prontoCount = readyForPickupOrders.length;
+  const saiuCount = inRouteOrders.length;
+  const entregueCount = deliveredOrders.length;
 
   const requestLocationPermission = () => {
     if (!navigator?.geolocation) {
-      setGeoStatus("unsupported");
-      setGeoNotice("Este navegador não suporta geolocalização.");
-      setGeoActionHint("");
+      setGeoStatus('unsupported');
+      setGeoNotice('Este navegador não suporta geolocalização.');
+      setGeoActionHint('');
       return;
     }
 
-    setGeoStatus("checking");
-    setGeoNotice("Aguardando sua confirmação para ativar a localização.");
+    setLocationTrackingRequested(true);
+    setGeoStatus('checking');
+    setGeoNotice('Aguardando sua confirmação para ativar a localização.');
     setGeoActionHint(
-      "Quando o navegador mostrar o aviso, clique em Permitir para liberar o rastreio.",
+      'Quando o navegador mostrar o aviso, clique em Permitir para liberar o rastreio.',
     );
 
     navigator.geolocation.getCurrentPosition(
       () => {
-        setGeoStatus("enabled");
+        setGeoStatus('enabled');
         setGeoNotice(
-          "Localização ativa. O cliente recebe sua posição automaticamente a cada 5 segundos.",
+          'Localização ativa. O cliente recebe sua posição automaticamente a cada 2 segundos.',
         );
-        setGeoActionHint("");
+        setGeoActionHint('');
       },
       (error) => {
         if (error?.code === 1) {
-          setGeoStatus("blocked");
+          setGeoStatus('blocked');
           setGeoNotice(
-            "Permissão negada. Ative localização nas configurações do navegador para liberar o rastreio.",
+            'Permissão negada. Ative localização nas configurações do navegador para liberar o rastreio.',
           );
-          setGeoActionHint(
-            "Dica: clique no cadeado ao lado da URL e permita Localização.",
-          );
+          setGeoActionHint('Dica: clique no cadeado ao lado da URL e permita Localização.');
           return;
         }
 
-        setGeoStatus("blocked");
+        setGeoStatus('blocked');
         setGeoNotice(
-          "Não foi possível ativar a localização agora. Verifique o GPS e tente de novo.",
+          'Não foi possível ativar a localização agora. Verifique o GPS e tente de novo.',
         );
-        setGeoActionHint(
-          "Se aparecer o aviso do navegador, confirme em Permitir.",
-        );
+        setGeoActionHint('Se aparecer o aviso do navegador, confirme em Permitir.');
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        maximumAge: 0,
+        timeout: 6000,
       },
     );
   };
@@ -342,8 +335,8 @@ export default function CourierDashboard() {
             <Bike size={28} />
           </S.BikeIcon>
           <div>
-            <h2>Olá, {user?.name?.split(" ")[0] || "Entregador"}</h2>
-            <p>{user?.email || ""}</p>
+            <h2>Olá, {user?.name?.split(' ')[0] || 'Entregador'}</h2>
+            <p>{user?.email || ''}</p>
           </div>
         </S.SidebarHeader>
 
@@ -372,83 +365,72 @@ export default function CourierDashboard() {
         </S.SidebarStats>
 
         <S.SidebarNav>
-          <S.SideNavItem
-            $active={activeTab === "PRONTO"}
-            onClick={() => handleTabChange("PRONTO")}
-          >
+          <S.SideNavItem $active={activeTab === 'PRONTO'} onClick={() => handleTabChange('PRONTO')}>
             <Package size={16} />
             Prontos para retirada
             {prontoCount > 0 && <S.NavBadge>{prontoCount}</S.NavBadge>}
           </S.SideNavItem>
           <S.SideNavItem
-            $active={activeTab === "SAIU_PARA_ENTREGA"}
-            onClick={() => handleTabChange("SAIU_PARA_ENTREGA")}
+            $active={activeTab === 'SAIU_PARA_ENTREGA'}
+            onClick={() => handleTabChange('SAIU_PARA_ENTREGA')}
           >
             <Bike size={16} />
             Em entrega
             {saiuCount > 0 && <S.NavBadge $urgent>{saiuCount}</S.NavBadge>}
           </S.SideNavItem>
           <S.SideNavItem
-            $active={activeTab === "ENTREGUE"}
-            onClick={() => handleTabChange("ENTREGUE")}
+            $active={activeTab === 'ENTREGUE'}
+            onClick={() => handleTabChange('ENTREGUE')}
           >
             <CheckCircle size={16} />
             Entregues
             {entregueCount > 0 && <S.NavBadge>{entregueCount}</S.NavBadge>}
           </S.SideNavItem>
-          <S.SideNavItem
-            $active={activeTab === "PERFIL"}
-            onClick={() => handleTabChange("PERFIL")}
-          >
+          <S.SideNavItem $active={activeTab === 'PERFIL'} onClick={() => handleTabChange('PERFIL')}>
             <User size={16} />
             Meu Perfil
           </S.SideNavItem>
         </S.SidebarNav>
 
-        {user?.role === "ADMIN" && (
-          <S.LogoutButton
-            style={{ marginBottom: "0.75rem" }}
-            onClick={() => navigate("/admin")}
-          >
-            <ShieldAlert size={16} />
-            Entrar na tela de admin
-          </S.LogoutButton>
-        )}
+        <S.SidebarFooter>
+          <S.SideNavItem $active={activeTab === 'AJUDA'} onClick={() => handleTabChange('AJUDA')}>
+            <CircleHelp size={16} />
+            Central de ajuda
+          </S.SideNavItem>
 
-        <S.LogoutButton
-          onClick={() => {
-            logout();
-            navigate("/login");
-          }}
-        >
-          <LogOut size={16} />
-          Sair
-        </S.LogoutButton>
+          {user?.role === 'ADMIN' && (
+            <S.LogoutButton onClick={() => navigate('/admin')}>
+              <ShieldAlert size={16} />
+              Entrar na tela de admin
+            </S.LogoutButton>
+          )}
+
+          <S.LogoutButton
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+          >
+            <LogOut size={16} />
+            Sair
+          </S.LogoutButton>
+        </S.SidebarFooter>
       </S.Sidebar>
 
       {/* Conteúdo principal */}
       <S.MainArea>
-        {geoStatus !== "enabled" ? (
+        {geoStatus !== 'enabled' ? (
           <S.LocationAlertCard>
             <S.LocationAlertIcon>
-              {geoStatus === "unsupported" ? (
-                <MapPinOff size={22} />
-              ) : (
-                <LocateFixed size={22} />
-              )}
+              {geoStatus === 'unsupported' ? <MapPinOff size={22} /> : <LocateFixed size={22} />}
             </S.LocationAlertIcon>
             <S.LocationAlertContent>
-              <strong>
-                Ative sua localização para liberar o rastreio ao cliente
-              </strong>
+              <strong>Ative sua localização para liberar o rastreio ao cliente</strong>
               <p>{geoNotice}</p>
               {geoActionHint ? <small>{geoActionHint}</small> : null}
             </S.LocationAlertContent>
-            {geoStatus !== "unsupported" ? (
-              <S.LocationAlertButton
-                type="button"
-                onClick={requestLocationPermission}
-              >
+            {geoStatus !== 'unsupported' ? (
+              <S.LocationAlertButton type="button" onClick={requestLocationPermission}>
                 <Navigation size={16} />
                 Ativar localização
               </S.LocationAlertButton>
@@ -457,24 +439,26 @@ export default function CourierDashboard() {
         ) : (
           <S.LocationStatusChip>
             <LocateFixed size={14} />
-            Rastreamento ativo: envio automático a cada 5s
+            Rastreamento ativo: envio automático a cada 2s
           </S.LocationStatusChip>
         )}
 
         <S.TopBar>
           <S.TopBarTitle>
-            {activeTab === "PRONTO"
-              ? "Prontos para retirada"
-              : activeTab === "SAIU_PARA_ENTREGA"
-                ? "Em entrega"
-                : activeTab === "ENTREGUE"
-                  ? "Pedidos Entregues"
-                  : "Meu Perfil"}
-            {activeTab !== "PERFIL" && (
+            {activeTab === 'PRONTO'
+              ? 'Prontos para retirada'
+              : activeTab === 'SAIU_PARA_ENTREGA'
+                ? 'Em entrega'
+                : activeTab === 'ENTREGUE'
+                  ? 'Pedidos Entregues'
+                  : activeTab === 'AJUDA'
+                    ? 'Central de ajuda'
+                    : 'Meu Perfil'}
+            {activeTab !== 'PERFIL' && activeTab !== 'AJUDA' && (
               <S.CountChip>{searchedOrders.length}</S.CountChip>
             )}
           </S.TopBarTitle>
-          {activeTab !== "PERFIL" && (
+          {activeTab !== 'PERFIL' && activeTab !== 'AJUDA' && (
             <S.RefreshButton onClick={fetchOrders} title="Atualizar">
               <RefreshCw size={16} />
               Atualizar
@@ -484,35 +468,32 @@ export default function CourierDashboard() {
 
         {/* Tabs mobile */}
         <S.MobileTabs>
-          <S.MobileTab
-            $active={activeTab === "PRONTO"}
-            onClick={() => handleTabChange("PRONTO")}
-          >
-            <Package size={15} /> Prontos{" "}
-            {prontoCount > 0 && `(${prontoCount})`}
+          <S.MobileTab $active={activeTab === 'PRONTO'} onClick={() => handleTabChange('PRONTO')}>
+            <Package size={15} /> Prontos {prontoCount > 0 && `(${prontoCount})`}
           </S.MobileTab>
           <S.MobileTab
-            $active={activeTab === "SAIU_PARA_ENTREGA"}
-            onClick={() => handleTabChange("SAIU_PARA_ENTREGA")}
+            $active={activeTab === 'SAIU_PARA_ENTREGA'}
+            onClick={() => handleTabChange('SAIU_PARA_ENTREGA')}
           >
             <Bike size={15} /> Em rota {saiuCount > 0 && `(${saiuCount})`}
           </S.MobileTab>
           <S.MobileTab
-            $active={activeTab === "ENTREGUE"}
-            onClick={() => handleTabChange("ENTREGUE")}
+            $active={activeTab === 'ENTREGUE'}
+            onClick={() => handleTabChange('ENTREGUE')}
           >
-            <CheckCircle size={15} /> Entregues{" "}
-            {entregueCount > 0 && `(${entregueCount})`}
+            <CheckCircle size={15} /> Entregues {entregueCount > 0 && `(${entregueCount})`}
           </S.MobileTab>
-          <S.MobileTab
-            $active={activeTab === "PERFIL"}
-            onClick={() => handleTabChange("PERFIL")}
-          >
+          <S.MobileTab $active={activeTab === 'PERFIL'} onClick={() => handleTabChange('PERFIL')}>
             <User size={15} /> Perfil
+          </S.MobileTab>
+          <S.MobileTab $active={activeTab === 'AJUDA'} onClick={() => handleTabChange('AJUDA')}>
+            <CircleHelp size={15} /> Ajuda
           </S.MobileTab>
         </S.MobileTabs>
 
-        {activeTab === "PERFIL" ? (
+        {activeTab === 'AJUDA' ? (
+          <EmployeeHelpCenter role="courier" onReport={reportEmployeeIssue} />
+        ) : activeTab === 'PERFIL' ? (
           <Suspense fallback={null}>
             <ProfilePanel user={user} onUpdated={handleProfileUpdated} />
           </Suspense>
@@ -525,11 +506,11 @@ export default function CourierDashboard() {
           <S.EmptyState>
             <Package size={40} />
             <p>
-              {activeTab === "PRONTO"
-                ? "Nenhum pedido pronto para retirada."
-                : activeTab === "SAIU_PARA_ENTREGA"
-                  ? "Nenhum pedido em rota no momento."
-                  : "Nenhum pedido entregue ainda."}
+              {activeTab === 'PRONTO'
+                ? 'Nenhum pedido pronto para retirada.'
+                : activeTab === 'SAIU_PARA_ENTREGA'
+                  ? 'Nenhum pedido em rota no momento.'
+                  : 'Nenhum pedido entregue ainda.'}
             </p>
           </S.EmptyState>
         ) : (
@@ -537,18 +518,18 @@ export default function CourierDashboard() {
             <>
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "0.65rem",
-                  marginBottom: "0.9rem",
-                  flexWrap: "wrap",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.65rem',
+                  marginBottom: '0.9rem',
+                  flexWrap: 'wrap',
                 }}
               >
                 <div
                   style={{
-                    width: "min(320px, 100%)",
-                    position: "relative",
+                    width: 'min(320px, 100%)',
+                    position: 'relative',
                   }}
                 >
                   <input
@@ -557,20 +538,18 @@ export default function CourierDashboard() {
                     pattern="[0-9]*"
                     value={orderIdSearch}
                     onChange={(event) => {
-                      setOrderIdSearch(
-                        event.target.value.replace(/\D/g, "").slice(0, 10),
-                      );
+                      setOrderIdSearch(event.target.value.replace(/\D/g, '').slice(0, 10));
                       setVisibleLimit(INITIAL_VISIBLE_ORDERS);
                     }}
                     placeholder="Buscar por ID do pedido"
                     style={{
-                      width: "100%",
+                      width: '100%',
                       minHeight: 38,
                       borderRadius: 10,
-                      border: "1px solid rgba(148, 163, 184, 0.45)",
-                      padding: "0 2.2rem 0 0.75rem",
-                      background: "#ffffff",
-                      color: "#0f172a",
+                      border: '1px solid rgba(148, 163, 184, 0.45)',
+                      padding: '0 2.2rem 0 0.75rem',
+                      background: '#ffffff',
+                      color: '#0f172a',
                       fontWeight: 600,
                     }}
                   />
@@ -581,24 +560,24 @@ export default function CourierDashboard() {
                       aria-label="Limpar busca por ID"
                       title="Limpar"
                       onClick={() => {
-                        setOrderIdSearch("");
+                        setOrderIdSearch('');
                         setVisibleLimit(INITIAL_VISIBLE_ORDERS);
                       }}
                       style={{
-                        position: "absolute",
+                        position: 'absolute',
                         right: 8,
-                        top: "50%",
-                        transform: "translateY(-50%)",
+                        top: '50%',
+                        transform: 'translateY(-50%)',
                         width: 24,
                         height: 24,
                         borderRadius: 999,
-                        border: "1px solid rgba(148, 163, 184, 0.45)",
-                        background: "#ffffff",
-                        color: "#475569",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
+                        border: '1px solid rgba(148, 163, 184, 0.45)',
+                        background: '#ffffff',
+                        color: '#475569',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
                         padding: 0,
                       }}
                     >
@@ -608,32 +587,26 @@ export default function CourierDashboard() {
                 </div>
 
                 <small style={{ opacity: 0.72, fontWeight: 600 }}>
-                  Exibindo {displayedOrders.length} de {searchedOrders.length}{" "}
-                  pedidos
+                  Exibindo {displayedOrders.length} de {searchedOrders.length} pedidos
                 </small>
 
-                <div
-                  style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}
-                >
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   {hiddenOrdersCount > 0 ? (
                     <button
                       type="button"
                       onClick={() =>
                         setVisibleLimit((prev) =>
-                          Math.min(
-                            prev + LOAD_MORE_STEP,
-                            searchedOrders.length,
-                          ),
+                          Math.min(prev + LOAD_MORE_STEP, searchedOrders.length),
                         )
                       }
                       style={{
-                        border: "1px solid rgba(148, 163, 184, 0.45)",
-                        background: "#eef2f7",
-                        color: "#0f172a",
+                        border: '1px solid rgba(148, 163, 184, 0.45)',
+                        background: '#eef2f7',
+                        color: '#0f172a',
                         borderRadius: 999,
-                        padding: "0.38rem 0.78rem",
+                        padding: '0.38rem 0.78rem',
                         fontWeight: 700,
-                        cursor: "pointer",
+                        cursor: 'pointer',
                       }}
                     >
                       Mostrar +{Math.min(LOAD_MORE_STEP, hiddenOrdersCount)}
@@ -645,13 +618,13 @@ export default function CourierDashboard() {
                       type="button"
                       onClick={() => setVisibleLimit(INITIAL_VISIBLE_ORDERS)}
                       style={{
-                        border: "1px solid rgba(148, 163, 184, 0.45)",
-                        background: "#ffffff",
-                        color: "#334155",
+                        border: '1px solid rgba(148, 163, 184, 0.45)',
+                        background: '#ffffff',
+                        color: '#334155',
                         borderRadius: 999,
-                        padding: "0.38rem 0.78rem",
+                        padding: '0.38rem 0.78rem',
                         fontWeight: 700,
-                        cursor: "pointer",
+                        cursor: 'pointer',
                       }}
                     >
                       Mostrar menos

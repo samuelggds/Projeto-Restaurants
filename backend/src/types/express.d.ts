@@ -8,6 +8,7 @@ declare global {
         id: number | null;
         restaurantId: number | null;
         role: string;
+        subRole?: string | null;
         email?: string | null;
         isGuest?: boolean;
       };

@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
-import orderPixPaymentService from "../services/OrderPixPaymentService.js";
-import createOrderService from "../services/CreateOrderService.js";
+import { Request, Response } from 'express';
+import orderPixPaymentService from '../services/OrderPixPaymentService.js';
+import createOrderService from '../services/CreateOrderService.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -26,14 +26,8 @@ class CreateOrderPixPaymentController {
       } = req.body;
 
       const userId = req.user?.id ?? null;
-      const userRestaurantId =
-        req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
-      const resolvedRestaurantId =
-        Number(restaurantId) || Number(userRestaurantId);
-      const normalizedType = String(type || "")
-        .trim()
-        .toUpperCase();
-
+      const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+      const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId);
       const result = await orderPixPaymentService.createPixPayment({
         restaurantId: resolvedRestaurantId,
         type,
@@ -57,11 +51,11 @@ class CreateOrderPixPaymentController {
         userRestaurantId,
         tableSessionId: req.tableSession?.id ?? null,
         tableSessionTableId: req.tableSession?.tableId ?? null,
-        deferRealtimeUntilPaid: normalizedType === "DELIVERY",
+        deferRealtimeUntilPaid: true,
         type,
         paymentMethod,
         paid: false,
-        pixPaymentId: String(result.paymentId || ""),
+        pixPaymentId: String(result.paymentId || ''),
         observation,
         tableId,
         customerName,
@@ -83,10 +77,7 @@ class CreateOrderPixPaymentController {
       });
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao gerar pagamento PIX",
+        error: error instanceof Error ? error.message : 'Erro ao gerar pagamento PIX',
       });
     }
   }

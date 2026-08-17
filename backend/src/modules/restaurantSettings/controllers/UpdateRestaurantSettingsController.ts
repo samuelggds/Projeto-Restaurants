@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import updateRestaurantSettingsService from "../services/UpdateRestaurantSettingsService.js";
+import { Request, Response } from 'express';
+import updateRestaurantSettingsService from '../services/UpdateRestaurantSettingsService.js';
 
 class UpdateRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -8,6 +8,7 @@ class UpdateRestaurantSettingsController {
 
       const {
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -33,7 +34,10 @@ class UpdateRestaurantSettingsController {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
+        picpayToken,
+        asaasAccessToken,
         pagbankEmail,
         pagbankToken,
         pagbankEnvironment,
@@ -46,11 +50,27 @@ class UpdateRestaurantSettingsController {
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
+        restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       } = req.body;
 
       const settings = await updateRestaurantSettingsService.execute({
         restaurantId,
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -76,7 +96,10 @@ class UpdateRestaurantSettingsController {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
+        picpayToken,
+        asaasAccessToken,
         pagbankEmail,
         pagbankToken,
         pagbankEnvironment,
@@ -89,15 +112,28 @@ class UpdateRestaurantSettingsController {
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
+        restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       });
 
       return res.status(200).json(settings);
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao atualizar configuracoes do restaurante",
+          error instanceof Error ? error.message : 'Erro ao atualizar configuracoes do restaurante',
       });
     }
   }

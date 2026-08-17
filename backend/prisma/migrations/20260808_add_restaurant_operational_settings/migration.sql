@@ -1,0 +1,15 @@
+ALTER TABLE "RestaurantSettings"
+ADD COLUMN "acceptsDelivery" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "acceptsPickup" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "averageDeliveryTime" TEXT,
+ADD COLUMN "acceptsPix" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "acceptsCard" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "slogan" TEXT,
+ADD COLUMN "primaryColor" TEXT NOT NULL DEFAULT '#c95d3d',
+ADD COLUMN "tiktok" TEXT,
+ADD COLUMN "youtube" TEXT,
+ADD COLUMN "businessHours" JSONB,
+ADD COLUMN "whatsappEnabled" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "whatsappDefaultMessage" TEXT,
+ADD COLUMN "receiveOrdersOnWhatsapp" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "receiveStatusNotifications" BOOLEAN NOT NULL DEFAULT false;

@@ -1,6 +1,6 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
-import mercadoPagoService from "../src/modules/billing/services/MercadoPagoService.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
+import mercadoPagoService from '../src/modules/billing/services/MercadoPagoService.js';
 
 const restaurantId = Number(process.argv[2] || 15);
 
@@ -38,7 +38,7 @@ function overdueDate() {
       ? await prisma.invoice.update({
           where: { id: existingInvoice.id },
           data: {
-            status: "ATRASADO",
+            status: 'ATRASADO',
             dueDate: overdueDate(),
             paidAt: null,
             monthlyFee,
@@ -54,7 +54,7 @@ function overdueDate() {
             monthlyFee,
             systemFees,
             total,
-            status: "ATRASADO",
+            status: 'ATRASADO',
             dueDate: overdueDate(),
           },
         });
@@ -75,7 +75,7 @@ function overdueDate() {
 
     await prisma.subscription.updateMany({
       where: { restaurantId },
-      data: { status: "EXPIRADA" },
+      data: { status: 'EXPIRADA' },
     });
 
     await prisma.restaurant.update({
@@ -83,12 +83,12 @@ function overdueDate() {
       data: { active: false },
     });
 
-    console.log("RESTAURANTE_BLOQUEADO");
+    console.log('RESTAURANTE_BLOQUEADO');
     console.log(`Restaurant ID: ${restaurantId}`);
     console.log(`Invoice ID: ${invoice.id}`);
     console.log(`Payment Link: ${payment.init_point}`);
   } catch (err) {
-    console.error("ERRO_AO_BLOQUEAR_RESTAURANTE", err?.message || err);
+    console.error('ERRO_AO_BLOQUEAR_RESTAURANTE', err?.message || err);
     process.exitCode = 1;
   } finally {
     await prisma.$disconnect();

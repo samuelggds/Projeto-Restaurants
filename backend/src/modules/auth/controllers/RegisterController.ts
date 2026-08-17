@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import registerService from "../services/RegisterService.js";
+import { Request, Response } from 'express';
+import registerService from '../services/RegisterService.js';
 
 class RegisterController {
   async handle(req: Request, res: Response) {
@@ -16,8 +16,7 @@ class RegisterController {
       return res.status(201).json({ user });
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao registrar usuario",
+        error: error instanceof Error ? error.message : 'Erro ao registrar usuario',
       });
     }
   }

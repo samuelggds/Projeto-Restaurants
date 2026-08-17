@@ -1,6 +1,6 @@
-import { io } from "../../../server.js";
-import { notifyCustomerPaymentConfirmed } from "../../../services/customerNotifier.js";
-import orderRepository from "../repositories/OrderRepository.js";
+import { io } from '../../../server.js';
+import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
+import orderRepository from '../repositories/OrderRepository.js';
 
 type FinalizeOrderCardPaymentPayload = {
   orderId?: number | string | null;
@@ -16,14 +16,11 @@ class FinalizeOrderCardPaymentService {
     restaurantId,
     allowMissingOrder = false,
   }: FinalizeOrderCardPaymentPayload) {
-    const normalizedCheckoutSessionId = String(checkoutSessionId || "").trim();
+    const normalizedCheckoutSessionId = String(checkoutSessionId || '').trim();
     const normalizedRestaurantId = Number(restaurantId || 0) || undefined;
 
     const order = orderId
-      ? await orderRepository.findById(
-          orderId,
-          Number(normalizedRestaurantId || 0),
-        )
+      ? await orderRepository.findById(orderId, Number(normalizedRestaurantId || 0))
       : normalizedCheckoutSessionId
         ? await orderRepository.findByCardCheckoutSessionId(
             normalizedCheckoutSessionId,
@@ -36,46 +33,31 @@ class FinalizeOrderCardPaymentService {
         return null;
       }
 
-      throw new Error("Pedido do cartao nao encontrado para esta sessao.");
+      throw new Error('Pedido do cartao nao encontrado para esta sessao.');
     }
 
     if (order.paid === true) {
       return order;
     }
 
-    const updatedOrder = await orderRepository.confirmPayment(
-      order.id,
-      order.restaurantId,
-    );
+    const updatedOrder = await orderRepository.confirmPayment(order.id, order.restaurantId);
 
-    io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
-      "order:payment-confirmed",
-      {
-        orderId: updatedOrder.id,
-        paid: true,
-        paymentMethod: updatedOrder.paymentMethod,
-      },
-    );
+    io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
+      orderId: updatedOrder.id,
+      paid: true,
+      paymentMethod: updatedOrder.paymentMethod,
+    });
 
-    io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+    io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
       orderId: updatedOrder.id,
       paid: true,
       paymentMethod: updatedOrder.paymentMethod,
       status: updatedOrder.status,
     });
 
-    io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
-      "new-order",
-      updatedOrder,
-    );
-    io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
-      "order:status-changed",
-      updatedOrder,
-    );
-    io.to(`user:${updatedOrder.userId}`).emit(
-      "order:status-changed",
-      updatedOrder,
-    );
+    io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
+    io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:status-changed', updatedOrder);
+    io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
 
     notifyCustomerPaymentConfirmed({
       customerPhone: updatedOrder?.user?.phone,
@@ -87,7 +69,7 @@ class FinalizeOrderCardPaymentService {
       paymentMethod: updatedOrder?.paymentMethod,
     }).catch((error: unknown) => {
       console.error(
-        "[CUSTOMER_NOTIFICATION_UNHANDLED]",
+        '[CUSTOMER_NOTIFICATION_UNHANDLED]',
         error instanceof Error ? error.message : String(error),
       );
     });

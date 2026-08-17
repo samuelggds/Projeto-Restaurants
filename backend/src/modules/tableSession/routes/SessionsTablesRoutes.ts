@@ -1,35 +1,46 @@
-import { Router } from "express";
+import { Router } from 'express';
 
-import { authMiddleware } from "../../../middlewares/authMiddleware.js";
-import { staffMiddleware } from "../../../middlewares/staffMiddleware.js";
-import { sessionMiddleware } from "../../../middlewares/sessionMiddleware.js";
+import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
+import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 
-import OpenTableSessionController from "../controllers/OpenTableSessionController.js";
-import ValidatePinController from "../controllers/ValidatePinController.js";
-import CloseTableSessionController from "../controllers/CloseTableSessionController.js";
-import ListOpenSessionsController from "../controllers/ListOpenSessionsController.js";
-import RequestPinAssistanceController from "../controllers/RequestPinAssistanceController.js";
-import GetCurrentSessionController from "../controllers/GetCurrentSessionController.js";
+import OpenTableSessionController from '../controllers/OpenTableSessionController.js';
+import ValidatePinController from '../controllers/ValidatePinController.js';
+import CloseTableSessionController from '../controllers/CloseTableSessionController.js';
+import ListOpenSessionsController from '../controllers/ListOpenSessionsController.js';
+import RequestPinAssistanceController from '../controllers/RequestPinAssistanceController.js';
+import GetCurrentSessionController from '../controllers/GetCurrentSessionController.js';
+import {
+  tablePinAssistanceRateLimitMiddleware,
+  tablePinRateLimitMiddleware,
+} from '../../../middlewares/security/tableSessionRateLimitMiddleware.js';
+import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
 
 const router = Router();
 
-router.post("/validate", (req, res) => ValidatePinController.handle(req, res));
-router.post("/request-pin", (req, res) =>
+router.post('/validate', tablePinRateLimitMiddleware, (req, res) =>
+  ValidatePinController.handle(req, res),
+);
+router.post('/request-pin', tablePinAssistanceRateLimitMiddleware, (req, res) =>
   RequestPinAssistanceController.handle(req, res),
 );
-router.get("/current", sessionMiddleware, (req, res) =>
+router.get('/current', sessionMiddleware, (req, res) =>
   GetCurrentSessionController.handle(req, res),
 );
 
-router.post("/open", authMiddleware, staffMiddleware, (req, res) =>
+router.post('/open', authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
   OpenTableSessionController.handle(req, res),
 );
 
-router.patch("/:id/close", authMiddleware, staffMiddleware, (req, res) =>
-  CloseTableSessionController.handle(req, res),
+router.patch(
+  '/:id/close',
+  authMiddleware,
+  staffMiddleware,
+  premiumTablePlanMiddleware,
+  (req, res) => CloseTableSessionController.handle(req, res),
 );
 
-router.get("/open", authMiddleware, staffMiddleware, (req, res) =>
+router.get('/open', authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
   ListOpenSessionsController.handle(req, res),
 );
 

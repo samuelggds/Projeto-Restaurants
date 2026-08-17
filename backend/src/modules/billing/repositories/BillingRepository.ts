@@ -1,11 +1,29 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
+
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class BillingRepository {
-  async findSubscriptionByRestaurantId(restaurantId: number) {
-    return prisma.subscription.findUnique({
+  async findSubscriptionByRestaurantId(restaurantId: number, db: PrismaClientLike = prisma) {
+    return db.subscription.findUnique({
       where: {
         restaurantId,
+      },
+      include: {
+        restaurant: {
+          select: {
+            name: true,
+            email: true,
+            createdAt: true,
+            users: {
+              where: { role: UserRole.ADMIN },
+              orderBy: { createdAt: 'asc' },
+              take: 1,
+              select: { id: true, name: true, email: true, createdAt: true },
+            },
+          },
+        },
       },
     });
   }
@@ -13,8 +31,9 @@ class BillingRepository {
   async updateSubscription(
     id: number | string,
     data: Prisma.SubscriptionUpdateInput,
+    db: PrismaClientLike = prisma,
   ) {
-    return prisma.subscription.update({
+    return db.subscription.update({
       where: {
         id: Number(id),
       },
@@ -41,7 +60,9 @@ class BillingRepository {
   async findPendingInvoices() {
     return prisma.invoice.findMany({
       where: {
-        status: "PENDENTE",
+        status: {
+          in: ['PENDENTE', 'ATRASADO'],
+        },
       },
       include: {
         restaurant: true,
@@ -49,8 +70,12 @@ class BillingRepository {
     });
   }
 
-  async updateInvoice(id: number | string, data: Prisma.InvoiceUpdateInput) {
-    return prisma.invoice.update({
+  async updateInvoice(
+    id: number | string,
+    data: Prisma.InvoiceUpdateInput,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.invoice.update({
       where: {
         id: Number(id),
       },
@@ -58,8 +83,8 @@ class BillingRepository {
     });
   }
 
-  async deactivateRestaurant(id: number | string) {
-    return prisma.restaurant.update({
+  async deactivateRestaurant(id: number | string, db: PrismaClientLike = prisma) {
+    return db.restaurant.update({
       where: {
         id: Number(id),
       },
@@ -69,8 +94,8 @@ class BillingRepository {
     });
   }
 
-  async activateRestaurant(id: number | string) {
-    return prisma.restaurant.update({
+  async activateRestaurant(id: number | string, db: PrismaClientLike = prisma) {
+    return db.restaurant.update({
       where: {
         id: Number(id),
       },
@@ -80,11 +105,7 @@ class BillingRepository {
     });
   }
 
-  async findPaidOrdersByPeriod(
-    restaurantId: number,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  async findPaidOrdersByPeriod(restaurantId: number, startDate: Date, endDate: Date) {
     return prisma.order.findMany({
       where: {
         restaurantId,
@@ -100,7 +121,7 @@ class BillingRepository {
   async findExpiredTrials() {
     return prisma.subscription.findMany({
       where: {
-        status: "TESTE",
+        status: 'TESTE',
         trialEndsAt: {
           lte: new Date(),
         },
@@ -114,7 +135,7 @@ class BillingRepository {
   async findExpiredInvoices() {
     return prisma.invoice.findMany({
       where: {
-        status: "PENDENTE",
+        status: 'PENDENTE',
         dueDate: {
           lt: new Date(),
         },
@@ -125,20 +146,20 @@ class BillingRepository {
     });
   }
 
-  async findInvoiceById(id: number | string) {
-    return prisma.invoice.findUnique({
+  async findInvoiceById(id: number | string, db: PrismaClientLike = prisma) {
+    return db.invoice.findUnique({
       where: { id: Number(id) },
     });
   }
 
-  async findInvoiceByIdAndRestaurantId(
-    id: number | string,
-    restaurantId: number,
-  ) {
+  async findInvoiceByIdAndRestaurantId(id: number | string, restaurantId: number) {
     return prisma.invoice.findFirst({
       where: {
         id: Number(id),
         restaurantId,
+      },
+      include: {
+        restaurant: { select: { name: true, email: true } },
       },
     });
   }
@@ -153,7 +174,7 @@ class BillingRepository {
         restaurantId,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }

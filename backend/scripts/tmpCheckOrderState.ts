@@ -1,14 +1,14 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "backend/.env" });
+import dotenv from 'dotenv';
+dotenv.config({ path: 'backend/.env' });
 
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 async function main() {
   const orderIdArg = process.argv[2];
   const orderId = Number(orderIdArg || 0);
 
   if (!orderId) {
-    throw new Error("Informe o id do pedido. Exemplo: tsx script.ts 31");
+    throw new Error('Informe o id do pedido. Exemplo: tsx script.ts 31');
   }
 
   const order = await prisma.order.findUnique({

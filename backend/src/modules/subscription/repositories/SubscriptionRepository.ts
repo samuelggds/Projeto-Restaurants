@@ -1,13 +1,10 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class SubscriptionRepository {
-  async create(
-    data: Prisma.SubscriptionUncheckedCreateInput,
-    tx: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.SubscriptionUncheckedCreateInput, tx: PrismaClientLike = prisma) {
     return tx.subscription.create({
       data,
     });

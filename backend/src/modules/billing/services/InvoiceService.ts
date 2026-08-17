@@ -1,7 +1,6 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import { PLAN_CONFIG } from "../config/planConfig.js";
-import mercadoPagoService from "./MercadoPagoService.js";
-import { addDays } from "../utils/dateUtils.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import { PLAN_CONFIG } from '../config/planConfig.js';
+import { addDays } from '../utils/dateUtils.js';
 
 type InvoicePayload = {
   restaurantId: number;
@@ -12,19 +11,12 @@ type InvoicePayload = {
 };
 
 class InvoiceService {
-  async execute({
-    restaurantId,
-    month,
-    year,
-    startDate,
-    endDate,
-  }: InvoicePayload) {
+  async execute({ restaurantId, month, year, startDate, endDate }: InvoicePayload) {
     // Busca a assinatura
-    const subscription =
-      await billingRepository.findSubscriptionByRestaurantId(restaurantId);
+    const subscription = await billingRepository.findSubscriptionByRestaurantId(restaurantId);
 
     if (!subscription) {
-      throw new Error("Assinatura não encontrada.");
+      throw new Error('Assinatura não encontrada.');
     }
 
     let activePlan = subscription.plan;
@@ -34,15 +26,12 @@ class InvoiceService {
       subscription.scheduledPlanEffectiveYear === year;
 
     if (shouldApplyScheduledPlan) {
-      const updatedSubscription = await billingRepository.updateSubscription(
-        subscription.id,
-        {
-          plan: subscription.scheduledPlan,
-          scheduledPlan: null,
-          scheduledPlanEffectiveMonth: null,
-          scheduledPlanEffectiveYear: null,
-        },
-      );
+      const updatedSubscription = await billingRepository.updateSubscription(subscription.id, {
+        plan: subscription.scheduledPlan,
+        scheduledPlan: null,
+        scheduledPlanEffectiveMonth: null,
+        scheduledPlanEffectiveYear: null,
+      });
 
       activePlan = updatedSubscription.plan;
     }
@@ -51,79 +40,35 @@ class InvoiceService {
     const plan = PLAN_CONFIG[activePlan];
 
     if (!plan) {
-      throw new Error("Plano inválido.");
+      throw new Error('Plano inválido.');
     }
 
     // Evita criar duas invoices do mesmo mês
-    const invoiceExists = await billingRepository.findInvoiceByMonth(
-      restaurantId,
-      month,
-      year,
-    );
+    const invoiceExists = await billingRepository.findInvoiceByMonth(restaurantId, month, year);
 
     if (invoiceExists) {
       return invoiceExists;
     }
 
-    // Busca pedidos pagos
-    const orders = await billingRepository.findPaidOrdersByPeriod(
-      restaurantId,
-      startDate,
-      endDate,
-    );
+    const total = plan.monthlyFee;
 
-    const systemFees = orders.reduce(
-      (total, order) => total + Number(order.systemFee || 0),
-      0,
-    );
-
-    const total = plan.monthlyFee + systemFees;
-
-    const trialEndsAtDate = subscription.trialEndsAt
-      ? new Date(subscription.trialEndsAt)
-      : null;
+    const trialEndsAtDate = subscription.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
     const dueDate =
-      subscription.status === "TESTE" &&
-      trialEndsAtDate &&
-      !Number.isNaN(trialEndsAtDate.getTime())
+      subscription.status === 'TESTE' && trialEndsAtDate && !Number.isNaN(trialEndsAtDate.getTime())
         ? trialEndsAtDate
         : addDays(new Date(), 30);
 
     // Cria invoice
-    const invoice = await billingRepository.createInvoice({
+    return billingRepository.createInvoice({
       restaurantId,
       month,
       year,
       monthlyFee: plan.monthlyFee,
-      systemFees,
+      systemFees: 0,
       total,
       dueDate,
-      status: "PENDENTE",
+      status: 'PENDENTE',
     });
-
-    try {
-      const payment = await mercadoPagoService.createPayment({
-        invoiceId: invoice.id,
-        title: `Plano ${activePlan}`,
-        description: `Mensalidade ${month}/${year}`,
-        amount: invoice.total,
-      });
-
-      const updatedInvoice = await billingRepository.updateInvoice(invoice.id, {
-        paymentLink: payment.init_point,
-      });
-
-      console.log(`Link Mercado Pago criado para invoice ${invoice.id}`);
-
-      return updatedInvoice;
-    } catch (error: unknown) {
-      console.error(
-        "Erro ao criar pagamento Mercado Pago:",
-        error instanceof Error ? error.message : String(error),
-      );
-
-      return invoice;
-    }
   }
 }
 

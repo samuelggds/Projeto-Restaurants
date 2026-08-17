@@ -1,658 +1,295 @@
-import { lazy, Suspense, useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import { ThemeProvider } from "styled-components";
-import {
-  Utensils,
-  Sun,
-  Moon,
-  LogOut,
-  ArrowLeft,
-  ClipboardList,
-} from "lucide-react";
-import {
-  findSavedCard,
-  getEmptyCardDraft,
-  getSavedCardFieldErrors,
-  persistCardWallet,
-  readCardWallet,
-  sanitizeCardDraft,
-  validateSavedCardInput,
-} from "../../config/cardPaymentWallet";
-import { useAuth } from "../../contexts/authContext";
-import authService from "../../Services/authService";
-import {
-  extractCepDigits,
-  fetchAddressByCep,
-  normalizeCepInput,
-} from "../../Services/cepService";
-import * as S from "./styles";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import api from '../../Services/api';
+import ordersService from '../../Services/ordersService';
+import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import favoritesService from '../../Services/favoritesService';
+import customerAddressService, {
+  type CustomerAddressInput,
+} from '../../Services/customerAddressService';
+import { useAuth } from '../../contexts/authContext';
+import { ProfilePage } from './ProfilePage';
+import { buildProfileData } from '../profile/adapters/profileDataAdapter';
+import { AddressModal } from './components/AddressModal';
+import { buildReorderCart, findOrderByDisplayId } from '../profile/domain/reorderCart';
+import { addFavoriteToCart } from '../profile/domain/favoriteCart';
+import { readJsonStorage } from '../../shared/storage/jsonStorage';
+import type { CartItem } from '../home/hooks/useCart';
+import type { ProfileFavorite } from './types';
 
-const ProfilePersonalCard = lazy(
-  () => import("./components/ProfilePersonalCard"),
-);
-const ProfileAddressesAndOrders = lazy(
-  () => import("./components/ProfileAddressesAndOrders"),
-);
-
-const ADDRESS_STORAGE_KEY = "@PecaJaFood:enderecos";
-const ADDRESS_SELECTED_KEY = "@PecaJaFood:enderecoSelecionadoId";
-
-function readJsonStorage(key, fallback) {
-  const raw = localStorage.getItem(key);
-  if (!raw) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function buildAddressFromUser(user) {
-  if (!user?.address && !user?.district && !user?.city) {
-    return null;
-  }
-
-  return {
-    id: user?.defaultAddressId || 1,
-    rotulo: user?.defaultAddressLabel || "Principal",
-    rua: user?.address || "",
-    numero: user?.number || "",
-    bairro: user?.district || "",
-    cidade: user?.city || "",
-    estado: user?.state || "",
-    cep: user?.zipCode || "",
-    complemento: user?.complement || "",
-    pontoReferencia: "",
-  };
-}
-
-function normalizeAddress(address) {
-  const parsedId = Number(address?.id);
-  const safeId =
-    Number.isInteger(parsedId) && parsedId > 0
-      ? parsedId
-      : Date.now() + Math.floor(Math.random() * 1000);
-
-  return {
-    id: safeId,
-    rotulo: String(address?.rotulo || "Principal"),
-    rua: String(address?.rua || ""),
-    numero: String(address?.numero || ""),
-    bairro: String(address?.bairro || ""),
-    cidade: String(address?.cidade || ""),
-    estado: String(address?.estado || ""),
-    cep: String(address?.cep || ""),
-    complemento: String(address?.complemento || ""),
-    pontoReferencia: String(address?.pontoReferencia || ""),
-  };
-}
-
-function mergeComplementAndReference(
-  complemento: string | null | undefined,
-  pontoReferencia: string | null | undefined,
-) {
-  const normalizedComplemento = String(complemento || "").trim();
-  const normalizedReference = String(pontoReferencia || "").trim();
-
-  if (normalizedComplemento && normalizedReference) {
-    return `${normalizedComplemento} | Ref.: ${normalizedReference}`;
-  }
-
-  if (normalizedComplemento) {
-    return normalizedComplemento;
-  }
-
-  if (normalizedReference) {
-    return `Ref.: ${normalizedReference}`;
-  }
-
-  return "";
-}
-
-function getStoredUser() {
-  return readJsonStorage("user", null);
-}
-
-function getInitialAddresses(user) {
-  const storedAddresses = readJsonStorage(ADDRESS_STORAGE_KEY, null);
-
-  if (Array.isArray(storedAddresses)) {
-    return storedAddresses.map(normalizeAddress);
-  }
-
-  const userAddress = buildAddressFromUser(user);
-
-  return userAddress ? [normalizeAddress(userAddress)] : [];
-}
-
-function getInitialSelectedAddressId(addresses) {
-  const storedSelected = Number(
-    localStorage.getItem(ADDRESS_SELECTED_KEY) || 0,
-  );
-
-  if (
-    storedSelected &&
-    addresses.some((address) => address.id === storedSelected)
-  ) {
-    return storedSelected;
-  }
-
-  return addresses[0]?.id || null;
-}
-
-function sameAddressId(left, right) {
-  return String(left ?? "") === String(right ?? "");
+function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas not supported'));
+        return;
+      }
+      const scale = Math.max(size / img.width, size / img.height);
+      const sw = img.width * scale;
+      const sh = img.height * scale;
+      ctx.drawImage(img, (size - sw) / 2, (size - sh) / 2, sw, sh);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Falha ao carregar imagem'));
+    };
+    img.src = url;
+  });
 }
 
 export default function Profile() {
+  const { user, logout, login } = useAuth();
   const navigate = useNavigate();
-  const { user, login } = useAuth();
-  const initialCardWallet = readCardWallet();
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isEditing, setIsEditing] = useState(true);
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
+  const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
+  const [localAvatar, setLocalAvatar] = useState('');
+  // Derived: prefer a locally-uploaded photo until the auth context reflects the new avatar
+  const avatarUrl = localAvatar || String((user as Record<string, unknown>)?.avatar || '');
 
-  const storedUser = user || getStoredUser();
-  const isAdmin = storedUser?.role === "ADMIN";
-
-  // Estados dos dados do usuário
-  const [name, setName] = useState(storedUser?.name || "");
-  const [email, setEmail] = useState(storedUser?.email || "");
-  const [phone, setPhone] = useState(storedUser?.phone || "");
-
-  // --- NOVOS ESTADOS: Gerenciamento de Endereços ---
-  const [enderecos, setEnderecos] = useState(() =>
-    getInitialAddresses(storedUser),
-  );
-  const [selectedAddressId, setSelectedAddressId] = useState(() =>
-    getInitialSelectedAddressId(getInitialAddresses(storedUser)),
-  );
-
-  const [novoEndereco, setNovoEndereco] = useState({
-    rotulo: "",
-    rua: "",
-    numero: "",
-    bairro: "",
-    cidade: storedUser?.city || "Fortaleza",
-    estado: storedUser?.state || "CE",
-    cep: "",
-    complemento: "",
-    pontoReferencia: "",
-  });
-  const lastCepLookupRef = useRef("");
-  const [isCepLookupLoading, setIsCepLookupLoading] = useState(false);
-  const [savedCards, setSavedCards] = useState(initialCardWallet.cards);
-  const [selectedSavedCardId, setSelectedSavedCardId] = useState(
-    initialCardWallet.selectedCardId,
-  );
-  const [defaultSavedCardId, setDefaultSavedCardId] = useState(
-    initialCardWallet.defaultCardId,
-  );
-  const [cardPaymentDraft, setCardPaymentDraft] = useState(() => {
-    const selectedCard = findSavedCard(
-      initialCardWallet.cards,
-      initialCardWallet.selectedCardId,
+  // Brand info from public settings of the user's restaurant
+  useEffect(() => {
+    const rid = Number(
+      (user as Record<string, unknown>)?.restaurantId ||
+        localStorage.getItem('menuRestaurantId') ||
+        0,
     );
+    if (!rid) return;
+    let active = true;
+    restaurantSettingsService
+      .getPublicSettings(rid)
+      .then((d) => {
+        if (active) setSettings(d ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
-    return selectedCard ? sanitizeCardDraft(selectedCard) : getEmptyCardDraft();
-  });
-  const [showCardFieldFeedback, setShowCardFieldFeedback] = useState(false);
-
-  const cardFieldErrors = useMemo(() => {
-    if (!showCardFieldFeedback) {
-      return {};
-    }
-
-    return getSavedCardFieldErrors(cardPaymentDraft);
-  }, [showCardFieldFeedback, cardPaymentDraft]);
-
-  // Atualiza o localStorage sempre que os endereços mudarem
+  // User's orders
   useEffect(() => {
-    localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(enderecos));
-  }, [enderecos]);
-
-  useEffect(() => {
-    if (selectedAddressId) {
-      localStorage.setItem(ADDRESS_SELECTED_KEY, String(selectedAddressId));
-    } else {
-      localStorage.removeItem(ADDRESS_SELECTED_KEY);
-    }
-  }, [selectedAddressId]);
-
-  useEffect(() => {
-    persistCardWallet(savedCards, selectedSavedCardId, defaultSavedCardId);
-  }, [savedCards, selectedSavedCardId, defaultSavedCardId]);
-
-  const selectedAddress =
-    enderecos.find((endereco) =>
-      sameAddressId(endereco.id, selectedAddressId),
-    ) ||
-    enderecos[0] ||
-    null;
+    let active = true;
+    ordersService
+      .listMyOrders()
+      .then((raw: unknown) => {
+        if (!active) return;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray((raw as Record<string, unknown>)?.orders)
+            ? ((raw as Record<string, unknown>).orders as unknown[])
+            : [];
+        setOrders(list as Record<string, unknown>[]);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (storedUser?.name) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setName(storedUser.name);
-    }
-    if (storedUser?.email) {
-      setEmail(storedUser.email);
-    }
-    if (storedUser?.phone) {
-      setPhone(storedUser.phone);
-    }
-  }, [storedUser]);
+    let active = true;
+    customerAddressService
+      .list()
+      .then((items) => {
+        if (active) setAddresses(items);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    toast.info("Você saiu da sua conta.");
-    navigate("/login");
-  };
+  useEffect(() => {
+    let active = true;
+    favoritesService
+      .list()
+      .then((items) => {
+        if (active) setFavorites(items as Record<string, unknown>[]);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    try {
-      if (!name.trim() || !email.trim() || !phone.trim()) {
-        toast.warning("Preencha nome, e-mail e telefone antes de salvar.");
+  const data = useMemo(
+    () =>
+      buildProfileData({
+        user: (user as Record<string, unknown> | null) || null,
+        settings,
+        orders,
+        favorites,
+        addresses,
+        avatarUrl,
+      }),
+    [user, settings, orders, favorites, addresses, avatarUrl],
+  );
+
+  const handleLogout = useCallback(() => {
+    logout();
+    navigate('/login');
+  }, [logout, navigate]);
+
+  const handleUploadAvatar = useCallback(
+    async (file: File) => {
+      const base64 = await resizeToSquareBase64(file, 160, 0.8);
+      const { data: updated } = await api.put('/auth/profile', {
+        avatar: base64,
+      });
+      const persistedAvatar = String(updated?.avatar || base64);
+      setLocalAvatar(persistedAvatar);
+      const token = localStorage.getItem('token') || '';
+      if (token) login({ ...(user ?? {}), ...updated, avatar: persistedAvatar }, token);
+    },
+    [user, login],
+  );
+
+  const handleSavePersonalData = useCallback(
+    async (payload: { name: string; email: string; phone: string }) => {
+      const { data: updated } = await api.put('/auth/profile', payload);
+      // Sync auth context immediately so useMemo recomputes without a refresh
+      const token = localStorage.getItem('token') || '';
+      if (token && updated) login({ ...(user ?? {}), ...updated }, token);
+    },
+    [user, login],
+  );
+
+  const handleChangePassword = useCallback(
+    async (payload: { currentPassword: string; newPassword: string }) => {
+      await api.put('/auth/password', {
+        oldPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
+      });
+    },
+    [],
+  );
+
+  const handleToggleTwoFactor = useCallback(
+    async (enabled: boolean) => {
+      const { data: updated } = await api.patch('/auth/mfa', { enabled });
+      const token = localStorage.getItem('token') || '';
+      if (token) {
+        login({ ...(user ?? {}), mfaEnabled: Boolean(updated?.mfaEnabled) }, token);
+      }
+      toast.success(
+        enabled ? 'Verificação em duas etapas ativada.' : 'Verificação em duas etapas desativada.',
+      );
+    },
+    [login, user],
+  );
+
+  const handleDeactivateAccount = useCallback(async () => {
+    await api.patch('/auth/deactivate');
+    logout();
+    toast.success('Solicitação concluída: sua conta foi desativada.');
+    navigate('/');
+  }, [logout, navigate]);
+
+  const saveAddress = useCallback(async (payload: CustomerAddressInput) => {
+    const created = await customerAddressService.create(payload);
+    setAddresses((current) =>
+      [created, ...current].map((item) => ({
+        ...item,
+        isDefault: created.isDefault
+          ? String(item.id) === String(created.id)
+          : Boolean(item.isDefault),
+      })),
+    );
+  }, []);
+
+  const selectAddress = useCallback(async (id: string) => {
+    const selected = await customerAddressService.makeDefault(Number(id));
+    setAddresses((current) =>
+      current.map((item) => ({ ...item, isDefault: String(item.id) === String(selected.id) })),
+    );
+    localStorage.setItem('selectedCustomerAddressId', String(selected.id));
+  }, []);
+
+  const handleTrackOrder = useCallback(
+    (orderId: string) => {
+      navigate(`/orders/${String(orderId).replace(/^#/, '')}/tracking`);
+    },
+    [navigate],
+  );
+
+  const handleReorder = useCallback(
+    (orderId: string) => {
+      const order = findOrderByDisplayId(orders, orderId);
+      const items = order ? buildReorderCart(order) : [];
+
+      if (!items.length) {
+        toast.error('Não foi possível adicionar os itens deste pedido à sacola.');
         return;
       }
 
-      const token = localStorage.getItem("token");
-      const currentUser = getStoredUser() || {};
+      localStorage.setItem('cartItems', JSON.stringify(items));
+      toast.success('Itens adicionados à sacola.');
+      navigate('/', { state: { openCart: true } });
+    },
+    [navigate, orders],
+  );
 
-      const payload = {
-        name,
-        email,
-        phone,
-        address: selectedAddress?.rua || currentUser.address || "",
-        number: selectedAddress?.numero || currentUser.number || "",
-        district: selectedAddress?.bairro || currentUser.district || "",
-        city: selectedAddress?.cidade || currentUser.city || "",
-        state: selectedAddress?.estado || currentUser.state || "",
-        zipCode: selectedAddress?.cep || currentUser.zipCode || "",
-        complement:
-          mergeComplementAndReference(
-            selectedAddress?.complemento,
-            selectedAddress?.pontoReferencia,
-          ) ||
-          currentUser.complement ||
-          "",
-        defaultAddressId:
-          selectedAddress?.id || currentUser.defaultAddressId || null,
-        defaultAddressLabel:
-          selectedAddress?.rotulo ||
-          currentUser.defaultAddressLabel ||
-          "Principal",
-      };
+  const handleAddFavoriteToCart = useCallback(
+    (favorite: ProfileFavorite) => {
+      const result = addFavoriteToCart(readJsonStorage<CartItem[]>('cartItems', []), favorite);
 
-      const updatedUser = token
-        ? await authService.updateProfile(payload)
-        : payload;
-
-      const nextUser = {
-        ...currentUser,
-        ...updatedUser,
-      };
-
-      if (token) {
-        login(nextUser, token);
-      } else {
-        localStorage.setItem("user", JSON.stringify(nextUser));
+      if (result.error === 'unavailable') {
+        toast.warning('Este produto está indisponível no momento.');
+        return;
       }
 
-      setIsEditing(false);
-      toast.success("Perfil atualizado com sucesso!");
-    } catch {
-      toast.error("Erro ao atualizar dados.");
-    }
-  };
-
-  // --- NOVAS FUNÇÕES: Adicionar e Deletar Endereços ---
-  const handleAddEndereco = (e) => {
-    e.preventDefault();
-    if (!novoEndereco.rotulo || !novoEndereco.rua || !novoEndereco.numero) {
-      toast.warning("Por favor, preencha os campos principais do endereço.");
-      return;
-    }
-
-    const item = {
-      ...normalizeAddress({
-        ...novoEndereco,
-        cidade: novoEndereco.cidade || storedUser?.city || "Fortaleza",
-        estado: novoEndereco.estado || storedUser?.state || "CE",
-      }),
-    };
-
-    setEnderecos((prev) => [...prev, item]);
-    setSelectedAddressId(item.id);
-    setNovoEndereco({
-      rotulo: "",
-      rua: "",
-      numero: "",
-      bairro: "",
-      cidade: storedUser?.city || "Fortaleza",
-      estado: storedUser?.state || "CE",
-      cep: "",
-      complemento: "",
-      pontoReferencia: "",
-    });
-    toast.success("Endereço salvo com sucesso!");
-  };
-
-  const handleDeleteEndereco = (id) => {
-    const nextAddresses = enderecos.filter((end) => !sameAddressId(end.id, id));
-
-    setEnderecos(nextAddresses);
-    setSelectedAddressId((current) => {
-      if (!sameAddressId(current, id)) {
-        return current;
+      if (result.error === 'stockLimit') {
+        toast.warning('Você já adicionou a quantidade máxima disponível.');
+        return;
       }
 
-      return nextAddresses[0]?.id || null;
-    });
-
-    if (nextAddresses.length === 0) {
-      const token = localStorage.getItem("token");
-      const currentUser = getStoredUser() || {};
-      const nextUser = {
-        ...currentUser,
-        address: "",
-        number: "",
-        district: "",
-        city: "",
-        state: "",
-        zipCode: "",
-        complement: "",
-        defaultAddressId: null,
-        defaultAddressLabel: null,
-      };
-
-      if (token) {
-        login(nextUser, token);
-      } else {
-        localStorage.setItem("user", JSON.stringify(nextUser));
-      }
-    }
-
-    toast.info("Endereço removido.");
-  };
-
-  const handleSelectEndereco = (id) => {
-    setSelectedAddressId(id);
-    const selected = enderecos.find((endereco) =>
-      sameAddressId(endereco.id, id),
-    );
-
-    if (selected) {
-      setNovoEndereco({
-        rotulo: selected.rotulo || "",
-        rua: selected.rua || "",
-        numero: selected.numero || "",
-        bairro: selected.bairro || "",
-        cidade: selected.cidade || storedUser?.city || "Fortaleza",
-        estado: selected.estado || storedUser?.state || "CE",
-        cep: selected.cep || "",
-        complemento: selected.complemento || "",
-        pontoReferencia: selected.pontoReferencia || "",
-      });
-    }
-  };
-
-  const handleNovoEnderecoChange = (value) => {
-    const normalizedCep = normalizeCepInput(value?.cep || "");
-    const cepDigits = extractCepDigits(normalizedCep);
-
-    if (cepDigits.length < 8) {
-      lastCepLookupRef.current = "";
-    }
-
-    setNovoEndereco({
-      ...value,
-      cep: normalizedCep,
-    });
-  };
-
-  useEffect(() => {
-    const cepDigits = extractCepDigits(novoEndereco.cep);
-
-    if (cepDigits.length !== 8) {
-      return;
-    }
-
-    if (lastCepLookupRef.current === cepDigits) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fillAddressFromCep() {
-      try {
-        setIsCepLookupLoading(true);
-        const viaCepAddress = await fetchAddressByCep(cepDigits);
-
-        if (cancelled) {
-          return;
-        }
-
-        lastCepLookupRef.current = cepDigits;
-        setNovoEndereco((prev) => ({
-          ...prev,
-          cep: normalizeCepInput(prev.cep),
-          rua: viaCepAddress.logradouro || prev.rua,
-          bairro: viaCepAddress.bairro || prev.bairro,
-          cidade: viaCepAddress.localidade || prev.cidade,
-          estado: viaCepAddress.uf || prev.estado,
-        }));
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        lastCepLookupRef.current = cepDigits;
-        toast.warning(
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel preencher o endereco por CEP.",
-        );
-      } finally {
-        if (!cancelled) {
-          setIsCepLookupLoading(false);
-        }
-      }
-    }
-
-    fillAddressFromCep();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [novoEndereco.cep]);
-
-  const handleCardPaymentDraftChange = (field, value) => {
-    setCardPaymentDraft((prev) => ({
-      ...prev,
-      [field]:
-        field === "lastFour"
-          ? String(value || "")
-              .replace(/\D/g, "")
-              .slice(0, 4)
-          : value,
-    }));
-  };
-
-  const handleSelectSavedCard = (cardId) => {
-    const selectedCard = findSavedCard(savedCards, cardId);
-
-    if (!selectedCard) {
-      return;
-    }
-
-    setSelectedSavedCardId(selectedCard.id);
-    setCardPaymentDraft(sanitizeCardDraft(selectedCard));
-    setShowCardFieldFeedback(false);
-  };
-
-  const handleSetDefaultSavedCard = (cardId) => {
-    const selectedCard = findSavedCard(savedCards, cardId);
-
-    if (!selectedCard) {
-      return;
-    }
-
-    setDefaultSavedCardId(selectedCard.id);
-    setSelectedSavedCardId(selectedCard.id);
-    setCardPaymentDraft(sanitizeCardDraft(selectedCard));
-    setShowCardFieldFeedback(false);
-    toast.success("Cartao padrao atualizado.");
-  };
-
-  const handleStartNewSavedCard = () => {
-    setSelectedSavedCardId(null);
-    setCardPaymentDraft(getEmptyCardDraft());
-    setShowCardFieldFeedback(false);
-  };
-
-  const handleSaveCurrentCard = () => {
-    setShowCardFieldFeedback(true);
-    const sanitizedDraft = sanitizeCardDraft(cardPaymentDraft);
-
-    const validationError = validateSavedCardInput(sanitizedDraft);
-
-    if (validationError) {
-      toast.warning(validationError);
-      return;
-    }
-
-    const normalizedHolder = sanitizedDraft.holderName.trim().toLowerCase();
-    const normalizedBrand = sanitizedDraft.brand.trim().toLowerCase();
-    const existingCard =
-      findSavedCard(savedCards, selectedSavedCardId) ||
-      savedCards.find(
-        (card) =>
-          card.lastFour === sanitizedDraft.lastFour &&
-          card.holderName.trim().toLowerCase() === normalizedHolder &&
-          card.brand.trim().toLowerCase() === normalizedBrand,
-      ) ||
-      null;
-    const nextCard = {
-      id: existingCard?.id || `${Date.now()}`,
-      ...sanitizedDraft,
-    };
-    const nextCards = existingCard
-      ? savedCards.map((card) =>
-          card.id === existingCard.id ? nextCard : card,
-        )
-      : [...savedCards, nextCard];
-
-    setSavedCards(nextCards);
-    setSelectedSavedCardId(nextCard.id);
-    setDefaultSavedCardId((prev) => prev || nextCard.id);
-    setCardPaymentDraft(sanitizeCardDraft(nextCard));
-    setShowCardFieldFeedback(false);
-    toast.success(existingCard ? "Cartao atualizado." : "Cartao salvo.");
-  };
-
-  const handleRemoveSavedCard = (cardId) => {
-    const nextCards = savedCards.filter((card) => card.id !== cardId);
-    const nextSelectedCardId = nextCards[0]?.id || null;
-    const nextDefaultCardId =
-      defaultSavedCardId === cardId
-        ? nextCards[0]?.id || null
-        : defaultSavedCardId;
-
-    setSavedCards(nextCards);
-    setSelectedSavedCardId(nextSelectedCardId);
-    setDefaultSavedCardId(nextDefaultCardId);
-    setCardPaymentDraft(
-      nextSelectedCardId
-        ? sanitizeCardDraft(findSavedCard(nextCards, nextSelectedCardId))
-        : getEmptyCardDraft(),
-    );
-    setShowCardFieldFeedback(false);
-    toast.info("Cartao removido.");
-  };
+      localStorage.setItem('cartItems', JSON.stringify(result.cart));
+      toast.success(`${favorite.name} adicionado à sacola.`);
+      navigate('/', { state: { openCart: true } });
+    },
+    [navigate],
+  );
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
-      <S.ProfileLayout>
-        {/* NAVBAR PADRÃO */}
-        <S.Navbar>
-          <S.Brand onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
-            <Utensils size={22} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
-          </S.Brand>
-
-          <S.NavRight>
-            <S.BackButton onClick={() => navigate("/")}>
-              <ArrowLeft size={18} />
-              <span>Voltar</span>
-            </S.BackButton>
-
-            {isAdmin && (
-              <S.AdminButton onClick={() => navigate("/admin")}>
-                <ClipboardList size={18} />
-                <span>Painel Admin</span>
-              </S.AdminButton>
-            )}
-
-            <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </S.ThemeToggleButton>
-
-            <S.LogoutButton onClick={handleLogout}>
-              <LogOut size={18} />
-              <span>Sair</span>
-            </S.LogoutButton>
-          </S.NavRight>
-        </S.Navbar>
-
-        {/* CORPO DO PERFIL */}
-        <S.MainContainer>
-          <S.GridContainer>
-            <Suspense fallback={null}>
-              <ProfilePersonalCard
-                name={name}
-                email={email}
-                phone={phone}
-                isEditing={isEditing}
-                onNameChange={setName}
-                onEmailChange={setEmail}
-                onPhoneChange={setPhone}
-                onSubmit={handleSave}
-                onEnableEditing={() => setIsEditing(true)}
-              />
-            </Suspense>
-
-            <Suspense fallback={null}>
-              <ProfileAddressesAndOrders
-                enderecos={enderecos}
-                novoEndereco={novoEndereco}
-                savedCards={savedCards}
-                selectedSavedCardId={selectedSavedCardId}
-                defaultSavedCardId={defaultSavedCardId}
-                cardPaymentDraft={cardPaymentDraft}
-                cardFieldErrors={cardFieldErrors}
-                showCardFieldFeedback={showCardFieldFeedback}
-                isCepLookupLoading={isCepLookupLoading}
-                onNovoEnderecoChange={handleNovoEnderecoChange}
-                onAddEndereco={handleAddEndereco}
-                onSelectEndereco={handleSelectEndereco}
-                onDeleteEndereco={handleDeleteEndereco}
-                onCardPaymentDraftChange={handleCardPaymentDraftChange}
-                onSelectSavedCard={handleSelectSavedCard}
-                onSetDefaultSavedCard={handleSetDefaultSavedCard}
-                onStartNewSavedCard={handleStartNewSavedCard}
-                onSaveCurrentCard={handleSaveCurrentCard}
-                onRemoveSavedCard={handleRemoveSavedCard}
-                onNavigateOrders={() => navigate("/profile/orders")}
-              />
-            </Suspense>
-          </S.GridContainer>
-        </S.MainContainer>
-      </S.ProfileLayout>
-    </ThemeProvider>
+    <>
+      <ProfilePage
+        data={data}
+        cartCount={0}
+        onGoHome={() => navigate('/')}
+        onOpenMenu={() => navigate('/')}
+        onLogout={handleLogout}
+        onUploadAvatar={handleUploadAvatar}
+        onSavePersonalData={handleSavePersonalData}
+        onChangePassword={handleChangePassword}
+        twoFactorEnabled={Boolean((user as Record<string, unknown>)?.mfaEnabled)}
+        onToggleTwoFactor={handleToggleTwoFactor}
+        onDeactivateAccount={handleDeactivateAccount}
+        onNewAddress={() => setAddressModalOpen(true)}
+        onSelectAddress={selectAddress}
+        onAddFavoriteToCart={handleAddFavoriteToCart}
+        onToggleFavorite={async (productId) => {
+          await favoritesService.remove(productId);
+          setFavorites((current) => current.filter((item) => String(item.id) !== productId));
+        }}
+        onTrackOrder={handleTrackOrder}
+        onViewOrder={handleTrackOrder}
+        onReorder={handleReorder}
+      />
+      {addressModalOpen && (
+        <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />
+      )}
+    </>
   );
 }

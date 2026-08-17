@@ -1,29 +1,21 @@
-import { preference } from "./MercadoPagoClient.js";
-import { debug, error as logError } from "../utils/billingLogger.js";
-
-type PreferencePayload = {
-  items: Array<{
-    id: string;
-    title: string;
-    quantity: number;
-    unit_price: number;
-    currency_id: string;
-  }>;
-  external_reference: string;
-  additional_info: string;
-  notification_url: string;
-  back_urls: {
-    success: string;
-    failure: string;
-    pending: string;
-  };
-};
+import { getPlatformPaymentClient } from './MercadoPagoClient.js';
+import { debug, error as logError } from '../utils/billingLogger.js';
 
 type CreatePaymentPayload = {
   invoiceId: number | string;
   title: string;
   description: string;
   amount: number | string | { toString(): string };
+  payerEmail: string;
+};
+
+export type MercadoPagoPixPayment = {
+  id: string;
+  status: string | null;
+  qrCode: string;
+  qrCodeBase64: string;
+  ticketUrl: string | null;
+  expiresAt: string | null;
 };
 
 class MercadoPagoService {
@@ -32,75 +24,61 @@ class MercadoPagoService {
     title,
     description,
     amount,
-  }: CreatePaymentPayload) {
-    const isProduction = process.env.NODE_ENV === "production";
+    payerEmail,
+  }: CreatePaymentPayload): Promise<MercadoPagoPixPayment> {
+    const isProduction = process.env.NODE_ENV === 'production';
     const port = process.env.PORT || 3000;
-    const backendBaseUrl = String(process.env.BACKEND_URL || "").trim();
-    const fallbackNotificationUrl = backendBaseUrl
+    const backendBaseUrl = String(process.env.BACKEND_URL || '').trim();
+    const fallbackUrl = backendBaseUrl
       ? `${backendBaseUrl}/billing/webhook/mercadopago`
       : `http://localhost:${port}/billing/webhook/mercadopago`;
-    const notificationUrl = String(
-      process.env.MP_NOTIFICATION_URL || fallbackNotificationUrl,
-    ).trim();
-    const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const notificationUrl = String(process.env.MP_NOTIFICATION_URL || fallbackUrl).trim();
 
-    if (
-      isProduction &&
-      (!notificationUrl || notificationUrl.includes("localhost"))
-    ) {
+    if (isProduction && (!notificationUrl || notificationUrl.includes('localhost'))) {
       throw new Error(
-        "Webhook Mercado Pago invalido para producao. Configure MP_NOTIFICATION_URL com uma URL publica HTTPS.",
+        'Webhook Mercado Pago inválido para produção. Configure MP_NOTIFICATION_URL com uma URL pública HTTPS.',
       );
     }
 
-    const body: PreferencePayload = {
-      items: [
-        {
-          id: String(invoiceId),
-          title,
-          quantity: 1,
-          unit_price: Number(amount),
-          currency_id: "BRL",
-        },
-      ],
-
-      external_reference: String(invoiceId),
-      additional_info: description,
-      notification_url: notificationUrl,
-
-      back_urls: {
-        success: `${frontendBaseUrl}/pagamento-sucesso`,
-        failure: `${frontendBaseUrl}/pagamento-erro`,
-        pending: `${frontendBaseUrl}/pagamento-pendente`,
-      },
-    };
-
-    debug("creating MP preference", {
-      invoiceId,
-      amount: Number(amount),
-    });
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    debug('creating Mercado Pago Pix', { invoiceId, amount: Number(amount) });
 
     try {
-      const response = (await preference.create({ body })) as {
-        id?: string;
-        init_point?: string;
-      };
+      const payment = getPlatformPaymentClient();
+      const response = await payment.create({
+        body: {
+          transaction_amount: Number(amount),
+          payment_method_id: 'pix',
+          description: `${title} - ${description}`,
+          external_reference: String(invoiceId),
+          notification_url: notificationUrl,
+          date_of_expiration: expiresAt,
+          payer: { email: payerEmail },
+        },
+        requestOptions: {
+          idempotencyKey: `invoice-pix-${invoiceId}-${Date.now()}`,
+        },
+      });
 
-      debug("MP preference created", { id: response?.id });
-
-      if (!response?.init_point) {
-        throw new Error("Mercado Pago não retornou init_point");
+      const transaction = response.point_of_interaction?.transaction_data;
+      if (!response.id || !transaction?.qr_code || !transaction.qr_code_base64) {
+        throw new Error('Mercado Pago não retornou os dados do Pix.');
       }
 
-      debug("MP init_point generated", { invoiceId });
-
-      return response;
-    } catch (err: unknown) {
-      logError("failed to create MP preference", {
+      return {
+        id: String(response.id),
+        status: response.status || null,
+        qrCode: transaction.qr_code,
+        qrCodeBase64: transaction.qr_code_base64,
+        ticketUrl: transaction.ticket_url || null,
+        expiresAt: response.date_of_expiration || expiresAt,
+      };
+    } catch (error: unknown) {
+      logError('failed to create Mercado Pago Pix', {
         invoiceId,
-        message: err instanceof Error ? err.message : String(err),
+        message: error instanceof Error ? error.message : String(error),
       });
-      throw err;
+      throw error;
     }
   }
 }

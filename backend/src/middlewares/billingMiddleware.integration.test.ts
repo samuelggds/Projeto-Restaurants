@@ -1,9 +1,9 @@
 // @ts-nocheck
-import test, { afterEach } from "node:test";
-import assert from "node:assert/strict";
-import express from "express";
-import prisma from "../config/prisma.js";
-import { billingMiddleware } from "./billingMiddleware.js";
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import prisma from '../config/prisma.js';
+import { billingMiddleware } from './billingMiddleware.js';
 
 const originalMethods = {
   invoiceFindMany: prisma.invoice.findMany,
@@ -17,7 +17,7 @@ function createAppWithProtectedRoute(restaurantId = 1) {
   const app = express();
 
   app.get(
-    "/protected",
+    '/protected',
     (req, _res, next) => {
       req.user = { restaurantId };
       next();
@@ -36,7 +36,7 @@ async function requestProtectedRoute() {
   const server = app.listen(0);
 
   const address = server.address();
-  const port = typeof address === "object" && address ? address.port : null;
+  const port = typeof address === 'object' && address ? address.port : null;
 
   try {
     const response = await fetch(`http://127.0.0.1:${port}/protected`);
@@ -55,7 +55,7 @@ afterEach(() => {
   prisma.restaurant.update = originalMethods.restaurantUpdate;
 });
 
-test("deve permitir acesso na rota protegida sem invoices em aberto", async () => {
+test('deve permitir acesso na rota protegida sem invoices em aberto', async () => {
   prisma.invoice.findMany = async () => [];
 
   let updateManyCalled = false;
@@ -71,13 +71,13 @@ test("deve permitir acesso na rota protegida sem invoices em aberto", async () =
   assert.equal(updateManyCalled, false);
 });
 
-test("deve bloquear acesso na rota protegida quando houver invoice atrasada", async () => {
+test('deve bloquear acesso na rota protegida quando houver invoice atrasada', async () => {
   prisma.invoice.findMany = async () => [
     {
       id: 10,
-      status: "ATRASADO",
-      dueDate: new Date("2026-06-01T12:00:00.000Z"),
-      paymentLink: "https://pay.test/invoice-10",
+      status: 'ATRASADO',
+      dueDate: new Date('2026-06-01T12:00:00.000Z'),
+      paymentLink: 'https://pay.test/invoice-10',
     },
   ];
 
@@ -87,7 +87,7 @@ test("deve bloquear acesso na rota protegida quando houver invoice atrasada", as
   let subscriptionUpdated = false;
   prisma.subscription.update = async () => {
     subscriptionUpdated = true;
-    return { id: 99, status: "EXPIRADA" };
+    return { id: 99, status: 'EXPIRADA' };
   };
 
   let restaurantUpdated = false;
@@ -99,28 +99,28 @@ test("deve bloquear acesso na rota protegida quando houver invoice atrasada", as
   const { response, body } = await requestProtectedRoute();
 
   assert.equal(response.status, 403);
-  assert.equal(body.code, "BILLING_BLOCKED");
+  assert.equal(body.code, 'BILLING_BLOCKED');
   assert.equal(body.blocked, true);
-  assert.equal(body.error, "Restaurante bloqueado por inadimplência");
+  assert.equal(body.error, 'Restaurante bloqueado por inadimplência');
   assert.equal(body.invoiceId, 10);
-  assert.equal(body.paymentLink, "https://pay.test/invoice-10");
+  assert.equal(body.paymentLink, 'https://pay.test/invoice-10');
   assert.equal(subscriptionUpdated, true);
   assert.equal(restaurantUpdated, true);
 });
 
-test("deve promover pendentes vencidas para ATRASADO e bloquear", async () => {
+test('deve promover pendentes vencidas para ATRASADO e bloquear', async () => {
   prisma.invoice.findMany = async () => [
     {
       id: 20,
-      status: "PENDENTE",
-      dueDate: new Date("2026-05-01T12:00:00.000Z"),
-      paymentLink: "https://pay.test/invoice-20",
+      status: 'PENDENTE',
+      dueDate: new Date('2026-05-01T12:00:00.000Z'),
+      paymentLink: 'https://pay.test/invoice-20',
     },
     {
       id: 21,
-      status: "PENDENTE",
-      dueDate: new Date("2099-12-01T12:00:00.000Z"),
-      paymentLink: "https://pay.test/invoice-21",
+      status: 'PENDENTE',
+      dueDate: new Date('2099-12-01T12:00:00.000Z'),
+      paymentLink: 'https://pay.test/invoice-21',
     },
   ];
 
@@ -131,16 +131,16 @@ test("deve promover pendentes vencidas para ATRASADO e bloquear", async () => {
   };
 
   prisma.subscription.findUnique = async () => ({ id: 99 });
-  prisma.subscription.update = async () => ({ id: 99, status: "EXPIRADA" });
+  prisma.subscription.update = async () => ({ id: 99, status: 'EXPIRADA' });
   prisma.restaurant.update = async () => ({ id: 1, active: false });
 
   const { response, body } = await requestProtectedRoute();
 
   assert.equal(response.status, 403);
-  assert.equal(body.code, "BILLING_BLOCKED");
+  assert.equal(body.code, 'BILLING_BLOCKED');
   assert.equal(body.blocked, true);
-  assert.equal(body.error, "Restaurante bloqueado por inadimplência");
+  assert.equal(body.error, 'Restaurante bloqueado por inadimplência');
   assert.equal(body.invoiceId, 20);
-  assert.equal(body.paymentLink, "https://pay.test/invoice-20");
+  assert.equal(body.paymentLink, 'https://pay.test/invoice-20');
   assert.deepEqual(promotedIds, [20]);
 });

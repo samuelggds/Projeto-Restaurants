@@ -6,65 +6,42 @@ import {
   Outlet,
   useLocation,
   useParams,
-} from "react-router-dom";
-import { lazy, Suspense, useEffect, useState } from "react";
+} from 'react-router-dom';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
-const Login = lazy(() => import("../pages/Login/Login"));
-const RecoverPassword = lazy(
-  () => import("../pages/RecoverPassword/RecoverPassword"),
+const Login = lazy(() => import('../pages/Login/Login'));
+const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
+const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
+const Register = lazy(() => import('../pages/Register/Register'));
+const UserProfile = lazy(() => import('../pages/profile/Profile'));
+const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
+const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
+const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
+const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
+const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
+const SystemMaintenancePage = lazy(() => import('../pages/SystemMaintenance/SystemMaintenance'));
+const Home = lazy(() => import('../pages/home/Home'));
+const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuEntryPage'));
+const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
+const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
+const SettingsPage = lazy(() =>
+  import('../modules/settings/pages/SettingsPage').then((m) => ({
+    default: m.SettingsPage,
+  })),
 );
-const AdminDashboard = lazy(
-  () => import("../pages/AdminDashboard/AdminDashboard"),
-);
-const Register = lazy(() => import("../pages/Register/Register"));
-const UserProfile = lazy(() => import("../pages/Profile/Profile"));
-const MyOrders = lazy(() => import("../pages/MyOrders/MyOrders"));
-const EmployeesDashboard = lazy(
-  () => import("../pages/Employees/EmployeesDashboard"),
-);
-const CourierDashboard = lazy(
-  () => import("../pages/Courier/CourierDashboard"),
-);
-const SuperAdminDashboard = lazy(
-  () => import("../pages/SuperAdmin/SuperAdminDashboard"),
-);
-const SuperAdminCreateRestaurant = lazy(
-  () => import("../pages/SuperAdmin/SuperAdminCreateRestaurant"),
-);
-const Cart = lazy(() => import("../pages/Cart/Cart"));
-const BillingPage = lazy(() => import("../pages/Billing/BillingPage"));
-const SystemBlockedPage = lazy(
-  () => import("../pages/SystemBlocked/SystemBlocked"),
-);
-const SystemMaintenancePage = lazy(
-  () => import("../pages/SystemMaintenance/SystemMaintenance"),
-);
-const Home = lazy(() => import("../pages/Home/Home"));
-const DigitalMenu = lazy(() => import("../pages/DigitalMenu/DigitalMenu"));
-import api from "../Services/api";
-import { useAuth } from "../contexts/authContext";
+import api from '../Services/api';
+import { useAuth } from '../contexts/authContext';
 import {
   clearSystemBlockState,
   getSystemBlockState,
   setSystemBlockState,
-} from "../Services/systemBlock";
-
-const ROLE_HOME = {
-  CLIENTE: "/",
-  FUNCIONARIO: "/employees",
-  MOTOQUEIRO: "/courier",
-  ADMIN: "/admin",
-  SUPER_ADMIN: "/super_admin",
-};
-
-function getRoleHome(role) {
-  return ROLE_HOME[role] || "/login";
-}
+} from '../Services/systemBlock';
+import { authorizeRoute } from './routeAuthorization';
 
 function RestaurantLoginRedirect() {
   const { restaurantSlug } = useParams();
 
-  const normalizedSlug = String(restaurantSlug || "")
+  const normalizedSlug = String(restaurantSlug || '')
     .trim()
     .toLowerCase();
 
@@ -78,23 +55,14 @@ function RestaurantLoginRedirect() {
 }
 
 function RestaurantMenuGate() {
-  const { user, isLoading } = useAuth();
   const { restaurantSlug } = useParams();
 
-  const normalizedSlug = String(restaurantSlug || "")
+  const normalizedSlug = String(restaurantSlug || '')
     .trim()
     .toLowerCase();
 
-  if (isLoading) {
-    return null;
-  }
-
   if (!normalizedSlug) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!user) {
-    return <Navigate to={`/${normalizedSlug}/login`} replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Home />;
@@ -114,44 +82,26 @@ function RequireAuth() {
   return <Outlet />;
 }
 
-function RequireRole({ roles }) {
-  const { user, isLoading } = useAuth();
+function PageTransition() {
+  const location = useLocation();
 
-  if (isLoading) {
-    return null;
-  }
-
-  if (!user || !roles.includes(user.role)) {
-    return <Navigate to={getRoleHome(user?.role)} replace />;
-  }
-
-  return <Outlet />;
+  return (
+    <div className="app-page-transition" key={location.pathname}>
+      <Outlet />
+    </div>
+  );
 }
 
-function SuperAdminScopeGuard() {
+function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    // Keep public routes visible while auth bootstrap is in progress.
-    return <Outlet />;
-  }
+  if (isLoading) return null;
 
-  if (
-    user?.role === "SUPER_ADMIN" &&
-    !location.pathname.startsWith("/super_admin")
-  ) {
-    return <Navigate to="/super_admin" replace />;
+  const decision = authorizeRoute(location.pathname, user);
+  if ('redirectTo' in decision) {
+    return <Navigate to={decision.redirectTo} replace />;
   }
-
-  if (
-    user?.role &&
-    user.role !== "SUPER_ADMIN" &&
-    location.pathname.startsWith("/super_admin")
-  ) {
-    return <Navigate to={getRoleHome(user.role)} replace />;
-  }
-
   return <Outlet />;
 }
 
@@ -175,7 +125,7 @@ function BillingGate() {
         return;
       }
 
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
 
       if (!token) {
         clearSystemBlockState();
@@ -184,14 +134,14 @@ function BillingGate() {
         return;
       }
 
-      if (user?.role === "SUPER_ADMIN") {
+      if (user?.role === 'SUPER_ADMIN') {
         clearSystemBlockState();
         syncBlockState();
         setIsCheckingBilling(false);
         return;
       }
 
-      const isAdminUser = user?.role === "ADMIN";
+      const isAdminUser = user?.role === 'ADMIN';
 
       if (!isAdminUser) {
         setIsCheckingBilling(false);
@@ -199,15 +149,13 @@ function BillingGate() {
       }
 
       try {
-        const response = await api.get("/billing/invoices");
+        const response = await api.get('/billing/invoices');
         const invoiceList = Array.isArray(response?.data)
           ? response.data
           : Array.isArray(response?.data?.invoices)
             ? response.data.invoices
             : [];
-        const overdueInvoices = invoiceList.filter(
-          (invoice) => invoice.status === "ATRASADO",
-        );
+        const overdueInvoices = invoiceList.filter((invoice) => invoice.status === 'ATRASADO');
 
         const overdueInvoice =
           overdueInvoices.find((invoice) => Boolean(invoice.paymentLink)) ||
@@ -216,7 +164,7 @@ function BillingGate() {
 
         if (overdueInvoice) {
           setSystemBlockState({
-            message: "Sistema bloqueado por inadimplência",
+            message: 'Sistema bloqueado por inadimplência',
             paymentLink: overdueInvoice.paymentLink || null,
             invoiceId: overdueInvoice.id,
             dueDate: overdueInvoice.dueDate,
@@ -246,11 +194,11 @@ function BillingGate() {
   }
 
   if (blockState?.blocked) {
-    if (user?.role === "SUPER_ADMIN") {
+    if (user?.role === 'SUPER_ADMIN') {
       return <Outlet />;
     }
 
-    if (["CLIENTE", "FUNCIONARIO", "MOTOQUEIRO"].includes(user?.role)) {
+    if (['CLIENTE', 'FUNCIONARIO', 'MOTOQUEIRO'].includes(user?.role)) {
       return <Navigate to="/system-maintenance" replace />;
     }
 
@@ -265,70 +213,46 @@ export default function AppRoutes() {
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
-          <Route element={<SuperAdminScopeGuard />}>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/:restaurantSlug/login"
-              element={<RestaurantLoginRedirect />}
-            />
-            <Route path="/recover-password" element={<RecoverPassword />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-            <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
-            <Route
-              path="/:restaurantSlug/mesa/:tableNumber"
-              element={<DigitalMenu />}
-            />
+          <Route element={<PageTransition />}>
+            <Route element={<RouteAuthorizationGuard />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/:restaurantSlug/login" element={<RestaurantLoginRedirect />} />
+              <Route path="/recover-password" element={<RecoverPassword />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
+              <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+              <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
+              <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
 
-            <Route element={<RequireAuth />}>
               <Route path="/" element={<Home />} />
-              <Route path="/menu" element={<Home />} />
-              <Route path="/cardapio" element={<Home />} />
-              <Route path="/cart" element={<Cart />} />
 
-              <Route path="/system-blocked" element={<SystemBlockedPage />} />
-              <Route
-                path="/system-maintenance"
-                element={<SystemMaintenancePage />}
-              />
+              <Route element={<RequireAuth />}>
+                <Route path="/system-blocked" element={<SystemBlockedPage />} />
+                <Route path="/billing" element={<BillingPage />} />
 
-              <Route element={<BillingGate />}>
-                <Route element={<RequireRole roles={["CLIENTE", "ADMIN"]} />}>
+                <Route element={<BillingGate />}>
                   <Route path="/profile" element={<UserProfile />} />
-                  <Route path="/profile/orders" element={<MyOrders />} />
-                </Route>
+                  <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
 
-                <Route element={<RequireRole roles={["ADMIN"]} />}>
-                  <Route path="/billing" element={<BillingPage />} />
                   <Route path="/admin" element={<AdminDashboard />} />
-                </Route>
+                  <Route path="/admin/configuracoes" element={<SettingsPage />} />
 
-                <Route
-                  element={<RequireRole roles={["ADMIN", "MOTOQUEIRO"]} />}
-                >
                   <Route path="/courier" element={<CourierDashboard />} />
-                </Route>
 
-                <Route
-                  element={<RequireRole roles={["ADMIN", "FUNCIONARIO"]} />}
-                >
-                  <Route path="/employees" element={<EmployeesDashboard />} />
+                  <Route path="/kitchen" element={<KitchenPage />} />
+
+                  <Route path="/waiter" element={<WaiterPage />} />
                 </Route>
               </Route>
-            </Route>
-          </Route>
 
-          <Route element={<RequireAuth />}>
-            <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
-              <Route path="/super_admin" element={<SuperAdminDashboard />} />
-              <Route
-                path="/super_admin/cadastro"
-                element={<SuperAdminCreateRestaurant />}
-              />
+              <Route element={<RequireAuth />}>
+                <Route path="/super_admin" element={<SuperAdminPage />} />
+                <Route path="/super_admin/*" element={<SuperAdminPage />} />
+              </Route>
             </Route>
-          </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
         </Routes>
       </Suspense>
     </BrowserRouter>

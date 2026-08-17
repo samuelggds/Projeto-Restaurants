@@ -1,6 +1,6 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
-import { UserRole } from "@prisma/client";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
+import { UserRole } from '@prisma/client';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -11,19 +11,13 @@ class EmployeeRepository {
     });
   }
 
-  async create(
-    data: Prisma.UserUncheckedCreateInput,
-    db: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.UserUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.user.create({
       data,
     });
   }
 
-  async findAllByRestaurant(
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findAllByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.user.findMany({
       where: {
         restaurantId,
@@ -34,11 +28,7 @@ class EmployeeRepository {
     });
   }
 
-  async findById(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findById(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     return db.user.findFirst({
       where: {
         id: Number(id),
@@ -59,7 +49,7 @@ class EmployeeRepository {
     const employee = await this.findById(id, restaurantId, db);
 
     if (!employee) {
-      throw new Error("Funcionário não encontrado!");
+      throw new Error('Funcionário não encontrado!');
     }
 
     return db.user.update({
@@ -70,15 +60,11 @@ class EmployeeRepository {
     });
   }
 
-  async deactivate(
-    id: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async deactivate(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     const employee = await this.findById(id, restaurantId, db);
 
     if (!employee) {
-      throw new Error("Funcionário não encontrado!");
+      throw new Error('Funcionário não encontrado!');
     }
 
     return db.user.update({
@@ -87,6 +73,23 @@ class EmployeeRepository {
       },
       data: {
         active: false,
+      },
+    });
+  }
+
+  async reactivate(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
+    const employee = await this.findById(id, restaurantId, db);
+
+    if (!employee) {
+      throw new Error('Funcionário não encontrado!');
+    }
+
+    return db.user.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        active: true,
       },
     });
   }

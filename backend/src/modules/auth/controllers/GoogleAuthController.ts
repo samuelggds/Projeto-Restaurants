@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import googleAuthService from "../services/GoogleAuthService.js";
+import { Request, Response } from 'express';
+import googleAuthService from '../services/GoogleAuthService.js';
 
 class GoogleAuthController {
   async handle(req: Request, res: Response) {
@@ -11,7 +11,7 @@ class GoogleAuthController {
       return res.json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro no login Google",
+        error: error instanceof Error ? error.message : 'Erro no login Google',
       });
     }
   }

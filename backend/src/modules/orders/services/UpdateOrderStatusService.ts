@@ -1,22 +1,17 @@
-import orderRepository from "../repositories/OrderRepository.js";
-import { io } from "../../../server.js";
-import { OrderStateMachine } from "../state/orderStateMachine.js";
-import { OrderPermissions } from "../permissions/orderPermissions.js";
-import {
-  OrderStatus,
-  OrderType,
-  PaymentMethod,
-  UserRole,
-} from "@prisma/client";
-import { notifyCustomerOrderStatusChanged } from "../../../services/customerNotifier.js";
-import prisma from "../../../config/prisma.js";
-import { restoreOrderItemsStock } from "./restoreOrderItemsStock.js";
+import orderRepository from '../repositories/OrderRepository.js';
+import { io } from '../../../server.js';
+import { OrderStateMachine } from '../state/orderStateMachine.js';
+import { OrderPermissions } from '../permissions/orderPermissions.js';
+import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client';
+import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
+import prisma from '../../../config/prisma.js';
+import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 
 class UpdateOrderStatusService {
-  private readonly PAY_ON_DELIVERY_MARKER = "PAY_ON_DELIVERY:";
+  private readonly PAY_ON_DELIVERY_MARKER = 'PAY_ON_DELIVERY:';
 
   private hasLegacyPayOnDeliveryMarker(observation: string | null | undefined) {
-    return String(observation || "")
+    return String(observation || '')
       .toUpperCase()
       .includes(this.PAY_ON_DELIVERY_MARKER);
   }
@@ -27,11 +22,12 @@ class UpdateOrderStatusService {
     status: OrderStatus,
     role: UserRole | string,
     deliveryConfirmationCode?: string,
+    actorUserId?: number | null,
   ) {
     const order = await orderRepository.findById(orderId, restaurantId);
 
     if (!order) {
-      throw new Error("Pedido não encontrado!");
+      throw new Error('Pedido não encontrado!');
     }
 
     const currentStatus = order.status;
@@ -42,14 +38,20 @@ class UpdateOrderStatusService {
       throw new Error(`Transição inválida: ${currentStatus} → ${status} `);
     }
 
-    const normalizedRole = String(role || "").toUpperCase() as UserRole;
-    const canUserChange = OrderPermissions.canUserChangeStatus(
-      normalizedRole,
-      status,
-    );
+    const normalizedRole = String(role || '').toUpperCase() as UserRole;
+    const canUserChange = OrderPermissions.canUserChangeStatus(normalizedRole, status);
 
     if (!canUserChange) {
-      throw new Error("Usuário não tem permissão para isso!");
+      throw new Error('Usuário não tem permissão para isso!');
+    }
+
+    if (normalizedRole === UserRole.MOTOQUEIRO) {
+      if (order.type !== OrderType.DELIVERY) {
+        throw new Error('Motoqueiros só podem atualizar pedidos de entrega.');
+      }
+      if (order.assignedCourierId !== Number(actorUserId || 0)) {
+        throw new Error('Esta entrega não está atribuída a você.');
+      }
     }
 
     if (
@@ -57,42 +59,31 @@ class UpdateOrderStatusService {
       normalizedRole === UserRole.MOTOQUEIRO &&
       order.type === OrderType.DELIVERY
     ) {
-      const customerPhoneDigits = String(order?.user?.phone || "").replace(
-        /\D/g,
-        "",
-      );
+      const customerPhoneDigits = String(order?.user?.phone || '').replace(/\D/g, '');
       const expectedCode = customerPhoneDigits.slice(-4);
-      const providedCode = String(deliveryConfirmationCode || "").replace(
-        /\D/g,
-        "",
-      );
+      const providedCode = String(deliveryConfirmationCode || '').replace(/\D/g, '');
 
       if (!customerPhoneDigits || customerPhoneDigits.length < 4) {
         throw new Error(
-          "Não é possível confirmar a entrega: cliente sem telefone válido cadastrado.",
+          'Não é possível confirmar a entrega: cliente sem telefone válido cadastrado.',
         );
       }
 
       if (!/^\d{4}$/.test(providedCode)) {
         throw new Error(
-          "Informe os 4 últimos dígitos do celular do cliente para concluir a entrega.",
+          'Informe os 4 últimos dígitos do celular do cliente para concluir a entrega.',
         );
       }
 
       if (providedCode !== expectedCode) {
-        throw new Error("Código de confirmação inválido para esta entrega.");
+        throw new Error('Código de confirmação inválido para esta entrega.');
       }
     }
 
-    const digitalMethods: PaymentMethod[] = [
-      PaymentMethod.PIX,
-      PaymentMethod.CARTAO,
-    ];
+    const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
     const isPayOnDelivery =
-      order.payOnDelivery === true ||
-      this.hasLegacyPayOnDeliveryMarker(order?.observation);
-    const isDigitalPayment =
-      !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
+      order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
+    const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
 
     const isUnpaidDigitalDeliveryBlocked =
       order.type === OrderType.DELIVERY &&
@@ -106,7 +97,7 @@ class UpdateOrderStatusService {
       status !== OrderStatus.CANCELADO
     ) {
       throw new Error(
-        "Pedido delivery com pagamento digital pendente deve permanecer em PENDENTE até a confirmação do pagamento.",
+        'Pedido delivery com pagamento digital pendente deve permanecer em PENDENTE até a confirmação do pagamento.',
       );
     }
 
@@ -117,9 +108,7 @@ class UpdateOrderStatusService {
       !isPayOnDelivery &&
       order.paid !== true
     ) {
-      throw new Error(
-        "Não é possível marcar como entregue: o pagamento ainda não foi confirmado.",
-      );
+      throw new Error('Não é possível marcar como entregue: o pagamento ainda não foi confirmado.');
     }
 
     let updatedOrder;
@@ -131,11 +120,22 @@ class UpdateOrderStatusService {
         return orderRepository.updateStatus(orderId, status, restaurantId, tx);
       });
     } else {
-      updatedOrder = await orderRepository.updateStatus(
-        orderId,
-        status,
-        restaurantId,
-      );
+      updatedOrder = await orderRepository.updateStatus(orderId, status, restaurantId);
+    }
+
+    if (status === OrderStatus.ENTREGUE && updatedOrder) {
+      updatedOrder = await prisma.order.update({
+        where: { id: updatedOrder.id },
+        data: { deliveredAt: new Date() },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+          restaurant: {
+            select: { id: true, name: true, whatsapp: true },
+          },
+          table: true,
+          items: { include: { product: true } },
+        },
+      });
     }
 
     if (
@@ -143,18 +143,15 @@ class UpdateOrderStatusService {
       (order.paymentMethod === PaymentMethod.DINHEIRO || isPayOnDelivery) &&
       updatedOrder?.paid !== true
     ) {
-      updatedOrder = await orderRepository.confirmPayment(
-        orderId,
-        restaurantId,
-      );
+      updatedOrder = await orderRepository.confirmPayment(orderId, restaurantId);
 
-      io.to(`restaurant:${restaurantId}`).emit("order:payment-confirmed", {
+      io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
         orderId: updatedOrder.id,
         paid: true,
         paymentMethod: updatedOrder.paymentMethod,
       });
 
-      io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
+      io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
         orderId: updatedOrder.id,
         paid: true,
         paymentMethod: updatedOrder.paymentMethod,
@@ -170,19 +167,13 @@ class UpdateOrderStatusService {
       status: updatedOrder?.status,
     }).catch((error: unknown) => {
       console.error(
-        "[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]",
+        '[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]',
         error instanceof Error ? error.message : String(error),
       );
     });
 
-    io.to(`restaurant:${restaurantId}`).emit(
-      "order:status-changed",
-      updatedOrder,
-    );
-    io.to(`user:${updatedOrder.userId}`).emit(
-      "order:status-changed",
-      updatedOrder,
-    );
+    io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
+    io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
     return updatedOrder;
   }
 }

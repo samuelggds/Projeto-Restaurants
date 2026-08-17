@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import requestPasswordResetService from "../services/RequestPasswordResetService.js";
+import { Request, Response } from 'express';
+import requestPasswordResetService from '../services/RequestPasswordResetService.js';
 
 class RequestPasswordResetController {
   async handle(req: Request, res: Response) {
@@ -13,10 +13,7 @@ class RequestPasswordResetController {
       return res.status(200).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao solicitar recuperacao de senha",
+        error: error instanceof Error ? error.message : 'Erro ao solicitar recuperacao de senha',
       });
     }
   }

@@ -1,5 +1,5 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
@@ -7,7 +7,7 @@ import prisma from "../src/config/prisma.js";
     const rows = await prisma.order.findMany({
       where: {
         restaurantId,
-        paymentMethod: "CARTAO",
+        paymentMethod: 'CARTAO',
         paid: true,
       },
       select: {
@@ -20,7 +20,7 @@ import prisma from "../src/config/prisma.js";
         createdAt: true,
       },
       orderBy: {
-        id: "desc",
+        id: 'desc',
       },
       take: 20,
     });

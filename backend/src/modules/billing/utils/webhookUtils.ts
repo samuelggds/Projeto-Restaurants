@@ -1,9 +1,4 @@
-const APPROVED_STATUSES = new Set([
-  "approved",
-  "paid",
-  "authorized",
-  "settled",
-]);
+const APPROVED_STATUSES = new Set(['approved', 'paid', 'authorized', 'settled']);
 
 type LooseObject = Record<string, unknown>;
 
@@ -36,7 +31,7 @@ type PaymentLike = {
 };
 
 export function normalizePaymentStatus(status: unknown) {
-  return String(status || "")
+  return String(status || '')
     .trim()
     .toLowerCase();
 }
@@ -47,7 +42,7 @@ export function isApprovedPaymentStatus(status: unknown) {
 
 function readFirstDefined(...values: unknown[]) {
   for (const value of values) {
-    if (value === undefined || value === null || value === "") {
+    if (value === undefined || value === null || value === '') {
       continue;
     }
 
@@ -57,10 +52,7 @@ function readFirstDefined(...values: unknown[]) {
   return null;
 }
 
-export function extractInvoiceId(
-  payload: LooseObject = {},
-  paymentDetails: LooseObject = {},
-) {
+export function extractInvoiceId(payload: LooseObject = {}, paymentDetails: LooseObject = {}) {
   const payloadData = payload as PaymentLike;
   const detailsData = paymentDetails as PaymentLike;
 
@@ -85,7 +77,7 @@ export function extractInvoiceId(
   ];
 
   for (const candidate of candidates) {
-    if (candidate === null || candidate === undefined || candidate === "") {
+    if (candidate === null || candidate === undefined || candidate === '') {
       continue;
     }
 
@@ -103,10 +95,7 @@ export function extractInvoiceId(
   return null;
 }
 
-export function shouldProcessPayment(
-  payload: LooseObject = {},
-  paymentDetails: LooseObject = {},
-) {
+export function shouldProcessPayment(payload: LooseObject = {}, paymentDetails: LooseObject = {}) {
   const payloadData = payload as PaymentLike;
   const detailsData = paymentDetails as PaymentLike;
 
@@ -125,17 +114,12 @@ export function shouldProcessPayment(
   }
 
   const action = normalizePaymentStatus(
-    readFirstDefined(
-      payloadData.action,
-      payloadData.type,
-      payloadData.event,
-      detailsData.action,
-    ),
+    readFirstDefined(payloadData.action, payloadData.type, payloadData.event, detailsData.action),
   );
 
   return Boolean(
-    action.includes("payment") &&
-    (action.includes("updated") || action.includes("created")) &&
+    action.includes('payment') &&
+    (action.includes('updated') || action.includes('created')) &&
     extractInvoiceId(payload, paymentDetails),
   );
 }

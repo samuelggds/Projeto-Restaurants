@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 class RestaurantSettingsRepository {
   async findByRestaurantId(restaurantId: number | string) {
@@ -14,7 +14,15 @@ class RestaurantSettingsRepository {
             slug: true,
             logo: true,
             coverImage: true,
+            description: true,
             whatsapp: true,
+            address: true,
+            addressNumber: true,
+            addressComplement: true,
+            addressDistrict: true,
+            city: true,
+            state: true,
+            zipCode: true,
           },
         },
       },
@@ -32,8 +40,29 @@ class RestaurantSettingsRepository {
         slug: true,
         logo: true,
         coverImage: true,
+        description: true,
         whatsapp: true,
+        address: true,
+        addressNumber: true,
+        addressComplement: true,
+        addressDistrict: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        banners: {
+          where: { active: true },
+          select: { id: true, title: true, image: true },
+          orderBy: { id: 'asc' },
+        },
       },
+    });
+  }
+
+  async findDefaultActiveRestaurant() {
+    return prisma.restaurant.findFirst({
+      where: { active: true },
+      select: { id: true },
+      orderBy: { id: 'asc' },
     });
   }
 
@@ -44,17 +73,42 @@ class RestaurantSettingsRepository {
       },
       select: {
         restaurantId: true,
+        primaryColor: true,
         deliveryFee: true,
         minimumOrder: true,
         pixProvider: true,
         pixKey: true,
         instagram: true,
+        facebook: true,
+        companyLegalName: true,
+        ownerEmail: true,
+        ownerPhone: true,
+        businessHours: true,
+        isOpenForOrders: true,
+        averageDeliveryTime: true,
+        autoAcceptOrders: true,
+        trackingRequiresLogin: true,
+        soundNotifications: true,
+        maxConcurrentOrders: true,
         restaurant: {
           select: {
             name: true,
             slug: true,
             logo: true,
             coverImage: true,
+            description: true,
+            address: true,
+            addressNumber: true,
+            addressComplement: true,
+            addressDistrict: true,
+            city: true,
+            state: true,
+            zipCode: true,
+            banners: {
+              where: { active: true },
+              select: { id: true, title: true, image: true },
+              orderBy: { id: 'asc' },
+            },
           },
         },
       },
@@ -67,10 +121,7 @@ class RestaurantSettingsRepository {
     });
   }
 
-  async update(
-    restaurantId: number | string,
-    data: Prisma.RestaurantSettingsUpdateInput,
-  ) {
+  async update(restaurantId: number | string, data: Prisma.RestaurantSettingsUpdateInput) {
     return prisma.restaurantSettings.update({
       where: {
         restaurantId: Number(restaurantId),

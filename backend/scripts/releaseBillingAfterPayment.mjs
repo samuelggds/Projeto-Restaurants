@@ -1,4 +1,4 @@
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 const restaurantId = Number(process.argv[2] || 15);
 
@@ -17,18 +17,18 @@ const restaurantId = Number(process.argv[2] || 15);
       where: {
         restaurantId,
         status: {
-          in: ["PENDENTE", "ATRASADO"],
+          in: ['PENDENTE', 'ATRASADO'],
         },
       },
       data: {
-        status: "PAGO",
+        status: 'PAGO',
         paidAt: new Date(),
       },
     });
 
     const subscription = await prisma.subscription.updateMany({
       where: { restaurantId },
-      data: { status: "ATIVA" },
+      data: { status: 'ATIVA' },
     });
 
     const updatedRestaurant = await prisma.restaurant.update({
@@ -37,14 +37,14 @@ const restaurantId = Number(process.argv[2] || 15);
       select: { id: true, active: true },
     });
 
-    console.log("✅ Restaurante liberado com sucesso");
+    console.log('✅ Restaurante liberado com sucesso');
     console.log(`Restaurant ID: ${restaurantId}`);
     console.log(`Restaurant Name: ${restaurant.name}`);
     console.log(`Invoices marcadas como PAGO: ${paidInvoices.count}`);
     console.log(`Assinaturas atualizadas para ATIVA: ${subscription.count}`);
     console.log(`Restaurant active: ${updatedRestaurant.active}`);
   } catch (err) {
-    console.error("❌ Falha ao liberar restaurante:", err?.message || err);
+    console.error('❌ Falha ao liberar restaurante:', err?.message || err);
     console.error(err);
     process.exitCode = 1;
   } finally {

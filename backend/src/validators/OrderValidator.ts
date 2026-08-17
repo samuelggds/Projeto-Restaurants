@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { OrderType, PaymentMethod } from "@prisma/client";
+import { z } from 'zod';
+import { OrderType, PaymentMethod } from '@prisma/client';
 
 export const createOrderSchema = z
   .object({
@@ -49,20 +49,53 @@ export const createOrderSchema = z
           observation: z.string().trim().optional(),
         }),
       )
-      .min(1, "O pedido deve conter pelo menos um item."),
+      .min(1, 'O pedido deve conter pelo menos um item.'),
   })
   .superRefine((data, ctx) => {
     if (data.type !== OrderType.DELIVERY) {
       return;
     }
 
-    const phoneDigits = String(data.customerPhone || "").replace(/\D/g, "");
+    const phoneDigits = String(data.customerPhone || '').replace(/\D/g, '');
 
     if (phoneDigits.length < 10 || phoneDigits.length > 13) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["customerPhone"],
-        message: "Informe um celular/WhatsApp válido para pedidos de delivery.",
+        path: ['customerPhone'],
+        message: 'Informe um celular/WhatsApp válido para pedidos de delivery.',
+      });
+    }
+
+    const requiredAddressFields = [
+      ['address', data.address],
+      ['number', data.number],
+      ['district', data.district],
+      ['city', data.city],
+    ] as const;
+    requiredAddressFields.forEach(([field, value]) => {
+      const minimumLength = field === 'number' ? 1 : 2;
+      if (String(value || '').trim().length < minimumLength) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `Informe ${field === 'address' ? 'a rua' : field === 'number' ? 'o número' : field === 'district' ? 'o bairro' : 'a cidade'}.`,
+        });
+      }
+    });
+
+    if (!/^\d{8}$/.test(String(data.zipCode || '').replace(/\D/g, ''))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['zipCode'],
+        message: 'Informe um CEP válido com 8 números.',
+      });
+    }
+
+    if (!/^[A-Za-z]{2}$/.test(String(data.state || '').trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['state'],
+        message: 'Informe uma UF válida com duas letras.',
       });
     }
 
@@ -70,16 +103,16 @@ export const createOrderSchema = z
       if (data.type !== OrderType.DELIVERY) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["type"],
-          message: "Pagar na entrega só é permitido para pedidos de delivery.",
+          path: ['type'],
+          message: 'Pagar na entrega só é permitido para pedidos de delivery.',
         });
       }
 
       if (!data.payOnDeliveryMethod) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["payOnDeliveryMethod"],
-          message: "Informe o método de pagamento para pagar na entrega.",
+          path: ['payOnDeliveryMethod'],
+          message: 'Informe o método de pagamento para pagar na entrega.',
         });
       }
     }

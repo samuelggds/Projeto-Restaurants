@@ -1,9 +1,9 @@
-import dotenv from "dotenv";
-import fs from "node:fs/promises";
-import path from "node:path";
+import dotenv from 'dotenv';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 dotenv.config();
-dotenv.config({ path: path.resolve("backend/.env") });
+dotenv.config({ path: path.resolve('backend/.env') });
 
 type RestaurantSeed = {
   restaurantId: number;
@@ -27,15 +27,15 @@ function parseArgs(argv: string[]): CliOptions {
   const map = new Map<string, string>();
 
   for (let i = 0; i < argv.length; i += 1) {
-    const item = String(argv[i] || "").trim();
-    if (!item.startsWith("--")) {
+    const item = String(argv[i] || '').trim();
+    if (!item.startsWith('--')) {
       continue;
     }
 
     const key = item.slice(2);
-    const next = String(argv[i + 1] || "").trim();
-    if (!next || next.startsWith("--")) {
-      map.set(key, "true");
+    const next = String(argv[i + 1] || '').trim();
+    if (!next || next.startsWith('--')) {
+      map.set(key, 'true');
       continue;
     }
 
@@ -43,27 +43,27 @@ function parseArgs(argv: string[]): CliOptions {
     i += 1;
   }
 
-  const baseUrl = String(map.get("baseUrl") || "http://127.0.0.1:3000")
+  const baseUrl = String(map.get('baseUrl') || 'http://127.0.0.1:3000')
     .trim()
-    .replace(/\/+$/, "");
-  const durationSec = Number(map.get("durationSec") || 300);
-  const targetRpm = Number(map.get("targetRpm") || 300);
-  const timeoutMs = Number(map.get("timeoutMs") || 10000);
-  const restaurantIds = String(map.get("restaurantIds") || "")
-    .split(",")
+    .replace(/\/+$/, '');
+  const durationSec = Number(map.get('durationSec') || 300);
+  const targetRpm = Number(map.get('targetRpm') || 300);
+  const timeoutMs = Number(map.get('timeoutMs') || 10000);
+  const restaurantIds = String(map.get('restaurantIds') || '')
+    .split(',')
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isInteger(value) && value > 0);
 
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
-    throw new Error("durationSec invalido. Use valor inteiro > 0.");
+    throw new Error('durationSec invalido. Use valor inteiro > 0.');
   }
 
   if (!Number.isFinite(targetRpm) || targetRpm <= 0) {
-    throw new Error("targetRpm invalido. Use valor inteiro > 0.");
+    throw new Error('targetRpm invalido. Use valor inteiro > 0.');
   }
 
   if (!Number.isFinite(timeoutMs) || timeoutMs < 1000) {
-    throw new Error("timeoutMs invalido. Use valor >= 1000.");
+    throw new Error('timeoutMs invalido. Use valor >= 1000.');
   }
 
   return {
@@ -80,10 +80,7 @@ function percentile(sorted: number[], p: number) {
     return 0;
   }
 
-  const index = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.ceil((p / 100) * sorted.length) - 1),
-  );
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
 
   return sorted[index] || 0;
 }
@@ -111,12 +108,12 @@ async function resolveSeeds(prismaClient: any, restaurantIds: number[]) {
         },
         take: 1,
         orderBy: {
-          id: "asc",
+          id: 'asc',
         },
       },
     },
     orderBy: {
-      id: "asc",
+      id: 'asc',
     },
   });
 
@@ -135,23 +132,18 @@ async function resolveSeeds(prismaClient: any, restaurantIds: number[]) {
     .filter((item): item is RestaurantSeed => Boolean(item));
 
   if (!seeds.length) {
-    throw new Error(
-      "Nenhum restaurante ativo com produto ativo encontrado para teste de carga.",
-    );
+    throw new Error('Nenhum restaurante ativo com produto ativo encontrado para teste de carga.');
   }
 
   return seeds;
 }
 
 async function run() {
-  const { default: prismaClient } = await import("../src/config/prisma.js");
+  const { default: prismaClient } = await import('../src/config/prisma.js');
   const options = parseArgs(process.argv.slice(2));
   const seeds = await resolveSeeds(prismaClient, options.restaurantIds);
   const runId = `LOAD_${Date.now()}`;
-  const targetTotal = Math.max(
-    1,
-    Math.round((options.targetRpm / 60) * options.durationSec),
-  );
+  const targetTotal = Math.max(1, Math.round((options.targetRpm / 60) * options.durationSec));
 
   let sent = 0;
   let ok = 0;
@@ -165,13 +157,9 @@ async function run() {
 
   for (let i = 0; i < targetTotal; i += 1) {
     const elapsed = Date.now() - startedAt;
-    const expectedElapsed = Math.floor(
-      ((i + 1) / targetTotal) * options.durationSec * 1000,
-    );
+    const expectedElapsed = Math.floor(((i + 1) / targetTotal) * options.durationSec * 1000);
     if (expectedElapsed > elapsed) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, expectedElapsed - elapsed),
-      );
+      await new Promise((resolve) => setTimeout(resolve, expectedElapsed - elapsed));
     }
 
     const seed = seeds[seedIndex % seeds.length];
@@ -184,19 +172,19 @@ async function run() {
 
     try {
       const response = await fetch(`${options.baseUrl}/orders`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         signal: controller.signal,
         body: JSON.stringify({
           restaurantId: seed.restaurantId,
-          type: "RETIRADA",
-          paymentMethod: "DINHEIRO",
+          type: 'RETIRADA',
+          paymentMethod: 'DINHEIRO',
           paid: false,
-          customerName: "Load Test Runner",
-          customerCpf: "12345678909",
-          customerPhone: "85999999999",
+          customerName: 'Load Test Runner',
+          customerCpf: '12345678909',
+          customerPhone: '85999999999',
           observation: runId,
           items: [
             {
@@ -221,7 +209,7 @@ async function run() {
           const body = await response.text();
           sampleErrors.push({
             status: response.status,
-            body: String(body || "").slice(0, 500),
+            body: String(body || '').slice(0, 500),
           });
         }
       }
@@ -271,10 +259,10 @@ async function run() {
     finishedAt: new Date(finishedAt).toISOString(),
   };
 
-  const reportDir = path.resolve("load-test-reports");
+  const reportDir = path.resolve('load-test-reports');
   await fs.mkdir(reportDir, { recursive: true });
   const reportPath = path.join(reportDir, `${runId}.json`);
-  await fs.writeFile(reportPath, JSON.stringify(report, null, 2), "utf-8");
+  await fs.writeFile(reportPath, JSON.stringify(report, null, 2), 'utf-8');
 
   console.log(JSON.stringify(report, null, 2));
   console.log(`REPORT_SAVED=${reportPath}`);
@@ -290,6 +278,6 @@ run()
     process.exitCode = 1;
   })
   .finally(async () => {
-    const { default: prismaClient } = await import("../src/config/prisma.js");
+    const { default: prismaClient } = await import('../src/config/prisma.js');
     await prismaClient.$disconnect();
   });

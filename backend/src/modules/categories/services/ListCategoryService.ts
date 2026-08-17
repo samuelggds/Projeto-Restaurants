@@ -1,11 +1,11 @@
-import categoryRepository from "../repositories/CategoryRepository.js";
+import categoryRepository from '../repositories/CategoryRepository.js';
 
 class ListCategoryService {
   async execute(restaurantId: number | string) {
     const normalizedRestaurantId = Number(restaurantId);
 
     if (!normalizedRestaurantId) {
-      throw new Error("Restaurante não encontrado!");
+      throw new Error('Restaurante não encontrado!');
     }
     const categories = await categoryRepository.findAll(normalizedRestaurantId);
     return {

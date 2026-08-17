@@ -1,14 +1,11 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
-import { TableSessionStatus } from "@prisma/client";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
+import { TableSessionStatus } from '@prisma/client';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class TableSessionRepository {
-  async create(
-    data: Prisma.TableSessionUncheckedCreateInput,
-    db: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.TableSessionUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.tableSession.create({
       data,
       include: {
@@ -24,10 +21,7 @@ class TableSessionRepository {
     });
   }
 
-  async findOpenedByTable(
-    tableId: number | string,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findOpenedByTable(tableId: number | string, db: PrismaClientLike = prisma) {
     return db.tableSession.findFirst({
       where: {
         tableId: Number(tableId),
@@ -50,10 +44,7 @@ class TableSessionRepository {
     });
   }
 
-  async findBySessionToken(
-    sessionToken: string,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findBySessionToken(sessionToken: string, db: PrismaClientLike = prisma) {
     return db.tableSession.findUnique({
       where: {
         sessionToken,
@@ -63,11 +54,7 @@ class TableSessionRepository {
       },
     });
   }
-  async close(
-    id: number | string,
-    closedById: number | null,
-    db: PrismaClientLike = prisma,
-  ) {
+  async close(id: number | string, closedById: number | null, db: PrismaClientLike = prisma) {
     return db.tableSession.update({
       where: {
         id: Number(id),
@@ -79,10 +66,7 @@ class TableSessionRepository {
       },
     });
   }
-  async listOpenByRestaurant(
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async listOpenByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.tableSession.findMany({
       where: {
         status: TableSessionStatus.OPEN,
@@ -100,7 +84,7 @@ class TableSessionRepository {
         },
       },
       orderBy: {
-        openedAt: "desc",
+        openedAt: 'desc',
       },
     });
   }

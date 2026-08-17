@@ -1,6 +1,6 @@
-import test, { afterEach } from "node:test";
-import assert from "node:assert/strict";
-import http from "node:http";
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
 
 const originalHttpCreateServer = http.createServer;
 
@@ -16,10 +16,10 @@ const [
   { default: PagBankOrderWebhookController },
   { default: finalizeOrderCardPaymentService },
 ] = await Promise.all([
-  import("./StripeOrderWebhookController.js"),
-  import("./MercadoPagoOrderWebhookController.js"),
-  import("./PagBankOrderWebhookController.js"),
-  import("../services/FinalizeOrderCardPaymentService.js"),
+  import('./StripeOrderWebhookController.js'),
+  import('./MercadoPagoOrderWebhookController.js'),
+  import('./PagBankOrderWebhookController.js'),
+  import('../services/FinalizeOrderCardPaymentService.js'),
 ]);
 
 http.createServer = originalHttpCreateServer;
@@ -65,19 +65,17 @@ afterEach(() => {
 
   process.env.STRIPE_WEBHOOK_SECRET = originalEnv.STRIPE_WEBHOOK_SECRET;
   process.env.STRIPE_SECRET_KEY = originalEnv.STRIPE_SECRET_KEY;
-  process.env.ALLOW_INSECURE_STRIPE_WEBHOOK =
-    originalEnv.ALLOW_INSECURE_STRIPE_WEBHOOK;
-  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK =
-    originalEnv.ALLOW_GLOBAL_PAYMENT_FALLBACK;
+  process.env.ALLOW_INSECURE_STRIPE_WEBHOOK = originalEnv.ALLOW_INSECURE_STRIPE_WEBHOOK;
+  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = originalEnv.ALLOW_GLOBAL_PAYMENT_FALLBACK;
   process.env.NODE_ENV = originalEnv.NODE_ENV;
 });
 
-test("deve rejeitar webhook Stripe sem assinatura quando secret esta configurado", async () => {
-  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
-  process.env.NODE_ENV = "test";
+test('deve rejeitar webhook Stripe sem assinatura quando secret esta configurado', async () => {
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+  process.env.NODE_ENV = 'test';
 
   const req = {
-    body: Buffer.from("{}", "utf-8"),
+    body: Buffer.from('{}', 'utf-8'),
     headers: {},
   } as any;
   const res = createMockResponse();
@@ -86,13 +84,13 @@ test("deve rejeitar webhook Stripe sem assinatura quando secret esta configurado
 
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.payload, {
-    error: "Assinatura Stripe ausente no webhook.",
+    error: 'Assinatura Stripe ausente no webhook.',
   });
 });
 
-test("deve rejeitar webhook Stripe pago sem metadata obrigatoria", async () => {
-  process.env.STRIPE_WEBHOOK_SECRET = "";
-  process.env.NODE_ENV = "test";
+test('deve rejeitar webhook Stripe pago sem metadata obrigatoria', async () => {
+  process.env.STRIPE_WEBHOOK_SECRET = '';
+  process.env.NODE_ENV = 'test';
 
   let finalizeCalls = 0;
   finalizeOrderCardPaymentService.execute = async () => {
@@ -102,13 +100,13 @@ test("deve rejeitar webhook Stripe pago sem metadata obrigatoria", async () => {
 
   const req = {
     body: {
-      type: "checkout.session.completed",
+      type: 'checkout.session.completed',
       data: {
         object: {
-          id: "cs_test_123",
-          payment_status: "paid",
+          id: 'cs_test_123',
+          payment_status: 'paid',
           metadata: {
-            orderId: "99",
+            orderId: '99',
           },
         },
       },
@@ -121,16 +119,15 @@ test("deve rejeitar webhook Stripe pago sem metadata obrigatoria", async () => {
 
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.payload, {
-    error:
-      "Webhook Stripe invalido: metadata orderId/restaurantId obrigatoria.",
+    error: 'Webhook Stripe invalido: metadata orderId/restaurantId obrigatoria.',
   });
   assert.equal(finalizeCalls, 0);
 });
 
-test("deve retornar erro quando assinatura Stripe for invalida", async () => {
-  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_invalid_signature";
-  process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
-  process.env.NODE_ENV = "test";
+test('deve retornar erro quando assinatura Stripe for invalida', async () => {
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_invalid_signature';
+  process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+  process.env.NODE_ENV = 'test';
 
   let finalizeCalls = 0;
   finalizeOrderCardPaymentService.execute = async () => {
@@ -141,22 +138,22 @@ test("deve retornar erro quando assinatura Stripe for invalida", async () => {
   const req = {
     body: Buffer.from(
       JSON.stringify({
-        type: "checkout.session.completed",
+        type: 'checkout.session.completed',
         data: {
           object: {
-            id: "cs_invalid_sig",
-            payment_status: "paid",
+            id: 'cs_invalid_sig',
+            payment_status: 'paid',
             metadata: {
-              orderId: "1",
-              restaurantId: "1",
+              orderId: '1',
+              restaurantId: '1',
             },
           },
         },
       }),
-      "utf-8",
+      'utf-8',
     ),
     headers: {
-      "stripe-signature": "t=1710000000,v1=deadbeef",
+      'stripe-signature': 't=1710000000,v1=deadbeef',
     },
   } as any;
   const res = createMockResponse();
@@ -167,9 +164,9 @@ test("deve retornar erro quando assinatura Stripe for invalida", async () => {
   assert.equal(finalizeCalls, 0);
 });
 
-test("deve finalizar pedido no webhook Stripe quando payload valido", async () => {
-  process.env.STRIPE_WEBHOOK_SECRET = "";
-  process.env.NODE_ENV = "test";
+test('deve finalizar pedido no webhook Stripe quando payload valido', async () => {
+  process.env.STRIPE_WEBHOOK_SECRET = '';
+  process.env.NODE_ENV = 'test';
 
   const receivedPayloads: Array<Record<string, unknown>> = [];
   finalizeOrderCardPaymentService.execute = async (payload: any) => {
@@ -179,14 +176,14 @@ test("deve finalizar pedido no webhook Stripe quando payload valido", async () =
 
   const req = {
     body: {
-      type: "checkout.session.completed",
+      type: 'checkout.session.completed',
       data: {
         object: {
-          id: "cs_test_ok",
-          payment_status: "paid",
+          id: 'cs_test_ok',
+          payment_status: 'paid',
           metadata: {
-            orderId: "321",
-            restaurantId: "7",
+            orderId: '321',
+            restaurantId: '7',
           },
         },
       },
@@ -200,20 +197,20 @@ test("deve finalizar pedido no webhook Stripe quando payload valido", async () =
   assert.equal(res.statusCode, 200);
   assert.equal(receivedPayloads.length, 1);
   assert.deepEqual(receivedPayloads[0], {
-    orderId: "321",
-    checkoutSessionId: "cs_test_ok",
+    orderId: '321',
+    checkoutSessionId: 'cs_test_ok',
     restaurantId: 7,
     allowMissingOrder: true,
   });
 });
 
-test("deve exigir restaurantId no webhook Mercado Pago quando fallback global estiver desativado", async () => {
-  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = "false";
+test('deve exigir restaurantId no webhook Mercado Pago quando fallback global estiver desativado', async () => {
+  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'false';
 
   const req = {
     body: {
       data: {
-        id: "mp-payment-1",
+        id: 'mp-payment-1',
       },
     },
     query: {},
@@ -224,17 +221,16 @@ test("deve exigir restaurantId no webhook Mercado Pago quando fallback global es
 
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.payload, {
-    error:
-      "restaurantId obrigatorio no webhook Mercado Pago para ambiente multi-tenant.",
+    error: 'restaurantId obrigatorio no webhook Mercado Pago para ambiente multi-tenant.',
   });
 });
 
-test("deve exigir restaurantId no webhook PagBank quando fallback global estiver desativado", async () => {
-  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = "false";
+test('deve exigir restaurantId no webhook PagBank quando fallback global estiver desativado', async () => {
+  process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'false';
 
   const req = {
     body: {
-      notificationCode: "NTF-123",
+      notificationCode: 'NTF-123',
     },
     query: {},
   } as any;
@@ -244,7 +240,6 @@ test("deve exigir restaurantId no webhook PagBank quando fallback global estiver
 
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.payload, {
-    error:
-      "restaurantId obrigatorio no webhook PagBank para ambiente multi-tenant.",
+    error: 'restaurantId obrigatorio no webhook PagBank para ambiente multi-tenant.',
   });
 });

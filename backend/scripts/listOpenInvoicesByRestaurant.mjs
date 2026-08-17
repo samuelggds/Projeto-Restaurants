@@ -1,5 +1,5 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 const restaurantId = Number(process.argv[2] || 0);
 
@@ -7,7 +7,7 @@ const restaurantId = Number(process.argv[2] || 0);
   try {
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
       throw new Error(
-        "Informe o restaurantId como primeiro argumento. Ex.: npm --prefix backend exec node backend/scripts/listOpenInvoicesByRestaurant.mjs 1",
+        'Informe o restaurantId como primeiro argumento. Ex.: npm --prefix backend exec node backend/scripts/listOpenInvoicesByRestaurant.mjs 1',
       );
     }
 
@@ -15,10 +15,10 @@ const restaurantId = Number(process.argv[2] || 0);
       where: {
         restaurantId,
         status: {
-          in: ["PENDENTE", "ATRASADO"],
+          in: ['PENDENTE', 'ATRASADO'],
         },
       },
-      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+      orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         month: true,

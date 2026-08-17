@@ -1,13 +1,11 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
-import mercadoPagoService from "../src/modules/billing/services/MercadoPagoService.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
+import mercadoPagoService from '../src/modules/billing/services/MercadoPagoService.js';
 
 const invoiceId = Number(process.argv[2]);
 
 if (!invoiceId) {
-  console.error(
-    "Uso: node scripts/regenerateInvoicePaymentLink.mjs <invoiceId>",
-  );
+  console.error('Uso: node scripts/regenerateInvoicePaymentLink.mjs <invoiceId>');
   process.exit(1);
 }
 
@@ -34,9 +32,9 @@ if (!invoiceId) {
       data: { paymentLink: payment.init_point },
     });
 
-    console.log("✅ LINK GERADO E SALVO:", payment.init_point);
+    console.log('✅ LINK GERADO E SALVO:', payment.init_point);
   } catch (err) {
-    console.error("❌ Falha ao regenerar link:", err?.message || err);
+    console.error('❌ Falha ao regenerar link:', err?.message || err);
     console.error(err);
     process.exitCode = 1;
   } finally {

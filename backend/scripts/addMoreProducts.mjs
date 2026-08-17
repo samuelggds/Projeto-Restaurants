@@ -1,78 +1,78 @@
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 const restaurantId = Number(process.argv[2] || 15);
 
 const productsByCategory = {
   Entradas: [
     {
-      name: "Pao de Alho Supremo",
-      description: "Pao de alho assado na brasa com blend de queijos.",
+      name: 'Pao de Alho Supremo',
+      description: 'Pao de alho assado na brasa com blend de queijos.',
       price: 22.9,
     },
     {
-      name: "Mini Pasteis Crocantes",
-      description: "Porcao com mini pasteis recheados de queijo e carne.",
+      name: 'Mini Pasteis Crocantes',
+      description: 'Porcao com mini pasteis recheados de queijo e carne.',
       price: 28.5,
     },
     {
-      name: "Iscas de Frango da Casa",
-      description: "Iscas empanadas sequinhas com molho especial.",
+      name: 'Iscas de Frango da Casa',
+      description: 'Iscas empanadas sequinhas com molho especial.',
       price: 31.9,
     },
   ],
   Pizzas: [
     {
-      name: "Pizza Calabresa Especial",
-      description: "Molho artesanal, mussarela, calabresa e cebola roxa.",
+      name: 'Pizza Calabresa Especial',
+      description: 'Molho artesanal, mussarela, calabresa e cebola roxa.',
       price: 54.9,
     },
     {
-      name: "Pizza Frango com Catupiry",
-      description: "Frango desfiado temperado e catupiry cremoso.",
+      name: 'Pizza Frango com Catupiry',
+      description: 'Frango desfiado temperado e catupiry cremoso.',
       price: 57.9,
     },
     {
-      name: "Pizza Quatro Queijos",
-      description: "Mussarela, provolone, parmesao e gorgonzola.",
+      name: 'Pizza Quatro Queijos',
+      description: 'Mussarela, provolone, parmesao e gorgonzola.',
       price: 61.9,
     },
     {
-      name: "Pizza Portuguesa",
-      description: "Presunto, ovos, cebola, azeitona e mussarela.",
+      name: 'Pizza Portuguesa',
+      description: 'Presunto, ovos, cebola, azeitona e mussarela.',
       price: 59.9,
     },
   ],
   Hamburguer: [
     {
-      name: "Burger Classico 180g",
-      description: "Pao brioche, burger 180g, queijo e molho da casa.",
+      name: 'Burger Classico 180g',
+      description: 'Pao brioche, burger 180g, queijo e molho da casa.',
       price: 34.9,
     },
     {
-      name: "Burger Bacon Melt",
-      description: "Hamburguer suculento com bacon crocante e cheddar.",
+      name: 'Burger Bacon Melt',
+      description: 'Hamburguer suculento com bacon crocante e cheddar.',
       price: 39.9,
     },
     {
-      name: "Burger Duplo Monstro",
-      description: "Dois burgers, queijo duplo e cebola caramelizada.",
+      name: 'Burger Duplo Monstro',
+      description: 'Dois burgers, queijo duplo e cebola caramelizada.',
       price: 46.9,
     },
   ],
   Sushis: [
     {
-      name: "Combo Sushi 20 Pecas",
-      description: "Selecao mista de uramaki, hossomaki e nigiri.",
+      name: 'Combo Sushi 20 Pecas',
+      description: 'Selecao mista de uramaki, hossomaki e nigiri.',
       price: 64.9,
     },
     {
-      name: "Hot Roll Crocante 10 Pecas",
-      description: "Hot roll com salmao, cream cheese e cebolinha.",
+      name: 'Hot Roll Crocante 10 Pecas',
+      description: 'Hot roll com salmao, cream cheese e cebolinha.',
       price: 39.9,
     },
     {
-      name: "Temaki Salmao Premium",
-      description: "Temaki de salmao fresco com cream cheese.",
+      name: 'Temaki Salmao Premium',
+      description: 'Temaki de salmao fresco com cream cheese.',
       price: 29.9,
     },
   ],

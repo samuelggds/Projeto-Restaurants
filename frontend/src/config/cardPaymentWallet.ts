@@ -1,11 +1,11 @@
-import visaLogo from "../assets/card-brands/visa.svg";
-import mastercardLogo from "../assets/card-brands/mastercard.svg";
-import eloLogo from "../assets/card-brands/elo.svg";
-import hipercardLogo from "../assets/card-brands/hipercard.svg";
-import amexLogo from "../assets/card-brands/amex.svg";
-import defaultCardLogo from "../assets/card-brands/default-card.svg";
+import visaLogo from '../assets/card-brands/visa.svg';
+import mastercardLogo from '../assets/card-brands/mastercard.svg';
+import eloLogo from '../assets/card-brands/elo.svg';
+import hipercardLogo from '../assets/card-brands/hipercard.svg';
+import amexLogo from '../assets/card-brands/amex.svg';
+import defaultCardLogo from '../assets/card-brands/default-card.svg';
 
-export const CARD_PAYMENT_WALLET_KEY = "@PecaJaFood:cardPaymentWallet";
+export const CARD_PAYMENT_WALLET_KEY = '@PecaJaFood:cardPaymentWallet';
 
 export type CardPaymentDraft = {
   holderName: string;
@@ -18,71 +18,71 @@ export type SavedCardProfile = CardPaymentDraft & {
 };
 
 export const CARD_BRAND_OPTIONS = [
-  "Visa",
-  "Mastercard",
-  "Elo",
-  "Hipercard",
-  "American Express",
-  "Outra",
+  'Visa',
+  'Mastercard',
+  'Elo',
+  'Hipercard',
+  'American Express',
+  'Outra',
 ];
 
 export function getCardBrandDisplay(brand: string | null | undefined) {
-  const normalized = String(brand || "")
+  const normalized = String(brand || '')
     .trim()
     .toLowerCase();
 
-  if (normalized === "visa") {
+  if (normalized === 'visa') {
     return {
-      label: "Visa",
-      badge: "V",
-      accent: "#dbeafe",
+      label: 'Visa',
+      badge: 'V',
+      accent: '#dbeafe',
     };
   }
 
-  if (normalized === "mastercard") {
+  if (normalized === 'mastercard') {
     return {
-      label: "Master",
-      badge: "MC",
-      accent: "#ffedd5",
+      label: 'Master',
+      badge: 'MC',
+      accent: '#ffedd5',
     };
   }
 
-  if (normalized === "elo") {
+  if (normalized === 'elo') {
     return {
-      label: "Elo",
-      badge: "E",
-      accent: "#e5e7eb",
+      label: 'Elo',
+      badge: 'E',
+      accent: '#e5e7eb',
     };
   }
 
-  if (normalized === "hipercard") {
+  if (normalized === 'hipercard') {
     return {
-      label: "Hiper",
-      badge: "H",
-      accent: "#ffe4e6",
+      label: 'Hiper',
+      badge: 'H',
+      accent: '#ffe4e6',
     };
   }
 
-  if (normalized === "american express") {
+  if (normalized === 'american express') {
     return {
-      label: "Amex",
-      badge: "AX",
-      accent: "#ccfbf1",
+      label: 'Amex',
+      badge: 'AX',
+      accent: '#ccfbf1',
     };
   }
 
-  if (normalized === "outra") {
+  if (normalized === 'outra') {
     return {
-      label: "Outra",
-      badge: "+",
-      accent: "#e2e8f0",
+      label: 'Outra',
+      badge: '+',
+      accent: '#e2e8f0',
     };
   }
 
   return {
-    label: String(brand || "Bandeira") || "Bandeira",
-    badge: "?",
-    accent: "#e2e8f0",
+    label: String(brand || 'Bandeira') || 'Bandeira',
+    badge: '?',
+    accent: '#e2e8f0',
   };
 }
 
@@ -94,9 +94,9 @@ type CardWalletState = {
 
 export function getEmptyCardDraft(): CardPaymentDraft {
   return {
-    holderName: "",
-    brand: "",
-    lastFour: "",
+    holderName: '',
+    brand: '',
+    lastFour: '',
   };
 }
 
@@ -104,17 +104,15 @@ export function sanitizeCardDraft(
   draft: Partial<CardPaymentDraft> | null | undefined,
 ): CardPaymentDraft {
   return {
-    holderName: String(draft?.holderName || ""),
-    brand: String(draft?.brand || ""),
-    lastFour: String(draft?.lastFour || "")
-      .replace(/\D/g, "")
+    holderName: String(draft?.holderName || ''),
+    brand: String(draft?.brand || ''),
+    lastFour: String(draft?.lastFour || '')
+      .replace(/\D/g, '')
       .slice(0, 4),
   };
 }
 
-export function isCardDraftComplete(
-  draft: Partial<CardPaymentDraft> | null | undefined,
-) {
+export function isCardDraftComplete(draft: Partial<CardPaymentDraft> | null | undefined) {
   const sanitized = sanitizeCardDraft(draft);
 
   return (
@@ -124,20 +122,18 @@ export function isCardDraftComplete(
   );
 }
 
-export function buildCardPaymentSummary(
-  cardDraft: Partial<CardPaymentDraft> | null | undefined,
-) {
+export function buildCardPaymentSummary(cardDraft: Partial<CardPaymentDraft> | null | undefined) {
   const sanitized = sanitizeCardDraft(cardDraft);
 
   if (!isCardDraftComplete(sanitized)) {
-    return "";
+    return '';
   }
 
   return `Cartao: ${sanitized.brand.trim().toUpperCase()} final ${sanitized.lastFour} | Titular: ${sanitized.holderName.trim()}`;
 }
 
 export function readCardWallet(): CardWalletState {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return {
       cards: [],
       selectedCardId: null,
@@ -146,19 +142,17 @@ export function readCardWallet(): CardWalletState {
   }
 
   try {
-    const raw = JSON.parse(
-      localStorage.getItem(CARD_PAYMENT_WALLET_KEY) || "null",
-    );
+    const raw = JSON.parse(localStorage.getItem(CARD_PAYMENT_WALLET_KEY) || 'null');
     const cards = Array.isArray(raw?.cards)
       ? raw.cards
           .map((card) => ({
-            id: String(card?.id || ""),
+            id: String(card?.id || ''),
             ...sanitizeCardDraft(card),
           }))
           .filter((card) => card.id && isCardDraftComplete(card))
       : [];
-    const selectedCardId = String(raw?.selectedCardId || "").trim() || null;
-    const defaultCardId = String(raw?.defaultCardId || "").trim() || null;
+    const selectedCardId = String(raw?.selectedCardId || '').trim() || null;
+    const defaultCardId = String(raw?.defaultCardId || '').trim() || null;
 
     return {
       cards,
@@ -187,13 +181,13 @@ export function persistCardWallet(
   selectedCardId: string | null,
   defaultCardId: string | null,
 ) {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
   const normalizedCards = cards
     .map((card) => ({
-      id: String(card?.id || ""),
+      id: String(card?.id || ''),
       ...sanitizeCardDraft(card),
     }))
     .filter((card) => card.id && isCardDraftComplete(card));
@@ -208,24 +202,21 @@ export function persistCardWallet(
   );
 }
 
-export function findSavedCard(
-  cards: SavedCardProfile[],
-  cardId: string | null | undefined,
-) {
+export function findSavedCard(cards: SavedCardProfile[], cardId: string | null | undefined) {
   return cards.find((card) => card.id === cardId) || null;
 }
 
 export function normalizeCardNumberInput(value: string | null | undefined) {
-  const digits = String(value || "")
-    .replace(/\D/g, "")
+  const digits = String(value || '')
+    .replace(/\D/g, '')
     .slice(0, 19);
 
-  return digits.replace(/(.{4})/g, "$1 ").trim();
+  return digits.replace(/(.{4})/g, '$1 ').trim();
 }
 
 export function getCardNumberDigits(value: string | null | undefined) {
-  return String(value || "")
-    .replace(/\D/g, "")
+  return String(value || '')
+    .replace(/\D/g, '')
     .slice(0, 19);
 }
 
@@ -256,8 +247,8 @@ function isLuhnValid(value: string) {
 }
 
 export function normalizeCardExpiryInput(value: string | null | undefined) {
-  const digits = String(value || "")
-    .replace(/\D/g, "")
+  const digits = String(value || '')
+    .replace(/\D/g, '')
     .slice(0, 4);
 
   if (digits.length <= 2) {
@@ -268,7 +259,7 @@ export function normalizeCardExpiryInput(value: string | null | undefined) {
 }
 
 export function isCardExpiryValid(value: string | null | undefined) {
-  const normalized = String(value || "").trim();
+  const normalized = String(value || '').trim();
   const match = normalized.match(/^(\d{2})\/(\d{2})$/);
 
   if (!match) {
@@ -319,14 +310,12 @@ export type SavedCardFieldErrors = {
   lastFour?: string;
 };
 
-export function getExpectedCardCvvLength(
-  brand: string | null | undefined,
-): number {
-  const normalized = String(brand || "")
+export function getExpectedCardCvvLength(brand: string | null | undefined): number {
+  const normalized = String(brand || '')
     .trim()
     .toLowerCase();
 
-  return normalized === "american express" ? 4 : 3;
+  return normalized === 'american express' ? 4 : 3;
 }
 
 export function getSavedCardFieldErrors(
@@ -336,23 +325,21 @@ export function getSavedCardFieldErrors(
   const errors: SavedCardFieldErrors = {};
 
   if (!draft.holderName.trim() || draft.holderName.trim().length < 3) {
-    errors.holderName = "Informe o nome do titular como aparece no cartao.";
+    errors.holderName = 'Informe o nome do titular como aparece no cartao.';
   }
 
   if (!draft.brand.trim()) {
-    errors.brand = "Selecione a bandeira do cartao.";
+    errors.brand = 'Selecione a bandeira do cartao.';
   }
 
   if (draft.lastFour.length !== 4) {
-    errors.lastFour = "Informe os 4 ultimos digitos do cartao.";
+    errors.lastFour = 'Informe os 4 ultimos digitos do cartao.';
   }
 
   return errors;
 }
 
-export function validateSavedCardInput(
-  cardDraft: Partial<CardPaymentDraft> | null | undefined,
-) {
+export function validateSavedCardInput(cardDraft: Partial<CardPaymentDraft> | null | undefined) {
   const errors = getSavedCardFieldErrors(cardDraft);
 
   return errors.holderName || errors.brand || errors.lastFour || null;
@@ -368,41 +355,39 @@ export function getCardCheckoutFieldErrors({
   const draft = sanitizeCardDraft(cardDraft);
   const expectedCvvLength = getExpectedCardCvvLength(draft.brand);
   const cardNumberDigits = getCardNumberDigits(cardNumber);
-  const cvvDigits = String(cardCvv || "")
-    .replace(/\D/g, "")
+  const cvvDigits = String(cardCvv || '')
+    .replace(/\D/g, '')
     .slice(0, 4);
 
   if (!draft.holderName.trim() || draft.holderName.trim().length < 3) {
-    errors.holderName = "Informe o nome do titular como aparece no cartao.";
+    errors.holderName = 'Informe o nome do titular como aparece no cartao.';
   }
 
   if (!draft.brand.trim()) {
-    errors.brand = "Selecione a bandeira do cartao.";
+    errors.brand = 'Selecione a bandeira do cartao.';
   }
 
   if (!isCardNumberValid(cardNumberDigits)) {
-    errors.cardNumber = "Informe um numero de cartao valido (13 a 19 digitos).";
+    errors.cardNumber = 'Informe um numero de cartao valido (13 a 19 digitos).';
   } else if (!isLuhnValid(cardNumberDigits)) {
-    errors.cardNumber =
-      "Numero do cartao invalido. Revise os digitos informados.";
+    errors.cardNumber = 'Numero do cartao invalido. Revise os digitos informados.';
   }
 
   if (draft.lastFour.length !== 4) {
-    errors.lastFour = "Informe os 4 ultimos digitos do cartao.";
+    errors.lastFour = 'Informe os 4 ultimos digitos do cartao.';
   } else if (cardNumberDigits && !cardNumberDigits.endsWith(draft.lastFour)) {
-    errors.lastFour =
-      "Os 4 ultimos digitos nao conferem com o numero do cartao.";
+    errors.lastFour = 'Os 4 ultimos digitos nao conferem com o numero do cartao.';
   }
 
   if (!isCardExpiryValid(cardExpiry)) {
-    errors.cardExpiry = "Informe uma validade valida no formato MM/AA.";
+    errors.cardExpiry = 'Informe uma validade valida no formato MM/AA.';
   }
 
   if (cvvDigits.length !== expectedCvvLength) {
     errors.cardCvv =
       expectedCvvLength === 4
-        ? "Para American Express, informe 4 digitos no CVV."
-        : "Informe um CVV valido com 3 digitos.";
+        ? 'Para American Express, informe 4 digitos no CVV.'
+        : 'Informe um CVV valido com 3 digitos.';
   }
 
   return errors;
@@ -433,73 +418,73 @@ export function validateCardCheckoutInput({
 }
 
 export function getCardBrandPalette(brand: string | null | undefined) {
-  const normalized = String(brand || "")
+  const normalized = String(brand || '')
     .trim()
     .toLowerCase();
 
-  if (normalized === "visa") {
+  if (normalized === 'visa') {
     return {
-      background: "linear-gradient(135deg, #1d4ed8, #60a5fa)",
-      color: "#eff6ff",
+      background: 'linear-gradient(135deg, #1d4ed8, #60a5fa)',
+      color: '#eff6ff',
     };
   }
 
-  if (normalized === "mastercard") {
+  if (normalized === 'mastercard') {
     return {
-      background: "linear-gradient(135deg, #b91c1c, #f97316)",
-      color: "#fff7ed",
+      background: 'linear-gradient(135deg, #b91c1c, #f97316)',
+      color: '#fff7ed',
     };
   }
 
-  if (normalized === "elo") {
+  if (normalized === 'elo') {
     return {
-      background: "linear-gradient(135deg, #111827, #374151)",
-      color: "#f9fafb",
+      background: 'linear-gradient(135deg, #111827, #374151)',
+      color: '#f9fafb',
     };
   }
 
-  if (normalized === "hipercard") {
+  if (normalized === 'hipercard') {
     return {
-      background: "linear-gradient(135deg, #be123c, #fb7185)",
-      color: "#fff1f2",
+      background: 'linear-gradient(135deg, #be123c, #fb7185)',
+      color: '#fff1f2',
     };
   }
 
-  if (normalized === "american express") {
+  if (normalized === 'american express') {
     return {
-      background: "linear-gradient(135deg, #0f766e, #2dd4bf)",
-      color: "#f0fdfa",
+      background: 'linear-gradient(135deg, #0f766e, #2dd4bf)',
+      color: '#f0fdfa',
     };
   }
 
   return {
-    background: "linear-gradient(135deg, #334155, #64748b)",
-    color: "#f8fafc",
+    background: 'linear-gradient(135deg, #334155, #64748b)',
+    color: '#f8fafc',
   };
 }
 
 export function getCardBrandLogo(brand: string | null | undefined) {
-  const normalized = String(brand || "")
+  const normalized = String(brand || '')
     .trim()
     .toLowerCase();
 
-  if (normalized === "visa") {
+  if (normalized === 'visa') {
     return visaLogo;
   }
 
-  if (normalized === "mastercard") {
+  if (normalized === 'mastercard') {
     return mastercardLogo;
   }
 
-  if (normalized === "elo") {
+  if (normalized === 'elo') {
     return eloLogo;
   }
 
-  if (normalized === "hipercard") {
+  if (normalized === 'hipercard') {
     return hipercardLogo;
   }
 
-  if (normalized === "american express") {
+  if (normalized === 'american express') {
     return amexLogo;
   }
 

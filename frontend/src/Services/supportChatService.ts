@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 class SupportChatService {
   async getMessages(options?: {
@@ -30,7 +30,7 @@ class SupportChatService {
 
     const query = Object.keys(params).length > 0 ? { params } : undefined;
 
-    const response = await api.get("/ai-support/messages", query);
+    const response = await api.get('/ai-support/messages', query);
     return response.data;
   }
 }

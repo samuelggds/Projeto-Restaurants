@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
-import prisma from "../../../config/prisma.js";
-import { io } from "../../../server.js";
-import orderRepository from "../repositories/OrderRepository.js";
+import { Request, Response } from 'express';
+import prisma from '../../../config/prisma.js';
+import { io } from '../../../server.js';
+import orderRepository from '../repositories/OrderRepository.js';
 
 export interface AsaasWebhookPaymentPayload {
   id: string;
@@ -18,31 +18,27 @@ export interface AsaasWebhookPayload {
 class AsaasOrderWebhookController {
   async handle(req: Request, res: Response) {
     try {
-      const tokenFromHeader = String(
-        req.header("asaas-access-token") || "",
-      ).trim();
-      const expectedToken = String(
-        process.env.ASAAS_WEBHOOK_TOKEN || "",
-      ).trim();
+      const tokenFromHeader = String(req.header('asaas-access-token') || '').trim();
+      const expectedToken = String(process.env.ASAAS_WEBHOOK_TOKEN || '').trim();
 
       if (!expectedToken || tokenFromHeader !== expectedToken) {
-        return res.status(401).json({ error: "Token de webhook invalido." });
+        return res.status(401).json({ error: 'Token de webhook invalido.' });
       }
 
       const payload = req.body as AsaasWebhookPayload;
-      const event = String(payload?.event || "")
+      const event = String(payload?.event || '')
         .trim()
         .toUpperCase();
 
-      if (event !== "PAYMENT_RECEIVED") {
+      if (event !== 'PAYMENT_RECEIVED') {
         return res.status(200).json({ received: true, ignored: true });
       }
 
       const payment = payload?.payment;
-      const externalReference = String(payment?.externalReference || "").trim();
-      const asaasPaymentId = String(payment?.id || "").trim();
+      const externalReference = String(payment?.externalReference || '').trim();
+      const asaasPaymentId = String(payment?.id || '').trim();
       const paymentValue = Number(payment?.value);
-      const walletId = String(payment?.walletId || "").trim();
+      const walletId = String(payment?.walletId || '').trim();
 
       const hasRequiredPaymentFields =
         Boolean(asaasPaymentId) &&
@@ -78,13 +74,12 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
-      const normalizedPaymentMethod = String(order.paymentMethod || "")
+      const normalizedPaymentMethod = String(order.paymentMethod || '')
         .trim()
         .toUpperCase();
 
       const isSupportedAutomaticMethod =
-        normalizedPaymentMethod === "PIX" ||
-        normalizedPaymentMethod === "CARTAO";
+        normalizedPaymentMethod === 'PIX' || normalizedPaymentMethod === 'CARTAO';
 
       if (!isSupportedAutomaticMethod) {
         return res.status(200).json({ received: true, ignored: true });
@@ -95,7 +90,7 @@ class AsaasOrderWebhookController {
           await prisma.restaurantSettings.updateMany({
             where: {
               restaurantId: order.restaurantId,
-              OR: [{ gatewayMerchantId: null }, { gatewayMerchantId: "" }],
+              OR: [{ gatewayMerchantId: null }, { gatewayMerchantId: '' }],
             },
             data: {
               gatewayMerchantId: walletId,
@@ -103,7 +98,7 @@ class AsaasOrderWebhookController {
           });
         } catch (settingsUpdateError: unknown) {
           console.warn(
-            "[ASAAS_WEBHOOK_GATEWAY_ID_BACKFILL_ERROR]",
+            '[ASAAS_WEBHOOK_GATEWAY_ID_BACKFILL_ERROR]',
             settingsUpdateError instanceof Error
               ? settingsUpdateError.message
               : String(settingsUpdateError),
@@ -112,7 +107,7 @@ class AsaasOrderWebhookController {
       }
 
       if (!order.paid) {
-        if (asaasPaymentId && !String(order.pixPaymentId || "").trim()) {
+        if (asaasPaymentId && !String(order.pixPaymentId || '').trim()) {
           await prisma.order.update({
             where: {
               id: order.id,
@@ -123,40 +118,25 @@ class AsaasOrderWebhookController {
           });
         }
 
-        const updatedOrder = await orderRepository.confirmPayment(
-          order.id,
-          order.restaurantId,
-        );
+        const updatedOrder = await orderRepository.confirmPayment(order.id, order.restaurantId);
 
-        io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
-          "order:payment-confirmed",
-          {
-            orderId: updatedOrder.id,
-            paid: true,
-            paymentMethod: updatedOrder.paymentMethod,
-          },
-        );
+        io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
+          orderId: updatedOrder.id,
+          paid: true,
+          paymentMethod: updatedOrder.paymentMethod,
+        });
 
-        io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
-          "new-order",
-          updatedOrder,
-        );
+        io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
 
-        io.to(`restaurant:${updatedOrder.restaurantId}`).emit(
-          "order:status-changed",
-          updatedOrder,
-        );
+        io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:status-changed', updatedOrder);
 
-        io.to(`restaurant:${updatedOrder.restaurantId}:kitchen`).emit(
-          "kitchen:order-paid",
-          {
-            orderId: updatedOrder.id,
-            restaurantId: updatedOrder.restaurantId,
-            paid: true,
-          },
-        );
+        io.to(`restaurant:${updatedOrder.restaurantId}:kitchen`).emit('kitchen:order-paid', {
+          orderId: updatedOrder.id,
+          restaurantId: updatedOrder.restaurantId,
+          paid: true,
+        });
 
-        io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+        io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
           orderId: updatedOrder.id,
           paid: true,
           paymentMethod: updatedOrder.paymentMethod,
@@ -167,7 +147,7 @@ class AsaasOrderWebhookController {
       return res.status(200).json({ received: true, processed: true });
     } catch (error: unknown) {
       console.error(
-        "[ASAAS_WEBHOOK_ERROR]",
+        '[ASAAS_WEBHOOK_ERROR]',
         error instanceof Error ? error.message : String(error),
       );
 

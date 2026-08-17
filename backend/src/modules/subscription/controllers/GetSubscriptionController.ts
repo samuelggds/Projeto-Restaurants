@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import getSubscriptionService from "../services/GetSubscriptionService.js";
+import { Request, Response } from 'express';
+import getSubscriptionService from '../services/GetSubscriptionService.js';
 
 class GetSubscriptionController {
   async handle(req: Request, res: Response) {
@@ -13,8 +13,7 @@ class GetSubscriptionController {
       return res.status(200).json(subscription);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao buscar assinatura",
+        error: error instanceof Error ? error.message : 'Erro ao buscar assinatura',
       });
     }
   }

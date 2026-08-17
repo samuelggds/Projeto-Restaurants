@@ -1,21 +1,16 @@
-import api from "./api";
+import api from './api';
 
 type ProductPayload = Record<string, unknown>;
 
 function resolveRestaurantIdFromStorage() {
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    const tableSession = JSON.parse(
-      localStorage.getItem("tableSession") || "null",
-    );
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const tableSession = JSON.parse(localStorage.getItem('tableSession') || 'null');
     const fromUser = Number(
-      user?.restaurantId ||
-        user?.restaurant?.id ||
-        user?.restaurant?.restaurantId ||
-        0,
+      user?.restaurantId || user?.restaurant?.id || user?.restaurant?.restaurantId || 0,
     );
     const fromSession = Number(tableSession?.restaurantId || 0);
-    const fromMenu = Number(localStorage.getItem("menuRestaurantId") || 0);
+    const fromMenu = Number(localStorage.getItem('menuRestaurantId') || 0);
 
     if (fromUser > 0) {
       return fromUser;
@@ -34,14 +29,10 @@ function resolveRestaurantIdFromStorage() {
 class ProductsService {
   async listProducts(restaurantId?: string | number | null) {
     const resolvedRestaurantId =
-      Number(restaurantId || 0) > 0
-        ? Number(restaurantId)
-        : resolveRestaurantIdFromStorage();
+      Number(restaurantId || 0) > 0 ? Number(restaurantId) : resolveRestaurantIdFromStorage();
 
-    const response = await api.get("/products", {
-      params: resolvedRestaurantId
-        ? { restaurantId: resolvedRestaurantId }
-        : undefined,
+    const response = await api.get('/products', {
+      params: resolvedRestaurantId ? { restaurantId: resolvedRestaurantId } : undefined,
     });
     const payload = response.data;
 
@@ -53,7 +44,7 @@ class ProductsService {
   }
 
   async createProduct(payload: ProductPayload) {
-    const response = await api.post("/products", payload);
+    const response = await api.post('/products', payload);
     return response.data;
   }
 

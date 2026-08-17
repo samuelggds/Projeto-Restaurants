@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   BRAND_IDENTITY_STORAGE_KEY,
   BRAND_IDENTITY_UPDATED_EVENT,
   getBrandIdentity,
   type BrandIdentity,
-} from "../config/brandIdentity";
+} from '../config/brandIdentity';
 
 export default function useBrandIdentity() {
-  const [brandIdentity, setBrandIdentity] = useState<BrandIdentity>(() =>
-    getBrandIdentity(),
-  );
+  const [brandIdentity, setBrandIdentity] = useState<BrandIdentity>(() => getBrandIdentity());
 
   useEffect(() => {
     function syncBrandIdentity() {
@@ -25,19 +23,16 @@ export default function useBrandIdentity() {
     }
 
     window.addEventListener(BRAND_IDENTITY_UPDATED_EVENT, syncBrandIdentity);
-    window.addEventListener("storage", handleStorage);
+    window.addEventListener('storage', handleStorage);
 
     return () => {
-      window.removeEventListener(
-        BRAND_IDENTITY_UPDATED_EVENT,
-        syncBrandIdentity,
-      );
-      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(BRAND_IDENTITY_UPDATED_EVENT, syncBrandIdentity);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
   return {
-    brandName: String(brandIdentity.name || "Peça já food"),
-    brandLogoUrl: String(brandIdentity.logoUrl || ""),
+    brandName: String(brandIdentity.name || 'Peça já food'),
+    brandLogoUrl: String(brandIdentity.logoUrl || ''),
   };
 }

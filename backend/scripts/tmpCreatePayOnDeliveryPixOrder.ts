@@ -1,13 +1,8 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "backend/.env" });
+import dotenv from 'dotenv';
+dotenv.config({ path: 'backend/.env' });
 
-import prisma from "../src/config/prisma.js";
-import {
-  OrderStatus,
-  OrderType,
-  PaymentMethod,
-  UserRole,
-} from "@prisma/client";
+import prisma from '../src/config/prisma.js';
+import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client';
 
 async function main() {
   const courier = await prisma.user.findFirst({
@@ -16,7 +11,7 @@ async function main() {
   });
 
   if (!courier?.restaurantId) {
-    throw new Error("Motoqueiro ativo nao encontrado.");
+    throw new Error('Motoqueiro ativo nao encontrado.');
   }
 
   const restaurantId = courier.restaurantId;
@@ -24,18 +19,18 @@ async function main() {
   let customer = await prisma.user.findFirst({
     where: { restaurantId, role: UserRole.CLIENTE, active: true },
     select: { id: true, phone: true, name: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!customer) {
     customer = await prisma.user.create({
       data: {
-        name: "Cliente Teste PayOnDelivery",
+        name: 'Cliente Teste PayOnDelivery',
         email: `cliente.payondelivery.${Date.now()}@pizzaia.demo`,
-        password: "123456",
+        password: '123456',
         role: UserRole.CLIENTE,
         active: true,
-        phone: "+5585999998888",
+        phone: '+5585999998888',
         restaurantId,
       },
       select: { id: true, phone: true, name: true },
@@ -45,19 +40,19 @@ async function main() {
   if (!customer.phone) {
     await prisma.user.update({
       where: { id: customer.id },
-      data: { phone: "+5585999998888" },
+      data: { phone: '+5585999998888' },
     });
-    customer = { ...customer, phone: "+5585999998888" };
+    customer = { ...customer, phone: '+5585999998888' };
   }
 
   const product = await prisma.product.findFirst({
     where: { restaurantId, active: true },
     select: { id: true, price: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   if (!product) {
-    throw new Error("Produto ativo nao encontrado.");
+    throw new Error('Produto ativo nao encontrado.');
   }
 
   const order = await prisma.order.create({
@@ -70,12 +65,12 @@ async function main() {
       payOnDeliveryMethod: PaymentMethod.PIX,
       paid: false,
       paidAt: null,
-      address: "Rua Teste PayOnDelivery",
-      number: "123",
-      district: "Centro",
-      city: "Fortaleza",
-      state: "CE",
-      zipCode: "60000000",
+      address: 'Rua Teste PayOnDelivery',
+      number: '123',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000000',
       observation: `TMP_PAY_ON_DELIVERY_PIX_${Date.now()}`,
       userId: customer.id,
       restaurantId,
@@ -102,8 +97,8 @@ async function main() {
     },
   });
 
-  const code = String(order.user?.phone || "")
-    .replace(/\D/g, "")
+  const code = String(order.user?.phone || '')
+    .replace(/\D/g, '')
     .slice(-4);
 
   console.log(

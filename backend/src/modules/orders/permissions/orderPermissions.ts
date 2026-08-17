@@ -1,4 +1,4 @@
-import { OrderStatus, UserRole } from "@prisma/client";
+import { OrderStatus, UserRole } from '@prisma/client';
 
 const permissions: Partial<Record<UserRole, OrderStatus[]>> = {
   [UserRole.ADMIN]: [

@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import requestPinAssistanceService from "../services/RequestPinAssistanceService.js";
+import { Request, Response } from 'express';
+import requestPinAssistanceService from '../services/RequestPinAssistanceService.js';
 
 class RequestPinAssistanceController {
   async handle(req: Request, res: Response) {
@@ -11,10 +11,7 @@ class RequestPinAssistanceController {
       return res.status(200).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao solicitar apoio de PIN",
+        error: error instanceof Error ? error.message : 'Erro ao solicitar apoio de PIN',
       });
     }
   }

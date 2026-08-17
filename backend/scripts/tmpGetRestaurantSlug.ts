@@ -1,12 +1,12 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "backend/.env" });
+import dotenv from 'dotenv';
+dotenv.config({ path: 'backend/.env' });
 
-import prisma from "../src/config/prisma.js";
+import prisma from '../src/config/prisma.js';
 
 async function main() {
   const restaurant = await prisma.restaurant.findFirst({
     select: { id: true, slug: true, name: true },
-    orderBy: { id: "asc" },
+    orderBy: { id: 'asc' },
   });
 
   console.log(JSON.stringify(restaurant, null, 2));

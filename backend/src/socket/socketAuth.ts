@@ -1,8 +1,8 @@
-import jwt from "jsonwebtoken";
-import type { JwtPayload } from "jsonwebtoken";
-import type { Socket } from "socket.io";
-import tableSessionRepository from "../modules/tableSession/repositories/TableSessionRepository.js";
-import { TableSessionStatus } from "@prisma/client";
+import jwt from 'jsonwebtoken';
+import type { JwtPayload } from 'jsonwebtoken';
+import type { Socket } from 'socket.io';
+import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
+import { TableSessionStatus } from '@prisma/client';
 
 type SocketAuthNext = (err?: Error) => void;
 
@@ -21,7 +21,7 @@ type SocketTableSession = {
 
 type AppSocket = Socket & {
   user?: SocketUser;
-  authType?: "user" | "table-session";
+  authType?: 'user' | 'table-session';
   tableSession?: SocketTableSession;
 };
 
@@ -34,20 +34,19 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET) as SocketUser;
 
       socket.user = decoded;
-      socket.authType = "user";
+      socket.authType = 'user';
 
       return next();
     }
 
     if (sessionToken) {
-      const session =
-        await tableSessionRepository.findBySessionToken(sessionToken);
+      const session = await tableSessionRepository.findBySessionToken(sessionToken);
 
       if (!session || session.status !== TableSessionStatus.OPEN) {
-        return next(new Error("Sessão da mesa inválida"));
+        return next(new Error('Sessão da mesa inválida'));
       }
 
-      socket.authType = "table-session";
+      socket.authType = 'table-session';
       socket.tableSession = {
         id: session.id,
         tableId: session.tableId,
@@ -58,8 +57,8 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
       return next();
     }
 
-    return next(new Error("Token não enviado"));
+    return next(new Error('Token não enviado'));
   } catch (_error: unknown) {
-    return next(new Error("Token inválido"));
+    return next(new Error('Token inválido'));
   }
 }

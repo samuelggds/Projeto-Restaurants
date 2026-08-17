@@ -1,41 +1,41 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "backend/.env" });
+import dotenv from 'dotenv';
+dotenv.config({ path: 'backend/.env' });
 
-import bcrypt from "bcrypt";
-import prisma from "../src/config/prisma.js";
-import { UserRole } from "@prisma/client";
+import bcrypt from 'bcrypt';
+import prisma from '../src/config/prisma.js';
+import { UserRole } from '@prisma/client';
 
 async function main() {
   const restaurant = await prisma.restaurant.findFirst({
-    where: { slug: "pizza-ia-demo" },
+    where: { slug: 'pizza-ia-demo' },
     select: { id: true, slug: true },
   });
 
   if (!restaurant) {
-    throw new Error("Restaurante pizza-ia-demo nao encontrado.");
+    throw new Error('Restaurante pizza-ia-demo nao encontrado.');
   }
 
-  const password = "123456";
+  const password = '123456';
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.upsert({
-    where: { email: "cliente.pizzaia.demo@pizzaia.demo" },
+    where: { email: 'cliente.pizzaia.demo@pizzaia.demo' },
     update: {
-      name: "Cliente Pizza IA",
+      name: 'Cliente Pizza IA',
       password: passwordHash,
       role: UserRole.CLIENTE,
       active: true,
       restaurantId: restaurant.id,
-      phone: "+5585999998888",
+      phone: '+5585999998888',
     },
     create: {
-      name: "Cliente Pizza IA",
-      email: "cliente.pizzaia.demo@pizzaia.demo",
+      name: 'Cliente Pizza IA',
+      email: 'cliente.pizzaia.demo@pizzaia.demo',
       password: passwordHash,
       role: UserRole.CLIENTE,
       active: true,
       restaurantId: restaurant.id,
-      phone: "+5585999998888",
+      phone: '+5585999998888',
     },
     select: { id: true, email: true, role: true, restaurantId: true },
   });

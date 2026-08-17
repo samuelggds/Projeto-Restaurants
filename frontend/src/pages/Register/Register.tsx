@@ -1,26 +1,29 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import { ThemeProvider } from "styled-components";
-import { Utensils, Sun, Moon } from "lucide-react";
-import authService from "../../Services/authService"; // Ajuste o caminho conforme seu projeto
-import * as S from "./styles";
+import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { ThemeProvider } from 'styled-components';
+import { Utensils, Sun, Moon } from 'lucide-react';
+import authService from '../../Services/authService'; // Ajuste o caminho conforme seu projeto
+import * as S from './styles';
+import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const branding = useRestaurantLoginBranding(searchParams);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validação básica de senhas incompatíveis antes de enviar para a API
     if (password !== confirmPassword) {
-      return toast.error("As senhas não coincidem!");
+      return toast.error('As senhas não coincidem!');
     }
 
     try {
@@ -32,18 +35,22 @@ export default function Register() {
         confirmPassword,
       });
 
-      toast.success(
-        "Cadastro realizado com sucesso! Faça login para continuar.",
-      );
-      navigate("/login"); // Redireciona para o login após sucesso
+      toast.success('Cadastro realizado com sucesso! Faça login para continuar.');
+      navigate('/login'); // Redireciona para o login após sucesso
     } catch (error) {
-      error.message = "Erro ao realizar cadastro , Email ou senha inválidos!";
+      error.message = 'Erro ao realizar cadastro , Email ou senha inválidos!';
       toast.error(error.message);
     }
   };
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
+    <ThemeProvider
+      theme={{
+        ...(isDarkMode ? S.darkTheme : S.lightTheme),
+        primary: branding.primaryColor,
+        primaryHover: branding.primaryColor,
+      }}
+    >
       <S.Container>
         {/* INTERRUPTOR DE TEMA (SOL/LUA) NO TOPO */}
         <S.TopBar>
@@ -53,15 +60,18 @@ export default function Register() {
         </S.TopBar>
 
         {/* LADO ESQUERDO: BANNER INSTITUCIONAL PADRÃO */}
-        <S.BannerSection>
+        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
-            <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
+            {branding.logoUrl ? (
+              <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />
+            ) : (
+              <Utensils size={32} strokeWidth={2.5} />
+            )}
+            <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
-            Crie sua conta em poucos segundos e tenha acesso completo ao nosso
-            cardápio, histórico de pedidos na mesa e benefícios exclusivos de
-            fidelidade.
+            Crie sua conta em poucos segundos e tenha acesso completo ao nosso cardápio, histórico
+            de pedidos na mesa e benefícios exclusivos de fidelidade.
           </S.BrandSubtitle>
         </S.BannerSection>
 

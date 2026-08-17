@@ -1,5 +1,5 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 (async () => {
   try {
@@ -14,7 +14,7 @@ import prisma from "../src/config/prisma.js";
         price: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
       take: 10,
     });

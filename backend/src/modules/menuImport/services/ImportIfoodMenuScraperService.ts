@@ -1,9 +1,9 @@
-import axios from "axios";
-import * as cheerio from "cheerio";
-import { z } from "zod";
-import prisma from "../../../config/prisma.js";
-import categoryRepository from "../../categories/repositories/CategoryRepository.js";
-import productRepository from "../../products/repositories/ProductRepository.js";
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { z } from 'zod';
+import prisma from '../../../config/prisma.js';
+import categoryRepository from '../../categories/repositories/CategoryRepository.js';
+import productRepository from '../../products/repositories/ProductRepository.js';
 
 type ScrapeIfoodMenuInput = {
   url: string;
@@ -23,33 +23,33 @@ type ParsedMenu = {
 };
 
 const scrapeInputSchema = z.object({
-  url: z.string().trim().url("Informe uma URL válida do iFood."),
+  url: z.string().trim().url('Informe uma URL válida do iFood.'),
   restaurantId: z.union([z.number(), z.string()]),
 });
 
 function normalizeText(value: string | null | undefined) {
-  return String(value || "")
-    .replace(/\s+/g, " ")
+  return String(value || '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function normalizeComparableName(value: string | null | undefined) {
   return normalizeText(value)
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function buildUserAgent() {
   return [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "AppleWebKit/537.36 (KHTML, like Gecko)",
-    "Chrome/126.0.0.0 Safari/537.36",
-  ].join(" ");
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    'AppleWebKit/537.36 (KHTML, like Gecko)',
+    'Chrome/126.0.0.0 Safari/537.36',
+  ].join(' ');
 }
 
 function parsePrice(raw: string | number | null | undefined) {
-  if (typeof raw === "number") {
+  if (typeof raw === 'number') {
     return Number.isFinite(raw) ? raw : null;
   }
 
@@ -59,10 +59,10 @@ function parsePrice(raw: string | number | null | undefined) {
   }
 
   const normalized = text
-    .replace(/[^\d,.-]/g, "")
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
-    .replace(/,(?=\d{1,2}$)/g, ".")
-    .replace(/,/g, "");
+    .replace(/[^\d,.-]/g, '')
+    .replace(/\.(?=\d{3}(\D|$))/g, '')
+    .replace(/,(?=\d{1,2}$)/g, '.')
+    .replace(/,/g, '');
 
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
@@ -103,14 +103,14 @@ function collectTextCandidates($: cheerio.CheerioAPI, selectors: string[]) {
 }
 
 function looksLikePrice(value: string) {
-  return /\d+[,.]\d{1,2}|\bR\$\b/i.test(String(value || ""));
+  return /\d+[,.]\d{1,2}|\bR\$\b/i.test(String(value || ''));
 }
 
 function extractRestaurantName($: cheerio.CheerioAPI) {
   const candidates = [
-    $("h1").first().text(),
-    $("meta[property='og:title']").attr("content"),
-    $("title").text(),
+    $('h1').first().text(),
+    $("meta[property='og:title']").attr('content'),
+    $('title').text(),
   ]
     .map((item) => normalizeText(item))
     .filter(Boolean);
@@ -124,27 +124,27 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
   const structuredData = extractStructuredData($);
 
   const categoryHints = collectTextCandidates($, [
-    "h2",
-    "h3",
+    'h2',
+    'h3',
     "[data-testid*='category']",
     "[class*='category']",
   ]);
 
   const productHints = collectTextCandidates($, [
-    "h4",
-    "h5",
+    'h4',
+    'h5',
     "[data-testid*='product']",
     "[class*='product']",
-    "button",
-    "article",
-    "li",
+    'button',
+    'article',
+    'li',
   ]);
 
   const priceHints = collectTextCandidates($, [
     "[class*='price']",
     "[data-testid*='price']",
-    "span",
-    "div",
+    'span',
+    'div',
   ]).filter(looksLikePrice);
 
   const itemNodes = $("article, [data-testid*='product'], [class*='product']");
@@ -152,16 +152,10 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
   itemNodes.each((_, node) => {
     const root = $(node);
     const productName = normalizeText(
-      root
-        .find("h3, h4, h5, [class*='name'], [data-testid*='name']")
-        .first()
-        .text() || root.text(),
+      root.find("h3, h4, h5, [class*='name'], [data-testid*='name']").first().text() || root.text(),
     );
     const description = normalizeText(
-      root
-        .find("p, [class*='description'], [data-testid*='description']")
-        .first()
-        .text(),
+      root.find("p, [class*='description'], [data-testid*='description']").first().text(),
     );
     const priceText = normalizeText(
       root
@@ -185,7 +179,7 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
     );
 
     items.push({
-      categoryName: categoryName || "Cardápio iFood",
+      categoryName: categoryName || 'Cardápio iFood',
       productName,
       description: description || null,
       price,
@@ -194,25 +188,23 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
 
   if (!items.length && structuredData.length) {
     for (const entry of structuredData) {
-      if (!entry || typeof entry !== "object") {
+      if (!entry || typeof entry !== 'object') {
         continue;
       }
 
       const typedEntry = entry as Record<string, unknown>;
       const graph = Array.isArray(typedEntry.graph)
         ? (typedEntry.graph as unknown[])
-        : Array.isArray(typedEntry["@graph"])
-          ? (typedEntry["@graph"] as unknown[])
+        : Array.isArray(typedEntry['@graph'])
+          ? (typedEntry['@graph'] as unknown[])
           : [];
 
       for (const graphItem of graph) {
-        if (!graphItem || typeof graphItem !== "object") {
+        if (!graphItem || typeof graphItem !== 'object') {
           continue;
         }
 
-        const name = normalizeText(
-          (graphItem as { name?: unknown }).name as string,
-        );
+        const name = normalizeText((graphItem as { name?: unknown }).name as string);
         const description = normalizeText(
           (graphItem as { description?: unknown }).description as string,
         );
@@ -222,7 +214,7 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
 
         if (name && priceValue) {
           items.push({
-            categoryName: "Cardápio iFood",
+            categoryName: 'Cardápio iFood',
             productName: name,
             description: description || null,
             price: priceValue,
@@ -233,10 +225,8 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
   }
 
   if (!items.length) {
-    const fallbackCategory = categoryHints[0] || "Cardápio iFood";
-    const candidateNames = productHints.filter(
-      (candidate) => !looksLikePrice(candidate),
-    );
+    const fallbackCategory = categoryHints[0] || 'Cardápio iFood';
+    const candidateNames = productHints.filter((candidate) => !looksLikePrice(candidate));
 
     for (let index = 0; index < candidateNames.length; index += 1) {
       const productName = candidateNames[index];
@@ -277,26 +267,26 @@ class ImportIfoodMenuScraperService {
     const restaurantId = Number(parsedInput.restaurantId);
 
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
-      throw new Error("restauranteId inválido.");
+      throw new Error('restauranteId inválido.');
     }
 
     const response = await axios.get(parsedInput.url, {
       headers: {
-        "User-Agent": buildUserAgent(),
+        'User-Agent': buildUserAgent(),
         Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        Referer: "https://www.ifood.com.br/",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        Referer: 'https://www.ifood.com.br/',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
       },
       timeout: 15000,
       maxRedirects: 5,
     });
 
-    const html = String(response.data || "");
+    const html = String(response.data || '');
     if (!html.trim()) {
-      throw new Error("Não foi possível carregar o HTML da página informada.");
+      throw new Error('Não foi possível carregar o HTML da página informada.');
     }
 
     const $ = cheerio.load(html);
@@ -304,7 +294,7 @@ class ImportIfoodMenuScraperService {
 
     if (!parsedMenu.items.length) {
       throw new Error(
-        "Não foi possível identificar categorias e produtos na página pública do iFood.",
+        'Não foi possível identificar categorias e produtos na página pública do iFood.',
       );
     }
 
@@ -316,11 +306,7 @@ class ImportIfoodMenuScraperService {
         const categoryName = normalizeText(item.categoryName);
         const productName = normalizeText(item.productName);
 
-        let category = await categoryRepository.findByName(
-          categoryName,
-          restaurantId,
-          db,
-        );
+        let category = await categoryRepository.findByName(categoryName, restaurantId, db);
 
         if (!category) {
           category = await categoryRepository.create(
@@ -339,11 +325,7 @@ class ImportIfoodMenuScraperService {
           });
         }
 
-        const existingProduct = await productRepository.findByName(
-          productName,
-          restaurantId,
-          db,
-        );
+        const existingProduct = await productRepository.findByName(productName, restaurantId, db);
 
         if (existingProduct) {
           continue;

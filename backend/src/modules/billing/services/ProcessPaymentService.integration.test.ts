@@ -1,16 +1,17 @@
 // @ts-nocheck
-import test, { afterEach } from "node:test";
-import assert from "node:assert/strict";
-import processPaymentService from "./ProcessPaymentService.js";
-import billingRepository from "../repositories/BillingRepository.js";
-import prisma from "../../../config/prisma.js";
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import processPaymentService from './ProcessPaymentService.js';
+import billingRepository from '../repositories/BillingRepository.js';
+import prisma from '../../../config/prisma.js';
 
 const originalConsoleLog = console.log;
 
 const originalMethods = {
+  transaction: prisma.$transaction,
+  findInvoiceById: billingRepository.findInvoiceById,
   updateInvoice: billingRepository.updateInvoice,
-  findSubscriptionByRestaurantId:
-    billingRepository.findSubscriptionByRestaurantId,
+  findSubscriptionByRestaurantId: billingRepository.findSubscriptionByRestaurantId,
   updateSubscription: billingRepository.updateSubscription,
   activateRestaurant: billingRepository.activateRestaurant,
   deactivateRestaurant: billingRepository.deactivateRestaurant,
@@ -20,21 +21,33 @@ const originalMethods = {
 afterEach(() => {
   console.log = originalConsoleLog;
 
+  prisma.$transaction = originalMethods.transaction;
+  billingRepository.findInvoiceById = originalMethods.findInvoiceById;
   billingRepository.updateInvoice = originalMethods.updateInvoice;
-  billingRepository.findSubscriptionByRestaurantId =
-    originalMethods.findSubscriptionByRestaurantId;
+  billingRepository.findSubscriptionByRestaurantId = originalMethods.findSubscriptionByRestaurantId;
   billingRepository.updateSubscription = originalMethods.updateSubscription;
   billingRepository.activateRestaurant = originalMethods.activateRestaurant;
   billingRepository.deactivateRestaurant = originalMethods.deactivateRestaurant;
   prisma.invoice.findMany = originalMethods.invoiceFindMany;
 });
 
+function useImmediateTransaction() {
+  prisma.$transaction = async (callback) => callback(prisma);
+}
+
 function silenceServiceLogs() {
   console.log = () => {};
 }
 
-test("pagando deve liberar o sistema para o dono do restaurante", async () => {
+test('pagando deve liberar o sistema para o dono do restaurante', async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 10,
+    status: 'PENDENTE',
+  });
 
   const calls = {
     updateSubscriptionStatus: null,
@@ -44,13 +57,13 @@ test("pagando deve liberar o sistema para o dono do restaurante", async () => {
 
   billingRepository.updateInvoice = async (invoiceId, data) => {
     assert.equal(invoiceId, 123);
-    assert.equal(data.status, "PAGO");
+    assert.equal(data.status, 'PAGO');
     assert.ok(data.paidAt instanceof Date);
 
     return {
       id: invoiceId,
       restaurantId: 10,
-      status: "PAGO",
+      status: 'PAGO',
     };
   };
 
@@ -63,8 +76,8 @@ test("pagando deve liberar o sistema para o dono do restaurante", async () => {
     {
       id: 1,
       restaurantId: 10,
-      status: "PENDENTE",
-      dueDate: new Date("2099-01-01T12:00:00.000Z"),
+      status: 'PENDENTE',
+      dueDate: new Date('2099-01-01T12:00:00.000Z'),
     },
   ];
 
@@ -85,14 +98,21 @@ test("pagando deve liberar o sistema para o dono do restaurante", async () => {
 
   const result = await processPaymentService.execute({ invoiceId: 123 });
 
-  assert.equal(result.status, "PAGO");
-  assert.equal(calls.updateSubscriptionStatus, "ATIVA");
+  assert.equal(result.status, 'PAGO');
+  assert.equal(calls.updateSubscriptionStatus, 'ATIVA');
   assert.equal(calls.activatedRestaurantId, 10);
   assert.equal(calls.deactivatedRestaurantId, null);
 });
 
-test("deve manter bloqueio quando existir invoice bloqueante em aberto", async () => {
+test('deve manter bloqueio quando existir invoice bloqueante em aberto', async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 20,
+    status: 'PENDENTE',
+  });
 
   const calls = {
     updateSubscriptionStatus: null,
@@ -103,7 +123,7 @@ test("deve manter bloqueio quando existir invoice bloqueante em aberto", async (
   billingRepository.updateInvoice = async (invoiceId) => ({
     id: invoiceId,
     restaurantId: 20,
-    status: "PAGO",
+    status: 'PAGO',
   });
 
   billingRepository.findSubscriptionByRestaurantId = async (restaurantId) => ({
@@ -115,8 +135,8 @@ test("deve manter bloqueio quando existir invoice bloqueante em aberto", async (
     {
       id: 2,
       restaurantId: 20,
-      status: "ATRASADO",
-      dueDate: new Date("2026-01-01T12:00:00.000Z"),
+      status: 'ATRASADO',
+      dueDate: new Date('2026-01-01T12:00:00.000Z'),
     },
   ];
 
@@ -137,14 +157,21 @@ test("deve manter bloqueio quando existir invoice bloqueante em aberto", async (
 
   const result = await processPaymentService.execute({ invoiceId: 999 });
 
-  assert.equal(result.status, "PAGO");
-  assert.equal(calls.updateSubscriptionStatus, "EXPIRADA");
+  assert.equal(result.status, 'PAGO');
+  assert.equal(calls.updateSubscriptionStatus, 'EXPIRADA');
   assert.equal(calls.activatedRestaurantId, null);
   assert.equal(calls.deactivatedRestaurantId, 20);
 });
 
-test("deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio", async () => {
+test('deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio', async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 30,
+    status: 'PENDENTE',
+  });
 
   const calls = {
     updateSubscriptionCalled: false,
@@ -155,7 +182,7 @@ test("deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio"
   billingRepository.updateInvoice = async (invoiceId) => ({
     id: invoiceId,
     restaurantId: 30,
-    status: "PAGO",
+    status: 'PAGO',
   });
 
   billingRepository.findSubscriptionByRestaurantId = async () => null;
@@ -164,8 +191,8 @@ test("deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio"
     {
       id: 3,
       restaurantId: 30,
-      status: "PENDENTE",
-      dueDate: new Date("2099-01-01T12:00:00.000Z"),
+      status: 'PENDENTE',
+      dueDate: new Date('2099-01-01T12:00:00.000Z'),
     },
   ];
 
@@ -186,14 +213,21 @@ test("deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio"
 
   const result = await processPaymentService.execute({ invoiceId: 456 });
 
-  assert.equal(result.status, "PAGO");
+  assert.equal(result.status, 'PAGO');
   assert.equal(calls.updateSubscriptionCalled, false);
   assert.equal(calls.activatedRestaurantId, 30);
   assert.equal(calls.deactivatedRestaurantId, null);
 });
 
-test("deve manter bloqueio sem assinatura quando houver invoice bloqueante", async () => {
+test('deve manter bloqueio sem assinatura quando houver invoice bloqueante', async () => {
   silenceServiceLogs();
+  useImmediateTransaction();
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 40,
+    status: 'PENDENTE',
+  });
 
   const calls = {
     updateSubscriptionCalled: false,
@@ -204,7 +238,7 @@ test("deve manter bloqueio sem assinatura quando houver invoice bloqueante", asy
   billingRepository.updateInvoice = async (invoiceId) => ({
     id: invoiceId,
     restaurantId: 40,
-    status: "PAGO",
+    status: 'PAGO',
   });
 
   billingRepository.findSubscriptionByRestaurantId = async () => null;
@@ -213,8 +247,8 @@ test("deve manter bloqueio sem assinatura quando houver invoice bloqueante", asy
     {
       id: 4,
       restaurantId: 40,
-      status: "ATRASADO",
-      dueDate: new Date("2026-01-01T12:00:00.000Z"),
+      status: 'ATRASADO',
+      dueDate: new Date('2026-01-01T12:00:00.000Z'),
     },
   ];
 
@@ -235,8 +269,39 @@ test("deve manter bloqueio sem assinatura quando houver invoice bloqueante", asy
 
   const result = await processPaymentService.execute({ invoiceId: 789 });
 
-  assert.equal(result.status, "PAGO");
+  assert.equal(result.status, 'PAGO');
   assert.equal(calls.updateSubscriptionCalled, false);
   assert.equal(calls.activatedRestaurantId, null);
   assert.equal(calls.deactivatedRestaurantId, 40);
+});
+
+test('nao deve registrar novamente uma fatura que ja esta paga', async () => {
+  silenceServiceLogs();
+  useImmediateTransaction();
+
+  const paidAt = new Date('2026-08-01T12:00:00.000Z');
+  let updateInvoiceCalled = false;
+
+  billingRepository.findInvoiceById = async (invoiceId) => ({
+    id: invoiceId,
+    restaurantId: 50,
+    status: 'PAGO',
+    paidAt,
+  });
+  billingRepository.updateInvoice = async () => {
+    updateInvoiceCalled = true;
+    throw new Error('nao deveria atualizar a fatura');
+  };
+  billingRepository.findSubscriptionByRestaurantId = async () => null;
+  prisma.invoice.findMany = async () => [];
+  billingRepository.activateRestaurant = async (restaurantId) => ({
+    id: restaurantId,
+    active: true,
+  });
+
+  const result = await processPaymentService.execute({ invoiceId: 321 });
+
+  assert.equal(updateInvoiceCalled, false);
+  assert.equal(result.status, 'PAGO');
+  assert.equal(result.paidAt, paidAt);
 });

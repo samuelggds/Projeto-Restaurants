@@ -1,13 +1,10 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class TableRepository {
-  async create(
-    data: Prisma.TableUncheckedCreateInput,
-    db: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.TableUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.table.create({
       data,
     });
@@ -24,11 +21,7 @@ class TableRepository {
     });
   }
 
-  async findByNumber(
-    number: number | string,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findByNumber(number: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
     return db.table.findFirst({
       where: {
         number: Number(number),
@@ -37,10 +30,7 @@ class TableRepository {
     });
   }
 
-  async findAllByRestaurant(
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findAllByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.table.findMany({
       where: {
         restaurantId,
@@ -54,7 +44,7 @@ class TableRepository {
         },
       },
       orderBy: {
-        number: "asc",
+        number: 'asc',
       },
     });
   }

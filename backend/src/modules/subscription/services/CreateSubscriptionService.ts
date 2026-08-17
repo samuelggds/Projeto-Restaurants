@@ -1,5 +1,6 @@
-import type { PlanType, SubscriptionStatus } from "@prisma/client";
-import subscriptionRepository from "../repositories/SubscriptionRepository.js";
+import type { PlanType, SubscriptionStatus } from '@prisma/client';
+import subscriptionRepository from '../repositories/SubscriptionRepository.js';
+import { isAvailablePlan } from '../../billing/config/planConfig.js';
 
 type SubscriptionPayload = {
   restaurantId: number | string;
@@ -9,17 +10,15 @@ type SubscriptionPayload = {
 };
 
 class CreateSubscriptionService {
-  async execute({
-    restaurantId,
-    plan,
-    status,
-    trialEndsAt,
-  }: SubscriptionPayload) {
-    const exists =
-      await subscriptionRepository.findByRestaurantId(restaurantId);
+  async execute({ restaurantId, plan, status, trialEndsAt }: SubscriptionPayload) {
+    if (!isAvailablePlan(plan)) {
+      throw new Error('Plano indisponível para contratação.');
+    }
+
+    const exists = await subscriptionRepository.findByRestaurantId(restaurantId);
 
     if (exists) {
-      throw new Error("Assinatura já existe para esse restaurante!");
+      throw new Error('Assinatura já existe para esse restaurante!');
     }
 
     return await subscriptionRepository.create({

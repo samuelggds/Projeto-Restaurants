@@ -1,5 +1,5 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import { PLAN_CONFIG } from "../config/planConfig.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import { PLAN_CONFIG } from '../config/planConfig.js';
 
 type SplitPayload = {
   restaurantId: number;
@@ -8,8 +8,7 @@ type SplitPayload = {
 
 class SplitService {
   async execute({ restaurantId, orderTotal }: SplitPayload) {
-    const subscription =
-      await billingRepository.findSubscriptionByRestaurantId(restaurantId);
+    const subscription = await billingRepository.findSubscriptionByRestaurantId(restaurantId);
 
     if (!subscription) {
       return 0;
@@ -18,12 +17,10 @@ class SplitService {
     const plan = PLAN_CONFIG[subscription.plan];
 
     if (!plan) {
-      throw new Error("Plano inválido.");
+      throw new Error('Plano inválido.');
     }
 
-    const systemFee = Number((orderTotal * plan.splitRate).toFixed(2));
-
-    return systemFee;
+    return 0;
   }
 }
 

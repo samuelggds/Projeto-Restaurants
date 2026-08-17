@@ -25,18 +25,45 @@ model User {
   restaurantId               Int?
   updatedAt                  DateTime             @updatedAt
   role                       UserRole             @default(CLIENTE)
+  subRole                    FuncionarioSubRole?
   cpf                        String?
   resetPasswordCodeExpiresAt DateTime?
   resetPasswordCodeHash      String?
   mustChangePassword         Boolean              @default(false)
+  mfaEnabled                 Boolean              @default(false)
+  avatar                     String?
   authMfaChallenge           AuthMfaChallenge?
   authRefreshSession         AuthRefreshSession?
   orders                     Order[]
+  assignedDeliveries         Order[]              @relation("CourierDeliveries")
+  deliveryLocations          DeliveryLocation[]
   orderIssueThreads          OrderIssueThread[]
   closedTableSessions        TableSession[]       @relation("ClosedTableSessions")
   openedTableSessions        TableSession[]       @relation("OpenedTableSessions")
   restaurant                 Restaurant?          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages        SupportChatMessage[]
+  productFavorites           ProductFavorite[]
+  addresses                  UserAddress[]
+}
+
+model UserAddress {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  label      String
+  address    String
+  number     String
+  district   String
+  city       String
+  state      String
+  zipCode    String
+  complement String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isDefault])
 }
 
 model Restaurant {
@@ -51,6 +78,9 @@ model Restaurant {
   coverImage          String?
   description         String?
   address             String?
+  addressNumber       String?
+  addressComplement   String?
+  addressDistrict     String?
   city                String?
   state               String?
   zipCode             String?
@@ -120,6 +150,21 @@ model Product {
   category        Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ratings         ProductRating[]
+  favorites       ProductFavorite[]
+}
+
+model ProductFavorite {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  productId    Int
+  restaurantId Int
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, restaurantId])
+  @@index([productId])
 }
 
 model ProductRating {
@@ -201,11 +246,24 @@ model Order {
   paidAt                          DateTime?
   pixPaymentId                    String?
   cardCheckoutSessionId           String?
+  assignedCourierId               Int?
+  deliveryStartedAt               DateTime?
+  deliveredAt                     DateTime?
+  deliveryConfirmedAt             DateTime?
+  preparationStartedAt            DateTime?
+  readyAt                         DateTime?
+  courierEarning                  Decimal           @default(0) @db.Decimal(10, 2)
+  courierPaidAt                   DateTime?
   restaurant                      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table                           Table?            @relation(fields: [tableId], references: [id])
   user                            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedCourier                 User?             @relation("CourierDeliveries", fields: [assignedCourierId], references: [id], onDelete: SetNull)
   items                           OrderItem[]
   issueThread                     OrderIssueThread?
+  deliveryLocations               DeliveryLocation[]
+
+  @@index([restaurantId, status, assignedCourierId])
+  @@index([assignedCourierId, deliveryStartedAt])
 }
 
 model OrderIssueThread {
@@ -262,19 +320,56 @@ model OrderItem {
 model RestaurantSettings {
   id                     Int        @id @default(autoincrement())
   restaurantId           Int        @unique
+
+  // Operação de pedidos
   deliveryFee            Decimal    @default(0) @db.Decimal(10, 2)
+  courierFeePerDelivery  Decimal    @default(0) @db.Decimal(10, 2)
   minimumOrder           Decimal    @default(0) @db.Decimal(10, 2)
-  pixKey                 String?
+  acceptsDelivery        Boolean    @default(true)
+  acceptsPickup          Boolean    @default(true)
+    averageDeliveryTime    String?
+    autoAcceptOrders       Boolean    @default(false)
+    trackingRequiresLogin  Boolean    @default(true)
+    soundNotifications     Boolean    @default(true)
+    maxConcurrentOrders    Int        @default(20)
+  acceptsPix             Boolean    @default(true)
+  acceptsCard            Boolean    @default(true)
+
+  // Aparência e presença digital
+  slogan                 String?
+  primaryColor           String     @default("#c95d3d")
   instagram              String?
   facebook               String?
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
+  tiktok                 String?
+  youtube                String?
+
+  // Horários
+  businessHours          Json?
+  isOpenForOrders        Boolean    @default(true)
+
+  // WhatsApp
+  whatsappEnabled            Boolean @default(false)
+  whatsappDefaultMessage     String?
+  receiveOrdersOnWhatsapp    Boolean @default(false)
+  receiveStatusNotifications Boolean @default(false)
+
+  // Pix e gateways
+  pixKey                 String?
   pixProvider            String     @default("MERCADO_PAGO")
+  cardGateway            String?
+  gatewayMerchantId      String?
+  stripeSecretKey        String?
+  stripeWebhookSecret    String?
+  pagbankEmail           String?
+  pagbankToken           String?
+  pagbankRefreshToken    String?
+  pagbankTokenExpiresAt  DateTime?
+  pagbankEnvironment     String?
+
+  // Dados financeiros / onboarding
   bankName               String?
   bankBranch             String?
   bankAccount            String?
-  cardGateway            String?
-  gatewayMerchantId      String?
   legalDocumentType      String?
   companyDocument        String?
   companyLegalName       String?
@@ -294,14 +389,32 @@ model RestaurantSettings {
   ownerDocumentFileUrl   String?
   bankProofFileUrl       String?
   companyContractFileUrl String?
-  pagbankEmail           String?
-  pagbankToken           String?
-  pagbankEnvironment     String?
+
+  // Credenciais dos gateways
   mercadoPagoAccessToken String?
   picpayToken            String?
   asaasAccessToken       String?
-  stripeSecretKey        String?
+
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
   restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model DeliveryLocation {
+  id         BigInt   @id @default(autoincrement())
+  orderId    Int
+  courierId  Int
+  latitude   Decimal  @db.Decimal(10, 7)
+  longitude  Decimal  @db.Decimal(10, 7)
+  heading    Float?
+  speed      Float?
+  accuracy   Float?
+  recordedAt DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  courier    User     @relation(fields: [courierId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, recordedAt])
+  @@index([courierId, recordedAt])
 }
 
 model Banner {
@@ -337,6 +450,7 @@ model Subscription {
   updatedAt                   DateTime           @updatedAt
   balanceDebt                 Decimal            @default(0) @db.Decimal(10, 2)
   planChangeLockedUntil       DateTime?
+  planChangeInvoiceId         Int?
   scheduledPlan               PlanType?
   scheduledPlanEffectiveMonth Int?
   scheduledPlanEffectiveYear  Int?
@@ -356,6 +470,10 @@ model Invoice {
   dueDate      DateTime
   paidAt       DateTime?
   paymentLink  String?
+  paymentExternalId String?
+  pixQrCode     String?
+  pixQrCodeBase64 String?
+  pixExpiresAt  DateTime?
   restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, month, year])
@@ -397,12 +515,34 @@ model AuthMfaChallenge {
   @@index([expiresAt])
 }
 
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  userName       String?
+  userRole       String?
+  restaurantId   Int?
+  restaurantName String?
+  action         String
+  resource       String?
+  ipAddress      String?
+  result         String   @default("SUCCESS")
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
   FUNCIONARIO
   CLIENTE
   MOTOQUEIRO
+}
+
+enum FuncionarioSubRole {
+  COZINHA
+  GARCOM
 }
 
 enum OrderStatus {
@@ -434,11 +574,12 @@ enum OrderIssueSenderType {
 enum SupportChatSenderRole {
   ADMIN
   SUPER_ADMIN
+  FUNCIONARIO
+  MOTOQUEIRO
 }
 
 enum PlanType {
   BASICO
-  PROFISSIONAL
   PREMIUM
 }
 

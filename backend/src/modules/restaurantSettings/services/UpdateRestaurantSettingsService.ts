@@ -1,10 +1,16 @@
-import type { Prisma } from "@prisma/client";
-import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
-import prisma from "../../../config/prisma.js";
+import type { Prisma } from '@prisma/client';
+import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
+import prisma from '../../../config/prisma.js';
+import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
+import {
+  normalizeEstablishmentAddress,
+  validateEstablishmentAddress,
+} from '../utils/establishmentAddress.js';
 
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee?: number;
+  courierFeePerDelivery?: number;
   minimumOrder?: number;
   pixProvider?: string;
   pixKey?: string | null;
@@ -30,6 +36,7 @@ type UpdateRestaurantSettingsPayload = {
   cardGateway?: string | null;
   gatewayMerchantId?: string | null;
   stripeSecretKey?: string | null;
+  stripeWebhookSecret?: string | null;
   mercadoPagoAccessToken?: string | null;
   picpayToken?: string | null;
   asaasAccessToken?: string | null;
@@ -45,31 +52,72 @@ type UpdateRestaurantSettingsPayload = {
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
+  restaurantDescription?: string | null;
+  restaurantAddress?: string | null;
+  restaurantAddressNumber?: string | null;
+  restaurantAddressComplement?: string | null;
+  restaurantAddressDistrict?: string | null;
+  restaurantCity?: string | null;
+  restaurantState?: string | null;
+  restaurantZipCode?: string | null;
+  businessHours?: unknown;
+  isOpenForOrders?: boolean;
+  averageDeliveryTime?: string | number | null;
+  autoAcceptOrders?: boolean;
+  trackingRequiresLogin?: boolean;
+  soundNotifications?: boolean;
+  maxConcurrentOrders?: number;
 };
 
 class UpdateRestaurantSettingsService {
+  private isValidCpf(value: string) {
+    if (!/^\d{11}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const digit = (base: string, factor: number) => {
+      const sum = base
+        .split('')
+        .reduce((total, number, index) => total + Number(number) * (factor - index), 0);
+      const result = (sum * 10) % 11;
+      return result === 10 ? 0 : result;
+    };
+    return value.endsWith(`${digit(value.slice(0, 9), 10)}${digit(value.slice(0, 10), 11)}`);
+  }
+
+  private isValidCnpj(value: string) {
+    if (!/^\d{14}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const digit = (base: string, weights: number[]) => {
+      const sum = base
+        .split('')
+        .reduce((total, number, index) => total + Number(number) * weights[index], 0);
+      const remainder = sum % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    const first = digit(value.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = digit(value.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return value.endsWith(`${first}${second}`);
+  }
+
   private getAsaasBaseUrl() {
-    return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com")
+    return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
-      .replace(/\/+$/, "");
+      .replace(/\/+$/, '');
   }
 
   private async resolveAsaasWalletIdentifierByToken(token: string) {
-    const normalizedToken = String(token || "").trim();
+    const normalizedToken = String(token || '').trim();
     if (!normalizedToken) {
-      return "";
+      return '';
     }
 
     const response = await fetch(`${this.getAsaasBaseUrl()}/v3/myAccount`, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         access_token: normalizedToken,
       },
     });
 
     if (!response.ok) {
-      return "";
+      return '';
     }
 
     const body = (await response.json()) as {
@@ -77,12 +125,13 @@ class UpdateRestaurantSettingsService {
       id?: string;
     };
 
-    return String(body?.walletId || body?.id || "").trim();
+    return String(body?.walletId || body?.id || '').trim();
   }
 
   async execute({
     restaurantId,
     deliveryFee,
+    courierFeePerDelivery,
     minimumOrder,
     pixProvider,
     pixKey,
@@ -108,6 +157,7 @@ class UpdateRestaurantSettingsService {
     cardGateway,
     gatewayMerchantId,
     stripeSecretKey,
+    stripeWebhookSecret,
     mercadoPagoAccessToken,
     picpayToken,
     asaasAccessToken,
@@ -123,127 +173,158 @@ class UpdateRestaurantSettingsService {
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
+    restaurantDescription,
+    restaurantAddress,
+    restaurantAddressNumber,
+    restaurantAddressComplement,
+    restaurantAddressDistrict,
+    restaurantCity,
+    restaurantState,
+    restaurantZipCode,
+    businessHours,
+    isOpenForOrders,
+    averageDeliveryTime,
+    autoAcceptOrders,
+    trackingRequiresLogin,
+    soundNotifications,
+    maxConcurrentOrders,
   }: UpdateRestaurantSettingsPayload) {
-    const settings =
-      await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
 
     if (!settings) {
-      throw new Error("Configurações não encontradas!");
+      throw new Error('Configurações não encontradas!');
     }
 
     const normalizedWhatsapp =
-      whatsapp === undefined
-        ? undefined
-        : String(whatsapp || "").trim() || null;
+      whatsapp === undefined ? undefined : String(whatsapp || '').trim() || null;
     const normalizedRestaurantName =
-      restaurantName === undefined
-        ? undefined
-        : String(restaurantName || "").trim();
+      restaurantName === undefined ? undefined : String(restaurantName || '').trim();
     const normalizedRestaurantLogo =
-      restaurantLogo === undefined
-        ? undefined
-        : String(restaurantLogo || "").trim() || null;
+      restaurantLogo === undefined ? undefined : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage =
       restaurantCoverImage === undefined
         ? undefined
-        : String(restaurantCoverImage || "").trim() || null;
+        : String(restaurantCoverImage || '').trim() || null;
+    const normalizedRestaurantDescription =
+      restaurantDescription === undefined
+        ? undefined
+        : String(restaurantDescription || '').trim() || null;
+    const establishmentAddress = normalizeEstablishmentAddress({
+      address: restaurantAddress,
+      number: restaurantAddressNumber,
+      complement: restaurantAddressComplement,
+      district: restaurantAddressDistrict,
+      city: restaurantCity,
+      state: restaurantState,
+      zipCode: restaurantZipCode,
+    });
+    const hasAddressPayload = [
+      restaurantAddress,
+      restaurantAddressNumber,
+      restaurantAddressComplement,
+      restaurantAddressDistrict,
+      restaurantCity,
+      restaurantState,
+      restaurantZipCode,
+    ].some((value) => value !== undefined);
+    const addressValidationError = hasAddressPayload
+      ? validateEstablishmentAddress(establishmentAddress)
+      : null;
+    if (addressValidationError) throw new Error(addressValidationError);
     const normalizedBankName =
-      bankName === undefined
-        ? undefined
-        : String(bankName || "").trim() || null;
+      bankName === undefined ? undefined : String(bankName || '').trim() || null;
     const normalizedBankBranch =
-      bankBranch === undefined
-        ? undefined
-        : String(bankBranch || "").trim() || null;
+      bankBranch === undefined ? undefined : String(bankBranch || '').trim() || null;
     const normalizedBankAccount =
-      bankAccount === undefined
-        ? undefined
-        : String(bankAccount || "").trim() || null;
+      bankAccount === undefined ? undefined : String(bankAccount || '').trim() || null;
     const normalizedCardGateway =
-      cardGateway === undefined
-        ? undefined
-        : String(cardGateway || "").trim() || null;
+      cardGateway === undefined ? undefined : String(cardGateway || '').trim() || null;
     const normalizedGatewayMerchantId =
-      gatewayMerchantId === undefined
-        ? undefined
-        : String(gatewayMerchantId || "").trim() || null;
+      gatewayMerchantId === undefined ? undefined : String(gatewayMerchantId || '').trim() || null;
     const normalizedStripeSecretKey =
-      stripeSecretKey === undefined
+      stripeSecretKey === undefined ? undefined : String(stripeSecretKey || '').trim() || null;
+    const normalizedStripeWebhookSecret =
+      stripeWebhookSecret === undefined
         ? undefined
-        : String(stripeSecretKey || "").trim() || null;
+        : String(stripeWebhookSecret || '').trim() || null;
     const normalizedMercadoPagoAccessToken =
       mercadoPagoAccessToken === undefined
         ? undefined
-        : String(mercadoPagoAccessToken || "").trim() || null;
+        : String(mercadoPagoAccessToken || '').trim() || null;
     const normalizedPicPayToken =
-      picpayToken === undefined
-        ? undefined
-        : String(picpayToken || "").trim() || null;
+      picpayToken === undefined ? undefined : String(picpayToken || '').trim() || null;
     const normalizedAsaasAccessToken =
-      asaasAccessToken === undefined
-        ? undefined
-        : String(asaasAccessToken || "").trim() || null;
+      asaasAccessToken === undefined ? undefined : String(asaasAccessToken || '').trim() || null;
     const normalizedPagBankEmail =
-      pagbankEmail === undefined
-        ? undefined
-        : String(pagbankEmail || "").trim() || null;
+      pagbankEmail === undefined ? undefined : String(pagbankEmail || '').trim() || null;
     const normalizedPagBankToken =
-      pagbankToken === undefined
+      pagbankToken === undefined ? undefined : String(pagbankToken || '').trim() || null;
+    const normalizedPagBankEnvironment = 'production';
+    const normalizedBusinessHours = businessHours === undefined ? undefined : businessHours;
+    const normalizedIsOpenForOrders =
+      isOpenForOrders === undefined ? undefined : Boolean(isOpenForOrders);
+    const normalizedAverageDeliveryTime =
+      averageDeliveryTime === undefined
         ? undefined
-        : String(pagbankToken || "").trim() || null;
-    const normalizedPagBankEnvironment = "production";
+        : String(Math.max(1, Number(averageDeliveryTime) || 1));
+    const normalizedAutoAcceptOrders =
+      autoAcceptOrders === undefined ? undefined : Boolean(autoAcceptOrders);
+    const normalizedTrackingRequiresLogin =
+      trackingRequiresLogin === undefined ? undefined : Boolean(trackingRequiresLogin);
+    const normalizedSoundNotifications =
+      soundNotifications === undefined ? undefined : Boolean(soundNotifications);
+    const normalizedMaxConcurrentOrders =
+      maxConcurrentOrders === undefined
+        ? undefined
+        : Math.min(500, Math.max(1, Number(maxConcurrentOrders) || 1));
     const normalizedLegalDocumentType =
       legalDocumentType === undefined
         ? undefined
-        : String(legalDocumentType || "")
+        : String(legalDocumentType || '')
             .trim()
             .toUpperCase() || null;
     const normalizedCompanyDocument =
       companyDocument === undefined
         ? undefined
-        : String(companyDocument || "").replace(/\D/g, "") || null;
+        : String(companyDocument || '').replace(/\D/g, '') || null;
     const normalizedOwnerCpf =
-      ownerCpf === undefined
-        ? undefined
-        : String(ownerCpf || "").replace(/\D/g, "") || null;
+      ownerCpf === undefined ? undefined : String(ownerCpf || '').replace(/\D/g, '') || null;
     const normalizedOwnerPhone =
-      ownerPhone === undefined
+      ownerPhone === undefined ? undefined : String(ownerPhone || '').replace(/\D/g, '') || null;
+    const normalizedOwnerEmail =
+      ownerEmail === undefined
         ? undefined
-        : String(ownerPhone || "").replace(/\D/g, "") || null;
+        : String(ownerEmail || '')
+            .trim()
+            .toLowerCase() || null;
     const normalizedBankHolderDocument =
       bankHolderDocument === undefined
         ? undefined
-        : String(bankHolderDocument || "").replace(/\D/g, "") || null;
+        : String(bankHolderDocument || '').replace(/\D/g, '') || null;
     const normalizedOwnerBirthDate =
-      ownerBirthDate === undefined
-        ? undefined
-        : ownerBirthDate
-          ? new Date(ownerBirthDate)
-          : null;
+      ownerBirthDate === undefined ? undefined : ownerBirthDate ? new Date(ownerBirthDate) : null;
 
     const resolvedAsaasToken =
       normalizedAsaasAccessToken === undefined
-        ? String(settings.asaasAccessToken || "").trim()
-        : String(normalizedAsaasAccessToken || "").trim();
+        ? String(settings.asaasAccessToken || '').trim()
+        : String(normalizedAsaasAccessToken || '').trim();
 
-    const resolvedPixProvider = String(
-      pixProvider || settings.pixProvider || "MERCADO_PAGO",
-    )
+    const resolvedPixProvider = String(pixProvider || settings.pixProvider || 'MERCADO_PAGO')
       .trim()
       .toUpperCase();
 
     const resolvedCardGateway =
       normalizedCardGateway === undefined
-        ? String(settings.cardGateway || "")
+        ? String(settings.cardGateway || '')
             .trim()
             .toUpperCase()
-        : String(normalizedCardGateway || "")
+        : String(normalizedCardGateway || '')
             .trim()
             .toUpperCase();
 
     let resolvedGatewayMerchantId =
       normalizedGatewayMerchantId === undefined
-        ? String(settings.gatewayMerchantId || "").trim() || null
+        ? String(settings.gatewayMerchantId || '').trim() || null
         : normalizedGatewayMerchantId;
     let gatewayMerchantIdAutoResolved = false;
     let gatewayMerchantIdAutoResolvedSource: string | null = null;
@@ -251,51 +332,47 @@ class UpdateRestaurantSettingsService {
     const shouldTryAutoResolveGatewayMerchantId =
       !resolvedGatewayMerchantId &&
       Boolean(resolvedAsaasToken) &&
-      (resolvedPixProvider === "ASAAS" || resolvedCardGateway === "ASAAS");
+      (resolvedPixProvider === 'ASAAS' || resolvedCardGateway === 'ASAAS');
 
     if (shouldTryAutoResolveGatewayMerchantId) {
       try {
-        const autoWalletId =
-          await this.resolveAsaasWalletIdentifierByToken(resolvedAsaasToken);
+        const autoWalletId = await this.resolveAsaasWalletIdentifierByToken(resolvedAsaasToken);
 
         if (autoWalletId) {
           resolvedGatewayMerchantId = autoWalletId;
           gatewayMerchantIdAutoResolved = true;
-          gatewayMerchantIdAutoResolvedSource = "asaas_myAccount";
+          gatewayMerchantIdAutoResolvedSource = 'asaas_myAccount';
         }
       } catch {
         // Non-blocking fallback: webhook can still backfill gatewayMerchantId later.
       }
     }
 
-    if (
-      restaurantName !== undefined &&
-      String(normalizedRestaurantName || "").length < 2
-    ) {
-      throw new Error("Nome do restaurante inválido.");
+    if (restaurantName !== undefined && String(normalizedRestaurantName || '').length < 2) {
+      throw new Error('Nome do restaurante inválido.');
     }
 
     const resolvedDocumentType =
-      normalizedLegalDocumentType || String(settings.legalDocumentType || "");
+      normalizedLegalDocumentType || String(settings.legalDocumentType || '');
     const resolvedCompanyDocument =
-      normalizedCompanyDocument || String(settings.companyDocument || "");
+      normalizedCompanyDocument || String(settings.companyDocument || '');
     const resolvedBankHolderDocument =
-      normalizedBankHolderDocument || String(settings.bankHolderDocument || "");
+      normalizedBankHolderDocument || String(settings.bankHolderDocument || '');
 
     if (
-      resolvedDocumentType === "CNPJ" &&
+      resolvedDocumentType === 'CNPJ' &&
       resolvedCompanyDocument &&
-      resolvedCompanyDocument.length !== 14
+      !this.isValidCnpj(resolvedCompanyDocument)
     ) {
-      throw new Error("CNPJ inválido para cadastro da empresa.");
+      throw new Error('CNPJ inválido para cadastro da empresa.');
     }
 
     if (
-      resolvedDocumentType === "CPF" &&
+      resolvedDocumentType === 'CPF' &&
       resolvedCompanyDocument &&
-      resolvedCompanyDocument.length !== 11
+      !this.isValidCpf(resolvedCompanyDocument)
     ) {
-      throw new Error("CPF inválido para cadastro de autônomo.");
+      throw new Error('CPF inválido para cadastro de autônomo.');
     }
 
     if (
@@ -304,33 +381,44 @@ class UpdateRestaurantSettingsService {
       resolvedCompanyDocument !== resolvedBankHolderDocument
     ) {
       throw new Error(
-        "A titularidade da conta bancária deve ser igual ao documento cadastrado (CPF/CNPJ).",
+        'A titularidade da conta bancária deve ser igual ao documento cadastrado (CPF/CNPJ).',
       );
+    }
+
+    if (companyLegalName !== undefined && String(companyLegalName || '').trim().length < 2) {
+      throw new Error('Razão social inválida.');
+    }
+    if (
+      normalizedOwnerPhone !== undefined &&
+      (!normalizedOwnerPhone || !/^\d{10,11}$/.test(normalizedOwnerPhone))
+    ) {
+      throw new Error('Telefone comercial inválido.');
+    }
+    if (
+      normalizedOwnerEmail !== undefined &&
+      (!normalizedOwnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedOwnerEmail))
+    ) {
+      throw new Error('E-mail comercial inválido.');
     }
 
     const updated = await restaurantSettingsRepository.update(restaurantId, {
       deliveryFee,
+      courierFeePerDelivery:
+        courierFeePerDelivery === undefined
+          ? undefined
+          : Math.max(Number(courierFeePerDelivery || 0), 0),
       minimumOrder,
       pixProvider: resolvedPixProvider,
       pixKey,
       legalDocumentType: normalizedLegalDocumentType,
       companyDocument: normalizedCompanyDocument,
       companyLegalName:
-        companyLegalName === undefined
-          ? undefined
-          : String(companyLegalName || "").trim() || null,
+        companyLegalName === undefined ? undefined : String(companyLegalName || '').trim() || null,
       companyTradeName:
-        companyTradeName === undefined
-          ? undefined
-          : String(companyTradeName || "").trim() || null,
+        companyTradeName === undefined ? undefined : String(companyTradeName || '').trim() || null,
       companyAddress:
-        companyAddress === undefined
-          ? undefined
-          : String(companyAddress || "").trim() || null,
-      companyCnae:
-        companyCnae === undefined
-          ? undefined
-          : String(companyCnae || "").trim() || null,
+        companyAddress === undefined ? undefined : String(companyAddress || '').trim() || null,
+      companyCnae: companyCnae === undefined ? undefined : String(companyCnae || '').trim() || null,
       monthlyRevenue:
         monthlyRevenue === undefined
           ? undefined
@@ -338,29 +426,19 @@ class UpdateRestaurantSettingsService {
             ? null
             : Number(monthlyRevenue),
       ownerFullName:
-        ownerFullName === undefined
-          ? undefined
-          : String(ownerFullName || "").trim() || null,
+        ownerFullName === undefined ? undefined : String(ownerFullName || '').trim() || null,
       ownerCpf: normalizedOwnerCpf,
       ownerBirthDate: normalizedOwnerBirthDate,
-      ownerEmail:
-        ownerEmail === undefined
-          ? undefined
-          : String(ownerEmail || "").trim() || null,
+      ownerEmail: normalizedOwnerEmail,
       ownerPhone: normalizedOwnerPhone,
       ownerAddress:
-        ownerAddress === undefined
-          ? undefined
-          : String(ownerAddress || "").trim() || null,
+        ownerAddress === undefined ? undefined : String(ownerAddress || '').trim() || null,
       bankName: normalizedBankName,
-      bankCode:
-        bankCode === undefined
-          ? undefined
-          : String(bankCode || "").trim() || null,
+      bankCode: bankCode === undefined ? undefined : String(bankCode || '').trim() || null,
       bankAccountType:
         bankAccountType === undefined
           ? undefined
-          : String(bankAccountType || "")
+          : String(bankAccountType || '')
               .trim()
               .toUpperCase() || null,
       bankBranch: normalizedBankBranch,
@@ -369,6 +447,7 @@ class UpdateRestaurantSettingsService {
       cardGateway: normalizedCardGateway,
       gatewayMerchantId: resolvedGatewayMerchantId,
       stripeSecretKey: normalizedStripeSecretKey,
+      stripeWebhookSecret: normalizedStripeWebhookSecret,
       mercadoPagoAccessToken: normalizedMercadoPagoAccessToken,
       picpayToken: normalizedPicPayToken,
       asaasAccessToken: normalizedAsaasAccessToken,
@@ -378,17 +457,22 @@ class UpdateRestaurantSettingsService {
       ownerDocumentFileUrl:
         ownerDocumentFileUrl === undefined
           ? undefined
-          : String(ownerDocumentFileUrl || "").trim() || null,
+          : String(ownerDocumentFileUrl || '').trim() || null,
       bankProofFileUrl:
-        bankProofFileUrl === undefined
-          ? undefined
-          : String(bankProofFileUrl || "").trim() || null,
+        bankProofFileUrl === undefined ? undefined : String(bankProofFileUrl || '').trim() || null,
       companyContractFileUrl:
         companyContractFileUrl === undefined
           ? undefined
-          : String(companyContractFileUrl || "").trim() || null,
+          : String(companyContractFileUrl || '').trim() || null,
       instagram,
       facebook,
+      businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
+      isOpenForOrders: normalizedIsOpenForOrders,
+      averageDeliveryTime: normalizedAverageDeliveryTime,
+      autoAcceptOrders: normalizedAutoAcceptOrders,
+      trackingRequiresLogin: normalizedTrackingRequiresLogin,
+      soundNotifications: normalizedSoundNotifications,
+      maxConcurrentOrders: normalizedMaxConcurrentOrders,
     });
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};
@@ -408,6 +492,18 @@ class UpdateRestaurantSettingsService {
     if (normalizedRestaurantCoverImage !== undefined) {
       restaurantData.coverImage = normalizedRestaurantCoverImage;
     }
+    if (normalizedRestaurantDescription !== undefined) {
+      restaurantData.description = normalizedRestaurantDescription;
+    }
+    if (hasAddressPayload && establishmentAddress.address) {
+      restaurantData.address = establishmentAddress.address;
+      restaurantData.addressNumber = establishmentAddress.number;
+      restaurantData.addressComplement = establishmentAddress.complement || null;
+      restaurantData.addressDistrict = establishmentAddress.district;
+      restaurantData.city = establishmentAddress.city;
+      restaurantData.state = establishmentAddress.state;
+      restaurantData.zipCode = establishmentAddress.zipCode;
+    }
 
     if (Object.keys(restaurantData).length > 0) {
       await prisma.restaurant.update({
@@ -421,42 +517,40 @@ class UpdateRestaurantSettingsService {
     return {
       ...updated,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
-      stripeSecretKeyConfigured: Boolean(
-        String(updated?.stripeSecretKey || "").trim(),
-      ),
+      stripeSecretKeyConfigured: Boolean(String(updated?.stripeSecretKey || '').trim()),
+      stripeWebhookSecretConfigured: Boolean(String(updated?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
-        String(updated?.mercadoPagoAccessToken || "").trim(),
+        String(updated?.mercadoPagoAccessToken || '').trim(),
       ),
-      picpayTokenConfigured: Boolean(String(updated?.picpayToken || "").trim()),
-      asaasAccessTokenConfigured: Boolean(
-        String(updated?.asaasAccessToken || "").trim(),
-      ),
-      pagbankTokenConfigured: Boolean(
-        String(updated?.pagbankToken || "").trim(),
-      ),
+      picpayTokenConfigured: Boolean(String(updated?.picpayToken || '').trim()),
+      asaasAccessTokenConfigured: Boolean(String(updated?.asaasAccessToken || '').trim()),
+      pagbankTokenConfigured: Boolean(String(updated?.pagbankToken || '').trim()),
       whatsapp:
         whatsapp !== undefined
           ? normalizedWhatsapp
-          : String(settings?.restaurant?.whatsapp || "").trim() || null,
+          : String(settings?.restaurant?.whatsapp || '').trim() || null,
       restaurantName:
         restaurantName !== undefined
           ? normalizedRestaurantName
-          : String(settings?.restaurant?.name || "").trim() || null,
+          : String(settings?.restaurant?.name || '').trim() || null,
       restaurantLogo:
         restaurantLogo !== undefined
           ? normalizedRestaurantLogo
-          : String(settings?.restaurant?.logo || "").trim() || null,
+          : String(settings?.restaurant?.logo || '').trim() || null,
       restaurantCoverImage:
         restaurantCoverImage !== undefined
           ? normalizedRestaurantCoverImage
-          : String(settings?.restaurant?.coverImage || "").trim() || null,
-      gatewayMerchantIdConfigured: Boolean(
-        String(updated?.gatewayMerchantId || "").trim(),
-      ),
+          : String(settings?.restaurant?.coverImage || '').trim() || null,
+      restaurantDescription:
+        restaurantDescription !== undefined
+          ? normalizedRestaurantDescription
+          : String(settings?.restaurant?.description || '').trim() || null,
+      gatewayMerchantIdConfigured: Boolean(String(updated?.gatewayMerchantId || '').trim()),
       gatewayMerchantIdAutoResolved,
       gatewayMerchantIdAutoResolvedSource,
     };

@@ -1,27 +1,27 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export const lightTheme = {
-  background: "#fdfbf7",
-  surface: "#ffffff",
-  text: "#2d2219",
-  textMuted: "#7c6e65",
-  border: "#f1ede4",
-  primary: "#e65c00",
-  primaryHover: "#cc5200",
-  shadow: "rgba(230, 92, 0, 0.05)",
-  success: "#10b981",
+  background: '#fdfbf7',
+  surface: '#ffffff',
+  text: '#2d2219',
+  textMuted: '#7c6e65',
+  border: '#f1ede4',
+  primary: '#e65c00',
+  primaryHover: '#cc5200',
+  shadow: 'rgba(230, 92, 0, 0.05)',
+  success: '#10b981',
 };
 
 export const darkTheme = {
-  background: "#18130f",
-  surface: "#241c16",
-  text: "#fdfbf7",
-  textMuted: "#a39385",
-  border: "#362b22",
-  primary: "#ff6b00",
-  primaryHover: "#e65c00",
-  shadow: "rgba(0, 0, 0, 0.4)",
-  success: "#10b981",
+  background: '#18130f',
+  surface: '#241c16',
+  text: '#fdfbf7',
+  textMuted: '#a39385',
+  border: '#362b22',
+  primary: '#ff6b00',
+  primaryHover: '#e65c00',
+  shadow: 'rgba(0, 0, 0, 0.4)',
+  success: '#10b981',
 };
 
 export const Container = styled.div`
@@ -30,7 +30,7 @@ export const Container = styled.div`
   width: 100vw;
   background-color: ${(props) => props.theme.background};
   color: ${(props) => props.theme.text};
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
@@ -63,12 +63,12 @@ export const ThemeToggleButton = styled.button`
   }
 `;
 
-export const BannerSection = styled.div`
+export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 4rem;
+  padding: ${(props) => (props.$hasLogo ? '0' : '4rem')};
   background: linear-gradient(
     135deg,
     ${(props) => props.theme.surface} 0%,
@@ -76,6 +76,56 @@ export const BannerSection = styled.div`
   );
   border-right: 1px solid ${(props) => props.theme.border};
   position: relative;
+  overflow: hidden;
+
+  ${({ $hasLogo, theme }) =>
+    $hasLogo &&
+    `
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 4rem;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 30%, rgba(0, 0, 0, 0.78) 100%);
+      pointer-events: none;
+    }
+
+    > h1 > span,
+    > p {
+      position: relative;
+      z-index: 2;
+      color: #fff;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+    }
+
+    > h1 {
+      margin: 0 0 14px;
+    }
+
+    > h1 > span {
+      display: inline-block;
+      max-width: 620px;
+      font-size: clamp(2.5rem, 5vw, 4.8rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      font-weight: 900;
+    }
+
+    > p {
+      max-width: 540px;
+      margin: 0;
+      padding: 4px 0 4px 18px;
+      border-left: 4px solid ${theme.primary};
+      font-size: clamp(1rem, 1.35vw, 1.2rem);
+      line-height: 1.65;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+    }
+  `}
 
   @media (max-width: 968px) {
     display: none;
@@ -95,6 +145,17 @@ export const BrandTitle = styled.h1`
   span {
     color: ${(props) => props.theme.primary};
   }
+`;
+
+export const RestaurantLogo = styled.img`
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.72;
 `;
 
 export const BrandSubtitle = styled.p`
@@ -247,7 +308,7 @@ export const Divider = styled.div`
 
   &::before,
   &::after {
-    content: "";
+    content: '';
     flex: 1;
     border-bottom: 1px solid ${(props) => props.theme.border};
   }

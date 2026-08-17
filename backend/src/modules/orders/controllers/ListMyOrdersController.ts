@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import listMyOrdersService from "../services/ListMyOrdersService.js";
+import { Request, Response } from 'express';
+import listMyOrdersService from '../services/ListMyOrdersService.js';
 
 class ListMyOrdersController {
   async handle(req: Request, res: Response) {
@@ -11,10 +11,7 @@ class ListMyOrdersController {
       return res.json(orders);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao listar pedidos do usuario",
+        error: error instanceof Error ? error.message : 'Erro ao listar pedidos do usuario',
       });
     }
   }

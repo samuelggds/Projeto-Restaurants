@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createProductService from "../services/CreateProductService.js";
+import { Request, Response } from 'express';
+import createProductService from '../services/CreateProductService.js';
 
 class CreateProductController {
   async handle(req: Request, res: Response) {
@@ -34,8 +34,7 @@ class CreateProductController {
       return res.status(201).json(product);
     } catch (error: unknown) {
       return res.status(400).json({
-        message:
-          error instanceof Error ? error.message : "Erro ao criar produto",
+        message: error instanceof Error ? error.message : 'Erro ao criar produto',
       });
     }
   }

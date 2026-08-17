@@ -1,6 +1,6 @@
-import { UserRole } from "@prisma/client";
-import employeeRepository from "../repositories/EmployeeRepository.js";
-import bcrypt from "bcrypt";
+import { FuncionarioSubRole, UserRole } from '@prisma/client';
+import employeeRepository from '../repositories/EmployeeRepository.js';
+import bcrypt from 'bcrypt';
 
 type CreateEmployeePayload = {
   name: string;
@@ -9,6 +9,7 @@ type CreateEmployeePayload = {
   phone?: string | null;
   restaurantId: number;
   role?: UserRole;
+  subRole?: FuncionarioSubRole | null;
   cpf?: string | null;
 };
 
@@ -20,12 +21,13 @@ class CreateEmployeeService {
     phone,
     restaurantId,
     role,
+    subRole,
     cpf,
   }: CreateEmployeePayload) {
     const exists = await employeeRepository.findByEmail(email);
 
     if (exists) {
-      throw new Error("Email já está em uso!");
+      throw new Error('Email já está em uso!');
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -35,9 +37,10 @@ class CreateEmployeeService {
       email,
       password: passwordHash,
       phone,
-      cpf: cpf ? String(cpf).replace(/\D/g, "") : undefined,
+      cpf: cpf ? String(cpf).replace(/\D/g, '') : undefined,
       restaurantId,
       role: role || UserRole.FUNCIONARIO,
+      subRole: subRole ?? null,
     });
 
     return employee;

@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createOrderService from "../services/CreateOrderService.js";
+import { Request, Response } from 'express';
+import createOrderService from '../services/CreateOrderService.js';
 
 class CreateOrderController {
   async handle(req: Request, res: Response) {
@@ -28,8 +28,15 @@ class CreateOrderController {
       } = req.body;
 
       const userId = req.user?.id ?? null;
-      const userRestaurantId =
-        req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+      const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+
+      if (
+        payOnDelivery === true &&
+        String(payOnDeliveryMethod || paymentMethod || '').toUpperCase() === 'DINHEIRO' &&
+        String(req.user?.role || '').toUpperCase() !== 'ADMIN'
+      ) {
+        throw new Error('Pagamento em dinheiro é registrado somente pelo administrador.');
+      }
 
       const order = await createOrderService.execute({
         userId,
@@ -61,7 +68,7 @@ class CreateOrderController {
       return res.status(201).json(order);
     } catch (error: unknown) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro ao criar pedido",
+        error: error instanceof Error ? error.message : 'Erro ao criar pedido',
       });
     }
   }

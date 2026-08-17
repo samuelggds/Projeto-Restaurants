@@ -1,12 +1,12 @@
-import { io } from "socket.io-client";
+import { io } from 'socket.io-client';
 
-const socket = io("http://127.0.0.1:3000");
+const socket = io('http://127.0.0.1:3000');
 
-socket.on("connect", () => {
-  console.log("Conectado com sucesso! ID:", socket.id);
+socket.on('connect', () => {
+  console.log('Conectado com sucesso! ID:', socket.id);
 });
 
-socket.on("connect_error", (err: unknown) => {
+socket.on('connect_error', (err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
-  console.log("Erro detalhado:", message);
+  console.log('Erro detalhado:', message);
 });

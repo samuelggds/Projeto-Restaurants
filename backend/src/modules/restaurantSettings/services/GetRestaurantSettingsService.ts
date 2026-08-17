@@ -1,4 +1,4 @@
-import restaurantSettingsRepository from "../repositories/RestaurantSettingsRepository.js";
+import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 
 type RestaurantIdPayload = {
   restaurantId: number | string;
@@ -33,6 +33,7 @@ type RestaurantSettingsFallback = {
   cardGateway: string | null;
   gatewayMerchantId: string | null;
   stripeSecretKey: string | null;
+  stripeWebhookSecret: string | null;
   mercadoPagoAccessToken: string | null;
   picpayToken: string | null;
   asaasAccessToken: string | null;
@@ -40,6 +41,7 @@ type RestaurantSettingsFallback = {
   pagbankToken: string | null;
   pagbankEnvironment: string | null;
   stripeSecretKeyConfigured: boolean;
+  stripeWebhookSecretConfigured: boolean;
   mercadoPagoAccessTokenConfigured: boolean;
   picpayTokenConfigured: boolean;
   asaasAccessTokenConfigured: boolean;
@@ -50,10 +52,16 @@ type RestaurantSettingsFallback = {
   instagram: string | null;
   facebook: string | null;
   whatsapp: string | null;
+  averageDeliveryTime: string | null;
+  autoAcceptOrders: boolean;
+  trackingRequiresLogin: boolean;
+  soundNotifications: boolean;
+  maxConcurrentOrders: number;
   restaurant: {
     name: string;
     logo: string | null;
     coverImage: string | null;
+    description: string | null;
     whatsapp: string | null;
   };
 };
@@ -61,17 +69,14 @@ type RestaurantSettingsFallback = {
 class GetRestaurantSettingsService {
   async execute({ restaurantId }: RestaurantIdPayload) {
     const normalizedRestaurantId = Number(restaurantId);
-    const settings = await restaurantSettingsRepository.findByRestaurantId(
-      normalizedRestaurantId,
-    );
+    const settings = await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
 
     if (!settings) {
-      const restaurant = await restaurantSettingsRepository.findRestaurantById(
-        normalizedRestaurantId,
-      );
+      const restaurant =
+        await restaurantSettingsRepository.findRestaurantById(normalizedRestaurantId);
 
       if (!restaurant) {
-        throw new Error("Restaurante não encontrado!");
+        throw new Error('Restaurante não encontrado!');
       }
 
       const fallback: RestaurantSettingsFallback = {
@@ -79,7 +84,7 @@ class GetRestaurantSettingsService {
         restaurantId: normalizedRestaurantId,
         deliveryFee: 0,
         minimumOrder: 0,
-        pixProvider: "MERCADO_PAGO",
+        pixProvider: 'MERCADO_PAGO',
         pixKey: null,
         legalDocumentType: null,
         companyDocument: null,
@@ -103,6 +108,7 @@ class GetRestaurantSettingsService {
         cardGateway: null,
         gatewayMerchantId: null,
         stripeSecretKey: null,
+        stripeWebhookSecret: null,
         mercadoPagoAccessToken: null,
         picpayToken: null,
         asaasAccessToken: null,
@@ -110,6 +116,7 @@ class GetRestaurantSettingsService {
         pagbankToken: null,
         pagbankEnvironment: null,
         stripeSecretKeyConfigured: false,
+        stripeWebhookSecretConfigured: false,
         mercadoPagoAccessTokenConfigured: false,
         picpayTokenConfigured: false,
         asaasAccessTokenConfigured: false,
@@ -119,12 +126,18 @@ class GetRestaurantSettingsService {
         companyContractFileUrl: null,
         instagram: null,
         facebook: null,
-        whatsapp: String(restaurant.whatsapp || "").trim() || null,
+        whatsapp: String(restaurant.whatsapp || '').trim() || null,
+        averageDeliveryTime: null,
+        autoAcceptOrders: false,
+        trackingRequiresLogin: true,
+        soundNotifications: true,
+        maxConcurrentOrders: 20,
         restaurant: {
           name: restaurant.name,
           logo: restaurant.logo,
           coverImage: restaurant.coverImage,
-          whatsapp: String(restaurant.whatsapp || "").trim() || null,
+          description: restaurant.description,
+          whatsapp: String(restaurant.whatsapp || '').trim() || null,
         },
       };
 
@@ -134,26 +147,20 @@ class GetRestaurantSettingsService {
     return {
       ...settings,
       stripeSecretKey: null,
+      stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
       picpayToken: null,
       asaasAccessToken: null,
       pagbankToken: null,
-      stripeSecretKeyConfigured: Boolean(
-        String(settings?.stripeSecretKey || "").trim(),
-      ),
+      stripeSecretKeyConfigured: Boolean(String(settings?.stripeSecretKey || '').trim()),
+      stripeWebhookSecretConfigured: Boolean(String(settings?.stripeWebhookSecret || '').trim()),
       mercadoPagoAccessTokenConfigured: Boolean(
-        String(settings?.mercadoPagoAccessToken || "").trim(),
+        String(settings?.mercadoPagoAccessToken || '').trim(),
       ),
-      picpayTokenConfigured: Boolean(
-        String(settings?.picpayToken || "").trim(),
-      ),
-      asaasAccessTokenConfigured: Boolean(
-        String(settings?.asaasAccessToken || "").trim(),
-      ),
-      pagbankTokenConfigured: Boolean(
-        String(settings?.pagbankToken || "").trim(),
-      ),
-      whatsapp: String(settings?.restaurant?.whatsapp || "").trim() || null,
+      picpayTokenConfigured: Boolean(String(settings?.picpayToken || '').trim()),
+      asaasAccessTokenConfigured: Boolean(String(settings?.asaasAccessToken || '').trim()),
+      pagbankTokenConfigured: Boolean(String(settings?.pagbankToken || '').trim()),
+      whatsapp: String(settings?.restaurant?.whatsapp || '').trim() || null,
     };
   }
 }

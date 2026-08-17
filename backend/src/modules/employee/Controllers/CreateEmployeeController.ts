@@ -1,14 +1,13 @@
-import { Request, Response } from "express";
-import createEmployeeService from "../services/CreateEmployeeService.js";
-import { EmployeeUserSchema } from "../../../validators/EmployeeSchema.js";
+import { Request, Response } from 'express';
+import createEmployeeService from '../services/CreateEmployeeService.js';
+import { EmployeeUserSchema } from '../../../validators/EmployeeSchema.js';
 
 class CreateEmployeeController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
 
-      const { name, email, password, confirmPassword, phone, role, cpf } =
-        req.body;
+      const { name, email, password, confirmPassword, phone, role, cpf, subRole } = req.body;
 
       EmployeeUserSchema.parse({
         name,
@@ -17,6 +16,7 @@ class CreateEmployeeController {
         confirmPassword,
         phone,
         role,
+        subRole,
         cpf,
       });
 
@@ -26,6 +26,7 @@ class CreateEmployeeController {
         password,
         phone,
         role,
+        subRole: subRole ?? null,
         cpf,
         restaurantId,
       });
@@ -33,8 +34,7 @@ class CreateEmployeeController {
       return res.status(201).json(employee);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao criar funcionario",
+        error: error instanceof Error ? error.message : 'Erro ao criar funcionario',
       });
     }
   }

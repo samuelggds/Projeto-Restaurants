@@ -1,10 +1,10 @@
-import authTokenService from "./AuthTokenService.js";
+import authTokenService from './AuthTokenService.js';
 
 class LogoutService {
   async execute(refreshToken: string) {
-    const token = String(refreshToken || "").trim();
+    const token = String(refreshToken || '').trim();
     if (!token) {
-      throw new Error("Refresh token nao informado");
+      throw new Error('Refresh token nao informado');
     }
 
     await authTokenService.revokeRefreshToken(token);

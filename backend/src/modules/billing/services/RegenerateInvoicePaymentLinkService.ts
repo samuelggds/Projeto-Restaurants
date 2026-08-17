@@ -1,5 +1,6 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import mercadoPagoService from "./MercadoPagoService.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import mercadoPagoService from './MercadoPagoService.js';
+import { getPixAvailableAt, isInvoicePixAvailable } from '../utils/billingPaymentWindow.js';
 
 type RegenerateInvoicePaymentLinkPayload = {
   invoiceId: number | string;
@@ -7,17 +8,21 @@ type RegenerateInvoicePaymentLinkPayload = {
 };
 
 class RegenerateInvoicePaymentLinkService {
-  async execute({
-    invoiceId,
-    restaurantId,
-  }: RegenerateInvoicePaymentLinkPayload) {
-    const invoice = await billingRepository.findInvoiceByIdAndRestaurantId(
-      invoiceId,
-      restaurantId,
-    );
+  async execute({ invoiceId, restaurantId }: RegenerateInvoicePaymentLinkPayload) {
+    const invoice = await billingRepository.findInvoiceByIdAndRestaurantId(invoiceId, restaurantId);
 
     if (!invoice) {
-      throw new Error("Fatura não encontrada para este restaurante.");
+      throw new Error('Fatura não encontrada para este restaurante.');
+    }
+
+    if (!['PENDENTE', 'ATRASADO'].includes(invoice.status)) {
+      throw new Error('Esta mensalidade não está disponível para pagamento.');
+    }
+
+    if (!isInvoicePixAvailable(invoice)) {
+      throw new Error(
+        `O Pix desta mensalidade estará disponível em ${getPixAvailableAt(invoice.dueDate).toLocaleDateString('pt-BR')}.`,
+      );
     }
 
     const payment = await mercadoPagoService.createPayment({
@@ -25,15 +30,23 @@ class RegenerateInvoicePaymentLinkService {
       title: `Mensalidade restaurante ${invoice.restaurantId}`,
       description: `Fatura ${invoice.month}/${invoice.year}`,
       amount: invoice.total,
+      payerEmail: invoice.restaurant.email,
     });
 
     const updatedInvoice = await billingRepository.updateInvoice(invoice.id, {
-      paymentLink: payment.init_point,
+      paymentLink: payment.ticketUrl,
+      paymentExternalId: payment.id,
+      pixQrCode: payment.qrCode,
+      pixQrCodeBase64: payment.qrCodeBase64,
+      pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null,
     });
 
     return {
       invoice: updatedInvoice,
-      paymentLink: payment.init_point,
+      paymentLink: payment.ticketUrl,
+      pixQrCode: payment.qrCode,
+      pixQrCodeBase64: payment.qrCodeBase64,
+      pixExpiresAt: payment.expiresAt,
     };
   }
 }

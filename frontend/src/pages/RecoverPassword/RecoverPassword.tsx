@@ -1,26 +1,31 @@
-import { useState } from "react";
-import { toast } from "react-toastify";
-import { ThemeProvider } from "styled-components";
-import { Moon, Sun, Utensils } from "lucide-react";
-import authService from "../../Services/authService";
-import * as S from "./styles";
+import { useState } from 'react';
+import { toast } from 'react-toastify';
+import { ThemeProvider } from 'styled-components';
+import { Moon, Sun, Utensils } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import authService from '../../Services/authService';
+import * as S from './styles';
+import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 
-type ContactMethod = "email" | "phone";
+type ContactMethod = 'email' | 'phone';
 
 export default function RecoverPassword() {
+  const [searchParams] = useSearchParams();
+  const branding = useRestaurantLoginBranding(searchParams);
+  const restaurantQuery = searchParams.toString();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [step, setStep] = useState<"request" | "reset">("request");
-  const [contactMethod, setContactMethod] = useState<ContactMethod>("phone");
-  const [identifier, setIdentifier] = useState("");
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [step, setStep] = useState<'request' | 'reset'>('request');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>('phone');
+  const [identifier, setIdentifier] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const buildIdentifierPayload = () => {
-    const value = String(identifier || "").trim();
+    const value = String(identifier || '').trim();
 
-    if (contactMethod === "phone") {
+    if (contactMethod === 'phone') {
       return { phone: value };
     }
 
@@ -30,26 +35,23 @@ export default function RecoverPassword() {
   const handleRequestCode = async (event) => {
     event.preventDefault();
 
-    if (!String(identifier || "").trim()) {
-      toast.error("Informe o e-mail ou telefone.");
+    if (!String(identifier || '').trim()) {
+      toast.error('Informe o e-mail ou telefone.');
       return;
     }
 
     try {
       setIsLoading(true);
-      const response = await authService.forgotPassword(
-        buildIdentifierPayload(),
-      );
+      const response = await authService.forgotPassword(buildIdentifierPayload());
 
       toast.success(
         response?.message ||
-          "Se os dados informados existirem, enviamos um codigo para redefinir a senha.",
+          'Se os dados informados existirem, enviamos um codigo para redefinir a senha.',
       );
-      setStep("reset");
+      setStep('reset');
     } catch (error) {
       toast.error(
-        error?.response?.data?.error ||
-          "Nao foi possivel solicitar recuperacao de senha.",
+        error?.response?.data?.error || 'Nao foi possivel solicitar recuperacao de senha.',
       );
     } finally {
       setIsLoading(false);
@@ -68,22 +70,26 @@ export default function RecoverPassword() {
         confirmPassword,
       });
 
-      toast.success(response?.message || "Senha redefinida com sucesso.");
-      setStep("request");
-      setCode("");
-      setNewPassword("");
-      setConfirmPassword("");
+      toast.success(response?.message || 'Senha redefinida com sucesso.');
+      setStep('request');
+      setCode('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (error) {
-      toast.error(
-        error?.response?.data?.error || "Nao foi possivel redefinir a senha.",
-      );
+      toast.error(error?.response?.data?.error || 'Nao foi possivel redefinir a senha.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <ThemeProvider theme={isDarkMode ? S.darkTheme : S.lightTheme}>
+    <ThemeProvider
+      theme={{
+        ...(isDarkMode ? S.darkTheme : S.lightTheme),
+        primary: branding.primaryColor,
+        primaryHover: branding.primaryColor,
+      }}
+    >
       <S.Container>
         <S.TopBar>
           <S.ThemeToggleButton onClick={() => setIsDarkMode((prev) => !prev)}>
@@ -91,14 +97,17 @@ export default function RecoverPassword() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection>
+        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
-            <Utensils size={32} strokeWidth={2.5} />
-            <span>Peça Já Food</span>
+            {branding.logoUrl ? (
+              <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />
+            ) : (
+              <Utensils size={32} strokeWidth={2.5} />
+            )}
+            <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
-            Recupere seu acesso de forma segura usando e-mail ou telefone
-            cadastrado.
+            Recupere seu acesso de forma segura usando e-mail ou telefone cadastrado.
           </S.BrandSubtitle>
         </S.BannerSection>
 
@@ -106,33 +115,27 @@ export default function RecoverPassword() {
           <S.FormWrapper>
             <S.WelcomeText>Recuperar senha</S.WelcomeText>
             <S.FormSubtitle>
-              {step === "request"
-                ? "Escolha e-mail ou telefone e receba um codigo para redefinir sua senha."
-                : "Digite o codigo recebido e informe sua nova senha."}
+              {step === 'request'
+                ? 'Escolha e-mail ou telefone e receba um codigo para redefinir sua senha.'
+                : 'Digite o codigo recebido e informe sua nova senha.'}
             </S.FormSubtitle>
 
-            <S.Form
-              onSubmit={
-                step === "request" ? handleRequestCode : handleResetPassword
-              }
-            >
+            <S.Form onSubmit={step === 'request' ? handleRequestCode : handleResetPassword}>
               <S.SwitchRow>
                 <S.SwitchButton
                   type="button"
-                  $active={contactMethod === "email"}
+                  $active={contactMethod === 'email'}
                   onClick={() => {
-                    toast.info(
-                      "Recuperacao por e-mail esta temporariamente indisponivel.",
-                    );
-                    setContactMethod("phone");
+                    toast.info('Recuperacao por e-mail esta temporariamente indisponivel.');
+                    setContactMethod('phone');
                   }}
                 >
                   E-mail
                 </S.SwitchButton>
                 <S.SwitchButton
                   type="button"
-                  $active={contactMethod === "phone"}
-                  onClick={() => setContactMethod("phone")}
+                  $active={contactMethod === 'phone'}
+                  onClick={() => setContactMethod('phone')}
                 >
                   Telefone
                 </S.SwitchButton>
@@ -140,24 +143,20 @@ export default function RecoverPassword() {
 
               <S.InputGroup>
                 <S.Label htmlFor="identifier">
-                  {contactMethod === "email" ? "E-mail" : "Telefone"}
+                  {contactMethod === 'email' ? 'E-mail' : 'Telefone'}
                 </S.Label>
                 <S.Input
                   id="identifier"
-                  type={contactMethod === "email" ? "email" : "text"}
-                  inputMode={contactMethod === "phone" ? "tel" : undefined}
-                  placeholder={
-                    contactMethod === "email"
-                      ? "exemplo@email.com"
-                      : "(11) 99999-9999"
-                  }
+                  type={contactMethod === 'email' ? 'email' : 'text'}
+                  inputMode={contactMethod === 'phone' ? 'tel' : undefined}
+                  placeholder={contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'}
                   value={identifier}
                   onChange={(event) => setIdentifier(event.target.value)}
                   required
                 />
               </S.InputGroup>
 
-              {step === "reset" && (
+              {step === 'reset' && (
                 <>
                   <S.InputGroup>
                     <S.Label htmlFor="reset-code">Codigo</S.Label>
@@ -169,9 +168,7 @@ export default function RecoverPassword() {
                       placeholder="Codigo de 6 digitos"
                       value={code}
                       onChange={(event) =>
-                        setCode(
-                          event.target.value.replace(/\D/g, "").slice(0, 6),
-                        )
+                        setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
                       }
                       required
                     />
@@ -190,17 +187,13 @@ export default function RecoverPassword() {
                   </S.InputGroup>
 
                   <S.InputGroup>
-                    <S.Label htmlFor="confirm-password">
-                      Confirmar nova senha
-                    </S.Label>
+                    <S.Label htmlFor="confirm-password">Confirmar nova senha</S.Label>
                     <S.Input
                       id="confirm-password"
                       type="password"
                       placeholder="••••••••"
                       value={confirmPassword}
-                      onChange={(event) =>
-                        setConfirmPassword(event.target.value)
-                      }
+                      onChange={(event) => setConfirmPassword(event.target.value)}
                       required
                     />
                   </S.InputGroup>
@@ -209,27 +202,27 @@ export default function RecoverPassword() {
 
               <S.Button type="submit" disabled={isLoading}>
                 {isLoading
-                  ? "Processando..."
-                  : step === "request"
-                    ? "Enviar codigo"
-                    : "Redefinir senha"}
+                  ? 'Processando...'
+                  : step === 'request'
+                    ? 'Enviar codigo'
+                    : 'Redefinir senha'}
               </S.Button>
 
-              {step === "reset" && (
-                <S.Button
-                  type="button"
-                  onClick={handleRequestCode}
-                  disabled={isLoading}
-                >
+              {step === 'reset' && (
+                <S.Button type="button" onClick={handleRequestCode} disabled={isLoading}>
                   Reenviar codigo
                 </S.Button>
               )}
             </S.Form>
 
             <S.FooterRow>
-              <S.BackLink to="/login">Voltar para login</S.BackLink>
+              <S.BackLink to={`/login${restaurantQuery ? `?${restaurantQuery}` : ''}`}>
+                Voltar para login
+              </S.BackLink>
               <span>|</span>
-              <S.BackLink to="/register">Criar conta</S.BackLink>
+              <S.BackLink to={`/register${restaurantQuery ? `?${restaurantQuery}` : ''}`}>
+                Criar conta
+              </S.BackLink>
             </S.FooterRow>
           </S.FormWrapper>
         </S.FormSection>

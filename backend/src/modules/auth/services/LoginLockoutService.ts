@@ -1,4 +1,4 @@
-import prisma from "../../../config/prisma.js";
+import prisma from '../../../config/prisma.js';
 
 type FailureResult = {
   locked: boolean;
@@ -8,13 +8,11 @@ type FailureResult = {
 
 const BASE_LOCK_SECONDS = Number(process.env.LOGIN_LOCKOUT_BASE_SECONDS || 60);
 const MAX_LOCK_SECONDS = Number(process.env.LOGIN_LOCKOUT_MAX_SECONDS || 3600);
-const LOCKOUT_AFTER_FAILURES = Number(
-  process.env.LOGIN_LOCKOUT_AFTER_FAILURES || 5,
-);
+const LOCKOUT_AFTER_FAILURES = Number(process.env.LOGIN_LOCKOUT_AFTER_FAILURES || 5);
 const STATE_TTL_MS = Number(process.env.LOGIN_LOCKOUT_STATE_TTL_MS || 86400000);
 
 function normalizeKey(email: string) {
-  return String(email || "")
+  return String(email || '')
     .trim()
     .toLowerCase()
     .slice(0, 255);
@@ -54,9 +52,7 @@ class LoginLockoutService {
     }
 
     const now = Date.now();
-    const lockUntilMs = state.lockUntil
-      ? new Date(state.lockUntil).getTime()
-      : 0;
+    const lockUntilMs = state.lockUntil ? new Date(state.lockUntil).getTime() : 0;
     if (lockUntilMs <= now) {
       return { locked: false, waitSeconds: 0 };
     }
@@ -112,10 +108,7 @@ class LoginLockoutService {
     }
 
     const exponent = Math.max(0, nextFailedAttempts - LOCKOUT_AFTER_FAILURES);
-    const lockSeconds = Math.min(
-      MAX_LOCK_SECONDS,
-      BASE_LOCK_SECONDS * 2 ** exponent,
-    );
+    const lockSeconds = Math.min(MAX_LOCK_SECONDS, BASE_LOCK_SECONDS * 2 ** exponent);
 
     await prisma.loginLockout.upsert({
       where: {

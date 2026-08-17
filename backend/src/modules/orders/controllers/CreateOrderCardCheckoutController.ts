@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createOrderCardCheckoutService from "../services/CreateOrderCardCheckoutService.js";
+import { Request, Response } from 'express';
+import createOrderCardCheckoutService from '../services/CreateOrderCardCheckoutService.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -27,8 +27,7 @@ class CreateOrderCardCheckoutController {
       } = req.body;
 
       const userId = req.user?.id ?? null;
-      const userRestaurantId =
-        req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+      const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
 
       const result = await createOrderCardCheckoutService.execute({
         userId,
@@ -59,10 +58,7 @@ class CreateOrderCardCheckoutController {
       return res.status(201).json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao iniciar pagamento com cartao",
+        error: error instanceof Error ? error.message : 'Erro ao iniciar pagamento com cartao',
       });
     }
   }

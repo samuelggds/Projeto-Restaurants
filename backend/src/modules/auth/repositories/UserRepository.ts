@@ -1,11 +1,11 @@
-import type { Prisma, User } from "@prisma/client";
-import prisma from "../../../config/prisma.js";
+import type { Prisma, User } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
 class UserRepository {
   async findByEmail(email: string, db: PrismaClientLike = prisma) {
-    const normalizedEmail = String(email || "")
+    const normalizedEmail = String(email || '')
       .trim()
       .toLowerCase();
 
@@ -17,14 +17,14 @@ class UserRepository {
       where: {
         email: {
           equals: normalizedEmail,
-          mode: "insensitive",
+          mode: 'insensitive',
         },
       },
     });
   }
 
   async findByPhone(phone: string, db: PrismaClientLike = prisma) {
-    const normalizedPhone = String(phone || "").replace(/\D/g, "");
+    const normalizedPhone = String(phone || '').replace(/\D/g, '');
 
     if (!normalizedPhone) {
       return null;
@@ -40,10 +40,7 @@ class UserRepository {
     return users[0] || null;
   }
 
-  async create(
-    data: Prisma.UserUncheckedCreateInput,
-    db: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.UserUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.user.create({
       data,
     });
@@ -61,6 +58,7 @@ class UserRepository {
         role: true,
         active: true,
         mustChangePassword: true,
+        mfaEnabled: true,
         phone: true,
         cpf: true,
         address: true,
@@ -71,6 +69,7 @@ class UserRepository {
         zipCode: true,
         complement: true,
         restaurantId: true,
+        avatar: true,
       },
     });
   }
@@ -92,6 +91,7 @@ class UserRepository {
         role: true,
         active: true,
         mustChangePassword: true,
+        mfaEnabled: true,
         phone: true,
         cpf: true,
         address: true,
@@ -102,15 +102,12 @@ class UserRepository {
         zipCode: true,
         complement: true,
         restaurantId: true,
+        avatar: true,
       },
     });
   }
 
-  async updatePassword(
-    id: number | string,
-    password: string,
-    db: PrismaClientLike = prisma,
-  ) {
+  async updatePassword(id: number | string, password: string, db: PrismaClientLike = prisma) {
     return db.user.update({
       where: {
         id: Number(id),
@@ -118,6 +115,17 @@ class UserRepository {
       data: {
         password,
         mustChangePassword: false,
+      },
+    });
+  }
+
+  async updateMfaEnabled(id: number | string, mfaEnabled: boolean, db: PrismaClientLike = prisma) {
+    return db.user.update({
+      where: { id: Number(id) },
+      data: { mfaEnabled },
+      select: {
+        id: true,
+        mfaEnabled: true,
       },
     });
   }
@@ -139,10 +147,7 @@ class UserRepository {
     });
   }
 
-  async clearPasswordResetCode(
-    id: number | string,
-    db: PrismaClientLike = prisma,
-  ) {
+  async clearPasswordResetCode(id: number | string, db: PrismaClientLike = prisma) {
     return db.user.update({
       where: {
         id: Number(id),
@@ -170,10 +175,7 @@ class UserRepository {
       },
     });
   }
-  async findByIdWithPassword(
-    id: number | string,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findByIdWithPassword(id: number | string, db: PrismaClientLike = prisma) {
     return db.user.findUnique({
       where: {
         id: Number(id),

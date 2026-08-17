@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import cancelOrderService from "../services/CancelOrderService.js";
+import { Request, Response } from 'express';
+import cancelOrderService from '../services/CancelOrderService.js';
 
 class CancelOrderController {
   async handle(req: Request, res: Response) {
@@ -12,8 +12,7 @@ class CancelOrderController {
       return res.json(order);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao cancelar pedido",
+        error: error instanceof Error ? error.message : 'Erro ao cancelar pedido',
       });
     }
   }

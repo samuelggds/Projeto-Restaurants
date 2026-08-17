@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createBannerService from "../services/CreateBannerService.js";
+import { Request, Response } from 'express';
+import createBannerService from '../services/CreateBannerService.js';
 
 class CreateBannerController {
   async handle(req: Request, res: Response) {
@@ -16,7 +16,7 @@ class CreateBannerController {
       return res.status(201).json(banner);
     } catch (error: unknown) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro ao criar banner",
+        error: error instanceof Error ? error.message : 'Erro ao criar banner',
       });
     }
   }

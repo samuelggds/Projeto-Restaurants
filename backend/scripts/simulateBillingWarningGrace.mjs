@@ -1,6 +1,6 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
-import mercadoPagoService from "../src/modules/billing/services/MercadoPagoService.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
+import mercadoPagoService from '../src/modules/billing/services/MercadoPagoService.js';
 
 const restaurantId = Number(process.argv[2] || 1);
 const daysOverdue = Number(process.argv[3] || 1);
@@ -31,7 +31,7 @@ async function findAvailablePeriod(targetRestaurantId) {
     }
   }
 
-  throw new Error("No free invoice period found in next 24 months");
+  throw new Error('No free invoice period found in next 24 months');
 }
 
 (async () => {
@@ -49,10 +49,10 @@ async function findAvailablePeriod(targetRestaurantId) {
     await prisma.invoice.updateMany({
       where: {
         restaurantId,
-        status: { in: ["PENDENTE", "ATRASADO"] },
+        status: { in: ['PENDENTE', 'ATRASADO'] },
       },
       data: {
-        status: "PAGO",
+        status: 'PAGO',
         paidAt: new Date(),
       },
     });
@@ -69,7 +69,7 @@ async function findAvailablePeriod(targetRestaurantId) {
         monthlyFee: 1,
         systemFees: 0,
         total: 1,
-        status: "PENDENTE",
+        status: 'PENDENTE',
         dueDate,
       },
     });
@@ -96,7 +96,7 @@ async function findAvailablePeriod(targetRestaurantId) {
 
     await prisma.subscription.updateMany({
       where: { restaurantId },
-      data: { status: "ATIVA" },
+      data: { status: 'ATIVA' },
     });
 
     const updatedRestaurant = await prisma.restaurant.update({
@@ -105,20 +105,20 @@ async function findAvailablePeriod(targetRestaurantId) {
       select: { id: true, name: true, active: true },
     });
 
-    console.log("SIMULACAO_WARNING_ATIVA");
+    console.log('SIMULACAO_WARNING_ATIVA');
     console.log(
       JSON.stringify(
         {
           restaurant: updatedRestaurant,
           invoice: updatedInvoice,
-          note: "Invoice PENDENTE vencida dentro da tolerancia (sem bloqueio).",
+          note: 'Invoice PENDENTE vencida dentro da tolerancia (sem bloqueio).',
         },
         null,
         2,
       ),
     );
   } catch (err) {
-    console.error("ERRO_SIMULACAO_WARNING", err?.message || err);
+    console.error('ERRO_SIMULACAO_WARNING', err?.message || err);
     process.exitCode = 1;
   } finally {
     await prisma.$disconnect();

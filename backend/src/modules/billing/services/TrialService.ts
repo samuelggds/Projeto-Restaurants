@@ -1,5 +1,5 @@
-import billingRepository from "../repositories/BillingRepository.js";
-import invoiceService from "./InvoiceService.js";
+import billingRepository from '../repositories/BillingRepository.js';
+import invoiceService from './InvoiceService.js';
 
 class TrialService {
   async execute() {
@@ -23,7 +23,7 @@ class TrialService {
       });
 
       await billingRepository.updateSubscription(subscription.id, {
-        status: "ATIVA",
+        status: 'ATIVA',
       });
     }
   }

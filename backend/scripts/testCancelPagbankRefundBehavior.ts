@@ -1,27 +1,23 @@
-import "dotenv/config";
-import jwt from "jsonwebtoken";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
+import prisma from '../src/config/prisma.js';
 
-function buildToken(
-  userId: number,
-  restaurantId: number,
-  email: string | null,
-) {
-  const secret = String(process.env.JWT_SECRET || "").trim();
+function buildToken(userId: number, restaurantId: number, email: string | null) {
+  const secret = String(process.env.JWT_SECRET || '').trim();
 
   if (!secret) {
-    throw new Error("JWT_SECRET nao configurado.");
+    throw new Error('JWT_SECRET nao configurado.');
   }
 
   return jwt.sign(
     {
       id: userId,
-      role: "CLIENTE",
+      role: 'CLIENTE',
       restaurantId,
       email,
     },
     secret,
-    { expiresIn: "30m" },
+    { expiresIn: '30m' },
   );
 }
 
@@ -36,19 +32,19 @@ async function createPaidCardOrder(
   const order = await prisma.order.create({
     data: {
       total: price,
-      status: "PENDENTE",
-      type: "DELIVERY",
-      paymentMethod: "CARTAO",
+      status: 'PENDENTE',
+      type: 'DELIVERY',
+      paymentMethod: 'CARTAO',
       paid: true,
       paidAt: new Date(),
       cardCheckoutSessionId,
       observation: `${marker} | ${cardCheckoutSessionId}`,
-      address: "Rua Teste",
-      number: "20",
-      district: "Centro",
-      city: "Fortaleza",
-      state: "CE",
-      zipCode: "60000000",
+      address: 'Rua Teste',
+      number: '20',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000000',
       userId,
       restaurantId,
     },
@@ -72,10 +68,10 @@ async function createPaidCardOrder(
 
 async function cancelOrder(baseUrl: string, orderId: number, token: string) {
   const response = await fetch(`${baseUrl}/orders/${orderId}/cancel`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({}),
   });
@@ -105,30 +101,26 @@ async function cancelOrder(baseUrl: string, orderId: number, token: string) {
 (async () => {
   try {
     const restaurantId = Number(process.argv[2] || 1);
-    const baseUrl = String(
-      process.env.BACKEND_URL || "http://127.0.0.1:3000",
-    ).trim();
+    const baseUrl = String(process.env.BACKEND_URL || 'http://127.0.0.1:3000').trim();
     const marker = `TESTE_CANCEL_PAGBANK_${Date.now()}`;
 
     const user = await prisma.user.findFirst({
       where: {
         restaurantId,
         active: true,
-        role: "CLIENTE",
+        role: 'CLIENTE',
       },
       select: {
         id: true,
         email: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!user) {
-      throw new Error(
-        `Nenhum cliente ativo encontrado para restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum cliente ativo encontrado para restaurante ${restaurantId}.`);
     }
 
     const product = await prisma.product.findFirst({
@@ -141,14 +133,12 @@ async function cancelOrder(baseUrl: string, orderId: number, token: string) {
         price: true,
       },
       orderBy: {
-        id: "asc",
+        id: 'asc',
       },
     });
 
     if (!product) {
-      throw new Error(
-        `Nenhum produto ativo encontrado para restaurante ${restaurantId}.`,
-      );
+      throw new Error(`Nenhum produto ativo encontrado para restaurante ${restaurantId}.`);
     }
 
     const price = Number(product.price || 0);

@@ -1,5 +1,5 @@
-import bcrypt from "bcrypt";
-import tableSessionRepository from "../repositories/TableSessionRepository.js";
+import bcrypt from 'bcrypt';
+import tableSessionRepository from '../repositories/TableSessionRepository.js';
 
 type ValidatePinPayload = {
   tableId: number | string;
@@ -11,13 +11,13 @@ class ValidatePinService {
     const session = await tableSessionRepository.findOpenedByTable(tableId);
 
     if (!session) {
-      throw new Error("Essa mesa não está aberta!");
+      throw new Error('Essa mesa não está aberta!');
     }
 
     const pinMatch = await bcrypt.compare(pin, session.pinHash);
 
     if (!pinMatch) {
-      throw new Error("PIN inválido!");
+      throw new Error('PIN inválido!');
     }
 
     return {

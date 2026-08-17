@@ -1,54 +1,47 @@
-import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
+import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
-const alertWebhookUrl = process.env.ALERT_WEBHOOK_URL || "";
-const configuredProvider = (process.env.ALERT_PROVIDER || "generic")
-  .trim()
-  .toLowerCase();
-const alertEmailTo = process.env.ALERT_EMAIL_TO || "";
-const alertEmailFrom = process.env.ALERT_EMAIL_FROM || "";
-const smtpHost = process.env.SMTP_HOST || "";
+const alertWebhookUrl = process.env.ALERT_WEBHOOK_URL || '';
+const configuredProvider = (process.env.ALERT_PROVIDER || 'generic').trim().toLowerCase();
+const alertEmailTo = process.env.ALERT_EMAIL_TO || '';
+const alertEmailFrom = process.env.ALERT_EMAIL_FROM || '';
+const smtpHost = process.env.SMTP_HOST || '';
 const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpSecure = process.env.SMTP_SECURE === "true";
-const smtpUser = process.env.SMTP_USER || "";
-const smtpPass = process.env.SMTP_PASS || "";
+const smtpSecure = process.env.SMTP_SECURE === 'true';
+const smtpUser = process.env.SMTP_USER || '';
+const smtpPass = process.env.SMTP_PASS || '';
 
 type AlertDetails = string | Record<string, unknown>;
 
 let cachedTransporter: Transporter | null = null;
 
 function resolveProvider() {
-  if (configuredProvider !== "generic") {
+  if (configuredProvider !== 'generic') {
     return configuredProvider;
   }
 
   if (smtpHost && alertEmailTo) {
-    return "email";
+    return 'email';
   }
 
-  if (alertWebhookUrl.includes("discord.com/api/webhooks")) {
-    return "discord";
+  if (alertWebhookUrl.includes('discord.com/api/webhooks')) {
+    return 'discord';
   }
 
-  if (alertWebhookUrl.includes("hooks.slack.com/services/")) {
-    return "slack";
+  if (alertWebhookUrl.includes('hooks.slack.com/services/')) {
+    return 'slack';
   }
 
-  if (alertWebhookUrl.includes("chat.googleapis.com/")) {
-    return "google_chat";
+  if (alertWebhookUrl.includes('chat.googleapis.com/')) {
+    return 'google_chat';
   }
 
-  return "generic";
+  return 'generic';
 }
 
 function canSendEmail() {
   return Boolean(
-    smtpHost &&
-    smtpPort > 0 &&
-    smtpUser &&
-    smtpPass &&
-    alertEmailTo &&
-    alertEmailFrom,
+    smtpHost && smtpPort > 0 && smtpUser && smtpPass && alertEmailTo && alertEmailFrom,
   );
 }
 
@@ -71,7 +64,7 @@ function getTransporter() {
 }
 
 function formatDetails(details: AlertDetails) {
-  if (typeof details === "string") {
+  if (typeof details === 'string') {
     return details;
   }
 
@@ -94,7 +87,7 @@ async function sendEmailAlert(title: string, details: AlertDetails) {
     return true;
   } catch (emailError: unknown) {
     console.error(
-      "[ALERT_EMAIL_ERROR]",
+      '[ALERT_EMAIL_ERROR]',
       emailError instanceof Error ? emailError.message : String(emailError),
     );
     return false;
@@ -105,19 +98,19 @@ function buildPayload(title: string, details: AlertDetails) {
   const provider = resolveProvider();
   const message = `${title}\n${formatDetails(details)}`;
 
-  if (provider === "discord") {
+  if (provider === 'discord') {
     return {
       content: message,
     };
   }
 
-  if (provider === "slack") {
+  if (provider === 'slack') {
     return {
       text: `*${title}*\n${details}`,
     };
   }
 
-  if (provider === "google_chat") {
+  if (provider === 'google_chat') {
     return {
       text: message,
     };
@@ -128,13 +121,10 @@ function buildPayload(title: string, details: AlertDetails) {
   };
 }
 
-export async function notifyCriticalError(
-  title: string,
-  details: AlertDetails,
-) {
+export async function notifyCriticalError(title: string, details: AlertDetails) {
   const provider = resolveProvider();
 
-  if (provider === "email") {
+  if (provider === 'email') {
     const sentByEmail = await sendEmailAlert(title, details);
 
     if (sentByEmail) {
@@ -148,18 +138,16 @@ export async function notifyCriticalError(
 
   try {
     await fetch(alertWebhookUrl, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(buildPayload(title, details)),
     });
   } catch (notificationError: unknown) {
     console.error(
-      "[ALERT_WEBHOOK_ERROR]",
-      notificationError instanceof Error
-        ? notificationError.message
-        : String(notificationError),
+      '[ALERT_WEBHOOK_ERROR]',
+      notificationError instanceof Error ? notificationError.message : String(notificationError),
     );
   }
 }

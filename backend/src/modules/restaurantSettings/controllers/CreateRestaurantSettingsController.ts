@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import createRestaurantSettingsService from "../services/CreateRestaurantSettingsService.js";
+import { Request, Response } from 'express';
+import createRestaurantSettingsService from '../services/CreateRestaurantSettingsService.js';
 
 class CreateRestaurantSettingsController {
   async handle(req: Request, res: Response) {
@@ -8,6 +8,7 @@ class CreateRestaurantSettingsController {
 
       const {
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -33,6 +34,7 @@ class CreateRestaurantSettingsController {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
         picpayToken,
         asaasAccessToken,
@@ -48,11 +50,27 @@ class CreateRestaurantSettingsController {
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
+        restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       } = req.body;
 
       const settings = await createRestaurantSettingsService.execute({
         restaurantId,
         deliveryFee,
+        courierFeePerDelivery,
         minimumOrder,
         pixProvider,
         pixKey,
@@ -78,6 +96,7 @@ class CreateRestaurantSettingsController {
         cardGateway,
         gatewayMerchantId,
         stripeSecretKey,
+        stripeWebhookSecret,
         mercadoPagoAccessToken,
         picpayToken,
         asaasAccessToken,
@@ -93,15 +112,28 @@ class CreateRestaurantSettingsController {
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
+        restaurantDescription,
+        restaurantAddress,
+        restaurantAddressNumber,
+        restaurantAddressComplement,
+        restaurantAddressDistrict,
+        restaurantCity,
+        restaurantState,
+        restaurantZipCode,
+        businessHours,
+        isOpenForOrders,
+        averageDeliveryTime,
+        autoAcceptOrders,
+        trackingRequiresLogin,
+        soundNotifications,
+        maxConcurrentOrders,
       });
 
       return res.status(201).json(settings);
     } catch (error: unknown) {
       return res.status(400).json({
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar configuracoes do restaurante",
+          error instanceof Error ? error.message : 'Erro ao criar configuracoes do restaurante',
       });
     }
   }

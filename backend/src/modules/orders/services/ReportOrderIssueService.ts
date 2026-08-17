@@ -1,12 +1,12 @@
-import prisma from "../../../config/prisma.js";
-import { io } from "../../../server.js";
-import { notifyRestaurantOrderIssueReported } from "../../../services/customerNotifier.js";
+import prisma from '../../../config/prisma.js';
+import { io } from '../../../server.js';
+import { notifyRestaurantOrderIssueReported } from '../../../services/customerNotifier.js';
 import {
   addOrderIssueMessage,
   ensureOrderIssueThread,
   getOrderIssueThread,
   toOrderIssueThreadPayload,
-} from "./orderIssueChatStore.js";
+} from './orderIssueChatStore.js';
 
 function buildOrderAddressLabel(order: {
   address?: string | null;
@@ -17,15 +17,15 @@ function buildOrderAddressLabel(order: {
   zipCode?: string | null;
 }) {
   const parts = [
-    String(order?.address || "").trim(),
-    String(order?.number || "").trim(),
-    String(order?.district || "").trim(),
-    String(order?.city || "").trim(),
-    String(order?.state || "").trim(),
-    String(order?.zipCode || "").trim(),
+    String(order?.address || '').trim(),
+    String(order?.number || '').trim(),
+    String(order?.district || '').trim(),
+    String(order?.city || '').trim(),
+    String(order?.state || '').trim(),
+    String(order?.zipCode || '').trim(),
   ].filter(Boolean);
 
-  return parts.join(", ");
+  return parts.join(', ');
 }
 
 class ReportOrderIssueService {
@@ -38,28 +38,27 @@ class ReportOrderIssueService {
     const normalizedOrderId = Number(orderId);
     const normalizedUserId = Number(userId);
     const normalizedRestaurantId = Number(restaurantId || 0);
-    const normalizedIssueMessage = String(issueMessage || "")
-      .replace(/\s+/g, " ")
+    const normalizedIssueMessage = String(issueMessage || '')
+      .replace(/\s+/g, ' ')
       .trim();
 
     if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
-      throw new Error("Pedido inválido para relatar problema.");
+      throw new Error('Pedido inválido para relatar problema.');
     }
 
     if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
-      throw new Error("Usuário inválido para relatar problema.");
+      throw new Error('Usuário inválido para relatar problema.');
     }
 
     if (normalizedIssueMessage.length > 600) {
-      throw new Error("Mensagem muito longa. Use no máximo 600 caracteres.");
+      throw new Error('Mensagem muito longa. Use no máximo 600 caracteres.');
     }
 
     const order = await prisma.order.findFirst({
       where: {
         id: normalizedOrderId,
         userId: normalizedUserId,
-        ...(Number.isFinite(normalizedRestaurantId) &&
-        normalizedRestaurantId > 0
+        ...(Number.isFinite(normalizedRestaurantId) && normalizedRestaurantId > 0
           ? {
               restaurantId: normalizedRestaurantId,
             }
@@ -106,7 +105,7 @@ class ReportOrderIssueService {
     });
 
     if (!order) {
-      throw new Error("Pedido não encontrado para este usuário.");
+      throw new Error('Pedido não encontrado para este usuário.');
     }
 
     const orderAddressLabel = buildOrderAddressLabel(order);
@@ -114,10 +113,10 @@ class ReportOrderIssueService {
       ? order.items
           .map((item) => {
             const quantity = Number(item?.quantity || 0);
-            const productName = String(item?.product?.name || "Item").trim();
+            const productName = String(item?.product?.name || 'Item').trim();
 
             if (!productName) {
-              return "";
+              return '';
             }
 
             return quantity > 0 ? `${quantity}x ${productName}` : productName;
@@ -128,26 +127,26 @@ class ReportOrderIssueService {
     const existingThread = await getOrderIssueThread(order.id);
 
     if (!existingThread && normalizedIssueMessage.length < 10) {
-      throw new Error("Descreva o problema com pelo menos 10 caracteres.");
+      throw new Error('Descreva o problema com pelo menos 10 caracteres.');
     }
 
     if (existingThread && normalizedIssueMessage.length < 2) {
-      throw new Error("Digite uma mensagem para continuar o chat.");
+      throw new Error('Digite uma mensagem para continuar o chat.');
     }
 
     if (existingThread?.isResolved) {
-      throw new Error("Este problema já foi resolvido e o chat foi encerrado.");
+      throw new Error('Este problema já foi resolvido e o chat foi encerrado.');
     }
 
     await ensureOrderIssueThread({
       orderId: order.id,
       userId: order.userId,
       restaurantId: order.restaurantId,
-      customerName: String(order?.user?.name || "Cliente").trim(),
-      customerPhone: String(order?.user?.phone || "").trim(),
-      orderStatus: String(order.status || ""),
-      orderType: String(order.type || ""),
-      paymentMethod: String(order.paymentMethod || ""),
+      customerName: String(order?.user?.name || 'Cliente').trim(),
+      customerPhone: String(order?.user?.phone || '').trim(),
+      orderStatus: String(order.status || ''),
+      orderType: String(order.type || ''),
+      paymentMethod: String(order.paymentMethod || ''),
       total: Number(order.total || 0),
       createdAt: order.createdAt.toISOString(),
       addressLabel: orderAddressLabel,
@@ -156,14 +155,14 @@ class ReportOrderIssueService {
 
     const { thread, chatMessage } = await addOrderIssueMessage({
       orderId: order.id,
-      senderType: "CLIENT",
-      senderName: String(order?.user?.name || "Cliente"),
+      senderType: 'CLIENT',
+      senderName: String(order?.user?.name || 'Cliente'),
       message: normalizedIssueMessage,
     });
 
     const threadPayload = toOrderIssueThreadPayload(thread);
     if (!threadPayload) {
-      throw new Error("Não foi possível atualizar a conversa do pedido.");
+      throw new Error('Não foi possível atualizar a conversa do pedido.');
     }
 
     const payload = {
@@ -177,8 +176,8 @@ class ReportOrderIssueService {
       restaurantId: order.restaurantId,
       addressLabel: orderAddressLabel,
       itemsSummary: orderItemsSummary,
-      customerName: String(order?.user?.name || "Cliente").trim(),
-      customerPhone: String(order?.user?.phone || "").trim(),
+      customerName: String(order?.user?.name || 'Cliente').trim(),
+      customerPhone: String(order?.user?.phone || '').trim(),
       issueMessage: normalizedIssueMessage,
       reportedAt: chatMessage.sentAt,
       isResolved: threadPayload.isResolved,
@@ -201,23 +200,17 @@ class ReportOrderIssueService {
       createdAt: payload.createdAt?.toISOString?.() || null,
     }).catch((error: unknown) => {
       console.error(
-        "[RESTAURANT_ORDER_ISSUE_NOTIFICATION_UNHANDLED]",
+        '[RESTAURANT_ORDER_ISSUE_NOTIFICATION_UNHANDLED]',
         error instanceof Error ? error.message : String(error),
       );
     });
 
-    io.to(`restaurant:${order.restaurantId}:admin`).emit(
-      "order:issue-reported",
-      payload,
-    );
-    io.to(`restaurant:${order.restaurantId}:admin`).emit(
-      "order:issue-message",
-      {
-        ...threadPayload,
-        message: chatMessage,
-      },
-    );
-    io.to(`user:${order.userId}`).emit("order:issue-message", {
+    io.to(`restaurant:${order.restaurantId}:admin`).emit('order:issue-reported', payload);
+    io.to(`restaurant:${order.restaurantId}:admin`).emit('order:issue-message', {
+      ...threadPayload,
+      message: chatMessage,
+    });
+    io.to(`user:${order.userId}`).emit('order:issue-message', {
       ...threadPayload,
       message: chatMessage,
     });
@@ -225,7 +218,7 @@ class ReportOrderIssueService {
     return {
       ...threadPayload,
       lastMessage: chatMessage,
-      info: "Problema relatado para o admin com sucesso.",
+      info: 'Problema relatado para o admin com sucesso.',
     };
   }
 }

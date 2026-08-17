@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled from 'styled-components';
 
 export const AdminLayout = styled.div`
   display: flex;
@@ -159,21 +159,21 @@ export const StatusBadge = styled.div`
   white-space: nowrap;
   background-color: ${(props) => {
     const colors = {
-      PENDENTE: "rgba(245, 158, 11, 0.1)",
-      PAGO: "rgba(16, 185, 129, 0.1)",
-      VENCIDO: "rgba(239, 68, 68, 0.1)",
-      ATRASADO: "rgba(239, 68, 68, 0.1)",
+      PENDENTE: 'rgba(245, 158, 11, 0.1)',
+      PAGO: 'rgba(16, 185, 129, 0.1)',
+      VENCIDO: 'rgba(239, 68, 68, 0.1)',
+      ATRASADO: 'rgba(239, 68, 68, 0.1)',
     };
-    return colors[props.status] || "rgba(107, 114, 128, 0.1)";
+    return colors[props.status] || 'rgba(107, 114, 128, 0.1)';
   }};
   color: ${(props) => {
     const colors = {
-      PENDENTE: "#f59e0b",
-      PAGO: "#10b981",
-      VENCIDO: "#ef4444",
-      ATRASADO: "#ef4444",
+      PENDENTE: '#f59e0b',
+      PAGO: '#10b981',
+      VENCIDO: '#ef4444',
+      ATRASADO: '#ef4444',
     };
-    return colors[props.status] || "#6b7280";
+    return colors[props.status] || '#6b7280';
   }};
 `;
 
@@ -319,53 +319,56 @@ export const PlanInfo = styled.div`
 
 export const PlanGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const PlanCard = styled.div`
   border: 1px solid
     ${(props) =>
-      props.$tone === "basic"
-        ? "rgba(148, 163, 184, 0.26)"
-        : props.$tone === "pro"
-          ? "rgba(59, 130, 246, 0.32)"
-          : props.$tone === "premium" || props.$highlighted
-            ? "rgba(234, 179, 8, 0.55)"
-            : "rgba(148, 163, 184, 0.35)"};
+      props.$tone === 'basic'
+        ? 'rgba(148, 163, 184, 0.26)'
+        : props.$tone === 'pro'
+          ? 'rgba(59, 130, 246, 0.32)'
+          : props.$tone === 'premium' || props.$highlighted
+            ? 'rgba(234, 179, 8, 0.55)'
+            : 'rgba(148, 163, 184, 0.35)'};
   background: ${(props) =>
-    props.$tone === "basic"
+    props.$tone === 'basic'
       ? props.theme.surfaceHover
-      : props.$tone === "pro"
-        ? "linear-gradient(160deg, rgba(59, 130, 246, 0.1), rgba(15, 23, 42, 0.04))"
-        : props.$tone === "premium" || props.$highlighted
-          ? "linear-gradient(160deg, rgba(234, 179, 8, 0.16), rgba(30, 41, 59, 0.12))"
+      : props.$tone === 'pro'
+        ? 'linear-gradient(160deg, rgba(59, 130, 246, 0.1), rgba(15, 23, 42, 0.04))'
+        : props.$tone === 'premium' || props.$highlighted
+          ? 'linear-gradient(160deg, rgba(234, 179, 8, 0.16), rgba(30, 41, 59, 0.12))'
           : props.theme.surface};
   border-radius: 12px;
   padding: 1rem;
   display: grid;
   gap: 0.8rem;
-  opacity: ${(props) => (props.$tone === "basic" ? 0.92 : 1)};
+  opacity: ${(props) => (props.$tone === 'basic' ? 0.92 : 1)};
   box-shadow: ${(props) =>
-    props.$tone === "premium"
-      ? "0 14px 26px rgba(234, 179, 8, 0.14)"
-      : props.$tone === "pro"
-        ? "0 10px 18px rgba(59, 130, 246, 0.1)"
-        : "none"};
+    props.$tone === 'premium'
+      ? '0 14px 26px rgba(234, 179, 8, 0.14)'
+      : props.$tone === 'pro'
+        ? '0 10px 18px rgba(59, 130, 246, 0.1)'
+        : 'none'};
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
     border-color 160ms ease;
 
   &:hover {
-    transform: ${(props) =>
-      props.$tone === "basic" ? "none" : "translateY(-2px)"};
+    transform: ${(props) => (props.$tone === 'basic' ? 'none' : 'translateY(-2px)')};
     box-shadow: ${(props) =>
-      props.$tone === "premium"
-        ? "0 18px 30px rgba(234, 179, 8, 0.2)"
-        : props.$tone === "pro"
-          ? "0 14px 24px rgba(59, 130, 246, 0.16)"
-          : "none"};
+      props.$tone === 'premium'
+        ? '0 18px 30px rgba(234, 179, 8, 0.2)'
+        : props.$tone === 'pro'
+          ? '0 14px 24px rgba(59, 130, 246, 0.16)'
+          : 'none'};
   }
 `;
 
@@ -402,13 +405,12 @@ export const PlanActionButton = styled.button`
   padding: 0 0.85rem;
   font-weight: 800;
   background: ${(props) =>
-    props.$tone === "basic"
+    props.$tone === 'basic'
       ? props.theme.border
-      : props.$tone === "pro"
-        ? "#3b82f6"
+      : props.$tone === 'pro'
+        ? '#3b82f6'
         : props.theme.primary};
-  color: ${(props) =>
-    props.$tone === "basic" ? props.theme.textMuted : "#0f172a"};
+  color: ${(props) => (props.$tone === 'basic' ? props.theme.textMuted : '#0f172a')};
   cursor: pointer;
   transition:
     filter 160ms ease,

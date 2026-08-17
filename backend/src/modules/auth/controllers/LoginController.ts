@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import loginService from "../services/LoginService.js";
+import { Request, Response } from 'express';
+import loginService from '../services/LoginService.js';
 
 class LoginController {
   async handle(req: Request, res: Response) {
@@ -14,7 +14,7 @@ class LoginController {
       return res.json(result);
     } catch (error: unknown) {
       return res.status(400).json({
-        error: error instanceof Error ? error.message : "Erro ao fazer login",
+        error: error instanceof Error ? error.message : 'Erro ao fazer login',
       });
     }
   }

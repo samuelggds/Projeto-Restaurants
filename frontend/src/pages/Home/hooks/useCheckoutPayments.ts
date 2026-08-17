@@ -1,0 +1,165 @@
+import { useEffect, useState } from 'react';
+import ordersService from '../../../Services/ordersService';
+import type { CheckoutPaymentMethod } from '../domain/checkout';
+
+export type PixPaymentData = {
+  orderId: number | null;
+  total: number;
+  paymentId?: string;
+  provider: string;
+  pixCode: string;
+  qrCodeBase64: string | null;
+  requiresStatusCheck?: boolean;
+  paid?: boolean;
+};
+
+type Notify = (
+  type: 'success' | 'error',
+  title: string,
+  message?: string,
+  duration?: number,
+) => void;
+
+type Options = {
+  restaurantId: number | null;
+  pixProvider: unknown;
+  cartTotal: number;
+  notify: Notify;
+  onPurchased: () => void;
+  onClearCart: () => void;
+  onCloseCart: () => void;
+};
+
+export function getCheckoutErrorMessage(error: unknown): string {
+  if (typeof error !== 'object' || error === null) return '';
+  const typed = error as {
+    response?: { data?: { error?: unknown } };
+    message?: unknown;
+  };
+  return String(typed.response?.data?.error || typed.message || '');
+}
+
+export function useCheckoutPayments(options: Options) {
+  const { restaurantId, pixProvider, cartTotal, notify, onPurchased, onClearCart, onCloseCart } =
+    options;
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [pixPaymentData, setPixPaymentData] = useState<PixPaymentData | null>(null);
+
+  useEffect(() => {
+    if (
+      !pixPaymentData?.requiresStatusCheck ||
+      pixPaymentData.paid ||
+      !pixPaymentData.paymentId ||
+      !pixPaymentData.orderId ||
+      !restaurantId
+    )
+      return;
+
+    let active = true;
+    let checking = false;
+    const checkPayment = async () => {
+      if (!active || checking) return;
+      checking = true;
+      try {
+        const status = await ordersService.getPixPaymentStatus({
+          paymentId: pixPaymentData.paymentId,
+          restaurantId,
+        });
+        if (status?.isApproved && active) {
+          await ordersService.confirmPixPayment({
+            orderId: pixPaymentData.orderId,
+            paymentId: pixPaymentData.paymentId,
+            restaurantId,
+          });
+          if (active) {
+            setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
+          }
+        }
+      } catch {
+        // A próxima consulta repete a verificação enquanto o QR estiver aberto.
+      } finally {
+        checking = false;
+      }
+    };
+
+    void checkPayment();
+    const intervalId = window.setInterval(checkPayment, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [pixPaymentData, restaurantId]);
+
+  const executePayment = async (
+    payload: Record<string, unknown>,
+    paymentMethod: CheckoutPaymentMethod,
+    payOnDelivery: boolean,
+    resolvedPaymentMethod: 'PIX' | 'CARTAO',
+  ) => {
+    if (checkoutLoading) return;
+    setCheckoutLoading(true);
+    try {
+      if (payOnDelivery) {
+        const order = await ordersService.createOrder(payload);
+        onPurchased();
+        onClearCart();
+        onCloseCart();
+        notify(
+          'success',
+          `Pedido #${String(order?.id || '')} recebido`,
+          `Pagamento na entrega por ${resolvedPaymentMethod === 'PIX' ? 'Pix' : 'cartão'}.`,
+          5000,
+        );
+        return;
+      }
+
+      if (paymentMethod === 'pix') {
+        const result = await ordersService.createPixPayment({
+          ...payload,
+          pixProvider: String(pixProvider || ''),
+        });
+        setPixPaymentData({
+          orderId: Number(result.orderId) || null,
+          total: Number(result.totalAmount || cartTotal),
+          paymentId: String(result.paymentId || ''),
+          provider: String(result.provider || 'PIX'),
+          pixCode: String(result.qrCode || ''),
+          qrCodeBase64: result.qrCodeBase64 ? String(result.qrCodeBase64) : null,
+          requiresStatusCheck: Boolean(result.requiresStatusCheck),
+        });
+        onPurchased();
+        onClearCart();
+        onCloseCart();
+        return;
+      }
+
+      const result = await ordersService.createCardCheckout({
+        ...payload,
+        successUrl: window.location.href,
+        cancelUrl: window.location.href,
+      });
+      const checkoutUrl = String(result.checkoutUrl || '');
+      if (!/^https:\/\//i.test(checkoutUrl)) {
+        throw new Error('O gateway não retornou um endereço seguro de pagamento.');
+      }
+      onPurchased();
+      onClearCart();
+      window.location.assign(checkoutUrl);
+    } catch (error: unknown) {
+      notify(
+        'error',
+        'Não foi possível iniciar o pagamento',
+        getCheckoutErrorMessage(error) || 'Confira as configurações de pagamento do restaurante.',
+      );
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  return {
+    checkoutLoading,
+    pixPaymentData,
+    setPixPaymentData,
+    executePayment,
+  };
+}

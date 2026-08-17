@@ -1,8 +1,8 @@
-import OpenAI from "openai";
-import { z } from "zod";
-import prisma from "../../../config/prisma.js";
-import categoryRepository from "../../categories/repositories/CategoryRepository.js";
-import productRepository from "../../products/repositories/ProductRepository.js";
+import OpenAI from 'openai';
+import { z } from 'zod';
+import prisma from '../../../config/prisma.js';
+import categoryRepository from '../../categories/repositories/CategoryRepository.js';
+import productRepository from '../../products/repositories/ProductRepository.js';
 
 type ImportMenuFromImageInput = {
   imageUrl: string;
@@ -27,35 +27,35 @@ type ImportedMenuResult = {
 };
 
 const importedMenuItemSchema = z.object({
-  name: z.string().trim().min(1, "Nome do item invalido."),
+  name: z.string().trim().min(1, 'Nome do item invalido.'),
   description: z.string().trim().nullable().optional(),
   price: z.union([z.number(), z.string()]),
   imageUrl: z.string().trim().url().nullable().optional(),
 });
 
 const importedMenuCategorySchema = z.object({
-  name: z.string().trim().min(1, "Nome da categoria invalido."),
-  items: z.array(importedMenuItemSchema).min(1, "Categoria sem itens."),
+  name: z.string().trim().min(1, 'Nome da categoria invalido.'),
+  items: z.array(importedMenuItemSchema).min(1, 'Categoria sem itens.'),
 });
 
 const importedMenuResponseSchema = z.object({
   restaurantName: z.string().trim().nullable().optional(),
-  categories: z.array(importedMenuCategorySchema).min(1, "Cardapio vazio."),
+  categories: z.array(importedMenuCategorySchema).min(1, 'Cardapio vazio.'),
 });
 
 const importInputSchema = z.object({
-  imageUrl: z.string().trim().url("Informe uma URL valida da imagem."),
+  imageUrl: z.string().trim().url('Informe uma URL valida da imagem.'),
   restaurantId: z.union([z.number(), z.string()]),
 });
 
 function normalizeText(value: string | null | undefined) {
-  return String(value || "")
-    .replace(/\s+/g, " ")
+  return String(value || '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function parsePrice(value: string | number | null | undefined) {
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
   }
 
@@ -65,10 +65,10 @@ function parsePrice(value: string | number | null | undefined) {
   }
 
   const normalized = text
-    .replace(/[^\d,.-]/g, "")
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
-    .replace(/,(?=\d{1,2}$)/g, ".")
-    .replace(/,/g, "");
+    .replace(/[^\d,.-]/g, '')
+    .replace(/\.(?=\d{3}(\D|$))/g, '')
+    .replace(/,(?=\d{1,2}$)/g, '.')
+    .replace(/,/g, '');
 
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
@@ -76,40 +76,40 @@ function parsePrice(value: string | number | null | undefined) {
 
 function stripCodeFences(value: string) {
   return value
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/i, "")
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/i, '')
     .trim();
 }
 
 function buildPrompt() {
   return [
-    "Você é um extrator de cardápios a partir de imagem.",
-    "Leia a imagem e retorne SOMENTE um JSON válido, sem markdown, sem comentários e sem texto extra.",
-    "Estrutura obrigatória:",
-    "{",
+    'Você é um extrator de cardápios a partir de imagem.',
+    'Leia a imagem e retorne SOMENTE um JSON válido, sem markdown, sem comentários e sem texto extra.',
+    'Estrutura obrigatória:',
+    '{',
     '  "restaurantName": string | null,',
     '  "categories": [',
-    "    {",
+    '    {',
     '      "name": string,',
     '      "items": [',
-    "        {",
+    '        {',
     '          "name": string,',
     '          "description": string | null,',
     '          "price": number,',
     '          "imageUrl": string | null',
-    "        }",
-    "      ]",
-    "    }",
-    "  ]",
-    "}",
-    "Regras:",
-    "- price deve ser number em BRL, sem simbolo de moeda.",
-    "- Se a descricao nao existir, use null.",
-    "- imageUrl deve ser URL publica valida da foto do item quando existir na imagem/origem; se nao existir, use null.",
-    "- Se houver varios grupos na imagem, organize em categorias coerentes.",
-    "- Nao invente itens que nao estejam visiveis.",
-    "- Se nao conseguir ler a imagem, retorne categories como array vazio.",
-  ].join("\n");
+    '        }',
+    '      ]',
+    '    }',
+    '  ]',
+    '}',
+    'Regras:',
+    '- price deve ser number em BRL, sem simbolo de moeda.',
+    '- Se a descricao nao existir, use null.',
+    '- imageUrl deve ser URL publica valida da foto do item quando existir na imagem/origem; se nao existir, use null.',
+    '- Se houver varios grupos na imagem, organize em categorias coerentes.',
+    '- Nao invente itens que nao estejam visiveis.',
+    '- Se nao conseguir ler a imagem, retorne categories como array vazio.',
+  ].join('\n');
 }
 
 function isValidHttpUrl(value: string | null | undefined) {
@@ -121,18 +121,18 @@ function isValidHttpUrl(value: string | null | undefined) {
 
   try {
     const parsed = new URL(text);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
     return false;
   }
 }
 
 function createOpenAiClient() {
-  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+  const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
 
   if (!apiKey) {
     throw new Error(
-      "OPENAI_API_KEY nao configurada. Adicione a chave no ambiente antes de usar o importador por imagem.",
+      'OPENAI_API_KEY nao configurada. Adicione a chave no ambiente antes de usar o importador por imagem.',
     );
   }
 
@@ -147,13 +147,13 @@ function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
   try {
     parsed = JSON.parse(cleanedContent);
   } catch {
-    throw new Error("A OpenAI retornou um JSON invalido.");
+    throw new Error('A OpenAI retornou um JSON invalido.');
   }
 
   const validated = importedMenuResponseSchema.safeParse(parsed);
 
   if (!validated.success) {
-    throw new Error("A resposta da OpenAI nao seguiu a estrutura esperada.");
+    throw new Error('A resposta da OpenAI nao seguiu a estrutura esperada.');
   }
 
   return {
@@ -173,9 +173,7 @@ function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
           name: normalizeText(item.name),
           description: normalizeText(item.description) || null,
           price,
-          imageUrl: isValidHttpUrl(item.imageUrl)
-            ? normalizeText(item.imageUrl)
-            : null,
+          imageUrl: isValidHttpUrl(item.imageUrl) ? normalizeText(item.imageUrl) : null,
         };
       }),
     })),
@@ -188,28 +186,28 @@ class ImportMenuFromImageService {
     const restaurantId = Number(parsedInput.restaurantId);
 
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
-      throw new Error("restauranteId invalido.");
+      throw new Error('restauranteId invalido.');
     }
 
     const openai = createOpenAiClient();
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       temperature: 0.1,
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       messages: [
         {
-          role: "system",
+          role: 'system',
           content: buildPrompt(),
         },
         {
-          role: "user",
+          role: 'user',
           content: [
             {
-              type: "text",
-              text: "Extraia o cardapio desta imagem e retorne somente o JSON estruturado.",
+              type: 'text',
+              text: 'Extraia o cardapio desta imagem e retorne somente o JSON estruturado.',
             },
             {
-              type: "image_url",
+              type: 'image_url',
               image_url: {
                 url: parsedInput.imageUrl,
               },
@@ -222,13 +220,13 @@ class ImportMenuFromImageService {
     const rawContent = completion.choices[0]?.message?.content;
 
     if (!rawContent) {
-      throw new Error("A OpenAI nao retornou conteudo para ser processado.");
+      throw new Error('A OpenAI nao retornou conteudo para ser processado.');
     }
 
     const menu = parseImportedMenuContent(rawContent);
 
     if (!menu.categories.length) {
-      throw new Error("Nenhuma categoria foi identificada na imagem enviada.");
+      throw new Error('Nenhuma categoria foi identificada na imagem enviada.');
     }
 
     const summary = await prisma.$transaction(async (db) => {
@@ -241,11 +239,7 @@ class ImportMenuFromImageService {
           continue;
         }
 
-        let category = await categoryRepository.findByName(
-          categoryName,
-          restaurantId,
-          db,
-        );
+        let category = await categoryRepository.findByName(categoryName, restaurantId, db);
 
         if (!category) {
           category = await categoryRepository.create(
@@ -277,11 +271,7 @@ class ImportMenuFromImageService {
             continue;
           }
 
-          const existingProduct = await productRepository.findByName(
-            productName,
-            restaurantId,
-            db,
-          );
+          const existingProduct = await productRepository.findByName(productName, restaurantId, db);
 
           if (existingProduct) {
             continue;

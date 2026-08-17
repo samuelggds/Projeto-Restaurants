@@ -1,15 +1,15 @@
-export const BRAND_IDENTITY_STORAGE_KEY = "@PecaJaFood:brandIdentity";
-export const BRAND_IDENTITY_UPDATED_EVENT = "pecajaf:brand-identity-updated";
+export const BRAND_IDENTITY_STORAGE_KEY = '@PecaJaFood:brandIdentity';
+export const BRAND_IDENTITY_UPDATED_EVENT = 'pecajaf:brand-identity-updated';
 
 export type BrandIdentity = {
   name: string;
   logoUrl: string;
 };
 
-const DEFAULT_BRAND_NAME = "Peça já food";
+const DEFAULT_BRAND_NAME = 'Peça Já Food';
 
 function normalizeText(value: unknown) {
-  return String(value || "").trim();
+  return String(value || '').trim();
 }
 
 function parseJson(raw: string | null) {
@@ -25,12 +25,9 @@ function parseJson(raw: string | null) {
 }
 
 function extractFromUserStorage(): BrandIdentity {
-  const parsedUser = parseJson(localStorage.getItem("user")) as Record<
-    string,
-    unknown
-  > | null;
+  const parsedUser = parseJson(localStorage.getItem('user')) as Record<string, unknown> | null;
   const restaurant =
-    parsedUser && typeof parsedUser.restaurant === "object"
+    parsedUser && typeof parsedUser.restaurant === 'object'
       ? (parsedUser.restaurant as Record<string, unknown>)
       : null;
 
@@ -50,9 +47,10 @@ function extractFromUserStorage(): BrandIdentity {
 }
 
 export function readBrandIdentityFromStorage(): BrandIdentity {
-  const parsed = parseJson(
-    localStorage.getItem(BRAND_IDENTITY_STORAGE_KEY),
-  ) as Record<string, unknown> | null;
+  const parsed = parseJson(localStorage.getItem(BRAND_IDENTITY_STORAGE_KEY)) as Record<
+    string,
+    unknown
+  > | null;
 
   return {
     name: normalizeText(parsed?.name),
@@ -87,7 +85,7 @@ export function persistBrandIdentity(partial: Partial<BrandIdentity>) {
 
   localStorage.setItem(BRAND_IDENTITY_STORAGE_KEY, JSON.stringify(next));
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent(BRAND_IDENTITY_UPDATED_EVENT, {
         detail: next,

@@ -1,16 +1,13 @@
-import "dotenv/config";
-import prisma from "../src/config/prisma.js";
+import 'dotenv/config';
+import prisma from '../src/config/prisma.js';
 
 const restaurantId = Number(process.argv[2] || 0);
 
 (async () => {
   try {
     const subs = await prisma.subscription.findMany({
-      where:
-        Number.isInteger(restaurantId) && restaurantId > 0
-          ? { restaurantId }
-          : undefined,
-      orderBy: [{ restaurantId: "asc" }, { id: "asc" }],
+      where: Number.isInteger(restaurantId) && restaurantId > 0 ? { restaurantId } : undefined,
+      orderBy: [{ restaurantId: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         restaurantId: true,
@@ -28,9 +25,7 @@ const restaurantId = Number(process.argv[2] || 0);
       JSON.stringify(
         {
           filterRestaurantId:
-            Number.isInteger(restaurantId) && restaurantId > 0
-              ? restaurantId
-              : null,
+            Number.isInteger(restaurantId) && restaurantId > 0 ? restaurantId : null,
           total: subs.length,
           subscriptions: subs,
         },

@@ -1,4 +1,4 @@
-const SYSTEM_BLOCK_KEY = "system_block_state";
+const SYSTEM_BLOCK_KEY = 'system_block_state';
 
 export function getSystemBlockState() {
   try {

@@ -1,12 +1,12 @@
 // @ts-nocheck
-import test, { afterEach } from "node:test";
-import assert from "node:assert/strict";
-import bcrypt from "bcrypt";
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import bcrypt from 'bcrypt';
 
-import prisma from "../../../config/prisma.js";
-import loginMfaService from "./LoginMfaService.js";
-import authTokenService from "./AuthTokenService.js";
-import userRepository from "../repositories/UserRepository.js";
+import prisma from '../../../config/prisma.js';
+import loginMfaService from './LoginMfaService.js';
+import authTokenService from './AuthTokenService.js';
+import userRepository from '../repositories/UserRepository.js';
 
 const originalFindUnique = prisma.authMfaChallenge.findUnique;
 const originalUpsert = prisma.authMfaChallenge.upsert;
@@ -40,9 +40,9 @@ afterEach(() => {
 });
 
 function installPrismaMocks() {
-  process.env.SMTP_HOST = "";
-  process.env.SMTP_USER = "";
-  process.env.SMTP_PASS = "";
+  process.env.SMTP_HOST = '';
+  process.env.SMTP_USER = '';
+  process.env.SMTP_PASS = '';
 
   prisma.authMfaChallenge.findUnique = async ({ where }) => {
     return challenges.get(Number(where.userId)) || null;
@@ -63,10 +63,7 @@ function installPrismaMocks() {
     if (where?.expiresAt?.lt) {
       let count = 0;
       for (const [key, value] of challenges.entries()) {
-        if (
-          new Date(value.expiresAt).getTime() <
-          new Date(where.expiresAt.lt).getTime()
-        ) {
+        if (new Date(value.expiresAt).getTime() < new Date(where.expiresAt.lt).getTime()) {
           challenges.delete(key);
           count += 1;
         }
@@ -86,18 +83,18 @@ function installPrismaMocks() {
   };
 }
 
-test("deve exigir 2FA para role administrativa configurada", async () => {
+test('deve exigir 2FA para role administrativa configurada', async () => {
   installPrismaMocks();
-  process.env.MFA_REQUIRED_ROLES = "ADMIN,SUPER_ADMIN";
-  process.env.JWT_SECRET = "test_jwt_secret_with_minimum_32_chars_123456";
-  process.env.JWT_MFA_SECRET = "test_mfa_secret_with_minimum_32_chars_123456";
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
 
   const result = await loginMfaService.beginIfRequired({
     id: 10,
-    role: "ADMIN",
+    role: 'ADMIN',
     restaurantId: 1,
-    email: "admin@pizza.com",
-    name: "Admin",
+    email: 'admin@pizza.com',
+    name: 'Admin',
     active: true,
     mustChangePassword: false,
   });
@@ -107,16 +104,16 @@ test("deve exigir 2FA para role administrativa configurada", async () => {
   assert.equal(challenges.has(10), true);
 });
 
-test("deve ignorar 2FA para role nao configurada", async () => {
+test('deve ignorar 2FA para role nao configurada', async () => {
   installPrismaMocks();
-  process.env.MFA_REQUIRED_ROLES = "ADMIN,SUPER_ADMIN";
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
 
   const result = await loginMfaService.beginIfRequired({
     id: 11,
-    role: "CLIENTE",
+    role: 'CLIENTE',
     restaurantId: null,
-    email: "cliente@pizza.com",
-    name: "Cliente",
+    email: 'cliente@pizza.com',
+    name: 'Cliente',
     active: true,
     mustChangePassword: false,
   });
@@ -124,20 +121,41 @@ test("deve ignorar 2FA para role nao configurada", async () => {
   assert.equal(result, null);
 });
 
-test("deve validar codigo 2FA e emitir tokens", async () => {
+test('deve exigir 2FA quando o proprio cliente o habilita', async () => {
   installPrismaMocks();
-  process.env.MFA_REQUIRED_ROLES = "ADMIN";
-  process.env.JWT_SECRET = "test_jwt_secret_with_minimum_32_chars_123456";
-  process.env.JWT_MFA_SECRET = "test_mfa_secret_with_minimum_32_chars_123456";
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN,SUPER_ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
 
-  authTokenService.createAccessToken = () => "access_test_token";
-  authTokenService.createRefreshToken = async () => "refresh_test_token";
+  const result = await loginMfaService.beginIfRequired({
+    id: 12,
+    role: 'CLIENTE',
+    restaurantId: null,
+    email: 'cliente-2fa@pizza.com',
+    name: 'Cliente',
+    active: true,
+    mustChangePassword: false,
+    mfaEnabled: true,
+  });
+
+  assert.equal(result.mfaRequired, true);
+  assert.equal(challenges.has(12), true);
+});
+
+test('deve validar codigo 2FA e emitir tokens', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+
+  authTokenService.createAccessToken = () => 'access_test_token';
+  authTokenService.createRefreshToken = async () => 'refresh_test_token';
   userRepository.findByIdWithPassword = async () => ({
     id: 77,
-    role: "ADMIN",
+    role: 'ADMIN',
     restaurantId: 1,
-    email: "admin@pizza.com",
-    name: "Admin",
+    email: 'admin@pizza.com',
+    name: 'Admin',
     active: true,
     mustChangePassword: false,
     phone: null,
@@ -152,16 +170,16 @@ test("deve validar codigo 2FA e emitir tokens", async () => {
 
   const begin = await loginMfaService.beginIfRequired({
     id: 77,
-    role: "ADMIN",
+    role: 'ADMIN',
     restaurantId: 1,
-    email: "admin@pizza.com",
-    name: "Admin",
+    email: 'admin@pizza.com',
+    name: 'Admin',
     active: true,
     mustChangePassword: false,
   });
 
   const challenge = challenges.get(77);
-  const validCode = "123456";
+  const validCode = '123456';
   challenge.codeHash = await bcrypt.hash(validCode, 10);
   challenges.set(77, challenge);
 
@@ -170,7 +188,7 @@ test("deve validar codigo 2FA e emitir tokens", async () => {
     code: validCode,
   });
 
-  assert.equal(result.token, "access_test_token");
-  assert.equal(result.refreshToken, "refresh_test_token");
+  assert.equal(result.token, 'access_test_token');
+  assert.equal(result.refreshToken, 'refresh_test_token');
   assert.equal(challenges.has(77), false);
 });

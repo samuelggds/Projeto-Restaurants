@@ -1,21 +1,21 @@
-import bcrypt from "bcrypt";
-import { OAuth2Client } from "google-auth-library";
-import { UserRole } from "@prisma/client";
-import userRepository from "../repositories/UserRepository.js";
-import authTokenService from "./AuthTokenService.js";
-import loginMfaService from "./LoginMfaService.js";
+import bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
+import { UserRole } from '@prisma/client';
+import userRepository from '../repositories/UserRepository.js';
+import authTokenService from './AuthTokenService.js';
+import loginMfaService from './LoginMfaService.js';
 
 function getSafeNameFromEmail(email: string | undefined) {
-  const username = String(email || "")
-    .split("@")[0]
+  const username = String(email || '')
+    .split('@')[0]
     ?.trim();
-  return username || "Cliente";
+  return username || 'Cliente';
 }
 
 function parseGoogleClientIds() {
-  const singleClientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
-  const listFromEnv = String(process.env.GOOGLE_CLIENT_IDS || "")
-    .split(",")
+  const singleClientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+  const listFromEnv = String(process.env.GOOGLE_CLIENT_IDS || '')
+    .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -27,15 +27,15 @@ function parseGoogleClientIds() {
 class GoogleAuthService {
   async execute({ idToken }: { idToken: string }) {
     if (!idToken) {
-      throw new Error("Token do Google não informado");
+      throw new Error('Token do Google não informado');
     }
 
     const googleClientIds = parseGoogleClientIds();
-    const googleClientId = googleClientIds[0] || "";
+    const googleClientId = googleClientIds[0] || '';
 
     if (!googleClientId || googleClientIds.length === 0) {
       throw new Error(
-        "Login com Google indisponível. Configure GOOGLE_CLIENT_ID (ou GOOGLE_CLIENT_IDS) no backend.",
+        'Login com Google indisponível. Configure GOOGLE_CLIENT_ID (ou GOOGLE_CLIENT_IDS) no backend.',
       );
     }
 
@@ -49,7 +49,7 @@ class GoogleAuthService {
     const email = payload?.email;
 
     if (!email || payload?.email_verified !== true) {
-      throw new Error("Não foi possível validar sua conta Google");
+      throw new Error('Não foi possível validar sua conta Google');
     }
 
     let user = await userRepository.findByEmail(email);
@@ -67,7 +67,7 @@ class GoogleAuthService {
     }
 
     if (!user.active) {
-      throw new Error("Conta desativada. Reative sua conta para continuar.");
+      throw new Error('Conta desativada. Reative sua conta para continuar.');
     }
 
     const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
@@ -81,8 +81,7 @@ class GoogleAuthService {
       restaurantId: user.restaurantId,
     };
     const token = authTokenService.createAccessToken(tokenPayload);
-    const refreshToken =
-      await authTokenService.createRefreshToken(tokenPayload);
+    const refreshToken = await authTokenService.createRefreshToken(tokenPayload);
 
     return {
       user: {
@@ -92,6 +91,7 @@ class GoogleAuthService {
         role: user.role,
         active: user.active,
         mustChangePassword: user.mustChangePassword,
+        mfaEnabled: user.mfaEnabled,
         phone: user.phone,
         address: user.address,
         number: user.number,

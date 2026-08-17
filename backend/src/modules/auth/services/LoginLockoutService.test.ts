@@ -1,9 +1,9 @@
 // @ts-nocheck
-import test, { afterEach } from "node:test";
-import assert from "node:assert/strict";
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
 
-import prisma from "../../../config/prisma.js";
-import loginLockoutService from "./LoginLockoutService.js";
+import prisma from '../../../config/prisma.js';
+import loginLockoutService from './LoginLockoutService.js';
 
 const originalFindUnique = prisma.loginLockout.findUnique;
 const originalUpsert = prisma.loginLockout.upsert;
@@ -60,10 +60,10 @@ function installLockoutPrismaMocks() {
   };
 }
 
-test("deve ativar lockout apos falhas sucessivas", async () => {
+test('deve ativar lockout apos falhas sucessivas', async () => {
   installLockoutPrismaMocks();
 
-  const email = "admin@pizza.com";
+  const email = 'admin@pizza.com';
 
   for (let i = 0; i < 4; i += 1) {
     const result = await loginLockoutService.registerFailure(email);
@@ -78,10 +78,10 @@ test("deve ativar lockout apos falhas sucessivas", async () => {
   assert.equal(check.locked, true);
 });
 
-test("deve resetar lockout apos sucesso", async () => {
+test('deve resetar lockout apos sucesso', async () => {
   installLockoutPrismaMocks();
 
-  const email = "owner@pizza.com";
+  const email = 'owner@pizza.com';
   for (let i = 0; i < 5; i += 1) {
     await loginLockoutService.registerFailure(email);
   }

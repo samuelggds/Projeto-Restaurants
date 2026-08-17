@@ -1,16 +1,16 @@
-import { Request, Response } from "express";
-import updateBannerService from "../services/UpdateBannerService.js";
+import { Request, Response } from 'express';
+import updateBannerService from '../services/UpdateBannerService.js';
 
 class UpdateBannerController {
   async handle(req: Request, res: Response) {
     try {
-      const id = Array.isArray(req.params.id)
-        ? req.params.id[0]
-        : req.params.id;
+      const restaurantId = req.user.restaurantId;
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { title, image } = req.body;
 
       const banner = await updateBannerService.execute({
         id,
+        restaurantId,
         title,
         image,
       });
@@ -18,8 +18,7 @@ class UpdateBannerController {
       return res.status(200).json(banner);
     } catch (error: unknown) {
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : "Erro ao atualizar banner",
+        error: error instanceof Error ? error.message : 'Erro ao atualizar banner',
       });
     }
   }
