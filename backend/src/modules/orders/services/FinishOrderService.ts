@@ -3,6 +3,7 @@ import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import { io } from '../../../server.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
+import { resolveOrderItemCustomizations } from '../utils/productIngredients.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import { PaymentMethod, Prisma, TableSessionStatus, OrderType } from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
@@ -286,12 +287,19 @@ class CreateOrderService {
 
       const orderItems = items.map((item: OrderItemInput, index: number) => {
         const product = products[index];
+        const resolved = resolveOrderItemCustomizations(product, {
+          ingredientIds: item.ingredientIds,
+          optionIds: item.optionIds,
+          selectedOptions: item.selectedOptions,
+        });
 
         return {
           productId: product.id,
           quantity: item.quantity,
-          price: Number(product.price),
+          price: resolved.price,
           observation: item.observation,
+          ingredients: resolved.ingredients,
+          customizations: resolved.customizations,
         };
       });
 

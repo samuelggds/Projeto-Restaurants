@@ -5,6 +5,7 @@ import restaurantSettingsService from '../../Services/restaurantSettingsService'
 import { DigitalMenuPage } from './DigitalMenuPage';
 import type { DigitalMenuData, MenuCategory, MenuProduct } from './types';
 import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
+import { mapProductOptionGroupsFromApi } from '../Home/adapters/homeDataAdapter';
 
 const FALLBACK_CATEGORY_IMG =
   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=60';
@@ -25,6 +26,15 @@ function mapProducts(raw: unknown[]): MenuProduct[] {
         image: String(p.image || FALLBACK_PRODUCT_IMG),
         rating: Number(p.rating || 0) || 4.5,
         preparationTime: '20–30 min',
+        ingredients: Array.isArray(p.ingredients)
+          ? (p.ingredients as Record<string, unknown>[]).map((ingredient) => ({
+              id: String(ingredient.id),
+              name: String(ingredient.name || ''),
+              price: Number(ingredient.price || 0),
+              required: Boolean(ingredient.required),
+            }))
+          : [],
+        optionGroups: mapProductOptionGroupsFromApi(p),
       };
     });
 }

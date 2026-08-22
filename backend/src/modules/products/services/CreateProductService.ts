@@ -1,7 +1,7 @@
-import productRepository from '../repositories/ProductRepository.js';
 import { createProductSchema } from '../../../validators/ProductValidator.js';
 import { z } from 'zod';
-import type { Prisma } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
+import { buildProductOptionGroupsCreate } from '../utils/productOptionGroups.js';
 
 type CreateProductInput = z.infer<typeof createProductSchema>;
 
@@ -32,15 +32,53 @@ class CreateProductService {
       'Categoria do produto é obrigatória.',
     );
 
-    const payload: Omit<Prisma.ProductUncheckedCreateInput, 'restaurantId'> = {
-      ...parsedData,
-      name: requiredName,
-      price: requiredPrice,
-      categoryId: requiredCategoryId,
-      active: activeFromStock,
-    };
+    const { ingredients: _legacyIngredients, optionGroups = [], saleMode: _saleMode, ...productData } =
+      parsedData;
+    if (optionGroups.length === 0) {
+      throw new Error('Adicione ao menos um grupo de opções para montar o produto.');
+    }
 
-    const product = await productRepository.create(payload, restaurantId);
+    const product = await prisma.$transaction(async (tx) => {
+      const category = await tx.category.findFirst({
+        where: { id: requiredCategoryId, restaurantId },
+        select: { id: true },
+      });
+
+      if (!category) {
+        throw new Error('A categoria informada não pertence a este restaurante.');
+      }
+
+      const normalizedGroups = await buildProductOptionGroupsCreate(
+        tx,
+        restaurantId,
+        optionGroups,
+      );
+
+      return tx.product.create({
+        data: {
+          ...productData,
+          name: requiredName,
+          price: requiredPrice,
+          categoryId: requiredCategoryId,
+          restaurantId,
+          saleMode: 'BUILDABLE',
+          active: activeFromStock && parsedData.active !== false,
+          optionGroups: { create: normalizedGroups },
+        },
+        include: {
+          category: true,
+          optionGroups: {
+            orderBy: [{ position: 'asc' }, { id: 'asc' }],
+            include: {
+              options: {
+                orderBy: [{ position: 'asc' }, { id: 'asc' }],
+                include: { ingredient: true },
+              },
+            },
+          },
+        },
+      });
+    });
 
     return {
       product,

@@ -10,6 +10,22 @@ type ProductRatingUpsertData = {
   rating: number;
 };
 
+const productConfigurationInclude = {
+  category: true,
+  ingredients: { orderBy: { id: 'asc' as const } },
+  optionGroups: {
+    orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
+    include: {
+      options: {
+        orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
+        include: {
+          ingredient: true,
+        },
+      },
+    },
+  },
+};
+
 class ProductRepository {
   async create(
     data: Omit<Prisma.ProductUncheckedCreateInput, 'restaurantId'>,
@@ -46,7 +62,7 @@ class ProductRepository {
         restaurantId,
       },
       include: {
-        category: true,
+        ...productConfigurationInclude,
       },
       orderBy: {
         createdAt: 'desc',
@@ -76,7 +92,7 @@ class ProductRepository {
         restaurantId,
       },
       include: {
-        category: true,
+        ...productConfigurationInclude,
       },
     });
   }

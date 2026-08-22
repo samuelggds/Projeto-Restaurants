@@ -1,3 +1,8 @@
+import type {
+  ProductGroupSelection,
+  ProductOptionGroup,
+} from '../Home/domain/productCustomization';
+
 export type MenuCategory = { id: string; name: string; image: string };
 export type MenuProduct = {
   id: string;
@@ -8,9 +13,19 @@ export type MenuProduct = {
   image: string;
   rating: number;
   preparationTime: string;
-  customizable?: boolean;
+  ingredients?: Array<{ id: string; name: string; price: number; required?: boolean }>;
+  optionGroups?: ProductOptionGroup[];
 };
-export type CartItem = { product: MenuProduct; quantity: number; observation?: string };
+export type CartItem = {
+  cartId: string;
+  product: MenuProduct;
+  quantity: number;
+  unitPrice: number;
+  observation?: string;
+  selectedOptionIds: string[];
+  selectedOptions: ProductGroupSelection[];
+  options: Array<{ id: string; groupName: string; name: string; price: number }>;
+};
 export type TableOrderStatus = 'received' | 'preparing' | 'ready';
 export type DigitalMenuData = {
   restaurantName: string;

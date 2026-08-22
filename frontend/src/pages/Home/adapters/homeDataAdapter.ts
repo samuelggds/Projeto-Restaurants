@@ -64,6 +64,43 @@ const PRODUCT_FALLBACKS = [
   'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80',
 ];
 
+export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) {
+  if (!Array.isArray(product.optionGroups)) return [];
+  return product.optionGroups
+    .map((rawGroup) => {
+      const group = rawGroup as Record<string, unknown>;
+      const options = Array.isArray(group.options)
+        ? group.options
+            .map((rawOption) => {
+              const option = rawOption as Record<string, unknown>;
+              const ingredient = (option.ingredient as Record<string, unknown> | null) ?? {};
+              return {
+                id: String(option.id ?? ''),
+                ingredientId: String(option.ingredientId ?? ingredient.id ?? ''),
+                name: String(ingredient.name || option.name || ''),
+                price: Number(ingredient.price ?? option.price ?? 0),
+                active: option.active !== false && ingredient.active !== false,
+              };
+            })
+            .filter((option) => option.id && option.name && option.active)
+        : [];
+      return {
+        id: String(group.id ?? ''),
+        name: String(group.name || 'Escolhas'),
+        description: String(group.description || ''),
+        required: Boolean(group.required),
+        selectionType: group.selectionType === 'SINGLE' ? ('SINGLE' as const) : ('MULTIPLE' as const),
+        minSelections: Number(group.minSelections ?? (group.required ? 1 : 0)),
+        maxSelections:
+          group.maxSelections === null || group.maxSelections === undefined
+            ? null
+            : Number(group.maxSelections),
+        options,
+      };
+    })
+    .filter((group) => group.id && group.options.length > 0);
+}
+
 export function resolveProductImage(product: Record<string, unknown>, index: number): string {
   if (product.image && String(product.image).startsWith('http')) return String(product.image);
   const terms = [product.name, product.description, (product.category as { name?: string })?.name]
@@ -121,6 +158,12 @@ export function buildHomeData(
     rating: Number(product.averageRating || 0),
     stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
     available: !isProductUnavailable(product),
+    ingredients: Array.isArray(product.ingredients)
+      ? product.ingredients.filter((item) => (item as { active?: boolean }).active !== false).map((item) => ({
+          id: String((item as { id: unknown }).id), name: String((item as { name: unknown }).name),
+          price: Number((item as { price: unknown }).price || 0), required: Boolean((item as { required?: unknown }).required),
+        })) : [],
+    optionGroups: mapProductOptionGroupsFromApi(product),
   }));
   const seen = new Set<string>();
   const categories: HomeCategory[] = [

@@ -3,8 +3,8 @@ import * as S from '../../Home/Home.styles';
 
 type Props = {
   items: CartItem[];
-  onIncrease: (productId: string) => void;
-  onDecrease: (productId: string) => void;
+  onIncrease: (cartId: string) => void;
+  onDecrease: (cartId: string) => void;
 };
 
 const FALLBACK_IMAGE =
@@ -15,18 +15,16 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
     <S.CartItems>
       {items.length ? (
         items.map((item) => (
-          <S.CartItemRow key={item.productId}>
+          <S.CartItemRow key={item.cartId || item.productId}>
             <img src={item.image || FALLBACK_IMAGE} alt={item.name} />
             <S.CartItemInfo>
               <strong>{item.name}</strong>
-              <div
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
+              <div className="item-controls">
                 <S.CartQty>
                   <button
                     type="button"
                     aria-label={`Diminuir ${item.name}`}
-                    onClick={() => onDecrease(item.productId)}
+                    onClick={() => onDecrease(item.cartId || item.productId)}
                   >
                     −
                   </button>
@@ -34,7 +32,7 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
                   <button
                     type="button"
                     aria-label={`Aumentar ${item.name}`}
-                    onClick={() => onIncrease(item.productId)}
+                    onClick={() => onIncrease(item.cartId || item.productId)}
                   >
                     +
                   </button>
@@ -46,6 +44,16 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
                   })}
                 </span>
               </div>
+              {!!item.options?.length && (
+                <div className="item-options">
+                  {item.options.map((option) => (
+                    <small key={`${option.groupId}-${option.id}`}>
+                      <b>{option.groupName}:</b> {option.name}
+                    </small>
+                  ))}
+                </div>
+              )}
+              {item.observation && <small className="item-observation">Obs.: {item.observation}</small>}
             </S.CartItemInfo>
           </S.CartItemRow>
         ))

@@ -94,6 +94,8 @@ model Restaurant {
   invoices            Invoice[]
   orders              Order[]
   products            Product[]
+  ingredients         Ingredient[]
+  productOptionGroups ProductOptionGroup[]
   ratings             ProductRating[]
   settings            RestaurantSettings?
   supportChatMessages SupportChatMessage[]
@@ -156,6 +158,91 @@ model Product {
   restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ratings         ProductRating[]
   favorites       ProductFavorite[]
+  saleMode        ProductSaleMode @default(BUILDABLE)
+  ingredients     ProductIngredient[]
+  optionGroups    ProductOptionGroup[]
+}
+
+enum ProductSaleMode {
+  COMPLETE
+  BUILDABLE
+}
+
+model ProductIngredient {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  name      String
+  price     Decimal  @default(0) @db.Decimal(10, 2)
+  required  Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, active])
+}
+
+// Ingredient catalogue is isolated by restaurant. ProductIngredient stores the
+// selection available for each product and can later reference this catalogue.
+model Ingredient {
+  id             Int             @id @default(autoincrement())
+  restaurantId   Int
+  name           String
+  category       String          @default("Geral")
+  price          Decimal         @default(0) @db.Decimal(10, 2)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  productOptions ProductOption[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, active])
+  @@index([restaurantId, category, active])
+}
+
+enum ProductOptionSelectionType {
+  SINGLE
+  MULTIPLE
+}
+
+model ProductOptionGroup {
+  id              Int                        @id @default(autoincrement())
+  restaurantId    Int
+  productId       Int
+  name            String
+  description     String?
+  required        Boolean                    @default(false)
+  selectionType   ProductOptionSelectionType @default(SINGLE)
+  minSelections   Int                        @default(0)
+  maxSelections   Int                        @default(1)
+  position        Int                        @default(0)
+  active          Boolean                    @default(true)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  restaurant      Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product         Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options         ProductOption[]
+
+  @@unique([productId, name])
+  @@index([restaurantId, active])
+  @@index([productId, position])
+}
+
+model ProductOption {
+  id           Int                @id @default(autoincrement())
+  groupId      Int
+  ingredientId Int
+  active       Boolean            @default(true)
+  position     Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  group        ProductOptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient         @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([groupId, ingredientId])
+  @@index([groupId, active, position])
+  @@index([ingredientId])
 }
 
 model ProductFavorite {
@@ -318,6 +405,8 @@ model OrderItem {
   observation String?
   price       Decimal @db.Decimal(10, 2)
   productId   Int
+  ingredients Json?
+  customizations Json?
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }

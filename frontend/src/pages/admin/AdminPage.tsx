@@ -45,6 +45,7 @@ export function AdminPage({
   initialOrders = [],
   initialProducts = [],
   initialCategories = [],
+  initialIngredients = [],
   onUpdateOrderStatus,
   onConfirmOrderPayment,
   onCancelOrder,
@@ -53,6 +54,9 @@ export function AdminPage({
   onCreateCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onCreateIngredient,
+  onUpdateIngredient,
+  onDeleteIngredient,
   onOpenSettings,
   onSaveSettings,
   onConnectMercadoPago,
@@ -80,6 +84,7 @@ export function AdminPage({
   const orders = initialOrders;
   const products = initialProducts;
   const categories = initialCategories;
+  const ingredients = initialIngredients;
   const [mobile, setMobile] = useState(false);
   const unreadIssuesStorageKey = 'employee-issues-unread';
   const issuesLastSeenStorageKey = 'employee-issues-last-seen-id';
@@ -585,6 +590,7 @@ export function AdminPage({
               orders={orders}
               products={products}
               categories={categories}
+              ingredients={ingredients}
               onUpdateOrderStatus={async (id, status) => {
                 await onUpdateOrderStatus?.(id, status);
               }}
@@ -608,6 +614,15 @@ export function AdminPage({
               onDeleteCategory={async (id) => {
                 await onDeleteCategory?.(id);
               }}
+              onCreateIngredient={async (ingredient) => {
+                await onCreateIngredient?.(ingredient);
+              }}
+              onUpdateIngredient={async (ingredient) => {
+                await onUpdateIngredient?.(ingredient);
+              }}
+              onDeleteIngredient={async (id) => {
+                await onDeleteIngredient?.(id);
+              }}
             />
           )}
         </S.Content>
@@ -623,6 +638,7 @@ export function AdminPage({
         <ProductDrawer
           product={editingProduct}
           categories={categories}
+          ingredients={ingredients}
           close={() => setEditingProduct(undefined)}
           save={async (product) => {
             await onSaveProduct?.(product);

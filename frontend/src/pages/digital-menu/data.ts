@@ -37,7 +37,10 @@ export const digitalMenuMockData: DigitalMenuData = {
       image: images.pizza,
       rating: 4.8,
       preparationTime: '25–30 min',
-      customizable: true,
+      ingredients: [
+        { id: '101', name: 'Massa fina', price: 0, required: true },
+        { id: '102', name: 'Borda recheada', price: 8 },
+      ],
     },
     {
       id: '2',

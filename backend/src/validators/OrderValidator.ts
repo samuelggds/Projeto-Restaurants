@@ -47,6 +47,17 @@ export const createOrderSchema = z
           productId: z.number().int().positive(),
           quantity: z.number().int().positive(),
           observation: z.string().trim().optional(),
+          ingredientIds: z.array(z.number().int().positive()).max(40).optional(),
+          optionIds: z.array(z.number().int().positive()).max(100).optional(),
+          selectedOptions: z
+            .array(
+              z.object({
+                groupId: z.number().int().positive(),
+                optionIds: z.array(z.number().int().positive()).max(40),
+              }),
+            )
+            .max(20)
+            .optional(),
         }),
       )
       .min(1, 'O pedido deve conter pelo menos um item.'),

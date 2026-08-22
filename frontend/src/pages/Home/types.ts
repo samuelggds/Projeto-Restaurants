@@ -1,5 +1,6 @@
 import type { CustomerAddress } from '../../Services/customerAddressService';
 import type { BusinessHour } from '../admin/types';
+import type { ProductConfiguration, ProductOptionGroup } from './domain/productCustomization';
 
 export type HomeBrand = {
   name: string;
@@ -31,6 +32,8 @@ export type HomeProduct = {
   rating: number;
   stock?: number | null;
   available: boolean;
+  ingredients?: Array<{ id: string; name: string; price: number; required: boolean }>;
+  optionGroups?: ProductOptionGroup[];
 };
 
 export type HomeBanner = {
@@ -71,7 +74,7 @@ export type HomePageProps = {
   onOpenCart?: () => void;
   onSearch?: () => void;
   onSelectCategory?: (categoryId: string) => void;
-  onAddProduct?: (productId: string) => void;
+  onAddProduct?: (productId: string, configuration: ProductConfiguration) => void;
   onToggleFavorite?: (productId: string) => void;
   onLogout?: () => void;
 };

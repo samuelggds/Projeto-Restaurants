@@ -21,6 +21,7 @@ import imageEnhancementRoutes from '../modules/imageEnhancement/routes/ImageEnha
 import customerAddressRoutes from '../modules/customerAddresses/routes/CustomerAddressRoutes.js';
 import AsaasOrderWebhookController from '../modules/orders/controllers/AsaasOrderWebhookController.js';
 import AsaasWithdrawValidationWebhookController from '../modules/restaurantSettings/controllers/AsaasWithdrawValidationWebhookController.js';
+import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use('/auth', authRoutes);
 router.use('/restaurants', restaurantRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/products', productRoutes);
+router.use('/ingredients', ingredientRoutes);
 router.use('/orders', orderRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/table-sessions', tableSessionRoutes);

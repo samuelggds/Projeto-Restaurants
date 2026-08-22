@@ -1,4 +1,10 @@
-import type { AdminCategory, AdminOrder, AdminProduct, AdminSection } from '../types';
+import type {
+  AdminCategory,
+  AdminIngredient,
+  AdminOrder,
+  AdminProduct,
+  AdminSection,
+} from '../types';
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
 import { AdminCatalog } from './AdminCatalog';
@@ -9,6 +15,7 @@ type Props = {
   orders: AdminOrder[];
   products: AdminProduct[];
   categories: AdminCategory[];
+  ingredients: AdminIngredient[];
   onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
   onConfirmOrderPayment: (id: number) => Promise<void>;
   onCancelOrder: (id: number) => Promise<void>;
@@ -18,6 +25,9 @@ type Props = {
   onCreateCategory: (name: string) => Promise<void>;
   onUpdateCategory: (id: number, name: string) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
+  onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<void>;
+  onUpdateIngredient: (ingredient: AdminIngredient) => Promise<void>;
+  onDeleteIngredient: (id: number) => Promise<void>;
 };
 
 export function AdminManagement(props: Props) {
@@ -39,6 +49,7 @@ export function AdminManagement(props: Props) {
       <AdminCatalog
         products={props.products}
         categories={props.categories}
+        ingredients={props.ingredients}
         money={money}
         onEditProduct={props.onEditProduct}
         onDeleteProduct={props.onDeleteProduct}
@@ -46,6 +57,9 @@ export function AdminManagement(props: Props) {
         onCreateCategory={props.onCreateCategory}
         onUpdateCategory={props.onUpdateCategory}
         onDeleteCategory={props.onDeleteCategory}
+        onCreateIngredient={props.onCreateIngredient}
+        onUpdateIngredient={props.onUpdateIngredient}
+        onDeleteIngredient={props.onDeleteIngredient}
       />
     );
   return <AdminCustomers orders={props.orders} money={money} />;

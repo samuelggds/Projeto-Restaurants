@@ -512,9 +512,9 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
   inset: 0;
   margin: auto;
   z-index: 301;
-  width: min(520px, calc(100vw - 28px));
-  height: fit-content;
-  max-height: calc(100dvh - 32px);
+  width: min(980px, calc(100vw - 40px));
+  height: min(680px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
   overflow: hidden auto;
   border-radius: 22px;
   background: #fffdf9;
@@ -528,8 +528,11 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
     visibility 200ms ease;
   animation: ${productModalReveal} 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
   .modal-image {
-    width: 100%;
-    height: 300px;
+    width: 48%;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
     object-fit: cover;
     object-position: center;
     aspect-ratio: 16 / 9;
@@ -560,7 +563,9 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
     }
   }
   .modal-content {
-    padding: 22px 24px 25px;
+    min-height: 100%;
+    margin-left: 48%;
+    padding: 68px 42px 42px;
     background: linear-gradient(145deg, #fff9f4 0%, #f8efe6 100%);
     border-top: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 18%, #eadfd3);
     animation: ${modalContentReveal} 360ms 80ms ease both;
@@ -570,6 +575,10 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
     color: #201a16;
     font-size: 25px;
     letter-spacing: -0.025em;
+  }
+  .modal-content button:last-child { width: 100%; min-height: 48px; border: 0; border-radius: 10px; background: var(--home-primary); color: #fff; font-weight: 800; cursor: pointer; }
+  @media (max-width: 720px) {
+    width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; .modal-image { position: static; width: 100%; height: 230px; } .modal-content { margin-left: 0; min-height: auto; padding: 24px 20px 34px; }
   }
   p {
     margin: 10px 0 20px;
@@ -994,6 +1003,38 @@ export const CartItemInfo = styled.div`
     color: #d64d08;
     font-weight: 800;
     font-size: 15px;
+  }
+
+  .item-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .item-options {
+    display: grid;
+    gap: 2px;
+    margin-top: 8px;
+  }
+
+  .item-options small,
+  .item-observation {
+    color: #756d65;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .item-options b {
+    color: #4e4741;
+  }
+
+  .item-observation {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: #f7f3ee;
   }
 `;
 

@@ -55,9 +55,37 @@ export type AdminProduct = {
   description?: string;
   stock?: number | null;
   active?: boolean;
+  saleMode?: 'COMPLETE' | 'BUILDABLE';
+  ingredients?: Array<{ id?: number; name: string; price: number; required?: boolean; active?: boolean }>;
+  optionGroups?: AdminProductOptionGroup[];
 };
 
 export type AdminCategory = { id: number; name: string; active?: boolean };
+
+export type AdminIngredient = {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  active: boolean;
+};
+
+export type AdminProductOption = {
+  id?: number;
+  ingredientId: number;
+  active?: boolean;
+};
+
+export type AdminProductOptionGroup = {
+  id?: number;
+  name: string;
+  description?: string;
+  required: boolean;
+  selectionType: 'SINGLE' | 'MULTIPLE';
+  minSelections: number;
+  maxSelections: number;
+  options: AdminProductOption[];
+};
 
 export type AdminSettings = {
   restaurantName: string;
@@ -126,6 +154,7 @@ export type AdminPageProps = {
   initialOrders?: AdminOrder[];
   initialProducts?: AdminProduct[];
   initialCategories?: AdminCategory[];
+  initialIngredients?: AdminIngredient[];
   onUpdateOrderStatus?: (id: number, status: string) => void | Promise<void>;
   onConfirmOrderPayment?: (id: number) => void | Promise<void>;
   onCancelOrder?: (id: number) => void | Promise<void>;
@@ -134,6 +163,9 @@ export type AdminPageProps = {
   onCreateCategory?: (name: string) => void | Promise<void>;
   onUpdateCategory?: (id: number, name: string) => void | Promise<void>;
   onDeleteCategory?: (id: number) => void | Promise<void>;
+  onCreateIngredient?: (ingredient: Omit<AdminIngredient, 'id'>) => void | Promise<void>;
+  onUpdateIngredient?: (ingredient: AdminIngredient) => void | Promise<void>;
+  onDeleteIngredient?: (id: number) => void | Promise<void>;
   onOpenSettings?: () => void;
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
   onConnectMercadoPago?: () => void | Promise<void>;

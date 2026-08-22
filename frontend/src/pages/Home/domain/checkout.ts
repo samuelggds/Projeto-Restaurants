@@ -67,7 +67,34 @@ export function buildOrderPayload(input: PayloadInput) {
       paymentMethod: resolvedPaymentMethod,
       payOnDelivery,
       payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
-      items: cart.map((item) => ({ productId: Number(item.productId), quantity: item.quantity })),
+      items: cart.map((item) => {
+        const selectedOptions = (item.selectedOptions || [])
+          .map((selection) => ({
+            groupId: Number(selection.groupId),
+            optionIds: selection.optionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0),
+          }))
+          .filter(
+            (selection) =>
+              Number.isInteger(selection.groupId) &&
+              selection.groupId > 0 &&
+              selection.optionIds.length > 0,
+          );
+        const optionIds = (item.selectedOptionIds || [])
+          .map(Number)
+          .filter((id) => Number.isInteger(id) && id > 0);
+        const ingredientIds = (item.ingredientIds || [])
+          .map(Number)
+          .filter((id) => Number.isInteger(id) && id > 0);
+        const observation = String(item.observation || '').trim();
+        return {
+          productId: Number(item.productId),
+          quantity: item.quantity,
+          ...(optionIds.length ? { optionIds } : {}),
+          ...(selectedOptions.length ? { selectedOptions } : {}),
+          ...(ingredientIds.length && !optionIds.length ? { ingredientIds } : {}),
+          ...(observation ? { observation } : {}),
+        };
+      }),
       tableId: type === 'MESA' ? tableId || undefined : undefined,
       customerName: String(customer.name || 'Cliente'),
       customerPhone: String(customer.phone || ''),

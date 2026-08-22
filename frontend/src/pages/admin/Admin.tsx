@@ -7,10 +7,19 @@ import employeesService from '../../Services/employeesService';
 import ordersService from '../../Services/ordersService';
 import productsService from '../../Services/productsService';
 import categoriesService from '../../Services/categoriesService';
+import ingredientsService from '../../Services/ingredientsService';
 import { AdminPage } from './AdminPage';
 import { adminMockSettings, adminMockEmployees, defaultBusinessHours } from './data';
 import { normalizeBusinessHours } from './domain/businessHours';
-import type { AdminCategory, AdminOrder, AdminProduct, AdminSettings, Employee } from './types';
+import type {
+  AdminCategory,
+  AdminIngredient,
+  AdminOrder,
+  AdminProduct,
+  AdminProductOptionGroup,
+  AdminSettings,
+  Employee,
+} from './types';
 import { isPersistentImageSource } from '../../utils/persistentImage';
 import bannerService, { type BannerRecord } from '../../Services/bannerService';
 import {
@@ -53,6 +62,32 @@ function mapOrder(value: unknown): AdminOrder {
 function mapProduct(value: unknown): AdminProduct {
   const raw = asRecord(value);
   const category = asRecord(raw.category);
+  const optionGroups = (Array.isArray(raw.optionGroups) ? raw.optionGroups : []).map(
+    (groupValue): AdminProductOptionGroup => {
+      const group = asRecord(groupValue);
+      const options = (Array.isArray(group.options) ? group.options : [])
+        .map((optionValue) => {
+          const option = asRecord(optionValue);
+          return {
+            id: Number(option.id ?? 0) || undefined,
+            ingredientId: Number(option.ingredientId ?? asRecord(option.ingredient).id ?? 0),
+            active: option.active !== false,
+          };
+        })
+        .filter((option) => option.ingredientId > 0);
+      const minSelections = Math.max(0, Number(group.minSelections ?? 0));
+      return {
+        id: Number(group.id ?? 0) || undefined,
+        name: String(group.name ?? ''),
+        description: String(group.description ?? ''),
+        required: group.required === true || minSelections > 0,
+        selectionType: group.selectionType === 'MULTIPLE' ? 'MULTIPLE' : 'SINGLE',
+        minSelections,
+        maxSelections: Math.max(1, Number(group.maxSelections ?? 1)),
+        options,
+      };
+    },
+  );
   return {
     id: String(raw.id ?? ''),
     categoryId: Number(raw.categoryId ?? category.id ?? 0),
@@ -62,6 +97,19 @@ function mapProduct(value: unknown): AdminProduct {
     image: String(raw.image ?? raw.imageUrl ?? ''),
     description: String(raw.description ?? ''),
     stock: raw.stock === null || raw.stock === undefined ? null : Number(raw.stock),
+    active: raw.active !== false,
+    saleMode: 'BUILDABLE',
+    optionGroups,
+  };
+}
+
+function mapIngredient(value: unknown): AdminIngredient {
+  const raw = asRecord(value);
+  return {
+    id: Number(raw.id ?? 0),
+    name: String(raw.name ?? ''),
+    price: Number(raw.price ?? 0),
+    category: String(raw.category ?? 'Outros').trim() || 'Outros',
     active: raw.active !== false,
   };
 }
@@ -217,6 +265,7 @@ export default function Admin() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [ingredients, setIngredients] = useState<AdminIngredient[]>([]);
   const soundNotificationsRef = useRef(settings.soundNotifications);
 
   useEffect(() => {
@@ -224,10 +273,11 @@ export default function Admin() {
   }, [settings.soundNotifications]);
 
   async function loadOperations() {
-    const [orderData, productData, categoryData] = await Promise.all([
+    const [orderData, productData, categoryData, ingredientData] = await Promise.all([
       ordersService.listRestaurantOrders(),
       productsService.listProducts(),
       categoriesService.listCategories(),
+      ingredientsService.listIngredients(),
     ]);
     setOrders(orderData.map(mapOrder));
     setProducts(productData.map(mapProduct));
@@ -236,6 +286,9 @@ export default function Admin() {
         const raw = asRecord(value);
         return { id: Number(raw.id), name: String(raw.name), active: raw.active !== false };
       }),
+    );
+    setIngredients(
+      ingredientData.map(mapIngredient).filter((ingredient) => ingredient.id > 0 && ingredient.name),
     );
   }
 
@@ -409,6 +462,7 @@ export default function Admin() {
       initialOrders={orders}
       initialProducts={products}
       initialCategories={categories}
+      initialIngredients={ingredients}
       onUpdateOrderStatus={async (id, status) => {
         await ordersService.updateStatus(id, status);
         await loadOperations();
@@ -434,6 +488,8 @@ export default function Admin() {
           featured: false,
           preparationTime: 20,
           stock: product.stock ?? null,
+          saleMode: 'BUILDABLE',
+          optionGroups: product.optionGroups || [],
         };
         if (product.id) await productsService.updateProduct(product.id, payload);
         else await productsService.createProduct(payload);
@@ -453,6 +509,23 @@ export default function Admin() {
       }}
       onDeleteCategory={async (id) => {
         await categoriesService.deleteCategory(id);
+        await loadOperations();
+      }}
+      onCreateIngredient={async (ingredient) => {
+        await ingredientsService.createIngredient(ingredient);
+        await loadOperations();
+      }}
+      onUpdateIngredient={async (ingredient) => {
+        await ingredientsService.updateIngredient(ingredient.id, {
+          name: ingredient.name,
+          price: ingredient.price,
+          category: ingredient.category,
+          active: ingredient.active,
+        });
+        await loadOperations();
+      }}
+      onDeleteIngredient={async (id) => {
+        await ingredientsService.deleteIngredient(id);
         await loadOperations();
       }}
       onSaveSettings={handleSaveSettings}

@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
@@ -8,27 +7,9 @@ import billingRoutes from './modules/billing/routes/BillingRoutes.js';
 import { requestIdMiddleware } from './middlewares/security/requestIdMiddleware.js';
 import { notFoundMiddleware } from './middlewares/security/notFoundMiddleware.js';
 import { errorHandlerMiddleware } from './middlewares/security/errorHandlerMiddleware.js';
+import { applyCorsAndGlobalRateLimit } from './middlewares/security/httpAccessProtection.js';
 
 const app = express();
-
-const isProduction = process.env.NODE_ENV === 'production';
-const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
-const allowedOrigins = [process.env.CORS_ORIGINS || '', process.env.FRONTEND_URL || '']
-  .flatMap((value) => value.split(','))
-  .map((origin) => normalizeOrigin(origin))
-  .filter(Boolean);
-const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
-const rateLimitMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 300);
-
-const globalRateLimit = rateLimit({
-  windowMs: rateLimitWindowMs,
-  max: rateLimitMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: 'Muitas requisicoes. Tente novamente em instantes.',
-  },
-});
 
 const authRateLimit = rateLimit({
   windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
@@ -48,28 +29,8 @@ app.use(
     crossOriginEmbedderPolicy: false,
   }),
 );
-app.use(globalRateLimit);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      const normalizedOrigin = normalizeOrigin(origin);
-
-      if (!isProduction || allowedOrigins.includes(normalizedOrigin)) {
-        callback(null, true);
-        return;
-      }
-
-      callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-  }),
-);
+applyCorsAndGlobalRateLimit(app);
 
 // Stripe signature verification requires the exact raw request body.
 app.use('/orders/webhook/stripe', express.raw({ type: 'application/json' }));

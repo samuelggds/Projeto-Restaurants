@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const localChromeExecutable = process.env.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -11,7 +13,17 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(localChromeExecutable
+          ? { launchOptions: { executablePath: localChromeExecutable } }
+          : {}),
+      },
+    },
+  ],
   webServer: {
     command: '.\\node_modules\\.bin\\vite.cmd --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173',

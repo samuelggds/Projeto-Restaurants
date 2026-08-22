@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { countProductsInCategory, filterAdminProducts } from './adminCatalog';
-import type { AdminProduct } from '../types';
+import {
+  countProductsInCategory,
+  filterAdminProducts,
+  groupIngredientsByCategory,
+  listIngredientCategories,
+} from './adminCatalog';
+import type { AdminIngredient, AdminProduct } from '../types';
 
 const products = [
   { id: '1', name: 'Pizza de Calabresa', categoryId: 10 },
@@ -21,5 +26,25 @@ describe('catálogo administrativo', () => {
   it('conta os produtos vinculados à categoria', () => {
     expect(countProductsInCategory(products, 10)).toBe(1);
     expect(countProductsInCategory(products, 99)).toBe(0);
+  });
+});
+
+describe('categorias dos ingredientes', () => {
+  const ingredients: AdminIngredient[] = [
+    { id: 1, name: 'Bacon', price: 4, category: 'Adicionais', active: true },
+    { id: 2, name: 'Massa fina', price: 0, category: 'Massas', active: true },
+    { id: 3, name: 'Cheddar', price: 3, category: 'adicionais', active: true },
+  ];
+
+  it('lista sugestões sem duplicar categorias por diferença de caixa', () => {
+    expect(listIngredientCategories(ingredients)).toEqual(['Adicionais', 'Massas']);
+  });
+
+  it('agrupa visualmente os ingredientes pela categoria preservada', () => {
+    const groups = groupIngredientsByCategory(ingredients);
+    expect(groups.map((group) => [group.category, group.ingredients.length])).toEqual([
+      ['Adicionais', 2],
+      ['Massas', 1],
+    ]);
   });
 });

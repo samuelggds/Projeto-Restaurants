@@ -14,7 +14,14 @@ import {
 import { useMemo, useState } from 'react';
 import { digitalMenuMockData } from './data';
 import * as S from './DigitalMenu.styles';
-import type { CartItem, DigitalMenuProps } from './types';
+import type { CartItem, DigitalMenuProps, MenuProduct } from './types';
+import { ProductConfigurator } from '../Home/components/ProductConfigurator';
+import {
+  normalizeProductOptionGroups,
+  productConfigurationSignature,
+  productConfigurationTotal,
+  type ProductConfiguration,
+} from '../Home/domain/productCustomization';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -32,6 +39,7 @@ export function DigitalMenuPage({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [drawer, setDrawer] = useState(false);
   const [notice, setNotice] = useState('');
+  const [building, setBuilding] = useState<MenuProduct | null>(null);
   const products = useMemo(
     () =>
       data.products.filter((product) => {
@@ -45,22 +53,62 @@ export function DigitalMenuPage({
   const featured = products[0] ?? data.products[0];
   const recommendations = data.products.filter((x) => x.id !== featured?.id).slice(0, 3);
   const count = cart.reduce((sum, x) => sum + x.quantity, 0);
-  const total = cart.reduce((sum, x) => sum + x.product.price * x.quantity, 0);
+  const total = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const add = (product = featured) => {
     if (!product) return;
+    setBuilding(product);
+  };
+  const confirmConfiguration = (product: MenuProduct, configuration: ProductConfiguration) => {
+    const groups = normalizeProductOptionGroups(product);
+    const selectedIds = new Set(configuration.selectedOptionIds);
+    const options = groups.flatMap((group) =>
+      group.options
+        .filter((option) => selectedIds.has(option.id))
+        .map((option) => ({
+          id: option.id,
+          groupName: group.name,
+          name: option.name,
+          price: option.price,
+        })),
+    );
+    const cartId = `${product.id}::${productConfigurationSignature(configuration)}`;
+    const unitPrice = productConfigurationTotal(
+      product.price,
+      groups,
+      Object.fromEntries(
+        configuration.selectedOptions.map((selection) => [selection.groupId, selection.optionIds]),
+      ),
+    );
     setCart((items) => {
-      const found = items.find((x) => x.product.id === product.id);
+      const found = items.find((item) => item.cartId === cartId);
       return found
-        ? items.map((x) => (x.product.id === product.id ? { ...x, quantity: x.quantity + 1 } : x))
-        : [...items, { product, quantity: 1 }];
+        ? items.map((item) =>
+            item.cartId === cartId ? { ...item, quantity: item.quantity + 1 } : item,
+          )
+        : [
+            ...items,
+            {
+              cartId,
+              product,
+              quantity: 1,
+              unitPrice,
+              selectedOptionIds: configuration.selectedOptionIds,
+              selectedOptions: configuration.selectedOptions,
+              observation: configuration.observation,
+              options,
+            },
+          ];
     });
+    setBuilding(null);
     setNotice(`${product.name} adicionado`);
     window.setTimeout(() => setNotice(''), 1500);
   };
-  const quantity = (id: string, change: number) =>
+  const quantity = (cartId: string, change: number) =>
     setCart((items) =>
       items
-        .map((x) => (x.product.id === id ? { ...x, quantity: x.quantity + change } : x))
+        .map((item) =>
+          item.cartId === cartId ? { ...item, quantity: item.quantity + change } : item,
+        )
         .filter((x) => x.quantity > 0),
     );
   const service = (kind: 'waiter' | 'bill') => {
@@ -157,7 +205,7 @@ export function DigitalMenuPage({
                   </span>
                 </S.Meta>
                 <p>{featured.description}</p>
-                {featured.customizable && <S.Tag>⚙ Personalizável</S.Tag>}
+                <S.Tag>⚙ Monte do seu jeito</S.Tag>
                 <footer>
                   <strong>{brl(featured.price)}</strong>
                   <button onClick={() => add()}>
@@ -176,7 +224,15 @@ export function DigitalMenuPage({
         <h3>Recomendados para você</h3>
         <S.Products>
           {recommendations.map((product) => (
-            <article key={product.id} onClick={() => add(product)}>
+            <article
+              key={product.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => add(product)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') add(product);
+              }}
+            >
               <img src={product.image} alt={product.name} />
               <b>{product.name}</b>
               <strong>{brl(product.price)}</strong>
@@ -205,6 +261,14 @@ export function DigitalMenuPage({
         />
       )}
       {notice && <S.Notice>{notice}</S.Notice>}
+      {building && (
+        <ProductConfigurator
+          product={building}
+          primaryColor={data.primaryColor}
+          onClose={() => setBuilding(null)}
+          onConfirm={(configuration) => confirmConfiguration(building, configuration)}
+        />
+      )}
     </S.Root>
   );
 }
@@ -275,30 +339,28 @@ function CartDrawer({
           </p>
         ) : (
           cart.map((item) => (
-            <div className="cart-item" key={item.product.id}>
+            <div className="cart-item" key={item.cartId}>
               <img src={item.product.image} alt="" />
               <div>
                 <b>{item.product.name}</b>
-                <span>{brl(item.product.price)}</span>
-                <label>
-                  <span>Observação</span>
-                  <input
-                    placeholder="Ex.: sem cebola"
-                    style={{
-                      width: '100%',
-                      border: '1px solid var(--border)',
-                      borderRadius: 7,
-                      padding: 7,
-                    }}
-                  />
-                </label>
+                <span>{brl(item.unitPrice)}</span>
+                {item.options.length > 0 && (
+                  <ul className="cart-options">
+                    {item.options.map((option) => (
+                      <li key={option.id}>
+                        <b>{option.groupName}:</b> {option.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {item.observation && <small className="cart-observation">Obs.: {item.observation}</small>}
               </div>
               <div className="quantity">
-                <button onClick={() => quantity(item.product.id, -1)}>
+                <button onClick={() => quantity(item.cartId, -1)}>
                   <Minus size={14} />
                 </button>
                 <b>{item.quantity}</b>
-                <button onClick={() => quantity(item.product.id, 1)}>
+                <button onClick={() => quantity(item.cartId, 1)}>
                   <Plus size={14} />
                 </button>
               </div>

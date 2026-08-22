@@ -461,6 +461,15 @@ export const Products = styled.div`
     overflow: hidden;
     background: #fff;
     padding-bottom: 9px;
+    cursor: pointer;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+  article:hover,
+  article:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(69, 42, 22, 0.1);
+    outline: 2px solid color-mix(in srgb, var(--m) 30%, transparent);
+    outline-offset: 2px;
   }
   img {
     height: 86px;
@@ -598,6 +607,28 @@ export const Drawer = styled.aside`
   .cart-item span {
     font-size: 11px;
     color: var(--muted);
+  }
+  .cart-options {
+    margin: 3px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 2px;
+  }
+  .cart-options li,
+  .cart-observation {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .cart-options b {
+    color: #4f4740;
+  }
+  .cart-observation {
+    margin-top: 3px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: #f5f0ea;
   }
   .quantity {
     display: flex;

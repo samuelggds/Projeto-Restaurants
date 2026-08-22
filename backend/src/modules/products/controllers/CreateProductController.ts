@@ -14,6 +14,7 @@ class CreateProductController {
         featured,
         preparationTime,
         stock,
+        optionGroups,
       } = req.body;
 
       const product = await createProductService.execute(
@@ -27,6 +28,7 @@ class CreateProductController {
           featured,
           preparationTime,
           stock,
+          optionGroups,
         },
         req.user.restaurantId,
       );

@@ -1,0 +1,2 @@
+UPDATE "Product" SET "saleMode" = 'BUILDABLE';
+ALTER TABLE "Product" ALTER COLUMN "saleMode" SET DEFAULT 'BUILDABLE';

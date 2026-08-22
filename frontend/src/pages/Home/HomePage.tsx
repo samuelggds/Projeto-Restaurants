@@ -1,8 +1,8 @@
-import { ChevronRight, Heart, LayoutGrid, Mail, MapPin, Phone, Plus, Tag, X } from 'lucide-react';
+import { ChevronRight, Heart, LayoutGrid, Mail, MapPin, Phone, Plus, Tag } from 'lucide-react';
 import { getTodayBusinessHours } from '../admin/domain/businessHours';
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo, useState } from 'react';
 import { HomeHeader } from './components/HomeHeader';
+import { ProductConfigurator } from './components/ProductConfigurator';
 import * as S from './Home.styles';
 import type { HomePageProps, HomeProduct } from './types';
 import { FacebookIcon, InstagramIcon, WhatsAppIcon } from './components/SocialBrandIcons';
@@ -40,20 +40,6 @@ export function HomePage({
 }: HomePageProps) {
   const [activeCategory, setActiveCategory] = useState(data.categories[0]?.id ?? '');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
-
-  useEffect(() => {
-    if (!selectedProduct) return;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedProduct(null);
-    };
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [selectedProduct]);
   const selectedCategory = data.categories.some((category) => category.id === activeCategory)
     ? activeCategory
     : (data.categories[0]?.id ?? '');
@@ -76,9 +62,7 @@ export function HomePage({
   };
 
   const openProductDetails = (product: HomeProduct) => {
-    if (window.matchMedia('(max-width: 760px)').matches) {
-      setSelectedProduct(product);
-    }
+    setSelectedProduct(product);
   };
 
   const renderProduct = (product: (typeof products)[number]) => (
@@ -119,7 +103,7 @@ export function HomePage({
             disabled={!product.available}
             onClick={(event) => {
               event.stopPropagation();
-              onAddProduct?.(product.id);
+              openProductDetails(product);
             }}
           >
             {product.available ? <Plus /> : 'Esgotado'}
@@ -318,49 +302,18 @@ export function HomePage({
         </S.Whatsapp>
       )}
 
-      {selectedProduct &&
-        createPortal(
-          <>
-            <S.ProductModalOverlay
-              type="button"
-              $open
-              aria-label="Fechar detalhes do produto"
-              onClick={() => setSelectedProduct(null)}
-            />
-            <S.ProductModal
-              $open
-              $primary={primary}
-              role="dialog"
-              aria-modal="true"
-              aria-label={selectedProduct.name}
-            >
-              <>
-                <img
-                  className="modal-image"
-                  src={selectedProduct.image}
-                  alt={selectedProduct.name}
-                />
-                <button
-                  className="modal-close"
-                  type="button"
-                  aria-label="Fechar"
-                  onClick={() => setSelectedProduct(null)}
-                >
-                  <X size={21} />
-                </button>
-                <div className="modal-content">
-                  <h2>{selectedProduct.name}</h2>
-                  <p>
-                    {selectedProduct.description ||
-                      'Conheça este produto preparado especialmente para você.'}
-                  </p>
-                  <strong>{brl(selectedProduct.price)}</strong>
-                </div>
-              </>
-            </S.ProductModal>
-          </>,
-          document.body,
-        )}
+      {selectedProduct && (
+        <ProductConfigurator
+          product={selectedProduct}
+          primaryColor={primary}
+          onClose={() => setSelectedProduct(null)}
+          onConfirm={(configuration) => {
+            onAddProduct?.(selectedProduct.id, configuration);
+            setSelectedProduct(null);
+            onOpenCart?.();
+          }}
+        />
+      )}
     </S.HomeRoot>
   );
 }

@@ -153,7 +153,7 @@ export default function Home() {
 
   const homeData = buildHomeData(backendProducts, settings);
 
-  const { cart, setCart, addToCart, decreaseCart, cartCount, cartTotal } = useCart(
+  const { cart, setCart, addToCart, increaseCart, decreaseCart, cartCount, cartTotal } = useCart(
     homeData.products,
     notify,
   );
@@ -315,7 +315,7 @@ export default function Home() {
           </button>
         </S.CartHead>
 
-        <CartItemsList items={cart} onIncrease={addToCart} onDecrease={decreaseCart} />
+        <CartItemsList items={cart} onIncrease={increaseCart} onDecrease={decreaseCart} />
 
         <S.CartFoot>
           <S.CartOptions>
@@ -361,6 +361,7 @@ export default function Home() {
           />
         </S.CartFoot>
       </S.CartDrawer>
+
 
       <HomeFeedback
         showLoginNudge={!user && !mesaMode && !nudgeDismissed}

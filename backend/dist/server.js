@@ -3,12 +3,11 @@ import "dotenv/config";
 
 // src/app.ts
 import express from "express";
-import cors from "cors";
 import helmet from "helmet";
-import rateLimit5 from "express-rate-limit";
+import rateLimit6 from "express-rate-limit";
 
 // src/routes/index.ts
-import { Router as Router19 } from "express";
+import { Router as Router20 } from "express";
 
 // src/modules/auth/routes/authRoutes.ts
 import { Router } from "express";
@@ -1710,7 +1709,273 @@ var authRoutes_default = router;
 // src/modules/products/routes/productsRoutes.ts
 import { Router as Router2 } from "express";
 
+// src/validators/ProductValidator.ts
+import { z as z4 } from "zod";
+var ingredientSchema = z4.object({
+  id: z4.number().int().positive().optional(),
+  name: z4.string().trim().min(1, "Nome do ingrediente \xE9 obrigat\xF3rio.").max(80),
+  price: z4.number().min(0, "O adicional n\xE3o pode ser negativo.").max(9999),
+  required: z4.boolean().optional(),
+  active: z4.boolean().optional()
+});
+var optionSchema = z4.object({
+  id: z4.number().int().positive().optional(),
+  ingredientId: z4.number().int().positive("Ingrediente inv\xE1lido."),
+  active: z4.boolean().optional()
+});
+var productOptionGroupSchema = z4.object({
+  id: z4.number().int().positive().optional(),
+  name: z4.string().trim().min(1, "Nome do grupo \xE9 obrigat\xF3rio.").max(80),
+  description: z4.string().trim().max(240).optional(),
+  required: z4.boolean().default(false),
+  selectionType: z4.enum(["SINGLE", "MULTIPLE"]),
+  minSelections: z4.number().int().min(0).max(40),
+  maxSelections: z4.number().int().min(1).max(40),
+  options: z4.array(optionSchema).min(1, "Adicione ao menos uma op\xE7\xE3o ao grupo.").max(40)
+}).superRefine((group, ctx) => {
+  if (group.minSelections > group.maxSelections) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["minSelections"],
+      message: "O m\xEDnimo de escolhas n\xE3o pode superar o m\xE1ximo."
+    });
+  }
+  if (group.required && group.minSelections < 1) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["minSelections"],
+      message: "Um grupo obrigat\xF3rio deve exigir ao menos uma escolha."
+    });
+  }
+  if (!group.required && group.minSelections !== 0) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["minSelections"],
+      message: "Uma categoria opcional deve permitir continuar sem nenhuma escolha."
+    });
+  }
+  if (group.selectionType === "SINGLE" && group.maxSelections !== 1) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["maxSelections"],
+      message: "Grupos de escolha \xFAnica devem permitir exatamente uma op\xE7\xE3o."
+    });
+  }
+  const uniqueIngredientIds = new Set(group.options.map((option) => option.ingredientId));
+  if (uniqueIngredientIds.size !== group.options.length) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["options"],
+      message: "Um ingrediente n\xE3o pode aparecer duas vezes no mesmo grupo."
+    });
+  }
+  const enabledOptions = group.options.filter((option) => option.active !== false).length;
+  if (enabledOptions < group.maxSelections) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["maxSelections"],
+      message: "O m\xE1ximo de escolhas n\xE3o pode superar as op\xE7\xF5es ativas do grupo."
+    });
+  }
+});
+var productSchema = z4.object({
+  name: z4.string().trim().min(1, "Nome obrigat\xF3rio!"),
+  description: z4.string().trim().optional(),
+  image: z4.string().trim().optional(),
+  price: z4.number({
+    invalid_type_error: "Pre\xE7o deve ser um n\xFAmero.",
+    required_error: "Pre\xE7o deve ser um n\xFAmero."
+  }).positive("Pre\xE7o deve ser maior que zero!"),
+  active: z4.boolean().optional(),
+  featured: z4.boolean().optional(),
+  preparationTime: z4.number().int("Tempo deve ser inteiro.").positive("Tempo deve ser maior que zero.").optional(),
+  stock: z4.number().int("Estoque deve ser inteiro.").min(0, "Estoque n\xE3o pode ser negativo.").nullable().optional(),
+  saleMode: z4.enum(["COMPLETE", "BUILDABLE"]).optional(),
+  ingredients: z4.array(ingredientSchema).max(40).optional(),
+  optionGroups: z4.array(productOptionGroupSchema).max(20, "Cada produto pode ter no m\xE1ximo 20 grupos de op\xE7\xF5es.").optional(),
+  categoryId: z4.number({
+    invalid_type_error: "Categoria \xE9 obrigat\xF3ria.",
+    required_error: "Categoria \xE9 obrigat\xF3ria."
+  }).int()
+});
+function validateUniqueGroupNames(product, ctx) {
+  if (!product.optionGroups) {
+    return;
+  }
+  const normalizedNames = product.optionGroups.map((group) => group.name.trim().toLocaleLowerCase());
+  if (new Set(normalizedNames).size !== normalizedNames.length) {
+    ctx.addIssue({
+      code: z4.ZodIssueCode.custom,
+      path: ["optionGroups"],
+      message: "Os grupos de op\xE7\xF5es do produto precisam ter nomes diferentes."
+    });
+  }
+}
+var createProductSchema = productSchema.superRefine(validateUniqueGroupNames);
+var updateProductSchema = productSchema.partial().superRefine(validateUniqueGroupNames);
+
+// src/modules/products/utils/productOptionGroups.ts
+async function buildProductOptionGroupsCreate(tx, restaurantId, groups) {
+  const ingredientIds = [
+    ...new Set(groups.flatMap((group) => group.options.map((option) => option.ingredientId)))
+  ];
+  const ingredients = ingredientIds.length ? await tx.ingredient.findMany({
+    where: {
+      restaurantId,
+      id: { in: ingredientIds }
+    },
+    select: { id: true }
+  }) : [];
+  if (ingredients.length !== ingredientIds.length) {
+    throw new Error("Um ou mais ingredientes n\xE3o pertencem a este restaurante.");
+  }
+  return groups.map((group, groupIndex) => ({
+    restaurantId,
+    name: group.name.trim(),
+    description: String(group.description || "").trim() || null,
+    required: group.required,
+    selectionType: group.selectionType,
+    minSelections: group.minSelections,
+    maxSelections: group.maxSelections,
+    position: groupIndex,
+    active: true,
+    options: {
+      create: group.options.map((option, optionIndex) => ({
+        ingredientId: option.ingredientId,
+        active: option.active !== false,
+        position: optionIndex
+      }))
+    }
+  }));
+}
+
+// src/modules/products/services/CreateProductService.ts
+function requireDefined(value, message) {
+  if (value === null || value === void 0) {
+    throw new Error(message);
+  }
+  return value;
+}
+var CreateProductService = class {
+  async execute(data, restaurantId) {
+    if (!restaurantId) {
+      throw new Error("Restaurante n\xE3o encontrado");
+    }
+    const parsedData = createProductSchema.parse(data);
+    const normalizedStock = parsedData.stock === null || parsedData.stock === void 0 ? null : Number(parsedData.stock);
+    const activeFromStock = normalizedStock === null || normalizedStock > 0;
+    const requiredName = requireDefined(parsedData.name, "Nome do produto \xE9 obrigat\xF3rio.");
+    const requiredPrice = requireDefined(parsedData.price, "Pre\xE7o do produto \xE9 obrigat\xF3rio.");
+    const requiredCategoryId = requireDefined(
+      parsedData.categoryId,
+      "Categoria do produto \xE9 obrigat\xF3ria."
+    );
+    const { ingredients: _legacyIngredients, optionGroups = [], saleMode: _saleMode, ...productData } = parsedData;
+    if (optionGroups.length === 0) {
+      throw new Error("Adicione ao menos um grupo de op\xE7\xF5es para montar o produto.");
+    }
+    const product = await prisma_default.$transaction(async (tx) => {
+      const category = await tx.category.findFirst({
+        where: { id: requiredCategoryId, restaurantId },
+        select: { id: true }
+      });
+      if (!category) {
+        throw new Error("A categoria informada n\xE3o pertence a este restaurante.");
+      }
+      const normalizedGroups = await buildProductOptionGroupsCreate(
+        tx,
+        restaurantId,
+        optionGroups
+      );
+      return tx.product.create({
+        data: {
+          ...productData,
+          name: requiredName,
+          price: requiredPrice,
+          categoryId: requiredCategoryId,
+          restaurantId,
+          saleMode: "BUILDABLE",
+          active: activeFromStock && parsedData.active !== false,
+          optionGroups: { create: normalizedGroups }
+        },
+        include: {
+          category: true,
+          optionGroups: {
+            orderBy: [{ position: "asc" }, { id: "asc" }],
+            include: {
+              options: {
+                orderBy: [{ position: "asc" }, { id: "asc" }],
+                include: { ingredient: true }
+              }
+            }
+          }
+        }
+      });
+    });
+    return {
+      product
+    };
+  }
+};
+var CreateProductService_default = new CreateProductService();
+
+// src/modules/products/controllers/CreateProductController.ts
+var CreateProductController = class {
+  async handle(req, res) {
+    try {
+      const {
+        name,
+        description,
+        image,
+        price,
+        categoryId,
+        active,
+        featured,
+        preparationTime,
+        stock,
+        optionGroups
+      } = req.body;
+      const product = await CreateProductService_default.execute(
+        {
+          name,
+          description,
+          image,
+          price,
+          categoryId,
+          active,
+          featured,
+          preparationTime,
+          stock,
+          optionGroups
+        },
+        req.user.restaurantId
+      );
+      return res.status(201).json(product);
+    } catch (error2) {
+      return res.status(400).json({
+        message: error2 instanceof Error ? error2.message : "Erro ao criar produto"
+      });
+    }
+  }
+};
+var CreateProductController_default = new CreateProductController();
+
 // src/modules/products/repositories/ProductRepository.ts
+var productConfigurationInclude = {
+  category: true,
+  ingredients: { orderBy: { id: "asc" } },
+  optionGroups: {
+    orderBy: [{ position: "asc" }, { id: "asc" }],
+    include: {
+      options: {
+        orderBy: [{ position: "asc" }, { id: "asc" }],
+        include: {
+          ingredient: true
+        }
+      }
+    }
+  }
+};
 var ProductRepository = class {
   async create(data, restaurantId, db = prisma_default) {
     return db.product.create({
@@ -1737,7 +2002,7 @@ var ProductRepository = class {
         restaurantId
       },
       include: {
-        category: true
+        ...productConfigurationInclude
       },
       orderBy: {
         createdAt: "desc"
@@ -1760,7 +2025,7 @@ var ProductRepository = class {
         restaurantId
       },
       include: {
-        category: true
+        ...productConfigurationInclude
       }
     });
   }
@@ -1882,120 +2147,68 @@ var ProductRepository = class {
 };
 var ProductRepository_default = new ProductRepository();
 
-// src/validators/ProductValidator.ts
-import { z as z4 } from "zod";
-var createProductSchema = z4.object({
-  name: z4.string().trim().min(1, "Nome obrigat\xF3rio!"),
-  description: z4.string().trim().optional(),
-  image: z4.string().trim().optional(),
-  price: z4.number({
-    invalid_type_error: "Pre\xE7o deve ser um n\xFAmero.",
-    required_error: "Pre\xE7o deve ser um n\xFAmero."
-  }).positive("Pre\xE7o deve ser maior que zero!"),
-  active: z4.boolean().optional(),
-  featured: z4.boolean().optional(),
-  preparationTime: z4.number().int("Tempo deve ser inteiro.").positive("Tempo deve ser maior que zero.").optional(),
-  stock: z4.number().int("Estoque deve ser inteiro.").min(0, "Estoque n\xE3o pode ser negativo.").nullable().optional(),
-  categoryId: z4.number({
-    invalid_type_error: "Categoria \xE9 obrigat\xF3ria.",
-    required_error: "Categoria \xE9 obrigat\xF3ria."
-  }).int()
-});
-
-// src/modules/products/services/CreateProductService.ts
-function requireDefined(value, message) {
-  if (value === null || value === void 0) {
-    throw new Error(message);
-  }
-  return value;
-}
-var CreateProductService = class {
-  async execute(data, restaurantId) {
-    if (!restaurantId) {
-      throw new Error("Restaurante n\xE3o encontrado");
-    }
-    const parsedData = createProductSchema.parse(data);
-    const normalizedStock = parsedData.stock === null || parsedData.stock === void 0 ? null : Number(parsedData.stock);
-    const activeFromStock = normalizedStock === null || normalizedStock > 0;
-    const requiredName = requireDefined(parsedData.name, "Nome do produto \xE9 obrigat\xF3rio.");
-    const requiredPrice = requireDefined(parsedData.price, "Pre\xE7o do produto \xE9 obrigat\xF3rio.");
-    const requiredCategoryId = requireDefined(
-      parsedData.categoryId,
-      "Categoria do produto \xE9 obrigat\xF3ria."
-    );
-    const payload = {
-      ...parsedData,
-      name: requiredName,
-      price: requiredPrice,
-      categoryId: requiredCategoryId,
-      active: activeFromStock
-    };
-    const product = await ProductRepository_default.create(payload, restaurantId);
-    return {
-      product
-    };
-  }
-};
-var CreateProductService_default = new CreateProductService();
-
-// src/modules/products/controllers/CreateProductController.ts
-var CreateProductController = class {
-  async handle(req, res) {
-    try {
-      const {
-        name,
-        description,
-        image,
-        price,
-        categoryId,
-        active,
-        featured,
-        preparationTime,
-        stock
-      } = req.body;
-      const product = await CreateProductService_default.execute(
-        {
-          name,
-          description,
-          image,
-          price,
-          categoryId,
-          active,
-          featured,
-          preparationTime,
-          stock
-        },
-        req.user.restaurantId
-      );
-      return res.status(201).json(product);
-    } catch (error2) {
-      return res.status(400).json({
-        message: error2 instanceof Error ? error2.message : "Erro ao criar produto"
-      });
-    }
-  }
-};
-var CreateProductController_default = new CreateProductController();
-
 // src/modules/products/services/UpdateProductService.ts
 var UpdateProductService = class {
   async execute(id, data, restaurantId) {
-    createProductSchema.partial().parse(data);
+    const parsedData = updateProductSchema.parse(data);
     const product = await ProductRepository_default.findById(id, restaurantId);
     if (!product) {
       throw new Error("Produto n\xE3o encontrado!");
     }
     const stockWasProvided = Object.prototype.hasOwnProperty.call(data, "stock");
-    const normalizedStock = data.stock === null || data.stock === void 0 ? null : Number(data.stock);
-    let nextActive = data.active;
+    const normalizedStock = parsedData.stock === null || parsedData.stock === void 0 ? null : Number(parsedData.stock);
+    let nextActive = parsedData.active;
     if (stockWasProvided) {
       nextActive = normalizedStock === null || normalizedStock > 0;
     }
     const payload = {
-      ...data,
+      ...parsedData,
       active: nextActive
     };
-    return ProductRepository_default.update(id, payload, restaurantId);
+    const {
+      ingredients: _legacyIngredients,
+      optionGroups,
+      saleMode: _saleMode,
+      ...productData
+    } = payload;
+    if (optionGroups && optionGroups.length === 0) {
+      throw new Error("Adicione ao menos um grupo de op\xE7\xF5es para montar o produto.");
+    }
+    return prisma_default.$transaction(async (tx) => {
+      if (productData.categoryId !== void 0) {
+        const category = await tx.category.findFirst({
+          where: { id: productData.categoryId, restaurantId },
+          select: { id: true }
+        });
+        if (!category) {
+          throw new Error("A categoria informada n\xE3o pertence a este restaurante.");
+        }
+      }
+      const normalizedGroups = optionGroups ? await buildProductOptionGroupsCreate(tx, restaurantId, optionGroups) : null;
+      if (normalizedGroups) {
+        await tx.productOptionGroup.deleteMany({ where: { productId: product.id, restaurantId } });
+      }
+      return tx.product.update({
+        where: { id: product.id },
+        data: {
+          ...productData,
+          saleMode: "BUILDABLE",
+          ...normalizedGroups ? { optionGroups: { create: normalizedGroups } } : {}
+        },
+        include: {
+          category: true,
+          optionGroups: {
+            orderBy: [{ position: "asc" }, { id: "asc" }],
+            include: {
+              options: {
+                orderBy: [{ position: "asc" }, { id: "asc" }],
+                include: { ingredient: true }
+              }
+            }
+          }
+        }
+      });
+    });
   }
 };
 var UpdateProductService_default = new UpdateProductService();
@@ -2799,7 +3012,15 @@ var createOrderSchema = z5.object({
     z5.object({
       productId: z5.number().int().positive(),
       quantity: z5.number().int().positive(),
-      observation: z5.string().trim().optional()
+      observation: z5.string().trim().optional(),
+      ingredientIds: z5.array(z5.number().int().positive()).max(40).optional(),
+      optionIds: z5.array(z5.number().int().positive()).max(100).optional(),
+      selectedOptions: z5.array(
+        z5.object({
+          groupId: z5.number().int().positive(),
+          optionIds: z5.array(z5.number().int().positive()).max(40)
+        })
+      ).max(20).optional()
     })
   ).min(1, "O pedido deve conter pelo menos um item.")
 }).superRefine((data, ctx) => {
@@ -2861,6 +3082,170 @@ var createOrderSchema = z5.object({
     }
   }
 });
+
+// src/modules/orders/utils/productIngredients.ts
+function money(value) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized < 0) {
+    throw new Error("O produto possui um valor de op\xE7\xE3o inv\xE1lido.");
+  }
+  return Math.round((normalized + Number.EPSILON) * 100) / 100;
+}
+function uniquePositiveIds(values, field) {
+  const ids = (values || []).map(Number);
+  if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
+    throw new Error(`${field} cont\xE9m uma op\xE7\xE3o inv\xE1lida.`);
+  }
+  if (new Set(ids).size !== ids.length) {
+    throw new Error(`${field} cont\xE9m op\xE7\xF5es repetidas.`);
+  }
+  return ids;
+}
+function resolveExplicitOptionIds(product, selection) {
+  const flatIds = uniquePositiveIds(selection.optionIds, "A montagem");
+  const structured = selection.selectedOptions;
+  if (!structured?.length) {
+    return flatIds;
+  }
+  const seenGroups = /* @__PURE__ */ new Set();
+  const structuredIds = [];
+  structured.forEach((selectedGroup) => {
+    const groupId = Number(selectedGroup.groupId);
+    if (!Number.isInteger(groupId) || groupId <= 0) {
+      throw new Error("A montagem cont\xE9m um grupo inv\xE1lido.");
+    }
+    if (seenGroups.has(groupId)) {
+      throw new Error("A montagem cont\xE9m o mesmo grupo mais de uma vez.");
+    }
+    seenGroups.add(groupId);
+    const group = (product.optionGroups || []).find((candidate) => candidate.id === groupId);
+    if (!group || !group.active || group.restaurantId !== product.restaurantId) {
+      throw new Error(`Grupo de op\xE7\xF5es inv\xE1lido para ${product.name}.`);
+    }
+    const ids = uniquePositiveIds(selectedGroup.optionIds, `O grupo ${group.name}`);
+    if (ids.some((id) => !group.options.some((option) => option.id === id))) {
+      throw new Error(`Uma op\xE7\xE3o n\xE3o pertence ao grupo ${group.name}.`);
+    }
+    structuredIds.push(...ids);
+  });
+  if (flatIds.length) {
+    const flatSignature = [...flatIds].sort((a, b) => a - b).join(",");
+    const structuredSignature = [...structuredIds].sort((a, b) => a - b).join(",");
+    if (flatSignature !== structuredSignature) {
+      throw new Error("Os campos optionIds e selectedOptions informam montagens diferentes.");
+    }
+  }
+  return uniquePositiveIds(structuredIds, "A montagem");
+}
+function resolveLegacyIds(product, ingredientIds) {
+  return ingredientIds.map((ingredientId) => {
+    const matches = (product.optionGroups || []).flatMap(
+      (group) => group.options.filter((option) => option.ingredientId === ingredientId)
+    );
+    if (matches.length !== 1) {
+      throw new Error(`Ingrediente legado inv\xE1lido ou amb\xEDguo para ${product.name}.`);
+    }
+    return matches[0].id;
+  });
+}
+function resolveOrderItemCustomizations(product, selection = {}) {
+  const activeGroups = (product.optionGroups || []).filter((group) => group.active);
+  if (!activeGroups.length) {
+    return resolveLegacyProductIngredients(product, selection.ingredientIds);
+  }
+  activeGroups.forEach((group) => {
+    if (group.restaurantId !== product.restaurantId) {
+      throw new Error(`A configura\xE7\xE3o de ${product.name} pertence a outro restaurante.`);
+    }
+  });
+  const legacyIds = uniquePositiveIds(selection.ingredientIds, "A montagem antiga");
+  let selectedIds = resolveExplicitOptionIds(product, selection);
+  if (!selectedIds.length && legacyIds.length) {
+    selectedIds = resolveLegacyIds(product, legacyIds);
+  }
+  const allActiveOptions = activeGroups.flatMap(
+    (group) => group.options.filter(
+      (option) => option.active && option.ingredient.active && option.ingredient.restaurantId === product.restaurantId
+    )
+  );
+  const allActiveOptionIds = new Set(allActiveOptions.map((option) => option.id));
+  if (selectedIds.some((id) => !allActiveOptionIds.has(id))) {
+    throw new Error(`Uma op\xE7\xE3o selecionada est\xE1 indispon\xEDvel para ${product.name}.`);
+  }
+  const customizations = activeGroups.map((group) => {
+    const availableOptions = group.options.filter(
+      (option) => option.active && option.ingredient.active && option.ingredient.restaurantId === product.restaurantId
+    );
+    const selected = availableOptions.filter((option) => selectedIds.includes(option.id));
+    const minimum = group.required ? Math.max(1, group.minSelections) : group.minSelections;
+    const maximum = group.selectionType === "SINGLE" ? 1 : group.maxSelections;
+    if (availableOptions.length < minimum) {
+      throw new Error(`O grupo ${group.name} est\xE1 sem op\xE7\xF5es suficientes. Avise o restaurante.`);
+    }
+    if (selected.length < minimum) {
+      throw new Error(
+        `Escolha pelo menos ${minimum} ${minimum === 1 ? "op\xE7\xE3o" : "op\xE7\xF5es"} em ${group.name}.`
+      );
+    }
+    if (selected.length > maximum) {
+      throw new Error(
+        `Escolha no m\xE1ximo ${maximum} ${maximum === 1 ? "op\xE7\xE3o" : "op\xE7\xF5es"} em ${group.name}.`
+      );
+    }
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      selectionType: group.selectionType,
+      minSelections: minimum,
+      maxSelections: maximum,
+      options: selected.map((option) => ({
+        optionId: option.id,
+        ingredientId: option.ingredient.id,
+        name: option.ingredient.name,
+        price: money(option.ingredient.price)
+      }))
+    };
+  });
+  const selectedOptions = customizations.flatMap((group) => group.options);
+  const additionalPrice = selectedOptions.reduce((total, option) => total + option.price, 0);
+  const price = money(money(product.price) + additionalPrice);
+  return {
+    price,
+    ingredients: selectedOptions.map((option) => ({
+      id: option.ingredientId,
+      name: option.name,
+      price: option.price
+    })),
+    customizations
+  };
+}
+function resolveLegacyProductIngredients(product, ingredientIds = []) {
+  const selectedIds = uniquePositiveIds(ingredientIds, "A montagem");
+  const available = product.ingredients.filter((ingredient) => ingredient.active);
+  if (!available.length) {
+    throw new Error(`${product.name} ainda n\xE3o possui op\xE7\xF5es de montagem configuradas.`);
+  }
+  const selected = selectedIds.map(
+    (id) => available.find((ingredient) => ingredient.id === id)
+  );
+  if (selected.some((ingredient) => !ingredient)) {
+    throw new Error(`Ingrediente inv\xE1lido para ${product.name}.`);
+  }
+  const requiredIds = available.filter((ingredient) => ingredient.required).map((ingredient) => ingredient.id);
+  if (requiredIds.some((id) => !selectedIds.includes(id))) {
+    throw new Error(`Selecione os ingredientes obrigat\xF3rios de ${product.name}.`);
+  }
+  const ingredients = selected.map((ingredient) => ({
+    id: ingredient.id,
+    name: ingredient.name,
+    price: money(ingredient.price)
+  }));
+  return {
+    price: money(money(product.price) + ingredients.reduce((sum, item) => sum + item.price, 0)),
+    ingredients,
+    customizations: []
+  };
+}
 
 // src/modules/tableSession/repositories/TableSessionRepository.ts
 import { TableSessionStatus } from "@prisma/client";
@@ -4827,11 +5212,18 @@ var CreateOrderService = class {
       });
       const orderItems = items.map((item, index) => {
         const product = products[index];
+        const resolved = resolveOrderItemCustomizations(product, {
+          ingredientIds: item.ingredientIds,
+          optionIds: item.optionIds,
+          selectedOptions: item.selectedOptions
+        });
         return {
           productId: product.id,
           quantity: item.quantity,
-          price: Number(product.price),
-          observation: item.observation
+          price: resolved.price,
+          observation: item.observation,
+          ingredients: resolved.ingredients,
+          customizations: resolved.customizations
         };
       });
       const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -6143,8 +6535,8 @@ var ConfirmOrderPaymentWithPinService = class {
   async execute(orderId, restaurantId, role, pin) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
     const normalizedRole = String(role || "").toUpperCase();
-    const allowedRoles = ["MOTOQUEIRO", "ADMIN"];
-    if (!allowedRoles.includes(normalizedRole)) {
+    const allowedRoles2 = ["MOTOQUEIRO", "ADMIN"];
+    if (!allowedRoles2.includes(normalizedRole)) {
       throw new Error(
         "A confirma\xE7\xE3o por PIN \xE9 permitida apenas para admin ou motoqueiro na entrega."
       );
@@ -6300,8 +6692,8 @@ import { UserRole as UserRole12 } from "@prisma/client";
 var RequestOrderPaymentConfirmationPinService = class {
   async execute(orderId, restaurantId, role) {
     const normalizedRole = String(role || "").toUpperCase();
-    const allowedRoles = [UserRole12.MOTOQUEIRO, UserRole12.ADMIN];
-    if (!allowedRoles.includes(normalizedRole)) {
+    const allowedRoles2 = [UserRole12.MOTOQUEIRO, UserRole12.ADMIN];
+    if (!allowedRoles2.includes(normalizedRole)) {
       throw new Error(
         "Somente admin ou motoqueiro podem solicitar PIN de confirma\xE7\xE3o de pagamento."
       );
@@ -8557,8 +8949,8 @@ function staffMiddleware(req, res, next) {
       error: "N\xE3o autenticado"
     });
   }
-  const allowedRoles = [UserRole15.ADMIN, UserRole15.FUNCIONARIO, UserRole15.MOTOQUEIRO];
-  if (!allowedRoles.includes(String(req.user.role))) {
+  const allowedRoles2 = [UserRole15.ADMIN, UserRole15.FUNCIONARIO, UserRole15.MOTOQUEIRO];
+  if (!allowedRoles2.includes(String(req.user.role))) {
     return res.status(403).json({
       error: "Acesso negado"
     });
@@ -12919,6 +13311,10 @@ var ListSupportChatMessagesService = class {
         "senderRole",
         "senderUserId",
         "senderLabel",
+        "issueStatus",
+        "issueResponse",
+        "issueRespondedAt",
+        "issueClosedAt",
         "restaurantId",
         "sentAt"
       FROM "SupportChatMessage"
@@ -12941,6 +13337,10 @@ var ListSupportChatMessagesService = class {
         senderRole: item.senderRole,
         senderUserId: Number(item.senderUserId || 0) || 0,
         senderLabel: item.senderLabel,
+        issueStatus: item.issueStatus,
+        issueResponse: item.issueResponse,
+        issueRespondedAt: item.issueRespondedAt?.toISOString?.() || null,
+        issueClosedAt: item.issueClosedAt?.toISOString?.() || null,
         restaurantId: item.restaurantId,
         sentAt: item.sentAt?.toISOString?.() || null
       }))
@@ -13034,14 +13434,162 @@ var GetAllSupportTicketsController = class {
 };
 var GetAllSupportTicketsController_default = new GetAllSupportTicketsController();
 
+// src/modules/aiSupport/controllers/UpdateSupportIssueController.ts
+var validStatuses = /* @__PURE__ */ new Set(["OPEN", "IN_PROGRESS", "CLOSED"]);
+var UpdateSupportIssueController = class {
+  async handle(req, res) {
+    try {
+      if (String(req.user.role).toUpperCase() !== "ADMIN") {
+        return res.status(403).json({ error: "Somente administradores podem atender relatos." });
+      }
+      const id = Number(req.params.id);
+      const status = String(req.body?.status || "").toUpperCase();
+      const response = typeof req.body?.response === "string" ? req.body.response.replace(/\s+/g, " ").trim() : "";
+      if (!Number.isInteger(id) || !validStatuses.has(status)) {
+        return res.status(400).json({ error: "Relato ou status inv\xE1lido." });
+      }
+      if (response && (response.length < 3 || response.length > 1200)) {
+        return res.status(400).json({ error: "A resposta deve ter entre 3 e 1200 caracteres." });
+      }
+      const responder = response ? await prisma_default.user.findFirst({
+        where: { id: Number(req.user.id), restaurantId: Number(req.user.restaurantId), role: "ADMIN" },
+        select: { name: true }
+      }) : null;
+      if (response && !responder) {
+        return res.status(403).json({ error: "Administrador n\xE3o encontrado para registrar a resposta." });
+      }
+      const result = await prisma_default.$queryRaw`
+        UPDATE "SupportChatMessage"
+        SET
+          "issueStatus" = ${status},
+          "issueResponse" = COALESCE(${response || null}, "issueResponse"),
+          "issueResponderName" = COALESCE(${responder?.name || null}, "issueResponderName"),
+          "issueRespondedAt" = CASE WHEN ${Boolean(response)} THEN ${/* @__PURE__ */ new Date()} ELSE "issueRespondedAt" END,
+          "issueClosedAt" = ${status === "CLOSED" ? /* @__PURE__ */ new Date() : null}
+        WHERE "id" = ${id} AND "restaurantId" = ${Number(req.user.restaurantId)} AND "issueStatus" IS NOT NULL
+        RETURNING "id", "senderUserId"
+      `;
+      if (!result[0]) return res.status(404).json({ error: "Relato n\xE3o encontrado." });
+      const payload = {
+        id: String(result[0].id),
+        status,
+        response: response || null,
+        responderName: responder?.name || null
+      };
+      io.to(`restaurant:${Number(req.user.restaurantId)}:admin`).emit(
+        "support:issue-updated",
+        payload
+      );
+      if (result[0].senderUserId && (status === "CLOSED" || response)) {
+        io.to(`user:${result[0].senderUserId}`).emit("support:issue-updated", payload);
+      }
+      return res.status(200).json(payload);
+    } catch (error2) {
+      console.error("Erro ao atualizar relato de suporte:", error2);
+      return res.status(500).json({ error: "N\xE3o foi poss\xEDvel atualizar o relato." });
+    }
+  }
+};
+var UpdateSupportIssueController_default = new UpdateSupportIssueController();
+
+// src/modules/aiSupport/controllers/DeleteSupportIssueController.ts
+var DeleteSupportIssueController = class {
+  async handle(req, res) {
+    try {
+      if (String(req.user.role).toUpperCase() !== "ADMIN") {
+        return res.status(403).json({ error: "Somente administradores podem excluir relatos." });
+      }
+      const id = Number(req.params.id);
+      const restaurantId = Number(req.user.restaurantId);
+      if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
+        return res.status(400).json({ error: "Relato inv\xE1lido." });
+      }
+      const deleted = await prisma_default.$queryRaw`
+        DELETE FROM "SupportChatMessage"
+        WHERE
+          "id" = ${id}
+          AND "restaurantId" = ${restaurantId}
+          AND "issueStatus" = 'CLOSED'
+        RETURNING "id"
+      `;
+      if (!deleted[0]) {
+        return res.status(409).json({
+          error: "Encerre o relato antes de exclu\xED-lo, ou confirme se ele pertence ao seu restaurante."
+        });
+      }
+      io.to(`restaurant:${restaurantId}:admin`).emit("support:issue-deleted", { id: String(id) });
+      return res.status(200).json({ id: String(id) });
+    } catch (error2) {
+      console.error("Erro ao excluir relato de suporte:", error2);
+      return res.status(500).json({ error: "N\xE3o foi poss\xEDvel excluir o relato." });
+    }
+  }
+};
+var DeleteSupportIssueController_default = new DeleteSupportIssueController();
+
+// src/modules/aiSupport/controllers/ListMySupportIssueUpdatesController.ts
+var ListMySupportIssueUpdatesController = class {
+  async handle(req, res) {
+    try {
+      const role = String(req.user.role || "").toUpperCase();
+      if (role !== "FUNCIONARIO" && role !== "MOTOQUEIRO") {
+        return res.status(403).json({ error: "Apenas funcion\xE1rios podem consultar seus relatos." });
+      }
+      const userId = Number(req.user.id);
+      const restaurantId = Number(req.user.restaurantId);
+      if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
+        return res.status(401).json({ error: "Sess\xE3o inv\xE1lida para consultar relatos." });
+      }
+      const updates = await prisma_default.$queryRaw`
+        SELECT "id", "issueStatus", "issueResponse", "issueResponderName", "issueRespondedAt", "issueClosedAt"
+        FROM "SupportChatMessage"
+        WHERE
+          "restaurantId" = ${restaurantId}
+          AND "senderUserId" = ${userId}
+          AND "issueStatus" IS NOT NULL
+          AND ("issueResponse" IS NOT NULL OR "issueStatus" = 'CLOSED')
+        ORDER BY "id" DESC
+        LIMIT 50
+      `;
+      return res.status(200).json({
+        updates: updates.map((item) => ({
+          id: String(item.id),
+          status: item.issueStatus,
+          response: item.issueResponse,
+          responderName: item.issueResponderName,
+          respondedAt: item.issueRespondedAt?.toISOString?.() || null,
+          closedAt: item.issueClosedAt?.toISOString?.() || null
+        }))
+      });
+    } catch (error2) {
+      console.error("Erro ao listar atualiza\xE7\xF5es de relatos do funcion\xE1rio:", error2);
+      return res.status(500).json({ error: "N\xE3o foi poss\xEDvel carregar as atualiza\xE7\xF5es dos relatos." });
+    }
+  }
+};
+var ListMySupportIssueUpdatesController_default = new ListMySupportIssueUpdatesController();
+
 // src/modules/aiSupport/routes/AiSupportRoutes.ts
 var router13 = Router13();
 router13.get("/messages", authMiddleware, (req, res) => {
   ListSupportChatMessagesController_default.handle(req, res);
 });
+router13.get("/my-issue-updates", authMiddleware, (req, res) => {
+  ListMySupportIssueUpdatesController_default.handle(req, res);
+});
 router13.get("/tickets/all", authMiddleware, superAdminMiddleware, (req, res) => {
   GetAllSupportTicketsController_default.handle(req, res);
 });
+router13.patch(
+  "/messages/:id/issue",
+  authMiddleware,
+  (req, res) => UpdateSupportIssueController_default.handle(req, res)
+);
+router13.delete(
+  "/messages/:id/issue",
+  authMiddleware,
+  (req, res) => DeleteSupportIssueController_default.handle(req, res)
+);
 var AiSupportRoutes_default = router13;
 
 // src/modules/menuImport/routes/MenuImportRoutes.ts
@@ -13989,42 +14537,236 @@ var AsaasWithdrawValidationWebhookController = class {
 };
 var AsaasWithdrawValidationWebhookController_default = new AsaasWithdrawValidationWebhookController();
 
-// src/routes/index.ts
+// src/modules/ingredients/routes/ingredientRoutes.ts
+import { Router as Router19 } from "express";
+
+// src/validators/IngredientValidator.ts
+import { z as z12 } from "zod";
+var createIngredientSchema = z12.object({
+  name: z12.string().trim().min(1, "Nome do ingrediente \xE9 obrigat\xF3rio.").max(80),
+  category: z12.string({
+    invalid_type_error: "A categoria do ingrediente deve ser um texto.",
+    required_error: "Categoria do ingrediente \xE9 obrigat\xF3ria."
+  }).trim().min(1, "Categoria do ingrediente \xE9 obrigat\xF3ria.").max(60, "A categoria deve ter no m\xE1ximo 60 caracteres."),
+  price: z12.number({
+    invalid_type_error: "O valor adicional deve ser um n\xFAmero.",
+    required_error: "O valor adicional \xE9 obrigat\xF3rio."
+  }).min(0, "O valor adicional n\xE3o pode ser negativo.").max(99999, "O valor adicional informado \xE9 muito alto."),
+  active: z12.boolean().optional()
+});
+var updateIngredientSchema = createIngredientSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  "Informe ao menos um campo para atualizar."
+);
+
+// src/modules/ingredients/repositories/IngredientRepository.ts
+var IngredientRepository = class {
+  async findAll(restaurantId, db = prisma_default) {
+    return db.ingredient.findMany({
+      where: { restaurantId },
+      orderBy: [{ category: "asc" }, { active: "desc" }, { name: "asc" }]
+    });
+  }
+  async findById(id, restaurantId, db = prisma_default) {
+    return db.ingredient.findFirst({ where: { id, restaurantId } });
+  }
+  async findByName(name, restaurantId, db = prisma_default) {
+    return db.ingredient.findFirst({
+      where: {
+        restaurantId,
+        name: { equals: name.trim(), mode: "insensitive" }
+      }
+    });
+  }
+  async create(data, restaurantId, db = prisma_default) {
+    return db.ingredient.create({ data: { ...data, restaurantId } });
+  }
+  async update(id, data, restaurantId, db = prisma_default) {
+    await db.ingredient.updateMany({ where: { id, restaurantId }, data });
+    return this.findById(id, restaurantId, db);
+  }
+  async delete(id, restaurantId, db = prisma_default) {
+    const usedByProduct = await db.productOption.findFirst({
+      where: {
+        ingredientId: id,
+        group: { restaurantId }
+      },
+      select: { id: true }
+    });
+    if (usedByProduct) {
+      throw new Error(
+        "Este ingrediente est\xE1 vinculado a um produto. Remova-o dos grupos ou desative-o."
+      );
+    }
+    return db.ingredient.deleteMany({ where: { id, restaurantId } });
+  }
+};
+var IngredientRepository_default = new IngredientRepository();
+
+// src/modules/ingredients/services/IngredientServices.ts
+function assertRestaurantId(restaurantId) {
+  if (!Number.isInteger(Number(restaurantId)) || Number(restaurantId) <= 0) {
+    throw new Error("Restaurante n\xE3o encontrado.");
+  }
+  return Number(restaurantId);
+}
+var ListIngredientsService = class {
+  async execute(restaurantId) {
+    const tenantId = assertRestaurantId(restaurantId);
+    const ingredients = await IngredientRepository_default.findAll(tenantId);
+    const categories = [...new Set(ingredients.map((ingredient) => ingredient.category))].sort(
+      (left, right) => left.localeCompare(right, "pt-BR")
+    );
+    return { ingredients, count: ingredients.length, categories };
+  }
+};
+var CreateIngredientService = class {
+  async execute(input, restaurantId) {
+    const tenantId = assertRestaurantId(restaurantId);
+    const data = createIngredientSchema.parse(input);
+    const duplicate = await IngredientRepository_default.findByName(data.name, tenantId);
+    if (duplicate) {
+      throw new Error("J\xE1 existe um ingrediente com este nome neste restaurante.");
+    }
+    return IngredientRepository_default.create(
+      {
+        name: data.name,
+        category: data.category,
+        price: data.price,
+        active: data.active ?? true
+      },
+      tenantId
+    );
+  }
+};
+var UpdateIngredientService = class {
+  async execute(id, input, restaurantId) {
+    const tenantId = assertRestaurantId(restaurantId);
+    const ingredientId = Number(id);
+    const data = updateIngredientSchema.parse(input);
+    const existing = await IngredientRepository_default.findById(ingredientId, tenantId);
+    if (!existing) {
+      throw new Error("Ingrediente n\xE3o encontrado neste restaurante.");
+    }
+    if (data.name) {
+      const duplicate = await IngredientRepository_default.findByName(data.name, tenantId);
+      if (duplicate && duplicate.id !== ingredientId) {
+        throw new Error("J\xE1 existe um ingrediente com este nome neste restaurante.");
+      }
+    }
+    return IngredientRepository_default.update(ingredientId, data, tenantId);
+  }
+};
+var DeleteIngredientService = class {
+  async execute(id, restaurantId) {
+    const tenantId = assertRestaurantId(restaurantId);
+    const ingredientId = Number(id);
+    const existing = await IngredientRepository_default.findById(ingredientId, tenantId);
+    if (!existing) {
+      throw new Error("Ingrediente n\xE3o encontrado neste restaurante.");
+    }
+    await IngredientRepository_default.delete(ingredientId, tenantId);
+    return { message: "Ingrediente exclu\xEDdo com sucesso." };
+  }
+};
+var listIngredientsService = new ListIngredientsService();
+var createIngredientService = new CreateIngredientService();
+var updateIngredientService = new UpdateIngredientService();
+var deleteIngredientService = new DeleteIngredientService();
+
+// src/modules/ingredients/controllers/IngredientControllers.ts
+function errorMessage(error2, fallback) {
+  return error2 instanceof Error ? error2.message : fallback;
+}
+async function listIngredients(req, res) {
+  try {
+    return res.json(await listIngredientsService.execute(Number(req.user?.restaurantId)));
+  } catch (error2) {
+    return res.status(400).json({ error: errorMessage(error2, "Erro ao listar ingredientes.") });
+  }
+}
+async function createIngredient(req, res) {
+  try {
+    const ingredient = await createIngredientService.execute(
+      req.body,
+      Number(req.user?.restaurantId)
+    );
+    return res.status(201).json(ingredient);
+  } catch (error2) {
+    return res.status(400).json({ error: errorMessage(error2, "Erro ao criar ingrediente.") });
+  }
+}
+async function updateIngredient(req, res) {
+  try {
+    const ingredient = await updateIngredientService.execute(
+      Number(req.params.id),
+      req.body,
+      Number(req.user?.restaurantId)
+    );
+    return res.json(ingredient);
+  } catch (error2) {
+    return res.status(400).json({ error: errorMessage(error2, "Erro ao atualizar ingrediente.") });
+  }
+}
+async function deleteIngredient(req, res) {
+  try {
+    return res.json(
+      await deleteIngredientService.execute(
+        Number(req.params.id),
+        Number(req.user?.restaurantId)
+      )
+    );
+  } catch (error2) {
+    return res.status(400).json({ error: errorMessage(error2, "Erro ao excluir ingrediente.") });
+  }
+}
+
+// src/modules/ingredients/routes/ingredientRoutes.ts
 var router19 = Router19();
-router19.post("/api/webhooks/asaas", (req, res) => {
+router19.use(authMiddleware, adminMiddleware);
+router19.get("/", listIngredients);
+router19.post("/", createIngredient);
+router19.put("/:id", updateIngredient);
+router19.delete("/:id", deleteIngredient);
+var ingredientRoutes_default = router19;
+
+// src/routes/index.ts
+var router20 = Router20();
+router20.post("/api/webhooks/asaas", (req, res) => {
   AsaasOrderWebhookController_default.handle(req, res);
 });
-router19.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
+router20.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
   AsaasWithdrawValidationWebhookController_default.handle(req, res);
 });
-router19.use("/auth", authRoutes_default);
-router19.use("/restaurants", restaurantRoutes_default);
-router19.use("/categories", CategoryRoutes_default);
-router19.use("/products", productsRoutes_default);
-router19.use("/orders", orderRoutes_default);
-router19.use("/employees", EmployeeRoutes_default);
-router19.use("/table-sessions", SessionsTablesRoutes_default);
-router19.use("/tables", TablesRoutes_default);
-router19.use("/settings", RestaurantSettingsRoutes_default);
-router19.use("/banners", BannerRoutes_default);
-router19.use("/coupons", CouponRoutes_default);
-router19.use("/subscription", SubscriptionRoutes_default);
-router19.use("/ai-support", AiSupportRoutes_default);
-router19.use("/menu-import", MenuImportRoutes_default);
-router19.use("/audit-logs", AuditRoutes_default);
-router19.use("/favorites", FavoriteRoutes_default);
-router19.use("/image-enhancement", ImageEnhancementRoutes_default);
-router19.use("/customer-addresses", CustomerAddressRoutes_default);
-router19.get("/profile", authMiddleware, (req, res) => {
+router20.use("/auth", authRoutes_default);
+router20.use("/restaurants", restaurantRoutes_default);
+router20.use("/categories", CategoryRoutes_default);
+router20.use("/products", productsRoutes_default);
+router20.use("/ingredients", ingredientRoutes_default);
+router20.use("/orders", orderRoutes_default);
+router20.use("/employees", EmployeeRoutes_default);
+router20.use("/table-sessions", SessionsTablesRoutes_default);
+router20.use("/tables", TablesRoutes_default);
+router20.use("/settings", RestaurantSettingsRoutes_default);
+router20.use("/banners", BannerRoutes_default);
+router20.use("/coupons", CouponRoutes_default);
+router20.use("/subscription", SubscriptionRoutes_default);
+router20.use("/ai-support", AiSupportRoutes_default);
+router20.use("/menu-import", MenuImportRoutes_default);
+router20.use("/audit-logs", AuditRoutes_default);
+router20.use("/favorites", FavoriteRoutes_default);
+router20.use("/image-enhancement", ImageEnhancementRoutes_default);
+router20.use("/customer-addresses", CustomerAddressRoutes_default);
+router20.get("/profile", authMiddleware, (req, res) => {
   return res.json({
     message: "Rota protegida!",
     user: req.user
   });
 });
-var routes_default = router19;
+var routes_default = router20;
 
 // src/modules/billing/routes/BillingRoutes.ts
-import { Router as Router20 } from "express";
+import { Router as Router21 } from "express";
 
 // src/modules/billing/services/MercadoPagoClient.ts
 import { MercadoPagoConfig as MercadoPagoConfig3, Payment as Payment3 } from "mercadopago";
@@ -14441,12 +15183,12 @@ var MercadoPagoService = class {
     amount,
     payerEmail
   }) {
-    const isProduction3 = process.env.NODE_ENV === "production";
+    const isProduction2 = process.env.NODE_ENV === "production";
     const port2 = process.env.PORT || 3e3;
     const backendBaseUrl = String(process.env.BACKEND_URL || "").trim();
     const fallbackUrl = backendBaseUrl ? `${backendBaseUrl}/billing/webhook/mercadopago` : `http://localhost:${port2}/billing/webhook/mercadopago`;
     const notificationUrl = String(process.env.MP_NOTIFICATION_URL || fallbackUrl).trim();
-    if (isProduction3 && (!notificationUrl || notificationUrl.includes("localhost"))) {
+    if (isProduction2 && (!notificationUrl || notificationUrl.includes("localhost"))) {
       throw new Error(
         "Webhook Mercado Pago inv\xE1lido para produ\xE7\xE3o. Configure MP_NOTIFICATION_URL com uma URL p\xFAblica HTTPS."
       );
@@ -14556,34 +15298,34 @@ var RegenerateInvoicePaymentLinkController = class {
 var RegenerateInvoicePaymentLinkController_default = new RegenerateInvoicePaymentLinkController();
 
 // src/modules/billing/routes/BillingRoutes.ts
-var router20 = Router20();
-router20.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
-router20.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
-router20.get(
+var router21 = Router21();
+router21.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
+router21.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
+router21.get(
   "/plans",
   authMiddleware,
   adminMiddleware,
   (req, res) => GetPlansController_default.handle(req, res)
 );
-router20.get(
+router21.get(
   "/invoices",
   authMiddleware,
   adminMiddleware,
   (req, res) => GetInvoicesController_default.handle(req, res)
 );
-router20.get(
+router21.get(
   "/invoices/all",
   authMiddleware,
   superAdminMiddleware,
   (req, res) => GetAllInvoicesController_default.handle(req, res)
 );
-router20.post(
+router21.post(
   "/invoices/:id/regenerate-link",
   authMiddleware,
   adminMiddleware,
   (req, res) => RegenerateInvoicePaymentLinkController_default.handle(req, res)
 );
-var BillingRoutes_default = router20;
+var BillingRoutes_default = router21;
 
 // src/middlewares/security/requestIdMiddleware.ts
 import crypto10 from "crypto";
@@ -14772,23 +15514,50 @@ var errorHandlerMiddleware = (err, req, res, _next) => {
   });
 };
 
+// src/middlewares/security/httpAccessProtection.ts
+import cors from "cors";
+import rateLimit5 from "express-rate-limit";
+var normalizeOrigin = (value) => value.trim().replace(/\/+$/, "");
+function resolveGlobalRateLimitMax(isProduction2, configuredMax) {
+  return isProduction2 ? configuredMax : Math.max(configuredMax, 5e3);
+}
+function applyCorsAndGlobalRateLimit(app2) {
+  const isProduction2 = process.env.NODE_ENV === "production";
+  const allowedOrigins = [process.env.CORS_ORIGINS || "", process.env.FRONTEND_URL || ""].flatMap((value) => value.split(",")).map((origin) => normalizeOrigin(origin)).filter(Boolean);
+  const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 300);
+  app2.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+        const normalizedOrigin = normalizeOrigin(origin);
+        if (!isProduction2 || allowedOrigins.includes(normalizedOrigin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Not allowed by CORS"));
+      },
+      credentials: true
+    })
+  );
+  app2.use(
+    rateLimit5({
+      windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1e3),
+      max: resolveGlobalRateLimitMax(isProduction2, configuredMax),
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: {
+        error: "Muitas requisicoes. Tente novamente em instantes."
+      }
+    })
+  );
+}
+
 // src/app.ts
 var app = express();
-var isProduction = process.env.NODE_ENV === "production";
-var normalizeOrigin = (value) => value.trim().replace(/\/+$/, "");
-var allowedOrigins = [process.env.CORS_ORIGINS || "", process.env.FRONTEND_URL || ""].flatMap((value) => value.split(",")).map((origin) => normalizeOrigin(origin)).filter(Boolean);
-var rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1e3);
-var rateLimitMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 300);
-var globalRateLimit = rateLimit5({
-  windowMs: rateLimitWindowMs,
-  max: rateLimitMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: "Muitas requisicoes. Tente novamente em instantes."
-  }
-});
-var authRateLimit = rateLimit5({
+var authRateLimit = rateLimit6({
   windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1e3),
   max: Number(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 50),
   standardHeaders: true,
@@ -14805,24 +15574,7 @@ app.use(
     crossOriginEmbedderPolicy: false
   })
 );
-app.use(globalRateLimit);
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      const normalizedOrigin = normalizeOrigin(origin);
-      if (!isProduction || allowedOrigins.includes(normalizedOrigin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true
-  })
-);
+applyCorsAndGlobalRateLimit(app);
 app.use("/orders/webhook/stripe", express.raw({ type: "application/json" }));
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || "1mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -14887,6 +15639,75 @@ async function socketAuth(socket, next) {
   } catch (_error) {
     return next(new Error("Token inv\xE1lido"));
   }
+}
+
+// src/socket/supportChatPolicy.ts
+var operationalRoles = /* @__PURE__ */ new Set(["FUNCIONARIO", "MOTOQUEIRO"]);
+var allowedRoles = /* @__PURE__ */ new Set([
+  "ADMIN",
+  "SUPER_ADMIN",
+  "FUNCIONARIO",
+  "MOTOQUEIRO"
+]);
+function normalizeSupportChatRole(role) {
+  return String(role || "").trim().toUpperCase();
+}
+function canSendSupportChat(role) {
+  return allowedRoles.has(normalizeSupportChatRole(role));
+}
+function isOperationalSupportReporter(role) {
+  return operationalRoles.has(normalizeSupportChatRole(role));
+}
+function getSupportMessageSender(role) {
+  const normalizedRole = normalizeSupportChatRole(role);
+  if (normalizedRole === "MOTOQUEIRO") {
+    return { senderRole: normalizedRole, senderLabel: "Motoqueiro" };
+  }
+  if (normalizedRole === "FUNCIONARIO") {
+    return { senderRole: normalizedRole, senderLabel: "Funcion\xE1rio" };
+  }
+  if (normalizedRole === "SUPER_ADMIN") {
+    return { senderRole: normalizedRole, senderLabel: "Super Admin" };
+  }
+  return { senderRole: "ADMIN", senderLabel: "Admin" };
+}
+
+// src/socket/employeeIssuePayload.ts
+function normalizeText3(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+function validateEmployeeIssuePayload(rawPayload) {
+  if (rawPayload?.type !== "employee-issue") return { isEmployeeIssue: false };
+  const reporterName = normalizeText3(rawPayload.reporterName);
+  const reporterRole = normalizeText3(rawPayload.reporterRole);
+  const subject = normalizeText3(rawPayload.subject);
+  const description = normalizeText3(rawPayload.description);
+  if (reporterName.length < 3 || reporterName.length > 100) {
+    return { isEmployeeIssue: true, ok: false, error: "Informe seu nome para enviar o relato." };
+  }
+  const reporterRoleLabel = reporterRole === "kitchen" ? "Cozinheiro" : reporterRole === "waiter" ? "Gar\xE7om" : reporterRole === "courier" ? "Motoqueiro" : null;
+  if (!reporterRoleLabel) {
+    return { isEmployeeIssue: true, ok: false, error: "Fun\xE7\xE3o do funcion\xE1rio inv\xE1lida." };
+  }
+  if (subject.length < 3 || subject.length > 100) {
+    return { isEmployeeIssue: true, ok: false, error: "Informe um assunto v\xE1lido para o relato." };
+  }
+  if (description.length < 5 || description.length > 900) {
+    return {
+      isEmployeeIssue: true,
+      ok: false,
+      error: "Explique o problema com pelo menos 5 caracteres (m\xE1x. 900)."
+    };
+  }
+  return {
+    isEmployeeIssue: true,
+    ok: true,
+    reporterName,
+    message: `Relato de problema
+Remetente: ${reporterName} (${reporterRoleLabel})
+Assunto: ${subject}
+Descri\xE7\xE3o: ${description}`
+  };
 }
 
 // src/socket/socketHandler.ts
@@ -15019,13 +15840,31 @@ function socketHandler(socket) {
   socket.on("support:chat-send", async (rawPayload, ack) => {
     const reply = typeof ack === "function" ? ack : (_result) => {
     };
-    const normalizedRole = String(role || "").toUpperCase();
-    const isAdminRole = normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN";
-    if (!isAdminRole) {
+    const normalizedRole = normalizeSupportChatRole(role);
+    const isOperationalRole = isOperationalSupportReporter(normalizedRole);
+    if (!canSendSupportChat(normalizedRole)) {
       reply({ ok: false, error: "Sem permiss\xE3o para usar este chat." });
       return;
     }
-    const normalizedMessage = String(rawPayload?.message || "").replace(/\s+/g, " ").trim();
+    const employeeIssue = validateEmployeeIssuePayload(rawPayload || {});
+    let employeeIssueMessage = null;
+    let employeeIssueReporterName = null;
+    if (employeeIssue.isEmployeeIssue) {
+      if (!isOperationalRole) {
+        reply({
+          ok: false,
+          error: "Esse tipo de relato est\xE1 dispon\xEDvel apenas para funcion\xE1rios."
+        });
+        return;
+      }
+      if ("error" in employeeIssue) {
+        reply({ ok: false, error: employeeIssue.error });
+        return;
+      }
+      employeeIssueMessage = employeeIssue.message;
+      employeeIssueReporterName = employeeIssue.reporterName;
+    }
+    const normalizedMessage = employeeIssueMessage ? employeeIssueMessage : String(rawPayload?.message || "").replace(/\s+/g, " ").trim();
     if (normalizedMessage.length < 2) {
       reply({ ok: false, error: "Digite uma mensagem v\xE1lida." });
       return;
@@ -15049,26 +15888,46 @@ function socketHandler(socket) {
       reply({ ok: false, error: "Restaurante inv\xE1lido para este chat." });
       return;
     }
-    const subscription = await prisma_default.subscription.findUnique({
-      where: {
-        restaurantId: targetRestaurantId
-      },
-      select: {
-        plan: true
-      }
-    });
-    const plan = String(subscription?.plan || "").toUpperCase();
-    const supportChatEnabledPlan = plan === "BASICO" || plan === "PREMIUM";
-    if (!supportChatEnabledPlan) {
-      reply({
-        ok: false,
-        error: "Chat com Super Admin dispon\xEDvel nos planos ativos do sistema."
+    if (isOperationalRole) {
+      const activeEmployee = await prisma_default.user.findFirst({
+        where: {
+          id: Number(id || 0),
+          restaurantId: targetRestaurantId,
+          role: normalizedRole,
+          active: true
+        },
+        select: { id: true }
       });
-      return;
+      if (!activeEmployee) {
+        reply({
+          ok: false,
+          error: "Seu acesso n\xE3o est\xE1 vinculado a este restaurante. Entre novamente ou fale com o administrador."
+        });
+        return;
+      }
+    }
+    if (!isOperationalRole) {
+      const subscription = await prisma_default.subscription.findUnique({
+        where: {
+          restaurantId: targetRestaurantId
+        },
+        select: {
+          plan: true
+        }
+      });
+      const plan = String(subscription?.plan || "").toUpperCase();
+      const supportChatEnabledPlan = plan === "BASICO" || plan === "PREMIUM";
+      if (!supportChatEnabledPlan) {
+        reply({
+          ok: false,
+          error: "Chat com Super Admin dispon\xEDvel nos planos ativos do sistema."
+        });
+        return;
+      }
     }
     let savedMessage;
-    const senderRoleValue = normalizedRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN";
-    const senderLabelValue = normalizedRole === "SUPER_ADMIN" ? "Super Admin" : "Admin";
+    const { senderRole: senderRoleValue, senderLabel: senderLabelValue } = getSupportMessageSender(normalizedRole);
+    const senderLabel = employeeIssueReporterName ? `${senderLabelValue} \xB7 ${employeeIssueReporterName}` : senderLabelValue;
     try {
       const insertedRows = await prisma_default.$queryRaw`
         INSERT INTO "SupportChatMessage" (
@@ -15076,14 +15935,16 @@ function socketHandler(socket) {
           "senderUserId",
           "senderRole",
           "senderLabel",
-          "message"
+          "message",
+          "issueStatus"
         )
         VALUES (
           ${targetRestaurantId},
           ${Number(id || 0) || null},
           CAST(${senderRoleValue} AS "SupportChatSenderRole"),
-          ${senderLabelValue},
-          ${normalizedMessage}
+          ${senderLabel},
+          ${normalizedMessage},
+          ${employeeIssueReporterName ? "OPEN" : null}
         )
         RETURNING
           "id",
@@ -15100,8 +15961,16 @@ function socketHandler(socket) {
         return;
       }
     } catch (error2) {
-      console.error("Erro ao salvar support chat message:", error2);
-      reply({ ok: false, error: "N\xE3o foi poss\xEDvel salvar a mensagem." });
+      console.error("Erro ao salvar relato no chat de suporte:", {
+        error: error2,
+        restaurantId: targetRestaurantId,
+        senderRole: senderRoleValue,
+        isEmployeeIssue: Boolean(employeeIssueReporterName)
+      });
+      reply({
+        ok: false,
+        error: "N\xE3o foi poss\xEDvel registrar o relato agora. Tente novamente em instantes."
+      });
       return;
     }
     const payload = {
@@ -15110,11 +15979,17 @@ function socketHandler(socket) {
       senderRole: savedMessage.senderRole,
       senderUserId: Number(savedMessage.senderUserId || 0) || 0,
       senderLabel: savedMessage.senderLabel,
+      issueStatus: employeeIssueReporterName ? "OPEN" : null,
       restaurantId: savedMessage.restaurantId,
       sentAt: savedMessage.sentAt?.toISOString?.() || (/* @__PURE__ */ new Date()).toISOString()
     };
     socket.to(`user:${id}`).emit("support:chat-message", payload);
     socket.emit("support:chat-message", payload);
+    if (isOperationalRole) {
+      socket.to(`restaurant:${targetRestaurantId}:admin`).emit("support:chat-message", payload);
+      reply({ ok: true });
+      return;
+    }
     if (normalizedRole === "ADMIN") {
       socket.to("super_admin").emit("support:chat-message", payload);
       reply({ ok: true });
@@ -15437,8 +16312,8 @@ function asNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 function validateCriticalEnv() {
-  const isProduction3 = process.env.NODE_ENV === "production";
-  if (!isProduction3) {
+  const isProduction2 = process.env.NODE_ENV === "production";
+  if (!isProduction2) {
     return;
   }
   const errors = [];
@@ -15450,8 +16325,8 @@ function validateCriticalEnv() {
   if (jwtRefreshSecret.length < 32) {
     errors.push("JWT_REFRESH_SECRET deve ter pelo menos 32 caracteres em producao.");
   }
-  const rateLimitMax2 = asNumber(String(process.env.RATE_LIMIT_MAX_REQUESTS || "300"), 300);
-  if (rateLimitMax2 <= 0) {
+  const rateLimitMax = asNumber(String(process.env.RATE_LIMIT_MAX_REQUESTS || "300"), 300);
+  if (rateLimitMax <= 0) {
     errors.push("RATE_LIMIT_MAX_REQUESTS deve ser maior que zero.");
   }
   const authRateLimitMax = asNumber(String(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || "50"), 50);
@@ -15510,7 +16385,7 @@ function validateCriticalEnv() {
 validateCriticalEnv();
 var server = http.createServer(app_default);
 var port = Number(process.env.PORT) || 3e3;
-var isProduction2 = process.env.NODE_ENV === "production";
+var isProduction = process.env.NODE_ENV === "production";
 var normalizeOrigin2 = (value) => value.trim().replace(/\/+$/, "");
 var socketAllowedOrigins = [
   process.env.SOCKET_CORS_ORIGINS || "",
@@ -15519,7 +16394,7 @@ var socketAllowedOrigins = [
 ].flatMap((value) => value.split(",")).map((origin) => normalizeOrigin2(origin)).filter(Boolean);
 var io = new Server(server, {
   cors: {
-    origin: isProduction2 ? socketAllowedOrigins : "*",
+    origin: isProduction ? socketAllowedOrigins : "*",
     methods: ["GET", "POST"],
     credentials: true
   },
