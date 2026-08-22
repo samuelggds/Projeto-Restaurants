@@ -33,6 +33,24 @@ class SupportChatService {
     const response = await api.get('/ai-support/messages', query);
     return response.data;
   }
+
+  async updateIssue(id: string, status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED', issueResponse?: string) {
+    const response = await api.patch(`/ai-support/messages/${id}/issue`, {
+      status,
+      response: issueResponse,
+    });
+    return response.data;
+  }
+
+  async deleteIssue(id: string) {
+    const response = await api.delete(`/ai-support/messages/${id}/issue`);
+    return response.data;
+  }
+
+  async getMyIssueUpdates() {
+    const response = await api.get('/ai-support/my-issue-updates');
+    return response.data;
+  }
 }
 
 export default new SupportChatService();

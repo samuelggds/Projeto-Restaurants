@@ -149,6 +149,20 @@ export const SideFooter = styled.div`
     background: #2c241e;
     border-radius: 9px;
   }
+  .unread-badge {
+    min-width: 19px;
+    height: 19px;
+    margin-left: auto;
+    padding: 0 5px;
+    border-radius: 999px;
+    color: #fff;
+    background: #e64a19;
+    display: grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+  }
 `;
 export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
   height: 100vh;

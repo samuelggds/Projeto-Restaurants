@@ -23,6 +23,7 @@ import {
 import * as S from './Kitchen.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
+import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 
 export type KitchenView = 'overview' | 'queue' | 'ready' | 'history';
 const INITIAL_SHIFT_TIME = new Date();
@@ -49,6 +50,7 @@ function KitchenShell({
   initialView: KitchenView;
   onViewChange?: KitchenModuleProps['onViewChange'];
 }) {
+  useEmployeeIssueNotifications();
   const { employee, restaurant, onLogout } = useKitchenWorkspace();
   const [currentTime, setCurrentTime] = useState(INITIAL_SHIFT_TIME);
   useEffect(() => {

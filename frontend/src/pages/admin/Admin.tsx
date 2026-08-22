@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/authContext';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import employeesService from '../../Services/employeesService';
@@ -264,15 +265,23 @@ export default function Admin() {
       if (soundNotificationsRef.current) playOrderNotificationSound();
       refreshOrders();
     };
+    const onEmployeeIssue = (issue: { issueStatus?: string | null; senderLabel?: string }) => {
+      if (issue.issueStatus === 'OPEN') {
+        toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
+        window.dispatchEvent(new CustomEvent('employee-issues-unread'));
+      }
+    };
 
     socket.on('new-order', onNewOrder);
     socket.on('order:payment-confirmed', refreshOrders);
     socket.on('order:status-changed', refreshOrders);
+    socket.on('support:chat-message', onEmployeeIssue);
 
     return () => {
       socket.off('new-order', onNewOrder);
       socket.off('order:payment-confirmed', refreshOrders);
       socket.off('order:status-changed', refreshOrders);
+      socket.off('support:chat-message', onEmployeeIssue);
       disconnectSocket();
     };
   }, []);

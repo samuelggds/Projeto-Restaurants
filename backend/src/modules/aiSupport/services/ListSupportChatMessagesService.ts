@@ -39,6 +39,10 @@ class ListSupportChatMessagesService {
         senderRole: string;
         senderUserId: number | null;
         senderLabel: string;
+        issueStatus: string | null;
+        issueResponse: string | null;
+        issueRespondedAt: Date | null;
+        issueClosedAt: Date | null;
         restaurantId: number;
         sentAt: Date;
       }>
@@ -49,6 +53,10 @@ class ListSupportChatMessagesService {
         "senderRole",
         "senderUserId",
         "senderLabel",
+        "issueStatus",
+        "issueResponse",
+        "issueRespondedAt",
+        "issueClosedAt",
         "restaurantId",
         "sentAt"
       FROM "SupportChatMessage"
@@ -76,6 +84,10 @@ class ListSupportChatMessagesService {
           senderRole: item.senderRole,
           senderUserId: Number(item.senderUserId || 0) || 0,
           senderLabel: item.senderLabel,
+          issueStatus: item.issueStatus,
+          issueResponse: item.issueResponse,
+          issueRespondedAt: item.issueRespondedAt?.toISOString?.() || null,
+          issueClosedAt: item.issueClosedAt?.toISOString?.() || null,
           restaurantId: item.restaurantId,
           sentAt: item.sentAt?.toISOString?.() || null,
         })),

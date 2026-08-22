@@ -1229,6 +1229,20 @@ export const ReportCard = styled.section`
     gap: 13px;
     margin-bottom: 19px;
   }
+  .refresh-issues {
+    min-height: 34px;
+    padding: 0 11px;
+    border: 1px solid #ded7cf;
+    border-radius: 9px;
+    background: #fff;
+    color: #493e38;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .heading .refresh-issues:first-of-type {
+    margin-left: auto;
+  }
   .heading > i {
     width: 42px;
     height: 42px;
@@ -1326,6 +1340,50 @@ export const ReportCard = styled.section`
   }
   footer svg {
     width: 17px;
+  }
+  .employee-issue {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    margin-top: 10px;
+    border: 1px solid #eadfd7;
+    border-radius: 10px;
+    background: #fffaf7;
+  }
+  .employee-issue b {
+    color: #493e38;
+    font-size: 13px;
+  }
+  .employee-issue pre {
+    margin: 0;
+    white-space: pre-wrap;
+    color: #655b54;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .issue-response {
+    padding: 9px;
+    border-radius: 8px;
+    background: #f1f8f3;
+    color: #275c39;
+  }
+  .issue-reply {
+    font-size: 12px;
+  }
+  .employee-issue .delete-issue {
+    color: #a62b24;
+    background: #fff;
+    border: 1px solid #e9bcb8;
+    box-shadow: none;
+  }
+  .employee-issue footer {
+    justify-content: flex-end;
+  }
+  .employee-issue footer button {
+    margin-left: 0;
+    padding: 8px 10px;
+    font-size: 12px;
   }
   @media (max-width: 650px) {
     padding: 20px;

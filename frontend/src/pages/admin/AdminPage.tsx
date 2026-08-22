@@ -1,4 +1,4 @@
-import { ChangeEvent, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
   ExternalLink,
   HelpCircle,
@@ -37,6 +37,7 @@ import type {
 import { validateBusinessSettings } from './domain/businessSettingsValidation';
 import { validateEstablishmentAddress } from './domain/establishmentAddress';
 import { validateBusinessHours } from './domain/businessHours';
+import supportChatService from '../../Services/supportChatService';
 
 export function AdminPage({
   initialSettings = adminMockSettings,
@@ -80,6 +81,11 @@ export function AdminPage({
   const products = initialProducts;
   const categories = initialCategories;
   const [mobile, setMobile] = useState(false);
+  const unreadIssuesStorageKey = 'employee-issues-unread';
+  const issuesLastSeenStorageKey = 'employee-issues-last-seen-id';
+  const [unreadEmployeeIssues, setUnreadEmployeeIssues] = useState(() =>
+    Number(sessionStorage.getItem(unreadIssuesStorageKey) || 0),
+  );
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
   const [saved, setSaved] = useState(paymentOAuthStatus === 'success');
@@ -90,6 +96,56 @@ export function AdminPage({
       : '',
   );
   const logoInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const markUnread = () => {
+      if (area === 'help') return;
+      setUnreadEmployeeIssues((current) => {
+        const next = current + 1;
+        sessionStorage.setItem(unreadIssuesStorageKey, String(next));
+        return next;
+      });
+    };
+    window.addEventListener('employee-issues-unread', markUnread);
+    return () => window.removeEventListener('employee-issues-unread', markUnread);
+  }, [area]);
+  useEffect(() => {
+    let active = true;
+    const refreshUnreadIssues = () => {
+      const lastSeenId = Number(sessionStorage.getItem(issuesLastSeenStorageKey) || 0);
+      void supportChatService
+        .getMessages({ limit: 100 })
+        .then((result) => {
+          if (!active) return;
+          const pending = (result?.messages || []).filter(
+            (message: { id?: string; issueStatus?: string | null }) => {
+              const isActive =
+                message.issueStatus === 'OPEN' || message.issueStatus === 'IN_PROGRESS';
+              return isActive && Number(message.id || 0) > lastSeenId;
+            },
+          ).length;
+          sessionStorage.setItem(unreadIssuesStorageKey, String(pending));
+          setUnreadEmployeeIssues(pending);
+        })
+        .catch(() => {});
+    };
+    refreshUnreadIssues();
+    const intervalId = window.setInterval(refreshUnreadIssues, 8_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+  const clearUnreadEmployeeIssues = () => {
+    setUnreadEmployeeIssues(0);
+    sessionStorage.setItem(unreadIssuesStorageKey, '0');
+    void supportChatService
+      .getMessages({ limit: 1 })
+      .then((result) => {
+        const latestId = Number(result?.messages?.[0]?.id || 0);
+        sessionStorage.setItem(issuesLastSeenStorageKey, String(latestId));
+      })
+      .catch(() => {});
+  };
   const areaTitles: Record<Exclude<AdminSection, 'settings' | 'help'>, string> = {
     overview: 'Visão geral',
     orders: 'Pedidos',
@@ -361,11 +417,17 @@ export function AdminPage({
             className={area === 'help' ? 'active' : ''}
             onClick={() => {
               setArea('help');
+              clearUnreadEmployeeIssues();
               setMobile(false);
             }}
           >
             <HelpCircle />
             Central de ajuda
+            {unreadEmployeeIssues > 0 && (
+              <span className="unread-badge">
+                {unreadEmployeeIssues > 99 ? '99+' : unreadEmployeeIssues}
+              </span>
+            )}
           </button>
           <button onClick={onLogout}>
             <LogOut />

@@ -23,6 +23,7 @@ import {
 import * as S from './Waiter.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
+import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 
 export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls';
 export interface WaiterModuleProps extends BaseProps {
@@ -49,6 +50,7 @@ function WaiterShell({
   initialView: WaiterView;
   onViewChange?: WaiterModuleProps['onViewChange'];
 }) {
+  useEmployeeIssueNotifications();
   const { employee, restaurant, onLogout } = useWaiterWorkspace();
   const [view, setView] = useState<WaiterView | 'help'>(initialView);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);

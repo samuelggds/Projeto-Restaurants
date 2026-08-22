@@ -7,26 +7,61 @@ import {
 } from './employeeHelpGuides';
 import { EmployeeHelpPreview } from './EmployeeHelpPreview';
 import { employeeHelpCallouts } from './employeeHelpCallouts';
+import type { EmployeeIssueReport } from './reportEmployeeIssue';
+import { useEmployeeIssueNotifications } from './useEmployeeIssueNotifications';
 import * as S from './EmployeeHelpCenter.styles';
 
 type Props = {
   role: EmployeeHelpRole;
-  onReport: (payload: { subject: string; message: string }) => Promise<void>;
+  onReport: (payload: EmployeeIssueReport) => Promise<void>;
 };
 
 export function EmployeeHelpCenter({ role, onReport }: Props) {
+  useEmployeeIssueNotifications();
   const guides = getEmployeeHelpGuides(role);
   const [openGuide, setOpenGuide] = useState(guides[0]?.id);
+  const [reporterName, setReporterName] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
+  const reporterNameLabel =
+    role === 'kitchen'
+      ? 'Nome do cozinheiro'
+      : role === 'waiter'
+        ? 'Nome do garçom'
+        : 'Nome do motoqueiro';
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const normalizedName = reporterName.trim();
+    const normalizedSubject = subject.trim();
+    const normalizedMessage = message.trim();
+
+    if (normalizedName.length < 3) {
+      setStatus('error');
+      setError('Informe seu nome para que o administrador identifique o relato.');
+      return;
+    }
+    if (normalizedSubject.length < 3) {
+      setStatus('error');
+      setError('Informe o assunto do problema.');
+      return;
+    }
+    if (normalizedMessage.length < 5) {
+      setStatus('error');
+      setError('Explique o que aconteceu para enviar o relato.');
+      return;
+    }
     setStatus('sending');
     setError('');
     try {
-      await onReport({ subject: subject.trim(), message: message.trim() });
+      await onReport({
+        reporterName: normalizedName,
+        reporterRole: role,
+        subject: normalizedSubject,
+        message: normalizedMessage,
+      });
+      setReporterName('');
       setSubject('');
       setMessage('');
       setStatus('success');
@@ -102,29 +137,46 @@ export function EmployeeHelpCenter({ role, onReport }: Props) {
           </S.Guide>
         );
       })}
-      <S.Report onSubmit={submit}>
+      <S.Report onSubmit={submit} noValidate>
         <h3>
           <BookOpenCheck size={20} /> Relatar um problema
         </h3>
         <p className="sub">
           Seu relato será enviado diretamente ao administrador do seu restaurante.
         </p>
-        <input
-          required
-          minLength={3}
-          maxLength={100}
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Assunto do problema"
-        />
-        <textarea
-          required
-          minLength={5}
-          maxLength={1200}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Explique o que aconteceu e em qual tela."
-        />
+        <label>
+          <span>{reporterNameLabel}</span>
+          <input
+            required
+            minLength={3}
+            maxLength={100}
+            value={reporterName}
+            onChange={(e) => setReporterName(e.target.value)}
+            placeholder={reporterNameLabel}
+          />
+        </label>
+        <label>
+          <span>Assunto</span>
+          <input
+            required
+            minLength={3}
+            maxLength={100}
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="Assunto do problema"
+          />
+        </label>
+        <label>
+          <span>Explique o problema</span>
+          <textarea
+            required
+            minLength={5}
+            maxLength={900}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Explique o que aconteceu e em qual tela."
+          />
+        </label>
         {status === 'success' && <span className="success">Relato enviado ao administrador.</span>}
         {status === 'error' && <span className="error">{error}</span>}
         <button disabled={status === 'sending'}>

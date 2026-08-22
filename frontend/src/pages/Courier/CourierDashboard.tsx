@@ -21,6 +21,7 @@ import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import { useAuth } from '../../contexts/authContext';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
+import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import {
   compareReadyForPickupOrders,
   getNormalizedOrderStatus,
@@ -49,6 +50,7 @@ const LOCATION_UPDATE_INTERVAL_MS = 2000;
 type GeoStatus = 'checking' | 'enabled' | 'blocked' | 'unsupported';
 
 export default function CourierDashboard() {
+  useEmployeeIssueNotifications();
   const INITIAL_VISIBLE_ORDERS = 12;
   const LOAD_MORE_STEP = 12;
 

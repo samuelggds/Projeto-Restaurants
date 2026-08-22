@@ -104,16 +104,21 @@ model Restaurant {
 }
 
 model SupportChatMessage {
-  id           Int                   @id @default(autoincrement())
-  restaurantId Int
-  senderUserId Int?
-  senderRole   SupportChatSenderRole
-  senderLabel  String
-  message      String
-  sentAt       DateTime              @default(now())
-  createdAt    DateTime              @default(now())
-  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  senderUser   User?                 @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  id                 Int                   @id @default(autoincrement())
+  restaurantId       Int
+  senderUserId       Int?
+  senderRole         SupportChatSenderRole
+  senderLabel        String
+  message            String
+  issueStatus        String?
+  issueResponse      String?
+  issueResponderName String?
+  issueRespondedAt   DateTime?
+  issueClosedAt      DateTime?
+  sentAt             DateTime              @default(now())
+  createdAt          DateTime              @default(now())
+  restaurant         Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  senderUser         User?                 @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, sentAt])
   @@index([senderUserId, sentAt])
@@ -133,22 +138,22 @@ model Category {
 }
 
 model Product {
-  id              Int             @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   name            String
   description     String?
   image           String?
-  price           Decimal         @db.Decimal(10, 2)
-  active          Boolean         @default(true)
-  featured        Boolean         @default(false)
+  price           Decimal           @db.Decimal(10, 2)
+  active          Boolean           @default(true)
+  featured        Boolean           @default(false)
   preparationTime Int?
   stock           Int?
   restaurantId    Int
   categoryId      Int
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   items           OrderItem[]
-  category        Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ratings         ProductRating[]
   favorites       ProductFavorite[]
 }
@@ -216,9 +221,9 @@ model TableSession {
 }
 
 model Order {
-  id                              Int               @id @default(autoincrement())
-  total                           Decimal           @db.Decimal(10, 2)
-  createdAt                       DateTime          @default(now())
+  id                              Int                @id @default(autoincrement())
+  total                           Decimal            @db.Decimal(10, 2)
+  createdAt                       DateTime           @default(now())
   userId                          Int
   address                         String?
   city                            String?
@@ -228,17 +233,17 @@ model Order {
   state                           String?
   zipCode                         String?
   observation                     String?
-  paid                            Boolean           @default(false)
+  paid                            Boolean            @default(false)
   paymentMethod                   PaymentMethod?
-  payOnDelivery                   Boolean           @default(false)
+  payOnDelivery                   Boolean            @default(false)
   payOnDeliveryMethod             PaymentMethod?
   restaurantId                    Int
   tableId                         Int?
   type                            OrderType
-  updatedAt                       DateTime          @updatedAt
-  status                          OrderStatus       @default(PENDENTE)
-  feeCollected                    Boolean           @default(false)
-  systemFee                       Decimal           @default(0) @db.Decimal(10, 2)
+  updatedAt                       DateTime           @updatedAt
+  status                          OrderStatus        @default(PENDENTE)
+  feeCollected                    Boolean            @default(false)
+  systemFee                       Decimal            @default(0) @db.Decimal(10, 2)
   paymentProof                    String?
   paymentProofImage               String?
   paymentConfirmationPin          String?
@@ -252,12 +257,12 @@ model Order {
   deliveryConfirmedAt             DateTime?
   preparationStartedAt            DateTime?
   readyAt                         DateTime?
-  courierEarning                  Decimal           @default(0) @db.Decimal(10, 2)
+  courierEarning                  Decimal            @default(0) @db.Decimal(10, 2)
   courierPaidAt                   DateTime?
-  restaurant                      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table                           Table?            @relation(fields: [tableId], references: [id])
-  user                            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignedCourier                 User?             @relation("CourierDeliveries", fields: [assignedCourierId], references: [id], onDelete: SetNull)
+  restaurant                      Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table                           Table?             @relation(fields: [tableId], references: [id])
+  user                            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedCourier                 User?              @relation("CourierDeliveries", fields: [assignedCourierId], references: [id], onDelete: SetNull)
   items                           OrderItem[]
   issueThread                     OrderIssueThread?
   deliveryLocations               DeliveryLocation[]
@@ -318,34 +323,34 @@ model OrderItem {
 }
 
 model RestaurantSettings {
-  id                     Int        @id @default(autoincrement())
-  restaurantId           Int        @unique
+  id           Int @id @default(autoincrement())
+  restaurantId Int @unique
 
   // Operação de pedidos
-  deliveryFee            Decimal    @default(0) @db.Decimal(10, 2)
-  courierFeePerDelivery  Decimal    @default(0) @db.Decimal(10, 2)
-  minimumOrder           Decimal    @default(0) @db.Decimal(10, 2)
-  acceptsDelivery        Boolean    @default(true)
-  acceptsPickup          Boolean    @default(true)
-    averageDeliveryTime    String?
-    autoAcceptOrders       Boolean    @default(false)
-    trackingRequiresLogin  Boolean    @default(true)
-    soundNotifications     Boolean    @default(true)
-    maxConcurrentOrders    Int        @default(20)
-  acceptsPix             Boolean    @default(true)
-  acceptsCard            Boolean    @default(true)
+  deliveryFee           Decimal @default(0) @db.Decimal(10, 2)
+  courierFeePerDelivery Decimal @default(0) @db.Decimal(10, 2)
+  minimumOrder          Decimal @default(0) @db.Decimal(10, 2)
+  acceptsDelivery       Boolean @default(true)
+  acceptsPickup         Boolean @default(true)
+  averageDeliveryTime   String?
+  autoAcceptOrders      Boolean @default(false)
+  trackingRequiresLogin Boolean @default(true)
+  soundNotifications    Boolean @default(true)
+  maxConcurrentOrders   Int     @default(20)
+  acceptsPix            Boolean @default(true)
+  acceptsCard           Boolean @default(true)
 
   // Aparência e presença digital
-  slogan                 String?
-  primaryColor           String     @default("#c95d3d")
-  instagram              String?
-  facebook               String?
-  tiktok                 String?
-  youtube                String?
+  slogan       String?
+  primaryColor String  @default("#c95d3d")
+  instagram    String?
+  facebook     String?
+  tiktok       String?
+  youtube      String?
 
   // Horários
-  businessHours          Json?
-  isOpenForOrders        Boolean    @default(true)
+  businessHours   Json?
+  isOpenForOrders Boolean @default(true)
 
   // WhatsApp
   whatsappEnabled            Boolean @default(false)
@@ -354,17 +359,17 @@ model RestaurantSettings {
   receiveStatusNotifications Boolean @default(false)
 
   // Pix e gateways
-  pixKey                 String?
-  pixProvider            String     @default("MERCADO_PAGO")
-  cardGateway            String?
-  gatewayMerchantId      String?
-  stripeSecretKey        String?
-  stripeWebhookSecret    String?
-  pagbankEmail           String?
-  pagbankToken           String?
-  pagbankRefreshToken    String?
-  pagbankTokenExpiresAt  DateTime?
-  pagbankEnvironment     String?
+  pixKey                String?
+  pixProvider           String    @default("MERCADO_PAGO")
+  cardGateway           String?
+  gatewayMerchantId     String?
+  stripeSecretKey       String?
+  stripeWebhookSecret   String?
+  pagbankEmail          String?
+  pagbankToken          String?
+  pagbankRefreshToken   String?
+  pagbankTokenExpiresAt DateTime?
+  pagbankEnvironment    String?
 
   // Dados financeiros / onboarding
   bankName               String?
@@ -376,7 +381,7 @@ model RestaurantSettings {
   companyTradeName       String?
   companyAddress         String?
   companyCnae            String?
-  monthlyRevenue         Decimal?   @db.Decimal(12, 2)
+  monthlyRevenue         Decimal?  @db.Decimal(12, 2)
   ownerFullName          String?
   ownerCpf               String?
   ownerBirthDate         DateTime?
@@ -395,9 +400,9 @@ model RestaurantSettings {
   picpayToken            String?
   asaasAccessToken       String?
 
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
-  restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
 model DeliveryLocation {
@@ -458,23 +463,23 @@ model Subscription {
 }
 
 model Invoice {
-  id           Int           @id @default(autoincrement())
-  restaurantId Int
-  month        Int
-  year         Int
-  monthlyFee   Decimal       @db.Decimal(10, 2)
-  systemFees   Decimal       @db.Decimal(10, 2)
-  total        Decimal       @db.Decimal(10, 2)
-  status       InvoiceStatus @default(PENDENTE)
-  createdAt    DateTime      @default(now())
-  dueDate      DateTime
-  paidAt       DateTime?
-  paymentLink  String?
+  id                Int           @id @default(autoincrement())
+  restaurantId      Int
+  month             Int
+  year              Int
+  monthlyFee        Decimal       @db.Decimal(10, 2)
+  systemFees        Decimal       @db.Decimal(10, 2)
+  total             Decimal       @db.Decimal(10, 2)
+  status            InvoiceStatus @default(PENDENTE)
+  createdAt         DateTime      @default(now())
+  dueDate           DateTime
+  paidAt            DateTime?
+  paymentLink       String?
   paymentExternalId String?
-  pixQrCode     String?
-  pixQrCodeBase64 String?
-  pixExpiresAt  DateTime?
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  pixQrCode         String?
+  pixQrCodeBase64   String?
+  pixExpiresAt      DateTime?
+  restaurant        Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, month, year])
 }

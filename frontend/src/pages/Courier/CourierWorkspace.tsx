@@ -29,6 +29,7 @@ import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
+import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import * as L from '../kitchen/Kitchen.styles';
 import * as S from './styles';
 
@@ -87,6 +88,7 @@ function monogram(name: string) {
 }
 
 export default function CourierWorkspace() {
+  useEmployeeIssueNotifications();
   const { user, login, logout } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useState<CourierView>('overview');

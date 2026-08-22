@@ -6,6 +6,7 @@ import {
   isOperationalSupportReporter,
   normalizeSupportChatRole,
 } from './supportChatPolicy.js';
+import { validateEmployeeIssuePayload } from './employeeIssuePayload.js';
 
 type SocketUser = {
   id: number | string;
@@ -201,9 +202,33 @@ export function socketHandler(socket: AppSocket) {
       return;
     }
 
-    const normalizedMessage = String(rawPayload?.message || '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const employeeIssue = validateEmployeeIssuePayload(rawPayload || {});
+    let employeeIssueMessage: string | null = null;
+    let employeeIssueReporterName: string | null = null;
+
+    if (employeeIssue.isEmployeeIssue) {
+      if (!isOperationalRole) {
+        reply({
+          ok: false,
+          error: 'Esse tipo de relato está disponível apenas para funcionários.',
+        });
+        return;
+      }
+
+      if ('error' in employeeIssue) {
+        reply({ ok: false, error: employeeIssue.error });
+        return;
+      }
+
+      employeeIssueMessage = employeeIssue.message;
+      employeeIssueReporterName = employeeIssue.reporterName;
+    }
+
+    const normalizedMessage = employeeIssueMessage
+      ? employeeIssueMessage
+      : String(rawPayload?.message || '')
+          .replace(/\s+/g, ' ')
+          .trim();
 
     if (normalizedMessage.length < 2) {
       reply({ ok: false, error: 'Digite uma mensagem válida.' });
@@ -233,6 +258,30 @@ export function socketHandler(socket: AppSocket) {
       return;
     }
 
+    // O restaurante vem exclusivamente do token autenticado. A consulta abaixo também
+    // impede que um token antigo, de um funcionário removido ou transferido de unidade,
+    // continue enviando relatos para a administração anterior.
+    if (isOperationalRole) {
+      const activeEmployee = await prisma.user.findFirst({
+        where: {
+          id: Number(id || 0),
+          restaurantId: targetRestaurantId,
+          role: normalizedRole,
+          active: true,
+        },
+        select: { id: true },
+      });
+
+      if (!activeEmployee) {
+        reply({
+          ok: false,
+          error:
+            'Seu acesso não está vinculado a este restaurante. Entre novamente ou fale com o administrador.',
+        });
+        return;
+      }
+    }
+
     if (!isOperationalRole) {
       const subscription = await prisma.subscription.findUnique({
         where: {
@@ -258,6 +307,9 @@ export function socketHandler(socket: AppSocket) {
     let savedMessage;
     const { senderRole: senderRoleValue, senderLabel: senderLabelValue } =
       getSupportMessageSender(normalizedRole);
+    const senderLabel = employeeIssueReporterName
+      ? `${senderLabelValue} · ${employeeIssueReporterName}`
+      : senderLabelValue;
 
     try {
       const insertedRows = await prisma.$queryRaw<
@@ -276,14 +328,16 @@ export function socketHandler(socket: AppSocket) {
           "senderUserId",
           "senderRole",
           "senderLabel",
-          "message"
+          "message",
+          "issueStatus"
         )
         VALUES (
           ${targetRestaurantId},
           ${Number(id || 0) || null},
           CAST(${senderRoleValue} AS "SupportChatSenderRole"),
-          ${senderLabelValue},
-          ${normalizedMessage}
+          ${senderLabel},
+          ${normalizedMessage},
+          ${employeeIssueReporterName ? 'OPEN' : null}
         )
         RETURNING
           "id",
@@ -302,8 +356,16 @@ export function socketHandler(socket: AppSocket) {
         return;
       }
     } catch (error) {
-      console.error('Erro ao salvar support chat message:', error);
-      reply({ ok: false, error: 'Não foi possível salvar a mensagem.' });
+      console.error('Erro ao salvar relato no chat de suporte:', {
+        error,
+        restaurantId: targetRestaurantId,
+        senderRole: senderRoleValue,
+        isEmployeeIssue: Boolean(employeeIssueReporterName),
+      });
+      reply({
+        ok: false,
+        error: 'Não foi possível registrar o relato agora. Tente novamente em instantes.',
+      });
       return;
     }
 
@@ -313,6 +375,7 @@ export function socketHandler(socket: AppSocket) {
       senderRole: savedMessage.senderRole,
       senderUserId: Number(savedMessage.senderUserId || 0) || 0,
       senderLabel: savedMessage.senderLabel,
+      issueStatus: employeeIssueReporterName ? 'OPEN' : null,
       restaurantId: savedMessage.restaurantId,
       sentAt: savedMessage.sentAt?.toISOString?.() || new Date().toISOString(),
     };

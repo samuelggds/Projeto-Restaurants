@@ -1,4 +1,5 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import {
   BookOpenCheck,
   Building2,
@@ -25,9 +26,21 @@ import {
 } from 'lucide-react';
 import * as S from './HelpCenter.styles';
 import { FaithfulGuidePreview } from './HelpCenterPreviews';
+import supportChatService from '../../../Services/supportChatService';
+import { connectSocket } from '../../../Services/socketService';
+import { getStoredAccessToken } from '../../../modules/auth/session/authSession';
+import { useAppDialog } from '../../../components/AppDialog/context';
 
 type HelpCenterProps = {
   onReport: (payload: { subject: string; message: string }) => Promise<void>;
+};
+type EmployeeIssue = {
+  id: string;
+  senderLabel: string;
+  message: string;
+  issueStatus: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
+  issueResponse?: string | null;
+  sentAt: string | null;
 };
 type GuideSection = {
   title: string;
@@ -604,12 +617,95 @@ function GuideItem({ section, isOpen, isSubtitle = false, onToggle }: GuideItemP
 }
 
 export function HelpCenter({ onReport }: HelpCenterProps) {
+  const { confirmDialog } = useAppDialog();
   const [openSection, setOpenSection] = useState<string | null>('Visão geral');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [subject, setSubject] = useState('Dúvida sobre o sistema');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [employeeIssues, setEmployeeIssues] = useState<EmployeeIssue[]>([]);
+  const [issuesState, setIssuesState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [showIssueHistory, setShowIssueHistory] = useState(false);
+  const loadEmployeeIssues = async () => {
+    setIssuesState('loading');
+    try {
+      const result = await supportChatService.getMessages({ limit: 100 });
+      setEmployeeIssues(
+        (result?.messages || []).filter(
+          (item: { issueStatus?: string | null }) => item.issueStatus,
+        ),
+      );
+      setIssuesState('ready');
+    } catch {
+      setIssuesState('error');
+    }
+  };
+  useEffect(() => {
+    const loadOnMount = window.setTimeout(() => {
+      void loadEmployeeIssues();
+    }, 0);
+    return () => window.clearTimeout(loadOnMount);
+  }, []);
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return undefined;
+
+    const socket = connectSocket(token, 'admin-help-issues');
+    const refresh = () => void loadEmployeeIssues();
+    const onNewIssue = (issue: { issueStatus?: string | null; senderLabel?: string }) => {
+      if (issue.issueStatus !== 'OPEN') return;
+      toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
+      refresh();
+    };
+    const onUpdatedIssue = () => {
+      toast.info('Um relato da equipe foi atualizado.');
+      refresh();
+    };
+    const onDeletedIssue = () => refresh();
+
+    socket.on('support:chat-message', onNewIssue);
+    socket.on('support:issue-updated', onUpdatedIssue);
+    socket.on('support:issue-deleted', onDeletedIssue);
+    return () => {
+      socket.off('support:chat-message', onNewIssue);
+      socket.off('support:issue-updated', onUpdatedIssue);
+      socket.off('support:issue-deleted', onDeletedIssue);
+    };
+  }, []);
+  const updateEmployeeIssue = async (
+    id: string,
+    issueStatus: EmployeeIssue['issueStatus'],
+    response?: string,
+  ) => {
+    try {
+      await supportChatService.updateIssue(id, issueStatus, response?.trim());
+      if (response?.trim()) setReplyDrafts((drafts) => ({ ...drafts, [id]: '' }));
+      await loadEmployeeIssues();
+    } catch {
+      setIssuesState('error');
+    }
+  };
+  const deleteEmployeeIssue = async (id: string) => {
+    const confirmed = await confirmDialog({
+      title: 'Excluir relato encerrado?',
+      description: 'O relato será removido permanentemente do histórico.',
+      confirmLabel: 'Excluir relato',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await supportChatService.deleteIssue(id);
+      await loadEmployeeIssues();
+      toast.success('Relato excluído.');
+    } catch {
+      setIssuesState('error');
+    }
+  };
+  const visibleEmployeeIssues = employeeIssues.filter((issue) =>
+    showIssueHistory ? issue.issueStatus === 'CLOSED' : issue.issueStatus !== 'CLOSED',
+  );
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (message.trim().length < 10 || status === 'sending') return;
@@ -683,6 +779,119 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
           )}
         </S.SettingsGroup>
       </S.Guide>
+      <S.ReportCard>
+        <div className="heading">
+          <i>
+            <Headphones />
+          </i>
+          <div>
+            <h2>Relatos da equipe</h2>
+            <p>Mensagens de cozinha, salão e entregas enviadas pela Central de Ajuda.</p>
+          </div>
+          <button
+            type="button"
+            className="refresh-issues"
+            onClick={() => void loadEmployeeIssues()}
+          >
+            Atualizar relatos
+          </button>
+          <button
+            type="button"
+            className="refresh-issues"
+            onClick={() => setShowIssueHistory((visible) => !visible)}
+          >
+            {showIssueHistory
+              ? 'Ver ativos'
+              : `Histórico (${employeeIssues.filter((issue) => issue.issueStatus === 'CLOSED').length})`}
+          </button>
+        </div>
+        {issuesState === 'loading' && <p>Carregando relatos...</p>}
+        {issuesState === 'error' && (
+          <p className="error">
+            Não foi possível carregar ou atualizar os relatos. Tente novamente.
+          </p>
+        )}
+        {issuesState === 'ready' && !visibleEmployeeIssues.length && (
+          <p>
+            {showIssueHistory
+              ? 'Nenhum relato encerrado no histórico.'
+              : 'Nenhum relato ativo no momento.'}
+          </p>
+        )}
+        {visibleEmployeeIssues.map((issue) => (
+          <div className="employee-issue" key={issue.id}>
+            <b>
+              {issue.senderLabel} ·{' '}
+              {issue.issueStatus === 'OPEN'
+                ? 'Aberto'
+                : issue.issueStatus === 'IN_PROGRESS'
+                  ? 'Em atendimento'
+                  : 'Encerrado'}
+            </b>
+            <pre>{issue.message}</pre>
+            {issue.issueResponse && (
+              <p className="issue-response">
+                <strong>Resposta registrada:</strong> {issue.issueResponse}
+              </p>
+            )}
+            {issue.issueStatus !== 'CLOSED' && (
+              <label className="issue-reply">
+                Responder ao funcionário
+                <textarea
+                  value={replyDrafts[issue.id] || ''}
+                  onChange={(event) =>
+                    setReplyDrafts((drafts) => ({ ...drafts, [issue.id]: event.target.value }))
+                  }
+                  placeholder="Informe a orientação ou a solução adotada."
+                  maxLength={1200}
+                />
+              </label>
+            )}
+            <footer>
+              {issue.issueStatus === 'OPEN' && (
+                <button
+                  type="button"
+                  onClick={() => void updateEmployeeIssue(issue.id, 'IN_PROGRESS')}
+                >
+                  Assumir
+                </button>
+              )}
+              {issue.issueStatus !== 'CLOSED' && (
+                <button
+                  type="button"
+                  disabled={
+                    (replyDrafts[issue.id] || '').trim().length > 0 &&
+                    (replyDrafts[issue.id] || '').trim().length < 3
+                  }
+                  onClick={() =>
+                    void updateEmployeeIssue(issue.id, issue.issueStatus, replyDrafts[issue.id])
+                  }
+                >
+                  Registrar resposta
+                </button>
+              )}
+              {issue.issueStatus !== 'CLOSED' && (
+                <button type="button" onClick={() => void updateEmployeeIssue(issue.id, 'CLOSED')}>
+                  Encerrar
+                </button>
+              )}
+              <button
+                type="button"
+                className="delete-issue"
+                disabled={issue.issueStatus !== 'CLOSED'}
+                title={
+                  issue.issueStatus === 'CLOSED'
+                    ? 'Excluir relato permanentemente'
+                    : 'Encerre o relato antes de excluir'
+                }
+                onClick={() => void deleteEmployeeIssue(issue.id)}
+              >
+                Excluir
+              </button>
+            </footer>
+          </div>
+        ))}
+      </S.ReportCard>
       <S.ReportCard>
         <div className="heading">
           <i>
