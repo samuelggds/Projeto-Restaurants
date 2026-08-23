@@ -92,7 +92,13 @@ export function ProductConfigurator({
   };
 
   return createPortal(
-    <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label={`Montar ${product.name}`}>
+    <S.Page
+      $primary={primaryColor}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Montar ${product.name}`}
+      data-testid="product-configurator"
+    >
       <S.Header>
         <S.HeaderInner>
           <button type="button" onClick={onClose}>
@@ -108,7 +114,9 @@ export function ProductConfigurator({
           <div>
             <small>Personalize seu pedido</small>
             <h1>{product.name}</h1>
-            <p>{product.description || 'Escolha as opções disponíveis para montar este produto.'}</p>
+            <p>
+              {product.description || 'Escolha as opções disponíveis para montar este produto.'}
+            </p>
             <strong>A partir de {brl(product.price)}</strong>
           </div>
         </S.ProductSummary>
@@ -119,7 +127,10 @@ export function ProductConfigurator({
               <h2>Monte seu produto</h2>
               <p>Faça uma escolha em cada categoria e personalize os itens opcionais.</p>
             </div>
-            <S.Progress $value={progress} aria-label={`${progress}% das escolhas obrigatórias concluídas`}>
+            <S.Progress
+              $value={progress}
+              aria-label={`${progress}% das escolhas obrigatórias concluídas`}
+            >
               <div />
               <small>
                 {requiredGroups.length
@@ -163,7 +174,8 @@ export function ProductConfigurator({
                   {group.options.map((option) => {
                     const isSelected = selected.includes(option.id);
                     const disabled = Boolean(
-                      option.locked || (!isSelected && atLimit && group.selectionType === 'MULTIPLE'),
+                      option.locked ||
+                      (!isSelected && atLimit && group.selectionType === 'MULTIPLE'),
                     );
                     return (
                       <S.Option
@@ -216,7 +228,7 @@ export function ProductConfigurator({
             );
           })}
 
-          <S.Observation>
+          <S.Observation data-testid="product-configurator-observation">
             <div>
               <b>Alguma observação?</b>
               <span>Opcional</span>
@@ -230,7 +242,7 @@ export function ProductConfigurator({
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
 
-          <S.BottomBar>
+          <S.BottomBar data-testid="product-configurator-footer">
             <div>
               <small>Total deste item</small>
               <strong>{brl(total)}</strong>

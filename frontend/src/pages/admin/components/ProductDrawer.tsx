@@ -1,5 +1,18 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Layers3, Plus, Trash2, X } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  Boxes,
+  Eye,
+  ImagePlus,
+  Layers3,
+  PackageOpen,
+  Plus,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+  X,
+} from 'lucide-react';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from '../Admin.styles';
 import type {
@@ -78,16 +91,24 @@ export function ProductDrawer({
       (group) => inferGroupIngredientCategory(group, ingredients).value,
     ),
   );
-  const [pendingCategoryChange, setPendingCategoryChange] =
-    useState<PendingCategoryChange | null>(null);
+  const [pendingCategoryChange, setPendingCategoryChange] = useState<PendingCategoryChange | null>(
+    null,
+  );
   const activeIngredients = useMemo(
     () => ingredients.filter((ingredient) => ingredient.active),
     [ingredients],
   );
-  const ingredientCategories = useMemo(
-    () => listIngredientCategories(ingredients),
-    [ingredients],
-  );
+  const ingredientCategories = useMemo(() => listIngredientCategories(ingredients), [ingredients]);
+  const selectedProductCategory = categories.find((item) => item.id === categoryId)?.name ?? '';
+  const linkedOptionCount = optionGroups.reduce((total, group) => total + group.options.length, 0);
+  const readyGroupCount = optionGroups.filter(
+    (group, index) =>
+      group.name.trim() &&
+      group.options.length > 0 &&
+      groupCategories[index] &&
+      groupCategories[index] !== MIXED_INGREDIENT_CATEGORY,
+  ).length;
+  const basicInformationReady = Boolean(name.trim() && Number(price) > 0 && categoryId);
 
   const updateGroup = (
     groupIndex: number,
@@ -135,11 +156,7 @@ export function ProductDrawer({
     if (!nextCategory || nextCategory === MIXED_INGREDIENT_CATEGORY) return;
     const group = optionGroups[groupIndex];
     if (!group || groupCategories[groupIndex] === nextCategory) return;
-    const incompatible = incompatibleOptionsForCategory(
-      group.options,
-      ingredients,
-      nextCategory,
-    );
+    const incompatible = incompatibleOptionsForCategory(group.options, ingredients, nextCategory);
     if (!incompatible.length) {
       setGroupCategories((current) =>
         current.map((category, index) => (index === groupIndex ? nextCategory : category)),
@@ -205,9 +222,7 @@ export function ProductDrawer({
     }
 
     const unresolvedCategoryIndex = optionGroups.findIndex(
-      (_, index) =>
-        !groupCategories[index] ||
-        groupCategories[index] === MIXED_INGREDIENT_CATEGORY,
+      (_, index) => !groupCategories[index] || groupCategories[index] === MIXED_INGREDIENT_CATEGORY,
     );
     if (unresolvedCategoryIndex >= 0) {
       setError(
@@ -253,12 +268,19 @@ export function ProductDrawer({
   };
 
   return (
-    <S.Overlay onMouseDown={(event) => event.target === event.currentTarget && close()}>
+    <S.Overlay
+      aria-labelledby="product-form-title"
+      aria-modal="true"
+      role="dialog"
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
+    >
       <S.ProductFormDrawer onSubmit={(event) => void submit(event)}>
         <header className="drawer-header">
-          <div>
-            <span>PRODUTO PERSONALIZÁVEL</span>
-            <h2>{product ? 'Editar produto' : 'Novo produto'}</h2>
+          <div className="drawer-title">
+            <span>
+              <Sparkles /> PRODUTO PERSONALIZÁVEL
+            </span>
+            <h2 id="product-form-title">{product ? 'Editar produto' : 'Novo produto'}</h2>
             <p>Cadastre o produto-base e organize as escolhas que o cliente fará.</p>
           </div>
           <button aria-label="Fechar cadastro" type="button" onClick={close}>
@@ -266,90 +288,157 @@ export function ProductDrawer({
           </button>
         </header>
 
+        <S.ProductWizardProgress aria-label="Etapas do cadastro do produto">
+          <div className={basicInformationReady ? 'complete' : 'current'}>
+            <i>{basicInformationReady ? <CheckCircle2 /> : '1'}</i>
+            <span>
+              <b>Produto-base</b>
+              <small>Nome, preço e imagem</small>
+            </span>
+          </div>
+          <ChevronRight />
+          <div
+            className={
+              readyGroupCount === optionGroups.length && optionGroups.length
+                ? 'complete'
+                : 'current'
+            }
+          >
+            <i>
+              {readyGroupCount === optionGroups.length && optionGroups.length ? (
+                <CheckCircle2 />
+              ) : (
+                '2'
+              )}
+            </i>
+            <span>
+              <b>Montagem</b>
+              <small>Escolhas do cliente</small>
+            </span>
+          </div>
+          <ChevronRight />
+          <div>
+            <i>3</i>
+            <span>
+              <b>Disponibilidade</b>
+              <small>Estoque e revisão</small>
+            </span>
+          </div>
+        </S.ProductWizardProgress>
+
         {error && <S.ProductFormError role="alert">{error}</S.ProductFormError>}
 
         <S.ProductFormSection>
           <div className="section-heading">
             <span>1</span>
             <div>
-              <h3>Informações do produto-base</h3>
-              <p>É assim que o item aparecerá na Home e no cardápio digital.</p>
+              <small>PRIMEIRO PASSO</small>
+              <h3>Apresente o produto</h3>
+              <p>Defina as informações que aparecem no card da Home e do cardápio digital.</p>
             </div>
           </div>
-          <div className="basic-fields">
-            <S.Field>
-              Nome do produto
-              <input
-                required
-                maxLength={100}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Ex.: Pizza personalizada, massa artesanal ou poke"
-              />
-            </S.Field>
-            <S.Field>
-              Preço base
-              <input
-                required
-                type="number"
-                min="0.01"
-                max="999999"
-                step="0.01"
-                value={price}
-                onChange={(event) => setPrice(event.target.value)}
-                placeholder="0,00"
-              />
-            </S.Field>
-            <S.Field>
-              Categoria
-              <select
-                required
-                value={categoryId}
-                onChange={(event) => setCategoryId(Number(event.target.value))}
-              >
-                <option value={0}>Selecione</option>
-                {categories.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </S.Field>
-            <S.Field $full>
-              Descrição
-              <textarea
-                maxLength={500}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Explique a proposta do produto e o que já está incluído no preço base."
-              />
-            </S.Field>
-            <S.Field>
-              Foto do produto
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => void uploadImage(event.target.files?.[0])}
-              />
-            </S.Field>
-            <S.Field>
-              Ou use a URL da imagem
-              <input value={image} onChange={(event) => setImage(event.target.value)} />
-            </S.Field>
+          <div className="product-basics-layout">
+            <div className="basic-fields">
+              <S.Field $full>
+                Nome do produto
+                <input
+                  required
+                  maxLength={100}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Ex.: Pizza personalizada, massa artesanal ou poke"
+                />
+              </S.Field>
+              <S.Field>
+                Preço inicial
+                <input
+                  required
+                  type="number"
+                  min="0.01"
+                  max="999999"
+                  step="0.01"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  placeholder="0,00"
+                />
+                <small>Os adicionais serão somados a este valor.</small>
+              </S.Field>
+              <S.Field>
+                Categoria no cardápio
+                <select
+                  required
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(Number(event.target.value))}
+                >
+                  <option value={0}>Selecione</option>
+                  {categories.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </S.Field>
+              <S.Field $full>
+                Descrição para o cliente
+                <textarea
+                  maxLength={500}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Explique a proposta do produto e o que já está incluído no preço inicial."
+                />
+                <small>{description.length}/500 caracteres</small>
+              </S.Field>
+            </div>
+
+            <div className="image-studio">
+              <div className={image ? 'image-preview has-image' : 'image-preview'}>
+                {image ? (
+                  <img src={image} alt={`Prévia de ${name || 'produto'}`} />
+                ) : (
+                  <div>
+                    <ImagePlus />
+                    <b>Adicione uma foto</b>
+                    <span>JPG, PNG ou WEBP</span>
+                  </div>
+                )}
+                <div className="preview-caption">
+                  <small>{selectedProductCategory || 'Categoria do produto'}</small>
+                  <b>{name || 'Nome do produto'}</b>
+                  <strong>{Number(price) > 0 ? money(Number(price)) : 'Preço inicial'}</strong>
+                </div>
+              </div>
+              <label className="image-upload-action" htmlFor="product-image-upload">
+                <UploadCloud />
+                <span>
+                  <b>{image ? 'Trocar imagem' : 'Selecionar imagem'}</b>
+                  <small>Recomendado: formato quadrado</small>
+                </span>
+                <input
+                  id="product-image-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => void uploadImage(event.target.files?.[0])}
+                />
+              </label>
+              <S.Field>
+                Ou cole uma URL
+                <input
+                  value={image}
+                  onChange={(event) => setImage(event.target.value)}
+                  placeholder="https://..."
+                />
+              </S.Field>
+            </div>
           </div>
-          {image && (
-            <img className="product-image-preview" src={image} alt={`Prévia de ${name || 'produto'}`} />
-          )}
         </S.ProductFormSection>
 
         <S.ProductFormSection>
           <div className="section-heading customization-heading">
             <span>2</span>
             <div>
-              <h3>Categorias de escolha</h3>
-              <p>
-                Dê um nome ao grupo, escolha a categoria-fonte e configure como o cliente decide.
-              </p>
+              <small>SEGUNDO PASSO</small>
+              <h3>Organize a montagem do cliente</h3>
+              <p>Cada categoria de escolha vira uma etapa separada na tela do produto.</p>
             </div>
             <button
               className="add-group"
@@ -360,6 +449,77 @@ export function ProductDrawer({
               <Plus /> Adicionar categoria
             </button>
           </div>
+
+          <div className="group-guidance">
+            <div>
+              <i>1</i>
+              <span>
+                <b>Separe por assunto</b>
+                <small>Ex.: Massa, Borda e Adicionais.</small>
+              </span>
+            </div>
+            <ChevronRight />
+            <div>
+              <i>2</i>
+              <span>
+                <b>Defina a regra</b>
+                <small>Uma ou várias escolhas, obrigatórias ou não.</small>
+              </span>
+            </div>
+            <ChevronRight />
+            <div>
+              <i>3</i>
+              <span>
+                <b>Vincule as opções</b>
+                <small>Marque os itens que o cliente verá.</small>
+              </span>
+            </div>
+          </div>
+
+          <S.ProductCustomerPreview>
+            <header>
+              <Eye />
+              <div>
+                <b>Resumo da experiência do cliente</b>
+                <span>Prévia das etapas configuradas</span>
+              </div>
+            </header>
+            <div className="customer-preview-product">
+              <span>
+                <PackageOpen />
+              </span>
+              <div>
+                <b>{name || 'Seu produto'}</b>
+                <small>A partir de {Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</small>
+              </div>
+            </div>
+            <div className="customer-preview-steps">
+              {optionGroups.length ? (
+                optionGroups.map((group, index) => (
+                  <div
+                    className={group.name.trim() && group.options.length ? 'ready' : ''}
+                    key={group.id ?? `preview-${index}`}
+                  >
+                    <i>{index + 1}</i>
+                    <span>
+                      <b>{group.name || `Etapa ${index + 1}`}</b>
+                      <small>
+                        {group.options.length} opção(ões) ·{' '}
+                        {group.required ? 'Obrigatória' : 'Opcional'}
+                      </small>
+                    </span>
+                    {group.name.trim() && group.options.length ? (
+                      <CheckCircle2 />
+                    ) : (
+                      <span className="pending">Configurar</span>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p>Adicione a primeira categoria para visualizar a sequência de montagem.</p>
+              )}
+            </div>
+          </S.ProductCustomerPreview>
 
           {!activeIngredients.length ? (
             <S.ProductCustomizationEmpty>
@@ -377,9 +537,7 @@ export function ProductDrawer({
               <Layers3 />
               <div>
                 <b>Este produto ainda não possui categorias de escolha</b>
-                <p>
-                  Use “Adicionar categoria” e vincule apenas opções do mesmo tipo em cada uma.
-                </p>
+                <p>Use “Adicionar categoria” e vincule apenas opções do mesmo tipo em cada uma.</p>
               </div>
             </S.ProductCustomizationEmpty>
           ) : (
@@ -398,14 +556,22 @@ export function ProductDrawer({
                     : [];
                 const visibleSections = groupIngredientsByCategory(visibleIngredients);
                 const categoryChange =
-                  pendingCategoryChange?.groupIndex === groupIndex
-                    ? pendingCategoryChange
-                    : null;
+                  pendingCategoryChange?.groupIndex === groupIndex ? pendingCategoryChange : null;
                 return (
-                  <article key={group.id ?? `new-${groupIndex}`}>
+                  <article
+                    className={
+                      group.name.trim() && sourceCategory && group.options.length
+                        ? 'group-complete'
+                        : ''
+                    }
+                    key={group.id ?? `new-${groupIndex}`}
+                  >
                     <header>
                       <div className="group-number">{groupIndex + 1}</div>
                       <div>
+                        <small className="group-kicker">
+                          ETAPA {groupIndex + 1} PARA O CLIENTE
+                        </small>
                         <b>{group.name || `Grupo ${groupIndex + 1}`}</b>
                         <span>
                           {group.selectionType === 'SINGLE' ? 'Somente 1 opção' : 'Várias opções'}
@@ -419,6 +585,15 @@ export function ProductDrawer({
                               } entre ${group.options.length} opção(ões)`
                             : 'Nenhuma opção vinculada nesta categoria'}
                         </small>
+                      </div>
+                      <div className="group-state">
+                        {group.name.trim() && sourceCategory && group.options.length ? (
+                          <>
+                            <CheckCircle2 /> Pronta
+                          </>
+                        ) : (
+                          'Incompleta'
+                        )}
                       </div>
                       <button
                         aria-label={`Remover grupo ${groupIndex + 1}`}
@@ -449,9 +624,7 @@ export function ProductDrawer({
                         Categoria-fonte dos ingredientes
                         <select
                           value={sourceCategory}
-                          onChange={(event) =>
-                            selectGroupCategory(groupIndex, event.target.value)
-                          }
+                          onChange={(event) => selectGroupCategory(groupIndex, event.target.value)}
                         >
                           <option value="">Selecione uma categoria</option>
                           {isLegacyMixed && (
@@ -467,26 +640,40 @@ export function ProductDrawer({
                         </select>
                         <small>Somente ingredientes desta categoria poderão ser vinculados.</small>
                       </S.Field>
-                      <S.Field>
-                        Quantas opções o cliente pode escolher?
-                        <select
-                          value={group.selectionType}
-                          onChange={(event) => {
-                            const selectionType = event.target.value as 'SINGLE' | 'MULTIPLE';
-                            updateGroup(groupIndex, (current) => ({
-                              ...current,
-                              selectionType,
-                              maxSelections:
-                                selectionType === 'SINGLE'
-                                  ? 1
-                                  : Math.max(1, current.maxSelections),
-                            }));
-                          }}
-                        >
-                          <option value="SINGLE">Somente 1 opção</option>
-                          <option value="MULTIPLE">Várias opções</option>
-                        </select>
-                      </S.Field>
+                      <div className="choice-mode-field">
+                        <b>Quantas opções o cliente pode escolher?</b>
+                        <div role="group" aria-label="Quantidade de opções permitidas">
+                          {(['SINGLE', 'MULTIPLE'] as const).map((selectionType) => (
+                            <button
+                              className={group.selectionType === selectionType ? 'active' : ''}
+                              key={selectionType}
+                              type="button"
+                              onClick={() =>
+                                updateGroup(groupIndex, (current) => ({
+                                  ...current,
+                                  selectionType,
+                                  maxSelections:
+                                    selectionType === 'SINGLE'
+                                      ? 1
+                                      : Math.max(1, current.maxSelections),
+                                }))
+                              }
+                            >
+                              <i>{selectionType === 'SINGLE' ? '1' : '+'}</i>
+                              <span>
+                                <b>
+                                  {selectionType === 'SINGLE' ? 'Somente uma' : 'Várias opções'}
+                                </b>
+                                <small>
+                                  {selectionType === 'SINGLE'
+                                    ? 'Ex.: tipo de massa'
+                                    : 'Ex.: adicionais'}
+                                </small>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <S.Field $full>
                         Instrução para o cliente (opcional)
                         <input
@@ -543,6 +730,10 @@ export function ProductDrawer({
                     )}
 
                     <div className="group-rules">
+                      <div className="rule-heading">
+                        <b>Regra para avançar</b>
+                        <span>Controle quantas opções precisam ser marcadas.</span>
+                      </div>
                       <label className="required-toggle" data-required={group.required}>
                         <input
                           type="checkbox"
@@ -595,10 +786,22 @@ export function ProductDrawer({
                       </label>
                     </div>
 
+                    <div className="customer-rule-summary">
+                      <Eye />
+                      <span>
+                        O cliente verá <b>“{group.name || `Etapa ${groupIndex + 1}`}”</b> e poderá
+                        escolher{' '}
+                        <b>
+                          {group.selectionType === 'SINGLE'
+                            ? '1 opção'
+                            : `de ${group.minSelections} a ${group.maxSelections} opções`}
+                        </b>{' '}
+                        entre <b>{group.options.length} vinculada(s)</b>.
+                      </span>
+                    </div>
+
                     <fieldset className="group-options">
-                      <legend>
-                        Opções do grupo — {group.options.length} vinculada(s)
-                      </legend>
+                      <legend>Opções do grupo — {group.options.length} vinculada(s)</legend>
                       <p className="group-options-hint">
                         {isLegacyMixed
                           ? 'Por segurança, abaixo aparecem somente as opções antigas já vinculadas, separadas por categoria.'
@@ -665,43 +868,127 @@ export function ProductDrawer({
           <div className="section-heading">
             <span>3</span>
             <div>
-              <h3>Disponibilidade</h3>
-              <p>Defina se o produto é feito sob demanda ou possui quantidade limitada.</p>
+              <small>ÚLTIMO PASSO</small>
+              <h3>Disponibilidade e revisão</h3>
+              <p>Escolha como o estoque será controlado e confira o resumo antes de salvar.</p>
             </div>
           </div>
-          <S.Field>
-            Controle de estoque
-            <label className="stock-toggle">
-              <input
-                type="checkbox"
-                checked={unlimitedStock}
-                onChange={(event) => setUnlimitedStock(event.target.checked)}
-              />
-              Estoque ilimitado (produto feito sob demanda)
-            </label>
-            {!unlimitedStock && (
-              <input
-                required
-                type="number"
-                min="0"
-                step="1"
-                placeholder="Quantidade disponível"
-                value={stock}
-                onChange={(event) => setStock(event.target.value.replace(/\D/g, ''))}
-              />
-            )}
-          </S.Field>
+          <div className="availability-layout">
+            <div className="stock-configuration">
+              <b className="field-title">Como este produto é preparado?</b>
+              <div className="stock-mode-cards" role="group" aria-label="Controle de estoque">
+                <button
+                  className={unlimitedStock ? 'active' : ''}
+                  type="button"
+                  onClick={() => setUnlimitedStock(true)}
+                >
+                  <PackageOpen />
+                  <span>
+                    <b>Feito sob demanda</b>
+                    <small>Sem limite fixo de unidades</small>
+                  </span>
+                  {unlimitedStock && <CheckCircle2 />}
+                </button>
+                <button
+                  className={!unlimitedStock ? 'active' : ''}
+                  type="button"
+                  onClick={() => setUnlimitedStock(false)}
+                >
+                  <Boxes />
+                  <span>
+                    <b>Estoque limitado</b>
+                    <small>Informe a quantidade disponível</small>
+                  </span>
+                  {!unlimitedStock && <CheckCircle2 />}
+                </button>
+              </div>
+              {!unlimitedStock && (
+                <S.Field>
+                  Quantidade disponível
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Quantidade disponível"
+                    value={stock}
+                    onChange={(event) => setStock(event.target.value.replace(/\D/g, ''))}
+                  />
+                </S.Field>
+              )}
+            </div>
+
+            <div className="product-review-card">
+              <header>
+                <Sparkles />
+                <div>
+                  <b>Revisão rápida</b>
+                  <span>O que será publicado</span>
+                </div>
+              </header>
+              <ul>
+                <li className={basicInformationReady ? 'complete' : ''}>
+                  <i>{basicInformationReady ? <CheckCircle2 /> : '1'}</i>
+                  <span>
+                    <b>Produto-base</b>
+                    <small>{name || 'Preencha nome, preço e categoria'}</small>
+                  </span>
+                </li>
+                <li
+                  className={
+                    readyGroupCount === optionGroups.length && optionGroups.length ? 'complete' : ''
+                  }
+                >
+                  <i>
+                    {readyGroupCount === optionGroups.length && optionGroups.length ? (
+                      <CheckCircle2 />
+                    ) : (
+                      '2'
+                    )}
+                  </i>
+                  <span>
+                    <b>Montagem</b>
+                    <small>
+                      {readyGroupCount} de {optionGroups.length} etapa(s) pronta(s)
+                    </small>
+                  </span>
+                </li>
+                <li className="complete">
+                  <i>
+                    <CheckCircle2 />
+                  </i>
+                  <span>
+                    <b>Disponibilidade</b>
+                    <small>
+                      {unlimitedStock ? 'Feito sob demanda' : `${stock || 0} unidade(s)`}
+                    </small>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </S.ProductFormSection>
 
         <footer className="drawer-footer">
-          <div>
-            <b>{optionGroups.length} categoria(s) de escolha</b>
-            <span>{activeIngredients.length} ingrediente(s) disponível(is)</span>
+          <div className="footer-summary">
+            <span className="footer-summary-icon">
+              <PackageOpen />
+            </span>
+            <span>
+              <b>{name || (product ? 'Produto em edição' : 'Novo produto')}</b>
+              <small>
+                {optionGroups.length} etapa(s) · {linkedOptionCount} opção(ões) vinculada(s)
+              </small>
+            </span>
           </div>
-          <button type="button" onClick={close}>Cancelar</button>
-          <button className="primary" disabled={busy} type="submit">
-            {busy ? 'Salvando...' : 'Salvar produto'}
-          </button>
+          <div className="footer-actions">
+            <button type="button" onClick={close}>
+              Cancelar
+            </button>
+            <button className="primary" disabled={busy} type="submit">
+              {busy ? 'Salvando produto...' : product ? 'Salvar alterações' : 'Criar produto'}
+            </button>
+          </div>
         </footer>
       </S.ProductFormDrawer>
     </S.Overlay>

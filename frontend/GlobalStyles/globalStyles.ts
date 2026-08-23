@@ -89,7 +89,7 @@ export const GlobalStyles = createGlobalStyle`
 
   [role="dialog"],
   [aria-modal="true"] {
-    animation: app-dialog-enter 220ms cubic-bezier(.22, .8, .35, 1) both;
+    animation: app-dialog-enter 220ms cubic-bezier(.22, .8, .35, 1);
   }
 
   @keyframes app-page-enter {
@@ -108,7 +108,7 @@ export const GlobalStyles = createGlobalStyle`
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: none;
     }
   }
 

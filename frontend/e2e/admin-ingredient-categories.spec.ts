@@ -137,6 +137,13 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
   const drawer = page.locator('form').filter({
     has: page.getByRole('heading', { name: 'Editar produto' }),
   });
+  const dialog = page.getByRole('dialog', { name: 'Editar produto' });
+  await expect(dialog).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: 'Apresente o produto' })).toBeVisible();
+  await expect(
+    drawer.getByRole('heading', { name: 'Organize a montagem do cliente' }),
+  ).toBeVisible();
+  await expect(drawer.getByText('Resumo da experiência do cliente')).toBeVisible();
   const sourceCategories = drawer.getByLabel('Categoria-fonte dos ingredientes');
   await expect(sourceCategories.nth(0)).toHaveValue('Massas');
   await expect(sourceCategories.nth(1)).toHaveValue('Adicionais');
@@ -153,7 +160,7 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
   await drawer.getByLabel('Nome do grupo').nth(2).fill('Escolha o molho');
   await groupCards.nth(2).getByLabel('Molho branco').check();
   await groupCards.nth(2).getByRole('checkbox', { name: 'Categoria obrigatória' }).uncheck();
-  await drawer.getByRole('button', { name: 'Salvar produto' }).click();
+  await drawer.getByRole('button', { name: 'Salvar alterações' }).click();
 
   await expect(drawer).toBeHidden();
   expect(savedPayload).not.toBeNull();
@@ -165,4 +172,100 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
     minSelections: 0,
     options: [{ ingredientId: 4, active: true }],
   });
+});
+
+test('editor de produto permanece contido e utilizável no celular', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('token', 'e2e-admin-token');
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 }),
+    );
+  });
+
+  await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const responses: Record<string, unknown> = {
+      '/auth/me': { user: { id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 } },
+      '/products': {
+        products: [
+          {
+            id: 101,
+            name: 'Produto artesanal',
+            description: 'Monte exatamente como preferir.',
+            price: 30,
+            active: true,
+            stock: null,
+            categoryId: 10,
+            category: { id: 10, name: 'Principais' },
+            optionGroups: [],
+          },
+        ],
+      },
+      '/ingredients': {
+        ingredients: [
+          { id: 1, name: 'Massa fina', category: 'Massas', price: 0, active: true },
+        ],
+        count: 1,
+        categories: ['Massas'],
+      },
+      '/categories': { categories: [{ id: 10, name: 'Principais', active: true }] },
+      '/orders': { orders: [] },
+      '/settings': { id: 1, restaurant: { id: 9, name: 'Restaurante Teste' } },
+      '/billing/invoices': { invoices: [] },
+      '/banners': [],
+      '/employees': [],
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(responses[pathname] ?? {}),
+    });
+  });
+
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Opções de Produto artesanal' }).click();
+  await page.getByRole('button', { name: 'Editar produto' }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(350);
+
+  const dialog = page.getByRole('dialog', { name: 'Editar produto' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Salvar alterações' })).toBeVisible();
+  await expect(
+    dialog.getByRole('navigation', { name: 'Etapas do cadastro do produto' }),
+  ).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Apresente o produto' })).toHaveCount(1);
+  await expect(
+    dialog.getByRole('heading', { name: 'Organize a montagem do cliente' }),
+  ).toHaveCount(1);
+  await expect(dialog.getByRole('heading', { name: 'Disponibilidade e revisão' })).toHaveCount(1);
+
+  const overflowReport = await dialog.evaluate((element) => {
+    const dialogRect = element.getBoundingClientRect();
+    const offenders = Array.from(element.querySelectorAll<HTMLElement>('*'))
+      .map((node) => {
+        const rect = node.getBoundingClientRect();
+        return {
+          className: node.className,
+          tagName: node.tagName,
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+        };
+      })
+      .filter(
+        ({ left, right }) => left < Math.floor(dialogRect.left) || right > Math.ceil(dialogRect.right),
+      )
+      .slice(0, 5);
+
+    return {
+      fits: element.scrollWidth <= element.clientWidth + 1,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      offenders,
+    };
+  });
+  expect(overflowReport).toMatchObject({ fits: true, offenders: [] });
 });
