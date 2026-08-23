@@ -1,11 +1,19 @@
 import { Request, Response } from 'express';
 import deleteCouponService from '../services/DeleteCouponService.js';
+import { couponIdSchema } from '../../../validators/CouponValidator.js';
+import { couponControllerError } from './CouponControllerHelpers.js';
 
 class DeleteCouponController {
   async handle(req: Request, res: Response) {
     try {
-      const restaurantId = req.user.restaurantId;
-      const { id } = req.params;
+      const restaurantId = Number(req.user?.restaurantId || 0);
+      const id = couponIdSchema.parse(
+        Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
+      );
+
+      if (!restaurantId) {
+        return res.status(403).json({ error: 'Restaurante não identificado.' });
+      }
 
       const result = await deleteCouponService.execute({
         id,
@@ -14,9 +22,7 @@ class DeleteCouponController {
 
       return res.status(200).json(result);
     } catch (error: unknown) {
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao remover cupom',
-      });
+      return couponControllerError(res, error, 'Não foi possível remover o cupom.');
     }
   }
 }

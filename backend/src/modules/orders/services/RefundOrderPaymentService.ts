@@ -13,7 +13,93 @@ type RefundableOrder = {
   cardCheckoutSessionId?: string | null;
 };
 
+type AsaasRefundResponse = {
+  id?: string;
+  status?: string;
+  errors?: Array<{
+    code?: string;
+    description?: string;
+  }>;
+};
+
 class RefundOrderPaymentService {
+  private resolveAsaasApiBaseUrl() {
+    return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
+      .trim()
+      .replace(/\/+$/, '');
+  }
+
+  private async getAsaasAccessToken(restaurantId?: number) {
+    if (!restaurantId || !Number.isInteger(restaurantId) || restaurantId <= 0) {
+      throw new Error('Restaurante invalido para estorno Asaas.');
+    }
+
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const restaurantToken = String(settings?.asaasAccessToken || '').trim();
+    const globalToken = String(process.env.ASAAS_API_KEY || '').trim();
+    const accessToken = restaurantToken || (allowGlobalFallback ? globalToken : '');
+
+    if (!accessToken) {
+      throw new Error(
+        'Credencial Asaas nao configurada para este restaurante. Nenhuma alteracao foi aplicada ao pedido.',
+      );
+    }
+
+    return accessToken;
+  }
+
+  private extractAsaasError(payload: AsaasRefundResponse) {
+    const firstError = Array.isArray(payload?.errors) ? payload.errors[0] : undefined;
+    return {
+      code: String(firstError?.code || '').trim(),
+      description: String(firstError?.description || '').trim(),
+    };
+  }
+
+  private async executeAsaasRefund(paymentId: string, order: RefundableOrder) {
+    const normalizedPaymentId = String(paymentId || '').trim();
+    const restaurantId = Number(order.restaurantId || 0);
+
+    if (!normalizedPaymentId) {
+      throw new Error('Identificador Asaas invalido para estorno automatico.');
+    }
+
+    const accessToken = await this.getAsaasAccessToken(restaurantId);
+    const amount = this.parseAmount(order.total);
+    const response = await fetch(
+      `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}/refund`,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          access_token: accessToken,
+        },
+        body: JSON.stringify({
+          ...(amount ? { value: amount } : {}),
+          description: `Estorno do pedido #${String(order.id)}`,
+        }),
+      },
+    );
+    const payload = (await response.json().catch(() => ({}))) as AsaasRefundResponse;
+
+    if (!response.ok) {
+      const providerError = this.extractAsaasError(payload);
+      console.error('[ASAAS_REFUND_ERROR]', {
+        orderId: order.id,
+        restaurantId,
+        paymentId: normalizedPaymentId,
+        status: response.status,
+        code: providerError.code || undefined,
+        description: providerError.description || undefined,
+      });
+      throw new Error(
+        `Falha ao estornar pagamento no Asaas (HTTP ${response.status}). Nenhuma alteracao foi aplicada ao pedido.`,
+      );
+    }
+  }
+
   private resolvePagBankEnvironment(): 'production' {
     // Refund API is currently supported against production endpoint.
     return 'production';
@@ -151,6 +237,7 @@ class RefundOrderPaymentService {
 
   private async refundPix(order: RefundableOrder) {
     const paymentId = String(order.pixPaymentId || '').trim();
+    const normalizedPaymentId = paymentId.toLowerCase();
 
     if (!paymentId) {
       throw new Error(
@@ -158,9 +245,21 @@ class RefundOrderPaymentService {
       );
     }
 
-    if (paymentId.startsWith('manual:')) {
+    if (normalizedPaymentId.startsWith('manual:')) {
       throw new Error(
         'Pedido PIX manual exige estorno manual. Nao foi possivel estornar automaticamente.',
+      );
+    }
+
+    if (normalizedPaymentId.startsWith('asaas:')) {
+      const asaasPaymentId = paymentId.slice('asaas:'.length).trim();
+      await this.executeAsaasRefund(asaasPaymentId, order);
+      return;
+    }
+
+    if (normalizedPaymentId.startsWith('pagbank:')) {
+      throw new Error(
+        'Estorno automatico deste PIX PagBank ainda nao e suportado. Nenhuma alteracao foi aplicada ao pedido.',
       );
     }
 
@@ -268,6 +367,7 @@ class RefundOrderPaymentService {
 
   private async refundCard(order: RefundableOrder) {
     const checkoutSessionId = String(order.cardCheckoutSessionId || '').trim();
+    const normalizedCheckoutSessionId = checkoutSessionId.toLowerCase();
     const amount = this.parseAmount(order.total);
 
     if (!checkoutSessionId) {
@@ -276,7 +376,13 @@ class RefundOrderPaymentService {
       );
     }
 
-    if (checkoutSessionId.startsWith('mp_pay:')) {
+    if (normalizedCheckoutSessionId.startsWith('asaas_pay:')) {
+      const asaasPaymentId = checkoutSessionId.slice('asaas_pay:'.length).trim();
+      await this.executeAsaasRefund(asaasPaymentId, order);
+      return;
+    }
+
+    if (normalizedCheckoutSessionId.startsWith('mp_pay:')) {
       const paymentId = checkoutSessionId.replace(/^mp_pay:/i, '').trim();
 
       if (!paymentId) {
@@ -287,7 +393,7 @@ class RefundOrderPaymentService {
       return;
     }
 
-    if (checkoutSessionId.startsWith('mp_pref:')) {
+    if (normalizedCheckoutSessionId.startsWith('mp_pref:')) {
       const preferenceId = checkoutSessionId.replace(/^mp_pref:/i, '').trim();
       const orderId = Number(order.id || 0);
       const restaurantId = Number(order.restaurantId || 0);
@@ -338,17 +444,23 @@ class RefundOrderPaymentService {
       return;
     }
 
-    if (checkoutSessionId.startsWith('pagbank_chk:')) {
+    if (normalizedCheckoutSessionId.startsWith('pagbank_chk:')) {
       throw new Error(
-        'Pedido PagBank ainda sem codigo de transacao confirmado para estorno automatico. Faca o estorno manual antes de cancelar.',
+        'Pedido PagBank ainda sem codigo de transacao confirmado para estorno automatico. Nenhuma alteracao foi aplicada ao pedido.',
       );
     }
 
-    if (checkoutSessionId.startsWith('pagbank_tx:')) {
+    if (normalizedCheckoutSessionId.startsWith('pagbank_tx:')) {
       const transactionCode = checkoutSessionId.replace(/^pagbank_tx:/i, '').trim();
 
       await this.refundPagBankByTransaction(transactionCode, order);
       return;
+    }
+
+    if (normalizedCheckoutSessionId.startsWith('pagbank:')) {
+      throw new Error(
+        'Identificador PagBank sem suporte de estorno automatico. Nenhuma alteracao foi aplicada ao pedido.',
+      );
     }
 
     await this.refundStripeCard(order);

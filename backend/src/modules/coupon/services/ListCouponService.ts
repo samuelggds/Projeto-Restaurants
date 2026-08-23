@@ -1,4 +1,5 @@
 import couponRepository from '../repositories/CouponRepository.js';
+import { presentCoupon } from '../utils/couponPresenter.js';
 
 type ListCouponPayload = {
   restaurantId: number | string;
@@ -6,7 +7,8 @@ type ListCouponPayload = {
 
 class ListCouponService {
   async execute({ restaurantId }: ListCouponPayload) {
-    return await couponRepository.findAllByRestaurant(restaurantId);
+    const coupons = await couponRepository.findAllByRestaurant(restaurantId);
+    return coupons.map(presentCoupon);
   }
 }
 

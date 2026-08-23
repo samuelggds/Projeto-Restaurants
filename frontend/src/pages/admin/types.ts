@@ -13,6 +13,7 @@ export type SettingsSection =
   | 'address'
   | 'hours'
   | 'orders'
+  | 'promotions'
   | 'delivery'
   | 'table'
   | 'whatsapp'
@@ -56,8 +57,64 @@ export type AdminProduct = {
   stock?: number | null;
   active?: boolean;
   saleMode?: 'COMPLETE' | 'BUILDABLE';
-  ingredients?: Array<{ id?: number; name: string; price: number; required?: boolean; active?: boolean }>;
+  ingredients?: Array<{
+    id?: number;
+    name: string;
+    price: number;
+    required?: boolean;
+    active?: boolean;
+  }>;
   optionGroups?: AdminProductOptionGroup[];
+  discount?: AdminProductDiscount | null;
+  pricing?: AdminProductPricing | null;
+};
+
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
+
+export type AdminProductDiscount = {
+  type: DiscountType;
+  value: number;
+  badgeLabel: string;
+  active: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+};
+
+export type AdminProductPricing = {
+  basePrice: number;
+  finalPrice: number;
+  discountAmount: number;
+  discountPercentage: number;
+  hasDiscount: boolean;
+};
+
+export type ProductDiscountPayload = {
+  type: DiscountType;
+  value: number;
+  badgeLabel: string;
+  active: boolean;
+  startsAt?: string;
+  endsAt?: string;
+};
+
+export type AdminCoupon = {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  discountType: DiscountType;
+  discount: number;
+  minimumSubtotal: number;
+  maxDiscount?: number | null;
+  loyaltyPurchasesRequired: number;
+  perCustomerLimit: number;
+  redemptionValidityDays: number;
+  active: boolean;
+  expiration?: string | null;
+};
+
+export type CouponPayload = Omit<AdminCoupon, 'id'> & {
+  expiration?: string | null;
 };
 
 export type AdminCategory = { id: number; name: string; active?: boolean };
@@ -155,6 +212,9 @@ export type AdminPageProps = {
   initialProducts?: AdminProduct[];
   initialCategories?: AdminCategory[];
   initialIngredients?: AdminIngredient[];
+  initialCoupons?: AdminCoupon[];
+  promotionsLoading?: boolean;
+  promotionsError?: string;
   onUpdateOrderStatus?: (id: number, status: string) => void | Promise<void>;
   onConfirmOrderPayment?: (id: number) => void | Promise<void>;
   onCancelOrder?: (id: number) => void | Promise<void>;
@@ -166,6 +226,15 @@ export type AdminPageProps = {
   onCreateIngredient?: (ingredient: Omit<AdminIngredient, 'id'>) => void | Promise<void>;
   onUpdateIngredient?: (ingredient: AdminIngredient) => void | Promise<void>;
   onDeleteIngredient?: (id: number) => void | Promise<void>;
+  onApplyProductDiscount?: (
+    productId: string,
+    payload: ProductDiscountPayload,
+  ) => void | Promise<void>;
+  onDeleteProductDiscount?: (productId: string) => void | Promise<void>;
+  onCreateCoupon?: (payload: CouponPayload) => void | Promise<void>;
+  onUpdateCoupon?: (id: string, payload: CouponPayload) => void | Promise<void>;
+  onDeleteCoupon?: (id: string) => void | Promise<void>;
+  onReloadPromotions?: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onSaveSettings?: (settings: AdminSettings) => void | Promise<void>;
   onConnectMercadoPago?: () => void | Promise<void>;

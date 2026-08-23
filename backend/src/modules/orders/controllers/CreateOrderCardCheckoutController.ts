@@ -24,6 +24,7 @@ class CreateOrderCardCheckoutController {
         cardProvider,
         successUrl,
         cancelUrl,
+        couponRedemptionId,
       } = req.body;
 
       const userId = req.user?.id ?? null;
@@ -53,6 +54,7 @@ class CreateOrderCardCheckoutController {
         cardProvider,
         successUrl,
         cancelUrl,
+        couponRedemptionId,
       });
 
       return res.status(201).json(result);

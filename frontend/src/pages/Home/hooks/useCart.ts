@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeProduct } from '../types';
 import { readJsonStorage } from '../../../shared/storage/jsonStorage';
 import {
@@ -33,9 +33,8 @@ type Notify = (
   duration?: number,
 ) => void;
 
-export function useCart(products: HomeProduct[], notify: Notify) {
-  const [cart, setCart] = useState<CartItem[]>(() =>
-    readJsonStorage<CartItem[]>('cartItems', []).map((item) => {
+function normalizeStoredCart(items: CartItem[]) {
+  return items.map((item) => {
       const legacyOptionIds = item.selectedOptionIds || item.ingredientIds || [];
       const selectedOptions =
         item.selectedOptions ||
@@ -56,12 +55,114 @@ export function useCart(products: HomeProduct[], notify: Notify) {
         price: Number(item.price || 0),
         quantity: Number(item.quantity || 1),
       };
-    }),
+    });
+}
+
+export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: number | null) {
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [storageRestaurantId, setStorageRestaurantId] = useState<number | null>(null);
+  const reconciledSignatureRef = useRef('');
+
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      if (!restaurantId) {
+        setCart([]);
+        setStorageRestaurantId(null);
+        return;
+      }
+      const key = `cartItems:${restaurantId}`;
+      const namespaced = readJsonStorage<CartItem[]>(key, []);
+      const legacyRestaurantId = Number(
+        localStorage.getItem('cartRestaurantId') || localStorage.getItem('menuRestaurantId') || 0,
+      );
+      const legacy =
+        namespaced.length === 0 && legacyRestaurantId === restaurantId
+          ? readJsonStorage<CartItem[]>('cartItems', [])
+          : [];
+      setCart(normalizeStoredCart(namespaced.length ? namespaced : legacy));
+      setStorageRestaurantId(restaurantId);
+      reconciledSignatureRef.current = '';
+    });
+    return () => {
+      active = false;
+    };
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (!storageRestaurantId || storageRestaurantId !== restaurantId) return;
+    const serialized = JSON.stringify(cart);
+    localStorage.setItem(`cartItems:${storageRestaurantId}`, serialized);
+    // Espelho temporário para os atalhos de favoritos que ainda usam a chave legada.
+    localStorage.setItem('cartItems', serialized);
+    localStorage.setItem('cartRestaurantId', String(storageRestaurantId));
+  }, [cart, restaurantId, storageRestaurantId]);
+
+  const catalogSignature = useMemo(
+    () =>
+      products
+        .map((product) =>
+          [
+            product.id,
+            product.price,
+            product.stock ?? '∞',
+            ...(product.optionGroups || []).flatMap((group) =>
+              group.options.map((option) => `${option.id}:${option.price}:${option.active}`),
+            ),
+          ].join(':'),
+        )
+        .join('|'),
+    [products],
   );
 
   useEffect(() => {
-    localStorage.setItem('cartItems', JSON.stringify(cart));
-  }, [cart]);
+    if (
+      !restaurantId ||
+      storageRestaurantId !== restaurantId ||
+      !products.length ||
+      reconciledSignatureRef.current === catalogSignature
+    )
+      return;
+    reconciledSignatureRef.current = catalogSignature;
+    const productsById = new Map(products.map((product) => [product.id, product]));
+    queueMicrotask(() => setCart((current) => {
+      let changed = false;
+      const reconciled = current.flatMap((item) => {
+        const product = productsById.get(String(item.productId));
+        if (!product || !product.available) {
+          changed = true;
+          return [];
+        }
+        const optionIds = new Set(item.selectedOptionIds || item.ingredientIds || []);
+        const currentOptions = normalizeProductOptionGroups(product).flatMap((group) =>
+          group.options
+            .filter((option) => optionIds.has(option.id))
+            .map((option) => ({
+              id: option.id,
+              groupId: group.id,
+              groupName: group.name,
+              name: option.name,
+              price: Number(option.price || 0),
+            })),
+        );
+        const nextPrice = currentOptions.reduce((total, option) => total + option.price, product.price);
+        const nextQuantity =
+          product.stock == null ? item.quantity : Math.min(item.quantity, Math.max(0, product.stock));
+        if (
+          nextPrice !== item.price ||
+          nextQuantity !== item.quantity ||
+          item.stock !== product.stock ||
+          JSON.stringify(currentOptions) !== JSON.stringify(item.options || [])
+        )
+          changed = true;
+        return nextQuantity > 0
+          ? [{ ...item, price: nextPrice, basePrice: product.price, stock: product.stock, quantity: nextQuantity, options: currentOptions }]
+          : [];
+      });
+      return changed ? reconciled : current;
+    }));
+  }, [catalogSignature, products, restaurantId, storageRestaurantId]);
 
   const addToCart = (productId: string, configuration: ProductConfiguration) => {
     const product = products.find((item) => item.id === productId);

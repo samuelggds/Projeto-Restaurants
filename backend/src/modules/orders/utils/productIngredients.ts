@@ -1,3 +1,5 @@
+import { resolveProductBasePricing, roundMoney } from '../../products/utils/productDiscount.js';
+
 type LegacyIngredient = {
   id: number;
   name: string;
@@ -42,12 +44,25 @@ type ProductWithOptions = {
   price: unknown;
   ingredients: LegacyIngredient[];
   optionGroups?: ProductOptionGroup[];
+  discount?: {
+    kind: string;
+    value: unknown;
+    label?: string | null;
+    active: boolean;
+    startsAt?: Date | string | null;
+    endsAt?: Date | string | null;
+  } | null;
 };
 
 export type OrderItemOptionSelection = {
   ingredientIds?: number[];
   optionIds?: number[];
   selectedOptions?: Array<{ groupId?: number; optionIds?: number[] }>;
+};
+
+type OrderItemSnapshotInput = OrderItemOptionSelection & {
+  quantity?: number;
+  observation?: string | null;
 };
 
 function money(value: unknown) {
@@ -138,7 +153,12 @@ export function resolveOrderItemCustomizations(
   const activeGroups = (product.optionGroups || []).filter((group) => group.active);
 
   if (!activeGroups.length) {
-    return resolveLegacyProductIngredients(product, selection.ingredientIds);
+    // Sacolas criadas durante a migração para grupos guardavam os ids legados
+    // em optionIds. Aceitar esse formato mantém pedidos antigos finalizáveis.
+    return resolveLegacyProductIngredients(
+      product,
+      selection.ingredientIds?.length ? selection.ingredientIds : selection.optionIds,
+    );
   }
 
   activeGroups.forEach((group) => {
@@ -221,6 +241,37 @@ export function resolveOrderItemCustomizations(
   };
 }
 
+/**
+ * Gera o snapshot imutável que será salvo no OrderItem. Assim, alterações
+ * futuras no catálogo não mudam o que a cozinha recebeu no pedido.
+ */
+export function buildOrderItemCustomizationSnapshot(
+  product: ProductWithOptions & { id: number },
+  item: OrderItemSnapshotInput,
+) {
+  const resolved = resolveOrderItemCustomizations(product, item);
+  const basePricing = resolveProductBasePricing(product);
+  const originalUnitPrice = roundMoney(resolved.price);
+  const unitDiscount = roundMoney(basePricing.discountAmount);
+  const effectiveUnitPrice = roundMoney(Math.max(originalUnitPrice - unitDiscount, 0));
+  const quantity = Number(item.quantity);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new Error(`Quantidade inválida para ${product.name}.`);
+  }
+  const observation = String(item.observation || '').trim();
+
+  return {
+    productId: product.id,
+    quantity,
+    price: effectiveUnitPrice,
+    originalUnitPrice,
+    unitDiscount,
+    observation: observation || null,
+    ingredients: resolved.ingredients,
+    customizations: resolved.customizations,
+  };
+}
+
 function resolveLegacyProductIngredients(
   product: ProductWithOptions,
   ingredientIds: number[] = [],
@@ -232,9 +283,7 @@ function resolveLegacyProductIngredients(
     throw new Error(`${product.name} ainda não possui opções de montagem configuradas.`);
   }
 
-  const selected = selectedIds.map((id) =>
-    available.find((ingredient) => ingredient.id === id),
-  );
+  const selected = selectedIds.map((id) => available.find((ingredient) => ingredient.id === id));
   if (selected.some((ingredient) => !ingredient)) {
     throw new Error(`Ingrediente inválido para ${product.name}.`);
   }

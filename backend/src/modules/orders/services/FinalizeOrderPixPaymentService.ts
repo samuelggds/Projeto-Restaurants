@@ -1,7 +1,10 @@
 import { io } from '../../../server.js';
+import prisma from '../../../config/prisma.js';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
+import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
+import reconcileLateCancelledPaymentService from './ReconcileLateCancelledPaymentService.js';
 
 type FinalizeOrderPixPaymentPayload = {
   orderId?: number | string | null;
@@ -45,15 +48,57 @@ class FinalizeOrderPixPaymentService {
       throw new Error('Pedido PIX nao encontrado para este pagamento.');
     }
 
-    if (String(order.pixPaymentId || '').trim() !== normalizedPaymentId) {
-      throw new Error('Pagamento PIX nao corresponde ao pedido informado.');
+    const storedPaymentId = String(order.pixPaymentId || '').trim();
+    if (storedPaymentId !== normalizedPaymentId) {
+      if (!storedPaymentId && orderId && String(order.status) !== 'CANCELADO') {
+        await orderPixPaymentService.attachPaymentToOrder({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          paymentId: normalizedPaymentId,
+        });
+      } else if (String(order.status) !== 'CANCELADO') {
+        throw new Error('Pagamento PIX nao corresponde ao pedido informado.');
+      }
+    }
+
+    if (String(order.status) === 'CANCELADO' && order.paid !== true) {
+      await reconcileLateCancelledPaymentService.execute({
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        paymentMethod: 'PIX',
+        paymentReference: normalizedPaymentId,
+      });
+      return orderRepository.findById(order.id, order.restaurantId);
     }
 
     if (order.paid === true) {
       return order;
     }
 
-    const updatedOrder = await orderRepository.confirmPayment(order.id, order.restaurantId);
+    let updatedOrder;
+    try {
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        const confirmedOrder = await orderRepository.confirmPayment(
+          order.id,
+          order.restaurantId,
+          tx,
+        );
+        await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        return confirmedOrder;
+      });
+    } catch (error) {
+      const latest = await orderRepository.findById(order.id, order.restaurantId);
+      if (latest?.status === 'CANCELADO' && latest.paid !== true) {
+        await reconcileLateCancelledPaymentService.execute({
+          orderId: latest.id,
+          restaurantId: latest.restaurantId,
+          paymentMethod: 'PIX',
+          paymentReference: normalizedPaymentId,
+        });
+        return orderRepository.findById(latest.id, latest.restaurantId);
+      }
+      throw error;
+    }
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
       orderId: updatedOrder.id,

@@ -13,6 +13,11 @@ import {
   type PixProvider,
   normalizePixProvider,
 } from '../../payments/providers/providerCatalog.js';
+import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
+import prisma from '../../../config/prisma.js';
+import orderRepository from '../repositories/OrderRepository.js';
+import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
+import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -20,6 +25,10 @@ const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'recei
 type OrderItemInput = {
   productId: number;
   quantity: number;
+  observation?: string;
+  ingredientIds?: number[];
+  optionIds?: number[];
+  selectedOptions?: Array<{ groupId: number; optionIds: number[] }>;
 };
 
 type CreatePixPayload = {
@@ -37,6 +46,10 @@ type CreatePixPayload = {
   customerCpf?: string;
   customerPhone?: string;
   userEmail?: string | null;
+  orderId?: number | string;
+  orderTotal?: number;
+  orderSubtotal?: number;
+  orderDeliveryFee?: number;
 };
 
 type PaymentStatusPayload = {
@@ -352,7 +365,14 @@ class OrderPixPaymentService {
 
     return items.reduce((acc, item, index) => {
       const product = products[index];
-      return acc + Number(product.price) * Number(item.quantity);
+      const quantity = Number(item.quantity);
+
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error(`Quantidade inválida para ${product.name}.`);
+      }
+
+      const snapshot = buildOrderItemCustomizationSnapshot(product, item);
+      return acc + Number(snapshot.price) * quantity;
     }, 0);
   }
 
@@ -371,6 +391,10 @@ class OrderPixPaymentService {
     customerCpf,
     customerPhone,
     userEmail,
+    orderId: sourceOrderId,
+    orderTotal,
+    orderSubtotal,
+    orderDeliveryFee,
   }: CreatePixPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedType = String(type || '').toUpperCase();
@@ -415,23 +439,50 @@ class OrderPixPaymentService {
     const minimumOrder = Number(settings?.minimumOrder || 0);
     const deliveryFee = Number(settings?.deliveryFee || 0);
 
-    const subtotal = await this.calculateOrderSubtotal({
-      restaurantId: normalizedRestaurantId,
-      items,
-    });
+    const persistedTotal = Number(orderTotal);
+    const hasPersistedTotal = Number.isFinite(persistedTotal) && persistedTotal >= 0;
+    const persistedSubtotal = Number(orderSubtotal);
+    const persistedDeliveryFee = Number(orderDeliveryFee);
+    const subtotal = hasPersistedTotal
+      ? Number.isFinite(persistedSubtotal) && persistedSubtotal >= 0
+        ? persistedSubtotal
+        : Math.max(
+            persistedTotal -
+              (Number.isFinite(persistedDeliveryFee)
+                ? persistedDeliveryFee
+                : normalizedType === 'DELIVERY'
+                  ? Math.max(deliveryFee, 0)
+                  : 0),
+            0,
+          )
+      : await this.calculateOrderSubtotal({
+          restaurantId: normalizedRestaurantId,
+          items,
+        });
 
-    if (normalizedType === 'DELIVERY' && minimumOrder > 0 && subtotal < minimumOrder) {
+    if (
+      !hasPersistedTotal &&
+      normalizedType === 'DELIVERY' &&
+      minimumOrder > 0 &&
+      subtotal < minimumOrder
+    ) {
       throw new Error(
         `Pedido mínimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega é cobrada à parte.`,
       );
     }
 
-    const additionalFee = normalizedType === 'DELIVERY' ? Math.max(deliveryFee, 0) : 0;
+    const additionalFee = hasPersistedTotal
+      ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0)
+      : normalizedType === 'DELIVERY'
+        ? Math.max(deliveryFee, 0)
+        : 0;
     const systemFee = await splitService.execute({
       restaurantId: normalizedRestaurantId,
       orderTotal: subtotal,
     });
-    const totalAmount = Number((subtotal + additionalFee).toFixed(2));
+    const totalAmount = Number(
+      (hasPersistedTotal ? persistedTotal : subtotal + additionalFee).toFixed(2),
+    );
 
     if (totalAmount <= 0) {
       throw new Error('Total do pedido inválido para gerar cobrança PIX.');
@@ -457,7 +508,9 @@ class OrderPixPaymentService {
           method: 'POST',
           headers: { 'x-idempotency-key': crypto.randomUUID() },
           body: JSON.stringify({
-            reference_id: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+            reference_id: sourceOrderId
+              ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
+              : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
             customer: {
               name: payerName || 'Cliente',
               email: payerEmail,
@@ -544,7 +597,9 @@ class OrderPixPaymentService {
         value: totalAmount,
         dueDate: new Date().toISOString().slice(0, 10),
         description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
-        externalReference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+        externalReference: sourceOrderId
+          ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
+          : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
         ...(includeSplit && normalizedSystemFee > 0 && platformWalletId
           ? {
               split: [
@@ -672,7 +727,9 @@ class OrderPixPaymentService {
         source: 'order_checkout',
         provider: resolvedPixProvider,
       },
-      external_reference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+      external_reference: sourceOrderId
+        ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
+        : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
     };
 
     let response: unknown;
@@ -857,6 +914,46 @@ class OrderPixPaymentService {
     }
 
     return statusResult;
+  }
+
+  async attachPaymentToOrder({
+    orderId,
+    restaurantId,
+    paymentId,
+  }: {
+    orderId: number | string;
+    restaurantId: number;
+    paymentId: string;
+  }) {
+    const normalizedPaymentId = String(paymentId || '').trim();
+    if (!normalizedPaymentId) {
+      throw new Error('O provedor não retornou um identificador de pagamento PIX.');
+    }
+
+    const result = await prisma.order.updateMany({
+      where: { id: Number(orderId), restaurantId, paid: false },
+      data: { pixPaymentId: normalizedPaymentId },
+    });
+    if (result.count !== 1) {
+      throw new Error('Não foi possível vincular o pagamento PIX ao pedido.');
+    }
+  }
+
+  async removePendingOrderAfterPaymentFailure({
+    orderId,
+    restaurantId,
+  }: {
+    orderId: number | string;
+    restaurantId: number;
+  }) {
+    await prisma.$transaction(async (tx) => {
+      const pendingOrder = await orderRepository.findById(orderId, restaurantId, tx);
+      if (pendingOrder) {
+        await restoreOrderItemsStock(tx, pendingOrder);
+      }
+      await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
+      await orderRepository.deleteById(orderId, restaurantId, tx);
+    });
   }
 }
 

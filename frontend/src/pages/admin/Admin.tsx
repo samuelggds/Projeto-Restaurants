@@ -8,11 +8,13 @@ import ordersService from '../../Services/ordersService';
 import productsService from '../../Services/productsService';
 import categoriesService from '../../Services/categoriesService';
 import ingredientsService from '../../Services/ingredientsService';
+import promotionsService from '../../Services/promotionsService';
 import { AdminPage } from './AdminPage';
 import { adminMockSettings, adminMockEmployees, defaultBusinessHours } from './data';
 import { normalizeBusinessHours } from './domain/businessHours';
 import type {
   AdminCategory,
+  AdminCoupon,
   AdminIngredient,
   AdminOrder,
   AdminProduct,
@@ -62,6 +64,8 @@ function mapOrder(value: unknown): AdminOrder {
 function mapProduct(value: unknown): AdminProduct {
   const raw = asRecord(value);
   const category = asRecord(raw.category);
+  const discount = asRecord(raw.discount);
+  const pricing = asRecord(raw.pricing);
   const optionGroups = (Array.isArray(raw.optionGroups) ? raw.optionGroups : []).map(
     (groupValue): AdminProductOptionGroup => {
       const group = asRecord(groupValue);
@@ -88,6 +92,19 @@ function mapProduct(value: unknown): AdminProduct {
       };
     },
   );
+  const basePrice = Number(
+    pricing.basePrice ?? pricing.originalPrice ?? pricing.originalBasePrice ?? raw.price ?? 0,
+  );
+  const finalPrice = Number(
+    pricing.finalPrice ??
+      pricing.discountedPrice ??
+      pricing.effectivePrice ??
+      pricing.effectiveBasePrice ??
+      raw.price ??
+      0,
+  );
+  const hasDiscountRecord = Object.keys(discount).length > 0;
+  const hasPricingRecord = Object.keys(pricing).length > 0;
   return {
     id: String(raw.id ?? ''),
     categoryId: Number(raw.categoryId ?? category.id ?? 0),
@@ -100,6 +117,51 @@ function mapProduct(value: unknown): AdminProduct {
     active: raw.active !== false,
     saleMode: 'BUILDABLE',
     optionGroups,
+    discount: hasDiscountRecord
+      ? {
+          type: discount.type === 'FIXED' || discount.kind === 'FIXED' ? 'FIXED' : 'PERCENTAGE',
+          value: Number(discount.value ?? 0),
+          badgeLabel: String(
+            discount.badgeLabel ?? discount.label ?? pricing.badgeLabel ?? 'Oferta especial',
+          ),
+          active: discount.active !== false,
+          startsAt: discount.startsAt ? String(discount.startsAt) : null,
+          endsAt: discount.endsAt ? String(discount.endsAt) : null,
+        }
+      : null,
+    pricing: hasPricingRecord
+      ? {
+          basePrice,
+          finalPrice,
+          discountAmount: Number(pricing.discountAmount ?? Math.max(0, basePrice - finalPrice)),
+          discountPercentage: Number(pricing.discountPercentage ?? 0),
+          hasDiscount:
+            pricing.hasDiscount === true ||
+            pricing.discounted === true ||
+            pricing.active === true ||
+            finalPrice < basePrice,
+        }
+      : null,
+  };
+}
+
+function mapCoupon(value: unknown): AdminCoupon {
+  const raw = asRecord(value);
+  return {
+    id: String(raw.id ?? ''),
+    code: String(raw.code ?? ''),
+    title: String(raw.title ?? ''),
+    description: String(raw.description ?? ''),
+    discountType: raw.discountType === 'FIXED' ? 'FIXED' : 'PERCENTAGE',
+    discount: Number(raw.discount ?? 0),
+    minimumSubtotal: Number(raw.minimumSubtotal ?? 0),
+    maxDiscount:
+      raw.maxDiscount === null || raw.maxDiscount === undefined ? null : Number(raw.maxDiscount),
+    loyaltyPurchasesRequired: Number(raw.loyaltyPurchasesRequired ?? 1),
+    perCustomerLimit: Number(raw.perCustomerLimit ?? 1),
+    redemptionValidityDays: Number(raw.redemptionValidityDays ?? 30),
+    active: raw.active !== false,
+    expiration: raw.expiration ? String(raw.expiration) : null,
   };
 }
 
@@ -266,6 +328,9 @@ export default function Admin() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [ingredients, setIngredients] = useState<AdminIngredient[]>([]);
+  const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [promotionsError, setPromotionsError] = useState('');
   const soundNotificationsRef = useRef(settings.soundNotifications);
 
   useEffect(() => {
@@ -288,8 +353,24 @@ export default function Admin() {
       }),
     );
     setIngredients(
-      ingredientData.map(mapIngredient).filter((ingredient) => ingredient.id > 0 && ingredient.name),
+      ingredientData
+        .map(mapIngredient)
+        .filter((ingredient) => ingredient.id > 0 && ingredient.name),
     );
+  }
+
+  async function loadCoupons() {
+    setPromotionsLoading(true);
+    setPromotionsError('');
+    try {
+      const couponData = await promotionsService.listCoupons();
+      setCoupons(couponData.map(mapCoupon).filter((coupon) => coupon.id && coupon.code));
+    } catch (error) {
+      console.error('Não foi possível carregar os descontos e cupons.', error);
+      setPromotionsError('Não foi possível carregar os cupons deste restaurante.');
+    } finally {
+      setPromotionsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -302,6 +383,10 @@ export default function Admin() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadCoupons);
   }, []);
 
   useEffect(() => {
@@ -463,6 +548,9 @@ export default function Admin() {
       initialProducts={products}
       initialCategories={categories}
       initialIngredients={ingredients}
+      initialCoupons={coupons}
+      promotionsLoading={promotionsLoading}
+      promotionsError={promotionsError}
       onUpdateOrderStatus={async (id, status) => {
         await ordersService.updateStatus(id, status);
         await loadOperations();
@@ -527,6 +615,29 @@ export default function Admin() {
       onDeleteIngredient={async (id) => {
         await ingredientsService.deleteIngredient(id);
         await loadOperations();
+      }}
+      onApplyProductDiscount={async (productId, payload) => {
+        await promotionsService.applyProductDiscount(productId, payload);
+        await loadOperations();
+      }}
+      onDeleteProductDiscount={async (productId) => {
+        await promotionsService.deleteProductDiscount(productId);
+        await loadOperations();
+      }}
+      onCreateCoupon={async (payload) => {
+        await promotionsService.createCoupon(payload);
+        await loadCoupons();
+      }}
+      onUpdateCoupon={async (id, payload) => {
+        await promotionsService.updateCoupon(id, payload);
+        await loadCoupons();
+      }}
+      onDeleteCoupon={async (id) => {
+        await promotionsService.deleteCoupon(id);
+        await loadCoupons();
+      }}
+      onReloadPromotions={async () => {
+        await Promise.all([loadOperations(), loadCoupons()]);
       }}
       onSaveSettings={handleSaveSettings}
       onReportSupport={handleReportSupport}

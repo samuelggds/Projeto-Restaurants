@@ -261,8 +261,13 @@ const Header = styled.header<{ $primary: string }>`
     padding: 14px 14px 50px;
     align-items: flex-start;
   }
+  @media (max-width: 360px) {
+    padding-inline: 10px;
+    gap: 6px;
+  }
 `;
 const Brand = styled.a`
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -273,6 +278,11 @@ const Brand = styled.a`
   @media (max-width: 520px) {
     gap: 7px;
     font-size: 15px;
+  }
+  @media (max-width: 360px) {
+    strong {
+      display: none;
+    }
   }
 `;
 const Logo = styled.img`
@@ -307,6 +317,10 @@ const LocationWrap = styled.div`
     right: 14px;
     bottom: 8px;
     margin-left: 0;
+  }
+  @media (max-width: 360px) {
+    right: 10px;
+    left: 10px;
   }
 `;
 const Location = styled.button`
@@ -490,10 +504,14 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
   }
 `;
 const Actions = styled.div`
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 9px;
   margin-left: auto;
+  @media (max-width: 360px) {
+    gap: 6px;
+  }
 `;
 const RoundButton = styled.button`
   width: 44px;
@@ -530,6 +548,10 @@ const AvatarButton = styled.button<{ $open: boolean }>`
     border-color: var(--home-primary);
     background: #fdeee7;
     color: var(--home-primary);
+  }
+  @media (max-width: 360px) {
+    width: 36px;
+    height: 36px;
   }
 `;
 const ProfileDropdown = styled.div<{ $open: boolean }>`
@@ -672,6 +694,10 @@ const CartButton = styled.button`
       font-size: 10px;
     }
   }
+  @media (max-width: 360px) {
+    width: 40px;
+    height: 36px;
+  }
 `;
 const MobileMenu = styled.button`
   display: none;
@@ -683,5 +709,9 @@ const MobileMenu = styled.button`
   place-items: center;
   @media (max-width: 760px) {
     display: grid;
+  }
+  @media (max-width: 360px) {
+    width: 36px;
+    height: 36px;
   }
 `;

@@ -1,5 +1,7 @@
 import { io } from '../../../server.js';
+import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
 
 class ConfirmOrderPaymentService {
   async execute(orderId: number | string | string[], restaurantId: number, role: string) {
@@ -25,7 +27,15 @@ class ConfirmOrderPaymentService {
       return order;
     }
 
-    const updatedOrder = await orderRepository.confirmPayment(normalizedOrderId, restaurantId);
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const confirmedOrder = await orderRepository.confirmPayment(
+        normalizedOrderId,
+        restaurantId,
+        tx,
+      );
+      await markCouponRedemptionUsedForOrder(normalizedOrderId, restaurantId, tx);
+      return confirmedOrder;
+    });
 
     io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
       orderId: updatedOrder.id,

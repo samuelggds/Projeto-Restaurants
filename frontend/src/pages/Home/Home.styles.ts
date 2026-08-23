@@ -25,6 +25,7 @@ const modalContentReveal = keyframes`
 
 export const HomeRoot = styled.div<{ $primary: string }>`
   --home-primary: ${({ $primary }) => $primary};
+  --primary: ${({ $primary }) => $primary};
   --home-border: #eadfd3;
   --home-text: #191816;
   --home-muted: #6f6a63;
@@ -371,7 +372,7 @@ export const ProductCategoryGroup = styled.section`
 `;
 export const ProductCard = styled.article`
   min-width: 0;
-  cursor: default;
+  cursor: pointer;
   transition:
     transform 220ms ease,
     box-shadow 220ms ease,
@@ -450,6 +451,24 @@ export const ProductCard = styled.article`
     font-size: 12px;
     font-weight: 700;
   }
+  &[data-featured='true'] {
+    grid-template-columns: 176px minmax(0, 1fr);
+    min-height: 156px;
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(70, 45, 20, 0.06);
+  }
+  &[data-featured='true'] > div:last-child {
+    min-height: 156px;
+    padding: 17px 18px;
+    justify-content: center;
+  }
+  &[data-featured='true'] p {
+    margin: 5px 0 12px;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
   @media (max-width: 760px) {
     width: 100%;
     max-width: 380px;
@@ -481,12 +500,52 @@ export const ProductCard = styled.article`
       height: 34px;
       border-radius: 9px;
     }
+    &[data-featured='true'] {
+      max-width: none;
+      grid-template-columns: 108px minmax(0, 1fr);
+      min-height: 112px;
+      border-radius: 15px;
+      box-shadow: 0 7px 20px rgba(70, 45, 20, 0.055);
+    }
+    &[data-featured='true'] > div:last-child {
+      min-height: 112px;
+      padding: 10px 11px;
+    }
+    &[data-featured='true'] h3 {
+      font-size: 14px;
+      line-height: 1.2;
+    }
+    &[data-featured='true'] p {
+      margin: 4px 0 8px;
+      -webkit-line-clamp: 1;
+    }
     @media (max-width: 390px) {
       grid-template-columns: 112px minmax(0, 1fr);
       min-height: 116px;
       > div:last-child {
         min-height: 116px;
         padding: 10px 11px;
+      }
+      &[data-featured='true'] {
+        grid-template-columns: 96px minmax(0, 1fr);
+        min-height: 108px;
+      }
+      &[data-featured='true'] > div:last-child {
+        min-height: 108px;
+        padding: 9px 10px;
+      }
+    }
+    @media (max-width: 340px) {
+      &[data-featured='true'] {
+        grid-template-columns: 90px minmax(0, 1fr);
+        min-height: 106px;
+      }
+      &[data-featured='true'] > div:last-child {
+        min-height: 106px;
+        padding: 8px 9px;
+      }
+      &[data-featured='true'] p {
+        display: none;
       }
     }
   }
@@ -576,9 +635,31 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
     font-size: 25px;
     letter-spacing: -0.025em;
   }
-  .modal-content button:last-child { width: 100%; min-height: 48px; border: 0; border-radius: 10px; background: var(--home-primary); color: #fff; font-weight: 800; cursor: pointer; }
+  .modal-content button:last-child {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--home-primary);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+  }
   @media (max-width: 720px) {
-    width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; .modal-image { position: static; width: 100%; height: 230px; } .modal-content { margin-left: 0; min-height: auto; padding: 24px 20px 34px; }
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    .modal-image {
+      position: static;
+      width: 100%;
+      height: 230px;
+    }
+    .modal-content {
+      margin-left: 0;
+      min-height: auto;
+      padding: 24px 20px 34px;
+    }
   }
   p {
     margin: 10px 0 20px;
@@ -668,6 +749,10 @@ export const ImageWrap = styled.div`
     color: #e53935;
     background: rgba(255, 255, 255, 0.94);
   }
+  &[data-featured='true'] {
+    height: 156px;
+    min-height: 156px;
+  }
   @media (max-width: 760px) {
     height: 126px;
     min-height: 126px;
@@ -677,9 +762,23 @@ export const ImageWrap = styled.div`
       right: 8px;
       top: 8px;
     }
+    &[data-featured='true'] {
+      height: 112px;
+      min-height: 112px;
+    }
     @media (max-width: 390px) {
       height: 116px;
       min-height: 116px;
+      &[data-featured='true'] {
+        height: 108px;
+        min-height: 108px;
+      }
+    }
+    @media (max-width: 340px) {
+      &[data-featured='true'] {
+        height: 106px;
+        min-height: 106px;
+      }
     }
   }
 `;
@@ -723,13 +822,39 @@ export const About = styled.section`
     }
   }
 `;
-export const Whatsapp = styled.a`
+export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: string }>`
   position: fixed;
-  z-index: 40;
-  right: 26px;
-  bottom: 24px;
+  z-index: 45;
+  right: 24px;
+  bottom: ${({ $aboveNudge }) => ($aboveNudge ? '86px' : '24px')};
+  width: min-content;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+  pointer-events: none;
+  --home-primary: ${({ $primary }) => $primary};
+  --primary: ${({ $primary }) => $primary};
+
+  > * {
+    pointer-events: auto;
+  }
+
+  @media (max-width: 700px) {
+    left: 12px;
+    right: 12px;
+    bottom: ${({ $aboveNudge }) => ($aboveNudge ? '118px' : '12px')};
+    width: auto;
+    max-width: none;
+  }
+`;
+
+export const Whatsapp = styled.a`
+  position: relative;
   width: 56px;
   height: 56px;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: #3f8c3d;
   color: #fff;
@@ -737,8 +862,6 @@ export const Whatsapp = styled.a`
   place-items: center;
   box-shadow: 0 12px 30px rgba(40, 100, 40, 0.3);
   @media (max-width: 600px) {
-    right: 14px;
-    bottom: 14px;
     width: 52px;
     height: 52px;
   }
@@ -1004,7 +1127,6 @@ export const CartItemInfo = styled.div`
     font-weight: 800;
     font-size: 15px;
   }
-
   .item-controls {
     display: flex;
     align-items: center;

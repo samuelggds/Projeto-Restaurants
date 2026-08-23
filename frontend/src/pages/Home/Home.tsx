@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
@@ -18,6 +18,7 @@ import { DeliveryAddressForm } from '../home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../home/components/PaymentOptions';
 import { DeliveryMethodSelector } from '../home/components/DeliveryMethodSelector';
 import { CartCheckoutSummary } from '../home/components/CartCheckoutSummary';
+import { LoyaltyCouponPanel } from '../home/components/LoyaltyCouponPanel';
 import { HomeFeedback, type HomeNotification } from '../home/components/HomeFeedback';
 import {
   buildOrderPayload,
@@ -26,9 +27,20 @@ import {
   type CheckoutPaymentMethod,
 } from './domain/checkout';
 import { ActiveOrderNotice } from './components/ActiveOrderNotice';
+import { LoyaltyProgramCard } from './components/LoyaltyProgramCard';
+import { WhatsAppIcon } from './components/SocialBrandIcons';
 import ordersService from '../../Services/ordersService';
+import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
+import { useOrderQuote } from './hooks/useOrderQuote';
+import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
+import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
+type HomeNavigationState = {
+  openCart?: boolean;
+  loyaltyRedemptionId?: number;
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,9 +52,8 @@ export default function Home() {
     .trim()
     .toLowerCase();
   const resolvedRestaurantId = useResolvedRestaurantId(normalizedSlug);
-  const [cartOpen, setCartOpen] = useState(() =>
-    Boolean((location.state as { openCart?: boolean } | null)?.openCart),
-  );
+  const navigationState = (location.state as HomeNavigationState | null) || null;
+  const [cartOpen, setCartOpen] = useState(() => Boolean(navigationState?.openCart));
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('pix');
   const {
@@ -156,7 +167,40 @@ export default function Home() {
   const { cart, setCart, addToCart, increaseCart, decreaseCart, cartCount, cartTotal } = useCart(
     homeData.products,
     notify,
+    restaurantId,
   );
+  const isLoyaltyCustomer = user?.role === 'CLIENTE';
+  const loyalty = useLoyaltyRewards({
+    restaurantId,
+    enabled: isLoyaltyCustomer,
+    notify,
+  });
+  const loyaltyClock = useLoyaltyExpirationClock(loyalty.summary);
+  const [selectedRedemptionId, setSelectedRedemptionId] = useState<number | null>(() => {
+    const redemptionId = Number(navigationState?.loyaltyRedemptionId || 0);
+    return Number.isInteger(redemptionId) && redemptionId > 0 ? redemptionId : null;
+  });
+  const availableRedemptionIds = useMemo(
+    () =>
+      new Set(
+        loyaltyRedemptionEntries(loyalty.summary)
+          .filter(({ redemption }) => isUsableLoyaltyRedemption(redemption, loyaltyClock))
+          .map(({ redemption }) => redemption.id),
+      ),
+    [loyalty.summary, loyaltyClock],
+  );
+  const appliedRedemptionId =
+    selectedRedemptionId && availableRedemptionIds.has(selectedRedemptionId)
+      ? selectedRedemptionId
+      : null;
+  const checkoutOrderType = resolveOrderType(mesaMode, orderType);
+  const orderQuote = useOrderQuote({
+    restaurantId,
+    type: checkoutOrderType,
+    cart,
+    couponRedemptionId: appliedRedemptionId,
+  });
+  const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
   function applyPurchasedStockToHome() {
     const purchased = new Map(cart.map((item) => [String(item.productId), Number(item.quantity)]));
     setBackendProducts((products) =>
@@ -178,9 +222,13 @@ export default function Home() {
     useCheckoutPayments({
       restaurantId,
       pixProvider: settings?.pixProvider,
-      cartTotal,
+      cartTotal: checkoutTotal,
       notify,
-      onPurchased: applyPurchasedStockToHome,
+      onPurchased: () => {
+        applyPurchasedStockToHome();
+        setSelectedRedemptionId(null);
+        void loyalty.refresh();
+      },
       onClearCart: () => setCart([]),
       onCloseCart: () => setCartOpen(false),
     });
@@ -198,7 +246,7 @@ export default function Home() {
     }
 
     const customer = (user || {}) as Record<string, unknown>;
-    const type = resolveOrderType(mesaMode, orderType);
+    const type = checkoutOrderType;
 
     if (!mesaMode && !user) {
       navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
@@ -225,12 +273,26 @@ export default function Home() {
       tableId: routeTableId,
       customer,
       deliveryAddress,
+      couponRedemptionId: appliedRedemptionId,
     });
 
     await executePayment(payload, paymentMethod, payOnDelivery, resolvedPaymentMethod);
   }
 
   const primary = homeData.brand.primaryColor || '#d64d08';
+  const showLoginNudge = !user && !mesaMode && !nudgeDismissed;
+  const loyaltyProgram =
+    user?.role && !isLoyaltyCustomer
+      ? undefined
+      : {
+          primaryColor: primary,
+          loading: loyalty.loading,
+          summary: loyalty.summary,
+          loggedIn: isLoyaltyCustomer,
+          redeemingCouponId: loyalty.redeemingCouponId,
+          onLogin: () => navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`),
+          onRedeem: (couponId: number) => void loyalty.redeem(couponId),
+        };
 
   if (pixPaymentData) {
     return (
@@ -343,6 +405,21 @@ export default function Home() {
             )}
 
             {cart.length > 0 && (
+              <LoyaltyCouponPanel
+                loggedIn={isLoyaltyCustomer}
+                loading={loyalty.loading}
+                summary={loyalty.summary}
+                selectedRedemptionId={appliedRedemptionId}
+                redeemingCouponId={loyalty.redeemingCouponId}
+                onSelect={setSelectedRedemptionId}
+                onLogin={() =>
+                  navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+                }
+                onRedeem={(couponId) => void loyalty.redeem(couponId)}
+              />
+            )}
+
+            {cart.length > 0 && (
               <PaymentOptions
                 paymentMethod={paymentMethod}
                 allowPayOnDelivery={!mesaMode && orderType === 'delivery'}
@@ -354,6 +431,9 @@ export default function Home() {
           <CartCheckoutSummary
             count={cartCount}
             total={cartTotal}
+            quote={orderQuote.quote}
+            quoteLoading={orderQuote.loading}
+            quoteError={orderQuote.error}
             loading={checkoutLoading}
             paymentMethod={paymentMethod}
             isRestaurantOpen={homeData.isOpen}
@@ -362,23 +442,40 @@ export default function Home() {
         </S.CartFoot>
       </S.CartDrawer>
 
-
       <HomeFeedback
-        showLoginNudge={!user && !mesaMode && !nudgeDismissed}
+        showLoginNudge={showLoginNudge}
         notifications={notifs}
         onLogin={() => navigate('/login')}
         onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
       />
-      <ActiveOrderNotice
-        order={activeOrder}
-        onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
-        onConfirmDelivery={async (orderId) => {
-          await ordersService.confirmDeliveryReceived(orderId);
-          await refreshActiveOrder();
-          notify('success', 'Recebimento confirmado', 'A cozinha e o restaurante foram avisados.');
-        }}
-      />
+      <S.FloatingActions $aboveNudge={showLoginNudge} $primary={primary}>
+        {homeData.brand.whatsapp && (
+          <S.Whatsapp
+            href={`https://wa.me/${homeData.brand.whatsapp}`}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Falar no WhatsApp"
+          >
+            <WhatsAppIcon size={24} />
+          </S.Whatsapp>
+        )}
+        {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
+        <ActiveOrderNotice
+          primaryColor={primary}
+          order={activeOrder}
+          onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+          onConfirmDelivery={async (orderId) => {
+            await ordersService.confirmDeliveryReceived(orderId);
+            await refreshActiveOrder();
+            notify(
+              'success',
+              'Recebimento confirmado',
+              'A cozinha e o restaurante foram avisados.',
+            );
+          }}
+        />
+      </S.FloatingActions>
     </>
   );
 }

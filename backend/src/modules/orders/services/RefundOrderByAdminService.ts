@@ -5,6 +5,7 @@ import { notifyCustomerOrderStatusChanged } from '../../../services/customerNoti
 import orderRepository from '../repositories/OrderRepository.js';
 import refundOrderPaymentService from './RefundOrderPaymentService.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
 import {
   getOrderIssueThread,
   resolveOrderIssueThread,
@@ -85,14 +86,18 @@ class RefundOrderByAdminService {
     }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      await restoreOrderItemsStock(tx, order);
-
-      return orderRepository.updateStatus(
+      const cancelledOrder = await orderRepository.updateStatusIfCurrent(
         order.id,
         OrderStatus.CANCELADO,
         normalizedRestaurantId,
+        { status: order.status, paid: order.paid },
         tx,
       );
+
+      await restoreOrderItemsStock(tx, order);
+      await releaseCouponRedemptionForOrder(order.id, normalizedRestaurantId, tx);
+
+      return cancelledOrder;
     });
 
     const resolvedByName = String(adminUser?.name || 'Admin').trim() || 'Admin';

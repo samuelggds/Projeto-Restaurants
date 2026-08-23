@@ -12,6 +12,7 @@ type ProductRatingUpsertData = {
 
 const productConfigurationInclude = {
   category: true,
+  discount: true,
   ingredients: { orderBy: { id: 'asc' as const } },
   optionGroups: {
     orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 
 class StripeOrderWebhookController {
   async handle(req: Request, res: Response) {
@@ -63,8 +64,12 @@ class StripeOrderWebhookController {
         'checkout.session.completed',
         'checkout.session.async_payment_succeeded',
       ]);
+      const terminalFailureEventTypes = new Set([
+        'checkout.session.expired',
+        'checkout.session.async_payment_failed',
+      ]);
 
-      if (!allowedEventTypes.has(eventType) || paymentStatus !== 'paid') {
+      if (!allowedEventTypes.has(eventType) && !terminalFailureEventTypes.has(eventType)) {
         return res.sendStatus(200);
       }
 
@@ -76,6 +81,18 @@ class StripeOrderWebhookController {
         return res.status(400).json({
           error: 'Webhook Stripe invalido: metadata orderId/restaurantId obrigatoria.',
         });
+      }
+
+      if (terminalFailureEventTypes.has(eventType)) {
+        await failPendingOrderPaymentService.execute({
+          orderId: metadataOrderId,
+          restaurantId: metadataRestaurantId,
+        });
+        return res.sendStatus(200);
+      }
+
+      if (paymentStatus !== 'paid') {
+        return res.sendStatus(200);
       }
 
       await finalizeOrderCardPaymentService.execute({

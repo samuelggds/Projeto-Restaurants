@@ -44,6 +44,7 @@ model User {
   supportChatMessages        SupportChatMessage[]
   productFavorites           ProductFavorite[]
   addresses                  UserAddress[]
+  couponRedemptions          CouponRedemption[]
 }
 
 model UserAddress {
@@ -94,6 +95,7 @@ model Restaurant {
   invoices            Invoice[]
   orders              Order[]
   products            Product[]
+  productDiscounts    ProductDiscount[]
   ingredients         Ingredient[]
   productOptionGroups ProductOptionGroup[]
   ratings             ProductRating[]
@@ -103,6 +105,7 @@ model Restaurant {
   tables              Table[]
   users               User[]
   orderIssueThreads   OrderIssueThread[]
+  couponRedemptions   CouponRedemption[]
 }
 
 model SupportChatMessage {
@@ -140,32 +143,57 @@ model Category {
 }
 
 model Product {
-  id              Int               @id @default(autoincrement())
+  id              Int                  @id @default(autoincrement())
   name            String
   description     String?
   image           String?
-  price           Decimal           @db.Decimal(10, 2)
-  active          Boolean           @default(true)
-  featured        Boolean           @default(false)
+  price           Decimal              @db.Decimal(10, 2)
+  active          Boolean              @default(true)
+  featured        Boolean              @default(false)
   preparationTime Int?
   stock           Int?
   restaurantId    Int
   categoryId      Int
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   items           OrderItem[]
-  category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category        Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant      Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ratings         ProductRating[]
   favorites       ProductFavorite[]
-  saleMode        ProductSaleMode @default(BUILDABLE)
+  saleMode        ProductSaleMode      @default(BUILDABLE)
   ingredients     ProductIngredient[]
   optionGroups    ProductOptionGroup[]
+  discount        ProductDiscount?
+}
+
+model ProductDiscount {
+  id           Int          @id @default(autoincrement())
+  restaurantId Int
+  productId    Int          @unique
+  kind         DiscountKind
+  value        Decimal      @db.Decimal(10, 2)
+  label        String?
+  active       Boolean      @default(true)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, active])
+  @@index([restaurantId, startsAt, endsAt])
 }
 
 enum ProductSaleMode {
   COMPLETE
   BUILDABLE
+}
+
+enum DiscountKind {
+  FIXED
+  PERCENTAGE
 }
 
 model ProductIngredient {
@@ -207,22 +235,22 @@ enum ProductOptionSelectionType {
 }
 
 model ProductOptionGroup {
-  id              Int                        @id @default(autoincrement())
-  restaurantId    Int
-  productId       Int
-  name            String
-  description     String?
-  required        Boolean                    @default(false)
-  selectionType   ProductOptionSelectionType @default(SINGLE)
-  minSelections   Int                        @default(0)
-  maxSelections   Int                        @default(1)
-  position        Int                        @default(0)
-  active          Boolean                    @default(true)
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  restaurant      Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  product         Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  options         ProductOption[]
+  id            Int                        @id @default(autoincrement())
+  restaurantId  Int
+  productId     Int
+  name          String
+  description   String?
+  required      Boolean                    @default(false)
+  selectionType ProductOptionSelectionType @default(SINGLE)
+  minSelections Int                        @default(0)
+  maxSelections Int                        @default(1)
+  position      Int                        @default(0)
+  active        Boolean                    @default(true)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  restaurant    Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product       Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options       ProductOption[]
 
   @@unique([productId, name])
   @@index([restaurantId, active])
@@ -353,9 +381,19 @@ model Order {
   items                           OrderItem[]
   issueThread                     OrderIssueThread?
   deliveryLocations               DeliveryLocation[]
+  itemsSubtotal                   Decimal            @default(0) @db.Decimal(10, 2)
+  productDiscountTotal            Decimal            @default(0) @db.Decimal(10, 2)
+  couponDiscount                  Decimal            @default(0) @db.Decimal(10, 2)
+  deliveryFeeAmount               Decimal            @default(0) @db.Decimal(10, 2)
+  couponId                        Int?
+  couponRedemptionId              Int?               @unique
+  couponCode                      String?
+  coupon                          Coupon?            @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponRedemption                CouponRedemption?  @relation(fields: [couponRedemptionId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, status, assignedCourierId])
   @@index([assignedCourierId, deliveryStartedAt])
+  @@index([restaurantId, userId, status, paid, deliveredAt])
 }
 
 model OrderIssueThread {
@@ -399,16 +437,18 @@ model OrderIssueMessage {
 }
 
 model OrderItem {
-  id          Int     @id @default(autoincrement())
-  quantity    Int
-  orderId     Int
-  observation String?
-  price       Decimal @db.Decimal(10, 2)
-  productId   Int
-  ingredients Json?
-  customizations Json?
-  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                Int      @id @default(autoincrement())
+  quantity          Int
+  orderId           Int
+  observation       String?
+  price             Decimal  @db.Decimal(10, 2)
+  productId         Int
+  ingredients       Json?
+  customizations    Json?
+  originalUnitPrice Decimal? @db.Decimal(10, 2)
+  unitDiscount      Decimal  @default(0) @db.Decimal(10, 2)
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model RestaurantSettings {
@@ -521,15 +561,52 @@ model Banner {
 }
 
 model Coupon {
-  id           Int        @id @default(autoincrement())
-  code         String
-  discount     Decimal    @db.Decimal(10, 2)
-  active       Boolean    @default(true)
-  expiration   DateTime?
-  restaurantId Int
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                       Int                @id @default(autoincrement())
+  code                     String
+  title                    String?
+  description              String?
+  discount                 Decimal            @db.Decimal(10, 2)
+  discountType             DiscountKind       @default(FIXED)
+  minimumSubtotal          Decimal            @default(0) @db.Decimal(10, 2)
+  maxDiscount              Decimal?           @db.Decimal(10, 2)
+  loyaltyPurchasesRequired Int                @default(1)
+  perCustomerLimit         Int                @default(1)
+  redemptionValidityDays   Int                @default(30)
+  active                   Boolean            @default(true)
+  expiration               DateTime?
+  restaurantId             Int
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  restaurant               Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  redemptions              CouponRedemption[]
+  orders                   Order[]
 
   @@unique([restaurantId, code])
+  @@index([restaurantId, active, expiration])
+}
+
+model CouponRedemption {
+  id           Int                    @id @default(autoincrement())
+  restaurantId Int
+  couponId     Int
+  userId       Int
+  cycle        Int
+  status       CouponRedemptionStatus @default(CLAIMED)
+  claimedAt    DateTime               @default(now())
+  expiresAt    DateTime
+  reservedAt   DateTime?
+  usedAt       DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  coupon       Coupon                 @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order        Order?
+
+  @@unique([restaurantId, couponId, userId, cycle])
+  @@index([restaurantId, userId, status])
+  @@index([restaurantId, userId, status, expiresAt])
+  @@index([couponId, status])
 }
 
 model Subscription {
@@ -670,6 +747,13 @@ enum SupportChatSenderRole {
   SUPER_ADMIN
   FUNCIONARIO
   MOTOQUEIRO
+}
+
+enum CouponRedemptionStatus {
+  CLAIMED
+  RESERVED
+  USED
+  EXPIRED
 }
 
 enum PlanType {

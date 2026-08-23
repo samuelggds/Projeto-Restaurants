@@ -1,4 +1,60 @@
-import type { Order, OrderChannel, OrderStatus, RestaurantBrand } from '../kitchen/types';
+import type {
+  Order,
+  OrderChannel,
+  OrderItemCustomization,
+  OrderStatus,
+  RestaurantBrand,
+} from '../kitchen/types';
+
+type GenericRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): GenericRecord | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as GenericRecord)
+    : undefined;
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function optionName(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  const option = asRecord(value);
+  const ingredient = asRecord(option?.ingredient);
+  return text(option?.name || option?.label || ingredient?.name);
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function itemCustomizations(item: GenericRecord): OrderItemCustomization[] {
+  const structured = asArray(item.customizations).flatMap((value, index) => {
+    const group = asRecord(value);
+    if (!group) return [];
+    const options = unique(asArray(group.options).map(optionName));
+    if (!options.length) return [];
+
+    return [
+      {
+        groupName: text(group.groupName || group.name || group.label) || `Escolha ${index + 1}`,
+        options,
+      },
+    ];
+  });
+
+  if (structured.length) return structured;
+
+  const legacyIngredients = unique(asArray(item.ingredients).map(optionName));
+  return legacyIngredients.length
+    ? [{ groupName: 'Itens escolhidos', options: legacyIngredients }]
+    : [];
+}
 
 export function formatElapsed(createdAt: string, now = Date.now()): string {
   const diff = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 1000));
@@ -27,10 +83,24 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
         : channel === 'DELIVERY'
           ? 'Delivery'
           : 'Retirada';
-    const items = ((record.items as Record<string, unknown>[]) || []).map((item) => {
-      const product = item.product as Record<string, unknown> | undefined;
-      return `${item.quantity}× ${product?.name || item.productName || ''}`;
+    const itemDetails = asArray(record.items).flatMap((value) => {
+      const item = asRecord(value);
+      if (!item) return [];
+      const product = asRecord(item.product);
+      const name = text(product?.name || item.productName || item.name || item.title);
+      const parsedQuantity = Number(item.quantity);
+      const quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+
+      return [
+        {
+          name: name || 'Produto',
+          quantity,
+          customizations: itemCustomizations(item),
+          observation: text(item.observation || item.notes) || undefined,
+        },
+      ];
     });
+    const items = itemDetails.map((item) => `${item.quantity}× ${item.name}`);
     const createdAt = String(record.createdAt || '');
     return {
       id: `#${record.id}`,
@@ -40,6 +110,7 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
         String((record.user as Record<string, unknown>)?.name || record.customerName || '') ||
         undefined,
       items,
+      itemDetails,
       createdAt: createdAt
         ? new Date(createdAt).toLocaleTimeString('pt-BR', {
             hour: '2-digit',

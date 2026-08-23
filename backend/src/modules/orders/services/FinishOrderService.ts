@@ -3,11 +3,12 @@ import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import { io } from '../../../server.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
-import { resolveOrderItemCustomizations } from '../utils/productIngredients.js';
+import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import { PaymentMethod, Prisma, TableSessionStatus, OrderType } from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { z } from 'zod';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -171,10 +172,10 @@ class CreateOrderService {
     paymentProofImage,
     complement,
   }: CreateOrderPayload) {
-    const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || null;
-    if (!resolvedRestaurantId) {
-      throw new Error('Restaurante não informado para o pedido');
-    }
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: restaurantId,
+      contextRestaurantId: userRestaurantId,
+    });
 
     createOrderSchema.parse({
       restaurantId: resolvedRestaurantId,
@@ -285,23 +286,9 @@ class CreateOrderService {
         }
       });
 
-      const orderItems = items.map((item: OrderItemInput, index: number) => {
-        const product = products[index];
-        const resolved = resolveOrderItemCustomizations(product, {
-          ingredientIds: item.ingredientIds,
-          optionIds: item.optionIds,
-          selectedOptions: item.selectedOptions,
-        });
-
-        return {
-          productId: product.id,
-          quantity: item.quantity,
-          price: resolved.price,
-          observation: item.observation,
-          ingredients: resolved.ingredients,
-          customizations: resolved.customizations,
-        };
-      });
+      const orderItems = items.map((item: OrderItemInput, index: number) =>
+        buildOrderItemCustomizationSnapshot(products[index], item),
+      );
 
       const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 

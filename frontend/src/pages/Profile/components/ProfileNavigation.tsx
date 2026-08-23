@@ -6,6 +6,7 @@ import {
   LogOut,
   MapPin,
   ShoppingBag,
+  TicketPercent,
   UserRound,
 } from 'lucide-react';
 import type { ProfilePageProps, ProfileView } from '../types';
@@ -15,6 +16,7 @@ import { profileTabs } from '../config/profileTabs';
 const icons = {
   overview: Grid2X2,
   orders: ShoppingBag,
+  coupons: TicketPercent,
   addresses: MapPin,
   favorites: Heart,
   personalData: UserRound,

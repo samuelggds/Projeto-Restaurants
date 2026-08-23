@@ -1,9 +1,7 @@
 ﻿import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
-import productRepository from '../../products/repositories/ProductRepository.js';
 import { io } from '../../../server.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
-import { resolveOrderItemCustomizations } from '../utils/productIngredients.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
 import { PaymentMethod, Prisma, TableSessionStatus, OrderType, OrderStatus } from '@prisma/client';
@@ -12,6 +10,12 @@ import { z } from 'zod';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
 import { assertOrderCapacity } from '../utils/orderCapacity.js';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import orderPricingService from './OrderPricingService.js';
+import {
+  markCouponRedemptionUsedForOrder,
+  reserveCouponRedemption,
+} from './couponRedemptionLifecycle.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -34,6 +38,7 @@ type CreateOrderPayload = {
   customerCpf?: string;
   customerPhone?: string;
   tableId?: number | string | null;
+  couponRedemptionId?: number | string | null;
   items: OrderItemInput[];
   address?: string;
   number?: string;
@@ -238,6 +243,7 @@ class CreateOrderService {
     customerCpf,
     customerPhone,
     tableId,
+    couponRedemptionId,
     items,
     address,
     number,
@@ -248,9 +254,19 @@ class CreateOrderService {
     paymentProofImage,
     complement,
   }: CreateOrderPayload) {
-    const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || null;
-    if (!resolvedRestaurantId) {
-      throw new Error('Restaurante não informado para o pedido');
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: restaurantId,
+      contextRestaurantId: userRestaurantId,
+    });
+
+    if (paid === true) {
+      throw new Error(
+        'O pagamento só pode ser confirmado pelo provedor ou pelo fluxo administrativo seguro.',
+      );
+    }
+
+    if (String(pixPaymentId || '').trim()) {
+      throw new Error('O identificador PIX só pode ser vinculado pelo provedor de pagamento.');
     }
 
     const restaurantSettings =
@@ -293,6 +309,7 @@ class CreateOrderService {
       paymentProof,
       observation,
       tableId,
+      couponRedemptionId,
       items,
       address,
       number,
@@ -387,54 +404,15 @@ class CreateOrderService {
         customerPhone,
       });
 
-      const products = await Promise.all(
-        items.map((item) => productRepository.findById(item.productId, resolvedRestaurantId, tx)),
-      );
-
-      products.forEach((product, index) => {
-        const item = items[index];
-
-        if (!product) {
-          throw new Error(`Produto não encontrado: ${items[index].productId}`);
-        }
-
-        if (product.active === false) {
-          throw new Error(`Produto indisponível: ${product.name}`);
-        }
-
-        const quantity = Number(item.quantity || 0);
-
-        if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Quantidade inválida para ${product.name}.`);
-        }
-
-        const stockValue =
-          product.stock === null || product.stock === undefined ? null : Number(product.stock);
-
-        if (Number.isInteger(stockValue) && stockValue >= 0 && quantity > stockValue) {
-          throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`);
-        }
+      const pricing = await orderPricingService.quote({
+        restaurantId: resolvedRestaurantId,
+        userId: resolvedUserId,
+        type,
+        items,
+        couponRedemptionId,
+        db: tx,
       });
-
-      const orderItems = items.map((item: OrderItemInput, index: number) => {
-        const product = products[index];
-        const resolved = resolveOrderItemCustomizations(product, {
-          ingredientIds: item.ingredientIds,
-          optionIds: item.optionIds,
-          selectedOptions: item.selectedOptions,
-        });
-
-        return {
-          productId: product.id,
-          quantity: item.quantity,
-          price: resolved.price,
-          observation: item.observation,
-          ingredients: resolved.ingredients,
-          customizations: resolved.customizations,
-        };
-      });
-
-      const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+      const { products, orderItems } = pricing;
 
       const formattedCpf = this.formatCpf(customerCpf);
       const guestSummary =
@@ -452,7 +430,14 @@ class CreateOrderService {
 
       const order = await orderRepository.create(
         {
-          total,
+          total: pricing.total,
+          itemsSubtotal: pricing.itemsSubtotal,
+          productDiscountTotal: pricing.productDiscountTotal,
+          couponDiscount: pricing.couponDiscount,
+          deliveryFeeAmount: pricing.deliveryFeeAmount,
+          couponId: pricing.couponId,
+          couponRedemptionId: pricing.couponRedemptionId,
+          couponCode: pricing.couponCode,
           systemFee: 0,
           type,
           paymentMethod: effectivePaymentMethod,
@@ -480,6 +465,17 @@ class CreateOrderService {
         tx,
       );
 
+      await reserveCouponRedemption({
+        redemptionId: pricing.couponRedemptionId,
+        restaurantId: resolvedRestaurantId,
+        userId: resolvedUserId,
+        db: tx,
+      });
+
+      if (shouldMarkAsPaid) {
+        await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
+      }
+
       await tx.orderItem.createMany({
         data: orderItems.map((item) => ({
           ...item,
@@ -487,29 +483,42 @@ class CreateOrderService {
         })),
       });
 
-      await Promise.all(
-        orderItems.map(async (item, index) => {
-          const product = products[index];
-          const stockValue =
-            product.stock === null || product.stock === undefined ? null : Number(product.stock);
+      const requestedQuantityByProduct = new Map<number, number>();
+      orderItems.forEach((item) => {
+        requestedQuantityByProduct.set(
+          item.productId,
+          (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity),
+        );
+      });
 
-          if (!Number.isInteger(stockValue) || stockValue < 0) {
-            return;
-          }
+      for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
+        const product = products.find((candidate) => candidate.id === productId)!;
+        const stockValue =
+          product.stock === null || product.stock === undefined ? null : Number(product.stock);
 
-          const nextStock = Math.max(stockValue - Number(item.quantity || 0), 0);
+        if (!Number.isInteger(stockValue) || stockValue < 0) {
+          continue;
+        }
 
-          await tx.product.update({
-            where: {
-              id: Number(product.id),
-            },
-            data: {
-              stock: nextStock,
-              active: nextStock === 0 ? false : Boolean(product.active),
-            },
-          });
-        }),
-      );
+        const decremented = await tx.product.updateMany({
+          where: {
+            id: productId,
+            restaurantId: resolvedRestaurantId,
+            stock: { gte: requestedQuantity },
+          },
+          data: {
+            stock: { decrement: requestedQuantity },
+          },
+        });
+        if (decremented.count !== 1) {
+          throw new Error(`Estoque de ${product.name} mudou. Confira a quantidade e tente novamente.`);
+        }
+
+        await tx.product.updateMany({
+          where: { id: productId, restaurantId: resolvedRestaurantId, stock: 0 },
+          data: { active: false },
+        });
+      }
 
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
     });

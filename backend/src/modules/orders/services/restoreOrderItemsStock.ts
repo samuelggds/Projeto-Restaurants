@@ -12,6 +12,7 @@ type OrderLike = {
 
 export async function restoreOrderItemsStock(tx: TransactionClient, order: OrderLike) {
   const items = Array.isArray(order?.items) ? order.items : [];
+  const quantityByProduct = new Map<number, number>();
 
   for (const item of items) {
     const productId = Number(item?.productId || 0);
@@ -25,35 +26,19 @@ export async function restoreOrderItemsStock(tx: TransactionClient, order: Order
       continue;
     }
 
-    const product = await tx.product.findFirst({
+    quantityByProduct.set(productId, (quantityByProduct.get(productId) || 0) + quantity);
+  }
+
+  for (const [productId, quantity] of quantityByProduct) {
+    // Null/negative stock means unlimited and is intentionally left untouched.
+    await tx.product.updateMany({
       where: {
         id: productId,
         restaurantId: Number(order.restaurantId),
-      },
-      select: {
-        id: true,
-        stock: true,
-      },
-    });
-
-    if (!product) {
-      continue;
-    }
-
-    const stockValue =
-      product.stock === null || product.stock === undefined ? null : Number(product.stock);
-
-    // Produtos sem controle de estoque (null) não devem ser alterados.
-    if (!Number.isInteger(stockValue) || stockValue < 0) {
-      continue;
-    }
-
-    await tx.product.update({
-      where: {
-        id: product.id,
+        stock: { gte: 0 },
       },
       data: {
-        stock: stockValue + quantity,
+        stock: { increment: quantity },
         active: true,
       },
     });

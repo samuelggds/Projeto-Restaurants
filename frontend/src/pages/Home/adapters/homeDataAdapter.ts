@@ -113,6 +113,52 @@ export function resolveProductImage(product: Record<string, unknown>, index: num
   return PRODUCT_FALLBACKS[index % PRODUCT_FALLBACKS.length];
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+export function mapProductPricingFromApi(product: Record<string, unknown>) {
+  const pricing = asRecord(product.pricing);
+  const discount = asRecord(product.discount);
+  const originalBasePrice = Number(pricing.originalBasePrice ?? product.price ?? 0);
+  const effectiveCandidate = Number(pricing.effectiveBasePrice ?? originalBasePrice);
+  const effectiveBasePrice =
+    Number.isFinite(effectiveCandidate) && effectiveCandidate >= 0
+      ? effectiveCandidate
+      : originalBasePrice;
+  const active =
+    pricing.active === true &&
+    Number.isFinite(originalBasePrice) &&
+    effectiveBasePrice < originalBasePrice;
+  const discountAmount = active
+    ? Number(pricing.discountAmount ?? originalBasePrice - effectiveBasePrice)
+    : 0;
+  const discountPercentage = active
+    ? Number(
+        pricing.discountPercentage ??
+          (originalBasePrice > 0 ? (discountAmount / originalBasePrice) * 100 : 0),
+      )
+    : 0;
+
+  return {
+    originalBasePrice,
+    effectiveBasePrice: active ? effectiveBasePrice : originalBasePrice,
+    promotion: active
+      ? {
+          active: true,
+          discountAmount,
+          discountPercentage,
+          badgeLabel:
+            String(pricing.badgeLabel || discount.badgeLabel || '').trim() ||
+            `${Math.round(discountPercentage)}% OFF`,
+          endsAt: String(pricing.endsAt || discount.endsAt || '').trim() || undefined,
+        }
+      : undefined,
+  };
+}
+
 export function buildHomeData(
   productsFromApi: Record<string, unknown>[],
   settings: Record<string, unknown> | null,
@@ -148,23 +194,33 @@ export function buildHomeData(
     email: String(settings?.ownerEmail || ''),
     logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : '',
   };
-  const products: HomeProduct[] = productsFromApi.map((product, index) => ({
-    id: String(product.id),
-    categoryId: String((product.category as { name?: string })?.name || 'outros'),
-    name: String(product.name || ''),
-    description: String(product.description || ''),
-    price: Number(product.price || 0),
-    image: resolveProductImage(product, index),
-    rating: Number(product.averageRating || 0),
-    stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
-    available: !isProductUnavailable(product),
-    ingredients: Array.isArray(product.ingredients)
-      ? product.ingredients.filter((item) => (item as { active?: boolean }).active !== false).map((item) => ({
-          id: String((item as { id: unknown }).id), name: String((item as { name: unknown }).name),
-          price: Number((item as { price: unknown }).price || 0), required: Boolean((item as { required?: unknown }).required),
-        })) : [],
-    optionGroups: mapProductOptionGroupsFromApi(product),
-  }));
+  const products: HomeProduct[] = productsFromApi.map((product, index) => {
+    const pricing = mapProductPricingFromApi(product);
+    return {
+      id: String(product.id),
+      categoryId: String((product.category as { name?: string })?.name || 'outros'),
+      name: String(product.name || ''),
+      description: String(product.description || ''),
+      price: pricing.effectiveBasePrice,
+      originalPrice: pricing.originalBasePrice,
+      promotion: pricing.promotion,
+      image: resolveProductImage(product, index),
+      rating: Number(product.averageRating || 0),
+      stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
+      available: !isProductUnavailable(product),
+      ingredients: Array.isArray(product.ingredients)
+        ? product.ingredients
+            .filter((item) => (item as { active?: boolean }).active !== false)
+            .map((item) => ({
+              id: String((item as { id: unknown }).id),
+              name: String((item as { name: unknown }).name),
+              price: Number((item as { price: unknown }).price || 0),
+              required: Boolean((item as { required?: unknown }).required),
+            }))
+        : [],
+      optionGroups: mapProductOptionGroupsFromApi(product),
+    };
+  });
   const seen = new Set<string>();
   const categories: HomeCategory[] = [
     { id: 'todos', name: 'Todos', image: '' },

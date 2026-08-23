@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildOrderPayload, resolveOrderType, validateCheckout } from './checkout';
+import {
+  buildOrderPayload,
+  buildOrderQuotePayload,
+  resolveOrderType,
+  validateCheckout,
+} from './checkout';
 
 const address = {
   address: 'Rua A',
@@ -56,5 +61,33 @@ describe('checkout', () => {
       resolvedPaymentMethod: 'PIX',
       payload: { state: 'CE', items: [{ productId: 12, quantity: 2 }] },
     });
+  });
+
+  it('leva o resgate escolhido para a cotação e para o pedido sem enviar preço do navegador', () => {
+    const cart = [{ productId: '12', name: 'Pizza', price: 1, quantity: 2, image: '' }];
+    expect(
+      buildOrderQuotePayload({
+        restaurantId: 7,
+        type: 'RETIRADA',
+        cart,
+        couponRedemptionId: 91,
+      }),
+    ).toEqual({
+      restaurantId: 7,
+      type: 'RETIRADA',
+      couponRedemptionId: 91,
+      items: [{ productId: 12, quantity: 2 }],
+    });
+    const order = buildOrderPayload({
+      restaurantId: 7,
+      type: 'RETIRADA',
+      paymentMethod: 'pix',
+      cart,
+      customer: {},
+      deliveryAddress: address,
+      couponRedemptionId: 91,
+    });
+    expect(order.payload).toMatchObject({ couponRedemptionId: 91 });
+    expect(order.payload.items[0]).not.toHaveProperty('price');
   });
 });

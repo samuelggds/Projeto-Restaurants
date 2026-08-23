@@ -1963,6 +1963,7 @@ var CreateProductController_default = new CreateProductController();
 // src/modules/products/repositories/ProductRepository.ts
 var productConfigurationInclude = {
   category: true,
+  discount: true,
   ingredients: { orderBy: { id: "asc" } },
   optionGroups: {
     orderBy: [{ position: "asc" }, { id: "asc" }],
@@ -2307,6 +2308,47 @@ var RestaurantRepository = class {
 };
 var RestaurantRepository_default = new RestaurantRepository();
 
+// src/modules/products/utils/productDiscount.ts
+function roundMoney(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new Error("Valor monet\xE1rio inv\xE1lido.");
+  }
+  return Math.round((numeric + Number.EPSILON) * 100) / 100;
+}
+function validDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+function resolveProductBasePricing(product, now = /* @__PURE__ */ new Date()) {
+  const originalBasePrice = Math.max(roundMoney(product.price), 0);
+  const discount = product.discount;
+  const startsAt = validDate(discount?.startsAt);
+  const endsAt = validDate(discount?.endsAt);
+  const isWithinPeriod = (!startsAt || startsAt <= now) && (!endsAt || endsAt > now);
+  const configuredValue = Number(discount?.value || 0);
+  const kind = String(discount?.kind || "").toUpperCase();
+  const hasValidConfiguration = discount?.active === true && isWithinPeriod && Number.isFinite(configuredValue) && configuredValue > 0 && (kind === "FIXED" || kind === "PERCENTAGE");
+  let discountAmount = 0;
+  if (hasValidConfiguration) {
+    discountAmount = kind === "PERCENTAGE" ? roundMoney(originalBasePrice * (Math.min(configuredValue, 100) / 100)) : roundMoney(Math.min(configuredValue, originalBasePrice));
+  }
+  const effectiveBasePrice = roundMoney(Math.max(originalBasePrice - discountAmount, 0));
+  const discountPercentage = originalBasePrice > 0 ? roundMoney(discountAmount / originalBasePrice * 100) : 0;
+  const active = discountAmount > 0;
+  const configuredLabel = String(discount?.label || "").trim();
+  return {
+    originalBasePrice,
+    effectiveBasePrice,
+    discountAmount,
+    discountPercentage,
+    badgeLabel: active ? configuredLabel || `${Math.max(Math.round(discountPercentage), 1)}% OFF` : null,
+    active,
+    endsAt: active && endsAt ? endsAt : null
+  };
+}
+
 // src/modules/products/services/ListProductService.ts
 var ListProductsService = class {
   async execute({ restaurantId, slug }) {
@@ -2321,13 +2363,18 @@ var ListProductsService = class {
     const products = await ProductRepository_default.findAll(normalizedRestaurantId);
     const normalizedProducts = products.map((product) => {
       const stockValue = product?.stock === null || product?.stock === void 0 ? null : Number(product.stock);
+      const pricing = resolveProductBasePricing(product);
       if (Number.isFinite(stockValue) && stockValue <= 0) {
         return {
           ...product,
-          active: false
+          active: false,
+          pricing
         };
       }
-      return product;
+      return {
+        ...product,
+        pricing
+      };
     });
     return {
       products: normalizedProducts,
@@ -2456,6 +2503,150 @@ var RateProductController = class {
 };
 var RateProductController_default = new RateProductController();
 
+// src/validators/ProductDiscountValidator.ts
+import { z as z5 } from "zod";
+var optionalDate = z5.union([z5.string().datetime({ offset: true }), z5.date(), z5.null()]).optional().transform((value) => {
+  if (value === null || value === void 0) return null;
+  return value instanceof Date ? value : new Date(value);
+});
+var upsertProductDiscountSchema = z5.object({
+  kind: z5.enum(["FIXED", "PERCENTAGE"]),
+  value: z5.coerce.number().positive("Informe um desconto maior que zero.").max(999999),
+  label: z5.string().trim().max(40, "O aviso pode ter no m\xE1ximo 40 caracteres.").optional(),
+  active: z5.boolean().optional().default(true),
+  startsAt: optionalDate,
+  endsAt: optionalDate
+}).superRefine((data, ctx) => {
+  if (data.kind === "PERCENTAGE" && data.value >= 100) {
+    ctx.addIssue({
+      code: z5.ZodIssueCode.custom,
+      path: ["value"],
+      message: "O desconto percentual deve ser menor que 100%."
+    });
+  }
+  if (data.startsAt && data.endsAt && data.startsAt >= data.endsAt) {
+    ctx.addIssue({
+      code: z5.ZodIssueCode.custom,
+      path: ["endsAt"],
+      message: "O t\xE9rmino da oferta deve ser posterior ao in\xEDcio."
+    });
+  }
+});
+
+// src/modules/products/services/UpsertProductDiscountService.ts
+var UpsertProductDiscountService = class {
+  async execute({
+    productId,
+    restaurantId,
+    input
+  }) {
+    const normalizedProductId = Number(productId);
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    if (!Number.isInteger(normalizedProductId) || normalizedProductId <= 0) {
+      throw new Error("Produto inv\xE1lido.");
+    }
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error("Restaurante inv\xE1lido.");
+    }
+    const data = upsertProductDiscountSchema.parse(input);
+    const product = await prisma_default.product.findFirst({
+      where: { id: normalizedProductId, restaurantId: normalizedRestaurantId },
+      select: { id: true, price: true }
+    });
+    if (!product) {
+      throw new Error("Produto n\xE3o encontrado neste restaurante.");
+    }
+    if (data.kind === "FIXED" && data.value >= Number(product.price)) {
+      throw new Error("O desconto fixo deve ser menor que o pre\xE7o-base do produto.");
+    }
+    return prisma_default.productDiscount.upsert({
+      where: { productId: normalizedProductId },
+      update: {
+        kind: data.kind,
+        value: data.value,
+        label: data.label || null,
+        active: data.active,
+        startsAt: data.startsAt,
+        endsAt: data.endsAt
+      },
+      create: {
+        restaurantId: normalizedRestaurantId,
+        productId: normalizedProductId,
+        kind: data.kind,
+        value: data.value,
+        label: data.label || null,
+        active: data.active,
+        startsAt: data.startsAt,
+        endsAt: data.endsAt
+      }
+    });
+  }
+};
+var UpsertProductDiscountService_default = new UpsertProductDiscountService();
+
+// src/modules/products/controllers/UpsertProductDiscountController.ts
+var UpsertProductDiscountController = class {
+  async handle(req, res) {
+    try {
+      const discount = await UpsertProductDiscountService_default.execute({
+        productId: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
+        restaurantId: req.user.restaurantId,
+        input: req.body
+      });
+      return res.status(200).json(discount);
+    } catch (error2) {
+      return res.status(400).json({
+        error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel salvar o desconto."
+      });
+    }
+  }
+};
+var UpsertProductDiscountController_default = new UpsertProductDiscountController();
+
+// src/modules/products/services/DeleteProductDiscountService.ts
+var DeleteProductDiscountService = class {
+  async execute(productId, restaurantId) {
+    const normalizedProductId = Number(productId);
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    if (!Number.isInteger(normalizedProductId) || normalizedProductId <= 0) {
+      throw new Error("Produto inv\xE1lido.");
+    }
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error("Restaurante inv\xE1lido.");
+    }
+    const product = await prisma_default.product.findFirst({
+      where: { id: normalizedProductId, restaurantId: normalizedRestaurantId },
+      select: { id: true }
+    });
+    if (!product) {
+      throw new Error("Produto n\xE3o encontrado neste restaurante.");
+    }
+    await prisma_default.productDiscount.deleteMany({
+      where: { productId: normalizedProductId, restaurantId: normalizedRestaurantId }
+    });
+    return { message: "Desconto removido com sucesso." };
+  }
+};
+var DeleteProductDiscountService_default = new DeleteProductDiscountService();
+
+// src/modules/products/controllers/DeleteProductDiscountController.ts
+var DeleteProductDiscountController = class {
+  async handle(req, res) {
+    try {
+      const result = await DeleteProductDiscountService_default.execute(
+        Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
+        req.user.restaurantId
+      );
+      return res.status(200).json(result);
+    } catch (error2) {
+      return res.status(400).json({
+        error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel remover o desconto."
+      });
+    }
+  }
+};
+var DeleteProductDiscountController_default = new DeleteProductDiscountController();
+
 // src/middlewares/adminMiddleware.ts
 import { UserRole as UserRole4 } from "@prisma/client";
 function adminMiddleware(req, res, next) {
@@ -2526,6 +2717,18 @@ router2.get("/", publicRestaurantBillingMiddleware, ListProductController_defaul
 router2.get("/ratings", ListProductRatingsController_default.handle);
 router2.post("/:id/rating", RateProductController_default.handle);
 router2.put("/:id", authMiddleware, adminMiddleware, UpdateProductController_default.handle);
+router2.put(
+  "/:id/discount",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => UpsertProductDiscountController_default.handle(req, res)
+);
+router2.delete(
+  "/:id/discount",
+  authMiddleware,
+  adminMiddleware,
+  (req, res) => DeleteProductDiscountController_default.handle(req, res)
+);
 router2.delete("/:id", authMiddleware, adminMiddleware, DeleteProductController_default.handle);
 var productsRoutes_default = router2;
 
@@ -2683,6 +2886,35 @@ var OrderRepository = class {
     });
     return this.findById(id, restaurantId, db);
   }
+  async updateStatusIfCurrent(id, status, restaurantId, expected, db = prisma_default) {
+    const result = await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+        status: expected.status,
+        ...typeof expected.paid === "boolean" ? { paid: expected.paid } : {}
+      },
+      data: {
+        status,
+        ...status === OrderStatus.PREPARANDO ? { preparationStartedAt: /* @__PURE__ */ new Date(), readyAt: null } : {},
+        ...status === OrderStatus.PRONTO ? { readyAt: /* @__PURE__ */ new Date() } : {}
+      }
+    });
+    if (result.count !== 1) {
+      const current = await this.findById(id, restaurantId, db);
+      if (!current) {
+        throw new Error("Pedido n\xE3o encontrado!");
+      }
+      throw new Error(
+        "O pedido foi atualizado por outro processo. Atualize a tela e tente novamente."
+      );
+    }
+    const updated = await this.findById(id, restaurantId, db);
+    if (!updated) {
+      throw new Error("Pedido n\xE3o encontrado ap\xF3s a atualiza\xE7\xE3o.");
+    }
+    return updated;
+  }
   async confirmDeliveryReceived(id, restaurantId, db = prisma_default) {
     await db.order.updateMany({
       where: {
@@ -2697,10 +2929,12 @@ var OrderRepository = class {
     return this.findById(id, restaurantId, db);
   }
   async confirmPayment(id, restaurantId, db = prisma_default) {
-    await db.order.updateMany({
+    const result = await db.order.updateMany({
       where: {
         id: Number(id),
-        restaurantId
+        restaurantId,
+        paid: false,
+        status: { not: OrderStatus.CANCELADO }
       },
       data: {
         paid: true,
@@ -2709,16 +2943,28 @@ var OrderRepository = class {
         paymentConfirmationPinExpiresAt: null
       }
     });
-    return this.findById(id, restaurantId, db);
+    const current = await this.findById(id, restaurantId, db);
+    if (!current) {
+      throw new Error("Pedido n\xE3o encontrado para confirmar o pagamento.");
+    }
+    if (result.count === 1 || current.paid === true) {
+      return current;
+    }
+    if (current.status === OrderStatus.CANCELADO) {
+      throw new Error("Pagamento recebido para um pedido cancelado; confirma\xE7\xE3o bloqueada.");
+    }
+    throw new Error("O pagamento n\xE3o p\xF4de ser confirmado no estado atual do pedido.");
   }
   async confirmPixPayment(id, restaurantId, {
     paymentProof,
     paymentProofImage
   } = {}, db = prisma_default) {
-    await db.order.updateMany({
+    const result = await db.order.updateMany({
       where: {
         id: Number(id),
-        restaurantId
+        restaurantId,
+        paid: false,
+        status: { not: OrderStatus.CANCELADO }
       },
       data: {
         paid: true,
@@ -2729,7 +2975,17 @@ var OrderRepository = class {
         paymentConfirmationPinExpiresAt: null
       }
     });
-    return this.findById(id, restaurantId, db);
+    const current = await this.findById(id, restaurantId, db);
+    if (!current) {
+      throw new Error("Pedido n\xE3o encontrado para confirmar o pagamento PIX.");
+    }
+    if (result.count === 1 || current.paid === true) {
+      return current;
+    }
+    if (current.status === OrderStatus.CANCELADO) {
+      throw new Error("Pagamento PIX recebido para um pedido cancelado; confirma\xE7\xE3o bloqueada.");
+    }
+    throw new Error("O pagamento PIX n\xE3o p\xF4de ser confirmado no estado atual do pedido.");
   }
   async setCardCheckoutSessionId(id, restaurantId, cardCheckoutSessionId, db = prisma_default) {
     await db.order.updateMany({
@@ -2802,11 +3058,13 @@ var OrderRepository = class {
       }
     });
   }
-  async findByIdForCustomer(id, customerId2, db = prisma_default) {
+  async findByIdForCustomer(id, customerId2, restaurantId, db = prisma_default) {
+    const normalizedRestaurantId = Number(restaurantId || 0);
     return db.order.findFirst({
       where: {
         id: Number(id),
-        userId: customerId2
+        userId: customerId2,
+        ...Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0 ? { restaurantId: normalizedRestaurantId } : {}
       },
       include: {
         user: {
@@ -2986,39 +3244,40 @@ var OrderRepository = class {
 var OrderRepository_default = new OrderRepository();
 
 // src/validators/OrderValidator.ts
-import { z as z5 } from "zod";
+import { z as z6 } from "zod";
 import { OrderType as OrderType2, PaymentMethod as PaymentMethod2 } from "@prisma/client";
-var createOrderSchema = z5.object({
-  restaurantId: z5.number().int().positive().optional(),
-  customerName: z5.string().trim().min(2).optional(),
-  customerCpf: z5.string().trim().min(11).optional(),
-  customerPhone: z5.string().trim().min(10).optional(),
-  type: z5.nativeEnum(OrderType2),
-  paymentMethod: z5.nativeEnum(PaymentMethod2).optional(),
-  payOnDelivery: z5.boolean().optional(),
-  payOnDeliveryMethod: z5.nativeEnum(PaymentMethod2).optional(),
-  paid: z5.boolean().optional(),
-  pixPaymentId: z5.string().trim().min(3).optional(),
-  observation: z5.string().trim().optional(),
-  tableId: z5.number().int().positive().optional(),
-  address: z5.string().trim().optional(),
-  number: z5.string().trim().optional(),
-  district: z5.string().trim().optional(),
-  city: z5.string().trim().optional(),
-  state: z5.string().trim().optional(),
-  zipCode: z5.string().trim().optional(),
-  complement: z5.string().trim().optional(),
-  items: z5.array(
-    z5.object({
-      productId: z5.number().int().positive(),
-      quantity: z5.number().int().positive(),
-      observation: z5.string().trim().optional(),
-      ingredientIds: z5.array(z5.number().int().positive()).max(40).optional(),
-      optionIds: z5.array(z5.number().int().positive()).max(100).optional(),
-      selectedOptions: z5.array(
-        z5.object({
-          groupId: z5.number().int().positive(),
-          optionIds: z5.array(z5.number().int().positive()).max(40)
+var createOrderSchema = z6.object({
+  restaurantId: z6.number().int().positive().optional(),
+  customerName: z6.string().trim().min(2).optional(),
+  customerCpf: z6.string().trim().min(11).optional(),
+  customerPhone: z6.string().trim().min(10).optional(),
+  type: z6.nativeEnum(OrderType2),
+  paymentMethod: z6.nativeEnum(PaymentMethod2).optional(),
+  payOnDelivery: z6.boolean().optional(),
+  payOnDeliveryMethod: z6.nativeEnum(PaymentMethod2).optional(),
+  paid: z6.boolean().optional(),
+  pixPaymentId: z6.string().trim().min(3).optional(),
+  observation: z6.string().trim().optional(),
+  tableId: z6.number().int().positive().optional(),
+  address: z6.string().trim().optional(),
+  number: z6.string().trim().optional(),
+  district: z6.string().trim().optional(),
+  city: z6.string().trim().optional(),
+  state: z6.string().trim().optional(),
+  zipCode: z6.string().trim().optional(),
+  complement: z6.string().trim().optional(),
+  couponRedemptionId: z6.number().int().positive().nullable().optional(),
+  items: z6.array(
+    z6.object({
+      productId: z6.number().int().positive(),
+      quantity: z6.number().int().positive(),
+      observation: z6.string().trim().max(500, "A observa\xE7\xE3o do item deve ter no m\xE1ximo 500 caracteres.").optional(),
+      ingredientIds: z6.array(z6.number().int().positive()).max(40).optional(),
+      optionIds: z6.array(z6.number().int().positive()).max(100).optional(),
+      selectedOptions: z6.array(
+        z6.object({
+          groupId: z6.number().int().positive(),
+          optionIds: z6.array(z6.number().int().positive()).max(40)
         })
       ).max(20).optional()
     })
@@ -3030,7 +3289,7 @@ var createOrderSchema = z5.object({
   const phoneDigits = String(data.customerPhone || "").replace(/\D/g, "");
   if (phoneDigits.length < 10 || phoneDigits.length > 13) {
     ctx.addIssue({
-      code: z5.ZodIssueCode.custom,
+      code: z6.ZodIssueCode.custom,
       path: ["customerPhone"],
       message: "Informe um celular/WhatsApp v\xE1lido para pedidos de delivery."
     });
@@ -3045,7 +3304,7 @@ var createOrderSchema = z5.object({
     const minimumLength = field === "number" ? 1 : 2;
     if (String(value || "").trim().length < minimumLength) {
       ctx.addIssue({
-        code: z5.ZodIssueCode.custom,
+        code: z6.ZodIssueCode.custom,
         path: [field],
         message: `Informe ${field === "address" ? "a rua" : field === "number" ? "o n\xFAmero" : field === "district" ? "o bairro" : "a cidade"}.`
       });
@@ -3053,14 +3312,14 @@ var createOrderSchema = z5.object({
   });
   if (!/^\d{8}$/.test(String(data.zipCode || "").replace(/\D/g, ""))) {
     ctx.addIssue({
-      code: z5.ZodIssueCode.custom,
+      code: z6.ZodIssueCode.custom,
       path: ["zipCode"],
       message: "Informe um CEP v\xE1lido com 8 n\xFAmeros."
     });
   }
   if (!/^[A-Za-z]{2}$/.test(String(data.state || "").trim())) {
     ctx.addIssue({
-      code: z5.ZodIssueCode.custom,
+      code: z6.ZodIssueCode.custom,
       path: ["state"],
       message: "Informe uma UF v\xE1lida com duas letras."
     });
@@ -3068,184 +3327,20 @@ var createOrderSchema = z5.object({
   if (data.payOnDelivery === true) {
     if (data.type !== OrderType2.DELIVERY) {
       ctx.addIssue({
-        code: z5.ZodIssueCode.custom,
+        code: z6.ZodIssueCode.custom,
         path: ["type"],
         message: "Pagar na entrega s\xF3 \xE9 permitido para pedidos de delivery."
       });
     }
     if (!data.payOnDeliveryMethod) {
       ctx.addIssue({
-        code: z5.ZodIssueCode.custom,
+        code: z6.ZodIssueCode.custom,
         path: ["payOnDeliveryMethod"],
         message: "Informe o m\xE9todo de pagamento para pagar na entrega."
       });
     }
   }
 });
-
-// src/modules/orders/utils/productIngredients.ts
-function money(value) {
-  const normalized = Number(value);
-  if (!Number.isFinite(normalized) || normalized < 0) {
-    throw new Error("O produto possui um valor de op\xE7\xE3o inv\xE1lido.");
-  }
-  return Math.round((normalized + Number.EPSILON) * 100) / 100;
-}
-function uniquePositiveIds(values, field) {
-  const ids = (values || []).map(Number);
-  if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
-    throw new Error(`${field} cont\xE9m uma op\xE7\xE3o inv\xE1lida.`);
-  }
-  if (new Set(ids).size !== ids.length) {
-    throw new Error(`${field} cont\xE9m op\xE7\xF5es repetidas.`);
-  }
-  return ids;
-}
-function resolveExplicitOptionIds(product, selection) {
-  const flatIds = uniquePositiveIds(selection.optionIds, "A montagem");
-  const structured = selection.selectedOptions;
-  if (!structured?.length) {
-    return flatIds;
-  }
-  const seenGroups = /* @__PURE__ */ new Set();
-  const structuredIds = [];
-  structured.forEach((selectedGroup) => {
-    const groupId = Number(selectedGroup.groupId);
-    if (!Number.isInteger(groupId) || groupId <= 0) {
-      throw new Error("A montagem cont\xE9m um grupo inv\xE1lido.");
-    }
-    if (seenGroups.has(groupId)) {
-      throw new Error("A montagem cont\xE9m o mesmo grupo mais de uma vez.");
-    }
-    seenGroups.add(groupId);
-    const group = (product.optionGroups || []).find((candidate) => candidate.id === groupId);
-    if (!group || !group.active || group.restaurantId !== product.restaurantId) {
-      throw new Error(`Grupo de op\xE7\xF5es inv\xE1lido para ${product.name}.`);
-    }
-    const ids = uniquePositiveIds(selectedGroup.optionIds, `O grupo ${group.name}`);
-    if (ids.some((id) => !group.options.some((option) => option.id === id))) {
-      throw new Error(`Uma op\xE7\xE3o n\xE3o pertence ao grupo ${group.name}.`);
-    }
-    structuredIds.push(...ids);
-  });
-  if (flatIds.length) {
-    const flatSignature = [...flatIds].sort((a, b) => a - b).join(",");
-    const structuredSignature = [...structuredIds].sort((a, b) => a - b).join(",");
-    if (flatSignature !== structuredSignature) {
-      throw new Error("Os campos optionIds e selectedOptions informam montagens diferentes.");
-    }
-  }
-  return uniquePositiveIds(structuredIds, "A montagem");
-}
-function resolveLegacyIds(product, ingredientIds) {
-  return ingredientIds.map((ingredientId) => {
-    const matches = (product.optionGroups || []).flatMap(
-      (group) => group.options.filter((option) => option.ingredientId === ingredientId)
-    );
-    if (matches.length !== 1) {
-      throw new Error(`Ingrediente legado inv\xE1lido ou amb\xEDguo para ${product.name}.`);
-    }
-    return matches[0].id;
-  });
-}
-function resolveOrderItemCustomizations(product, selection = {}) {
-  const activeGroups = (product.optionGroups || []).filter((group) => group.active);
-  if (!activeGroups.length) {
-    return resolveLegacyProductIngredients(product, selection.ingredientIds);
-  }
-  activeGroups.forEach((group) => {
-    if (group.restaurantId !== product.restaurantId) {
-      throw new Error(`A configura\xE7\xE3o de ${product.name} pertence a outro restaurante.`);
-    }
-  });
-  const legacyIds = uniquePositiveIds(selection.ingredientIds, "A montagem antiga");
-  let selectedIds = resolveExplicitOptionIds(product, selection);
-  if (!selectedIds.length && legacyIds.length) {
-    selectedIds = resolveLegacyIds(product, legacyIds);
-  }
-  const allActiveOptions = activeGroups.flatMap(
-    (group) => group.options.filter(
-      (option) => option.active && option.ingredient.active && option.ingredient.restaurantId === product.restaurantId
-    )
-  );
-  const allActiveOptionIds = new Set(allActiveOptions.map((option) => option.id));
-  if (selectedIds.some((id) => !allActiveOptionIds.has(id))) {
-    throw new Error(`Uma op\xE7\xE3o selecionada est\xE1 indispon\xEDvel para ${product.name}.`);
-  }
-  const customizations = activeGroups.map((group) => {
-    const availableOptions = group.options.filter(
-      (option) => option.active && option.ingredient.active && option.ingredient.restaurantId === product.restaurantId
-    );
-    const selected = availableOptions.filter((option) => selectedIds.includes(option.id));
-    const minimum = group.required ? Math.max(1, group.minSelections) : group.minSelections;
-    const maximum = group.selectionType === "SINGLE" ? 1 : group.maxSelections;
-    if (availableOptions.length < minimum) {
-      throw new Error(`O grupo ${group.name} est\xE1 sem op\xE7\xF5es suficientes. Avise o restaurante.`);
-    }
-    if (selected.length < minimum) {
-      throw new Error(
-        `Escolha pelo menos ${minimum} ${minimum === 1 ? "op\xE7\xE3o" : "op\xE7\xF5es"} em ${group.name}.`
-      );
-    }
-    if (selected.length > maximum) {
-      throw new Error(
-        `Escolha no m\xE1ximo ${maximum} ${maximum === 1 ? "op\xE7\xE3o" : "op\xE7\xF5es"} em ${group.name}.`
-      );
-    }
-    return {
-      groupId: group.id,
-      groupName: group.name,
-      selectionType: group.selectionType,
-      minSelections: minimum,
-      maxSelections: maximum,
-      options: selected.map((option) => ({
-        optionId: option.id,
-        ingredientId: option.ingredient.id,
-        name: option.ingredient.name,
-        price: money(option.ingredient.price)
-      }))
-    };
-  });
-  const selectedOptions = customizations.flatMap((group) => group.options);
-  const additionalPrice = selectedOptions.reduce((total, option) => total + option.price, 0);
-  const price = money(money(product.price) + additionalPrice);
-  return {
-    price,
-    ingredients: selectedOptions.map((option) => ({
-      id: option.ingredientId,
-      name: option.name,
-      price: option.price
-    })),
-    customizations
-  };
-}
-function resolveLegacyProductIngredients(product, ingredientIds = []) {
-  const selectedIds = uniquePositiveIds(ingredientIds, "A montagem");
-  const available = product.ingredients.filter((ingredient) => ingredient.active);
-  if (!available.length) {
-    throw new Error(`${product.name} ainda n\xE3o possui op\xE7\xF5es de montagem configuradas.`);
-  }
-  const selected = selectedIds.map(
-    (id) => available.find((ingredient) => ingredient.id === id)
-  );
-  if (selected.some((ingredient) => !ingredient)) {
-    throw new Error(`Ingrediente inv\xE1lido para ${product.name}.`);
-  }
-  const requiredIds = available.filter((ingredient) => ingredient.required).map((ingredient) => ingredient.id);
-  if (requiredIds.some((id) => !selectedIds.includes(id))) {
-    throw new Error(`Selecione os ingredientes obrigat\xF3rios de ${product.name}.`);
-  }
-  const ingredients = selected.map((ingredient) => ({
-    id: ingredient.id,
-    name: ingredient.name,
-    price: money(ingredient.price)
-  }));
-  return {
-    price: money(money(product.price) + ingredients.reduce((sum, item) => sum + item.price, 0)),
-    ingredients,
-    customizations: []
-  };
-}
 
 // src/modules/tableSession/repositories/TableSessionRepository.ts
 import { TableSessionStatus } from "@prisma/client";
@@ -3746,6 +3841,344 @@ var SplitService = class {
 };
 var SplitService_default = new SplitService();
 
+// src/modules/orders/utils/productIngredients.ts
+function money(value) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized < 0) {
+    throw new Error("O produto possui um valor de op\xE7\xE3o inv\xE1lido.");
+  }
+  return Math.round((normalized + Number.EPSILON) * 100) / 100;
+}
+function uniquePositiveIds(values, field) {
+  const ids = (values || []).map(Number);
+  if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
+    throw new Error(`${field} cont\xE9m uma op\xE7\xE3o inv\xE1lida.`);
+  }
+  if (new Set(ids).size !== ids.length) {
+    throw new Error(`${field} cont\xE9m op\xE7\xF5es repetidas.`);
+  }
+  return ids;
+}
+function resolveExplicitOptionIds(product, selection) {
+  const flatIds = uniquePositiveIds(selection.optionIds, "A montagem");
+  const structured = selection.selectedOptions;
+  if (!structured?.length) {
+    return flatIds;
+  }
+  const seenGroups = /* @__PURE__ */ new Set();
+  const structuredIds = [];
+  structured.forEach((selectedGroup) => {
+    const groupId = Number(selectedGroup.groupId);
+    if (!Number.isInteger(groupId) || groupId <= 0) {
+      throw new Error("A montagem cont\xE9m um grupo inv\xE1lido.");
+    }
+    if (seenGroups.has(groupId)) {
+      throw new Error("A montagem cont\xE9m o mesmo grupo mais de uma vez.");
+    }
+    seenGroups.add(groupId);
+    const group = (product.optionGroups || []).find((candidate) => candidate.id === groupId);
+    if (!group || !group.active || group.restaurantId !== product.restaurantId) {
+      throw new Error(`Grupo de op\xE7\xF5es inv\xE1lido para ${product.name}.`);
+    }
+    const ids = uniquePositiveIds(selectedGroup.optionIds, `O grupo ${group.name}`);
+    if (ids.some((id) => !group.options.some((option) => option.id === id))) {
+      throw new Error(`Uma op\xE7\xE3o n\xE3o pertence ao grupo ${group.name}.`);
+    }
+    structuredIds.push(...ids);
+  });
+  if (flatIds.length) {
+    const flatSignature = [...flatIds].sort((a, b) => a - b).join(",");
+    const structuredSignature = [...structuredIds].sort((a, b) => a - b).join(",");
+    if (flatSignature !== structuredSignature) {
+      throw new Error("Os campos optionIds e selectedOptions informam montagens diferentes.");
+    }
+  }
+  return uniquePositiveIds(structuredIds, "A montagem");
+}
+function resolveLegacyIds(product, ingredientIds) {
+  return ingredientIds.map((ingredientId) => {
+    const matches = (product.optionGroups || []).flatMap(
+      (group) => group.options.filter((option) => option.ingredientId === ingredientId)
+    );
+    if (matches.length !== 1) {
+      throw new Error(`Ingrediente legado inv\xE1lido ou amb\xEDguo para ${product.name}.`);
+    }
+    return matches[0].id;
+  });
+}
+function resolveOrderItemCustomizations(product, selection = {}) {
+  const activeGroups = (product.optionGroups || []).filter((group) => group.active);
+  if (!activeGroups.length) {
+    return resolveLegacyProductIngredients(
+      product,
+      selection.ingredientIds?.length ? selection.ingredientIds : selection.optionIds
+    );
+  }
+  activeGroups.forEach((group) => {
+    if (group.restaurantId !== product.restaurantId) {
+      throw new Error(`A configura\xE7\xE3o de ${product.name} pertence a outro restaurante.`);
+    }
+  });
+  const legacyIds = uniquePositiveIds(selection.ingredientIds, "A montagem antiga");
+  let selectedIds = resolveExplicitOptionIds(product, selection);
+  if (!selectedIds.length && legacyIds.length) {
+    selectedIds = resolveLegacyIds(product, legacyIds);
+  }
+  const allActiveOptions = activeGroups.flatMap(
+    (group) => group.options.filter(
+      (option) => option.active && option.ingredient.active && option.ingredient.restaurantId === product.restaurantId
+    )
+  );
+  const allActiveOptionIds = new Set(allActiveOptions.map((option) => option.id));
+  if (selectedIds.some((id) => !allActiveOptionIds.has(id))) {
+    throw new Error(`Uma op\xE7\xE3o selecionada est\xE1 indispon\xEDvel para ${product.name}.`);
+  }
+  const customizations = activeGroups.map((group) => {
+    const availableOptions = group.options.filter(
+      (option) => option.active && option.ingredient.active && option.ingredient.restaurantId === product.restaurantId
+    );
+    const selected = availableOptions.filter((option) => selectedIds.includes(option.id));
+    const minimum = group.required ? Math.max(1, group.minSelections) : group.minSelections;
+    const maximum = group.selectionType === "SINGLE" ? 1 : group.maxSelections;
+    if (availableOptions.length < minimum) {
+      throw new Error(`O grupo ${group.name} est\xE1 sem op\xE7\xF5es suficientes. Avise o restaurante.`);
+    }
+    if (selected.length < minimum) {
+      throw new Error(
+        `Escolha pelo menos ${minimum} ${minimum === 1 ? "op\xE7\xE3o" : "op\xE7\xF5es"} em ${group.name}.`
+      );
+    }
+    if (selected.length > maximum) {
+      throw new Error(
+        `Escolha no m\xE1ximo ${maximum} ${maximum === 1 ? "op\xE7\xE3o" : "op\xE7\xF5es"} em ${group.name}.`
+      );
+    }
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      selectionType: group.selectionType,
+      minSelections: minimum,
+      maxSelections: maximum,
+      options: selected.map((option) => ({
+        optionId: option.id,
+        ingredientId: option.ingredient.id,
+        name: option.ingredient.name,
+        price: money(option.ingredient.price)
+      }))
+    };
+  });
+  const selectedOptions = customizations.flatMap((group) => group.options);
+  const additionalPrice = selectedOptions.reduce((total, option) => total + option.price, 0);
+  const price = money(money(product.price) + additionalPrice);
+  return {
+    price,
+    ingredients: selectedOptions.map((option) => ({
+      id: option.ingredientId,
+      name: option.name,
+      price: option.price
+    })),
+    customizations
+  };
+}
+function buildOrderItemCustomizationSnapshot(product, item) {
+  const resolved = resolveOrderItemCustomizations(product, item);
+  const basePricing = resolveProductBasePricing(product);
+  const originalUnitPrice = roundMoney(resolved.price);
+  const unitDiscount = roundMoney(basePricing.discountAmount);
+  const effectiveUnitPrice = roundMoney(Math.max(originalUnitPrice - unitDiscount, 0));
+  const quantity = Number(item.quantity);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new Error(`Quantidade inv\xE1lida para ${product.name}.`);
+  }
+  const observation = String(item.observation || "").trim();
+  return {
+    productId: product.id,
+    quantity,
+    price: effectiveUnitPrice,
+    originalUnitPrice,
+    unitDiscount,
+    observation: observation || null,
+    ingredients: resolved.ingredients,
+    customizations: resolved.customizations
+  };
+}
+function resolveLegacyProductIngredients(product, ingredientIds = []) {
+  const selectedIds = uniquePositiveIds(ingredientIds, "A montagem");
+  const available = product.ingredients.filter((ingredient) => ingredient.active);
+  if (!available.length) {
+    throw new Error(`${product.name} ainda n\xE3o possui op\xE7\xF5es de montagem configuradas.`);
+  }
+  const selected = selectedIds.map((id) => available.find((ingredient) => ingredient.id === id));
+  if (selected.some((ingredient) => !ingredient)) {
+    throw new Error(`Ingrediente inv\xE1lido para ${product.name}.`);
+  }
+  const requiredIds = available.filter((ingredient) => ingredient.required).map((ingredient) => ingredient.id);
+  if (requiredIds.some((id) => !selectedIds.includes(id))) {
+    throw new Error(`Selecione os ingredientes obrigat\xF3rios de ${product.name}.`);
+  }
+  const ingredients = selected.map((ingredient) => ({
+    id: ingredient.id,
+    name: ingredient.name,
+    price: money(ingredient.price)
+  }));
+  return {
+    price: money(money(product.price) + ingredients.reduce((sum, item) => sum + item.price, 0)),
+    ingredients,
+    customizations: []
+  };
+}
+
+// src/modules/orders/services/couponRedemptionLifecycle.ts
+import { CouponRedemptionStatus } from "@prisma/client";
+async function reserveCouponRedemption({
+  redemptionId,
+  restaurantId,
+  userId,
+  db,
+  now = /* @__PURE__ */ new Date()
+}) {
+  if (!redemptionId) return;
+  const result = await db.couponRedemption.updateMany({
+    where: {
+      id: redemptionId,
+      restaurantId,
+      userId,
+      status: CouponRedemptionStatus.CLAIMED,
+      expiresAt: { gt: now }
+    },
+    data: {
+      status: CouponRedemptionStatus.RESERVED,
+      reservedAt: /* @__PURE__ */ new Date(),
+      usedAt: null
+    }
+  });
+  if (result.count !== 1) {
+    const expired = await db.couponRedemption.updateMany({
+      where: {
+        id: redemptionId,
+        restaurantId,
+        userId,
+        status: CouponRedemptionStatus.CLAIMED,
+        expiresAt: { lte: now }
+      },
+      data: { status: CouponRedemptionStatus.EXPIRED }
+    });
+    if (expired.count === 1) {
+      throw new Error("Este cupom expirou e n\xE3o pode mais ser utilizado.");
+    }
+    throw new Error("Este cupom j\xE1 foi reservado ou utilizado em outro pedido.");
+  }
+}
+async function markCouponRedemptionUsedForOrder(orderId, restaurantId, db = prisma_default) {
+  const order = await db.order.findFirst({
+    where: { id: Number(orderId), restaurantId },
+    select: { couponRedemptionId: true }
+  });
+  if (!order?.couponRedemptionId) return;
+  const result = await db.couponRedemption.updateMany({
+    where: {
+      id: order.couponRedemptionId,
+      restaurantId,
+      status: CouponRedemptionStatus.RESERVED
+    },
+    data: { status: CouponRedemptionStatus.USED, usedAt: /* @__PURE__ */ new Date() }
+  });
+  if (result.count === 1) return;
+  const current = await db.couponRedemption.findFirst({
+    where: { id: order.couponRedemptionId, restaurantId },
+    select: { status: true }
+  });
+  if (current?.status !== CouponRedemptionStatus.USED) {
+    throw new Error("N\xE3o foi poss\xEDvel registrar o uso da recompensa deste pedido.");
+  }
+}
+async function releaseCouponRedemptionForOrder(orderId, restaurantId, db = prisma_default, { now = /* @__PURE__ */ new Date() } = {}) {
+  const order = await db.order.findFirst({
+    where: { id: Number(orderId), restaurantId },
+    select: { couponRedemptionId: true }
+  });
+  if (!order?.couponRedemptionId) return;
+  const result = await db.couponRedemption.updateMany({
+    where: {
+      id: order.couponRedemptionId,
+      restaurantId,
+      status: CouponRedemptionStatus.RESERVED,
+      expiresAt: { gt: now }
+    },
+    data: {
+      status: CouponRedemptionStatus.CLAIMED,
+      reservedAt: null,
+      usedAt: null
+    }
+  });
+  if (result.count !== 1) {
+    const expired = await db.couponRedemption.updateMany({
+      where: {
+        id: order.couponRedemptionId,
+        restaurantId,
+        status: CouponRedemptionStatus.RESERVED,
+        expiresAt: { lte: now }
+      },
+      data: {
+        status: CouponRedemptionStatus.EXPIRED,
+        reservedAt: null,
+        usedAt: null
+      }
+    });
+    if (expired.count === 1) {
+      await db.order.updateMany({
+        where: { id: Number(orderId), restaurantId },
+        data: { couponRedemptionId: null }
+      });
+      return;
+    }
+    const current = await db.couponRedemption.findFirst({
+      where: { id: order.couponRedemptionId, restaurantId },
+      select: { status: true }
+    });
+    if (current?.status === CouponRedemptionStatus.USED) {
+      return;
+    }
+    if (current?.status !== CouponRedemptionStatus.CLAIMED && current?.status !== CouponRedemptionStatus.EXPIRED) {
+      throw new Error("N\xE3o foi poss\xEDvel liberar a recompensa deste pedido.");
+    }
+  }
+  await db.order.updateMany({
+    where: { id: Number(orderId), restaurantId },
+    data: { couponRedemptionId: null }
+  });
+}
+
+// src/modules/orders/services/restoreOrderItemsStock.ts
+async function restoreOrderItemsStock(tx, order) {
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const quantityByProduct = /* @__PURE__ */ new Map();
+  for (const item of items) {
+    const productId = Number(item?.productId || 0);
+    const quantity = Number(item?.quantity || 0);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      continue;
+    }
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      continue;
+    }
+    quantityByProduct.set(productId, (quantityByProduct.get(productId) || 0) + quantity);
+  }
+  for (const [productId, quantity] of quantityByProduct) {
+    await tx.product.updateMany({
+      where: {
+        id: productId,
+        restaurantId: Number(order.restaurantId),
+        stock: { gte: 0 }
+      },
+      data: {
+        stock: { increment: quantity },
+        active: true
+      }
+    });
+  }
+}
+
 // src/modules/orders/services/OrderPixPaymentService.ts
 var APPROVED_PAYMENT_STATUSES = /* @__PURE__ */ new Set(["approved", "accredited", "paid"]);
 var APPROVED_ASAAS_PAYMENT_STATUSES = /* @__PURE__ */ new Set(["received", "confirmed", "received_in_cash"]);
@@ -3931,7 +4364,12 @@ var OrderPixPaymentService = class {
     });
     return items.reduce((acc, item, index) => {
       const product = products[index];
-      return acc + Number(product.price) * Number(item.quantity);
+      const quantity = Number(item.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error(`Quantidade inv\xE1lida para ${product.name}.`);
+      }
+      const snapshot = buildOrderItemCustomizationSnapshot(product, item);
+      return acc + Number(snapshot.price) * quantity;
     }, 0);
   }
   async createPixPayment({
@@ -3948,7 +4386,11 @@ var OrderPixPaymentService = class {
     customerName,
     customerCpf,
     customerPhone,
-    userEmail
+    userEmail,
+    orderId: sourceOrderId,
+    orderTotal,
+    orderSubtotal,
+    orderDeliveryFee
   }) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedType = String(type || "").toUpperCase();
@@ -3978,21 +4420,30 @@ var OrderPixPaymentService = class {
     }
     const minimumOrder = Number(settings?.minimumOrder || 0);
     const deliveryFee = Number(settings?.deliveryFee || 0);
-    const subtotal = await this.calculateOrderSubtotal({
+    const persistedTotal = Number(orderTotal);
+    const hasPersistedTotal = Number.isFinite(persistedTotal) && persistedTotal >= 0;
+    const persistedSubtotal = Number(orderSubtotal);
+    const persistedDeliveryFee = Number(orderDeliveryFee);
+    const subtotal = hasPersistedTotal ? Number.isFinite(persistedSubtotal) && persistedSubtotal >= 0 ? persistedSubtotal : Math.max(
+      persistedTotal - (Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : normalizedType === "DELIVERY" ? Math.max(deliveryFee, 0) : 0),
+      0
+    ) : await this.calculateOrderSubtotal({
       restaurantId: normalizedRestaurantId,
       items
     });
-    if (normalizedType === "DELIVERY" && minimumOrder > 0 && subtotal < minimumOrder) {
+    if (!hasPersistedTotal && normalizedType === "DELIVERY" && minimumOrder > 0 && subtotal < minimumOrder) {
       throw new Error(
         `Pedido m\xEDnimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega \xE9 cobrada \xE0 parte.`
       );
     }
-    const additionalFee = normalizedType === "DELIVERY" ? Math.max(deliveryFee, 0) : 0;
+    const additionalFee = hasPersistedTotal ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0) : normalizedType === "DELIVERY" ? Math.max(deliveryFee, 0) : 0;
     const systemFee = await SplitService_default.execute({
       restaurantId: normalizedRestaurantId,
       orderTotal: subtotal
     });
-    const totalAmount = Number((subtotal + additionalFee).toFixed(2));
+    const totalAmount = Number(
+      (hasPersistedTotal ? persistedTotal : subtotal + additionalFee).toFixed(2)
+    );
     if (totalAmount <= 0) {
       throw new Error("Total do pedido inv\xE1lido para gerar cobran\xE7a PIX.");
     }
@@ -4011,7 +4462,7 @@ var OrderPixPaymentService = class {
           method: "POST",
           headers: { "x-idempotency-key": crypto.randomUUID() },
           body: JSON.stringify({
-            reference_id: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+            reference_id: sourceOrderId ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}` : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
             customer: {
               name: payerName || "Cliente",
               email: payerEmail,
@@ -4092,7 +4543,7 @@ var OrderPixPaymentService = class {
         value: totalAmount,
         dueDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
         description: `Pedido delivery restaurante ${normalizedRestaurantId}`,
-        externalReference: `orderpix:${normalizedRestaurantId}:${Date.now()}`,
+        externalReference: sourceOrderId ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}` : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
         ...includeSplit && normalizedSystemFee > 0 && platformWalletId ? {
           split: [
             {
@@ -4197,7 +4648,7 @@ var OrderPixPaymentService = class {
         source: "order_checkout",
         provider: resolvedPixProvider
       },
-      external_reference: `orderpix:${normalizedRestaurantId}:${Date.now()}`
+      external_reference: sourceOrderId ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}` : `orderpix:${normalizedRestaurantId}:${Date.now()}`
     };
     let response;
     if (normalizedSystemFee > 0) {
@@ -4344,11 +4795,41 @@ var OrderPixPaymentService = class {
     }
     return statusResult;
   }
+  async attachPaymentToOrder({
+    orderId,
+    restaurantId,
+    paymentId
+  }) {
+    const normalizedPaymentId = String(paymentId || "").trim();
+    if (!normalizedPaymentId) {
+      throw new Error("O provedor n\xE3o retornou um identificador de pagamento PIX.");
+    }
+    const result = await prisma_default.order.updateMany({
+      where: { id: Number(orderId), restaurantId, paid: false },
+      data: { pixPaymentId: normalizedPaymentId }
+    });
+    if (result.count !== 1) {
+      throw new Error("N\xE3o foi poss\xEDvel vincular o pagamento PIX ao pedido.");
+    }
+  }
+  async removePendingOrderAfterPaymentFailure({
+    orderId,
+    restaurantId
+  }) {
+    await prisma_default.$transaction(async (tx) => {
+      const pendingOrder = await OrderRepository_default.findById(orderId, restaurantId, tx);
+      if (pendingOrder) {
+        await restoreOrderItemsStock(tx, pendingOrder);
+      }
+      await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
+      await OrderRepository_default.deleteById(orderId, restaurantId, tx);
+    });
+  }
 };
 var OrderPixPaymentService_default = new OrderPixPaymentService();
 
 // src/modules/orders/services/CreateOrderService.ts
-import { PaymentMethod as PaymentMethod3, TableSessionStatus as TableSessionStatus2, OrderType as OrderType3, OrderStatus as OrderStatus2 } from "@prisma/client";
+import { PaymentMethod as PaymentMethod3, TableSessionStatus as TableSessionStatus2, OrderType as OrderType4, OrderStatus as OrderStatus2 } from "@prisma/client";
 
 // src/services/customerNotifier.ts
 var configuredProvider = String(process.env.CUSTOMER_NOTIFICATION_PROVIDER || "none").trim().toLowerCase();
@@ -4930,6 +5411,166 @@ function assertOrderCapacity(activeOrders, configuredLimit) {
   return limit;
 }
 
+// src/modules/orders/utils/orderTenant.ts
+function positiveInteger(value) {
+  const normalized = Number(value);
+  return Number.isInteger(normalized) && normalized > 0 ? normalized : null;
+}
+function resolveOrderRestaurantId({
+  requestedRestaurantId,
+  contextRestaurantId
+}) {
+  const requested = positiveInteger(requestedRestaurantId);
+  const context = positiveInteger(contextRestaurantId);
+  if (context) {
+    if (requested && requested !== context) {
+      throw new Error("O restaurante informado n\xE3o corresponde \xE0 sess\xE3o atual.");
+    }
+    return context;
+  }
+  if (requested) {
+    return requested;
+  }
+  throw new Error("Restaurante n\xE3o informado para o pedido.");
+}
+
+// src/modules/orders/services/OrderPricingService.ts
+import { CouponRedemptionStatus as CouponRedemptionStatus2, OrderType as OrderType3 } from "@prisma/client";
+var OrderPricingService = class {
+  async quote({
+    restaurantId,
+    userId,
+    type,
+    items,
+    couponRedemptionId,
+    now = /* @__PURE__ */ new Date(),
+    db = prisma_default
+  }) {
+    const normalizedRestaurantId = Number(restaurantId);
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error("Restaurante inv\xE1lido para calcular o pedido.");
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("O pedido deve conter pelo menos um item.");
+    }
+    const products = await Promise.all(
+      items.map(
+        (item) => ProductRepository_default.findById(Number(item.productId), normalizedRestaurantId, db)
+      )
+    );
+    const requestedQuantityByProduct = /* @__PURE__ */ new Map();
+    products.forEach((product, index) => {
+      const item = items[index];
+      if (!product) {
+        throw new Error(`Produto n\xE3o encontrado: ${Number(item.productId || 0)}`);
+      }
+      if (product.active === false) {
+        throw new Error(`Produto indispon\xEDvel: ${product.name}`);
+      }
+      const quantity = Number(item.quantity || 0);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error(`Quantidade inv\xE1lida para ${product.name}.`);
+      }
+      requestedQuantityByProduct.set(
+        product.id,
+        (requestedQuantityByProduct.get(product.id) || 0) + quantity
+      );
+    });
+    requestedQuantityByProduct.forEach((requestedQuantity, productId) => {
+      const product = products.find((candidate) => candidate?.id === productId);
+      const stock = product.stock === null || product.stock === void 0 ? null : Number(product.stock);
+      if (Number.isInteger(stock) && stock >= 0 && requestedQuantity > stock) {
+        throw new Error(`Estoque insuficiente para ${product.name}. Dispon\xEDvel: ${stock}.`);
+      }
+    });
+    const orderItems = items.map(
+      (item, index) => buildOrderItemCustomizationSnapshot(products[index], item)
+    );
+    const itemsSubtotal = roundMoney(
+      orderItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
+    );
+    const productDiscountTotal = roundMoney(
+      orderItems.reduce((sum, item) => sum + Number(item.unitDiscount) * item.quantity, 0)
+    );
+    const settings = await db.restaurantSettings.findUnique({
+      where: { restaurantId: normalizedRestaurantId },
+      select: { deliveryFee: true, minimumOrder: true }
+    });
+    const normalizedType = String(type || "").toUpperCase();
+    const deliveryFeeAmount = normalizedType === OrderType3.DELIVERY ? roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0)) : 0;
+    const minimumOrder = Math.max(Number(settings?.minimumOrder || 0), 0);
+    if (normalizedType === OrderType3.DELIVERY && minimumOrder > 0 && itemsSubtotal < minimumOrder) {
+      throw new Error(
+        `Pedido m\xEDnimo ap\xF3s as ofertas: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega \xE9 cobrada \xE0 parte.`
+      );
+    }
+    let couponDiscount = 0;
+    let couponCode = null;
+    let couponId = null;
+    let redemptionId = null;
+    const requestedRedemptionId = Number(couponRedemptionId || 0);
+    if (requestedRedemptionId > 0) {
+      const normalizedUserId = Number(userId || 0);
+      if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+        throw new Error("Entre na sua conta para usar uma recompensa de fidelidade.");
+      }
+      const redemption = await db.couponRedemption.findFirst({
+        where: {
+          id: requestedRedemptionId,
+          restaurantId: normalizedRestaurantId,
+          userId: normalizedUserId,
+          status: CouponRedemptionStatus2.CLAIMED,
+          expiresAt: { gt: now }
+        },
+        include: { coupon: true }
+      });
+      if (!redemption || redemption.coupon.restaurantId !== normalizedRestaurantId) {
+        throw new Error("Cupom resgatado inv\xE1lido ou indispon\xEDvel.");
+      }
+      const coupon = redemption.coupon;
+      if (!coupon.active || coupon.expiration && coupon.expiration <= now) {
+        throw new Error("Este cupom expirou ou foi desativado.");
+      }
+      if (itemsSubtotal < Number(coupon.minimumSubtotal || 0)) {
+        throw new Error(
+          `Este cupom exige subtotal m\xEDnimo de R$ ${Number(coupon.minimumSubtotal).toFixed(2)}.`
+        );
+      }
+      const configuredDiscount = Number(coupon.discount || 0);
+      const rawDiscount = coupon.discountType === "PERCENTAGE" ? itemsSubtotal * (Math.min(configuredDiscount, 100) / 100) : configuredDiscount;
+      const limitedDiscount = coupon.maxDiscount ? Math.min(rawDiscount, Number(coupon.maxDiscount)) : rawDiscount;
+      const maximumCouponDiscount = Math.max(itemsSubtotal - 0.01, 0);
+      couponDiscount = roundMoney(
+        Math.min(Math.max(limitedDiscount, 0), maximumCouponDiscount)
+      );
+      if (couponDiscount <= 0) {
+        throw new Error(
+          "Este cupom n\xE3o gera desconto neste pedido. Escolha outro benef\xEDcio ou aumente o subtotal."
+        );
+      }
+      couponCode = coupon.code;
+      couponId = coupon.id;
+      redemptionId = redemption.id;
+    } else if (couponRedemptionId !== null && couponRedemptionId !== void 0 && couponRedemptionId !== "") {
+      throw new Error("Cupom resgatado inv\xE1lido.");
+    }
+    const total = roundMoney(Math.max(itemsSubtotal - couponDiscount + deliveryFeeAmount, 0));
+    return {
+      itemsSubtotal,
+      productDiscountTotal,
+      couponDiscount,
+      deliveryFeeAmount,
+      total,
+      couponCode,
+      couponId,
+      couponRedemptionId: redemptionId,
+      orderItems,
+      products
+    };
+  }
+};
+var OrderPricingService_default = new OrderPricingService();
+
 // src/modules/orders/services/CreateOrderService.ts
 var CreateOrderService = class {
   formatCpf(value) {
@@ -5079,6 +5720,7 @@ var CreateOrderService = class {
     customerCpf,
     customerPhone,
     tableId,
+    couponRedemptionId,
     items,
     address,
     number,
@@ -5089,15 +5731,23 @@ var CreateOrderService = class {
     paymentProofImage,
     complement
   }) {
-    const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || null;
-    if (!resolvedRestaurantId) {
-      throw new Error("Restaurante n\xE3o informado para o pedido");
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: restaurantId,
+      contextRestaurantId: userRestaurantId
+    });
+    if (paid === true) {
+      throw new Error(
+        "O pagamento s\xF3 pode ser confirmado pelo provedor ou pelo fluxo administrativo seguro."
+      );
+    }
+    if (String(pixPaymentId || "").trim()) {
+      throw new Error("O identificador PIX s\xF3 pode ser vinculado pelo provedor de pagamento.");
     }
     const restaurantSettings = await RestaurantSettingsRepository_default.findByRestaurantId(resolvedRestaurantId);
     assertRestaurantIsOpenForOrders(restaurantSettings?.isOpenForOrders);
     const shouldPayOnDelivery = payOnDelivery === true;
     const effectivePaymentMethod = shouldPayOnDelivery ? payOnDeliveryMethod || paymentMethod : paymentMethod;
-    if (shouldPayOnDelivery && type !== OrderType3.DELIVERY) {
+    if (shouldPayOnDelivery && type !== OrderType4.DELIVERY) {
       throw new Error("Pagar na entrega s\xF3 \xE9 permitido para pedidos de delivery.");
     }
     if (shouldPayOnDelivery && !effectivePaymentMethod) {
@@ -5122,6 +5772,7 @@ var CreateOrderService = class {
       paymentProof,
       observation,
       tableId,
+      couponRedemptionId,
       items,
       address,
       number,
@@ -5190,50 +5841,29 @@ var CreateOrderService = class {
         customerCpf,
         customerPhone
       });
-      const products = await Promise.all(
-        items.map((item) => ProductRepository_default.findById(item.productId, resolvedRestaurantId, tx))
-      );
-      products.forEach((product, index) => {
-        const item = items[index];
-        if (!product) {
-          throw new Error(`Produto n\xE3o encontrado: ${items[index].productId}`);
-        }
-        if (product.active === false) {
-          throw new Error(`Produto indispon\xEDvel: ${product.name}`);
-        }
-        const quantity = Number(item.quantity || 0);
-        if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Quantidade inv\xE1lida para ${product.name}.`);
-        }
-        const stockValue = product.stock === null || product.stock === void 0 ? null : Number(product.stock);
-        if (Number.isInteger(stockValue) && stockValue >= 0 && quantity > stockValue) {
-          throw new Error(`Estoque insuficiente para ${product.name}. Dispon\xEDvel: ${stockValue}.`);
-        }
+      const pricing = await OrderPricingService_default.quote({
+        restaurantId: resolvedRestaurantId,
+        userId: resolvedUserId,
+        type,
+        items,
+        couponRedemptionId,
+        db: tx
       });
-      const orderItems = items.map((item, index) => {
-        const product = products[index];
-        const resolved = resolveOrderItemCustomizations(product, {
-          ingredientIds: item.ingredientIds,
-          optionIds: item.optionIds,
-          selectedOptions: item.selectedOptions
-        });
-        return {
-          productId: product.id,
-          quantity: item.quantity,
-          price: resolved.price,
-          observation: item.observation,
-          ingredients: resolved.ingredients,
-          customizations: resolved.customizations
-        };
-      });
-      const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+      const { products, orderItems } = pricing;
       const formattedCpf = this.formatCpf(customerCpf);
       const guestSummary = !userId && customerName ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}` : "";
       const mergedObservation = [guestSummary, observation].map((item) => String(item || "").trim()).filter(Boolean).join(" | ");
       const normalizedTableId = tableId === null || tableId === void 0 || tableId === "" ? null : Number(tableId);
       const order = await OrderRepository_default.create(
         {
-          total,
+          total: pricing.total,
+          itemsSubtotal: pricing.itemsSubtotal,
+          productDiscountTotal: pricing.productDiscountTotal,
+          couponDiscount: pricing.couponDiscount,
+          deliveryFeeAmount: pricing.deliveryFeeAmount,
+          couponId: pricing.couponId,
+          couponRedemptionId: pricing.couponRedemptionId,
+          couponCode: pricing.couponCode,
           systemFee: 0,
           type,
           paymentMethod: effectivePaymentMethod,
@@ -5260,34 +5890,55 @@ var CreateOrderService = class {
         },
         tx
       );
+      await reserveCouponRedemption({
+        redemptionId: pricing.couponRedemptionId,
+        restaurantId: resolvedRestaurantId,
+        userId: resolvedUserId,
+        db: tx
+      });
+      if (shouldMarkAsPaid) {
+        await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
+      }
       await tx.orderItem.createMany({
         data: orderItems.map((item) => ({
           ...item,
           orderId: order.id
         }))
       });
-      await Promise.all(
-        orderItems.map(async (item, index) => {
-          const product = products[index];
-          const stockValue = product.stock === null || product.stock === void 0 ? null : Number(product.stock);
-          if (!Number.isInteger(stockValue) || stockValue < 0) {
-            return;
+      const requestedQuantityByProduct = /* @__PURE__ */ new Map();
+      orderItems.forEach((item) => {
+        requestedQuantityByProduct.set(
+          item.productId,
+          (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity)
+        );
+      });
+      for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
+        const product = products.find((candidate) => candidate.id === productId);
+        const stockValue = product.stock === null || product.stock === void 0 ? null : Number(product.stock);
+        if (!Number.isInteger(stockValue) || stockValue < 0) {
+          continue;
+        }
+        const decremented = await tx.product.updateMany({
+          where: {
+            id: productId,
+            restaurantId: resolvedRestaurantId,
+            stock: { gte: requestedQuantity }
+          },
+          data: {
+            stock: { decrement: requestedQuantity }
           }
-          const nextStock = Math.max(stockValue - Number(item.quantity || 0), 0);
-          await tx.product.update({
-            where: {
-              id: Number(product.id)
-            },
-            data: {
-              stock: nextStock,
-              active: nextStock === 0 ? false : Boolean(product.active)
-            }
-          });
-        })
-      );
+        });
+        if (decremented.count !== 1) {
+          throw new Error(`Estoque de ${product.name} mudou. Confira a quantidade e tente novamente.`);
+        }
+        await tx.product.updateMany({
+          where: { id: productId, restaurantId: resolvedRestaurantId, stock: 0 },
+          data: { active: false }
+        });
+      }
       return OrderRepository_default.findById(order.id, resolvedRestaurantId, tx);
     });
-    const isUnpaidDelivery = type === OrderType3.DELIVERY && shouldPayOnDelivery !== true && shouldMarkAsPaid !== true;
+    const isUnpaidDelivery = type === OrderType4.DELIVERY && shouldPayOnDelivery !== true && shouldMarkAsPaid !== true;
     const isUnpaidDigitalPayment = shouldMarkAsPaid !== true && shouldPayOnDelivery !== true && (normalizedPaymentMethod === PaymentMethod3.PIX || normalizedPaymentMethod === PaymentMethod3.CARTAO);
     const shouldDeferRealtimeUntilPaid = deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
     if (!shouldDeferRealtimeUntilPaid) {
@@ -5337,13 +5988,12 @@ var CreateOrderController = class {
         paymentMethod,
         payOnDelivery,
         payOnDeliveryMethod,
-        paid,
-        pixPaymentId,
         observation,
         customerName,
         customerCpf,
         customerPhone,
         tableId,
+        couponRedemptionId,
         items,
         address,
         number,
@@ -5368,13 +6018,12 @@ var CreateOrderController = class {
         paymentMethod,
         payOnDelivery,
         payOnDeliveryMethod,
-        paid,
-        pixPaymentId,
         observation,
         customerName,
         customerCpf,
         customerPhone,
         tableId,
+        couponRedemptionId,
         items,
         address,
         number,
@@ -5443,50 +6092,7 @@ var OrderPermissions = {
 };
 
 // src/modules/orders/services/UpdateOrderStatusService.ts
-import { OrderStatus as OrderStatus5, OrderType as OrderType4, PaymentMethod as PaymentMethod4, UserRole as UserRole7 } from "@prisma/client";
-
-// src/modules/orders/services/restoreOrderItemsStock.ts
-async function restoreOrderItemsStock(tx, order) {
-  const items = Array.isArray(order?.items) ? order.items : [];
-  for (const item of items) {
-    const productId = Number(item?.productId || 0);
-    const quantity = Number(item?.quantity || 0);
-    if (!Number.isInteger(productId) || productId <= 0) {
-      continue;
-    }
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      continue;
-    }
-    const product = await tx.product.findFirst({
-      where: {
-        id: productId,
-        restaurantId: Number(order.restaurantId)
-      },
-      select: {
-        id: true,
-        stock: true
-      }
-    });
-    if (!product) {
-      continue;
-    }
-    const stockValue = product.stock === null || product.stock === void 0 ? null : Number(product.stock);
-    if (!Number.isInteger(stockValue) || stockValue < 0) {
-      continue;
-    }
-    await tx.product.update({
-      where: {
-        id: product.id
-      },
-      data: {
-        stock: stockValue + quantity,
-        active: true
-      }
-    });
-  }
-}
-
-// src/modules/orders/services/UpdateOrderStatusService.ts
+import { OrderStatus as OrderStatus5, OrderType as OrderType5, PaymentMethod as PaymentMethod4, UserRole as UserRole7 } from "@prisma/client";
 var UpdateOrderStatusService = class {
   PAY_ON_DELIVERY_MARKER = "PAY_ON_DELIVERY:";
   hasLegacyPayOnDeliveryMarker(observation) {
@@ -5508,14 +6114,14 @@ var UpdateOrderStatusService = class {
       throw new Error("Usu\xE1rio n\xE3o tem permiss\xE3o para isso!");
     }
     if (normalizedRole === UserRole7.MOTOQUEIRO) {
-      if (order.type !== OrderType4.DELIVERY) {
+      if (order.type !== OrderType5.DELIVERY) {
         throw new Error("Motoqueiros s\xF3 podem atualizar pedidos de entrega.");
       }
       if (order.assignedCourierId !== Number(actorUserId || 0)) {
         throw new Error("Esta entrega n\xE3o est\xE1 atribu\xEDda a voc\xEA.");
       }
     }
-    if (status === OrderStatus5.ENTREGUE && normalizedRole === UserRole7.MOTOQUEIRO && order.type === OrderType4.DELIVERY) {
+    if (status === OrderStatus5.ENTREGUE && normalizedRole === UserRole7.MOTOQUEIRO && order.type === OrderType5.DELIVERY) {
       const customerPhoneDigits = String(order?.user?.phone || "").replace(/\D/g, "");
       const expectedCode = customerPhoneDigits.slice(-4);
       const providedCode = String(deliveryConfirmationCode || "").replace(/\D/g, "");
@@ -5536,7 +6142,12 @@ var UpdateOrderStatusService = class {
     const digitalMethods = [PaymentMethod4.PIX, PaymentMethod4.CARTAO];
     const isPayOnDelivery = order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
     const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
-    const isUnpaidDigitalDeliveryBlocked = order.type === OrderType4.DELIVERY && isDigitalPayment && !isPayOnDelivery && order.paid !== true;
+    const isUnpaidDigitalDeliveryBlocked = order.type === OrderType5.DELIVERY && isDigitalPayment && !isPayOnDelivery && order.paid !== true;
+    if (status === OrderStatus5.CANCELADO && isDigitalPayment && !isPayOnDelivery && order.paid === true) {
+      throw new Error(
+        "Pedido pago online deve ser cancelado pelo fluxo de estorno para devolver o valor ao cliente."
+      );
+    }
     if (isUnpaidDigitalDeliveryBlocked && status !== OrderStatus5.PENDENTE && status !== OrderStatus5.CANCELADO) {
       throw new Error(
         "Pedido delivery com pagamento digital pendente deve permanecer em PENDENTE at\xE9 a confirma\xE7\xE3o do pagamento."
@@ -5546,30 +6157,62 @@ var UpdateOrderStatusService = class {
       throw new Error("N\xE3o \xE9 poss\xEDvel marcar como entregue: o pagamento ainda n\xE3o foi confirmado.");
     }
     let updatedOrder;
+    let paymentConfirmedOnDelivery = false;
     if (status === OrderStatus5.CANCELADO) {
       updatedOrder = await prisma_default.$transaction(async (tx) => {
+        const cancelledOrder = await OrderRepository_default.updateStatusIfCurrent(
+          orderId,
+          status,
+          restaurantId,
+          { status: currentStatus, paid: order.paid },
+          tx
+        );
         await restoreOrderItemsStock(tx, order);
-        return OrderRepository_default.updateStatus(orderId, status, restaurantId, tx);
+        await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
+        return cancelledOrder;
+      });
+    } else if (status === OrderStatus5.ENTREGUE) {
+      updatedOrder = await prisma_default.$transaction(async (tx) => {
+        let deliveredOrder = await OrderRepository_default.updateStatusIfCurrent(
+          orderId,
+          status,
+          restaurantId,
+          { status: currentStatus, paid: order.paid },
+          tx
+        );
+        if (!deliveredOrder) {
+          throw new Error("Pedido n\xE3o encontrado para atualizar.");
+        }
+        deliveredOrder = await tx.order.update({
+          where: { id: deliveredOrder.id },
+          data: { deliveredAt: /* @__PURE__ */ new Date() },
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true } },
+            restaurant: {
+              select: { id: true, name: true, whatsapp: true }
+            },
+            table: true,
+            items: { include: { product: true } }
+          }
+        });
+        if ((order.paymentMethod === PaymentMethod4.DINHEIRO || isPayOnDelivery) && deliveredOrder.paid !== true) {
+          paymentConfirmedOnDelivery = true;
+          deliveredOrder = await OrderRepository_default.confirmPayment(orderId, restaurantId, tx);
+        }
+        if (deliveredOrder?.paid === true) {
+          await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
+        }
+        return deliveredOrder;
       });
     } else {
-      updatedOrder = await OrderRepository_default.updateStatus(orderId, status, restaurantId);
+      updatedOrder = await OrderRepository_default.updateStatusIfCurrent(
+        orderId,
+        status,
+        restaurantId,
+        { status: currentStatus, paid: order.paid }
+      );
     }
-    if (status === OrderStatus5.ENTREGUE && updatedOrder) {
-      updatedOrder = await prisma_default.order.update({
-        where: { id: updatedOrder.id },
-        data: { deliveredAt: /* @__PURE__ */ new Date() },
-        include: {
-          user: { select: { id: true, name: true, email: true, phone: true } },
-          restaurant: {
-            select: { id: true, name: true, whatsapp: true }
-          },
-          table: true,
-          items: { include: { product: true } }
-        }
-      });
-    }
-    if (status === OrderStatus5.ENTREGUE && (order.paymentMethod === PaymentMethod4.DINHEIRO || isPayOnDelivery) && updatedOrder?.paid !== true) {
-      updatedOrder = await OrderRepository_default.confirmPayment(orderId, restaurantId);
+    if (paymentConfirmedOnDelivery && updatedOrder) {
       io.to(`restaurant:${restaurantId}`).emit("order:payment-confirmed", {
         orderId: updatedOrder.id,
         paid: true,
@@ -5628,7 +6271,7 @@ var UpdateOrderStatusController = class {
 var UpdateOrderStatusController_default = new UpdateOrderStatusController();
 
 // src/modules/orders/services/ClaimOrderForDeliveryService.ts
-import { OrderStatus as OrderStatus6, OrderType as OrderType5, UserRole as UserRole8 } from "@prisma/client";
+import { OrderStatus as OrderStatus6, OrderType as OrderType6, UserRole as UserRole8 } from "@prisma/client";
 var ClaimOrderForDeliveryService = class {
   async execute({
     orderId,
@@ -5653,7 +6296,7 @@ var ClaimOrderForDeliveryService = class {
         where: {
           id: normalizedOrderId,
           restaurantId,
-          type: OrderType5.DELIVERY,
+          type: OrderType6.DELIVERY,
           status: OrderStatus6.PRONTO,
           assignedCourierId: null,
           NOT: {
@@ -5675,7 +6318,7 @@ var ClaimOrderForDeliveryService = class {
           select: { type: true, status: true, assignedCourierId: true }
         });
         if (!current) throw new Error("Pedido n\xE3o encontrado.");
-        if (current.type !== OrderType5.DELIVERY) throw new Error("Este pedido n\xE3o \xE9 uma entrega.");
+        if (current.type !== OrderType6.DELIVERY) throw new Error("Este pedido n\xE3o \xE9 uma entrega.");
         if (current.assignedCourierId)
           throw new Error("Este pedido j\xE1 foi retirado por outro motoqueiro.");
         throw new Error("O pedido n\xE3o est\xE1 dispon\xEDvel para retirada.");
@@ -6127,6 +6770,71 @@ async function getMercadoPagoPreferenceApi(restaurantId) {
 
 // src/modules/orders/services/RefundOrderPaymentService.ts
 var RefundOrderPaymentService = class {
+  resolveAsaasApiBaseUrl() {
+    return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com").trim().replace(/\/+$/, "");
+  }
+  async getAsaasAccessToken(restaurantId) {
+    if (!restaurantId || !Number.isInteger(restaurantId) || restaurantId <= 0) {
+      throw new Error("Restaurante invalido para estorno Asaas.");
+    }
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
+    const settings = await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId);
+    const restaurantToken = String(settings?.asaasAccessToken || "").trim();
+    const globalToken = String(process.env.ASAAS_API_KEY || "").trim();
+    const accessToken = restaurantToken || (allowGlobalFallback ? globalToken : "");
+    if (!accessToken) {
+      throw new Error(
+        "Credencial Asaas nao configurada para este restaurante. Nenhuma alteracao foi aplicada ao pedido."
+      );
+    }
+    return accessToken;
+  }
+  extractAsaasError(payload) {
+    const firstError = Array.isArray(payload?.errors) ? payload.errors[0] : void 0;
+    return {
+      code: String(firstError?.code || "").trim(),
+      description: String(firstError?.description || "").trim()
+    };
+  }
+  async executeAsaasRefund(paymentId, order) {
+    const normalizedPaymentId = String(paymentId || "").trim();
+    const restaurantId = Number(order.restaurantId || 0);
+    if (!normalizedPaymentId) {
+      throw new Error("Identificador Asaas invalido para estorno automatico.");
+    }
+    const accessToken = await this.getAsaasAccessToken(restaurantId);
+    const amount = this.parseAmount(order.total);
+    const response = await fetch(
+      `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}/refund`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          access_token: accessToken
+        },
+        body: JSON.stringify({
+          ...amount ? { value: amount } : {},
+          description: `Estorno do pedido #${String(order.id)}`
+        })
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const providerError = this.extractAsaasError(payload);
+      console.error("[ASAAS_REFUND_ERROR]", {
+        orderId: order.id,
+        restaurantId,
+        paymentId: normalizedPaymentId,
+        status: response.status,
+        code: providerError.code || void 0,
+        description: providerError.description || void 0
+      });
+      throw new Error(
+        `Falha ao estornar pagamento no Asaas (HTTP ${response.status}). Nenhuma alteracao foi aplicada ao pedido.`
+      );
+    }
+  }
   resolvePagBankEnvironment() {
     return "production";
   }
@@ -6216,14 +6924,25 @@ var RefundOrderPaymentService = class {
   }
   async refundPix(order) {
     const paymentId = String(order.pixPaymentId || "").trim();
+    const normalizedPaymentId = paymentId.toLowerCase();
     if (!paymentId) {
       throw new Error(
         "Pedido PIX sem identificador de pagamento. Nao foi possivel estornar automaticamente."
       );
     }
-    if (paymentId.startsWith("manual:")) {
+    if (normalizedPaymentId.startsWith("manual:")) {
       throw new Error(
         "Pedido PIX manual exige estorno manual. Nao foi possivel estornar automaticamente."
+      );
+    }
+    if (normalizedPaymentId.startsWith("asaas:")) {
+      const asaasPaymentId = paymentId.slice("asaas:".length).trim();
+      await this.executeAsaasRefund(asaasPaymentId, order);
+      return;
+    }
+    if (normalizedPaymentId.startsWith("pagbank:")) {
+      throw new Error(
+        "Estorno automatico deste PIX PagBank ainda nao e suportado. Nenhuma alteracao foi aplicada ao pedido."
       );
     }
     const amount = this.parseAmount(order.total);
@@ -6299,13 +7018,19 @@ var RefundOrderPaymentService = class {
   }
   async refundCard(order) {
     const checkoutSessionId = String(order.cardCheckoutSessionId || "").trim();
+    const normalizedCheckoutSessionId = checkoutSessionId.toLowerCase();
     const amount = this.parseAmount(order.total);
     if (!checkoutSessionId) {
       throw new Error(
         "Pedido CARTAO sem identificador de checkout. Nao foi possivel estornar automaticamente."
       );
     }
-    if (checkoutSessionId.startsWith("mp_pay:")) {
+    if (normalizedCheckoutSessionId.startsWith("asaas_pay:")) {
+      const asaasPaymentId = checkoutSessionId.slice("asaas_pay:".length).trim();
+      await this.executeAsaasRefund(asaasPaymentId, order);
+      return;
+    }
+    if (normalizedCheckoutSessionId.startsWith("mp_pay:")) {
       const paymentId = checkoutSessionId.replace(/^mp_pay:/i, "").trim();
       if (!paymentId) {
         throw new Error("Pedido CARTAO com id de pagamento Mercado Pago invalido para estorno.");
@@ -6313,7 +7038,7 @@ var RefundOrderPaymentService = class {
       await this.executeMercadoPagoRefund(paymentId, amount, order.restaurantId);
       return;
     }
-    if (checkoutSessionId.startsWith("mp_pref:")) {
+    if (normalizedCheckoutSessionId.startsWith("mp_pref:")) {
       const preferenceId = checkoutSessionId.replace(/^mp_pref:/i, "").trim();
       const orderId = Number(order.id || 0);
       const restaurantId = Number(order.restaurantId || 0);
@@ -6350,15 +7075,20 @@ var RefundOrderPaymentService = class {
       await this.executeMercadoPagoRefund(resolvedPaymentId, amount, order.restaurantId);
       return;
     }
-    if (checkoutSessionId.startsWith("pagbank_chk:")) {
+    if (normalizedCheckoutSessionId.startsWith("pagbank_chk:")) {
       throw new Error(
-        "Pedido PagBank ainda sem codigo de transacao confirmado para estorno automatico. Faca o estorno manual antes de cancelar."
+        "Pedido PagBank ainda sem codigo de transacao confirmado para estorno automatico. Nenhuma alteracao foi aplicada ao pedido."
       );
     }
-    if (checkoutSessionId.startsWith("pagbank_tx:")) {
+    if (normalizedCheckoutSessionId.startsWith("pagbank_tx:")) {
       const transactionCode = checkoutSessionId.replace(/^pagbank_tx:/i, "").trim();
       await this.refundPagBankByTransaction(transactionCode, order);
       return;
+    }
+    if (normalizedCheckoutSessionId.startsWith("pagbank:")) {
+      throw new Error(
+        "Identificador PagBank sem suporte de estorno automatico. Nenhuma alteracao foi aplicada ao pedido."
+      );
     }
     await this.refundStripeCard(order);
   }
@@ -6382,29 +7112,38 @@ var RefundOrderPaymentService_default = new RefundOrderPaymentService();
 var CancelOrderService = class {
   async execute(orderId, userId, restaurantId) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
-    const order = await OrderRepository_default.findById(normalizedOrderId, restaurantId);
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    const order = await OrderRepository_default.findByIdForCustomer(
+      normalizedOrderId,
+      userId,
+      normalizedRestaurantId
+    );
     if (!order) {
       throw new Error("Pedido n\xE3o encontrado!");
     }
     if (order.userId !== userId) {
       throw new Error("Sem permiss\xE3o!");
     }
+    const orderRestaurantId = order.restaurantId;
     const canCancel = OrderStateMachine.canTransition(order.status, OrderStatus9.CANCELADO);
     if (!canCancel) {
       throw new Error("Pedido n\xE3o pode ser cancelado!");
     }
-    const isPaidDigitalOrder = order.paid === true && (order.paymentMethod === PaymentMethod6.PIX || order.paymentMethod === PaymentMethod6.CARTAO);
+    const isPaidDigitalOrder = order.paid === true && order.payOnDelivery !== true && (order.paymentMethod === PaymentMethod6.PIX || order.paymentMethod === PaymentMethod6.CARTAO);
     if (isPaidDigitalOrder) {
       await RefundOrderPaymentService_default.execute(order);
     }
     const updatedOrder = await prisma_default.$transaction(async (tx) => {
-      await restoreOrderItemsStock(tx, order);
-      return OrderRepository_default.updateStatus(
+      const cancelledOrder = await OrderRepository_default.updateStatusIfCurrent(
         normalizedOrderId,
         OrderStatus9.CANCELADO,
-        restaurantId,
+        orderRestaurantId,
+        { status: order.status, paid: order.paid },
         tx
       );
+      await restoreOrderItemsStock(tx, order);
+      await releaseCouponRedemptionForOrder(normalizedOrderId, orderRestaurantId, tx);
+      return cancelledOrder;
     });
     notifyCustomerOrderStatusChanged({
       customerPhone: order?.user?.phone,
@@ -6416,7 +7155,7 @@ var CancelOrderService = class {
     }).catch((error2) => {
       console.error("[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]", error2?.message || error2);
     });
-    io.to(`restaurant:${restaurantId}`).emit("order:status-changed", updatedOrder);
+    io.to(`restaurant:${orderRestaurantId}`).emit("order:status-changed", updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
     return updatedOrder;
   }
@@ -6459,7 +7198,15 @@ var ConfirmOrderPaymentService = class {
     if (order.paid === true) {
       return order;
     }
-    const updatedOrder = await OrderRepository_default.confirmPayment(normalizedOrderId, restaurantId);
+    const updatedOrder = await prisma_default.$transaction(async (tx) => {
+      const confirmedOrder = await OrderRepository_default.confirmPayment(
+        normalizedOrderId,
+        restaurantId,
+        tx
+      );
+      await markCouponRedemptionUsedForOrder(normalizedOrderId, restaurantId, tx);
+      return confirmedOrder;
+    });
     io.to(`restaurant:${restaurantId}`).emit("order:payment-confirmed", {
       orderId: updatedOrder.id,
       paid: true,
@@ -6567,7 +7314,15 @@ var ConfirmOrderPaymentWithPinService = class {
     if (!verifyPaymentConfirmationPin(normalizedPin, String(order.paymentConfirmationPin))) {
       throw new Error("PIN incorreto. Confira com o dono/admin.");
     }
-    const updatedOrder = await OrderRepository_default.confirmPayment(normalizedOrderId, restaurantId);
+    const updatedOrder = await prisma_default.$transaction(async (tx) => {
+      const confirmedOrder = await OrderRepository_default.confirmPayment(
+        normalizedOrderId,
+        restaurantId,
+        tx
+      );
+      await markCouponRedemptionUsedForOrder(normalizedOrderId, restaurantId, tx);
+      return confirmedOrder;
+    });
     io.to(`restaurant:${restaurantId}`).emit("order:payment-confirmed", {
       orderId: updatedOrder.id,
       paid: true,
@@ -6779,26 +7534,14 @@ var CreateOrderPixPaymentController = class {
         complement,
         customerName,
         customerCpf,
-        customerPhone
+        customerPhone,
+        couponRedemptionId
       } = req.body;
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
-      const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId);
-      const result = await OrderPixPaymentService_default.createPixPayment({
-        restaurantId: resolvedRestaurantId,
-        type,
-        paymentMethod,
-        pixProvider,
-        items,
-        address,
-        number,
-        district,
-        city,
-        state,
-        customerName,
-        customerCpf,
-        customerPhone,
-        userEmail: req.user?.email || null
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: userRestaurantId
       });
       const order = await CreateOrderService_default.execute({
         userId,
@@ -6810,12 +7553,12 @@ var CreateOrderPixPaymentController = class {
         type,
         paymentMethod,
         paid: false,
-        pixPaymentId: String(result.paymentId || ""),
         observation,
         tableId,
         customerName,
         customerCpf,
         customerPhone,
+        couponRedemptionId,
         items,
         address,
         number,
@@ -6825,6 +7568,48 @@ var CreateOrderPixPaymentController = class {
         zipCode,
         complement
       });
+      let result;
+      try {
+        result = await OrderPixPaymentService_default.createPixPayment({
+          restaurantId: resolvedRestaurantId,
+          type,
+          paymentMethod,
+          pixProvider,
+          items,
+          address,
+          number,
+          district,
+          city,
+          state,
+          customerName,
+          customerCpf,
+          customerPhone,
+          userEmail: req.user?.email || null,
+          orderId: order.id,
+          orderTotal: Number(order.total),
+          orderSubtotal: Number(order.itemsSubtotal) - Number(order.couponDiscount),
+          orderDeliveryFee: Number(order.deliveryFeeAmount)
+        });
+      } catch (error2) {
+        await OrderPixPaymentService_default.removePendingOrderAfterPaymentFailure({
+          orderId: order.id,
+          restaurantId: resolvedRestaurantId
+        });
+        throw error2;
+      }
+      try {
+        await OrderPixPaymentService_default.attachPaymentToOrder({
+          orderId: order.id,
+          restaurantId: resolvedRestaurantId,
+          paymentId: String(result.paymentId || "")
+        });
+      } catch (error2) {
+        console.error(
+          "[PIX_ORDER_PAYMENT_LINK_ERROR]",
+          error2 instanceof Error ? error2.message : String(error2),
+          { orderId: order.id, restaurantId: resolvedRestaurantId }
+        );
+      }
       return res.status(201).json({
         ...result,
         orderId: order.id
@@ -7272,10 +8057,10 @@ function getCardCheckoutProviderHandler(provider) {
 // src/modules/orders/services/CreateOrderCardCheckoutService.ts
 var CreateOrderCardCheckoutService = class {
   async resolveCardProvider(payload) {
-    const resolvedRestaurantId = Number(payload.restaurantId) || Number(payload.userRestaurantId) || 0;
-    if (!resolvedRestaurantId) {
-      throw new Error("Restaurante inv\xE1lido para pagamento com cart\xE3o.");
-    }
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: payload.restaurantId,
+      contextRestaurantId: payload.userRestaurantId
+    });
     const settings = await RestaurantSettingsRepository_default.findByRestaurantId(resolvedRestaurantId);
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
     const configuredProvider3 = String(settings?.cardGateway || "").trim();
@@ -7304,9 +8089,10 @@ var CreateOrderCardCheckoutService = class {
       payload.successUrl || process.env.FRONTEND_URL || "http://localhost:5173/cart"
     ).trim();
     const cancelUrlBase = String(payload.cancelUrl || successUrlBase).trim();
+    let checkout;
     try {
       const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
-      const checkout = await providerHandler.createCheckout({
+      checkout = await providerHandler.createCheckout({
         payload,
         order: {
           id: createdOrder.id,
@@ -7318,21 +8104,40 @@ var CreateOrderCardCheckoutService = class {
         successUrlBase,
         cancelUrlBase
       });
+    } catch (error2) {
+      await prisma_default.$transaction(async (tx) => {
+        const pendingOrder = await OrderRepository_default.findById(
+          createdOrder.id,
+          createdOrder.restaurantId,
+          tx
+        );
+        if (pendingOrder) {
+          await restoreOrderItemsStock(tx, pendingOrder);
+        }
+        await releaseCouponRedemptionForOrder(createdOrder.id, createdOrder.restaurantId, tx);
+        await OrderRepository_default.deleteById(createdOrder.id, createdOrder.restaurantId, tx);
+      });
+      throw error2;
+    }
+    try {
       await OrderRepository_default.setCardCheckoutSessionId(
         createdOrder.id,
         createdOrder.restaurantId,
         String(checkout.persistenceSessionId || checkout.sessionId)
       );
-      return {
-        orderId: createdOrder.id,
-        provider: checkout.provider,
-        sessionId: checkout.sessionId,
-        checkoutUrl: checkout.checkoutUrl
-      };
     } catch (error2) {
-      await OrderRepository_default.deleteById(createdOrder.id, createdOrder.restaurantId);
-      throw error2;
+      console.error(
+        "[CARD_ORDER_PAYMENT_LINK_ERROR]",
+        error2 instanceof Error ? error2.message : String(error2),
+        { orderId: createdOrder.id, restaurantId: createdOrder.restaurantId }
+      );
     }
+    return {
+      orderId: createdOrder.id,
+      provider: checkout.provider,
+      sessionId: checkout.sessionId,
+      checkoutUrl: checkout.checkoutUrl
+    };
   }
 };
 var CreateOrderCardCheckoutService_default = new CreateOrderCardCheckoutService();
@@ -7360,7 +8165,8 @@ var CreateOrderCardCheckoutController = class {
         tableId,
         cardProvider,
         successUrl,
-        cancelUrl
+        cancelUrl,
+        couponRedemptionId
       } = req.body;
       const userId = req.user?.id ?? null;
       const userRestaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
@@ -7387,7 +8193,8 @@ var CreateOrderCardCheckoutController = class {
         tableId,
         cardProvider,
         successUrl,
-        cancelUrl
+        cancelUrl,
+        couponRedemptionId
       });
       return res.status(201).json(result);
     } catch (error2) {
@@ -7404,8 +8211,10 @@ var GetOrderPixPaymentStatusController = class {
   async handle(req, res) {
     try {
       const { paymentId, restaurantId } = req.body;
-      const userRestaurantId = req.user?.restaurantId ?? null;
-      const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId);
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null
+      });
       const result = await OrderPixPaymentService_default.getPaymentStatus({
         paymentId,
         restaurantId: resolvedRestaurantId
@@ -7419,6 +8228,96 @@ var GetOrderPixPaymentStatusController = class {
   }
 };
 var GetOrderPixPaymentStatusController_default = new GetOrderPixPaymentStatusController();
+
+// src/modules/orders/services/ReconcileLateCancelledPaymentService.ts
+import { OrderStatus as OrderStatus10, PaymentMethod as PaymentMethod7 } from "@prisma/client";
+var ReconcileLateCancelledPaymentService = class {
+  async execute({
+    orderId,
+    restaurantId,
+    paymentMethod,
+    paymentReference
+  }) {
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    const normalizedMethod = String(paymentMethod || "").toUpperCase();
+    const normalizedReference = String(paymentReference || "").trim();
+    if (!normalizedReference) {
+      throw new Error("Pagamento tardio sem refer\xEAncia para estorno.");
+    }
+    const order = await OrderRepository_default.findById(orderId, normalizedRestaurantId);
+    if (!order || order.status !== OrderStatus10.CANCELADO || order.paid === true) {
+      return false;
+    }
+    const isPix = normalizedMethod === PaymentMethod7.PIX;
+    const isCard = normalizedMethod === PaymentMethod7.CARTAO;
+    if (!isPix && !isCard) {
+      return false;
+    }
+    const pendingMarker = `late_refund_pending:${normalizedReference}`;
+    const completedMarker = `late_refunded:${normalizedReference}`;
+    const currentReference = String(
+      isPix ? order.pixPaymentId || "" : order.cardCheckoutSessionId || ""
+    ).trim();
+    if (currentReference === completedMarker) {
+      return true;
+    }
+    if (currentReference.startsWith("late_refund_pending:")) {
+      throw new Error("Estorno de pagamento tardio j\xE1 est\xE1 em processamento.");
+    }
+    const claim = await prisma_default.order.updateMany({
+      where: {
+        id: order.id,
+        restaurantId: order.restaurantId,
+        status: OrderStatus10.CANCELADO,
+        paid: false,
+        ...isPix ? { pixPaymentId: order.pixPaymentId } : { cardCheckoutSessionId: order.cardCheckoutSessionId }
+      },
+      data: isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
+    });
+    if (claim.count !== 1) {
+      const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+      const latestReference = String(
+        isPix ? latest?.pixPaymentId || "" : latest?.cardCheckoutSessionId || ""
+      ).trim();
+      if (latestReference === completedMarker) {
+        return true;
+      }
+      throw new Error("N\xE3o foi poss\xEDvel iniciar o estorno do pagamento tardio.");
+    }
+    try {
+      await RefundOrderPaymentService_default.execute({
+        ...order,
+        paid: true,
+        ...isPix ? { pixPaymentId: normalizedReference } : { cardCheckoutSessionId: normalizedReference }
+      });
+      await prisma_default.order.updateMany({
+        where: {
+          id: order.id,
+          restaurantId: order.restaurantId,
+          ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
+        },
+        data: isPix ? { pixPaymentId: completedMarker } : { cardCheckoutSessionId: completedMarker }
+      });
+      console.warn("[LATE_CANCELLED_PAYMENT_REFUNDED]", {
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        paymentMethod: normalizedMethod
+      });
+      return true;
+    } catch (error2) {
+      await prisma_default.order.updateMany({
+        where: {
+          id: order.id,
+          restaurantId: order.restaurantId,
+          ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
+        },
+        data: isPix ? { pixPaymentId: order.pixPaymentId } : { cardCheckoutSessionId: order.cardCheckoutSessionId }
+      });
+      throw error2;
+    }
+  }
+};
+var ReconcileLateCancelledPaymentService_default = new ReconcileLateCancelledPaymentService();
 
 // src/modules/orders/services/FinalizeOrderPixPaymentService.ts
 var FinalizeOrderPixPaymentService = class {
@@ -7447,13 +8346,54 @@ var FinalizeOrderPixPaymentService = class {
       }
       throw new Error("Pedido PIX nao encontrado para este pagamento.");
     }
-    if (String(order.pixPaymentId || "").trim() !== normalizedPaymentId) {
-      throw new Error("Pagamento PIX nao corresponde ao pedido informado.");
+    const storedPaymentId = String(order.pixPaymentId || "").trim();
+    if (storedPaymentId !== normalizedPaymentId) {
+      if (!storedPaymentId && orderId && String(order.status) !== "CANCELADO") {
+        await OrderPixPaymentService_default.attachPaymentToOrder({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          paymentId: normalizedPaymentId
+        });
+      } else if (String(order.status) !== "CANCELADO") {
+        throw new Error("Pagamento PIX nao corresponde ao pedido informado.");
+      }
+    }
+    if (String(order.status) === "CANCELADO" && order.paid !== true) {
+      await ReconcileLateCancelledPaymentService_default.execute({
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        paymentMethod: "PIX",
+        paymentReference: normalizedPaymentId
+      });
+      return OrderRepository_default.findById(order.id, order.restaurantId);
     }
     if (order.paid === true) {
       return order;
     }
-    const updatedOrder = await OrderRepository_default.confirmPayment(order.id, order.restaurantId);
+    let updatedOrder;
+    try {
+      updatedOrder = await prisma_default.$transaction(async (tx) => {
+        const confirmedOrder = await OrderRepository_default.confirmPayment(
+          order.id,
+          order.restaurantId,
+          tx
+        );
+        await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        return confirmedOrder;
+      });
+    } catch (error2) {
+      const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+      if (latest?.status === "CANCELADO" && latest.paid !== true) {
+        await ReconcileLateCancelledPaymentService_default.execute({
+          orderId: latest.id,
+          restaurantId: latest.restaurantId,
+          paymentMethod: "PIX",
+          paymentReference: normalizedPaymentId
+        });
+        return OrderRepository_default.findById(latest.id, latest.restaurantId);
+      }
+      throw error2;
+    }
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:payment-confirmed", {
       orderId: updatedOrder.id,
       paid: true,
@@ -7492,8 +8432,10 @@ var ConfirmOrderPixPaymentController = class {
   async handle(req, res) {
     try {
       const { orderId, paymentId, restaurantId } = req.body;
-      const userRestaurantId = req.user?.restaurantId ?? null;
-      const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || void 0;
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null
+      });
       const order = await FinalizeOrderPixPaymentService_default.execute({
         orderId,
         paymentId,
@@ -8221,7 +9163,7 @@ var ResolveOrderIssueController = class {
 var ResolveOrderIssueController_default = new ResolveOrderIssueController();
 
 // src/modules/orders/services/RefundOrderByAdminService.ts
-import { OrderStatus as OrderStatus10 } from "@prisma/client";
+import { OrderStatus as OrderStatus11 } from "@prisma/client";
 var RefundOrderByAdminService = class {
   async execute({
     orderId,
@@ -8274,7 +9216,7 @@ var RefundOrderByAdminService = class {
     if (!order) {
       throw new Error("Pedido n\xE3o encontrado para este restaurante.");
     }
-    if (order.status === OrderStatus10.CANCELADO) {
+    if (order.status === OrderStatus11.CANCELADO) {
       throw new Error("Este pedido j\xE1 est\xE1 cancelado.");
     }
     const wasPaid = order.paid === true;
@@ -8283,13 +9225,16 @@ var RefundOrderByAdminService = class {
       await RefundOrderPaymentService_default.execute(order);
     }
     const updatedOrder = await prisma_default.$transaction(async (tx) => {
-      await restoreOrderItemsStock(tx, order);
-      return OrderRepository_default.updateStatus(
+      const cancelledOrder = await OrderRepository_default.updateStatusIfCurrent(
         order.id,
-        OrderStatus10.CANCELADO,
+        OrderStatus11.CANCELADO,
         normalizedRestaurantId,
+        { status: order.status, paid: order.paid },
         tx
       );
+      await restoreOrderItemsStock(tx, order);
+      await releaseCouponRedemptionForOrder(order.id, normalizedRestaurantId, tx);
+      return cancelledOrder;
     });
     const resolvedByName = String(adminUser?.name || "Admin").trim() || "Admin";
     const resolvedThread = await resolveOrderIssueThread({
@@ -8434,12 +9379,48 @@ var CategoryRepository_default = new CategoryRepository();
 
 // src/modules/orders/services/ClearOrdersAndCategoriesService.ts
 var ClearOrdersAndCategoriesService = class {
-  async execute(restaurantId) {
+  async execute(restaurantId, now = /* @__PURE__ */ new Date()) {
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isFinite(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error("Restaurant inv\xE1lido!");
     }
     await prisma_default.$transaction(async (db) => {
+      const attachedRedemptions = await db.order.findMany({
+        where: {
+          restaurantId: normalizedRestaurantId,
+          couponRedemptionId: { not: null }
+        },
+        select: { couponRedemptionId: true }
+      });
+      const redemptionIds = attachedRedemptions.map((order) => Number(order.couponRedemptionId || 0)).filter((id) => id > 0);
+      if (redemptionIds.length > 0) {
+        await db.couponRedemption.updateMany({
+          where: {
+            id: { in: redemptionIds },
+            restaurantId: normalizedRestaurantId,
+            status: "RESERVED",
+            expiresAt: { gt: now }
+          },
+          data: {
+            status: "CLAIMED",
+            reservedAt: null,
+            usedAt: null
+          }
+        });
+        await db.couponRedemption.updateMany({
+          where: {
+            id: { in: redemptionIds },
+            restaurantId: normalizedRestaurantId,
+            status: "RESERVED",
+            expiresAt: { lte: now }
+          },
+          data: {
+            status: "EXPIRED",
+            reservedAt: null,
+            usedAt: null
+          }
+        });
+      }
       await OrderRepository_default.deleteAllByRestaurant(normalizedRestaurantId, db);
       await CategoryRepository_default.deleteAllByRestaurant(normalizedRestaurantId, db);
     });
@@ -8494,10 +9475,43 @@ var FinalizeOrderCardPaymentService = class {
       }
       throw new Error("Pedido do cartao nao encontrado para esta sessao.");
     }
+    if (String(order.status) === "CANCELADO" && order.paid !== true) {
+      const paymentReference = normalizedCheckoutSessionId || String(order.cardCheckoutSessionId || "").trim();
+      await ReconcileLateCancelledPaymentService_default.execute({
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        paymentMethod: "CARTAO",
+        paymentReference
+      });
+      return OrderRepository_default.findById(order.id, order.restaurantId);
+    }
     if (order.paid === true) {
       return order;
     }
-    const updatedOrder = await OrderRepository_default.confirmPayment(order.id, order.restaurantId);
+    let updatedOrder;
+    try {
+      updatedOrder = await prisma_default.$transaction(async (tx) => {
+        const confirmedOrder = await OrderRepository_default.confirmPayment(
+          order.id,
+          order.restaurantId,
+          tx
+        );
+        await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        return confirmedOrder;
+      });
+    } catch (error2) {
+      const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+      if (latest?.status === "CANCELADO" && latest.paid !== true) {
+        await ReconcileLateCancelledPaymentService_default.execute({
+          orderId: latest.id,
+          restaurantId: latest.restaurantId,
+          paymentMethod: "CARTAO",
+          paymentReference: normalizedCheckoutSessionId || String(latest.cardCheckoutSessionId || "").trim()
+        });
+        return OrderRepository_default.findById(latest.id, latest.restaurantId);
+      }
+      throw error2;
+    }
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:payment-confirmed", {
       orderId: updatedOrder.id,
       paid: true,
@@ -8531,8 +9545,56 @@ var FinalizeOrderCardPaymentService = class {
 };
 var FinalizeOrderCardPaymentService_default = new FinalizeOrderCardPaymentService();
 
+// src/modules/orders/services/FailPendingOrderPaymentService.ts
+import { OrderStatus as OrderStatus12 } from "@prisma/client";
+var FailPendingOrderPaymentService = class {
+  async execute({
+    orderId,
+    restaurantId,
+    pixPaymentId,
+    cardCheckoutSessionId
+  }) {
+    const normalizedRestaurantId = Number(restaurantId || 0) || void 0;
+    const normalizedPixPaymentId = String(pixPaymentId || "").trim();
+    const normalizedCardSessionId = String(cardCheckoutSessionId || "").trim();
+    if (!normalizedRestaurantId) {
+      throw new Error("Restaurante obrigat\xF3rio para reconciliar falha de pagamento.");
+    }
+    const order = orderId ? await OrderRepository_default.findById(orderId, normalizedRestaurantId) : normalizedPixPaymentId ? await OrderRepository_default.findByPixPaymentId(
+      normalizedPixPaymentId,
+      normalizedRestaurantId
+    ) : normalizedCardSessionId ? await OrderRepository_default.findByCardCheckoutSessionId(
+      normalizedCardSessionId,
+      normalizedRestaurantId
+    ) : null;
+    if (!order || order.paid === true || order.status === OrderStatus12.CANCELADO) {
+      return order;
+    }
+    if (order.status !== OrderStatus12.PENDENTE) {
+      throw new Error(
+        "Falha de pagamento recebida para um pedido que j\xE1 avan\xE7ou na opera\xE7\xE3o."
+      );
+    }
+    const cancelledOrder = await prisma_default.$transaction(async (tx) => {
+      const updated = await OrderRepository_default.updateStatusIfCurrent(
+        order.id,
+        OrderStatus12.CANCELADO,
+        order.restaurantId,
+        { status: OrderStatus12.PENDENTE, paid: false },
+        tx
+      );
+      await restoreOrderItemsStock(tx, order);
+      await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+      return updated;
+    });
+    return cancelledOrder;
+  }
+};
+var FailPendingOrderPaymentService_default = new FailPendingOrderPaymentService();
+
 // src/modules/orders/controllers/MercadoPagoOrderWebhookController.ts
 var APPROVED_STATUSES = /* @__PURE__ */ new Set(["approved", "accredited", "paid"]);
+var TERMINAL_UNPAID_STATUSES = /* @__PURE__ */ new Set(["cancelled", "rejected", "refunded", "charged_back"]);
 var MercadoPagoOrderWebhookController = class {
   async handle(req, res) {
     try {
@@ -8555,9 +9617,6 @@ var MercadoPagoOrderWebhookController = class {
       });
       const payment = typeof response === "object" && response !== null ? response.body ?? response : {};
       const status = String(payment.status || "").toLowerCase();
-      if (!APPROVED_STATUSES.has(status)) {
-        return res.sendStatus(200);
-      }
       const externalReference = String(
         payment.external_reference || ""
       ).trim();
@@ -8565,34 +9624,58 @@ var MercadoPagoOrderWebhookController = class {
         payment.metadata?.restaurant_id || 0
       );
       const resolvedRestaurantId = Number.isInteger(hintedRestaurantId) && hintedRestaurantId > 0 ? hintedRestaurantId : Number.isInteger(metadataRestaurantId) && metadataRestaurantId > 0 ? metadataRestaurantId : void 0;
-      if (externalReference.startsWith("ordercard:")) {
-        const [, orderId = "", restaurantId = ""] = externalReference.split(":");
-        const referenceRestaurantId = Number(restaurantId || 0);
-        const normalizedPaymentId = String(paymentId || "").trim();
-        if (!Number.isInteger(referenceRestaurantId) || referenceRestaurantId <= 0 || hintedRestaurantId > 0 && referenceRestaurantId !== hintedRestaurantId || metadataRestaurantId > 0 && referenceRestaurantId !== metadataRestaurantId) {
-          return res.status(400).json({
-            error: "Webhook Mercado Pago rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+      const parsedReference = /^order(pix|card):(\d+):(\d+)$/i.exec(externalReference);
+      const referenceType = String(parsedReference?.[1] || "").toLowerCase();
+      const referenceRestaurantId = Number(parsedReference?.[2] || 0);
+      const referenceOrderId = Number(parsedReference?.[3] || 0);
+      if (parsedReference && (hintedRestaurantId > 0 && referenceRestaurantId !== hintedRestaurantId || metadataRestaurantId > 0 && referenceRestaurantId !== metadataRestaurantId)) {
+        return res.status(400).json({
+          error: "Webhook Mercado Pago rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+        });
+      }
+      if (TERMINAL_UNPAID_STATUSES.has(status)) {
+        if (parsedReference) {
+          await FailPendingOrderPaymentService_default.execute({
+            orderId: referenceOrderId,
+            restaurantId: referenceRestaurantId
           });
-        }
-        if (orderId) {
-          if (normalizedPaymentId) {
-            await OrderRepository_default.setCardCheckoutSessionId(
-              orderId,
-              referenceRestaurantId,
-              `mp_pay:${normalizedPaymentId}`
-            );
-          }
-          await FinalizeOrderCardPaymentService_default.execute({
-            orderId,
-            restaurantId: referenceRestaurantId,
-            allowMissingOrder: true
+        } else {
+          await FailPendingOrderPaymentService_default.execute({
+            restaurantId: resolvedRestaurantId,
+            pixPaymentId: String(paymentId)
           });
         }
         return res.sendStatus(200);
       }
+      if (!APPROVED_STATUSES.has(status)) {
+        return res.sendStatus(200);
+      }
+      if (referenceType === "card") {
+        const orderId = referenceOrderId;
+        const normalizedPaymentId = String(paymentId || "").trim();
+        if (!Number.isInteger(orderId) || orderId <= 0 || !Number.isInteger(referenceRestaurantId) || referenceRestaurantId <= 0) {
+          return res.status(400).json({
+            error: "Webhook Mercado Pago rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+          });
+        }
+        if (normalizedPaymentId) {
+          await OrderRepository_default.setCardCheckoutSessionId(
+            orderId,
+            referenceRestaurantId,
+            `mp_pay:${normalizedPaymentId}`
+          );
+        }
+        await FinalizeOrderCardPaymentService_default.execute({
+          orderId,
+          restaurantId: referenceRestaurantId,
+          allowMissingOrder: true
+        });
+        return res.sendStatus(200);
+      }
       await FinalizeOrderPixPaymentService_default.execute({
+        orderId: referenceType === "pix" ? referenceOrderId : void 0,
         paymentId: String(paymentId),
-        restaurantId: resolvedRestaurantId,
+        restaurantId: referenceType === "pix" ? referenceRestaurantId : resolvedRestaurantId,
         allowMissingOrder: true
       });
       return res.sendStatus(200);
@@ -8655,13 +9738,27 @@ var StripeOrderWebhookController = class {
         "checkout.session.completed",
         "checkout.session.async_payment_succeeded"
       ]);
-      if (!allowedEventTypes.has(eventType) || paymentStatus !== "paid") {
+      const terminalFailureEventTypes = /* @__PURE__ */ new Set([
+        "checkout.session.expired",
+        "checkout.session.async_payment_failed"
+      ]);
+      if (!allowedEventTypes.has(eventType) && !terminalFailureEventTypes.has(eventType)) {
         return res.sendStatus(200);
       }
       if (!metadataOrderId || !Number.isInteger(metadataRestaurantId) || metadataRestaurantId <= 0) {
         return res.status(400).json({
           error: "Webhook Stripe invalido: metadata orderId/restaurantId obrigatoria."
         });
+      }
+      if (terminalFailureEventTypes.has(eventType)) {
+        await FailPendingOrderPaymentService_default.execute({
+          orderId: metadataOrderId,
+          restaurantId: metadataRestaurantId
+        });
+        return res.sendStatus(200);
+      }
+      if (paymentStatus !== "paid") {
+        return res.sendStatus(200);
       }
       await FinalizeOrderCardPaymentService_default.execute({
         orderId: metadataOrderId,
@@ -8683,6 +9780,8 @@ var StripeOrderWebhookController_default = new StripeOrderWebhookController();
 
 // src/modules/orders/controllers/PagBankOrderWebhookController.ts
 var APPROVED_TRANSACTION_STATUSES = /* @__PURE__ */ new Set(["3", "4"]);
+var TERMINAL_TRANSACTION_STATUSES = /* @__PURE__ */ new Set(["6", "7", "8"]);
+var TERMINAL_ORDER_STATUSES = /* @__PURE__ */ new Set(["CANCELED", "CANCELLED", "DECLINED", "EXPIRED"]);
 var PagBankWebhookError = class extends Error {
   statusCode;
   constructor(message, statusCode = 500) {
@@ -8778,12 +9877,34 @@ var PagBankOrderWebhookController = class {
         ...Array.isArray(req.body?.charges) ? req.body.charges : [],
         ...Array.isArray(req.body?.order?.charges) ? req.body.order.charges : []
       ].map((charge) => String(charge?.status || "").toUpperCase());
-      if (pagBankOrderId && referenceId.startsWith("orderpix:") && chargeStatuses.includes("PAID")) {
-        await FinalizeOrderPixPaymentService_default.execute({
-          paymentId: `pagbank:${pagBankOrderId}`,
-          restaurantId: restaurantIdHint,
-          allowMissingOrder: true
+      const pixReference = /^orderpix:(\d+):(\d+)$/i.exec(referenceId);
+      if (pagBankOrderId && pixReference) {
+        const referenceRestaurantId = Number(pixReference[1]);
+        const referenceOrderId = Number(pixReference[2]);
+        if (restaurantIdHint && restaurantIdHint !== referenceRestaurantId) {
+          return res.status(400).json({
+            error: "Webhook PagBank rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+          });
+        }
+        const paymentId = `pagbank:${pagBankOrderId}`;
+        const providerStatus = await OrderPixPaymentService_default.getPaymentStatus({
+          paymentId,
+          restaurantId: referenceRestaurantId
         });
+        const normalizedProviderStatus = String(providerStatus.status || "").toUpperCase();
+        if (providerStatus.isApproved || chargeStatuses.includes("PAID")) {
+          await FinalizeOrderPixPaymentService_default.execute({
+            orderId: referenceOrderId,
+            paymentId,
+            restaurantId: referenceRestaurantId,
+            allowMissingOrder: true
+          });
+        } else if (TERMINAL_ORDER_STATUSES.has(normalizedProviderStatus)) {
+          await FailPendingOrderPaymentService_default.execute({
+            orderId: referenceOrderId,
+            restaurantId: referenceRestaurantId
+          });
+        }
         return res.sendStatus(200);
       }
       if (!restaurantIdHint && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK !== "true") {
@@ -8795,10 +9916,23 @@ var PagBankOrderWebhookController = class {
         return res.sendStatus(200);
       }
       const details = notificationCode ? await fetchPagBankTransactionByNotificationCode(notificationCode, restaurantIdHint) : await fetchPagBankTransactionByCode(transactionCode, restaurantIdHint);
+      const externalReference = String(details.reference || "").trim();
+      const cardReference = /^ordercard:(\d+):(\d+)$/i.exec(externalReference);
+      if (cardReference && restaurantIdHint && Number(cardReference[2]) !== restaurantIdHint) {
+        return res.status(400).json({
+          error: "Webhook PagBank rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
+        });
+      }
+      if (TERMINAL_TRANSACTION_STATUSES.has(String(details.status || "")) && cardReference) {
+        await FailPendingOrderPaymentService_default.execute({
+          orderId: Number(cardReference[1]),
+          restaurantId: Number(cardReference[2])
+        });
+        return res.sendStatus(200);
+      }
       if (!APPROVED_TRANSACTION_STATUSES.has(String(details.status || ""))) {
         return res.sendStatus(200);
       }
-      const externalReference = String(details.reference || "").trim();
       if (externalReference.startsWith("ordercard:")) {
         const [, orderId = "", restaurantId = ""] = externalReference.split(":");
         const referenceRestaurantId = Number(restaurantId || 0);
@@ -8868,7 +10002,7 @@ var GetCurrentTableOrderController_default = new GetCurrentTableOrderController(
 import { UserRole as UserRole14 } from "@prisma/client";
 
 // src/modules/orders/utils/deliveryReceiptConfirmation.ts
-import { OrderStatus as OrderStatus11, OrderType as OrderType6, UserRole as UserRole13 } from "@prisma/client";
+import { OrderStatus as OrderStatus13, OrderType as OrderType7, UserRole as UserRole13 } from "@prisma/client";
 function canConfirmDeliveryReceipt(order, customerId2, role) {
   if (String(role).toUpperCase() !== UserRole13.CLIENTE) {
     throw new Error("Somente o cliente do pedido pode confirmar o recebimento.");
@@ -8876,10 +10010,10 @@ function canConfirmDeliveryReceipt(order, customerId2, role) {
   if (order.userId !== customerId2) {
     throw new Error("Pedido n\xE3o encontrado.");
   }
-  if (order.type !== OrderType6.DELIVERY) {
+  if (order.type !== OrderType7.DELIVERY) {
     throw new Error("A confirma\xE7\xE3o de recebimento \xE9 exclusiva para pedidos de entrega.");
   }
-  if (order.status !== OrderStatus11.ENTREGUE) {
+  if (order.status !== OrderStatus13.ENTREGUE) {
     throw new Error("O pedido ainda n\xE3o foi marcado como entregue.");
   }
   return !order.deliveryConfirmedAt;
@@ -8940,6 +10074,60 @@ var ConfirmOrderDeliveryReceivedController = class {
   }
 };
 var ConfirmOrderDeliveryReceivedController_default = new ConfirmOrderDeliveryReceivedController();
+
+// src/modules/orders/controllers/QuoteOrderController.ts
+import { OrderType as OrderType8 } from "@prisma/client";
+import { z as z7 } from "zod";
+var QuoteOrderController = class {
+  async handle(req, res) {
+    try {
+      const { restaurantId, type, items, couponRedemptionId } = req.body;
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null
+      });
+      const parsed = z7.object({
+        type: z7.nativeEnum(OrderType8),
+        couponRedemptionId: z7.number().int().positive().nullable().optional(),
+        items: z7.array(
+          z7.object({
+            productId: z7.number().int().positive(),
+            quantity: z7.number().int().positive(),
+            observation: z7.string().trim().max(500).optional(),
+            ingredientIds: z7.array(z7.number().int().positive()).max(40).optional(),
+            optionIds: z7.array(z7.number().int().positive()).max(100).optional(),
+            selectedOptions: z7.array(
+              z7.object({
+                groupId: z7.number().int().positive(),
+                optionIds: z7.array(z7.number().int().positive()).max(40)
+              })
+            ).max(20).optional()
+          })
+        ).min(1)
+      }).parse({ type, items, couponRedemptionId });
+      const quote = await OrderPricingService_default.quote({
+        restaurantId: resolvedRestaurantId,
+        userId: req.user?.id,
+        type: parsed.type,
+        items: parsed.items,
+        couponRedemptionId: parsed.couponRedemptionId
+      });
+      return res.status(200).json({
+        itemsSubtotal: quote.itemsSubtotal,
+        productDiscountTotal: quote.productDiscountTotal,
+        couponDiscount: quote.couponDiscount,
+        deliveryFeeAmount: quote.deliveryFeeAmount,
+        total: quote.total,
+        couponCode: quote.couponCode
+      });
+    } catch (error2) {
+      return res.status(400).json({
+        error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel calcular o pedido."
+      });
+    }
+  }
+};
+var QuoteOrderController_default = new QuoteOrderController();
 
 // src/middlewares/staffMiddleware.ts
 import { UserRole as UserRole15 } from "@prisma/client";
@@ -9093,6 +10281,9 @@ router3.post("/webhook/pagbank", PagBankOrderWebhookController_default.handle);
 router3.post("/", orderAccessMiddleware, billingMiddleware, (req, res) => {
   CreateOrderController_default.handle(req, res);
 });
+router3.post("/quote", orderAccessMiddleware, billingMiddleware, (req, res) => {
+  QuoteOrderController_default.handle(req, res);
+});
 router3.post("/pix/payment", orderAccessMiddleware, billingMiddleware, (req, res) => {
   CreateOrderPixPaymentController_default.handle(req, res);
 });
@@ -9226,7 +10417,7 @@ var SubscriptionRepository_default = new SubscriptionRepository();
 import { SubscriptionStatus, UserRole as UserRole17 } from "@prisma/client";
 
 // src/validators/RestaurantValidator.ts
-import { z as z6 } from "zod";
+import { z as z8 } from "zod";
 var slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var COMMON_EMAIL_DOMAIN_TYPOS = {
   "hotmali.com": "hotmail.com",
@@ -9254,49 +10445,49 @@ function validateEmailDomainTypos(value) {
     message: `Dom\xEDnio de email inv\xE1lido (${domain}). Voc\xEA quis dizer ${suggestion}?`
   };
 }
-var createRestaurantSchema = z6.object({
-  plan: z6.enum(["BASICO", "PREMIUM"], {
+var createRestaurantSchema = z8.object({
+  plan: z8.enum(["BASICO", "PREMIUM"], {
     errorMap: () => ({ message: "Escolha o plano B\xE1sico ou Premium." })
   }),
-  restaurant: z6.object({
-    name: z6.string().trim().min(2, "Nome do restaurante deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do restaurante muito longo!"),
-    slug: z6.string().trim().toLowerCase().min(3, "Slug deve ter no m\xEDnimo 3 caracteres!").max(60, "Slug muito longo!").regex(slugPattern, "Slug inv\xE1lido! Use apenas letras min\xFAsculas, n\xFAmeros e h\xEDfen."),
-    email: z6.string().trim().toLowerCase().email("Email do restaurante inv\xE1lido!").superRefine((value, context) => {
+  restaurant: z8.object({
+    name: z8.string().trim().min(2, "Nome do restaurante deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do restaurante muito longo!"),
+    slug: z8.string().trim().toLowerCase().min(3, "Slug deve ter no m\xEDnimo 3 caracteres!").max(60, "Slug muito longo!").regex(slugPattern, "Slug inv\xE1lido! Use apenas letras min\xFAsculas, n\xFAmeros e h\xEDfen."),
+    email: z8.string().trim().toLowerCase().email("Email do restaurante inv\xE1lido!").superRefine((value, context) => {
       const result = validateEmailDomainTypos(value);
       if (!result.valid) {
         context.addIssue({
-          code: z6.ZodIssueCode.custom,
+          code: z8.ZodIssueCode.custom,
           message: result.message
         });
       }
     }),
-    phone: z6.string().optional().transform((value) => normalizePhone(value || "")).refine((value) => !value || /^\d{10,11}$/.test(value), "Telefone do restaurante inv\xE1lido!"),
-    whatsapp: z6.string().optional(),
-    cnpj: z6.string().optional(),
-    logo: z6.string().optional(),
-    coverImage: z6.string().optional(),
-    description: z6.string().optional(),
-    address: z6.string().trim().optional(),
-    city: z6.string().trim().optional().refine((value) => !value || value.length >= 2, "Cidade deve ter no m\xEDnimo 2 caracteres!"),
-    state: z6.string().trim().toUpperCase().optional().refine(
+    phone: z8.string().optional().transform((value) => normalizePhone(value || "")).refine((value) => !value || /^\d{10,11}$/.test(value), "Telefone do restaurante inv\xE1lido!"),
+    whatsapp: z8.string().optional(),
+    cnpj: z8.string().optional(),
+    logo: z8.string().optional(),
+    coverImage: z8.string().optional(),
+    description: z8.string().optional(),
+    address: z8.string().trim().optional(),
+    city: z8.string().trim().optional().refine((value) => !value || value.length >= 2, "Cidade deve ter no m\xEDnimo 2 caracteres!"),
+    state: z8.string().trim().toUpperCase().optional().refine(
       (value) => !value || /^[A-Z]{2}$/.test(value),
       "Estado deve conter exatamente 2 letras."
     ),
-    zipCode: z6.string().optional(),
-    openingHours: z6.string().optional()
+    zipCode: z8.string().optional(),
+    openingHours: z8.string().optional()
   }),
-  admin: z6.object({
-    name: z6.string().trim().min(2, "Nome do admin deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do admin muito longo!"),
-    email: z6.string().trim().toLowerCase().email("Email do admin inv\xE1lido!").superRefine((value, context) => {
+  admin: z8.object({
+    name: z8.string().trim().min(2, "Nome do admin deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do admin muito longo!"),
+    email: z8.string().trim().toLowerCase().email("Email do admin inv\xE1lido!").superRefine((value, context) => {
       const result = validateEmailDomainTypos(value);
       if (!result.valid) {
         context.addIssue({
-          code: z6.ZodIssueCode.custom,
+          code: z8.ZodIssueCode.custom,
           message: result.message
         });
       }
     }),
-    password: z6.string().min(6, "Senha deve ter no m\xEDnimo 6 caracteres!").max(72, "Senha muito longa!")
+    password: z8.string().min(6, "Senha deve ter no m\xEDnimo 6 caracteres!").max(72, "Senha muito longa!")
   })
 });
 
@@ -9593,12 +10784,12 @@ var restaurantRoutes_default = router4;
 import { Router as Router5 } from "express";
 
 // src/validators/CategoryValidator.ts
-import { z as z7 } from "zod";
-var createCategorySchema = z7.object({
-  name: z7.string().trim().min(1, "Nome \xE9 obrigat\xF3rio!").max(50, "Nome deve ter no m\xE1ximo 50 caracteres."),
-  description: z7.string().trim().max(255, "Descri\xE7\xE3o deve ter no m\xE1ximo 255 caracteres.").optional(),
-  image: z7.string().trim().optional(),
-  active: z7.boolean().optional()
+import { z as z9 } from "zod";
+var createCategorySchema = z9.object({
+  name: z9.string().trim().min(1, "Nome \xE9 obrigat\xF3rio!").max(50, "Nome deve ter no m\xE1ximo 50 caracteres."),
+  description: z9.string().trim().max(255, "Descri\xE7\xE3o deve ter no m\xE1ximo 255 caracteres.").optional(),
+  image: z9.string().trim().optional(),
+  active: z9.boolean().optional()
 });
 
 // src/modules/categories/services/CreateCategoryService.ts
@@ -9894,22 +11085,22 @@ var CreateEmployeeService_default = new CreateEmployeeService();
 
 // src/validators/EmployeeSchema.ts
 import { FuncionarioSubRole as FuncionarioSubRole2, UserRole as UserRole20 } from "@prisma/client";
-import { z as z8 } from "zod";
+import { z as z10 } from "zod";
 var phoneRegex = /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
-var EmployeeUserSchema = z8.object({
-  name: z8.string().min(1, "Nome obrigat\xF3rio"),
-  email: z8.string().email("Email inv\xE1lido"),
-  password: z8.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
-  confirmPassword: z8.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
-  role: z8.nativeEnum(UserRole20).optional().refine(
+var EmployeeUserSchema = z10.object({
+  name: z10.string().min(1, "Nome obrigat\xF3rio"),
+  email: z10.string().email("Email inv\xE1lido"),
+  password: z10.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
+  confirmPassword: z10.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
+  role: z10.nativeEnum(UserRole20).optional().refine(
     (value) => !value || value === UserRole20.FUNCIONARIO || value === UserRole20.MOTOQUEIRO,
     {
       message: "Cargo inv\xE1lido"
     }
   ),
-  phone: z8.string().min(1, "Telefone obrigat\xF3rio").regex(phoneRegex, "N\xFAmero de telefone inv\xE1lido!"),
-  subRole: z8.nativeEnum(FuncionarioSubRole2).optional().nullable(),
-  cpf: z8.string().optional().refine(
+  phone: z10.string().min(1, "Telefone obrigat\xF3rio").regex(phoneRegex, "N\xFAmero de telefone inv\xE1lido!"),
+  subRole: z10.nativeEnum(FuncionarioSubRole2).optional().nullable(),
+  cpf: z10.string().optional().refine(
     (value) => !value || /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(
       value.replace(/\D/g, "").replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
     ),
@@ -9919,9 +11110,9 @@ var EmployeeUserSchema = z8.object({
   message: "As senhas n\xE3o conferem!",
   path: ["confirmPassword"]
 });
-var loginSchema2 = z8.object({
-  email: z8.string().email("Email inv\xE1lido"),
-  password: z8.string().min(1, "Senha obrigat\xF3ria")
+var loginSchema2 = z10.object({
+  email: z10.string().email("Email inv\xE1lido"),
+  password: z10.string().min(1, "Senha obrigat\xF3ria")
 });
 
 // src/modules/employee/Controllers/CreateEmployeeController.ts
@@ -12788,9 +13979,88 @@ var CouponRepository = class {
   async findByCode(code, restaurantId) {
     return prisma_default.coupon.findFirst({
       where: {
-        code,
+        code: {
+          equals: code,
+          mode: "insensitive"
+        },
         restaurantId: Number(restaurantId)
       }
+    });
+  }
+  async findActiveById(id, restaurantId, now = /* @__PURE__ */ new Date()) {
+    return prisma_default.coupon.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId: Number(restaurantId),
+        active: true,
+        OR: [{ expiration: null }, { expiration: { gt: now } }]
+      }
+    });
+  }
+  async findActiveLoyaltyByRestaurant(restaurantId, now = /* @__PURE__ */ new Date()) {
+    return prisma_default.coupon.findMany({
+      where: {
+        restaurantId: Number(restaurantId),
+        active: true,
+        OR: [{ expiration: null }, { expiration: { gt: now } }]
+      },
+      orderBy: [{ loyaltyPurchasesRequired: "asc" }, { id: "desc" }]
+    });
+  }
+  async countCompletedPurchases(userId, restaurantId, completedAfter) {
+    return prisma_default.order.count({
+      where: {
+        userId: Number(userId),
+        restaurantId: Number(restaurantId),
+        paid: true,
+        status: "ENTREGUE",
+        ...completedAfter ? {
+          OR: [
+            { deliveredAt: { gt: completedAfter } },
+            { deliveredAt: null, updatedAt: { gt: completedAfter } }
+          ]
+        } : {}
+      }
+    });
+  }
+  async findRedemptions(userId, restaurantId, couponIds) {
+    if (couponIds.length === 0) return [];
+    return prisma_default.couponRedemption.findMany({
+      where: {
+        userId: Number(userId),
+        restaurantId: Number(restaurantId),
+        couponId: { in: couponIds }
+      },
+      include: { order: { select: { id: true } } },
+      orderBy: [{ couponId: "asc" }, { cycle: "asc" }]
+    });
+  }
+  async expireClaimedRedemptions({
+    restaurantId,
+    userId,
+    couponIds,
+    redemptionId,
+    now = /* @__PURE__ */ new Date()
+  } = {}) {
+    return prisma_default.couponRedemption.updateMany({
+      where: {
+        status: "CLAIMED",
+        expiresAt: { lte: now },
+        ...restaurantId ? { restaurantId: Number(restaurantId) } : {},
+        ...userId ? { userId: Number(userId) } : {},
+        ...couponIds ? { couponId: { in: couponIds } } : {},
+        ...redemptionId ? { id: Number(redemptionId) } : {}
+      },
+      data: {
+        status: "EXPIRED",
+        reservedAt: null
+      }
+    });
+  }
+  async createRedemption(data) {
+    return prisma_default.couponRedemption.create({
+      data,
+      include: { order: { select: { id: true } } }
     });
   }
   async update(id, restaurantId, data) {
@@ -12817,40 +14087,196 @@ var CouponRepository = class {
 };
 var CouponRepository_default = new CouponRepository();
 
+// src/validators/CouponValidator.ts
+import { z as z11 } from "zod";
+var nullableMoneySchema = z11.preprocess(
+  (value) => value === "" || value === null || value === void 0 ? null : value,
+  z11.union([z11.coerce.number().positive("O limite de desconto deve ser maior que zero."), z11.null()])
+);
+var nullableDateSchema = z11.preprocess(
+  (value) => value === "" || value === null || value === void 0 ? null : value,
+  z11.union([z11.null(), z11.coerce.date()])
+);
+var booleanSchema = z11.preprocess((value) => {
+  if (value === "false" || value === 0 || value === "0") return false;
+  if (value === "true" || value === 1 || value === "1") return true;
+  return value;
+}, z11.boolean());
+var couponCodeSchema = z11.string({ required_error: "Informe o c\xF3digo do cupom." }).trim().min(3, "O c\xF3digo deve ter pelo menos 3 caracteres.").max(40, "O c\xF3digo deve ter no m\xE1ximo 40 caracteres.").transform((value) => value.toUpperCase()).refine(
+  (value) => /^[A-Z0-9][A-Z0-9_-]*$/.test(value),
+  "Use apenas letras, n\xFAmeros, h\xEDfen ou sublinhado no c\xF3digo."
+);
+var couponFields = {
+  code: couponCodeSchema,
+  title: z11.string().trim().max(80, "O t\xEDtulo deve ter no m\xE1ximo 80 caracteres.").optional(),
+  description: z11.string().trim().max(300, "A descri\xE7\xE3o deve ter no m\xE1ximo 300 caracteres.").optional(),
+  discountType: z11.enum(["FIXED", "PERCENTAGE"]),
+  discount: z11.coerce.number().positive("Informe um desconto maior que zero."),
+  minimumSubtotal: z11.coerce.number().min(0, "O pedido m\xEDnimo n\xE3o pode ser negativo."),
+  maxDiscount: nullableMoneySchema,
+  loyaltyPurchasesRequired: z11.coerce.number().int("A quantidade de compras deve ser um n\xFAmero inteiro.").min(1, "Exija pelo menos uma compra para liberar o cupom.").max(1e3, "A quantidade m\xE1xima \xE9 de 1000 compras."),
+  perCustomerLimit: z11.coerce.number().int("O limite por cliente deve ser um n\xFAmero inteiro.").min(1, "Permita pelo menos um cupom guardado por cliente.").max(100, "O limite m\xE1ximo \xE9 de 100 cupons guardados por cliente."),
+  redemptionValidityDays: z11.coerce.number().int("A validade da recompensa deve ser informada em dias inteiros.").min(1, "A recompensa deve ficar v\xE1lida por pelo menos um dia.").max(365, "A validade m\xE1xima da recompensa \xE9 de 365 dias."),
+  active: booleanSchema,
+  expiration: nullableDateSchema
+};
+function validatePercentage(payload, context) {
+  if (payload.discountType === "PERCENTAGE" && Number(payload.discount) >= 100) {
+    context.addIssue({
+      code: z11.ZodIssueCode.custom,
+      path: ["discount"],
+      message: "O desconto percentual deve ser menor que 100%."
+    });
+  }
+}
+var createCouponSchema = z11.object({
+  ...couponFields,
+  title: couponFields.title.default(""),
+  description: couponFields.description.default(""),
+  discountType: couponFields.discountType.default("FIXED"),
+  minimumSubtotal: couponFields.minimumSubtotal.default(0),
+  maxDiscount: couponFields.maxDiscount.default(null),
+  loyaltyPurchasesRequired: couponFields.loyaltyPurchasesRequired.default(1),
+  perCustomerLimit: couponFields.perCustomerLimit.default(1),
+  redemptionValidityDays: couponFields.redemptionValidityDays.default(30),
+  active: couponFields.active.default(true),
+  expiration: couponFields.expiration.default(null)
+}).superRefine(validatePercentage);
+var updateCouponSchema = z11.object({
+  code: couponFields.code.optional(),
+  title: couponFields.title,
+  description: couponFields.description,
+  discountType: couponFields.discountType.optional(),
+  discount: couponFields.discount.optional(),
+  minimumSubtotal: couponFields.minimumSubtotal.optional(),
+  maxDiscount: couponFields.maxDiscount.optional(),
+  loyaltyPurchasesRequired: couponFields.loyaltyPurchasesRequired.optional(),
+  perCustomerLimit: couponFields.perCustomerLimit.optional(),
+  redemptionValidityDays: couponFields.redemptionValidityDays.optional(),
+  active: couponFields.active.optional(),
+  expiration: couponFields.expiration.optional()
+}).refine((payload) => Object.keys(payload).length > 0, {
+  message: "Informe ao menos um campo para atualizar o cupom."
+}).superRefine(validatePercentage);
+var couponIdSchema = z11.coerce.number().int("Cupom inv\xE1lido.").positive("Cupom inv\xE1lido.");
+var loyaltyRestaurantQuerySchema = z11.object({
+  restaurantId: z11.coerce.number({ required_error: "Informe o restaurante." }).int("Restaurante inv\xE1lido.").positive("Restaurante inv\xE1lido.")
+});
+function couponValidationMessage(error2) {
+  return error2.issues[0]?.message || "Confira os dados do cupom e tente novamente.";
+}
+
+// src/modules/coupon/utils/couponPresenter.ts
+function nullableNumber(value) {
+  if (value === null || value === void 0 || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function nullableIsoDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+function presentCoupon(coupon) {
+  const code = String(coupon.code || "").trim().toUpperCase();
+  return {
+    id: coupon.id,
+    restaurantId: coupon.restaurantId,
+    code,
+    title: coupon.title?.trim() || code,
+    description: coupon.description?.trim() || "",
+    discountType: coupon.discountType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED",
+    discount: Number(coupon.discount || 0),
+    minimumSubtotal: Number(coupon.minimumSubtotal || 0),
+    maxDiscount: nullableNumber(coupon.maxDiscount),
+    loyaltyPurchasesRequired: Number(coupon.loyaltyPurchasesRequired || 1),
+    perCustomerLimit: Number(coupon.perCustomerLimit || 1),
+    redemptionValidityDays: Number(coupon.redemptionValidityDays || 30),
+    active: coupon.active,
+    expiration: nullableIsoDate(coupon.expiration),
+    ...coupon.createdAt ? { createdAt: nullableIsoDate(coupon.createdAt) } : {},
+    ...coupon.updatedAt ? { updatedAt: nullableIsoDate(coupon.updatedAt) } : {}
+  };
+}
+
 // src/modules/coupon/services/CreateCouponService.ts
 var CreateCouponService = class {
-  async execute({ code, discount, expiration, restaurantId }) {
-    const exists = await CouponRepository_default.findByCode(code, restaurantId);
+  async execute(payload) {
+    const { restaurantId, ...couponPayload } = payload;
+    const parsed = createCouponSchema.parse(couponPayload);
+    const exists = await CouponRepository_default.findByCode(parsed.code, restaurantId);
     if (exists) {
-      throw new Error("Cupom j\xE1 existe!");
+      throw new Error("J\xE1 existe um cupom com este c\xF3digo neste restaurante.");
     }
-    return await CouponRepository_default.create({
-      code,
-      discount,
-      expiration,
-      restaurantId
-    });
+    let coupon;
+    try {
+      coupon = await CouponRepository_default.create({
+        code: parsed.code,
+        title: parsed.title || null,
+        description: parsed.description || null,
+        discountType: parsed.discountType,
+        discount: parsed.discount,
+        minimumSubtotal: parsed.minimumSubtotal,
+        maxDiscount: parsed.maxDiscount,
+        loyaltyPurchasesRequired: parsed.loyaltyPurchasesRequired,
+        perCustomerLimit: parsed.perCustomerLimit,
+        redemptionValidityDays: parsed.redemptionValidityDays,
+        active: parsed.active,
+        expiration: parsed.expiration,
+        restaurantId
+      });
+    } catch (error2) {
+      if (error2?.code === "P2002") {
+        throw new Error("J\xE1 existe um cupom com este c\xF3digo neste restaurante.");
+      }
+      throw error2;
+    }
+    return presentCoupon(coupon);
   }
 };
 var CreateCouponService_default = new CreateCouponService();
+
+// src/modules/coupon/controllers/CouponControllerHelpers.ts
+import { ZodError } from "zod";
+function couponControllerError(res, error2, fallback) {
+  if (error2 instanceof ZodError) {
+    return res.status(422).json({
+      error: couponValidationMessage(error2),
+      fields: error2.flatten().fieldErrors
+    });
+  }
+  const message = error2 instanceof Error ? error2.message : fallback;
+  if (/não encontrad|indisponível|expirado/i.test(message)) {
+    return res.status(404).json({ error: message });
+  }
+  if (/já existe|já foi resgatado|limite de resgates/i.test(message)) {
+    return res.status(409).json({ error: message });
+  }
+  if (/não pode ultrapassar|maior que zero|número inteiro|pelo menos/i.test(message)) {
+    return res.status(422).json({ error: message });
+  }
+  if (/faltam? \d+ compras? concluídas?/i.test(message)) {
+    return res.status(400).json({ error: message });
+  }
+  console.error("[coupons] unexpected error", error2);
+  return res.status(500).json({ error: fallback });
+}
 
 // src/modules/coupon/controllers/CreateCouponController.ts
 var CreateCouponController = class {
   async handle(req, res) {
     try {
-      const restaurantId = req.user.restaurantId;
-      const { code, discount, expiration } = req.body;
+      const restaurantId = Number(req.user?.restaurantId || 0);
+      if (!restaurantId) {
+        return res.status(403).json({ error: "Restaurante n\xE3o identificado." });
+      }
       const coupon = await CreateCouponService_default.execute({
-        code,
-        discount,
-        expiration,
+        ...req.body,
         restaurantId
       });
       return res.status(201).json(coupon);
     } catch (error2) {
-      return res.status(400).json({
-        error: error2 instanceof Error ? error2.message : "Erro ao criar cupom"
-      });
+      return couponControllerError(res, error2, "N\xE3o foi poss\xEDvel criar o cupom.");
     }
   }
 };
@@ -12859,7 +14285,8 @@ var CreateCouponController_default = new CreateCouponController();
 // src/modules/coupon/services/ListCouponService.ts
 var ListCouponService = class {
   async execute({ restaurantId }) {
-    return await CouponRepository_default.findAllByRestaurant(restaurantId);
+    const coupons = await CouponRepository_default.findAllByRestaurant(restaurantId);
+    return coupons.map(presentCoupon);
   }
 };
 var ListCouponService_default = new ListCouponService();
@@ -12868,15 +14295,16 @@ var ListCouponService_default = new ListCouponService();
 var ListCouponController = class {
   async handle(req, res) {
     try {
-      const restaurantId = req.user.restaurantId;
+      const restaurantId = Number(req.user?.restaurantId || 0);
+      if (!restaurantId) {
+        return res.status(403).json({ error: "Restaurante n\xE3o identificado." });
+      }
       const coupons = await ListCouponService_default.execute({
         restaurantId
       });
       return res.status(200).json(coupons);
     } catch (error2) {
-      return res.status(400).json({
-        error: error2 instanceof Error ? error2.message : "Erro ao listar cupons"
-      });
+      return couponControllerError(res, error2, "N\xE3o foi poss\xEDvel listar os cupons.");
     }
   }
 };
@@ -12884,17 +14312,33 @@ var ListCouponController_default = new ListCouponController();
 
 // src/modules/coupon/services/UpdateCouponService.ts
 var UpdateCouponService = class {
-  async execute({ id, restaurantId, code, discount, expiration }) {
+  async execute({ id, restaurantId, ...payload }) {
     const normalizedId = Array.isArray(id) ? id[0] : id;
     const coupon = await CouponRepository_default.findById(normalizedId, restaurantId);
     if (!coupon) {
       throw new Error("Cupom n\xE3o encontrado");
     }
-    return await CouponRepository_default.update(normalizedId, restaurantId, {
-      code,
-      discount,
-      expiration
+    const parsed = updateCouponSchema.parse(payload);
+    const effectiveDiscountType = parsed.discountType || coupon.discountType || "FIXED";
+    const effectiveDiscount = parsed.discount ?? Number(coupon.discount);
+    if (effectiveDiscountType === "PERCENTAGE" && effectiveDiscount >= 100) {
+      throw new Error("O desconto percentual deve ser menor que 100%.");
+    }
+    if (parsed.code && parsed.code !== coupon.code.toUpperCase()) {
+      const duplicate = await CouponRepository_default.findByCode(parsed.code, restaurantId);
+      if (duplicate && duplicate.id !== coupon.id) {
+        throw new Error("J\xE1 existe um cupom com este c\xF3digo neste restaurante.");
+      }
+    }
+    const updated = await CouponRepository_default.update(normalizedId, restaurantId, {
+      ...parsed,
+      ...parsed.title !== void 0 ? { title: parsed.title || null } : {},
+      ...parsed.description !== void 0 ? { description: parsed.description || null } : {}
     });
+    if (!updated) {
+      throw new Error("Cupom n\xE3o encontrado");
+    }
+    return presentCoupon(updated);
   }
 };
 var UpdateCouponService_default = new UpdateCouponService();
@@ -12903,21 +14347,21 @@ var UpdateCouponService_default = new UpdateCouponService();
 var UpdateCouponController = class {
   async handle(req, res) {
     try {
-      const restaurantId = req.user.restaurantId;
-      const { id } = req.params;
-      const { code, discount, expiration } = req.body;
+      const restaurantId = Number(req.user?.restaurantId || 0);
+      const id = couponIdSchema.parse(
+        Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+      );
+      if (!restaurantId) {
+        return res.status(403).json({ error: "Restaurante n\xE3o identificado." });
+      }
       const coupon = await UpdateCouponService_default.execute({
+        ...req.body,
         id,
-        restaurantId,
-        code,
-        discount,
-        expiration
+        restaurantId
       });
       return res.status(200).json(coupon);
     } catch (error2) {
-      return res.status(400).json({
-        error: error2 instanceof Error ? error2.message : "Erro ao atualizar cupom"
-      });
+      return couponControllerError(res, error2, "N\xE3o foi poss\xEDvel atualizar o cupom.");
     }
   }
 };
@@ -12941,24 +14385,295 @@ var DeleteCouponService_default = new DeleteCouponService();
 var DeleteCouponController = class {
   async handle(req, res) {
     try {
-      const restaurantId = req.user.restaurantId;
-      const { id } = req.params;
+      const restaurantId = Number(req.user?.restaurantId || 0);
+      const id = couponIdSchema.parse(
+        Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+      );
+      if (!restaurantId) {
+        return res.status(403).json({ error: "Restaurante n\xE3o identificado." });
+      }
       const result = await DeleteCouponService_default.execute({
         id,
         restaurantId
       });
       return res.status(200).json(result);
     } catch (error2) {
-      return res.status(400).json({
-        error: error2 instanceof Error ? error2.message : "Erro ao remover cupom"
-      });
+      return couponControllerError(res, error2, "N\xE3o foi poss\xEDvel remover o cupom.");
     }
   }
 };
 var DeleteCouponController_default = new DeleteCouponController();
 
+// src/modules/coupon/utils/loyaltyProgress.ts
+function calculateLoyaltyProgress({
+  purchasesCompleted,
+  purchasesRequired,
+  perCustomerLimit,
+  redemptions,
+  now = /* @__PURE__ */ new Date()
+}) {
+  const completed = Math.max(0, Math.trunc(purchasesCompleted));
+  const required = Math.max(1, Math.trunc(purchasesRequired));
+  const limit = Math.max(1, Math.trunc(perCustomerLimit));
+  const cycles = redemptions.map((redemption) => Math.trunc(Number(redemption.cycle))).filter((cycle) => cycle > 0);
+  const earnedCycles = Math.floor(completed / required);
+  const activeRedemptions = redemptions.filter((redemption) => {
+    if (redemption.status === "RESERVED") return true;
+    if (redemption.status !== "CLAIMED") return false;
+    if (!redemption.expiresAt) return true;
+    const expiresAt = new Date(redemption.expiresAt);
+    return Number.isNaN(expiresAt.getTime()) || expiresAt > now;
+  }).length;
+  const limitReached = activeRedemptions >= limit;
+  const nextCycle = (cycles.length > 0 ? Math.max(...cycles) : 0) + 1;
+  const redeemableCycle = !limitReached && earnedCycles >= 1 ? nextCycle : null;
+  const progressPercent = Math.min(100, Math.round(completed / required * 100));
+  return {
+    earnedCycles,
+    nextCycle,
+    redeemableCycle,
+    canRedeem: redeemableCycle !== null && !limitReached,
+    limitReached,
+    activeRedemptions,
+    walletLimit: limit,
+    remaining: Math.max(0, required - completed),
+    progressPercent
+  };
+}
+
+// src/modules/coupon/services/ListLoyaltyCouponsService.ts
+function isoDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+function presentRedemption(redemption, coupon, now) {
+  const expiresAt = redemption.expiresAt ? new Date(redemption.expiresAt) : null;
+  const expired = redemption.status === "EXPIRED" || redemption.status === "CLAIMED" && expiresAt !== null && !Number.isNaN(expiresAt.getTime()) && expiresAt <= now;
+  return {
+    id: redemption.id,
+    status: redemption.status,
+    cycle: redemption.cycle,
+    orderId: redemption.order?.id ?? null,
+    claimedAt: isoDate(redemption.claimedAt),
+    reservedAt: isoDate(redemption.reservedAt),
+    usedAt: isoDate(redemption.usedAt),
+    expiresAt: isoDate(expiresAt),
+    expired,
+    createdAt: isoDate(redemption.createdAt),
+    updatedAt: isoDate(redemption.updatedAt),
+    coupon
+  };
+}
+function getLatestLoyaltyCycleStartedAt(redemptionRecords) {
+  return redemptionRecords.reduce((latest, redemption) => {
+    const value = redemption?.claimedAt || redemption?.createdAt;
+    if (!value) return latest;
+    const candidate = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(candidate.getTime())) return latest;
+    return !latest || candidate > latest ? candidate : latest;
+  }, null);
+}
+function buildLoyaltyReward(couponRecord, purchasesCompleted, redemptionRecords, now = /* @__PURE__ */ new Date()) {
+  const coupon = presentCoupon(couponRecord);
+  const redemptions = redemptionRecords.filter((redemption) => Number(redemption.couponId) === Number(coupon.id)).map((redemption) => presentRedemption(redemption, coupon, now));
+  const progress = calculateLoyaltyProgress({
+    purchasesCompleted,
+    purchasesRequired: coupon.loyaltyPurchasesRequired,
+    perCustomerLimit: coupon.perCustomerLimit,
+    redemptions,
+    now
+  });
+  return {
+    coupon,
+    purchasesCompleted,
+    purchasesRequired: coupon.loyaltyPurchasesRequired,
+    remaining: progress.remaining,
+    progressPercent: progress.progressPercent,
+    canRedeem: progress.canRedeem,
+    nextCycle: progress.nextCycle,
+    redeemableCycle: progress.redeemableCycle,
+    limitReached: progress.limitReached,
+    activeRedemptions: progress.activeRedemptions,
+    walletLimit: progress.walletLimit,
+    redemptions
+  };
+}
+var ListLoyaltyCouponsService = class {
+  async execute({ restaurantId, userId, now = /* @__PURE__ */ new Date() }) {
+    const [coupons, purchasesCompleted] = await Promise.all([
+      CouponRepository_default.findActiveLoyaltyByRestaurant(restaurantId, now),
+      CouponRepository_default.countCompletedPurchases(userId, restaurantId)
+    ]);
+    const couponIds = coupons.map((coupon) => coupon.id);
+    await CouponRepository_default.expireClaimedRedemptions({
+      restaurantId,
+      userId,
+      couponIds,
+      now
+    });
+    const redemptions = await CouponRepository_default.findRedemptions(
+      userId,
+      restaurantId,
+      couponIds
+    );
+    const rewards = await Promise.all(
+      coupons.map(async (coupon) => {
+        const couponRedemptions = redemptions.filter(
+          (redemption) => Number(redemption.couponId) === Number(coupon.id)
+        );
+        const cycleStartedAt = getLatestLoyaltyCycleStartedAt(couponRedemptions);
+        const purchasesInCurrentCycle = cycleStartedAt ? await CouponRepository_default.countCompletedPurchases(userId, restaurantId, cycleStartedAt) : purchasesCompleted;
+        return buildLoyaltyReward(coupon, purchasesInCurrentCycle, couponRedemptions, now);
+      })
+    );
+    return {
+      restaurantId,
+      purchasesCompleted,
+      rewards
+    };
+  }
+};
+var ListLoyaltyCouponsService_default = new ListLoyaltyCouponsService();
+
+// src/modules/coupon/controllers/ListLoyaltyCouponsController.ts
+var ListLoyaltyCouponsController = class {
+  async handle(req, res) {
+    try {
+      const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.query);
+      const userId = Number(req.user?.id || 0);
+      const result = await ListLoyaltyCouponsService_default.execute({ restaurantId, userId });
+      return res.status(200).json(result);
+    } catch (error2) {
+      return couponControllerError(
+        res,
+        error2,
+        "N\xE3o foi poss\xEDvel carregar seu progresso de fidelidade."
+      );
+    }
+  }
+};
+var ListLoyaltyCouponsController_default = new ListLoyaltyCouponsController();
+
+// src/modules/coupon/services/RedeemLoyaltyCouponService.ts
+function calculateRedemptionExpiresAt(coupon, claimedAt) {
+  const validityDays = Math.min(
+    365,
+    Math.max(1, Math.trunc(Number(coupon.redemptionValidityDays || 30)))
+  );
+  const validityDeadline = new Date(claimedAt.getTime() + validityDays * 24 * 60 * 60 * 1e3);
+  if (!coupon.expiration) return validityDeadline;
+  const campaignDeadline = new Date(coupon.expiration);
+  if (Number.isNaN(campaignDeadline.getTime())) return validityDeadline;
+  return campaignDeadline < validityDeadline ? campaignDeadline : validityDeadline;
+}
+var RedeemLoyaltyCouponService = class {
+  async execute({ couponId, restaurantId, userId, now = /* @__PURE__ */ new Date() }) {
+    const coupon = await CouponRepository_default.findActiveById(couponId, restaurantId, now);
+    if (!coupon) {
+      throw new Error("Cupom indispon\xEDvel ou expirado.");
+    }
+    await CouponRepository_default.expireClaimedRedemptions({
+      restaurantId: coupon.restaurantId,
+      userId,
+      couponIds: [coupon.id],
+      now
+    });
+    const redemptions = await CouponRepository_default.findRedemptions(
+      userId,
+      coupon.restaurantId,
+      [coupon.id]
+    );
+    const cycleStartedAt = getLatestLoyaltyCycleStartedAt(redemptions);
+    const purchasesCompleted = await CouponRepository_default.countCompletedPurchases(
+      userId,
+      coupon.restaurantId,
+      cycleStartedAt
+    );
+    const reward = buildLoyaltyReward(coupon, purchasesCompleted, redemptions, now);
+    if (reward.limitReached) {
+      throw new Error(
+        "Voc\xEA j\xE1 atingiu o limite de resgates simult\xE2neos deste benef\xEDcio. Use o cupom guardado antes de resgatar outro."
+      );
+    }
+    if (!reward.canRedeem || reward.redeemableCycle === null) {
+      const remaining = Math.max(1, reward.remaining);
+      throw new Error(
+        `${remaining === 1 ? "Falta" : "Faltam"} ${remaining} ${remaining === 1 ? "compra conclu\xEDda" : "compras conclu\xEDdas"} para liberar este cupom.`
+      );
+    }
+    try {
+      const expiresAt = calculateRedemptionExpiresAt(coupon, now);
+      const redemption = await CouponRepository_default.createRedemption({
+        restaurantId: coupon.restaurantId,
+        couponId: coupon.id,
+        userId,
+        cycle: reward.redeemableCycle,
+        status: "CLAIMED",
+        claimedAt: now,
+        expiresAt
+      });
+      const updatedReward = buildLoyaltyReward(coupon, 0, [
+        ...redemptions,
+        redemption
+      ], now);
+      return {
+        message: `Cupom ${coupon.code.toUpperCase()} resgatado. Use o c\xF3digo no seu pr\xF3ximo pedido.`,
+        redemption: updatedReward.redemptions.find((item) => item.id === redemption.id),
+        reward: updatedReward
+      };
+    } catch (error2) {
+      if (error2?.code === "P2002") {
+        throw new Error("Este ciclo de fidelidade j\xE1 foi resgatado.");
+      }
+      throw error2;
+    }
+  }
+};
+var RedeemLoyaltyCouponService_default = new RedeemLoyaltyCouponService();
+
+// src/modules/coupon/controllers/RedeemLoyaltyCouponController.ts
+var RedeemLoyaltyCouponController = class {
+  async handle(req, res) {
+    try {
+      const couponId = couponIdSchema.parse(
+        Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+      );
+      const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.body);
+      const userId = Number(req.user?.id || 0);
+      const result = await RedeemLoyaltyCouponService_default.execute({
+        couponId,
+        restaurantId,
+        userId
+      });
+      return res.status(201).json(result);
+    } catch (error2) {
+      return couponControllerError(res, error2, "N\xE3o foi poss\xEDvel resgatar este cupom.");
+    }
+  }
+};
+var RedeemLoyaltyCouponController_default = new RedeemLoyaltyCouponController();
+
 // src/modules/coupon/routes/CouponRoutes.ts
 var router11 = Router11();
+function clientMiddleware(req, res, next) {
+  if (req.user?.role !== "CLIENTE" || !req.user.id) {
+    return res.status(403).json({ error: "O programa de fidelidade \xE9 exclusivo para clientes." });
+  }
+  return next();
+}
+router11.get(
+  "/loyalty",
+  authMiddleware,
+  clientMiddleware,
+  (req, res) => ListLoyaltyCouponsController_default.handle(req, res)
+);
+router11.post(
+  "/:id/redeem",
+  authMiddleware,
+  clientMiddleware,
+  (req, res) => RedeemLoyaltyCouponController_default.handle(req, res)
+);
 router11.post(
   "/",
   authMiddleware,
@@ -13598,10 +15313,10 @@ import { Router as Router14 } from "express";
 // src/modules/menuImport/services/ImportIfoodMenuScraperService.ts
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { z as z9 } from "zod";
-var scrapeInputSchema = z9.object({
-  url: z9.string().trim().url("Informe uma URL v\xE1lida do iFood."),
-  restaurantId: z9.union([z9.number(), z9.string()])
+import { z as z12 } from "zod";
+var scrapeInputSchema = z12.object({
+  url: z12.string().trim().url("Informe uma URL v\xE1lida do iFood."),
+  restaurantId: z12.union([z12.number(), z12.string()])
 });
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -13889,24 +15604,24 @@ var ImportIfoodMenuController_default = new ImportIfoodMenuController();
 
 // src/modules/menuImport/services/ImportMenuFromImageService.ts
 import OpenAI from "openai";
-import { z as z10 } from "zod";
-var importedMenuItemSchema = z10.object({
-  name: z10.string().trim().min(1, "Nome do item invalido."),
-  description: z10.string().trim().nullable().optional(),
-  price: z10.union([z10.number(), z10.string()]),
-  imageUrl: z10.string().trim().url().nullable().optional()
+import { z as z13 } from "zod";
+var importedMenuItemSchema = z13.object({
+  name: z13.string().trim().min(1, "Nome do item invalido."),
+  description: z13.string().trim().nullable().optional(),
+  price: z13.union([z13.number(), z13.string()]),
+  imageUrl: z13.string().trim().url().nullable().optional()
 });
-var importedMenuCategorySchema = z10.object({
-  name: z10.string().trim().min(1, "Nome da categoria invalido."),
-  items: z10.array(importedMenuItemSchema).min(1, "Categoria sem itens.")
+var importedMenuCategorySchema = z13.object({
+  name: z13.string().trim().min(1, "Nome da categoria invalido."),
+  items: z13.array(importedMenuItemSchema).min(1, "Categoria sem itens.")
 });
-var importedMenuResponseSchema = z10.object({
-  restaurantName: z10.string().trim().nullable().optional(),
-  categories: z10.array(importedMenuCategorySchema).min(1, "Cardapio vazio.")
+var importedMenuResponseSchema = z13.object({
+  restaurantName: z13.string().trim().nullable().optional(),
+  categories: z13.array(importedMenuCategorySchema).min(1, "Cardapio vazio.")
 });
-var importInputSchema = z10.object({
-  imageUrl: z10.string().trim().url("Informe uma URL valida da imagem."),
-  restaurantId: z10.union([z10.number(), z10.string()])
+var importInputSchema = z13.object({
+  imageUrl: z13.string().trim().url("Informe uma URL valida da imagem."),
+  restaurantId: z13.union([z13.number(), z13.string()])
 });
 function normalizeText2(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -14314,19 +16029,19 @@ var ImageEnhancementRoutes_default = router17;
 
 // src/modules/customerAddresses/routes/CustomerAddressRoutes.ts
 import { Router as Router18 } from "express";
-import { z as z11 } from "zod";
+import { z as z14 } from "zod";
 var router18 = Router18();
 router18.use(authMiddleware);
-var addressSchema = z11.object({
-  label: z11.string().trim().min(1).max(40),
-  address: z11.string().trim().min(3).max(160),
-  number: z11.string().trim().regex(/^\d+[A-Za-z]?$/).max(10),
-  district: z11.string().trim().min(2).max(100),
-  city: z11.string().trim().min(2).max(100),
-  state: z11.string().trim().length(2).transform((value) => value.toUpperCase()),
-  zipCode: z11.string().transform((value) => value.replace(/\D/g, "")).refine((value) => value.length === 8),
-  complement: z11.string().trim().max(160).optional().default(""),
-  isDefault: z11.boolean().optional().default(false)
+var addressSchema = z14.object({
+  label: z14.string().trim().min(1).max(40),
+  address: z14.string().trim().min(3).max(160),
+  number: z14.string().trim().regex(/^\d+[A-Za-z]?$/).max(10),
+  district: z14.string().trim().min(2).max(100),
+  city: z14.string().trim().min(2).max(100),
+  state: z14.string().trim().length(2).transform((value) => value.toUpperCase()),
+  zipCode: z14.string().transform((value) => value.replace(/\D/g, "")).refine((value) => value.length === 8),
+  complement: z14.string().trim().max(160).optional().default(""),
+  isDefault: z14.boolean().optional().default(false)
 });
 function customerId(req, res) {
   if (req.user.role !== "CLIENTE" || !req.user.id) {
@@ -14392,6 +16107,11 @@ router18.put("/:id/default", async (req, res) => {
 var CustomerAddressRoutes_default = router18;
 
 // src/modules/orders/controllers/AsaasOrderWebhookController.ts
+var TERMINAL_UNPAID_EVENTS = /* @__PURE__ */ new Set([
+  "PAYMENT_CANCELED",
+  "PAYMENT_DELETED",
+  "PAYMENT_REFUNDED"
+]);
 var AsaasOrderWebhookController = class {
   async handle(req, res) {
     try {
@@ -14402,7 +16122,9 @@ var AsaasOrderWebhookController = class {
       }
       const payload = req.body;
       const event = String(payload?.event || "").trim().toUpperCase();
-      if (event !== "PAYMENT_RECEIVED") {
+      const isPaymentReceived = event === "PAYMENT_RECEIVED";
+      const isTerminalUnpaidEvent = TERMINAL_UNPAID_EVENTS.has(event);
+      if (!isPaymentReceived && !isTerminalUnpaidEvent) {
         return res.status(200).json({ received: true, ignored: true });
       }
       const payment = payload?.payment;
@@ -14410,11 +16132,13 @@ var AsaasOrderWebhookController = class {
       const asaasPaymentId = String(payment?.id || "").trim();
       const paymentValue = Number(payment?.value);
       const walletId = String(payment?.walletId || "").trim();
-      const hasRequiredPaymentFields = Boolean(asaasPaymentId) && Boolean(externalReference) && Number.isFinite(paymentValue) && paymentValue >= 0 && Boolean(walletId);
+      const hasRequiredPaymentFields = Boolean(asaasPaymentId) && Boolean(externalReference) && (isTerminalUnpaidEvent || Number.isFinite(paymentValue) && paymentValue >= 0 && Boolean(walletId));
       if (!hasRequiredPaymentFields) {
         return res.status(200).json({ received: true, ignored: true });
       }
-      const orderId = Number(externalReference);
+      const pixReference = /^orderpix:(\d+):(\d+)$/i.exec(externalReference);
+      const referencedRestaurantId = pixReference ? Number(pixReference[1]) : null;
+      const orderId = Number(pixReference?.[2] || externalReference);
       if (!Number.isInteger(orderId) || orderId <= 0) {
         return res.status(200).json({ received: true, ignored: true });
       }
@@ -14427,17 +16151,41 @@ var AsaasOrderWebhookController = class {
           restaurantId: true,
           userId: true,
           paid: true,
+          status: true,
           paymentMethod: true,
-          pixPaymentId: true
+          pixPaymentId: true,
+          total: true
         }
       });
       if (!order) {
+        return res.status(200).json({ received: true, ignored: true });
+      }
+      if (referencedRestaurantId && referencedRestaurantId !== order.restaurantId) {
+        return res.status(200).json({ received: true, ignored: true });
+      }
+      if (isTerminalUnpaidEvent) {
+        await FailPendingOrderPaymentService_default.execute({
+          orderId: order.id,
+          restaurantId: order.restaurantId
+        });
+        return res.status(200).json({ received: true, processed: true });
+      }
+      if (Math.abs(paymentValue - Number(order.total)) > 9e-3) {
         return res.status(200).json({ received: true, ignored: true });
       }
       const normalizedPaymentMethod = String(order.paymentMethod || "").trim().toUpperCase();
       const isSupportedAutomaticMethod = normalizedPaymentMethod === "PIX" || normalizedPaymentMethod === "CARTAO";
       if (!isSupportedAutomaticMethod) {
         return res.status(200).json({ received: true, ignored: true });
+      }
+      if (String(order.status) === "CANCELADO" && order.paid !== true) {
+        await ReconcileLateCancelledPaymentService_default.execute({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          paymentMethod: normalizedPaymentMethod,
+          paymentReference: normalizedPaymentMethod === "PIX" ? `asaas:${asaasPaymentId}` : `asaas_pay:${asaasPaymentId}`
+        });
+        return res.status(200).json({ received: true, processed: true, refunded: true });
       }
       if (walletId) {
         try {
@@ -14458,17 +16206,25 @@ var AsaasOrderWebhookController = class {
         }
       }
       if (!order.paid) {
-        if (asaasPaymentId && !String(order.pixPaymentId || "").trim()) {
+        if (normalizedPaymentMethod === "PIX" && asaasPaymentId && !String(order.pixPaymentId || "").trim()) {
           await prisma_default.order.update({
             where: {
               id: order.id
             },
             data: {
-              pixPaymentId: asaasPaymentId
+              pixPaymentId: `asaas:${asaasPaymentId}`
             }
           });
         }
-        const updatedOrder = await OrderRepository_default.confirmPayment(order.id, order.restaurantId);
+        const updatedOrder = await prisma_default.$transaction(async (tx) => {
+          const confirmedOrder = await OrderRepository_default.confirmPayment(
+            order.id,
+            order.restaurantId,
+            tx
+          );
+          await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+          return confirmedOrder;
+        });
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:payment-confirmed", {
           orderId: updatedOrder.id,
           paid: true,
@@ -14494,7 +16250,7 @@ var AsaasOrderWebhookController = class {
         "[ASAAS_WEBHOOK_ERROR]",
         error2 instanceof Error ? error2.message : String(error2)
       );
-      return res.status(200).json({ received: true, processed: false });
+      return res.status(500).json({ received: true, processed: false });
     }
   }
 };
@@ -14541,18 +16297,18 @@ var AsaasWithdrawValidationWebhookController_default = new AsaasWithdrawValidati
 import { Router as Router19 } from "express";
 
 // src/validators/IngredientValidator.ts
-import { z as z12 } from "zod";
-var createIngredientSchema = z12.object({
-  name: z12.string().trim().min(1, "Nome do ingrediente \xE9 obrigat\xF3rio.").max(80),
-  category: z12.string({
+import { z as z15 } from "zod";
+var createIngredientSchema = z15.object({
+  name: z15.string().trim().min(1, "Nome do ingrediente \xE9 obrigat\xF3rio.").max(80),
+  category: z15.string({
     invalid_type_error: "A categoria do ingrediente deve ser um texto.",
     required_error: "Categoria do ingrediente \xE9 obrigat\xF3ria."
   }).trim().min(1, "Categoria do ingrediente \xE9 obrigat\xF3ria.").max(60, "A categoria deve ter no m\xE1ximo 60 caracteres."),
-  price: z12.number({
+  price: z15.number({
     invalid_type_error: "O valor adicional deve ser um n\xFAmero.",
     required_error: "O valor adicional \xE9 obrigat\xF3rio."
   }).min(0, "O valor adicional n\xE3o pode ser negativo.").max(99999, "O valor adicional informado \xE9 muito alto."),
-  active: z12.boolean().optional()
+  active: z15.boolean().optional()
 });
 var updateIngredientSchema = createIngredientSchema.partial().refine(
   (data) => Object.keys(data).length > 0,
@@ -16256,6 +18012,14 @@ var DeliveryLocationCleanupJob = class {
 };
 var DeliveryLocationCleanupJob_default = new DeliveryLocationCleanupJob();
 
+// src/modules/coupon/jobs/LoyaltyRedemptionExpirationJob.ts
+var LoyaltyRedemptionExpirationJob = class {
+  async execute(now = /* @__PURE__ */ new Date()) {
+    return CouponRepository_default.expireClaimedRedemptions({ now });
+  }
+};
+var LoyaltyRedemptionExpirationJob_default = new LoyaltyRedemptionExpirationJob();
+
 // src/modules/billing/jobs/scheduler.ts
 function startJobs() {
   cron.schedule(
@@ -16289,6 +18053,22 @@ function startJobs() {
     {
       timezone: "America/Sao_Paulo"
     }
+  );
+  cron.schedule(
+    process.env.LOYALTY_REDEMPTION_EXPIRATION_CRON || "*/5 * * * *",
+    async () => {
+      try {
+        const result = await LoyaltyRedemptionExpirationJob_default.execute();
+        if (result.count > 0) {
+          info("expired loyalty rewards updated", { count: result.count });
+        }
+      } catch (err) {
+        error("loyalty reward expiration failed", {
+          message: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    { timezone: "America/Sao_Paulo" }
   );
   cron.schedule(
     "30 3 * * *",

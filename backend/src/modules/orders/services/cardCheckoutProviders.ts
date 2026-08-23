@@ -32,6 +32,10 @@ export type CreateOrderCardCheckoutPayload = {
   items: Array<{
     productId: number;
     quantity: number;
+    observation?: string;
+    ingredientIds?: number[];
+    optionIds?: number[];
+    selectedOptions?: Array<{ groupId: number; optionIds: number[] }>;
   }>;
   address?: string;
   number?: string;
@@ -42,6 +46,7 @@ export type CreateOrderCardCheckoutPayload = {
   complement?: string;
   successUrl?: string;
   cancelUrl?: string;
+  couponRedemptionId?: number | string | null;
 };
 
 export type CardCheckoutResult = {

@@ -28,12 +28,74 @@ export type HomeProduct = {
   name: string;
   description: string;
   price: number;
+  originalPrice: number;
+  promotion?: {
+    active: boolean;
+    discountAmount: number;
+    discountPercentage: number;
+    badgeLabel: string;
+    endsAt?: string;
+  };
   image: string;
   rating: number;
   stock?: number | null;
   available: boolean;
   ingredients?: Array<{ id: string; name: string; price: number; required: boolean }>;
   optionGroups?: ProductOptionGroup[];
+};
+
+export type LoyaltyCoupon = {
+  id: number;
+  code: string;
+  title: string;
+  description: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discount: number;
+  minimumSubtotal: number;
+  maxDiscount?: number | null;
+  expiration?: string | null;
+  redemptionValidityDays?: number;
+  loyaltyPurchasesRequired?: number;
+  perCustomerLimit?: number;
+};
+
+export type LoyaltyRedemption = {
+  id: number;
+  status: 'CLAIMED' | 'RESERVED' | 'USED' | 'EXPIRED';
+  cycle: number;
+  expiresAt?: string | null;
+  expired?: boolean;
+  coupon: LoyaltyCoupon;
+};
+
+export type LoyaltyRewardProgress = {
+  coupon: LoyaltyCoupon;
+  purchasesCompleted: number;
+  purchasesRequired: number;
+  remaining: number;
+  progressPercent: number;
+  canRedeem: boolean;
+  limitReached?: boolean;
+  activeRedemptions?: number;
+  walletLimit?: number;
+  nextCycle?: number;
+  redemptions: LoyaltyRedemption[];
+};
+
+export type LoyaltySummary = {
+  purchasesCompleted: number;
+  rewards: LoyaltyRewardProgress[];
+  redemptions?: LoyaltyRedemption[];
+};
+
+export type LoyaltyProgramProps = {
+  primaryColor: string;
+  loading: boolean;
+  summary: LoyaltySummary | null;
+  loggedIn: boolean;
+  redeemingCouponId?: number | null;
+  onLogin: () => void;
+  onRedeem: (couponId: number) => void;
 };
 
 export type HomeBanner = {

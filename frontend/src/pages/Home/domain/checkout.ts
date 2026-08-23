@@ -54,10 +54,67 @@ type PayloadInput = {
   tableId?: number | null;
   customer: Record<string, unknown>;
   deliveryAddress: DeliveryAddress;
+  couponRedemptionId?: number | null;
 };
 
+export function buildOrderItems(cart: CartItem[]) {
+  return cart.map((item) => {
+    const selectedOptions = (item.selectedOptions || [])
+      .map((selection) => ({
+        groupId: Number(selection.groupId),
+        optionIds: selection.optionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0),
+      }))
+      .filter(
+        (selection) =>
+          Number.isInteger(selection.groupId) &&
+          selection.groupId > 0 &&
+          selection.optionIds.length > 0,
+      );
+    const optionIds = (item.selectedOptionIds || [])
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0);
+    const ingredientIds = (item.ingredientIds || [])
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0);
+    const observation = String(item.observation || '').trim();
+    return {
+      productId: Number(item.productId),
+      quantity: item.quantity,
+      ...(optionIds.length ? { optionIds } : {}),
+      ...(selectedOptions.length ? { selectedOptions } : {}),
+      ...(ingredientIds.length && !optionIds.length ? { ingredientIds } : {}),
+      ...(observation ? { observation } : {}),
+    };
+  });
+}
+
+export function buildOrderQuotePayload(input: {
+  restaurantId: number;
+  type: OrderType;
+  cart: CartItem[];
+  couponRedemptionId?: number | null;
+}) {
+  return {
+    restaurantId: input.restaurantId,
+    type: input.type,
+    items: buildOrderItems(input.cart),
+    ...(input.couponRedemptionId
+      ? { couponRedemptionId: input.couponRedemptionId }
+      : {}),
+  };
+}
+
 export function buildOrderPayload(input: PayloadInput) {
-  const { restaurantId, type, paymentMethod, cart, tableId, customer, deliveryAddress } = input;
+  const {
+    restaurantId,
+    type,
+    paymentMethod,
+    cart,
+    tableId,
+    customer,
+    deliveryAddress,
+    couponRedemptionId,
+  } = input;
   const payOnDelivery = paymentMethod.startsWith('delivery_');
   const resolvedPaymentMethod = paymentMethod.includes('pix') ? 'PIX' : 'CARTAO';
   return {
@@ -67,34 +124,8 @@ export function buildOrderPayload(input: PayloadInput) {
       paymentMethod: resolvedPaymentMethod,
       payOnDelivery,
       payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
-      items: cart.map((item) => {
-        const selectedOptions = (item.selectedOptions || [])
-          .map((selection) => ({
-            groupId: Number(selection.groupId),
-            optionIds: selection.optionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0),
-          }))
-          .filter(
-            (selection) =>
-              Number.isInteger(selection.groupId) &&
-              selection.groupId > 0 &&
-              selection.optionIds.length > 0,
-          );
-        const optionIds = (item.selectedOptionIds || [])
-          .map(Number)
-          .filter((id) => Number.isInteger(id) && id > 0);
-        const ingredientIds = (item.ingredientIds || [])
-          .map(Number)
-          .filter((id) => Number.isInteger(id) && id > 0);
-        const observation = String(item.observation || '').trim();
-        return {
-          productId: Number(item.productId),
-          quantity: item.quantity,
-          ...(optionIds.length ? { optionIds } : {}),
-          ...(selectedOptions.length ? { selectedOptions } : {}),
-          ...(ingredientIds.length && !optionIds.length ? { ingredientIds } : {}),
-          ...(observation ? { observation } : {}),
-        };
-      }),
+      items: buildOrderItems(cart),
+      ...(couponRedemptionId ? { couponRedemptionId } : {}),
       tableId: type === 'MESA' ? tableId || undefined : undefined,
       customerName: String(customer.name || 'Cliente'),
       customerPhone: String(customer.phone || ''),

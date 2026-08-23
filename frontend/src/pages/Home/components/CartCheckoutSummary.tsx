@@ -1,5 +1,7 @@
 import type { CheckoutPaymentMethod } from '../domain/checkout';
-import * as S from '../../Home/Home.styles';
+import * as S from '../Home.styles';
+import * as Summary from './CartCheckoutSummary.styles';
+import type { OrderQuote } from '../hooks/useOrderQuote';
 
 type Props = {
   count: number;
@@ -7,6 +9,9 @@ type Props = {
   loading: boolean;
   paymentMethod: CheckoutPaymentMethod;
   isRestaurantOpen: boolean;
+  quote?: OrderQuote | null;
+  quoteLoading?: boolean;
+  quoteError?: boolean;
   onCheckout: () => void;
 };
 
@@ -19,8 +24,12 @@ export function CartCheckoutSummary({
   loading,
   paymentMethod,
   isRestaurantOpen,
+  quote,
+  quoteLoading = false,
+  quoteError = false,
   onCheckout,
 }: Props) {
+  const finalTotal = quote?.total ?? total;
   const buttonLabel = loading
     ? 'Processando...'
     : !isRestaurantOpen
@@ -37,12 +46,38 @@ export function CartCheckoutSummary({
           <span>
             Subtotal ({count} {count === 1 ? 'item' : 'itens'})
           </span>
-          <span>{currency(total)}</span>
+          <span>{currency(quote ? quote.itemsSubtotal + quote.productDiscountTotal : total)}</span>
         </S.CartSummaryRow>
+      )}
+      {Boolean(quote?.productDiscountTotal) && (
+        <Summary.DiscountRow>
+          <span>Descontos nos produtos</span>
+          <span>− {currency(quote?.productDiscountTotal || 0)}</span>
+        </Summary.DiscountRow>
+      )}
+      {Boolean(quote?.couponDiscount) && (
+        <Summary.DiscountRow>
+          <span>Cupom {quote?.couponCode ? `• ${quote.couponCode}` : ''}</span>
+          <span>− {currency(quote?.couponDiscount || 0)}</span>
+        </Summary.DiscountRow>
+      )}
+      {Boolean(quote?.deliveryFeeAmount) && (
+        <S.CartSummaryRow>
+          <span>Taxa de entrega</span>
+          <span>{currency(quote?.deliveryFeeAmount || 0)}</span>
+        </S.CartSummaryRow>
+      )}
+      {quoteLoading && count > 0 && (
+        <Summary.Hint>Atualizando o total com seus benefícios…</Summary.Hint>
+      )}
+      {quoteError && count > 0 && (
+        <Summary.Hint>
+          O valor final será confirmado com segurança antes de criar o pedido.
+        </Summary.Hint>
       )}
       <S.CartTotal>
         <span>Total</span>
-        <span>{currency(total)}</span>
+        <span>{currency(finalTotal)}</span>
       </S.CartTotal>
       <S.CartCheckout
         type="button"

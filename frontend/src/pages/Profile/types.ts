@@ -1,3 +1,5 @@
+import type { LoyaltySummary } from '../Home/types';
+
 export type ProfileBrand = {
   name: string;
   monogram?: string;
@@ -19,7 +21,7 @@ export type ProfileUser = {
 
 export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
 export type ProfileView =
-  'overview' | 'orders' | 'addresses' | 'favorites' | 'personalData' | 'security';
+  'overview' | 'orders' | 'coupons' | 'addresses' | 'favorites' | 'personalData' | 'security';
 
 export type ProfileOrder = {
   id: string;
@@ -82,6 +84,8 @@ export type ProfilePageProps = {
   onViewOrder?: (orderId: string) => void;
   onReorder?: (orderId: string) => void;
   onViewAllOrders?: () => void;
+  onOpenCoupons?: () => void;
+  onUseCoupon?: (redemptionId: number) => void;
   onNewAddress?: () => void;
   onSelectAddress?: (addressId: string) => void | Promise<void>;
   onEditPayment?: () => void;
@@ -98,4 +102,8 @@ export type ProfilePageProps = {
   onToggleTwoFactor?: (enabled: boolean) => Promise<void>;
   onDeactivateAccount?: () => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<void>;
+  loyaltySummary?: LoyaltySummary | null;
+  loyaltyLoading?: boolean;
+  loyaltyError?: string;
+  onRetryLoyalty?: () => void;
 };

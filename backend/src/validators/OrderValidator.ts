@@ -41,12 +41,18 @@ export const createOrderSchema = z
 
     complement: z.string().trim().optional(),
 
+    couponRedemptionId: z.number().int().positive().nullable().optional(),
+
     items: z
       .array(
         z.object({
           productId: z.number().int().positive(),
           quantity: z.number().int().positive(),
-          observation: z.string().trim().optional(),
+          observation: z
+            .string()
+            .trim()
+            .max(500, 'A observação do item deve ter no máximo 500 caracteres.')
+            .optional(),
           ingredientIds: z.array(z.number().int().positive()).max(40).optional(),
           optionIds: z.array(z.number().int().positive()).max(100).optional(),
           selectedOptions: z

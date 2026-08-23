@@ -10,7 +10,14 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { Order, OrderChannel, OrderStatus } from '../types';
 import { useKitchenWorkspace as useWorkspace } from '../useKitchenWorkspace';
-import { Empty, MetricCards, OrderItems, StatusBadge, channelLabel } from '../components/Shared';
+import {
+  Empty,
+  MetricCards,
+  OrderItems,
+  StatusBadge,
+  channelLabel,
+  hasOrderPreparationDetails,
+} from '../components/Shared';
 import * as S from '../Kitchen.styles';
 
 const activeStatuses: OrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
@@ -59,6 +66,25 @@ function averagePreparationTime(orders: Order[]) {
   return `${averageMinutes} min`;
 }
 
+function orderSearchContent(order: Order) {
+  const details = order.itemDetails?.flatMap((item) => [
+    item.name,
+    item.observation ?? '',
+    ...item.customizations.flatMap((group) => [group.groupName, ...group.options]),
+  ]);
+
+  return [
+    order.id,
+    order.reference,
+    order.customer ?? '',
+    ...order.items,
+    ...(details ?? []),
+    order.observation ?? '',
+  ]
+    .join(' ')
+    .toLocaleLowerCase('pt-BR');
+}
+
 export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: string) => void }) {
   const { orders } = useWorkspace();
   const now = useKitchenClock();
@@ -104,9 +130,14 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
             {urgent.map((order) => (
               <S.PriorityOrder
                 key={order.id}
-                as="button"
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onOpenOrder?.(order.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.currentTarget.click();
+                }}
                 aria-label={`Abrir ${order.id} na fila de pedidos`}
               >
                 <div className="identity">
@@ -277,9 +308,7 @@ export function KitchenQueuePage({
           o.channel === channel &&
           activeStatuses.includes(o.status) &&
           (status === 'ALL' || o.status === status) &&
-          `${o.id} ${o.reference} ${o.customer ?? ''} ${o.items.join(' ')}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
+          orderSearchContent(o).includes(query.trim().toLocaleLowerCase('pt-BR')),
       ),
     [orders, channel, status, query],
   );
@@ -417,14 +446,22 @@ export function KitchenReadyPage() {
 export function KitchenHistoryPage() {
   const { orders } = useWorkspace();
   const [channel, setChannel] = useState<OrderChannel>('TABLE');
+  const [query, setQuery] = useState('');
   const completed = orders.filter(
-    (o) => o.channel === channel && (o.status === 'ENTREGUE' || o.status === 'CANCELADO'),
+    (o) =>
+      o.channel === channel &&
+      (o.status === 'ENTREGUE' || o.status === 'CANCELADO') &&
+      orderSearchContent(o).includes(query.trim().toLocaleLowerCase('pt-BR')),
   );
   return (
     <>
       <S.Toolbar>
         <ChannelFilter value={channel} onChange={setChannel} />
-        <input placeholder="Buscar no histórico" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Buscar no histórico"
+        />
       </S.Toolbar>
       <MetricCards
         items={[
@@ -456,19 +493,29 @@ export function KitchenHistoryPage() {
           <span>Total</span>
         </div>
         {completed.map((order) => (
-          <div className="row" key={order.id}>
-            <b>{order.id}</b>
-            <span>{order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]}</span>
-            <span>{order.completedAt ?? order.createdAt}</span>
-            <span>
-              <StatusBadge status={order.status} />
-            </span>
-            <span>
-              {order.total.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })}
-            </span>
+          <div className="history-order" key={order.id}>
+            <div className="row">
+              <b>{order.id}</b>
+              <span>
+                {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]}
+              </span>
+              <span>{order.completedAt ?? order.createdAt}</span>
+              <span>
+                <StatusBadge status={order.status} />
+              </span>
+              <span>
+                {order.total.toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                })}
+              </span>
+            </div>
+            {hasOrderPreparationDetails(order) && (
+              <details className="history-details">
+                <summary>Ver montagem e observações</summary>
+                <OrderItems order={order} />
+              </details>
+            )}
           </div>
         ))}
         {!completed.length && <Empty>Nenhum pedido encontrado neste canal.</Empty>}

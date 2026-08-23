@@ -28,6 +28,7 @@ import StripeOrderWebhookController from '../controllers/StripeOrderWebhookContr
 import PagBankOrderWebhookController from '../controllers/PagBankOrderWebhookController.js';
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
+import QuoteOrderController from '../controllers/QuoteOrderController.js';
 import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { orderAccessMiddleware } from '../../../middlewares/orderAccessMiddleware.js';
@@ -46,6 +47,10 @@ router.post('/webhook/pagbank', PagBankOrderWebhookController.handle);
 
 router.post('/', orderAccessMiddleware, billingMiddleware, (req, res) => {
   CreateOrderController.handle(req, res);
+});
+
+router.post('/quote', orderAccessMiddleware, billingMiddleware, (req, res) => {
+  QuoteOrderController.handle(req, res);
 });
 
 router.post('/pix/payment', orderAccessMiddleware, billingMiddleware, (req, res) => {

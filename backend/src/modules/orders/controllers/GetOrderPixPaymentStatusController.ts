@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import orderPixPaymentService from '../services/OrderPixPaymentService.js';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 
 class GetOrderPixPaymentStatusController {
   async handle(req: Request, res: Response) {
     try {
       const { paymentId, restaurantId } = req.body;
-      const userRestaurantId = req.user?.restaurantId ?? null;
-      const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId);
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
+      });
 
       const result = await orderPixPaymentService.getPaymentStatus({
         paymentId,

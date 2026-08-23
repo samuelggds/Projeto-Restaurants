@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bike, ChefHat, ChevronRight, Clock3, PackageCheck, PackageSearch, X } from 'lucide-react';
 import styled from 'styled-components';
 import type { ActiveOrderNotice as ActiveOrder } from '../domain/activeOrderNotice';
 
 type Props = {
+  primaryColor: string;
   order: ActiveOrder | null;
   onTrack: (orderId: string) => void;
   onConfirmDelivery: (orderId: string) => Promise<void>;
@@ -24,10 +26,7 @@ function progressFor(status: string) {
 }
 
 const FloatingNotice = styled.button`
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 45;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -73,12 +72,11 @@ const FloatingNotice = styled.button`
     white-space: nowrap;
   }
   @media (max-width: 700px) {
-    right: 12px;
-    bottom: 12px;
+    max-width: min(350px, 100%);
   }
 `;
 
-const Backdrop = styled.div`
+const Backdrop = styled.div<{ $primary: string }>`
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -86,6 +84,7 @@ const Backdrop = styled.div`
   place-items: center;
   padding: 18px;
   background: rgba(25, 24, 22, 0.48);
+  --home-primary: ${({ $primary }) => $primary};
 `;
 
 const Dialog = styled.section`
@@ -301,7 +300,7 @@ const Dialog = styled.section`
   }
 `;
 
-export function ActiveOrderNotice({ order, onTrack, onConfirmDelivery }: Props) {
+export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDelivery }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
@@ -345,82 +344,84 @@ export function ActiveOrderNotice({ order, onTrack, onConfirmDelivery }: Props) 
         </span>
         <ChevronRight size={18} />
       </FloatingNotice>
-      {isOpen && (
-        <Backdrop role="presentation" onClick={() => setIsOpen(false)}>
-          <Dialog
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="active-order-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="content">
-              <header>
-                <div>
-                  <h2 id="active-order-title">Pedido #{order.id}</h2>
-                  <p>Acompanhe cada etapa do seu pedido automaticamente.</p>
-                </div>
-                <button
-                  className="close"
-                  type="button"
-                  aria-label="Fechar aviso"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <X size={18} />
-                </button>
-              </header>
-              <div className="status">
-                <i className="status-icon">
-                  <StatusIcon status={order.status} />
-                </i>
-                <span>
-                  <strong>{order.statusLabel}</strong>
-                  <small>{order.summary}</small>
-                </span>
-              </div>
-              <div className="live">
-                <i /> Status atualizado automaticamente
-              </div>
-              <div className="timeline" aria-label={`Progresso: ${order.statusLabel}`}>
-                {[1, 2, 3, 4].map((step) => (
-                  <span key={step} className={step <= progress ? 'active' : ''} />
-                ))}
-              </div>
-              <div className="steps">
-                <span className={progress >= 1 ? 'active' : ''}>Confirmado</span>
-                <span className={progress >= 2 ? 'active' : ''}>Preparo</span>
-                <span className={progress >= 3 ? 'active' : ''}>Pronto</span>
-                <span className={progress >= 4 ? 'active' : ''}>Entrega</span>
-              </div>
-              {isOutForDelivery ? (
-                <button className="track" type="button" onClick={track}>
-                  <Bike size={19} /> Acompanhar entrega no GPS <ChevronRight size={18} />
-                </button>
-              ) : isDelivered ? (
-                <div className="receipt">
-                  <span>
-                    Seu pedido foi marcado como entregue. Confirme o recebimento para avisar o
-                    restaurante.
-                  </span>
+      {isOpen &&
+        createPortal(
+          <Backdrop $primary={primaryColor} role="presentation" onClick={() => setIsOpen(false)}>
+            <Dialog
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="active-order-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="content">
+                <header>
+                  <div>
+                    <h2 id="active-order-title">Pedido #{order.id}</h2>
+                    <p>Acompanhe cada etapa do seu pedido automaticamente.</p>
+                  </div>
                   <button
+                    className="close"
                     type="button"
-                    onClick={() => void confirmReceipt()}
-                    disabled={isConfirming}
+                    aria-label="Fechar aviso"
+                    onClick={() => setIsOpen(false)}
                   >
-                    <PackageCheck size={18} />{' '}
-                    {isConfirming ? 'Confirmando...' : 'Confirmar recebimento'}
+                    <X size={18} />
                   </button>
-                  {confirmationError && <p className="receipt-error">{confirmationError}</p>}
+                </header>
+                <div className="status">
+                  <i className="status-icon">
+                    <StatusIcon status={order.status} />
+                  </i>
+                  <span>
+                    <strong>{order.statusLabel}</strong>
+                    <small>{order.summary}</small>
+                  </span>
                 </div>
-              ) : (
-                <div className="waiting">
-                  <Clock3 size={18} /> O rastreamento por GPS será liberado quando o motoqueiro sair
-                  para a entrega.
+                <div className="live">
+                  <i /> Status atualizado automaticamente
                 </div>
-              )}
-            </div>
-          </Dialog>
-        </Backdrop>
-      )}
+                <div className="timeline" aria-label={`Progresso: ${order.statusLabel}`}>
+                  {[1, 2, 3, 4].map((step) => (
+                    <span key={step} className={step <= progress ? 'active' : ''} />
+                  ))}
+                </div>
+                <div className="steps">
+                  <span className={progress >= 1 ? 'active' : ''}>Confirmado</span>
+                  <span className={progress >= 2 ? 'active' : ''}>Preparo</span>
+                  <span className={progress >= 3 ? 'active' : ''}>Pronto</span>
+                  <span className={progress >= 4 ? 'active' : ''}>Entrega</span>
+                </div>
+                {isOutForDelivery ? (
+                  <button className="track" type="button" onClick={track}>
+                    <Bike size={19} /> Acompanhar entrega no GPS <ChevronRight size={18} />
+                  </button>
+                ) : isDelivered ? (
+                  <div className="receipt">
+                    <span>
+                      Seu pedido foi marcado como entregue. Confirme o recebimento para avisar o
+                      restaurante.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void confirmReceipt()}
+                      disabled={isConfirming}
+                    >
+                      <PackageCheck size={18} />{' '}
+                      {isConfirming ? 'Confirmando...' : 'Confirmar recebimento'}
+                    </button>
+                    {confirmationError && <p className="receipt-error">{confirmationError}</p>}
+                  </div>
+                ) : (
+                  <div className="waiting">
+                    <Clock3 size={18} /> O rastreamento por GPS será liberado quando o motoqueiro
+                    sair para a entrega.
+                  </div>
+                )}
+              </div>
+            </Dialog>
+          </Backdrop>,
+          document.body,
+        )}
     </>
   );
 }

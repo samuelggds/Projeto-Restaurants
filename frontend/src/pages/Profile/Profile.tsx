@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import favoritesService from '../../Services/favoritesService';
+import loyaltyService from '../../Services/loyaltyService';
 import customerAddressService, {
   type CustomerAddressInput,
 } from '../../Services/customerAddressService';
@@ -16,6 +17,7 @@ import { buildReorderCart, findOrderByDisplayId } from '../profile/domain/reorde
 import { addFavoriteToCart } from '../profile/domain/favoriteCart';
 import { readJsonStorage } from '../../shared/storage/jsonStorage';
 import type { CartItem } from '../home/hooks/useCart';
+import type { LoyaltySummary } from '../Home/types';
 import type { ProfileFavorite } from './types';
 
 function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
@@ -54,9 +56,56 @@ export default function Profile() {
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
   const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
+  const [loyaltySummary, setLoyaltySummary] = useState<LoyaltySummary | null>(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [loyaltyError, setLoyaltyError] = useState('');
+  const loyaltyRequestSequence = useRef(0);
   const [localAvatar, setLocalAvatar] = useState('');
   // Derived: prefer a locally-uploaded photo until the auth context reflects the new avatar
   const avatarUrl = localAvatar || String((user as Record<string, unknown>)?.avatar || '');
+  const restaurantId = useMemo(() => {
+    const authUser = (user as Record<string, unknown> | null) || {};
+    const restaurant = (authUser.restaurant as Record<string, unknown> | null) || {};
+    const resolved = Number(
+      authUser.restaurantId ||
+        restaurant.id ||
+        restaurant.restaurantId ||
+        localStorage.getItem('menuRestaurantId') ||
+        0,
+    );
+    return Number.isInteger(resolved) && resolved > 0 ? resolved : null;
+  }, [user]);
+
+  const loadLoyaltyWallet = useCallback(async () => {
+    const requestId = ++loyaltyRequestSequence.current;
+    if (!restaurantId || String(user?.role || '').toUpperCase() !== 'CLIENTE') {
+      setLoyaltySummary(null);
+      setLoyaltyError('Não foi possível identificar o restaurante desta conta.');
+      return;
+    }
+
+    setLoyaltyLoading(true);
+    setLoyaltyError('');
+    try {
+      const nextSummary = await loyaltyService.getSummary(restaurantId);
+      if (requestId !== loyaltyRequestSequence.current) return;
+      setLoyaltySummary(nextSummary);
+    } catch {
+      if (requestId !== loyaltyRequestSequence.current) return;
+      setLoyaltySummary(null);
+      setLoyaltyError('Confira sua conexão e tente carregar os benefícios novamente.');
+    } finally {
+      if (requestId === loyaltyRequestSequence.current) setLoyaltyLoading(false);
+    }
+  }, [restaurantId, user?.role]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadLoyaltyWallet(), 0);
+    return () => {
+      window.clearTimeout(timeout);
+      loyaltyRequestSequence.current += 1;
+    };
+  }, [loadLoyaltyWallet]);
 
   // Brand info from public settings of the user's restaurant
   useEffect(() => {
@@ -136,6 +185,13 @@ export default function Profile() {
       }),
     [user, settings, orders, favorites, addresses, avatarUrl],
   );
+  const restaurantMenuPath = useMemo(() => {
+    const restaurant = (settings?.restaurant as Record<string, unknown> | null) || {};
+    const slug = String(restaurant.slug || settings?.slug || '')
+      .trim()
+      .toLowerCase();
+    return slug ? `/${slug}` : '/';
+  }, [settings]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -286,6 +342,15 @@ export default function Profile() {
         onTrackOrder={handleTrackOrder}
         onViewOrder={handleTrackOrder}
         onReorder={handleReorder}
+        loyaltySummary={loyaltySummary}
+        loyaltyLoading={loyaltyLoading}
+        loyaltyError={loyaltyError}
+        onRetryLoyalty={() => void loadLoyaltyWallet()}
+        onUseCoupon={(redemptionId) =>
+          navigate(restaurantMenuPath, {
+            state: { openCart: true, loyaltyRedemptionId: redemptionId },
+          })
+        }
       />
       {addressModalOpen && (
         <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />

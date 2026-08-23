@@ -16,7 +16,78 @@ describe('operational order adapter', () => {
       channel: 'TABLE',
       reference: 'Mesa 4',
       items: ['2× Pizza'],
+      itemDetails: [
+        {
+          name: 'Pizza',
+          quantity: 2,
+          customizations: [],
+        },
+      ],
     });
+  });
+  it('preserva montagem por categoria e observações para a cozinha', () => {
+    const [order] = mapOperationalOrders([
+      {
+        id: 10,
+        type: 'DELIVERY',
+        observation: 'Entregar junto com o molho',
+        items: [
+          {
+            quantity: 1,
+            product: { name: 'Pizza da casa' },
+            observation: 'Assar bem a massa',
+            ingredients: [
+              { id: 1, name: 'Massa fina', price: 0 },
+              { id: 2, name: 'Bacon', price: 10 },
+            ],
+            customizations: [
+              {
+                groupName: 'Massa',
+                options: [{ optionId: 1, name: 'Massa fina', price: 0 }],
+              },
+              {
+                groupName: 'Adicionais',
+                options: [{ optionId: 2, name: 'Bacon', price: 10 }],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    expect(order).toMatchObject({
+      observation: 'Entregar junto com o molho',
+      itemDetails: [
+        {
+          name: 'Pizza da casa',
+          quantity: 1,
+          observation: 'Assar bem a massa',
+          customizations: [
+            { groupName: 'Massa', options: ['Massa fina'] },
+            { groupName: 'Adicionais', options: ['Bacon'] },
+          ],
+        },
+      ],
+    });
+  });
+  it('aceita ingredientes de pedidos antigos sem categoria e ignora dados inválidos', () => {
+    const [order] = mapOperationalOrders([
+      {
+        id: 11,
+        items: [
+          {
+            quantity: 1,
+            productName: 'Massa antiga',
+            customizations: 'formato antigo',
+            ingredients: ['Molho branco', { name: 'Queijo' }, null, { price: 12 }],
+          },
+        ],
+      },
+    ]);
+
+    expect(order.itemDetails?.[0].customizations).toEqual([
+      { groupName: 'Itens escolhidos', options: ['Molho branco', 'Queijo'] },
+    ]);
   });
   it('monta a identidade do restaurante', () => {
     expect(

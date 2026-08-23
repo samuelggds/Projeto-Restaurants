@@ -6,11 +6,21 @@ import { notifyCustomerOrderStatusChanged } from '../../../services/customerNoti
 import refundOrderPaymentService from './RefundOrderPaymentService.js';
 import prisma from '../../../config/prisma.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
 
 class CancelOrderService {
-  async execute(orderId: number | string | string[], userId: number, restaurantId: number) {
+  async execute(
+    orderId: number | string | string[],
+    userId: number,
+    restaurantId?: number | null,
+  ) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
-    const order = await orderRepository.findById(normalizedOrderId, restaurantId);
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    const order = await orderRepository.findByIdForCustomer(
+      normalizedOrderId,
+      userId,
+      normalizedRestaurantId,
+    );
 
     if (!order) {
       throw new Error('Pedido não encontrado!');
@@ -20,6 +30,8 @@ class CancelOrderService {
       throw new Error('Sem permissão!');
     }
 
+    const orderRestaurantId = order.restaurantId;
+
     const canCancel = OrderStateMachine.canTransition(order.status, OrderStatus.CANCELADO);
 
     if (!canCancel) {
@@ -28,6 +40,7 @@ class CancelOrderService {
 
     const isPaidDigitalOrder =
       order.paid === true &&
+      order.payOnDelivery !== true &&
       (order.paymentMethod === PaymentMethod.PIX || order.paymentMethod === PaymentMethod.CARTAO);
 
     if (isPaidDigitalOrder) {
@@ -35,14 +48,18 @@ class CancelOrderService {
     }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      await restoreOrderItemsStock(tx, order);
-
-      return orderRepository.updateStatus(
+      const cancelledOrder = await orderRepository.updateStatusIfCurrent(
         normalizedOrderId,
         OrderStatus.CANCELADO,
-        restaurantId,
+        orderRestaurantId,
+        { status: order.status, paid: order.paid },
         tx,
       );
+
+      await restoreOrderItemsStock(tx, order);
+      await releaseCouponRedemptionForOrder(normalizedOrderId, orderRestaurantId, tx);
+
+      return cancelledOrder;
     });
 
     notifyCustomerOrderStatusChanged({
@@ -56,7 +73,7 @@ class CancelOrderService {
       console.error('[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]', error?.message || error);
     });
 
-    io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
+    io.to(`restaurant:${orderRestaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
 
     return updatedOrder;

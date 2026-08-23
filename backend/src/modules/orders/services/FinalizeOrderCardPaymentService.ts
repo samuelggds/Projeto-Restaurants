@@ -1,6 +1,9 @@
 import { io } from '../../../server.js';
+import prisma from '../../../config/prisma.js';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
+import reconcileLateCancelledPaymentService from './ReconcileLateCancelledPaymentService.js';
 
 type FinalizeOrderCardPaymentPayload = {
   orderId?: number | string | null;
@@ -36,11 +39,47 @@ class FinalizeOrderCardPaymentService {
       throw new Error('Pedido do cartao nao encontrado para esta sessao.');
     }
 
+    if (String(order.status) === 'CANCELADO' && order.paid !== true) {
+      const paymentReference =
+        normalizedCheckoutSessionId || String(order.cardCheckoutSessionId || '').trim();
+      await reconcileLateCancelledPaymentService.execute({
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        paymentMethod: 'CARTAO',
+        paymentReference,
+      });
+      return orderRepository.findById(order.id, order.restaurantId);
+    }
+
     if (order.paid === true) {
       return order;
     }
 
-    const updatedOrder = await orderRepository.confirmPayment(order.id, order.restaurantId);
+    let updatedOrder;
+    try {
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        const confirmedOrder = await orderRepository.confirmPayment(
+          order.id,
+          order.restaurantId,
+          tx,
+        );
+        await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        return confirmedOrder;
+      });
+    } catch (error) {
+      const latest = await orderRepository.findById(order.id, order.restaurantId);
+      if (latest?.status === 'CANCELADO' && latest.paid !== true) {
+        await reconcileLateCancelledPaymentService.execute({
+          orderId: latest.id,
+          restaurantId: latest.restaurantId,
+          paymentMethod: 'CARTAO',
+          paymentReference:
+            normalizedCheckoutSessionId || String(latest.cardCheckoutSessionId || '').trim(),
+        });
+        return orderRepository.findById(latest.id, latest.restaurantId);
+      }
+      throw error;
+    }
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
       orderId: updatedOrder.id,

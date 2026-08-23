@@ -1,10 +1,22 @@
-import { ChevronRight, Heart, LayoutGrid, Mail, MapPin, Phone, Plus, Tag } from 'lucide-react';
+import {
+  BadgePercent,
+  ChevronRight,
+  LayoutGrid,
+  Mail,
+  MapPin,
+  Phone,
+  Sparkles,
+  Tag,
+} from 'lucide-react';
 import { getTodayBusinessHours } from '../admin/domain/businessHours';
 import { useMemo, useState } from 'react';
+import * as Offers from './components/FeaturedOffers.styles';
 import { HomeHeader } from './components/HomeHeader';
+import { HomeProductCard } from './components/HomeProductCard';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import * as S from './Home.styles';
 import type { HomePageProps, HomeProduct } from './types';
+import { getFeaturedProducts } from './domain/featuredProducts';
 import { FacebookIcon, InstagramIcon, WhatsAppIcon } from './components/SocialBrandIcons';
 
 const brl = (value: number) =>
@@ -51,6 +63,7 @@ export function HomePage({
 
     return data.products.filter((product) => product.categoryId === selectedCategory);
   }, [selectedCategory, data.products]);
+  const featuredProducts = useMemo(() => getFeaturedProducts(data.products), [data.products]);
   const activeCategoryName =
     data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos';
   const favoriteIds = useMemo(() => new Set(favoriteProductIds), [favoriteProductIds]);
@@ -65,52 +78,15 @@ export function HomePage({
     setSelectedProduct(product);
   };
 
-  const renderProduct = (product: (typeof products)[number]) => (
-    <S.ProductCard
+  const renderProduct = (product: HomeProduct, featured = false) => (
+    <HomeProductCard
       key={product.id}
-      role="button"
-      tabIndex={0}
-      aria-label={`Ver detalhes de ${product.name}`}
-      onClick={() => openProductDetails(product)}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === 'Enter' || event.key === ' ') openProductDetails(product);
-      }}
-    >
-      <S.ImageWrap>
-        <img src={product.image} alt={product.name} />
-        <button
-          className={favoriteIds.has(product.id) ? 'favorite' : undefined}
-          aria-label={`Favoritar ${product.name}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleFavorite?.(product.id);
-          }}
-        >
-          <Heart size={21} fill={favoriteIds.has(product.id) ? 'currentColor' : 'none'} />
-        </button>
-      </S.ImageWrap>
-      <div>
-        <h3>{product.name}</h3>
-        <p>{product.description}</p>
-        <footer>
-          {product.rating > 0 && <span>⭐ {product.rating}</span>}
-          <strong>{brl(product.price)}</strong>
-          <button
-            aria-label={
-              product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`
-            }
-            disabled={!product.available}
-            onClick={(event) => {
-              event.stopPropagation();
-              openProductDetails(product);
-            }}
-          >
-            {product.available ? <Plus /> : 'Esgotado'}
-          </button>
-        </footer>
-      </div>
-    </S.ProductCard>
+      product={product}
+      featured={featured}
+      favorite={favoriteIds.has(product.id)}
+      onOpen={() => openProductDetails(product)}
+      onToggleFavorite={() => onToggleFavorite?.(product.id)}
+    />
   );
 
   return (
@@ -173,6 +149,28 @@ export function HomePage({
           </S.InfoBar>
         )}
 
+        {featuredProducts.length > 0 && (
+          <Offers.Section aria-labelledby="featured-offers-title">
+            <Offers.Header>
+              <div>
+                <Offers.Eyebrow>
+                  <Sparkles size={15} /> preços especiais
+                </Offers.Eyebrow>
+                <h2 id="featured-offers-title">Ofertas em destaque</h2>
+                <p>Aproveite os produtos selecionados pelo restaurante com preços especiais.</p>
+              </div>
+              <Offers.Count>
+                <BadgePercent size={17} />
+                {featuredProducts.length}{' '}
+                {featuredProducts.length === 1 ? 'oferta disponível' : 'ofertas disponíveis'}
+              </Offers.Count>
+            </Offers.Header>
+            <Offers.Grid>
+              {featuredProducts.map((product) => renderProduct(product, true))}
+            </Offers.Grid>
+          </Offers.Section>
+        )}
+
         {data.categories.length > 0 && (
           <>
             <S.SectionTitle>O que você deseja hoje?</S.SectionTitle>
@@ -214,14 +212,18 @@ export function HomePage({
                       return (
                         <S.ProductCategoryGroup key={category.id}>
                           <h3>{category.name}</h3>
-                          <S.ProductGrid>{categoryProducts.map(renderProduct)}</S.ProductGrid>
+                          <S.ProductGrid>
+                            {categoryProducts.map((product) => renderProduct(product))}
+                          </S.ProductGrid>
                         </S.ProductCategoryGroup>
                       );
                     })}
                 </S.ProductCategoryGroups>
               </>
             ) : (
-              <S.ProductGrid key={selectedCategory}>{products.map(renderProduct)}</S.ProductGrid>
+              <S.ProductGrid key={selectedCategory}>
+                {products.map((product) => renderProduct(product))}
+              </S.ProductGrid>
             )}
           </>
         )}
@@ -290,17 +292,6 @@ export function HomePage({
           reservados.
         </S.FooterBottom>
       </S.Footer>
-
-      {data.brand.whatsapp && (
-        <S.Whatsapp
-          href={`https://wa.me/${data.brand.whatsapp}`}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Falar no WhatsApp"
-        >
-          <WhatsAppIcon size={24} />
-        </S.Whatsapp>
-      )}
 
       {selectedProduct && (
         <ProductConfigurator

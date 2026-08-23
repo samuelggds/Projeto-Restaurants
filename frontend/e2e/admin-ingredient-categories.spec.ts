@@ -164,7 +164,8 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
 
   await expect(drawer).toBeHidden();
   expect(savedPayload).not.toBeNull();
-  const savedGroups = savedPayload?.optionGroups as Array<Record<string, unknown>>;
+  if (!savedPayload) throw new Error('Expected saved payload to be defined');
+  const savedGroups = savedPayload['optionGroups'] as Array<Record<string, unknown>>;
   expect(savedGroups).toHaveLength(3);
   expect(savedGroups[2]).toMatchObject({
     name: 'Escolha o molho',

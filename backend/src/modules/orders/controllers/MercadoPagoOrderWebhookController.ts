@@ -3,8 +3,10 @@ import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentS
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import { getMercadoPagoPaymentApi } from '../../payments/providers/mercadoPagoClient.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
+const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
 
 class MercadoPagoOrderWebhookController {
   async handle(req: Request, res: Response) {
@@ -40,10 +42,6 @@ class MercadoPagoOrderWebhookController {
           : {};
 
       const status = String((payment as { status?: unknown }).status || '').toLowerCase();
-      if (!APPROVED_STATUSES.has(status)) {
-        return res.sendStatus(200);
-      }
-
       const externalReference = String(
         (payment as { external_reference?: unknown }).external_reference || '',
       ).trim();
@@ -56,45 +54,77 @@ class MercadoPagoOrderWebhookController {
           : Number.isInteger(metadataRestaurantId) && metadataRestaurantId > 0
             ? metadataRestaurantId
             : undefined;
+      const parsedReference = /^order(pix|card):(\d+):(\d+)$/i.exec(externalReference);
+      const referenceType = String(parsedReference?.[1] || '').toLowerCase();
+      const referenceRestaurantId = Number(parsedReference?.[2] || 0);
+      const referenceOrderId = Number(parsedReference?.[3] || 0);
 
-      if (externalReference.startsWith('ordercard:')) {
-        const [, orderId = '', restaurantId = ''] = externalReference.split(':');
-        const referenceRestaurantId = Number(restaurantId || 0);
+      if (
+        parsedReference &&
+        ((hintedRestaurantId > 0 && referenceRestaurantId !== hintedRestaurantId) ||
+          (metadataRestaurantId > 0 && referenceRestaurantId !== metadataRestaurantId))
+      ) {
+        return res.status(400).json({
+          error: 'Webhook Mercado Pago rejeitado: restaurante da transação não confere.',
+        });
+      }
+
+      if (TERMINAL_UNPAID_STATUSES.has(status)) {
+        if (parsedReference) {
+          await failPendingOrderPaymentService.execute({
+            orderId: referenceOrderId,
+            restaurantId: referenceRestaurantId,
+          });
+        } else {
+          await failPendingOrderPaymentService.execute({
+            restaurantId: resolvedRestaurantId,
+            pixPaymentId: String(paymentId),
+          });
+        }
+        return res.sendStatus(200);
+      }
+
+      if (!APPROVED_STATUSES.has(status)) {
+        return res.sendStatus(200);
+      }
+
+      if (referenceType === 'card') {
+        const orderId = referenceOrderId;
         const normalizedPaymentId = String(paymentId || '').trim();
 
         if (
+          !Number.isInteger(orderId) ||
+          orderId <= 0 ||
           !Number.isInteger(referenceRestaurantId) ||
-          referenceRestaurantId <= 0 ||
-          (hintedRestaurantId > 0 && referenceRestaurantId !== hintedRestaurantId) ||
-          (metadataRestaurantId > 0 && referenceRestaurantId !== metadataRestaurantId)
+          referenceRestaurantId <= 0
         ) {
           return res.status(400).json({
             error: 'Webhook Mercado Pago rejeitado: restaurante da transação não confere.',
           });
         }
 
-        if (orderId) {
-          if (normalizedPaymentId) {
-            await orderRepository.setCardCheckoutSessionId(
-              orderId,
-              referenceRestaurantId,
-              `mp_pay:${normalizedPaymentId}`,
-            );
-          }
-
-          await finalizeOrderCardPaymentService.execute({
+        if (normalizedPaymentId) {
+          await orderRepository.setCardCheckoutSessionId(
             orderId,
-            restaurantId: referenceRestaurantId,
-            allowMissingOrder: true,
-          });
+            referenceRestaurantId,
+            `mp_pay:${normalizedPaymentId}`,
+          );
         }
+
+        await finalizeOrderCardPaymentService.execute({
+          orderId,
+          restaurantId: referenceRestaurantId,
+          allowMissingOrder: true,
+        });
 
         return res.sendStatus(200);
       }
 
       await finalizeOrderPixPaymentService.execute({
+        orderId: referenceType === 'pix' ? referenceOrderId : undefined,
         paymentId: String(paymentId),
-        restaurantId: resolvedRestaurantId,
+        restaurantId:
+          referenceType === 'pix' ? referenceRestaurantId : resolvedRestaurantId,
         allowMissingOrder: true,
       });
 

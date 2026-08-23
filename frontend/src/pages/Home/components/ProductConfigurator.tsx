@@ -20,6 +20,12 @@ type ProductConfiguratorProduct = ConfigurableProduct & {
   description: string;
   image: string;
   price: number;
+  originalPrice?: number;
+  promotion?: {
+    active: boolean;
+    badgeLabel: string;
+    endsAt?: string;
+  };
 };
 
 type ProductConfiguratorProps = {
@@ -117,7 +123,19 @@ export function ProductConfigurator({
             <p>
               {product.description || 'Escolha as opções disponíveis para montar este produto.'}
             </p>
+            {product.promotion?.active &&
+              Number(product.originalPrice || 0) > Number(product.price || 0) && (
+                <S.PromotionPrice>
+                  <span>{product.promotion.badgeLabel}</span>
+                  <del>{brl(Number(product.originalPrice))}</del>
+                </S.PromotionPrice>
+              )}
             <strong>A partir de {brl(product.price)}</strong>
+            {product.promotion?.active && (
+              <S.PromotionHint>
+                O desconto já está aplicado ao produto-base. Adicionais mantêm o valor informado.
+              </S.PromotionHint>
+            )}
           </div>
         </S.ProductSummary>
 

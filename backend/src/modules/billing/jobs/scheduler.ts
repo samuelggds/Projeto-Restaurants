@@ -3,6 +3,7 @@ import billingJob from '../jobs/BillingJob.js';
 import reconcileMercadoPagoInvoicesService from '../services/ReconcileMercadoPagoInvoicesService.js';
 import { error, info } from '../utils/billingLogger.js';
 import deliveryLocationCleanupJob from '../../orders/jobs/DeliveryLocationCleanupJob.js';
+import loyaltyRedemptionExpirationJob from '../../coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 
 export function startJobs() {
   cron.schedule(
@@ -39,6 +40,23 @@ export function startJobs() {
     {
       timezone: 'America/Sao_Paulo',
     },
+  );
+
+  cron.schedule(
+    process.env.LOYALTY_REDEMPTION_EXPIRATION_CRON || '*/5 * * * *',
+    async () => {
+      try {
+        const result = await loyaltyRedemptionExpirationJob.execute();
+        if (result.count > 0) {
+          info('expired loyalty rewards updated', { count: result.count });
+        }
+      } catch (err) {
+        error('loyalty reward expiration failed', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+    { timezone: 'America/Sao_Paulo' },
   );
 
   cron.schedule(

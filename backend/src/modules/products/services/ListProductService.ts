@@ -1,5 +1,6 @@
 import productRepository from '../repositories/ProductRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
+import { resolveProductBasePricing } from '../utils/productDiscount.js';
 
 type ListProductsPayload = {
   restaurantId?: number | string | null;
@@ -25,14 +26,20 @@ class ListProductsService {
       const stockValue =
         product?.stock === null || product?.stock === undefined ? null : Number(product.stock);
 
+      const pricing = resolveProductBasePricing(product);
+
       if (Number.isFinite(stockValue) && stockValue <= 0) {
         return {
           ...product,
           active: false,
+          pricing,
         };
       }
 
-      return product;
+      return {
+        ...product,
+        pricing,
+      };
     });
 
     return {

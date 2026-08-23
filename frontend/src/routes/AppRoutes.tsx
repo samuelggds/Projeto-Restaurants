@@ -20,7 +20,7 @@ const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'))
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
 const SystemMaintenancePage = lazy(() => import('../pages/SystemMaintenance/SystemMaintenance'));
-const Home = lazy(() => import('../pages/home/Home'));
+const Home = lazy(() => import('../pages/Home/Home'));
 const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuEntryPage'));
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));

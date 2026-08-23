@@ -210,11 +210,21 @@ export const Search = styled.label`
 export const SettingsNav = styled.nav`
   display: grid;
   gap: 4px;
-  > small {
+  .settings-group {
+    display: grid;
+    gap: 4px;
+  }
+  .settings-group > small {
     font-size: 10px;
     font-weight: 700;
     color: #777;
     margin: 10px 0 4px;
+  }
+  .settings-empty {
+    padding: 14px 8px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
   }
   button {
     height: 47px;
@@ -244,6 +254,59 @@ export const SettingsNav = styled.nav`
   }
   svg {
     width: 19px;
+  }
+`;
+export const MobileSettingsNav = styled.nav`
+  display: none;
+  width: 100%;
+  min-width: 0;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 253, 249, 0.96);
+  scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+
+  button {
+    flex: 0 0 auto;
+    height: 39px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    scroll-snap-align: start;
+    border: 1px solid #e4ddd5;
+    border-radius: 999px;
+    padding: 0 13px;
+    color: #5f5750;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  button.active {
+    border-color: color-mix(in srgb, var(--a) 42%, #fff);
+    color: var(--a);
+    background: color-mix(in srgb, var(--a) 9%, white);
+    box-shadow: 0 5px 13px color-mix(in srgb, var(--a) 10%, transparent);
+  }
+
+  @media (max-width: 1080px) {
+    display: flex;
+  }
+
+  @media (max-width: 760px) {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 9px 10px;
   }
 `;
 export const Main = styled.main`
@@ -3132,14 +3195,54 @@ export const CatalogTabs = styled.div`
   }
 `;
 export const IngredientPanel = styled.div`
-  max-width: 900px; padding: 26px;
-  h2 { margin: 0 0 5px; } > p { margin: 0 0 22px; color: var(--muted); }
-  .ingredient-form { display: grid; grid-template-columns: 1.4fr .7fr auto; gap: 10px; padding: 14px; border-radius: 12px; background: #fff7f1; }
-  input { height: 42px; min-width: 0; border: 1px solid #ded7cf; border-radius: 9px; padding: 0 11px; background: #fff; }
-  .ingredient-form button { border: 0; border-radius: 9px; padding: 0 16px; background: var(--a); color: #fff; font-weight: 700; }
-  .ingredient-row { padding: 14px 0; }
-  .ingredient-price { color: var(--a); font-weight: 800; }
-  @media (max-width: 600px) { .ingredient-form { grid-template-columns: 1fr; } .ingredient-form button { height: 42px; } }
+  max-width: 900px;
+  padding: 26px;
+  h2 {
+    margin: 0 0 5px;
+  }
+  > p {
+    margin: 0 0 22px;
+    color: var(--muted);
+  }
+  .ingredient-form {
+    display: grid;
+    grid-template-columns: 1.4fr 0.7fr auto;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 12px;
+    background: #fff7f1;
+  }
+  input {
+    height: 42px;
+    min-width: 0;
+    border: 1px solid #ded7cf;
+    border-radius: 9px;
+    padding: 0 11px;
+    background: #fff;
+  }
+  .ingredient-form button {
+    border: 0;
+    border-radius: 9px;
+    padding: 0 16px;
+    background: var(--a);
+    color: #fff;
+    font-weight: 700;
+  }
+  .ingredient-row {
+    padding: 14px 0;
+  }
+  .ingredient-price {
+    color: var(--a);
+    font-weight: 800;
+  }
+  @media (max-width: 600px) {
+    .ingredient-form {
+      grid-template-columns: 1fr;
+    }
+    .ingredient-form button {
+      height: 42px;
+    }
+  }
 `;
 
 export const IngredientWorkspace = styled.div`
@@ -3351,7 +3454,9 @@ export const IngredientForm = styled.form`
   }
   @media (max-width: 1050px) {
     grid-template-columns: 1fr 1fr;
-    .create-ingredient { width: 100%; }
+    .create-ingredient {
+      width: 100%;
+    }
   }
   @media (max-width: 680px) {
     grid-template-columns: 1fr;

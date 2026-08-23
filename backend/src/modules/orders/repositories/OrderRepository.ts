@@ -176,6 +176,51 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
+  async updateStatusIfCurrent(
+    id: number | string,
+    status: OrderStatus,
+    restaurantId: number,
+    expected: {
+      status: OrderStatus;
+      paid?: boolean;
+    },
+    db: PrismaClientLike = prisma,
+  ) {
+    const result = await db.order.updateMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+        status: expected.status,
+        ...(typeof expected.paid === 'boolean' ? { paid: expected.paid } : {}),
+      },
+      data: {
+        status,
+        ...(status === OrderStatus.PREPARANDO
+          ? { preparationStartedAt: new Date(), readyAt: null }
+          : {}),
+        ...(status === OrderStatus.PRONTO ? { readyAt: new Date() } : {}),
+      },
+    });
+
+    if (result.count !== 1) {
+      const current = await this.findById(id, restaurantId, db);
+      if (!current) {
+        throw new Error('Pedido não encontrado!');
+      }
+
+      throw new Error(
+        'O pedido foi atualizado por outro processo. Atualize a tela e tente novamente.',
+      );
+    }
+
+    const updated = await this.findById(id, restaurantId, db);
+    if (!updated) {
+      throw new Error('Pedido não encontrado após a atualização.');
+    }
+
+    return updated;
+  }
+
   async confirmDeliveryReceived(
     id: number | string,
     restaurantId: number,
@@ -196,10 +241,12 @@ class OrderRepository {
   }
 
   async confirmPayment(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
-    await db.order.updateMany({
+    const result = await db.order.updateMany({
       where: {
         id: Number(id),
         restaurantId,
+        paid: false,
+        status: { not: OrderStatus.CANCELADO },
       },
       data: {
         paid: true,
@@ -209,7 +256,20 @@ class OrderRepository {
       },
     });
 
-    return this.findById(id, restaurantId, db);
+    const current = await this.findById(id, restaurantId, db);
+    if (!current) {
+      throw new Error('Pedido não encontrado para confirmar o pagamento.');
+    }
+
+    if (result.count === 1 || current.paid === true) {
+      return current;
+    }
+
+    if (current.status === OrderStatus.CANCELADO) {
+      throw new Error('Pagamento recebido para um pedido cancelado; confirmação bloqueada.');
+    }
+
+    throw new Error('O pagamento não pôde ser confirmado no estado atual do pedido.');
   }
 
   async confirmPixPayment(
@@ -224,10 +284,12 @@ class OrderRepository {
     } = {},
     db: PrismaClientLike = prisma,
   ) {
-    await db.order.updateMany({
+    const result = await db.order.updateMany({
       where: {
         id: Number(id),
         restaurantId,
+        paid: false,
+        status: { not: OrderStatus.CANCELADO },
       },
       data: {
         paid: true,
@@ -239,7 +301,20 @@ class OrderRepository {
       },
     });
 
-    return this.findById(id, restaurantId, db);
+    const current = await this.findById(id, restaurantId, db);
+    if (!current) {
+      throw new Error('Pedido não encontrado para confirmar o pagamento PIX.');
+    }
+
+    if (result.count === 1 || current.paid === true) {
+      return current;
+    }
+
+    if (current.status === OrderStatus.CANCELADO) {
+      throw new Error('Pagamento PIX recebido para um pedido cancelado; confirmação bloqueada.');
+    }
+
+    throw new Error('O pagamento PIX não pôde ser confirmado no estado atual do pedido.');
   }
 
   async setCardCheckoutSessionId(
@@ -334,12 +409,18 @@ class OrderRepository {
   async findByIdForCustomer(
     id: number | string,
     customerId: number,
+    restaurantId?: number | null,
     db: PrismaClientLike = prisma,
   ) {
+    const normalizedRestaurantId = Number(restaurantId || 0);
+
     return db.order.findFirst({
       where: {
         id: Number(id),
         userId: customerId,
+        ...(Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
+          ? { restaurantId: normalizedRestaurantId }
+          : {}),
       },
       include: {
         user: {

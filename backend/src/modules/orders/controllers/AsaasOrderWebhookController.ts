@@ -2,6 +2,15 @@ import { Request, Response } from 'express';
 import prisma from '../../../config/prisma.js';
 import { io } from '../../../server.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { markCouponRedemptionUsedForOrder } from '../services/couponRedemptionLifecycle.js';
+import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
+import reconcileLateCancelledPaymentService from '../services/ReconcileLateCancelledPaymentService.js';
+
+const TERMINAL_UNPAID_EVENTS = new Set([
+  'PAYMENT_CANCELED',
+  'PAYMENT_DELETED',
+  'PAYMENT_REFUNDED',
+]);
 
 export interface AsaasWebhookPaymentPayload {
   id: string;
@@ -30,7 +39,9 @@ class AsaasOrderWebhookController {
         .trim()
         .toUpperCase();
 
-      if (event !== 'PAYMENT_RECEIVED') {
+      const isPaymentReceived = event === 'PAYMENT_RECEIVED';
+      const isTerminalUnpaidEvent = TERMINAL_UNPAID_EVENTS.has(event);
+      if (!isPaymentReceived && !isTerminalUnpaidEvent) {
         return res.status(200).json({ received: true, ignored: true });
       }
 
@@ -43,15 +54,16 @@ class AsaasOrderWebhookController {
       const hasRequiredPaymentFields =
         Boolean(asaasPaymentId) &&
         Boolean(externalReference) &&
-        Number.isFinite(paymentValue) &&
-        paymentValue >= 0 &&
-        Boolean(walletId);
+        (isTerminalUnpaidEvent ||
+          (Number.isFinite(paymentValue) && paymentValue >= 0 && Boolean(walletId)));
 
       if (!hasRequiredPaymentFields) {
         return res.status(200).json({ received: true, ignored: true });
       }
 
-      const orderId = Number(externalReference);
+      const pixReference = /^orderpix:(\d+):(\d+)$/i.exec(externalReference);
+      const referencedRestaurantId = pixReference ? Number(pixReference[1]) : null;
+      const orderId = Number(pixReference?.[2] || externalReference);
       if (!Number.isInteger(orderId) || orderId <= 0) {
         return res.status(200).json({ received: true, ignored: true });
       }
@@ -65,12 +77,30 @@ class AsaasOrderWebhookController {
           restaurantId: true,
           userId: true,
           paid: true,
+          status: true,
           paymentMethod: true,
           pixPaymentId: true,
+          total: true,
         },
       });
 
       if (!order) {
+        return res.status(200).json({ received: true, ignored: true });
+      }
+
+      if (referencedRestaurantId && referencedRestaurantId !== order.restaurantId) {
+        return res.status(200).json({ received: true, ignored: true });
+      }
+
+      if (isTerminalUnpaidEvent) {
+        await failPendingOrderPaymentService.execute({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+        });
+        return res.status(200).json({ received: true, processed: true });
+      }
+
+      if (Math.abs(paymentValue - Number(order.total)) > 0.009) {
         return res.status(200).json({ received: true, ignored: true });
       }
 
@@ -83,6 +113,19 @@ class AsaasOrderWebhookController {
 
       if (!isSupportedAutomaticMethod) {
         return res.status(200).json({ received: true, ignored: true });
+      }
+
+      if (String(order.status) === 'CANCELADO' && order.paid !== true) {
+        await reconcileLateCancelledPaymentService.execute({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          paymentMethod: normalizedPaymentMethod,
+          paymentReference:
+            normalizedPaymentMethod === 'PIX'
+              ? `asaas:${asaasPaymentId}`
+              : `asaas_pay:${asaasPaymentId}`,
+        });
+        return res.status(200).json({ received: true, processed: true, refunded: true });
       }
 
       if (walletId) {
@@ -107,18 +150,30 @@ class AsaasOrderWebhookController {
       }
 
       if (!order.paid) {
-        if (asaasPaymentId && !String(order.pixPaymentId || '').trim()) {
+        if (
+          normalizedPaymentMethod === 'PIX' &&
+          asaasPaymentId &&
+          !String(order.pixPaymentId || '').trim()
+        ) {
           await prisma.order.update({
             where: {
               id: order.id,
             },
             data: {
-              pixPaymentId: asaasPaymentId,
+              pixPaymentId: `asaas:${asaasPaymentId}`,
             },
           });
         }
 
-        const updatedOrder = await orderRepository.confirmPayment(order.id, order.restaurantId);
+        const updatedOrder = await prisma.$transaction(async (tx) => {
+          const confirmedOrder = await orderRepository.confirmPayment(
+            order.id,
+            order.restaurantId,
+            tx,
+          );
+          await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+          return confirmedOrder;
+        });
 
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
           orderId: updatedOrder.id,
@@ -151,8 +206,7 @@ class AsaasOrderWebhookController {
         error instanceof Error ? error.message : String(error),
       );
 
-      // Return 200 to avoid unnecessary retries for non-auth errors.
-      return res.status(200).json({ received: true, processed: false });
+      return res.status(500).json({ received: true, processed: false });
     }
   }
 }

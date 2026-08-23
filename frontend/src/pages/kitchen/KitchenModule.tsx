@@ -83,7 +83,7 @@ function KitchenShell({
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
       <S.Sidebar $open={open}>
-        <S.CollapseBtn onClick={() => setOpen(false)}>
+        <S.CollapseBtn aria-label="Recolher menu lateral" onClick={() => setOpen(false)}>
           <ChevronLeft />
         </S.CollapseBtn>
         <S.Brand>
@@ -91,7 +91,7 @@ function KitchenShell({
           <b>{restaurant.restaurantName}</b>
           <small>ÁREA DA COZINHA</small>
         </S.Brand>
-        <S.CloseMenu onClick={() => setOpen(false)}>
+        <S.CloseMenu aria-label="Fechar menu lateral" onClick={() => setOpen(false)}>
           <X />
         </S.CloseMenu>
         <S.Nav>
@@ -133,7 +133,7 @@ function KitchenShell({
       )}
       <S.Main>
         <S.Top>
-          <S.MobileMenu onClick={() => setOpen(true)}>
+          <S.MobileMenu aria-label="Abrir menu" onClick={() => setOpen(true)}>
             <Menu />
           </S.MobileMenu>
           <div>

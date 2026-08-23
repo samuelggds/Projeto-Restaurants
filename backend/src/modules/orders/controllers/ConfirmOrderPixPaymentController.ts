@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 
 class ConfirmOrderPixPaymentController {
   async handle(req: Request, res: Response) {
     try {
       const { orderId, paymentId, restaurantId } = req.body;
-      const userRestaurantId = req.user?.restaurantId ?? null;
-      const resolvedRestaurantId = Number(restaurantId) || Number(userRestaurantId) || undefined;
+      const resolvedRestaurantId = resolveOrderRestaurantId({
+        requestedRestaurantId: restaurantId,
+        contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null,
+      });
 
       const order = await finalizeOrderPixPaymentService.execute({
         orderId,

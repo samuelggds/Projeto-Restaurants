@@ -208,6 +208,40 @@ export const ProductSummary = styled.aside`
   }
 `;
 
+export const PromotionPrice = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: -5px 0 6px;
+
+  span {
+    display: inline-flex;
+    width: fit-content;
+    margin: 0;
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--config-primary);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+  }
+
+  del {
+    color: #8f857c;
+    font-size: 14px;
+    font-weight: 650;
+  }
+`;
+
+export const PromotionHint = styled.span`
+  display: block;
+  margin-top: 7px;
+  color: #756a61;
+  font-size: 11px;
+  line-height: 1.45;
+`;
+
 export const Form = styled.form`
   min-width: 0;
   display: grid;

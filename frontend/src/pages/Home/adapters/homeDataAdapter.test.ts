@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHomeData, resolveProductImage } from './homeDataAdapter';
+import { buildHomeData, mapProductPricingFromApi, resolveProductImage } from './homeDataAdapter';
 
 describe('homeDataAdapter', () => {
   it('preserva a imagem real do produto', () => {
@@ -39,5 +39,37 @@ describe('homeDataAdapter', () => {
     expect(data.brand).toMatchObject({ name: 'North Pizza', monogram: 'NP' });
     expect(data.hero.image).toContain('main.png');
     expect(data.banners).toHaveLength(0);
+  });
+
+  it('usa somente o preço promocional calculado pelo servidor', () => {
+    expect(
+      mapProductPricingFromApi({
+        price: 50,
+        pricing: {
+          active: true,
+          originalBasePrice: 50,
+          effectiveBasePrice: 37.5,
+          discountAmount: 12.5,
+          discountPercentage: 25,
+          badgeLabel: 'Oferta da semana',
+        },
+      }),
+    ).toEqual({
+      originalBasePrice: 50,
+      effectiveBasePrice: 37.5,
+      promotion: {
+        active: true,
+        discountAmount: 12.5,
+        discountPercentage: 25,
+        badgeLabel: 'Oferta da semana',
+        endsAt: undefined,
+      },
+    });
+    expect(
+      mapProductPricingFromApi({
+        price: 50,
+        pricing: { active: false, originalBasePrice: 50, effectiveBasePrice: 1 },
+      }).effectiveBasePrice,
+    ).toBe(50);
   });
 });

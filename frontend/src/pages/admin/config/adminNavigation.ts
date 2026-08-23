@@ -1,4 +1,5 @@
 import {
+  BadgePercent,
   Building2,
   Clock3,
   CreditCard,
@@ -14,20 +15,43 @@ import {
 } from 'lucide-react';
 import type { SettingsSection } from '../types';
 
-export const settingItems: [SettingsSection, string, typeof Store][] = [
-  ['brand', 'Marca e identidade', Store],
-  ['business', 'Dados do negócio', Building2],
-  ['address', 'Endereço', MapPin],
-  ['hours', 'Horários', Clock3],
-  ['orders', 'Pedidos', ShoppingBag],
-  ['delivery', 'Delivery e retirada', Truck],
-  ['table', 'Cardápio de mesa', QrCode],
-  ['whatsapp', 'WhatsApp', MessageCircle],
-  ['payments', 'Pagamentos', CreditCard],
-  ['social', 'Redes sociais', Share2],
-  ['appearance', 'Aparência e SEO', LayoutGrid],
-  ['security', 'Equipe e segurança', ShieldCheck],
+export type SettingNavigationItem = [SettingsSection, string, typeof Store];
+
+export const settingGroups: Array<{ id: string; label: string; items: SettingNavigationItem[] }> = [
+  {
+    id: 'restaurant',
+    label: 'RESTAURANTE',
+    items: [
+      ['brand', 'Marca e identidade', Store],
+      ['business', 'Dados do negócio', Building2],
+      ['address', 'Endereço', MapPin],
+      ['hours', 'Horários', Clock3],
+    ],
+  },
+  {
+    id: 'operation',
+    label: 'OPERAÇÃO',
+    items: [
+      ['orders', 'Pedidos', ShoppingBag],
+      ['promotions', 'Descontos e fidelidade', BadgePercent],
+      ['delivery', 'Delivery e retirada', Truck],
+      ['table', 'Cardápio de mesa', QrCode],
+      ['whatsapp', 'WhatsApp', MessageCircle],
+      ['payments', 'Pagamentos', CreditCard],
+    ],
+  },
+  {
+    id: 'digital',
+    label: 'PRESENÇA DIGITAL',
+    items: [
+      ['social', 'Redes sociais', Share2],
+      ['appearance', 'Aparência e SEO', LayoutGrid],
+      ['security', 'Equipe e segurança', ShieldCheck],
+    ],
+  },
 ];
+
+export const settingItems = settingGroups.flatMap((group) => group.items);
 
 export const sectionTitle: Record<SettingsSection, string> = {
   brand: 'Marca e identidade',
@@ -35,6 +59,7 @@ export const sectionTitle: Record<SettingsSection, string> = {
   address: 'Endereço',
   hours: 'Horários',
   orders: 'Configurações de pedidos',
+  promotions: 'Descontos e fidelidade',
   delivery: 'Delivery e retirada',
   table: 'Cardápio de mesa',
   whatsapp: 'WhatsApp',

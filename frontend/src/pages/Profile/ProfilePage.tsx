@@ -12,12 +12,14 @@ import {
   PackageCheck,
   Plus,
   ShieldCheck,
+  TicketPercent,
   Trash2,
   WalletCards,
 } from 'lucide-react';
 import { useState } from 'react';
 import { ProfileHeader } from './components/ProfileHeader';
 import { ProfileNavigation } from './components/ProfileNavigation';
+import { LoyaltyWallet } from './components/LoyaltyWallet';
 import { profileTabs as tabs } from './config/profileTabs';
 import { profileMockData } from './data';
 import * as S from './Profile.styles';
@@ -115,10 +117,21 @@ export function ProfilePage(props: ProfilePageProps) {
                   {...props}
                   onViewAllOrders={() => setView('orders')}
                   onOpenFavorites={() => setView('favorites')}
+                  onOpenCoupons={() => setView('coupons')}
                   data={data}
                 />
               )}
               {view === 'orders' && <Orders {...props} data={data} />}
+              {view === 'coupons' && (
+                <LoyaltyWallet
+                  summary={props.loyaltySummary}
+                  restaurantName={brand.name}
+                  loading={props.loyaltyLoading}
+                  error={props.loyaltyError}
+                  onRetry={props.onRetryLoyalty}
+                  onUseCoupon={props.onUseCoupon}
+                />
+              )}
               {view === 'addresses' && <Addresses {...props} data={data} />}
               {view === 'favorites' && <Favorites {...props} data={data} />}
               {view === 'personalData' && <PersonalData {...props} data={data} />}
@@ -141,6 +154,7 @@ function Overview(props: ProfilePageProps) {
     onNewAddress,
     onEditPayment,
     onOpenFavorites,
+    onOpenCoupons,
     onSupport,
   } = props;
   const { brand, user, activeOrder, recentOrders } = data;
@@ -229,6 +243,18 @@ function Overview(props: ProfilePageProps) {
         </S.Card>
         <S.Card>
           <h2>Minha conta</h2>
+          <S.Account>
+            <i>
+              <TicketPercent />
+            </i>
+            <div>
+              <b>Meus cupons</b>
+              <span>Benefícios resgatados e histórico</span>
+            </div>
+            <button onClick={onOpenCoupons} aria-label="Abrir meus cupons">
+              <ChevronRight size={17} />
+            </button>
+          </S.Account>
           <S.Account>
             <i>
               <MapPin />

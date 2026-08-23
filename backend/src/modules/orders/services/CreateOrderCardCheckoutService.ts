@@ -8,17 +8,20 @@ import {
 } from '../../payments/providers/providerCatalog.js';
 import {
   getCardCheckoutProviderHandler,
+  type CardCheckoutResult,
   type CreateOrderCardCheckoutPayload,
 } from './cardCheckoutProviders.js';
+import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import prisma from '../../../config/prisma.js';
+import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
+import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
-    const resolvedRestaurantId =
-      Number(payload.restaurantId) || Number(payload.userRestaurantId) || 0;
-
-    if (!resolvedRestaurantId) {
-      throw new Error('Restaurante inválido para pagamento com cartão.');
-    }
+    const resolvedRestaurantId = resolveOrderRestaurantId({
+      requestedRestaurantId: payload.restaurantId,
+      contextRestaurantId: payload.userRestaurantId,
+    });
 
     const settings = await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
 
@@ -57,9 +60,10 @@ class CreateOrderCardCheckoutService {
     ).trim();
     const cancelUrlBase = String(payload.cancelUrl || successUrlBase).trim();
 
+    let checkout: CardCheckoutResult;
     try {
       const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
-      const checkout = await providerHandler.createCheckout({
+      checkout = await providerHandler.createCheckout({
         payload,
         order: {
           id: createdOrder.id,
@@ -72,22 +76,44 @@ class CreateOrderCardCheckoutService {
         cancelUrlBase,
       });
 
+    } catch (error) {
+      await prisma.$transaction(async (tx) => {
+        const pendingOrder = await orderRepository.findById(
+          createdOrder.id,
+          createdOrder.restaurantId,
+          tx,
+        );
+        if (pendingOrder) {
+          await restoreOrderItemsStock(tx, pendingOrder);
+        }
+        await releaseCouponRedemptionForOrder(createdOrder.id, createdOrder.restaurantId, tx);
+        await orderRepository.deleteById(createdOrder.id, createdOrder.restaurantId, tx);
+      });
+      throw error;
+    }
+
+    try {
       await orderRepository.setCardCheckoutSessionId(
         createdOrder.id,
         createdOrder.restaurantId,
         String(checkout.persistenceSessionId || checkout.sessionId),
       );
-
-      return {
-        orderId: createdOrder.id,
-        provider: checkout.provider,
-        sessionId: checkout.sessionId,
-        checkoutUrl: checkout.checkoutUrl,
-      };
-    } catch (error) {
-      await orderRepository.deleteById(createdOrder.id, createdOrder.restaurantId);
-      throw error;
+    } catch (error: unknown) {
+      // Do not delete an order after an external checkout exists. Every
+      // provider reference carries the order id and its webhook can reconcile.
+      console.error(
+        '[CARD_ORDER_PAYMENT_LINK_ERROR]',
+        error instanceof Error ? error.message : String(error),
+        { orderId: createdOrder.id, restaurantId: createdOrder.restaurantId },
+      );
     }
+
+    return {
+      orderId: createdOrder.id,
+      provider: checkout.provider,
+      sessionId: checkout.sessionId,
+      checkoutUrl: checkout.checkoutUrl,
+    };
   }
 }
 

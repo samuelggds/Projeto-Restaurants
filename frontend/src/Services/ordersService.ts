@@ -94,6 +94,11 @@ class OrdersService {
     return response.data;
   }
 
+  async quoteOrder(payload: OrderPayload) {
+    const response = await api.post('/orders/quote', payload);
+    return response.data;
+  }
+
   async createPixPayment(payload: PixPaymentPayload) {
     const response = await api.post('/orders/pix/payment', payload);
     return response.data;

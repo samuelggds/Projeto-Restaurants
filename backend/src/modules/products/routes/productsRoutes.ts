@@ -5,6 +5,8 @@ import DeleteProductController from '../controllers/DeleteProductController.js';
 import ListProductsController from '../controllers/ListProductController.js';
 import ListProductRatingsController from '../controllers/ListProductRatingsController.js';
 import RateProductController from '../controllers/RateProductController.js';
+import UpsertProductDiscountController from '../controllers/UpsertProductDiscountController.js';
+import DeleteProductDiscountController from '../controllers/DeleteProductDiscountController.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
@@ -18,6 +20,14 @@ router.get('/ratings', ListProductRatingsController.handle);
 router.post('/:id/rating', RateProductController.handle);
 
 router.put('/:id', authMiddleware, adminMiddleware, UpdateProductController.handle);
+
+router.put('/:id/discount', authMiddleware, adminMiddleware, (req, res) =>
+  UpsertProductDiscountController.handle(req, res),
+);
+
+router.delete('/:id/discount', authMiddleware, adminMiddleware, (req, res) =>
+  DeleteProductDiscountController.handle(req, res),
+);
 
 router.delete('/:id', authMiddleware, adminMiddleware, DeleteProductController.handle);
 

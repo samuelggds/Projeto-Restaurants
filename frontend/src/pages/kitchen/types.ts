@@ -18,12 +18,23 @@ export interface Employee {
   role: EmployeeRole;
   shift: string;
 }
+export interface OrderItemCustomization {
+  groupName: string;
+  options: string[];
+}
+export interface OrderItemDetail {
+  name: string;
+  quantity: number;
+  customizations: OrderItemCustomization[];
+  observation?: string;
+}
 export interface Order {
   id: string;
   channel: OrderChannel;
   reference: string;
   customer?: string;
   items: string[];
+  itemDetails?: OrderItemDetail[];
   createdAt: string;
   createdAtIso?: string;
   preparationStartedAt?: string;

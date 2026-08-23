@@ -25,7 +25,7 @@ import { AdminSettingsContent } from './components/AdminSettingsContent';
 import { AdminManagement } from './components/AdminManagement';
 import { MonthlyBilling } from './components/MonthlyBilling';
 import { HelpCenter } from './components/HelpCenter';
-import { sectionTitle, settingItems } from './config/adminNavigation';
+import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
 import * as S from './Admin.styles';
 import type {
   AdminPageProps,
@@ -46,6 +46,9 @@ export function AdminPage({
   initialProducts = [],
   initialCategories = [],
   initialIngredients = [],
+  initialCoupons = [],
+  promotionsLoading = false,
+  promotionsError = '',
   onUpdateOrderStatus,
   onConfirmOrderPayment,
   onCancelOrder,
@@ -57,6 +60,12 @@ export function AdminPage({
   onCreateIngredient,
   onUpdateIngredient,
   onDeleteIngredient,
+  onApplyProductDiscount,
+  onDeleteProductDiscount,
+  onCreateCoupon,
+  onUpdateCoupon,
+  onDeleteCoupon,
+  onReloadPromotions,
   onOpenSettings,
   onSaveSettings,
   onConnectMercadoPago,
@@ -85,7 +94,9 @@ export function AdminPage({
   const products = initialProducts;
   const categories = initialCategories;
   const ingredients = initialIngredients;
+  const coupons = initialCoupons;
   const [mobile, setMobile] = useState(false);
+  const [settingsSearch, setSettingsSearch] = useState('');
   const unreadIssuesStorageKey = 'employee-issues-unread';
   const issuesLastSeenStorageKey = 'employee-issues-last-seen-id';
   const [unreadEmployeeIssues, setUnreadEmployeeIssues] = useState(() =>
@@ -165,6 +176,14 @@ export function AdminPage({
       : area === 'help'
         ? 'Central de ajuda'
         : areaTitles[area];
+  const visibleSettingGroups = settingGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(([, label]) =>
+        label.toLocaleLowerCase('pt-BR').includes(settingsSearch.trim().toLocaleLowerCase('pt-BR')),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
   const update = <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) =>
     setSettings((current) => ({ ...current, [key]: value }));
   const logo = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -443,47 +462,37 @@ export function AdminPage({
       <S.SettingsSidebar $visible={area === 'settings'}>
         <S.Search>
           <SearchIcon />
-          <input placeholder="Buscar configuração" />
+          <input
+            aria-label="Buscar configuração"
+            placeholder="Buscar configuração"
+            value={settingsSearch}
+            onChange={(event) => setSettingsSearch(event.target.value)}
+          />
         </S.Search>
         <S.SettingsNav>
-          <small>RESTAURANTE</small>
-          {settingItems.slice(0, 4).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={section === id ? 'active' : ''}
-              onClick={() => setSection(id)}
-            >
-              <Icon />
-              {label}
-            </button>
+          {visibleSettingGroups.map((group) => (
+            <div className="settings-group" key={group.id}>
+              <small>{group.label}</small>
+              {group.items.map(([id, label, Icon]) => (
+                <button
+                  key={id}
+                  className={section === id ? 'active' : ''}
+                  onClick={() => setSection(id)}
+                >
+                  <Icon />
+                  {label}
+                </button>
+              ))}
+            </div>
           ))}
-          <small>OPERAÇÃO</small>
-          {settingItems.slice(4, 9).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={section === id ? 'active' : ''}
-              onClick={() => setSection(id)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-          <small>PRESENÇA DIGITAL</small>
-          {settingItems.slice(9).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={section === id ? 'active' : ''}
-              onClick={() => setSection(id)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
+          {!visibleSettingGroups.length && (
+            <span className="settings-empty">Nenhuma configuração encontrada.</span>
+          )}
         </S.SettingsNav>
       </S.SettingsSidebar>
       <S.Main>
         <S.Top>
-          <S.MobileMenu onClick={() => setMobile(true)}>
+          <S.MobileMenu aria-label="Abrir menu administrativo" onClick={() => setMobile(true)}>
             <Menu />
           </S.MobileMenu>
           <div>
@@ -500,7 +509,7 @@ export function AdminPage({
             </p>
           </div>
           <S.TopActions>
-            {area === 'settings' && (
+            {area === 'settings' && section !== 'promotions' && (
               <>
                 <button className="preview" onClick={onViewStore}>
                   <ExternalLink />
@@ -514,6 +523,22 @@ export function AdminPage({
             )}
           </S.TopActions>
         </S.Top>
+        {area === 'settings' && (
+          <S.MobileSettingsNav aria-label="Seções das configurações">
+            {settingItems.map(([id, label, Icon]) => (
+              <button
+                key={id}
+                className={section === id ? 'active' : ''}
+                type="button"
+                aria-current={section === id ? 'page' : undefined}
+                onClick={() => setSection(id)}
+              >
+                <Icon />
+                {label}
+              </button>
+            ))}
+          </S.MobileSettingsNav>
+        )}
         <S.Content>
           {area === 'help' ? (
             <HelpCenter
@@ -578,6 +603,16 @@ export function AdminPage({
                 section={section}
                 settings={settings}
                 update={update}
+                products={products}
+                coupons={coupons}
+                promotionsLoading={promotionsLoading}
+                promotionsError={promotionsError}
+                onApplyProductDiscount={onApplyProductDiscount}
+                onDeleteProductDiscount={onDeleteProductDiscount}
+                onCreateCoupon={onCreateCoupon}
+                onUpdateCoupon={onUpdateCoupon}
+                onDeleteCoupon={onDeleteCoupon}
+                onReloadPromotions={onReloadPromotions}
                 openEmployees={() => setArea('employees')}
                 onConnectMercadoPago={onConnectMercadoPago}
                 onConnectPagBank={onConnectPagBank}

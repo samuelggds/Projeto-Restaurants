@@ -20,6 +20,8 @@ const originalOrderRepositoryMethods = {
 };
 const originalPrismaRestaurantUpdate = prisma.restaurant.update;
 const originalPrismaOrderUpdateMany = prisma.order.updateMany;
+const originalPrismaOrderFindFirst = prisma.order.findFirst;
+const originalPrismaTransaction = prisma.$transaction;
 const originalFetch = globalThis.fetch;
 
 http.createServer = ((...args) => {
@@ -52,6 +54,8 @@ afterEach(() => {
   orderRepository.deleteById = originalOrderRepositoryMethods.deleteById;
   prisma.restaurant.update = originalPrismaRestaurantUpdate;
   prisma.order.updateMany = originalPrismaOrderUpdateMany;
+  prisma.order.findFirst = originalPrismaOrderFindFirst;
+  prisma.$transaction = originalPrismaTransaction;
   globalThis.fetch = originalFetch;
 });
 
@@ -172,6 +176,8 @@ test('deve cadastrar o restaurante, abrir checkout de cartao e marcar o pedido c
 
     return { count: 1 };
   };
+  prisma.order.findFirst = async () => ({ couponRedemptionId: null });
+  prisma.$transaction = async (callback) => callback(prisma);
 
   globalThis.fetch = async (url) => {
     const normalizedUrl = String(url);

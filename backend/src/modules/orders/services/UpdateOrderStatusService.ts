@@ -6,6 +6,10 @@ import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client'
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import prisma from '../../../config/prisma.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import {
+  markCouponRedemptionUsedForOrder,
+  releaseCouponRedemptionForOrder,
+} from './couponRedemptionLifecycle.js';
 
 class UpdateOrderStatusService {
   private readonly PAY_ON_DELIVERY_MARKER = 'PAY_ON_DELIVERY:';
@@ -92,6 +96,17 @@ class UpdateOrderStatusService {
       order.paid !== true;
 
     if (
+      status === OrderStatus.CANCELADO &&
+      isDigitalPayment &&
+      !isPayOnDelivery &&
+      order.paid === true
+    ) {
+      throw new Error(
+        'Pedido pago online deve ser cancelado pelo fluxo de estorno para devolver o valor ao cliente.',
+      );
+    }
+
+    if (
       isUnpaidDigitalDeliveryBlocked &&
       status !== OrderStatus.PENDENTE &&
       status !== OrderStatus.CANCELADO
@@ -112,38 +127,74 @@ class UpdateOrderStatusService {
     }
 
     let updatedOrder;
+    let paymentConfirmedOnDelivery = false;
 
     if (status === OrderStatus.CANCELADO) {
       updatedOrder = await prisma.$transaction(async (tx) => {
-        await restoreOrderItemsStock(tx, order);
+        const cancelledOrder = await orderRepository.updateStatusIfCurrent(
+          orderId,
+          status,
+          restaurantId,
+          { status: currentStatus, paid: order.paid },
+          tx,
+        );
 
-        return orderRepository.updateStatus(orderId, status, restaurantId, tx);
+        await restoreOrderItemsStock(tx, order);
+        await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
+
+        return cancelledOrder;
+      });
+    } else if (status === OrderStatus.ENTREGUE) {
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        let deliveredOrder = await orderRepository.updateStatusIfCurrent(
+          orderId,
+          status,
+          restaurantId,
+          { status: currentStatus, paid: order.paid },
+          tx,
+        );
+
+        if (!deliveredOrder) {
+          throw new Error('Pedido não encontrado para atualizar.');
+        }
+
+        deliveredOrder = await tx.order.update({
+          where: { id: deliveredOrder.id },
+          data: { deliveredAt: new Date() },
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true } },
+            restaurant: {
+              select: { id: true, name: true, whatsapp: true },
+            },
+            table: true,
+            items: { include: { product: true } },
+          },
+        });
+
+        if (
+          (order.paymentMethod === PaymentMethod.DINHEIRO || isPayOnDelivery) &&
+          deliveredOrder.paid !== true
+        ) {
+          paymentConfirmedOnDelivery = true;
+          deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
+        }
+
+        if (deliveredOrder?.paid === true) {
+          await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
+        }
+
+        return deliveredOrder;
       });
     } else {
-      updatedOrder = await orderRepository.updateStatus(orderId, status, restaurantId);
+      updatedOrder = await orderRepository.updateStatusIfCurrent(
+        orderId,
+        status,
+        restaurantId,
+        { status: currentStatus, paid: order.paid },
+      );
     }
 
-    if (status === OrderStatus.ENTREGUE && updatedOrder) {
-      updatedOrder = await prisma.order.update({
-        where: { id: updatedOrder.id },
-        data: { deliveredAt: new Date() },
-        include: {
-          user: { select: { id: true, name: true, email: true, phone: true } },
-          restaurant: {
-            select: { id: true, name: true, whatsapp: true },
-          },
-          table: true,
-          items: { include: { product: true } },
-        },
-      });
-    }
-
-    if (
-      status === OrderStatus.ENTREGUE &&
-      (order.paymentMethod === PaymentMethod.DINHEIRO || isPayOnDelivery) &&
-      updatedOrder?.paid !== true
-    ) {
-      updatedOrder = await orderRepository.confirmPayment(orderId, restaurantId);
+    if (paymentConfirmedOnDelivery && updatedOrder) {
 
       io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
         orderId: updatedOrder.id,

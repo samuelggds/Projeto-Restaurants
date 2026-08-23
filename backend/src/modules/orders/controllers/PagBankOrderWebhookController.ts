@@ -3,8 +3,12 @@ import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymen
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import orderPixPaymentService from '../services/OrderPixPaymentService.js';
+import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 
 const APPROVED_TRANSACTION_STATUSES = new Set(['3', '4']);
+const TERMINAL_TRANSACTION_STATUSES = new Set(['6', '7', '8']);
+const TERMINAL_ORDER_STATUSES = new Set(['CANCELED', 'CANCELLED', 'DECLINED', 'EXPIRED']);
 
 type PagBankTransactionDetails = {
   code: string;
@@ -152,16 +156,36 @@ class PagBankOrderWebhookController {
         ...(Array.isArray(req.body?.order?.charges) ? req.body.order.charges : []),
       ].map((charge: { status?: unknown }) => String(charge?.status || '').toUpperCase());
 
-      if (
-        pagBankOrderId &&
-        referenceId.startsWith('orderpix:') &&
-        chargeStatuses.includes('PAID')
-      ) {
-        await finalizeOrderPixPaymentService.execute({
-          paymentId: `pagbank:${pagBankOrderId}`,
-          restaurantId: restaurantIdHint,
-          allowMissingOrder: true,
+      const pixReference = /^orderpix:(\d+):(\d+)$/i.exec(referenceId);
+      if (pagBankOrderId && pixReference) {
+        const referenceRestaurantId = Number(pixReference[1]);
+        const referenceOrderId = Number(pixReference[2]);
+        if (restaurantIdHint && restaurantIdHint !== referenceRestaurantId) {
+          return res.status(400).json({
+            error: 'Webhook PagBank rejeitado: restaurante da transação não confere.',
+          });
+        }
+
+        const paymentId = `pagbank:${pagBankOrderId}`;
+        const providerStatus = await orderPixPaymentService.getPaymentStatus({
+          paymentId,
+          restaurantId: referenceRestaurantId,
         });
+        const normalizedProviderStatus = String(providerStatus.status || '').toUpperCase();
+
+        if (providerStatus.isApproved || chargeStatuses.includes('PAID')) {
+          await finalizeOrderPixPaymentService.execute({
+            orderId: referenceOrderId,
+            paymentId,
+            restaurantId: referenceRestaurantId,
+            allowMissingOrder: true,
+          });
+        } else if (TERMINAL_ORDER_STATUSES.has(normalizedProviderStatus)) {
+          await failPendingOrderPaymentService.execute({
+            orderId: referenceOrderId,
+            restaurantId: referenceRestaurantId,
+          });
+        }
         return res.sendStatus(200);
       }
 
@@ -179,11 +203,26 @@ class PagBankOrderWebhookController {
         ? await fetchPagBankTransactionByNotificationCode(notificationCode, restaurantIdHint)
         : await fetchPagBankTransactionByCode(transactionCode, restaurantIdHint);
 
-      if (!APPROVED_TRANSACTION_STATUSES.has(String(details.status || ''))) {
+      const externalReference = String(details.reference || '').trim();
+      const cardReference = /^ordercard:(\d+):(\d+)$/i.exec(externalReference);
+
+      if (cardReference && restaurantIdHint && Number(cardReference[2]) !== restaurantIdHint) {
+        return res.status(400).json({
+          error: 'Webhook PagBank rejeitado: restaurante da transação não confere.',
+        });
+      }
+
+      if (TERMINAL_TRANSACTION_STATUSES.has(String(details.status || '')) && cardReference) {
+        await failPendingOrderPaymentService.execute({
+          orderId: Number(cardReference[1]),
+          restaurantId: Number(cardReference[2]),
+        });
         return res.sendStatus(200);
       }
 
-      const externalReference = String(details.reference || '').trim();
+      if (!APPROVED_TRANSACTION_STATUSES.has(String(details.status || ''))) {
+        return res.sendStatus(200);
+      }
 
       if (externalReference.startsWith('ordercard:')) {
         const [, orderId = '', restaurantId = ''] = externalReference.split(':');
