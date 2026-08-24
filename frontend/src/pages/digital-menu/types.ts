@@ -27,6 +27,7 @@ export type CartItem = {
   options: Array<{ id: string; groupName: string; name: string; price: number }>;
 };
 export type TableOrderStatus = 'received' | 'preparing' | 'ready';
+export type DigitalMenuActionResult = true | { ok: true };
 export type DigitalMenuData = {
   restaurantName: string;
   monogram: string;
@@ -35,11 +36,14 @@ export type DigitalMenuData = {
   categories: MenuCategory[];
   products: MenuProduct[];
   orderStatus: TableOrderStatus;
+  tableOrderingEnabled?: boolean;
+  waiterCallEnabled?: boolean;
+  billRequestEnabled?: boolean;
 };
 export type DigitalMenuProps = {
   data?: DigitalMenuData;
-  onCallWaiter?: () => void;
-  onRequestBill?: () => void;
-  onSubmitOrder?: (items: CartItem[]) => void;
+  onCallWaiter?: () => DigitalMenuActionResult | Promise<DigitalMenuActionResult>;
+  onRequestBill?: () => DigitalMenuActionResult | Promise<DigitalMenuActionResult>;
+  onSubmitOrder?: (items: CartItem[]) => DigitalMenuActionResult | Promise<DigitalMenuActionResult>;
   onValidateTableCode?: (code: string) => boolean | Promise<boolean>;
 };

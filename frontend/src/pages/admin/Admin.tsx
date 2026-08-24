@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- os mapeadores exportados são contratos puros cobertos por testes. */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -21,6 +22,7 @@ import type {
   AdminProductOptionGroup,
   AdminSettings,
   Employee,
+  EmployeeFormPayload,
 } from './types';
 import { isPersistentImageSource } from '../../utils/persistentImage';
 import bannerService, { type BannerRecord } from '../../Services/bannerService';
@@ -176,7 +178,7 @@ function mapIngredient(value: unknown): AdminIngredient {
   };
 }
 
-function mapSettingsFromApi(
+export function mapSettingsFromApi(
   raw: Record<string, unknown>,
   banners: BannerRecord[] = [],
 ): AdminSettings {
@@ -214,9 +216,28 @@ function mapSettingsFromApi(
         adminMockSettings.description,
     ),
     whatsapp: String(raw?.whatsapp ?? adminMockSettings.whatsapp),
+    whatsappDisplayName: String(
+      raw?.whatsappDisplayName ?? adminMockSettings.whatsappDisplayName,
+    ),
+    whatsappDefaultMessage: String(
+      raw?.whatsappDefaultMessage ?? adminMockSettings.whatsappDefaultMessage,
+    ),
+    whatsappEnabled: raw?.whatsappEnabled === true,
+    receiveOrdersOnWhatsapp: raw?.receiveOrdersOnWhatsapp === true,
+    receiveStatusNotifications: raw?.receiveStatusNotifications === true,
     instagram: String(raw?.instagram ?? adminMockSettings.instagram),
     facebook: String(raw?.facebook ?? adminMockSettings.facebook),
+    tiktok: String(raw?.tiktok ?? adminMockSettings.tiktok),
+    youtube: String(raw?.youtube ?? adminMockSettings.youtube),
     minimumOrder: Number(raw?.minimumOrder ?? adminMockSettings.minimumOrder),
+    deliveryFee: Number(raw?.deliveryFee ?? adminMockSettings.deliveryFee),
+    freeShippingMinimum: Number(
+      raw?.freeShippingMinimum ?? adminMockSettings.freeShippingMinimum,
+    ),
+    acceptsDelivery: raw?.acceptsDelivery !== false,
+    acceptsPickup: raw?.acceptsPickup !== false,
+    acceptsPix: raw?.acceptsPix !== false,
+    acceptsCard: raw?.acceptsCard !== false,
     deliveryTime: Number(raw?.averageDeliveryTime ?? adminMockSettings.deliveryTime),
     autoAcceptOrders: raw?.autoAcceptOrders === true,
     trackingRequiresLogin: raw?.trackingRequiresLogin !== false,
@@ -228,6 +249,11 @@ function mapSettingsFromApi(
     tableOrderingEnabled: Boolean(
       raw?.tableOrderingEnabled ?? adminMockSettings.tableOrderingEnabled,
     ),
+    waiterCallEnabled: raw?.waiterCallEnabled !== false,
+    billRequestEnabled: raw?.billRequestEnabled !== false,
+    fontFamily: String(raw?.fontFamily ?? adminMockSettings.fontFamily),
+    seoTitle: String(raw?.seoTitle ?? adminMockSettings.seoTitle),
+    seoDescription: String(raw?.seoDescription ?? adminMockSettings.seoDescription),
     pixProvider: String(raw?.pixProvider ?? 'MERCADO_PAGO'),
     pixKey: String(raw?.pixKey ?? ''),
     cardGateway: String(raw?.cardGateway ?? ''),
@@ -247,21 +273,44 @@ function mapSettingsFromApi(
   };
 }
 
-function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
+export function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
+  const hasBusinessIdentity = [
+    settings.companyLegalName,
+    settings.companyDocument,
+    settings.businessPhone,
+    settings.businessEmail,
+  ].some((value) => String(value || '').trim());
+  const hasEstablishmentAddress = [
+    settings.businessZipCode,
+    settings.businessAddress,
+    settings.businessAddressNumber,
+    settings.businessAddressDistrict,
+    settings.businessCity,
+    settings.businessState,
+  ].some((value) => String(value || '').trim());
+
   return {
     restaurantName: settings.restaurantName,
-    legalDocumentType: settings.legalDocumentType,
-    companyLegalName: settings.companyLegalName.trim(),
-    companyDocument: settings.companyDocument.replace(/\D/g, ''),
-    ownerPhone: settings.businessPhone.replace(/\D/g, ''),
-    ownerEmail: settings.businessEmail.trim().toLowerCase(),
-    restaurantZipCode: settings.businessZipCode.replace(/\D/g, ''),
-    restaurantAddress: settings.businessAddress.trim(),
-    restaurantAddressNumber: settings.businessAddressNumber.trim(),
-    restaurantAddressComplement: settings.businessAddressComplement.trim(),
-    restaurantAddressDistrict: settings.businessAddressDistrict.trim(),
-    restaurantCity: settings.businessCity.trim(),
-    restaurantState: settings.businessState.trim().toUpperCase(),
+    ...(hasBusinessIdentity
+      ? {
+          legalDocumentType: settings.legalDocumentType,
+          companyLegalName: settings.companyLegalName.trim(),
+          companyDocument: settings.companyDocument.replace(/\D/g, ''),
+          ownerPhone: settings.businessPhone.replace(/\D/g, ''),
+          ownerEmail: settings.businessEmail.trim().toLowerCase(),
+        }
+      : {}),
+    ...(hasEstablishmentAddress
+      ? {
+          restaurantZipCode: settings.businessZipCode.replace(/\D/g, ''),
+          restaurantAddress: settings.businessAddress.trim(),
+          restaurantAddressNumber: settings.businessAddressNumber.trim(),
+          restaurantAddressComplement: settings.businessAddressComplement.trim(),
+          restaurantAddressDistrict: settings.businessAddressDistrict.trim(),
+          restaurantCity: settings.businessCity.trim(),
+          restaurantState: settings.businessState.trim().toUpperCase(),
+        }
+      : {}),
     ...serializeBusinessHours(settings.businessHours, settings.businessHoursConfigured),
     isOpenForOrders: settings.isOpenForOrders,
     restaurantLogo: settings.logoUrl,
@@ -270,15 +319,34 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
     description: settings.description,
     restaurantDescription: settings.description,
     whatsapp: settings.whatsapp,
+    whatsappDisplayName: settings.whatsappDisplayName,
+    whatsappDefaultMessage: settings.whatsappDefaultMessage,
+    whatsappEnabled: settings.whatsappEnabled,
+    receiveOrdersOnWhatsapp: settings.receiveOrdersOnWhatsapp,
+    receiveStatusNotifications: settings.receiveStatusNotifications,
     instagram: settings.instagram,
     facebook: settings.facebook,
+    tiktok: settings.tiktok,
+    youtube: settings.youtube,
     minimumOrder: settings.minimumOrder,
+    deliveryFee: settings.deliveryFee,
+    freeShippingMinimum:
+      settings.freeShippingMinimum > 0 ? settings.freeShippingMinimum : null,
+    acceptsDelivery: settings.acceptsDelivery,
+    acceptsPickup: settings.acceptsPickup,
+    acceptsPix: settings.acceptsPix,
+    acceptsCard: settings.acceptsCard,
     averageDeliveryTime: settings.deliveryTime,
     autoAcceptOrders: settings.autoAcceptOrders,
     trackingRequiresLogin: settings.trackingRequiresLogin,
     soundNotifications: settings.soundNotifications,
     maxConcurrentOrders: settings.maxConcurrentOrders,
     tableOrderingEnabled: settings.tableOrderingEnabled,
+    waiterCallEnabled: settings.waiterCallEnabled,
+    billRequestEnabled: settings.billRequestEnabled,
+    fontFamily: settings.fontFamily,
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
@@ -296,12 +364,14 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
 function mapEmployee(raw: Record<string, unknown>): Employee {
   const sub = String(raw?.subRole ?? '');
   let role: Employee['role'] = 'ATTENDANT';
-  if (sub === 'COZINHA') role = 'COOK';
+  if (String(raw?.role ?? '') === 'MOTOQUEIRO') role = 'COURIER';
+  else if (sub === 'COZINHA') role = 'COOK';
   else if (sub === 'GARCOM') role = 'WAITER';
   return {
     id: String(raw?.id ?? ''),
     name: String(raw?.name ?? ''),
     email: String(raw?.email ?? ''),
+    phone: String(raw?.phone ?? '') || undefined,
     role,
     active: raw?.active !== false,
     permissions: {
@@ -316,6 +386,7 @@ const subRoleMap: Record<Employee['role'], string | null> = {
   COOK: 'COZINHA',
   WAITER: 'GARCOM',
   ATTENDANT: null,
+  COURIER: null,
 };
 
 export default function Admin() {
@@ -470,7 +541,7 @@ export default function Admin() {
       const slots = [
         { id: updated.mainBannerId, title: BANNER_TITLES.main, image: updated.mainBannerUrl },
       ];
-      const persisted = await Promise.all(
+      await Promise.all(
         slots
           .filter((slot) => Boolean(slot.image))
           .map((slot) =>
@@ -479,27 +550,31 @@ export default function Admin() {
               : bannerService.create({ title: slot.title, image: String(slot.image) }),
           ),
       );
-      setSettings((current) => ({
-        ...current,
-        mainBannerId:
-          persisted.find((item) => item.title === BANNER_TITLES.main)?.id ?? current.mainBannerId,
-      }));
+      const [refreshed, refreshedBanners] = await Promise.all([
+        restaurantSettingsService.getMySettings(),
+        bannerService.list(),
+      ]);
+      const refreshedRecord = refreshed as Record<string, unknown>;
+      setSettingsId(Number(refreshedRecord?.id ?? 0) || null);
+      setSettings(mapSettingsFromApi(refreshedRecord, refreshedBanners));
     } catch (error) {
       console.error('Não foi possível salvar as configurações.', error);
       throw error;
     }
   }
 
-  async function handleCreateEmployee(employee: Omit<Employee, 'id'>) {
+  async function handleCreateEmployee(employee: EmployeeFormPayload) {
     try {
       const created = await employeesService.createEmployee({
         name: employee.name,
         email: employee.email,
-        role: 'FUNCIONARIO',
+        phone: employee.phone,
+        password: employee.password,
+        confirmPassword: employee.confirmPassword,
+        role: employee.role === 'COURIER' ? 'MOTOQUEIRO' : 'FUNCIONARIO',
         subRole: subRoleMap[employee.role],
       });
       const mappedEmployee = mapEmployee(created as Record<string, unknown>);
-      setEmployees((prev) => [...prev, mappedEmployee]);
       return mappedEmployee;
     } catch (error) {
       console.error('Não foi possível criar o funcionário.', error);
@@ -507,14 +582,15 @@ export default function Admin() {
     }
   }
 
-  async function handleUpdateEmployee(employee: Employee) {
+  async function handleUpdateEmployee(employee: EmployeeFormPayload & { id: string }) {
     try {
       await employeesService.updateEmployee(employee.id, {
         name: employee.name,
         email: employee.email,
+        ...(employee.phone ? { phone: employee.phone } : {}),
+        role: employee.role === 'COURIER' ? 'MOTOQUEIRO' : 'FUNCIONARIO',
         subRole: subRoleMap[employee.role],
       });
-      setEmployees((prev) => prev.map((e) => (e.id === employee.id ? employee : e)));
       return employee;
     } catch (error) {
       console.error('Não foi possível atualizar o funcionário.', error);
@@ -542,7 +618,6 @@ export default function Admin() {
 
   return (
     <AdminPage
-      key={`${settingsId}-${employees.length}`}
       initialSettings={settings}
       initialEmployees={employees}
       initialOrders={orders}
@@ -671,19 +746,9 @@ export default function Admin() {
       onUpdateEmployee={handleUpdateEmployee}
       onDeactivateEmployee={async (id) => {
         await employeesService.deactivateEmployee(id);
-        setEmployees((current) =>
-          current.map((employee) =>
-            employee.id === id ? { ...employee, active: false } : employee,
-          ),
-        );
       }}
       onReactivateEmployee={async (id) => {
         await employeesService.reactivateEmployee(id);
-        setEmployees((current) =>
-          current.map((employee) =>
-            employee.id === id ? { ...employee, active: true } : employee,
-          ),
-        );
       }}
       onViewStore={() => navigate('/')}
       onLogout={() => {

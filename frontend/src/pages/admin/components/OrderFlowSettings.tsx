@@ -1,5 +1,6 @@
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
+import { validateOrderFlowSettings } from '../domain/orderFlowSettingsValidation';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -22,6 +23,7 @@ const FLOW_OPTIONS = [
 ] as const;
 
 export function OrderFlowSettings({ settings, update }: Props) {
+  const errors = validateOrderFlowSettings(settings);
   return (
     <S.SettingSection>
       <S.Card>
@@ -35,6 +37,7 @@ export function OrderFlowSettings({ settings, update }: Props) {
               </div>
               <input
                 type="checkbox"
+                aria-label={title}
                 checked={settings[key]}
                 onChange={(event) => update(key, event.target.checked)}
               />
@@ -48,26 +51,40 @@ export function OrderFlowSettings({ settings, update }: Props) {
           <S.Field>
             Tempo médio em minutos
             <input
+              aria-label="Tempo médio em minutos"
+              aria-invalid={Boolean(errors.deliveryTime)}
               min="1"
               max="240"
+              step="1"
               type="number"
               value={settings.deliveryTime}
               onChange={(event) =>
-                update('deliveryTime', Math.max(1, Number(event.target.value) || 1))
+                update(
+                  'deliveryTime',
+                  Math.min(240, Math.max(1, Math.round(Number(event.target.value) || 1))),
+                )
               }
             />
+            {errors.deliveryTime && <small>{errors.deliveryTime}</small>}
           </S.Field>
           <S.Field>
             Limite de pedidos simultâneos
             <input
+              aria-label="Limite de pedidos simultâneos"
+              aria-invalid={Boolean(errors.maxConcurrentOrders)}
               min="1"
               max="500"
+              step="1"
               type="number"
               value={settings.maxConcurrentOrders}
               onChange={(event) =>
-                update('maxConcurrentOrders', Math.max(1, Number(event.target.value) || 1))
+                update(
+                  'maxConcurrentOrders',
+                  Math.min(500, Math.max(1, Math.round(Number(event.target.value) || 1))),
+                )
               }
             />
+            {errors.maxConcurrentOrders && <small>{errors.maxConcurrentOrders}</small>}
           </S.Field>
         </S.FormGrid>
       </S.Card>

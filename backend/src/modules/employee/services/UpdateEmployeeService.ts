@@ -1,4 +1,4 @@
-import { FuncionarioSubRole } from '@prisma/client';
+import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import employeeRepository from '../repositories/EmployeeRepository.js';
 
 type UpdateEmployeePayload = {
@@ -6,19 +6,20 @@ type UpdateEmployeePayload = {
   restaurantId: number;
   name?: string;
   phone?: string | null;
-  email: string;
+  email?: string;
+  role?: UserRole;
   subRole?: FuncionarioSubRole | null;
 };
 
 class UpdateEmployeeService {
-  async execute({ id, restaurantId, name, phone, email, subRole }: UpdateEmployeePayload) {
+  async execute({ id, restaurantId, name, phone, email, role, subRole }: UpdateEmployeePayload) {
     const employee = await employeeRepository.findById(id, restaurantId);
 
     if (!employee) {
       throw new Error('Funcionário não encontrado!');
     }
 
-    const emailExists = await employeeRepository.findByEmail(email);
+    const emailExists = email ? await employeeRepository.findByEmail(email) : null;
 
     if (emailExists && emailExists.id !== employee.id) {
       throw new Error('Email já está em uso!');
@@ -26,7 +27,17 @@ class UpdateEmployeeService {
 
     return employeeRepository.update(
       id,
-      { name, phone, email, subRole: subRole ?? null },
+      {
+        ...(name !== undefined ? { name } : {}),
+        ...(phone !== undefined ? { phone: phone || null } : {}),
+        ...(email !== undefined ? { email } : {}),
+        ...(role !== undefined ? { role } : {}),
+        ...(role === UserRole.MOTOQUEIRO
+          ? { subRole: null }
+          : subRole !== undefined
+            ? { subRole }
+            : {}),
+      },
       restaurantId,
     );
   }

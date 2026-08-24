@@ -23,6 +23,8 @@ export function BusinessSettings({ settings, update }: Props) {
           <S.Field>
             Razão social
             <input
+              aria-label="Razão social"
+              autoComplete="organization"
               value={settings.companyLegalName}
               maxLength={150}
               onChange={(event) => update('companyLegalName', event.target.value)}
@@ -33,6 +35,7 @@ export function BusinessSettings({ settings, update }: Props) {
           <S.Field>
             Tipo de documento
             <select
+              aria-label="Tipo de documento"
               value={settings.legalDocumentType}
               onChange={(event) => {
                 update('legalDocumentType', event.target.value as 'CPF' | 'CNPJ');
@@ -46,6 +49,7 @@ export function BusinessSettings({ settings, update }: Props) {
           <S.Field>
             {settings.legalDocumentType}
             <input
+              aria-label={settings.legalDocumentType}
               inputMode="numeric"
               value={
                 settings.legalDocumentType === 'CPF'
@@ -67,6 +71,8 @@ export function BusinessSettings({ settings, update }: Props) {
           <S.Field>
             Telefone
             <input
+              aria-label="Telefone comercial"
+              autoComplete="tel"
               inputMode="tel"
               value={formatBusinessPhone(settings.businessPhone)}
               onChange={(event) => update('businessPhone', formatBusinessPhone(event.target.value))}
@@ -77,6 +83,8 @@ export function BusinessSettings({ settings, update }: Props) {
           <S.Field>
             E-mail comercial
             <input
+              aria-label="E-mail comercial"
+              autoComplete="email"
               type="email"
               value={settings.businessEmail}
               maxLength={160}

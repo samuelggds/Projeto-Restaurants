@@ -35,6 +35,12 @@ import { useOrderQuote } from './hooks/useOrderQuote';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
+import {
+  applyHomeSeoMetadata,
+  buildWhatsAppUrl,
+  getAvailablePaymentMethods,
+  resolveAvailableFulfillmentMethod,
+} from './domain/publicSettings';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -127,6 +133,7 @@ export default function Home() {
   } = useTableSession({
     tableNumber: routeTableNumber,
     restaurantId: searchParams.get('restaurantId') || searchParams.get('rid'),
+    restaurantSlug: normalizedSlug,
     tableId: searchParams.get('tableId') || searchParams.get('tid'),
     notify,
   });
@@ -179,6 +186,17 @@ export default function Home() {
 
   const homeData = buildHomeData(backendProducts, settings, availabilityClock);
 
+  useEffect(
+    () => applyHomeSeoMetadata(document, homeData.seoTitle, homeData.seoDescription),
+    [homeData.seoDescription, homeData.seoTitle],
+  );
+
+  const availableOrderType = resolveAvailableFulfillmentMethod(
+    orderType,
+    homeData.acceptsDelivery,
+    homeData.acceptsPickup,
+  );
+
   const { cart, setCart, addToCart, increaseCart, decreaseCart, cartCount, cartTotal } = useCart(
     homeData.products,
     notify,
@@ -208,9 +226,27 @@ export default function Home() {
     selectedRedemptionId && availableRedemptionIds.has(selectedRedemptionId)
       ? selectedRedemptionId
       : null;
-  const checkoutOrderType = resolveOrderType(mesaMode, orderType);
+  const checkoutOrderType = resolveOrderType(mesaMode, availableOrderType);
+  const allowPayOnDelivery = !mesaMode && availableOrderType === 'delivery';
+  const availablePaymentMethods = useMemo(
+    () =>
+      getAvailablePaymentMethods({
+        allowPayOnDelivery,
+        allowPix: homeData.acceptsPix,
+        allowCard: homeData.acceptsCard,
+      }),
+    [allowPayOnDelivery, homeData.acceptsCard, homeData.acceptsPix],
+  );
+  const checkoutChannelAvailable =
+    mesaMode ||
+    (availableOrderType === 'delivery' ? homeData.acceptsDelivery : homeData.acceptsPickup);
+  const selectedCheckoutPaymentMethod = availablePaymentMethods.includes(paymentMethod)
+    ? paymentMethod
+    : (availablePaymentMethods[0] ?? paymentMethod);
+  const paymentAvailable = availablePaymentMethods.length > 0;
+
   const orderQuote = useOrderQuote({
-    restaurantId,
+    restaurantId: checkoutChannelAvailable ? restaurantId : null,
     type: checkoutOrderType,
     cart,
     couponRedemptionId: appliedRedemptionId,
@@ -265,6 +301,26 @@ export default function Home() {
       return;
     }
 
+    if (!checkoutChannelAvailable) {
+      notify(
+        'warning',
+        'Canal indisponível',
+        availableOrderType === 'delivery'
+          ? 'O restaurante não está aceitando pedidos para delivery.'
+          : 'O restaurante não está aceitando pedidos para retirada.',
+      );
+      return;
+    }
+
+    if (!paymentAvailable) {
+      notify(
+        'warning',
+        'Pagamento indisponível',
+        'O restaurante não disponibilizou uma forma de pagamento para este pedido.',
+      );
+      return;
+    }
+
     const customer = (user || {}) as Record<string, unknown>;
     const type = checkoutOrderType;
 
@@ -278,7 +334,7 @@ export default function Home() {
       customerPhone: customer.phone,
       deliveryAddress,
       cepStatus,
-      paymentMethod,
+      paymentMethod: selectedCheckoutPaymentMethod,
     });
     if (issue) {
       notify('warning', issue.title, issue.message);
@@ -288,7 +344,7 @@ export default function Home() {
     const { payload, payOnDelivery, resolvedPaymentMethod } = buildOrderPayload({
       restaurantId,
       type,
-      paymentMethod,
+      paymentMethod: selectedCheckoutPaymentMethod,
       cart,
       tableId: routeTableId,
       customer,
@@ -296,10 +352,21 @@ export default function Home() {
       couponRedemptionId: appliedRedemptionId,
     });
 
-    await executePayment(payload, paymentMethod, payOnDelivery, resolvedPaymentMethod);
+    await executePayment(
+      payload,
+      selectedCheckoutPaymentMethod,
+      payOnDelivery,
+      resolvedPaymentMethod,
+    );
   }
 
   const primary = homeData.brand.primaryColor || '#d64d08';
+  const whatsappUrl = buildWhatsAppUrl(
+    homeData.brand.whatsapp,
+    homeData.brand.whatsappDefaultMessage,
+  );
+  const whatsappLabel =
+    homeData.brand.whatsappDisplayName || homeData.brand.name || 'Atendimento do restaurante';
   const showLoginNudge = !user && !mesaMode && !nudgeDismissed;
   const loyaltyProgram =
     user?.role && !isLoyaltyCustomer
@@ -346,7 +413,7 @@ export default function Home() {
 
   // ── Main render
   return (
-    <>
+    <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary}>
       <HomePage
         data={homeData}
         cartCount={cartCount}
@@ -405,17 +472,14 @@ export default function Home() {
           <S.CartOptions>
             {cart.length > 0 && !mesaMode && (
               <DeliveryMethodSelector
-                value={orderType}
-                onChange={(nextType) => {
-                  setOrderType(nextType);
-                  if (nextType === 'pickup' && paymentMethod.startsWith('delivery_')) {
-                    setPaymentMethod('pix');
-                  }
-                }}
+                value={availableOrderType}
+                allowDelivery={homeData.acceptsDelivery}
+                allowPickup={homeData.acceptsPickup}
+                onChange={setOrderType}
               />
             )}
 
-            {cart.length > 0 && !mesaMode && orderType === 'delivery' && (
+            {cart.length > 0 && !mesaMode && availableOrderType === 'delivery' && (
               <DeliveryAddressForm
                 address={deliveryAddress}
                 setAddress={setDeliveryAddress}
@@ -445,8 +509,10 @@ export default function Home() {
 
             {cart.length > 0 && (
               <PaymentOptions
-                paymentMethod={paymentMethod}
-                allowPayOnDelivery={!mesaMode && orderType === 'delivery'}
+                paymentMethod={selectedCheckoutPaymentMethod}
+                allowPayOnDelivery={allowPayOnDelivery}
+                allowPix={homeData.acceptsPix}
+                allowCard={homeData.acceptsCard}
                 onChange={setPaymentMethod}
               />
             )}
@@ -459,8 +525,15 @@ export default function Home() {
             quoteLoading={orderQuote.loading}
             quoteError={orderQuote.error}
             loading={checkoutLoading}
-            paymentMethod={paymentMethod}
+            paymentMethod={selectedCheckoutPaymentMethod}
             isRestaurantOpen={homeData.isOpen}
+            checkoutBlockedMessage={
+              !checkoutChannelAvailable
+                ? 'Canal indisponível'
+                : !paymentAvailable
+                  ? 'Pagamento indisponível'
+                  : undefined
+            }
             onCheckout={() => void handleCheckout()}
           />
         </S.CartFoot>
@@ -474,12 +547,13 @@ export default function Home() {
         onDismissNotification={dismissNotif}
       />
       <S.FloatingActions $aboveNudge={showLoginNudge} $primary={primary}>
-        {homeData.brand.whatsapp && (
+        {whatsappUrl && (
           <S.Whatsapp
-            href={`https://wa.me/${homeData.brand.whatsapp}`}
+            href={whatsappUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label="Falar no WhatsApp"
+            aria-label={`Falar com ${whatsappLabel} no WhatsApp`}
+            title={`Falar com ${whatsappLabel}`}
           >
             <WhatsAppIcon size={24} />
           </S.Whatsapp>
@@ -500,6 +574,6 @@ export default function Home() {
           }}
         />
       </S.FloatingActions>
-    </>
+    </S.HomeExperience>
   );
 }

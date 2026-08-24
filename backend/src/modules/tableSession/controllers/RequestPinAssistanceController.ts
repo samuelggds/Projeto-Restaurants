@@ -4,9 +4,14 @@ import requestPinAssistanceService from '../services/RequestPinAssistanceService
 class RequestPinAssistanceController {
   async handle(req: Request, res: Response) {
     try {
-      const { tableId } = req.body;
+      const { tableId, tableNumber, restaurantId, restaurantSlug } = req.body;
 
-      const result = await requestPinAssistanceService.execute({ tableId });
+      const result = await requestPinAssistanceService.execute({
+        tableId,
+        tableNumber,
+        restaurantId,
+        restaurantSlug,
+      });
 
       return res.status(200).json(result);
     } catch (error: unknown) {

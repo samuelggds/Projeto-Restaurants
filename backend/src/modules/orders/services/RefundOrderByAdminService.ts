@@ -117,6 +117,7 @@ class RefundOrderByAdminService {
       : null;
 
     notifyCustomerOrderStatusChanged({
+      restaurantId: normalizedRestaurantId,
       customerPhone: order?.user?.phone,
       customerName: order?.user?.name,
       restaurantName: order?.restaurant?.name,

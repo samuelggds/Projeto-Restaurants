@@ -280,6 +280,20 @@ class CreateOrderService {
     const effectivePaymentMethod = shouldPayOnDelivery
       ? payOnDeliveryMethod || paymentMethod
       : paymentMethod;
+    const normalizedRequestedPaymentMethod = String(effectivePaymentMethod || '').toUpperCase();
+
+    if (
+      normalizedRequestedPaymentMethod === PaymentMethod.PIX &&
+      restaurantSettings?.acceptsPix === false
+    ) {
+      throw new Error('O restaurante não está aceitando pagamentos por PIX no momento.');
+    }
+    if (
+      normalizedRequestedPaymentMethod === PaymentMethod.CARTAO &&
+      restaurantSettings?.acceptsCard === false
+    ) {
+      throw new Error('O restaurante não está aceitando pagamentos com cartão no momento.');
+    }
 
     if (shouldPayOnDelivery && type !== OrderType.DELIVERY) {
       throw new Error('Pagar na entrega só é permitido para pedidos de delivery.');
@@ -290,7 +304,7 @@ class CreateOrderService {
     }
 
     if (
-      String(effectivePaymentMethod || '').toUpperCase() === PaymentMethod.PIX &&
+      normalizedRequestedPaymentMethod === PaymentMethod.PIX &&
       (String(paymentProof || '').trim() || String(paymentProofImage || '').trim())
     ) {
       throw new Error(
@@ -559,6 +573,7 @@ class CreateOrderService {
       });
 
       notifyCustomerPaymentConfirmed({
+        restaurantId: createdOrder.restaurantId,
         customerPhone: createdOrder?.user?.phone || customerPhone,
         customerName: createdOrder?.user?.name || customerName,
         restaurantName: createdOrder?.restaurant?.name,

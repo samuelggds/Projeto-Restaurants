@@ -27,6 +27,10 @@ class CreateOrderCardCheckoutService {
 
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
 
+    if (settings?.acceptsCard === false) {
+      throw new Error('O restaurante não está aceitando pagamentos com cartão no momento.');
+    }
+
     const configuredProvider = String(settings?.cardGateway || '').trim();
     if (!configuredProvider) {
       throw new Error(

@@ -9,6 +9,14 @@ type RestaurantSettingsFallback = {
   restaurantId: number;
   deliveryFee: number;
   minimumOrder: number;
+  freeShippingMinimum: number | null;
+  acceptsDelivery: boolean;
+  acceptsPickup: boolean;
+  acceptsPix: boolean;
+  acceptsCard: boolean;
+  tableOrderingEnabled: boolean;
+  waiterCallEnabled: boolean;
+  billRequestEnabled: boolean;
   pixProvider: string;
   pixKey: string | null;
   legalDocumentType: string | null;
@@ -51,7 +59,20 @@ type RestaurantSettingsFallback = {
   companyContractFileUrl: string | null;
   instagram: string | null;
   facebook: string | null;
+  tiktok: string | null;
+  youtube: string | null;
+  primaryColor: string;
+  fontFamily: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
   whatsapp: string | null;
+  whatsappEnabled: boolean;
+  whatsappDisplayName: string | null;
+  whatsappDefaultMessage: string | null;
+  receiveOrdersOnWhatsapp: boolean;
+  receiveStatusNotifications: boolean;
+  businessHours: null;
+  isOpenForOrders: boolean;
   averageDeliveryTime: string | null;
   autoAcceptOrders: boolean;
   trackingRequiresLogin: boolean;
@@ -63,6 +84,13 @@ type RestaurantSettingsFallback = {
     coverImage: string | null;
     description: string | null;
     whatsapp: string | null;
+    address: string | null;
+    addressNumber: string | null;
+    addressComplement: string | null;
+    addressDistrict: string | null;
+    city: string | null;
+    state: string | null;
+    zipCode: string | null;
   };
 };
 
@@ -84,6 +112,14 @@ class GetRestaurantSettingsService {
         restaurantId: normalizedRestaurantId,
         deliveryFee: 0,
         minimumOrder: 0,
+        freeShippingMinimum: null,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        acceptsPix: true,
+        acceptsCard: true,
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
         pixProvider: 'MERCADO_PAGO',
         pixKey: null,
         legalDocumentType: null,
@@ -126,7 +162,20 @@ class GetRestaurantSettingsService {
         companyContractFileUrl: null,
         instagram: null,
         facebook: null,
+        tiktok: null,
+        youtube: null,
+        primaryColor: '#c95d3d',
+        fontFamily: 'Inter',
+        seoTitle: null,
+        seoDescription: null,
         whatsapp: String(restaurant.whatsapp || '').trim() || null,
+        whatsappEnabled: false,
+        whatsappDisplayName: null,
+        whatsappDefaultMessage: null,
+        receiveOrdersOnWhatsapp: false,
+        receiveStatusNotifications: false,
+        businessHours: null,
+        isOpenForOrders: true,
         averageDeliveryTime: null,
         autoAcceptOrders: false,
         trackingRequiresLogin: true,
@@ -138,6 +187,13 @@ class GetRestaurantSettingsService {
           coverImage: restaurant.coverImage,
           description: restaurant.description,
           whatsapp: String(restaurant.whatsapp || '').trim() || null,
+          address: restaurant.address,
+          addressNumber: restaurant.addressNumber,
+          addressComplement: restaurant.addressComplement,
+          addressDistrict: restaurant.addressDistrict,
+          city: restaurant.city,
+          state: restaurant.state,
+          zipCode: restaurant.zipCode,
         },
       };
 

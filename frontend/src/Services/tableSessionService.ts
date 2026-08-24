@@ -6,17 +6,23 @@ class TableSessionService {
     return response.data;
   }
 
-  async requestPinAssistance(tableId) {
+  async requestPinAssistance({ tableId, tableNumber, restaurantId, restaurantSlug }) {
     const response = await api.post('/table-sessions/request-pin', {
       tableId,
+      tableNumber,
+      restaurantId,
+      restaurantSlug,
     });
 
     return response.data;
   }
 
-  async validatePin({ tableId, pin }) {
+  async validatePin({ tableId, tableNumber, restaurantId, restaurantSlug, pin }) {
     const response = await api.post('/table-sessions/validate', {
       tableId,
+      tableNumber,
+      restaurantId,
+      restaurantSlug,
       pin,
     });
 

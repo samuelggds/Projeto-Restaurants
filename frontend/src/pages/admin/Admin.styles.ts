@@ -590,6 +590,23 @@ export const Field = styled.label<{ $full?: boolean }>`
     background: #fff;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 11%, transparent);
   }
+  input[aria-invalid='true'],
+  textarea[aria-invalid='true'],
+  select[aria-invalid='true'] {
+    border-color: #c24132;
+    background: #fff8f7;
+  }
+  > small {
+    color: var(--muted);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  input[aria-invalid='true'] ~ small,
+  textarea[aria-invalid='true'] ~ small,
+  select[aria-invalid='true'] ~ small {
+    color: #a33b30;
+    font-weight: 600;
+  }
 `;
 export const IdentityNameInput = styled.input`
   && {

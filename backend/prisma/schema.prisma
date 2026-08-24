@@ -459,6 +459,7 @@ model RestaurantSettings {
   deliveryFee           Decimal @default(0) @db.Decimal(10, 2)
   courierFeePerDelivery Decimal @default(0) @db.Decimal(10, 2)
   minimumOrder          Decimal @default(0) @db.Decimal(10, 2)
+  freeShippingMinimum   Decimal? @db.Decimal(10, 2)
   acceptsDelivery       Boolean @default(true)
   acceptsPickup         Boolean @default(true)
   averageDeliveryTime   String?
@@ -468,6 +469,9 @@ model RestaurantSettings {
   maxConcurrentOrders   Int     @default(20)
   acceptsPix            Boolean @default(true)
   acceptsCard           Boolean @default(true)
+  tableOrderingEnabled  Boolean @default(true)
+  waiterCallEnabled     Boolean @default(true)
+  billRequestEnabled    Boolean @default(true)
 
   // Aparência e presença digital
   slogan       String?
@@ -476,6 +480,9 @@ model RestaurantSettings {
   facebook     String?
   tiktok       String?
   youtube      String?
+  fontFamily   String  @default("Inter")
+  seoTitle     String?
+  seoDescription String?
 
   // Horários
   businessHours   Json?
@@ -483,6 +490,7 @@ model RestaurantSettings {
 
   // WhatsApp
   whatsappEnabled            Boolean @default(false)
+  whatsappDisplayName        String?
   whatsappDefaultMessage     String?
   receiveOrdersOnWhatsapp    Boolean @default(false)
   receiveStatusNotifications Boolean @default(false)

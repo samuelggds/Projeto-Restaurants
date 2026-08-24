@@ -1,6 +1,7 @@
 import type { CustomerAddress } from '../../Services/customerAddressService';
 import type { BusinessHour } from '../admin/types';
 import type { ProductConfiguration, ProductOptionGroup } from './domain/productCustomization';
+import type { HomeFontFamily } from './domain/publicSettings';
 
 export type HomeBrand = {
   name: string;
@@ -9,8 +10,12 @@ export type HomeBrand = {
   address: string;
   primaryColor?: string;
   whatsapp?: string;
+  whatsappDisplayName?: string;
+  whatsappDefaultMessage?: string;
   instagram?: string;
   facebook?: string;
+  tiktok?: string;
+  youtube?: string;
   legalName?: string;
   phone?: string;
   email?: string;
@@ -116,6 +121,13 @@ export type HomeData = {
   deliveryTime: string;
   minimumOrder: number;
   freeDeliveryFrom: number;
+  acceptsDelivery: boolean;
+  acceptsPickup: boolean;
+  acceptsPix: boolean;
+  acceptsCard: boolean;
+  fontFamily: HomeFontFamily;
+  seoTitle: string;
+  seoDescription: string;
   isOpen: boolean;
   /** Manual master switch. When absent, `isOpen` keeps legacy behavior. */
   isOpenForOrders?: boolean;
@@ -124,7 +136,7 @@ export type HomeData = {
 };
 
 export type HomePageProps = {
-  data?: HomeData;
+  data: HomeData;
   cartCount?: number;
   userName?: string;
   userEmail?: string;

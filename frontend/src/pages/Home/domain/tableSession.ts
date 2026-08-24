@@ -11,12 +11,12 @@ export type StoredTableSession = {
 export function resolveTableRoute(tableNumber: unknown, restaurantId: unknown, tableId: unknown) {
   const routeTableNumber = toPositiveInteger(tableNumber);
   const routeRestaurantId = toPositiveInteger(restaurantId);
-  const routeTableId = toPositiveInteger(tableId) || routeTableNumber;
+  const routeTableId = toPositiveInteger(tableId);
   return {
     routeTableNumber,
     routeRestaurantId,
     routeTableId,
-    mesaMode: Boolean(routeTableNumber || routeTableId),
+    mesaMode: Boolean(routeTableNumber),
     hasRouteRestaurantId: Boolean(routeRestaurantId),
   };
 }

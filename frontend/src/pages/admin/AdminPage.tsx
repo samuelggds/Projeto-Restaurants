@@ -32,12 +32,36 @@ import type {
   AdminSection,
   AdminProduct,
   Employee,
+  EmployeeFormPayload,
   SettingsSection,
 } from './types';
 import { validateBusinessSettings } from './domain/businessSettingsValidation';
 import { validateEstablishmentAddress } from './domain/establishmentAddress';
 import { validateBusinessHours } from './domain/businessHours';
+import { validateBrandSettings } from './domain/brandSettingsValidation';
+import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
 import supportChatService from '../../Services/supportChatService';
+
+function hasBusinessIdentityInput(settings: typeof adminMockSettings) {
+  return [
+    settings.companyLegalName,
+    settings.companyDocument,
+    settings.businessPhone,
+    settings.businessEmail,
+  ].some((value) => value.trim().length > 0);
+}
+
+function hasEstablishmentAddressInput(settings: typeof adminMockSettings) {
+  return [
+    settings.businessZipCode,
+    settings.businessAddress,
+    settings.businessAddressNumber,
+    settings.businessAddressComplement,
+    settings.businessAddressDistrict,
+    settings.businessCity,
+    settings.businessState,
+  ].some((value) => value.trim().length > 0);
+}
 
 export function AdminPage({
   initialSettings = adminMockSettings,
@@ -84,12 +108,20 @@ export function AdminPage({
   const mercadoPagoOAuthStatus = oauthParams.get('mp_oauth');
   const pagBankOAuthStatus = oauthParams.get('pagbank_oauth');
   const paymentOAuthStatus = mercadoPagoOAuthStatus || pagBankOAuthStatus;
-  const [area, setArea] = useState<AdminSection>(paymentOAuthStatus ? 'settings' : 'overview');
+  const requestedSettingsSection = oauthParams.get('settings');
+  const initialSettingsSection = settingItems.some(([id]) => id === requestedSettingsSection)
+    ? (requestedSettingsSection as SettingsSection)
+    : 'brand';
+  const [area, setArea] = useState<AdminSection>(
+    paymentOAuthStatus || requestedSettingsSection ? 'settings' : 'overview',
+  );
   const [section, setSection] = useState<SettingsSection>(
-    paymentOAuthStatus ? 'payments' : 'brand',
+    paymentOAuthStatus ? 'payments' : initialSettingsSection,
   );
   const [settings, setSettings] = useState(initialSettings);
+  const [settingsSource, setSettingsSource] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
+  const [employeesSource, setEmployeesSource] = useState(initialEmployees);
   const orders = initialOrders;
   const products = initialProducts;
   const categories = initialCategories;
@@ -105,6 +137,7 @@ export function AdminPage({
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
   const [saved, setSaved] = useState(paymentOAuthStatus === 'success');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isEnhancingCover, setIsEnhancingCover] = useState(false);
   const [feedbackError, setFeedbackError] = useState(
     paymentOAuthStatus === 'error'
@@ -112,6 +145,14 @@ export function AdminPage({
       : '',
   );
   const logoInput = useRef<HTMLInputElement>(null);
+  if (settingsSource !== initialSettings) {
+    setSettingsSource(initialSettings);
+    setSettings(initialSettings);
+  }
+  if (employeesSource !== initialEmployees) {
+    setEmployeesSource(initialEmployees);
+    setEmployees(initialEmployees);
+  }
   useEffect(() => {
     const markUnread = () => {
       if (area === 'help') return;
@@ -184,8 +225,10 @@ export function AdminPage({
       ),
     }))
     .filter((group) => group.items.length > 0);
-  const update = <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) =>
+  const update = <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
+    setSaved(false);
     setSettings((current) => ({ ...current, [key]: value }));
+  };
   const logo = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -274,27 +317,51 @@ export function AdminPage({
     }
   };
   const save = async () => {
+    if (isSavingSettings) return;
     setFeedbackError('');
-    if (section === 'business' && Object.keys(validateBusinessSettings(settings)).length > 0) {
+    if (Object.keys(validateBrandSettings(settings)).length > 0) {
+      setArea('settings');
+      setSection('brand');
+      setFeedbackError('Revise os dados de marca e identidade destacados antes de salvar.');
+      return;
+    }
+    if (
+      hasBusinessIdentityInput(settings) &&
+      Object.keys(validateBusinessSettings(settings)).length > 0
+    ) {
       setArea('settings');
       setSection('business');
       setFeedbackError('Revise os dados do negócio destacados antes de salvar.');
       return;
     }
-    if (section === 'address' && Object.keys(validateEstablishmentAddress(settings)).length > 0) {
+    if (
+      hasEstablishmentAddressInput(settings) &&
+      Object.keys(validateEstablishmentAddress(settings)).length > 0
+    ) {
+      setArea('settings');
+      setSection('address');
       setFeedbackError('Revise os dados do endereço destacados antes de salvar.');
       return;
     }
     if (
-      section === 'hours' &&
       settings.businessHoursConfigured &&
       Object.keys(validateBusinessHours(settings.businessHours)).length > 0
     ) {
+      setArea('settings');
+      setSection('hours');
       setFeedbackError('Revise os horários destacados antes de salvar.');
       return;
     }
+    if (Object.keys(validateOrderFlowSettings(settings)).length > 0) {
+      setArea('settings');
+      setSection('orders');
+      setFeedbackError('Revise os prazos e limites de pedidos destacados antes de salvar.');
+      return;
+    }
+    setIsSavingSettings(true);
     try {
-      await onSaveSettings?.(settings);
+      if (!onSaveSettings) throw new Error('O salvamento das configurações não está disponível.');
+      await onSaveSettings(settings);
       setSettings((current) => ({
         ...current,
         stripeSecretKey: '',
@@ -314,12 +381,20 @@ export function AdminPage({
       }));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
-    } catch {
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string; message?: string } } };
       setSaved(false);
-      setFeedbackError('Não foi possível salvar. Confira sua conexão e tente novamente.');
+      setFeedbackError(
+        apiError.response?.data?.error ||
+          apiError.response?.data?.message ||
+          (error instanceof Error ? error.message : '') ||
+          'Não foi possível salvar. Confira sua conexão e tente novamente.',
+      );
+    } finally {
+      setIsSavingSettings(false);
     }
   };
-  const saveEmployee = async (employee: Omit<Employee, 'id'>, id?: string) => {
+  const saveEmployee = async (employee: EmployeeFormPayload, id?: string) => {
     setFeedbackError('');
     try {
       if (id) {
@@ -333,8 +408,14 @@ export function AdminPage({
         }
       }
       setEditing(undefined);
-    } catch {
-      setFeedbackError('Não foi possível salvar o funcionário. Tente novamente.');
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string; message?: string } } };
+      setFeedbackError(
+        apiError.response?.data?.error ||
+          apiError.response?.data?.message ||
+          (error instanceof Error ? error.message : '') ||
+          'Não foi possível salvar o funcionário. Tente novamente.',
+      );
     }
   };
   return (
@@ -516,9 +597,15 @@ export function AdminPage({
                   <ExternalLink />
                   Ver loja
                 </button>
-                <button className="save" onClick={save}>
+                <button
+                  className="save"
+                  type="button"
+                  disabled={isSavingSettings}
+                  aria-live="polite"
+                  onClick={save}
+                >
                   <Save />
-                  {saved ? 'Salvo' : 'Salvar alterações'}
+                  {isSavingSettings ? 'Salvando...' : saved ? 'Salvo' : 'Salvar alterações'}
                 </button>
               </>
             )}

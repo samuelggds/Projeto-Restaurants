@@ -16,11 +16,26 @@ export function AddressSettings({ settings, update }: Props) {
       {label}
       {optional && ' (opcional)'}
       <input
+        aria-label={label}
+        autoComplete="street-address"
         value={String(settings[key])}
         maxLength={
-          key === 'businessState' ? 2 : key === 'businessAddressComplement' ? 160 : undefined
+          key === 'businessState'
+            ? 2
+            : key === 'businessAddressNumber'
+              ? 20
+              : key === 'businessAddressComplement'
+                ? 160
+                : 120
         }
-        onChange={(event) => update(key, event.target.value as AdminSettings[K])}
+        onChange={(event) =>
+          update(
+            key,
+            (key === 'businessState'
+              ? event.target.value.toUpperCase()
+              : event.target.value) as AdminSettings[K],
+          )
+        }
         aria-invalid={Boolean(errors[key as keyof typeof errors])}
       />
       {errors[key as keyof typeof errors] && <small>{errors[key as keyof typeof errors]}</small>}
@@ -35,6 +50,8 @@ export function AddressSettings({ settings, update }: Props) {
           <S.Field>
             CEP
             <input
+              aria-label="CEP"
+              autoComplete="postal-code"
               inputMode="numeric"
               value={formatEstablishmentCep(settings.businessZipCode)}
               maxLength={9}

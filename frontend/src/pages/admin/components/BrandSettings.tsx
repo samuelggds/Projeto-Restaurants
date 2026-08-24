@@ -3,6 +3,7 @@ import { ImagePlus, LoaderCircle, Sparkles, Upload } from 'lucide-react';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
+import { validateBrandSettings } from '../domain/brandSettingsValidation';
 
 type Settings = typeof adminMockSettings;
 type BannerKey = 'mainBannerUrl';
@@ -28,6 +29,7 @@ export function BrandSettings({
   isEnhancingCover,
   onBannerChange,
 }: Props) {
+  const errors = validateBrandSettings(settings);
   const coverInput = useRef<HTMLInputElement>(null);
   const mainBannerInput = useRef<HTMLInputElement>(null);
   const bannerPicker = (
@@ -41,10 +43,15 @@ export function BrandSettings({
         ref={input}
         hidden
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
+        aria-label={`Selecionar ${label.toLocaleLowerCase('pt-BR')}`}
         onChange={(event) => onBannerChange(key, event)}
       />
-      <button type="button" onClick={() => input.current?.click()}>
+      <button
+        type="button"
+        aria-label={`Alterar ${label.toLocaleLowerCase('pt-BR')}`}
+        onClick={() => input.current?.click()}
+      >
         {settings[key] ? <img src={String(settings[key])} alt={label} /> : <ImagePlus />}
         <b>{label}</b>
         <span>{size}</span>
@@ -73,9 +80,10 @@ export function BrandSettings({
               ref={logoInput}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              aria-label="Selecionar logotipo do restaurante"
               onChange={onLogoChange}
             />
-            <button onClick={() => logoInput.current?.click()}>
+            <button type="button" onClick={() => logoInput.current?.click()}>
               <Upload />
               Trocar imagem da marca
             </button>
@@ -109,6 +117,7 @@ export function BrandSettings({
               ref={coverInput}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              aria-label="Selecionar imagem de capa"
               onChange={onCoverChange}
             />
             <button type="button" onClick={() => coverInput.current?.click()}>
@@ -133,30 +142,44 @@ export function BrandSettings({
           <S.Field $full>
             Nome do restaurante
             <S.IdentityNameInput
+              aria-label="Nome do restaurante"
+              aria-invalid={Boolean(errors.restaurantName)}
+              maxLength={120}
               value={settings.restaurantName}
               onChange={(event) => update('restaurantName', event.target.value)}
             />
+            {errors.restaurantName && <small>{errors.restaurantName}</small>}
           </S.Field>
           <S.Field>
             Cor principal
             <S.Color>
               <input
                 type="color"
+                aria-label="Seletor da cor principal"
                 value={settings.primaryColor}
                 onChange={(event) => update('primaryColor', event.target.value)}
               />
               <input
+                aria-label="Código da cor principal da marca"
+                aria-invalid={Boolean(errors.primaryColor)}
+                maxLength={7}
                 value={settings.primaryColor}
                 onChange={(event) => update('primaryColor', event.target.value)}
               />
             </S.Color>
+            {errors.primaryColor && <small>{errors.primaryColor}</small>}
           </S.Field>
           <S.Field>
             Descrição do restaurante
             <textarea
+              aria-label="Descrição do restaurante"
+              aria-invalid={Boolean(errors.description)}
+              maxLength={500}
               value={settings.description}
               onChange={(event) => update('description', event.target.value)}
             />
+            <small>{settings.description.length}/500 caracteres</small>
+            {errors.description && <small>{errors.description}</small>}
           </S.Field>
         </S.FormGrid>
       </S.Card>

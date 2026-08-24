@@ -70,6 +70,7 @@ class ClaimOrderForDeliveryService {
     if (!updatedOrder) throw new Error('Não foi possível carregar o pedido.');
 
     notifyCustomerOrderStatusChanged({
+      restaurantId,
       customerPhone: updatedOrder.user?.phone,
       customerName: updatedOrder.user?.name,
       restaurantName: updatedOrder.restaurant?.name,

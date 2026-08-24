@@ -6,6 +6,18 @@ class TablesService {
     return response.data;
   }
 
+  async resolvePublicTable({ tableNumber, tableId, restaurantId, slug }) {
+    const response = await api.get('/tables/public/resolve', {
+      params: {
+        tableNumber,
+        ...(tableId ? { tableId } : {}),
+        ...(restaurantId ? { restaurantId } : {}),
+        ...(slug ? { slug } : {}),
+      },
+    });
+    return response.data;
+  }
+
   async createTable(payload) {
     const response = await api.post('/tables', payload);
     return response.data;
@@ -25,7 +37,7 @@ class TablesService {
   }
 
   async openTableSession(tableId) {
-    const response = await api.post('/sessions-tables/open', {
+    const response = await api.post('/table-sessions/open', {
       tableId,
     });
     return response.data;

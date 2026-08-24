@@ -21,7 +21,7 @@ export type SettingsSection =
   | 'social'
   | 'appearance'
   | 'security';
-export type EmployeeRole = 'COOK' | 'WAITER' | 'ATTENDANT';
+export type EmployeeRole = 'COOK' | 'WAITER' | 'ATTENDANT' | 'COURIER';
 export type BusinessHour = {
   id: string;
   label: string;
@@ -167,15 +167,33 @@ export type AdminSettings = {
   primaryColor: string;
   description: string;
   whatsapp: string;
+  whatsappDisplayName: string;
+  whatsappDefaultMessage: string;
+  whatsappEnabled: boolean;
+  receiveOrdersOnWhatsapp: boolean;
+  receiveStatusNotifications: boolean;
   instagram: string;
   facebook: string;
+  tiktok: string;
+  youtube: string;
   minimumOrder: number;
+  deliveryFee: number;
+  freeShippingMinimum: number;
+  acceptsDelivery: boolean;
+  acceptsPickup: boolean;
+  acceptsPix: boolean;
+  acceptsCard: boolean;
   deliveryTime: number;
   autoAcceptOrders: boolean;
   trackingRequiresLogin: boolean;
   soundNotifications: boolean;
   maxConcurrentOrders: number;
   tableOrderingEnabled: boolean;
+  waiterCallEnabled: boolean;
+  billRequestEnabled: boolean;
+  fontFamily: string;
+  seoTitle: string;
+  seoDescription: string;
   pixProvider: string;
   pixKey: string;
   cardGateway: string;
@@ -198,6 +216,7 @@ export type Employee = {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: EmployeeRole;
   active: boolean;
   permissions: {
@@ -205,6 +224,11 @@ export type Employee = {
     updateOrderStatus: boolean;
     manageQrTables: boolean;
   };
+};
+
+export type EmployeeFormPayload = Omit<Employee, 'id'> & {
+  password?: string;
+  confirmPassword?: string;
 };
 
 export type AdminPageProps = {
@@ -247,8 +271,10 @@ export type AdminPageProps = {
     restaurantName: string;
     pixKey: string;
   }) => void | Promise<void>;
-  onCreateEmployee?: (employee: Omit<Employee, 'id'>) => Employee | Promise<Employee>;
-  onUpdateEmployee?: (employee: Employee) => Employee | Promise<Employee>;
+  onCreateEmployee?: (employee: EmployeeFormPayload) => Employee | Promise<Employee>;
+  onUpdateEmployee?: (
+    employee: EmployeeFormPayload & { id: string },
+  ) => Employee | Promise<Employee>;
   onDeactivateEmployee?: (id: string) => void | Promise<void>;
   onReactivateEmployee?: (id: string) => void | Promise<void>;
   onViewStore?: () => void;

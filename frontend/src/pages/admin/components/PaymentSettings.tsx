@@ -89,11 +89,27 @@ export function PaymentSettings({
       <S.Card>
         <h2>Pix do restaurante</h2>
         <p>A cobrança será criada na conta configurada por este administrador.</p>
+        <S.ToggleRows>
+          <label className="toggle-row">
+            <div>
+              <b>Aceitar pagamentos por Pix</b>
+              <span>Quando desligado, o Pix deixa de aparecer para novos pedidos.</span>
+            </div>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="Aceitar pagamentos por Pix"
+              checked={settings.acceptsPix}
+              onChange={(event) => update('acceptsPix', event.target.checked)}
+            />
+          </label>
+        </S.ToggleRows>
         <S.FormGrid>
           <S.Field>
             Provedor Pix
             <select
               value={settings.pixProvider}
+              disabled={!settings.acceptsPix}
               onChange={(event) => update('pixProvider', event.target.value)}
             >
               <option value="MERCADO_PAGO">Mercado Pago</option>
@@ -105,13 +121,15 @@ export function PaymentSettings({
             Chave Pix
             <input
               value={settings.pixKey}
+              disabled={!settings.acceptsPix}
               placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
               autoComplete="off"
               onChange={(event) => update('pixKey', event.target.value)}
             />
           </S.Field>
         </S.FormGrid>
-        {(settings.pixProvider === 'MERCADO_PAGO' || settings.cardGateway === 'MERCADO_PAGO') && (
+        {((settings.acceptsPix && settings.pixProvider === 'MERCADO_PAGO') ||
+          (settings.acceptsCard && settings.cardGateway === 'MERCADO_PAGO')) && (
           <>
             <button
               type="button"
@@ -131,7 +149,8 @@ export function PaymentSettings({
             </p>
           </>
         )}
-        {(settings.pixProvider === 'ASAAS' || settings.cardGateway === 'ASAAS') && (
+        {((settings.acceptsPix && settings.pixProvider === 'ASAAS') ||
+          (settings.acceptsCard && settings.cardGateway === 'ASAAS')) && (
           <>
             <S.Field>
               CPF ou CNPJ do responsável
@@ -160,10 +179,26 @@ export function PaymentSettings({
       <S.Card>
         <h2>Pagamento com cartão</h2>
         <p>O cliente informará o cartão no ambiente seguro do gateway.</p>
+        <S.ToggleRows>
+          <label className="toggle-row">
+            <div>
+              <b>Aceitar pagamentos com cartão</b>
+              <span>Quando desligado, o cartão deixa de aparecer para novos pedidos.</span>
+            </div>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="Aceitar pagamentos com cartão"
+              checked={settings.acceptsCard}
+              onChange={(event) => update('acceptsCard', event.target.checked)}
+            />
+          </label>
+        </S.ToggleRows>
         <S.Field>
           Gateway de cartão
           <select
             value={settings.cardGateway}
+            disabled={!settings.acceptsCard}
             onChange={(event) => update('cardGateway', event.target.value)}
           >
             <option value="">Selecione o gateway</option>
@@ -172,7 +207,8 @@ export function PaymentSettings({
             <option value="ASAAS">Asaas</option>
           </select>
         </S.Field>
-        {(settings.cardGateway === 'PAGBANK' || settings.pixProvider === 'PAGBANK') && (
+        {((settings.acceptsCard && settings.cardGateway === 'PAGBANK') ||
+          (settings.acceptsPix && settings.pixProvider === 'PAGBANK')) && (
           <>
             <button
               type="button"

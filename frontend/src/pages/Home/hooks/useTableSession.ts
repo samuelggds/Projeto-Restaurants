@@ -9,7 +9,13 @@ import {
 } from '../domain/tableSession';
 
 type Notify = (type: 'success' | 'error' | 'warning', title: string, message?: string) => void;
-type Options = { tableNumber: unknown; restaurantId: unknown; tableId: unknown; notify: Notify };
+type Options = {
+  tableNumber: unknown;
+  restaurantId: unknown;
+  restaurantSlug?: unknown;
+  tableId: unknown;
+  notify: Notify;
+};
 
 export function useTableSession(options: Options) {
   const route = resolveTableRoute(options.tableNumber, options.restaurantId, options.tableId);
@@ -63,6 +69,9 @@ export function useTableSession(options: Options) {
       setPinError('');
       const result = await tableSessionService.validatePin({
         tableId: route.routeTableId,
+        tableNumber: route.routeTableNumber,
+        restaurantId: route.routeRestaurantId,
+        restaurantSlug: String(options.restaurantSlug || '').trim() || null,
         pin: tablePin.trim(),
       });
       const next: StoredTableSession = {
@@ -72,6 +81,13 @@ export function useTableSession(options: Options) {
         tableNumber: Number(result.tableNumber || mesaLabel) || null,
         restaurantId: Number(result.restaurantId || route.routeRestaurantId || 0) || null,
       };
+      if (
+        Number(next.tableId) !== Number(route.routeTableId) ||
+        Number(next.tableNumber) !== Number(route.routeTableNumber) ||
+        (route.routeRestaurantId && Number(next.restaurantId) !== Number(route.routeRestaurantId))
+      ) {
+        throw new Error('O PIN retornou uma mesa diferente do QR Code escaneado.');
+      }
       localStorage.setItem('tableSession', JSON.stringify(next));
       localStorage.setItem('tableSessionToken', String(result.sessionToken));
       if (next.restaurantId) localStorage.setItem('menuRestaurantId', String(next.restaurantId));

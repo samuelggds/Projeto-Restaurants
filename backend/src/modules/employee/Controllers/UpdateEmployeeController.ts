@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import updateEmployeeService from '../services/UpdateEmployeeService.js';
+import { UpdateEmployeeSchema } from '../../../validators/EmployeeSchema.js';
 
 class UpdateEmployeeController {
   async handle(req: Request, res: Response) {
@@ -8,7 +9,7 @@ class UpdateEmployeeController {
 
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
-      const { name, email, phone, subRole } = req.body;
+      const { name, email, phone, role, subRole } = UpdateEmployeeSchema.parse(req.body);
 
       const employee = await updateEmployeeService.execute({
         id,
@@ -16,7 +17,8 @@ class UpdateEmployeeController {
         name,
         email,
         phone,
-        subRole: subRole ?? null,
+        role,
+        subRole,
       });
 
       return res.status(200).json(employee);

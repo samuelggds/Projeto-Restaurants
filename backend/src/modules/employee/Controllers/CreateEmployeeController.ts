@@ -7,18 +7,10 @@ class CreateEmployeeController {
     try {
       const restaurantId = req.user.restaurantId;
 
-      const { name, email, password, confirmPassword, phone, role, cpf, subRole } = req.body;
-
-      EmployeeUserSchema.parse({
-        name,
-        email,
-        password,
-        confirmPassword,
-        phone,
-        role,
-        subRole,
-        cpf,
+      const parsed = EmployeeUserSchema.parse({
+        ...req.body,
       });
+      const { name, email, password, phone, role, cpf, subRole } = parsed;
 
       const employee = await createEmployeeService.execute({
         name,

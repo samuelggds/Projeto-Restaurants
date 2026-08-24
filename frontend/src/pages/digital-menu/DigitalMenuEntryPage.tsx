@@ -1,131 +1,209 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import menuService from '../../Services/menuService';
-import restaurantSettingsService from '../../Services/restaurantSettingsService';
-import { DigitalMenuPage } from './DigitalMenuPage';
-import type { DigitalMenuData, MenuCategory, MenuProduct } from './types';
-import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
-import { mapProductOptionGroupsFromApi } from '../Home/adapters/homeDataAdapter';
+import styled from 'styled-components';
+import tablesService from '../../Services/tablesService';
+import Home from '../Home/Home';
+import { TableAccessGate } from '../Home/components/TableAccessGate';
 
-const FALLBACK_CATEGORY_IMG =
-  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=60';
-const FALLBACK_PRODUCT_IMG =
-  'https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=400&q=60';
+type ResolvedTable = {
+  id: number;
+  number: number;
+  restaurantId: number;
+  restaurantSlug: string;
+  tableOrderingEnabled: boolean;
+  waiterCallEnabled: boolean;
+  billRequestEnabled: boolean;
+};
 
-function mapProducts(raw: unknown[]): MenuProduct[] {
-  return (raw as Record<string, unknown>[])
-    .filter((p) => p.active !== false)
-    .map((p) => {
-      const cat = (p.category as Record<string, unknown> | null) ?? null;
-      return {
-        id: String(p.id),
-        categoryId: String(cat?.id ?? p.categoryId ?? ''),
-        name: String(p.name || ''),
-        description: String(p.description || ''),
-        price: Number(p.price || 0),
-        image: String(p.image || FALLBACK_PRODUCT_IMG),
-        rating: Number(p.rating || 0) || 4.5,
-        preparationTime: '20–30 min',
-        ingredients: Array.isArray(p.ingredients)
-          ? (p.ingredients as Record<string, unknown>[]).map((ingredient) => ({
-              id: String(ingredient.id),
-              name: String(ingredient.name || ''),
-              price: Number(ingredient.price || 0),
-              required: Boolean(ingredient.required),
-            }))
-          : [],
-        optionGroups: mapProductOptionGroupsFromApi(p),
-      };
-    });
+type ResolutionState =
+  | { status: 'loading'; key: ''; table: null; error: '' }
+  | { status: 'ready'; key: string; table: ResolvedTable; error: '' }
+  | { status: 'error'; key: string; table: null; error: string };
+
+const Loading = styled.main`
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #fffdf9;
+  color: #6f6a63;
+  font:
+    600 14px Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+`;
+
+function positiveInteger(value: unknown) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function deriveCategories(products: MenuProduct[], rawCats: unknown[]): MenuCategory[] {
-  if (Array.isArray(rawCats) && rawCats.length > 0) {
-    return (rawCats as Record<string, unknown>[]).map((c) => ({
-      id: String(c.id),
-      name: String(c.name || ''),
-      image: String(c.image || FALLBACK_CATEGORY_IMG),
-    }));
-  }
-  // Derive from product categories if no explicit list
-  const seen = new Set<string>();
-  return products
-    .filter((p) => {
-      if (seen.has(p.categoryId)) return false;
-      seen.add(p.categoryId);
-      return true;
-    })
-    .map((p) => ({
-      id: p.categoryId,
-      name: p.categoryId,
-      image: FALLBACK_CATEGORY_IMG,
-    }));
+function apiErrorMessage(error: unknown) {
+  const typed = error as { response?: { data?: { error?: string } }; message?: string };
+  return (
+    typed.response?.data?.error ||
+    typed.message ||
+    'Não foi possível validar esta mesa. Escaneie o QR Code oficial novamente.'
+  );
 }
 
 export default function DigitalMenuEntryPage() {
   const { tableNumber, restaurantSlug } = useParams();
-  const [searchParams] = useSearchParams();
-  const [data, setData] = useState<DigitalMenuData | null>(null);
-
-  const restaurantId =
-    Number(searchParams.get('restaurantId') || searchParams.get('rid') || 0) || null;
-  const tableNum = Number(tableNumber || searchParams.get('tableId') || 0) || 1;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [resolution, setResolution] = useState<ResolutionState>({
+    status: 'loading',
+    key: '',
+    table: null,
+    error: '',
+  });
+  const lastResolvedKeyRef = useRef('');
+  const routeTableNumber = positiveInteger(tableNumber);
+  const queryTableId = positiveInteger(searchParams.get('tableId') || searchParams.get('tid'));
+  const queryRestaurantId = positiveInteger(
+    searchParams.get('restaurantId') || searchParams.get('rid'),
+  );
+  const normalizedSlug = String(restaurantSlug || '')
+    .trim()
+    .toLowerCase();
+  const hasValidRestaurantReference = Boolean(queryRestaurantId || normalizedSlug);
+  const searchParamsString = searchParams.toString();
+  const resolutionKey = [
+    routeTableNumber || '',
+    queryTableId || '',
+    queryRestaurantId || '',
+    normalizedSlug,
+  ].join(':');
 
   useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const [rawProducts, rawSettings] = await Promise.allSettled([
-          restaurantSlug
-            ? menuService.listProductsBySlug(restaurantSlug)
-            : restaurantId
-              ? menuService.listProducts(restaurantId)
-              : Promise.resolve([]),
-          restaurantSlug
-            ? restaurantSettingsService.getPublicSettingsBySlug(restaurantSlug)
-            : restaurantId
-              ? restaurantSettingsService.getPublicSettings(restaurantId)
-              : Promise.resolve(null),
-        ]);
+    let active = true;
 
-        const products =
-          rawProducts.status === 'fulfilled' && Array.isArray(rawProducts.value)
-            ? mapProducts(rawProducts.value)
-            : [];
-        const settingsValue =
-          rawSettings.status === 'fulfilled'
-            ? (rawSettings.value as Record<string, unknown> | null)
-            : null;
-        const restaurant =
-          (settingsValue?.restaurant as Record<string, unknown> | null) ?? settingsValue ?? {};
-        const name = String(restaurant?.name || settingsValue?.restaurantName || 'Restaurante');
-        const monogram = createRestaurantMonogram(name);
+    if (
+      !routeTableNumber ||
+      !hasValidRestaurantReference ||
+      lastResolvedKeyRef.current === resolutionKey
+    ) {
+      return undefined;
+    }
 
-        setData({
-          restaurantName: name,
-          monogram,
-          primaryColor: String(settingsValue?.primaryColor || '#d64d08'),
-          tableNumber: tableNum,
-          categories: deriveCategories(products, []),
-          products,
-          orderStatus: 'received',
+    tablesService
+      .resolvePublicTable({
+        tableNumber: routeTableNumber,
+        tableId: queryTableId,
+        restaurantId: queryRestaurantId,
+        slug: normalizedSlug,
+      })
+      .then((raw: ResolvedTable) => {
+        if (!active) return;
+        const table: ResolvedTable = {
+          ...raw,
+          id: Number(raw.id),
+          number: Number(raw.number),
+          restaurantId: Number(raw.restaurantId),
+        };
+
+        if (
+          !positiveInteger(table.id) ||
+          table.number !== routeTableNumber ||
+          !positiveInteger(table.restaurantId) ||
+          (queryTableId && table.id !== queryTableId) ||
+          (queryRestaurantId && table.restaurantId !== queryRestaurantId) ||
+          (normalizedSlug && table.restaurantSlug !== normalizedSlug)
+        ) {
+          throw new Error('A mesa retornada não corresponde ao QR Code escaneado.');
+        }
+
+        const canonicalParams = new URLSearchParams(searchParamsString);
+        canonicalParams.set('tid', String(table.id));
+        canonicalParams.set('rid', String(table.restaurantId));
+        canonicalParams.delete('tableId');
+        canonicalParams.delete('restaurantId');
+        const canonicalKey = [table.number, table.id, table.restaurantId, normalizedSlug].join(':');
+
+        if (canonicalParams.toString() !== searchParamsString) {
+          setSearchParams(canonicalParams, { replace: true });
+        }
+        lastResolvedKeyRef.current = canonicalKey;
+        setResolution({ status: 'ready', key: canonicalKey, table, error: '' });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setResolution({
+          status: 'error',
+          key: resolutionKey,
+          table: null,
+          error: apiErrorMessage(error),
         });
-      } catch {
-        /* show empty menu rather than fake data */
-        setData({
-          restaurantName: 'Cardápio',
-          monogram: 'C',
-          tableNumber: tableNum,
-          categories: [],
-          products: [],
-          orderStatus: 'received',
-        });
-      }
+      });
+
+    return () => {
+      active = false;
     };
+  }, [
+    hasValidRestaurantReference,
+    normalizedSlug,
+    queryRestaurantId,
+    queryTableId,
+    resolutionKey,
+    routeTableNumber,
+    searchParamsString,
+    setSearchParams,
+  ]);
 
-    fetchMenu();
-  }, [restaurantId, restaurantSlug, tableNum]);
+  if (!routeTableNumber || !hasValidRestaurantReference) {
+    return (
+      <TableAccessGate
+        primaryColor="#d64d08"
+        invalidQr
+        invalidTitle="Não foi possível abrir esta mesa"
+        invalidMessage="O QR Code não identifica uma mesa e um restaurante válidos."
+        tableLabel={routeTableNumber || ''}
+        pin=""
+        pinError=""
+        validating={false}
+        onPinChange={() => {}}
+        onSubmit={(event) => event.preventDefault()}
+      />
+    );
+  }
 
-  if (!data) return null;
+  if (resolution.status === 'loading' || resolution.key !== resolutionKey) {
+    return <Loading role="status">Validando a mesa e o restaurante...</Loading>;
+  }
 
-  return <DigitalMenuPage data={data} />;
+  if (resolution.status === 'error') {
+    return (
+      <TableAccessGate
+        primaryColor="#d64d08"
+        invalidQr
+        invalidTitle="Não foi possível abrir esta mesa"
+        invalidMessage={resolution.error}
+        tableLabel={routeTableNumber || ''}
+        pin=""
+        pinError={resolution.error}
+        validating={false}
+        onPinChange={() => {}}
+        onSubmit={(event) => event.preventDefault()}
+      />
+    );
+  }
+
+  if (!resolution.table.tableOrderingEnabled) {
+    return (
+      <TableAccessGate
+        primaryColor="#d64d08"
+        invalidQr
+        invalidTitle="Cardápio de mesa indisponível"
+        invalidMessage="O restaurante desativou temporariamente os pedidos pelo cardápio de mesa."
+        tableLabel={resolution.table.number}
+        pin=""
+        pinError="O restaurante desativou temporariamente os pedidos pelo cardápio de mesa."
+        validating={false}
+        onPinChange={() => {}}
+        onSubmit={(event) => event.preventDefault()}
+      />
+    );
+  }
+
+  return <Home />;
 }

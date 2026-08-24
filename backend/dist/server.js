@@ -3541,6 +3541,7 @@ var RestaurantSettingsRepository = class {
       },
       select: {
         id: true,
+        active: true,
         name: true,
         slug: true,
         logo: true,
@@ -3579,10 +3580,28 @@ var RestaurantSettingsRepository = class {
         primaryColor: true,
         deliveryFee: true,
         minimumOrder: true,
+        freeShippingMinimum: true,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        acceptsPix: true,
+        acceptsCard: true,
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
         pixProvider: true,
         pixKey: true,
+        whatsappEnabled: true,
+        whatsappDisplayName: true,
+        whatsappDefaultMessage: true,
+        receiveOrdersOnWhatsapp: true,
+        receiveStatusNotifications: true,
         instagram: true,
         facebook: true,
+        tiktok: true,
+        youtube: true,
+        fontFamily: true,
+        seoTitle: true,
+        seoDescription: true,
         companyLegalName: true,
         ownerEmail: true,
         ownerPhone: true,
@@ -3596,10 +3615,12 @@ var RestaurantSettingsRepository = class {
         restaurant: {
           select: {
             name: true,
+            active: true,
             slug: true,
             logo: true,
             coverImage: true,
             description: true,
+            whatsapp: true,
             address: true,
             addressNumber: true,
             addressComplement: true,
@@ -4572,6 +4593,18 @@ var OrderPixPaymentService = class {
     }
     const settings = await RestaurantSettingsRepository_default.findPublicByRestaurantId(normalizedRestaurantId);
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
+    if (settings?.acceptsPix === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pagamentos por PIX no momento.");
+    }
+    if (normalizedType === "DELIVERY" && settings?.acceptsDelivery === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pedidos para delivery no momento.");
+    }
+    if (normalizedType === "RETIRADA" && settings?.acceptsPickup === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pedidos para retirada no momento.");
+    }
+    if (normalizedType === "MESA" && settings?.tableOrderingEnabled === false) {
+      throw new Error("Os pedidos pelo card\xE1pio de mesa est\xE3o desativados no momento.");
+    }
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
     const pixKey = String(settings?.pixKey || "").trim();
@@ -4580,6 +4613,7 @@ var OrderPixPaymentService = class {
     }
     const minimumOrder = Number(settings?.minimumOrder || 0);
     const deliveryFee = Number(settings?.deliveryFee || 0);
+    const freeShippingMinimum = Number(settings?.freeShippingMinimum || 0);
     const persistedTotal = Number(orderTotal);
     const hasPersistedTotal = Number.isFinite(persistedTotal) && persistedTotal >= 0;
     const persistedSubtotal = Number(orderSubtotal);
@@ -4596,7 +4630,7 @@ var OrderPixPaymentService = class {
         `Pedido m\xEDnimo sobre o subtotal para delivery: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega \xE9 cobrada \xE0 parte.`
       );
     }
-    const additionalFee = hasPersistedTotal ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0) : normalizedType === "DELIVERY" ? Math.max(deliveryFee, 0) : 0;
+    const additionalFee = hasPersistedTotal ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0) : normalizedType === "DELIVERY" ? freeShippingMinimum > 0 && subtotal >= freeShippingMinimum ? 0 : Math.max(deliveryFee, 0) : 0;
     const systemFee = await SplitService_default.execute({
       restaurantId: normalizedRestaurantId,
       orderTotal: subtotal
@@ -4998,6 +5032,59 @@ var whatsappWebhookToken = String(process.env.WHATSAPP_WEBHOOK_TOKEN || "").trim
 function getErrorMessage(error2) {
   return error2 instanceof Error ? error2.message : "unknown";
 }
+async function resolveCustomerWhatsappPreference(restaurantId) {
+  if (restaurantId === void 0 || restaurantId === null || restaurantId === "") {
+    return { enabled: true };
+  }
+  const normalizedRestaurantId = Number(restaurantId);
+  if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+    console.error("[CUSTOMER_NOTIFICATION_SETTINGS_ERROR]", {
+      restaurantId,
+      message: "restaurantId inv\xE1lido"
+    });
+    return {
+      enabled: false,
+      reason: "notification_preference_lookup_failed"
+    };
+  }
+  try {
+    const settings = await prisma_default.restaurantSettings.findUnique({
+      where: { restaurantId: normalizedRestaurantId },
+      select: {
+        whatsappEnabled: true,
+        receiveStatusNotifications: true
+      }
+    });
+    if (!settings) {
+      return {
+        enabled: false,
+        reason: "restaurant_settings_not_found"
+      };
+    }
+    if ("whatsappEnabled" in settings && settings.whatsappEnabled === false) {
+      return {
+        enabled: false,
+        reason: "whatsapp_disabled"
+      };
+    }
+    if ("receiveStatusNotifications" in settings && settings.receiveStatusNotifications === false) {
+      return {
+        enabled: false,
+        reason: "status_notifications_disabled"
+      };
+    }
+    return { enabled: true };
+  } catch (error2) {
+    console.error("[CUSTOMER_NOTIFICATION_SETTINGS_ERROR]", {
+      restaurantId: normalizedRestaurantId,
+      message: getErrorMessage(error2)
+    });
+    return {
+      enabled: false,
+      reason: "notification_preference_lookup_failed"
+    };
+  }
+}
 function resolveProvider() {
   if (configuredProvider && configuredProvider !== "none") {
     return configuredProvider;
@@ -5386,6 +5473,7 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
   };
 }
 async function notifyCustomerPaymentConfirmed({
+  restaurantId,
   restaurantWhatsapp,
   customerPhone,
   customerName,
@@ -5394,6 +5482,13 @@ async function notifyCustomerPaymentConfirmed({
   total,
   paymentMethod
 }) {
+  const preference = await resolveCustomerWhatsappPreference(restaurantId);
+  if (!preference.enabled) {
+    return {
+      sent: false,
+      reason: preference.reason
+    };
+  }
   const provider = resolveProvider();
   if (provider === "none") {
     return {
@@ -5423,12 +5518,12 @@ async function notifyCustomerPaymentConfirmed({
     return {
       sent: false,
       reason: "send_failed",
-      provider,
-      error: getErrorMessage(error2)
+      provider
     };
   }
 }
 async function notifyCustomerOrderStatusChanged({
+  restaurantId,
   restaurantWhatsapp,
   customerPhone,
   customerName,
@@ -5436,6 +5531,13 @@ async function notifyCustomerOrderStatusChanged({
   orderId,
   status
 }) {
+  const preference = await resolveCustomerWhatsappPreference(restaurantId);
+  if (!preference.enabled) {
+    return {
+      sent: false,
+      reason: preference.reason
+    };
+  }
   const provider = resolveProvider();
   if (provider === "none") {
     return {
@@ -5464,8 +5566,7 @@ async function notifyCustomerOrderStatusChanged({
     return {
       sent: false,
       reason: "send_failed",
-      provider,
-      error: getErrorMessage(error2)
+      provider
     };
   }
 }
@@ -5654,10 +5755,28 @@ var OrderPricingService = class {
     );
     const settings = await db.restaurantSettings.findUnique({
       where: { restaurantId: normalizedRestaurantId },
-      select: { deliveryFee: true, minimumOrder: true }
+      select: {
+        deliveryFee: true,
+        minimumOrder: true,
+        freeShippingMinimum: true,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        tableOrderingEnabled: true
+      }
     });
     const normalizedType = String(type || "").toUpperCase();
-    const deliveryFeeAmount = normalizedType === OrderType3.DELIVERY ? roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0)) : 0;
+    if (normalizedType === OrderType3.DELIVERY && settings?.acceptsDelivery === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pedidos para delivery no momento.");
+    }
+    if (normalizedType === OrderType3.RETIRADA && settings?.acceptsPickup === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pedidos para retirada no momento.");
+    }
+    if (normalizedType === OrderType3.MESA && settings?.tableOrderingEnabled === false) {
+      throw new Error("Os pedidos pelo card\xE1pio de mesa est\xE3o desativados no momento.");
+    }
+    const freeShippingMinimum = Math.max(Number(settings?.freeShippingMinimum || 0), 0);
+    const hasFreeShipping = normalizedType === OrderType3.DELIVERY && freeShippingMinimum > 0 && itemsSubtotal >= freeShippingMinimum;
+    const deliveryFeeAmount = normalizedType === OrderType3.DELIVERY ? hasFreeShipping ? 0 : roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0)) : 0;
     const minimumOrder = Math.max(Number(settings?.minimumOrder || 0), 0);
     if (normalizedType === OrderType3.DELIVERY && minimumOrder > 0 && itemsSubtotal < minimumOrder) {
       throw new Error(
@@ -5907,13 +6026,20 @@ var CreateOrderService = class {
     );
     const shouldPayOnDelivery = payOnDelivery === true;
     const effectivePaymentMethod = shouldPayOnDelivery ? payOnDeliveryMethod || paymentMethod : paymentMethod;
+    const normalizedRequestedPaymentMethod = String(effectivePaymentMethod || "").toUpperCase();
+    if (normalizedRequestedPaymentMethod === PaymentMethod3.PIX && restaurantSettings?.acceptsPix === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pagamentos por PIX no momento.");
+    }
+    if (normalizedRequestedPaymentMethod === PaymentMethod3.CARTAO && restaurantSettings?.acceptsCard === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pagamentos com cart\xE3o no momento.");
+    }
     if (shouldPayOnDelivery && type !== OrderType4.DELIVERY) {
       throw new Error("Pagar na entrega s\xF3 \xE9 permitido para pedidos de delivery.");
     }
     if (shouldPayOnDelivery && !effectivePaymentMethod) {
       throw new Error("Informe o m\xE9todo de pagamento para pedidos com pagar na entrega.");
     }
-    if (String(effectivePaymentMethod || "").toUpperCase() === PaymentMethod3.PIX && (String(paymentProof || "").trim() || String(paymentProofImage || "").trim())) {
+    if (normalizedRequestedPaymentMethod === PaymentMethod3.PIX && (String(paymentProof || "").trim() || String(paymentProofImage || "").trim())) {
       throw new Error(
         "Nao e permitido enviar comprovante manual para PIX. O pedido sera confirmado automaticamente pelo provedor."
       );
@@ -6119,6 +6245,7 @@ var CreateOrderService = class {
         status: createdOrder.status
       });
       notifyCustomerPaymentConfirmed({
+        restaurantId: createdOrder.restaurantId,
         customerPhone: createdOrder?.user?.phone || customerPhone,
         customerName: createdOrder?.user?.name || customerName,
         restaurantName: createdOrder?.restaurant?.name,
@@ -6385,6 +6512,7 @@ var UpdateOrderStatusService = class {
       });
     }
     notifyCustomerOrderStatusChanged({
+      restaurantId,
       customerPhone: order?.user?.phone,
       customerName: order?.user?.name,
       restaurantName: order?.restaurant?.name,
@@ -6487,6 +6615,7 @@ var ClaimOrderForDeliveryService = class {
     });
     if (!updatedOrder) throw new Error("N\xE3o foi poss\xEDvel carregar o pedido.");
     notifyCustomerOrderStatusChanged({
+      restaurantId,
       customerPhone: updatedOrder.user?.phone,
       customerName: updatedOrder.user?.name,
       restaurantName: updatedOrder.restaurant?.name,
@@ -7306,6 +7435,7 @@ var CancelOrderService = class {
       return cancelledOrder;
     });
     notifyCustomerOrderStatusChanged({
+      restaurantId: orderRestaurantId,
       customerPhone: order?.user?.phone,
       customerName: order?.user?.name,
       restaurantName: order?.restaurant?.name,
@@ -8223,6 +8353,9 @@ var CreateOrderCardCheckoutService = class {
     });
     const settings = await RestaurantSettingsRepository_default.findByRestaurantId(resolvedRestaurantId);
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
+    if (settings?.acceptsCard === false) {
+      throw new Error("O restaurante n\xE3o est\xE1 aceitando pagamentos com cart\xE3o no momento.");
+    }
     const configuredProvider3 = String(settings?.cardGateway || "").trim();
     if (!configuredProvider3) {
       throw new Error(
@@ -8569,6 +8702,7 @@ var FinalizeOrderPixPaymentService = class {
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:status-changed", updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
     notifyCustomerPaymentConfirmed({
+      restaurantId: updatedOrder.restaurantId,
       customerPhone: updatedOrder?.user?.phone,
       customerName: updatedOrder?.user?.name,
       restaurantName: updatedOrder?.restaurant?.name,
@@ -9409,6 +9543,7 @@ var RefundOrderByAdminService = class {
       resolvedByName
     } : null;
     notifyCustomerOrderStatusChanged({
+      restaurantId: normalizedRestaurantId,
       customerPhone: order?.user?.phone,
       customerName: order?.user?.name,
       restaurantName: order?.restaurant?.name,
@@ -9687,6 +9822,7 @@ var FinalizeOrderCardPaymentService = class {
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:status-changed", updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
     notifyCustomerPaymentConfirmed({
+      restaurantId: updatedOrder.restaurantId,
       customerPhone: updatedOrder?.user?.phone,
       customerName: updatedOrder?.user?.name,
       restaurantName: updatedOrder?.restaurant?.name,
@@ -11135,15 +11271,29 @@ import { UserRole as UserRole19 } from "@prisma/client";
 
 // src/modules/employee/repositories/EmployeeRepository.ts
 import { UserRole as UserRole18 } from "@prisma/client";
+var employeePublicSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  restaurantId: true,
+  role: true,
+  subRole: true,
+  active: true,
+  createdAt: true,
+  updatedAt: true
+};
 var EmployeeRepository = class {
   async findByEmail(email, db = prisma_default) {
     return db.user.findFirst({
-      where: { email }
+      where: { email },
+      select: employeePublicSelect
     });
   }
   async create(data, db = prisma_default) {
     return db.user.create({
-      data
+      data,
+      select: employeePublicSelect
     });
   }
   async findAllByRestaurant(restaurantId, db = prisma_default) {
@@ -11153,7 +11303,8 @@ var EmployeeRepository = class {
         role: {
           in: [UserRole18.FUNCIONARIO, UserRole18.MOTOQUEIRO]
         }
-      }
+      },
+      select: employeePublicSelect
     });
   }
   async findById(id, restaurantId, db = prisma_default) {
@@ -11164,7 +11315,8 @@ var EmployeeRepository = class {
         role: {
           in: [UserRole18.FUNCIONARIO, UserRole18.MOTOQUEIRO]
         }
-      }
+      },
+      select: employeePublicSelect
     });
   }
   async update(id, data, restaurantId, db = prisma_default) {
@@ -11176,7 +11328,8 @@ var EmployeeRepository = class {
       where: {
         id: Number(id)
       },
-      data
+      data,
+      select: employeePublicSelect
     });
   }
   async deactivate(id, restaurantId, db = prisma_default) {
@@ -11190,7 +11343,8 @@ var EmployeeRepository = class {
       },
       data: {
         active: false
-      }
+      },
+      select: employeePublicSelect
     });
   }
   async reactivate(id, restaurantId, db = prisma_default) {
@@ -11204,7 +11358,8 @@ var EmployeeRepository = class {
       },
       data: {
         active: true
-      }
+      },
+      select: employeePublicSelect
     });
   }
 };
@@ -11247,9 +11402,15 @@ var CreateEmployeeService_default = new CreateEmployeeService();
 import { FuncionarioSubRole as FuncionarioSubRole2, UserRole as UserRole20 } from "@prisma/client";
 import { z as z10 } from "zod";
 var phoneRegex = /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
+var employeeNameSchema = z10.string().trim().min(2, "Nome deve conter pelo menos 2 caracteres").max(120, "Nome deve conter no m\xE1ximo 120 caracteres");
+var employeeEmailSchema = z10.string().trim().toLowerCase().email("Email inv\xE1lido").max(180, "Email deve conter no m\xE1ximo 180 caracteres");
+var employeePhoneSchema = z10.string({
+  required_error: "Telefone obrigat\xF3rio",
+  invalid_type_error: "Telefone inv\xE1lido"
+}).trim().min(1, "Telefone obrigat\xF3rio").regex(phoneRegex, "N\xFAmero de telefone inv\xE1lido!");
 var EmployeeUserSchema = z10.object({
-  name: z10.string().min(1, "Nome obrigat\xF3rio"),
-  email: z10.string().email("Email inv\xE1lido"),
+  name: employeeNameSchema,
+  email: employeeEmailSchema,
   password: z10.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
   confirmPassword: z10.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
   role: z10.nativeEnum(UserRole20).optional().refine(
@@ -11258,7 +11419,7 @@ var EmployeeUserSchema = z10.object({
       message: "Cargo inv\xE1lido"
     }
   ),
-  phone: z10.string().min(1, "Telefone obrigat\xF3rio").regex(phoneRegex, "N\xFAmero de telefone inv\xE1lido!"),
+  phone: employeePhoneSchema,
   subRole: z10.nativeEnum(FuncionarioSubRole2).optional().nullable(),
   cpf: z10.string().optional().refine(
     (value) => !value || /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(
@@ -11270,6 +11431,18 @@ var EmployeeUserSchema = z10.object({
   message: "As senhas n\xE3o conferem!",
   path: ["confirmPassword"]
 });
+var UpdateEmployeeSchema = z10.object({
+  name: employeeNameSchema.optional(),
+  email: employeeEmailSchema.optional(),
+  phone: z10.union([employeePhoneSchema, z10.literal(""), z10.null()]).optional(),
+  role: z10.nativeEnum(UserRole20).optional().refine(
+    (value) => !value || value === UserRole20.FUNCIONARIO || value === UserRole20.MOTOQUEIRO,
+    { message: "Cargo inv\xE1lido" }
+  ),
+  subRole: z10.nativeEnum(FuncionarioSubRole2).optional().nullable()
+}).refine((data) => Object.keys(data).length > 0, {
+  message: "Informe ao menos um dado para atualizar"
+});
 var loginSchema2 = z10.object({
   email: z10.string().email("Email inv\xE1lido"),
   password: z10.string().min(1, "Senha obrigat\xF3ria")
@@ -11280,17 +11453,10 @@ var CreateEmployeeController = class {
   async handle(req, res) {
     try {
       const restaurantId = req.user.restaurantId;
-      const { name, email, password, confirmPassword, phone, role, cpf, subRole } = req.body;
-      EmployeeUserSchema.parse({
-        name,
-        email,
-        password,
-        confirmPassword,
-        phone,
-        role,
-        subRole,
-        cpf
+      const parsed = EmployeeUserSchema.parse({
+        ...req.body
       });
+      const { name, email, password, phone, role, cpf, subRole } = parsed;
       const employee = await CreateEmployeeService_default.execute({
         name,
         email,
@@ -11340,19 +11506,26 @@ var ListEmployeeController = class {
 var ListEmployeeController_default = new ListEmployeeController();
 
 // src/modules/employee/services/UpdateEmployeeService.ts
+import { UserRole as UserRole21 } from "@prisma/client";
 var UpdateEmployeeService = class {
-  async execute({ id, restaurantId, name, phone, email, subRole }) {
+  async execute({ id, restaurantId, name, phone, email, role, subRole }) {
     const employee = await EmployeeRepository_default.findById(id, restaurantId);
     if (!employee) {
       throw new Error("Funcion\xE1rio n\xE3o encontrado!");
     }
-    const emailExists = await EmployeeRepository_default.findByEmail(email);
+    const emailExists = email ? await EmployeeRepository_default.findByEmail(email) : null;
     if (emailExists && emailExists.id !== employee.id) {
       throw new Error("Email j\xE1 est\xE1 em uso!");
     }
     return EmployeeRepository_default.update(
       id,
-      { name, phone, email, subRole: subRole ?? null },
+      {
+        ...name !== void 0 ? { name } : {},
+        ...phone !== void 0 ? { phone: phone || null } : {},
+        ...email !== void 0 ? { email } : {},
+        ...role !== void 0 ? { role } : {},
+        ...role === UserRole21.MOTOQUEIRO ? { subRole: null } : subRole !== void 0 ? { subRole } : {}
+      },
       restaurantId
     );
   }
@@ -11365,14 +11538,15 @@ var UpdateEmployeeController = class {
     try {
       const restaurantId = req.user.restaurantId;
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const { name, email, phone, subRole } = req.body;
+      const { name, email, phone, role, subRole } = UpdateEmployeeSchema.parse(req.body);
       const employee = await UpdateEmployeeService_default.execute({
         id,
         restaurantId,
         name,
         email,
         phone,
-        subRole: subRole ?? null
+        role,
+        subRole
       });
       return res.status(200).json(employee);
     } catch (error2) {
@@ -11387,11 +11561,29 @@ var UpdateEmployeeController_default = new UpdateEmployeeController();
 // src/modules/employee/services/DeactivateEmployeeService.ts
 var DeactivateEmployeeService = class {
   async execute(id, restaurantId) {
-    const employee = await EmployeeRepository_default.findById(id, restaurantId);
-    if (!employee) {
-      throw new Error("Funcion\xE1rio n\xE3o encontrado!");
+    const normalizedUserId = Number(id);
+    if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+      throw new Error("Funcion\xE1rio inv\xE1lido!");
     }
-    return EmployeeRepository_default.deactivate(id, restaurantId);
+    return prisma_default.$transaction(async (transaction) => {
+      const employee = await EmployeeRepository_default.findById(
+        normalizedUserId,
+        restaurantId,
+        transaction
+      );
+      if (!employee) {
+        throw new Error("Funcion\xE1rio n\xE3o encontrado!");
+      }
+      const deactivated = await EmployeeRepository_default.deactivate(
+        normalizedUserId,
+        restaurantId,
+        transaction
+      );
+      await transaction.authRefreshSession.deleteMany({
+        where: { userId: normalizedUserId }
+      });
+      return deactivated;
+    });
   }
 };
 var DeactivateEmployeeService_default = new DeactivateEmployeeService();
@@ -11486,6 +11678,46 @@ var TableRepository = class {
       where: {
         number: Number(number),
         restaurantId
+      }
+    });
+  }
+  async findPublicByReference({
+    number,
+    restaurantId,
+    restaurantSlug
+  }, db = prisma_default) {
+    return db.table.findFirst({
+      where: {
+        number,
+        active: true,
+        restaurant: {
+          active: true,
+          ...restaurantId ? { id: restaurantId } : {},
+          ...restaurantSlug ? { slug: restaurantSlug } : {}
+        }
+      },
+      select: {
+        id: true,
+        number: true,
+        restaurantId: true,
+        restaurant: {
+          select: {
+            slug: true,
+            settings: {
+              select: {
+                tableOrderingEnabled: true,
+                waiterCallEnabled: true,
+                billRequestEnabled: true
+              }
+            },
+            subscription: {
+              select: {
+                plan: true,
+                status: true
+              }
+            }
+          }
+        }
       }
     });
   }
@@ -11590,13 +11822,104 @@ var OpenTableSessionController_default = new OpenTableSessionController();
 
 // src/modules/tableSession/services/ValidatePinService.ts
 import bcrypt11 from "bcrypt";
+
+// src/modules/table/services/ResolvePublicTableService.ts
+var PublicTableResolutionError = class extends Error {
+  constructor(message, statusCode = 400, code = "INVALID_TABLE_REFERENCE") {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+  }
+  statusCode;
+  code;
+};
+var positiveInteger2 = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+var ResolvePublicTableService = class {
+  async execute({ tableNumber, tableId, restaurantId, restaurantSlug }) {
+    const normalizedTableNumber = positiveInteger2(tableNumber);
+    const normalizedTableId = tableId === void 0 || tableId === null || String(tableId).trim() === "" ? null : positiveInteger2(tableId);
+    const normalizedRestaurantId = restaurantId === void 0 || restaurantId === null || String(restaurantId).trim() === "" ? null : positiveInteger2(restaurantId);
+    const normalizedSlug = String(restaurantSlug || "").trim().toLowerCase();
+    if (!normalizedTableNumber) {
+      throw new PublicTableResolutionError("N\xFAmero da mesa inv\xE1lido.");
+    }
+    if (tableId !== void 0 && tableId !== null && String(tableId).trim() && !normalizedTableId) {
+      throw new PublicTableResolutionError("Identificador da mesa inv\xE1lido.");
+    }
+    if (restaurantId !== void 0 && restaurantId !== null && String(restaurantId).trim() && !normalizedRestaurantId) {
+      throw new PublicTableResolutionError("Restaurante inv\xE1lido.");
+    }
+    if (!normalizedRestaurantId && !normalizedSlug) {
+      throw new PublicTableResolutionError(
+        "O QR Code n\xE3o identifica o restaurante. Escaneie o c\xF3digo oficial novamente."
+      );
+    }
+    if (normalizedSlug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedSlug)) {
+      throw new PublicTableResolutionError("Identificador do restaurante inv\xE1lido.");
+    }
+    const table = await TableRepository_default.findPublicByReference({
+      number: normalizedTableNumber,
+      ...normalizedRestaurantId ? { restaurantId: normalizedRestaurantId } : {},
+      ...normalizedSlug ? { restaurantSlug: normalizedSlug } : {}
+    });
+    if (!table || normalizedTableId && table.id !== normalizedTableId) {
+      throw new PublicTableResolutionError(
+        "Mesa n\xE3o encontrada neste restaurante.",
+        404,
+        "TABLE_NOT_FOUND"
+      );
+    }
+    const subscription = table.restaurant.subscription;
+    const hasPremiumTableAccess = subscription?.plan === "PREMIUM" && (subscription.status === "ATIVA" || subscription.status === "TESTE");
+    if (!hasPremiumTableAccess) {
+      throw new PublicTableResolutionError(
+        "O card\xE1pio de mesa n\xE3o est\xE1 dispon\xEDvel para este restaurante.",
+        403,
+        "TABLE_MENU_UNAVAILABLE"
+      );
+    }
+    const settings = table.restaurant.settings;
+    return {
+      id: table.id,
+      number: table.number,
+      restaurantId: table.restaurantId,
+      restaurantSlug: table.restaurant.slug,
+      tableOrderingEnabled: settings?.tableOrderingEnabled !== false,
+      waiterCallEnabled: settings?.waiterCallEnabled !== false,
+      billRequestEnabled: settings?.billRequestEnabled !== false
+    };
+  }
+};
+var ResolvePublicTableService_default = new ResolvePublicTableService();
+
+// src/modules/tableSession/services/ValidatePinService.ts
 var ValidatePinService = class {
-  async execute({ tableId, pin }) {
+  async execute({ tableId, pin, tableNumber, restaurantId, restaurantSlug }) {
+    const normalizedTableId = Number(tableId);
+    const normalizedPin = String(pin || "").trim();
+    if (!Number.isInteger(normalizedTableId) || normalizedTableId <= 0) {
+      throw new Error("Mesa inv\xE1lida para validar o PIN.");
+    }
+    if (!/^\d{4}$/.test(normalizedPin)) {
+      throw new Error("O PIN deve conter 4 d\xEDgitos.");
+    }
     const session = await TableSessionRepository_default.findOpenedByTable(tableId);
     if (!session) {
       throw new Error("Essa mesa n\xE3o est\xE1 aberta!");
     }
-    const pinMatch = await bcrypt11.compare(pin, session.pinHash);
+    const resolvedTable = await ResolvePublicTableService_default.execute({
+      tableId: normalizedTableId,
+      tableNumber: tableNumber ?? session.table.number,
+      restaurantId,
+      restaurantSlug
+    });
+    if (!resolvedTable.tableOrderingEnabled) {
+      throw new Error("Os pedidos pelo card\xE1pio de mesa est\xE3o desativados neste restaurante.");
+    }
+    const pinMatch = await bcrypt11.compare(normalizedPin, session.pinHash);
     if (!pinMatch) {
       throw new Error("PIN inv\xE1lido!");
     }
@@ -11605,7 +11928,10 @@ var ValidatePinService = class {
       sessionId: session.id,
       tableId: session.tableId,
       tableNumber: session.table?.number ?? null,
-      restaurantId: session.table?.restaurantId ?? null
+      restaurantId: session.table?.restaurantId ?? null,
+      tableOrderingEnabled: resolvedTable.tableOrderingEnabled,
+      waiterCallEnabled: resolvedTable.waiterCallEnabled,
+      billRequestEnabled: resolvedTable.billRequestEnabled
     };
   }
 };
@@ -11615,8 +11941,14 @@ var ValidatePinService_default = new ValidatePinService();
 var ValidatePinController = class {
   async handle(req, res) {
     try {
-      const { tableId, pin } = req.body;
-      const result = await ValidatePinService_default.execute({ tableId, pin });
+      const { tableId, pin, tableNumber, restaurantId, restaurantSlug } = req.body;
+      const result = await ValidatePinService_default.execute({
+        tableId,
+        pin,
+        tableNumber,
+        restaurantId,
+        restaurantSlug
+      });
       return res.status(200).json(result);
     } catch (error2) {
       return res.status(400).json({
@@ -11702,14 +12034,24 @@ var ListOpenSessionsController_default = new ListOpenSessionsController();
 
 // src/modules/tableSession/services/RequestPinAssistanceService.ts
 var RequestPinAssistanceService = class {
-  async execute({ tableId }) {
+  async execute({
+    tableId,
+    tableNumber,
+    restaurantId,
+    restaurantSlug
+  }) {
     const parsedTableId = Number(tableId);
     if (!Number.isInteger(parsedTableId) || parsedTableId <= 0) {
       throw new Error("Mesa inv\xE1lida para solicitar o PIN.");
     }
-    const table = await TableRepository_default.findById(parsedTableId);
-    if (!table || !table.active) {
-      throw new Error("Mesa n\xE3o encontrada.");
+    const table = await ResolvePublicTableService_default.execute({
+      tableId: parsedTableId,
+      tableNumber,
+      restaurantId,
+      restaurantSlug
+    });
+    if (!table.tableOrderingEnabled) {
+      throw new Error("O acesso ao card\xE1pio de mesa est\xE1 desativado neste restaurante.");
     }
     const payload = {
       tableId: table.id,
@@ -11731,8 +12073,13 @@ var RequestPinAssistanceService_default = new RequestPinAssistanceService();
 var RequestPinAssistanceController = class {
   async handle(req, res) {
     try {
-      const { tableId } = req.body;
-      const result = await RequestPinAssistanceService_default.execute({ tableId });
+      const { tableId, tableNumber, restaurantId, restaurantSlug } = req.body;
+      const result = await RequestPinAssistanceService_default.execute({
+        tableId,
+        tableNumber,
+        restaurantId,
+        restaurantSlug
+      });
       return res.status(200).json(result);
     } catch (error2) {
       return res.status(400).json({
@@ -12043,8 +12390,32 @@ var DeactivateTableController = class {
 };
 var DeactivateTableController_default = new DeactivateTableController();
 
+// src/modules/table/controllers/ResolvePublicTableController.ts
+var ResolvePublicTableController = class {
+  async handle(req, res) {
+    try {
+      const table = await ResolvePublicTableService_default.execute({
+        tableNumber: String(req.query.tableNumber || ""),
+        tableId: req.query.tableId ? String(req.query.tableId) : null,
+        restaurantId: req.query.restaurantId ? String(req.query.restaurantId) : null,
+        restaurantSlug: req.query.slug ? String(req.query.slug) : null
+      });
+      return res.status(200).json(table);
+    } catch (error2) {
+      const statusCode = error2 instanceof PublicTableResolutionError ? error2.statusCode : 500;
+      const code = error2 instanceof PublicTableResolutionError ? error2.code : "PUBLIC_TABLE_RESOLUTION_FAILED";
+      return res.status(statusCode).json({
+        error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel identificar a mesa.",
+        code
+      });
+    }
+  }
+};
+var ResolvePublicTableController_default = new ResolvePublicTableController();
+
 // src/modules/table/routes/TablesRoutes.ts
 var router8 = Router8();
+router8.get("/public/resolve", (req, res) => ResolvePublicTableController_default.handle(req, res));
 router8.post(
   "/",
   authMiddleware,
@@ -12132,6 +12503,72 @@ function validateEstablishmentAddress(address) {
   return null;
 }
 
+// src/modules/restaurantSettings/utils/adminSettingsValidation.ts
+var ALLOWED_FONT_FAMILIES = /* @__PURE__ */ new Set(["Inter", "Manrope", "DM Sans"]);
+function normalizeNonNegativeMoney(value, label, fallback = 0) {
+  const normalized = value === void 0 || value === null || value === "" ? fallback : Number(value);
+  if (!Number.isFinite(normalized) || normalized < 0) {
+    throw new Error(`${label} deve ser um valor v\xE1lido e n\xE3o negativo.`);
+  }
+  return Math.round(normalized * 100) / 100;
+}
+function normalizeOptionalNonNegativeMoney(value, label) {
+  if (value === void 0 || value === null || value === "") return null;
+  const normalized = normalizeNonNegativeMoney(value, label);
+  return normalized > 0 ? normalized : null;
+}
+function normalizeStrictBoolean(value, label, fallback) {
+  if (value === void 0) return fallback;
+  if (typeof value !== "boolean") throw new Error(`${label} deve ser verdadeiro ou falso.`);
+  return value;
+}
+function normalizePrimaryColor(value, fallback = "#c95d3d") {
+  const normalized = String(value ?? fallback).trim();
+  if (!/^#[0-9a-f]{6}$/i.test(normalized)) {
+    throw new Error("Cor principal inv\xE1lida. Use o formato hexadecimal #RRGGBB.");
+  }
+  return normalized.toLowerCase();
+}
+function normalizeFontFamily(value, fallback = "Inter") {
+  const normalized = String(value ?? fallback).trim() || fallback;
+  if (!ALLOWED_FONT_FAMILIES.has(normalized)) {
+    throw new Error("Fonte inv\xE1lida. Escolha Inter, Manrope ou DM Sans.");
+  }
+  return normalized;
+}
+function normalizeOptionalText(value, label, maxLength) {
+  const normalized = String(value ?? "").trim();
+  if (normalized.length > maxLength) {
+    throw new Error(`${label} pode ter no m\xE1ximo ${maxLength} caracteres.`);
+  }
+  return normalized || null;
+}
+function normalizeSocialReference(value, label) {
+  const normalized = normalizeOptionalText(value, label, 2048);
+  if (!normalized) return null;
+  if (/^javascript:/i.test(normalized)) throw new Error(`${label} inv\xE1lido.`);
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const url = new URL(normalized);
+      if (!["http:", "https:"].includes(url.protocol)) throw new Error("protocol");
+    } catch {
+      throw new Error(`${label} inv\xE1lido.`);
+    }
+    return normalized;
+  }
+  if (!/^[A-Za-z0-9@._/-]+$/.test(normalized)) {
+    throw new Error(`${label} inv\xE1lido. Use o nome de usu\xE1rio ou a URL completa do perfil.`);
+  }
+  return normalized;
+}
+function normalizeWhatsappNumber(value) {
+  const normalized = String(value ?? "").replace(/\D/g, "");
+  if (normalized && !/^\d{10,15}$/.test(normalized)) {
+    throw new Error("N\xFAmero do WhatsApp inv\xE1lido. Informe DDI, DDD e n\xFAmero.");
+  }
+  return normalized || null;
+}
+
 // src/modules/restaurantSettings/services/CreateRestaurantSettingsService.ts
 var CreateRestaurantSettingsService = class {
   async execute({
@@ -12139,6 +12576,14 @@ var CreateRestaurantSettingsService = class {
     deliveryFee,
     courierFeePerDelivery,
     minimumOrder,
+    freeShippingMinimum,
+    acceptsDelivery,
+    acceptsPickup,
+    acceptsPix,
+    acceptsCard,
+    tableOrderingEnabled,
+    waiterCallEnabled,
+    billRequestEnabled,
     pixProvider,
     pixKey,
     legalDocumentType,
@@ -12174,8 +12619,19 @@ var CreateRestaurantSettingsService = class {
     bankProofFileUrl,
     companyContractFileUrl,
     whatsapp,
+    whatsappEnabled,
+    whatsappDisplayName,
+    whatsappDefaultMessage,
+    receiveOrdersOnWhatsapp,
+    receiveStatusNotifications,
     instagram,
     facebook,
+    tiktok,
+    youtube,
+    primaryColor,
+    fontFamily,
+    seoTitle,
+    seoDescription,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -12199,7 +12655,7 @@ var CreateRestaurantSettingsService = class {
     if (settingsExists) {
       throw new Error("Configura\xE7\xF5es j\xE1 existem para esse restaurante!");
     }
-    const normalizedWhatsapp = whatsapp === void 0 ? void 0 : String(whatsapp || "").trim() || null;
+    const normalizedWhatsapp = whatsapp === void 0 ? void 0 : normalizeWhatsappNumber(whatsapp);
     const normalizedRestaurantName = restaurantName === void 0 ? void 0 : String(restaurantName || "").trim();
     const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage = restaurantCoverImage === void 0 ? void 0 : String(restaurantCoverImage || "").trim() || null;
@@ -12224,6 +12680,14 @@ var CreateRestaurantSettingsService = class {
     const normalizedOwnerCpf = String(ownerCpf || "").replace(/\D/g, "");
     const normalizedOwnerPhone = String(ownerPhone || "").replace(/\D/g, "");
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
+    const normalizedWhatsappEnabled = normalizeStrictBoolean(
+      whatsappEnabled,
+      "Integra\xE7\xE3o com WhatsApp",
+      false
+    );
+    if (normalizedWhatsappEnabled && !normalizedWhatsapp) {
+      throw new Error("Informe o n\xFAmero comercial antes de ativar o WhatsApp.");
+    }
     if (normalizedLegalDocumentType === "CNPJ" && normalizedCompanyDocument.length > 0 && normalizedCompanyDocument.length !== 14) {
       throw new Error("CNPJ inv\xE1lido para cadastro da empresa.");
     }
@@ -12237,9 +12701,35 @@ var CreateRestaurantSettingsService = class {
     }
     const created = await RestaurantSettingsRepository_default.create({
       restaurantId: Number(restaurantId),
-      deliveryFee,
-      courierFeePerDelivery: Math.max(Number(courierFeePerDelivery || 0), 0),
-      minimumOrder,
+      deliveryFee: normalizeNonNegativeMoney(deliveryFee, "Taxa de entrega"),
+      courierFeePerDelivery: normalizeNonNegativeMoney(
+        courierFeePerDelivery,
+        "Repasse por entrega"
+      ),
+      minimumOrder: normalizeNonNegativeMoney(minimumOrder, "Pedido m\xEDnimo"),
+      freeShippingMinimum: normalizeOptionalNonNegativeMoney(
+        freeShippingMinimum,
+        "Frete gr\xE1tis acima de"
+      ),
+      acceptsDelivery: normalizeStrictBoolean(acceptsDelivery, "Delivery", true),
+      acceptsPickup: normalizeStrictBoolean(acceptsPickup, "Retirada", true),
+      acceptsPix: normalizeStrictBoolean(acceptsPix, "Pagamento por PIX", true),
+      acceptsCard: normalizeStrictBoolean(acceptsCard, "Pagamento por cart\xE3o", true),
+      tableOrderingEnabled: normalizeStrictBoolean(
+        tableOrderingEnabled,
+        "Pedidos por QR Code",
+        true
+      ),
+      waiterCallEnabled: normalizeStrictBoolean(
+        waiterCallEnabled,
+        "Chamados ao gar\xE7om",
+        true
+      ),
+      billRequestEnabled: normalizeStrictBoolean(
+        billRequestEnabled,
+        "Solicita\xE7\xE3o da conta",
+        true
+      ),
       pixProvider: String(pixProvider || "MERCADO_PAGO").trim().toUpperCase(),
       pixKey,
       legalDocumentType: normalizedLegalDocumentType || null,
@@ -12274,8 +12764,39 @@ var CreateRestaurantSettingsService = class {
       ownerDocumentFileUrl: String(ownerDocumentFileUrl || "").trim() || null,
       bankProofFileUrl: String(bankProofFileUrl || "").trim() || null,
       companyContractFileUrl: String(companyContractFileUrl || "").trim() || null,
-      instagram,
-      facebook,
+      primaryColor: normalizePrimaryColor(primaryColor),
+      instagram: normalizeSocialReference(instagram, "Instagram"),
+      facebook: normalizeSocialReference(facebook, "Facebook"),
+      tiktok: normalizeSocialReference(tiktok, "TikTok"),
+      youtube: normalizeSocialReference(youtube, "YouTube"),
+      fontFamily: normalizeFontFamily(fontFamily),
+      seoTitle: normalizeOptionalText(seoTitle, "T\xEDtulo para buscadores", 70),
+      seoDescription: normalizeOptionalText(
+        seoDescription,
+        "Descri\xE7\xE3o para buscadores",
+        160
+      ),
+      whatsappEnabled: normalizedWhatsappEnabled,
+      whatsappDisplayName: normalizeOptionalText(
+        whatsappDisplayName,
+        "Nome exibido no WhatsApp",
+        80
+      ),
+      whatsappDefaultMessage: normalizeOptionalText(
+        whatsappDefaultMessage,
+        "Mensagem inicial do WhatsApp",
+        500
+      ),
+      receiveOrdersOnWhatsapp: normalizeStrictBoolean(
+        receiveOrdersOnWhatsapp,
+        "Pedidos pelo WhatsApp",
+        false
+      ),
+      receiveStatusNotifications: normalizeStrictBoolean(
+        receiveStatusNotifications,
+        "Notifica\xE7\xF5es de status pelo WhatsApp",
+        false
+      ),
       businessHours: normalizedBusinessHours,
       isOpenForOrders: isOpenForOrders === void 0 ? true : Boolean(isOpenForOrders),
       averageDeliveryTime: averageDeliveryTime === void 0 ? void 0 : String(Math.max(1, Number(averageDeliveryTime) || 1)),
@@ -12352,6 +12873,14 @@ var CreateRestaurantSettingsController = class {
         deliveryFee,
         courierFeePerDelivery,
         minimumOrder,
+        freeShippingMinimum,
+        acceptsDelivery,
+        acceptsPickup,
+        acceptsPix,
+        acceptsCard,
+        tableOrderingEnabled,
+        waiterCallEnabled,
+        billRequestEnabled,
         pixProvider,
         pixKey,
         legalDocumentType,
@@ -12387,8 +12916,19 @@ var CreateRestaurantSettingsController = class {
         bankProofFileUrl,
         companyContractFileUrl,
         whatsapp,
+        whatsappEnabled,
+        whatsappDisplayName,
+        whatsappDefaultMessage,
+        receiveOrdersOnWhatsapp,
+        receiveStatusNotifications,
         instagram,
         facebook,
+        tiktok,
+        youtube,
+        primaryColor,
+        fontFamily,
+        seoTitle,
+        seoDescription,
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
@@ -12413,6 +12953,14 @@ var CreateRestaurantSettingsController = class {
         deliveryFee,
         courierFeePerDelivery,
         minimumOrder,
+        freeShippingMinimum,
+        acceptsDelivery,
+        acceptsPickup,
+        acceptsPix,
+        acceptsCard,
+        tableOrderingEnabled,
+        waiterCallEnabled,
+        billRequestEnabled,
         pixProvider,
         pixKey,
         legalDocumentType,
@@ -12448,8 +12996,19 @@ var CreateRestaurantSettingsController = class {
         bankProofFileUrl,
         companyContractFileUrl,
         whatsapp,
+        whatsappEnabled,
+        whatsappDisplayName,
+        whatsappDefaultMessage,
+        receiveOrdersOnWhatsapp,
+        receiveStatusNotifications,
         instagram,
         facebook,
+        tiktok,
+        youtube,
+        primaryColor,
+        fontFamily,
+        seoTitle,
+        seoDescription,
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
@@ -12494,6 +13053,14 @@ var GetRestaurantSettingsService = class {
         restaurantId: normalizedRestaurantId,
         deliveryFee: 0,
         minimumOrder: 0,
+        freeShippingMinimum: null,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        acceptsPix: true,
+        acceptsCard: true,
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
         pixProvider: "MERCADO_PAGO",
         pixKey: null,
         legalDocumentType: null,
@@ -12536,7 +13103,20 @@ var GetRestaurantSettingsService = class {
         companyContractFileUrl: null,
         instagram: null,
         facebook: null,
+        tiktok: null,
+        youtube: null,
+        primaryColor: "#c95d3d",
+        fontFamily: "Inter",
+        seoTitle: null,
+        seoDescription: null,
         whatsapp: String(restaurant.whatsapp || "").trim() || null,
+        whatsappEnabled: false,
+        whatsappDisplayName: null,
+        whatsappDefaultMessage: null,
+        receiveOrdersOnWhatsapp: false,
+        receiveStatusNotifications: false,
+        businessHours: null,
+        isOpenForOrders: true,
         averageDeliveryTime: null,
         autoAcceptOrders: false,
         trackingRequiresLogin: true,
@@ -12547,7 +13127,14 @@ var GetRestaurantSettingsService = class {
           logo: restaurant.logo,
           coverImage: restaurant.coverImage,
           description: restaurant.description,
-          whatsapp: String(restaurant.whatsapp || "").trim() || null
+          whatsapp: String(restaurant.whatsapp || "").trim() || null,
+          address: restaurant.address,
+          addressNumber: restaurant.addressNumber,
+          addressComplement: restaurant.addressComplement,
+          addressDistrict: restaurant.addressDistrict,
+          city: restaurant.city,
+          state: restaurant.state,
+          zipCode: restaurant.zipCode
         }
       };
       return fallback;
@@ -12640,6 +13227,14 @@ var UpdateRestaurantSettingsService = class {
     deliveryFee,
     courierFeePerDelivery,
     minimumOrder,
+    freeShippingMinimum,
+    acceptsDelivery,
+    acceptsPickup,
+    acceptsPix,
+    acceptsCard,
+    tableOrderingEnabled,
+    waiterCallEnabled,
+    billRequestEnabled,
     pixProvider,
     pixKey,
     legalDocumentType,
@@ -12675,8 +13270,19 @@ var UpdateRestaurantSettingsService = class {
     bankProofFileUrl,
     companyContractFileUrl,
     whatsapp,
+    whatsappEnabled,
+    whatsappDisplayName,
+    whatsappDefaultMessage,
+    receiveOrdersOnWhatsapp,
+    receiveStatusNotifications,
     instagram,
     facebook,
+    tiktok,
+    youtube,
+    primaryColor,
+    fontFamily,
+    seoTitle,
+    seoDescription,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -12700,7 +13306,7 @@ var UpdateRestaurantSettingsService = class {
     if (!settings) {
       throw new Error("Configura\xE7\xF5es n\xE3o encontradas!");
     }
-    const normalizedWhatsapp = whatsapp === void 0 ? void 0 : String(whatsapp || "").trim() || null;
+    const normalizedWhatsapp = whatsapp === void 0 ? void 0 : normalizeWhatsappNumber(whatsapp);
     const normalizedRestaurantName = restaurantName === void 0 ? void 0 : String(restaurantName || "").trim();
     const normalizedRestaurantLogo = restaurantLogo === void 0 ? void 0 : normalizeRestaurantImage(restaurantLogo);
     const normalizedRestaurantCoverImage = restaurantCoverImage === void 0 ? void 0 : String(restaurantCoverImage || "").trim() || null;
@@ -12745,6 +13351,11 @@ var UpdateRestaurantSettingsService = class {
     const normalizedTrackingRequiresLogin = trackingRequiresLogin === void 0 ? void 0 : Boolean(trackingRequiresLogin);
     const normalizedSoundNotifications = soundNotifications === void 0 ? void 0 : Boolean(soundNotifications);
     const normalizedMaxConcurrentOrders = maxConcurrentOrders === void 0 ? void 0 : Math.min(500, Math.max(1, Number(maxConcurrentOrders) || 1));
+    const normalizedWhatsappEnabled = whatsappEnabled === void 0 ? void 0 : normalizeStrictBoolean(whatsappEnabled, "Integra\xE7\xE3o com WhatsApp", false);
+    const resolvedWhatsappNumber = normalizedWhatsapp === void 0 ? String(settings?.restaurant?.whatsapp || "").replace(/\D/g, "") || null : normalizedWhatsapp;
+    if (normalizedWhatsappEnabled === true && !resolvedWhatsappNumber) {
+      throw new Error("Informe o n\xFAmero comercial antes de ativar o WhatsApp.");
+    }
     const normalizedLegalDocumentType = legalDocumentType === void 0 ? void 0 : String(legalDocumentType || "").trim().toUpperCase() || null;
     const normalizedCompanyDocument = companyDocument === void 0 ? void 0 : String(companyDocument || "").replace(/\D/g, "") || null;
     const normalizedOwnerCpf = ownerCpf === void 0 ? void 0 : String(ownerCpf || "").replace(/\D/g, "") || null;
@@ -12797,9 +13408,20 @@ var UpdateRestaurantSettingsService = class {
       throw new Error("E-mail comercial inv\xE1lido.");
     }
     const updated = await RestaurantSettingsRepository_default.update(restaurantId, {
-      deliveryFee,
-      courierFeePerDelivery: courierFeePerDelivery === void 0 ? void 0 : Math.max(Number(courierFeePerDelivery || 0), 0),
-      minimumOrder,
+      deliveryFee: deliveryFee === void 0 ? void 0 : normalizeNonNegativeMoney(deliveryFee, "Taxa de entrega"),
+      courierFeePerDelivery: courierFeePerDelivery === void 0 ? void 0 : normalizeNonNegativeMoney(courierFeePerDelivery, "Repasse por entrega"),
+      minimumOrder: minimumOrder === void 0 ? void 0 : normalizeNonNegativeMoney(minimumOrder, "Pedido m\xEDnimo"),
+      freeShippingMinimum: freeShippingMinimum === void 0 ? void 0 : normalizeOptionalNonNegativeMoney(
+        freeShippingMinimum,
+        "Frete gr\xE1tis acima de"
+      ),
+      acceptsDelivery: acceptsDelivery === void 0 ? void 0 : normalizeStrictBoolean(acceptsDelivery, "Delivery", true),
+      acceptsPickup: acceptsPickup === void 0 ? void 0 : normalizeStrictBoolean(acceptsPickup, "Retirada", true),
+      acceptsPix: acceptsPix === void 0 ? void 0 : normalizeStrictBoolean(acceptsPix, "Pagamento por PIX", true),
+      acceptsCard: acceptsCard === void 0 ? void 0 : normalizeStrictBoolean(acceptsCard, "Pagamento por cart\xE3o", true),
+      tableOrderingEnabled: tableOrderingEnabled === void 0 ? void 0 : normalizeStrictBoolean(tableOrderingEnabled, "Pedidos por QR Code", true),
+      waiterCallEnabled: waiterCallEnabled === void 0 ? void 0 : normalizeStrictBoolean(waiterCallEnabled, "Chamados ao gar\xE7om", true),
+      billRequestEnabled: billRequestEnabled === void 0 ? void 0 : normalizeStrictBoolean(billRequestEnabled, "Solicita\xE7\xE3o da conta", true),
       pixProvider: resolvedPixProvider,
       pixKey,
       legalDocumentType: normalizedLegalDocumentType,
@@ -12834,8 +13456,23 @@ var UpdateRestaurantSettingsService = class {
       ownerDocumentFileUrl: ownerDocumentFileUrl === void 0 ? void 0 : String(ownerDocumentFileUrl || "").trim() || null,
       bankProofFileUrl: bankProofFileUrl === void 0 ? void 0 : String(bankProofFileUrl || "").trim() || null,
       companyContractFileUrl: companyContractFileUrl === void 0 ? void 0 : String(companyContractFileUrl || "").trim() || null,
-      instagram,
-      facebook,
+      primaryColor: primaryColor === void 0 ? void 0 : normalizePrimaryColor(primaryColor),
+      instagram: instagram === void 0 ? void 0 : normalizeSocialReference(instagram, "Instagram"),
+      facebook: facebook === void 0 ? void 0 : normalizeSocialReference(facebook, "Facebook"),
+      tiktok: tiktok === void 0 ? void 0 : normalizeSocialReference(tiktok, "TikTok"),
+      youtube: youtube === void 0 ? void 0 : normalizeSocialReference(youtube, "YouTube"),
+      fontFamily: fontFamily === void 0 ? void 0 : normalizeFontFamily(fontFamily),
+      seoTitle: seoTitle === void 0 ? void 0 : normalizeOptionalText(seoTitle, "T\xEDtulo para buscadores", 70),
+      seoDescription: seoDescription === void 0 ? void 0 : normalizeOptionalText(seoDescription, "Descri\xE7\xE3o para buscadores", 160),
+      whatsappEnabled: normalizedWhatsappEnabled,
+      whatsappDisplayName: whatsappDisplayName === void 0 ? void 0 : normalizeOptionalText(whatsappDisplayName, "Nome exibido no WhatsApp", 80),
+      whatsappDefaultMessage: whatsappDefaultMessage === void 0 ? void 0 : normalizeOptionalText(whatsappDefaultMessage, "Mensagem inicial do WhatsApp", 500),
+      receiveOrdersOnWhatsapp: receiveOrdersOnWhatsapp === void 0 ? void 0 : normalizeStrictBoolean(receiveOrdersOnWhatsapp, "Pedidos pelo WhatsApp", false),
+      receiveStatusNotifications: receiveStatusNotifications === void 0 ? void 0 : normalizeStrictBoolean(
+        receiveStatusNotifications,
+        "Notifica\xE7\xF5es de status pelo WhatsApp",
+        false
+      ),
       businessHours: normalizedBusinessHours,
       isOpenForOrders: normalizedIsOpenForOrders,
       averageDeliveryTime: normalizedAverageDeliveryTime,
@@ -12915,6 +13552,14 @@ var UpdateRestaurantSettingsController = class {
         deliveryFee,
         courierFeePerDelivery,
         minimumOrder,
+        freeShippingMinimum,
+        acceptsDelivery,
+        acceptsPickup,
+        acceptsPix,
+        acceptsCard,
+        tableOrderingEnabled,
+        waiterCallEnabled,
+        billRequestEnabled,
         pixProvider,
         pixKey,
         legalDocumentType,
@@ -12950,8 +13595,19 @@ var UpdateRestaurantSettingsController = class {
         bankProofFileUrl,
         companyContractFileUrl,
         whatsapp,
+        whatsappEnabled,
+        whatsappDisplayName,
+        whatsappDefaultMessage,
+        receiveOrdersOnWhatsapp,
+        receiveStatusNotifications,
         instagram,
         facebook,
+        tiktok,
+        youtube,
+        primaryColor,
+        fontFamily,
+        seoTitle,
+        seoDescription,
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
@@ -12976,6 +13632,14 @@ var UpdateRestaurantSettingsController = class {
         deliveryFee,
         courierFeePerDelivery,
         minimumOrder,
+        freeShippingMinimum,
+        acceptsDelivery,
+        acceptsPickup,
+        acceptsPix,
+        acceptsCard,
+        tableOrderingEnabled,
+        waiterCallEnabled,
+        billRequestEnabled,
         pixProvider,
         pixKey,
         legalDocumentType,
@@ -13011,8 +13675,19 @@ var UpdateRestaurantSettingsController = class {
         bankProofFileUrl,
         companyContractFileUrl,
         whatsapp,
+        whatsappEnabled,
+        whatsappDisplayName,
+        whatsappDefaultMessage,
+        receiveOrdersOnWhatsapp,
+        receiveStatusNotifications,
         instagram,
         facebook,
+        tiktok,
+        youtube,
+        primaryColor,
+        fontFamily,
+        seoTitle,
+        seoDescription,
         restaurantName,
         restaurantLogo,
         restaurantCoverImage,
@@ -13048,7 +13723,7 @@ var GetPublicRestaurantSettingsService = class {
     let normalizedRestaurantId = Number(restaurantId);
     if ((!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) && slug) {
       const restaurant = await RestaurantRepository_default.findBySlug(String(slug).trim());
-      normalizedRestaurantId = Number(restaurant?.id || 0);
+      normalizedRestaurantId = restaurant?.active === false ? 0 : Number(restaurant?.id || 0);
     }
     if (useDefault && (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0)) {
       const restaurant = await RestaurantSettingsRepository_default.findDefaultActiveRestaurant();
@@ -13060,15 +13735,37 @@ var GetPublicRestaurantSettingsService = class {
     const settings = await RestaurantSettingsRepository_default.findPublicByRestaurantId(normalizedRestaurantId);
     if (!settings) {
       const restaurant = await RestaurantSettingsRepository_default.findRestaurantById(normalizedRestaurantId);
+      if (restaurant?.active === false) {
+        throw new Error("Restaurante n\xE3o encontrado ou indispon\xEDvel.");
+      }
       const fallback = {
         restaurantId: normalizedRestaurantId,
         primaryColor: "#c95d3d",
         deliveryFee: 0,
         minimumOrder: 0,
+        freeShippingMinimum: null,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        acceptsPix: true,
+        acceptsCard: true,
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
         pixProvider: "MERCADO_PAGO",
         pixKey: null,
         instagram: null,
         facebook: null,
+        tiktok: null,
+        youtube: null,
+        fontFamily: "Inter",
+        seoTitle: null,
+        seoDescription: null,
+        whatsapp: String(restaurant?.whatsapp || "").replace(/\D/g, "") || null,
+        whatsappEnabled: false,
+        whatsappDisplayName: null,
+        whatsappDefaultMessage: null,
+        receiveOrdersOnWhatsapp: false,
+        receiveStatusNotifications: false,
         companyLegalName: null,
         ownerEmail: null,
         ownerPhone: null,
@@ -13097,7 +13794,13 @@ var GetPublicRestaurantSettingsService = class {
       };
       return fallback;
     }
-    return settings;
+    if (settings.restaurant?.active === false) {
+      throw new Error("Restaurante n\xE3o encontrado ou indispon\xEDvel.");
+    }
+    return {
+      ...settings,
+      whatsapp: String(settings.restaurant?.whatsapp || "").replace(/\D/g, "") || null
+    };
   }
 };
 var GetPublicRestaurantSettingsService_default = new GetPublicRestaurantSettingsService();

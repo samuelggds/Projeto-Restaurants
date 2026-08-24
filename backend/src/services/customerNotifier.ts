@@ -1,3 +1,5 @@
+import prisma from '../config/prisma.js';
+
 const configuredProvider = String(process.env.CUSTOMER_NOTIFICATION_PROVIDER || 'none')
   .trim()
   .toLowerCase();
@@ -6,6 +8,7 @@ const whatsappWebhookUrl = String(process.env.WHATSAPP_WEBHOOK_URL || '').trim()
 const whatsappWebhookToken = String(process.env.WHATSAPP_WEBHOOK_TOKEN || '').trim();
 
 type PaymentConfirmedPayload = {
+  restaurantId?: number | string | null;
   restaurantWhatsapp?: string | null;
   customerPhone?: string | null;
   customerName?: string | null;
@@ -16,6 +19,7 @@ type PaymentConfirmedPayload = {
 };
 
 type OrderStatusChangedPayload = {
+  restaurantId?: number | string | null;
   restaurantWhatsapp?: string | null;
   customerPhone?: string | null;
   customerName?: string | null;
@@ -49,6 +53,83 @@ type RestaurantOrderIssueReportedPayload = {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'unknown';
+}
+
+type CustomerWhatsappPreference = {
+  enabled: boolean;
+  reason?:
+    | 'restaurant_settings_not_found'
+    | 'whatsapp_disabled'
+    | 'status_notifications_disabled'
+    | 'notification_preference_lookup_failed';
+};
+
+/**
+ * Resolve a preferência sempre pelo tenant do pedido. Payloads antigos que não
+ * carregavam restaurantId continuam funcionando; quando o tenant é conhecido,
+ * porém, uma configuração explicitamente desativada sempre prevalece.
+ */
+async function resolveCustomerWhatsappPreference(
+  restaurantId: number | string | null | undefined,
+): Promise<CustomerWhatsappPreference> {
+  if (restaurantId === undefined || restaurantId === null || restaurantId === '') {
+    return { enabled: true };
+  }
+
+  const normalizedRestaurantId = Number(restaurantId);
+  if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+    console.error('[CUSTOMER_NOTIFICATION_SETTINGS_ERROR]', {
+      restaurantId,
+      message: 'restaurantId inválido',
+    });
+    return {
+      enabled: false,
+      reason: 'notification_preference_lookup_failed',
+    };
+  }
+
+  try {
+    const settings = await prisma.restaurantSettings.findUnique({
+      where: { restaurantId: normalizedRestaurantId },
+      select: {
+        whatsappEnabled: true,
+        receiveStatusNotifications: true,
+      },
+    });
+
+    if (!settings) {
+      return {
+        enabled: false,
+        reason: 'restaurant_settings_not_found',
+      };
+    }
+
+    // Propriedades ausentes mantêm compatibilidade com mocks e payloads antigos.
+    if ('whatsappEnabled' in settings && settings.whatsappEnabled === false) {
+      return {
+        enabled: false,
+        reason: 'whatsapp_disabled',
+      };
+    }
+
+    if ('receiveStatusNotifications' in settings && settings.receiveStatusNotifications === false) {
+      return {
+        enabled: false,
+        reason: 'status_notifications_disabled',
+      };
+    }
+
+    return { enabled: true };
+  } catch (error: unknown) {
+    console.error('[CUSTOMER_NOTIFICATION_SETTINGS_ERROR]', {
+      restaurantId: normalizedRestaurantId,
+      message: getErrorMessage(error),
+    });
+    return {
+      enabled: false,
+      reason: 'notification_preference_lookup_failed',
+    };
+  }
 }
 
 function resolveProvider() {
@@ -516,6 +597,7 @@ async function notifyRestaurantOrderIssueReportedViaWhatsappWebhook({
 }
 
 export async function notifyCustomerPaymentConfirmed({
+  restaurantId,
   restaurantWhatsapp,
   customerPhone,
   customerName,
@@ -524,6 +606,14 @@ export async function notifyCustomerPaymentConfirmed({
   total,
   paymentMethod,
 }: PaymentConfirmedPayload) {
+  const preference = await resolveCustomerWhatsappPreference(restaurantId);
+  if (!preference.enabled) {
+    return {
+      sent: false,
+      reason: preference.reason,
+    };
+  }
+
   const provider = resolveProvider();
 
   if (provider === 'none') {
@@ -557,12 +647,12 @@ export async function notifyCustomerPaymentConfirmed({
       sent: false,
       reason: 'send_failed',
       provider,
-      error: getErrorMessage(error),
     };
   }
 }
 
 export async function notifyCustomerOrderStatusChanged({
+  restaurantId,
   restaurantWhatsapp,
   customerPhone,
   customerName,
@@ -570,6 +660,14 @@ export async function notifyCustomerOrderStatusChanged({
   orderId,
   status,
 }: OrderStatusChangedPayload) {
+  const preference = await resolveCustomerWhatsappPreference(restaurantId);
+  if (!preference.enabled) {
+    return {
+      sent: false,
+      reason: preference.reason,
+    };
+  }
+
   const provider = resolveProvider();
 
   if (provider === 'none') {
@@ -602,7 +700,6 @@ export async function notifyCustomerOrderStatusChanged({
       sent: false,
       reason: 'send_failed',
       provider,
-      error: getErrorMessage(error),
     };
   }
 }

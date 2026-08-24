@@ -7,12 +7,31 @@ import {
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
 import { normalizeBusinessHours } from '../utils/businessHours.js';
+import {
+  normalizeFontFamily,
+  normalizeIntegerInRange,
+  normalizeNonNegativeMoney,
+  normalizeOptionalNonNegativeMoney,
+  normalizeOptionalText,
+  normalizePrimaryColor,
+  normalizeSocialReference,
+  normalizeStrictBoolean,
+  normalizeWhatsappNumber,
+} from '../utils/adminSettingsValidation.js';
 
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee?: number;
   courierFeePerDelivery?: number;
   minimumOrder?: number;
+  freeShippingMinimum?: number | null;
+  acceptsDelivery?: boolean;
+  acceptsPickup?: boolean;
+  acceptsPix?: boolean;
+  acceptsCard?: boolean;
+  tableOrderingEnabled?: boolean;
+  waiterCallEnabled?: boolean;
+  billRequestEnabled?: boolean;
   pixProvider?: string;
   pixKey?: string | null;
   legalDocumentType?: string | null;
@@ -48,8 +67,19 @@ type UpdateRestaurantSettingsPayload = {
   bankProofFileUrl?: string | null;
   companyContractFileUrl?: string | null;
   whatsapp?: string | null;
+  whatsappEnabled?: boolean;
+  whatsappDisplayName?: string | null;
+  whatsappDefaultMessage?: string | null;
+  receiveOrdersOnWhatsapp?: boolean;
+  receiveStatusNotifications?: boolean;
   instagram?: string | null;
   facebook?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+  primaryColor?: string | null;
+  fontFamily?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
@@ -134,6 +164,14 @@ class UpdateRestaurantSettingsService {
     deliveryFee,
     courierFeePerDelivery,
     minimumOrder,
+    freeShippingMinimum,
+    acceptsDelivery,
+    acceptsPickup,
+    acceptsPix,
+    acceptsCard,
+    tableOrderingEnabled,
+    waiterCallEnabled,
+    billRequestEnabled,
     pixProvider,
     pixKey,
     legalDocumentType,
@@ -169,8 +207,19 @@ class UpdateRestaurantSettingsService {
     bankProofFileUrl,
     companyContractFileUrl,
     whatsapp,
+    whatsappEnabled,
+    whatsappDisplayName,
+    whatsappDefaultMessage,
+    receiveOrdersOnWhatsapp,
+    receiveStatusNotifications,
     instagram,
     facebook,
+    tiktok,
+    youtube,
+    primaryColor,
+    fontFamily,
+    seoTitle,
+    seoDescription,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -197,7 +246,7 @@ class UpdateRestaurantSettingsService {
     }
 
     const normalizedWhatsapp =
-      whatsapp === undefined ? undefined : String(whatsapp || '').trim() || null;
+      whatsapp === undefined ? undefined : normalizeWhatsappNumber(whatsapp);
     const normalizedRestaurantName =
       restaurantName === undefined ? undefined : String(restaurantName || '').trim();
     const normalizedRestaurantLogo =
@@ -205,11 +254,11 @@ class UpdateRestaurantSettingsService {
     const normalizedRestaurantCoverImage =
       restaurantCoverImage === undefined
         ? undefined
-        : String(restaurantCoverImage || '').trim() || null;
+        : normalizeRestaurantImage(restaurantCoverImage);
     const normalizedRestaurantDescription =
       restaurantDescription === undefined
         ? undefined
-        : String(restaurantDescription || '').trim() || null;
+        : normalizeOptionalText(restaurantDescription, 'Descrição do restaurante', 500);
     const establishmentAddress = normalizeEstablishmentAddress({
       address: restaurantAddress,
       number: restaurantAddressNumber,
@@ -263,21 +312,40 @@ class UpdateRestaurantSettingsService {
     const normalizedPagBankEnvironment = 'production';
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     const normalizedIsOpenForOrders =
-      isOpenForOrders === undefined ? undefined : Boolean(isOpenForOrders);
+      isOpenForOrders === undefined
+        ? undefined
+        : normalizeStrictBoolean(isOpenForOrders, 'Recebimento de pedidos', true);
     const normalizedAverageDeliveryTime =
       averageDeliveryTime === undefined
         ? undefined
-        : String(Math.max(1, Number(averageDeliveryTime) || 1));
+        : String(normalizeIntegerInRange(averageDeliveryTime, 'Tempo médio de preparo', 1, 240));
     const normalizedAutoAcceptOrders =
-      autoAcceptOrders === undefined ? undefined : Boolean(autoAcceptOrders);
+      autoAcceptOrders === undefined
+        ? undefined
+        : normalizeStrictBoolean(autoAcceptOrders, 'Aceite automático de pedidos', false);
     const normalizedTrackingRequiresLogin =
-      trackingRequiresLogin === undefined ? undefined : Boolean(trackingRequiresLogin);
+      trackingRequiresLogin === undefined
+        ? undefined
+        : normalizeStrictBoolean(trackingRequiresLogin, 'Login para rastreamento', true);
     const normalizedSoundNotifications =
-      soundNotifications === undefined ? undefined : Boolean(soundNotifications);
+      soundNotifications === undefined
+        ? undefined
+        : normalizeStrictBoolean(soundNotifications, 'Notificação sonora', true);
     const normalizedMaxConcurrentOrders =
       maxConcurrentOrders === undefined
         ? undefined
-        : Math.min(500, Math.max(1, Number(maxConcurrentOrders) || 1));
+        : normalizeIntegerInRange(maxConcurrentOrders, 'Limite de pedidos simultâneos', 1, 500);
+    const normalizedWhatsappEnabled =
+      whatsappEnabled === undefined
+        ? undefined
+        : normalizeStrictBoolean(whatsappEnabled, 'Integração com WhatsApp', false);
+    const resolvedWhatsappNumber =
+      normalizedWhatsapp === undefined
+        ? String(settings?.restaurant?.whatsapp || '').replace(/\D/g, '') || null
+        : normalizedWhatsapp;
+    if (normalizedWhatsappEnabled === true && !resolvedWhatsappNumber) {
+      throw new Error('Informe o número comercial antes de ativar o WhatsApp.');
+    }
     const normalizedLegalDocumentType =
       legalDocumentType === undefined
         ? undefined
@@ -349,8 +417,12 @@ class UpdateRestaurantSettingsService {
       }
     }
 
-    if (restaurantName !== undefined && String(normalizedRestaurantName || '').length < 2) {
-      throw new Error('Nome do restaurante inválido.');
+    if (
+      restaurantName !== undefined &&
+      (String(normalizedRestaurantName || '').length < 2 ||
+        String(normalizedRestaurantName || '').length > 120)
+    ) {
+      throw new Error('Nome do restaurante deve ter entre 2 e 120 caracteres.');
     }
 
     const resolvedDocumentType =
@@ -403,12 +475,50 @@ class UpdateRestaurantSettingsService {
     }
 
     const updated = await restaurantSettingsRepository.update(restaurantId, {
-      deliveryFee,
+      deliveryFee:
+        deliveryFee === undefined
+          ? undefined
+          : normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
       courierFeePerDelivery:
         courierFeePerDelivery === undefined
           ? undefined
-          : Math.max(Number(courierFeePerDelivery || 0), 0),
-      minimumOrder,
+          : normalizeNonNegativeMoney(courierFeePerDelivery, 'Repasse por entrega'),
+      minimumOrder:
+        minimumOrder === undefined
+          ? undefined
+          : normalizeNonNegativeMoney(minimumOrder, 'Pedido mínimo'),
+      freeShippingMinimum:
+        freeShippingMinimum === undefined
+          ? undefined
+          : normalizeOptionalNonNegativeMoney(freeShippingMinimum, 'Frete grátis acima de'),
+      acceptsDelivery:
+        acceptsDelivery === undefined
+          ? undefined
+          : normalizeStrictBoolean(acceptsDelivery, 'Delivery', true),
+      acceptsPickup:
+        acceptsPickup === undefined
+          ? undefined
+          : normalizeStrictBoolean(acceptsPickup, 'Retirada', true),
+      acceptsPix:
+        acceptsPix === undefined
+          ? undefined
+          : normalizeStrictBoolean(acceptsPix, 'Pagamento por PIX', true),
+      acceptsCard:
+        acceptsCard === undefined
+          ? undefined
+          : normalizeStrictBoolean(acceptsCard, 'Pagamento por cartão', true),
+      tableOrderingEnabled:
+        tableOrderingEnabled === undefined
+          ? undefined
+          : normalizeStrictBoolean(tableOrderingEnabled, 'Pedidos por QR Code', true),
+      waiterCallEnabled:
+        waiterCallEnabled === undefined
+          ? undefined
+          : normalizeStrictBoolean(waiterCallEnabled, 'Chamados ao garçom', true),
+      billRequestEnabled:
+        billRequestEnabled === undefined
+          ? undefined
+          : normalizeStrictBoolean(billRequestEnabled, 'Solicitação da conta', true),
       pixProvider: resolvedPixProvider,
       pixKey,
       legalDocumentType: normalizedLegalDocumentType,
@@ -465,8 +575,42 @@ class UpdateRestaurantSettingsService {
         companyContractFileUrl === undefined
           ? undefined
           : String(companyContractFileUrl || '').trim() || null,
-      instagram,
-      facebook,
+      primaryColor: primaryColor === undefined ? undefined : normalizePrimaryColor(primaryColor),
+      instagram:
+        instagram === undefined ? undefined : normalizeSocialReference(instagram, 'Instagram'),
+      facebook: facebook === undefined ? undefined : normalizeSocialReference(facebook, 'Facebook'),
+      tiktok: tiktok === undefined ? undefined : normalizeSocialReference(tiktok, 'TikTok'),
+      youtube: youtube === undefined ? undefined : normalizeSocialReference(youtube, 'YouTube'),
+      fontFamily: fontFamily === undefined ? undefined : normalizeFontFamily(fontFamily),
+      seoTitle:
+        seoTitle === undefined
+          ? undefined
+          : normalizeOptionalText(seoTitle, 'Título para buscadores', 70),
+      seoDescription:
+        seoDescription === undefined
+          ? undefined
+          : normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
+      whatsappEnabled: normalizedWhatsappEnabled,
+      whatsappDisplayName:
+        whatsappDisplayName === undefined
+          ? undefined
+          : normalizeOptionalText(whatsappDisplayName, 'Nome exibido no WhatsApp', 80),
+      whatsappDefaultMessage:
+        whatsappDefaultMessage === undefined
+          ? undefined
+          : normalizeOptionalText(whatsappDefaultMessage, 'Mensagem inicial do WhatsApp', 500),
+      receiveOrdersOnWhatsapp:
+        receiveOrdersOnWhatsapp === undefined
+          ? undefined
+          : normalizeStrictBoolean(receiveOrdersOnWhatsapp, 'Pedidos pelo WhatsApp', false),
+      receiveStatusNotifications:
+        receiveStatusNotifications === undefined
+          ? undefined
+          : normalizeStrictBoolean(
+              receiveStatusNotifications,
+              'Notificações de status pelo WhatsApp',
+              false,
+            ),
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
       isOpenForOrders: normalizedIsOpenForOrders,
       averageDeliveryTime: normalizedAverageDeliveryTime,

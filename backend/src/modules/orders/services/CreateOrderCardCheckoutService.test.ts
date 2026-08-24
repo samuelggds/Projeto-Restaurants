@@ -77,6 +77,34 @@ test('não cria checkout de cartão fora da agenda semanal', async () => {
   assert.equal(createOrderCalled, false);
 });
 
+test('não cria checkout quando o restaurante desativou pagamentos com cartão', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    businessHours: [],
+    acceptsCard: false,
+    cardGateway: 'PAGBANK',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 7,
+        userRestaurantId: 7,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Cliente',
+      }),
+    /não está aceitando pagamentos com cartão/i,
+  );
+  assert.equal(createOrderCalled, false);
+});
+
 test('deve abrir checkout de cartao usando a configuracao PagBank do restaurante', async () => {
   let savedSessionId = null;
   let deletedOrderId = null;

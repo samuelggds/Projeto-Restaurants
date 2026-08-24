@@ -1,22 +1,35 @@
-import tableRepository from '../../table/repositories/TableRepository.js';
 import { io } from '../../../server.js';
+import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
 
 type RequestPinAssistancePayload = {
   tableId: number | string;
+  tableNumber: number | string;
+  restaurantId?: number | string | null;
+  restaurantSlug?: string | null;
 };
 
 class RequestPinAssistanceService {
-  async execute({ tableId }: RequestPinAssistancePayload) {
+  async execute({
+    tableId,
+    tableNumber,
+    restaurantId,
+    restaurantSlug,
+  }: RequestPinAssistancePayload) {
     const parsedTableId = Number(tableId);
 
     if (!Number.isInteger(parsedTableId) || parsedTableId <= 0) {
       throw new Error('Mesa inválida para solicitar o PIN.');
     }
 
-    const table = await tableRepository.findById(parsedTableId);
+    const table = await resolvePublicTableService.execute({
+      tableId: parsedTableId,
+      tableNumber,
+      restaurantId,
+      restaurantSlug,
+    });
 
-    if (!table || !table.active) {
-      throw new Error('Mesa não encontrada.');
+    if (!table.tableOrderingEnabled) {
+      throw new Error('O acesso ao cardápio de mesa está desativado neste restaurante.');
     }
 
     const payload = {

@@ -6,6 +6,7 @@ const roleLabel: Record<EmployeeRole, string> = {
   COOK: 'Cozinheiro',
   WAITER: 'Garçom',
   ATTENDANT: 'Atendente',
+  COURIER: 'Motoqueiro',
 };
 
 type EmployeeListProps = {
@@ -28,7 +29,7 @@ export function EmployeeList({
       <S.EmployeeHeader>
         <div>
           <h2>Funcionários cadastrados</h2>
-          <p>Cozinheiros, garçons e atendentes são funcionários com permissões diferentes.</p>
+          <p>Cozinheiros, garçons, atendentes e motoqueiros têm acessos próprios.</p>
         </div>
         <button onClick={onNew}>
           <Plus />
@@ -56,6 +57,8 @@ export function EmployeeList({
                   ? 'Acessa a tela de cozinha'
                   : employee.role === 'WAITER'
                     ? 'Acessa a tela de garçom'
+                    : employee.role === 'COURIER'
+                      ? 'Acessa a área do motoqueiro'
                     : 'Operação de pedidos'}
               </span>
             </div>

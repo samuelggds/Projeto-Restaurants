@@ -12,10 +12,29 @@ type PublicSettingsFallback = {
   primaryColor: string;
   deliveryFee: number;
   minimumOrder: number;
+  freeShippingMinimum: number | null;
+  acceptsDelivery: boolean;
+  acceptsPickup: boolean;
+  acceptsPix: boolean;
+  acceptsCard: boolean;
+  tableOrderingEnabled: boolean;
+  waiterCallEnabled: boolean;
+  billRequestEnabled: boolean;
   pixProvider: string;
   pixKey: string | null;
   instagram: string | null;
   facebook: string | null;
+  tiktok: string | null;
+  youtube: string | null;
+  fontFamily: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  whatsapp: string | null;
+  whatsappEnabled: boolean;
+  whatsappDisplayName: string | null;
+  whatsappDefaultMessage: string | null;
+  receiveOrdersOnWhatsapp: boolean;
+  receiveStatusNotifications: boolean;
   companyLegalName: string | null;
   ownerEmail: string | null;
   ownerPhone: string | null;
@@ -49,7 +68,7 @@ class GetPublicRestaurantSettingsService {
 
     if ((!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) && slug) {
       const restaurant = await restaurantRepository.findBySlug(String(slug).trim());
-      normalizedRestaurantId = Number(restaurant?.id || 0);
+      normalizedRestaurantId = restaurant?.active === false ? 0 : Number(restaurant?.id || 0);
     }
 
     if (useDefault && (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0)) {
@@ -68,15 +87,38 @@ class GetPublicRestaurantSettingsService {
       const restaurant =
         await restaurantSettingsRepository.findRestaurantById(normalizedRestaurantId);
 
+      if (restaurant?.active === false) {
+        throw new Error('Restaurante não encontrado ou indisponível.');
+      }
+
       const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
         primaryColor: '#c95d3d',
         deliveryFee: 0,
         minimumOrder: 0,
+        freeShippingMinimum: null,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        acceptsPix: true,
+        acceptsCard: true,
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
         pixProvider: 'MERCADO_PAGO',
         pixKey: null,
         instagram: null,
         facebook: null,
+        tiktok: null,
+        youtube: null,
+        fontFamily: 'Inter',
+        seoTitle: null,
+        seoDescription: null,
+        whatsapp: String(restaurant?.whatsapp || '').replace(/\D/g, '') || null,
+        whatsappEnabled: false,
+        whatsappDisplayName: null,
+        whatsappDefaultMessage: null,
+        receiveOrdersOnWhatsapp: false,
+        receiveStatusNotifications: false,
         companyLegalName: null,
         ownerEmail: null,
         ownerPhone: null,
@@ -107,7 +149,14 @@ class GetPublicRestaurantSettingsService {
       return fallback;
     }
 
-    return settings;
+    if (settings.restaurant?.active === false) {
+      throw new Error('Restaurante não encontrado ou indisponível.');
+    }
+
+    return {
+      ...settings,
+      whatsapp: String(settings.restaurant?.whatsapp || '').replace(/\D/g, '') || null,
+    };
   }
 }
 

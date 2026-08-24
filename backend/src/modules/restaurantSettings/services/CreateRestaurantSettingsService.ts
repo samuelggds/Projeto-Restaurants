@@ -7,12 +7,33 @@ import {
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
 import { normalizeBusinessHours } from '../utils/businessHours.js';
+import {
+  isValidCnpj,
+  isValidCpf,
+  normalizeFontFamily,
+  normalizeIntegerInRange,
+  normalizeNonNegativeMoney,
+  normalizeOptionalNonNegativeMoney,
+  normalizeOptionalText,
+  normalizePrimaryColor,
+  normalizeSocialReference,
+  normalizeStrictBoolean,
+  normalizeWhatsappNumber,
+} from '../utils/adminSettingsValidation.js';
 
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
   deliveryFee: number;
   courierFeePerDelivery?: number;
   minimumOrder: number;
+  freeShippingMinimum?: number | null;
+  acceptsDelivery?: boolean;
+  acceptsPickup?: boolean;
+  acceptsPix?: boolean;
+  acceptsCard?: boolean;
+  tableOrderingEnabled?: boolean;
+  waiterCallEnabled?: boolean;
+  billRequestEnabled?: boolean;
   pixProvider?: string;
   pixKey?: string | null;
   legalDocumentType?: string | null;
@@ -48,8 +69,19 @@ type CreateRestaurantSettingsPayload = {
   bankProofFileUrl?: string | null;
   companyContractFileUrl?: string | null;
   whatsapp?: string | null;
+  whatsappEnabled?: boolean;
+  whatsappDisplayName?: string | null;
+  whatsappDefaultMessage?: string | null;
+  receiveOrdersOnWhatsapp?: boolean;
+  receiveStatusNotifications?: boolean;
   instagram?: string | null;
   facebook?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+  primaryColor?: string | null;
+  fontFamily?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   restaurantName?: string | null;
   restaurantLogo?: string | null;
   restaurantCoverImage?: string | null;
@@ -76,6 +108,14 @@ class CreateRestaurantSettingsService {
     deliveryFee,
     courierFeePerDelivery,
     minimumOrder,
+    freeShippingMinimum,
+    acceptsDelivery,
+    acceptsPickup,
+    acceptsPix,
+    acceptsCard,
+    tableOrderingEnabled,
+    waiterCallEnabled,
+    billRequestEnabled,
     pixProvider,
     pixKey,
     legalDocumentType,
@@ -111,8 +151,19 @@ class CreateRestaurantSettingsService {
     bankProofFileUrl,
     companyContractFileUrl,
     whatsapp,
+    whatsappEnabled,
+    whatsappDisplayName,
+    whatsappDefaultMessage,
+    receiveOrdersOnWhatsapp,
+    receiveStatusNotifications,
     instagram,
     facebook,
+    tiktok,
+    youtube,
+    primaryColor,
+    fontFamily,
+    seoTitle,
+    seoDescription,
     restaurantName,
     restaurantLogo,
     restaurantCoverImage,
@@ -139,7 +190,7 @@ class CreateRestaurantSettingsService {
     }
 
     const normalizedWhatsapp =
-      whatsapp === undefined ? undefined : String(whatsapp || '').trim() || null;
+      whatsapp === undefined ? undefined : normalizeWhatsappNumber(whatsapp);
     const normalizedRestaurantName =
       restaurantName === undefined ? undefined : String(restaurantName || '').trim();
     const normalizedRestaurantLogo =
@@ -147,11 +198,11 @@ class CreateRestaurantSettingsService {
     const normalizedRestaurantCoverImage =
       restaurantCoverImage === undefined
         ? undefined
-        : String(restaurantCoverImage || '').trim() || null;
+        : normalizeRestaurantImage(restaurantCoverImage);
     const normalizedRestaurantDescription =
       restaurantDescription === undefined
         ? undefined
-        : String(restaurantDescription || '').trim() || null;
+        : normalizeOptionalText(restaurantDescription, 'Descrição do restaurante', 500);
     const establishmentAddress = normalizeEstablishmentAddress({
       address: restaurantAddress,
       number: restaurantAddressNumber,
@@ -164,8 +215,12 @@ class CreateRestaurantSettingsService {
     const addressValidationError = validateEstablishmentAddress(establishmentAddress);
     if (addressValidationError) throw new Error(addressValidationError);
 
-    if (restaurantName !== undefined && String(normalizedRestaurantName || '').length < 2) {
-      throw new Error('Nome do restaurante inválido.');
+    if (
+      restaurantName !== undefined &&
+      (String(normalizedRestaurantName || '').length < 2 ||
+        String(normalizedRestaurantName || '').length > 120)
+    ) {
+      throw new Error('Nome do restaurante deve ter entre 2 e 120 caracteres.');
     }
 
     const normalizedLegalDocumentType = String(legalDocumentType || '')
@@ -176,11 +231,19 @@ class CreateRestaurantSettingsService {
     const normalizedOwnerCpf = String(ownerCpf || '').replace(/\D/g, '');
     const normalizedOwnerPhone = String(ownerPhone || '').replace(/\D/g, '');
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
+    const normalizedWhatsappEnabled = normalizeStrictBoolean(
+      whatsappEnabled,
+      'Integração com WhatsApp',
+      false,
+    );
+    if (normalizedWhatsappEnabled && !normalizedWhatsapp) {
+      throw new Error('Informe o número comercial antes de ativar o WhatsApp.');
+    }
 
     if (
       normalizedLegalDocumentType === 'CNPJ' &&
       normalizedCompanyDocument.length > 0 &&
-      normalizedCompanyDocument.length !== 14
+      !isValidCnpj(normalizedCompanyDocument)
     ) {
       throw new Error('CNPJ inválido para cadastro da empresa.');
     }
@@ -188,7 +251,7 @@ class CreateRestaurantSettingsService {
     if (
       normalizedLegalDocumentType === 'CPF' &&
       normalizedCompanyDocument.length > 0 &&
-      normalizedCompanyDocument.length !== 11
+      !isValidCpf(normalizedCompanyDocument)
     ) {
       throw new Error('CPF inválido para cadastro de autônomo.');
     }
@@ -203,11 +266,51 @@ class CreateRestaurantSettingsService {
       );
     }
 
+    if (companyLegalName !== undefined && String(companyLegalName || '').trim().length < 2) {
+      throw new Error('Razão social inválida.');
+    }
+    if (
+      ownerPhone !== undefined &&
+      (!normalizedOwnerPhone || !/^\d{10,11}$/.test(normalizedOwnerPhone))
+    ) {
+      throw new Error('Telefone comercial inválido.');
+    }
+    const normalizedOwnerEmail =
+      ownerEmail === undefined
+        ? undefined
+        : String(ownerEmail || '')
+            .trim()
+            .toLowerCase();
+    if (
+      normalizedOwnerEmail !== undefined &&
+      (!normalizedOwnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedOwnerEmail))
+    ) {
+      throw new Error('E-mail comercial inválido.');
+    }
+
     const created = await restaurantSettingsRepository.create({
       restaurantId: Number(restaurantId),
-      deliveryFee,
-      courierFeePerDelivery: Math.max(Number(courierFeePerDelivery || 0), 0),
-      minimumOrder,
+      deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
+      courierFeePerDelivery: normalizeNonNegativeMoney(
+        courierFeePerDelivery,
+        'Repasse por entrega',
+      ),
+      minimumOrder: normalizeNonNegativeMoney(minimumOrder, 'Pedido mínimo'),
+      freeShippingMinimum: normalizeOptionalNonNegativeMoney(
+        freeShippingMinimum,
+        'Frete grátis acima de',
+      ),
+      acceptsDelivery: normalizeStrictBoolean(acceptsDelivery, 'Delivery', true),
+      acceptsPickup: normalizeStrictBoolean(acceptsPickup, 'Retirada', true),
+      acceptsPix: normalizeStrictBoolean(acceptsPix, 'Pagamento por PIX', true),
+      acceptsCard: normalizeStrictBoolean(acceptsCard, 'Pagamento por cartão', true),
+      tableOrderingEnabled: normalizeStrictBoolean(
+        tableOrderingEnabled,
+        'Pedidos por QR Code',
+        true,
+      ),
+      waiterCallEnabled: normalizeStrictBoolean(waiterCallEnabled, 'Chamados ao garçom', true),
+      billRequestEnabled: normalizeStrictBoolean(billRequestEnabled, 'Solicitação da conta', true),
       pixProvider: String(pixProvider || 'MERCADO_PAGO')
         .trim()
         .toUpperCase(),
@@ -223,7 +326,7 @@ class CreateRestaurantSettingsService {
       ownerFullName: String(ownerFullName || '').trim() || null,
       ownerCpf: normalizedOwnerCpf || null,
       ownerBirthDate: ownerBirthDate ? new Date(ownerBirthDate) : null,
-      ownerEmail: String(ownerEmail || '').trim() || null,
+      ownerEmail: normalizedOwnerEmail || null,
       ownerPhone: normalizedOwnerPhone || null,
       ownerAddress: String(ownerAddress || '').trim() || null,
       bankName: String(bankName || '').trim() || null,
@@ -248,19 +351,59 @@ class CreateRestaurantSettingsService {
       ownerDocumentFileUrl: String(ownerDocumentFileUrl || '').trim() || null,
       bankProofFileUrl: String(bankProofFileUrl || '').trim() || null,
       companyContractFileUrl: String(companyContractFileUrl || '').trim() || null,
-      instagram,
-      facebook,
+      primaryColor: normalizePrimaryColor(primaryColor),
+      instagram: normalizeSocialReference(instagram, 'Instagram'),
+      facebook: normalizeSocialReference(facebook, 'Facebook'),
+      tiktok: normalizeSocialReference(tiktok, 'TikTok'),
+      youtube: normalizeSocialReference(youtube, 'YouTube'),
+      fontFamily: normalizeFontFamily(fontFamily),
+      seoTitle: normalizeOptionalText(seoTitle, 'Título para buscadores', 70),
+      seoDescription: normalizeOptionalText(seoDescription, 'Descrição para buscadores', 160),
+      whatsappEnabled: normalizedWhatsappEnabled,
+      whatsappDisplayName: normalizeOptionalText(
+        whatsappDisplayName,
+        'Nome exibido no WhatsApp',
+        80,
+      ),
+      whatsappDefaultMessage: normalizeOptionalText(
+        whatsappDefaultMessage,
+        'Mensagem inicial do WhatsApp',
+        500,
+      ),
+      receiveOrdersOnWhatsapp: normalizeStrictBoolean(
+        receiveOrdersOnWhatsapp,
+        'Pedidos pelo WhatsApp',
+        false,
+      ),
+      receiveStatusNotifications: normalizeStrictBoolean(
+        receiveStatusNotifications,
+        'Notificações de status pelo WhatsApp',
+        false,
+      ),
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
-      isOpenForOrders: isOpenForOrders === undefined ? true : Boolean(isOpenForOrders),
+      isOpenForOrders: normalizeStrictBoolean(isOpenForOrders, 'Recebimento de pedidos', true),
       averageDeliveryTime:
         averageDeliveryTime === undefined
           ? undefined
-          : String(Math.max(1, Number(averageDeliveryTime) || 1)),
-      autoAcceptOrders: autoAcceptOrders === undefined ? false : Boolean(autoAcceptOrders),
-      trackingRequiresLogin:
-        trackingRequiresLogin === undefined ? true : Boolean(trackingRequiresLogin),
-      soundNotifications: soundNotifications === undefined ? true : Boolean(soundNotifications),
-      maxConcurrentOrders: Math.min(500, Math.max(1, Number(maxConcurrentOrders) || 20)),
+          : String(normalizeIntegerInRange(averageDeliveryTime, 'Tempo médio de preparo', 1, 240)),
+      autoAcceptOrders: normalizeStrictBoolean(
+        autoAcceptOrders,
+        'Aceite automático de pedidos',
+        false,
+      ),
+      trackingRequiresLogin: normalizeStrictBoolean(
+        trackingRequiresLogin,
+        'Login para rastreamento',
+        true,
+      ),
+      soundNotifications: normalizeStrictBoolean(soundNotifications, 'Notificação sonora', true),
+      maxConcurrentOrders: normalizeIntegerInRange(
+        maxConcurrentOrders,
+        'Limite de pedidos simultâneos',
+        1,
+        500,
+        20,
+      ),
     });
 
     const restaurantData: Prisma.RestaurantUpdateInput = {};

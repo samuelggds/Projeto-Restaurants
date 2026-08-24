@@ -4,16 +4,31 @@ import { UserRole } from '@prisma/client';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
+const employeePublicSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  restaurantId: true,
+  role: true,
+  subRole: true,
+  active: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
+
 class EmployeeRepository {
   async findByEmail(email: string, db: PrismaClientLike = prisma) {
     return db.user.findFirst({
       where: { email },
+      select: employeePublicSelect,
     });
   }
 
   async create(data: Prisma.UserUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.user.create({
       data,
+      select: employeePublicSelect,
     });
   }
 
@@ -25,6 +40,7 @@ class EmployeeRepository {
           in: [UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO],
         },
       },
+      select: employeePublicSelect,
     });
   }
 
@@ -37,6 +53,7 @@ class EmployeeRepository {
           in: [UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO],
         },
       },
+      select: employeePublicSelect,
     });
   }
 
@@ -57,6 +74,7 @@ class EmployeeRepository {
         id: Number(id),
       },
       data,
+      select: employeePublicSelect,
     });
   }
 
@@ -74,6 +92,7 @@ class EmployeeRepository {
       data: {
         active: false,
       },
+      select: employeePublicSelect,
     });
   }
 
@@ -91,6 +110,7 @@ class EmployeeRepository {
       data: {
         active: true,
       },
+      select: employeePublicSelect,
     });
   }
 }

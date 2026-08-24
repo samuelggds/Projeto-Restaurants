@@ -30,6 +30,54 @@ class TableRepository {
     });
   }
 
+  async findPublicByReference(
+    {
+      number,
+      restaurantId,
+      restaurantSlug,
+    }: {
+      number: number;
+      restaurantId?: number;
+      restaurantSlug?: string;
+    },
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.table.findFirst({
+      where: {
+        number,
+        active: true,
+        restaurant: {
+          active: true,
+          ...(restaurantId ? { id: restaurantId } : {}),
+          ...(restaurantSlug ? { slug: restaurantSlug } : {}),
+        },
+      },
+      select: {
+        id: true,
+        number: true,
+        restaurantId: true,
+        restaurant: {
+          select: {
+            slug: true,
+            settings: {
+              select: {
+                tableOrderingEnabled: true,
+                waiterCallEnabled: true,
+                billRequestEnabled: true,
+              },
+            },
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async findAllByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.table.findMany({
       where: {

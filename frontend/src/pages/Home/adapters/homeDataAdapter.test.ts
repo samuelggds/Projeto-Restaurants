@@ -62,6 +62,64 @@ describe('homeDataAdapter', () => {
     expect(data.businessHours).toBeUndefined();
   });
 
+  it('mapeia canais, frete, contato, redes, fonte e SEO persistidos', () => {
+    const data = buildHomeData([], {
+      acceptsDelivery: false,
+      acceptsPickup: true,
+      acceptsPix: false,
+      acceptsCard: true,
+      freeShippingMinimum: 75,
+      whatsapp: '+55 (85) 99999-0000',
+      whatsappEnabled: true,
+      whatsappDisplayName: 'Atendimento da Casa',
+      whatsappDefaultMessage: 'Olá, quero pedir.',
+      tiktok: '@casateste',
+      youtube: 'youtube.com/@casateste',
+      fontFamily: 'DM Sans',
+      seoTitle: 'Casa Teste | Cardápio',
+      seoDescription: 'Peça diretamente no nosso cardápio.',
+    });
+
+    expect(data).toMatchObject({
+      acceptsDelivery: false,
+      acceptsPickup: true,
+      acceptsPix: false,
+      acceptsCard: true,
+      freeDeliveryFrom: 75,
+      fontFamily: 'DM Sans',
+      seoTitle: 'Casa Teste | Cardápio',
+      seoDescription: 'Peça diretamente no nosso cardápio.',
+    });
+    expect(data.brand).toMatchObject({
+      whatsapp: '5585999990000',
+      whatsappDisplayName: 'Atendimento da Casa',
+      whatsappDefaultMessage: 'Olá, quero pedir.',
+      tiktok: '@casateste',
+      youtube: 'youtube.com/@casateste',
+    });
+  });
+
+  it('oculta o WhatsApp quando a integração está explicitamente desativada', () => {
+    const data = buildHomeData([], {
+      whatsapp: '5585999990000',
+      whatsappEnabled: false,
+    });
+    expect(data.brand.whatsapp).toBe('');
+  });
+
+  it('mantém padrões seguros para respostas de servidores antigos', () => {
+    const data = buildHomeData([], { whatsapp: '5585999990000' });
+    expect(data).toMatchObject({
+      acceptsDelivery: true,
+      acceptsPickup: true,
+      acceptsPix: true,
+      acceptsCard: true,
+      freeDeliveryFrom: 0,
+      fontFamily: 'Inter',
+    });
+    expect(data.brand.whatsapp).toBe('5585999990000');
+  });
+
   it('usa somente o preço promocional calculado pelo servidor', () => {
     expect(
       mapProductPricingFromApi({

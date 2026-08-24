@@ -334,3 +334,78 @@ test('não reserva recompensa quando o arredondamento produzir desconto zero', a
     /não gera desconto/i,
   );
 });
+
+test('zera a taxa quando o subtotal alcança o valor de frete grátis', async () => {
+  productRepository.findById = async () => product;
+  const db = {
+    restaurantSettings: {
+      findUnique: async () => ({
+        deliveryFee: 12,
+        minimumOrder: 0,
+        freeShippingMinimum: 80,
+        acceptsDelivery: true,
+      }),
+    },
+    couponRedemption: { findFirst: async () => null },
+  };
+
+  const quote = await orderPricingService.quote({
+    restaurantId: 7,
+    type: 'DELIVERY',
+    items: [{ productId: 10, quantity: 1, optionIds: [501] }],
+    db,
+  });
+
+  assert.equal(quote.itemsSubtotal, 90);
+  assert.equal(quote.deliveryFeeAmount, 0);
+  assert.equal(quote.total, 90);
+});
+
+test('rejeita canais desativados nas configurações do restaurante', async () => {
+  productRepository.findById = async () => product;
+
+  const scenarios = [
+    {
+      type: 'DELIVERY',
+      settings: { acceptsDelivery: false },
+      message: /não está aceitando pedidos para delivery/i,
+    },
+    {
+      type: 'RETIRADA',
+      settings: { acceptsPickup: false },
+      message: /não está aceitando pedidos para retirada/i,
+    },
+    {
+      type: 'MESA',
+      settings: { tableOrderingEnabled: false },
+      message: /cardápio de mesa estão desativados/i,
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const db = {
+      restaurantSettings: {
+        findUnique: async () => ({
+          deliveryFee: 0,
+          minimumOrder: 0,
+          acceptsDelivery: true,
+          acceptsPickup: true,
+          tableOrderingEnabled: true,
+          ...scenario.settings,
+        }),
+      },
+      couponRedemption: { findFirst: async () => null },
+    };
+
+    await assert.rejects(
+      () =>
+        orderPricingService.quote({
+          restaurantId: 7,
+          type: scenario.type,
+          items: [{ productId: 10, quantity: 1, optionIds: [501] }],
+          db,
+        }),
+      scenario.message,
+    );
+  }
+});

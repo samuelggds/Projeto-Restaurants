@@ -383,6 +383,7 @@ class CreateOrderService {
       });
 
       notifyCustomerPaymentConfirmed({
+        restaurantId: createdOrder.restaurantId,
         customerPhone: createdOrder?.user?.phone || customerPhone,
         customerName: createdOrder?.user?.name || customerName,
         restaurantName: createdOrder?.restaurant?.name,

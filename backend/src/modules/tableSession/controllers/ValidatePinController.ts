@@ -4,9 +4,15 @@ import validatePinService from '../services/ValidatePinService.js';
 class ValidatePinController {
   async handle(req: Request, res: Response) {
     try {
-      const { tableId, pin } = req.body;
+      const { tableId, pin, tableNumber, restaurantId, restaurantSlug } = req.body;
 
-      const result = await validatePinService.execute({ tableId, pin });
+      const result = await validatePinService.execute({
+        tableId,
+        pin,
+        tableNumber,
+        restaurantId,
+        restaurantSlug,
+      });
 
       return res.status(200).json(result);
     } catch (error: unknown) {

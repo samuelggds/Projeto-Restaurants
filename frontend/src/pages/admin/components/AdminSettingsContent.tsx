@@ -70,7 +70,7 @@ export function AdminSettingsContent(props: Props) {
       />
     );
   if (section === 'delivery') return <DeliverySettings settings={settings} update={update} />;
-  if (section === 'table') return <TableMenuSettings settings={settings} />;
+  if (section === 'table') return <TableMenuSettings settings={settings} update={update} />;
   if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
   if (section === 'payments')
     return (

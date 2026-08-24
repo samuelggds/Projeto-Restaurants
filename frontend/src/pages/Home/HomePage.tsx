@@ -5,8 +5,11 @@ import {
   Mail,
   MapPin,
   Phone,
+  Play,
   Sparkles,
   Tag,
+  Truck,
+  Music2,
 } from 'lucide-react';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { useMemo, useState } from 'react';
@@ -18,16 +21,10 @@ import * as S from './Home.styles';
 import type { HomePageProps, HomeProduct } from './types';
 import { getFeaturedProducts } from './domain/featuredProducts';
 import { FacebookIcon, InstagramIcon, WhatsAppIcon } from './components/SocialBrandIcons';
+import { buildSocialProfileUrl, buildWhatsAppUrl } from './domain/publicSettings';
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function socialUrl(value: string, network: 'instagram' | 'facebook') {
-  const normalized = value.trim();
-  if (/^https?:\/\//i.test(normalized)) return normalized;
-  const handle = normalized.replace(/^@/, '');
-  return `https://${network}.com/${handle}`;
-}
 
 export function HomePage({
   data,
@@ -68,6 +65,13 @@ export function HomePage({
     data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos';
   const favoriteIds = useMemo(() => new Set(favoriteProductIds), [favoriteProductIds]);
   const primary = data.brand.primaryColor ?? '#d64d08';
+  const whatsappUrl = buildWhatsAppUrl(data.brand.whatsapp, data.brand.whatsappDefaultMessage);
+  const whatsappLabel =
+    data.brand.whatsappDisplayName || data.brand.name || 'Atendimento do restaurante';
+  const instagramUrl = buildSocialProfileUrl('instagram', data.brand.instagram);
+  const facebookUrl = buildSocialProfileUrl('facebook', data.brand.facebook);
+  const tiktokUrl = buildSocialProfileUrl('tiktok', data.brand.tiktok);
+  const youtubeUrl = buildSocialProfileUrl('youtube', data.brand.youtube);
   const availability = getRestaurantAvailability(
     data.businessHours,
     data.isOpenForOrders ?? data.isOpen,
@@ -94,7 +98,7 @@ export function HomePage({
   );
 
   return (
-    <S.HomeRoot $primary={primary} id="inicio">
+    <S.HomeRoot $primary={primary} $fontFamily={data.fontFamily} id="inicio">
       <HomeHeader
         brand={data.brand}
         cartCount={cartCount}
@@ -143,12 +147,20 @@ export function HomePage({
         )}
 
         {/* InfoBar: only shows fields that have real backend data */}
-        {data.minimumOrder > 0 && (
+        {(data.minimumOrder > 0 || (data.acceptsDelivery && data.freeDeliveryFrom > 0)) && (
           <S.InfoBar>
-            <span>
-              <Tag size={21} />
-              Pedido mínimo {brl(data.minimumOrder)}
-            </span>
+            {data.minimumOrder > 0 && (
+              <span>
+                <Tag size={21} />
+                Pedido mínimo {brl(data.minimumOrder)}
+              </span>
+            )}
+            {data.acceptsDelivery && data.freeDeliveryFrom > 0 && (
+              <span>
+                <Truck size={21} />
+                Frete grátis a partir de {brl(data.freeDeliveryFrom)}
+              </span>
+            )}
           </S.InfoBar>
         )}
 
@@ -259,9 +271,9 @@ export function HomePage({
                 <MapPin size={17} /> {data.brand.address}
               </span>
             )}
-            {data.brand.whatsapp && (
-              <a href={`https://wa.me/${data.brand.whatsapp}`} target="_blank" rel="noreferrer">
-                <WhatsAppIcon size={17} /> WhatsApp
+            {whatsappUrl && (
+              <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                <WhatsAppIcon size={17} /> {whatsappLabel}
               </a>
             )}
             {data.brand.phone && (
@@ -274,18 +286,24 @@ export function HomePage({
                 <Mail size={17} /> {data.brand.email}
               </a>
             )}
-            {data.brand.instagram && (
-              <a
-                href={socialUrl(data.brand.instagram, 'instagram')}
-                target="_blank"
-                rel="noreferrer"
-              >
+            {instagramUrl && (
+              <a href={instagramUrl} target="_blank" rel="noreferrer">
                 <InstagramIcon size={17} /> Instagram
               </a>
             )}
-            {data.brand.facebook && (
-              <a href={socialUrl(data.brand.facebook, 'facebook')} target="_blank" rel="noreferrer">
+            {facebookUrl && (
+              <a href={facebookUrl} target="_blank" rel="noreferrer">
                 <FacebookIcon size={17} /> Facebook
+              </a>
+            )}
+            {tiktokUrl && (
+              <a href={tiktokUrl} target="_blank" rel="noreferrer">
+                <Music2 size={17} /> TikTok
+              </a>
+            )}
+            {youtubeUrl && (
+              <a href={youtubeUrl} target="_blank" rel="noreferrer">
+                <Play size={17} /> YouTube
               </a>
             )}
           </S.FooterColumn>

@@ -63,6 +63,7 @@ class CancelOrderService {
     });
 
     notifyCustomerOrderStatusChanged({
+      restaurantId: orderRestaurantId,
       customerPhone: order?.user?.phone,
       customerName: order?.user?.name,
       restaurantName: order?.restaurant?.name,

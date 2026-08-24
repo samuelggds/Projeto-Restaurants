@@ -11,8 +11,9 @@ describe('tableSession', () => {
       hasRouteRestaurantId: true,
     });
   });
-  it('usa o número da mesa como id quando necessário', () => {
-    expect(resolveTableRoute('4', null, null).routeTableId).toBe(4);
+  it('não confunde o número visível da mesa com o id interno', () => {
+    expect(resolveTableRoute('4', null, null).routeTableId).toBeNull();
+    expect(resolveTableRoute('4', null, null).mesaMode).toBe(true);
   });
   it('recusa uma sessão de outra mesa ou restaurante', () => {
     const session = { sessionToken: 'token', tableId: 4, restaurantId: 8 };

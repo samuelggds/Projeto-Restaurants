@@ -4,6 +4,8 @@ import styled from 'styled-components';
 type Props = {
   primaryColor: string;
   invalidQr: boolean;
+  invalidTitle?: string;
+  invalidMessage?: string;
   tableLabel: string | number;
   pin: string;
   pinError: string;
@@ -112,8 +114,10 @@ export function TableAccessGate(props: Props) {
         {props.invalidQr ? (
           <InvalidMessage>
             <Eyebrow>Acesso por QR Code</Eyebrow>
-            <h1>Link inválido da mesa</h1>
-            <p>Escaneie o QR oficial da mesa para acessar o cardápio.</p>
+            <h1>{props.invalidTitle || 'Link inválido da mesa'}</h1>
+            <p>
+              {props.invalidMessage || 'Escaneie o QR oficial da mesa para acessar o cardápio.'}
+            </p>
           </InvalidMessage>
         ) : (
           <Card>

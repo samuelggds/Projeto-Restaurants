@@ -26,6 +26,9 @@ import {
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const statusRank = { received: 0, preparing: 1, ready: 2 };
+const actionWasConfirmed = (result: unknown) =>
+  result === true ||
+  (typeof result === 'object' && result !== null && (result as { ok?: unknown }).ok === true);
 
 export function DigitalMenuPage({
   data = digitalMenuMockData,
@@ -40,6 +43,8 @@ export function DigitalMenuPage({
   const [drawer, setDrawer] = useState(false);
   const [notice, setNotice] = useState('');
   const [building, setBuilding] = useState<MenuProduct | null>(null);
+  const [serviceLoading, setServiceLoading] = useState<'waiter' | 'bill' | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const products = useMemo(
     () =>
       data.products.filter((product) => {
@@ -111,11 +116,36 @@ export function DigitalMenuPage({
         )
         .filter((x) => x.quantity > 0),
     );
-  const service = (kind: 'waiter' | 'bill') => {
-    if (kind === 'waiter') onCallWaiter?.();
-    else onRequestBill?.();
-    setNotice(kind === 'waiter' ? 'Garçom chamado com sucesso' : 'Conta solicitada com sucesso');
-    window.setTimeout(() => setNotice(''), 1800);
+  const service = async (kind: 'waiter' | 'bill') => {
+    const callback = kind === 'waiter' ? onCallWaiter : onRequestBill;
+    const enabled =
+      kind === 'waiter' ? data.waiterCallEnabled !== false : data.billRequestEnabled !== false;
+
+    if (!enabled || !callback) {
+      setNotice(
+        kind === 'waiter'
+          ? 'O chamado ao garçom não está disponível neste cardápio.'
+          : 'A solicitação da conta não está disponível neste cardápio.',
+      );
+      window.setTimeout(() => setNotice(''), 2200);
+      return;
+    }
+
+    try {
+      setServiceLoading(kind);
+      const result = await callback();
+      if (!actionWasConfirmed(result)) throw new Error('A solicitação não foi confirmada.');
+      setNotice(kind === 'waiter' ? 'Garçom chamado com sucesso' : 'Conta solicitada com sucesso');
+    } catch (error) {
+      setNotice(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Não foi possível enviar a solicitação. Tente novamente.',
+      );
+    } finally {
+      setServiceLoading(null);
+      window.setTimeout(() => setNotice(''), 2200);
+    }
   };
   return (
     <S.Root $primary={data.primaryColor ?? '#d64d08'}>
@@ -154,7 +184,10 @@ export function DigitalMenuPage({
               placeholder="Buscar pratos ou ingredientes"
             />
           </S.Search>
-          <S.TopButton onClick={() => service('waiter')}>
+          <S.TopButton
+            disabled={data.waiterCallEnabled === false || serviceLoading !== null}
+            onClick={() => void service('waiter')}
+          >
             <BellRing />
             Atendimento
           </S.TopButton>
@@ -216,8 +249,11 @@ export function DigitalMenuPage({
             </S.Featured>
             <ServiceCard
               status={data.orderStatus}
-              waiter={() => service('waiter')}
-              bill={() => service('bill')}
+              waiter={() => void service('waiter')}
+              bill={() => void service('bill')}
+              waiterEnabled={data.waiterCallEnabled !== false && Boolean(onCallWaiter)}
+              billEnabled={data.billRequestEnabled !== false && Boolean(onRequestBill)}
+              loading={serviceLoading}
             />
           </S.MainGrid>
         )}
@@ -252,11 +288,32 @@ export function DigitalMenuPage({
           total={total}
           close={() => setDrawer(false)}
           quantity={quantity}
-          submit={() => {
-            onSubmitOrder?.(cart);
-            setNotice('Pedido enviado para a cozinha');
-            setDrawer(false);
-            window.setTimeout(() => setNotice(''), 1800);
+          submitting={submitting}
+          submit={async () => {
+            if (data.tableOrderingEnabled === false || !onSubmitOrder) {
+              setNotice('O envio de pedidos não está disponível neste cardápio.');
+              window.setTimeout(() => setNotice(''), 2200);
+              return;
+            }
+
+            try {
+              setSubmitting(true);
+              const result = await onSubmitOrder(cart);
+              if (!actionWasConfirmed(result))
+                throw new Error('O pedido não foi confirmado pelo restaurante.');
+              setNotice('Pedido enviado para a cozinha');
+              setCart([]);
+              setDrawer(false);
+            } catch (error) {
+              setNotice(
+                error instanceof Error && error.message
+                  ? error.message
+                  : 'Não foi possível enviar o pedido. Confira sua conexão e tente novamente.',
+              );
+            } finally {
+              setSubmitting(false);
+              window.setTimeout(() => setNotice(''), 2400);
+            }
           }}
         />
       )}
@@ -277,10 +334,16 @@ function ServiceCard({
   status,
   waiter,
   bill,
+  waiterEnabled,
+  billEnabled,
+  loading,
 }: {
   status: 'received' | 'preparing' | 'ready';
   waiter: () => void;
   bill: () => void;
+  waiterEnabled: boolean;
+  billEnabled: boolean;
+  loading: 'waiter' | 'bill' | null;
 }) {
   const current = statusRank[status];
   return (
@@ -298,13 +361,13 @@ function ServiceCard({
         ))}
       </S.Progress>
       <S.ServiceActions>
-        <button onClick={waiter}>
+        <button disabled={!waiterEnabled || loading !== null} onClick={waiter}>
           <BellRing />
-          Chamar garçom
+          {loading === 'waiter' ? 'Enviando...' : 'Chamar garçom'}
         </button>
-        <button onClick={bill}>
+        <button disabled={!billEnabled || loading !== null} onClick={bill}>
           <WalletCards />
-          Pedir a conta
+          {loading === 'bill' ? 'Enviando...' : 'Pedir a conta'}
         </button>
       </S.ServiceActions>
     </S.Service>
@@ -317,12 +380,14 @@ function CartDrawer({
   close,
   quantity,
   submit,
+  submitting,
 }: {
   cart: CartItem[];
   total: number;
   close: () => void;
   quantity: (id: string, n: number) => void;
-  submit: () => void;
+  submit: () => void | Promise<void>;
+  submitting: boolean;
 }) {
   return (
     <S.Overlay onMouseDown={(e) => e.target === e.currentTarget && close()}>
@@ -353,7 +418,9 @@ function CartDrawer({
                     ))}
                   </ul>
                 )}
-                {item.observation && <small className="cart-observation">Obs.: {item.observation}</small>}
+                {item.observation && (
+                  <small className="cart-observation">Obs.: {item.observation}</small>
+                )}
               </div>
               <div className="quantity">
                 <button onClick={() => quantity(item.cartId, -1)}>
@@ -372,8 +439,8 @@ function CartDrawer({
             <b>Total</b>
             <strong>{brl(total)}</strong>
           </div>
-          <button disabled={!cart.length} onClick={submit}>
-            Enviar pedido para a cozinha
+          <button disabled={!cart.length || submitting} onClick={() => void submit()}>
+            {submitting ? 'Enviando pedido...' : 'Enviar pedido para a cozinha'}
           </button>
         </footer>
       </S.Drawer>

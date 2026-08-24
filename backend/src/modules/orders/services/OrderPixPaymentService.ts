@@ -428,6 +428,19 @@ class OrderPixPaymentService {
 
     assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
 
+    if (settings?.acceptsPix === false) {
+      throw new Error('O restaurante não está aceitando pagamentos por PIX no momento.');
+    }
+    if (normalizedType === 'DELIVERY' && settings?.acceptsDelivery === false) {
+      throw new Error('O restaurante não está aceitando pedidos para delivery no momento.');
+    }
+    if (normalizedType === 'RETIRADA' && settings?.acceptsPickup === false) {
+      throw new Error('O restaurante não está aceitando pedidos para retirada no momento.');
+    }
+    if (normalizedType === 'MESA' && settings?.tableOrderingEnabled === false) {
+      throw new Error('Os pedidos pelo cardápio de mesa estão desativados no momento.');
+    }
+
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
     const pixKey = String(settings?.pixKey || '').trim();
@@ -438,6 +451,7 @@ class OrderPixPaymentService {
 
     const minimumOrder = Number(settings?.minimumOrder || 0);
     const deliveryFee = Number(settings?.deliveryFee || 0);
+    const freeShippingMinimum = Number(settings?.freeShippingMinimum || 0);
 
     const persistedTotal = Number(orderTotal);
     const hasPersistedTotal = Number.isFinite(persistedTotal) && persistedTotal >= 0;
@@ -474,7 +488,9 @@ class OrderPixPaymentService {
     const additionalFee = hasPersistedTotal
       ? Math.max(Number.isFinite(persistedDeliveryFee) ? persistedDeliveryFee : 0, 0)
       : normalizedType === 'DELIVERY'
-        ? Math.max(deliveryFee, 0)
+        ? freeShippingMinimum > 0 && subtotal >= freeShippingMinimum
+          ? 0
+          : Math.max(deliveryFee, 0)
         : 0;
     const systemFee = await splitService.execute({
       restaurantId: normalizedRestaurantId,

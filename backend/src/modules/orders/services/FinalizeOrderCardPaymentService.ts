@@ -99,6 +99,7 @@ class FinalizeOrderCardPaymentService {
     io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
 
     notifyCustomerPaymentConfirmed({
+      restaurantId: updatedOrder.restaurantId,
       customerPhone: updatedOrder?.user?.phone,
       customerName: updatedOrder?.user?.name,
       restaurantName: updatedOrder?.restaurant?.name,

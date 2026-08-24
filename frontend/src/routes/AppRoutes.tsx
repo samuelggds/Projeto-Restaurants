@@ -24,11 +24,6 @@ const Home = lazy(() => import('../pages/Home/Home'));
 const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuEntryPage'));
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
-const SettingsPage = lazy(() =>
-  import('../modules/settings/pages/SettingsPage').then((m) => ({
-    default: m.SettingsPage,
-  })),
-);
 import api from '../Services/api';
 import { useAuth } from '../contexts/authContext';
 import {
@@ -235,7 +230,10 @@ export default function AppRoutes() {
                   <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
 
                   <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/configuracoes" element={<SettingsPage />} />
+                  <Route
+                    path="/admin/configuracoes"
+                    element={<Navigate to="/admin?settings=brand" replace />}
+                  />
 
                   <Route path="/courier" element={<CourierDashboard />} />
 

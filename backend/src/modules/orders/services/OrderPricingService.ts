@@ -90,12 +90,36 @@ class OrderPricingService {
 
     const settings = await db.restaurantSettings.findUnique({
       where: { restaurantId: normalizedRestaurantId },
-      select: { deliveryFee: true, minimumOrder: true },
+      select: {
+        deliveryFee: true,
+        minimumOrder: true,
+        freeShippingMinimum: true,
+        acceptsDelivery: true,
+        acceptsPickup: true,
+        tableOrderingEnabled: true,
+      },
     });
     const normalizedType = String(type || '').toUpperCase();
+    if (normalizedType === OrderType.DELIVERY && settings?.acceptsDelivery === false) {
+      throw new Error('O restaurante não está aceitando pedidos para delivery no momento.');
+    }
+    if (normalizedType === OrderType.RETIRADA && settings?.acceptsPickup === false) {
+      throw new Error('O restaurante não está aceitando pedidos para retirada no momento.');
+    }
+    if (normalizedType === OrderType.MESA && settings?.tableOrderingEnabled === false) {
+      throw new Error('Os pedidos pelo cardápio de mesa estão desativados no momento.');
+    }
+
+    const freeShippingMinimum = Math.max(Number(settings?.freeShippingMinimum || 0), 0);
+    const hasFreeShipping =
+      normalizedType === OrderType.DELIVERY &&
+      freeShippingMinimum > 0 &&
+      itemsSubtotal >= freeShippingMinimum;
     const deliveryFeeAmount =
       normalizedType === OrderType.DELIVERY
-        ? roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0))
+        ? hasFreeShipping
+          ? 0
+          : roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0))
         : 0;
     const minimumOrder = Math.max(Number(settings?.minimumOrder || 0), 0);
     if (normalizedType === OrderType.DELIVERY && minimumOrder > 0 && itemsSubtotal < minimumOrder) {

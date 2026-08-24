@@ -1,10 +1,13 @@
 import { CreditCard, QrCode } from 'lucide-react';
 import type { CheckoutPaymentMethod } from '../domain/checkout';
+import { getAvailablePaymentMethods } from '../domain/publicSettings';
 import * as S from '../../Home/Home.styles';
 
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
   allowPayOnDelivery: boolean;
+  allowPix?: boolean;
+  allowCard?: boolean;
   onChange: (method: CheckoutPaymentMethod) => void;
 };
 
@@ -49,6 +52,10 @@ const DELIVERY_OPTIONS: Option[] = [
     icon: 'card',
   },
 ];
+
+function filterOptions(options: Option[], allowPix: boolean, allowCard: boolean) {
+  return options.filter((option) => (option.icon === 'pix' ? allowPix : allowCard));
+}
 
 function PaymentOption({
   option,
@@ -100,15 +107,38 @@ function OptionsGrid({
   );
 }
 
-export function PaymentOptions({ paymentMethod, allowPayOnDelivery, onChange }: Props) {
+export function PaymentOptions({
+  paymentMethod,
+  allowPayOnDelivery,
+  allowPix = true,
+  allowCard = true,
+  onChange,
+}: Props) {
+  const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard);
+  const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
+  const availableMethods = getAvailablePaymentMethods({
+    allowPayOnDelivery,
+    allowPix,
+    allowCard,
+  });
+  if (availableMethods.length === 0) {
+    return (
+      <>
+        <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
+        <S.CheckoutUnavailable role="status">
+          O restaurante não disponibilizou uma forma de pagamento para novos pedidos.
+        </S.CheckoutUnavailable>
+      </>
+    );
+  }
   return (
     <>
       <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
-      <OptionsGrid options={ONLINE_OPTIONS} selected={paymentMethod} onChange={onChange} />
-      {allowPayOnDelivery && (
+      <OptionsGrid options={onlineOptions} selected={paymentMethod} onChange={onChange} />
+      {allowPayOnDelivery && deliveryOptions.length > 0 && (
         <>
           <S.CartSectionLabel>Pagar na entrega</S.CartSectionLabel>
-          <OptionsGrid options={DELIVERY_OPTIONS} selected={paymentMethod} onChange={onChange} />
+          <OptionsGrid options={deliveryOptions} selected={paymentMethod} onChange={onChange} />
         </>
       )}
     </>

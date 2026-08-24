@@ -9,6 +9,11 @@ import {
   normalizeBusinessHours,
 } from '../../admin/domain/businessHours';
 import { defaultBusinessHours } from '../../admin/data';
+import {
+  normalizeHomeFontFamily,
+  readOptionalPositiveMoney,
+  readPublicFeatureFlag,
+} from '../domain/publicSettings';
 
 function formatFooterAddress(restaurant: Record<string, unknown>) {
   const street = [
@@ -91,7 +96,8 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
         name: String(group.name || 'Escolhas'),
         description: String(group.description || ''),
         required: Boolean(group.required),
-        selectionType: group.selectionType === 'SINGLE' ? ('SINGLE' as const) : ('MULTIPLE' as const),
+        selectionType:
+          group.selectionType === 'SINGLE' ? ('SINGLE' as const) : ('MULTIPLE' as const),
         minSelections: Number(group.minSelections ?? (group.required ? 1 : 0)),
         maxSelections:
           group.maxSelections === null || group.maxSelections === undefined
@@ -184,14 +190,25 @@ export function buildHomeData(
       : { title: '', highlight: '', description: '', image: '' };
   const banners = [];
   const restaurantName = String(restaurant.name || '');
+  const rawWhatsapp = String(settings?.whatsapp || restaurant.whatsapp || '').replace(/\D/g, '');
+  const hasWhatsappFlag = Boolean(
+    settings && Object.prototype.hasOwnProperty.call(settings, 'whatsappEnabled'),
+  );
+  const whatsappEnabled = hasWhatsappFlag
+    ? settings?.whatsappEnabled === true
+    : Boolean(rawWhatsapp);
   const brand = {
     name: String(restaurantName || settings?.restaurantName || ''),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     address: formatFooterAddress(restaurant),
     primaryColor: String(settings?.primaryColor || '#d64d08'),
-    whatsapp: String(settings?.whatsapp || ''),
+    whatsapp: whatsappEnabled ? rawWhatsapp : '',
+    whatsappDisplayName: String(settings?.whatsappDisplayName || ''),
+    whatsappDefaultMessage: String(settings?.whatsappDefaultMessage || ''),
     instagram: String(settings?.instagram || ''),
     facebook: String(settings?.facebook || ''),
+    tiktok: String(settings?.tiktok || ''),
+    youtube: String(settings?.youtube || ''),
     legalName: String(settings?.companyLegalName || ''),
     phone: String(settings?.ownerPhone || ''),
     email: String(settings?.ownerEmail || ''),
@@ -255,7 +272,14 @@ export function buildHomeData(
     products,
     deliveryTime: String(settings?.averageDeliveryTime || ''),
     minimumOrder: Number(settings?.minimumOrder || 0),
-    freeDeliveryFrom: 0,
+    freeDeliveryFrom: readOptionalPositiveMoney(settings?.freeShippingMinimum),
+    acceptsDelivery: readPublicFeatureFlag(settings, 'acceptsDelivery'),
+    acceptsPickup: readPublicFeatureFlag(settings, 'acceptsPickup'),
+    acceptsPix: readPublicFeatureFlag(settings, 'acceptsPix'),
+    acceptsCard: readPublicFeatureFlag(settings, 'acceptsCard'),
+    fontFamily: normalizeHomeFontFamily(settings?.fontFamily),
+    seoTitle: String(settings?.seoTitle || '').trim(),
+    seoDescription: String(settings?.seoDescription || '').trim(),
     isOpen: availability.isOpen,
     isOpenForOrders,
     about: String(

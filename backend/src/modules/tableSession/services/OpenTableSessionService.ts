@@ -2,6 +2,7 @@ import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import tableRepository from '../../table/repositories/TableRepository.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
 
 type OpenTableSessionPayload = {
   tableId: number | string;
@@ -15,6 +16,16 @@ class OpenTableSessionService {
 
     if (!table || table.restaurantId !== restaurantId || !table.active) {
       throw new Error('Mesa não encontrada!');
+    }
+
+    const publicTable = await resolvePublicTableService.execute({
+      tableId: table.id,
+      tableNumber: table.number,
+      restaurantId,
+    });
+
+    if (!publicTable.tableOrderingEnabled) {
+      throw new Error('Os pedidos pelo cardápio de mesa estão desativados neste restaurante.');
     }
 
     const sessionOpened = await tableSessionRepository.findOpenedByTable(tableId);

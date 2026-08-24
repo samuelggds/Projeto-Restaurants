@@ -210,6 +210,7 @@ class UpdateOrderStatusService {
     }
 
     notifyCustomerOrderStatusChanged({
+      restaurantId,
       customerPhone: order?.user?.phone,
       customerName: order?.user?.name,
       restaurantName: order?.restaurant?.name,

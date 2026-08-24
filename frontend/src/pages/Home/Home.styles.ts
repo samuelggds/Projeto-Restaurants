@@ -23,7 +23,23 @@ const modalContentReveal = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-export const HomeRoot = styled.div<{ $primary: string }>`
+function homeFontStack(fontFamily?: string) {
+  if (fontFamily === 'Manrope') return 'Manrope, ui-sans-serif, system-ui, sans-serif';
+  if (fontFamily === 'DM Sans') return "'DM Sans', ui-sans-serif, system-ui, sans-serif";
+  return 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif';
+}
+
+export const HomeExperience = styled.div<{ $fontFamily?: string; $primary: string }>`
+  --home-primary: ${({ $primary }) => $primary};
+  --primary: ${({ $primary }) => $primary};
+  --home-border: #eadfd3;
+  --home-text: #191816;
+  --home-muted: #6f6a63;
+  min-height: 100vh;
+  font-family: ${({ $fontFamily }) => homeFontStack($fontFamily)};
+`;
+
+export const HomeRoot = styled.div<{ $primary: string; $fontFamily?: string }>`
   --home-primary: ${({ $primary }) => $primary};
   --primary: ${({ $primary }) => $primary};
   --home-border: #eadfd3;
@@ -33,13 +49,7 @@ export const HomeRoot = styled.div<{ $primary: string }>`
   min-height: 100vh;
   background: #fffdf9;
   color: var(--home-text);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: ${({ $fontFamily }) => homeFontStack($fontFamily)};
   *,
   *::before,
   *::after {
@@ -205,7 +215,7 @@ export const InfoBar = styled.div`
   border: 1px solid var(--home-border);
   border-radius: 16px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   align-items: center;
   background: #fffdf9;
   span {
@@ -223,7 +233,7 @@ export const InfoBar = styled.div`
     color: #4f8b40;
   }
   @media (max-width: 760px) {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 14px;
     padding: 14px 8px;
     span {
@@ -1399,14 +1409,26 @@ export const CartSectionLabel = styled.p`
   margin: 0 0 8px;
 `;
 
-export const DeliveryToggle = styled.div`
+export const DeliveryToggle = styled.div<{ $single?: boolean }>`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: ${({ $single }) => ($single ? '1fr' : '1fr 1fr')};
   background: #f0ece6;
   border-radius: 12px;
   padding: 4px;
   gap: 4px;
   margin-bottom: 10px;
+`;
+
+export const CheckoutUnavailable = styled.p`
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border: 1px solid #efc9b8;
+  border-radius: 12px;
+  background: #fff7f2;
+  color: #8a3d20;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
 `;
 
 export const DeliveryBtn = styled.button<{ $active: boolean }>`

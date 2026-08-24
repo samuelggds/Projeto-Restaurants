@@ -8,10 +8,13 @@ import ListTableController from '../controllers/ListTableController.js';
 import GetTableByIdController from '../controllers/GetTableByIdController.js';
 import UpdateTableController from '../controllers/UpdateTableController.js';
 import DeactivateTableController from '../controllers/DeactivateTableController.js';
+import ResolvePublicTableController from '../controllers/ResolvePublicTableController.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
 
 const router = Router();
+
+router.get('/public/resolve', (req, res) => ResolvePublicTableController.handle(req, res));
 
 router.post(
   '/',

@@ -9,6 +9,7 @@ type Props = {
   loading: boolean;
   paymentMethod: CheckoutPaymentMethod;
   isRestaurantOpen: boolean;
+  checkoutBlockedMessage?: string;
   quote?: OrderQuote | null;
   quoteLoading?: boolean;
   quoteError?: boolean;
@@ -24,6 +25,7 @@ export function CartCheckoutSummary({
   loading,
   paymentMethod,
   isRestaurantOpen,
+  checkoutBlockedMessage,
   quote,
   quoteLoading = false,
   quoteError = false,
@@ -34,11 +36,13 @@ export function CartCheckoutSummary({
     ? 'Processando...'
     : !isRestaurantOpen
       ? 'Restaurante fechado'
-      : paymentMethod === 'pix'
-        ? '⚡ Gerar código Pix'
-        : paymentMethod === 'card'
-          ? '💳 Ir para pagamento seguro'
-          : '✓ Fazer pedido e pagar na entrega';
+      : checkoutBlockedMessage
+        ? checkoutBlockedMessage
+        : paymentMethod === 'pix'
+          ? '⚡ Gerar código Pix'
+          : paymentMethod === 'card'
+            ? '💳 Ir para pagamento seguro'
+            : '✓ Fazer pedido e pagar na entrega';
   return (
     <div className="cart-checkout-area">
       {count > 0 && (
@@ -81,7 +85,7 @@ export function CartCheckoutSummary({
       </S.CartTotal>
       <S.CartCheckout
         type="button"
-        disabled={!count || loading || !isRestaurantOpen}
+        disabled={!count || loading || !isRestaurantOpen || Boolean(checkoutBlockedMessage)}
         onClick={onCheckout}
       >
         {buttonLabel} →
