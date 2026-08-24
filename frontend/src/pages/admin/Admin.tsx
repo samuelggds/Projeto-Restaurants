@@ -11,7 +11,7 @@ import ingredientsService from '../../Services/ingredientsService';
 import promotionsService from '../../Services/promotionsService';
 import { AdminPage } from './AdminPage';
 import { adminMockSettings, adminMockEmployees, defaultBusinessHours } from './data';
-import { normalizeBusinessHours } from './domain/businessHours';
+import { resolveEditableBusinessHours, serializeBusinessHours } from './domain/businessHours';
 import type {
   AdminCategory,
   AdminCoupon,
@@ -186,6 +186,7 @@ function mapSettingsFromApi(
     r?.coverImage ?? raw?.restaurantCoverImage ?? adminMockSettings.coverImageUrl ?? '';
   const banner = (title: string) => banners.find((item) => item.title === title);
   const mainBanner = banner(BANNER_TITLES.main);
+  const businessHoursState = resolveEditableBusinessHours(raw?.businessHours, defaultBusinessHours);
   return {
     restaurantName: String(r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName),
     companyLegalName: String(raw?.companyLegalName ?? ''),
@@ -201,7 +202,7 @@ function mapSettingsFromApi(
     businessAddressDistrict: String(r?.addressDistrict ?? ''),
     businessCity: String(r?.city ?? ''),
     businessState: String(r?.state ?? ''),
-    businessHours: normalizeBusinessHours(raw?.businessHours, defaultBusinessHours),
+    ...businessHoursState,
     isOpenForOrders: raw?.isOpenForOrders !== false,
     logoUrl: isPersistentImageSource(logoCandidate) ? String(logoCandidate) : '',
     coverImageUrl: isPersistentImageSource(coverCandidate) ? String(coverCandidate) : '',
@@ -261,7 +262,7 @@ function mapSettingsToApi(settings: AdminSettings): Record<string, unknown> {
     restaurantAddressDistrict: settings.businessAddressDistrict.trim(),
     restaurantCity: settings.businessCity.trim(),
     restaurantState: settings.businessState.trim().toUpperCase(),
-    businessHours: settings.businessHours,
+    ...serializeBusinessHours(settings.businessHours, settings.businessHoursConfigured),
     isOpenForOrders: settings.isOpenForOrders,
     restaurantLogo: settings.logoUrl,
     restaurantCoverImage: settings.coverImageUrl,

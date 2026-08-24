@@ -26,6 +26,7 @@ type Options = {
   cartTotal: number;
   notify: Notify;
   onPurchased: () => void;
+  onPaymentConfirmed: () => void | Promise<void>;
   onClearCart: () => void;
   onCloseCart: () => void;
 };
@@ -40,8 +41,16 @@ export function getCheckoutErrorMessage(error: unknown): string {
 }
 
 export function useCheckoutPayments(options: Options) {
-  const { restaurantId, pixProvider, cartTotal, notify, onPurchased, onClearCart, onCloseCart } =
-    options;
+  const {
+    restaurantId,
+    pixProvider,
+    cartTotal,
+    notify,
+    onPurchased,
+    onPaymentConfirmed,
+    onClearCart,
+    onCloseCart,
+  } = options;
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState<PixPaymentData | null>(null);
 
@@ -73,6 +82,7 @@ export function useCheckoutPayments(options: Options) {
           });
           if (active) {
             setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
+            await onPaymentConfirmed();
           }
         }
       } catch {
@@ -88,7 +98,7 @@ export function useCheckoutPayments(options: Options) {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [pixPaymentData, restaurantId]);
+  }, [onPaymentConfirmed, pixPaymentData, restaurantId]);
 
   const executePayment = async (
     payload: Record<string, unknown>,

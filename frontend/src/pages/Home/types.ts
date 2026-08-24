@@ -91,10 +91,12 @@ export type LoyaltySummary = {
 export type LoyaltyProgramProps = {
   primaryColor: string;
   loading: boolean;
+  error?: string;
   summary: LoyaltySummary | null;
   loggedIn: boolean;
   redeemingCouponId?: number | null;
   onLogin: () => void;
+  onRetry: () => void;
   onRedeem: (couponId: number) => void;
 };
 
@@ -115,6 +117,8 @@ export type HomeData = {
   minimumOrder: number;
   freeDeliveryFrom: number;
   isOpen: boolean;
+  /** Manual master switch. When absent, `isOpen` keeps legacy behavior. */
+  isOpenForOrders?: boolean;
   about: string;
   businessHours?: BusinessHour[];
 };

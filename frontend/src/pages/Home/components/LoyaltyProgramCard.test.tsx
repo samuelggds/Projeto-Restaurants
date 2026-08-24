@@ -31,6 +31,7 @@ function loyalty(overrides: Partial<LoyaltyProgramProps> = {}): LoyaltyProgramPr
     loggedIn: true,
     summary: { purchasesCompleted: 2, rewards: [reward()] },
     onLogin: () => undefined,
+    onRetry: () => undefined,
     onRedeem: () => undefined,
     ...overrides,
   };
@@ -99,5 +100,34 @@ describe('LoyaltyProgramCard', () => {
 
     expect(markup).toContain('Ganhe descontos');
     expect(markup).toContain('Entre para acompanhar sua fidelidade');
+  });
+
+  it('diferencia falha de consulta de ausência de benefícios', () => {
+    const markup = renderToStaticMarkup(
+      <LoyaltyProgramCard
+        loyalty={loyalty({
+          error: 'Não foi possível consultar seus benefícios agora.',
+          summary: null,
+          onRetry: () => undefined,
+        })}
+      />,
+    );
+
+    expect(markup).toContain('Fidelidade indisponível');
+    expect(markup).toContain('Toque para tentar novamente');
+  });
+
+  it('mantém o atalho visível quando ainda não há campanha ativa', () => {
+    const markup = renderToStaticMarkup(
+      <LoyaltyProgramCard
+        loyalty={loyalty({
+          summary: { purchasesCompleted: 0, rewards: [] },
+        })}
+      />,
+    );
+
+    expect(markup).toContain('Clube de vantagens');
+    expect(markup).toContain('Toque para verificar novos cupons');
+    expect(markup).toContain('Atualizar');
   });
 });

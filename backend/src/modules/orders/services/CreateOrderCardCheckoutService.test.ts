@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 import orderRepository from '../repositories/OrderRepository.js';
 
 const originalHttpCreateServer = http.createServer;
@@ -41,6 +42,39 @@ afterEach(() => {
   delete process.env.PAGBANK_EMAIL;
   delete process.env.PAGBANK_TOKEN;
   delete process.env.ASAAS_PLATFORM_WALLET_ID;
+});
+
+test('não cria checkout de cartão fora da agenda semanal', async () => {
+  let createOrderCalled = false;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    businessHours: BUSINESS_DAY_IDS.map((id) => ({
+      id,
+      label: id,
+      enabled: false,
+      openingTime: '11:00',
+      closingTime: '23:00',
+    })),
+    cardGateway: 'PAGBANK',
+  });
+  createOrderService.execute = async () => {
+    createOrderCalled = true;
+    throw new Error('não deveria criar pedido');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderCardCheckoutService.execute({
+        restaurantId: 7,
+        userRestaurantId: 7,
+        type: 'RETIRADA',
+        paymentMethod: 'CARTAO',
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Cliente',
+      }),
+    /restaurante está fechado/i,
+  );
+  assert.equal(createOrderCalled, false);
 });
 
 test('deve abrir checkout de cartao usando a configuracao PagBank do restaurante', async () => {

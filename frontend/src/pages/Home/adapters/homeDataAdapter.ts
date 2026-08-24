@@ -3,6 +3,8 @@ import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
 import type { HomeCategory, HomeData, HomeProduct } from '../../Home/types';
 import { isProductUnavailable } from '../domain/productAvailability';
 import {
+  getRestaurantAvailability,
+  isBusinessHoursScheduleConfigured,
   isRestaurantOpenForOrders,
   normalizeBusinessHours,
 } from '../../admin/domain/businessHours';
@@ -162,6 +164,7 @@ export function mapProductPricingFromApi(product: Record<string, unknown>) {
 export function buildHomeData(
   productsFromApi: Record<string, unknown>[],
   settings: Record<string, unknown> | null,
+  date = new Date(),
 ): HomeData {
   const restaurant = (settings?.restaurant as Record<string, unknown>) ?? {};
   const persistedBanners = Array.isArray(restaurant.banners)
@@ -233,7 +236,17 @@ export function buildHomeData(
       })
       .filter(Boolean) as HomeCategory[]),
   ];
-  const businessHours = normalizeBusinessHours(settings?.businessHours, defaultBusinessHours);
+  const configuredBusinessHours = isBusinessHoursScheduleConfigured(settings?.businessHours)
+    ? settings.businessHours
+    : undefined;
+  const configuredDayIds = new Set(configuredBusinessHours?.map((day) => day.id) || []);
+  const businessHours = configuredBusinessHours
+    ? normalizeBusinessHours(configuredBusinessHours, defaultBusinessHours).filter((day) =>
+        configuredDayIds.has(day.id),
+      )
+    : undefined;
+  const isOpenForOrders = isRestaurantOpenForOrders(settings?.isOpenForOrders);
+  const availability = getRestaurantAvailability(businessHours, isOpenForOrders, date);
   return {
     brand,
     hero,
@@ -243,7 +256,8 @@ export function buildHomeData(
     deliveryTime: String(settings?.averageDeliveryTime || ''),
     minimumOrder: Number(settings?.minimumOrder || 0),
     freeDeliveryFrom: 0,
-    isOpen: isRestaurantOpenForOrders(settings?.isOpenForOrders),
+    isOpen: availability.isOpen,
+    isOpenForOrders,
     about: String(
       restaurant.description || settings?.restaurantDescription || settings?.description || '',
     ),

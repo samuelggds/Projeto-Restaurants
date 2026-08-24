@@ -3,6 +3,8 @@ import menuService from '../../../Services/menuService';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
 import { toPositiveInteger } from '../domain/productAvailability';
 
+export const PUBLIC_SETTINGS_REFRESH_INTERVAL_MS = 30_000;
+
 export function useResolvedRestaurantId(slug: string) {
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
   useEffect(() => {
@@ -37,14 +39,32 @@ export function useRestaurantCatalog({ restaurantId, slug, onError }: CatalogOpt
   useEffect(() => {
     if (!restaurantId) return;
     let active = true;
-    restaurantSettingsService
-      .getPublicSettings(restaurantId)
-      .then((data) => {
+    let loading = false;
+
+    const refreshSettings = async () => {
+      if (loading) return;
+      loading = true;
+      try {
+        const data = await restaurantSettingsService.getPublicSettings(restaurantId);
         if (active) setSettings(data ?? null);
-      })
-      .catch(() => undefined);
+      } catch {
+        // Keep the last valid settings while a transient refresh fails.
+      } finally {
+        loading = false;
+      }
+    };
+    const refreshWhileVisible = () => {
+      if (document.visibilityState !== 'hidden') void refreshSettings();
+    };
+
+    void refreshSettings();
+    const intervalId = window.setInterval(refreshWhileVisible, PUBLIC_SETTINGS_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshWhileVisible);
+
     return () => {
       active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshWhileVisible);
     };
   }, [restaurantId]);
 

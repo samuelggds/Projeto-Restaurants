@@ -7,6 +7,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   let paymentPayload: Record<string, unknown> | null = null;
   let redeemPayload: Record<string, unknown> | null = null;
   let redeemed = false;
+  let redemptionStatus: 'CLAIMED' | 'RESERVED' | 'USED' = 'CLAIMED';
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
@@ -94,7 +95,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
       const redemption = {
         id: 71,
         cycle: 1,
-        status: 'CLAIMED',
+        status: redemptionStatus,
         expiresAt: '2099-09-22T12:00:00.000Z',
         expired: false,
       };
@@ -121,8 +122,8 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
               remaining: redeemed ? 5 : 0,
               progressPercent: redeemed ? 0 : 100,
               canRedeem: !redeemed,
-              limitReached: redeemed,
-              activeRedemptions: redeemed ? 1 : 0,
+              limitReached: redeemed && redemptionStatus !== 'USED',
+              activeRedemptions: redeemed && redemptionStatus !== 'USED' ? 1 : 0,
               walletLimit: 1,
               nextCycle: redeemed ? 2 : 1,
               redemptions: redeemed ? [redemption] : [],
@@ -188,6 +189,7 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
     }
     if (pathname === '/orders/pix/payment') {
       paymentPayload = request.postDataJSON() as Record<string, unknown>;
+      redemptionStatus = 'RESERVED';
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -198,8 +200,25 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
           provider: 'PIX',
           qrCode: '000201-fidelidade',
           qrCodeBase64: null,
-          requiresStatusCheck: false,
+          requiresStatusCheck: true,
         }),
+      });
+      return;
+    }
+    if (pathname === '/orders/pix/payment/status') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ isApproved: true }),
+      });
+      return;
+    }
+    if (pathname === '/orders/pix/payment/confirm') {
+      redemptionStatus = 'USED';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ paid: true }),
       });
       return;
     }
@@ -347,5 +366,118 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await page.getByRole('button', { name: /Gerar código Pix/ }).click();
   await expect(page.getByRole('heading', { name: 'Pagamento via Pix' })).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
+  await expect(
+    page.getByText('Pagamento confirmado! Seu pedido já foi enviado ao restaurante.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar para o cardápio' }).click();
+  await expect(
+    page.getByRole('button', { name: /Faltam 5 pedidos.*próxima recompensa/i }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: /Cupom disponível/i })).toHaveCount(0);
   expect(paymentPayload).toMatchObject({ restaurantId: 9, couponRedemptionId: 71 });
+});
+
+test('campanha criada com a Home aberta aparece quando o cliente volta para a aba', async ({
+  page,
+}) => {
+  let campaignPublished = false;
+  let loyaltyRequests = 0;
+
+  await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === '/auth/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 22, name: 'Cliente Teste', role: 'CLIENTE' }),
+      });
+      return;
+    }
+    if (
+      pathname === '/settings/public/slug/restaurante-teste' ||
+      pathname === '/settings/public/9'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          restaurantId: 9,
+          restaurantName: 'Restaurante Teste',
+          primaryColor: '#d05632',
+          isOpenForOrders: true,
+          restaurant: { id: 9, name: 'Restaurante Teste' },
+        }),
+      });
+      return;
+    }
+    if (pathname === '/products') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ products: [] }),
+      });
+      return;
+    }
+    if (pathname === '/coupons/loyalty') {
+      loyaltyRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          restaurantId: 9,
+          purchasesCompleted: 10,
+          rewards: campaignPublished
+            ? [
+                {
+                  coupon: {
+                    id: 7,
+                    code: 'FIEL10',
+                    title: 'Cliente fiel',
+                    description: 'Seu presente por voltar.',
+                    discountType: 'PERCENTAGE',
+                    discount: 10,
+                    minimumSubtotal: 0,
+                  },
+                  purchasesCompleted: 10,
+                  purchasesRequired: 10,
+                  remaining: 0,
+                  progressPercent: 100,
+                  canRedeem: true,
+                  redemptions: [],
+                },
+              ]
+            : [],
+          redemptions: [],
+        }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('token', 'e2e-customer-token');
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 22, name: 'Cliente Teste', role: 'CLIENTE' }),
+    );
+  });
+  await page.goto('/restaurante-teste');
+
+  await expect(
+    page.getByRole('button', {
+      name: /Clube de vantagens.*Toque para verificar novos cupons/i,
+    }),
+  ).toBeVisible();
+
+  campaignPublished = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+  await expect.poll(() => loyaltyRequests).toBeGreaterThan(1);
+  await expect(
+    page.getByRole('button', {
+      name: /Você ganhou um cupom.*10% de desconto/i,
+    }),
+  ).toBeVisible();
 });

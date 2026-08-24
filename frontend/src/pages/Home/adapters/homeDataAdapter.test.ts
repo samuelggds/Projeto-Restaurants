@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultBusinessHours } from '../../admin/data';
 import { buildHomeData, mapProductPricingFromApi, resolveProductImage } from './homeDataAdapter';
 
 describe('homeDataAdapter', () => {
@@ -39,6 +40,26 @@ describe('homeDataAdapter', () => {
     expect(data.brand).toMatchObject({ name: 'North Pizza', monogram: 'NP' });
     expect(data.hero.image).toContain('main.png');
     expect(data.banners).toHaveLength(0);
+  });
+
+  it('combina o controle manual com a agenda persistida', () => {
+    const data = buildHomeData(
+      [],
+      {
+        isOpenForOrders: true,
+        businessHours: defaultBusinessHours.map((day) => ({ ...day, enabled: false })),
+      },
+      new Date('2026-08-09T21:00:00.000Z'),
+    );
+
+    expect(data.isOpenForOrders).toBe(true);
+    expect(data.isOpen).toBe(false);
+  });
+
+  it('mantém compatibilidade manual quando o restaurante ainda não cadastrou uma agenda', () => {
+    const data = buildHomeData([], { isOpenForOrders: true }, new Date('2026-08-09T21:00:00.000Z'));
+    expect(data.isOpen).toBe(true);
+    expect(data.businessHours).toBeUndefined();
   });
 
   it('usa somente o preço promocional calculado pelo servidor', () => {

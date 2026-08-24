@@ -31,6 +31,7 @@ export const adminMockSettings: AdminSettings = {
   businessCity: '',
   businessState: '',
   businessHours: defaultBusinessHours,
+  businessHoursConfigured: false,
   isOpenForOrders: true,
   coverImageUrl: '',
   primaryColor: '#d64d08',

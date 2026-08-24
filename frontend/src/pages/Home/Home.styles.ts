@@ -1012,9 +1012,15 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior: contain;
-  transform: translateX(${({ $open }) => ($open ? '0' : '105%')});
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: -24px 0 80px rgba(70, 45, 20, 0.22);
+  visibility: ${({ $open }) => ($open ? 'visible' : 'hidden')};
+  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  clip-path: inset(0 0 0 ${({ $open }) => ($open ? '0' : '100%')});
+  transition:
+    clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease,
+    visibility 0s linear ${({ $open }) => ($open ? '0s' : '0.32s')};
+  box-shadow: ${({ $open }) => ($open ? '-24px 0 80px rgba(70, 45, 20, 0.22)' : 'none')};
 `;
 
 export const CartHead = styled.div`

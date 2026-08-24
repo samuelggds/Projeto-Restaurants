@@ -287,6 +287,7 @@ export function AdminPage({
     }
     if (
       section === 'hours' &&
+      settings.businessHoursConfigured &&
       Object.keys(validateBusinessHours(settings.businessHours)).length > 0
     ) {
       setFeedbackError('Revise os horários destacados antes de salvar.');

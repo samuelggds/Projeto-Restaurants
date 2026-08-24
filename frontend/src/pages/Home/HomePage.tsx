@@ -8,7 +8,7 @@ import {
   Sparkles,
   Tag,
 } from 'lucide-react';
-import { getTodayBusinessHours } from '../admin/domain/businessHours';
+import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { useMemo, useState } from 'react';
 import * as Offers from './components/FeaturedOffers.styles';
 import { HomeHeader } from './components/HomeHeader';
@@ -68,6 +68,10 @@ export function HomePage({
     data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos';
   const favoriteIds = useMemo(() => new Set(favoriteProductIds), [favoriteProductIds]);
   const primary = data.brand.primaryColor ?? '#d64d08';
+  const availability = getRestaurantAvailability(
+    data.businessHours,
+    data.isOpenForOrders ?? data.isOpen,
+  );
 
   const selectCategory = (id: string) => {
     setActiveCategory(id);
@@ -107,10 +111,9 @@ export function HomePage({
         onOpenCart={onOpenCart}
         onSearch={onSearch}
         onLogout={onLogout}
-        isRestaurantOpen={data.isOpen}
-        businessHoursLabel={
-          data.businessHours ? getTodayBusinessHours(data.businessHours) : 'Horário não informado'
-        }
+        isRestaurantOpen={availability.isOpen}
+        availabilityLabel={availability.label}
+        availabilityDetail={availability.detail}
       />
       <S.Main>
         {data.about && (

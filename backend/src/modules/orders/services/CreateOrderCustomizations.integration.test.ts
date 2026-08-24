@@ -7,6 +7,7 @@ import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 
 const originalHttpCreateServer = http.createServer;
 http.createServer = ((...args) => {
@@ -34,6 +35,35 @@ afterEach(() => {
   orderRepository.findById = originals.findOrderById;
   productRepository.findById = originals.findProductById;
   restaurantSettingsRepository.findByRestaurantId = originals.findSettings;
+});
+
+test('bloqueia a criação do pedido fora da agenda semanal', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    businessHours: BUSINESS_DAY_IDS.map((id) => ({
+      id,
+      label: id,
+      enabled: false,
+      openingTime: '11:00',
+      closingTime: '23:00',
+    })),
+    autoAcceptOrders: false,
+    maxConcurrentOrders: 20,
+  });
+
+  await assert.rejects(
+    () =>
+      createOrderService.execute({
+        userId: 42,
+        restaurantId: 7,
+        userRestaurantId: 7,
+        type: OrderType.RETIRADA,
+        paymentMethod: PaymentMethod.DINHEIRO,
+        paid: false,
+        items: [{ productId: 10, quantity: 1 }],
+      }),
+    /restaurante está fechado/i,
+  );
 });
 
 test('persiste opções agrupadas e observação do item no createMany do pedido', async () => {

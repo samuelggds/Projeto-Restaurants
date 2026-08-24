@@ -32,6 +32,8 @@ type Props = {
   onLogout?: () => void;
   isRestaurantOpen?: boolean;
   businessHoursLabel?: string;
+  availabilityLabel?: string;
+  availabilityDetail?: string;
 };
 
 export function HomeHeader({
@@ -52,6 +54,8 @@ export function HomeHeader({
   onLogout,
   isRestaurantOpen = false,
   businessHoursLabel = 'Horário não informado',
+  availabilityLabel,
+  availabilityDetail,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -87,6 +91,13 @@ export function HomeHeader({
   const locationText = selectedAddress
     ? `${selectedAddress.address}, ${selectedAddress.number}`
     : brand.address;
+  const statusLabel = availabilityLabel || (isRestaurantOpen ? 'Aberto agora' : 'Fechado agora');
+  const requestedDetail = (availabilityDetail || businessHoursLabel).replace(/^Hoje:\s*/i, '');
+  const detailContradictsStatus = isRestaurantOpen
+    ? /fechad/i.test(requestedDetail)
+    : /abert/i.test(requestedDetail);
+  const statusDetail = detailContradictsStatus ? '' : requestedDetail;
+  const statusDescription = [statusLabel, statusDetail].filter(Boolean).join('. ');
 
   return (
     <Header $primary={brand.primaryColor ?? '#d64d08'}>
@@ -136,11 +147,16 @@ export function HomeHeader({
         )}
       </LocationWrap>
 
-      <BusinessStatus $open={isRestaurantOpen} title={businessHoursLabel}>
+      <BusinessStatus
+        $open={isRestaurantOpen}
+        title={statusDescription}
+        role="status"
+        aria-label={statusDescription}
+      >
         <i />
         <Clock3 size={15} />
-        <span>{isRestaurantOpen ? 'Aberto' : 'Fechado'}</span>
-        {isRestaurantOpen && <small>{businessHoursLabel.replace('Hoje: ', '')}</small>}
+        <span>{statusLabel}</span>
+        {statusDetail && <small>{statusDetail}</small>}
       </BusinessStatus>
 
       <Navigation $open={mobileOpen}>
@@ -243,14 +259,20 @@ const Header = styled.header<{ $primary: string }>`
   top: 0;
   z-index: 50;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: 82px;
   padding: 0 clamp(18px, 3.4vw, 54px);
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: clamp(10px, 1.45vw, 28px);
   border-bottom: 1px solid #eadfd3;
   background: rgba(255, 253, 249, 0.96);
   backdrop-filter: blur(14px);
+  @media (max-width: 1380px) {
+    padding-inline: 24px;
+  }
   @media (max-width: 980px) {
     height: 68px;
     padding: 0 14px;
@@ -268,6 +290,7 @@ const Header = styled.header<{ $primary: string }>`
 `;
 const Brand = styled.a`
   min-width: 0;
+  flex: 0 1 auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -275,6 +298,10 @@ const Brand = styled.a`
   text-decoration: none;
   white-space: nowrap;
   font-size: 20px;
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   @media (max-width: 520px) {
     gap: 7px;
     font-size: 15px;
@@ -305,6 +332,10 @@ const Monogram = styled.span`
   }
 `;
 const LocationWrap = styled.div`
+  flex: 1 1 260px;
+  width: min(360px, 27vw);
+  min-width: 180px;
+  max-width: 360px;
   margin-left: auto;
   position: relative;
   @media (max-width: 980px) {
@@ -316,6 +347,9 @@ const LocationWrap = styled.div`
     left: 14px;
     right: 14px;
     bottom: 8px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
     margin-left: 0;
   }
   @media (max-width: 360px) {
@@ -324,6 +358,8 @@ const LocationWrap = styled.div`
   }
 `;
 const Location = styled.button`
+  width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -334,7 +370,7 @@ const Location = styled.button`
   background: #fffdf9;
   color: #191816;
   cursor: pointer;
-  max-width: 360px;
+  max-width: 100%;
   span {
     font-weight: 600;
     white-space: nowrap;
@@ -423,8 +459,10 @@ const LocationOption = styled.button<{ $active: boolean }>`
   }
 `;
 const Navigation = styled.nav<{ $open: boolean }>`
+  min-width: 0;
+  flex-shrink: 0;
   display: flex;
-  gap: 28px;
+  gap: clamp(14px, 1.45vw, 28px);
   height: 100%;
   align-items: center;
   a,
@@ -468,6 +506,7 @@ const Navigation = styled.nav<{ $open: boolean }>`
 `;
 const BusinessStatus = styled.div<{ $open: boolean }>`
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -490,21 +529,41 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
     color: ${({ $open }) => ($open ? '#7a746d' : '#a43a35')};
     font-size: 11px;
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 130px;
   }
-  @media (max-width: 1160px) {
+  @media (max-width: 1550px) {
     small {
       display: none;
     }
   }
   @media (max-width: 980px) {
-    display: none;
+    padding: 7px 9px;
+    font-size: 11px;
+    margin-left: auto;
+  }
+  @media (max-width: 760px) {
+    margin-left: auto;
+  }
+  @media (max-width: 520px) {
+    gap: 4px;
+    padding: 7px 8px;
+    svg {
+      display: none;
+    }
+    i {
+      width: 6px;
+      height: 6px;
+      box-shadow: none;
+    }
+    span {
+      max-width: 84px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 `;
 const Actions = styled.div`
   min-width: 0;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 9px;

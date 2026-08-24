@@ -192,8 +192,6 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
     };
   }, [isOpen]);
 
-  if (loyalty.loggedIn && !loyalty.loading && !rewards.length) return null;
-
   const claimed = highlightedReward ? activeRedemption(highlightedReward) : undefined;
   const discount = highlightedReward
     ? rewardLabel(highlightedReward.coupon.discountType, highlightedReward.coupon.discount)
@@ -207,6 +205,14 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
     title = 'Consultando seus benefícios';
     description = 'Só um instante…';
     badge = '•••';
+  } else if (loyalty.error) {
+    title = 'Fidelidade indisponível';
+    description = 'Toque para tentar novamente';
+    badge = 'Tentar';
+  } else if (loyalty.loggedIn && !highlightedReward) {
+    title = 'Clube de vantagens';
+    description = 'Toque para verificar novos cupons';
+    badge = 'Atualizar';
   } else if (highlightedReward && claimed) {
     title = claimed.status === 'RESERVED' ? 'Cupom aplicado' : 'Cupom disponível';
     description =
@@ -306,6 +312,34 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
                     <small>Estamos conferindo seus pedidos pagos e entregues.</small>
                   </span>
                 </S.LoadingState>
+              ) : loyalty.error ? (
+                <S.LoginState role="alert">
+                  <div>
+                    <Gift />
+                    <span>
+                      <strong>Não foi possível carregar seus benefícios</strong>
+                      <small>{loyalty.error}</small>
+                    </span>
+                  </div>
+                  <S.LoginButton type="button" onClick={loyalty.onRetry}>
+                    Tentar novamente <ArrowRight />
+                  </S.LoginButton>
+                </S.LoginState>
+              ) : !rewards.length ? (
+                <S.LoginState>
+                  <div>
+                    <Gift />
+                    <span>
+                      <strong>Nenhum benefício ativo agora</strong>
+                      <small>
+                        Assim que o restaurante liberar uma recompensa, ela aparecerá aqui.
+                      </small>
+                    </span>
+                  </div>
+                  <S.LoginButton type="button" onClick={loyalty.onRetry}>
+                    Atualizar benefícios <ArrowRight />
+                  </S.LoginButton>
+                </S.LoginState>
               ) : (
                 <>
                   <S.PurchaseCount>

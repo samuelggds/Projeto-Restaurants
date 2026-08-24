@@ -6,6 +6,7 @@ import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
+import { normalizeBusinessHours } from '../utils/businessHours.js';
 
 type UpdateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -260,7 +261,7 @@ class UpdateRestaurantSettingsService {
     const normalizedPagBankToken =
       pagbankToken === undefined ? undefined : String(pagbankToken || '').trim() || null;
     const normalizedPagBankEnvironment = 'production';
-    const normalizedBusinessHours = businessHours === undefined ? undefined : businessHours;
+    const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     const normalizedIsOpenForOrders =
       isOpenForOrders === undefined ? undefined : Boolean(isOpenForOrders);
     const normalizedAverageDeliveryTime =

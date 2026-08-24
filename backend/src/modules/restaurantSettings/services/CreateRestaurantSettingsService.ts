@@ -6,6 +6,7 @@ import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
 } from '../utils/establishmentAddress.js';
+import { normalizeBusinessHours } from '../utils/businessHours.js';
 
 type CreateRestaurantSettingsPayload = {
   restaurantId: number | string;
@@ -174,6 +175,7 @@ class CreateRestaurantSettingsService {
     const normalizedBankHolderDocument = String(bankHolderDocument || '').replace(/\D/g, '');
     const normalizedOwnerCpf = String(ownerCpf || '').replace(/\D/g, '');
     const normalizedOwnerPhone = String(ownerPhone || '').replace(/\D/g, '');
+    const normalizedBusinessHours = normalizeBusinessHours(businessHours);
 
     if (
       normalizedLegalDocumentType === 'CNPJ' &&
@@ -248,8 +250,7 @@ class CreateRestaurantSettingsService {
       companyContractFileUrl: String(companyContractFileUrl || '').trim() || null,
       instagram,
       facebook,
-      businessHours:
-        businessHours === undefined ? undefined : (businessHours as Prisma.InputJsonValue),
+      businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
       isOpenForOrders: isOpenForOrders === undefined ? true : Boolean(isOpenForOrders),
       averageDeliveryTime:
         averageDeliveryTime === undefined

@@ -25,7 +25,7 @@ class CreateOrderCardCheckoutService {
 
     const settings = await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
 
-    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
+    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
 
     const configuredProvider = String(settings?.cardGateway || '').trim();
     if (!configuredProvider) {

@@ -2,12 +2,16 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import productRepository from '../../products/repositories/ProductRepository.js';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
 
 const originalFindById = productRepository.findById;
+const originalFindPublicSettings = restaurantSettingsRepository.findPublicByRestaurantId;
 
 afterEach(() => {
   productRepository.findById = originalFindById;
+  restaurantSettingsRepository.findPublicByRestaurantId = originalFindPublicSettings;
 });
 
 const configurableProduct = {
@@ -69,6 +73,30 @@ const configurableProduct = {
     },
   ],
 };
+
+test('não gera cobrança PIX fora da agenda semanal', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    businessHours: BUSINESS_DAY_IDS.map((id) => ({
+      id,
+      label: id,
+      enabled: false,
+      openingTime: '11:00',
+      closingTime: '23:00',
+    })),
+  });
+
+  await assert.rejects(
+    () =>
+      orderPixPaymentService.createPixPayment({
+        restaurantId: 7,
+        type: 'RETIRADA',
+        paymentMethod: 'PIX',
+        items: [],
+      }),
+    /restaurante está fechado/i,
+  );
+});
 
 test('subtotal PIX inclui adicionais da montagem usando preços do restaurante', async () => {
   productRepository.findById = async (productId, restaurantId) => {

@@ -3633,10 +3633,170 @@ var RestaurantSettingsRepository = class {
 };
 var RestaurantSettingsRepository_default = new RestaurantSettingsRepository();
 
+// src/modules/restaurantSettings/utils/businessHours.ts
+var BUSINESS_DAY_IDS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday"
+];
+var DAY_LABELS = {
+  monday: "Segunda-feira",
+  tuesday: "Ter\xE7a-feira",
+  wednesday: "Quarta-feira",
+  thursday: "Quinta-feira",
+  friday: "Sexta-feira",
+  saturday: "S\xE1bado",
+  sunday: "Domingo"
+};
+var TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function normalizeBusinessHours(value) {
+  if (value === void 0) return void 0;
+  if (value === null || Array.isArray(value) && value.length === 0) return [];
+  if (!Array.isArray(value)) {
+    throw new Error("Os hor\xE1rios de funcionamento devem ser uma lista com os 7 dias da semana.");
+  }
+  if (value.length !== BUSINESS_DAY_IDS.length) {
+    throw new Error("Informe os hor\xE1rios dos 7 dias da semana.");
+  }
+  const days = /* @__PURE__ */ new Map();
+  value.forEach((rawDay) => {
+    if (!isRecord(rawDay)) {
+      throw new Error("Dia inv\xE1lido nos hor\xE1rios de funcionamento.");
+    }
+    const id = String(rawDay.id || "").trim();
+    if (!BUSINESS_DAY_IDS.includes(id)) {
+      throw new Error("Dia inv\xE1lido nos hor\xE1rios de funcionamento.");
+    }
+    if (days.has(id)) {
+      throw new Error(`O dia ${DAY_LABELS[id]} foi informado mais de uma vez.`);
+    }
+    days.set(id, rawDay);
+  });
+  return BUSINESS_DAY_IDS.map((id) => {
+    const rawDay = days.get(id);
+    if (!rawDay) {
+      throw new Error(`Informe o hor\xE1rio de ${DAY_LABELS[id]}.`);
+    }
+    if (typeof rawDay.enabled !== "boolean") {
+      throw new Error(`Informe se ${DAY_LABELS[id]} estar\xE1 aberto ou fechado.`);
+    }
+    const openingTime = String(rawDay.openingTime || "").trim();
+    const closingTime = String(rawDay.closingTime || "").trim();
+    if (!TIME_PATTERN.test(openingTime) || !TIME_PATTERN.test(closingTime)) {
+      throw new Error(`Informe hor\xE1rios v\xE1lidos para ${DAY_LABELS[id]} no formato HH:mm.`);
+    }
+    if (rawDay.enabled && openingTime === closingTime) {
+      throw new Error(
+        `A abertura e o fechamento de ${DAY_LABELS[id]} n\xE3o podem ter o mesmo hor\xE1rio.`
+      );
+    }
+    return {
+      id,
+      label: DAY_LABELS[id],
+      enabled: rawDay.enabled,
+      openingTime,
+      closingTime
+    };
+  });
+}
+function tryNormalizeBusinessHours(value) {
+  try {
+    return normalizeBusinessHours(value) || [];
+  } catch {
+    return [];
+  }
+}
+
 // src/modules/orders/utils/restaurantAvailability.ts
 var RESTAURANT_CLOSED_MESSAGE = "O restaurante est\xE1 fechado no momento e n\xE3o est\xE1 recebendo pedidos.";
-function assertRestaurantIsOpenForOrders(isOpenForOrders) {
-  if (isOpenForOrders === false) {
+var DEFAULT_RESTAURANT_TIME_ZONE = "America/Sao_Paulo";
+var DAY_IDS_BY_WEEKDAY = {
+  Sun: "sunday",
+  Mon: "monday",
+  Tue: "tuesday",
+  Wed: "wednesday",
+  Thu: "thursday",
+  Fri: "friday",
+  Sat: "saturday"
+};
+var PREVIOUS_DAY = {
+  monday: "sunday",
+  tuesday: "monday",
+  wednesday: "tuesday",
+  thursday: "wednesday",
+  friday: "thursday",
+  saturday: "friday",
+  sunday: "saturday"
+};
+var zonedClockFormatters = /* @__PURE__ */ new Map();
+function timeToMinutes(value) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+function isValidTimeZone(value) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+function resolveRestaurantTimeZone(timeZone) {
+  const requested = typeof timeZone === "string" ? timeZone.trim() : "";
+  return requested && isValidTimeZone(requested) ? requested : DEFAULT_RESTAURANT_TIME_ZONE;
+}
+function getZonedClock(now, timeZone) {
+  const resolvedTimeZone = resolveRestaurantTimeZone(timeZone);
+  let formatter = zonedClockFormatters.get(resolvedTimeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: resolvedTimeZone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    });
+    zonedClockFormatters.set(resolvedTimeZone, formatter);
+  }
+  const parts = formatter.formatToParts(now);
+  const weekday = parts.find((part) => part.type === "weekday")?.value;
+  const hours = Number(parts.find((part) => part.type === "hour")?.value);
+  const minutes = Number(parts.find((part) => part.type === "minute")?.value);
+  const dayId = weekday ? DAY_IDS_BY_WEEKDAY[weekday] : void 0;
+  if (!dayId || !Number.isInteger(hours) || !Number.isInteger(minutes)) {
+    throw new Error("N\xE3o foi poss\xEDvel calcular o hor\xE1rio local do restaurante.");
+  }
+  return { dayId, minuteOfDay: hours * 60 + minutes };
+}
+function isRestaurantOpenForOrders(isOpenForOrders, businessHours, now = /* @__PURE__ */ new Date(), timeZone) {
+  if (isOpenForOrders === false) return false;
+  const schedule = tryNormalizeBusinessHours(businessHours);
+  if (schedule.length === 0) return true;
+  const { dayId, minuteOfDay } = getZonedClock(now, timeZone);
+  const currentDay = schedule.find((day) => day.id === dayId);
+  if (currentDay?.enabled) {
+    const opening = timeToMinutes(currentDay.openingTime);
+    const closing = timeToMinutes(currentDay.closingTime);
+    if (opening < closing && minuteOfDay >= opening && minuteOfDay < closing) return true;
+    if (opening > closing && minuteOfDay >= opening) return true;
+  }
+  const previousDay = schedule.find((day) => day.id === PREVIOUS_DAY[dayId]);
+  if (previousDay?.enabled) {
+    const previousOpening = timeToMinutes(previousDay.openingTime);
+    const previousClosing = timeToMinutes(previousDay.closingTime);
+    if (previousOpening > previousClosing && minuteOfDay < previousClosing) return true;
+  }
+  return false;
+}
+function assertRestaurantIsOpenForOrders(isOpenForOrders, businessHours, now = /* @__PURE__ */ new Date(), timeZone) {
+  if (!isRestaurantOpenForOrders(isOpenForOrders, businessHours, now, timeZone)) {
     throw new Error(RESTAURANT_CLOSED_MESSAGE);
   }
 }
@@ -4411,7 +4571,7 @@ var OrderPixPaymentService = class {
       }
     }
     const settings = await RestaurantSettingsRepository_default.findPublicByRestaurantId(normalizedRestaurantId);
-    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
+    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);
     const pixKey = String(settings?.pixKey || "").trim();
@@ -5528,9 +5688,6 @@ var OrderPricingService = class {
         throw new Error("Cupom resgatado inv\xE1lido ou indispon\xEDvel.");
       }
       const coupon = redemption.coupon;
-      if (!coupon.active || coupon.expiration && coupon.expiration <= now) {
-        throw new Error("Este cupom expirou ou foi desativado.");
-      }
       if (itemsSubtotal < Number(coupon.minimumSubtotal || 0)) {
         throw new Error(
           `Este cupom exige subtotal m\xEDnimo de R$ ${Number(coupon.minimumSubtotal).toFixed(2)}.`
@@ -5744,7 +5901,10 @@ var CreateOrderService = class {
       throw new Error("O identificador PIX s\xF3 pode ser vinculado pelo provedor de pagamento.");
     }
     const restaurantSettings = await RestaurantSettingsRepository_default.findByRestaurantId(resolvedRestaurantId);
-    assertRestaurantIsOpenForOrders(restaurantSettings?.isOpenForOrders);
+    assertRestaurantIsOpenForOrders(
+      restaurantSettings?.isOpenForOrders,
+      restaurantSettings?.businessHours
+    );
     const shouldPayOnDelivery = payOnDelivery === true;
     const effectivePaymentMethod = shouldPayOnDelivery ? payOnDeliveryMethod || paymentMethod : paymentMethod;
     if (shouldPayOnDelivery && type !== OrderType4.DELIVERY) {
@@ -8062,7 +8222,7 @@ var CreateOrderCardCheckoutService = class {
       contextRestaurantId: payload.userRestaurantId
     });
     const settings = await RestaurantSettingsRepository_default.findByRestaurantId(resolvedRestaurantId);
-    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
+    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
     const configuredProvider3 = String(settings?.cardGateway || "").trim();
     if (!configuredProvider3) {
       throw new Error(
@@ -12063,6 +12223,7 @@ var CreateRestaurantSettingsService = class {
     const normalizedBankHolderDocument = String(bankHolderDocument || "").replace(/\D/g, "");
     const normalizedOwnerCpf = String(ownerCpf || "").replace(/\D/g, "");
     const normalizedOwnerPhone = String(ownerPhone || "").replace(/\D/g, "");
+    const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     if (normalizedLegalDocumentType === "CNPJ" && normalizedCompanyDocument.length > 0 && normalizedCompanyDocument.length !== 14) {
       throw new Error("CNPJ inv\xE1lido para cadastro da empresa.");
     }
@@ -12115,7 +12276,7 @@ var CreateRestaurantSettingsService = class {
       companyContractFileUrl: String(companyContractFileUrl || "").trim() || null,
       instagram,
       facebook,
-      businessHours: businessHours === void 0 ? void 0 : businessHours,
+      businessHours: normalizedBusinessHours,
       isOpenForOrders: isOpenForOrders === void 0 ? true : Boolean(isOpenForOrders),
       averageDeliveryTime: averageDeliveryTime === void 0 ? void 0 : String(Math.max(1, Number(averageDeliveryTime) || 1)),
       autoAcceptOrders: autoAcceptOrders === void 0 ? false : Boolean(autoAcceptOrders),
@@ -12577,7 +12738,7 @@ var UpdateRestaurantSettingsService = class {
     const normalizedPagBankEmail = pagbankEmail === void 0 ? void 0 : String(pagbankEmail || "").trim() || null;
     const normalizedPagBankToken = pagbankToken === void 0 ? void 0 : String(pagbankToken || "").trim() || null;
     const normalizedPagBankEnvironment = "production";
-    const normalizedBusinessHours = businessHours === void 0 ? void 0 : businessHours;
+    const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     const normalizedIsOpenForOrders = isOpenForOrders === void 0 ? void 0 : Boolean(isOpenForOrders);
     const normalizedAverageDeliveryTime = averageDeliveryTime === void 0 ? void 0 : String(Math.max(1, Number(averageDeliveryTime) || 1));
     const normalizedAutoAcceptOrders = autoAcceptOrders === void 0 ? void 0 : Boolean(autoAcceptOrders);
@@ -14035,6 +14196,19 @@ var CouponRepository = class {
       orderBy: [{ couponId: "asc" }, { cycle: "asc" }]
     });
   }
+  async findAllRedemptions(userId, restaurantId) {
+    return prisma_default.couponRedemption.findMany({
+      where: {
+        userId: Number(userId),
+        restaurantId: Number(restaurantId)
+      },
+      include: {
+        coupon: true,
+        order: { select: { id: true } }
+      },
+      orderBy: [{ claimedAt: "desc" }, { id: "desc" }]
+    });
+  }
   async expireClaimedRedemptions({
     restaurantId,
     userId,
@@ -14062,6 +14236,16 @@ var CouponRepository = class {
       data,
       include: { order: { select: { id: true } } }
     });
+  }
+  async hasRedemptions(id, restaurantId) {
+    const redemption = await prisma_default.couponRedemption.findFirst({
+      where: {
+        couponId: Number(id),
+        restaurantId: Number(restaurantId)
+      },
+      select: { id: true }
+    });
+    return redemption !== null;
   }
   async update(id, restaurantId, data) {
     const result = await prisma_default.coupon.updateMany({
@@ -14249,7 +14433,9 @@ function couponControllerError(res, error2, fallback) {
   if (/não encontrad|indisponível|expirado/i.test(message)) {
     return res.status(404).json({ error: message });
   }
-  if (/já existe|já foi resgatado|limite de resgates/i.test(message)) {
+  if (/já existe|já foi resgatado|limite de resgates|possui resgates|não pode ser excluído/i.test(
+    message
+  )) {
     return res.status(409).json({ error: message });
   }
   if (/não pode ultrapassar|maior que zero|número inteiro|pelo menos/i.test(message)) {
@@ -14368,6 +14554,9 @@ var UpdateCouponController = class {
 var UpdateCouponController_default = new UpdateCouponController();
 
 // src/modules/coupon/services/DeleteCouponService.ts
+var redemptionHistoryError = () => new Error(
+  "Este cupom j\xE1 possui resgates e n\xE3o pode ser exclu\xEDdo. Pause ou arquive a campanha para preservar o hist\xF3rico dos clientes."
+);
 var DeleteCouponService = class {
   async execute({ id, restaurantId }) {
     const normalizedId = Array.isArray(id) ? id[0] : id;
@@ -14375,7 +14564,17 @@ var DeleteCouponService = class {
     if (!coupon) {
       throw new Error("Cupom n\xE3o encontrado");
     }
-    await CouponRepository_default.delete(normalizedId, restaurantId);
+    if (await CouponRepository_default.hasRedemptions(normalizedId, restaurantId)) {
+      throw redemptionHistoryError();
+    }
+    try {
+      await CouponRepository_default.delete(normalizedId, restaurantId);
+    } catch (error2) {
+      if (await CouponRepository_default.hasRedemptions(normalizedId, restaurantId)) {
+        throw redemptionHistoryError();
+      }
+      throw error2;
+    }
     return { message: "Cupom removido com sucesso" };
   }
 };
@@ -14452,6 +14651,8 @@ function presentRedemption(redemption, coupon, now) {
   const expired = redemption.status === "EXPIRED" || redemption.status === "CLAIMED" && expiresAt !== null && !Number.isNaN(expiresAt.getTime()) && expiresAt <= now;
   return {
     id: redemption.id,
+    restaurantId: redemption.restaurantId ?? coupon.restaurantId,
+    couponId: redemption.couponId ?? coupon.id,
     status: redemption.status,
     cycle: redemption.cycle,
     orderId: redemption.order?.id ?? null,
@@ -14505,18 +14706,12 @@ var ListLoyaltyCouponsService = class {
       CouponRepository_default.findActiveLoyaltyByRestaurant(restaurantId, now),
       CouponRepository_default.countCompletedPurchases(userId, restaurantId)
     ]);
-    const couponIds = coupons.map((coupon) => coupon.id);
     await CouponRepository_default.expireClaimedRedemptions({
       restaurantId,
       userId,
-      couponIds,
       now
     });
-    const redemptions = await CouponRepository_default.findRedemptions(
-      userId,
-      restaurantId,
-      couponIds
-    );
+    const redemptions = await CouponRepository_default.findAllRedemptions(userId, restaurantId);
     const rewards = await Promise.all(
       coupons.map(async (coupon) => {
         const couponRedemptions = redemptions.filter(
@@ -14530,7 +14725,10 @@ var ListLoyaltyCouponsService = class {
     return {
       restaurantId,
       purchasesCompleted,
-      rewards
+      rewards,
+      redemptions: redemptions.map(
+        (redemption) => presentRedemption(redemption, presentCoupon(redemption.coupon), now)
+      )
     };
   }
 };

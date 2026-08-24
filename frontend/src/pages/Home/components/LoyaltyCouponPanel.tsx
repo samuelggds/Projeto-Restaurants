@@ -6,11 +6,13 @@ import * as S from './LoyaltyCouponPanel.styles';
 type Props = {
   loggedIn: boolean;
   loading: boolean;
+  error?: string;
   summary: LoyaltySummary | null;
   selectedRedemptionId: number | null;
   redeemingCouponId: number | null;
   onSelect: (redemptionId: number | null) => void;
   onLogin: () => void;
+  onRetry: () => void;
   onRedeem: (couponId: number) => void;
 };
 
@@ -23,11 +25,13 @@ function benefitLabel(type: 'PERCENTAGE' | 'FIXED', value: number) {
 export function LoyaltyCouponPanel({
   loggedIn,
   loading,
+  error,
   summary,
   selectedRedemptionId,
   redeemingCouponId,
   onSelect,
   onLogin,
+  onRetry,
   onRedeem,
 }: Props) {
   const claimed = loyaltyRedemptionEntries(summary).filter(({ redemption }) =>
@@ -61,6 +65,13 @@ export function LoyaltyCouponPanel({
       ) : loading ? (
         <S.Empty aria-busy="true">
           <span>Consultando seus benefícios…</span>
+        </S.Empty>
+      ) : error ? (
+        <S.Empty role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={onRetry}>
+            Tentar novamente
+          </button>
         </S.Empty>
       ) : claimed.length > 0 ? (
         <S.CouponList>

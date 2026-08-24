@@ -159,6 +159,8 @@ export type AdminSettings = {
   businessCity: string;
   businessState: string;
   businessHours: BusinessHour[];
+  /** True only after a complete weekly schedule has been loaded or explicitly edited. */
+  businessHoursConfigured: boolean;
   isOpenForOrders: boolean;
   logoUrl?: string;
   coverImageUrl?: string;

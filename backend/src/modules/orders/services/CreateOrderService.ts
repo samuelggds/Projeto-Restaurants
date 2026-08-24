@@ -271,7 +271,10 @@ class CreateOrderService {
 
     const restaurantSettings =
       await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
-    assertRestaurantIsOpenForOrders(restaurantSettings?.isOpenForOrders);
+    assertRestaurantIsOpenForOrders(
+      restaurantSettings?.isOpenForOrders,
+      restaurantSettings?.businessHours,
+    );
 
     const shouldPayOnDelivery = payOnDelivery === true;
     const effectivePaymentMethod = shouldPayOnDelivery

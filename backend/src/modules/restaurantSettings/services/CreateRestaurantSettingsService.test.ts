@@ -5,10 +5,13 @@ import assert from 'node:assert/strict';
 import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import createRestaurantSettingsService from './CreateRestaurantSettingsService.js';
+import updateRestaurantSettingsService from './UpdateRestaurantSettingsService.js';
+import { BUSINESS_DAY_IDS } from '../utils/businessHours.js';
 
 const originalRepositoryMethods = {
   findByRestaurantId: restaurantSettingsRepository.findByRestaurantId,
   create: restaurantSettingsRepository.create,
+  update: restaurantSettingsRepository.update,
 };
 
 const originalRestaurantUpdate = prisma.restaurant.update;
@@ -16,8 +19,18 @@ const originalRestaurantUpdate = prisma.restaurant.update;
 afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRepositoryMethods.findByRestaurantId;
   restaurantSettingsRepository.create = originalRepositoryMethods.create;
+  restaurantSettingsRepository.update = originalRepositoryMethods.update;
   prisma.restaurant.update = originalRestaurantUpdate;
 });
+
+const weeklySchedule = () =>
+  BUSINESS_DAY_IDS.map((id) => ({
+    id,
+    label: 'rótulo enviado pelo cliente',
+    enabled: id !== 'sunday',
+    openingTime: id === 'saturday' ? '18:00' : '11:00',
+    closingTime: id === 'saturday' ? '02:00' : '23:00',
+  }));
 
 test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os dados', async () => {
   let capturedCreateData = null;
@@ -105,5 +118,82 @@ test('deve rejeitar cadastro quando o documento do titular da conta nao bater co
         cardGateway: 'PAGBANK',
       }),
     /A titularidade da conta bancária deve ser igual ao documento cadastrado/,
+  );
+});
+
+test('normaliza e persiste uma agenda semanal válida ao criar configurações', async () => {
+  let capturedCreateData = null;
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+  restaurantSettingsRepository.create = async (data) => {
+    capturedCreateData = data;
+    return { id: 1, ...data };
+  };
+
+  await createRestaurantSettingsService.execute({
+    restaurantId: 7,
+    deliveryFee: 0,
+    minimumOrder: 0,
+    businessHours: weeklySchedule().reverse(),
+  });
+
+  assert.equal(capturedCreateData.businessHours.length, 7);
+  assert.equal(capturedCreateData.businessHours[0].id, 'monday');
+  assert.equal(capturedCreateData.businessHours[0].label, 'Segunda-feira');
+  assert.equal(capturedCreateData.businessHours[5].closingTime, '02:00');
+});
+
+test('rejeita agenda semanal inválida ao criar configurações', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+
+  await assert.rejects(
+    () =>
+      createRestaurantSettingsService.execute({
+        restaurantId: 7,
+        deliveryFee: 0,
+        minimumOrder: 0,
+        businessHours: weeklySchedule().slice(0, 6),
+      }),
+    /7 dias/,
+  );
+});
+
+test('normaliza a agenda semanal antes de atualizar configurações', async () => {
+  let capturedUpdateData = null;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 7,
+    pixProvider: 'MERCADO_PAGO',
+    restaurant: {},
+  });
+  restaurantSettingsRepository.update = async (_restaurantId, data) => {
+    capturedUpdateData = data;
+    return { id: 1, restaurantId: 7, ...data };
+  };
+
+  await updateRestaurantSettingsService.execute({
+    restaurantId: 7,
+    businessHours: weeklySchedule().reverse(),
+  });
+
+  assert.equal(capturedUpdateData.businessHours.length, 7);
+  assert.equal(capturedUpdateData.businessHours[0].id, 'monday');
+  assert.equal(capturedUpdateData.businessHours[5].openingTime, '18:00');
+});
+
+test('rejeita horário igual em dia aberto ao atualizar configurações', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    restaurantId: 7,
+    pixProvider: 'MERCADO_PAGO',
+    restaurant: {},
+  });
+  const schedule = weeklySchedule();
+  schedule[0] = { ...schedule[0], openingTime: '18:00', closingTime: '18:00' };
+
+  await assert.rejects(
+    () =>
+      updateRestaurantSettingsService.execute({
+        restaurantId: 7,
+        businessHours: schedule,
+      }),
+    /mesmo horário/,
   );
 });

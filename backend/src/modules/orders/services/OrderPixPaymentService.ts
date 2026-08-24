@@ -426,7 +426,7 @@ class OrderPixPaymentService {
     const settings =
       await restaurantSettingsRepository.findPublicByRestaurantId(normalizedRestaurantId);
 
-    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders);
+    assertRestaurantIsOpenForOrders(settings?.isOpenForOrders, settings?.businessHours);
 
     void pixProvider;
     const resolvedPixProvider = this.normalizePixProvider(settings?.pixProvider);

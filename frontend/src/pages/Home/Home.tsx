@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
@@ -34,6 +34,7 @@ import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
+import { getRestaurantAvailability } from '../admin/domain/businessHours';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -47,6 +48,20 @@ export default function Home() {
   const { tableNumber: routeTableNumber, restaurantSlug } = useParams();
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
+  const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
+
+  useEffect(() => {
+    const refreshAvailability = () => setAvailabilityClock(new Date());
+    const intervalId = window.setInterval(refreshAvailability, 30_000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshAvailability();
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
 
   const normalizedSlug = String(restaurantSlug || '')
     .trim()
@@ -162,7 +177,7 @@ export default function Home() {
     onError: handleCatalogError,
   });
 
-  const homeData = buildHomeData(backendProducts, settings);
+  const homeData = buildHomeData(backendProducts, settings, availabilityClock);
 
   const { cart, setCart, addToCart, increaseCart, decreaseCart, cartCount, cartTotal } = useCart(
     homeData.products,
@@ -229,6 +244,7 @@ export default function Home() {
         setSelectedRedemptionId(null);
         void loyalty.refresh();
       },
+      onPaymentConfirmed: loyalty.refresh,
       onClearCart: () => setCart([]),
       onCloseCart: () => setCartOpen(false),
     });
@@ -236,7 +252,11 @@ export default function Home() {
   async function handleCheckout() {
     if (!restaurantId || !cart.length || checkoutLoading) return;
 
-    if (!homeData.isOpen) {
+    const currentAvailability = getRestaurantAvailability(
+      homeData.businessHours,
+      homeData.isOpenForOrders ?? homeData.isOpen,
+    );
+    if (!currentAvailability.isOpen) {
       notify(
         'warning',
         'Restaurante fechado',
@@ -287,10 +307,12 @@ export default function Home() {
       : {
           primaryColor: primary,
           loading: loyalty.loading,
+          error: loyalty.error,
           summary: loyalty.summary,
           loggedIn: isLoyaltyCustomer,
           redeemingCouponId: loyalty.redeemingCouponId,
           onLogin: () => navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`),
+          onRetry: () => void loyalty.refresh(),
           onRedeem: (couponId: number) => void loyalty.redeem(couponId),
         };
 
@@ -408,6 +430,7 @@ export default function Home() {
               <LoyaltyCouponPanel
                 loggedIn={isLoyaltyCustomer}
                 loading={loyalty.loading}
+                error={loyalty.error}
                 summary={loyalty.summary}
                 selectedRedemptionId={appliedRedemptionId}
                 redeemingCouponId={loyalty.redeemingCouponId}
@@ -415,6 +438,7 @@ export default function Home() {
                 onLogin={() =>
                   navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`)
                 }
+                onRetry={() => void loyalty.refresh()}
                 onRedeem={(couponId) => void loyalty.redeem(couponId)}
               />
             )}
