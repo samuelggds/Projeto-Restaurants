@@ -1,6 +1,7 @@
 import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import getOsrmDeliveryRouteService from './GetOsrmDeliveryRouteService.js';
+import courierAccessService from './CourierAccessService.js';
 
 class GetDeliveryTrackingService {
   async execute({
@@ -15,6 +16,7 @@ class GetDeliveryTrackingService {
     role: string;
   }) {
     const id = Number(orderId);
+    if (!Number.isInteger(id) || id <= 0) throw new Error('Pedido inválido.');
     const order = await prisma.order.findUnique({
       where: { id },
       select: {
@@ -35,12 +37,32 @@ class GetDeliveryTrackingService {
       },
     });
     if (!order) throw new Error('Pedido não encontrado.');
+    if (String(order.type || '').toUpperCase() !== 'DELIVERY') {
+      throw new Error('Rastreamento disponível apenas para pedidos de delivery.');
+    }
     const normalizedRole = String(role || '').toUpperCase();
     const allowed =
       order.userId === userId ||
       (normalizedRole === UserRole.MOTOQUEIRO && order.assignedCourierId === userId) ||
       (normalizedRole === UserRole.ADMIN && order.restaurantId === restaurantId);
     if (!allowed) throw new Error('Você não pode acompanhar esta entrega.');
+    if (normalizedRole === UserRole.MOTOQUEIRO) {
+      await courierAccessService.assertActiveCourier(userId, Number(restaurantId || 0));
+    }
+    if (normalizedRole === UserRole.ADMIN) {
+      const activeAdmin = await prisma.user.findFirst({
+        where: {
+          id: userId,
+          restaurantId: Number(restaurantId || 0),
+          role: UserRole.ADMIN,
+          active: true,
+        },
+        select: { id: true },
+      });
+      if (!activeAdmin) {
+        throw new Error('Sua conta de administrador não está ativa neste restaurante.');
+      }
+    }
 
     const locations = await prisma.deliveryLocation.findMany({
       where: { orderId: id },

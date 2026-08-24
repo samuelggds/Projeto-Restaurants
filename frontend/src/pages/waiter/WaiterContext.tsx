@@ -1,4 +1,4 @@
-import { createContext, useCallback, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useMemo, type PropsWithChildren } from 'react';
 import { workspaceMock } from './data';
 import type { CallStatus, EmployeeWorkspaceData, EmployeeWorkspaceProps } from './types';
 
@@ -6,7 +6,8 @@ export type WaiterModuleProps = Omit<EmployeeWorkspaceProps, 'role' | 'onUpdateO
 export type WaiterContextValue = WaiterModuleProps &
   EmployeeWorkspaceData & {
     role: 'WAITER';
-    generateAccessCode: (tableId: string) => Promise<string>;
+    openTable: (tableId: string) => Promise<void>;
+    closeTable: (sessionId: string) => Promise<void>;
     updateCall: (id: string, status: CallStatus) => Promise<void>;
   };
 // eslint-disable-next-line react-refresh/only-export-components
@@ -17,40 +18,37 @@ export function WaiterProvider({
   data = workspaceMock,
   ...props
 }: PropsWithChildren<WaiterModuleProps>) {
-  const [tables, setTables] = useState(data.tables);
-  const [calls, setCalls] = useState(data.calls);
-  const generateAccessCode = useCallback(
+  const { onOpenTable, onCloseTable, onUpdateCall } = props;
+
+  const openTable = useCallback(
     async (tableId: string) => {
-      const generated =
-        (await props.onGenerateAccessCode?.(tableId)) ??
-        String(Math.floor(1000 + Math.random() * 9000));
-      setTables((items) =>
-        items.map((table) =>
-          table.id === tableId
-            ? { ...table, accessCode: generated, status: 'AWAITING_CODE' }
-            : table,
-        ),
-      );
-      return generated;
+      if (!onOpenTable) {
+        throw new Error('A abertura de mesas não está disponível neste momento.');
+      }
+      const result = await onOpenTable(tableId);
+      if (!result?.sessionId) {
+        throw new Error('O servidor não confirmou a abertura da mesa.');
+      }
     },
-    [props],
+    [onOpenTable],
+  );
+  const closeTable = useCallback(
+    async (sessionId: string) => {
+      if (!onCloseTable) {
+        throw new Error('O fechamento de mesas não está disponível neste momento.');
+      }
+      await onCloseTable(sessionId);
+    },
+    [onCloseTable],
   );
   const updateCall = useCallback(
     async (id: string, status: CallStatus) => {
-      setCalls((items) =>
-        items.map((call) =>
-          call.id === id
-            ? {
-                ...call,
-                status,
-                employeeName: status === 'IN_PROGRESS' ? props.employee.name : call.employeeName,
-              }
-            : call,
-        ),
-      );
-      await props.onUpdateCall?.(id, status);
+      if (!onUpdateCall) {
+        throw new Error('O atendimento de chamados não está disponível neste momento.');
+      }
+      await onUpdateCall(id, status);
     },
-    [props],
+    [onUpdateCall],
   );
   const value = useMemo(
     () => ({
@@ -58,12 +56,13 @@ export function WaiterProvider({
       data,
       role: 'WAITER' as const,
       orders: data.orders,
-      tables,
-      calls,
-      generateAccessCode,
+      tables: data.tables,
+      calls: data.calls,
+      openTable,
+      closeTable,
       updateCall,
     }),
-    [props, data, tables, calls, generateAccessCode, updateCall],
+    [props, data, openTable, closeTable, updateCall],
   );
   return <WaiterContext.Provider value={value}>{children}</WaiterContext.Provider>;
 }

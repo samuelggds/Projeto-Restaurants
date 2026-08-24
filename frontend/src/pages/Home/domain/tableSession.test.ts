@@ -21,4 +21,15 @@ describe('tableSession', () => {
     expect(isTableSessionActive(session, true, 5, 8)).toBe(false);
     expect(belongsToTableRoute(session, 4, 9)).toBe(false);
   });
+
+  it('recusa uma sessão expirada mesmo quando mesa e restaurante conferem', () => {
+    const session = {
+      sessionToken: 'token',
+      tableId: 4,
+      restaurantId: 8,
+      expiresAt: new Date(Date.now() - 1_000).toISOString(),
+    };
+
+    expect(isTableSessionActive(session, true, 4, 8)).toBe(false);
+  });
 });

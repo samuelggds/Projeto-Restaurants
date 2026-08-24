@@ -3,6 +3,22 @@ import * as Sentry from '@sentry/node';
 import { notifyCriticalError } from '../../services/alertNotifier.js';
 
 const INTERNAL_SERVER_ERROR_MESSAGE = 'Erro interno do servidor';
+const SENSITIVE_HEADERS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'x-session-token',
+]);
+
+function sanitizedHeaders(headers: Request['headers']) {
+  return Object.fromEntries(
+    Object.entries(headers).map(([key, value]) => [
+      key,
+      SENSITIVE_HEADERS.has(key.toLowerCase()) ? '[Filtered]' : value,
+    ]),
+  );
+}
 
 export const errorHandlerMiddleware: ErrorRequestHandler = (
   err: unknown,
@@ -43,7 +59,7 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (
     scope.setTag('method', req.method || 'unknown');
     scope.setTag('path', req.originalUrl || 'unknown');
     scope.setContext('request', {
-      headers: req.headers,
+      headers: sanitizedHeaders(req.headers),
       query: req.query,
       params: req.params,
     });

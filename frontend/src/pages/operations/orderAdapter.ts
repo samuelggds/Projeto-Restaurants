@@ -5,6 +5,7 @@ import type {
   OrderStatus,
   RestaurantBrand,
 } from '../kitchen/types';
+import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 
 type GenericRecord = Record<string, unknown>;
 
@@ -20,6 +21,32 @@ function asArray(value: unknown): unknown[] {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function dateIso(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function timeLabel(value: string | undefined): string | undefined {
+  return value
+    ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : undefined;
+}
+
+const VALID_ORDER_STATUSES: OrderStatus[] = [
+  'PENDENTE',
+  'PREPARANDO',
+  'PRONTO',
+  'SAIU_PARA_ENTREGA',
+  'ENTREGUE',
+  'CANCELADO',
+];
+
+function orderStatus(value: unknown): OrderStatus {
+  const normalized = String(value || '').toUpperCase() as OrderStatus;
+  return VALID_ORDER_STATUSES.includes(normalized) ? normalized : 'PENDENTE';
 }
 
 function optionName(value: unknown): string {
@@ -57,7 +84,9 @@ function itemCustomizations(item: GenericRecord): OrderItemCustomization[] {
 }
 
 export function formatElapsed(createdAt: string, now = Date.now()): string {
-  const diff = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 1000));
+  const timestamp = new Date(createdAt).getTime();
+  if (!Number.isFinite(timestamp)) return '00:00';
+  const diff = Math.max(0, Math.floor((now - timestamp) / 1000));
   const hours = Math.floor(diff / 3600);
   const minutes = Math.floor((diff % 3600) / 60);
   const seconds = diff % 60;
@@ -66,16 +95,20 @@ export function formatElapsed(createdAt: string, now = Date.now()): string {
 }
 
 export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] {
-  return (raw as Record<string, unknown>[]).map((record) => {
+  return raw.flatMap((value) => {
+    const record = asRecord(value);
+    if (!record) return [];
+    const rawId = String(record.id ?? '').trim();
+    if (!rawId) return [];
     const type = String(record.type || record.orderType || '').toUpperCase();
     const channel: OrderChannel =
-      type === 'MESA' || type === 'TABLE_SESSION'
+      type === 'MESA' || type === 'TABLE' || type === 'TABLE_SESSION'
         ? 'TABLE'
         : type === 'DELIVERY'
           ? 'DELIVERY'
           : 'PICKUP';
-    const tableSession = record.tableSession as Record<string, unknown> | null;
-    const table = tableSession?.table as Record<string, unknown> | undefined;
+    const tableSession = asRecord(record.tableSession);
+    const table = asRecord(record.table) ?? asRecord(tableSession?.table);
     const tableNumber = table?.number ?? record.tableNumber;
     const reference =
       channel === 'TABLE'
@@ -101,38 +134,42 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
       ];
     });
     const items = itemDetails.map((item) => `${item.quantity}× ${item.name}`);
-    const createdAt = String(record.createdAt || '');
-    return {
-      id: `#${record.id}`,
-      channel,
-      reference,
-      customer:
-        String((record.user as Record<string, unknown>)?.name || record.customerName || '') ||
-        undefined,
-      items,
-      itemDetails,
-      createdAt: createdAt
-        ? new Date(createdAt).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '--:--',
-      createdAtIso: createdAt || undefined,
-      preparationStartedAt: record.preparationStartedAt
-        ? String(record.preparationStartedAt)
-        : undefined,
-      readyAt: record.readyAt ? String(record.readyAt) : undefined,
-      elapsed: createdAt ? formatElapsed(createdAt, now) : '00:00',
-      status: String(record.status || 'PENDENTE') as OrderStatus,
-      total: Number(record.total || 0),
-      observation: String(record.observation || record.notes || '') || undefined,
-      completedAt: record.completedAt
-        ? new Date(String(record.completedAt)).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : undefined,
-    };
+    const createdAtIso = dateIso(record.createdAt);
+    const status = orderStatus(record.status);
+    const preparationStartedAt = dateIso(record.preparationStartedAt);
+    const readyAt = dateIso(record.readyAt);
+    const completedAtIso = dateIso(
+      record.completedAt ??
+        (status === 'ENTREGUE'
+          ? (record.deliveredAt ?? record.updatedAt)
+          : status === 'CANCELADO'
+            ? record.updatedAt
+            : undefined),
+    );
+    const parsedTotal = Number(record.total);
+    const user = asRecord(record.user);
+    const customer = asRecord(record.customer);
+
+    return [
+      {
+        id: `#${rawId.replace(/^#/, '')}`,
+        channel,
+        reference,
+        customer: text(user?.name || customer?.name || record.customerName) || undefined,
+        items,
+        itemDetails,
+        createdAt: timeLabel(createdAtIso) ?? '--:--',
+        createdAtIso,
+        preparationStartedAt,
+        readyAt,
+        elapsed: createdAtIso ? formatElapsed(createdAtIso, now) : '00:00',
+        status,
+        total: Number.isFinite(parsedTotal) ? parsedTotal : 0,
+        observation: text(record.observation || record.notes) || undefined,
+        completedAt: timeLabel(completedAtIso),
+        completedAtIso,
+      },
+    ];
   });
 }
 
@@ -145,4 +182,3 @@ export function mapRestaurantBrand(settings: Record<string, unknown>): Restauran
     primaryColor: String(settings.primaryColor || '#d64d08'),
   };
 }
-import { createRestaurantMonogram } from '../../utils/restaurantMonogram';

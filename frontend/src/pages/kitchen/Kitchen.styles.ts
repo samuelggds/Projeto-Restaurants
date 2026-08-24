@@ -17,6 +17,13 @@ export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   button {
     cursor: pointer;
   }
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--brand) 28%, transparent);
+    outline-offset: 2px;
+  }
   a {
     cursor: pointer;
   }
@@ -95,7 +102,8 @@ export const Nav = styled.nav`
   display: grid;
   gap: 4px;
   margin-top: 18px;
-  a {
+  a,
+  button {
     height: 52px;
     padding: 0 16px;
     display: flex;
@@ -104,20 +112,27 @@ export const Nav = styled.nav`
     color: rgba(212, 218, 222, 0.75);
     text-decoration: none;
     border-radius: 10px;
+    border: 0;
     border-left: 2px solid transparent;
+    font-family: inherit;
     font-size: 13.5px;
     font-weight: 500;
     cursor: pointer;
+    width: 100%;
+    background: transparent;
+    text-align: left;
     transition:
       background 0.18s ease,
       color 0.18s ease,
       border-color 0.18s ease;
   }
-  a:hover {
+  a:hover,
+  button:hover {
     color: #e8eaec;
     background: rgba(255, 255, 255, 0.06);
   }
-  a.active {
+  a.active,
+  button.active {
     color: #ff8040;
     background: rgba(255, 107, 20, 0.14);
     border-left-color: #ff6b14;
@@ -128,7 +143,8 @@ export const Nav = styled.nav`
     flex-shrink: 0;
     opacity: 0.85;
   }
-  a.active svg {
+  a.active svg,
+  button.active svg {
     opacity: 1;
   }
 `;
@@ -309,7 +325,7 @@ export const MobileMenu = styled.button`
     display: grid;
   }
 `;
-export const Live = styled.div`
+export const Live = styled.button`
   margin-left: auto;
   white-space: nowrap;
   border: 1px solid #f0d7ca;
@@ -321,6 +337,18 @@ export const Live = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  &:disabled {
+    cursor: wait;
+    opacity: 0.75;
+  }
+  .spinning {
+    animation: kitchen-spin 0.8s linear infinite;
+  }
+  @keyframes kitchen-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
   svg {
     width: 19px;
   }
@@ -350,6 +378,70 @@ export const Content = styled.div`
     padding: 14px 10px 60px;
   }
 `;
+export const WorkspaceNotice = styled.div`
+  margin-bottom: 16px;
+  border: 1px solid #efc5ad;
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #803d20;
+  background: #fff7f1;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  > svg {
+    width: 20px;
+  }
+  span {
+    display: grid;
+    gap: 2px;
+  }
+  small {
+    color: #855f4d;
+    line-height: 1.4;
+  }
+  button {
+    min-height: 36px;
+    border: 1px solid #e6b99f;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: inherit;
+    background: #fff;
+    font-weight: 700;
+  }
+  @media (max-width: 560px) {
+    grid-template-columns: 20px 1fr;
+    button {
+      grid-column: 1/-1;
+    }
+  }
+`;
+export const WorkspaceLoading = styled.div`
+  min-height: 360px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 9px;
+  color: var(--muted);
+  text-align: center;
+  > svg {
+    width: 32px;
+    color: var(--brand);
+    animation: kitchen-loading-spin 0.8s linear infinite;
+  }
+  b {
+    color: var(--ink);
+    font-size: 17px;
+  }
+  span {
+    font-size: 12px;
+  }
+  @keyframes kitchen-loading-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
 export const Toolbar = styled.div`
   display: flex;
   align-items: center;
@@ -357,7 +449,8 @@ export const Toolbar = styled.div`
   margin-bottom: 18px;
   input,
   select,
-  button {
+  button,
+  .live {
     height: 46px;
     border: 1px solid var(--border);
     border-radius: 9px;
@@ -377,6 +470,17 @@ export const Toolbar = styled.div`
     color: #26813a;
     background: #f3faf4;
     font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .live.connecting {
+    color: #8a6418;
+    background: #fff9e8;
+  }
+  .live.disconnected {
+    color: #687079;
+    background: #f5f6f7;
   }
   .live::before {
     content: '';
@@ -386,6 +490,12 @@ export const Toolbar = styled.div`
     margin-right: 8px;
     border-radius: 50%;
     background: #1f9c3b;
+  }
+  .live.connecting::before {
+    background: #d69a22;
+  }
+  .live.disconnected::before {
+    background: #8a9299;
   }
   @media (max-width: 760px) {
     display: grid;
@@ -404,7 +514,8 @@ export const Toolbar = styled.div`
       grid-column: auto;
     }
     select,
-    button {
+    button,
+    .live {
       width: 100%;
     }
   }
@@ -576,6 +687,14 @@ export const ItemList = styled.div`
   color: #333c44;
   > span {
     display: block;
+  }
+  .missing-items {
+    padding: 8px;
+    border: 1px solid #efb6b6;
+    border-radius: 7px;
+    color: #8b2525;
+    background: #fff3f3;
+    font-weight: 700;
   }
   .order-item {
     min-width: 0;
@@ -827,7 +946,7 @@ export const ChannelButtons = styled.div`
   @media (max-width: 650px) {
     grid-column: 1/-1;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     button {
       justify-content: center;
       padding: 0 7px;
@@ -952,6 +1071,31 @@ export const KitchenOrder = styled.article`
   .action.preparing {
     color: #e24b10;
     border: 1px solid #ed5a21;
+  }
+  .action:disabled {
+    cursor: wait;
+    opacity: 0.62;
+  }
+  .action-error {
+    display: grid;
+    gap: 8px;
+    padding: 9px;
+    border: 1px solid #efb6b6;
+    border-radius: 8px;
+    color: #8b2525;
+    background: #fff3f3;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .action-error button {
+    width: fit-content;
+    min-height: 32px;
+    border: 1px solid #d99595;
+    border-radius: 7px;
+    padding: 0 10px;
+    color: inherit;
+    background: #fff;
+    font-weight: 700;
   }
 `;
 export const Empty = styled.div`

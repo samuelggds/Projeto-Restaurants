@@ -7,14 +7,21 @@ describe('operational order adapter', () => {
       '02:05',
     );
   });
-  it('reconhece mesa, delivery e itens', () => {
+  it('reconhece a mesa no formato real retornado pelo backend e preserva os itens', () => {
     const [order] = mapOperationalOrders([
-      { id: 9, type: 'MESA', tableNumber: 4, items: [{ quantity: 2, product: { name: 'Pizza' } }] },
+      {
+        id: 9,
+        type: 'MESA',
+        table: { id: 91, number: 4 },
+        user: { id: 3, name: 'Cliente da mesa' },
+        items: [{ quantity: 2, product: { name: 'Pizza' } }],
+      },
     ]);
     expect(order).toMatchObject({
       id: '#9',
       channel: 'TABLE',
       reference: 'Mesa 4',
+      customer: 'Cliente da mesa',
       items: ['2× Pizza'],
       itemDetails: [
         {
@@ -24,6 +31,27 @@ describe('operational order adapter', () => {
         },
       ],
     });
+  });
+  it('usa os timestamps reais de entrega e cancelamento no histórico', () => {
+    const [delivered, cancelled] = mapOperationalOrders([
+      {
+        id: 12,
+        type: 'DELIVERY',
+        status: 'ENTREGUE',
+        deliveredAt: '2026-08-24T18:31:00.000Z',
+      },
+      {
+        id: 13,
+        type: 'RETIRADA',
+        status: 'CANCELADO',
+        updatedAt: '2026-08-24T18:32:00.000Z',
+      },
+    ]);
+
+    expect(delivered.completedAtIso).toBe('2026-08-24T18:31:00.000Z');
+    expect(cancelled.completedAtIso).toBe('2026-08-24T18:32:00.000Z');
+    expect(delivered.completedAt).not.toBeUndefined();
+    expect(cancelled.completedAt).not.toBeUndefined();
   });
   it('preserva montagem por categoria e observações para a cozinha', () => {
     const [order] = mapOperationalOrders([
@@ -88,6 +116,29 @@ describe('operational order adapter', () => {
     expect(order.itemDetails?.[0].customizations).toEqual([
       { groupName: 'Itens escolhidos', options: ['Molho branco', 'Queijo'] },
     ]);
+  });
+  it('descarta entradas sem pedido e normaliza datas, total e status inválidos', () => {
+    const orders = mapOperationalOrders([
+      null,
+      {},
+      {
+        id: 14,
+        status: 'DESCONHECIDO',
+        createdAt: 'data inválida',
+        total: 'valor inválido',
+        observation: { unsafe: true },
+      },
+    ]);
+
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({
+      id: '#14',
+      status: 'PENDENTE',
+      createdAt: '--:--',
+      elapsed: '00:00',
+      total: 0,
+      observation: undefined,
+    });
   });
   it('monta a identidade do restaurante', () => {
     expect(

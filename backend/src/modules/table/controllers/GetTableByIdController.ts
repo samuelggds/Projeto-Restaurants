@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { UserRole } from '@prisma/client';
 import getTableByIdService from '../services/GetTableByIdService.js';
 
 class GetTableByIdController {
@@ -10,6 +11,7 @@ class GetTableByIdController {
       const table = await getTableByIdService.execute({
         id: parsedId,
         restaurantId,
+        includeQrToken: req.user.role === UserRole.ADMIN,
       });
 
       return res.status(200).json(table);

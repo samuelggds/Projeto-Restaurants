@@ -44,6 +44,16 @@ export interface Order {
   total: number;
   observation?: string;
   completedAt?: string;
+  completedAtIso?: string;
+}
+
+export type KitchenRealtimeStatus = 'connecting' | 'connected' | 'disconnected';
+export interface KitchenWorkspaceState {
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
+  lastUpdatedAt: string | null;
+  realtimeStatus: KitchenRealtimeStatus;
 }
 export interface RestaurantTable {
   id: string;
@@ -75,5 +85,7 @@ export interface EmployeeWorkspaceProps {
   onUpdateOrderStatus?: (orderId: string, status: OrderStatus) => void | Promise<void>;
   onGenerateAccessCode?: (tableId: string) => string | Promise<string>;
   onUpdateCall?: (callId: string, status: CallStatus) => void | Promise<void>;
+  workspaceState?: KitchenWorkspaceState;
+  onRefresh?: () => void | Promise<void>;
   onLogout?: () => void;
 }

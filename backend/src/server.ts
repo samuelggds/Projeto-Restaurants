@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './config/validateEnvOnStartup.js';
 
 import app from './app.js';
 import http from 'http';
@@ -6,13 +7,11 @@ import { Server } from 'socket.io';
 import { Sentry } from './config/sentry.js';
 import { socketAuth } from './socket/socketAuth.js';
 import { socketHandler } from './socket/socketHandler.js';
-import { startJobs } from './modules/billing/jobs/scheduler.js';
+import { startJobs, stopJobs } from './modules/billing/jobs/scheduler.js';
 import billingJob from './modules/billing/jobs/BillingJob.js';
 import reconcileMercadoPagoInvoicesService from './modules/billing/services/ReconcileMercadoPagoInvoicesService.js';
 import { notifyCriticalError } from './services/alertNotifier.js';
-import { validateCriticalEnv } from './config/validateEnv.js';
-
-validateCriticalEnv();
+import prisma from './config/prisma.js';
 
 const server = http.createServer(app);
 const port = Number(process.env.PORT) || 3000;
@@ -54,6 +53,43 @@ server.listen(port, '0.0.0.0', () => {
   });
 });
 
+let shuttingDown = false;
+
+async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.info('[SHUTDOWN_STARTED]', { signal });
+  stopJobs();
+
+  const configuredTimeout = Number(process.env.SHUTDOWN_TIMEOUT_MS || 10_000);
+  const shutdownTimeoutMs =
+    Number.isInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 10_000;
+  const forceExitTimer = setTimeout(() => {
+    console.error('[SHUTDOWN_TIMEOUT]', { signal });
+    process.exit(1);
+  }, shutdownTimeoutMs);
+  forceExitTimer.unref();
+
+  try {
+    io.disconnectSockets(true);
+    await new Promise<void>((resolve) => io.close(() => resolve()));
+    server.closeIdleConnections?.();
+    await prisma.$disconnect();
+    await Sentry.flush(2_000);
+    clearTimeout(forceExitTimer);
+    console.info('[SHUTDOWN_COMPLETED]', { signal });
+    process.exit(exitCode);
+  } catch (error) {
+    clearTimeout(forceExitTimer);
+    console.error('[SHUTDOWN_FAILED]', error);
+    Sentry.captureException(error);
+    process.exit(1);
+  }
+}
+
+process.once('SIGTERM', () => void shutdown('SIGTERM'));
+process.once('SIGINT', () => void shutdown('SIGINT'));
+
 process.on('unhandledRejection', (reason) => {
   console.error('[UNHANDLED_REJECTION]', reason);
   Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
@@ -64,4 +100,5 @@ process.on('uncaughtException', (error) => {
   console.error('[UNCAUGHT_EXCEPTION]', error);
   Sentry.captureException(error);
   notifyCriticalError('[UNCAUGHT_EXCEPTION]', error?.message || 'unknown');
+  void shutdown('SIGTERM', 1);
 });

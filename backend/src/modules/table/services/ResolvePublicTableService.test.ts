@@ -24,6 +24,7 @@ const publicTable = {
     subscription: { plan: 'PREMIUM', status: 'ATIVA' },
   },
 };
+const tableToken = 'a'.repeat(32);
 
 test('resolve a mesa pelo número e pelo restaurante sem confundir com o id interno', async () => {
   let receivedReference = null;
@@ -34,6 +35,7 @@ test('resolve a mesa pelo número e pelo restaurante sem confundir com o id inte
 
   const result = await resolvePublicTableService.execute({
     tableNumber: '12',
+    tableToken,
     tableId: '91',
     restaurantId: '7',
     restaurantSlug: 'restaurante-teste',
@@ -41,6 +43,7 @@ test('resolve a mesa pelo número e pelo restaurante sem confundir com o id inte
 
   assert.deepEqual(receivedReference, {
     number: 12,
+    tableToken,
     restaurantId: 7,
     restaurantSlug: 'restaurante-teste',
   });
@@ -57,8 +60,8 @@ test('resolve a mesa pelo número e pelo restaurante sem confundir com o id inte
 
 test('rejeita QR sem restaurante e mesa pertencente a outro id', async () => {
   await assert.rejects(
-    () => resolvePublicTableService.execute({ tableNumber: 12 }),
-    /não identifica o restaurante/i,
+    () => resolvePublicTableService.execute({ tableNumber: 12, tableToken: '' }),
+    /QR Code da mesa é inválido/i,
   );
 
   tableRepository.findPublicByReference = async () => publicTable;
@@ -66,6 +69,7 @@ test('rejeita QR sem restaurante e mesa pertencente a outro id', async () => {
     () =>
       resolvePublicTableService.execute({
         tableNumber: 12,
+        tableToken,
         tableId: 92,
         restaurantId: 7,
       }),
@@ -86,6 +90,7 @@ test('rejeita restaurante fora do plano de cardápio de mesa', async () => {
     () =>
       resolvePublicTableService.execute({
         tableNumber: 12,
+        tableToken,
         restaurantSlug: 'restaurante-teste',
       }),
     /não está disponível/i,

@@ -1,91 +1,157 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import tablesService from '../../Services/tablesService';
+import waiterCallsService from '../../Services/waiterCallsService';
+import { getStoredAccessToken } from '../../modules/auth/session/authSession';
 import { WaiterModule } from './WaiterModule';
-import type { EmployeeWorkspaceData, RestaurantBrand, RestaurantTable, TableStatus } from './types';
+import type { EmployeeWorkspaceData, RestaurantBrand, WaiterWorkspaceState } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
+import { asRecord, mapWaiterCalls, mapWaiterTables } from './waiterAdapter';
 
 const POLL_MS = 30_000;
 
-function mapTables(raw: unknown[]): RestaurantTable[] {
-  return (raw as Record<string, unknown>[])
-    .filter((t) => t.active !== false)
-    .map((t) => {
-      const sessions = (t.tableSessions as Record<string, unknown>[] | undefined) ?? [];
-      const openSession = sessions.find((s) => s.status === 'OPEN');
-      const status: TableStatus = openSession ? 'OCCUPIED' : 'FREE';
-      return {
-        id: String(t.id),
-        number: Number(t.number || 0),
-        status,
-        guests: 0,
-        total: 0,
-      };
-    });
+type GenericRecord = Record<string, unknown>;
+
+function formatTimeForWorkspace(value: unknown) {
+  const date = new Date(String(value || ''));
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function WaiterPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [data, setData] = useState<EmployeeWorkspaceData>({
-    orders: [],
-    tables: [],
-    calls: [],
-  });
+  const restaurantId = Number((user as GenericRecord)?.restaurantId || 0) || null;
+  const [data, setData] = useState<EmployeeWorkspaceData>({ orders: [], tables: [], calls: [] });
   const [restaurant, setRestaurant] = useState<RestaurantBrand>({
-    restaurantName: '',
+    restaurantName: 'Restaurante',
     monogram: 'R',
     primaryColor: '#d64d08',
   });
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const restaurantId = Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
+  const [workspaceState, setWorkspaceState] = useState<WaiterWorkspaceState>({
+    loading: Boolean(restaurantId),
+    refreshing: false,
+    error: restaurantId
+      ? null
+      : 'Seu usuário não está vinculado a um restaurante. Entre novamente ou procure o administrador.',
+    lastUpdatedAt: null,
+  });
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  const loadWorkspace = useCallback(async (refreshing = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    if (mountedRef.current) {
+      setWorkspaceState((current) => ({
+        ...current,
+        loading: current.lastUpdatedAt === null,
+        refreshing,
+        error: null,
+      }));
+    }
+
+    const results = await Promise.allSettled([
+      ordersService.listRestaurantOrders(),
+      tablesService.listTables(),
+      waiterCallsService.listCalls(),
+    ]);
+    inFlightRef.current = false;
+    if (!mountedRef.current) return;
+
+    const failures: string[] = [];
+    if (results[0].status === 'rejected') failures.push('pedidos');
+    if (results[1].status === 'rejected') failures.push('mesas');
+    if (results[2].status === 'rejected') failures.push('chamados');
+
+    setData((current) => ({
+      orders:
+        results[0].status === 'fulfilled'
+          ? mapOperationalOrders(Array.isArray(results[0].value) ? results[0].value : [])
+          : current.orders,
+      tables:
+        results[1].status === 'fulfilled'
+          ? mapWaiterTables(Array.isArray(results[1].value) ? results[1].value : [])
+          : current.tables,
+      calls:
+        results[2].status === 'fulfilled'
+          ? mapWaiterCalls(Array.isArray(results[2].value) ? results[2].value : [])
+          : current.calls,
+    }));
+    setWorkspaceState({
+      loading: false,
+      refreshing: false,
+      error: failures.length
+        ? `Não foi possível carregar ${failures.join(', ')}. Os demais dados continuam disponíveis.`
+        : null,
+      lastUpdatedAt: failures.length === 3 ? null : new Date().toISOString(),
+    });
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!restaurantId) return;
     restaurantSettingsService
       .getPublicSettings(restaurantId)
-      .then((s: Record<string, unknown>) => {
-        setRestaurant(mapRestaurantBrand(s));
+      .then((settings: GenericRecord) => {
+        if (!mountedRef.current) return;
+        const restaurantRecord = asRecord(settings.restaurant);
+        setRestaurant({
+          ...mapRestaurantBrand(settings),
+          restaurantId,
+          slug: String(restaurantRecord.slug || settings.restaurantSlug || '').trim() || undefined,
+        });
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.error('[WAITER_BRAND_LOAD_ERROR]', error);
+      });
   }, [restaurantId]);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [rawOrders, rawTables] = await Promise.all([
-          ordersService.listRestaurantOrders(),
-          tablesService.listTables(),
-        ]);
-        setData((prev) => ({
-          ...prev,
-          orders: mapOperationalOrders(Array.isArray(rawOrders) ? rawOrders : []),
-          tables: mapTables(Array.isArray(rawTables) ? rawTables : []),
-        }));
-      } catch {
-        /* silent */
-      }
-    };
-    load();
-    intervalRef.current = setInterval(load, POLL_MS);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [restaurantId]);
+    if (!restaurantId) return;
+    void loadWorkspace();
+    const interval = window.setInterval(() => void loadWorkspace(true), POLL_MS);
+    return () => window.clearInterval(interval);
+  }, [loadWorkspace, restaurantId]);
 
-  const u = user as Record<string, unknown>;
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token || !restaurantId) return;
+    const socket = connectSocket(token, 'waiter-workspace');
+    const refresh = () => void loadWorkspace(true);
+    socket.on('new-order', refresh);
+    socket.on('order:status-changed', refresh);
+    socket.on('waiter:order-updated', refresh);
+    socket.on('waiter-call:created', refresh);
+    socket.on('waiter-call:updated', refresh);
+    return () => {
+      socket.off('new-order', refresh);
+      socket.off('order:status-changed', refresh);
+      socket.off('waiter:order-updated', refresh);
+      socket.off('waiter-call:created', refresh);
+      socket.off('waiter-call:updated', refresh);
+      disconnectSocket();
+    };
+  }, [loadWorkspace, restaurantId]);
+
+  const account = user as GenericRecord;
   const employee = {
-    id: String(u?.id || ''),
-    name: String(u?.name || 'Garçom'),
-    email: String(u?.email || ''),
+    id: String(account?.id || ''),
+    name: String(account?.name || 'Garçom'),
+    email: String(account?.email || ''),
     role: 'WAITER' as const,
-    shift: new Date().toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    shift: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
   };
 
   return (
@@ -93,15 +159,66 @@ export default function WaiterPage() {
       employee={employee}
       restaurant={restaurant}
       data={data}
-      onGenerateAccessCode={async (tableId) => {
-        const result = await tablesService.openTableSession(tableId);
-        const pin = String(result?.pin || '').trim();
-
-        if (!/^\d{4}$/.test(pin)) {
-          throw new Error('Código de acesso inválido retornado pelo servidor.');
-        }
-
-        return pin;
+      workspaceState={workspaceState}
+      onRefresh={() => loadWorkspace(true)}
+      onOpenTable={async (tableId) => {
+        const result = asRecord(await tablesService.openTableSession(tableId));
+        const session = asRecord(result.session);
+        const sessionId = String(result.sessionId || session.id || '').trim();
+        if (!sessionId) throw new Error('O servidor não confirmou a abertura da mesa.');
+        setData((current) => ({
+          ...current,
+          tables: current.tables.map((table) =>
+            table.id === tableId
+              ? {
+                  ...table,
+                  status: 'OCCUPIED',
+                  sessionId,
+                  openedAt: formatTimeForWorkspace(session.openedAt),
+                }
+              : table,
+          ),
+        }));
+        void loadWorkspace(true);
+        return { sessionId };
+      }}
+      onCloseTable={async (sessionId) => {
+        await tablesService.closeTableSession(sessionId);
+        setData((current) => ({
+          ...current,
+          tables: current.tables.map((table) =>
+            table.sessionId === sessionId
+              ? {
+                  ...table,
+                  status: 'FREE',
+                  sessionId: undefined,
+                  openedAt: undefined,
+                  guests: 0,
+                  total: 0,
+                }
+              : table,
+          ),
+        }));
+        void loadWorkspace(true);
+      }}
+      onUpdateCall={async (callId, status) => {
+        if (status === 'WAITING')
+          throw new Error('Não é possível reabrir um chamado por esta tela.');
+        await waiterCallsService.updateStatus(callId, status);
+        setData((current) => ({
+          ...current,
+          calls: current.calls.map((call) =>
+            call.id === callId
+              ? {
+                  ...call,
+                  status,
+                  employeeName: status === 'IN_PROGRESS' ? employee.name : call.employeeName,
+                  resolvedAt: status === 'RESOLVED' ? new Date().toISOString() : call.resolvedAt,
+                }
+              : call,
+          ),
+        }));
+        void loadWorkspace(true);
       }}
       onLogout={() => {
         logout();

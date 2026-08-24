@@ -501,12 +501,67 @@ export const OrderCard = styled.div`
   }
 `;
 
-export const OrderCardHeader = styled.div`
+export const OrderCardHeader = styled.button`
+  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  font: inherit;
   cursor: pointer;
   user-select: none;
+  &:focus-visible {
+    outline: 3px solid rgba(214, 77, 8, 0.26);
+    outline-offset: 5px;
+    border-radius: 8px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.68;
+    transform: none;
+  }
+`;
+
+export const LocationActiveCard = styled(LocationAlertCard)`
+  border-color: rgba(22, 163, 74, 0.3);
+  background:
+    radial-gradient(circle at top right, rgba(74, 222, 128, 0.16), transparent 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 244, 0.96));
+  ${LocationAlertIcon} {
+    color: #15803d;
+    background: #dcfce7;
+    border-color: #bbf7d0;
+  }
+`;
+
+export const TrackingConnection = styled.span<{ $connected: boolean }>`
+  min-height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 999px;
+  color: ${(p) => (p.$connected ? '#166534' : '#92400e')};
+  background: ${(p) => (p.$connected ? '#dcfce7' : '#fef3c7')};
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: ${(p) => (p.$connected ? '#22c55e' : '#f59e0b')};
+  }
+  @media (max-width: 768px) {
+    justify-self: start;
+  }
 `;
 
 export const OrderMeta = styled.div`
@@ -617,6 +672,44 @@ export const ItemRow = styled.div`
   span:last-child {
     font-weight: 600;
   }
+`;
+
+export const ItemDetail = styled.div`
+  display: grid;
+  gap: 7px;
+  padding: 7px 0;
+  & + & {
+    border-top: 1px solid #ebe7e2;
+  }
+`;
+
+export const ItemChoice = styled.p`
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.45;
+  b {
+    color: #27323a;
+  }
+`;
+
+export const ItemObservation = styled.p`
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: #7c2d12;
+  background: #fff7ed;
+  font-size: 12px;
+  line-height: 1.45;
+`;
+
+export const ItemsUnavailable = styled.p`
+  margin: 0;
+  padding: 10px;
+  border-radius: 9px;
+  color: #7c2d12;
+  background: #fff7ed;
+  font-size: 12px;
 `;
 
 export const NotesBox = styled.p`
@@ -1017,6 +1110,33 @@ export const NavItem = styled.button`
 export const RouteSection = styled.section`
   display: grid;
   gap: 16px;
+`;
+
+export const RouteOrderSelect = styled.select`
+  min-height: 40px;
+  padding: 0 36px 0 13px;
+  border: 1px solid #e1d8d1;
+  border-radius: 11px;
+  color: #27323a;
+  background: #fff;
+  font-weight: 700;
+`;
+
+export const RouteError = styled.div`
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  color: #9a3412;
+  background: #fff7ed;
+  font-size: 13px;
+  @media (max-width: 560px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
 `;
 
 export const FinanceSection = styled.section`

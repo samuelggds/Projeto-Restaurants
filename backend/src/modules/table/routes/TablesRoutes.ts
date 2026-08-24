@@ -1,7 +1,8 @@
 import { Router } from 'express';
 
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
-import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
+import { waiterMiddleware } from '../../../middlewares/waiterMiddleware.js';
+import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 
 import CreateTableController from '../controllers/CreateTableController.js';
 import ListTableController from '../controllers/ListTableController.js';
@@ -19,25 +20,25 @@ router.get('/public/resolve', (req, res) => ResolvePublicTableController.handle(
 router.post(
   '/',
   authMiddleware,
-  staffMiddleware,
+  adminMiddleware,
   billingMiddleware,
   premiumTablePlanMiddleware,
   (req, res) => CreateTableController.handle(req, res),
 );
 
-router.get('/', authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
+router.get('/', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware, (req, res) =>
   ListTableController.handle(req, res),
 );
 
-router.get('/:id', authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
+router.get('/:id', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware, (req, res) =>
   GetTableByIdController.handle(req, res),
 );
 
-router.put('/:id', authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
+router.put('/:id', authMiddleware, adminMiddleware, premiumTablePlanMiddleware, (req, res) =>
   UpdateTableController.handle(req, res),
 );
 
-router.patch('/:id', authMiddleware, staffMiddleware, premiumTablePlanMiddleware, (req, res) =>
+router.patch('/:id', authMiddleware, adminMiddleware, premiumTablePlanMiddleware, (req, res) =>
   DeactivateTableController.handle(req, res),
 );
 

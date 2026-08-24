@@ -2,7 +2,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { OrderType, PaymentMethod } from '@prisma/client';
+import { OrderType, PaymentMethod, Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
@@ -85,13 +85,17 @@ test('persiste opções agrupadas e observação do item no createMany do pedido
     },
   };
 
-  prisma.$transaction = async (callback) => callback(tx);
+  prisma.$transaction = async (callback, options) => {
+    assert.equal(options?.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
+    return callback(tx);
+  };
   restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
     assert.equal(restaurantId, 7);
     return { isOpenForOrders: true, autoAcceptOrders: false, maxConcurrentOrders: 20 };
   };
-  orderRepository.countActiveOperationalOrders = async (restaurantId) => {
+  orderRepository.countActiveOperationalOrders = async (restaurantId, database) => {
     assert.equal(restaurantId, 7);
+    assert.equal(database, tx);
     return 0;
   };
   productRepository.findById = async (productId, restaurantId, database) => {

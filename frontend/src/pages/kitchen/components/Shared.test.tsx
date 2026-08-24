@@ -53,4 +53,12 @@ describe('itens operacionais da cozinha', () => {
     expect(markup).toContain('1× Pizza da casa');
     expect(hasOrderPreparationDetails(baseOrder)).toBe(false);
   });
+
+  it('sinaliza explicitamente quando o backend não devolve produtos', () => {
+    const markup = renderToStaticMarkup(
+      createElement(OrderItems, { order: { ...baseOrder, items: [], itemDetails: [] } }),
+    );
+
+    expect(markup).toContain('Itens do pedido não informados.');
+  });
 });

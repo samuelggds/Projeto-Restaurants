@@ -28,6 +28,12 @@ export async function sessionMiddleware(req: Request, res: Response, next: NextF
       });
     }
 
+    if (session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
+      return res.status(403).json({
+        error: 'Sessão da mesa expirada. Peça ao garçom para abrir a mesa novamente.',
+      });
+    }
+
     req.tableSession = {
       id: session.id,
       tableId: session.tableId,

@@ -91,6 +91,8 @@ class AuthTokenService {
 
     const userId = Number(decoded.id || 0);
     const role = String(decoded.role || '');
+    const subRole =
+      decoded.subRole === null || decoded.subRole === undefined ? null : String(decoded.subRole);
     const restaurantId =
       decoded.restaurantId === null || decoded.restaurantId === undefined
         ? null
@@ -129,6 +131,7 @@ class AuthTokenService {
     const payload = {
       id: userId,
       role,
+      subRole,
       restaurantId,
     };
 

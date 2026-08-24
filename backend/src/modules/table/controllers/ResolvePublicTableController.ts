@@ -8,6 +8,7 @@ class ResolvePublicTableController {
     try {
       const table = await resolvePublicTableService.execute({
         tableNumber: String(req.query.tableNumber || ''),
+        tableToken: String(req.query.tableToken || req.query.token || ''),
         tableId: req.query.tableId ? String(req.query.tableId) : null,
         restaurantId: req.query.restaurantId ? String(req.query.restaurantId) : null,
         restaurantSlug: req.query.slug ? String(req.query.slug) : null,

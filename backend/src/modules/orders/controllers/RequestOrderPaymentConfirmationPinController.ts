@@ -11,6 +11,7 @@ class RequestOrderPaymentConfirmationPinController {
         id,
         restaurantId,
         role,
+        req.user.id,
       );
 
       return res.status(200).json(result);

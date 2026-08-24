@@ -3,14 +3,14 @@ import prisma from '../../../config/prisma.js';
 import { io } from '../../../server.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { markCouponRedemptionUsedForOrder } from '../services/couponRedemptionLifecycle.js';
+import {
+  emitTableSessionOrderEvent,
+  emitWaiterTableOrderEvent,
+} from '../utils/waiterOrderRealtime.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
 import reconcileLateCancelledPaymentService from '../services/ReconcileLateCancelledPaymentService.js';
 
-const TERMINAL_UNPAID_EVENTS = new Set([
-  'PAYMENT_CANCELED',
-  'PAYMENT_DELETED',
-  'PAYMENT_REFUNDED',
-]);
+const TERMINAL_UNPAID_EVENTS = new Set(['PAYMENT_CANCELED', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED']);
 
 export interface AsaasWebhookPaymentPayload {
   id: string;
@@ -180,10 +180,14 @@ class AsaasOrderWebhookController {
           paid: true,
           paymentMethod: updatedOrder.paymentMethod,
         });
+        emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
 
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
+        emitWaiterTableOrderEvent(io, 'new-order', updatedOrder);
+        emitTableSessionOrderEvent(io, 'new-order', updatedOrder);
 
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:status-changed', updatedOrder);
+        emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
         io.to(`restaurant:${updatedOrder.restaurantId}:kitchen`).emit('kitchen:order-paid', {
           orderId: updatedOrder.id,

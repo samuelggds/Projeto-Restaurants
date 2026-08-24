@@ -1,4 +1,4 @@
-import { OrderStatus, UserRole } from '@prisma/client';
+import { FuncionarioSubRole, OrderStatus, UserRole } from '@prisma/client';
 
 const permissions: Partial<Record<UserRole, OrderStatus[]>> = {
   [UserRole.ADMIN]: [
@@ -22,7 +22,18 @@ const permissions: Partial<Record<UserRole, OrderStatus[]>> = {
   [UserRole.CLIENTE]: [OrderStatus.CANCELADO],
 };
 
-function canUserChangeStatus(role: UserRole, status: OrderStatus) {
+function canUserChangeStatus(
+  role: UserRole,
+  status: OrderStatus,
+  subRole?: FuncionarioSubRole | string | null,
+) {
+  if (role === UserRole.FUNCIONARIO) {
+    if (String(subRole || '').toUpperCase() !== FuncionarioSubRole.COZINHA) {
+      return false;
+    }
+    const kitchenStatuses: OrderStatus[] = [OrderStatus.PREPARANDO, OrderStatus.PRONTO];
+    return kitchenStatuses.includes(status);
+  }
   const allowed = permissions[role] || [];
   return allowed.includes(status);
 }

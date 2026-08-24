@@ -15,8 +15,9 @@ class RequestPinAssistanceController {
 
       return res.status(200).json(result);
     } catch (error: unknown) {
-      return res.status(400).json({
+      return res.status(410).json({
         error: error instanceof Error ? error.message : 'Erro ao solicitar apoio de PIN',
+        code: 'PIN_FLOW_DISABLED',
       });
     }
   }

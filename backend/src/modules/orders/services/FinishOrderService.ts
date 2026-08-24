@@ -211,13 +211,21 @@ class CreateOrderService {
 
     if (type === 'MESA') {
       if (!tableSessionId) {
-        throw new Error('Sessão da mesa não informada. Valide o PIN da mesa para continuar.');
+        throw new Error('Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.');
       }
 
       const session = await tableSessionRepository.findById(tableSessionId);
 
-      if (!session || session.status !== TableSessionStatus.OPEN) {
-        throw new Error('Essa mesa está fechada. Gere um novo PIN com a equipe para continuar.');
+      if (
+        !session ||
+        session.status !== TableSessionStatus.OPEN ||
+        (session.expiresAt && session.expiresAt.getTime() <= Date.now())
+      ) {
+        throw new Error('Essa mesa está fechada. Peça ao garçom para abrir o atendimento.');
+      }
+
+      if (session.table.restaurantId !== resolvedRestaurantId) {
+        throw new Error('A sessão da mesa não pertence a este restaurante.');
       }
 
       if (Number(tableId || 0) && Number(tableId) !== Number(session.tableId)) {
@@ -248,6 +256,21 @@ class CreateOrderService {
     const shouldMarkAsPaid = paid === true;
 
     const createdOrder = await prisma.$transaction(async (tx) => {
+      if (type === OrderType.MESA) {
+        const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
+        if (
+          !session ||
+          session.status !== TableSessionStatus.OPEN ||
+          (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
+          session.table.restaurantId !== resolvedRestaurantId ||
+          session.tableId !== Number(tableId)
+        ) {
+          throw new Error(
+            'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
+          );
+        }
+      }
+
       const resolvedUserId = await this.resolveOrderUser({
         tx,
         userId,
@@ -362,7 +385,7 @@ class CreateOrderService {
       );
 
       return orderRepository.findById(order.id, resolvedRestaurantId, tx);
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);
     io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);

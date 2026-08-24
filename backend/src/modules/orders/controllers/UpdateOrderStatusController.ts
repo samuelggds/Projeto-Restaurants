@@ -19,6 +19,7 @@ class UpdateOrderStatusController {
         role,
         deliveryConfirmationCode,
         req.user.id,
+        req.user.subRole,
       );
 
       return res.status(200).json(updatedOrder);

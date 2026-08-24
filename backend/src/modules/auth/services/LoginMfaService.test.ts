@@ -192,3 +192,56 @@ test('deve validar codigo 2FA e emitir tokens', async () => {
   assert.equal(result.refreshToken, 'refresh_test_token');
   assert.equal(challenges.has(77), false);
 });
+
+test('2FA preserva o perfil COZINHA no usuário e nos tokens emitidos', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = '';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+
+  let accessPayload;
+  let refreshPayload;
+  authTokenService.createAccessToken = (payload) => {
+    accessPayload = payload;
+    return 'kitchen_access_token';
+  };
+  authTokenService.createRefreshToken = async (payload) => {
+    refreshPayload = payload;
+    return 'kitchen_refresh_token';
+  };
+  userRepository.findByIdWithPassword = async () => ({
+    id: 78,
+    role: 'FUNCIONARIO',
+    subRole: 'COZINHA',
+    restaurantId: 7,
+    email: 'cozinha@pizza.com',
+    name: 'Cozinha',
+    active: true,
+    mustChangePassword: false,
+    mfaEnabled: true,
+  });
+
+  const begin = await loginMfaService.beginIfRequired({
+    id: 78,
+    role: 'FUNCIONARIO',
+    subRole: 'COZINHA',
+    restaurantId: 7,
+    email: 'cozinha@pizza.com',
+    name: 'Cozinha',
+    active: true,
+    mustChangePassword: false,
+    mfaEnabled: true,
+  });
+  const challenge = challenges.get(78);
+  challenge.codeHash = await bcrypt.hash('654321', 10);
+  challenges.set(78, challenge);
+
+  const result = await loginMfaService.verifyAndIssueTokens({
+    mfaToken: begin.mfaToken,
+    code: '654321',
+  });
+
+  assert.equal(result.user.subRole, 'COZINHA');
+  assert.equal(accessPayload.subRole, 'COZINHA');
+  assert.equal(refreshPayload.subRole, 'COZINHA');
+});

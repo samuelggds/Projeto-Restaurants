@@ -22,6 +22,7 @@ import customerAddressRoutes from '../modules/customerAddresses/routes/CustomerA
 import AsaasOrderWebhookController from '../modules/orders/controllers/AsaasOrderWebhookController.js';
 import AsaasWithdrawValidationWebhookController from '../modules/restaurantSettings/controllers/AsaasWithdrawValidationWebhookController.js';
 import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js';
+import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCallRoutes.js';
 
 const router = Router();
 
@@ -41,6 +42,7 @@ router.use('/ingredients', ingredientRoutes);
 router.use('/orders', orderRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/table-sessions', tableSessionRoutes);
+router.use('/waiter-calls', tableServiceCallRoutes);
 router.use('/tables', tableRoutes);
 router.use('/settings', restaurantSettingsRoutes);
 router.use('/banners', bannerRoutes);

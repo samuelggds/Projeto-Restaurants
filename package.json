@@ -12,6 +12,7 @@
     "format:check": "npm --prefix backend run format:check && npm --prefix frontend run format:check",
     "test": "npm --prefix backend run test && npm --prefix frontend run test",
     "test:e2e": "npm --prefix frontend run test:e2e",
+    "test:e2e:critical": "npm --prefix frontend run test:e2e:critical",
     "audit": "npm --prefix backend audit --audit-level=critical && npm --prefix frontend audit --audit-level=critical",
     "ci": "npm --prefix backend install && npm --prefix frontend install && npm run check:architecture && npm run lint && npm run typecheck && npm run test && npm run audit && npm run build"
   }

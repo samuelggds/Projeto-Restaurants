@@ -5,8 +5,17 @@ import { error, info } from '../utils/billingLogger.js';
 import deliveryLocationCleanupJob from '../../orders/jobs/DeliveryLocationCleanupJob.js';
 import loyaltyRedemptionExpirationJob from '../../coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 
+const scheduledTasks: Array<ReturnType<typeof cron.schedule>> = [];
+
+function schedule(...args: Parameters<typeof cron.schedule>) {
+  const task = cron.schedule(...args);
+  scheduledTasks.push(task);
+  return task;
+}
+
 export function startJobs() {
-  cron.schedule(
+  if (scheduledTasks.length > 0) return;
+  schedule(
     '0 0 * * *',
     async () => {
       info('scheduler triggered BillingJob');
@@ -24,7 +33,7 @@ export function startJobs() {
     },
   );
 
-  cron.schedule(
+  schedule(
     process.env.BILLING_MP_RECONCILE_CRON || '*/5 * * * *',
     async () => {
       info('scheduler triggered MP auto reconciliation');
@@ -42,7 +51,7 @@ export function startJobs() {
     },
   );
 
-  cron.schedule(
+  schedule(
     process.env.LOYALTY_REDEMPTION_EXPIRATION_CRON || '*/5 * * * *',
     async () => {
       try {
@@ -59,7 +68,7 @@ export function startJobs() {
     { timezone: 'America/Sao_Paulo' },
   );
 
-  cron.schedule(
+  schedule(
     '30 3 * * *',
     async () => {
       try {
@@ -73,4 +82,12 @@ export function startJobs() {
     },
     { timezone: 'America/Sao_Paulo' },
   );
+}
+
+export function stopJobs() {
+  while (scheduledTasks.length) {
+    const task = scheduledTasks.pop();
+    task?.stop();
+    task?.destroy();
+  }
 }

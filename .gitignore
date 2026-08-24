@@ -1,4 +1,5 @@
 .env.docker
+.env.production
 .env
 routing-data/
 .npm-cache/

@@ -8,6 +8,7 @@ import { requestIdMiddleware } from './middlewares/security/requestIdMiddleware.
 import { notFoundMiddleware } from './middlewares/security/notFoundMiddleware.js';
 import { errorHandlerMiddleware } from './middlewares/security/errorHandlerMiddleware.js';
 import { applyCorsAndGlobalRateLimit } from './middlewares/security/httpAccessProtection.js';
+import { probeDatabaseReadiness } from './health/readiness.js';
 
 const app = express();
 
@@ -30,6 +31,25 @@ app.use(
   }),
 );
 
+// Liveness e readiness ficam fora do rate limit para o orquestrador nao derrubar
+// uma instancia saudavel durante picos de pedidos ou rastreamento.
+app.get('/health', (_req, res) => {
+  return res.status(200).json({
+    status: 'ok',
+    service: 'pizza-ia-backend',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/ready', async (_req, res) => {
+  const database = await probeDatabaseReadiness();
+  return res.status(database.ready ? 200 : 503).json({
+    status: database.ready ? 'ready' : 'unavailable',
+    database: database.ready ? 'ok' : 'unavailable',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 applyCorsAndGlobalRateLimit(app);
 
 // Stripe signature verification requires the exact raw request body.
@@ -38,14 +58,6 @@ app.use('/orders/webhook/stripe', express.raw({ type: 'application/json' }));
 // Parse JSON for all routes
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || '1mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-app.get('/health', (_req, res) => {
-  return res.status(200).json({
-    status: 'ok',
-    service: 'pizza-ia-backend',
-    timestamp: new Date().toISOString(),
-  });
-});
 
 app.use('/auth', authRateLimit);
 

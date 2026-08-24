@@ -1,4 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  connectTableSessionSocket,
+  disconnectTableSessionSocket,
+} from '../../../Services/socketService';
 import tableSessionService from '../../../Services/tableSessionService';
 import { readJsonStorage } from '../../../shared/storage/jsonStorage';
 import {
@@ -12,24 +16,29 @@ type Notify = (type: 'success' | 'error' | 'warning', title: string, message?: s
 type Options = {
   tableNumber: unknown;
   restaurantId: unknown;
-  restaurantSlug?: unknown;
+  tableToken?: unknown;
   tableId: unknown;
   notify: Notify;
 };
 
+function clearStoredSession() {
+  localStorage.removeItem('tableSession');
+  localStorage.removeItem('tableSessionToken');
+}
+
 export function useTableSession(options: Options) {
+  const notify = options.notify;
   const route = resolveTableRoute(options.tableNumber, options.restaurantId, options.tableId);
-  const [tablePin, setTablePin] = useState('');
-  const [pinError, setPinError] = useState('');
-  const [isPinValidating, setIsPinValidating] = useState(false);
   const [tableSession, setTableSession] = useState<StoredTableSession | null>(() =>
     readJsonStorage('tableSession', null),
   );
-  const sessionMatchesRoute =
-    !route.mesaMode ||
-    !tableSession?.sessionToken ||
-    belongsToTableRoute(tableSession, route.routeTableId, route.routeRestaurantId);
-  const activeSession = sessionMatchesRoute ? tableSession : null;
+  const [sessionEndedMessage, setSessionEndedMessage] = useState('');
+  const sessionRouteMismatch = Boolean(
+    route.mesaMode &&
+      tableSession?.sessionToken &&
+      !belongsToTableRoute(tableSession, route.routeTableId, route.routeRestaurantId),
+  );
+  const activeSession = sessionRouteMismatch ? null : tableSession;
   const mesaLabel =
     route.routeTableNumber ||
     activeSession?.tableNumber ||
@@ -37,7 +46,12 @@ export function useTableSession(options: Options) {
     route.routeTableId ||
     '';
   const hasValidQrContext =
-    !route.mesaMode || Boolean(route.routeTableNumber && route.routeTableId);
+    !route.mesaMode ||
+    Boolean(
+      route.routeTableNumber &&
+        route.routeTableId &&
+        String(options.tableToken || '').trim(),
+    );
   const mesaSessionIsActive = isTableSessionActive(
     activeSession,
     route.mesaMode,
@@ -46,78 +60,114 @@ export function useTableSession(options: Options) {
   );
   const storedSessionRestaurantId = Number(activeSession?.restaurantId || 0);
 
+  const endSession = useCallback(
+    (message: string, showNotification = true) => {
+      clearStoredSession();
+      setTableSession(null);
+      setSessionEndedMessage(message);
+      if (showNotification) {
+        notify(
+          'warning',
+          'Atendimento da mesa encerrado',
+          'Novos pedidos foram bloqueados. Peça ao garçom para abrir a mesa novamente.',
+        );
+      }
+    },
+    [notify, setSessionEndedMessage, setTableSession],
+  );
+
   useEffect(() => {
     if (!route.mesaMode || !tableSession?.sessionToken) return;
-    if (!belongsToTableRoute(tableSession, route.routeTableId, route.routeRestaurantId)) {
-      localStorage.removeItem('tableSession');
-      localStorage.removeItem('tableSessionToken');
+    if (sessionRouteMismatch) {
+      clearStoredSession();
     }
-  }, [route.mesaMode, route.routeTableId, route.routeRestaurantId, tableSession]);
+  }, [
+    route.mesaMode,
+    sessionRouteMismatch,
+    tableSession,
+  ]);
 
-  const handleValidateTablePin = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!route.routeTableId || !route.routeTableNumber) {
-      options.notify('error', 'QR inválido', 'Escaneie o QR oficial da mesa novamente.');
-      return;
-    }
-    if (!tablePin.trim()) {
-      options.notify('warning', 'PIN obrigatório', 'Digite o PIN informado pelo garçom.');
-      return;
-    }
-    try {
-      setIsPinValidating(true);
-      setPinError('');
-      const result = await tableSessionService.validatePin({
-        tableId: route.routeTableId,
-        tableNumber: route.routeTableNumber,
-        restaurantId: route.routeRestaurantId,
-        restaurantSlug: String(options.restaurantSlug || '').trim() || null,
-        pin: tablePin.trim(),
-      });
-      const next: StoredTableSession = {
-        sessionToken: result.sessionToken,
-        sessionId: result.sessionId,
-        tableId: Number(result.tableId || route.routeTableId),
-        tableNumber: Number(result.tableNumber || mesaLabel) || null,
-        restaurantId: Number(result.restaurantId || route.routeRestaurantId || 0) || null,
-      };
-      if (
-        Number(next.tableId) !== Number(route.routeTableId) ||
-        Number(next.tableNumber) !== Number(route.routeTableNumber) ||
-        (route.routeRestaurantId && Number(next.restaurantId) !== Number(route.routeRestaurantId))
-      ) {
-        throw new Error('O PIN retornou uma mesa diferente do QR Code escaneado.');
+  useEffect(() => {
+    if (!route.mesaMode || !activeSession?.sessionToken) return undefined;
+
+    const socket = connectTableSessionSocket(
+      activeSession.sessionToken,
+      `menu-table-${activeSession.tableId || 'unknown'}`,
+    );
+    const handleClosed = (payload?: { sessionId?: number; tableId?: number }) => {
+      const sameSession =
+        !payload?.sessionId || Number(payload.sessionId) === Number(activeSession.sessionId);
+      const sameTable = !payload?.tableId || Number(payload.tableId) === Number(activeSession.tableId);
+      if (sameSession && sameTable) {
+        endSession('Esta mesa foi fechada pelo garçom. Para pedir novamente, aguarde uma nova abertura.');
       }
-      localStorage.setItem('tableSession', JSON.stringify(next));
-      localStorage.setItem('tableSessionToken', String(result.sessionToken));
-      if (next.restaurantId) localStorage.setItem('menuRestaurantId', String(next.restaurantId));
-      setTableSession(next);
-      setTablePin('');
-      options.notify(
-        'success',
-        `Mesa ${next.tableNumber} liberada!`,
-        'Cardápio disponível. Bom apetite!',
-      );
-    } catch (error) {
-      const typed = error as { response?: { data?: { error?: string } }; message?: string };
-      const message = typed.response?.data?.error || typed.message || 'Erro ao validar PIN';
-      setPinError(message);
-      options.notify('error', 'Erro no PIN', message);
-    } finally {
-      setIsPinValidating(false);
-    }
-  };
+    };
+    const handleServiceUpdate = (payload?: {
+      tableId?: number;
+      type?: 'WAITER' | 'BILL';
+      status?: 'IN_PROGRESS' | 'RESOLVED';
+    }) => {
+      if (payload?.tableId && Number(payload.tableId) !== Number(activeSession.tableId)) return;
+      if (payload?.status === 'IN_PROGRESS') {
+        notify(
+          'success',
+          payload.type === 'BILL' ? 'Conta em atendimento' : 'Garçom a caminho',
+          'Seu aviso foi assumido pela equipe do salão.',
+        );
+      }
+      if (payload?.status === 'RESOLVED') {
+        notify(
+          'success',
+          payload.type === 'BILL' ? 'Solicitação da conta concluída' : 'Atendimento concluído',
+          'Se precisar novamente, envie um novo aviso pelo cardápio.',
+        );
+      }
+    };
+    socket?.on('table:session-closed', handleClosed);
+    socket?.on('waiter-call:updated', handleServiceUpdate);
+
+    const verifySession = async () => {
+      try {
+        const current = await tableSessionService.getCurrentSession();
+        if (
+          Number(current?.id || current?.sessionId) !== Number(activeSession.sessionId) ||
+          Number(current?.tableId) !== Number(activeSession.tableId)
+        ) {
+          endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
+        }
+      } catch (error: unknown) {
+        const status = Number((error as { response?: { status?: number } })?.response?.status || 0);
+        if (status === 403 || status === 404) {
+          endSession('Esta mesa já foi fechada ou a sessão expirou. Aguarde o garçom reabri-la.');
+        }
+      }
+    };
+
+    void verifySession();
+    const intervalId = window.setInterval(() => void verifySession(), 30_000);
+    const verifyWhenVisible = () => {
+      if (document.visibilityState === 'visible') void verifySession();
+    };
+    document.addEventListener('visibilitychange', verifyWhenVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', verifyWhenVisible);
+      socket?.off('table:session-closed', handleClosed);
+      socket?.off('waiter-call:updated', handleServiceUpdate);
+      disconnectTableSessionSocket();
+    };
+  }, [activeSession, endSession, notify, route.mesaMode]);
 
   return {
     ...route,
-    tablePin,
-    setTablePin,
-    pinError,
-    isPinValidating,
+    tableSession: activeSession,
+    sessionEndedMessage: sessionRouteMismatch
+      ? 'Este acesso pertence a outra mesa. Escaneie o QR Code oficial novamente.'
+      : sessionEndedMessage,
     mesaLabel,
     hasValidQrContext,
     mesaSessionIsActive,
     storedSessionRestaurantId,
-    handleValidateTablePin,
   };
 }

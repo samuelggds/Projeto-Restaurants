@@ -129,8 +129,8 @@ router.get('/table/current', sessionMiddleware, (req, res) => {
   GetCurrentTableOrderController.handle(req, res);
 });
 
-router.get('/:id/tracking', authMiddleware, (req, res) => {
-  GetDeliveryTrackingController.handle(req, res);
+router.get('/:id/tracking', authMiddleware, (req, res, next) => {
+  GetDeliveryTrackingController.handle(req, res, next);
 });
 
 router.get('/:id', authMiddleware, staffMiddleware, (req, res) => {

@@ -7,6 +7,10 @@ import refundOrderPaymentService from './RefundOrderPaymentService.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
 import {
+  emitTableSessionOrderEvent,
+  emitWaiterTableOrderEvent,
+} from '../utils/waiterOrderRealtime.js';
+import {
   getOrderIssueThread,
   resolveOrderIssueThread,
   toOrderIssueThreadPayload,
@@ -133,6 +137,8 @@ class RefundOrderByAdminService {
 
     io.to(`restaurant:${normalizedRestaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`user:${order.userId}`).emit('order:status-changed', updatedOrder);
+    emitWaiterTableOrderEvent(io, 'waiter:order-updated', updatedOrder);
+    emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
     if (resolvedPayload) {
       io.to(`restaurant:${normalizedRestaurantId}:admin`).emit(

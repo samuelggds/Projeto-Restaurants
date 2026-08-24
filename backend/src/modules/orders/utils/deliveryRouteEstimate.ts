@@ -7,11 +7,16 @@ export type DeliveryRouteEstimate = {
   durationSeconds: number;
   distanceMeters: number | null;
   provider: 'OSRM';
+  routeCoordinates?: DeliveryCoordinates[];
+  destination?: DeliveryCoordinates & { label: string };
 };
 
 type OsrmRoute = {
   duration?: number;
   distance?: number;
+  geometry?: {
+    coordinates?: unknown;
+  };
 };
 
 type OsrmRoutesResponse = {
@@ -38,6 +43,18 @@ export function parseOsrmRouteEstimate(response: OsrmRoutesResponse): DeliveryRo
 
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return null;
 
+  const rawCoordinates = Array.isArray(route?.geometry?.coordinates)
+    ? route.geometry.coordinates
+    : [];
+  const routeCoordinates = rawCoordinates
+    .map((coordinate) => {
+      if (!Array.isArray(coordinate) || coordinate.length < 2) return null;
+      const longitude = Number(coordinate[0]);
+      const latitude = Number(coordinate[1]);
+      return hasValidCoordinates({ latitude, longitude }) ? { latitude, longitude } : null;
+    })
+    .filter((coordinate): coordinate is DeliveryCoordinates => Boolean(coordinate));
+
   return {
     durationSeconds: Math.round(durationSeconds),
     distanceMeters:
@@ -45,7 +62,18 @@ export function parseOsrmRouteEstimate(response: OsrmRoutesResponse): DeliveryRo
         ? Math.round(route.distance)
         : null,
     provider: 'OSRM',
+    ...(routeCoordinates.length ? { routeCoordinates } : {}),
   };
+}
+
+export function limitRouteCoordinates(coordinates: DeliveryCoordinates[], maximumPoints = 250) {
+  if (coordinates.length <= maximumPoints) return coordinates;
+
+  const lastIndex = coordinates.length - 1;
+  return Array.from({ length: maximumPoints }, (_, index) => {
+    const sourceIndex = Math.round((index * lastIndex) / (maximumPoints - 1));
+    return coordinates[sourceIndex];
+  });
 }
 
 export function hasValidCoordinates(

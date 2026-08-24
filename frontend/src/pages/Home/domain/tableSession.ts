@@ -6,6 +6,10 @@ export type StoredTableSession = {
   tableId?: number | null;
   tableNumber?: number | null;
   restaurantId?: number | null;
+  expiresAt?: string | null;
+  tableOrderingEnabled?: boolean;
+  waiterCallEnabled?: boolean;
+  billRequestEnabled?: boolean;
 };
 
 export function resolveTableRoute(tableNumber: unknown, restaurantId: unknown, tableId: unknown) {
@@ -28,8 +32,10 @@ export function isTableSessionActive(
   restaurantId: number | null,
 ): boolean {
   if (!mesaMode) return true;
+  const expiresAt = session?.expiresAt ? new Date(session.expiresAt).getTime() : null;
   return Boolean(
     session?.sessionToken &&
+    (!expiresAt || expiresAt > Date.now()) &&
     Number(session.tableId) === Number(tableId) &&
     (!restaurantId || Number(session.restaurantId) === Number(restaurantId)),
   );

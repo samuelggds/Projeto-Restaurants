@@ -7,13 +7,13 @@ import refundOrderPaymentService from './RefundOrderPaymentService.js';
 import prisma from '../../../config/prisma.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
+import {
+  emitTableSessionOrderEvent,
+  emitWaiterTableOrderEvent,
+} from '../utils/waiterOrderRealtime.js';
 
 class CancelOrderService {
-  async execute(
-    orderId: number | string | string[],
-    userId: number,
-    restaurantId?: number | null,
-  ) {
+  async execute(orderId: number | string | string[], userId: number, restaurantId?: number | null) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
     const normalizedRestaurantId = Number(restaurantId || 0);
     const order = await orderRepository.findByIdForCustomer(
@@ -76,6 +76,8 @@ class CancelOrderService {
 
     io.to(`restaurant:${orderRestaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    emitWaiterTableOrderEvent(io, 'order:status-changed', updatedOrder);
+    emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
     return updatedOrder;
   }

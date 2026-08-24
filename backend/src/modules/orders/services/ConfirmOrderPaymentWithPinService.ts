@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
 import { verifyPaymentConfirmationPin } from '../utils/paymentConfirmationPin.js';
+import courierAccessService from './CourierAccessService.js';
 
 class ConfirmOrderPaymentWithPinService {
   async execute(
@@ -10,6 +11,7 @@ class ConfirmOrderPaymentWithPinService {
     restaurantId: number,
     role: string,
     pin: string,
+    actorUserId?: number | null,
   ) {
     const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
     const normalizedRole = String(role || '').toUpperCase();
@@ -29,6 +31,17 @@ class ConfirmOrderPaymentWithPinService {
 
     if (String(order.type || '').toUpperCase() !== 'DELIVERY') {
       throw new Error('Confirmação por PIN disponível apenas para pedidos DELIVERY.');
+    }
+
+    if (normalizedRole === 'MOTOQUEIRO') {
+      const courierId = Number(actorUserId || 0);
+      await courierAccessService.assertActiveCourier(courierId, restaurantId);
+      if (
+        String(order.status || '').toUpperCase() !== 'SAIU_PARA_ENTREGA' ||
+        Number(order.assignedCourierId || 0) !== courierId
+      ) {
+        throw new Error('Esta entrega em andamento não está atribuída a você.');
+      }
     }
 
     if (order.payOnDelivery !== true || !order.paymentMethod) {

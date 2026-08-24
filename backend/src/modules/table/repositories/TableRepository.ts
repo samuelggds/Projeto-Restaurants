@@ -1,4 +1,9 @@
 import type { Prisma } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentMethod,
+  TableSessionStatus,
+} from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -15,8 +20,18 @@ class TableRepository {
       where: {
         id: Number(id),
       },
-      include: {
-        restaurant: true,
+    });
+  }
+
+  async findByIdForRestaurant(
+    id: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.table.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId: Number(restaurantId),
       },
     });
   }
@@ -33,10 +48,12 @@ class TableRepository {
   async findPublicByReference(
     {
       number,
+      tableToken,
       restaurantId,
       restaurantSlug,
     }: {
       number: number;
+      tableToken: string;
       restaurantId?: number;
       restaurantSlug?: string;
     },
@@ -45,6 +62,7 @@ class TableRepository {
     return db.table.findFirst({
       where: {
         number,
+        token: tableToken,
         active: true,
         restaurant: {
           active: true,
@@ -84,6 +102,38 @@ class TableRepository {
         restaurantId,
       },
       include: {
+        tableSessions: {
+          where: {
+            status: TableSessionStatus.OPEN,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+          orderBy: { openedAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            openedAt: true,
+            expiresAt: true,
+            openedBy: { select: { id: true, name: true } },
+          },
+        },
+        orders: {
+          where: {
+            status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
+            NOT: {
+              paid: false,
+              paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+              payOnDelivery: false,
+            },
+          },
+          select: {
+            id: true,
+            userId: true,
+            total: true,
+            status: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             orders: true,

@@ -77,6 +77,26 @@ test('deve rotacionar refresh token e invalidar o token anterior', async () => {
   );
 });
 
+test('preserva o perfil COZINHA ao rotacionar os tokens', async () => {
+  installSessionPrismaMocks();
+
+  const refreshToken = await authTokenService.createRefreshToken({
+    id: 79,
+    role: 'FUNCIONARIO',
+    subRole: 'COZINHA',
+    restaurantId: 7,
+  });
+  const rotation = await authTokenService.rotateRefreshToken(refreshToken);
+
+  const accessPayload = jwt.verify(rotation.accessToken, getJwtSecret());
+  const refreshPayload = jwt.verify(rotation.refreshToken, getSafeRefreshSecret());
+
+  assert.equal(accessPayload.subRole, 'COZINHA');
+  assert.equal(accessPayload.restaurantId, 7);
+  assert.equal(refreshPayload.subRole, 'COZINHA');
+  assert.equal(refreshPayload.restaurantId, 7);
+});
+
 test('logout deve revogar refresh token atual', async () => {
   installSessionPrismaMocks();
 

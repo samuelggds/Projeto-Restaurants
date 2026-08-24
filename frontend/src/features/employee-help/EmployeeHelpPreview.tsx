@@ -65,13 +65,15 @@ function Metrics({
   labels,
   markerStart,
   values,
+  className,
 }: {
   labels: string[];
   markerStart: number;
   values?: string[];
+  className?: string;
 }) {
   return (
-    <div className="mock-metrics">
+    <div className={`mock-metrics${className ? ` ${className}` : ''}`}>
       {labels.map((label, index) => (
         <article className="mock-metric" key={label} data-marker={markerStart + index}>
           <span>{label}</span>
@@ -271,13 +273,13 @@ function WaiterPreview({ guide }: EmployeeHelpPreviewProps) {
                 </div>
               </Panel>
               <Panel
-                title="Códigos solicitados"
-                detail="Informe o código após o cliente escanear o QR."
+                title="Mesas abertas"
+                detail="Abra a mesa antes de o cliente pedir pelo QR fixo."
                 marker={10}
               >
                 <div className="mock-waiter-empty" data-marker={11}>
-                  <i>⌘</i>
-                  <span>Nenhum código solicitado.</span>
+                  <i>▦</i>
+                  <span>Nenhuma mesa aberta no momento.</span>
                 </div>
               </Panel>
             </div>
@@ -325,23 +327,32 @@ function WaiterPreview({ guide }: EmployeeHelpPreviewProps) {
             <span className="mock-select" data-marker={4}>
               Todos os status
             </span>
-            <span className="mock-print-action" data-marker={5}>
-              ▣ Imprimir QR Codes
+            <span className="mock-table-admin-notice" data-marker={5}>
+              ⓘ QR Codes criados e vinculados pelo administrador
             </span>
           </div>
           <Metrics
-            labels={['Mesas', 'Ocupadas', 'Livres', 'Aguardando código']}
+            labels={['Mesas', 'Ocupadas', 'Livres']}
             markerStart={6}
-            values={['—', '—', '—', '—']}
+            values={['—', '—', '—']}
+            className="mock-tables-metrics"
           />
           <Panel
             title="Mesas e QR Codes"
-            detail="Consulte mesas e códigos de acesso do salão."
-            marker={10}
+            detail="Abra e feche as mesas cadastradas pelo administrador."
+            marker={9}
           >
-            <div className="mock-tables-empty" data-marker={11}>
-              <i>▦</i>
-              <span>Nenhuma mesa encontrada para os filtros selecionados.</span>
+            <div className="mock-table-row">
+              <div className="mock-table-identity" data-marker={10}>
+                <span>
+                  <b>Mesa —</b>
+                  <small>QR Code fixo vinculado</small>
+                </span>
+                <em>Livre</em>
+              </div>
+              <button type="button" data-marker={11}>
+                Abrir mesa
+              </button>
             </div>
           </Panel>
         </>

@@ -1,32 +1,103 @@
-import { BellRing, Check, Clipboard, Clock3, KeyRound, Users } from 'lucide-react';
+import {
+  BellRing,
+  Clock3,
+  Eye,
+  Info,
+  ReceiptText,
+  Users,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { CallStatus, TableStatus } from '../types';
+import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } from '../types';
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
 import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
 import * as S from '../Waiter.styles';
 
+function getErrorMessage(error: unknown, fallback: string) {
+  const typed = error as { response?: { data?: { error?: string } }; message?: string };
+  return typed.response?.data?.error || typed.message || fallback;
+}
+
+function durationInSeconds(value: string) {
+  const parts = value.split(':').map(Number).filter(Number.isFinite);
+  if (!parts.length) return 0;
+  return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
+function formatAverageDuration(calls: ServiceCall[]) {
+  if (!calls.length) return '—';
+  const total = calls.reduce((sum, call) => sum + durationInSeconds(call.elapsed), 0);
+  const seconds = Math.round(total / calls.length);
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function ReadyOrderCard({ order }: { order: Order }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <S.PriorityOrder>
+      <div className="identity">
+        <b>{order.reference}</b>
+        <span>
+          Pedido {order.id} • pronto há {order.elapsed}
+        </span>
+      </div>
+      <div className="items">
+        <OrderItems order={order} />
+        {expanded && (
+          <S.OrderDetails role="region" aria-label={`Detalhes do pedido ${order.id}`}>
+            <span>
+              <small>Cliente</small>
+              <b>{order.customer || 'Não informado'}</b>
+            </span>
+            <span>
+              <small>Recebido às</small>
+              <b>{order.createdAt}</b>
+            </span>
+            <span>
+              <small>Total</small>
+              <b>{brl(order.total)}</b>
+            </span>
+          </S.OrderDetails>
+        )}
+      </div>
+      <div className="right">
+        <StatusBadge status={order.status} />
+        <S.LinkButton
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <Eye size={15} /> {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+        </S.LinkButton>
+      </div>
+    </S.PriorityOrder>
+  );
+}
+
 export function WaiterOverviewPage() {
   const { orders, tables, calls } = useWorkspace();
-  const ready = orders.filter((o) => o.channel === 'TABLE' && o.status === 'PRONTO');
-  const waiting = calls.filter((c) => c.status === 'WAITING');
-  const code = tables.find((t) => t.status === 'AWAITING_CODE');
+  const ready = orders
+    .filter((order) => order.channel === 'TABLE' && order.status === 'PRONTO')
+    .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed));
+  const waiting = calls.filter((call) => call.status === 'WAITING');
+  const openedTables = tables.filter((table) => table.status === 'OCCUPIED');
+
   return (
     <>
+      <S.PageIntro>
+        <div>
+          <span>RESUMO DO SALÃO</span>
+          <h2>O que precisa da sua atenção agora</h2>
+          <p>Comece pelos chamados mais antigos e pelos pedidos que já estão prontos.</p>
+        </div>
+      </S.PageIntro>
       <MetricCards
         items={[
-          {
-            label: 'Prontos para entregar',
-            value: ready.length,
-            tone: 'green',
-          },
-          {
-            label: 'Chamados aguardando',
-            value: waiting.length,
-            icon: 'calls',
-          },
+          { label: 'Prontos para entregar', value: ready.length, tone: 'green' },
+          { label: 'Chamados aguardando', value: waiting.length, icon: 'calls' },
           {
             label: 'Mesas ocupadas',
-            value: tables.filter((t) => t.status === 'OCCUPIED').length,
+            value: tables.filter((table) => table.status === 'OCCUPIED').length,
             icon: 'tables',
           },
         ]}
@@ -36,27 +107,15 @@ export function WaiterOverviewPage() {
           <header>
             <div>
               <h2>Prontos para entregar</h2>
-              <p>O status é atualizado exclusivamente pela cozinha.</p>
+              <p>A cozinha finalizou estes pedidos. Confira a mesa antes de sair.</p>
             </div>
-            <Clock3 />
+            <Clock3 aria-hidden="true" />
           </header>
           <S.Stack>
             {ready.slice(0, 4).map((order) => (
-              <S.PriorityOrder key={order.id}>
-                <div className="identity">
-                  <b>{order.reference}</b>
-                  <span>
-                    {order.id} • pronto há {order.elapsed}
-                  </span>
-                </div>
-                <OrderItems order={order} />
-                <div className="right">
-                  <StatusBadge status={order.status} />
-                  <S.LinkButton>Ver detalhes</S.LinkButton>
-                </div>
-              </S.PriorityOrder>
+              <ReadyOrderCard key={order.id} order={order} />
             ))}
-            {!ready.length && <Empty>Nenhum pedido pronto.</Empty>}
+            {!ready.length && <Empty>Nenhum pedido pronto para entrega.</Empty>}
           </S.Stack>
         </S.Card>
         <S.Stack>
@@ -64,20 +123,26 @@ export function WaiterOverviewPage() {
           <S.Card>
             <header>
               <div>
-                <h2>Códigos solicitados</h2>
-                <p>Informe o código após o cliente escanear o QR.</p>
+                <h2>Mesas abertas</h2>
+                <p>O QR Code funciona para pedidos somente enquanto a mesa estiver aberta.</p>
               </div>
-              <KeyRound />
+              <Users aria-hidden="true" />
             </header>
-            {code ? (
-              <AccessCode
-                tableId={code.id}
-                tableNumber={code.number}
-                code={code.accessCode ?? ''}
-              />
-            ) : (
-              <Empty>Nenhum código solicitado.</Empty>
-            )}
+            <S.Stack>
+              {openedTables.slice(0, 4).map((table) => (
+                <S.OpenTableRow key={table.id}>
+                  <span>
+                    <b>Mesa {String(table.number).padStart(2, '0')}</b>
+                    <small>
+                      {table.openedAt ? `Aberta às ${table.openedAt}` : 'Atendimento em andamento'}
+                    </small>
+                  </span>
+                  <strong>{brl(table.total || 0)}</strong>
+                  <TableSessionButton table={table} />
+                </S.OpenTableRow>
+              ))}
+              {!openedTables.length && <Empty>Nenhuma mesa aberta no momento.</Empty>}
+            </S.Stack>
           </S.Card>
         </S.Stack>
       </S.Grid>
@@ -87,130 +152,92 @@ export function WaiterOverviewPage() {
 
 function WaiterCallsSummary() {
   const { calls, updateCall } = useWorkspace();
-  const waiting = calls.filter((c) => c.status === 'WAITING').slice(0, 2);
+  const waiting = calls
+    .filter((call) => call.status === 'WAITING')
+    .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed))
+    .slice(0, 2);
   return (
     <S.Card>
       <header>
         <div>
           <h2>Chamados do salão</h2>
-          <p>Atenda primeiro o chamado mais antigo.</p>
+          <p>Assuma um chamado para que a equipe saiba quem está atendendo.</p>
         </div>
-        <BellRing />
+        <BellRing aria-hidden="true" />
       </header>
       {waiting.map((call) => (
         <CallRow key={call.id} call={call} action={() => updateCall(call.id, 'IN_PROGRESS')} />
       ))}
+      {!waiting.length && <Empty>Nenhum chamado aguardando atendimento.</Empty>}
     </S.Card>
   );
 }
 
-function AccessCode({
-  tableId,
-  tableNumber,
-  code,
-}: {
-  tableId: string;
-  tableNumber: number;
-  code: string;
-}) {
-  const { generateAccessCode } = useWorkspace();
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard?.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-  return (
-    <S.CodeBox>
-      <div className="label">
-        <small>Mesa {String(tableNumber).padStart(2, '0')}</small>
-        <span className="code">{code}</span>
-        <small>Informe este código ao cliente</small>
-      </div>
-      <div>
-        <S.LinkButton onClick={copy}>
-          {copied ? <Check size={16} /> : <Clipboard size={16} />}{' '}
-          {copied ? 'Copiado' : 'Copiar código'}
-        </S.LinkButton>
-        <S.LinkButton onClick={() => generateAccessCode(tableId)}>Gerar novo</S.LinkButton>
-      </div>
-    </S.CodeBox>
-  );
-}
-
 export function WaiterDeliveriesPage() {
-  const { orders } = useWorkspace();
+  const { orders, tables } = useWorkspace();
   const [query, setQuery] = useState('');
   const [table, setTable] = useState('ALL');
   const ready = useMemo(
     () =>
       orders
         .filter(
-          (o) =>
-            o.channel === 'TABLE' &&
-            o.status === 'PRONTO' &&
-            (table === 'ALL' || o.reference === table) &&
-            `${o.id} ${o.reference} ${o.items.join(' ')}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
+          (order) =>
+            order.channel === 'TABLE' &&
+            order.status === 'PRONTO' &&
+            (table === 'ALL' || order.reference === table) &&
+            `${order.id} ${order.reference} ${order.customer || ''} ${order.items.join(' ')}`
+              .toLocaleLowerCase('pt-BR')
+              .includes(query.trim().toLocaleLowerCase('pt-BR')),
         )
-        .sort((a, b) => b.elapsed.localeCompare(a.elapsed)),
+        .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed)),
     [orders, query, table],
   );
-  const tables = [...new Set(orders.filter((o) => o.channel === 'TABLE').map((o) => o.reference))];
+  const tableOptions = [
+    ...new Set(orders.filter((order) => order.channel === 'TABLE').map((order) => order.reference)),
+  ].sort((left, right) => left.localeCompare(right, 'pt-BR', { numeric: true }));
+
   return (
     <>
-      <S.Toolbar>
+      <S.Toolbar aria-label="Filtros dos pedidos prontos">
         <input
+          aria-label="Buscar pedidos prontos"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar número da mesa ou pedido"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Buscar mesa, pedido, cliente ou item"
         />
-        <select value={table} onChange={(e) => setTable(e.target.value)}>
+        <select
+          aria-label="Filtrar por mesa"
+          value={table}
+          onChange={(event) => setTable(event.target.value)}
+        >
           <option value="ALL">Todas as mesas</option>
-          {tables.map((item) => (
+          {tableOptions.map((item) => (
             <option key={item}>{item}</option>
           ))}
         </select>
-        <button className="live">Atualização em tempo real</button>
+        <S.LiveStatus role="status">Atualização automática</S.LiveStatus>
       </S.Toolbar>
       <MetricCards
         items={[
+          { label: 'Prontos para entregar', value: ready.length, tone: 'green' },
+          { label: 'Maior espera', value: ready[0]?.elapsed ?? '—', icon: 'clock' },
           {
-            label: 'Prontos para entregar',
-            value: ready.length,
-            tone: 'green',
+            label: 'Mesas ocupadas',
+            value: tables.filter((item) => item.status === 'OCCUPIED').length,
+            icon: 'tables',
           },
-          {
-            label: 'Maior espera',
-            value: ready[0]?.elapsed ?? '00:00',
-            icon: 'clock',
-          },
-          { label: 'Mesas ocupadas', value: 8, icon: 'tables' },
         ]}
       />
       <S.Card>
         <header>
           <div>
             <h2>Prontos para entregar</h2>
-            <p>Somente leitura: a cozinha controla todos os status.</p>
+            <p>Somente leitura: a cozinha controla o preparo e os status dos pedidos.</p>
           </div>
         </header>
         <S.Stack>
           {ready.map((order) => (
-            <S.PriorityOrder key={order.id}>
-              <div className="identity">
-                <b>{order.reference}</b>
-                <span>
-                  {order.id} • pronto há {order.elapsed}
-                </span>
-              </div>
-              <OrderItems order={order} />
-              <div className="right">
-                <StatusBadge status="PRONTO" />
-                <S.LinkButton>Ver detalhes</S.LinkButton>
-              </div>
-            </S.PriorityOrder>
+            <ReadyOrderCard key={order.id} order={order} />
           ))}
           {!ready.length && <Empty>Nenhum pedido pronto para os filtros selecionados.</Empty>}
         </S.Stack>
@@ -219,47 +246,106 @@ export function WaiterDeliveriesPage() {
   );
 }
 
+function tableStatusLabel(status: TableStatus) {
+  return status === 'FREE' ? 'LIVRE' : 'ABERTA';
+}
+
+function TableSessionButton({ table }: { table: RestaurantTable }) {
+  const { openTable, closeTable } = useWorkspace();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const occupied = table.status === 'OCCUPIED';
+
+  const execute = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      if (occupied) {
+        if (!table.sessionId) {
+          throw new Error(
+            'A sessão desta mesa não foi identificada. Atualize a tela e tente novamente.',
+          );
+        }
+        await closeTable(table.sessionId);
+      } else {
+        await openTable(table.id);
+      }
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          occupied ? 'Não foi possível fechar esta mesa.' : 'Não foi possível abrir esta mesa.',
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className={occupied ? 'close-table' : 'open-table'}
+        onClick={() => void execute()}
+        disabled={loading}
+      >
+        {loading ? 'Salvando...' : occupied ? 'Fechar mesa' : 'Abrir mesa'}
+      </button>
+      {error && <S.ActionError role="alert">{error}</S.ActionError>}
+    </>
+  );
+}
+
 export function WaiterTablesPage() {
-  const { tables, generateAccessCode } = useWorkspace();
+  const { tables } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TableStatus | 'ALL'>('ALL');
   const visible = tables.filter(
-    (t) => (status === 'ALL' || t.status === status) && String(t.number).includes(query),
+    (table) =>
+      (status === 'ALL' || table.status === status) && String(table.number).includes(query.trim()),
   );
+
   return (
     <>
-      <S.Toolbar>
+      <S.InlineNotice role="note">
+        <Info />
+        <span>
+          <b>QR Codes administrados pelo restaurante.</b> Aqui você apenas abre a mesa para liberar
+          pedidos e fecha quando o atendimento e o pagamento terminarem.
+        </span>
+      </S.InlineNotice>
+      <S.Toolbar aria-label="Filtros das mesas">
         <input
+          aria-label="Buscar mesa"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Buscar número da mesa"
+          inputMode="numeric"
         />
-        <select value={status} onChange={(e) => setStatus(e.target.value as TableStatus | 'ALL')}>
+        <select
+          aria-label="Filtrar mesas por status"
+          value={status}
+          onChange={(event) => setStatus(event.target.value as TableStatus | 'ALL')}
+        >
           <option value="ALL">Todos os status</option>
           <option value="FREE">Livres</option>
           <option value="OCCUPIED">Ocupadas</option>
-          <option value="AWAITING_CODE">Aguardando código</option>
         </select>
-        <button>Imprimir QR Codes</button>
       </S.Toolbar>
       <MetricCards
         items={[
           { label: 'Mesas', value: tables.length, icon: 'tables' },
           {
             label: 'Ocupadas',
-            value: tables.filter((t) => t.status === 'OCCUPIED').length,
+            value: tables.filter((table) => table.status === 'OCCUPIED').length,
             icon: 'tables',
           },
           {
             label: 'Livres',
-            value: tables.filter((t) => t.status === 'FREE').length,
+            value: tables.filter((table) => table.status === 'FREE').length,
             tone: 'green',
             icon: 'tables',
-          },
-          {
-            label: 'Aguardando código',
-            value: tables.filter((t) => t.status === 'AWAITING_CODE').length,
-            icon: 'clock',
           },
         ]}
       />
@@ -268,148 +354,225 @@ export function WaiterTablesPage() {
           <S.TableCard key={table.id}>
             <header>
               <b>Mesa {String(table.number).padStart(2, '0')}</b>
-              <S.TableState $state={table.status}>
-                {table.status === 'FREE'
-                  ? 'LIVRE'
-                  : table.status === 'OCCUPIED'
-                    ? 'OCUPADA'
-                    : 'AGUARDANDO CÓDIGO'}
-              </S.TableState>
+              <S.TableState $state={table.status}>{tableStatusLabel(table.status)}</S.TableState>
             </header>
-            {table.status === 'AWAITING_CODE' ? (
-              <div className="access">
-                <b>{table.accessCode}</b>
-                <small>Informe este código ao cliente</small>
-              </div>
-            ) : (
-              <div className="meta">
+            <div className="meta">
+              <span>
+                <Users size={14} /> {table.guests || 0} cliente(s)
+              </span>
+              {table.openedAt ? (
                 <span>
-                  <Users size={14} /> {table.guests} clientes
+                  <Clock3 size={14} /> Aberta às {table.openedAt}
                 </span>
-                {table.openedAt && (
-                  <span>
-                    <Clock3 size={14} /> Aberta às {table.openedAt}
-                  </span>
-                )}
-                <strong>{brl(table.total)}</strong>
-              </div>
-            )}
-            <div className="actions">
-              {table.status === 'AWAITING_CODE' ? (
-                <button onClick={() => generateAccessCode(table.id)}>Gerar novo código</button>
-              ) : table.status === 'OCCUPIED' ? (
-                <button>Ver pedido</button>
               ) : (
-                <button>Visualizar QR Code</button>
+                <span>Abra a mesa antes de o cliente fazer o pedido</span>
               )}
+              <strong>{brl(table.total || 0)}</strong>
+            </div>
+            <div className="actions">
+              <TableSessionButton table={table} />
             </div>
           </S.TableCard>
         ))}
       </S.TableGrid>
+      {!visible.length && <Empty>Nenhuma mesa encontrada com estes filtros.</Empty>}
     </>
   );
 }
 
-function callTitle(type: 'WAITER' | 'BILL' | 'ACCESS_CODE') {
-  return type === 'BILL'
-    ? 'Pediu a conta'
-    : type === 'ACCESS_CODE'
-      ? 'Solicitou código de acesso'
-      : 'Chamou o garçom';
+function callTitle(type: ServiceCall['type']) {
+  if (type === 'BILL') return 'Pediu a conta';
+  return 'Chamou o garçom';
 }
+
 function CallRow({
   call,
   action,
   label = 'Atender',
 }: {
-  call: {
-    id: string;
-    tableNumber: number;
-    type: 'WAITER' | 'BILL' | 'ACCESS_CODE';
-    elapsed: string;
-  };
-  action: () => void;
+  call: ServiceCall;
+  action?: () => Promise<void>;
   label?: string;
 }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const execute = async () => {
+    if (!action || loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      await action();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'Não foi possível atualizar este chamado.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <S.CallCard>
-      <span className="icon">{call.type === 'ACCESS_CODE' ? <KeyRound /> : <BellRing />}</span>
+      <span className="icon" aria-hidden="true">
+        {call.type === 'BILL' ? <ReceiptText /> : <BellRing />}
+      </span>
       <span className="info">
         <b>Mesa {String(call.tableNumber).padStart(2, '0')}</b>
         <span>{callTitle(call.type)}</span>
+        {call.employeeName && <small>Responsável: {call.employeeName}</small>}
       </span>
-      <span className="time">{call.elapsed}</span>
-      <S.PrimaryButton className="action" onClick={action}>
-        {label}
-      </S.PrimaryButton>
+      <span className="time" aria-label={`Tempo de espera ${call.elapsed}`}>
+        {call.elapsed}
+      </span>
+      {action && (
+        <S.PrimaryButton
+          className="action"
+          type="button"
+          onClick={() => void execute()}
+          disabled={loading}
+        >
+          {loading ? 'Salvando...' : label}
+        </S.PrimaryButton>
+      )}
+      {error && <S.ActionError role="alert">{error}</S.ActionError>}
     </S.CallCard>
+  );
+}
+
+function CallSection({
+  title,
+  description,
+  calls,
+  action,
+  actionLabel,
+  empty,
+}: {
+  title: string;
+  description: string;
+  calls: ServiceCall[];
+  action?: (call: ServiceCall) => Promise<void>;
+  actionLabel?: string;
+  empty: string;
+}) {
+  return (
+    <S.Card>
+      <header>
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+      </header>
+      {calls.map((call) => (
+        <CallRow
+          key={call.id}
+          call={call}
+          action={action ? () => action(call) : undefined}
+          label={actionLabel}
+        />
+      ))}
+      {!calls.length && <Empty>{empty}</Empty>}
+    </S.Card>
+  );
+}
+
+function resolvedToday(call: ServiceCall) {
+  if (!call.resolvedAt) return false;
+  const date = new Date(call.resolvedAt);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
   );
 }
 
 export function WaiterCallsPage() {
   const { calls, updateCall } = useWorkspace();
+  const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<CallStatus | 'ALL'>('ALL');
-  const waiting = calls.filter((c) => c.status === 'WAITING');
-  const attending = calls.filter((c) => c.status === 'IN_PROGRESS');
-  const complete = (id: string) => updateCall(id, 'RESOLVED');
+  const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
+  const filtered = calls.filter((call) =>
+    `mesa ${call.tableNumber} ${callTitle(call.type)} ${call.employeeName || ''}`
+      .toLocaleLowerCase('pt-BR')
+      .includes(normalizedQuery),
+  );
+  const waiting = filtered
+    .filter((call) => call.status === 'WAITING')
+    .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed));
+  const attending = filtered.filter((call) => call.status === 'IN_PROGRESS');
+  const resolved = filtered.filter((call) => call.status === 'RESOLVED');
+  const activeCalls = calls.filter((call) => call.status !== 'RESOLVED');
+
   return (
     <>
-      <S.Toolbar>
-        <input placeholder="Buscar mesa" />
-        <select value={filter} onChange={(e) => setFilter(e.target.value as CallStatus | 'ALL')}>
+      <S.Toolbar aria-label="Filtros dos chamados">
+        <input
+          aria-label="Buscar chamados"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Buscar mesa ou tipo de chamado"
+          inputMode="numeric"
+        />
+        <select
+          aria-label="Filtrar chamados por status"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value as CallStatus | 'ALL')}
+        >
           <option value="ALL">Todos os status</option>
           <option value="WAITING">Aguardando</option>
           <option value="IN_PROGRESS">Em atendimento</option>
           <option value="RESOLVED">Concluídos</option>
         </select>
-        <button className="live">Atualização em tempo real</button>
+        <S.LiveStatus role="status">Atualização automática</S.LiveStatus>
       </S.Toolbar>
       <MetricCards
         items={[
-          { label: 'Aguardando', value: waiting.length, icon: 'calls' },
-          { label: 'Em atendimento', value: attending.length, icon: 'calls' },
-          { label: 'Tempo médio', value: '02:18', icon: 'clock' },
-          { label: 'Atendidos hoje', value: 32, tone: 'green', icon: 'calls' },
+          {
+            label: 'Aguardando',
+            value: calls.filter((call) => call.status === 'WAITING').length,
+            icon: 'calls',
+          },
+          {
+            label: 'Em atendimento',
+            value: calls.filter((call) => call.status === 'IN_PROGRESS').length,
+            icon: 'calls',
+          },
+          { label: 'Espera média', value: formatAverageDuration(activeCalls), icon: 'clock' },
+          {
+            label: 'Atendidos hoje',
+            value: calls.filter((call) => call.status === 'RESOLVED' && resolvedToday(call)).length,
+            tone: 'green',
+            icon: 'calls',
+          },
         ]}
       />
-      <S.Grid>
+      <S.CallsGrid>
         {(filter === 'ALL' || filter === 'WAITING') && (
-          <S.Card>
-            <header>
-              <div>
-                <h2>Aguardando atendimento</h2>
-                <p>Ordenados pelo maior tempo de espera.</p>
-              </div>
-            </header>
-            {waiting.map((call) => (
-              <CallRow
-                key={call.id}
-                call={call}
-                action={() => updateCall(call.id, 'IN_PROGRESS')}
-              />
-            ))}
-          </S.Card>
+          <CallSection
+            title="Aguardando atendimento"
+            description="Os chamados com maior espera aparecem primeiro."
+            calls={waiting}
+            action={(call) => updateCall(call.id, 'IN_PROGRESS')}
+            empty="Nenhum chamado aguardando atendimento."
+          />
         )}
         {(filter === 'ALL' || filter === 'IN_PROGRESS') && (
-          <S.Card>
-            <header>
-              <div>
-                <h2>Em atendimento</h2>
-                <p>Chamados assumidos pelos garçons.</p>
-              </div>
-            </header>
-            {attending.map((call) => (
-              <CallRow
-                key={call.id}
-                call={call}
-                action={() => complete(call.id)}
-                label="Concluir"
-              />
-            ))}
-            {!attending.length && <Empty>Nenhum chamado em atendimento.</Empty>}
-          </S.Card>
+          <CallSection
+            title="Em atendimento"
+            description="Conclua somente depois de atender a solicitação da mesa."
+            calls={attending}
+            action={(call) => updateCall(call.id, 'RESOLVED')}
+            actionLabel="Concluir"
+            empty="Nenhum chamado em atendimento."
+          />
         )}
-      </S.Grid>
+        {(filter === 'RESOLVED' || filter === 'ALL') && (
+          <CallSection
+            title="Concluídos"
+            description="Histórico recente dos chamados atendidos pela equipe."
+            calls={resolved}
+            empty="Nenhum chamado concluído para esta busca."
+          />
+        )}
+      </S.CallsGrid>
     </>
   );
 }

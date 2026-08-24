@@ -3,12 +3,13 @@ import {
   ChefHat,
   ChevronLeft,
   ChevronRight,
-  Clock3,
+  AlertTriangle,
   History,
   CircleHelp,
   LayoutGrid,
   LogOut,
   Menu,
+  RefreshCw,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -51,7 +52,8 @@ function KitchenShell({
   onViewChange?: KitchenModuleProps['onViewChange'];
 }) {
   useEmployeeIssueNotifications();
-  const { employee, restaurant, onLogout } = useKitchenWorkspace();
+  const { employee, restaurant, orders, workspaceState, onRefresh, onLogout } =
+    useKitchenWorkspace();
   const [currentTime, setCurrentTime] = useState(INITIAL_SHIFT_TIME);
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
@@ -83,7 +85,11 @@ function KitchenShell({
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
       <S.Sidebar $open={open}>
-        <S.CollapseBtn aria-label="Recolher menu lateral" onClick={() => setOpen(false)}>
+        <S.CollapseBtn
+          type="button"
+          aria-label="Recolher menu lateral"
+          onClick={() => setOpen(false)}
+        >
           <ChevronLeft />
         </S.CollapseBtn>
         <S.Brand>
@@ -91,22 +97,33 @@ function KitchenShell({
           <b>{restaurant.restaurantName}</b>
           <small>ÁREA DA COZINHA</small>
         </S.Brand>
-        <S.CloseMenu aria-label="Fechar menu lateral" onClick={() => setOpen(false)}>
+        <S.CloseMenu type="button" aria-label="Fechar menu lateral" onClick={() => setOpen(false)}>
           <X />
         </S.CloseMenu>
         <S.Nav>
           {nav.map(([id, label, Icon]) => (
-            <a key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}>
+            <button
+              key={id}
+              type="button"
+              className={view === id ? 'active' : ''}
+              aria-current={view === id ? 'page' : undefined}
+              onClick={() => navigate(id)}
+            >
               <Icon />
               {label}
-            </a>
+            </button>
           ))}
         </S.Nav>
         <S.BottomNav>
-          <a className={view === 'help' ? 'active' : ''} onClick={() => navigate('help')}>
+          <button
+            type="button"
+            className={view === 'help' ? 'active' : ''}
+            aria-current={view === 'help' ? 'page' : undefined}
+            onClick={() => navigate('help')}
+          >
             <CircleHelp />
             Central de ajuda
-          </a>
+          </button>
         </S.BottomNav>
         <S.User>
           <span className="avatar">
@@ -120,47 +137,91 @@ function KitchenShell({
             <b>{employee.name}</b>
             <small>Cozinha</small>
           </span>
-          <button onClick={onLogout}>
+          <button type="button" aria-label="Sair da área da cozinha" onClick={onLogout}>
             <LogOut />
           </button>
         </S.User>
       </S.Sidebar>
       {open && <S.Overlay onClick={() => setOpen(false)} />}
       {!open && (
-        <S.SidebarOpenTab onClick={() => setOpen(true)}>
+        <S.SidebarOpenTab
+          type="button"
+          aria-label="Expandir menu lateral"
+          onClick={() => setOpen(true)}
+        >
           <ChevronRight />
         </S.SidebarOpenTab>
       )}
       <S.Main>
         <S.Top>
-          <S.MobileMenu aria-label="Abrir menu" onClick={() => setOpen(true)}>
+          <S.MobileMenu type="button" aria-label="Abrir menu" onClick={() => setOpen(true)}>
             <Menu />
           </S.MobileMenu>
           <div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
-          <S.Live>
-            <Clock3 />
-            Em turno <i />{' '}
+          <S.Live
+            type="button"
+            onClick={() => void onRefresh?.()}
+            disabled={!onRefresh || workspaceState?.refreshing}
+            aria-label="Atualizar pedidos da cozinha"
+            title={
+              workspaceState?.lastUpdatedAt
+                ? `Última atualização às ${new Date(
+                    workspaceState.lastUpdatedAt,
+                  ).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })}`
+                : 'Atualizar pedidos da cozinha'
+            }
+          >
+            <RefreshCw className={workspaceState?.refreshing ? 'spinning' : ''} />
+            {workspaceState?.refreshing ? 'Atualizando' : 'Atualizar'} <i />{' '}
             {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </S.Live>
         </S.Top>
         <S.Content>
-          {view === 'overview' && (
+          {workspaceState?.error && (
+            <S.WorkspaceNotice role="alert">
+              <AlertTriangle />
+              <span>
+                <b>Não foi possível atualizar os pedidos.</b>
+                <small>{workspaceState.error}</small>
+              </span>
+              {onRefresh && (
+                <button type="button" onClick={() => void onRefresh()}>
+                  Tentar novamente
+                </button>
+              )}
+            </S.WorkspaceNotice>
+          )}
+          {workspaceState?.loading && !orders.length ? (
+            <S.WorkspaceLoading role="status" aria-live="polite">
+              <RefreshCw />
+              <b>Carregando pedidos...</b>
+              <span>Buscando a fila atual do restaurante.</span>
+            </S.WorkspaceLoading>
+          ) : workspaceState?.error &&
+            !workspaceState.lastUpdatedAt &&
+            !orders.length ? null : view === 'overview' ? (
             <KitchenOverviewPage
               onOpenOrder={(orderId) => {
                 setFocusedOrderId(orderId);
                 navigate('queue');
               }}
             />
-          )}
-          {view === 'queue' && (
+          ) : view === 'queue' ? (
             <KitchenQueuePage focusedOrderId={focusedOrderId} onFocusComplete={clearFocusedOrder} />
+          ) : view === 'ready' ? (
+            <KitchenReadyPage />
+          ) : view === 'history' ? (
+            <KitchenHistoryPage />
+          ) : (
+            <EmployeeHelpCenter role="kitchen" onReport={reportEmployeeIssue} />
           )}
-          {view === 'ready' && <KitchenReadyPage />}
-          {view === 'history' && <KitchenHistoryPage />}
-          {view === 'help' && <EmployeeHelpCenter role="kitchen" onReport={reportEmployeeIssue} />}
         </S.Content>
       </S.Main>
     </S.Root>

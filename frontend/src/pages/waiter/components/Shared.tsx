@@ -55,8 +55,8 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
 export function OrderItems({ order }: { order: Order }) {
   return (
     <S.ItemList>
-      {order.items.map((item) => (
-        <span key={item}>{item}</span>
+      {order.items.map((item, index) => (
+        <span key={`${item}-${index}`}>{item}</span>
       ))}
       {order.observation && <em>⚠ {order.observation}</em>}
     </S.ItemList>

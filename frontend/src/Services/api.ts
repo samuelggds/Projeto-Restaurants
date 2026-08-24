@@ -98,9 +98,13 @@ function getApiBaseUrls() {
 }
 
 const API_BASE_URLS: string[] = getApiBaseUrls();
+const configuredTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15_000);
+const API_TIMEOUT_MS =
+  Number.isInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 15_000;
 
 const api = axios.create({
   baseURL: API_BASE_URLS[0] || '',
+  timeout: API_TIMEOUT_MS,
 });
 
 // Add auth token to all requests

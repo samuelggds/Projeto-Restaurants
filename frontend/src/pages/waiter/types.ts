@@ -2,14 +2,16 @@ export type EmployeeRole = 'WAITER' | 'KITCHEN';
 export type OrderChannel = 'TABLE' | 'PICKUP' | 'DELIVERY';
 export type OrderStatus =
   'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'ENTREGUE' | 'CANCELADO';
-export type TableStatus = 'FREE' | 'OCCUPIED' | 'AWAITING_CODE';
-export type CallType = 'WAITER' | 'BILL' | 'ACCESS_CODE';
+export type TableStatus = 'FREE' | 'OCCUPIED';
+export type CallType = 'WAITER' | 'BILL';
 export type CallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
 
 export interface RestaurantBrand {
   restaurantName: string;
   monogram: string;
   primaryColor: string;
+  restaurantId?: number;
+  slug?: string;
 }
 export interface Employee {
   id: string;
@@ -35,7 +37,7 @@ export interface RestaurantTable {
   id: string;
   number: number;
   status: TableStatus;
-  accessCode?: string;
+  sessionId?: string;
   guests: number;
   openedAt?: string;
   total: number;
@@ -47,6 +49,17 @@ export interface ServiceCall {
   status: CallStatus;
   elapsed: string;
   employeeName?: string;
+  createdAt?: string;
+  resolvedAt?: string;
+}
+export interface WaiterWorkspaceState {
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
+  lastUpdatedAt: string | null;
+}
+export interface OpenTableResult {
+  sessionId: string;
 }
 export interface EmployeeWorkspaceData {
   orders: Order[];
@@ -59,7 +72,10 @@ export interface EmployeeWorkspaceProps {
   restaurant: RestaurantBrand;
   data?: EmployeeWorkspaceData;
   onUpdateOrderStatus?: (orderId: string, status: OrderStatus) => void | Promise<void>;
-  onGenerateAccessCode?: (tableId: string) => string | Promise<string>;
+  onOpenTable?: (tableId: string) => OpenTableResult | Promise<OpenTableResult>;
+  onCloseTable?: (sessionId: string) => void | Promise<void>;
   onUpdateCall?: (callId: string, status: CallStatus) => void | Promise<void>;
+  workspaceState?: WaiterWorkspaceState;
+  onRefresh?: () => void | Promise<void>;
   onLogout?: () => void;
 }

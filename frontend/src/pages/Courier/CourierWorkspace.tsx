@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bike,
@@ -30,23 +30,33 @@ import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
+import { getStoredAccessToken } from '../../modules/auth/session/authSession';
 import * as L from '../kitchen/Kitchen.styles';
 import * as S from './styles';
+import {
+  compareReadyForPickupOrders,
+  getNormalizedOrderStatus,
+  isCourierDeliveryOrder,
+  isCourierOrderVisibleToAccount,
+  normalizeCourierOrders,
+  type CourierOrder,
+} from './domain/courierOrders';
+import {
+  buildCourierLocationPayload,
+  courierTrackingPreferenceKey,
+  describeGeolocationFailure,
+  isValidCourierRoutePoint,
+  mergeCourierRoutePoints,
+  routePointFromPosition,
+  type CourierRoutePoint,
+} from './domain/courierLocation';
 
 const OrderCard = lazy(() => import('./components/OrderCard'));
 const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
 const DeliveryMap = lazy(() => import('./components/DeliveryMap'));
 
 type CourierView = 'overview' | 'ready' | 'route' | 'map' | 'history' | 'profile' | 'help';
-type GeoStatus = 'checking' | 'enabled' | 'blocked' | 'unsupported';
-type CourierOrder = {
-  id: number;
-  status: string;
-  type?: string;
-  createdAt?: string;
-  deliveredAt?: string;
-  [key: string]: unknown;
-};
+type GeoStatus = 'idle' | 'checking' | 'enabled' | 'blocked' | 'timeout' | 'error' | 'unsupported';
 type FinanceData = {
   today: { amount: number; deliveries: number };
   week: { amount: number; deliveries: number };
@@ -61,11 +71,16 @@ type FinanceData = {
     city?: string | null;
   }>;
 };
-type RoutePoint = {
-  latitude: number;
-  longitude: number;
-  recordedAt?: string;
-  speed?: number | null;
+type TrackingDestination = CourierRoutePoint & { label?: string };
+type WakeLockSentinelLike = { released?: boolean; release: () => Promise<void> };
+type TrackingResult = {
+  locations?: unknown[];
+  order?: {
+    routeEstimate?: {
+      destination?: TrackingDestination | null;
+      routeCoordinates?: unknown[];
+    } | null;
+  };
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -81,7 +96,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   ENTREGUE: { label: 'Entregue', color: '#16a34a' },
 };
 const DIGITAL_PAYMENT_METHODS = new Set(['PIX', 'CARTAO', 'CARTAO_DEBITO', 'CARTAO_CREDITO']);
-const LOCATION_UPDATE_INTERVAL_MS = 2_000;
+const LOCATION_UPDATE_INTERVAL_MS = 4_000;
 
 function monogram(name: string) {
   return createRestaurantMonogram(name);
@@ -101,21 +116,79 @@ export default function CourierWorkspace() {
   const [search, setSearch] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [brand, setBrand] = useState({ name: 'Restaurante', color: '#d64d08' });
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>('checking');
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
   const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
+  const [trackingAttempt, setTrackingAttempt] = useState(0);
   const [geoMessage, setGeoMessage] = useState(
     'Ative a localização para o cliente acompanhar a entrega.',
   );
+  const [geoHint, setGeoHint] = useState(
+    'Ao retirar um pedido, o celular solicitará a permissão antes de iniciar a entrega.',
+  );
+  const [socketConnected, setSocketConnected] = useState(false);
   const [finance, setFinance] = useState<FinanceData | null>(null);
   const [financeError, setFinanceError] = useState('');
-  const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+  const [routePoints, setRoutePoints] = useState<CourierRoutePoint[]>([]);
+  const [routePath, setRoutePath] = useState<CourierRoutePoint[]>([]);
+  const [routeDestination, setRouteDestination] = useState<TrackingDestination | null>(null);
+  const [routeError, setRouteError] = useState('');
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeRetry, setRouteRetry] = useState(0);
+  const [selectedRouteOrderId, setSelectedRouteOrderId] = useState<number | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
   const ordersRef = useRef<CourierOrder[]>([]);
+  const selectedRouteOrderIdRef = useRef<number | null>(null);
+  const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
+  const latestPositionRef = useRef<CourierRoutePoint | null>(null);
+  const hadActiveRouteRef = useRef(false);
+  const ordersRequestRef = useRef(0);
+  const routeRequestRef = useRef(0);
+  const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
   const restaurantId = Number(user?.restaurantId || 0);
+  const accountId = Number(user?.id || 0);
+  const trackingPreferenceKey = courierTrackingPreferenceKey(accountId || 'unknown');
+  const ready = useMemo(
+    () =>
+      orders
+        .filter(
+          (order) => isCourierDeliveryOrder(order) && getNormalizedOrderStatus(order) === 'PRONTO',
+        )
+        .sort(compareReadyForPickupOrders),
+    [orders],
+  );
+  const inRoute = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          isCourierDeliveryOrder(order) && getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA',
+      ),
+    [orders],
+  );
+  const delivered = useMemo(
+    () =>
+      orders
+        .filter(
+          (order) =>
+            isCourierDeliveryOrder(order) && getNormalizedOrderStatus(order) === 'ENTREGUE',
+        )
+        .sort((left, right) => {
+          const leftDate = Date.parse(String(left.deliveredAt || left.createdAt || '')) || 0;
+          const rightDate = Date.parse(String(right.deliveredAt || right.createdAt || '')) || 0;
+          return rightDate - leftDate;
+        }),
+    [orders],
+  );
+  const effectiveRouteOrderId = inRoute.some((order) => order.id === selectedRouteOrderId)
+    ? selectedRouteOrderId
+    : inRoute[0]?.id || null;
 
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
+
+  useEffect(() => {
+    selectedRouteOrderIdRef.current = effectiveRouteOrderId;
+  }, [effectiveRouteOrderId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -133,24 +206,39 @@ export default function CourierWorkspace() {
 
   useEffect(() => {
     let active = true;
+    const requestId = ++ordersRequestRef.current;
     ordersService
       .listRestaurantOrders()
       .then((data) => {
-        if (active) {
-          setOrders((Array.isArray(data) ? data : []) as CourierOrder[]);
+        if (active && requestId === ordersRequestRef.current) {
+          setOrders(
+            normalizeCourierOrders(data).filter((order) => {
+              const incomingRestaurantId = Number(order.restaurantId || 0);
+              return (
+                (!incomingRestaurantId || incomingRestaurantId === restaurantId) &&
+                isCourierOrderVisibleToAccount(order, accountId)
+              );
+            }),
+          );
+          setLoadError('');
           setLastUpdatedAt(new Date());
         }
       })
-      .catch(() => {
-        if (active) setLoadError('Não foi possível carregar as entregas.');
+      .catch((error) => {
+        console.error('[courier] Falha ao carregar entregas', error);
+        if (active && requestId === ordersRequestRef.current) {
+          setLoadError(
+            'Não foi possível carregar as entregas. Confira a conexão e tente novamente.',
+          );
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && requestId === ordersRequestRef.current) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [refresh]);
+  }, [accountId, refresh, restaurantId]);
 
   useEffect(() => {
     if (view !== 'overview') return;
@@ -165,108 +253,336 @@ export default function CourierWorkspace() {
   }, [view, refresh]);
 
   useEffect(() => {
-    const activeOrder = orders.find((order) => order.status === 'SAIU_PARA_ENTREGA');
-    if (view !== 'map' || !activeOrder) return;
+    const activeOrder = orders.find(
+      (order) =>
+        order.id === effectiveRouteOrderId &&
+        getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA',
+    );
+    if (view !== 'map' || !activeOrder?.id) return;
+    const requestId = ++routeRequestRef.current;
     ordersService
       .getDeliveryTracking(activeOrder.id)
       .then((data) => {
-        setRoutePoints((data?.locations || []) as RoutePoint[]);
+        if (requestId !== routeRequestRef.current) return;
+        const tracking = (data || {}) as TrackingResult;
+        setRoutePoints(mergeCourierRoutePoints([], tracking.locations || []));
+        setRoutePath(
+          mergeCourierRoutePoints([], tracking.order?.routeEstimate?.routeCoordinates || []),
+        );
+        const destination = tracking.order?.routeEstimate?.destination || null;
+        setRouteDestination(
+          destination && isValidCourierRoutePoint(destination) ? destination : null,
+        );
+        setRouteError('');
         setLastUpdatedAt(new Date());
       })
-      .catch(() => setLoadError('Não foi possível carregar o percurso.'));
-  }, [view, orders]);
+      .catch((error) => {
+        console.error('[courier] Falha ao carregar percurso', error);
+        if (requestId === routeRequestRef.current) {
+          setRouteError('Não foi possível carregar o percurso deste pedido.');
+        }
+      })
+      .finally(() => {
+        if (requestId === routeRequestRef.current) setRouteLoading(false);
+      });
+  }, [view, orders, effectiveRouteOrderId, routeRetry]);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    const socket = connectSocket(token, 'courier-workspace');
-    let watchId: number | null = null;
-    let latestPosition: GeolocationPosition | null = null;
-
-    const sendLocation = () => {
-      if (!latestPosition) return;
-      ordersRef.current
-        .filter((order) => order.status === 'SAIU_PARA_ENTREGA')
-        .forEach((order) => {
-          socket.emit('delivery:location:update', {
-            orderId: order.id,
-            latitude: latestPosition?.coords.latitude,
-            longitude: latestPosition?.coords.longitude,
-            heading: latestPosition?.coords.heading,
-            speed: latestPosition?.coords.speed,
-            accuracy: latestPosition?.coords.accuracy,
-            sentAt: new Date().toISOString(),
-          });
-        });
-    };
-
-    if (locationTrackingRequested && navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          latestPosition = position;
-          setRoutePoints((current) =>
-            [
-              ...current,
-              {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                speed: position.coords.speed,
-                recordedAt: new Date().toISOString(),
-              },
-            ].slice(-1000),
-          );
-          setGeoStatus('enabled');
-          setGeoMessage('Rastreamento ativo durante as entregas em andamento.');
-          setLastUpdatedAt(new Date());
-          sendLocation();
-        },
-        (error) => {
-          setGeoStatus('blocked');
-          setGeoMessage(
-            error.code === 1
-              ? 'Permita a localização no navegador para iniciar o rastreamento.'
-              : 'Não foi possível obter sua localização. Verifique o GPS e a internet.',
-          );
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 6_000 },
+  const emitLocationForOrders = useCallback((point: CourierRoutePoint, orderIds: number[]) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) {
+      setGeoHint(
+        'Sem conexão com o restaurante. A posição atual será enviada assim que reconectar.',
       );
-    } else if (locationTrackingRequested) {
-      window.setTimeout(() => {
-        setGeoStatus('unsupported');
-        setGeoMessage('Este aparelho não oferece geolocalização neste navegador.');
-      }, 0);
+      return;
     }
 
-    const timer = locationTrackingRequested
-      ? window.setInterval(sendLocation, LOCATION_UPDATE_INTERVAL_MS)
-      : null;
-    const onChanged = (_updated: CourierOrder) => {
-      setLastUpdatedAt(new Date());
-      setRefresh((value) => value + 1);
-    };
-    const onLocation = (point: RoutePoint & { orderId: number }) => {
-      if (ordersRef.current.some((order) => order.id === point.orderId)) {
-        setRoutePoints((current) => [...current, point].slice(-1000));
-        setLastUpdatedAt(new Date());
+    orderIds.forEach((orderId) => {
+      const payload = buildCourierLocationPayload(orderId, point);
+      if (!payload) return;
+      socket.volatile.emit(
+        'delivery:location:update',
+        payload,
+        (result?: { ok?: boolean; error?: string }) => {
+          if (result?.ok === false) {
+            console.error('[courier] Localização rejeitada pelo servidor', result.error);
+            setGeoHint(
+              result.error ||
+                'O GPS está ativo, mas não foi possível atualizar este pedido no servidor.',
+            );
+          }
+        },
+      );
+    });
+  }, []);
+
+  const stopLocationTracking = useCallback(
+    (message = 'Rastreamento encerrado porque não há entrega em andamento.') => {
+      setLocationTrackingRequested(false);
+      setGeoStatus('idle');
+      setGeoMessage(message);
+      setGeoHint('Retire outro pedido para iniciar um novo acompanhamento.');
+      latestPositionRef.current = null;
+      localStorage.removeItem(trackingPreferenceKey);
+      setSelectedRouteOrderId(null);
+      setRoutePoints([]);
+      setRoutePath([]);
+      setRouteDestination(null);
+      setRouteError('');
+      setRouteLoading(false);
+    },
+    [trackingPreferenceKey],
+  );
+
+  const requestInitialPosition = useCallback(() => {
+    setGeoStatus('checking');
+    setGeoMessage('Confirmando a posição inicial antes de retirar o pedido...');
+    setGeoHint('Mantenha a localização precisa ativada durante toda a entrega.');
+
+    return new Promise<CourierRoutePoint>((resolve, reject) => {
+      if (typeof window !== 'undefined' && window.isSecureContext === false) {
+        setGeoStatus('unsupported');
+        setGeoMessage('A localização do celular exige uma conexão segura (HTTPS).');
+        setGeoHint('Abra o endereço oficial com HTTPS antes de iniciar a entrega.');
+        reject(new Error('Abra o sistema pelo endereço HTTPS para ativar a localização.'));
+        return;
       }
+      if (!navigator.geolocation) {
+        setGeoStatus('unsupported');
+        setGeoMessage('Este aparelho não oferece geolocalização neste navegador.');
+        setGeoHint('Abra o sistema em um navegador com acesso ao GPS.');
+        reject(new Error('Ative a localização em um aparelho compatível antes de retirar.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const point = routePointFromPosition(position);
+          if (!point) {
+            setGeoStatus('error');
+            setGeoMessage('O celular retornou uma posição inválida.');
+            setGeoHint('Confira o GPS e tente novamente.');
+            reject(new Error('Não foi possível validar a posição inicial. Tente novamente.'));
+            return;
+          }
+          latestPositionRef.current = point;
+          setGeoStatus('enabled');
+          setGeoMessage('Posição confirmada. O rastreamento será iniciado com a entrega.');
+          setGeoHint(`Precisão informada pelo aparelho: ${Math.round(point.accuracy || 0)} m.`);
+          resolve(point);
+        },
+        (error) => {
+          const failure = describeGeolocationFailure(error);
+          setGeoStatus(failure.status);
+          setGeoMessage(failure.message);
+          setGeoHint(failure.hint);
+          reject(new Error(`${failure.message} ${failure.hint}`));
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 },
+      );
+    });
+  }, []);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token || !accountId) return;
+    const socket = connectSocket(token, `courier-workspace:${accountId}`);
+    socketRef.current = socket;
+
+    const onConnect = () => {
+      setSocketConnected(true);
+      const latest = latestPositionRef.current;
+      if (!latest) return;
+      const activeIds = ordersRef.current.flatMap((order) =>
+        getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA' && order.id ? [order.id] : [],
+      );
+      emitLocationForOrders(latest, activeIds);
     };
+    const onDisconnect = () => setSocketConnected(false);
+    const onChanged = (rawOrder: unknown) => {
+      const wrapped = rawOrder as { order?: unknown };
+      const candidate = (wrapped?.order || rawOrder) as { restaurantId?: unknown };
+      const incomingRestaurantId = Number(candidate?.restaurantId || 0);
+      if (incomingRestaurantId && incomingRestaurantId !== restaurantId) return;
+      const updated = normalizeCourierOrders([candidate])[0];
+      if (!updated?.id) {
+        setRefresh((value) => value + 1);
+        return;
+      }
+
+      const belongsToThisCourier = isCourierOrderVisibleToAccount(updated, accountId);
+      setOrders((current) => {
+        if (!belongsToThisCourier) return current.filter((order) => order.id !== updated.id);
+        return current.some((order) => order.id === updated.id)
+          ? current.map((order) => (order.id === updated.id ? updated : order))
+          : [updated, ...current];
+      });
+      setLastUpdatedAt(new Date());
+    };
+    const onLocation = (rawPoint: unknown) => {
+      const point = rawPoint as CourierRoutePoint & {
+        orderId?: number;
+        restaurantId?: number;
+      };
+      if (
+        (point.restaurantId && Number(point.restaurantId) !== restaurantId) ||
+        point.orderId !== selectedRouteOrderIdRef.current ||
+        !isValidCourierRoutePoint(point)
+      ) {
+        return;
+      }
+      setRoutePoints((current) => mergeCourierRoutePoints(current, [point]));
+      setLastUpdatedAt(new Date());
+    };
+
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setSocketConnected(Boolean(socket.connected));
+    });
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
     socket.on('order:status-changed', onChanged);
     socket.on('order:delivery-location', onLocation);
     return () => {
-      if (timer) window.clearInterval(timer);
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      active = false;
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
       socket.off('order:status-changed', onChanged);
       socket.off('order:delivery-location', onLocation);
+      socketRef.current = null;
       disconnectSocket();
     };
-  }, [locationTrackingRequested]);
+  }, [accountId, emitLocationForOrders, restaurantId]);
 
-  const ready = useMemo(() => orders.filter((order) => order.status === 'PRONTO'), [orders]);
-  const inRoute = useMemo(
-    () => orders.filter((order) => order.status === 'SAIU_PARA_ENTREGA'),
-    [orders],
-  );
-  const delivered = useMemo(() => orders.filter((order) => order.status === 'ENTREGUE'), [orders]);
+  useEffect(() => {
+    if (!locationTrackingRequested || !inRoute.length) return;
+    if (!navigator.geolocation) {
+      const unsupportedTimer = window.setTimeout(() => {
+        setGeoStatus('unsupported');
+        setGeoMessage('Este aparelho não oferece geolocalização neste navegador.');
+        setGeoHint('Abra o sistema em um navegador com acesso ao GPS.');
+        setLocationTrackingRequested(false);
+      }, 0);
+      return () => window.clearTimeout(unsupportedTimer);
+    }
+
+    let watchId: number | null = null;
+    let lastSentAt = latestPositionRef.current ? Date.now() : 0;
+    const sendLatest = () => {
+      const point = latestPositionRef.current;
+      if (!point) return;
+      const orderIds = ordersRef.current.flatMap((order) =>
+        getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA' && order.id ? [order.id] : [],
+      );
+      if (!orderIds.length) return;
+      emitLocationForOrders(point, orderIds);
+      lastSentAt = Date.now();
+    };
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const point = routePointFromPosition(position);
+        if (!point) return;
+        latestPositionRef.current = point;
+        localStorage.setItem(trackingPreferenceKey, 'enabled');
+        setGeoStatus('enabled');
+        setGeoMessage('Rastreamento ativo durante a entrega.');
+        setGeoHint(
+          `${socketRef.current?.connected ? 'Conectado ao restaurante' : 'Reconectando ao restaurante'} · precisão de ${Math.round(point.accuracy || 0)} m.`,
+        );
+        setRoutePoints((current) => mergeCourierRoutePoints(current, [point]));
+        setLastUpdatedAt(new Date());
+        if (Date.now() - lastSentAt >= LOCATION_UPDATE_INTERVAL_MS) sendLatest();
+      },
+      (error) => {
+        const failure = describeGeolocationFailure(error);
+        setGeoStatus(failure.status);
+        setGeoMessage(failure.message);
+        setGeoHint(failure.hint);
+        if (error.code === 1) {
+          setLocationTrackingRequested(false);
+          localStorage.removeItem(trackingPreferenceKey);
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 1_000, timeout: 10_000 },
+    );
+    const timer = window.setInterval(sendLatest, LOCATION_UPDATE_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [
+    emitLocationForOrders,
+    inRoute.length,
+    locationTrackingRequested,
+    trackingAttempt,
+    trackingPreferenceKey,
+  ]);
+
+  useEffect(() => {
+    if (inRoute.length) {
+      hadActiveRouteRef.current = true;
+      if (!locationTrackingRequested && localStorage.getItem(trackingPreferenceKey) === 'enabled') {
+        const resumeTimer = window.setTimeout(() => {
+          setLocationTrackingRequested(true);
+          setTrackingAttempt((value) => value + 1);
+        }, 0);
+        return () => window.clearTimeout(resumeTimer);
+      }
+      return;
+    }
+
+    if (hadActiveRouteRef.current) {
+      hadActiveRouteRef.current = false;
+      stopLocationTracking();
+    }
+  }, [inRoute.length, locationTrackingRequested, stopLocationTracking, trackingPreferenceKey]);
+
+  useEffect(() => {
+    if (!locationTrackingRequested || !inRoute.length) return;
+    let active = true;
+    const wakeLockApi = (
+      navigator as Navigator & {
+        wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinelLike> };
+      }
+    ).wakeLock;
+
+    const requestWakeLock = async () => {
+      if (!wakeLockApi || document.visibilityState !== 'visible') return;
+      try {
+        const sentinel = await wakeLockApi.request('screen');
+        if (!active) {
+          await sentinel.release();
+          return;
+        }
+        wakeLockRef.current = sentinel;
+      } catch {
+        // Alguns aparelhos não permitem Wake Lock. O watchPosition segue funcionando.
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      void requestWakeLock();
+      const latest = latestPositionRef.current;
+      if (latest) {
+        const activeIds = ordersRef.current.flatMap((order) =>
+          getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA' && order.id ? [order.id] : [],
+        );
+        emitLocationForOrders({ ...latest, recordedAt: new Date().toISOString() }, activeIds);
+      }
+      setRefresh((value) => value + 1);
+    };
+
+    void requestWakeLock();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      const sentinel = wakeLockRef.current;
+      wakeLockRef.current = null;
+      if (sentinel && !sentinel.released) void sentinel.release().catch(() => {});
+    };
+  }, [emitLocationForOrders, inRoute.length, locationTrackingRequested]);
   const current =
     view === 'ready'
       ? ready
@@ -291,23 +607,72 @@ export default function CourierWorkspace() {
   const [title, subtitle] = titles[view];
   const isDedicatedView = view === 'map' || view === 'overview' || view === 'help';
   const go = (next: CourierView) => {
+    if (next === 'map') {
+      setRoutePoints([]);
+      setRoutePath([]);
+      setRouteDestination(null);
+      setRouteError('');
+      setRouteLoading(Boolean(effectiveRouteOrderId));
+    }
     setView(next);
     setSearch('');
     if (window.innerWidth <= 820) setSidebarOpen(false);
   };
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoStatus('unsupported');
-      setGeoMessage('Este navegador não oferece suporte à localização.');
-      return;
+  const requestLocation = async () => {
+    try {
+      const point = await requestInitialPosition();
+      latestPositionRef.current = point;
+      localStorage.setItem(trackingPreferenceKey, 'enabled');
+      setLocationTrackingRequested(true);
+      setTrackingAttempt((value) => value + 1);
+      const activeIds = inRoute.flatMap((order) => (order.id ? [order.id] : []));
+      if (activeIds.length) emitLocationForOrders(point, activeIds);
+    } catch {
+      // A mensagem e a orientação já são definidas por requestInitialPosition.
     }
-    setGeoStatus('checking');
-    setGeoMessage('Aguardando sua permissão para ativar o rastreamento.');
-    setLocationTrackingRequested(true);
   };
   const updateLocalOrder = (updated: unknown) => {
-    const order = updated as CourierOrder;
-    setOrders((items) => items.map((item) => (item.id === order.id ? order : item)));
+    const wrapped = updated as { order?: unknown };
+    const order = normalizeCourierOrders([wrapped?.order || updated])[0];
+    if (!order?.id) {
+      throw new Error('O servidor retornou dados inválidos para o pedido. Atualize a tela.');
+    }
+    setOrders((items) => {
+      const next = items.some((item) => item.id === order.id)
+        ? items.map((item) => (item.id === order.id ? order : item))
+        : [order, ...items];
+      ordersRef.current = next;
+      return next;
+    });
+    return order;
+  };
+  const claimDelivery = async (orderId: number) => {
+    const initialPoint = await requestInitialPosition();
+    const payload = buildCourierLocationPayload(orderId, initialPoint);
+    if (!payload) throw new Error('Não foi possível validar a posição inicial desta entrega.');
+    const { orderId: _orderId, ...initialLocation } = payload;
+    const order = updateLocalOrder(await ordersService.claimDelivery(orderId, initialLocation));
+    latestPositionRef.current = initialPoint;
+    localStorage.setItem(trackingPreferenceKey, 'enabled');
+    setLocationTrackingRequested(true);
+    setTrackingAttempt((value) => value + 1);
+    setSelectedRouteOrderId(order.id || orderId);
+    setView('route');
+    setSearch('');
+    setGeoStatus('enabled');
+    setGeoMessage(`Entrega #${orderId} iniciada com rastreamento ativo.`);
+    setGeoHint(
+      'Mantenha esta página aberta e a localização precisa ligada até concluir a entrega.',
+    );
+    setRoutePoints((current) => mergeCourierRoutePoints(current, [initialPoint]));
+  };
+  const markDelivered = async (orderId: number, code: string) => {
+    updateLocalOrder(await ordersService.updateStatus(orderId, 'ENTREGUE', code));
+    const remainingRoutes = ordersRef.current.filter(
+      (order) => getNormalizedOrderStatus(order) === 'SAIU_PARA_ENTREGA',
+    );
+    if (!remainingRoutes.length)
+      stopLocationTracking('Entrega concluída. O compartilhamento foi encerrado.');
   };
 
   return (
@@ -389,33 +754,105 @@ export default function CourierWorkspace() {
           </L.Live>
         </S.CourierTop>
         <S.CourierContent>
-          {view === 'help' ? null : view === 'map' && geoStatus !== 'enabled' ? (
+          {view !== 'help' &&
+          view !== 'profile' &&
+          geoStatus === 'enabled' &&
+          locationTrackingRequested ? (
+            <S.LocationActiveCard role="status" aria-live="polite">
+              <S.LocationAlertIcon>
+                <LocateFixed />
+              </S.LocationAlertIcon>
+              <S.LocationAlertContent>
+                <strong>Localização ativa nesta conta</strong>
+                <p>{geoMessage}</p>
+                <small>{geoHint}</small>
+              </S.LocationAlertContent>
+              <S.TrackingConnection $connected={socketConnected}>
+                <i /> {socketConnected ? 'Conectado' : 'Reconectando'}
+              </S.TrackingConnection>
+            </S.LocationActiveCard>
+          ) : view !== 'help' && view !== 'profile' ? (
             <S.LocationAlertCard>
               <S.LocationAlertIcon>
                 {geoStatus === 'unsupported' ? <MapPinOff /> : <LocateFixed />}
               </S.LocationAlertIcon>
               <S.LocationAlertContent>
-                <strong>Localização necessária durante a rota</strong>
+                <strong>
+                  {geoStatus === 'checking'
+                    ? 'Confirmando sua localização'
+                    : geoStatus === 'blocked' || geoStatus === 'timeout' || geoStatus === 'error'
+                      ? 'A localização precisa de atenção'
+                      : 'Ative a localização antes da entrega'}
+                </strong>
                 <p>{geoMessage}</p>
+                <small>{geoHint}</small>
               </S.LocationAlertContent>
               {geoStatus !== 'unsupported' && (
-                <S.LocationAlertButton onClick={requestLocation}>
-                  <Navigation /> Ativar localização
+                <S.LocationAlertButton
+                  type="button"
+                  onClick={() => void requestLocation()}
+                  disabled={geoStatus === 'checking'}
+                >
+                  <Navigation />
+                  {geoStatus === 'checking' ? 'Aguardando GPS...' : 'Ativar localização'}
                 </S.LocationAlertButton>
               )}
             </S.LocationAlertCard>
-          ) : view === 'map' ? (
+          ) : null}
+
+          {view === 'map' ? (
             <S.RouteSection>
               <S.SectionHeader>
                 <div>
                   <h2>Minha rota</h2>
-                  <p>Acompanhe sua posicao e as entregas em andamento.</p>
+                  <p>Acompanhe sua posição e o caminho até o endereço do pedido.</p>
                 </div>
-                <S.LocationStatusChip>
-                  <LocateFixed /> Localizacao ativa
-                </S.LocationStatusChip>
+                {inRoute.length > 1 ? (
+                  <S.RouteOrderSelect
+                    aria-label="Escolher entrega para visualizar no mapa"
+                    value={effectiveRouteOrderId || ''}
+                    onChange={(event) => {
+                      setRoutePoints([]);
+                      setRoutePath([]);
+                      setRouteDestination(null);
+                      setRouteError('');
+                      setRouteLoading(true);
+                      setSelectedRouteOrderId(Number(event.target.value));
+                    }}
+                  >
+                    {inRoute.map((order) => (
+                      <option key={order.id} value={order.id}>
+                        Pedido #{order.id}
+                      </option>
+                    ))}
+                  </S.RouteOrderSelect>
+                ) : inRoute.length === 1 ? (
+                  <S.LocationStatusChip>Pedido #{inRoute[0]?.id}</S.LocationStatusChip>
+                ) : null}
               </S.SectionHeader>
-              {inRoute.length ? (
+              {routeError ? (
+                <S.RouteError>
+                  <span>{routeError}</span>
+                  <S.RefreshButton
+                    onClick={() => {
+                      setRoutePoints([]);
+                      setRoutePath([]);
+                      setRouteDestination(null);
+                      setRouteError('');
+                      setRouteLoading(true);
+                      setRouteRetry((value) => value + 1);
+                    }}
+                  >
+                    <RefreshCw /> Tentar novamente
+                  </S.RefreshButton>
+                </S.RouteError>
+              ) : null}
+              {routeLoading ? (
+                <S.EmptyState role="status" aria-live="polite">
+                  <RefreshCw className="spinning" />
+                  <p>Carregando posição, rota e destino deste pedido...</p>
+                </S.EmptyState>
+              ) : inRoute.length && routePoints.length ? (
                 <Suspense
                   fallback={
                     <S.EmptyState>
@@ -425,11 +862,22 @@ export default function CourierWorkspace() {
                 >
                   <DeliveryMap
                     points={routePoints}
+                    routePath={routePath}
+                    destination={routeDestination || undefined}
                     label={user?.name || 'Motoqueiro'}
                     statusMessage="Sua rota está em andamento"
-                    statusDetail="Sua localização está sendo compartilhada com o cliente."
+                    statusDetail={
+                      routeDestination
+                        ? 'O destino exibido corresponde ao endereço salvo no pedido.'
+                        : 'Sua localização está sendo compartilhada; calculando o destino.'
+                    }
                   />
                 </Suspense>
+              ) : inRoute.length ? (
+                <S.EmptyState>
+                  <LocateFixed />
+                  <p>Aguardando a primeira posição válida do GPS.</p>
+                </S.EmptyState>
               ) : (
                 <S.EmptyState>
                   <MapPinned />
@@ -437,11 +885,22 @@ export default function CourierWorkspace() {
                 </S.EmptyState>
               )}
             </S.RouteSection>
-          ) : (
-            <S.LocationStatusChip>
-              <LocateFixed /> {geoMessage}
-            </S.LocationStatusChip>
-          )}
+          ) : null}
+
+          {loadError && isDedicatedView && view !== 'help' ? (
+            <S.RouteError role="alert">
+              <span>{loadError}</span>
+              <S.RefreshButton
+                onClick={() => {
+                  setLoading(true);
+                  setLoadError('');
+                  setRefresh((value) => value + 1);
+                }}
+              >
+                <RefreshCw /> Tentar novamente
+              </S.RefreshButton>
+            </S.RouteError>
+          ) : null}
 
           {view === 'overview' && (
             <>
@@ -610,8 +1069,20 @@ export default function CourierWorkspace() {
                   <RefreshCw /> Atualizar
                 </S.RefreshButton>
               </S.TopBar>
-              {loadError && <S.ErrorMsg>{loadError}</S.ErrorMsg>}
-              {loading ? (
+              {loadError ? (
+                <S.RouteError role="alert">
+                  <span>{loadError}</span>
+                  <S.RefreshButton
+                    onClick={() => {
+                      setLoading(true);
+                      setLoadError('');
+                      setRefresh((value) => value + 1);
+                    }}
+                  >
+                    <RefreshCw /> Tentar novamente
+                  </S.RefreshButton>
+                </S.RouteError>
+              ) : loading ? (
                 <S.EmptyState>
                   <RefreshCw className="spinning" />
                   <p>Carregando entregas...</p>
@@ -634,12 +1105,8 @@ export default function CourierWorkspace() {
                       <OrderCard
                         key={order.id}
                         order={order as never}
-                        onClaimDelivery={async (id) =>
-                          updateLocalOrder(await ordersService.claimDelivery(id))
-                        }
-                        onMarkDelivered={async (id, code) =>
-                          updateLocalOrder(await ordersService.updateStatus(id, 'ENTREGUE', code))
-                        }
+                        onClaimDelivery={claimDelivery}
+                        onMarkDelivered={markDelivered}
                         digitalPaymentMethods={DIGITAL_PAYMENT_METHODS}
                         paymentLabel={PAYMENT_LABEL}
                         statusLabel={STATUS_LABEL}

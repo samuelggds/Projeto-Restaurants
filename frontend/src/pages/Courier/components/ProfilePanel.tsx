@@ -135,16 +135,23 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
         <form onSubmit={handleSave}>
           <S.ProfileFieldsGrid>
             <S.ProfileField>
-              <label>
+              <label htmlFor="courier-profile-name">
                 <User size={13} /> Nome completo
               </label>
-              <input name="name" value={form.name} onChange={handleChange} required />
+              <input
+                id="courier-profile-name"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />
             </S.ProfileField>
             <S.ProfileField>
-              <label>
+              <label htmlFor="courier-profile-email">
                 <Mail size={13} /> E-mail
               </label>
               <input
+                id="courier-profile-email"
                 name="email"
                 type="email"
                 value={form.email}
@@ -153,10 +160,11 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
               />
             </S.ProfileField>
             <S.ProfileField>
-              <label>
+              <label htmlFor="courier-profile-phone">
                 <Phone size={13} /> Telefone
               </label>
               <input
+                id="courier-profile-phone"
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
@@ -164,10 +172,11 @@ export default function ProfilePanel({ user, onUpdated }: ProfilePanelProps) {
               />
             </S.ProfileField>
             <S.ProfileField>
-              <label>
+              <label htmlFor="courier-profile-cpf">
                 <IdCard size={13} /> CPF
               </label>
               <input
+                id="courier-profile-cpf"
                 name="cpf"
                 value={form.cpf || 'Não informado'}
                 readOnly

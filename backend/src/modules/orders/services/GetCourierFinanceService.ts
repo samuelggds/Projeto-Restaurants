@@ -1,5 +1,6 @@
 import { OrderStatus, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import courierAccessService from './CourierAccessService.js';
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -18,6 +19,7 @@ class GetCourierFinanceService {
     if (String(role || '').toUpperCase() !== UserRole.MOTOQUEIRO) {
       throw new Error('Financeiro disponível somente para motoqueiros.');
     }
+    await courierAccessService.assertActiveCourier(courierId, restaurantId);
     const now = new Date();
     const today = startOfDay(now);
     const week = new Date(today);

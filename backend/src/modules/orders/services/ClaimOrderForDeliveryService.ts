@@ -3,6 +3,8 @@ import prisma from '../../../config/prisma.js';
 import { io } from '../../../server.js';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import courierAccessService from './CourierAccessService.js';
+import { validateDeliveryLocationPayload } from '../../../socket/deliveryLocationPayload.js';
 
 class ClaimOrderForDeliveryService {
   async execute({
@@ -10,11 +12,13 @@ class ClaimOrderForDeliveryService {
     restaurantId,
     courierId,
     role,
+    initialLocation,
   }: {
     orderId: number | string;
     restaurantId: number;
     courierId: number;
     role: string;
+    initialLocation: Record<string, unknown> | null;
   }) {
     const normalizedOrderId = Number(orderId);
     if (String(role || '').toUpperCase() !== UserRole.MOTOQUEIRO) {
@@ -24,7 +28,21 @@ class ClaimOrderForDeliveryService {
       throw new Error('Pedido inválido.');
     }
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    if (!initialLocation || typeof initialLocation !== 'object' || Array.isArray(initialLocation)) {
+      throw new Error('A localização atual é obrigatória para retirar o pedido.');
+    }
+
+    const initialLocationValidation = validateDeliveryLocationPayload({
+      ...initialLocation,
+      orderId: normalizedOrderId,
+    });
+    if ('error' in initialLocationValidation) {
+      throw new Error(initialLocationValidation.error);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      await courierAccessService.assertActiveCourier(courierId, restaurantId, tx);
+
       const settings = await tx.restaurantSettings.findUnique({
         where: { restaurantId },
         select: { courierFeePerDelivery: true },
@@ -64,10 +82,28 @@ class ClaimOrderForDeliveryService {
         throw new Error('O pedido não está disponível para retirada.');
       }
 
-      return orderRepository.findById(normalizedOrderId, restaurantId, tx);
+      const updatedOrder = await orderRepository.findById(normalizedOrderId, restaurantId, tx);
+      if (!updatedOrder) throw new Error('Não foi possível carregar o pedido.');
+
+      const location = initialLocationValidation.value;
+      const savedLocation = await tx.deliveryLocation.create({
+        data: {
+          orderId: normalizedOrderId,
+          courierId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          heading: location.heading,
+          speed: location.speed,
+          accuracy: location.accuracy,
+          recordedAt: location.recordedAt,
+        },
+        select: { recordedAt: true },
+      });
+
+      return { updatedOrder, location, savedLocation };
     });
 
-    if (!updatedOrder) throw new Error('Não foi possível carregar o pedido.');
+    const { updatedOrder, location, savedLocation } = result;
 
     notifyCustomerOrderStatusChanged({
       restaurantId,
@@ -86,6 +122,22 @@ class ClaimOrderForDeliveryService {
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+
+    const payload = {
+      orderId: updatedOrder.id,
+      restaurantId,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      heading: location.heading,
+      speed: location.speed,
+      accuracy: location.accuracy,
+      sentAt: location.sentAt,
+      recordedAt: savedLocation.recordedAt.toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    io.to(`user:${updatedOrder.userId}`).emit('order:delivery-location', payload);
+    io.to(`restaurant:${restaurantId}:admin`).emit('order:delivery-location', payload);
+
     return updatedOrder;
   }
 }

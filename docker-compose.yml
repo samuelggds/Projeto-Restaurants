@@ -8,11 +8,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d pizza_ia"]
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,9 +26,10 @@ services:
       db:
         condition: service_healthy
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
       JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
       JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_mfa_secret_min_32_chars}
@@ -38,6 +39,9 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       SOCKET_CORS_ORIGINS: ${SOCKET_CORS_ORIGINS:-http://localhost:5173}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+      READINESS_TIMEOUT_MS: ${READINESS_TIMEOUT_MS:-3000}
+      SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-300}
       AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS:-900000}
@@ -56,6 +60,10 @@ services:
       OSRM_BASE_URL: ${OSRM_BASE_URL:-}
       GEOCODER_BASE_URL: ${GEOCODER_BASE_URL:-}
       ROUTING_USER_AGENT: ${ROUTING_USER_AGENT:-PizzaIADelivery/1.0}
+      ROUTING_REQUIRED: ${ROUTING_REQUIRED:-false}
+      ROUTING_REQUEST_TIMEOUT_MS: ${ROUTING_REQUEST_TIMEOUT_MS:-4000}
+      GEOCODER_REQUEST_TIMEOUT_MS: ${GEOCODER_REQUEST_TIMEOUT_MS:-4000}
+      ROUTING_CACHE_MAX_ENTRIES: ${ROUTING_CACHE_MAX_ENTRIES:-5000}
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
       MP_NOTIFICATION_URL: ${MP_NOTIFICATION_URL:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
@@ -74,22 +82,41 @@ services:
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
     ports:
-      - "3000:3000"
+      - '3000:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   frontend:
     build:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
+        VITE_SOCKET_PATH: ${VITE_SOCKET_PATH:-/socket.io}
+        VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-15000}
+        VITE_QR_BASE_URL: ${VITE_QR_BASE_URL:-}
+        VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
+        VITE_MAP_TILE_ATTRIBUTION: '${VITE_MAP_TILE_ATTRIBUTION:-© OpenStreetMap contributors}'
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
         VITE_SENTRY_TRACES_SAMPLE_RATE: ${VITE_SENTRY_TRACES_SAMPLE_RATE:-0.1}
     container_name: pizza_frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - "5173:80"
+      - '5173:80'
 
 volumes:
   postgres_data:

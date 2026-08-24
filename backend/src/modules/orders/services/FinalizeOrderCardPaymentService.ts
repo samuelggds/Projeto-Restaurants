@@ -4,6 +4,10 @@ import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifi
 import orderRepository from '../repositories/OrderRepository.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
 import reconcileLateCancelledPaymentService from './ReconcileLateCancelledPaymentService.js';
+import {
+  emitTableSessionOrderEvent,
+  emitWaiterTableOrderEvent,
+} from '../utils/waiterOrderRealtime.js';
 
 type FinalizeOrderCardPaymentPayload = {
   orderId?: number | string | null;
@@ -86,6 +90,7 @@ class FinalizeOrderCardPaymentService {
       paid: true,
       paymentMethod: updatedOrder.paymentMethod,
     });
+    emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
 
     io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
       orderId: updatedOrder.id,
@@ -97,6 +102,9 @@ class FinalizeOrderCardPaymentService {
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    emitWaiterTableOrderEvent(io, 'new-order', updatedOrder);
+    emitTableSessionOrderEvent(io, 'new-order', updatedOrder);
+    emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
     notifyCustomerPaymentConfirmed({
       restaurantId: updatedOrder.restaurantId,

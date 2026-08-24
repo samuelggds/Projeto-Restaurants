@@ -17,6 +17,18 @@ class TableSessionService {
     return response.data;
   }
 
+  async joinOpenSession({ tableId, tableNumber, tableToken, restaurantId, restaurantSlug }) {
+    const response = await api.post('/table-sessions/join', {
+      tableId,
+      tableNumber,
+      tableToken,
+      restaurantId,
+      restaurantSlug,
+    });
+
+    return response.data;
+  }
+
   async validatePin({ tableId, tableNumber, restaurantId, restaurantSlug, pin }) {
     const response = await api.post('/table-sessions/validate', {
       tableId,

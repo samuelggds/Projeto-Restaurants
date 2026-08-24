@@ -20,6 +20,23 @@ function normalizeBaseUrl(url) {
     .replace(/\/+$/, '');
 }
 
+function normalizeSocketOrigin(url) {
+  const normalized = normalizeBaseUrl(url);
+  if (!normalized) return '';
+  try {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    return new URL(normalized, base).origin;
+  } catch {
+    return normalized;
+  }
+}
+
+function getSocketPath() {
+  const configured = String(import.meta.env.VITE_SOCKET_PATH || '/socket.io').trim();
+  const withLeadingSlash = configured.startsWith('/') ? configured : `/${configured}`;
+  return withLeadingSlash.replace(/\/+$/, '') || '/socket.io';
+}
+
 function getRuntimeSocketUrl() {
   if (typeof window === 'undefined') {
     return '';
@@ -61,7 +78,9 @@ function getHostCandidates(host) {
 }
 
 function getSocketBaseUrls() {
-  const configuredUrl = normalizeBaseUrl(import.meta.env.VITE_API_URL);
+  const configuredUrl = normalizeSocketOrigin(
+    import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL,
+  );
   const runtimeHost = getRuntimeHost();
   const runtimeCandidates = getHostCandidates(runtimeHost).map(normalizeBaseUrl);
   const runtimeUrl = normalizeBaseUrl(getRuntimeSocketUrl());
@@ -153,7 +172,10 @@ export function connectSocket(token, contextName = 'unknown') {
   const normalizedToken = normalizeAuthValue(token);
   const normalizedContext = normalizeAuthValue(contextName) || 'unknown';
 
-  if (socket?.connected && socketAuthToken === normalizedToken && socketBaseUrl === baseUrl) {
+  // Multiple concerns on the same page share the authenticated user socket. Reuse
+  // it while Socket.IO is still handshaking too; replacing a connecting socket
+  // drops every listener registered by the first consumer.
+  if (socket && socketAuthToken === normalizedToken && socketBaseUrl === baseUrl) {
     debugSocket(`reuse user socket (${normalizedContext})`, {
       socketId: socket.id,
       baseUrl,
@@ -161,6 +183,9 @@ export function connectSocket(token, contextName = 'unknown') {
       previousContext: socketContextName,
     });
     socketContextName = normalizedContext;
+    if (!socket.connected && !socket.active) {
+      socket.connect();
+    }
     return socket;
   }
 
@@ -170,6 +195,7 @@ export function connectSocket(token, contextName = 'unknown') {
   }
 
   socket = io(baseUrl, {
+    path: getSocketPath(),
     transports: ['websocket', 'polling'],
     auth: {
       token: normalizedToken,
@@ -323,6 +349,7 @@ export function connectTableSessionSocket(sessionToken, contextName = 'unknown')
   }
 
   tableSessionSocket = io(baseUrl, {
+    path: getSocketPath(),
     transports: ['websocket', 'polling'],
     auth: {
       sessionToken: normalizedSessionToken,

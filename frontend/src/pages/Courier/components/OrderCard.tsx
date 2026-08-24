@@ -10,10 +10,15 @@ import {
   User,
 } from 'lucide-react';
 import * as S from '../styles';
+import { getCourierItemChoices, getCourierItemObservation } from '../domain/courierOrders';
 
 type OrderItem = {
   quantity: number;
   price: number;
+  observation?: string;
+  notes?: string;
+  ingredients?: unknown[];
+  customizations?: unknown[];
   product?: {
     name?: string;
   };
@@ -205,7 +210,12 @@ export default function OrderCard({
 
   return (
     <S.OrderCard>
-      <S.OrderCardHeader onClick={() => setExpanded((value) => !value)}>
+      <S.OrderCardHeader
+        type="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Ocultar' : 'Ver'} detalhes do pedido ${order.id}`}
+        onClick={() => setExpanded((value) => !value)}
+      >
         <S.OrderMeta>
           <S.OrderId>Pedido #{order.id}</S.OrderId>
           <S.StatusBadgeInline color={statusInfo.color}>{statusInfo.label}</S.StatusBadgeInline>
@@ -265,16 +275,38 @@ export default function OrderCard({
             </S.DetailRow>
           )}
 
-          <S.ItemsList>
-            {(order.items || []).map((item, index) => (
-              <S.ItemRow key={`${order.id}-${index}`}>
-                <span>
-                  {item.quantity}x {item.product?.name || 'Item'}
-                </span>
-                <span>{formatCurrency(item.price * item.quantity)}</span>
-              </S.ItemRow>
-            ))}
-          </S.ItemsList>
+          {(order.items || []).length ? (
+            <S.ItemsList>
+              {(order.items || []).map((item, index) => {
+                const choices = getCourierItemChoices(item);
+                const itemObservation = getCourierItemObservation(item);
+                return (
+                  <S.ItemDetail key={`${order.id}-${index}`}>
+                    <S.ItemRow>
+                      <strong>
+                        {item.quantity}x {item.product?.name || 'Item'}
+                      </strong>
+                      <span>
+                        {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
+                      </span>
+                    </S.ItemRow>
+                    {choices.map((group, groupIndex) => (
+                      <S.ItemChoice key={`${group.groupName}-${groupIndex}`}>
+                        <b>{group.groupName}:</b> {group.options.join(', ')}
+                      </S.ItemChoice>
+                    ))}
+                    {itemObservation ? (
+                      <S.ItemObservation>
+                        <b>Observação do item:</b> {itemObservation}
+                      </S.ItemObservation>
+                    ) : null}
+                  </S.ItemDetail>
+                );
+              })}
+            </S.ItemsList>
+          ) : (
+            <S.ItemsUnavailable>Itens do pedido não informados.</S.ItemsUnavailable>
+          )}
 
           {orderObservation && (
             <S.NotesBox>

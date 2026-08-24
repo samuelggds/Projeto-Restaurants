@@ -2,13 +2,15 @@ import jwt from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';
 import type { Socket } from 'socket.io';
 import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
-import { TableSessionStatus } from '@prisma/client';
+import { TableSessionStatus, UserRole } from '@prisma/client';
+import prisma from '../config/prisma.js';
 
 type SocketAuthNext = (err?: Error) => void;
 
 type SocketUser = JwtPayload & {
   id?: number | null;
   role?: string;
+  subRole?: string | null;
   restaurantId?: number | null;
 };
 
@@ -33,6 +35,47 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET) as SocketUser;
 
+      const normalizedRole = String(decoded.role || '').toUpperCase();
+      if (normalizedRole === UserRole.MOTOQUEIRO || normalizedRole === UserRole.ADMIN) {
+        const accountId = Number(decoded.id || 0);
+        const restaurantId = Number(decoded.restaurantId || 0);
+        const isCourier = normalizedRole === UserRole.MOTOQUEIRO;
+        if (
+          !Number.isInteger(accountId) ||
+          accountId <= 0 ||
+          !Number.isInteger(restaurantId) ||
+          restaurantId <= 0
+        ) {
+          return next(new Error(`Conta de ${isCourier ? 'motoqueiro' : 'administrador'} inválida`));
+        }
+
+        const activeAccount = await prisma.user.findFirst({
+          where: {
+            id: accountId,
+            restaurantId,
+            role: isCourier ? UserRole.MOTOQUEIRO : UserRole.ADMIN,
+            active: true,
+          },
+          select: {
+            id: true,
+            role: true,
+            restaurantId: true,
+          },
+        });
+
+        if (!activeAccount) {
+          return next(
+            new Error(
+              `Conta de ${isCourier ? 'motoqueiro' : 'administrador'} inativa ou fora do restaurante`,
+            ),
+          );
+        }
+
+        decoded.id = activeAccount.id;
+        decoded.role = activeAccount.role;
+        decoded.restaurantId = activeAccount.restaurantId;
+      }
+
       socket.user = decoded;
       socket.authType = 'user';
 
@@ -42,7 +85,11 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
     if (sessionToken) {
       const session = await tableSessionRepository.findBySessionToken(sessionToken);
 
-      if (!session || session.status !== TableSessionStatus.OPEN) {
+      if (
+        !session ||
+        session.status !== TableSessionStatus.OPEN ||
+        (session.expiresAt && session.expiresAt.getTime() <= Date.now())
+      ) {
         return next(new Error('Sessão da mesa inválida'));
       }
 

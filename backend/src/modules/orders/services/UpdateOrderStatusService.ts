@@ -10,6 +10,11 @@ import {
   markCouponRedemptionUsedForOrder,
   releaseCouponRedemptionForOrder,
 } from './couponRedemptionLifecycle.js';
+import {
+  emitTableSessionOrderEvent,
+  emitWaiterTableOrderEvent,
+} from '../utils/waiterOrderRealtime.js';
+import courierAccessService from './CourierAccessService.js';
 
 class UpdateOrderStatusService {
   private readonly PAY_ON_DELIVERY_MARKER = 'PAY_ON_DELIVERY:';
@@ -27,6 +32,7 @@ class UpdateOrderStatusService {
     role: UserRole | string,
     deliveryConfirmationCode?: string,
     actorUserId?: number | null,
+    actorSubRole?: string | null,
   ) {
     const order = await orderRepository.findById(orderId, restaurantId);
 
@@ -43,13 +49,21 @@ class UpdateOrderStatusService {
     }
 
     const normalizedRole = String(role || '').toUpperCase() as UserRole;
-    const canUserChange = OrderPermissions.canUserChangeStatus(normalizedRole, status);
+    const canUserChange = OrderPermissions.canUserChangeStatus(
+      normalizedRole,
+      status,
+      actorSubRole,
+    );
 
     if (!canUserChange) {
       throw new Error('Usuário não tem permissão para isso!');
     }
 
     if (normalizedRole === UserRole.MOTOQUEIRO) {
+      await courierAccessService.assertActiveCourier(
+        Number(actorUserId || 0),
+        Number(restaurantId),
+      );
       if (order.type !== OrderType.DELIVERY) {
         throw new Error('Motoqueiros só podem atualizar pedidos de entrega.');
       }
@@ -89,11 +103,7 @@ class UpdateOrderStatusService {
       order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
     const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
 
-    const isUnpaidDigitalDeliveryBlocked =
-      order.type === OrderType.DELIVERY &&
-      isDigitalPayment &&
-      !isPayOnDelivery &&
-      order.paid !== true;
+    const isUnpaidDigitalOrderBlocked = isDigitalPayment && !isPayOnDelivery && order.paid !== true;
 
     if (
       status === OrderStatus.CANCELADO &&
@@ -107,23 +117,13 @@ class UpdateOrderStatusService {
     }
 
     if (
-      isUnpaidDigitalDeliveryBlocked &&
+      isUnpaidDigitalOrderBlocked &&
       status !== OrderStatus.PENDENTE &&
       status !== OrderStatus.CANCELADO
     ) {
       throw new Error(
-        'Pedido delivery com pagamento digital pendente deve permanecer em PENDENTE até a confirmação do pagamento.',
+        'Pedido com pagamento digital pendente deve permanecer em PENDENTE até a confirmação do pagamento.',
       );
-    }
-
-    // PIX e cartão só podem ser entregues após a confirmação do pagamento.
-    if (
-      status === OrderStatus.ENTREGUE &&
-      isDigitalPayment &&
-      !isPayOnDelivery &&
-      order.paid !== true
-    ) {
-      throw new Error('Não é possível marcar como entregue: o pagamento ainda não foi confirmado.');
     }
 
     let updatedOrder;
@@ -166,7 +166,9 @@ class UpdateOrderStatusService {
             restaurant: {
               select: { id: true, name: true, whatsapp: true },
             },
-            table: true,
+            table: {
+              select: { id: true, number: true, active: true, restaurantId: true },
+            },
             items: { include: { product: true } },
           },
         });
@@ -186,16 +188,13 @@ class UpdateOrderStatusService {
         return deliveredOrder;
       });
     } else {
-      updatedOrder = await orderRepository.updateStatusIfCurrent(
-        orderId,
-        status,
-        restaurantId,
-        { status: currentStatus, paid: order.paid },
-      );
+      updatedOrder = await orderRepository.updateStatusIfCurrent(orderId, status, restaurantId, {
+        status: currentStatus,
+        paid: order.paid,
+      });
     }
 
     if (paymentConfirmedOnDelivery && updatedOrder) {
-
       io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
         orderId: updatedOrder.id,
         paid: true,
@@ -207,6 +206,7 @@ class UpdateOrderStatusService {
         paid: true,
         paymentMethod: updatedOrder.paymentMethod,
       });
+      emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
     }
 
     notifyCustomerOrderStatusChanged({
@@ -226,6 +226,8 @@ class UpdateOrderStatusService {
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    emitWaiterTableOrderEvent(io, 'waiter:order-updated', updatedOrder);
+    emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
     return updatedOrder;
   }
 }

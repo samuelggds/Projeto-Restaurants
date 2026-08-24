@@ -9,14 +9,33 @@ type UpdateTablePayload = {
 
 class UpdateTableService {
   async execute({ id, restaurantId, number, active }: UpdateTablePayload) {
-    const table = await tableRepository.findById(id);
+    const normalizedId = Number(id);
+    const normalizedRestaurantId = Number(restaurantId);
+    if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+      throw new Error('Mesa inválida para atualização.');
+    }
+    if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+      throw new Error('Restaurante inválido para atualizar mesa.');
+    }
 
-    if (!table || table.restaurantId !== restaurantId) {
+    const table = await tableRepository.findByIdForRestaurant(
+      normalizedId,
+      normalizedRestaurantId,
+    );
+
+    if (!table) {
       throw new Error('Mesa não encontrada!');
     }
 
     if (number !== undefined && number !== null && String(number).trim()) {
-      const tableExists = await tableRepository.findByNumber(number, restaurantId);
+      const normalizedNumber = Number(number);
+      if (!Number.isInteger(normalizedNumber) || normalizedNumber <= 0 || normalizedNumber > 9999) {
+        throw new Error('Informe um número de mesa inteiro entre 1 e 9999.');
+      }
+      const tableExists = await tableRepository.findByNumber(
+        normalizedNumber,
+        normalizedRestaurantId,
+      );
 
       if (tableExists && tableExists.id !== table.id) {
         throw new Error('Já existe uma mesa com esse número!');
@@ -40,7 +59,7 @@ class UpdateTableService {
       updateData.active = Boolean(active);
     }
 
-    return await tableRepository.update(id, {
+    return await tableRepository.update(normalizedId, {
       ...updateData,
     });
   }

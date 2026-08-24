@@ -1,4 +1,5 @@
 import type { Socket } from 'socket.io';
+import { OrderStatus, OrderType, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import {
   canSendSupportChat,
@@ -7,10 +8,12 @@ import {
   normalizeSupportChatRole,
 } from './supportChatPolicy.js';
 import { validateEmployeeIssuePayload } from './employeeIssuePayload.js';
+import { validateDeliveryLocationPayload } from './deliveryLocationPayload.js';
 
 type SocketUser = {
   id: number | string;
   role: string;
+  subRole?: string | null;
   restaurantId: number | string;
 };
 
@@ -32,7 +35,6 @@ export function socketHandler(socket: AppSocket) {
   if (socket.authType === 'table-session' && socket.tableSession) {
     const { id, tableId, restaurantId } = socket.tableSession;
 
-    socket.join(`restaurant:${restaurantId}`);
     socket.join(`table:${tableId}`);
     socket.join(`table-session:${id}`);
 
@@ -49,145 +51,231 @@ export function socketHandler(socket: AppSocket) {
     return;
   }
 
-  const { id, role, restaurantId } = user;
-  let lastLocationStoredAt = 0;
+  const { id, role, subRole, restaurantId } = user;
+  const lastLocationStoredAtByOrder = new Map<number, number>();
+  let accountValidationTimer: NodeJS.Timeout | null = null;
 
-  socket.join(`restaurant:${restaurantId}`);
   socket.join(`user:${id}`);
 
-  if (role === 'FUNCIONARIO') {
-    socket.join('kitchen');
+  if (role === 'FUNCIONARIO' && String(subRole || '').toUpperCase() === 'COZINHA') {
+    socket.join(`restaurant:${restaurantId}`);
     socket.join(`restaurant:${restaurantId}:kitchen`);
   }
 
+  if (role === 'FUNCIONARIO' && String(subRole || '').toUpperCase() === 'GARCOM') {
+    socket.join(`restaurant:${restaurantId}:waiter`);
+  }
+
   if (role === 'MOTOQUEIRO') {
-    socket.join('courier');
+    socket.join(`restaurant:${restaurantId}`);
     socket.join(`restaurant:${restaurantId}:courier`);
   }
 
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+  if (role === 'ADMIN') {
+    socket.join(`restaurant:${restaurantId}`);
     socket.join('admin');
     socket.join(`restaurant:${restaurantId}:admin`);
+    accountValidationTimer = setInterval(() => {
+      void prisma.user
+        .findFirst({
+          where: {
+            id: Number(id || 0),
+            restaurantId: Number(restaurantId || 0),
+            role: UserRole.ADMIN,
+            active: true,
+          },
+          select: { id: true },
+        })
+        .then((activeAdmin) => {
+          if (!activeAdmin) socket.disconnect(true);
+        })
+        .catch((error) => {
+          console.warn('[SOCKET_ACCOUNT_REVALIDATION_FAILED]', {
+            userId: Number(id || 0),
+            restaurantId: Number(restaurantId || 0),
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+    }, 60_000);
+    accountValidationTimer.unref();
   }
 
   if (role === 'SUPER_ADMIN') {
+    socket.join('admin');
     socket.join('super_admin');
   }
 
   socket.on('delivery:location:update', async (rawPayload, ack) => {
     const reply =
-      typeof ack === 'function' ? ack : (_result: { ok: boolean; error?: string }) => {};
+      typeof ack === 'function'
+        ? ack
+        : (_result: { ok: boolean; error?: string; throttled?: boolean }) => {};
+    let locationOrderId = 0;
 
-    if (String(role || '').toUpperCase() !== 'MOTOQUEIRO') {
+    try {
+      if (String(role || '').toUpperCase() !== 'MOTOQUEIRO') {
+        reply({
+          ok: false,
+          error: 'Somente motoqueiros podem enviar localização.',
+        });
+        return;
+      }
+
+      const receivedAt = Date.now();
+      const validation = validateDeliveryLocationPayload(rawPayload, receivedAt);
+      if ('error' in validation) {
+        reply({ ok: false, error: validation.error });
+        return;
+      }
+
+      const location = validation.value;
+      locationOrderId = location.orderId;
+      const lastStoredAt = lastLocationStoredAtByOrder.get(location.orderId) || 0;
+      if (receivedAt - lastStoredAt < 3_000) {
+        reply({ ok: true, throttled: true });
+        return;
+      }
+
+      const order = await prisma.order.findUnique({
+        where: { id: location.orderId },
+        select: {
+          id: true,
+          userId: true,
+          restaurantId: true,
+          type: true,
+          status: true,
+          assignedCourierId: true,
+          assignedCourier: {
+            select: {
+              id: true,
+              restaurantId: true,
+              role: true,
+              active: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        reply({ ok: false, error: 'Pedido não encontrado.' });
+        return;
+      }
+
+      if (Number(order.restaurantId || 0) !== Number(restaurantId || 0)) {
+        reply({ ok: false, error: 'Pedido não pertence ao seu restaurante.' });
+        return;
+      }
+
+      if (String(order.type || '').toUpperCase() !== 'DELIVERY') {
+        reply({ ok: false, error: 'Rastreio disponível apenas para delivery.' });
+        return;
+      }
+
+      if (String(order.status || '').toUpperCase() !== 'SAIU_PARA_ENTREGA') {
+        reply({ ok: false, error: 'Rastreio disponível apenas em entrega.' });
+        return;
+      }
+
+      const assignedCourier = order.assignedCourier;
+      const isAuthenticatedCourier =
+        Number(order.assignedCourierId || 0) === Number(id || 0) &&
+        Number(assignedCourier?.id || 0) === Number(id || 0) &&
+        Number(assignedCourier?.restaurantId || 0) === Number(restaurantId || 0) &&
+        String(assignedCourier?.role || '').toUpperCase() === 'MOTOQUEIRO' &&
+        assignedCourier?.active === true;
+
+      if (!isAuthenticatedCourier) {
+        reply({ ok: false, error: 'Esta entrega não está atribuída à sua conta ativa.' });
+        return;
+      }
+
+      // Repete a verificação após a consulta assíncrona para evitar que dois
+      // eventos simultâneos ultrapassem o limite do mesmo pedido.
+      const lastAuthorizedUpdateAt = lastLocationStoredAtByOrder.get(location.orderId) || 0;
+      if (receivedAt - lastAuthorizedUpdateAt < 3_000) {
+        reply({ ok: true, throttled: true });
+        return;
+      }
+      lastLocationStoredAtByOrder.set(location.orderId, receivedAt);
+
+      const savedLocation = await prisma.$transaction(async (tx) => {
+        // O bloqueio da linha fecha a janela entre a autorização acima e a gravação.
+        // Se a entrega for encerrada primeiro, o WHERE é reavaliado e nenhum GPS é salvo.
+        const lockedOrders = await tx.$queryRaw<Array<{ id: number }>>`
+          SELECT o."id"
+          FROM "Order" AS o
+          INNER JOIN "User" AS courier ON courier."id" = o."assignedCourierId"
+          WHERE o."id" = ${order.id}
+            AND o."restaurantId" = ${Number(restaurantId)}
+            AND o."type" = CAST(${OrderType.DELIVERY} AS "OrderType")
+            AND o."status" = CAST(${OrderStatus.SAIU_PARA_ENTREGA} AS "OrderStatus")
+            AND o."assignedCourierId" = ${Number(id)}
+            AND courier."restaurantId" = ${Number(restaurantId)}
+            AND courier."role" = CAST(${UserRole.MOTOQUEIRO} AS "UserRole")
+            AND courier."active" = TRUE
+          FOR UPDATE OF o, courier
+        `;
+
+        if (lockedOrders.length !== 1) return null;
+
+        return tx.deliveryLocation.create({
+          data: {
+            orderId: order.id,
+            courierId: Number(id),
+            latitude: location.latitude,
+            longitude: location.longitude,
+            heading: location.heading,
+            speed: location.speed,
+            accuracy: location.accuracy,
+            recordedAt: location.recordedAt,
+          },
+          select: { recordedAt: true },
+        });
+      });
+
+      if (!savedLocation) {
+        lastLocationStoredAtByOrder.delete(location.orderId);
+        reply({
+          ok: false,
+          error: 'A entrega foi encerrada ou não está mais atribuída à sua conta.',
+        });
+        return;
+      }
+
+      const payload = {
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        heading: location.heading,
+        speed: location.speed,
+        accuracy: location.accuracy,
+        sentAt: location.sentAt,
+        recordedAt: savedLocation.recordedAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // A localização é privada: somente o cliente dono do pedido e os admins
+      // do mesmo restaurante recebem a posição em tempo real.
+      socket.to(`user:${order.userId}`).emit('order:delivery-location', payload);
+      socket.to(`restaurant:${order.restaurantId}:admin`).emit('order:delivery-location', payload);
+
+      reply({ ok: true });
+    } catch (error) {
+      if (locationOrderId > 0) {
+        lastLocationStoredAtByOrder.delete(locationOrderId);
+      }
+      console.error('[DELIVERY_LOCATION_UPDATE_FAILED]', {
+        orderId: locationOrderId || null,
+        courierId: Number(id || 0),
+        restaurantId: Number(restaurantId || 0),
+        error: error instanceof Error ? error.message : String(error),
+      });
       reply({
         ok: false,
-        error: 'Somente motoqueiros podem enviar localização.',
+        error: 'Não foi possível atualizar a localização agora. Tente novamente.',
       });
-      return;
     }
-
-    const receivedAt = Date.now();
-    if (receivedAt - lastLocationStoredAt < 3_000) {
-      reply({ ok: true });
-      return;
-    }
-
-    const orderId = Number(rawPayload?.orderId || 0);
-    const latitude = Number(rawPayload?.latitude);
-    const longitude = Number(rawPayload?.longitude);
-    const heading = Number(rawPayload?.heading);
-    const speed = Number(rawPayload?.speed);
-    const accuracy = Number(rawPayload?.accuracy);
-    const sentAt =
-      typeof rawPayload?.sentAt === 'string' && rawPayload.sentAt
-        ? rawPayload.sentAt
-        : new Date().toISOString();
-
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      reply({ ok: false, error: 'Pedido inválido para rastreio.' });
-      return;
-    }
-
-    const hasValidCoordinates =
-      Number.isFinite(latitude) &&
-      Number.isFinite(longitude) &&
-      latitude >= -90 &&
-      latitude <= 90 &&
-      longitude >= -180 &&
-      longitude <= 180;
-
-    if (!hasValidCoordinates) {
-      reply({ ok: false, error: 'Coordenadas inválidas.' });
-      return;
-    }
-
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        id: true,
-        userId: true,
-        restaurantId: true,
-        type: true,
-        status: true,
-        assignedCourierId: true,
-      },
-    });
-
-    if (!order) {
-      reply({ ok: false, error: 'Pedido não encontrado.' });
-      return;
-    }
-
-    if (Number(order.restaurantId || 0) !== Number(restaurantId || 0)) {
-      reply({ ok: false, error: 'Pedido não pertence ao seu restaurante.' });
-      return;
-    }
-
-    if (String(order.type || '').toUpperCase() !== 'DELIVERY') {
-      reply({ ok: false, error: 'Rastreio disponível apenas para delivery.' });
-      return;
-    }
-
-    if (String(order.status || '').toUpperCase() !== 'SAIU_PARA_ENTREGA') {
-      reply({ ok: false, error: 'Rastreio disponível apenas em entrega.' });
-      return;
-    }
-
-    if (Number(order.assignedCourierId || 0) !== Number(id || 0)) {
-      reply({ ok: false, error: 'Esta entrega não está atribuída a você.' });
-      return;
-    }
-
-    const payload = {
-      orderId: order.id,
-      latitude,
-      longitude,
-      heading: Number.isFinite(heading) ? heading : null,
-      speed: Number.isFinite(speed) ? speed : null,
-      accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? Math.round(accuracy) : null,
-      sentAt,
-      recordedAt: sentAt,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await prisma.deliveryLocation.create({
-      data: {
-        orderId: order.id,
-        courierId: Number(id),
-        latitude,
-        longitude,
-        heading: Number.isFinite(heading) ? heading : null,
-        speed: Number.isFinite(speed) ? speed : null,
-        accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null,
-        recordedAt: new Date(sentAt),
-      },
-    });
-    lastLocationStoredAt = receivedAt;
-
-    socket.to(`user:${order.userId}`).emit('order:delivery-location', payload);
-    socket.to(`restaurant:${order.restaurantId}`).emit('order:delivery-location', payload);
-
-    reply({ ok: true });
   });
 
   socket.on('support:chat-send', async (rawPayload, ack) => {
@@ -401,6 +489,7 @@ export function socketHandler(socket: AppSocket) {
   });
 
   socket.on('disconnect', () => {
+    if (accountValidationTimer) clearInterval(accountValidationTimer);
     console.log('❌ desconectado:', socket.id);
   });
 }

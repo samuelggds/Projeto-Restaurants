@@ -340,43 +340,86 @@ export const Preview = styled.div`
     border-radius: 50%;
   }
 
-  .mock-print-action {
+  .mock-table-admin-notice {
+    position: relative;
     min-height: 30px;
-    padding: 8px 9px;
-    color: #fff;
+    padding: 8px 29px 8px 9px;
+    color: #315f42;
     font-size: 8px;
     font-weight: 800;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    background: #a85034;
+    line-height: 1.25;
+    background: #edf8f0;
+    border: 1px solid #cfe8d5;
     border-radius: 7px;
   }
 
-  .mock-tables-empty {
-    display: grid;
-    min-height: 90px;
-    padding: 12px;
-    color: #90857e;
-    font-size: 9px;
-    text-align: center;
-    place-items: center;
+  .mock-tables-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mock-table-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    padding: 9px;
     background: #fcfaf8;
-    border: 1px dashed #e5d9d1;
+    border: 1px solid #e5d9d1;
     border-radius: 7px;
   }
 
-  .mock-tables-empty > i {
-    display: grid;
-    width: 25px;
-    height: 25px;
-    color: #bd6a4d;
-    font-size: 15px;
+  .mock-table-identity {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+    padding: 5px 28px 5px 6px;
+  }
+
+  .mock-table-identity span,
+  .mock-table-identity b,
+  .mock-table-identity small {
+    display: block;
+    min-width: 0;
+  }
+
+  .mock-table-identity b {
+    color: #3d3530;
+    font-size: 9px;
+  }
+
+  .mock-table-identity small {
+    margin-top: 3px;
+    color: #8d837d;
+    font-size: 7px;
+  }
+
+  .mock-table-identity em {
+    flex: 0 0 auto;
+    padding: 4px 7px;
+    color: #26753a;
+    font-size: 7px;
     font-style: normal;
-    place-items: center;
-    background: #fff0e8;
-    border-radius: 50%;
+    font-weight: 800;
+    background: #eaf7ed;
+    border-radius: 999px;
+  }
+
+  .mock-table-row button {
+    position: relative;
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 7px 29px 7px 10px;
+    color: #fff;
+    font: inherit;
+    font-size: 8px;
+    font-weight: 800;
+    background: #d35d37;
+    border: 0;
+    border-radius: 7px;
   }
 
   .mock-deliveries-empty {
@@ -1400,6 +1443,19 @@ export const Preview = styled.div`
 
     .mock-tables-toolbar {
       grid-template-columns: 1fr 1fr;
+    }
+
+    .mock-table-admin-notice {
+      grid-column: 1 / -1;
+    }
+
+    .mock-table-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .mock-table-row button {
+      width: 100%;
     }
 
     .mock-calls-toolbar {

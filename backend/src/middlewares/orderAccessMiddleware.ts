@@ -10,7 +10,7 @@ export async function orderAccessMiddleware(req: Request, res: Response, next: N
 
   if (orderType === 'MESA' && !sessionToken) {
     return res.status(401).json({
-      error: 'Sessão da mesa não informada. Valide o PIN da mesa para continuar.',
+      error: 'Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.',
     });
   }
 

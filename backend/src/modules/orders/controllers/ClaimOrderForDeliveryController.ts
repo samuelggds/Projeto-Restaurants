@@ -9,6 +9,10 @@ class ClaimOrderForDeliveryController {
         restaurantId: Number(req.user.restaurantId || 0),
         courierId: Number(req.user.id || 0),
         role: req.user.role,
+        initialLocation:
+          req.body?.initialLocation && typeof req.body.initialLocation === 'object'
+            ? req.body.initialLocation
+            : null,
       });
       return res.status(200).json(order);
     } catch (error: unknown) {

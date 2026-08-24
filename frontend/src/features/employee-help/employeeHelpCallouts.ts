@@ -250,14 +250,14 @@ export const employeeHelpCallouts: Record<EmployeeHelpPreview, EmployeeHelpCallo
         'Estado vazio de chamados — confirma que nenhum cliente aguarda atendimento no momento.',
     },
     {
-      label: 'Painel Códigos solicitados',
+      label: 'Painel Mesas abertas',
       description:
-        'Painel Códigos solicitados — concentra pedidos de código depois que o cliente escaneia o QR da mesa.',
+        'Painel Mesas abertas — reúne as mesas cujo atendimento foi iniciado pelo garçom e que podem receber pedidos pelo QR Code fixo.',
     },
     {
-      label: 'Estado vazio de códigos',
+      label: 'Estado das mesas abertas',
       description:
-        'Estado vazio de códigos — confirma que não há código para informar ou copiar no momento.',
+        'Estado das mesas abertas — confirma quando nenhuma mesa está aberta e ajuda a evitar atendimentos iniciados sem clientes.',
     },
     shared.admin(
       'os totais estiverem incorretos ou uma tarefa permanecer pendente após confirmação',
@@ -311,8 +311,8 @@ export const employeeHelpCallouts: Record<EmployeeHelpPreview, EmployeeHelpCallo
     ),
   ],
   'waiter-tables': [
-    shared.menu('Mesas e códigos'),
-    shared.title('garante o acesso do cliente ao cardápio da mesa correta.'),
+    shared.menu('Mesas e QR Codes'),
+    shared.title('permite abrir e fechar as mesas que o administrador cadastrou com um QR Code fixo.'),
     {
       label: 'Busca',
       description:
@@ -321,12 +321,12 @@ export const employeeHelpCallouts: Record<EmployeeHelpPreview, EmployeeHelpCallo
     {
       label: 'Filtro de status',
       description:
-        'Seletor Todos os status — separe mesas livres, ocupadas ou aguardando código conforme a necessidade.',
+        'Seletor Todos os status — separe mesas livres e ocupadas para localizar rapidamente o próximo atendimento.',
     },
     {
-      label: 'Imprimir QR Codes',
+      label: 'QR Code administrado',
       description:
-        'Botão Imprimir QR Codes — use para gerar os códigos físicos das mesas quando a operação precisar repor ou distribuir identificações.',
+        'Aviso de QR Code administrado — confirma que cada código é criado e vinculado à mesa pelo administrador; o garçom não gera, visualiza nem imprime códigos.',
     },
     {
       label: 'Métrica Mesas',
@@ -343,18 +343,19 @@ export const employeeHelpCallouts: Record<EmployeeHelpPreview, EmployeeHelpCallo
         'Métrica Livres — mostra mesas disponíveis para receber clientes; o traço é um placeholder.',
     },
     {
-      label: 'Métrica Aguardando código',
-      description:
-        'Métrica Aguardando código — mostra mesas cujo cliente solicitou acesso; o traço não é dado real.',
-    },
-    {
       label: 'Painel Mesas e QR Codes',
       description:
-        'Painel Mesas e QR Codes — exibe os resultados da busca, com situação da mesa e ações de acesso quando existirem.',
+        'Painel Mesas e QR Codes — exibe as mesas criadas pelo administrador com seu estado operacional, sem expor o QR Code ao garçom.',
     },
     {
-      label: 'Estado vazio',
-      description: 'Estado vazio — confirma que nenhuma mesa corresponde aos filtros selecionados.',
+      label: 'Mesa e status',
+      description:
+        'Linha da mesa e status — confira o número físico e se a mesa está Livre ou Ocupada antes de iniciar ou encerrar o atendimento.',
+    },
+    {
+      label: 'Abrir ou fechar mesa',
+      description:
+        'Ação Abrir ou fechar mesa — abra quando os clientes se sentarem e feche somente após o pagamento, sem pedidos ativos e com a mesa vazia.',
     },
     shared.admin(
       'o QR Code falhar, apontar outra mesa ou a mesa precisar ser criada ou substituída',

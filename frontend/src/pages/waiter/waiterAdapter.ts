@@ -1,0 +1,83 @@
+import { formatElapsed } from '../operations/orderAdapter';
+import type { CallStatus, RestaurantTable, ServiceCall, TableStatus } from './types';
+
+type GenericRecord = Record<string, unknown>;
+
+export function asRecord(value: unknown): GenericRecord {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as GenericRecord)
+    : {};
+}
+
+function formatTime(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return undefined;
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
+  return raw.flatMap((value) => {
+    const table = asRecord(value);
+    if (table.active === false) return [];
+    const operational = asRecord(table.operational);
+    const sessions = Array.isArray(table.tableSessions) ? table.tableSessions.map(asRecord) : [];
+    const openSession = Object.keys(asRecord(operational.openSession)).length
+      ? asRecord(operational.openSession)
+      : sessions.find((session) => session.status === 'OPEN') || {};
+    const status: TableStatus =
+      operational.status === 'OCCUPIED' ||
+      table.status === 'OCCUPIED' ||
+      openSession.status === 'OPEN'
+        ? 'OCCUPIED'
+        : 'FREE';
+    const id = String(table.id || '').trim();
+    const number = Number(table.number);
+    if (!id || !Number.isInteger(number) || number <= 0) return [];
+
+    return [
+      {
+        id,
+        number,
+        status,
+        sessionId:
+          status === 'OCCUPIED'
+            ? String(table.sessionId || openSession.id || '').trim() || undefined
+            : undefined,
+        guests: Math.max(0, Number(operational.guests ?? table.guests ?? 0) || 0),
+        total: Math.max(0, Number(operational.total ?? table.total ?? 0) || 0),
+        openedAt: formatTime(table.openedAt || openSession.openedAt),
+      },
+    ];
+  });
+}
+
+export function mapWaiterCalls(raw: unknown[], now = Date.now()): ServiceCall[] {
+  return raw.flatMap((value) => {
+    const call = asRecord(value);
+    const table = asRecord(call.table);
+    const assignedTo = asRecord(call.assignedTo);
+    const type = call.type === 'BILL' ? 'BILL' : call.type === 'WAITER' ? 'WAITER' : null;
+    const status = ['WAITING', 'IN_PROGRESS', 'RESOLVED'].includes(String(call.status))
+      ? (String(call.status) as CallStatus)
+      : null;
+    const requestedAt = String(call.requestedAt || call.createdAt || '').trim();
+    const tableNumber = Number(table.number || call.tableNumber);
+    if (!call.id || !type || !status || !Number.isInteger(tableNumber) || tableNumber <= 0) {
+      return [];
+    }
+    return [
+      {
+        id: String(call.id),
+        tableNumber,
+        type,
+        status,
+        elapsed: requestedAt ? formatElapsed(requestedAt, now) : '00:00',
+        employeeName: String(assignedTo.name || call.employeeName || '').trim() || undefined,
+        createdAt: requestedAt || undefined,
+        resolvedAt: String(call.resolvedAt || '').trim() || undefined,
+      },
+    ];
+  });
+}

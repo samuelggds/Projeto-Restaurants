@@ -16,6 +16,10 @@ import {
   markCouponRedemptionUsedForOrder,
   reserveCouponRedemption,
 } from './couponRedemptionLifecycle.js';
+import {
+  emitTableSessionOrderEvent,
+  emitWaiterTableOrderEvent,
+} from '../utils/waiterOrderRealtime.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -346,22 +350,27 @@ class CreateOrderService {
         restaurantId: resolvedRestaurantId,
       });
 
-    const activeOrders = await orderRepository.countActiveOperationalOrders(resolvedRestaurantId);
-    assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
-
     const initialStatus = restaurantSettings?.autoAcceptOrders
       ? OrderStatus.PREPARANDO
       : OrderStatus.PENDENTE;
 
     if (type === 'MESA') {
       if (!tableSessionId) {
-        throw new Error('Sessão da mesa não informada. Valide o PIN da mesa para continuar.');
+        throw new Error('Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.');
       }
 
       const session = await tableSessionRepository.findById(tableSessionId);
 
-      if (!session || session.status !== TableSessionStatus.OPEN) {
-        throw new Error('Essa mesa está fechada. Gere um novo PIN com a equipe para continuar.');
+      if (
+        !session ||
+        session.status !== TableSessionStatus.OPEN ||
+        (session.expiresAt && session.expiresAt.getTime() <= Date.now())
+      ) {
+        throw new Error('Essa mesa está fechada. Peça ao garçom para abrir o atendimento.');
+      }
+
+      if (session.table.restaurantId !== resolvedRestaurantId) {
+        throw new Error('A sessão da mesa não pertence a este restaurante.');
       }
 
       if (Number(tableId || 0) && Number(tableId) !== Number(session.tableId)) {
@@ -411,134 +420,160 @@ class CreateOrderService {
       }
     }
 
-    const createdOrder = await prisma.$transaction(async (tx) => {
-      const resolvedUserId = await this.resolveOrderUser({
-        tx,
-        userId,
-        restaurantId: resolvedRestaurantId,
-        customerName,
-        customerCpf,
-        customerPhone,
-      });
+    const createdOrder = await prisma.$transaction(
+      async (tx) => {
+        if (type === OrderType.MESA) {
+          const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
+          if (
+            !session ||
+            session.status !== TableSessionStatus.OPEN ||
+            (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
+            session.table.restaurantId !== resolvedRestaurantId ||
+            session.tableId !== Number(tableId)
+          ) {
+            throw new Error(
+              'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
+            );
+          }
+        }
 
-      const pricing = await orderPricingService.quote({
-        restaurantId: resolvedRestaurantId,
-        userId: resolvedUserId,
-        type,
-        items,
-        couponRedemptionId,
-        db: tx,
-      });
-      const { products, orderItems } = pricing;
-
-      const formattedCpf = this.formatCpf(customerCpf);
-      const guestSummary =
-        !userId && customerName
-          ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
-          : '';
-
-      const mergedObservation = [guestSummary, observation]
-        .map((item) => String(item || '').trim())
-        .filter(Boolean)
-        .join(' | ');
-
-      const normalizedTableId =
-        tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
-
-      const order = await orderRepository.create(
-        {
-          total: pricing.total,
-          itemsSubtotal: pricing.itemsSubtotal,
-          productDiscountTotal: pricing.productDiscountTotal,
-          couponDiscount: pricing.couponDiscount,
-          deliveryFeeAmount: pricing.deliveryFeeAmount,
-          couponId: pricing.couponId,
-          couponRedemptionId: pricing.couponRedemptionId,
-          couponCode: pricing.couponCode,
-          systemFee: 0,
-          type,
-          paymentMethod: effectivePaymentMethod,
-          payOnDelivery: shouldPayOnDelivery,
-          payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
-          paid: shouldMarkAsPaid,
-          pixPaymentId: normalizedPixPaymentId || null,
-          paidAt,
-          paymentProof: null,
-          paymentProofImage: null,
-          observation: mergedObservation || null,
-          userId: resolvedUserId,
-          restaurantId: resolvedRestaurantId,
-          tableId: normalizedTableId,
-          address,
-          number,
-          district,
-          city,
-          state,
-          zipCode,
-          complement,
-          status: initialStatus,
-          preparationStartedAt: initialStatus === OrderStatus.PREPARANDO ? new Date() : null,
-        },
-        tx,
-      );
-
-      await reserveCouponRedemption({
-        redemptionId: pricing.couponRedemptionId,
-        restaurantId: resolvedRestaurantId,
-        userId: resolvedUserId,
-        db: tx,
-      });
-
-      if (shouldMarkAsPaid) {
-        await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
-      }
-
-      await tx.orderItem.createMany({
-        data: orderItems.map((item) => ({
-          ...item,
-          orderId: order.id,
-        })),
-      });
-
-      const requestedQuantityByProduct = new Map<number, number>();
-      orderItems.forEach((item) => {
-        requestedQuantityByProduct.set(
-          item.productId,
-          (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity),
+        const activeOrders = await orderRepository.countActiveOperationalOrders(
+          resolvedRestaurantId,
+          tx,
         );
-      });
+        assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
 
-      for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
-        const product = products.find((candidate) => candidate.id === productId)!;
-        const stockValue =
-          product.stock === null || product.stock === undefined ? null : Number(product.stock);
+        const resolvedUserId = await this.resolveOrderUser({
+          tx,
+          userId,
+          restaurantId: resolvedRestaurantId,
+          customerName,
+          customerCpf,
+          customerPhone,
+        });
 
-        if (!Number.isInteger(stockValue) || stockValue < 0) {
-          continue;
-        }
+        const pricing = await orderPricingService.quote({
+          restaurantId: resolvedRestaurantId,
+          userId: resolvedUserId,
+          type,
+          items,
+          couponRedemptionId,
+          db: tx,
+        });
+        const { products, orderItems } = pricing;
 
-        const decremented = await tx.product.updateMany({
-          where: {
-            id: productId,
+        const formattedCpf = this.formatCpf(customerCpf);
+        const guestSummary =
+          !userId && customerName
+            ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
+            : '';
+
+        const mergedObservation = [guestSummary, observation]
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+          .join(' | ');
+
+        const normalizedTableId =
+          tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
+
+        const order = await orderRepository.create(
+          {
+            total: pricing.total,
+            itemsSubtotal: pricing.itemsSubtotal,
+            productDiscountTotal: pricing.productDiscountTotal,
+            couponDiscount: pricing.couponDiscount,
+            deliveryFeeAmount: pricing.deliveryFeeAmount,
+            couponId: pricing.couponId,
+            couponRedemptionId: pricing.couponRedemptionId,
+            couponCode: pricing.couponCode,
+            systemFee: 0,
+            type,
+            paymentMethod: effectivePaymentMethod,
+            payOnDelivery: shouldPayOnDelivery,
+            payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
+            paid: shouldMarkAsPaid,
+            pixPaymentId: normalizedPixPaymentId || null,
+            paidAt,
+            paymentProof: null,
+            paymentProofImage: null,
+            observation: mergedObservation || null,
+            userId: resolvedUserId,
             restaurantId: resolvedRestaurantId,
-            stock: { gte: requestedQuantity },
+            tableId: normalizedTableId,
+            address,
+            number,
+            district,
+            city,
+            state,
+            zipCode,
+            complement,
+            status: initialStatus,
+            preparationStartedAt: initialStatus === OrderStatus.PREPARANDO ? new Date() : null,
           },
-          data: {
-            stock: { decrement: requestedQuantity },
-          },
+          tx,
+        );
+
+        await reserveCouponRedemption({
+          redemptionId: pricing.couponRedemptionId,
+          restaurantId: resolvedRestaurantId,
+          userId: resolvedUserId,
+          db: tx,
         });
-        if (decremented.count !== 1) {
-          throw new Error(`Estoque de ${product.name} mudou. Confira a quantidade e tente novamente.`);
+
+        if (shouldMarkAsPaid) {
+          await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
         }
 
-        await tx.product.updateMany({
-          where: { id: productId, restaurantId: resolvedRestaurantId, stock: 0 },
-          data: { active: false },
+        await tx.orderItem.createMany({
+          data: orderItems.map((item) => ({
+            ...item,
+            orderId: order.id,
+          })),
         });
-      }
 
-      return orderRepository.findById(order.id, resolvedRestaurantId, tx);
-    });
+        const requestedQuantityByProduct = new Map<number, number>();
+        orderItems.forEach((item) => {
+          requestedQuantityByProduct.set(
+            item.productId,
+            (requestedQuantityByProduct.get(item.productId) || 0) + Number(item.quantity),
+          );
+        });
+
+        for (const [productId, requestedQuantity] of requestedQuantityByProduct) {
+          const product = products.find((candidate) => candidate.id === productId)!;
+          const stockValue =
+            product.stock === null || product.stock === undefined ? null : Number(product.stock);
+
+          if (!Number.isInteger(stockValue) || stockValue < 0) {
+            continue;
+          }
+
+          const decremented = await tx.product.updateMany({
+            where: {
+              id: productId,
+              restaurantId: resolvedRestaurantId,
+              stock: { gte: requestedQuantity },
+            },
+            data: {
+              stock: { decrement: requestedQuantity },
+            },
+          });
+          if (decremented.count !== 1) {
+            throw new Error(
+              `Estoque de ${product.name} mudou. Confira a quantidade e tente novamente.`,
+            );
+          }
+
+          await tx.product.updateMany({
+            where: { id: productId, restaurantId: resolvedRestaurantId, stock: 0 },
+            data: { active: false },
+          });
+        }
+
+        return orderRepository.findById(order.id, resolvedRestaurantId, tx);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     // Pedidos pagos na entrega precisam aparecer imediatamente na operação.
     // Somente cobranças digitais online aguardam a confirmação do provedor.
@@ -555,6 +590,8 @@ class CreateOrderService {
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);
       io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);
+      emitWaiterTableOrderEvent(io, 'new-order', createdOrder);
+      emitTableSessionOrderEvent(io, 'new-order', createdOrder);
     }
 
     if (shouldMarkAsPaid) {

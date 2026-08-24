@@ -2,9 +2,15 @@ import { UserRole } from '@prisma/client';
 import { io } from '../../../server.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { notifyRestaurantPaymentPinRequested } from '../../../services/customerNotifier.js';
+import courierAccessService from './CourierAccessService.js';
 
 class RequestOrderPaymentConfirmationPinService {
-  async execute(orderId: number | string, restaurantId: number, role: UserRole | string) {
+  async execute(
+    orderId: number | string,
+    restaurantId: number,
+    role: UserRole | string,
+    actorUserId?: number | null,
+  ) {
     const normalizedRole = String(role || '').toUpperCase();
     const allowedRoles = [UserRole.MOTOQUEIRO, UserRole.ADMIN];
 
@@ -22,6 +28,18 @@ class RequestOrderPaymentConfirmationPinService {
 
     if (String(order.type || '').toUpperCase() !== 'DELIVERY') {
       throw new Error('Solicitação de PIN disponível apenas para pedidos DELIVERY.');
+    }
+
+    if (String(order.status || '').toUpperCase() !== 'SAIU_PARA_ENTREGA') {
+      throw new Error('Solicitação de PIN disponível apenas durante a entrega.');
+    }
+
+    if (normalizedRole === UserRole.MOTOQUEIRO) {
+      const courierId = Number(actorUserId || 0);
+      await courierAccessService.assertActiveCourier(courierId, restaurantId);
+      if (Number(order.assignedCourierId || 0) !== courierId) {
+        throw new Error('Esta entrega não está atribuída a você.');
+      }
     }
 
     if (order.paid === true) {

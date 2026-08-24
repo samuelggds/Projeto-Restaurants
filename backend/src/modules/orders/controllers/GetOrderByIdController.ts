@@ -8,7 +8,13 @@ class GetOrderByIdController {
 
       const restaurantId = req.user.restaurantId;
 
-      const order = await getOrderByIdService.execute(id, restaurantId);
+      const order = await getOrderByIdService.execute(
+        id,
+        restaurantId,
+        req.user.role,
+        req.user.subRole,
+        req.user.id,
+      );
 
       return res.json(order);
     } catch (error: unknown) {

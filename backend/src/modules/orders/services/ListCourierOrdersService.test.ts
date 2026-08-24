@@ -1,19 +1,27 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
-import { OrderStatus, UserRole } from '@prisma/client';
+import { FuncionarioSubRole, OrderStatus, UserRole } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
 import listOrdersService from './ListOrdersService.js';
+import courierAccessService from './CourierAccessService.js';
 
 const originalFindAll = orderRepository.findAll;
 const originalFindCourierOrders = orderRepository.findCourierOrders;
+const originalAssertActiveCourier = courierAccessService.assertActiveCourier;
 
 afterEach(() => {
   orderRepository.findAll = originalFindAll;
   orderRepository.findCourierOrders = originalFindCourierOrders;
+  courierAccessService.assertActiveCourier = originalAssertActiveCourier;
 });
 
 test('motoqueiro usa consulta exclusiva e vinculada ao proprio usuario', async () => {
+  courierAccessService.assertActiveCourier = async (courierId, restaurantId) => {
+    assert.equal(courierId, 31);
+    assert.equal(restaurantId, 7);
+    return { id: courierId, restaurantId };
+  };
   let genericQueryCalled = false;
   orderRepository.findAll = async () => {
     genericQueryCalled = true;
@@ -56,7 +64,13 @@ test('cozinha continua usando a consulta operacional do restaurante', async () =
     return [{ id: 10 }];
   };
 
-  const result = await listOrdersService.execute(7, OrderStatus.PRONTO, UserRole.FUNCIONARIO, 5);
+  const result = await listOrdersService.execute(
+    7,
+    OrderStatus.PRONTO,
+    UserRole.FUNCIONARIO,
+    5,
+    FuncionarioSubRole.COZINHA,
+  );
 
   assert.equal(courierQueryCalled, false);
   assert.deepEqual(result, [{ id: 10 }]);

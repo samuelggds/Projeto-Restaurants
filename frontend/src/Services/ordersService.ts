@@ -131,8 +131,20 @@ class OrdersService {
     return response.data;
   }
 
-  async claimDelivery(orderId: string | number) {
-    const response = await api.patch(`/orders/${orderId}/claim-delivery`);
+  async claimDelivery(
+    orderId: string | number,
+    initialLocation?: {
+      latitude: number;
+      longitude: number;
+      heading?: number | null;
+      speed?: number | null;
+      accuracy?: number | null;
+      sentAt: string;
+    },
+  ) {
+    const response = await api.patch(`/orders/${orderId}/claim-delivery`, {
+      ...(initialLocation ? { initialLocation } : {}),
+    });
     return normalizeOrder(response.data);
   }
 

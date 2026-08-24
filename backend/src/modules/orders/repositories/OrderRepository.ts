@@ -4,6 +4,29 @@ import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
+const operationalTableSelect = {
+  id: true,
+  number: true,
+  active: true,
+  restaurantId: true,
+} satisfies Prisma.TableSelect;
+
+const waiterReadyOrderInclude = {
+  user: { select: { id: true, name: true } },
+  table: { select: { id: true, number: true } },
+  items: {
+    select: {
+      id: true,
+      quantity: true,
+      price: true,
+      observation: true,
+      ingredients: true,
+      customizations: true,
+      product: { select: { id: true, name: true } },
+    },
+  },
+} satisfies Prisma.OrderInclude;
+
 class OrderRepository {
   async create(
     data: Prisma.OrderCreateInput | Prisma.OrderUncheckedCreateInput,
@@ -27,7 +50,7 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -66,7 +89,7 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -153,6 +176,38 @@ class OrderRepository {
     });
   }
 
+  async findCourierOrderById(
+    id: number | string,
+    restaurantId: number,
+    courierId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId,
+        type: OrderType.DELIVERY,
+        OR: [
+          { status: OrderStatus.PRONTO, assignedCourierId: null },
+          {
+            status: { in: [OrderStatus.SAIU_PARA_ENTREGA, OrderStatus.ENTREGUE] },
+            assignedCourierId: courierId,
+          },
+        ],
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+      include: {
+        user: { select: { id: true, name: true, phone: true } },
+        restaurant: { select: { id: true, name: true, whatsapp: true } },
+        items: { include: { product: true } },
+      },
+    });
+  }
+
   async updateStatus(
     id: number | string,
     status: OrderStatus,
@@ -174,6 +229,44 @@ class OrderRepository {
     });
 
     return this.findById(id, restaurantId, db);
+  }
+
+  async findReadyTableOrders(restaurantId: number, db: PrismaClientLike = prisma) {
+    return db.order.findMany({
+      where: {
+        restaurantId,
+        type: OrderType.MESA,
+        status: OrderStatus.PRONTO,
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+      include: waiterReadyOrderInclude,
+      orderBy: [{ readyAt: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async findReadyTableOrderById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId,
+        type: OrderType.MESA,
+        status: OrderStatus.PRONTO,
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+      include: waiterReadyOrderInclude,
+    });
   }
 
   async updateStatusIfCurrent(
@@ -396,7 +489,50 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findOperationalById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId,
+        NOT: {
+          paid: false,
+          paymentMethod: {
+            in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
+          },
+          payOnDelivery: false,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+          },
+        },
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -438,7 +574,7 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -478,7 +614,7 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -518,7 +654,7 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -554,7 +690,7 @@ class OrderRepository {
             whatsapp: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         items: {
           include: {
             product: true,
@@ -608,7 +744,7 @@ class OrderRepository {
             product: true,
           },
         },
-        table: true,
+        table: { select: operationalTableSelect },
         issueThread: {
           select: {
             orderId: true,

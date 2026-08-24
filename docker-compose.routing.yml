@@ -1,22 +1,58 @@
 services:
   osrm:
-    image: ghcr.io/project-osrm/osrm-backend:latest
+    image: ${OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:26.8.0-debian}
     restart: unless-stopped
-    command: osrm-routed --algorithm mld /data/nordeste-latest.osrm
+    command: ['osrm-routed', '--algorithm', 'mld', '/data/${ROUTING_DATASET_BASENAME:-region}.osrm']
     volumes:
       - ./routing-data/osrm:/data:ro
     expose:
-      - "5000"
+      - '5000'
+    healthcheck:
+      test: ['CMD-SHELL', "timeout 3 bash -c '</dev/tcp/127.0.0.1/5000'"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      options:
+        max-size: '10m'
+        max-file: '5'
 
   nominatim:
     image: mediagis/nominatim:5.3
     restart: unless-stopped
     environment:
       PBF_URL: ${ROUTING_PBF_URL:?Defina ROUTING_PBF_URL no .env.docker}
+      REPLICATION_URL: ${ROUTING_REPLICATION_URL:-}
+      UPDATE_MODE: ${NOMINATIM_UPDATE_MODE:-none}
+      IMPORT_STYLE: address
+      IMPORT_WIKIPEDIA: 'false'
     volumes:
-      - nominatim_data:/var/lib/postgresql/14/main
+      - nominatim_data:/var/lib/postgresql/16/main
     expose:
-      - "8080"
+      - '8080'
+    shm_size: 1gb
+    healthcheck:
+      test: ['CMD-SHELL', "curl -fsS 'http://127.0.0.1:8080/status?format=json' >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 6h
+    logging:
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  backend:
+    environment:
+      ROUTING_REQUIRED: 'true'
+      OSRM_BASE_URL: http://osrm:5000
+      GEOCODER_BASE_URL: http://nominatim:8080
+    depends_on:
+      osrm:
+        condition: service_healthy
+      nominatim:
+        condition: service_started
 
 volumes:
   nominatim_data:

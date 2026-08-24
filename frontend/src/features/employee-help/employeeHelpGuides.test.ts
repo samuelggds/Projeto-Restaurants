@@ -40,4 +40,23 @@ describe('employee help guides', () => {
       });
     },
   );
+  it('documents that waiter table QR Codes are fixed and managed by the administrator', () => {
+    const waiterGuides = getEmployeeHelpGuides('waiter');
+    const waiterText = [
+      ...waiterGuides.flatMap((guide) => [guide.title, guide.helper, ...guide.steps]),
+      ...employeeHelpCallouts['waiter-overview'].flatMap((callout) => [
+        callout.label,
+        callout.description,
+      ]),
+      ...employeeHelpCallouts['waiter-tables'].flatMap((callout) => [
+        callout.label,
+        callout.description,
+      ]),
+    ].join(' ');
+
+    expect(waiterText).toContain('QR Code fixo');
+    expect(waiterText).toContain('administrador');
+    expect(waiterText).toContain('Abrir ou fechar mesa');
+    expect(waiterText).not.toMatch(/Códigos solicitados|Imprimir QR Codes|aguardando código/i);
+  });
 });

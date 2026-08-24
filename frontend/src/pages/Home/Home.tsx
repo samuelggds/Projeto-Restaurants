@@ -12,7 +12,7 @@ import { useCheckoutPayments } from './hooks/useCheckoutPayments';
 import { useTableSession } from './hooks/useTableSession';
 import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
 import { buildHomeData } from '../home/adapters/homeDataAdapter';
-import { TableAccessGate } from '../home/components/TableAccessGate';
+import { TableAccessGate } from './components/TableAccessGate';
 import { CartItemsList } from '../home/components/CartItemsList';
 import { DeliveryAddressForm } from '../home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../home/components/PaymentOptions';
@@ -30,6 +30,7 @@ import { ActiveOrderNotice } from './components/ActiveOrderNotice';
 import { LoyaltyProgramCard } from './components/LoyaltyProgramCard';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import ordersService from '../../Services/ordersService';
+import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
@@ -41,6 +42,7 @@ import {
   getAvailablePaymentMethods,
   resolveAvailableFulfillmentMethod,
 } from './domain/publicSettings';
+import { TableServiceActions } from './components/TableServiceActions';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -89,6 +91,7 @@ export default function Home() {
     handleSavedAddressChange,
   } = useDeliveryAddress(user);
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
+  const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
   const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(customerId);
@@ -121,19 +124,16 @@ export default function Home() {
     routeRestaurantId,
     routeTableId,
     mesaMode,
-    tablePin,
-    setTablePin,
-    pinError,
-    isPinValidating,
+    tableSession,
+    sessionEndedMessage,
     mesaLabel,
     hasValidQrContext,
     mesaSessionIsActive,
     storedSessionRestaurantId,
-    handleValidateTablePin,
   } = useTableSession({
     tableNumber: routeTableNumber,
     restaurantId: searchParams.get('restaurantId') || searchParams.get('rid'),
-    restaurantSlug: normalizedSlug,
+    tableToken: searchParams.get('tk') || searchParams.get('token'),
     tableId: searchParams.get('tableId') || searchParams.get('tid'),
     notify,
   });
@@ -383,6 +383,42 @@ export default function Home() {
           onRedeem: (couponId: number) => void loyalty.redeem(couponId),
         };
 
+  async function requestTableService(type: 'WAITER' | 'BILL') {
+    const sessionToken = String(tableSession?.sessionToken || '').trim();
+    if (!sessionToken || tableServiceLoading) {
+      notify(
+        'warning',
+        'Mesa sem atendimento ativo',
+        'Peça ao garçom para abrir a mesa e escaneie o QR Code novamente.',
+      );
+      return;
+    }
+
+    try {
+      setTableServiceLoading(type);
+      const call = await waiterCallsService.createCall(type, sessionToken);
+      const duplicate = call?.duplicate === true;
+      notify(
+        'success',
+        type === 'WAITER' ? 'Garçom avisado' : 'Conta solicitada',
+        duplicate
+          ? 'Este aviso já está na fila de atendimento.'
+          : type === 'WAITER'
+            ? 'Seu chamado apareceu em tempo real no painel do salão.'
+            : 'O garçom recebeu o pedido da conta em tempo real.',
+      );
+    } catch (error: unknown) {
+      const typed = error as { response?: { data?: { error?: string } }; message?: string };
+      notify(
+        'error',
+        'Não foi possível enviar o aviso',
+        typed.response?.data?.error || typed.message || 'Tente novamente em alguns instantes.',
+      );
+    } finally {
+      setTableServiceLoading(null);
+    }
+  }
+
   if (pixPaymentData) {
     return (
       <PixPaymentPanel
@@ -401,12 +437,15 @@ export default function Home() {
       <TableAccessGate
         primaryColor={primary}
         invalidQr={!hasValidQrContext}
+        invalidTitle={hasValidQrContext ? 'Mesa aguardando abertura' : undefined}
+        invalidMessage={
+          sessionEndedMessage ||
+          (hasValidQrContext
+            ? 'O atendimento desta mesa não está ativo. Peça ao garçom para abri-la e tente novamente.'
+            : undefined)
+        }
         tableLabel={mesaLabel}
-        pin={tablePin}
-        pinError={pinError}
-        validating={isPinValidating}
-        onPinChange={setTablePin}
-        onSubmit={handleValidateTablePin}
+        onRetry={() => window.location.reload()}
       />
     );
   }
@@ -547,6 +586,16 @@ export default function Home() {
         onDismissNotification={dismissNotif}
       />
       <S.FloatingActions $aboveNudge={showLoginNudge} $primary={primary}>
+        {mesaMode && tableSession && (
+          <TableServiceActions
+            tableNumber={mesaLabel}
+            waiterEnabled={tableSession.waiterCallEnabled !== false}
+            billEnabled={tableSession.billRequestEnabled !== false}
+            loading={tableServiceLoading}
+            onCallWaiter={() => void requestTableService('WAITER')}
+            onRequestBill={() => void requestTableService('BILL')}
+          />
+        )}
         {whatsappUrl && (
           <S.Whatsapp
             href={whatsappUrl}

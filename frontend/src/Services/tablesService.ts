@@ -6,10 +6,11 @@ class TablesService {
     return response.data;
   }
 
-  async resolvePublicTable({ tableNumber, tableId, restaurantId, slug }) {
+  async resolvePublicTable({ tableNumber, tableToken, tableId, restaurantId, slug }) {
     const response = await api.get('/tables/public/resolve', {
       params: {
         tableNumber,
+        tableToken,
         ...(tableId ? { tableId } : {}),
         ...(restaurantId ? { restaurantId } : {}),
         ...(slug ? { slug } : {}),
@@ -40,6 +41,11 @@ class TablesService {
     const response = await api.post('/table-sessions/open', {
       tableId,
     });
+    return response.data;
+  }
+
+  async closeTableSession(sessionId) {
+    const response = await api.patch(`/table-sessions/${sessionId}/close`);
     return response.data;
   }
 }

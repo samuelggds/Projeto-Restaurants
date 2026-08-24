@@ -13,6 +13,7 @@ class ConfirmOrderPaymentWithPinController {
         restaurantId,
         role,
         pin,
+        req.user.id,
       );
 
       return res.status(200).json(updatedOrder);

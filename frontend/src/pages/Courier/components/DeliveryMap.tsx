@@ -11,21 +11,43 @@ export type RoutePoint = {
   speed?: number | null;
 };
 
-function FollowLatest({ point }: { point: RoutePoint }) {
+function FollowLatest({ point, destination }: { point: RoutePoint; destination?: RoutePoint }) {
   const map = useMap();
   useEffect(() => {
+    if (destination) {
+      map.fitBounds(
+        [
+          [point.latitude, point.longitude],
+          [destination.latitude, destination.longitude],
+        ],
+        { animate: true, padding: [58, 58], maxZoom: 16 },
+      );
+      return;
+    }
     map.setView([point.latitude, point.longitude], Math.max(map.getZoom(), 16), { animate: true });
-  }, [map, point.latitude, point.longitude]);
+  }, [destination, map, point.latitude, point.longitude]);
   return null;
 }
 
-function RecenterButton({ point }: { point: RoutePoint }) {
+function RecenterButton({ point, destination }: { point: RoutePoint; destination?: RoutePoint }) {
   const map = useMap();
   return (
     <button
       type="button"
       aria-label="Centralizar no motoqueiro"
-      onClick={() => map.setView([point.latitude, point.longitude], 17, { animate: true })}
+      onClick={() => {
+        if (destination) {
+          map.fitBounds(
+            [
+              [point.latitude, point.longitude],
+              [destination.latitude, destination.longitude],
+            ],
+            { animate: true, padding: [58, 58], maxZoom: 16 },
+          );
+          return;
+        }
+        map.setView([point.latitude, point.longitude], 17, { animate: true });
+      }}
       style={{
         position: 'absolute',
         right: 16,
@@ -62,19 +84,43 @@ const courierIcon = divIcon({
   popupAnchor: [0, -34],
 });
 
+const destinationIcon = divIcon({
+  className: 'delivery-destination-marker',
+  html: `<div class="delivery-destination-marker__pin" aria-label="Destino da entrega">
+    <span aria-hidden="true">⌂</span>
+  </div>`,
+  iconSize: [52, 60],
+  iconAnchor: [26, 58],
+  popupAnchor: [0, -56],
+});
+
+const mapTileUrl =
+  String(import.meta.env.VITE_MAP_TILE_URL || '').trim() ||
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const mapTileAttribution =
+  String(import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '').trim() ||
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
 export default function DeliveryMap({
   points,
+  routePath = [],
+  destination,
   label = 'Motoqueiro',
   statusMessage = 'Entrega em andamento',
   statusDetail = 'A posição é atualizada automaticamente.',
 }: {
   points: RoutePoint[];
+  routePath?: RoutePoint[];
+  destination?: RoutePoint & { label?: string };
   label?: string;
   statusMessage?: string;
   statusDetail?: string;
 }) {
   const latest = points[points.length - 1] || { latitude: -23.5505, longitude: -46.6333 };
   const line = points.map((point) => [point.latitude, point.longitude] as [number, number]);
+  const plannedRoute = routePath.map(
+    (point) => [point.latitude, point.longitude] as [number, number],
+  );
   return (
     <div
       className="delivery-map-shell"
@@ -95,6 +141,9 @@ export default function DeliveryMap({
         .delivery-courier-marker__pin { width: 62px; height: 62px; border-radius: 50%; background: white; display: grid; place-items: center; box-shadow: 0 8px 28px rgba(15,23,42,.28); border: 4px solid rgba(255,255,255,.9); position: relative; }
         .delivery-courier-marker__pin::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: #d64d08; z-index: 0; }
         .delivery-courier-marker__pin svg { position: relative; z-index: 1; width: 32px; height: 32px; fill: none; stroke: white; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+        .delivery-destination-marker { background: transparent; border: 0; }
+        .delivery-destination-marker__pin { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50% 50% 50% 8px; transform: rotate(-45deg); color: white; background: #172733; border: 4px solid white; box-shadow: 0 8px 24px rgba(15,23,42,.3); }
+        .delivery-destination-marker__pin span { transform: rotate(45deg); font-size: 23px; font-weight: 900; }
         @media (max-width: 560px) { .delivery-map-shell { min-height: 520px !important; border-radius: 0 !important; } }
       `}</style>
       <MapContainer
@@ -103,14 +152,22 @@ export default function DeliveryMap({
         zoomControl={false}
         style={{ width: '100%', height: '100%' }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <TileLayer attribution={mapTileAttribution} url={mapTileUrl} />
         {line.length > 1 && (
           <Polyline
             positions={line}
             pathOptions={{ color: '#d64d08', weight: 4, opacity: 0.58, dashArray: '8 10' }}
+          />
+        )}
+        {plannedRoute.length > 1 && (
+          <Polyline
+            positions={plannedRoute}
+            pathOptions={{
+              color: '#2563eb',
+              weight: 5,
+              opacity: 0.72,
+              className: 'delivery-planned-route',
+            }}
           />
         )}
         <Marker position={[latest.latitude, latest.longitude]} icon={courierIcon}>
@@ -120,8 +177,21 @@ export default function DeliveryMap({
             Posição atual
           </Popup>
         </Marker>
-        <FollowLatest point={latest} />
-        <RecenterButton point={latest} />
+        {destination ? (
+          <Marker position={[destination.latitude, destination.longitude]} icon={destinationIcon}>
+            <Popup>
+              Destino da entrega
+              {destination.label ? (
+                <>
+                  <br />
+                  {destination.label}
+                </>
+              ) : null}
+            </Popup>
+          </Marker>
+        ) : null}
+        <FollowLatest point={latest} destination={destination} />
+        <RecenterButton point={latest} destination={destination} />
       </MapContainer>
       <div
         style={{

@@ -2,6 +2,7 @@ import tableRepository from '../repositories/TableRepository.js';
 
 type ResolvePublicTablePayload = {
   tableNumber: number | string;
+  tableToken: string;
   tableId?: number | string | null;
   restaurantId?: number | string | null;
   restaurantSlug?: string | null;
@@ -23,7 +24,13 @@ const positiveInteger = (value: unknown) => {
 };
 
 class ResolvePublicTableService {
-  async execute({ tableNumber, tableId, restaurantId, restaurantSlug }: ResolvePublicTablePayload) {
+  async execute({
+    tableNumber,
+    tableToken,
+    tableId,
+    restaurantId,
+    restaurantSlug,
+  }: ResolvePublicTablePayload) {
     const normalizedTableNumber = positiveInteger(tableNumber);
     const normalizedTableId =
       tableId === undefined || tableId === null || String(tableId).trim() === ''
@@ -36,9 +43,18 @@ class ResolvePublicTableService {
     const normalizedSlug = String(restaurantSlug || '')
       .trim()
       .toLowerCase();
+    const normalizedTableToken = String(tableToken || '').trim().toLowerCase();
 
     if (!normalizedTableNumber) {
       throw new PublicTableResolutionError('Número da mesa inválido.');
+    }
+
+    if (!/^[a-f0-9]{32}$/.test(normalizedTableToken)) {
+      throw new PublicTableResolutionError(
+        'O QR Code da mesa é inválido. Escaneie o código oficial novamente.',
+        400,
+        'INVALID_TABLE_TOKEN',
+      );
     }
 
     if (tableId !== undefined && tableId !== null && String(tableId).trim() && !normalizedTableId) {
@@ -66,6 +82,7 @@ class ResolvePublicTableService {
 
     const table = await tableRepository.findPublicByReference({
       number: normalizedTableNumber,
+      tableToken: normalizedTableToken,
       ...(normalizedRestaurantId ? { restaurantId: normalizedRestaurantId } : {}),
       ...(normalizedSlug ? { restaurantSlug: normalizedSlug } : {}),
     });

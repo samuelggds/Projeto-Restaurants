@@ -11,6 +11,7 @@ import userRepository from '../repositories/UserRepository.js';
 type LoginUser = {
   id: number;
   role: string;
+  subRole?: string | null;
   restaurantId: number | null;
   email: string;
   name: string;
@@ -124,6 +125,7 @@ function mapUser(user: any) {
     name: user.name,
     email: user.email,
     role: user.role,
+    subRole: user.subRole ?? null,
     active: user.active,
     mustChangePassword: user.mustChangePassword,
     phone: user.phone,
@@ -284,6 +286,7 @@ class LoginMfaService {
     const tokenPayload = {
       id: user.id,
       role: user.role,
+      subRole: user.subRole ?? null,
       restaurantId: user.restaurantId,
     };
 

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { UserRole } from '@prisma/client';
 import listTableService from '../services/ListTableService.js';
 
 class ListTableController {
@@ -8,6 +9,7 @@ class ListTableController {
 
       const tables = await listTableService.execute({
         restaurantId,
+        includeQrToken: req.user.role === UserRole.ADMIN,
       });
 
       return res.status(200).json(tables);

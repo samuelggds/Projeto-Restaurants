@@ -21,18 +21,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js (LTS)
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
 
-      - name: ESLint (fail on warnings)
-        run: npm --prefix frontend run lint:ci
+      - name: ESLint backend and frontend (fail on warnings)
+        run: npm run lint
 
   # ─────────────────────────────────────────────
   # 2. TYPE CHECK — tsc --noEmit (backend + frontend)
@@ -43,10 +48,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js (LTS)
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json
@@ -71,11 +76,10 @@ jobs:
         run: npm --prefix frontend run typecheck
 
   # ─────────────────────────────────────────────
-  # 3. TESTS — Vitest with coverage (frontend)
-  #            + Node test runner (backend)
+  # 3. TESTS — regras e contratos na camada mais baixa possível
   # ─────────────────────────────────────────────
   test:
-    name: Tests & Coverage
+    name: Tests
     runs-on: ubuntu-latest
     # Inject required secrets as env vars for integration tests.
     # Add repository secrets (Settings > Secrets) and reference them here:
@@ -85,10 +89,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js (LTS)
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json
@@ -103,16 +107,33 @@ jobs:
       - name: Run backend tests
         run: npm --prefix backend run test
 
-      - name: Run frontend tests with coverage (Vitest)
-        run: npm --prefix frontend run test:coverage
+      - name: Run frontend unit and component tests
+        run: npm --prefix frontend run test
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
+  # Somente jornadas que atravessam várias telas permanecem no E2E obrigatório.
+  e2e-critical:
+    name: Critical E2E journeys
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
-          name: coverage-report
-          path: frontend/coverage/
-          if-no-files-found: warn
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run critical E2E journeys
+        run: npm --prefix frontend run test:e2e:critical
 
   # ─────────────────────────────────────────────
   # 4. SECURITY AUDIT — npm audit (high+)
@@ -123,10 +144,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js (LTS)
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json
@@ -152,14 +173,14 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, audit]
+    needs: [lint, typecheck, test, e2e-critical, audit]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js (LTS)
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json

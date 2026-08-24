@@ -64,31 +64,36 @@ export function hasOrderPreparationDetails(order: Order) {
 
 export function OrderItems({ order }: { order: Order }) {
   const detailedItems = order.itemDetails?.length ? order.itemDetails : null;
+  const summaryItems = order.items.filter((item) => item.trim());
 
   return (
     <S.ItemList className="items">
-      {detailedItems
-        ? detailedItems.map((item, itemIndex) => (
-            <div className="order-item" key={`${item.name}-${itemIndex}`}>
-              <strong className="item-name">
-                <span>{item.quantity}×</span>
-                {item.name}
-              </strong>
-              {item.customizations.map((group, groupIndex) => (
-                <div className="choice-group" key={`${group.groupName}-${groupIndex}`}>
-                  <b>{group.groupName}</b>
-                  <span>{group.options.join(', ')}</span>
-                </div>
-              ))}
-              {item.observation && (
-                <p className="item-observation">
-                  <b>Observação deste item</b>
-                  <span>{item.observation}</span>
-                </p>
-              )}
-            </div>
-          ))
-        : order.items.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}
+      {detailedItems ? (
+        detailedItems.map((item, itemIndex) => (
+          <div className="order-item" key={`${item.name}-${itemIndex}`}>
+            <strong className="item-name">
+              <span>{item.quantity}×</span>
+              {item.name}
+            </strong>
+            {item.customizations.map((group, groupIndex) => (
+              <div className="choice-group" key={`${group.groupName}-${groupIndex}`}>
+                <b>{group.groupName}</b>
+                <span>{group.options.join(', ')}</span>
+              </div>
+            ))}
+            {item.observation && (
+              <p className="item-observation">
+                <b>Observação deste item</b>
+                <span>{item.observation}</span>
+              </p>
+            )}
+          </div>
+        ))
+      ) : summaryItems.length ? (
+        summaryItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)
+      ) : (
+        <span className="missing-items">Itens do pedido não informados.</span>
+      )}
       {order.observation && (
         <aside className="order-observation">
           <b>Observação do pedido</b>

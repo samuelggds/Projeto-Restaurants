@@ -45,6 +45,8 @@ model User {
   productFavorites           ProductFavorite[]
   addresses                  UserAddress[]
   couponRedemptions          CouponRedemption[]
+  assignedTableServiceCalls  TableServiceCall[]   @relation("AssignedTableServiceCalls")
+  resolvedTableServiceCalls  TableServiceCall[]   @relation("ResolvedTableServiceCalls")
 }
 
 model UserAddress {
@@ -106,6 +108,7 @@ model Restaurant {
   users               User[]
   orderIssueThreads   OrderIssueThread[]
   couponRedemptions   CouponRedemption[]
+  tableServiceCalls   TableServiceCall[]
 }
 
 model SupportChatMessage {
@@ -313,6 +316,7 @@ model Table {
   orders        Order[]
   restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   tableSessions TableSession[]
+  serviceCalls  TableServiceCall[]
 
   @@unique([restaurantId, number])
 }
@@ -333,6 +337,32 @@ model TableSession {
   closedBy     User?              @relation("ClosedTableSessions", fields: [closedById], references: [id])
   openedBy     User               @relation("OpenedTableSessions", fields: [openedById], references: [id])
   table        Table              @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  serviceCalls TableServiceCall[]
+}
+
+model TableServiceCall {
+  id             Int                    @id @default(autoincrement())
+  restaurantId   Int
+  tableId        Int
+  tableSessionId Int
+  type           TableServiceCallType
+  status         TableServiceCallStatus @default(WAITING)
+  assignedToId   Int?
+  resolvedById   Int?
+  requestedAt    DateTime               @default(now())
+  assignedAt     DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  restaurant     Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table          Table                  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableSession   TableSession           @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  assignedTo     User?                  @relation("AssignedTableServiceCalls", fields: [assignedToId], references: [id], onDelete: SetNull)
+  resolvedBy     User?                  @relation("ResolvedTableServiceCalls", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status, requestedAt])
+  @@index([tableId, status])
+  @@index([tableSessionId, status])
 }
 
 model Order {
@@ -779,6 +809,17 @@ enum SubscriptionStatus {
 enum TableSessionStatus {
   OPEN
   CLOSED
+}
+
+enum TableServiceCallType {
+  WAITER
+  BILL
+}
+
+enum TableServiceCallStatus {
+  WAITING
+  IN_PROGRESS
+  RESOLVED
 }
 
 enum InvoiceStatus {
