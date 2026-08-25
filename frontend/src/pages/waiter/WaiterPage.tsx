@@ -11,6 +11,10 @@ import { WaiterModule } from './WaiterModule';
 import type { EmployeeWorkspaceData, RestaurantBrand, WaiterWorkspaceState } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
 import { asRecord, mapWaiterCalls, mapWaiterTables } from './waiterAdapter';
+import {
+  playOrderNotificationSound,
+  prepareOrderNotificationSound,
+} from '../admin/domain/orderNotificationSound';
 
 const POLL_MS = 30_000;
 
@@ -43,6 +47,20 @@ export default function WaiterPage() {
   });
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
+  const callAlarmIntervalRef = useRef<number | null>(null);
+
+  const stopCallAlarm = useCallback(() => {
+    if (callAlarmIntervalRef.current !== null) {
+      window.clearInterval(callAlarmIntervalRef.current);
+      callAlarmIntervalRef.current = null;
+    }
+  }, []);
+
+  const startCallAlarm = useCallback(() => {
+    if (callAlarmIntervalRef.current !== null) return;
+    playOrderNotificationSound();
+    callAlarmIntervalRef.current = window.setInterval(playOrderNotificationSound, 1500);
+  }, []);
 
   const loadWorkspace = useCallback(async (refreshing = false) => {
     if (inFlightRef.current) return;
@@ -97,7 +115,14 @@ export default function WaiterPage() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      stopCallAlarm();
     };
+  }, [stopCallAlarm]);
+
+  useEffect(() => {
+    const unlockSound = () => prepareOrderNotificationSound();
+    window.addEventListener('pointerdown', unlockSound, { once: true });
+    return () => window.removeEventListener('pointerdown', unlockSound);
   }, []);
 
   useEffect(() => {
@@ -130,20 +155,24 @@ export default function WaiterPage() {
     if (!token || !restaurantId) return;
     const socket = connectSocket(token, 'waiter-workspace');
     const refresh = () => void loadWorkspace(true);
+    const handleNewCall = () => {
+      startCallAlarm();
+      refresh();
+    };
     socket.on('new-order', refresh);
     socket.on('order:status-changed', refresh);
     socket.on('waiter:order-updated', refresh);
-    socket.on('waiter-call:created', refresh);
+    socket.on('waiter-call:created', handleNewCall);
     socket.on('waiter-call:updated', refresh);
     return () => {
       socket.off('new-order', refresh);
       socket.off('order:status-changed', refresh);
       socket.off('waiter:order-updated', refresh);
-      socket.off('waiter-call:created', refresh);
+      socket.off('waiter-call:created', handleNewCall);
       socket.off('waiter-call:updated', refresh);
       disconnectSocket();
     };
-  }, [loadWorkspace, restaurantId]);
+  }, [loadWorkspace, restaurantId, startCallAlarm]);
 
   const account = user as GenericRecord;
   const employee = {
@@ -204,6 +233,7 @@ export default function WaiterPage() {
       onUpdateCall={async (callId, status) => {
         if (status === 'WAITING')
           throw new Error('Não é possível reabrir um chamado por esta tela.');
+        stopCallAlarm();
         await waiterCallsService.updateStatus(callId, status);
         setData((current) => ({
           ...current,
@@ -219,6 +249,13 @@ export default function WaiterPage() {
           ),
         }));
         void loadWorkspace(true);
+      }}
+      onDeleteCall={async (callId) => {
+        await waiterCallsService.deleteCall(callId);
+        setData((current) => ({
+          ...current,
+          calls: current.calls.filter((call) => call.id !== callId),
+        }));
       }}
       onLogout={() => {
         logout();

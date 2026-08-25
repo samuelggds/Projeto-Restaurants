@@ -7,6 +7,7 @@ import {
   QrCode,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -67,6 +68,8 @@ export function TableMenuSettings({ settings, update }: Props) {
   const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedTable, setSelectedTable] = useState<AdminTableQrRecord | null>(null);
+  const [deleteTableCandidate, setDeleteTableCandidate] = useState<AdminTableQrRecord | null>(null);
+  const [deletingTable, setDeletingTable] = useState(false);
   const [printTables, setPrintTables] = useState<AdminTableQrRecord[]>([]);
   const qrNodesRef = useRef(new Map<string, HTMLDivElement>());
   const closeDialogRef = useRef<HTMLButtonElement>(null);
@@ -188,6 +191,25 @@ export function TableMenuSettings({ settings, update }: Props) {
         document.body.classList.remove('admin-table-qr-printing');
       }
     }, 0);
+  };
+
+  const deleteTable = async () => {
+    if (!deleteTableCandidate || deletingTable) return;
+    setDeletingTable(true);
+    setActionError('');
+    try {
+      await tablesService.deleteTable(deleteTableCandidate.id);
+      setTables((current) => current.filter((table) => table.id !== deleteTableCandidate.id));
+      setSelectedTable(null);
+      setDeleteTableCandidate(null);
+      setSuccess(
+        `${tableDisplayName(deleteTableCandidate.number)} excluída. Você já pode cadastrá-la novamente.`,
+      );
+    } catch (requestError) {
+      setActionError(requestErrorMessage(requestError, 'Não foi possível excluir esta mesa.'));
+    } finally {
+      setDeletingTable(false);
+    }
   };
 
   return (
@@ -372,7 +394,7 @@ export function TableMenuSettings({ settings, update }: Props) {
                       <QRCode
                         value={buildAdminTableQrUrl(table)}
                         size={72}
-                        level="M"
+                        level="H"
                         title={`QR Code da ${name}`}
                       />
                     ) : (
@@ -396,6 +418,13 @@ export function TableMenuSettings({ settings, update }: Props) {
                     >
                       <Download /> Baixar QR
                     </T.SecondaryButton>
+                    <T.DeleteButton
+                      type="button"
+                      aria-label={`Excluir ${name}`}
+                      onClick={() => setDeleteTableCandidate(table)}
+                    >
+                      <Trash2 /> Excluir mesa
+                    </T.DeleteButton>
                   </footer>
                 </T.TableCard>
               );
@@ -476,7 +505,7 @@ export function TableMenuSettings({ settings, update }: Props) {
               <h2>{settings.restaurantName || 'Seu restaurante'}</h2>
               <h3>{tableDisplayName(table.number)}</h3>
               <div className="print-qr">
-                <QRCode value={buildAdminTableQrUrl(table)} size={720} level="M" />
+                <QRCode value={buildAdminTableQrUrl(table)} size={720} level="H" />
               </div>
               <p>Escaneie para acessar o cardápio desta mesa.</p>
             </article>
@@ -508,7 +537,7 @@ export function TableMenuSettings({ settings, update }: Props) {
               <QRCode
                 value={buildAdminTableQrUrl(selectedTable)}
                 size={230}
-                level="M"
+                level="H"
                 title={`QR Code da ${tableDisplayName(selectedTable.number)}`}
               />
             </div>
@@ -529,6 +558,45 @@ export function TableMenuSettings({ settings, update }: Props) {
               </T.PrimaryButton>
             </div>
           </T.QrDialog>
+        </T.DialogBackdrop>
+      )}
+
+      {deleteTableCandidate && (
+        <T.DialogBackdrop onMouseDown={() => !deletingTable && setDeleteTableCandidate(null)}>
+          <T.DeleteDialog
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-table-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <span className="delete-icon" aria-hidden="true">
+              <Trash2 />
+            </span>
+            <span className="eyebrow">REMOVER QR CODE</span>
+            <h2 id="delete-table-title">
+              Excluir {tableDisplayName(deleteTableCandidate.number)}?
+            </h2>
+            <p>
+              O QR Code será removido e o número ficará disponível para um novo cadastro. Mesas com
+              pedidos ou atendimento aberto não podem ser excluídas.
+            </p>
+            <div className="dialog-actions">
+              <T.SecondaryButton
+                type="button"
+                disabled={deletingTable}
+                onClick={() => setDeleteTableCandidate(null)}
+              >
+                Cancelar
+              </T.SecondaryButton>
+              <T.DeleteButton
+                type="button"
+                disabled={deletingTable}
+                onClick={() => void deleteTable()}
+              >
+                <Trash2 /> {deletingTable ? 'Excluindo...' : 'Excluir mesa'}
+              </T.DeleteButton>
+            </div>
+          </T.DeleteDialog>
         </T.DialogBackdrop>
       )}
     </S.SettingSection>

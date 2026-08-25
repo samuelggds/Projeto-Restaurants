@@ -98,18 +98,11 @@ class TableServiceCallRepository {
     });
   }
 
-  async create(
-    data: Prisma.TableServiceCallUncheckedCreateInput,
-    db: PrismaClientLike = prisma,
-  ) {
+  async create(data: Prisma.TableServiceCallUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.tableServiceCall.create({ data, include: callInclude });
   }
 
-  async findByIdForRestaurant(
-    id: number,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
+  async findByIdForRestaurant(id: number, restaurantId: number, db: PrismaClientLike = prisma) {
     return db.tableServiceCall.findFirst({
       where: { id, restaurantId },
       include: callInclude,
@@ -131,7 +124,9 @@ class TableServiceCallRepository {
       ? { status: filters.status }
       : {
           OR: [
-            { status: { in: [TableServiceCallStatus.WAITING, TableServiceCallStatus.IN_PROGRESS] } },
+            {
+              status: { in: [TableServiceCallStatus.WAITING, TableServiceCallStatus.IN_PROGRESS] },
+            },
             {
               status: TableServiceCallStatus.RESOLVED,
               resolvedAt: { gte: filters.resolvedSince || new Date(0) },
@@ -186,6 +181,13 @@ class TableServiceCallRepository {
     return result.count;
   }
 
+  async deleteResolved(id: number, restaurantId: number, db: PrismaClientLike = prisma) {
+    const result = await db.tableServiceCall.deleteMany({
+      where: { id, restaurantId, status: TableServiceCallStatus.RESOLVED },
+    });
+    return result.count;
+  }
+
   async listActiveBySession(
     tableSessionId: number,
     restaurantId: number,
@@ -220,7 +222,6 @@ class TableServiceCallRepository {
       },
     });
   }
-
 }
 
 export default new TableServiceCallRepository();

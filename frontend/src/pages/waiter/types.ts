@@ -75,6 +75,7 @@ export interface EmployeeWorkspaceProps {
   onOpenTable?: (tableId: string) => OpenTableResult | Promise<OpenTableResult>;
   onCloseTable?: (sessionId: string) => void | Promise<void>;
   onUpdateCall?: (callId: string, status: CallStatus) => void | Promise<void>;
+  onDeleteCall?: (callId: string) => void | Promise<void>;
   workspaceState?: WaiterWorkspaceState;
   onRefresh?: () => void | Promise<void>;
   onLogout?: () => void;

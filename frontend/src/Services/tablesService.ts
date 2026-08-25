@@ -29,6 +29,11 @@ class TablesService {
     return response.data;
   }
 
+  async deleteTable(tableId) {
+    const response = await api.delete(`/tables/${tableId}`);
+    return response.data;
+  }
+
   async activateTable(tableId, number) {
     const response = await api.put(`/tables/${tableId}`, {
       number,

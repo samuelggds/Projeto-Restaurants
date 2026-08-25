@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import tableSessionService from '../../Services/tableSessionService';
 import tablesService from '../../Services/tablesService';
+import { connectTableWaitingSocket } from '../../Services/socketService';
 import DigitalMenuEntryPage from './DigitalMenuEntryPage';
 
 vi.mock('../../Services/tablesService', () => ({
@@ -16,6 +17,11 @@ vi.mock('../../Services/tableSessionService', () => ({
   default: {
     joinOpenSession: vi.fn(),
   },
+}));
+
+vi.mock('../../Services/socketService', () => ({
+  connectTableWaitingSocket: vi.fn(),
+  disconnectTableWaitingSocket: vi.fn(),
 }));
 
 vi.mock('../Home/Home', () => ({
@@ -40,6 +46,7 @@ describe('DigitalMenuEntryPage', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
   it('resolve tableNumber no restaurante e abre o fluxo funcional com o id interno correto', async () => {
@@ -119,6 +126,42 @@ describe('DigitalMenuEntryPage', () => {
     expect(container.textContent).not.toContain('Fluxo funcional do cardápio');
   });
 
+  it('usa o token como identidade principal quando o tid do QR está desatualizado', async () => {
+    const tableToken = '0123456789abcdef0123456789abcdef';
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession).mockResolvedValue({
+      sessionToken: 'sessao-segura',
+      sessionId: 31,
+      tableId: 91,
+      tableNumber: 12,
+      restaurantId: 7,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[`/restaurante-teste/mesa/12?tid=12&tk=${tableToken}`]}>
+          <Routes>
+            <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenuEntryPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(container.textContent).toContain('Fluxo funcional do cardápio');
+  });
+
   it('orienta aguardar o garçom sem exibir campo de PIN quando a mesa está fechada', async () => {
     const tableToken = 'fedcba9876543210fedcba9876543210';
     vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
@@ -133,7 +176,8 @@ describe('DigitalMenuEntryPage', () => {
     vi.mocked(tableSessionService.joinOpenSession).mockRejectedValue({
       response: {
         data: {
-          error: 'Esta mesa ainda não foi aberta pelo garçom. Aguarde o atendimento e tente novamente.',
+          error:
+            'Esta mesa ainda não foi aberta pelo garçom. Aguarde o atendimento e tente novamente.',
         },
       },
     });
@@ -152,5 +196,116 @@ describe('DigitalMenuEntryPage', () => {
     expect(container.textContent).toContain('ainda não foi aberta pelo garçom');
     expect(container.textContent).not.toContain('PIN');
     expect(container.querySelector('button')?.textContent).toContain('Verificar novamente');
+  });
+
+  it('libera o cardápio automaticamente quando o garçom abre a mesa', async () => {
+    vi.useFakeTimers();
+    const tableToken = 'fedcba9876543210fedcba9876543210';
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession)
+      .mockRejectedValueOnce({
+        response: {
+          data: {
+            error:
+              'Esta mesa ainda não foi aberta pelo garçom. Aguarde o atendimento e tente novamente.',
+          },
+        },
+      })
+      .mockResolvedValue({
+        sessionToken: 'sessao-segura',
+        sessionId: 31,
+        tableId: 91,
+        tableNumber: 12,
+        restaurantId: 7,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
+      });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[`/mesa/12?rid=7&tk=${tableToken}`]}>
+          <Routes>
+            <Route path="/mesa/:tableNumber" element={<DigitalMenuEntryPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+    expect(container.textContent).toContain('Mesa aguardando abertura');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('Fluxo funcional do cardápio');
+  });
+
+  it('libera o cardápio em tempo real ao receber a abertura da mesa', async () => {
+    const tableToken = 'fedcba9876543210fedcba9876543210';
+    let handleOpened: ((payload: { tableId: number; restaurantId: number }) => void) | undefined;
+    vi.mocked(connectTableWaitingSocket).mockReturnValue({
+      on: vi.fn((event, handler) => {
+        if (event === 'table:session-opened') handleOpened = handler;
+      }),
+      off: vi.fn(),
+    } as never);
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession)
+      .mockRejectedValueOnce({
+        response: {
+          data: {
+            error:
+              'Esta mesa ainda não foi aberta pelo garçom. Aguarde o atendimento e tente novamente.',
+          },
+        },
+      })
+      .mockResolvedValue({
+        sessionToken: 'sessao-segura',
+        sessionId: 31,
+        tableId: 91,
+        tableNumber: 12,
+        restaurantId: 7,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
+      });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[`/mesa/12?rid=7&tk=${tableToken}`]}>
+          <Routes>
+            <Route path="/mesa/:tableNumber" element={<DigitalMenuEntryPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+    expect(container.textContent).toContain('Mesa aguardando abertura');
+    expect(handleOpened).toBeTypeOf('function');
+
+    await act(async () => {
+      handleOpened?.({ tableId: 91, restaurantId: 7 });
+    });
+
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('Fluxo funcional do cardápio');
   });
 });

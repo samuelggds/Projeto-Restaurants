@@ -6,6 +6,7 @@ import { tableServiceCallRateLimitMiddleware } from '../../../middlewares/securi
 import CreateTableServiceCallController from '../controllers/CreateTableServiceCallController.js';
 import ListTableServiceCallsController from '../controllers/ListTableServiceCallsController.js';
 import UpdateTableServiceCallStatusController from '../controllers/UpdateTableServiceCallStatusController.js';
+import DeleteTableServiceCallController from '../controllers/DeleteTableServiceCallController.js';
 
 const router = Router();
 
@@ -21,6 +22,10 @@ router.get('/', authMiddleware, waiterMiddleware, (req, res) =>
 
 router.patch('/:id/status', authMiddleware, waiterMiddleware, (req, res) =>
   UpdateTableServiceCallStatusController.handle(req, res),
+);
+
+router.delete('/:id', authMiddleware, waiterMiddleware, (req, res) =>
+  DeleteTableServiceCallController.handle(req, res),
 );
 
 export default router;

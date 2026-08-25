@@ -33,6 +33,8 @@ export function HomePage({
   userEmail,
   userLoggedIn = false,
   isAdmin = false,
+  isTableMenu = false,
+  tableLabel,
   favoriteProductIds = [],
   savedAddresses = [],
   selectedAddressId,
@@ -106,6 +108,8 @@ export function HomePage({
         userEmail={userEmail}
         userLoggedIn={userLoggedIn}
         isAdmin={isAdmin}
+        isTableMenu={isTableMenu}
+        tableLabel={tableLabel}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={onSelectAddress}

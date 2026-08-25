@@ -18,7 +18,11 @@ const Root = styled.div<{ $primary: string }>`
   place-items: center;
   padding: clamp(18px, 5vw, 48px);
   background:
-    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 30%),
+    radial-gradient(
+      circle at 12% 8%,
+      color-mix(in srgb, var(--primary) 10%, transparent),
+      transparent 30%
+    ),
     #fffdf9;
   color: #191816;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -183,9 +187,7 @@ export function TableAccessGate({
       <Card>
         <Hero>
           <div className="icon">{invalidQr ? <QrCode /> : <Clock3 />}</div>
-          <Eyebrow>
-            {tableLabel ? `Mesa ${String(tableLabel)}` : 'Acesso por QR Code'}
-          </Eyebrow>
+          <Eyebrow>{tableLabel ? `Mesa ${String(tableLabel)}` : 'Acesso por QR Code'}</Eyebrow>
           <h1>{title}</h1>
           <p role={invalidQr ? 'alert' : 'status'}>{message}</p>
         </Hero>
@@ -200,7 +202,7 @@ export function TableAccessGate({
             <div>
               <QrCode />
               <b>2. Use este mesmo QR</b>
-              <small>Depois da abertura, toque em verificar para entrar.</small>
+              <small>O cardápio será liberado automaticamente após a abertura.</small>
             </div>
           </Steps>
         )}

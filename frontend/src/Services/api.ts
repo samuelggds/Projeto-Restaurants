@@ -56,6 +56,7 @@ function getApiBaseUrls() {
   const runtimeUrl = normalizeBaseUrl(getRuntimeBaseUrl());
   const sameOriginUrl =
     typeof window !== 'undefined' ? normalizeBaseUrl(window.location.origin) : '';
+  const developmentProxyUrl = import.meta.env.DEV && sameOriginUrl ? `${sameOriginUrl}/api` : '';
   const defaultLoopbackUrl = 'http://127.0.0.1:3000';
   const defaultLocalUrl = 'http://localhost:3000';
   const urls = new Set<string>();
@@ -69,11 +70,15 @@ function getApiBaseUrls() {
 
   // In production-like hosts, never fall back to host:3000.
   if (!isLocalRuntimeHost) {
+    if (developmentProxyUrl) {
+      urls.add(developmentProxyUrl);
+    }
+
     if (configuredUrl) {
       urls.add(configuredUrl);
     }
 
-    if (sameOriginUrl) {
+    if (!developmentProxyUrl && sameOriginUrl) {
       urls.add(sameOriginUrl);
     }
 

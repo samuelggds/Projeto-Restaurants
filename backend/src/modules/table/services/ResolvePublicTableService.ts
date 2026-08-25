@@ -43,7 +43,9 @@ class ResolvePublicTableService {
     const normalizedSlug = String(restaurantSlug || '')
       .trim()
       .toLowerCase();
-    const normalizedTableToken = String(tableToken || '').trim().toLowerCase();
+    const normalizedTableToken = String(tableToken || '')
+      .trim()
+      .toLowerCase();
 
     if (!normalizedTableNumber) {
       throw new PublicTableResolutionError('Número da mesa inválido.');
@@ -87,7 +89,7 @@ class ResolvePublicTableService {
       ...(normalizedSlug ? { restaurantSlug: normalizedSlug } : {}),
     });
 
-    if (!table || (normalizedTableId && table.id !== normalizedTableId)) {
+    if (!table) {
       throw new PublicTableResolutionError(
         'Mesa não encontrada neste restaurante.',
         404,

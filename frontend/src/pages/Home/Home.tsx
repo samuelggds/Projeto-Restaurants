@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { PanelBottomClose, PanelBottomOpen } from 'lucide-react';
 import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
@@ -92,6 +93,9 @@ export default function Home() {
   } = useDeliveryAddress(user);
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
+  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(() =>
+    /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname),
+  );
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
   const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(customerId);
@@ -452,7 +456,7 @@ export default function Home() {
 
   // ── Main render
   return (
-    <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary}>
+    <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <HomePage
         data={homeData}
         cartCount={cartCount}
@@ -460,6 +464,8 @@ export default function Home() {
         userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
         userLoggedIn={!!user}
         isAdmin={user?.role === 'ADMIN'}
+        isTableMenu={mesaMode}
+        tableLabel={mesaMode ? mesaLabel : undefined}
         favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : []}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
@@ -586,42 +592,61 @@ export default function Home() {
         onDismissNotification={dismissNotif}
       />
       <S.FloatingActions $aboveNudge={showLoginNudge} $primary={primary}>
-        {mesaMode && tableSession && (
-          <TableServiceActions
-            tableNumber={mesaLabel}
-            waiterEnabled={tableSession.waiterCallEnabled !== false}
-            billEnabled={tableSession.billRequestEnabled !== false}
-            loading={tableServiceLoading}
-            onCallWaiter={() => void requestTableService('WAITER')}
-            onRequestBill={() => void requestTableService('BILL')}
-          />
-        )}
-        {whatsappUrl && (
-          <S.Whatsapp
-            href={whatsappUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Falar com ${whatsappLabel} no WhatsApp`}
-            title={`Falar com ${whatsappLabel}`}
+        {mesaMode && (
+          <S.FloatingActionsToggle
+            type="button"
+            aria-expanded={!floatingActionsCollapsed}
+            aria-label={
+              floatingActionsCollapsed
+                ? 'Abrir cupons, status do pedido e avisos da mesa'
+                : 'Minimizar cupons, status do pedido e avisos da mesa'
+            }
+            onClick={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
           >
-            <WhatsAppIcon size={24} />
-          </S.Whatsapp>
+            {floatingActionsCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}
+            <span>{floatingActionsCollapsed ? 'Cupons e status' : 'Minimizar'}</span>
+          </S.FloatingActionsToggle>
         )}
-        {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
-        <ActiveOrderNotice
-          primaryColor={primary}
-          order={activeOrder}
-          onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
-          onConfirmDelivery={async (orderId) => {
-            await ordersService.confirmDeliveryReceived(orderId);
-            await refreshActiveOrder();
-            notify(
-              'success',
-              'Recebimento confirmado',
-              'A cozinha e o restaurante foram avisados.',
-            );
-          }}
-        />
+        {!floatingActionsCollapsed && (
+          <>
+            {mesaMode && tableSession && (
+              <TableServiceActions
+                tableNumber={mesaLabel}
+                waiterEnabled={tableSession.waiterCallEnabled !== false}
+                billEnabled={tableSession.billRequestEnabled !== false}
+                loading={tableServiceLoading}
+                onCallWaiter={() => void requestTableService('WAITER')}
+                onRequestBill={() => void requestTableService('BILL')}
+              />
+            )}
+            {whatsappUrl && (
+              <S.Whatsapp
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Falar com ${whatsappLabel} no WhatsApp`}
+                title={`Falar com ${whatsappLabel}`}
+              >
+                <WhatsAppIcon size={24} />
+              </S.Whatsapp>
+            )}
+            {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
+            <ActiveOrderNotice
+              primaryColor={primary}
+              order={activeOrder}
+              onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+              onConfirmDelivery={async (orderId) => {
+                await ordersService.confirmDeliveryReceived(orderId);
+                await refreshActiveOrder();
+                notify(
+                  'success',
+                  'Recebimento confirmado',
+                  'A cozinha e o restaurante foram avisados.',
+                );
+              }}
+            />
+          </>
+        )}
       </S.FloatingActions>
     </S.HomeExperience>
   );

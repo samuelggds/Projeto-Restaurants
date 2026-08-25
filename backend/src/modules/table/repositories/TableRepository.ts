@@ -1,9 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import {
-  OrderStatus,
-  PaymentMethod,
-  TableSessionStatus,
-} from '@prisma/client';
+import { OrderStatus, PaymentMethod, TableSessionStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -165,6 +161,18 @@ class TableRepository {
         active: false,
       },
     });
+  }
+
+  async deleteIfUnused(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
+    const result = await db.table.deleteMany({
+      where: {
+        id: Number(id),
+        restaurantId,
+        orders: { none: {} },
+        tableSessions: { none: { status: TableSessionStatus.OPEN } },
+      },
+    });
+    return result.count;
   }
 }
 

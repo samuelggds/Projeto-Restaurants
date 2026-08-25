@@ -142,6 +142,8 @@ export type HomePageProps = {
   userEmail?: string;
   userLoggedIn?: boolean;
   isAdmin?: boolean;
+  isTableMenu?: boolean;
+  tableLabel?: string | number;
   favoriteProductIds?: string[];
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;

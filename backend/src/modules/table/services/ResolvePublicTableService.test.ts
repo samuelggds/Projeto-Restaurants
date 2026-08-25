@@ -58,23 +58,20 @@ test('resolve a mesa pelo número e pelo restaurante sem confundir com o id inte
   });
 });
 
-test('rejeita QR sem restaurante e mesa pertencente a outro id', async () => {
+test('rejeita QR sem restaurante e aceita id interno antigo quando o token é válido', async () => {
   await assert.rejects(
     () => resolvePublicTableService.execute({ tableNumber: 12, tableToken: '' }),
     /QR Code da mesa é inválido/i,
   );
 
   tableRepository.findPublicByReference = async () => publicTable;
-  await assert.rejects(
-    () =>
-      resolvePublicTableService.execute({
-        tableNumber: 12,
-        tableToken,
-        tableId: 92,
-        restaurantId: 7,
-      }),
-    /não encontrada neste restaurante/i,
-  );
+  const result = await resolvePublicTableService.execute({
+    tableNumber: 12,
+    tableToken,
+    tableId: 92,
+    restaurantId: 7,
+  });
+  assert.equal(result.id, 91);
 });
 
 test('rejeita restaurante fora do plano de cardápio de mesa', async () => {

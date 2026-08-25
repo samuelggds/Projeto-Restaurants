@@ -2,12 +2,16 @@ import { io } from 'socket.io-client';
 
 let socket = null;
 let tableSessionSocket = null;
+let tableWaitingSocket = null;
 let socketAuthToken = '';
 let tableSessionAuthToken = '';
+let tableWaitingAuthKey = '';
 let socketBaseUrl = '';
 let tableSessionBaseUrl = '';
+let tableWaitingBaseUrl = '';
 let socketContextName = 'unknown';
 let tableSessionContextName = 'unknown';
+let tableWaitingContextName = 'unknown';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 const SOCKET_DEBUG_ENABLED =
@@ -86,6 +90,7 @@ function getSocketBaseUrls() {
   const runtimeUrl = normalizeBaseUrl(getRuntimeSocketUrl());
   const sameOriginUrl =
     typeof window !== 'undefined' ? normalizeBaseUrl(window.location.origin) : '';
+  const developmentProxyUrl = import.meta.env.DEV ? sameOriginUrl : '';
   const defaultLoopbackUrl = 'http://127.0.0.1:3000';
   const defaultLocalUrl = 'http://localhost:3000';
   const urls = new Set<string>();
@@ -99,11 +104,15 @@ function getSocketBaseUrls() {
 
   // In production-like hosts, never fall back to host:3000.
   if (!isLocalRuntimeHost) {
+    if (developmentProxyUrl) {
+      urls.add(developmentProxyUrl);
+    }
+
     if (configuredUrl) {
       urls.add(configuredUrl);
     }
 
-    if (sameOriginUrl) {
+    if (!developmentProxyUrl && sameOriginUrl) {
       urls.add(sameOriginUrl);
     }
 
@@ -399,4 +408,86 @@ export function disconnectTableSessionSocket() {
   tableSessionAuthToken = '';
   tableSessionBaseUrl = '';
   tableSessionContextName = 'unknown';
+}
+
+export function connectTableWaitingSocket(
+  { tableToken, tableNumber, restaurantId, restaurantSlug },
+  contextName = 'unknown',
+) {
+  const baseUrl = getSocketBaseUrl();
+  const normalizedTableToken = normalizeAuthValue(tableToken).toLowerCase();
+  const normalizedTableNumber = Number(tableNumber);
+  const normalizedRestaurantId = Number(restaurantId) || null;
+  const normalizedRestaurantSlug = normalizeAuthValue(restaurantSlug).toLowerCase();
+  const normalizedContext = normalizeAuthValue(contextName) || 'unknown';
+  const authKey = [
+    normalizedTableToken,
+    normalizedTableNumber,
+    normalizedRestaurantId || '',
+    normalizedRestaurantSlug,
+  ].join(':');
+
+  if (
+    !normalizedTableToken ||
+    !Number.isInteger(normalizedTableNumber) ||
+    normalizedTableNumber <= 0 ||
+    (!normalizedRestaurantId && !normalizedRestaurantSlug)
+  ) {
+    return null;
+  }
+
+  if (tableWaitingSocket && tableWaitingAuthKey === authKey && tableWaitingBaseUrl === baseUrl) {
+    tableWaitingContextName = normalizedContext;
+    if (!tableWaitingSocket.connected && !tableWaitingSocket.active) {
+      tableWaitingSocket.connect();
+    }
+    return tableWaitingSocket;
+  }
+
+  if (tableWaitingSocket) {
+    tableWaitingSocket.disconnect();
+  }
+
+  tableWaitingSocket = io(baseUrl, {
+    path: getSocketPath(),
+    transports: ['websocket', 'polling'],
+    auth: {
+      tableToken: normalizedTableToken,
+      tableNumber: normalizedTableNumber,
+      ...(normalizedRestaurantId ? { restaurantId: normalizedRestaurantId } : {}),
+      ...(normalizedRestaurantSlug ? { restaurantSlug: normalizedRestaurantSlug } : {}),
+    },
+  });
+  tableWaitingAuthKey = authKey;
+  tableWaitingBaseUrl = baseUrl;
+  tableWaitingContextName = normalizedContext;
+
+  tableWaitingSocket.on('connect', () => {
+    debugSocket(`connected table-waiting socket (${tableWaitingContextName})`, {
+      socketId: tableWaitingSocket?.id,
+      baseUrl: tableWaitingBaseUrl,
+      tableToken: getTokenSuffix(normalizedTableToken),
+      transport: tableWaitingSocket?.io?.engine?.transport?.name,
+    });
+  });
+  tableWaitingSocket.on('connect_error', (error) => {
+    debugSocket(`connect_error table-waiting socket (${tableWaitingContextName})`, {
+      message: error?.message,
+      baseUrl: tableWaitingBaseUrl,
+      tableToken: getTokenSuffix(normalizedTableToken),
+    });
+  });
+
+  return tableWaitingSocket;
+}
+
+export function disconnectTableWaitingSocket() {
+  if (tableWaitingSocket) {
+    tableWaitingSocket.disconnect();
+    tableWaitingSocket = null;
+  }
+
+  tableWaitingAuthKey = '';
+  tableWaitingBaseUrl = '';
+  tableWaitingContextName = 'unknown';
 }

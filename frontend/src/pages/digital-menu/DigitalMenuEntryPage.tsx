@@ -3,6 +3,10 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import tableSessionService from '../../Services/tableSessionService';
 import tablesService from '../../Services/tablesService';
+import {
+  connectTableWaitingSocket,
+  disconnectTableWaitingSocket,
+} from '../../Services/socketService';
 import type { StoredTableSession } from '../Home/domain/tableSession';
 import Home from '../Home/Home';
 import { TableAccessGate } from '../Home/components/TableAccessGate';
@@ -22,6 +26,8 @@ type EntryState =
   | { status: 'ready'; key: string; table: ResolvedTable; error: '' }
   | { status: 'waiting'; key: string; table: ResolvedTable | null; error: string }
   | { status: 'invalid'; key: string; table: null; error: string };
+
+const WAITING_RETRY_MS = 3_000;
 
 const Loading = styled.main`
   min-height: 100vh;
@@ -63,6 +69,15 @@ function isWaitingForWaiter(message: string) {
     normalized.includes('mesa novamente') ||
     normalized.includes('sessão') ||
     normalized.includes('desativad')
+  );
+}
+
+function isWaitingForTableOpening(message: string) {
+  const normalized = message.toLocaleLowerCase('pt-BR');
+  return (
+    normalized.includes('ainda não foi aberta') ||
+    normalized.includes('aguarde uma nova abertura') ||
+    normalized.includes('mesa novamente')
   );
 }
 
@@ -109,6 +124,10 @@ export default function DigitalMenuEntryPage() {
     table: null,
     error: '',
   });
+  const waitingTableId = entry.status === 'waiting' ? entry.table?.id || null : null;
+  const waitingTableNumber = entry.status === 'waiting' ? entry.table?.number || null : null;
+  const waitingRestaurantId = entry.status === 'waiting' ? entry.table?.restaurantId || null : null;
+  const waitingRestaurantSlug = entry.status === 'waiting' ? entry.table?.restaurantSlug || '' : '';
 
   useEffect(() => {
     let active = true;
@@ -136,7 +155,6 @@ export default function DigitalMenuEntryPage() {
           !positiveInteger(resolvedTable.id) ||
           resolvedTable.number !== routeTableNumber ||
           !positiveInteger(resolvedTable.restaurantId) ||
-          (queryTableId && resolvedTable.id !== queryTableId) ||
           (queryRestaurantId && resolvedTable.restaurantId !== queryRestaurantId) ||
           (normalizedSlug && resolvedTable.restaurantSlug !== normalizedSlug)
         ) {
@@ -180,9 +198,9 @@ export default function DigitalMenuEntryPage() {
         persistTableSession(storedSession);
 
         const canonicalParams = new URLSearchParams(searchParamsString);
-        canonicalParams.set('tid', String(resolvedTable.id));
         canonicalParams.set('rid', String(resolvedTable.restaurantId));
         canonicalParams.set('tk', tableToken);
+        canonicalParams.delete('tid');
         canonicalParams.delete('tableId');
         canonicalParams.delete('restaurantId');
         canonicalParams.delete('token');
@@ -229,6 +247,76 @@ export default function DigitalMenuEntryPage() {
     searchParamsString,
     setSearchParams,
     tableToken,
+  ]);
+
+  useEffect(() => {
+    if (
+      entry.status !== 'waiting' ||
+      entry.key !== entryKey ||
+      !isWaitingForTableOpening(entry.error)
+    ) {
+      return undefined;
+    }
+
+    const retryAutomatically = () => setRetryVersion((value) => value + 1);
+    const timeoutId = window.setTimeout(retryAutomatically, WAITING_RETRY_MS);
+    const retryWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      window.clearTimeout(timeoutId);
+      retryAutomatically();
+    };
+    document.addEventListener('visibilitychange', retryWhenVisible);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', retryWhenVisible);
+    };
+  }, [entry, entryKey]);
+
+  useEffect(() => {
+    if (
+      entry.status !== 'waiting' ||
+      entry.key !== entryKey ||
+      !waitingTableId ||
+      !waitingTableNumber ||
+      !waitingRestaurantId
+    ) {
+      return undefined;
+    }
+
+    const socket = connectTableWaitingSocket(
+      {
+        tableToken,
+        tableNumber: waitingTableNumber,
+        restaurantId: waitingRestaurantId,
+        restaurantSlug: waitingRestaurantSlug,
+      },
+      `waiting-table-${waitingTableId}`,
+    );
+    const handleOpened = (payload?: { tableId?: number; restaurantId?: number }) => {
+      if (
+        Number(payload?.tableId) !== waitingTableId ||
+        Number(payload?.restaurantId) !== waitingRestaurantId
+      ) {
+        return;
+      }
+      setRetryVersion((value) => value + 1);
+    };
+    socket?.on('table:session-opened', handleOpened);
+
+    return () => {
+      socket?.off('table:session-opened', handleOpened);
+      disconnectTableWaitingSocket();
+    };
+  }, [
+    entry.key,
+    entry.status,
+    entryKey,
+    tableToken,
+    waitingRestaurantId,
+    waitingRestaurantSlug,
+    waitingTableId,
+    waitingTableNumber,
   ]);
 
   const retry = () => {

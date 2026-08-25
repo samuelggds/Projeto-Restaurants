@@ -21,6 +21,8 @@ type Props = {
   userEmail?: string;
   userLoggedIn?: boolean;
   isAdmin?: boolean;
+  isTableMenu?: boolean;
+  tableLabel?: string | number;
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
   onSelectAddress?: (addressId: string) => void;
@@ -43,6 +45,8 @@ export function HomeHeader({
   userEmail,
   userLoggedIn = false,
   isAdmin = false,
+  isTableMenu = false,
+  tableLabel,
   savedAddresses = [],
   selectedAddressId,
   onSelectAddress,
@@ -110,45 +114,55 @@ export function HomeHeader({
         <strong>{brand.name}</strong>
       </Brand>
 
-      <LocationWrap ref={locationRef}>
-        <Location
-          type="button"
-          aria-label="Escolher endereço de entrega"
-          aria-expanded={locationOpen}
-          onClick={() => savedAddresses.length > 0 && setLocationOpen((open) => !open)}
-        >
-          <MapPin size={17} />
-          <span>Entregar em</span>
-          <b>• {locationText || 'Escolha um endereço'}</b>
-        </Location>
-        {savedAddresses.length > 0 && (
-          <LocationDropdown $open={locationOpen}>
-            <strong>Onde deseja receber?</strong>
-            {savedAddresses.map((address) => (
-              <LocationOption
-                type="button"
-                key={address.id}
-                $active={String(address.id) === String(selectedAddressId)}
-                onClick={() => {
-                  onSelectAddress?.(String(address.id));
-                  setLocationOpen(false);
-                }}
-              >
-                <MapPin size={17} />
-                <span>
-                  <b>{address.label}</b>
-                  <small>
-                    {address.address}, {address.number} • {address.district}
-                  </small>
-                </span>
-              </LocationOption>
-            ))}
-          </LocationDropdown>
-        )}
-      </LocationWrap>
+      {isTableMenu && tableLabel && (
+        <TableBadge aria-label={`Mesa ${String(tableLabel)}`}>
+          <span>Mesa</span>
+          <strong>{String(tableLabel).padStart(2, '0')}</strong>
+        </TableBadge>
+      )}
+
+      {!isTableMenu && (
+        <LocationWrap ref={locationRef}>
+          <Location
+            type="button"
+            aria-label="Escolher endereço de entrega"
+            aria-expanded={locationOpen}
+            onClick={() => savedAddresses.length > 0 && setLocationOpen((open) => !open)}
+          >
+            <MapPin size={17} />
+            <span>Entregar em</span>
+            <b>• {locationText || 'Escolha um endereço'}</b>
+          </Location>
+          {savedAddresses.length > 0 && (
+            <LocationDropdown $open={locationOpen}>
+              <strong>Onde deseja receber?</strong>
+              {savedAddresses.map((address) => (
+                <LocationOption
+                  type="button"
+                  key={address.id}
+                  $active={String(address.id) === String(selectedAddressId)}
+                  onClick={() => {
+                    onSelectAddress?.(String(address.id));
+                    setLocationOpen(false);
+                  }}
+                >
+                  <MapPin size={17} />
+                  <span>
+                    <b>{address.label}</b>
+                    <small>
+                      {address.address}, {address.number} • {address.district}
+                    </small>
+                  </span>
+                </LocationOption>
+              ))}
+            </LocationDropdown>
+          )}
+        </LocationWrap>
+      )}
 
       <BusinessStatus
         $open={isRestaurantOpen}
+        $tableMenu={isTableMenu}
         title={statusDescription}
         role="status"
         aria-label={statusDescription}
@@ -504,7 +518,7 @@ const Navigation = styled.nav<{ $open: boolean }>`
     }
   }
 `;
-const BusinessStatus = styled.div<{ $open: boolean }>`
+const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -541,7 +555,15 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
     margin-left: auto;
   }
   @media (max-width: 760px) {
-    margin-left: auto;
+    ${({ $tableMenu }) =>
+      $tableMenu
+        ? `
+          position: absolute;
+          left: 14px;
+          bottom: 10px;
+          margin-left: 0;
+        `
+        : 'margin-left: auto;'}
   }
   @media (max-width: 520px) {
     gap: 4px;
@@ -559,6 +581,41 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
       overflow: hidden;
       text-overflow: ellipsis;
     }
+  }
+`;
+const TableBadge = styled.div`
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 7px 11px;
+  border: 1px solid #f0cdbd;
+  border-radius: 999px;
+  background: #fff5ef;
+  color: #a8462b;
+  white-space: nowrap;
+
+  span {
+    font-size: 10px;
+    font-weight: 750;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  strong {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  @media (max-width: 760px) {
+    position: absolute;
+    right: 14px;
+    bottom: 10px;
+    padding: 7px 10px;
+  }
+
+  @media (max-width: 360px) {
+    right: 10px;
   }
 `;
 const Actions = styled.div`

@@ -23,10 +23,17 @@ type SocketTableSession = {
   restaurantId: number | string;
 };
 
+type SocketWaitingTable = {
+  id: number | string;
+  number: number | string;
+  restaurantId: number | string;
+};
+
 type AppSocket = Socket & {
   user?: SocketUser;
-  authType?: 'user' | 'table-session';
+  authType?: 'user' | 'table-session' | 'table-waiting';
   tableSession?: SocketTableSession;
+  waitingTable?: SocketWaitingTable;
 };
 
 export function socketHandler(socket: AppSocket) {
@@ -37,6 +44,16 @@ export function socketHandler(socket: AppSocket) {
 
     socket.join(`table:${tableId}`);
     socket.join(`table-session:${id}`);
+
+    socket.on('disconnect', () => {
+      console.log('❌ desconectado:', socket.id);
+    });
+
+    return;
+  }
+
+  if (socket.authType === 'table-waiting' && socket.waitingTable) {
+    socket.join(`table-waiting:${socket.waitingTable.id}`);
 
     socket.on('disconnect', () => {
       console.log('❌ desconectado:', socket.id);

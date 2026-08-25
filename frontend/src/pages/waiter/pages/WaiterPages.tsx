@@ -1,12 +1,5 @@
-import {
-  BellRing,
-  Clock3,
-  Eye,
-  Info,
-  ReceiptText,
-  Users,
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { BellRing, Clock3, Eye, Info, ReceiptText, Trash2, Users } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } from '../types';
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
 import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
@@ -389,10 +382,12 @@ function CallRow({
   call,
   action,
   label = 'Atender',
+  actionIcon,
 }: {
   call: ServiceCall;
   action?: () => Promise<void>;
   label?: string;
+  actionIcon?: 'delete';
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -424,12 +419,13 @@ function CallRow({
       </span>
       {action && (
         <S.PrimaryButton
-          className="action"
+          className={`action${actionIcon === 'delete' ? ' delete' : ''}`}
           type="button"
           onClick={() => void execute()}
           disabled={loading}
         >
-          {loading ? 'Salvando...' : label}
+          {loading ? 'Salvando...' : actionIcon === 'delete' ? <Trash2 size={15} /> : label}
+          {actionIcon === 'delete' && !loading ? label : null}
         </S.PrimaryButton>
       )}
       {error && <S.ActionError role="alert">{error}</S.ActionError>}
@@ -443,6 +439,8 @@ function CallSection({
   calls,
   action,
   actionLabel,
+  actionIcon,
+  footer,
   empty,
 }: {
   title: string;
@@ -450,6 +448,8 @@ function CallSection({
   calls: ServiceCall[];
   action?: (call: ServiceCall) => Promise<void>;
   actionLabel?: string;
+  actionIcon?: 'delete';
+  footer?: ReactNode;
   empty: string;
 }) {
   return (
@@ -466,9 +466,11 @@ function CallSection({
           call={call}
           action={action ? () => action(call) : undefined}
           label={actionLabel}
+          actionIcon={actionIcon}
         />
       ))}
       {!calls.length && <Empty>{empty}</Empty>}
+      {footer}
     </S.Card>
   );
 }
@@ -485,9 +487,11 @@ function resolvedToday(call: ServiceCall) {
 }
 
 export function WaiterCallsPage() {
-  const { calls, updateCall } = useWorkspace();
+  const { calls, updateCall, deleteCall } = useWorkspace();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<CallStatus | 'ALL'>('ALL');
+  const [resolvedPage, setResolvedPage] = useState(0);
+  const [deleteCandidate, setDeleteCandidate] = useState<ServiceCall | null>(null);
   const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
   const filtered = calls.filter((call) =>
     `mesa ${call.tableNumber} ${callTitle(call.type)} ${call.employeeName || ''}`
@@ -499,7 +503,14 @@ export function WaiterCallsPage() {
     .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed));
   const attending = filtered.filter((call) => call.status === 'IN_PROGRESS');
   const resolved = filtered.filter((call) => call.status === 'RESOLVED');
+  const resolvedPageCount = Math.max(1, Math.ceil(resolved.length / 5));
+  const resolvedPageIndex = Math.min(resolvedPage, resolvedPageCount - 1);
+  const visibleResolved = resolved.slice(resolvedPageIndex * 5, resolvedPageIndex * 5 + 5);
   const activeCalls = calls.filter((call) => call.status !== 'RESOLVED');
+
+  useEffect(() => {
+    setResolvedPage(0);
+  }, [filter, normalizedQuery]);
 
   return (
     <>
@@ -568,11 +579,79 @@ export function WaiterCallsPage() {
           <CallSection
             title="Concluídos"
             description="Histórico recente dos chamados atendidos pela equipe."
-            calls={resolved}
+            calls={visibleResolved}
+            action={async (call) => setDeleteCandidate(call)}
+            actionLabel="Excluir"
+            actionIcon="delete"
+            footer={
+              resolved.length > 5 ? (
+                <S.Pagination aria-label="Paginação dos chamados concluídos">
+                  <span>
+                    {resolvedPageIndex * 5 + 1}-
+                    {Math.min((resolvedPageIndex + 1) * 5, resolved.length)} de {resolved.length}
+                  </span>
+                  <div>
+                    <S.PaginationButton
+                      type="button"
+                      disabled={resolvedPageIndex === 0}
+                      onClick={() => setResolvedPage((current) => Math.max(0, current - 1))}
+                    >
+                      Anterior
+                    </S.PaginationButton>
+                    <S.PaginationButton
+                      type="button"
+                      disabled={resolvedPageIndex >= resolvedPageCount - 1}
+                      onClick={() =>
+                        setResolvedPage((current) => Math.min(resolvedPageCount - 1, current + 1))
+                      }
+                    >
+                      Próximos 5
+                    </S.PaginationButton>
+                  </div>
+                </S.Pagination>
+              ) : null
+            }
             empty="Nenhum chamado concluído para esta busca."
           />
         )}
       </S.CallsGrid>
+      {deleteCandidate && (
+        <S.ConfirmBackdrop role="presentation" onClick={() => setDeleteCandidate(null)}>
+          <S.ConfirmDialog
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-call-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="icon" aria-hidden="true">
+              <Trash2 />
+            </span>
+            <h2 id="delete-call-title">Excluir chamado?</h2>
+            <p>
+              O chamado da Mesa {String(deleteCandidate.tableNumber).padStart(2, '0')} será removido
+              do histórico de concluídos.
+            </p>
+            <div className="actions">
+              <S.PaginationButton type="button" onClick={() => setDeleteCandidate(null)}>
+                Cancelar
+              </S.PaginationButton>
+              <S.DangerButton
+                type="button"
+                onClick={async () => {
+                  const call = deleteCandidate;
+                  setDeleteCandidate(null);
+                  await deleteCall(call.id);
+                  setResolvedPage((current) =>
+                    Math.min(current, Math.max(0, resolvedPageCount - 2)),
+                  );
+                }}
+              >
+                Excluir chamado
+              </S.DangerButton>
+            </div>
+          </S.ConfirmDialog>
+        </S.ConfirmBackdrop>
+      )}
     </>
   );
 }

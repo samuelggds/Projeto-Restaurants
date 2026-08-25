@@ -29,7 +29,11 @@ function homeFontStack(fontFamily?: string) {
   return 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif';
 }
 
-export const HomeExperience = styled.div<{ $fontFamily?: string; $primary: string }>`
+export const HomeExperience = styled.div<{
+  $fontFamily?: string;
+  $primary: string;
+  $tableMenu?: boolean;
+}>`
   --home-primary: ${({ $primary }) => $primary};
   --primary: ${({ $primary }) => $primary};
   --home-border: #eadfd3;
@@ -37,6 +41,13 @@ export const HomeExperience = styled.div<{ $fontFamily?: string; $primary: strin
   --home-muted: #6f6a63;
   min-height: 100vh;
   font-family: ${({ $fontFamily }) => homeFontStack($fontFamily)};
+  ${({ $tableMenu }) =>
+    $tableMenu &&
+    `
+      @media (max-width: 700px) {
+        padding-bottom: 58px;
+      }
+    `}
 `;
 
 export const HomeRoot = styled.div<{ $primary: string; $fontFamily?: string }>`
@@ -857,6 +868,34 @@ export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: stri
     bottom: ${({ $aboveNudge }) => ($aboveNudge ? '118px' : '12px')};
     width: auto;
     max-width: none;
+  }
+`;
+
+export const FloatingActionsToggle = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #eadfd3;
+  border-radius: 999px;
+  background: rgba(255, 253, 249, 0.96);
+  color: #514b44;
+  box-shadow: 0 10px 24px rgba(55, 38, 26, 0.14);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    border-color: #d8c7b8;
+    background: #fff;
   }
 `;
 

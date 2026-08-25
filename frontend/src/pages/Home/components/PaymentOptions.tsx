@@ -30,7 +30,7 @@ const ONLINE_OPTIONS: Option[] = [
   {
     method: 'card',
     name: 'Cartão',
-    description: 'Ambiente seguro do gateway',
+    description: 'Ambiente seguro',
     color: '#3b6cf6',
     icon: 'card',
   },

@@ -339,7 +339,7 @@ export function PaymentSettings({
             <div>
               <span>CHECKOUT DO PROVEDOR</span>
               <h3>Cartão</h3>
-              <p>Os dados do cartão são informados no ambiente seguro do gateway.</p>
+              <p>Os dados do cartão são informados no ambiente seguro</p>
             </div>
             <PS.SwitchLabel>
               <span>{settings.acceptsCard ? 'Ativado' : 'Desativado'}</span>

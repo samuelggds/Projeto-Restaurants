@@ -22,6 +22,20 @@ describe('tableSession', () => {
     expect(belongsToTableRoute(session, 4, 9)).toBe(false);
   });
 
+  it('aceita a sessão pelo número da mesa quando o QR não possui id interno', () => {
+    const session = {
+      sessionToken: 'token',
+      tableId: 22,
+      tableNumber: 1,
+      restaurantId: 3,
+    };
+
+    expect(isTableSessionActive(session, true, null, 3, 1)).toBe(true);
+    expect(belongsToTableRoute(session, null, 3, 1)).toBe(true);
+    expect(isTableSessionActive(session, true, 19, 3, 1)).toBe(true);
+    expect(isTableSessionActive(session, true, null, 3, 2)).toBe(false);
+  });
+
   it('recusa uma sessão expirada mesmo quando mesa e restaurante conferem', () => {
     const session = {
       sessionToken: 'token',

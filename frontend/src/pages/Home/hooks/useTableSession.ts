@@ -35,8 +35,13 @@ export function useTableSession(options: Options) {
   const [sessionEndedMessage, setSessionEndedMessage] = useState('');
   const sessionRouteMismatch = Boolean(
     route.mesaMode &&
-      tableSession?.sessionToken &&
-      !belongsToTableRoute(tableSession, route.routeTableId, route.routeRestaurantId),
+    tableSession?.sessionToken &&
+    !belongsToTableRoute(
+      tableSession,
+      route.routeTableId,
+      route.routeRestaurantId,
+      route.routeTableNumber,
+    ),
   );
   const activeSession = sessionRouteMismatch ? null : tableSession;
   const mesaLabel =
@@ -46,17 +51,13 @@ export function useTableSession(options: Options) {
     route.routeTableId ||
     '';
   const hasValidQrContext =
-    !route.mesaMode ||
-    Boolean(
-      route.routeTableNumber &&
-        route.routeTableId &&
-        String(options.tableToken || '').trim(),
-    );
+    !route.mesaMode || Boolean(route.routeTableNumber && String(options.tableToken || '').trim());
   const mesaSessionIsActive = isTableSessionActive(
     activeSession,
     route.mesaMode,
     route.routeTableId,
     route.routeRestaurantId,
+    route.routeTableNumber,
   );
   const storedSessionRestaurantId = Number(activeSession?.restaurantId || 0);
 
@@ -81,11 +82,7 @@ export function useTableSession(options: Options) {
     if (sessionRouteMismatch) {
       clearStoredSession();
     }
-  }, [
-    route.mesaMode,
-    sessionRouteMismatch,
-    tableSession,
-  ]);
+  }, [route.mesaMode, sessionRouteMismatch, tableSession]);
 
   useEffect(() => {
     if (!route.mesaMode || !activeSession?.sessionToken) return undefined;
@@ -97,9 +94,12 @@ export function useTableSession(options: Options) {
     const handleClosed = (payload?: { sessionId?: number; tableId?: number }) => {
       const sameSession =
         !payload?.sessionId || Number(payload.sessionId) === Number(activeSession.sessionId);
-      const sameTable = !payload?.tableId || Number(payload.tableId) === Number(activeSession.tableId);
+      const sameTable =
+        !payload?.tableId || Number(payload.tableId) === Number(activeSession.tableId);
       if (sameSession && sameTable) {
-        endSession('Esta mesa foi fechada pelo garçom. Para pedir novamente, aguarde uma nova abertura.');
+        endSession(
+          'Esta mesa foi fechada pelo garçom. Para pedir novamente, aguarde uma nova abertura.',
+        );
       }
     };
     const handleServiceUpdate = (payload?: {

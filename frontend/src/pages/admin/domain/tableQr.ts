@@ -55,14 +55,21 @@ export function mapAdminTableQrs(values: unknown): AdminTableQrRecord[] {
 
 export function buildAdminTableQrUrl(
   table: Pick<AdminTableQrRecord, 'id' | 'number' | 'restaurantId' | 'token'>,
-  origin = typeof window === 'undefined' ? '' : window.location.origin,
+  origin?: string,
 ) {
+  const configuredBase = String(import.meta.env.VITE_QR_BASE_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  const defaultOrigin = typeof window === 'undefined' ? '' : window.location.origin;
+  const baseUrl = (origin === undefined ? configuredBase || defaultOrigin : origin).replace(
+    /\/+$/,
+    '',
+  );
   const params = new URLSearchParams({
-    tid: table.id,
     tk: table.token,
     rid: String(table.restaurantId),
   });
-  return `${origin}/mesa/${table.number}?${params.toString()}`;
+  return `${baseUrl}/mesa/${table.number}?${params.toString()}`;
 }
 
 export function tableDisplayName(number: number) {

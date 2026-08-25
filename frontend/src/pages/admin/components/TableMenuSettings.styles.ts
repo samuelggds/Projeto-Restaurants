@@ -475,6 +475,31 @@ export const SecondaryButton = styled.button`
   }
 `;
 
+export const DeleteButton = styled.button`
+  min-height: 38px;
+  border: 1px solid #edc5bd;
+  border-radius: 9px;
+  padding: 0 11px;
+  color: #ad4536;
+  background: #fff8f6;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    border-color: #d88475;
+    background: #fff0ec;
+  }
+  &:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+`;
+
 export const EmptyState = styled.div`
   min-height: 160px;
   border: 1px dashed #dfd1c7;
@@ -589,6 +614,54 @@ export const QrDialog = styled.section`
     border-radius: 18px;
     .dialog-actions {
       grid-template-columns: 1fr;
+    }
+  }
+`;
+
+export const DeleteDialog = styled(QrDialog)`
+  width: min(430px, 100%);
+
+  .delete-icon {
+    display: grid;
+    width: 54px;
+    height: 54px;
+    place-items: center;
+    border-radius: 16px;
+    background: #fff0ec;
+    color: #b64a3a;
+  }
+
+  .delete-icon svg {
+    width: 25px;
+    height: 25px;
+  }
+
+  h2 {
+    margin: 0;
+  }
+
+  p {
+    max-width: 340px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 7px;
+  }
+
+  @media (max-width: 450px) {
+    .dialog-actions {
+      width: 100%;
+      flex-direction: column;
+
+      button {
+        width: 100%;
+      }
     }
   }
 `;

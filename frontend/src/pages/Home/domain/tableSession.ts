@@ -30,13 +30,17 @@ export function isTableSessionActive(
   mesaMode: boolean,
   tableId: number | null,
   restaurantId: number | null,
+  tableNumber: number | null = null,
 ): boolean {
   if (!mesaMode) return true;
   const expiresAt = session?.expiresAt ? new Date(session.expiresAt).getTime() : null;
+  const belongsToTable = tableNumber
+    ? Number(session?.tableNumber) === tableNumber
+    : Boolean(tableId && Number(session?.tableId) === tableId);
   return Boolean(
     session?.sessionToken &&
     (!expiresAt || expiresAt > Date.now()) &&
-    Number(session.tableId) === Number(tableId) &&
+    belongsToTable &&
     (!restaurantId || Number(session.restaurantId) === Number(restaurantId)),
   );
 }
@@ -45,9 +49,10 @@ export function belongsToTableRoute(
   session: StoredTableSession,
   tableId: number | null,
   restaurantId: number | null,
+  tableNumber: number | null = null,
 ): boolean {
-  return (
-    Number(session.tableId) === Number(tableId) &&
-    (!restaurantId || Number(session.restaurantId) === Number(restaurantId))
-  );
+  const belongsToTable = tableNumber
+    ? Number(session.tableNumber) === tableNumber
+    : Boolean(tableId && Number(session.tableId) === tableId);
+  return belongsToTable && (!restaurantId || Number(session.restaurantId) === Number(restaurantId));
 }

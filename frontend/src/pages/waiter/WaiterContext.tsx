@@ -9,6 +9,7 @@ export type WaiterContextValue = WaiterModuleProps &
     openTable: (tableId: string) => Promise<void>;
     closeTable: (sessionId: string) => Promise<void>;
     updateCall: (id: string, status: CallStatus) => Promise<void>;
+    deleteCall: (id: string) => Promise<void>;
   };
 // eslint-disable-next-line react-refresh/only-export-components
 export const WaiterContext = createContext<WaiterContextValue | null>(null);
@@ -18,7 +19,7 @@ export function WaiterProvider({
   data = workspaceMock,
   ...props
 }: PropsWithChildren<WaiterModuleProps>) {
-  const { onOpenTable, onCloseTable, onUpdateCall } = props;
+  const { onOpenTable, onCloseTable, onUpdateCall, onDeleteCall } = props;
 
   const openTable = useCallback(
     async (tableId: string) => {
@@ -50,6 +51,15 @@ export function WaiterProvider({
     },
     [onUpdateCall],
   );
+  const deleteCall = useCallback(
+    async (id: string) => {
+      if (!onDeleteCall) {
+        throw new Error('A exclusão de chamados não está disponível neste momento.');
+      }
+      await onDeleteCall(id);
+    },
+    [onDeleteCall],
+  );
   const value = useMemo(
     () => ({
       ...props,
@@ -61,8 +71,9 @@ export function WaiterProvider({
       openTable,
       closeTable,
       updateCall,
+      deleteCall,
     }),
-    [props, data, openTable, closeTable, updateCall],
+    [props, data, openTable, closeTable, updateCall, deleteCall],
   );
   return <WaiterContext.Provider value={value}>{children}</WaiterContext.Provider>;
 }

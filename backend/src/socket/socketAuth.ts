@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';
 import type { Socket } from 'socket.io';
 import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
+import resolvePublicTableService from '../modules/table/services/ResolvePublicTableService.js';
 import { TableSessionStatus, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
 
@@ -21,16 +22,24 @@ type SocketTableSession = {
   restaurantId: number | null;
 };
 
+type SocketWaitingTable = {
+  id: number;
+  number: number;
+  restaurantId: number;
+};
+
 type AppSocket = Socket & {
   user?: SocketUser;
-  authType?: 'user' | 'table-session';
+  authType?: 'user' | 'table-session' | 'table-waiting';
   tableSession?: SocketTableSession;
+  waitingTable?: SocketWaitingTable;
 };
 
 export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
   try {
     const token = socket.handshake.auth?.token;
     const sessionToken = socket.handshake.auth?.sessionToken;
+    const tableToken = socket.handshake.auth?.tableToken;
 
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET) as SocketUser;
@@ -99,6 +108,24 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
         tableId: session.tableId,
         tableNumber: session?.table?.number ?? null,
         restaurantId: session?.table?.restaurantId ?? null,
+      };
+
+      return next();
+    }
+
+    if (tableToken) {
+      const table = await resolvePublicTableService.execute({
+        tableNumber: socket.handshake.auth?.tableNumber,
+        tableToken,
+        restaurantId: socket.handshake.auth?.restaurantId,
+        restaurantSlug: socket.handshake.auth?.restaurantSlug,
+      });
+
+      socket.authType = 'table-waiting';
+      socket.waitingTable = {
+        id: table.id,
+        number: table.number,
+        restaurantId: table.restaurantId,
       };
 
       return next();

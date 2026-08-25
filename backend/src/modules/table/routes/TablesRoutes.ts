@@ -9,6 +9,7 @@ import ListTableController from '../controllers/ListTableController.js';
 import GetTableByIdController from '../controllers/GetTableByIdController.js';
 import UpdateTableController from '../controllers/UpdateTableController.js';
 import DeactivateTableController from '../controllers/DeactivateTableController.js';
+import DeleteTableController from '../controllers/DeleteTableController.js';
 import ResolvePublicTableController from '../controllers/ResolvePublicTableController.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
@@ -40,6 +41,10 @@ router.put('/:id', authMiddleware, adminMiddleware, premiumTablePlanMiddleware, 
 
 router.patch('/:id', authMiddleware, adminMiddleware, premiumTablePlanMiddleware, (req, res) =>
   DeactivateTableController.handle(req, res),
+);
+
+router.delete('/:id', authMiddleware, adminMiddleware, premiumTablePlanMiddleware, (req, res) =>
+  DeleteTableController.handle(req, res),
 );
 
 export default router;

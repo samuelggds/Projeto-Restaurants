@@ -29,6 +29,11 @@ class WaiterCallsService {
     const response = await api.patch(`/waiter-calls/${id}/status`, { status });
     return response.data;
   }
+
+  async deleteCall(id: string | number) {
+    const response = await api.delete(`/waiter-calls/${id}`);
+    return response.data;
+  }
 }
 
 export default new WaiterCallsService();

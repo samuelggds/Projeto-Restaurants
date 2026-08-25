@@ -840,6 +840,14 @@ export const CallCard = styled.article`
     color: var(--brand);
     font-weight: 800;
   }
+  .action.delete {
+    border: 1px solid #f0c8c0;
+    background: #fff7f5;
+    color: #b64a3a;
+  }
+  .action.delete:hover:not(:disabled) {
+    background: #ffefeb;
+  }
   @media (max-width: 450px) {
     grid-template-columns: 44px 1fr;
     .time {
@@ -852,6 +860,129 @@ export const CallCard = styled.article`
   }
   > [role='alert'] {
     grid-column: 1/-1;
+  }
+`;
+export const Pagination = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 4px;
+  color: var(--muted);
+  font-size: 12px;
+
+  > div {
+    display: flex;
+    gap: 8px;
+  }
+
+  @media (max-width: 560px) {
+    align-items: stretch;
+    flex-direction: column;
+
+    > div {
+      width: 100%;
+
+      button {
+        flex: 1;
+      }
+    }
+  }
+`;
+export const PaginationButton = styled.button`
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  &:hover:not(:disabled) {
+    border-color: var(--brand);
+    color: var(--brand);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+`;
+export const DangerButton = styled.button`
+  min-height: 38px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 8px;
+  background: #c94f3c;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+
+  &:hover {
+    background: #ad3f30;
+  }
+`;
+export const ConfirmBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(18, 24, 29, 0.48);
+  backdrop-filter: blur(3px);
+`;
+export const ConfirmDialog = styled.section`
+  width: min(390px, 100%);
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(22, 28, 33, 0.24);
+  text-align: center;
+
+  > .icon {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    margin: 0 auto 14px;
+    place-items: center;
+    border-radius: 14px;
+    background: #fff0ed;
+    color: #c94f3c;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  p {
+    margin: 9px 0 22px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: center;
+    gap: 9px;
+  }
+
+  @media (max-width: 420px) {
+    padding: 22px 17px;
+
+    .actions {
+      flex-direction: column-reverse;
+
+      button {
+        width: 100%;
+      }
+    }
   }
 `;
 export const ActionError = styled.p`
