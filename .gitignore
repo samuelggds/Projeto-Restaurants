@@ -1,4 +1,5 @@
 .env.docker
+.env.routing.local
 .env.production
 .env
 routing-data/

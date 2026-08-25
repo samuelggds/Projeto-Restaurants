@@ -39,6 +39,9 @@ Servicos:
 - Healthcheck backend: http://localhost:3000/health
 - PostgreSQL: localhost:5432
 
+Para habilitar rota rodoviaria e geocodificacao proprias para o rastreamento do
+motoqueiro, siga [`ROUTING_GPS_SETUP.md`](./ROUTING_GPS_SETUP.md).
+
 ## Supabase
 
 O Supabase pode ser usado como PostgreSQL gerenciado sem substituir a API

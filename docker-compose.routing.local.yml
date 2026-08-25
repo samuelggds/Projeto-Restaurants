@@ -1,0 +1,10 @@
+# Override para desenvolvimento com backend executando no host.
+# As portas ficam acessíveis somente nesta máquina.
+services:
+  osrm:
+    ports:
+      - '127.0.0.1:${OSRM_HOST_PORT:-5000}:5000'
+
+  nominatim:
+    ports:
+      - '127.0.0.1:${NOMINATIM_HOST_PORT:-8080}:8080'
