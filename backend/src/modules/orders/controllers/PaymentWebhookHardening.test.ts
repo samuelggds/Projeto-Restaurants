@@ -12,7 +12,7 @@ http.createServer = ((...args) => {
 
 const [
   { default: StripeOrderWebhookController },
-  { default: MercadoPagoOrderWebhookController },
+  { default: MercadoPagoOrderWebhookController, parseMercadoPagoOrderReference },
   { default: PagBankOrderWebhookController },
   { default: finalizeOrderCardPaymentService },
 ] = await Promise.all([
@@ -222,6 +222,19 @@ test('deve exigir restaurantId no webhook Mercado Pago quando fallback global es
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.payload, {
     error: 'restaurantId obrigatorio no webhook Mercado Pago para ambiente multi-tenant.',
+  });
+});
+
+test('interpreta a referencia Mercado Pago de cartao na ordem orderId/restaurantId', () => {
+  assert.deepEqual(parseMercadoPagoOrderReference('ordercard:321:7'), {
+    type: 'card',
+    orderId: 321,
+    restaurantId: 7,
+  });
+  assert.deepEqual(parseMercadoPagoOrderReference('orderpix:7:321'), {
+    type: 'pix',
+    orderId: 321,
+    restaurantId: 7,
   });
 });
 

@@ -8,6 +8,25 @@ import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentS
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
 
+export function parseMercadoPagoOrderReference(externalReference: string) {
+  const match = /^order(pix|card):(\d+):(\d+)$/i.exec(String(externalReference || '').trim());
+  if (!match) {
+    return null;
+  }
+
+  const type = String(match[1] || '').toLowerCase() as 'pix' | 'card';
+  const firstId = Number(match[2] || 0);
+  const secondId = Number(match[3] || 0);
+
+  // O Pix foi criado historicamente como orderpix:<restaurantId>:<orderId>,
+  // enquanto o checkout de cartão usa ordercard:<orderId>:<restaurantId>.
+  return {
+    type,
+    restaurantId: type === 'pix' ? firstId : secondId,
+    orderId: type === 'pix' ? secondId : firstId,
+  };
+}
+
 class MercadoPagoOrderWebhookController {
   async handle(req: Request, res: Response) {
     try {
@@ -54,10 +73,10 @@ class MercadoPagoOrderWebhookController {
           : Number.isInteger(metadataRestaurantId) && metadataRestaurantId > 0
             ? metadataRestaurantId
             : undefined;
-      const parsedReference = /^order(pix|card):(\d+):(\d+)$/i.exec(externalReference);
-      const referenceType = String(parsedReference?.[1] || '').toLowerCase();
-      const referenceRestaurantId = Number(parsedReference?.[2] || 0);
-      const referenceOrderId = Number(parsedReference?.[3] || 0);
+      const parsedReference = parseMercadoPagoOrderReference(externalReference);
+      const referenceType = parsedReference?.type || '';
+      const referenceRestaurantId = parsedReference?.restaurantId || 0;
+      const referenceOrderId = parsedReference?.orderId || 0;
 
       if (
         parsedReference &&
@@ -123,8 +142,7 @@ class MercadoPagoOrderWebhookController {
       await finalizeOrderPixPaymentService.execute({
         orderId: referenceType === 'pix' ? referenceOrderId : undefined,
         paymentId: String(paymentId),
-        restaurantId:
-          referenceType === 'pix' ? referenceRestaurantId : resolvedRestaurantId,
+        restaurantId: referenceType === 'pix' ? referenceRestaurantId : resolvedRestaurantId,
         allowMissingOrder: true,
       });
 

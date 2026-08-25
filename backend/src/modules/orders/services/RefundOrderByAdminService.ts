@@ -1,11 +1,12 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderRefundStatus, OrderStatus, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { io } from '../../../server.js';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
-import refundOrderPaymentService from './RefundOrderPaymentService.js';
-import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
-import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
+import cancelOrderWorkflowService, {
+  OrderCancellationError,
+  requiresAutomaticOrderRefund,
+} from './CancelOrderWorkflowService.js';
 import {
   emitTableSessionOrderEvent,
   emitWaiterTableOrderEvent,
@@ -31,41 +32,25 @@ class RefundOrderByAdminService {
     const normalizedAdminUserId = Number(adminUserId);
 
     if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
-      throw new Error('Pedido inválido para estorno.');
+      throw new OrderCancellationError('Pedido inválido para estorno.');
     }
 
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
-      throw new Error('Restaurante inválido para estorno.');
+      throw new OrderCancellationError('Restaurante inválido para estorno.');
     }
 
     if (!Number.isInteger(normalizedAdminUserId) || normalizedAdminUserId <= 0) {
-      throw new Error('Admin inválido para estorno.');
+      throw new OrderCancellationError('Admin inválido para estorno.');
     }
 
     const [order, adminUser, issueThread] = await Promise.all([
-      prisma.order.findFirst({
-        where: {
-          id: normalizedOrderId,
-          restaurantId: normalizedRestaurantId,
-        },
-        include: {
-          user: {
-            select: {
-              name: true,
-              phone: true,
-            },
-          },
-          restaurant: {
-            select: {
-              name: true,
-              whatsapp: true,
-            },
-          },
-        },
-      }),
-      prisma.user.findUnique({
+      orderRepository.findById(normalizedOrderId, normalizedRestaurantId),
+      prisma.user.findFirst({
         where: {
           id: normalizedAdminUserId,
+          restaurantId: normalizedRestaurantId,
+          role: UserRole.ADMIN,
+          active: true,
         },
         select: {
           name: true,
@@ -75,34 +60,33 @@ class RefundOrderByAdminService {
     ]);
 
     if (!order) {
-      throw new Error('Pedido não encontrado para este restaurante.');
+      throw new OrderCancellationError('Pedido não encontrado para este restaurante.');
+    }
+
+    if (!adminUser) {
+      throw new OrderCancellationError('Admin sem permissão para este restaurante.');
     }
 
     if (order.status === OrderStatus.CANCELADO) {
-      throw new Error('Este pedido já está cancelado.');
+      const alreadyRefunded = order.refundStatus === OrderRefundStatus.SUCCEEDED;
+      return {
+        order,
+        refunded: alreadyRefunded,
+        info: alreadyRefunded
+          ? 'Este pedido já está cancelado e o estorno já foi confirmado.'
+          : 'Este pedido já está cancelado. Nenhum novo estorno foi solicitado.',
+        issueThread: toOrderIssueThreadPayload(issueThread),
+      };
     }
 
-    const wasPaid = order.paid === true;
-    const hasOnlinePaymentToRefund = wasPaid && order.payOnDelivery !== true;
-
-    if (hasOnlinePaymentToRefund) {
-      await refundOrderPaymentService.execute(order);
-    }
-
-    const updatedOrder = await prisma.$transaction(async (tx) => {
-      const cancelledOrder = await orderRepository.updateStatusIfCurrent(
-        order.id,
-        OrderStatus.CANCELADO,
-        normalizedRestaurantId,
-        { status: order.status, paid: order.paid },
-        tx,
+    if (order.status === OrderStatus.ENTREGUE) {
+      throw new OrderCancellationError(
+        'Pedidos já entregues não podem ser cancelados ou estornados por este fluxo. Abra uma conciliação financeira.',
       );
+    }
 
-      await restoreOrderItemsStock(tx, order);
-      await releaseCouponRedemptionForOrder(order.id, normalizedRestaurantId, tx);
-
-      return cancelledOrder;
-    });
+    const hasOnlinePaymentToRefund = requiresAutomaticOrderRefund(order);
+    const { order: updatedOrder, refunded } = await cancelOrderWorkflowService.execute(order);
 
     const resolvedByName = String(adminUser?.name || 'Admin').trim() || 'Admin';
     const resolvedThread = await resolveOrderIssueThread({
@@ -150,10 +134,12 @@ class RefundOrderByAdminService {
 
     return {
       order: updatedOrder,
-      refunded: hasOnlinePaymentToRefund,
-      info: hasOnlinePaymentToRefund
+      refunded,
+      info: refunded
         ? 'Pagamento estornado e pedido cancelado com sucesso.'
-        : 'Pedido cancelado com sucesso. Nenhum estorno online foi realizado.',
+        : hasOnlinePaymentToRefund
+          ? 'Pedido cancelado, mas nenhum estorno online foi necessário.'
+          : 'Pedido cancelado com sucesso. Nenhum estorno online foi realizado.',
       issueThread: threadPayload,
     };
   }

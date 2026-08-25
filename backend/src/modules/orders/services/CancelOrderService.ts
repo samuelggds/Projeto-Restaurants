@@ -1,12 +1,12 @@
-import { OrderStatus, PaymentMethod } from '@prisma/client';
+import { OrderRefundStatus, OrderStatus } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import { io } from '../../../server.js';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
-import refundOrderPaymentService from './RefundOrderPaymentService.js';
-import prisma from '../../../config/prisma.js';
-import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
-import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
+import cancelOrderWorkflowService, {
+  OrderCancellationError,
+  requiresAutomaticOrderRefund,
+} from './CancelOrderWorkflowService.js';
 import {
   emitTableSessionOrderEvent,
   emitWaiterTableOrderEvent,
@@ -23,44 +23,34 @@ class CancelOrderService {
     );
 
     if (!order) {
-      throw new Error('Pedido não encontrado!');
+      throw new OrderCancellationError('Pedido não encontrado!');
     }
 
     if (order.userId !== userId) {
-      throw new Error('Sem permissão!');
+      throw new OrderCancellationError('Sem permissão!');
     }
 
     const orderRestaurantId = order.restaurantId;
 
+    if (order.status === OrderStatus.CANCELADO) {
+      if (
+        !requiresAutomaticOrderRefund(order) ||
+        order.refundStatus === OrderRefundStatus.SUCCEEDED
+      ) {
+        return order;
+      }
+      throw new OrderCancellationError(
+        'Este pedido já está cancelado, mas não há confirmação persistida do estorno automático. Contate o restaurante.',
+      );
+    }
+
     const canCancel = OrderStateMachine.canTransition(order.status, OrderStatus.CANCELADO);
 
     if (!canCancel) {
-      throw new Error('Pedido não pode ser cancelado!');
+      throw new OrderCancellationError('Pedido não pode ser cancelado!');
     }
 
-    const isPaidDigitalOrder =
-      order.paid === true &&
-      order.payOnDelivery !== true &&
-      (order.paymentMethod === PaymentMethod.PIX || order.paymentMethod === PaymentMethod.CARTAO);
-
-    if (isPaidDigitalOrder) {
-      await refundOrderPaymentService.execute(order);
-    }
-
-    const updatedOrder = await prisma.$transaction(async (tx) => {
-      const cancelledOrder = await orderRepository.updateStatusIfCurrent(
-        normalizedOrderId,
-        OrderStatus.CANCELADO,
-        orderRestaurantId,
-        { status: order.status, paid: order.paid },
-        tx,
-      );
-
-      await restoreOrderItemsStock(tx, order);
-      await releaseCouponRedemptionForOrder(normalizedOrderId, orderRestaurantId, tx);
-
-      return cancelledOrder;
-    });
+    const { order: updatedOrder } = await cancelOrderWorkflowService.execute(order);
 
     notifyCustomerOrderStatusChanged({
       restaurantId: orderRestaurantId,

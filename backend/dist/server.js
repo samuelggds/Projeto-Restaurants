@@ -174,10 +174,7 @@ function validateCriticalEnv() {
     const routingUserAgent = requireValue("ROUTING_USER_AGENT", errors);
     const osrmUrl = osrmBaseUrl ? parseHttpUrl("OSRM_BASE_URL", osrmBaseUrl, errors) : null;
     const geocoderUrl = geocoderBaseUrl ? parseHttpUrl("GEOCODER_BASE_URL", geocoderBaseUrl, errors) : null;
-    const publicDemoHosts = /* @__PURE__ */ new Set([
-      "router.project-osrm.org",
-      "nominatim.openstreetmap.org"
-    ]);
+    const publicDemoHosts = /* @__PURE__ */ new Set(["router.project-osrm.org", "nominatim.openstreetmap.org"]);
     if (osrmUrl && publicDemoHosts.has(osrmUrl.hostname.toLowerCase())) {
       errors.push("OSRM_BASE_URL nao pode usar o servidor publico de demonstracao em producao.");
     }
@@ -3361,7 +3358,7 @@ var init_productsRoutes = __esm({
 });
 
 // src/modules/orders/repositories/OrderRepository.ts
-import { OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
+import { OrderRefundStatus, OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
 var operationalTableSelect, waiterReadyOrderInclude, OrderRepository, OrderRepository_default;
 var init_OrderRepository = __esm({
   "src/modules/orders/repositories/OrderRepository.ts"() {
@@ -3600,6 +3597,9 @@ var init_OrderRepository = __esm({
             id: Number(id),
             restaurantId,
             status: expected.status,
+            refundStatus: {
+              notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED]
+            },
             ...typeof expected.paid === "boolean" ? { paid: expected.paid } : {}
           },
           data: {
@@ -8484,7 +8484,7 @@ var init_ListMyOrdersController = __esm({
 });
 
 // src/modules/payments/providers/mercadoPagoClient.ts
-import { MercadoPagoConfig as MercadoPagoConfig2, Payment as Payment2, Preference } from "mercadopago";
+import { MercadoPagoConfig as MercadoPagoConfig2, Payment as Payment2, PaymentRefund, Preference } from "mercadopago";
 async function getAccessToken(restaurantId) {
   const normalizedRestaurantId = Number(restaurantId || 0);
   const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
@@ -8507,6 +8507,9 @@ async function getMercadoPagoClient(restaurantId) {
 async function getMercadoPagoPaymentApi(restaurantId) {
   return new Payment2(await getMercadoPagoClient(restaurantId));
 }
+async function getMercadoPagoPaymentRefundApi(restaurantId) {
+  return new PaymentRefund(await getMercadoPagoClient(restaurantId));
+}
 async function getMercadoPagoPreferenceApi(restaurantId) {
   return new Preference(await getMercadoPagoClient(restaurantId));
 }
@@ -8519,18 +8522,33 @@ var init_mercadoPagoClient = __esm({
 // src/modules/orders/services/RefundOrderPaymentService.ts
 import Stripe from "stripe";
 import { PaymentMethod as PaymentMethod5 } from "@prisma/client";
-var RefundOrderPaymentService, RefundOrderPaymentService_default;
+var AutomaticRefundError, RefundOrderPaymentService, RefundOrderPaymentService_default;
 var init_RefundOrderPaymentService = __esm({
   "src/modules/orders/services/RefundOrderPaymentService.ts"() {
     init_mercadoPagoClient();
     init_RestaurantSettingsRepository();
+    AutomaticRefundError = class extends Error {
+      constructor(message, code = "PROVIDER_FAILURE") {
+        super(message);
+        this.code = code;
+        this.name = "AutomaticRefundError";
+      }
+      code;
+    };
     RefundOrderPaymentService = class {
+      // Seam pequeno e substituível nos testes; em produção sempre cria o SDK oficial.
+      createStripeClient(secretKey) {
+        return new Stripe(secretKey);
+      }
       resolveAsaasApiBaseUrl() {
         return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com").trim().replace(/\/+$/, "");
       }
       async getAsaasAccessToken(restaurantId) {
         if (!restaurantId || !Number.isInteger(restaurantId) || restaurantId <= 0) {
-          throw new Error("Restaurante invalido para estorno Asaas.");
+          throw new AutomaticRefundError(
+            "N\xE3o foi poss\xEDvel identificar o restaurante para realizar o estorno. O pedido n\xE3o foi cancelado.",
+            "MISSING_CREDENTIALS"
+          );
         }
         const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
         const settings = await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId);
@@ -8538,8 +8556,9 @@ var init_RefundOrderPaymentService = __esm({
         const globalToken = String(process.env.ASAAS_API_KEY || "").trim();
         const accessToken = restaurantToken || (allowGlobalFallback ? globalToken : "");
         if (!accessToken) {
-          throw new Error(
-            "Credencial Asaas nao configurada para este restaurante. Nenhuma alteracao foi aplicada ao pedido."
+          throw new AutomaticRefundError(
+            "O estorno autom\xE1tico est\xE1 indispon\xEDvel porque a credencial Asaas n\xE3o est\xE1 configurada para este restaurante. O pedido n\xE3o foi cancelado.",
+            "MISSING_CREDENTIALS"
           );
         }
         return accessToken;
@@ -8551,29 +8570,45 @@ var init_RefundOrderPaymentService = __esm({
           description: String(firstError?.description || "").trim()
         };
       }
-      async executeAsaasRefund(paymentId, order) {
+      async executeAsaasRefund(paymentId, order, options) {
         const normalizedPaymentId = String(paymentId || "").trim();
         const restaurantId = Number(order.restaurantId || 0);
         if (!normalizedPaymentId) {
-          throw new Error("Identificador Asaas invalido para estorno automatico.");
+          throw new AutomaticRefundError(
+            "Este pagamento Asaas n\xE3o possui uma refer\xEAncia v\xE1lida para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
+          );
         }
         const accessToken = await this.getAsaasAccessToken(restaurantId);
         const amount = this.parseAmount(order.total);
-        const response = await fetch(
-          `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}/refund`,
-          {
-            method: "POST",
+        const paymentUrl = `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}`;
+        if (options.verifyExistingRefund) {
+          const currentPaymentResponse = await fetch(paymentUrl, {
             headers: {
               Accept: "application/json",
-              "Content-Type": "application/json",
               access_token: accessToken
-            },
-            body: JSON.stringify({
-              ...amount ? { value: amount } : {},
-              description: `Estorno do pedido #${String(order.id)}`
-            })
+            }
+          });
+          const currentPayment = await currentPaymentResponse.json().catch(() => ({}));
+          if (currentPaymentResponse.ok && String(currentPayment.status || "").toUpperCase() === "REFUNDED") {
+            return {
+              provider: "ASAAS",
+              externalId: String(currentPayment.id || normalizedPaymentId).trim()
+            };
           }
-        );
+        }
+        const response = await fetch(`${paymentUrl}/refund`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            access_token: accessToken
+          },
+          body: JSON.stringify({
+            ...amount ? { value: amount } : {},
+            description: `Estorno do pedido #${String(order.id)}`
+          })
+        });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           const providerError = this.extractAsaasError(payload);
@@ -8585,10 +8620,15 @@ var init_RefundOrderPaymentService = __esm({
             code: providerError.code || void 0,
             description: providerError.description || void 0
           });
-          throw new Error(
-            `Falha ao estornar pagamento no Asaas (HTTP ${response.status}). Nenhuma alteracao foi aplicada ao pedido.`
+          throw new AutomaticRefundError(
+            "O Asaas n\xE3o confirmou o estorno. O pedido n\xE3o foi cancelado e pode ser tentado novamente.",
+            "PROVIDER_FAILURE"
           );
         }
+        return {
+          provider: "ASAAS",
+          externalId: String(payload.id || normalizedPaymentId).trim() || normalizedPaymentId
+        };
       }
       resolvePagBankEnvironment() {
         return "production";
@@ -8629,8 +8669,9 @@ var init_RefundOrderPaymentService = __esm({
           settings?.pagbankToken || (allowGlobalFallback ? process.env.PAGBANK_TOKEN || process.env.PAGSEGURO_TOKEN : "") || ""
         ).trim();
         if (!email || !token) {
-          throw new Error(
-            "Credenciais PagBank nao configuradas. Nao foi possivel estornar automaticamente."
+          throw new AutomaticRefundError(
+            "O estorno autom\xE1tico est\xE1 indispon\xEDvel porque as credenciais PagBank n\xE3o est\xE3o configuradas para este restaurante. O pedido n\xE3o foi cancelado.",
+            "MISSING_CREDENTIALS"
           );
         }
         return {
@@ -8651,63 +8692,178 @@ var init_RefundOrderPaymentService = __esm({
           settings?.mercadoPagoAccessToken || (allowGlobalFallback ? process.env.MP_ACCESS_TOKEN : "") || ""
         ).trim();
         if (!token) {
-          throw new Error(
-            "Credencial Mercado Pago nao configurada no restaurante. Nao foi possivel estornar automaticamente."
+          throw new AutomaticRefundError(
+            "O estorno autom\xE1tico est\xE1 indispon\xEDvel porque a credencial Mercado Pago n\xE3o est\xE1 configurada para este restaurante. O pedido n\xE3o foi cancelado.",
+            "MISSING_CREDENTIALS"
           );
         }
         return token;
       }
-      async executeMercadoPagoRefund(paymentId, amount, restaurantId) {
-        const paymentApi = await getMercadoPagoPaymentApi(Number(restaurantId || 0) || void 0);
-        if (typeof paymentApi.refund === "function") {
-          if (amount) {
-            await paymentApi.refund({ id: paymentId, amount });
-            return;
-          }
-          await paymentApi.refund({ id: paymentId });
-          return;
+      async executeMercadoPagoRefund(paymentId, restaurantId, idempotencyKey) {
+        const normalizedPaymentId = String(paymentId || "").trim();
+        if (!normalizedPaymentId) {
+          throw new AutomaticRefundError(
+            "Este pagamento Mercado Pago n\xE3o possui uma refer\xEAncia v\xE1lida para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
+          );
         }
-        if (typeof paymentApi.createRefund === "function") {
-          if (amount) {
-            await paymentApi.createRefund({ id: paymentId, amount });
-            return;
-          }
-          await paymentApi.createRefund({ id: paymentId });
-          return;
-        }
-        throw new Error("SDK do Mercado Pago sem suporte de estorno configurado no servidor.");
+        const refundApi = await getMercadoPagoPaymentRefundApi(Number(restaurantId || 0) || void 0);
+        const response = await refundApi.total({
+          payment_id: normalizedPaymentId,
+          ...idempotencyKey ? {
+            requestOptions: {
+              idempotencyKey
+            }
+          } : {}
+        });
+        const refund = typeof response === "object" && response !== null ? response.body ?? response : {};
+        return {
+          provider: "MERCADO_PAGO",
+          externalId: String(refund.id || normalizedPaymentId).trim()
+        };
       }
-      async refundPix(order) {
+      resolvePagBankOrderApiBaseUrl() {
+        return String(process.env.PAGBANK_API_BASE_URL || "https://api.pagseguro.com").trim().replace(/\/+$/, "");
+      }
+      async getPagBankBearerToken(restaurantId) {
+        const normalizedRestaurantId = Number(restaurantId || 0);
+        const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === "true";
+        const settings = Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0 ? await RestaurantSettingsRepository_default.findByRestaurantId(normalizedRestaurantId) : null;
+        const token = String(
+          settings?.pagbankToken || (allowGlobalFallback ? process.env.PAGBANK_TOKEN : "") || ""
+        ).trim();
+        if (!token) {
+          throw new AutomaticRefundError(
+            "O estorno autom\xE1tico est\xE1 indispon\xEDvel porque a credencial PagBank n\xE3o est\xE1 configurada para este restaurante. O pedido n\xE3o foi cancelado.",
+            "MISSING_CREDENTIALS"
+          );
+        }
+        return token;
+      }
+      async refundPagBankPixOrder(pagBankOrderId, order, idempotencyKey) {
+        const normalizedOrderId = String(pagBankOrderId || "").trim();
+        const restaurantId = Number(order.restaurantId || 0);
+        if (!normalizedOrderId) {
+          throw new AutomaticRefundError(
+            "Este Pix PagBank n\xE3o possui uma refer\xEAncia v\xE1lida para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
+          );
+        }
+        const token = await this.getPagBankBearerToken(restaurantId);
+        const apiBaseUrl = this.resolvePagBankOrderApiBaseUrl();
+        const orderResponse = await fetch(
+          `${apiBaseUrl}/orders/${encodeURIComponent(normalizedOrderId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json"
+            }
+          }
+        );
+        const orderPayload = await orderResponse.json().catch(() => ({}));
+        if (!orderResponse.ok) {
+          console.error("[PAGBANK_PIX_REFUND_LOOKUP_ERROR]", {
+            orderId: order.id,
+            restaurantId,
+            pagBankOrderId: normalizedOrderId,
+            status: orderResponse.status
+          });
+          throw new AutomaticRefundError(
+            "O PagBank n\xE3o permitiu localizar a cobran\xE7a Pix para estorno. O pedido n\xE3o foi cancelado.",
+            "PROVIDER_FAILURE"
+          );
+        }
+        const expectedAmountInCents = Math.round(Number(order.total || 0) * 100);
+        const charges = Array.isArray(orderPayload.charges) ? orderPayload.charges : [];
+        const paidCharge = charges.find(
+          (charge) => String(charge.status || "").toUpperCase() === "PAID" && charge.id
+        );
+        const alreadyRefundedCharge = charges.find((charge) => {
+          const status = String(charge.status || "").toUpperCase();
+          const refundedAmount = Number(charge.summary?.refunded || 0);
+          return status === "CANCELED" && Boolean(charge.id) && expectedAmountInCents > 0 && refundedAmount >= expectedAmountInCents;
+        });
+        if (alreadyRefundedCharge?.id) {
+          return {
+            provider: "PAGBANK",
+            externalId: String(alreadyRefundedCharge.id)
+          };
+        }
+        if (!paidCharge?.id || expectedAmountInCents <= 0) {
+          throw new AutomaticRefundError(
+            "O PagBank n\xE3o retornou uma cobran\xE7a Pix paga e eleg\xEDvel para estorno. O pedido n\xE3o foi cancelado.",
+            "NOT_SUPPORTED"
+          );
+        }
+        const cancelResponse = await fetch(
+          `${apiBaseUrl}/charges/${encodeURIComponent(String(paidCharge.id))}/cancel`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              ...idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {}
+            },
+            body: JSON.stringify({
+              amount: {
+                value: expectedAmountInCents
+              }
+            })
+          }
+        );
+        const cancelPayload = await cancelResponse.json().catch(() => ({}));
+        if (!cancelResponse.ok) {
+          console.error("[PAGBANK_PIX_REFUND_ERROR]", {
+            orderId: order.id,
+            restaurantId,
+            chargeId: paidCharge.id,
+            status: cancelResponse.status,
+            providerCode: cancelPayload.error_messages?.[0]?.code || void 0
+          });
+          throw new AutomaticRefundError(
+            "O PagBank n\xE3o confirmou o estorno do Pix. O pedido n\xE3o foi cancelado e pode ser tentado novamente.",
+            "PROVIDER_FAILURE"
+          );
+        }
+        return {
+          provider: "PAGBANK",
+          externalId: String(cancelPayload.id || paidCharge.id).trim()
+        };
+      }
+      async refundPix(order, options) {
         const paymentId = String(order.pixPaymentId || "").trim();
         const normalizedPaymentId = paymentId.toLowerCase();
         if (!paymentId) {
-          throw new Error(
-            "Pedido PIX sem identificador de pagamento. Nao foi possivel estornar automaticamente."
+          throw new AutomaticRefundError(
+            "Este pedido Pix n\xE3o possui uma refer\xEAncia de pagamento para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
           );
         }
         if (normalizedPaymentId.startsWith("manual:")) {
-          throw new Error(
-            "Pedido PIX manual exige estorno manual. Nao foi possivel estornar automaticamente."
+          throw new AutomaticRefundError(
+            "Este Pix foi confirmado manualmente e exige devolu\xE7\xE3o manual. O pedido n\xE3o foi cancelado.",
+            "NOT_SUPPORTED"
           );
         }
         if (normalizedPaymentId.startsWith("asaas:")) {
           const asaasPaymentId = paymentId.slice("asaas:".length).trim();
-          await this.executeAsaasRefund(asaasPaymentId, order);
-          return;
+          return this.executeAsaasRefund(asaasPaymentId, order, options);
         }
         if (normalizedPaymentId.startsWith("pagbank:")) {
-          throw new Error(
-            "Estorno automatico deste PIX PagBank ainda nao e suportado. Nenhuma alteracao foi aplicada ao pedido."
-          );
+          const pagBankOrderId = paymentId.slice("pagbank:".length).trim();
+          return this.refundPagBankPixOrder(pagBankOrderId, order, options.idempotencyKey);
         }
-        const amount = this.parseAmount(order.total);
-        await this.executeMercadoPagoRefund(paymentId, amount, order.restaurantId);
+        return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
       }
-      async refundStripeCard(order) {
+      async refundStripeCard(order, options) {
         const rawSessionId = String(order.cardCheckoutSessionId || "").trim();
         const stripeSessionId = rawSessionId;
         if (!stripeSessionId || !stripeSessionId.startsWith("cs_")) {
-          throw new Error("Pedido de cartao sem sessao Stripe valida para estorno automatico.");
+          throw new AutomaticRefundError(
+            "Este pagamento com cart\xE3o n\xE3o possui uma sess\xE3o Stripe v\xE1lida para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
+          );
         }
         const restaurantId = Number(order.restaurantId || 0) || void 0;
         const settings = restaurantId ? await RestaurantSettingsRepository_default.findByRestaurantId(restaurantId) : null;
@@ -8716,30 +8872,56 @@ var init_RefundOrderPaymentService = __esm({
           settings?.stripeSecretKey || (allowGlobalFallback ? process.env.STRIPE_SECRET_KEY : "") || ""
         ).trim();
         if (!secretKey) {
-          throw new Error(
-            "Chave Stripe nao configurada no restaurante. Nao foi possivel estornar automaticamente."
+          throw new AutomaticRefundError(
+            "O estorno autom\xE1tico est\xE1 indispon\xEDvel porque a chave Stripe n\xE3o est\xE1 configurada para este restaurante. O pedido n\xE3o foi cancelado.",
+            "MISSING_CREDENTIALS"
           );
         }
-        const stripe = new Stripe(secretKey);
+        const stripe = this.createStripeClient(secretKey);
         const session = await stripe.checkout.sessions.retrieve(stripeSessionId, {
           expand: ["payment_intent"]
         });
         const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
         if (!paymentIntentId) {
-          throw new Error("Checkout Stripe sem payment_intent para estorno automatico.");
+          throw new AutomaticRefundError(
+            "A Stripe n\xE3o retornou a refer\xEAncia financeira necess\xE1ria para o estorno. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
+          );
         }
-        await stripe.refunds.create({
-          payment_intent: paymentIntentId
-        });
+        const refund = await stripe.refunds.create(
+          {
+            payment_intent: paymentIntentId
+          },
+          options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : void 0
+        );
+        return {
+          provider: "STRIPE",
+          externalId: String(refund.id || paymentIntentId).trim()
+        };
       }
-      async refundPagBankByTransaction(transactionCode, order) {
+      async refundPagBankByTransaction(transactionCode, order, options) {
         const normalizedTransactionCode = String(transactionCode || "").trim();
         if (!normalizedTransactionCode) {
-          throw new Error("Codigo de transacao PagBank invalido para estorno automatico.");
+          throw new AutomaticRefundError(
+            "Este pagamento PagBank n\xE3o possui uma transa\xE7\xE3o v\xE1lida para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
+          );
         }
         const restaurantId = Number(order.restaurantId || 0) || void 0;
         const { email, token, environment: environment2 } = await this.getPagBankCredentials(restaurantId);
         const amount = this.parseAmount(order.total);
+        if (options.verifyExistingRefund) {
+          const queryUrl = `${this.resolvePagBankApiBaseUrl(environment2)}/v3/transactions/${encodeURIComponent(normalizedTransactionCode)}?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+          const queryResponse = await fetch(queryUrl, { method: "GET" });
+          const queryText = await queryResponse.text().catch(() => "");
+          const currentStatus = this.extractXmlTagValue(queryText, "status");
+          if (queryResponse.ok && currentStatus === "6") {
+            return {
+              provider: "PAGBANK",
+              externalId: normalizedTransactionCode
+            };
+          }
+        }
         const params = new URLSearchParams();
         params.set("email", email);
         params.set("token", token);
@@ -8761,45 +8943,70 @@ var init_RefundOrderPaymentService = __esm({
           const fallbackSnippet = String(responseText || "").replace(/\s+/g, " ").trim().slice(0, 220);
           const providerMessage = parsedError.message || (fallbackSnippet ? `Falha ao estornar no PagBank. Resposta: ${fallbackSnippet}` : "Falha ao estornar no PagBank.");
           const detailsSuffix = parsedError.code ? ` (code ${parsedError.code})` : "";
-          throw new Error(
-            `PagBank refund [HTTP ${response.status}]: ${providerMessage}${detailsSuffix}`
+          console.error("[PAGBANK_CARD_REFUND_ERROR]", {
+            orderId: order.id,
+            restaurantId,
+            transactionCode: normalizedTransactionCode,
+            status: response.status,
+            code: parsedError.code || void 0,
+            providerMessage,
+            detailsSuffix
+          });
+          throw new AutomaticRefundError(
+            "O PagBank n\xE3o confirmou o estorno do cart\xE3o. O pedido n\xE3o foi cancelado e pode ser tentado novamente.",
+            "PROVIDER_FAILURE"
           );
         }
         if (parsedError.code && parsedError.message) {
-          throw new Error(
-            `PagBank refund [HTTP ${response.status}]: ${parsedError.message} (code ${parsedError.code})`
+          console.error("[PAGBANK_CARD_REFUND_XML_ERROR]", {
+            orderId: order.id,
+            restaurantId,
+            transactionCode: normalizedTransactionCode,
+            status: response.status,
+            code: parsedError.code,
+            providerMessage: parsedError.message
+          });
+          throw new AutomaticRefundError(
+            "O PagBank n\xE3o confirmou o estorno do cart\xE3o. O pedido n\xE3o foi cancelado e pode ser tentado novamente.",
+            "PROVIDER_FAILURE"
           );
         }
+        return {
+          provider: "PAGBANK",
+          externalId: normalizedTransactionCode
+        };
       }
-      async refundCard(order) {
+      async refundCard(order, options) {
         const checkoutSessionId = String(order.cardCheckoutSessionId || "").trim();
         const normalizedCheckoutSessionId = checkoutSessionId.toLowerCase();
-        const amount = this.parseAmount(order.total);
         if (!checkoutSessionId) {
-          throw new Error(
-            "Pedido CARTAO sem identificador de checkout. Nao foi possivel estornar automaticamente."
+          throw new AutomaticRefundError(
+            "Este pedido com cart\xE3o n\xE3o possui uma refer\xEAncia de checkout para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
           );
         }
         if (normalizedCheckoutSessionId.startsWith("asaas_pay:")) {
           const asaasPaymentId = checkoutSessionId.slice("asaas_pay:".length).trim();
-          await this.executeAsaasRefund(asaasPaymentId, order);
-          return;
+          return this.executeAsaasRefund(asaasPaymentId, order, options);
         }
         if (normalizedCheckoutSessionId.startsWith("mp_pay:")) {
           const paymentId = checkoutSessionId.replace(/^mp_pay:/i, "").trim();
           if (!paymentId) {
-            throw new Error("Pedido CARTAO com id de pagamento Mercado Pago invalido para estorno.");
+            throw new AutomaticRefundError(
+              "Este pagamento Mercado Pago n\xE3o possui uma refer\xEAncia v\xE1lida para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+              "MISSING_REFERENCE"
+            );
           }
-          await this.executeMercadoPagoRefund(paymentId, amount, order.restaurantId);
-          return;
+          return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
         }
         if (normalizedCheckoutSessionId.startsWith("mp_pref:")) {
           const preferenceId = checkoutSessionId.replace(/^mp_pref:/i, "").trim();
           const orderId = Number(order.id || 0);
           const restaurantId = Number(order.restaurantId || 0);
           if (!preferenceId || !Number.isInteger(orderId) || orderId <= 0) {
-            throw new Error(
-              "Pedido CARTAO Mercado Pago sem dados suficientes para localizar pagamento e estornar automaticamente."
+            throw new AutomaticRefundError(
+              "Este pagamento Mercado Pago n\xE3o possui dados suficientes para localizar a cobran\xE7a. O pedido n\xE3o foi cancelado.",
+              "MISSING_REFERENCE"
             );
           }
           const externalReference = Number.isInteger(restaurantId) && restaurantId > 0 ? `ordercard:${orderId}:${restaurantId}` : `ordercard:${orderId}`;
@@ -8817,56 +9024,322 @@ var init_RefundOrderPaymentService = __esm({
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(
-              "Falha ao consultar pagamento de cartao no Mercado Pago para estorno automatico."
+            throw new AutomaticRefundError(
+              "O Mercado Pago n\xE3o permitiu localizar o pagamento para estorno. O pedido n\xE3o foi cancelado.",
+              "PROVIDER_FAILURE"
             );
           }
           const resolvedPaymentId = String(payload?.results?.[0]?.id || "").trim();
           if (!resolvedPaymentId) {
-            throw new Error(
-              "Nao foi possivel localizar o pagamento de cartao no Mercado Pago para estorno automatico."
+            throw new AutomaticRefundError(
+              "N\xE3o foi poss\xEDvel localizar o pagamento com cart\xE3o no Mercado Pago. O pedido n\xE3o foi cancelado.",
+              "MISSING_REFERENCE"
             );
           }
-          await this.executeMercadoPagoRefund(resolvedPaymentId, amount, order.restaurantId);
-          return;
+          return this.executeMercadoPagoRefund(
+            resolvedPaymentId,
+            order.restaurantId,
+            options.idempotencyKey
+          );
         }
         if (normalizedCheckoutSessionId.startsWith("pagbank_chk:")) {
-          throw new Error(
-            "Pedido PagBank ainda sem codigo de transacao confirmado para estorno automatico. Nenhuma alteracao foi aplicada ao pedido."
+          throw new AutomaticRefundError(
+            "O pagamento PagBank ainda n\xE3o possui o c\xF3digo da transa\xE7\xE3o necess\xE1rio para estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "MISSING_REFERENCE"
           );
         }
         if (normalizedCheckoutSessionId.startsWith("pagbank_tx:")) {
           const transactionCode = checkoutSessionId.replace(/^pagbank_tx:/i, "").trim();
-          await this.refundPagBankByTransaction(transactionCode, order);
-          return;
+          return this.refundPagBankByTransaction(transactionCode, order, options);
         }
         if (normalizedCheckoutSessionId.startsWith("pagbank:")) {
-          throw new Error(
-            "Identificador PagBank sem suporte de estorno automatico. Nenhuma alteracao foi aplicada ao pedido."
+          throw new AutomaticRefundError(
+            "Este identificador PagBank n\xE3o oferece estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+            "NOT_SUPPORTED"
           );
         }
-        await this.refundStripeCard(order);
+        return this.refundStripeCard(order, options);
       }
-      async execute(order) {
+      async execute(order, options = {}) {
         const paymentMethod = String(order.paymentMethod || "").toUpperCase();
         if (order.paid !== true) {
-          return;
+          throw new AutomaticRefundError(
+            "Este pedido n\xE3o possui pagamento confirmado para estorno autom\xE1tico.",
+            "NOT_SUPPORTED"
+          );
         }
-        if (paymentMethod === PaymentMethod5.PIX) {
-          await this.refundPix(order);
-          return;
+        try {
+          if (paymentMethod === PaymentMethod5.PIX) {
+            return await this.refundPix(order, options);
+          }
+          if (paymentMethod === PaymentMethod5.CARTAO) {
+            return await this.refundCard(order, options);
+          }
+        } catch (error2) {
+          if (error2 instanceof AutomaticRefundError) {
+            throw error2;
+          }
+          console.error("[ORDER_REFUND_PROVIDER_UNEXPECTED_ERROR]", {
+            orderId: order.id,
+            restaurantId: order.restaurantId,
+            paymentMethod,
+            error: error2 instanceof Error ? error2.message : String(error2)
+          });
+          throw new AutomaticRefundError(
+            "O provedor de pagamento n\xE3o confirmou o estorno. O pedido n\xE3o foi cancelado e pode ser tentado novamente.",
+            "PROVIDER_FAILURE"
+          );
         }
-        if (paymentMethod === PaymentMethod5.CARTAO) {
-          await this.refundCard(order);
-        }
+        throw new AutomaticRefundError(
+          "Este m\xE9todo de pagamento n\xE3o oferece estorno autom\xE1tico. O pedido n\xE3o foi cancelado.",
+          "NOT_SUPPORTED"
+        );
       }
     };
     RefundOrderPaymentService_default = new RefundOrderPaymentService();
   }
 });
 
+// src/modules/orders/services/CancelOrderWorkflowService.ts
+import { OrderRefundStatus as OrderRefundStatus2, OrderStatus as OrderStatus11, PaymentMethod as PaymentMethod6 } from "@prisma/client";
+function getPublicOrderCancellationErrorMessage(error2, fallback) {
+  if (error2 instanceof OrderCancellationError || error2 instanceof AutomaticRefundError) {
+    return error2.message;
+  }
+  return fallback;
+}
+function isOrderPaidOnDelivery(order) {
+  return order.payOnDelivery === true || String(order.observation || "").toUpperCase().includes(PAY_ON_DELIVERY_MARKER);
+}
+function requiresAutomaticOrderRefund(order) {
+  return order.paid === true && !isOrderPaidOnDelivery(order) && DIGITAL_PAYMENT_METHODS.has(String(order.paymentMethod || "").toUpperCase());
+}
+var DIGITAL_PAYMENT_METHODS, PAY_ON_DELIVERY_MARKER, OrderCancellationError, CancelOrderWorkflowService, CancelOrderWorkflowService_default;
+var init_CancelOrderWorkflowService = __esm({
+  "src/modules/orders/services/CancelOrderWorkflowService.ts"() {
+    init_prisma();
+    init_OrderRepository();
+    init_couponRedemptionLifecycle();
+    init_RefundOrderPaymentService();
+    init_restoreOrderItemsStock();
+    DIGITAL_PAYMENT_METHODS = /* @__PURE__ */ new Set([PaymentMethod6.PIX, PaymentMethod6.CARTAO]);
+    PAY_ON_DELIVERY_MARKER = "PAY_ON_DELIVERY:";
+    OrderCancellationError = class extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "OrderCancellationError";
+      }
+    };
+    CancelOrderWorkflowService = class {
+      buildIdempotencyKey(order) {
+        return `order-refund-${order.restaurantId}-${order.id}`;
+      }
+      async cancelWithoutRefund(order) {
+        if (order.status === OrderStatus11.CANCELADO) {
+          return { order, refunded: false };
+        }
+        try {
+          const cancelledOrder = await prisma_default.$transaction(async (tx) => {
+            const updated = await OrderRepository_default.updateStatusIfCurrent(
+              order.id,
+              OrderStatus11.CANCELADO,
+              order.restaurantId,
+              { status: order.status, paid: order.paid },
+              tx
+            );
+            await restoreOrderItemsStock(tx, order);
+            await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+            return updated;
+          });
+          return { order: cancelledOrder, refunded: false };
+        } catch (error2) {
+          const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+          if (latest?.status === OrderStatus11.CANCELADO) {
+            return { order: latest, refunded: false };
+          }
+          throw error2;
+        }
+      }
+      async finalizeSucceededRefund(order) {
+        if (order.status === OrderStatus11.CANCELADO) {
+          return { order, refunded: true };
+        }
+        if (order.status === OrderStatus11.ENTREGUE) {
+          throw new OrderCancellationError(
+            "O pagamento j\xE1 foi estornado, mas o pedido entregue exige concilia\xE7\xE3o administrativa. Nenhuma movimenta\xE7\xE3o de estoque foi realizada."
+          );
+        }
+        try {
+          const cancelledOrder = await prisma_default.$transaction(async (tx) => {
+            const result = await tx.order.updateMany({
+              where: {
+                id: order.id,
+                restaurantId: order.restaurantId,
+                refundStatus: OrderRefundStatus2.SUCCEEDED,
+                status: { notIn: [OrderStatus11.CANCELADO, OrderStatus11.ENTREGUE] }
+              },
+              data: {
+                status: OrderStatus11.CANCELADO
+              }
+            });
+            if (result.count !== 1) {
+              throw new OrderCancellationError("O cancelamento do pedido precisa ser conciliado.");
+            }
+            await restoreOrderItemsStock(tx, order);
+            await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+            const updated = await OrderRepository_default.findById(order.id, order.restaurantId, tx);
+            if (!updated) {
+              throw new OrderCancellationError("Pedido n\xE3o encontrado ap\xF3s o cancelamento.");
+            }
+            return updated;
+          });
+          return { order: cancelledOrder, refunded: true };
+        } catch (error2) {
+          const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+          if (latest?.status === OrderStatus11.CANCELADO && latest.refundStatus === OrderRefundStatus2.SUCCEEDED) {
+            return { order: latest, refunded: true };
+          }
+          throw error2;
+        }
+      }
+      async persistRefundSucceeded(order, idempotencyKey, receipt) {
+        const result = await prisma_default.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: order.restaurantId,
+            paid: true,
+            refundStatus: OrderRefundStatus2.PROCESSING,
+            refundIdempotencyKey: idempotencyKey
+          },
+          data: {
+            refundStatus: OrderRefundStatus2.SUCCEEDED,
+            refundedAt: /* @__PURE__ */ new Date(),
+            refundFailureReason: null,
+            refundProvider: receipt.provider,
+            refundExternalId: receipt.externalId
+          }
+        });
+        if (result.count === 1) {
+          return;
+        }
+        const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+        if (latest?.refundStatus === OrderRefundStatus2.SUCCEEDED) {
+          return;
+        }
+        console.error("[ORDER_REFUND_RECONCILIATION_REQUIRED]", {
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          provider: receipt.provider,
+          externalId: receipt.externalId
+        });
+        throw new OrderCancellationError(
+          "O provedor confirmou o estorno, mas a atualiza\xE7\xE3o do pedido ficou em concilia\xE7\xE3o. N\xE3o repita o estorno; contate o suporte."
+        );
+      }
+      async markRefundFailed(order, idempotencyKey, error2) {
+        const result = await prisma_default.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: order.restaurantId,
+            refundStatus: OrderRefundStatus2.PROCESSING,
+            refundIdempotencyKey: idempotencyKey
+          },
+          data: {
+            refundStatus: OrderRefundStatus2.FAILED,
+            refundFailureReason: error2.message,
+            refundProvider: null,
+            refundExternalId: null
+          }
+        });
+        if (result.count !== 1) {
+          console.error("[ORDER_REFUND_FAILURE_STATE_NOT_PERSISTED]", {
+            orderId: order.id,
+            restaurantId: order.restaurantId
+          });
+        }
+      }
+      async refundAndCancel(order) {
+        if (order.refundStatus === OrderRefundStatus2.SUCCEEDED) {
+          return this.finalizeSucceededRefund(order);
+        }
+        if (order.refundStatus === OrderRefundStatus2.PROCESSING) {
+          throw new OrderCancellationError(
+            "O estorno deste pedido j\xE1 est\xE1 em processamento ou aguardando concilia\xE7\xE3o. Aguarde a atualiza\xE7\xE3o antes de tentar novamente."
+          );
+        }
+        const previousRefundStatus = order.refundStatus;
+        const idempotencyKey = String(order.refundIdempotencyKey || "").trim() || this.buildIdempotencyKey(order);
+        const claim = await prisma_default.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: order.restaurantId,
+            status: order.status,
+            paid: true,
+            refundStatus: previousRefundStatus
+          },
+          data: {
+            refundStatus: OrderRefundStatus2.PROCESSING,
+            refundRequestedAt: /* @__PURE__ */ new Date(),
+            refundFailureReason: null,
+            refundIdempotencyKey: idempotencyKey,
+            refundProvider: null,
+            refundExternalId: null
+          }
+        });
+        if (claim.count !== 1) {
+          const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+          if (latest?.refundStatus === OrderRefundStatus2.SUCCEEDED) {
+            return this.finalizeSucceededRefund(latest);
+          }
+          if (latest?.refundStatus === OrderRefundStatus2.PROCESSING) {
+            throw new OrderCancellationError(
+              "O estorno deste pedido j\xE1 est\xE1 em processamento. Aguarde a atualiza\xE7\xE3o antes de tentar novamente."
+            );
+          }
+          if (latest?.status === OrderStatus11.CANCELADO) {
+            throw new OrderCancellationError(
+              "O pedido foi cancelado por outro processo, mas o estorno autom\xE1tico n\xE3o est\xE1 confirmado. Contate o suporte."
+            );
+          }
+          throw new OrderCancellationError(
+            "O pedido foi atualizado por outro processo. Atualize a tela e tente novamente."
+          );
+        }
+        let receipt;
+        try {
+          receipt = await RefundOrderPaymentService_default.execute(order, {
+            idempotencyKey,
+            verifyExistingRefund: previousRefundStatus === OrderRefundStatus2.FAILED
+          });
+        } catch (error2) {
+          const safeError = error2 instanceof AutomaticRefundError ? error2 : new AutomaticRefundError(
+            "O provedor de pagamento n\xE3o confirmou o estorno. O pedido n\xE3o foi cancelado e pode ser tentado novamente."
+          );
+          await this.markRefundFailed(order, idempotencyKey, safeError);
+          throw safeError;
+        }
+        await this.persistRefundSucceeded(order, idempotencyKey, receipt);
+        const refundedOrder = await OrderRepository_default.findById(order.id, order.restaurantId);
+        if (!refundedOrder) {
+          throw new OrderCancellationError(
+            "O estorno foi confirmado, mas o pedido precisa de concilia\xE7\xE3o. N\xE3o repita o estorno; contate o suporte."
+          );
+        }
+        return this.finalizeSucceededRefund(refundedOrder);
+      }
+      async execute(order) {
+        if (!requiresAutomaticOrderRefund(order)) {
+          return this.cancelWithoutRefund(order);
+        }
+        return this.refundAndCancel(order);
+      }
+    };
+    CancelOrderWorkflowService_default = new CancelOrderWorkflowService();
+  }
+});
+
 // src/modules/orders/services/CancelOrderService.ts
-import { OrderStatus as OrderStatus11, PaymentMethod as PaymentMethod6 } from "@prisma/client";
+import { OrderRefundStatus as OrderRefundStatus3, OrderStatus as OrderStatus12 } from "@prisma/client";
 var CancelOrderService, CancelOrderService_default;
 var init_CancelOrderService = __esm({
   "src/modules/orders/services/CancelOrderService.ts"() {
@@ -8874,10 +9347,7 @@ var init_CancelOrderService = __esm({
     init_orderStateMachine();
     init_server();
     init_customerNotifier();
-    init_RefundOrderPaymentService();
-    init_prisma();
-    init_restoreOrderItemsStock();
-    init_couponRedemptionLifecycle();
+    init_CancelOrderWorkflowService();
     init_waiterOrderRealtime();
     CancelOrderService = class {
       async execute(orderId, userId, restaurantId) {
@@ -8889,32 +9359,25 @@ var init_CancelOrderService = __esm({
           normalizedRestaurantId
         );
         if (!order) {
-          throw new Error("Pedido n\xE3o encontrado!");
+          throw new OrderCancellationError("Pedido n\xE3o encontrado!");
         }
         if (order.userId !== userId) {
-          throw new Error("Sem permiss\xE3o!");
+          throw new OrderCancellationError("Sem permiss\xE3o!");
         }
         const orderRestaurantId = order.restaurantId;
-        const canCancel = OrderStateMachine.canTransition(order.status, OrderStatus11.CANCELADO);
-        if (!canCancel) {
-          throw new Error("Pedido n\xE3o pode ser cancelado!");
-        }
-        const isPaidDigitalOrder = order.paid === true && order.payOnDelivery !== true && (order.paymentMethod === PaymentMethod6.PIX || order.paymentMethod === PaymentMethod6.CARTAO);
-        if (isPaidDigitalOrder) {
-          await RefundOrderPaymentService_default.execute(order);
-        }
-        const updatedOrder = await prisma_default.$transaction(async (tx) => {
-          const cancelledOrder = await OrderRepository_default.updateStatusIfCurrent(
-            normalizedOrderId,
-            OrderStatus11.CANCELADO,
-            orderRestaurantId,
-            { status: order.status, paid: order.paid },
-            tx
+        if (order.status === OrderStatus12.CANCELADO) {
+          if (!requiresAutomaticOrderRefund(order) || order.refundStatus === OrderRefundStatus3.SUCCEEDED) {
+            return order;
+          }
+          throw new OrderCancellationError(
+            "Este pedido j\xE1 est\xE1 cancelado, mas n\xE3o h\xE1 confirma\xE7\xE3o persistida do estorno autom\xE1tico. Contate o restaurante."
           );
-          await restoreOrderItemsStock(tx, order);
-          await releaseCouponRedemptionForOrder(normalizedOrderId, orderRestaurantId, tx);
-          return cancelledOrder;
-        });
+        }
+        const canCancel = OrderStateMachine.canTransition(order.status, OrderStatus12.CANCELADO);
+        if (!canCancel) {
+          throw new OrderCancellationError("Pedido n\xE3o pode ser cancelado!");
+        }
+        const { order: updatedOrder } = await CancelOrderWorkflowService_default.execute(order);
         notifyCustomerOrderStatusChanged({
           restaurantId: orderRestaurantId,
           customerPhone: order?.user?.phone,
@@ -8942,6 +9405,7 @@ var CancelOrderController, CancelOrderController_default;
 var init_CancelOrderController = __esm({
   "src/modules/orders/controllers/CancelOrderController.ts"() {
     init_CancelOrderService();
+    init_CancelOrderWorkflowService();
     CancelOrderController = class {
       async handle(req, res) {
         try {
@@ -8950,8 +9414,17 @@ var init_CancelOrderController = __esm({
           const order = await CancelOrderService_default.execute(id, userId, restaurantId);
           return res.json(order);
         } catch (error2) {
+          const publicMessage = getPublicOrderCancellationErrorMessage(
+            error2,
+            "N\xE3o foi poss\xEDvel cancelar o pedido agora. Tente novamente ou contate o restaurante."
+          );
+          if (publicMessage !== (error2 instanceof Error ? error2.message : "")) {
+            console.error("[CANCEL_ORDER_UNEXPECTED_ERROR]", {
+              error: error2 instanceof Error ? error2.message : String(error2)
+            });
+          }
           return res.status(400).json({
-            error: error2 instanceof Error ? error2.message : "Erro ao cancelar pedido"
+            error: publicMessage
           });
         }
       }
@@ -10143,7 +10616,7 @@ var init_GetOrderPixPaymentStatusController = __esm({
 });
 
 // src/modules/orders/services/ReconcileLateCancelledPaymentService.ts
-import { OrderStatus as OrderStatus12, PaymentMethod as PaymentMethod7 } from "@prisma/client";
+import { OrderRefundStatus as OrderRefundStatus4, OrderStatus as OrderStatus13, PaymentMethod as PaymentMethod7 } from "@prisma/client";
 var ReconcileLateCancelledPaymentService, ReconcileLateCancelledPaymentService_default;
 var init_ReconcileLateCancelledPaymentService = __esm({
   "src/modules/orders/services/ReconcileLateCancelledPaymentService.ts"() {
@@ -10164,8 +10637,14 @@ var init_ReconcileLateCancelledPaymentService = __esm({
           throw new Error("Pagamento tardio sem refer\xEAncia para estorno.");
         }
         const order = await OrderRepository_default.findById(orderId, normalizedRestaurantId);
-        if (!order || order.status !== OrderStatus12.CANCELADO || order.paid === true) {
+        if (!order || order.status !== OrderStatus13.CANCELADO || order.paid === true) {
           return false;
+        }
+        if (order.refundStatus === OrderRefundStatus4.SUCCEEDED) {
+          return true;
+        }
+        if (order.refundStatus === OrderRefundStatus4.PROCESSING) {
+          throw new Error("Estorno de pagamento tardio j\xE1 est\xE1 em processamento.");
         }
         const isPix = normalizedMethod === PaymentMethod7.PIX;
         const isCard = normalizedMethod === PaymentMethod7.CARTAO;
@@ -10174,6 +10653,7 @@ var init_ReconcileLateCancelledPaymentService = __esm({
         }
         const pendingMarker = `late_refund_pending:${normalizedReference}`;
         const completedMarker = `late_refunded:${normalizedReference}`;
+        const idempotencyKey = `late-order-refund-${order.restaurantId}-${order.id}`;
         const currentReference = String(
           isPix ? order.pixPaymentId || "" : order.cardCheckoutSessionId || ""
         ).trim();
@@ -10187,11 +10667,23 @@ var init_ReconcileLateCancelledPaymentService = __esm({
           where: {
             id: order.id,
             restaurantId: order.restaurantId,
-            status: OrderStatus12.CANCELADO,
+            status: OrderStatus13.CANCELADO,
             paid: false,
             ...isPix ? { pixPaymentId: order.pixPaymentId } : { cardCheckoutSessionId: order.cardCheckoutSessionId }
           },
-          data: isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
+          data: isPix ? {
+            pixPaymentId: pendingMarker,
+            refundStatus: OrderRefundStatus4.PROCESSING,
+            refundRequestedAt: /* @__PURE__ */ new Date(),
+            refundFailureReason: null,
+            refundIdempotencyKey: idempotencyKey
+          } : {
+            cardCheckoutSessionId: pendingMarker,
+            refundStatus: OrderRefundStatus4.PROCESSING,
+            refundRequestedAt: /* @__PURE__ */ new Date(),
+            refundFailureReason: null,
+            refundIdempotencyKey: idempotencyKey
+          }
         });
         if (claim.count !== 1) {
           const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
@@ -10203,37 +10695,83 @@ var init_ReconcileLateCancelledPaymentService = __esm({
           }
           throw new Error("N\xE3o foi poss\xEDvel iniciar o estorno do pagamento tardio.");
         }
+        let receipt;
         try {
-          await RefundOrderPaymentService_default.execute({
-            ...order,
-            paid: true,
-            ...isPix ? { pixPaymentId: normalizedReference } : { cardCheckoutSessionId: normalizedReference }
-          });
-          await prisma_default.order.updateMany({
-            where: {
-              id: order.id,
-              restaurantId: order.restaurantId,
-              ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
+          receipt = await RefundOrderPaymentService_default.execute(
+            {
+              ...order,
+              paid: true,
+              ...isPix ? { pixPaymentId: normalizedReference } : { cardCheckoutSessionId: normalizedReference }
             },
-            data: isPix ? { pixPaymentId: completedMarker } : { cardCheckoutSessionId: completedMarker }
-          });
-          console.warn("[LATE_CANCELLED_PAYMENT_REFUNDED]", {
-            orderId: order.id,
-            restaurantId: order.restaurantId,
-            paymentMethod: normalizedMethod
-          });
-          return true;
+            {
+              idempotencyKey,
+              verifyExistingRefund: order.refundStatus === OrderRefundStatus4.FAILED
+            }
+          );
         } catch (error2) {
           await prisma_default.order.updateMany({
             where: {
               id: order.id,
               restaurantId: order.restaurantId,
+              refundStatus: OrderRefundStatus4.PROCESSING,
               ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
             },
-            data: isPix ? { pixPaymentId: order.pixPaymentId } : { cardCheckoutSessionId: order.cardCheckoutSessionId }
+            data: isPix ? {
+              pixPaymentId: order.pixPaymentId,
+              refundStatus: OrderRefundStatus4.FAILED,
+              refundFailureReason: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel confirmar o estorno do pagamento tardio."
+            } : {
+              cardCheckoutSessionId: order.cardCheckoutSessionId,
+              refundStatus: OrderRefundStatus4.FAILED,
+              refundFailureReason: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel confirmar o estorno do pagamento tardio."
+            }
           });
           throw error2;
         }
+        const persisted = await prisma_default.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: order.restaurantId,
+            refundStatus: OrderRefundStatus4.PROCESSING,
+            ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
+          },
+          data: isPix ? {
+            pixPaymentId: completedMarker,
+            refundStatus: OrderRefundStatus4.SUCCEEDED,
+            refundedAt: /* @__PURE__ */ new Date(),
+            refundFailureReason: null,
+            refundProvider: receipt.provider,
+            refundExternalId: receipt.externalId
+          } : {
+            cardCheckoutSessionId: completedMarker,
+            refundStatus: OrderRefundStatus4.SUCCEEDED,
+            refundedAt: /* @__PURE__ */ new Date(),
+            refundFailureReason: null,
+            refundProvider: receipt.provider,
+            refundExternalId: receipt.externalId
+          }
+        });
+        if (persisted.count !== 1) {
+          const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
+          if (latest?.refundStatus !== OrderRefundStatus4.SUCCEEDED) {
+            console.error("[LATE_ORDER_REFUND_RECONCILIATION_REQUIRED]", {
+              orderId: order.id,
+              restaurantId: order.restaurantId,
+              paymentMethod: normalizedMethod,
+              provider: receipt.provider,
+              externalId: receipt.externalId
+            });
+            throw new Error(
+              "O estorno tardio foi confirmado pelo provedor e aguarda concilia\xE7\xE3o. N\xE3o repita a opera\xE7\xE3o."
+            );
+          }
+        }
+        console.warn("[LATE_CANCELLED_PAYMENT_REFUNDED]", {
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+          paymentMethod: normalizedMethod
+        });
+        return true;
       }
     };
     ReconcileLateCancelledPaymentService_default = new ReconcileLateCancelledPaymentService();
@@ -11170,7 +11708,7 @@ var init_ResolveOrderIssueController = __esm({
 });
 
 // src/modules/orders/services/RefundOrderByAdminService.ts
-import { OrderStatus as OrderStatus13 } from "@prisma/client";
+import { OrderRefundStatus as OrderRefundStatus5, OrderStatus as OrderStatus14, UserRole as UserRole15 } from "@prisma/client";
 var RefundOrderByAdminService, RefundOrderByAdminService_default;
 var init_RefundOrderByAdminService = __esm({
   "src/modules/orders/services/RefundOrderByAdminService.ts"() {
@@ -11178,9 +11716,7 @@ var init_RefundOrderByAdminService = __esm({
     init_server();
     init_customerNotifier();
     init_OrderRepository();
-    init_RefundOrderPaymentService();
-    init_restoreOrderItemsStock();
-    init_couponRedemptionLifecycle();
+    init_CancelOrderWorkflowService();
     init_waiterOrderRealtime();
     init_orderIssueChatStore();
     RefundOrderByAdminService = class {
@@ -11193,38 +11729,22 @@ var init_RefundOrderByAdminService = __esm({
         const normalizedRestaurantId = Number(restaurantId || 0);
         const normalizedAdminUserId = Number(adminUserId);
         if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
-          throw new Error("Pedido inv\xE1lido para estorno.");
+          throw new OrderCancellationError("Pedido inv\xE1lido para estorno.");
         }
         if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
-          throw new Error("Restaurante inv\xE1lido para estorno.");
+          throw new OrderCancellationError("Restaurante inv\xE1lido para estorno.");
         }
         if (!Number.isInteger(normalizedAdminUserId) || normalizedAdminUserId <= 0) {
-          throw new Error("Admin inv\xE1lido para estorno.");
+          throw new OrderCancellationError("Admin inv\xE1lido para estorno.");
         }
         const [order, adminUser, issueThread] = await Promise.all([
-          prisma_default.order.findFirst({
+          OrderRepository_default.findById(normalizedOrderId, normalizedRestaurantId),
+          prisma_default.user.findFirst({
             where: {
-              id: normalizedOrderId,
-              restaurantId: normalizedRestaurantId
-            },
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  phone: true
-                }
-              },
-              restaurant: {
-                select: {
-                  name: true,
-                  whatsapp: true
-                }
-              }
-            }
-          }),
-          prisma_default.user.findUnique({
-            where: {
-              id: normalizedAdminUserId
+              id: normalizedAdminUserId,
+              restaurantId: normalizedRestaurantId,
+              role: UserRole15.ADMIN,
+              active: true
             },
             select: {
               name: true
@@ -11233,28 +11753,27 @@ var init_RefundOrderByAdminService = __esm({
           getOrderIssueThread(normalizedOrderId)
         ]);
         if (!order) {
-          throw new Error("Pedido n\xE3o encontrado para este restaurante.");
+          throw new OrderCancellationError("Pedido n\xE3o encontrado para este restaurante.");
         }
-        if (order.status === OrderStatus13.CANCELADO) {
-          throw new Error("Este pedido j\xE1 est\xE1 cancelado.");
+        if (!adminUser) {
+          throw new OrderCancellationError("Admin sem permiss\xE3o para este restaurante.");
         }
-        const wasPaid = order.paid === true;
-        const hasOnlinePaymentToRefund = wasPaid && order.payOnDelivery !== true;
-        if (hasOnlinePaymentToRefund) {
-          await RefundOrderPaymentService_default.execute(order);
+        if (order.status === OrderStatus14.CANCELADO) {
+          const alreadyRefunded = order.refundStatus === OrderRefundStatus5.SUCCEEDED;
+          return {
+            order,
+            refunded: alreadyRefunded,
+            info: alreadyRefunded ? "Este pedido j\xE1 est\xE1 cancelado e o estorno j\xE1 foi confirmado." : "Este pedido j\xE1 est\xE1 cancelado. Nenhum novo estorno foi solicitado.",
+            issueThread: toOrderIssueThreadPayload(issueThread)
+          };
         }
-        const updatedOrder = await prisma_default.$transaction(async (tx) => {
-          const cancelledOrder = await OrderRepository_default.updateStatusIfCurrent(
-            order.id,
-            OrderStatus13.CANCELADO,
-            normalizedRestaurantId,
-            { status: order.status, paid: order.paid },
-            tx
+        if (order.status === OrderStatus14.ENTREGUE) {
+          throw new OrderCancellationError(
+            "Pedidos j\xE1 entregues n\xE3o podem ser cancelados ou estornados por este fluxo. Abra uma concilia\xE7\xE3o financeira."
           );
-          await restoreOrderItemsStock(tx, order);
-          await releaseCouponRedemptionForOrder(order.id, normalizedRestaurantId, tx);
-          return cancelledOrder;
-        });
+        }
+        const hasOnlinePaymentToRefund = requiresAutomaticOrderRefund(order);
+        const { order: updatedOrder, refunded } = await CancelOrderWorkflowService_default.execute(order);
         const resolvedByName = String(adminUser?.name || "Admin").trim() || "Admin";
         const resolvedThread = await resolveOrderIssueThread({
           orderId: order.id,
@@ -11294,8 +11813,8 @@ var init_RefundOrderByAdminService = __esm({
         }
         return {
           order: updatedOrder,
-          refunded: hasOnlinePaymentToRefund,
-          info: hasOnlinePaymentToRefund ? "Pagamento estornado e pedido cancelado com sucesso." : "Pedido cancelado com sucesso. Nenhum estorno online foi realizado.",
+          refunded,
+          info: refunded ? "Pagamento estornado e pedido cancelado com sucesso." : hasOnlinePaymentToRefund ? "Pedido cancelado, mas nenhum estorno online foi necess\xE1rio." : "Pedido cancelado com sucesso. Nenhum estorno online foi realizado.",
           issueThread: threadPayload
         };
       }
@@ -11309,6 +11828,7 @@ var RefundOrderByAdminController, RefundOrderByAdminController_default;
 var init_RefundOrderByAdminController = __esm({
   "src/modules/orders/controllers/RefundOrderByAdminController.ts"() {
     init_RefundOrderByAdminService();
+    init_CancelOrderWorkflowService();
     RefundOrderByAdminController = class {
       async handle(req, res) {
         try {
@@ -11321,8 +11841,17 @@ var init_RefundOrderByAdminController = __esm({
           });
           return res.status(200).json(result);
         } catch (error2) {
+          const publicMessage = getPublicOrderCancellationErrorMessage(
+            error2,
+            "N\xE3o foi poss\xEDvel cancelar e estornar este pedido agora. Tente novamente ou contate o suporte."
+          );
+          if (publicMessage !== (error2 instanceof Error ? error2.message : "")) {
+            console.error("[REFUND_ORDER_ADMIN_UNEXPECTED_ERROR]", {
+              error: error2 instanceof Error ? error2.message : String(error2)
+            });
+          }
           return res.status(400).json({
-            error: error2 instanceof Error ? error2.message : "Erro ao estornar pedido"
+            error: publicMessage
           });
         }
       }
@@ -11613,7 +12142,7 @@ var init_FinalizeOrderCardPaymentService = __esm({
 });
 
 // src/modules/orders/services/FailPendingOrderPaymentService.ts
-import { OrderStatus as OrderStatus14 } from "@prisma/client";
+import { OrderStatus as OrderStatus15 } from "@prisma/client";
 var FailPendingOrderPaymentService, FailPendingOrderPaymentService_default;
 var init_FailPendingOrderPaymentService = __esm({
   "src/modules/orders/services/FailPendingOrderPaymentService.ts"() {
@@ -11641,10 +12170,10 @@ var init_FailPendingOrderPaymentService = __esm({
           normalizedCardSessionId,
           normalizedRestaurantId
         ) : null;
-        if (!order || order.paid === true || order.status === OrderStatus14.CANCELADO) {
+        if (!order || order.paid === true || order.status === OrderStatus15.CANCELADO) {
           return order;
         }
-        if (order.status !== OrderStatus14.PENDENTE) {
+        if (order.status !== OrderStatus15.PENDENTE) {
           throw new Error(
             "Falha de pagamento recebida para um pedido que j\xE1 avan\xE7ou na opera\xE7\xE3o."
           );
@@ -11652,9 +12181,9 @@ var init_FailPendingOrderPaymentService = __esm({
         const cancelledOrder = await prisma_default.$transaction(async (tx) => {
           const updated = await OrderRepository_default.updateStatusIfCurrent(
             order.id,
-            OrderStatus14.CANCELADO,
+            OrderStatus15.CANCELADO,
             order.restaurantId,
-            { status: OrderStatus14.PENDENTE, paid: false },
+            { status: OrderStatus15.PENDENTE, paid: false },
             tx
           );
           await restoreOrderItemsStock(tx, order);
@@ -11669,6 +12198,20 @@ var init_FailPendingOrderPaymentService = __esm({
 });
 
 // src/modules/orders/controllers/MercadoPagoOrderWebhookController.ts
+function parseMercadoPagoOrderReference(externalReference) {
+  const match = /^order(pix|card):(\d+):(\d+)$/i.exec(String(externalReference || "").trim());
+  if (!match) {
+    return null;
+  }
+  const type = String(match[1] || "").toLowerCase();
+  const firstId = Number(match[2] || 0);
+  const secondId = Number(match[3] || 0);
+  return {
+    type,
+    restaurantId: type === "pix" ? firstId : secondId,
+    orderId: type === "pix" ? secondId : firstId
+  };
+}
 var APPROVED_STATUSES, TERMINAL_UNPAID_STATUSES, MercadoPagoOrderWebhookController, MercadoPagoOrderWebhookController_default;
 var init_MercadoPagoOrderWebhookController = __esm({
   "src/modules/orders/controllers/MercadoPagoOrderWebhookController.ts"() {
@@ -11708,10 +12251,10 @@ var init_MercadoPagoOrderWebhookController = __esm({
             payment.metadata?.restaurant_id || 0
           );
           const resolvedRestaurantId = Number.isInteger(hintedRestaurantId) && hintedRestaurantId > 0 ? hintedRestaurantId : Number.isInteger(metadataRestaurantId) && metadataRestaurantId > 0 ? metadataRestaurantId : void 0;
-          const parsedReference = /^order(pix|card):(\d+):(\d+)$/i.exec(externalReference);
-          const referenceType = String(parsedReference?.[1] || "").toLowerCase();
-          const referenceRestaurantId = Number(parsedReference?.[2] || 0);
-          const referenceOrderId = Number(parsedReference?.[3] || 0);
+          const parsedReference = parseMercadoPagoOrderReference(externalReference);
+          const referenceType = parsedReference?.type || "";
+          const referenceRestaurantId = parsedReference?.restaurantId || 0;
+          const referenceOrderId = parsedReference?.orderId || 0;
           if (parsedReference && (hintedRestaurantId > 0 && referenceRestaurantId !== hintedRestaurantId || metadataRestaurantId > 0 && referenceRestaurantId !== metadataRestaurantId)) {
             return res.status(400).json({
               error: "Webhook Mercado Pago rejeitado: restaurante da transa\xE7\xE3o n\xE3o confere."
@@ -12116,9 +12659,9 @@ var init_GetCurrentTableOrderController = __esm({
 });
 
 // src/modules/orders/utils/deliveryReceiptConfirmation.ts
-import { OrderStatus as OrderStatus15, OrderType as OrderType8, UserRole as UserRole15 } from "@prisma/client";
+import { OrderStatus as OrderStatus16, OrderType as OrderType8, UserRole as UserRole16 } from "@prisma/client";
 function canConfirmDeliveryReceipt(order, customerId2, role) {
-  if (String(role).toUpperCase() !== UserRole15.CLIENTE) {
+  if (String(role).toUpperCase() !== UserRole16.CLIENTE) {
     throw new Error("Somente o cliente do pedido pode confirmar o recebimento.");
   }
   if (order.userId !== customerId2) {
@@ -12127,7 +12670,7 @@ function canConfirmDeliveryReceipt(order, customerId2, role) {
   if (order.type !== OrderType8.DELIVERY) {
     throw new Error("A confirma\xE7\xE3o de recebimento \xE9 exclusiva para pedidos de entrega.");
   }
-  if (order.status !== OrderStatus15.ENTREGUE) {
+  if (order.status !== OrderStatus16.ENTREGUE) {
     throw new Error("O pedido ainda n\xE3o foi marcado como entregue.");
   }
   return !order.deliveryConfirmedAt;
@@ -12138,7 +12681,7 @@ var init_deliveryReceiptConfirmation = __esm({
 });
 
 // src/modules/orders/services/ConfirmOrderDeliveryReceivedService.ts
-import { UserRole as UserRole16 } from "@prisma/client";
+import { UserRole as UserRole17 } from "@prisma/client";
 var ConfirmOrderDeliveryReceivedService, ConfirmOrderDeliveryReceivedService_default;
 var init_ConfirmOrderDeliveryReceivedService = __esm({
   "src/modules/orders/services/ConfirmOrderDeliveryReceivedService.ts"() {
@@ -12156,7 +12699,7 @@ var init_ConfirmOrderDeliveryReceivedService = __esm({
         if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
           throw new Error("Pedido inv\xE1lido.");
         }
-        const isCustomer = String(role).toUpperCase() === UserRole16.CLIENTE;
+        const isCustomer = String(role).toUpperCase() === UserRole17.CLIENTE;
         const order = isCustomer ? await OrderRepository_default.findByIdForCustomer(normalizedOrderId, customerId2) : await OrderRepository_default.findById(normalizedOrderId, restaurantId);
         if (!order) {
           throw new Error("Pedido n\xE3o encontrado.");
@@ -12270,14 +12813,14 @@ var init_QuoteOrderController = __esm({
 });
 
 // src/middlewares/staffMiddleware.ts
-import { UserRole as UserRole17 } from "@prisma/client";
+import { UserRole as UserRole18 } from "@prisma/client";
 function staffMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({
       error: "N\xE3o autenticado"
     });
   }
-  const allowedRoles2 = [UserRole17.ADMIN, UserRole17.FUNCIONARIO, UserRole17.MOTOQUEIRO];
+  const allowedRoles2 = [UserRole18.ADMIN, UserRole18.FUNCIONARIO, UserRole18.MOTOQUEIRO];
   if (!allowedRoles2.includes(String(req.user.role))) {
     return res.status(403).json({
       error: "Acesso negado"
@@ -12578,12 +13121,12 @@ var init_orderRoutes = __esm({
 });
 
 // src/middlewares/superAdminMiddleware.ts
-import { UserRole as UserRole18 } from "@prisma/client";
+import { UserRole as UserRole19 } from "@prisma/client";
 function superAdminMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "N\xE3o autenticado" });
   }
-  if (req.user.role !== UserRole18.SUPER_ADMIN) {
+  if (req.user.role !== UserRole19.SUPER_ADMIN) {
     return res.status(403).json({ message: "Acesso negado!" });
   }
   return next();
@@ -12706,7 +13249,7 @@ var init_RestaurantValidator = __esm({
 
 // src/modules/restaurants/services/CreateRestaurantService.ts
 import bcrypt8 from "bcrypt";
-import { SubscriptionStatus, UserRole as UserRole19 } from "@prisma/client";
+import { SubscriptionStatus, UserRole as UserRole20 } from "@prisma/client";
 function requireDefined2(value, message) {
   if (value === null || value === void 0) {
     throw new Error(message);
@@ -12773,7 +13316,7 @@ var init_CreateRestaurantService = __esm({
               name: parsedAdmin.name,
               email: parsedAdmin.email,
               password: passwordHash,
-              role: UserRole19.ADMIN,
+              role: UserRole20.ADMIN,
               active: true,
               mustChangePassword: true,
               restaurantId: createdRestaurant.id
@@ -13300,7 +13843,7 @@ var init_CategoryRoutes = __esm({
 });
 
 // src/modules/employee/repositories/EmployeeRepository.ts
-import { UserRole as UserRole20 } from "@prisma/client";
+import { UserRole as UserRole21 } from "@prisma/client";
 var employeePublicSelect, EmployeeRepository, EmployeeRepository_default;
 var init_EmployeeRepository = __esm({
   "src/modules/employee/repositories/EmployeeRepository.ts"() {
@@ -13335,7 +13878,7 @@ var init_EmployeeRepository = __esm({
           where: {
             restaurantId,
             role: {
-              in: [UserRole20.FUNCIONARIO, UserRole20.MOTOQUEIRO]
+              in: [UserRole21.FUNCIONARIO, UserRole21.MOTOQUEIRO]
             }
           },
           select: employeePublicSelect
@@ -13347,7 +13890,7 @@ var init_EmployeeRepository = __esm({
             id: Number(id),
             restaurantId,
             role: {
-              in: [UserRole20.FUNCIONARIO, UserRole20.MOTOQUEIRO]
+              in: [UserRole21.FUNCIONARIO, UserRole21.MOTOQUEIRO]
             }
           },
           select: employeePublicSelect
@@ -13402,7 +13945,7 @@ var init_EmployeeRepository = __esm({
 });
 
 // src/modules/employee/services/CreateEmployeeService.ts
-import { UserRole as UserRole21 } from "@prisma/client";
+import { UserRole as UserRole22 } from "@prisma/client";
 import bcrypt9 from "bcrypt";
 var CreateEmployeeService, CreateEmployeeService_default;
 var init_CreateEmployeeService = __esm({
@@ -13431,7 +13974,7 @@ var init_CreateEmployeeService = __esm({
           phone,
           cpf: cpf ? String(cpf).replace(/\D/g, "") : void 0,
           restaurantId,
-          role: role || UserRole21.FUNCIONARIO,
+          role: role || UserRole22.FUNCIONARIO,
           subRole: subRole ?? null
         });
         return employee;
@@ -13442,7 +13985,7 @@ var init_CreateEmployeeService = __esm({
 });
 
 // src/validators/EmployeeSchema.ts
-import { FuncionarioSubRole as FuncionarioSubRole5, UserRole as UserRole22 } from "@prisma/client";
+import { FuncionarioSubRole as FuncionarioSubRole5, UserRole as UserRole23 } from "@prisma/client";
 import { z as z10 } from "zod";
 var phoneRegex, employeeNameSchema, employeeEmailSchema, employeePhoneSchema, EmployeeUserSchema, UpdateEmployeeSchema, loginSchema2;
 var init_EmployeeSchema = __esm({
@@ -13459,8 +14002,8 @@ var init_EmployeeSchema = __esm({
       email: employeeEmailSchema,
       password: z10.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
       confirmPassword: z10.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
-      role: z10.nativeEnum(UserRole22).optional().refine(
-        (value) => !value || value === UserRole22.FUNCIONARIO || value === UserRole22.MOTOQUEIRO,
+      role: z10.nativeEnum(UserRole23).optional().refine(
+        (value) => !value || value === UserRole23.FUNCIONARIO || value === UserRole23.MOTOQUEIRO,
         {
           message: "Cargo inv\xE1lido"
         }
@@ -13481,8 +14024,8 @@ var init_EmployeeSchema = __esm({
       name: employeeNameSchema.optional(),
       email: employeeEmailSchema.optional(),
       phone: z10.union([employeePhoneSchema, z10.literal(""), z10.null()]).optional(),
-      role: z10.nativeEnum(UserRole22).optional().refine(
-        (value) => !value || value === UserRole22.FUNCIONARIO || value === UserRole22.MOTOQUEIRO,
+      role: z10.nativeEnum(UserRole23).optional().refine(
+        (value) => !value || value === UserRole23.FUNCIONARIO || value === UserRole23.MOTOQUEIRO,
         { message: "Cargo inv\xE1lido" }
       ),
       subRole: z10.nativeEnum(FuncionarioSubRole5).optional().nullable()
@@ -13573,7 +14116,7 @@ var init_ListEmployeeController = __esm({
 });
 
 // src/modules/employee/services/UpdateEmployeeService.ts
-import { UserRole as UserRole23 } from "@prisma/client";
+import { UserRole as UserRole24 } from "@prisma/client";
 var UpdateEmployeeService, UpdateEmployeeService_default;
 var init_UpdateEmployeeService = __esm({
   "src/modules/employee/services/UpdateEmployeeService.ts"() {
@@ -13595,7 +14138,7 @@ var init_UpdateEmployeeService = __esm({
             ...phone !== void 0 ? { phone: phone || null } : {},
             ...email !== void 0 ? { email } : {},
             ...role !== void 0 ? { role } : {},
-            ...role === UserRole23.MOTOQUEIRO ? { subRole: null } : subRole !== void 0 ? { subRole } : {}
+            ...role === UserRole24.MOTOQUEIRO ? { subRole: null } : subRole !== void 0 ? { subRole } : {}
           },
           restaurantId
         );
@@ -13772,15 +14315,15 @@ var init_EmployeeRoutes = __esm({
 });
 
 // src/middlewares/waiterMiddleware.ts
-import { FuncionarioSubRole as FuncionarioSubRole7, UserRole as UserRole24 } from "@prisma/client";
+import { FuncionarioSubRole as FuncionarioSubRole7, UserRole as UserRole25 } from "@prisma/client";
 function waiterMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ error: "N\xE3o autenticado" });
   }
   const role = String(req.user.role || "").toUpperCase();
   const subRole = String(req.user.subRole || "").toUpperCase();
-  const isAdmin = role === UserRole24.ADMIN;
-  const isWaiter = role === UserRole24.FUNCIONARIO && subRole === FuncionarioSubRole7.GARCOM;
+  const isAdmin = role === UserRole25.ADMIN;
+  const isWaiter = role === UserRole25.FUNCIONARIO && subRole === FuncionarioSubRole7.GARCOM;
   if (!isAdmin && !isWaiter) {
     return res.status(403).json({
       error: "Esta a\xE7\xE3o est\xE1 dispon\xEDvel apenas para o administrador ou gar\xE7ons cadastrados."
@@ -13799,7 +14342,7 @@ var init_waiterMiddleware = __esm({
 
 // src/modules/table/repositories/TableRepository.ts
 import {
-  OrderStatus as OrderStatus16,
+  OrderStatus as OrderStatus17,
   PaymentMethod as PaymentMethod8,
   TableSessionStatus as TableSessionStatus4
 } from "@prisma/client";
@@ -13901,7 +14444,7 @@ var init_TableRepository = __esm({
             },
             orders: {
               where: {
-                status: { in: [OrderStatus16.PENDENTE, OrderStatus16.PREPARANDO, OrderStatus16.PRONTO] },
+                status: { in: [OrderStatus17.PENDENTE, OrderStatus17.PREPARANDO, OrderStatus17.PRONTO] },
                 NOT: {
                   paid: false,
                   paymentMethod: { in: [PaymentMethod8.PIX, PaymentMethod8.CARTAO] },
@@ -15053,7 +15596,7 @@ var init_ListTableService = __esm({
 });
 
 // src/modules/table/controllers/ListTableController.ts
-import { UserRole as UserRole25 } from "@prisma/client";
+import { UserRole as UserRole26 } from "@prisma/client";
 var ListTableController, ListTableController_default;
 var init_ListTableController = __esm({
   "src/modules/table/controllers/ListTableController.ts"() {
@@ -15064,7 +15607,7 @@ var init_ListTableController = __esm({
           const restaurantId = req.user.restaurantId;
           const tables = await ListTableService_default.execute({
             restaurantId,
-            includeQrToken: req.user.role === UserRole25.ADMIN
+            includeQrToken: req.user.role === UserRole26.ADMIN
           });
           return res.status(200).json(tables);
         } catch (error2) {
@@ -15112,7 +15655,7 @@ var init_GetTableByIdService = __esm({
 });
 
 // src/modules/table/controllers/GetTableByIdController.ts
-import { UserRole as UserRole26 } from "@prisma/client";
+import { UserRole as UserRole27 } from "@prisma/client";
 var GetTableByIdController, GetTableByIdController_default;
 var init_GetTableByIdController = __esm({
   "src/modules/table/controllers/GetTableByIdController.ts"() {
@@ -15125,7 +15668,7 @@ var init_GetTableByIdController = __esm({
           const table = await GetTableByIdService_default.execute({
             id: parsedId,
             restaurantId,
-            includeQrToken: req.user.role === UserRole26.ADMIN
+            includeQrToken: req.user.role === UserRole27.ADMIN
           });
           return res.status(200).json(table);
         } catch (error2) {
@@ -21171,7 +21714,7 @@ var init_ListTableServiceCallsController = __esm({
 });
 
 // src/modules/waiterCalls/services/UpdateTableServiceCallStatusService.ts
-import { TableServiceCallStatus as TableServiceCallStatus3, UserRole as UserRole27 } from "@prisma/client";
+import { TableServiceCallStatus as TableServiceCallStatus3, UserRole as UserRole28 } from "@prisma/client";
 var UpdateTableServiceCallStatusService, UpdateTableServiceCallStatusService_default;
 var init_UpdateTableServiceCallStatusService = __esm({
   "src/modules/waiterCalls/services/UpdateTableServiceCallStatusService.ts"() {
@@ -21221,7 +21764,7 @@ var init_UpdateTableServiceCallStatusService = __esm({
           if (current.status !== TableServiceCallStatus3.IN_PROGRESS) {
             throw new Error("Assuma o chamado antes de conclu\xED-lo.");
           }
-          const isAdmin = String(actorRole || "").toUpperCase() === UserRole27.ADMIN;
+          const isAdmin = String(actorRole || "").toUpperCase() === UserRole28.ADMIN;
           if (!isAdmin && current.assignedToId !== normalizedActorId) {
             throw new Error("Somente o gar\xE7om que assumiu o chamado pode conclu\xED-lo.");
           }
@@ -22426,7 +22969,7 @@ var init_sentry = __esm({
 
 // src/socket/socketAuth.ts
 import jwt8 from "jsonwebtoken";
-import { TableSessionStatus as TableSessionStatus7, UserRole as UserRole28 } from "@prisma/client";
+import { TableSessionStatus as TableSessionStatus7, UserRole as UserRole29 } from "@prisma/client";
 async function socketAuth(socket, next) {
   try {
     const token = socket.handshake.auth?.token;
@@ -22434,10 +22977,10 @@ async function socketAuth(socket, next) {
     if (token) {
       const decoded = jwt8.verify(token, process.env.JWT_SECRET);
       const normalizedRole = String(decoded.role || "").toUpperCase();
-      if (normalizedRole === UserRole28.MOTOQUEIRO || normalizedRole === UserRole28.ADMIN) {
+      if (normalizedRole === UserRole29.MOTOQUEIRO || normalizedRole === UserRole29.ADMIN) {
         const accountId = Number(decoded.id || 0);
         const restaurantId = Number(decoded.restaurantId || 0);
-        const isCourier = normalizedRole === UserRole28.MOTOQUEIRO;
+        const isCourier = normalizedRole === UserRole29.MOTOQUEIRO;
         if (!Number.isInteger(accountId) || accountId <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
           return next(new Error(`Conta de ${isCourier ? "motoqueiro" : "administrador"} inv\xE1lida`));
         }
@@ -22445,7 +22988,7 @@ async function socketAuth(socket, next) {
           where: {
             id: accountId,
             restaurantId,
-            role: isCourier ? UserRole28.MOTOQUEIRO : UserRole28.ADMIN,
+            role: isCourier ? UserRole29.MOTOQUEIRO : UserRole29.ADMIN,
             active: true
           },
           select: {
@@ -22574,7 +23117,7 @@ var init_employeeIssuePayload = __esm({
 });
 
 // src/socket/socketHandler.ts
-import { OrderStatus as OrderStatus17, OrderType as OrderType10, UserRole as UserRole29 } from "@prisma/client";
+import { OrderStatus as OrderStatus18, OrderType as OrderType10, UserRole as UserRole30 } from "@prisma/client";
 function socketHandler(socket) {
   console.log("\u{1F50C} conectado:", socket.id);
   if (socket.authType === "table-session" && socket.tableSession) {
@@ -22615,7 +23158,7 @@ function socketHandler(socket) {
         where: {
           id: Number(id || 0),
           restaurantId: Number(restaurantId || 0),
-          role: UserRole29.ADMIN,
+          role: UserRole30.ADMIN,
           active: true
         },
         select: { id: true }
@@ -22715,10 +23258,10 @@ function socketHandler(socket) {
           WHERE o."id" = ${order.id}
             AND o."restaurantId" = ${Number(restaurantId)}
             AND o."type" = CAST(${OrderType10.DELIVERY} AS "OrderType")
-            AND o."status" = CAST(${OrderStatus17.SAIU_PARA_ENTREGA} AS "OrderStatus")
+            AND o."status" = CAST(${OrderStatus18.SAIU_PARA_ENTREGA} AS "OrderStatus")
             AND o."assignedCourierId" = ${Number(id)}
             AND courier."restaurantId" = ${Number(restaurantId)}
-            AND courier."role" = CAST(${UserRole29.MOTOQUEIRO} AS "UserRole")
+            AND courier."role" = CAST(${UserRole30.MOTOQUEIRO} AS "UserRole")
             AND courier."active" = TRUE
           FOR UPDATE OF o, courier
         `;

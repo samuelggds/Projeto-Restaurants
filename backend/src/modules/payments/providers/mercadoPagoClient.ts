@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import { MercadoPagoConfig, Payment, PaymentRefund, Preference } from 'mercadopago';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 
 async function getAccessToken(restaurantId?: number | null) {
@@ -30,6 +30,10 @@ export async function getMercadoPagoClient(restaurantId?: number | null) {
 
 export async function getMercadoPagoPaymentApi(restaurantId?: number | null) {
   return new Payment(await getMercadoPagoClient(restaurantId));
+}
+
+export async function getMercadoPagoPaymentRefundApi(restaurantId?: number | null) {
+  return new PaymentRefund(await getMercadoPagoClient(restaurantId));
 }
 
 export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) {

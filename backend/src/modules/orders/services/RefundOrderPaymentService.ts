@@ -1,9 +1,9 @@
 import Stripe from 'stripe';
 import { PaymentMethod } from '@prisma/client';
-import { getMercadoPagoPaymentApi } from '../../payments/providers/mercadoPagoClient.js';
+import { getMercadoPagoPaymentRefundApi } from '../../payments/providers/mercadoPagoClient.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 
-type RefundableOrder = {
+export type RefundableOrder = {
   id: number | string;
   restaurantId?: number | string | null;
   total?: number | string | { toString(): string } | null;
@@ -13,16 +13,61 @@ type RefundableOrder = {
   cardCheckoutSessionId?: string | null;
 };
 
+export type RefundProviderReceipt = {
+  provider: 'ASAAS' | 'MERCADO_PAGO' | 'PAGBANK' | 'STRIPE';
+  externalId: string | null;
+};
+
+export type RefundOrderPaymentOptions = {
+  idempotencyKey?: string | null;
+  verifyExistingRefund?: boolean;
+};
+
+export class AutomaticRefundError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | 'NOT_SUPPORTED'
+      | 'MISSING_REFERENCE'
+      | 'MISSING_CREDENTIALS'
+      | 'PROVIDER_FAILURE' = 'PROVIDER_FAILURE',
+  ) {
+    super(message);
+    this.name = 'AutomaticRefundError';
+  }
+}
+
 type AsaasRefundResponse = {
   id?: string;
   status?: string;
+  value?: number;
   errors?: Array<{
     code?: string;
     description?: string;
   }>;
 };
 
+type PagBankOrderRefundPayload = {
+  id?: string;
+  charges?: Array<{
+    id?: string;
+    status?: string;
+    summary?: {
+      refunded?: number;
+    };
+  }>;
+  error_messages?: Array<{
+    code?: string;
+    description?: string;
+  }>;
+};
+
 class RefundOrderPaymentService {
+  // Seam pequeno e substituível nos testes; em produção sempre cria o SDK oficial.
+  createStripeClient(secretKey: string) {
+    return new Stripe(secretKey);
+  }
+
   private resolveAsaasApiBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
@@ -31,7 +76,10 @@ class RefundOrderPaymentService {
 
   private async getAsaasAccessToken(restaurantId?: number) {
     if (!restaurantId || !Number.isInteger(restaurantId) || restaurantId <= 0) {
-      throw new Error('Restaurante invalido para estorno Asaas.');
+      throw new AutomaticRefundError(
+        'Não foi possível identificar o restaurante para realizar o estorno. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
+      );
     }
 
     const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
@@ -41,8 +89,9 @@ class RefundOrderPaymentService {
     const accessToken = restaurantToken || (allowGlobalFallback ? globalToken : '');
 
     if (!accessToken) {
-      throw new Error(
-        'Credencial Asaas nao configurada para este restaurante. Nenhuma alteracao foi aplicada ao pedido.',
+      throw new AutomaticRefundError(
+        'O estorno automático está indisponível porque a credencial Asaas não está configurada para este restaurante. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
       );
     }
 
@@ -57,31 +106,58 @@ class RefundOrderPaymentService {
     };
   }
 
-  private async executeAsaasRefund(paymentId: string, order: RefundableOrder) {
+  private async executeAsaasRefund(
+    paymentId: string,
+    order: RefundableOrder,
+    options: RefundOrderPaymentOptions,
+  ) {
     const normalizedPaymentId = String(paymentId || '').trim();
     const restaurantId = Number(order.restaurantId || 0);
 
     if (!normalizedPaymentId) {
-      throw new Error('Identificador Asaas invalido para estorno automatico.');
+      throw new AutomaticRefundError(
+        'Este pagamento Asaas não possui uma referência válida para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
     }
 
     const accessToken = await this.getAsaasAccessToken(restaurantId);
     const amount = this.parseAmount(order.total);
-    const response = await fetch(
-      `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}/refund`,
-      {
-        method: 'POST',
+    const paymentUrl = `${this.resolveAsaasApiBaseUrl()}/v3/payments/${encodeURIComponent(normalizedPaymentId)}`;
+    if (options.verifyExistingRefund) {
+      const currentPaymentResponse = await fetch(paymentUrl, {
         headers: {
           Accept: 'application/json',
-          'Content-Type': 'application/json',
           access_token: accessToken,
         },
-        body: JSON.stringify({
-          ...(amount ? { value: amount } : {}),
-          description: `Estorno do pedido #${String(order.id)}`,
-        }),
+      });
+      const currentPayment = (await currentPaymentResponse
+        .json()
+        .catch(() => ({}))) as AsaasRefundResponse;
+
+      if (
+        currentPaymentResponse.ok &&
+        String(currentPayment.status || '').toUpperCase() === 'REFUNDED'
+      ) {
+        return {
+          provider: 'ASAAS',
+          externalId: String(currentPayment.id || normalizedPaymentId).trim(),
+        } satisfies RefundProviderReceipt;
+      }
+    }
+
+    const response = await fetch(`${paymentUrl}/refund`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        access_token: accessToken,
       },
-    );
+      body: JSON.stringify({
+        ...(amount ? { value: amount } : {}),
+        description: `Estorno do pedido #${String(order.id)}`,
+      }),
+    });
     const payload = (await response.json().catch(() => ({}))) as AsaasRefundResponse;
 
     if (!response.ok) {
@@ -94,10 +170,16 @@ class RefundOrderPaymentService {
         code: providerError.code || undefined,
         description: providerError.description || undefined,
       });
-      throw new Error(
-        `Falha ao estornar pagamento no Asaas (HTTP ${response.status}). Nenhuma alteracao foi aplicada ao pedido.`,
+      throw new AutomaticRefundError(
+        'O Asaas não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
       );
     }
+
+    return {
+      provider: 'ASAAS',
+      externalId: String(payload.id || normalizedPaymentId).trim() || normalizedPaymentId,
+    } satisfies RefundProviderReceipt;
   }
 
   private resolvePagBankEnvironment(): 'production' {
@@ -162,8 +244,9 @@ class RefundOrderPaymentService {
     ).trim();
 
     if (!email || !token) {
-      throw new Error(
-        'Credenciais PagBank nao configuradas. Nao foi possivel estornar automaticamente.',
+      throw new AutomaticRefundError(
+        'O estorno automático está indisponível porque as credenciais PagBank não estão configuradas para este restaurante. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
       );
     }
 
@@ -194,8 +277,9 @@ class RefundOrderPaymentService {
     ).trim();
 
     if (!token) {
-      throw new Error(
-        'Credencial Mercado Pago nao configurada no restaurante. Nao foi possivel estornar automaticamente.',
+      throw new AutomaticRefundError(
+        'O estorno automático está indisponível porque a credencial Mercado Pago não está configurada para este restaurante. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
       );
     }
 
@@ -204,76 +288,219 @@ class RefundOrderPaymentService {
 
   private async executeMercadoPagoRefund(
     paymentId: string,
-    amount?: number,
     restaurantId?: number | string | null,
+    idempotencyKey?: string | null,
   ) {
-    const paymentApi = (await getMercadoPagoPaymentApi(Number(restaurantId || 0) || undefined)) as {
-      refund?: (payload: Record<string, unknown>) => Promise<unknown>;
-      createRefund?: (payload: Record<string, unknown>) => Promise<unknown>;
-    };
-
-    if (typeof paymentApi.refund === 'function') {
-      if (amount) {
-        await paymentApi.refund({ id: paymentId, amount });
-        return;
-      }
-
-      await paymentApi.refund({ id: paymentId });
-      return;
+    const normalizedPaymentId = String(paymentId || '').trim();
+    if (!normalizedPaymentId) {
+      throw new AutomaticRefundError(
+        'Este pagamento Mercado Pago não possui uma referência válida para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
     }
 
-    if (typeof paymentApi.createRefund === 'function') {
-      if (amount) {
-        await paymentApi.createRefund({ id: paymentId, amount });
-        return;
-      }
+    const refundApi = await getMercadoPagoPaymentRefundApi(Number(restaurantId || 0) || undefined);
+    const response = (await refundApi.total({
+      payment_id: normalizedPaymentId,
+      ...(idempotencyKey
+        ? {
+            requestOptions: {
+              idempotencyKey,
+            },
+          }
+        : {}),
+    })) as unknown;
+    const refund =
+      typeof response === 'object' && response !== null
+        ? ((response as { body?: unknown }).body ?? response)
+        : {};
 
-      await paymentApi.createRefund({ id: paymentId });
-      return;
-    }
-
-    throw new Error('SDK do Mercado Pago sem suporte de estorno configurado no servidor.');
+    return {
+      provider: 'MERCADO_PAGO',
+      externalId: String((refund as { id?: unknown }).id || normalizedPaymentId).trim(),
+    } satisfies RefundProviderReceipt;
   }
 
-  private async refundPix(order: RefundableOrder) {
+  private resolvePagBankOrderApiBaseUrl() {
+    return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
+      .trim()
+      .replace(/\/+$/, '');
+  }
+
+  private async getPagBankBearerToken(restaurantId?: number) {
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+    const settings =
+      Number.isInteger(normalizedRestaurantId) && normalizedRestaurantId > 0
+        ? await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId)
+        : null;
+    const token = String(
+      settings?.pagbankToken || (allowGlobalFallback ? process.env.PAGBANK_TOKEN : '') || '',
+    ).trim();
+
+    if (!token) {
+      throw new AutomaticRefundError(
+        'O estorno automático está indisponível porque a credencial PagBank não está configurada para este restaurante. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
+      );
+    }
+
+    return token;
+  }
+
+  private async refundPagBankPixOrder(
+    pagBankOrderId: string,
+    order: RefundableOrder,
+    idempotencyKey?: string | null,
+  ) {
+    const normalizedOrderId = String(pagBankOrderId || '').trim();
+    const restaurantId = Number(order.restaurantId || 0);
+    if (!normalizedOrderId) {
+      throw new AutomaticRefundError(
+        'Este Pix PagBank não possui uma referência válida para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
+    }
+
+    const token = await this.getPagBankBearerToken(restaurantId);
+    const apiBaseUrl = this.resolvePagBankOrderApiBaseUrl();
+    const orderResponse = await fetch(
+      `${apiBaseUrl}/orders/${encodeURIComponent(normalizedOrderId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      },
+    );
+    const orderPayload = (await orderResponse
+      .json()
+      .catch(() => ({}))) as PagBankOrderRefundPayload;
+
+    if (!orderResponse.ok) {
+      console.error('[PAGBANK_PIX_REFUND_LOOKUP_ERROR]', {
+        orderId: order.id,
+        restaurantId,
+        pagBankOrderId: normalizedOrderId,
+        status: orderResponse.status,
+      });
+      throw new AutomaticRefundError(
+        'O PagBank não permitiu localizar a cobrança Pix para estorno. O pedido não foi cancelado.',
+        'PROVIDER_FAILURE',
+      );
+    }
+
+    const expectedAmountInCents = Math.round(Number(order.total || 0) * 100);
+    const charges = Array.isArray(orderPayload.charges) ? orderPayload.charges : [];
+    const paidCharge = charges.find(
+      (charge) => String(charge.status || '').toUpperCase() === 'PAID' && charge.id,
+    );
+    const alreadyRefundedCharge = charges.find((charge) => {
+      const status = String(charge.status || '').toUpperCase();
+      const refundedAmount = Number(charge.summary?.refunded || 0);
+      return (
+        status === 'CANCELED' &&
+        Boolean(charge.id) &&
+        expectedAmountInCents > 0 &&
+        refundedAmount >= expectedAmountInCents
+      );
+    });
+
+    if (alreadyRefundedCharge?.id) {
+      return {
+        provider: 'PAGBANK',
+        externalId: String(alreadyRefundedCharge.id),
+      } satisfies RefundProviderReceipt;
+    }
+
+    if (!paidCharge?.id || expectedAmountInCents <= 0) {
+      throw new AutomaticRefundError(
+        'O PagBank não retornou uma cobrança Pix paga e elegível para estorno. O pedido não foi cancelado.',
+        'NOT_SUPPORTED',
+      );
+    }
+
+    const cancelResponse = await fetch(
+      `${apiBaseUrl}/charges/${encodeURIComponent(String(paidCharge.id))}/cancel`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(idempotencyKey ? { 'x-idempotency-key': idempotencyKey } : {}),
+        },
+        body: JSON.stringify({
+          amount: {
+            value: expectedAmountInCents,
+          },
+        }),
+      },
+    );
+    const cancelPayload = (await cancelResponse
+      .json()
+      .catch(() => ({}))) as PagBankOrderRefundPayload;
+
+    if (!cancelResponse.ok) {
+      console.error('[PAGBANK_PIX_REFUND_ERROR]', {
+        orderId: order.id,
+        restaurantId,
+        chargeId: paidCharge.id,
+        status: cancelResponse.status,
+        providerCode: cancelPayload.error_messages?.[0]?.code || undefined,
+      });
+      throw new AutomaticRefundError(
+        'O PagBank não confirmou o estorno do Pix. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
+      );
+    }
+
+    return {
+      provider: 'PAGBANK',
+      externalId: String(cancelPayload.id || paidCharge.id).trim(),
+    } satisfies RefundProviderReceipt;
+  }
+
+  private async refundPix(order: RefundableOrder, options: RefundOrderPaymentOptions) {
     const paymentId = String(order.pixPaymentId || '').trim();
     const normalizedPaymentId = paymentId.toLowerCase();
 
     if (!paymentId) {
-      throw new Error(
-        'Pedido PIX sem identificador de pagamento. Nao foi possivel estornar automaticamente.',
+      throw new AutomaticRefundError(
+        'Este pedido Pix não possui uma referência de pagamento para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
       );
     }
 
     if (normalizedPaymentId.startsWith('manual:')) {
-      throw new Error(
-        'Pedido PIX manual exige estorno manual. Nao foi possivel estornar automaticamente.',
+      throw new AutomaticRefundError(
+        'Este Pix foi confirmado manualmente e exige devolução manual. O pedido não foi cancelado.',
+        'NOT_SUPPORTED',
       );
     }
 
     if (normalizedPaymentId.startsWith('asaas:')) {
       const asaasPaymentId = paymentId.slice('asaas:'.length).trim();
-      await this.executeAsaasRefund(asaasPaymentId, order);
-      return;
+      return this.executeAsaasRefund(asaasPaymentId, order, options);
     }
 
     if (normalizedPaymentId.startsWith('pagbank:')) {
-      throw new Error(
-        'Estorno automatico deste PIX PagBank ainda nao e suportado. Nenhuma alteracao foi aplicada ao pedido.',
-      );
+      const pagBankOrderId = paymentId.slice('pagbank:'.length).trim();
+      return this.refundPagBankPixOrder(pagBankOrderId, order, options.idempotencyKey);
     }
 
-    const amount = this.parseAmount(order.total);
-
-    await this.executeMercadoPagoRefund(paymentId, amount, order.restaurantId);
+    return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
   }
 
-  private async refundStripeCard(order: RefundableOrder) {
+  private async refundStripeCard(order: RefundableOrder, options: RefundOrderPaymentOptions) {
     const rawSessionId = String(order.cardCheckoutSessionId || '').trim();
     const stripeSessionId = rawSessionId;
 
     if (!stripeSessionId || !stripeSessionId.startsWith('cs_')) {
-      throw new Error('Pedido de cartao sem sessao Stripe valida para estorno automatico.');
+      throw new AutomaticRefundError(
+        'Este pagamento com cartão não possui uma sessão Stripe válida para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
     }
 
     const restaurantId = Number(order.restaurantId || 0) || undefined;
@@ -285,12 +512,13 @@ class RefundOrderPaymentService {
       settings?.stripeSecretKey || (allowGlobalFallback ? process.env.STRIPE_SECRET_KEY : '') || '',
     ).trim();
     if (!secretKey) {
-      throw new Error(
-        'Chave Stripe nao configurada no restaurante. Nao foi possivel estornar automaticamente.',
+      throw new AutomaticRefundError(
+        'O estorno automático está indisponível porque a chave Stripe não está configurada para este restaurante. O pedido não foi cancelado.',
+        'MISSING_CREDENTIALS',
       );
     }
 
-    const stripe = new Stripe(secretKey);
+    const stripe = this.createStripeClient(secretKey);
     const session = await stripe.checkout.sessions.retrieve(stripeSessionId, {
       expand: ['payment_intent'],
     });
@@ -301,24 +529,55 @@ class RefundOrderPaymentService {
         : session.payment_intent?.id;
 
     if (!paymentIntentId) {
-      throw new Error('Checkout Stripe sem payment_intent para estorno automatico.');
+      throw new AutomaticRefundError(
+        'A Stripe não retornou a referência financeira necessária para o estorno. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
     }
 
-    await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-    });
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: paymentIntentId,
+      },
+      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined,
+    );
+
+    return {
+      provider: 'STRIPE',
+      externalId: String(refund.id || paymentIntentId).trim(),
+    } satisfies RefundProviderReceipt;
   }
 
-  private async refundPagBankByTransaction(transactionCode: string, order: RefundableOrder) {
+  private async refundPagBankByTransaction(
+    transactionCode: string,
+    order: RefundableOrder,
+    options: RefundOrderPaymentOptions,
+  ) {
     const normalizedTransactionCode = String(transactionCode || '').trim();
 
     if (!normalizedTransactionCode) {
-      throw new Error('Codigo de transacao PagBank invalido para estorno automatico.');
+      throw new AutomaticRefundError(
+        'Este pagamento PagBank não possui uma transação válida para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
+      );
     }
 
     const restaurantId = Number(order.restaurantId || 0) || undefined;
     const { email, token, environment } = await this.getPagBankCredentials(restaurantId);
     const amount = this.parseAmount(order.total);
+
+    if (options.verifyExistingRefund) {
+      const queryUrl = `${this.resolvePagBankApiBaseUrl(environment)}/v3/transactions/${encodeURIComponent(normalizedTransactionCode)}?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+      const queryResponse = await fetch(queryUrl, { method: 'GET' });
+      const queryText = await queryResponse.text().catch(() => '');
+      const currentStatus = this.extractXmlTagValue(queryText, 'status');
+      if (queryResponse.ok && currentStatus === '6') {
+        return {
+          provider: 'PAGBANK',
+          externalId: normalizedTransactionCode,
+        } satisfies RefundProviderReceipt;
+      }
+    }
 
     const params = new URLSearchParams();
     params.set('email', email);
@@ -352,45 +611,70 @@ class RefundOrderPaymentService {
           ? `Falha ao estornar no PagBank. Resposta: ${fallbackSnippet}`
           : 'Falha ao estornar no PagBank.');
       const detailsSuffix = parsedError.code ? ` (code ${parsedError.code})` : '';
-      throw new Error(
-        `PagBank refund [HTTP ${response.status}]: ${providerMessage}${detailsSuffix}`,
+      console.error('[PAGBANK_CARD_REFUND_ERROR]', {
+        orderId: order.id,
+        restaurantId,
+        transactionCode: normalizedTransactionCode,
+        status: response.status,
+        code: parsedError.code || undefined,
+        providerMessage,
+        detailsSuffix,
+      });
+      throw new AutomaticRefundError(
+        'O PagBank não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
       );
     }
 
     // Some PagBank responses return HTTP 200 with XML error payload.
     if (parsedError.code && parsedError.message) {
-      throw new Error(
-        `PagBank refund [HTTP ${response.status}]: ${parsedError.message} (code ${parsedError.code})`,
+      console.error('[PAGBANK_CARD_REFUND_XML_ERROR]', {
+        orderId: order.id,
+        restaurantId,
+        transactionCode: normalizedTransactionCode,
+        status: response.status,
+        code: parsedError.code,
+        providerMessage: parsedError.message,
+      });
+      throw new AutomaticRefundError(
+        'O PagBank não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
       );
     }
+
+    return {
+      provider: 'PAGBANK',
+      externalId: normalizedTransactionCode,
+    } satisfies RefundProviderReceipt;
   }
 
-  private async refundCard(order: RefundableOrder) {
+  private async refundCard(order: RefundableOrder, options: RefundOrderPaymentOptions) {
     const checkoutSessionId = String(order.cardCheckoutSessionId || '').trim();
     const normalizedCheckoutSessionId = checkoutSessionId.toLowerCase();
-    const amount = this.parseAmount(order.total);
 
     if (!checkoutSessionId) {
-      throw new Error(
-        'Pedido CARTAO sem identificador de checkout. Nao foi possivel estornar automaticamente.',
+      throw new AutomaticRefundError(
+        'Este pedido com cartão não possui uma referência de checkout para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
       );
     }
 
     if (normalizedCheckoutSessionId.startsWith('asaas_pay:')) {
       const asaasPaymentId = checkoutSessionId.slice('asaas_pay:'.length).trim();
-      await this.executeAsaasRefund(asaasPaymentId, order);
-      return;
+      return this.executeAsaasRefund(asaasPaymentId, order, options);
     }
 
     if (normalizedCheckoutSessionId.startsWith('mp_pay:')) {
       const paymentId = checkoutSessionId.replace(/^mp_pay:/i, '').trim();
 
       if (!paymentId) {
-        throw new Error('Pedido CARTAO com id de pagamento Mercado Pago invalido para estorno.');
+        throw new AutomaticRefundError(
+          'Este pagamento Mercado Pago não possui uma referência válida para estorno automático. O pedido não foi cancelado.',
+          'MISSING_REFERENCE',
+        );
       }
 
-      await this.executeMercadoPagoRefund(paymentId, amount, order.restaurantId);
-      return;
+      return this.executeMercadoPagoRefund(paymentId, order.restaurantId, options.idempotencyKey);
     }
 
     if (normalizedCheckoutSessionId.startsWith('mp_pref:')) {
@@ -399,8 +683,9 @@ class RefundOrderPaymentService {
       const restaurantId = Number(order.restaurantId || 0);
 
       if (!preferenceId || !Number.isInteger(orderId) || orderId <= 0) {
-        throw new Error(
-          'Pedido CARTAO Mercado Pago sem dados suficientes para localizar pagamento e estornar automaticamente.',
+        throw new AutomaticRefundError(
+          'Este pagamento Mercado Pago não possui dados suficientes para localizar a cobrança. O pedido não foi cancelado.',
+          'MISSING_REFERENCE',
         );
       }
 
@@ -427,60 +712,93 @@ class RefundOrderPaymentService {
       };
 
       if (!response.ok) {
-        throw new Error(
-          'Falha ao consultar pagamento de cartao no Mercado Pago para estorno automatico.',
+        throw new AutomaticRefundError(
+          'O Mercado Pago não permitiu localizar o pagamento para estorno. O pedido não foi cancelado.',
+          'PROVIDER_FAILURE',
         );
       }
 
       const resolvedPaymentId = String(payload?.results?.[0]?.id || '').trim();
 
       if (!resolvedPaymentId) {
-        throw new Error(
-          'Nao foi possivel localizar o pagamento de cartao no Mercado Pago para estorno automatico.',
+        throw new AutomaticRefundError(
+          'Não foi possível localizar o pagamento com cartão no Mercado Pago. O pedido não foi cancelado.',
+          'MISSING_REFERENCE',
         );
       }
 
-      await this.executeMercadoPagoRefund(resolvedPaymentId, amount, order.restaurantId);
-      return;
+      return this.executeMercadoPagoRefund(
+        resolvedPaymentId,
+        order.restaurantId,
+        options.idempotencyKey,
+      );
     }
 
     if (normalizedCheckoutSessionId.startsWith('pagbank_chk:')) {
-      throw new Error(
-        'Pedido PagBank ainda sem codigo de transacao confirmado para estorno automatico. Nenhuma alteracao foi aplicada ao pedido.',
+      throw new AutomaticRefundError(
+        'O pagamento PagBank ainda não possui o código da transação necessário para estorno automático. O pedido não foi cancelado.',
+        'MISSING_REFERENCE',
       );
     }
 
     if (normalizedCheckoutSessionId.startsWith('pagbank_tx:')) {
       const transactionCode = checkoutSessionId.replace(/^pagbank_tx:/i, '').trim();
 
-      await this.refundPagBankByTransaction(transactionCode, order);
-      return;
+      return this.refundPagBankByTransaction(transactionCode, order, options);
     }
 
     if (normalizedCheckoutSessionId.startsWith('pagbank:')) {
-      throw new Error(
-        'Identificador PagBank sem suporte de estorno automatico. Nenhuma alteracao foi aplicada ao pedido.',
+      throw new AutomaticRefundError(
+        'Este identificador PagBank não oferece estorno automático. O pedido não foi cancelado.',
+        'NOT_SUPPORTED',
       );
     }
 
-    await this.refundStripeCard(order);
+    return this.refundStripeCard(order, options);
   }
 
-  async execute(order: RefundableOrder) {
+  async execute(
+    order: RefundableOrder,
+    options: RefundOrderPaymentOptions = {},
+  ): Promise<RefundProviderReceipt> {
     const paymentMethod = String(order.paymentMethod || '').toUpperCase();
 
     if (order.paid !== true) {
-      return;
+      throw new AutomaticRefundError(
+        'Este pedido não possui pagamento confirmado para estorno automático.',
+        'NOT_SUPPORTED',
+      );
     }
 
-    if (paymentMethod === PaymentMethod.PIX) {
-      await this.refundPix(order);
-      return;
+    try {
+      if (paymentMethod === PaymentMethod.PIX) {
+        return await this.refundPix(order, options);
+      }
+
+      if (paymentMethod === PaymentMethod.CARTAO) {
+        return await this.refundCard(order, options);
+      }
+    } catch (error) {
+      if (error instanceof AutomaticRefundError) {
+        throw error;
+      }
+
+      console.error('[ORDER_REFUND_PROVIDER_UNEXPECTED_ERROR]', {
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        paymentMethod,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new AutomaticRefundError(
+        'O provedor de pagamento não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
+        'PROVIDER_FAILURE',
+      );
     }
 
-    if (paymentMethod === PaymentMethod.CARTAO) {
-      await this.refundCard(order);
-    }
+    throw new AutomaticRefundError(
+      'Este método de pagamento não oferece estorno automático. O pedido não foi cancelado.',
+      'NOT_SUPPORTED',
+    );
   }
 }
 

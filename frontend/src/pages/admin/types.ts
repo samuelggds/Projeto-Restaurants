@@ -44,6 +44,12 @@ export type AdminOrder = {
   payOnDelivery?: boolean;
   payOnDeliveryMethod?: string;
   createdAt?: string;
+  refundStatus?: 'NOT_REQUESTED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
+  refundRequestedAt?: string;
+  refundedAt?: string;
+  refundFailureReason?: string;
+  refundProvider?: string;
+  refundExternalId?: string;
 };
 
 export type AdminProduct = {

@@ -86,6 +86,7 @@ test('pagamento tardio cancelado é estornado uma vez e marcado para idempotênc
     refundCalls += 1;
     assert.equal(refundableOrder.paid, true);
     assert.equal(refundableOrder.pixPaymentId, 'asaas:pay_late');
+    return { provider: 'ASAAS', externalId: 'pay_late' };
   };
 
   t.after(() => {

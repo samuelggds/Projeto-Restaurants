@@ -4,6 +4,7 @@ import http from 'node:http';
 import test, { afterEach } from 'node:test';
 import {
   FuncionarioSubRole,
+  OrderRefundStatus,
   OrderStatus,
   OrderType,
   PaymentMethod,
@@ -218,6 +219,9 @@ test('CAS do status prende tenant, estado e pagamento e grava os relógios da co
     id: 81,
     restaurantId: 7,
     status: OrderStatus.PENDENTE,
+    refundStatus: {
+      notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED],
+    },
     paid: true,
   });
   assert.ok(queries[0].data.preparationStartedAt instanceof Date);
@@ -226,6 +230,9 @@ test('CAS do status prende tenant, estado e pagamento e grava os relógios da co
     id: 81,
     restaurantId: 7,
     status: OrderStatus.PREPARANDO,
+    refundStatus: {
+      notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED],
+    },
     paid: true,
   });
   assert.ok(queries[1].data.readyAt instanceof Date);

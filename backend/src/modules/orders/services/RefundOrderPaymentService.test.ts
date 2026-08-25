@@ -8,10 +8,15 @@ import refundOrderPaymentService from './RefundOrderPaymentService.js';
 const originalFindByRestaurantId = restaurantSettingsRepository.findByRestaurantId;
 const originalFetch = globalThis.fetch;
 const originalConsoleError = console.error;
+const originalCreateStripeClient = refundOrderPaymentService.createStripeClient;
 const originalEnv = {
   ALLOW_GLOBAL_PAYMENT_FALLBACK: process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK,
   ASAAS_API_BASE_URL: process.env.ASAAS_API_BASE_URL,
   ASAAS_API_KEY: process.env.ASAAS_API_KEY,
+  MP_ACCESS_TOKEN: process.env.MP_ACCESS_TOKEN,
+  PAGBANK_API_BASE_URL: process.env.PAGBANK_API_BASE_URL,
+  PAGBANK_TOKEN: process.env.PAGBANK_TOKEN,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 };
 
 function restoreEnv(name: keyof typeof originalEnv) {
@@ -27,9 +32,14 @@ afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalFindByRestaurantId;
   globalThis.fetch = originalFetch;
   console.error = originalConsoleError;
+  refundOrderPaymentService.createStripeClient = originalCreateStripeClient;
   restoreEnv('ALLOW_GLOBAL_PAYMENT_FALLBACK');
   restoreEnv('ASAAS_API_BASE_URL');
   restoreEnv('ASAAS_API_KEY');
+  restoreEnv('MP_ACCESS_TOKEN');
+  restoreEnv('PAGBANK_API_BASE_URL');
+  restoreEnv('PAGBANK_TOKEN');
+  restoreEnv('STRIPE_SECRET_KEY');
 });
 
 test('roteia PIX Asaas para o endpoint oficial usando a credencial do restaurante', async () => {
@@ -99,26 +109,51 @@ test('roteia cartao Asaas e usa fallback global somente quando habilitado', asyn
   });
 });
 
-test('bloqueia PIX PagBank antes de chamar qualquer API de outro provedor', async () => {
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    throw new Error('nao deveria chamar fetch');
+test('estorna PIX PagBank localizando a charge paga com idempotencia', async () => {
+  process.env.PAGBANK_API_BASE_URL = 'https://sandbox.pagbank.test';
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
+    assert.equal(restaurantId, 9);
+    return { pagbankToken: 'token-pagbank-tenant-9' };
   };
 
-  await assert.rejects(
-    () =>
-      refundOrderPaymentService.execute({
-        id: 93,
-        restaurantId: 9,
-        total: 30,
-        paid: true,
-        paymentMethod: 'PIX',
-        pixPaymentId: 'pagbank:ORDE_123',
-      }),
-    /PIX PagBank ainda nao e suportado.*Nenhuma alteracao foi aplicada/i,
+  const requests = [];
+  globalThis.fetch = async (input, init = {}) => {
+    requests.push({ url: String(input), init });
+    if (String(input).endsWith('/orders/ORDE_123')) {
+      return new Response(
+        JSON.stringify({
+          id: 'ORDE_123',
+          charges: [{ id: 'CHAR_123', status: 'PAID', summary: { refunded: 0 } }],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    return new Response(JSON.stringify({ id: 'CHAR_123', status: 'CANCELED' }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const receipt = await refundOrderPaymentService.execute(
+    {
+      id: 93,
+      restaurantId: 9,
+      total: 30,
+      paid: true,
+      paymentMethod: 'PIX',
+      pixPaymentId: 'pagbank:ORDE_123',
+    },
+    { idempotencyKey: 'order-refund-9-93' },
   );
-  assert.equal(fetchCalls, 0);
+
+  assert.deepEqual(receipt, { provider: 'PAGBANK', externalId: 'CHAR_123' });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url, 'https://sandbox.pagbank.test/charges/CHAR_123/cancel');
+  assert.equal(requests[1].init.headers.Authorization, 'Bearer token-pagbank-tenant-9');
+  assert.equal(requests[1].init.headers['x-idempotency-key'], 'order-refund-9-93');
+  assert.deepEqual(JSON.parse(String(requests[1].init.body)), {
+    amount: { value: 3000 },
+  });
 });
 
 test('bloqueia identificador de cartao PagBank sem transacao antes do Stripe', async () => {
@@ -138,7 +173,7 @@ test('bloqueia identificador de cartao PagBank sem transacao antes do Stripe', a
         paymentMethod: 'CARTAO',
         cardCheckoutSessionId: 'pagbank:checkout-sem-transacao',
       }),
-    /PagBank sem suporte de estorno automatico.*Nenhuma alteracao foi aplicada/i,
+    /identificador PagBank não oferece estorno automático.*pedido não foi cancelado/i,
   );
   assert.equal(fetchCalls, 0);
 });
@@ -167,11 +202,111 @@ test('retorna erro seguro quando o Asaas recusa o estorno', async () => {
     (error) => {
       assert.equal(
         error.message,
-        'Falha ao estornar pagamento no Asaas (HTTP 400). Nenhuma alteracao foi aplicada ao pedido.',
+        'O Asaas não confirmou o estorno. O pedido não foi cancelado e pode ser tentado novamente.',
       );
       assert.equal(error.message.includes('detalhe interno'), false);
       assert.equal(error.message.includes('token-tenant'), false);
       return true;
     },
   );
+});
+
+test('usa PaymentRefund oficial do Mercado Pago para PIX e cartao com chave idempotente', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => ({
+    mercadoPagoAccessToken: `mp-token-${restaurantId}`,
+  });
+
+  const requests = [];
+  globalThis.fetch = async (input, init = {}) => {
+    requests.push({ url: String(input), init });
+    const paymentId = /\/payments\/([^/]+)\/refunds/.exec(String(input))?.[1] || '';
+    return new Response(JSON.stringify({ id: `refund-${paymentId}`, status: 'approved' }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const pixReceipt = await refundOrderPaymentService.execute(
+    {
+      id: 96,
+      restaurantId: 12,
+      total: 42,
+      paid: true,
+      paymentMethod: 'PIX',
+      pixPaymentId: '987654',
+    },
+    { idempotencyKey: 'order-refund-12-96' },
+  );
+  const cardReceipt = await refundOrderPaymentService.execute(
+    {
+      id: 97,
+      restaurantId: 12,
+      total: 84,
+      paid: true,
+      paymentMethod: 'CARTAO',
+      cardCheckoutSessionId: 'mp_pay:123456',
+    },
+    { idempotencyKey: 'order-refund-12-97' },
+  );
+
+  assert.deepEqual(pixReceipt, {
+    provider: 'MERCADO_PAGO',
+    externalId: 'refund-987654',
+  });
+  assert.deepEqual(cardReceipt, {
+    provider: 'MERCADO_PAGO',
+    externalId: 'refund-123456',
+  });
+  assert.equal(requests.length, 2);
+  assert.equal(
+    new Headers(requests[0].init.headers).get('x-idempotency-key'),
+    'order-refund-12-96',
+  );
+  assert.equal(
+    new Headers(requests[1].init.headers).get('x-idempotency-key'),
+    'order-refund-12-97',
+  );
+});
+
+test('estorna cartao Stripe com a mesma chave idempotente do pedido', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    stripeSecretKey: 'sk_test_tenant',
+  });
+
+  const calls = { retrieve: [], refund: [] };
+  refundOrderPaymentService.createStripeClient = () => ({
+    checkout: {
+      sessions: {
+        retrieve: async (...args) => {
+          calls.retrieve.push(args);
+          return { payment_intent: { id: 'pi_123' } };
+        },
+      },
+    },
+    refunds: {
+      create: async (...args) => {
+        calls.refund.push(args);
+        return { id: 're_123', status: 'succeeded' };
+      },
+    },
+  });
+
+  const receipt = await refundOrderPaymentService.execute(
+    {
+      id: 98,
+      restaurantId: 13,
+      total: 125,
+      paid: true,
+      paymentMethod: 'CARTAO',
+      cardCheckoutSessionId: 'cs_test_123',
+    },
+    { idempotencyKey: 'order-refund-13-98' },
+  );
+
+  assert.deepEqual(receipt, { provider: 'STRIPE', externalId: 're_123' });
+  assert.deepEqual(calls.retrieve[0], ['cs_test_123', { expand: ['payment_intent'] }]);
+  assert.deepEqual(calls.refund[0], [
+    { payment_intent: 'pi_123' },
+    { idempotencyKey: 'order-refund-13-98' },
+  ]);
 });

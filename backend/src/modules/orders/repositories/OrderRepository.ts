@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { OrderStatus, PaymentMethod, OrderType } from '@prisma/client';
+import { OrderRefundStatus, OrderStatus, PaymentMethod, OrderType } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -284,6 +284,9 @@ class OrderRepository {
         id: Number(id),
         restaurantId,
         status: expected.status,
+        refundStatus: {
+          notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED],
+        },
         ...(typeof expected.paid === 'boolean' ? { paid: expected.paid } : {}),
       },
       data: {

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import cancelOrderService from '../services/CancelOrderService.js';
+import { getPublicOrderCancellationErrorMessage } from '../services/CancelOrderWorkflowService.js';
 
 class CancelOrderController {
   async handle(req: Request, res: Response) {
@@ -11,8 +12,17 @@ class CancelOrderController {
 
       return res.json(order);
     } catch (error: unknown) {
+      const publicMessage = getPublicOrderCancellationErrorMessage(
+        error,
+        'Não foi possível cancelar o pedido agora. Tente novamente ou contate o restaurante.',
+      );
+      if (publicMessage !== (error instanceof Error ? error.message : '')) {
+        console.error('[CANCEL_ORDER_UNEXPECTED_ERROR]', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao cancelar pedido',
+        error: publicMessage,
       });
     }
   }

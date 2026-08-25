@@ -46,6 +46,7 @@ function mapOrder(value: unknown): AdminOrder {
   const raw = asRecord(value);
   const user = asRecord(raw.user ?? raw.customer);
   const numericId = Number(raw.id ?? 0);
+  const refundStatus = String(raw.refundStatus ?? '').toUpperCase();
   return {
     id: String(raw.orderNumber ?? `#${numericId}`),
     numericId,
@@ -60,6 +61,14 @@ function mapOrder(value: unknown): AdminOrder {
     payOnDelivery: Boolean(raw.payOnDelivery),
     payOnDeliveryMethod: String(raw.payOnDeliveryMethod ?? '') || undefined,
     createdAt: String(raw.createdAt ?? '') || undefined,
+    refundStatus: ['NOT_REQUESTED', 'PROCESSING', 'SUCCEEDED', 'FAILED'].includes(refundStatus)
+      ? (refundStatus as AdminOrder['refundStatus'])
+      : undefined,
+    refundRequestedAt: String(raw.refundRequestedAt ?? '') || undefined,
+    refundedAt: String(raw.refundedAt ?? '') || undefined,
+    refundFailureReason: String(raw.refundFailureReason ?? '') || undefined,
+    refundProvider: String(raw.refundProvider ?? '') || undefined,
+    refundExternalId: String(raw.refundExternalId ?? '') || undefined,
   };
 }
 
@@ -216,9 +225,7 @@ export function mapSettingsFromApi(
         adminMockSettings.description,
     ),
     whatsapp: String(raw?.whatsapp ?? adminMockSettings.whatsapp),
-    whatsappDisplayName: String(
-      raw?.whatsappDisplayName ?? adminMockSettings.whatsappDisplayName,
-    ),
+    whatsappDisplayName: String(raw?.whatsappDisplayName ?? adminMockSettings.whatsappDisplayName),
     whatsappDefaultMessage: String(
       raw?.whatsappDefaultMessage ?? adminMockSettings.whatsappDefaultMessage,
     ),
@@ -231,9 +238,7 @@ export function mapSettingsFromApi(
     youtube: String(raw?.youtube ?? adminMockSettings.youtube),
     minimumOrder: Number(raw?.minimumOrder ?? adminMockSettings.minimumOrder),
     deliveryFee: Number(raw?.deliveryFee ?? adminMockSettings.deliveryFee),
-    freeShippingMinimum: Number(
-      raw?.freeShippingMinimum ?? adminMockSettings.freeShippingMinimum,
-    ),
+    freeShippingMinimum: Number(raw?.freeShippingMinimum ?? adminMockSettings.freeShippingMinimum),
     acceptsDelivery: raw?.acceptsDelivery !== false,
     acceptsPickup: raw?.acceptsPickup !== false,
     acceptsPix: raw?.acceptsPix !== false,
@@ -330,8 +335,7 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     youtube: settings.youtube,
     minimumOrder: settings.minimumOrder,
     deliveryFee: settings.deliveryFee,
-    freeShippingMinimum:
-      settings.freeShippingMinimum > 0 ? settings.freeShippingMinimum : null,
+    freeShippingMinimum: settings.freeShippingMinimum > 0 ? settings.freeShippingMinimum : null,
     acceptsDelivery: settings.acceptsDelivery,
     acceptsPickup: settings.acceptsPickup,
     acceptsPix: settings.acceptsPix,

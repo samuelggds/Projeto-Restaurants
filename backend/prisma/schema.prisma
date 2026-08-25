@@ -396,6 +396,13 @@ model Order {
   paidAt                          DateTime?
   pixPaymentId                    String?
   cardCheckoutSessionId           String?
+  refundStatus                    OrderRefundStatus  @default(NOT_REQUESTED)
+  refundRequestedAt               DateTime?
+  refundedAt                      DateTime?
+  refundFailureReason             String?
+  refundIdempotencyKey            String?
+  refundProvider                  String?
+  refundExternalId                String?
   assignedCourierId               Int?
   deliveryStartedAt               DateTime?
   deliveredAt                     DateTime?
@@ -422,6 +429,7 @@ model Order {
   couponRedemption                CouponRedemption?  @relation(fields: [couponRedemptionId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, status, assignedCourierId])
+  @@index([restaurantId, refundStatus])
   @@index([assignedCourierId, deliveryStartedAt])
   @@index([restaurantId, userId, status, paid, deliveredAt])
 }
@@ -773,6 +781,13 @@ enum PaymentMethod {
   PIX
   CARTAO
   DINHEIRO
+}
+
+enum OrderRefundStatus {
+  NOT_REQUESTED
+  PROCESSING
+  SUCCEEDED
+  FAILED
 }
 
 enum OrderIssueSenderType {

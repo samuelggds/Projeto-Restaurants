@@ -7,6 +7,9 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const confirmDialog = useCallback(
     (options: ConfirmOptions) =>
@@ -34,12 +37,38 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!dialog) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') cancel();
+      if (event.key !== 'Tab') return;
+
+      const focusableElements = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (!focusableElements.length) return;
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
-    if (dialog.kind === 'prompt') window.setTimeout(() => inputRef.current?.select(), 0);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const focusTimer = window.setTimeout(() => {
+      if (dialog.kind === 'prompt') inputRef.current?.select();
+      else cancelButtonRef.current?.focus();
+    }, 0);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.clearTimeout(focusTimer);
+      previousFocusRef.current?.focus();
+    };
   }, [cancel, dialog]);
 
   const submit = (event: FormEvent) => {
@@ -60,9 +89,11 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
       {dialog && (
         <S.Backdrop onMouseDown={(event) => event.target === event.currentTarget && cancel()}>
           <S.Dialog
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="app-dialog-title"
+            aria-describedby={dialog.description ? 'app-dialog-description' : undefined}
             onSubmit={submit}
           >
             <S.Icon $tone={dialog.tone ?? 'default'}>
@@ -73,7 +104,7 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
             </S.Close>
             <S.Copy>
               <h2 id="app-dialog-title">{dialog.title}</h2>
-              {dialog.description && <p>{dialog.description}</p>}
+              {dialog.description && <p id="app-dialog-description">{dialog.description}</p>}
             </S.Copy>
             {dialog.kind === 'prompt' && (
               <S.Field>
@@ -87,7 +118,7 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
               </S.Field>
             )}
             <S.Actions>
-              <button type="button" className="cancel" onClick={cancel}>
+              <button ref={cancelButtonRef} type="button" className="cancel" onClick={cancel}>
                 {dialog.cancelLabel ?? 'Cancelar'}
               </button>
               <button
