@@ -150,7 +150,7 @@ export function useCheckoutPayments(options: Options) {
       });
       const checkoutUrl = String(result.checkoutUrl || '');
       if (!/^https:\/\//i.test(checkoutUrl)) {
-        throw new Error('O gateway não retornou um endereço seguro de pagamento.');
+        throw new Error('O serviço de pagamento não retornou um endereço seguro.');
       }
       onPurchased();
       onClearCart();

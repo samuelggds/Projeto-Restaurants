@@ -319,8 +319,8 @@ export default function Home() {
     if (!paymentAvailable) {
       notify(
         'warning',
-        'Pagamento indisponível',
-        'O restaurante não disponibilizou uma forma de pagamento para este pedido.',
+        'Serviço indisponível',
+        'O restaurante ainda não configurou os pagamentos para este pedido.',
       );
       return;
     }
@@ -576,7 +576,7 @@ export default function Home() {
               !checkoutChannelAvailable
                 ? 'Canal indisponível'
                 : !paymentAvailable
-                  ? 'Pagamento indisponível'
+                  ? 'Serviço indisponível'
                   : undefined
             }
             onCheckout={() => void handleCheckout()}

@@ -31,7 +31,7 @@ describe('PaymentOptions', () => {
       />,
     );
 
-    expect(markup).toContain('não disponibilizou uma forma de pagamento');
+    expect(markup).toContain('Serviço indisponível');
   });
 
   it('calcula os métodos válidos para cada canal', () => {
