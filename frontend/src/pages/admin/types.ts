@@ -276,6 +276,7 @@ export type AdminPageProps = {
     cnpj?: string;
     restaurantName: string;
     pixKey: string;
+    incomeValue: number;
   }) => void | Promise<void>;
   onCreateEmployee?: (employee: EmployeeFormPayload) => Employee | Promise<Employee>;
   onUpdateEmployee?: (

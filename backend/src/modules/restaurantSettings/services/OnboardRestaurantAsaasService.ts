@@ -1,4 +1,5 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
+import { isValidCnpj, isValidCpf } from '../utils/adminSettingsValidation.js';
 
 type OnboardRestaurantAsaasPayload = {
   restaurantId: number | string;
@@ -6,6 +7,13 @@ type OnboardRestaurantAsaasPayload = {
   cpf?: string;
   restaurantName: string;
   pixKey: string;
+  email?: string | null;
+  mobilePhone?: string | null;
+  incomeValue?: number | string | null;
+  address?: string | null;
+  addressNumber?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
 };
 
 type AsaasErrorItem = {
@@ -35,6 +43,19 @@ class OnboardRestaurantAsaasService {
     }
 
     return null;
+  }
+
+  private normalizeMobilePhone(value: unknown) {
+    const digits = String(value || '').replace(/\D/g, '');
+    const withoutBrazilCountryCode =
+      digits.length >= 12 && digits.startsWith('55') ? digits.slice(2) : digits;
+
+    return /^\d{10,11}$/.test(withoutBrazilCountryCode) ? withoutBrazilCountryCode : '';
+  }
+
+  private normalizePostalCode(value: unknown) {
+    const digits = String(value || '').replace(/\D/g, '');
+    return /^\d{8}$/.test(digits) ? digits : '';
   }
 
   private getAsaasBaseUrl() {
@@ -70,13 +91,32 @@ class OnboardRestaurantAsaasService {
     cpf,
     restaurantName,
     pixKey,
+    email,
+    mobilePhone,
+    incomeValue,
+    address,
+    addressNumber,
+    province,
+    postalCode,
   }: OnboardRestaurantAsaasPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error('Restaurante invalido para onboarding Asaas.');
     }
 
-    const normalizedCnpj = this.normalizeDocument(cnpj || '');
+    const existingSettings =
+      await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
+    const restaurant =
+      existingSettings?.restaurant ||
+      (await restaurantSettingsRepository.findRestaurantById(normalizedRestaurantId));
+
+    if (!restaurant) {
+      throw new Error('Restaurante nao encontrado para onboarding Asaas.');
+    }
+
+    const normalizedCnpj = this.normalizeDocument(
+      cnpj || existingSettings?.companyDocument || restaurant.cnpj || '',
+    );
     const normalizedCpf = this.normalizeDocument(cpf || '');
 
     if (normalizedCnpj && normalizedCpf && normalizedCnpj !== normalizedCpf) {
@@ -85,11 +125,39 @@ class OnboardRestaurantAsaasService {
 
     const normalizedDocument = normalizedCnpj || normalizedCpf;
     const legalDocumentType = this.resolveDocumentType(normalizedDocument);
-    const normalizedRestaurantName = String(restaurantName || '').trim();
+    const normalizedRestaurantName = String(
+      restaurantName ||
+        existingSettings?.companyTradeName ||
+        existingSettings?.companyLegalName ||
+        restaurant.name ||
+        '',
+    ).trim();
     const normalizedPixKey = String(pixKey || '').trim();
+    const normalizedEmail = String(email || existingSettings?.ownerEmail || restaurant.email || '')
+      .trim()
+      .toLowerCase();
+    const normalizedMobilePhone = this.normalizeMobilePhone(
+      mobilePhone || existingSettings?.ownerPhone || restaurant.phone || restaurant.whatsapp,
+    );
+    const normalizedAddress = String(address || restaurant.address || '').trim();
+    const normalizedAddressNumber = String(addressNumber || restaurant.addressNumber || '').trim();
+    const normalizedProvince = String(province || restaurant.addressDistrict || '').trim();
+    const normalizedPostalCode = this.normalizePostalCode(postalCode || restaurant.zipCode);
+    const incomeCandidate =
+      incomeValue === undefined || incomeValue === null || incomeValue === ''
+        ? existingSettings?.monthlyRevenue
+        : incomeValue;
+    const normalizedIncomeValue = Number(incomeCandidate);
 
     if (!legalDocumentType) {
       throw new Error('Documento invalido. Informe CPF (11) ou CNPJ (14) digitos.');
+    }
+
+    if (
+      (legalDocumentType === 'CPF' && !isValidCpf(normalizedDocument)) ||
+      (legalDocumentType === 'CNPJ' && !isValidCnpj(normalizedDocument))
+    ) {
+      throw new Error(`${legalDocumentType} invalido.`);
     }
 
     if (normalizedRestaurantName.length < 2) {
@@ -98,6 +166,28 @@ class OnboardRestaurantAsaasService {
 
     if (!normalizedPixKey) {
       throw new Error('Chave PIX obrigatoria para onboarding Asaas.');
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new Error('E-mail do responsavel invalido. Complete os dados gerais do restaurante.');
+    }
+
+    if (!normalizedMobilePhone) {
+      throw new Error('Celular do responsavel invalido. Complete os dados gerais do restaurante.');
+    }
+
+    if (!Number.isFinite(normalizedIncomeValue) || normalizedIncomeValue <= 0) {
+      throw new Error('Informe uma renda/faturamento mensal valido para criar a conta Asaas.');
+    }
+
+    if (!normalizedAddress || !normalizedAddressNumber || !normalizedProvince) {
+      throw new Error(
+        'Endereco, numero e bairro sao obrigatorios. Complete os dados gerais do restaurante.',
+      );
+    }
+
+    if (!normalizedPostalCode) {
+      throw new Error('CEP invalido. Complete os dados gerais do restaurante.');
     }
 
     const asaasApiKey = this.getAsaasApiKey();
@@ -115,6 +205,13 @@ class OnboardRestaurantAsaasService {
       body: JSON.stringify({
         cpfCnpj: normalizedDocument,
         name: normalizedRestaurantName,
+        email: normalizedEmail,
+        mobilePhone: normalizedMobilePhone,
+        incomeValue: Math.round(normalizedIncomeValue * 100) / 100,
+        address: normalizedAddress,
+        addressNumber: normalizedAddressNumber,
+        province: normalizedProvince,
+        postalCode: normalizedPostalCode,
       }),
     });
 
@@ -129,9 +226,6 @@ class OnboardRestaurantAsaasService {
     }
 
     const asaasSubaccountToken = this.extractAsaasToken(responseBody);
-    const existingSettings =
-      await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
-
     if (existingSettings) {
       await restaurantSettingsRepository.update(normalizedRestaurantId, {
         legalDocumentType,
@@ -139,6 +233,7 @@ class OnboardRestaurantAsaasService {
         companyTradeName: normalizedRestaurantName,
         pixProvider: 'ASAAS',
         pixKey: normalizedPixKey,
+        monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
         gatewayMerchantId: walletIdentifier,
         ...(asaasSubaccountToken
           ? {
@@ -153,6 +248,9 @@ class OnboardRestaurantAsaasService {
         minimumOrder: 0,
         pixProvider: 'ASAAS',
         pixKey: normalizedPixKey,
+        monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
+        ownerEmail: normalizedEmail,
+        ownerPhone: normalizedMobilePhone,
         legalDocumentType,
         companyDocument: normalizedDocument,
         companyTradeName: normalizedRestaurantName,

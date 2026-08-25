@@ -4,6 +4,10 @@ import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
+function isUniqueConstraintError(error: unknown) {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002');
+}
+
 const operationalTableSelect = {
   id: true,
   number: true,
@@ -625,6 +629,64 @@ class OrderRepository {
         },
       },
     });
+  }
+
+  async claimPixPaymentId(
+    id: number | string,
+    restaurantId: number,
+    pixPaymentId: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    const normalizedPaymentId = String(pixPaymentId || '').trim();
+    if (!normalizedPaymentId) {
+      throw new Error('Pagamento PIX inválido para vincular ao pedido.');
+    }
+
+    const existingOwner = await db.order.findFirst({
+      where: { pixPaymentId: normalizedPaymentId },
+      select: { id: true },
+    });
+    if (existingOwner && existingOwner.id !== Number(id)) {
+      throw new Error('Este pagamento PIX já foi utilizado em outro pedido.');
+    }
+
+    let result;
+    try {
+      result = await db.order.updateMany({
+        where: {
+          id: Number(id),
+          restaurantId,
+          paid: false,
+          status: { not: OrderStatus.CANCELADO },
+          OR: [{ pixPaymentId: null }, { pixPaymentId: normalizedPaymentId }],
+        },
+        data: { pixPaymentId: normalizedPaymentId },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new Error('Este pagamento PIX já foi utilizado em outro pedido.');
+      }
+      throw error;
+    }
+
+    const current = await this.findById(id, restaurantId, db);
+    if (!current) {
+      throw new Error('Pedido não encontrado para vincular o pagamento PIX.');
+    }
+
+    if (result.count === 1 || current.pixPaymentId === normalizedPaymentId) {
+      return current;
+    }
+
+    if (current.status === OrderStatus.CANCELADO) {
+      throw new Error('Pagamento PIX não pode ser vinculado a um pedido cancelado.');
+    }
+
+    if (String(current.pixPaymentId || '').trim()) {
+      throw new Error('O pedido já está vinculado a outro pagamento PIX.');
+    }
+
+    throw new Error('Não foi possível vincular o pagamento PIX ao pedido.');
   }
 
   async findByCardCheckoutSessionId(

@@ -1282,6 +1282,61 @@ export const HistoryTable = styled.div`
     }
   }
 `;
+export const HistoryPagination = styled.nav`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+
+  > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  button {
+    min-height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: #fff;
+    padding: 0 12px;
+    color: var(--brand);
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--brand);
+    background: #fff7f2;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  strong {
+    min-width: 46px;
+    color: var(--text);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  @media (max-width: 560px) {
+    align-items: flex-start;
+    flex-direction: column;
+    > div {
+      width: 100%;
+    }
+    button {
+      flex: 1;
+      padding-inline: 8px;
+    }
+  }
+`;
 export const SectionTitle = styled.div`
   display: flex;
   align-items: center;

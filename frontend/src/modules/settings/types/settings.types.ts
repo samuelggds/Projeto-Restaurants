@@ -51,6 +51,7 @@ export type RestaurantSettings = {
   mercadoPagoAccessTokenConfigured: boolean;
   asaasAccessToken: string;
   asaasAccessTokenConfigured: boolean;
+  monthlyRevenue: number | null;
   pagbankEmail: string;
   pagbankToken: string;
   pagbankTokenConfigured: boolean;

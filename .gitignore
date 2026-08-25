@@ -2,6 +2,7 @@
 .env.routing.local
 .env.production
 .env
+node_modules/
 routing-data/
 .npm-cache/
 .playwright-browsers/

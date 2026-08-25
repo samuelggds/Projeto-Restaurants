@@ -394,7 +394,7 @@ model Order {
   paymentConfirmationPin          String?
   paymentConfirmationPinExpiresAt DateTime?
   paidAt                          DateTime?
-  pixPaymentId                    String?
+  pixPaymentId                    String?            @unique
   cardCheckoutSessionId           String?
   refundStatus                    OrderRefundStatus  @default(NOT_REQUESTED)
   refundRequestedAt               DateTime?

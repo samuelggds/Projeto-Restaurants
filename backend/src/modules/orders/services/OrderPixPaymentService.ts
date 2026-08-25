@@ -13,6 +13,7 @@ import {
   type PixProvider,
   normalizePixProvider,
 } from '../../payments/providers/providerCatalog.js';
+import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -57,6 +58,12 @@ type PaymentStatusPayload = {
   restaurantId?: number | string;
 };
 
+type PaymentApprovalPayload = PaymentStatusPayload & {
+  expectedOrderId?: number | string;
+  expectedAmount?: number | string;
+  expectedCurrency?: string;
+};
+
 type PixPaymentPayload = {
   id?: string | number;
   status?: string;
@@ -86,6 +93,7 @@ type AsaasPaymentPayload = {
   status?: string;
   externalReference?: string;
   value?: number;
+  currency?: string;
   errors?: AsaasErrorItem[];
 };
 
@@ -121,6 +129,15 @@ function doesProofContainTransactionId(paymentProof: string, transactionId: stri
   }
 
   return normalizedProof.includes(normalizedTransactionId);
+}
+
+function toCurrencyCents(value: unknown) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return Math.round((amount + Number.EPSILON) * 100);
 }
 
 type ParsedManualPixPaymentId = {
@@ -743,6 +760,7 @@ class OrderPixPaymentService {
         source: 'order_checkout',
         provider: resolvedPixProvider,
       },
+      ...mercadoPagoOrderNotificationFields(normalizedRestaurantId),
       external_reference: sourceOrderId
         ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
         : `orderpix:${normalizedRestaurantId}:${Date.now()}`,
@@ -845,6 +863,7 @@ class OrderPixPaymentService {
       }
 
       const status = this.normalizeAsaasStatus(statusResult.responseBody?.status);
+      const amount = Number(statusResult.responseBody?.value);
 
       return {
         paymentId: normalizedPaymentId,
@@ -852,6 +871,11 @@ class OrderPixPaymentService {
         provider: PIX_PROVIDERS.ASAAS,
         isApproved: APPROVED_ASAAS_PAYMENT_STATUSES.has(status),
         sameRestaurant: true,
+        externalReference: String(statusResult.responseBody?.externalReference || '').trim(),
+        amount: Number.isFinite(amount) ? amount : null,
+        currency: String(statusResult.responseBody?.currency || 'BRL')
+          .trim()
+          .toUpperCase(),
         requiresStatusCheck: true,
       };
     }
@@ -915,7 +939,13 @@ class OrderPixPaymentService {
     };
   }
 
-  async ensurePaymentApproved({ paymentId, restaurantId }: PaymentStatusPayload) {
+  async ensurePaymentApproved({
+    paymentId,
+    restaurantId,
+    expectedOrderId,
+    expectedAmount,
+    expectedCurrency = 'BRL',
+  }: PaymentApprovalPayload) {
     const statusResult = await this.getPaymentStatus({
       paymentId,
       restaurantId,
@@ -927,6 +957,40 @@ class OrderPixPaymentService {
 
     if (!statusResult.isApproved) {
       throw new Error('Pagamento PIX ainda não foi aprovado.');
+    }
+
+    if (statusResult.provider === PIX_PROVIDERS.ASAAS) {
+      const normalizedRestaurantId = Number(restaurantId || 0);
+      const normalizedOrderId = Number(expectedOrderId || 0);
+      const expectedAmountInCents = toCurrencyCents(expectedAmount);
+      const actualAmountInCents = toCurrencyCents(statusResult.amount);
+      const normalizedExpectedCurrency = String(expectedCurrency || '')
+        .trim()
+        .toUpperCase();
+
+      if (
+        !Number.isInteger(normalizedRestaurantId) ||
+        normalizedRestaurantId <= 0 ||
+        !Number.isInteger(normalizedOrderId) ||
+        normalizedOrderId <= 0 ||
+        expectedAmountInCents === null ||
+        !normalizedExpectedCurrency
+      ) {
+        throw new Error('Não foi possível validar o vínculo do pagamento PIX com o pedido.');
+      }
+
+      const expectedReference = `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
+      if (statusResult.externalReference !== expectedReference) {
+        throw new Error('Pagamento PIX não corresponde ao pedido informado.');
+      }
+
+      if (actualAmountInCents === null || actualAmountInCents !== expectedAmountInCents) {
+        throw new Error('O valor do pagamento PIX não corresponde ao total do pedido.');
+      }
+
+      if (statusResult.currency !== normalizedExpectedCurrency) {
+        throw new Error('A moeda do pagamento PIX não corresponde à moeda do pedido.');
+      }
     }
 
     return statusResult;
@@ -946,13 +1010,7 @@ class OrderPixPaymentService {
       throw new Error('O provedor não retornou um identificador de pagamento PIX.');
     }
 
-    const result = await prisma.order.updateMany({
-      where: { id: Number(orderId), restaurantId, paid: false },
-      data: { pixPaymentId: normalizedPaymentId },
-    });
-    if (result.count !== 1) {
-      throw new Error('Não foi possível vincular o pagamento PIX ao pedido.');
-    }
+    await orderRepository.claimPixPaymentId(orderId, restaurantId, normalizedPaymentId);
   }
 
   async removePendingOrderAfterPaymentFailure({

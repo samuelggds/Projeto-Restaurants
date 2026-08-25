@@ -156,6 +156,81 @@ test('estorna PIX PagBank localizando a charge paga com idempotencia', async () 
   });
 });
 
+test('estorna cartao PagBank pago pelo endpoint de refunds com credenciais na query', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async (restaurantId) => {
+    assert.equal(restaurantId, 10);
+    return {
+      pagbankEmail: 'financeiro@pizzaria.com',
+      pagbankToken: 'token-tenant-10',
+    };
+  };
+
+  let request = null;
+  globalThis.fetch = async (input, init = {}) => {
+    request = { url: String(input), init };
+    return new Response('<transaction><code>TRX-PAID-123</code></transaction>', {
+      status: 200,
+      headers: { 'Content-Type': 'application/xml' },
+    });
+  };
+
+  const receipt = await refundOrderPaymentService.execute({
+    id: 94,
+    restaurantId: 10,
+    total: '55.40',
+    paid: true,
+    paymentMethod: 'CARTAO',
+    cardCheckoutSessionId: 'pagbank_tx:TRX-PAID-123',
+  });
+
+  const requestUrl = new URL(request.url);
+  assert.equal(requestUrl.origin, 'https://ws.pagseguro.uol.com.br');
+  assert.equal(requestUrl.pathname, '/v2/transactions/refunds');
+  assert.equal(requestUrl.searchParams.get('email'), 'financeiro@pizzaria.com');
+  assert.equal(requestUrl.searchParams.get('token'), 'token-tenant-10');
+  assert.equal(request.init.method, 'POST');
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(String(request.init.body))), {
+    transactionCode: 'TRX-PAID-123',
+    refundValue: '55.40',
+  });
+  assert.equal(String(request.init.body).includes('token-tenant-10'), false);
+  assert.deepEqual(receipt, { provider: 'PAGBANK', externalId: 'TRX-PAID-123' });
+});
+
+test('mantem pedido ativo com erro seguro quando PagBank recusa estorno do cartao', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    pagbankEmail: 'financeiro@pizzaria.com',
+    pagbankToken: 'token-tenant-11',
+  });
+  console.error = () => undefined;
+  globalThis.fetch = async () =>
+    new Response(
+      '<errors><error><code>53004</code><message>transacao interna indisponivel</message></error></errors>',
+      { status: 400, headers: { 'Content-Type': 'application/xml' } },
+    );
+
+  await assert.rejects(
+    () =>
+      refundOrderPaymentService.execute({
+        id: 95,
+        restaurantId: 11,
+        total: 60,
+        paid: true,
+        paymentMethod: 'CARTAO',
+        cardCheckoutSessionId: 'pagbank_tx:TRX-REFUSED-456',
+      }),
+    (error) => {
+      assert.equal(
+        error.message,
+        'O PagBank não confirmou o estorno do cartão. O pedido não foi cancelado e pode ser tentado novamente.',
+      );
+      assert.equal(error.message.includes('transacao interna'), false);
+      assert.equal(error.message.includes('token-tenant-11'), false);
+      return true;
+    },
+  );
+});
+
 test('bloqueia identificador de cartao PagBank sem transacao antes do Stripe', async () => {
   let fetchCalls = 0;
   globalThis.fetch = async () => {

@@ -3359,6 +3359,9 @@ var init_productsRoutes = __esm({
 
 // src/modules/orders/repositories/OrderRepository.ts
 import { OrderRefundStatus, OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
+function isUniqueConstraintError(error2) {
+  return Boolean(error2 && typeof error2 === "object" && "code" in error2 && error2.code === "P2002");
+}
 var operationalTableSelect, waiterReadyOrderInclude, OrderRepository, OrderRepository_default;
 var init_OrderRepository = __esm({
   "src/modules/orders/repositories/OrderRepository.ts"() {
@@ -3870,6 +3873,51 @@ var init_OrderRepository = __esm({
           }
         });
       }
+      async claimPixPaymentId(id, restaurantId, pixPaymentId, db = prisma_default) {
+        const normalizedPaymentId = String(pixPaymentId || "").trim();
+        if (!normalizedPaymentId) {
+          throw new Error("Pagamento PIX inv\xE1lido para vincular ao pedido.");
+        }
+        const existingOwner = await db.order.findFirst({
+          where: { pixPaymentId: normalizedPaymentId },
+          select: { id: true }
+        });
+        if (existingOwner && existingOwner.id !== Number(id)) {
+          throw new Error("Este pagamento PIX j\xE1 foi utilizado em outro pedido.");
+        }
+        let result;
+        try {
+          result = await db.order.updateMany({
+            where: {
+              id: Number(id),
+              restaurantId,
+              paid: false,
+              status: { not: OrderStatus.CANCELADO },
+              OR: [{ pixPaymentId: null }, { pixPaymentId: normalizedPaymentId }]
+            },
+            data: { pixPaymentId: normalizedPaymentId }
+          });
+        } catch (error2) {
+          if (isUniqueConstraintError(error2)) {
+            throw new Error("Este pagamento PIX j\xE1 foi utilizado em outro pedido.");
+          }
+          throw error2;
+        }
+        const current = await this.findById(id, restaurantId, db);
+        if (!current) {
+          throw new Error("Pedido n\xE3o encontrado para vincular o pagamento PIX.");
+        }
+        if (result.count === 1 || current.pixPaymentId === normalizedPaymentId) {
+          return current;
+        }
+        if (current.status === OrderStatus.CANCELADO) {
+          throw new Error("Pagamento PIX n\xE3o pode ser vinculado a um pedido cancelado.");
+        }
+        if (String(current.pixPaymentId || "").trim()) {
+          throw new Error("O pedido j\xE1 est\xE1 vinculado a outro pagamento PIX.");
+        }
+        throw new Error("N\xE3o foi poss\xEDvel vincular o pagamento PIX ao pedido.");
+      }
       async findByCardCheckoutSessionId(cardCheckoutSessionId, restaurantId, db = prisma_default) {
         return db.order.findFirst({
           where: {
@@ -4337,6 +4385,9 @@ var init_RestaurantSettingsRepository = __esm({
             restaurant: {
               select: {
                 name: true,
+                email: true,
+                phone: true,
+                cnpj: true,
                 slug: true,
                 logo: true,
                 coverImage: true,
@@ -4363,6 +4414,9 @@ var init_RestaurantSettingsRepository = __esm({
             id: true,
             active: true,
             name: true,
+            email: true,
+            phone: true,
+            cnpj: true,
             slug: true,
             logo: true,
             coverImage: true,
@@ -4873,6 +4927,39 @@ var init_SplitService = __esm({
   }
 });
 
+// src/modules/payments/providers/mercadoPagoOrderNotification.ts
+function appendRestaurantId(baseUrl, restaurantId) {
+  try {
+    const notificationUrl = new URL(baseUrl);
+    notificationUrl.searchParams.set("restaurantId", String(restaurantId));
+    return notificationUrl.toString();
+  } catch {
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    return `${baseUrl}${separator}restaurantId=${encodeURIComponent(String(restaurantId))}`;
+  }
+}
+function resolveMercadoPagoOrderNotificationUrl(restaurantId) {
+  const normalizedRestaurantId = Number(restaurantId || 0);
+  if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+    return "";
+  }
+  const explicitOrderNotificationUrl = String(process.env.MP_ORDER_NOTIFICATION_URL || "").trim();
+  const backendUrl = String(process.env.BACKEND_URL || "").trim().replace(/\/+$/, "");
+  const baseUrl = explicitOrderNotificationUrl || (backendUrl ? `${backendUrl}/orders/webhook/mercadopago` : "");
+  if (!baseUrl) {
+    return "";
+  }
+  return appendRestaurantId(baseUrl, normalizedRestaurantId);
+}
+function mercadoPagoOrderNotificationFields(restaurantId) {
+  const notificationUrl = resolveMercadoPagoOrderNotificationUrl(restaurantId);
+  return notificationUrl ? { notification_url: notificationUrl } : {};
+}
+var init_mercadoPagoOrderNotification = __esm({
+  "src/modules/payments/providers/mercadoPagoOrderNotification.ts"() {
+  }
+});
+
 // src/modules/orders/utils/productIngredients.ts
 function money(value) {
   const normalized = Number(value);
@@ -5238,6 +5325,13 @@ function doesProofContainTransactionId(paymentProof, transactionId) {
   }
   return normalizedProof.includes(normalizedTransactionId);
 }
+function toCurrencyCents(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+  return Math.round((amount + Number.EPSILON) * 100);
+}
 var APPROVED_PAYMENT_STATUSES, APPROVED_ASAAS_PAYMENT_STATUSES, OrderPixPaymentService, OrderPixPaymentService_default;
 var init_OrderPixPaymentService = __esm({
   "src/modules/orders/services/OrderPixPaymentService.ts"() {
@@ -5247,6 +5341,7 @@ var init_OrderPixPaymentService = __esm({
     init_restaurantAvailability();
     init_SplitService();
     init_providerCatalog();
+    init_mercadoPagoOrderNotification();
     init_productIngredients();
     init_prisma();
     init_OrderRepository();
@@ -5722,6 +5817,7 @@ var init_OrderPixPaymentService = __esm({
             source: "order_checkout",
             provider: resolvedPixProvider
           },
+          ...mercadoPagoOrderNotificationFields(normalizedRestaurantId),
           external_reference: sourceOrderId ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}` : `orderpix:${normalizedRestaurantId}:${Date.now()}`
         };
         let response;
@@ -5801,12 +5897,16 @@ var init_OrderPixPaymentService = __esm({
             );
           }
           const status2 = this.normalizeAsaasStatus(statusResult.responseBody?.status);
+          const amount = Number(statusResult.responseBody?.value);
           return {
             paymentId: normalizedPaymentId,
             status: status2,
             provider: PIX_PROVIDERS.ASAAS,
             isApproved: APPROVED_ASAAS_PAYMENT_STATUSES.has(status2),
             sameRestaurant: true,
+            externalReference: String(statusResult.responseBody?.externalReference || "").trim(),
+            amount: Number.isFinite(amount) ? amount : null,
+            currency: String(statusResult.responseBody?.currency || "BRL").trim().toUpperCase(),
             requiresStatusCheck: true
           };
         }
@@ -5856,7 +5956,13 @@ var init_OrderPixPaymentService = __esm({
           requiresStatusCheck: true
         };
       }
-      async ensurePaymentApproved({ paymentId, restaurantId }) {
+      async ensurePaymentApproved({
+        paymentId,
+        restaurantId,
+        expectedOrderId,
+        expectedAmount,
+        expectedCurrency = "BRL"
+      }) {
         const statusResult = await this.getPaymentStatus({
           paymentId,
           restaurantId
@@ -5866,6 +5972,26 @@ var init_OrderPixPaymentService = __esm({
         }
         if (!statusResult.isApproved) {
           throw new Error("Pagamento PIX ainda n\xE3o foi aprovado.");
+        }
+        if (statusResult.provider === PIX_PROVIDERS.ASAAS) {
+          const normalizedRestaurantId = Number(restaurantId || 0);
+          const normalizedOrderId = Number(expectedOrderId || 0);
+          const expectedAmountInCents = toCurrencyCents(expectedAmount);
+          const actualAmountInCents = toCurrencyCents(statusResult.amount);
+          const normalizedExpectedCurrency = String(expectedCurrency || "").trim().toUpperCase();
+          if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0 || !Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0 || expectedAmountInCents === null || !normalizedExpectedCurrency) {
+            throw new Error("N\xE3o foi poss\xEDvel validar o v\xEDnculo do pagamento PIX com o pedido.");
+          }
+          const expectedReference = `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
+          if (statusResult.externalReference !== expectedReference) {
+            throw new Error("Pagamento PIX n\xE3o corresponde ao pedido informado.");
+          }
+          if (actualAmountInCents === null || actualAmountInCents !== expectedAmountInCents) {
+            throw new Error("O valor do pagamento PIX n\xE3o corresponde ao total do pedido.");
+          }
+          if (statusResult.currency !== normalizedExpectedCurrency) {
+            throw new Error("A moeda do pagamento PIX n\xE3o corresponde \xE0 moeda do pedido.");
+          }
         }
         return statusResult;
       }
@@ -5878,13 +6004,7 @@ var init_OrderPixPaymentService = __esm({
         if (!normalizedPaymentId) {
           throw new Error("O provedor n\xE3o retornou um identificador de pagamento PIX.");
         }
-        const result = await prisma_default.order.updateMany({
-          where: { id: Number(orderId), restaurantId, paid: false },
-          data: { pixPaymentId: normalizedPaymentId }
-        });
-        if (result.count !== 1) {
-          throw new Error("N\xE3o foi poss\xEDvel vincular o pagamento PIX ao pedido.");
-        }
+        await OrderRepository_default.claimPixPaymentId(orderId, restaurantId, normalizedPaymentId);
       }
       async removePendingOrderAfterPaymentFailure({
         orderId,
@@ -8923,13 +9043,12 @@ var init_RefundOrderPaymentService = __esm({
           }
         }
         const params = new URLSearchParams();
-        params.set("email", email);
-        params.set("token", token);
         params.set("transactionCode", normalizedTransactionCode);
         if (amount) {
           params.set("refundValue", amount.toFixed(2));
         }
-        const url = `${this.resolvePagBankApiBaseUrl(environment2)}/v2/transactions/cancels`;
+        const credentials = new URLSearchParams({ email, token });
+        const url = `${this.resolvePagBankApiBaseUrl(environment2)}/v2/transactions/refunds?${credentials.toString()}`;
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -9996,17 +10115,6 @@ async function getStripeClient(restaurantId) {
   }
   return new Stripe2(secretKey);
 }
-function resolveMercadoPagoNotificationUrl(restaurantId) {
-  const explicitNotificationUrl = String(process.env.MP_NOTIFICATION_URL || "").trim();
-  const backendUrl = String(process.env.BACKEND_URL || "").trim().replace(/\/+$/, "");
-  const baseNotificationUrl = explicitNotificationUrl || (backendUrl ? `${backendUrl}/orders/webhook/mercadopago` : "");
-  if (!baseNotificationUrl || !restaurantId) {
-    return baseNotificationUrl;
-  }
-  return withQueryParam(baseNotificationUrl, {
-    restaurantId: String(restaurantId)
-  });
-}
 function resolvePagBankEnvironment() {
   return "production";
 }
@@ -10124,6 +10232,7 @@ var init_cardCheckoutProviders = __esm({
   "src/modules/orders/services/cardCheckoutProviders.ts"() {
     init_providerCatalog();
     init_mercadoPagoClient();
+    init_mercadoPagoOrderNotification();
     init_RestaurantSettingsRepository();
     stripeCardCheckoutProvider = {
       async createCheckout({ order, successUrlBase, cancelUrlBase }) {
@@ -10167,7 +10276,6 @@ var init_cardCheckoutProviders = __esm({
     mercadoPagoCardCheckoutProvider = {
       async createCheckout({ order, successUrlBase, cancelUrlBase }) {
         const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
-        const notificationUrl = resolveMercadoPagoNotificationUrl(order.restaurantId);
         const marketplaceFee = Number(order.systemFee || 0);
         const buildPreferenceBody = (includeMarketplaceFee) => ({
           items: [
@@ -10187,7 +10295,7 @@ var init_cardCheckoutProviders = __esm({
             source: "order_card_checkout"
           },
           ...includeMarketplaceFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee } : {},
-          ...notificationUrl ? { notification_url: notificationUrl } : {},
+          ...mercadoPagoOrderNotificationFields(order.restaurantId),
           back_urls: {
             success: withQueryParam(successUrlBase, {
               cardCheckoutStatus: "success",
@@ -10804,27 +10912,31 @@ var init_FinalizeOrderPixPaymentService = __esm({
         if (normalizedPaymentId.startsWith("manual:")) {
           throw new Error("Pagamento PIX manual nao e permitido.");
         }
-        await OrderPixPaymentService_default.ensurePaymentApproved({
-          paymentId: normalizedPaymentId,
-          restaurantId
-        });
         const normalizedRestaurantId = Number(restaurantId || 0) || void 0;
-        const order = orderId ? await OrderRepository_default.findById(orderId, Number(normalizedRestaurantId || 0)) : await OrderRepository_default.findByPixPaymentId(normalizedPaymentId, normalizedRestaurantId);
+        const existingPaymentOrder = await OrderRepository_default.findByPixPaymentId(normalizedPaymentId);
+        if (existingPaymentOrder && orderId && existingPaymentOrder.id !== Number(orderId)) {
+          throw new Error("Este pagamento PIX j\xE1 foi utilizado em outro pedido.");
+        }
+        const order = orderId ? await OrderRepository_default.findById(orderId, Number(normalizedRestaurantId || 0)) : existingPaymentOrder;
         if (!order) {
           if (allowMissingOrder) {
             return null;
           }
           throw new Error("Pedido PIX nao encontrado para este pagamento.");
         }
+        if (normalizedRestaurantId && order.restaurantId !== normalizedRestaurantId) {
+          throw new Error("Este pagamento PIX n\xE3o pertence ao restaurante do pedido.");
+        }
+        await OrderPixPaymentService_default.ensurePaymentApproved({
+          paymentId: normalizedPaymentId,
+          restaurantId: order.restaurantId,
+          expectedOrderId: order.id,
+          expectedAmount: Number(order.total),
+          expectedCurrency: "BRL"
+        });
         const storedPaymentId = String(order.pixPaymentId || "").trim();
         if (storedPaymentId !== normalizedPaymentId) {
-          if (!storedPaymentId && orderId && String(order.status) !== "CANCELADO") {
-            await OrderPixPaymentService_default.attachPaymentToOrder({
-              orderId: order.id,
-              restaurantId: order.restaurantId,
-              paymentId: normalizedPaymentId
-            });
-          } else if (String(order.status) !== "CANCELADO") {
+          if (storedPaymentId && String(order.status) !== "CANCELADO") {
             throw new Error("Pagamento PIX nao corresponde ao pedido informado.");
           }
         }
@@ -10843,6 +10955,12 @@ var init_FinalizeOrderPixPaymentService = __esm({
         let updatedOrder;
         try {
           updatedOrder = await prisma_default.$transaction(async (tx) => {
+            await OrderRepository_default.claimPixPaymentId(
+              order.id,
+              order.restaurantId,
+              normalizedPaymentId,
+              tx
+            );
             const confirmedOrder = await OrderRepository_default.confirmPayment(
               order.id,
               order.restaurantId,
@@ -17402,6 +17520,7 @@ var OnboardRestaurantAsaasService, OnboardRestaurantAsaasService_default;
 var init_OnboardRestaurantAsaasService = __esm({
   "src/modules/restaurantSettings/services/OnboardRestaurantAsaasService.ts"() {
     init_RestaurantSettingsRepository();
+    init_adminSettingsValidation();
     OnboardRestaurantAsaasService = class {
       normalizeDocument(value) {
         return String(value || "").replace(/\D/g, "");
@@ -17414,6 +17533,15 @@ var init_OnboardRestaurantAsaasService = __esm({
           return "CPF";
         }
         return null;
+      }
+      normalizeMobilePhone(value) {
+        const digits = String(value || "").replace(/\D/g, "");
+        const withoutBrazilCountryCode = digits.length >= 12 && digits.startsWith("55") ? digits.slice(2) : digits;
+        return /^\d{10,11}$/.test(withoutBrazilCountryCode) ? withoutBrazilCountryCode : "";
+      }
+      normalizePostalCode(value) {
+        const digits = String(value || "").replace(/\D/g, "");
+        return /^\d{8}$/.test(digits) ? digits : "";
       }
       getAsaasBaseUrl() {
         return String(process.env.ASAAS_API_BASE_URL || "https://api.asaas.com").trim().replace(/\/+$/, "");
@@ -17439,29 +17567,75 @@ var init_OnboardRestaurantAsaasService = __esm({
         cnpj,
         cpf,
         restaurantName,
-        pixKey
+        pixKey,
+        email,
+        mobilePhone,
+        incomeValue,
+        address,
+        addressNumber,
+        province,
+        postalCode
       }) {
         const normalizedRestaurantId = Number(restaurantId);
         if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
           throw new Error("Restaurante invalido para onboarding Asaas.");
         }
-        const normalizedCnpj = this.normalizeDocument(cnpj || "");
+        const existingSettings = await RestaurantSettingsRepository_default.findByRestaurantId(normalizedRestaurantId);
+        const restaurant = existingSettings?.restaurant || await RestaurantSettingsRepository_default.findRestaurantById(normalizedRestaurantId);
+        if (!restaurant) {
+          throw new Error("Restaurante nao encontrado para onboarding Asaas.");
+        }
+        const normalizedCnpj = this.normalizeDocument(
+          cnpj || existingSettings?.companyDocument || restaurant.cnpj || ""
+        );
         const normalizedCpf = this.normalizeDocument(cpf || "");
         if (normalizedCnpj && normalizedCpf && normalizedCnpj !== normalizedCpf) {
           throw new Error("Informe apenas um documento valido: CPF ou CNPJ.");
         }
         const normalizedDocument = normalizedCnpj || normalizedCpf;
         const legalDocumentType = this.resolveDocumentType(normalizedDocument);
-        const normalizedRestaurantName = String(restaurantName || "").trim();
+        const normalizedRestaurantName = String(
+          restaurantName || existingSettings?.companyTradeName || existingSettings?.companyLegalName || restaurant.name || ""
+        ).trim();
         const normalizedPixKey = String(pixKey || "").trim();
+        const normalizedEmail = String(email || existingSettings?.ownerEmail || restaurant.email || "").trim().toLowerCase();
+        const normalizedMobilePhone = this.normalizeMobilePhone(
+          mobilePhone || existingSettings?.ownerPhone || restaurant.phone || restaurant.whatsapp
+        );
+        const normalizedAddress = String(address || restaurant.address || "").trim();
+        const normalizedAddressNumber = String(addressNumber || restaurant.addressNumber || "").trim();
+        const normalizedProvince = String(province || restaurant.addressDistrict || "").trim();
+        const normalizedPostalCode = this.normalizePostalCode(postalCode || restaurant.zipCode);
+        const incomeCandidate = incomeValue === void 0 || incomeValue === null || incomeValue === "" ? existingSettings?.monthlyRevenue : incomeValue;
+        const normalizedIncomeValue = Number(incomeCandidate);
         if (!legalDocumentType) {
           throw new Error("Documento invalido. Informe CPF (11) ou CNPJ (14) digitos.");
+        }
+        if (legalDocumentType === "CPF" && !isValidCpf(normalizedDocument) || legalDocumentType === "CNPJ" && !isValidCnpj(normalizedDocument)) {
+          throw new Error(`${legalDocumentType} invalido.`);
         }
         if (normalizedRestaurantName.length < 2) {
           throw new Error("Nome do restaurante invalido.");
         }
         if (!normalizedPixKey) {
           throw new Error("Chave PIX obrigatoria para onboarding Asaas.");
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+          throw new Error("E-mail do responsavel invalido. Complete os dados gerais do restaurante.");
+        }
+        if (!normalizedMobilePhone) {
+          throw new Error("Celular do responsavel invalido. Complete os dados gerais do restaurante.");
+        }
+        if (!Number.isFinite(normalizedIncomeValue) || normalizedIncomeValue <= 0) {
+          throw new Error("Informe uma renda/faturamento mensal valido para criar a conta Asaas.");
+        }
+        if (!normalizedAddress || !normalizedAddressNumber || !normalizedProvince) {
+          throw new Error(
+            "Endereco, numero e bairro sao obrigatorios. Complete os dados gerais do restaurante."
+          );
+        }
+        if (!normalizedPostalCode) {
+          throw new Error("CEP invalido. Complete os dados gerais do restaurante.");
         }
         const asaasApiKey = this.getAsaasApiKey();
         if (!asaasApiKey) {
@@ -17476,7 +17650,14 @@ var init_OnboardRestaurantAsaasService = __esm({
           },
           body: JSON.stringify({
             cpfCnpj: normalizedDocument,
-            name: normalizedRestaurantName
+            name: normalizedRestaurantName,
+            email: normalizedEmail,
+            mobilePhone: normalizedMobilePhone,
+            incomeValue: Math.round(normalizedIncomeValue * 100) / 100,
+            address: normalizedAddress,
+            addressNumber: normalizedAddressNumber,
+            province: normalizedProvince,
+            postalCode: normalizedPostalCode
           })
         });
         const responseBody = await response.json();
@@ -17488,7 +17669,6 @@ var init_OnboardRestaurantAsaasService = __esm({
           throw new Error("Asaas nao retornou identificador da conta/carteira da subconta.");
         }
         const asaasSubaccountToken = this.extractAsaasToken(responseBody);
-        const existingSettings = await RestaurantSettingsRepository_default.findByRestaurantId(normalizedRestaurantId);
         if (existingSettings) {
           await RestaurantSettingsRepository_default.update(normalizedRestaurantId, {
             legalDocumentType,
@@ -17496,6 +17676,7 @@ var init_OnboardRestaurantAsaasService = __esm({
             companyTradeName: normalizedRestaurantName,
             pixProvider: "ASAAS",
             pixKey: normalizedPixKey,
+            monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
             gatewayMerchantId: walletIdentifier,
             ...asaasSubaccountToken ? {
               asaasAccessToken: asaasSubaccountToken
@@ -17508,6 +17689,9 @@ var init_OnboardRestaurantAsaasService = __esm({
             minimumOrder: 0,
             pixProvider: "ASAAS",
             pixKey: normalizedPixKey,
+            monthlyRevenue: Math.round(normalizedIncomeValue * 100) / 100,
+            ownerEmail: normalizedEmail,
+            ownerPhone: normalizedMobilePhone,
             legalDocumentType,
             companyDocument: normalizedDocument,
             companyTradeName: normalizedRestaurantName,
@@ -17536,13 +17720,32 @@ var init_OnboardRestaurantAsaasController = __esm({
       async handle(req, res) {
         try {
           const restaurantId = req.user?.restaurantId;
-          const { cnpj, cpf, restaurantName, pixKey } = req.body;
+          const {
+            cnpj,
+            cpf,
+            restaurantName,
+            pixKey,
+            email,
+            mobilePhone,
+            incomeValue,
+            address,
+            addressNumber,
+            province,
+            postalCode
+          } = req.body;
           const result = await OnboardRestaurantAsaasService_default.execute({
             restaurantId,
             cnpj,
             cpf,
             restaurantName,
-            pixKey
+            pixKey,
+            email,
+            mobilePhone,
+            incomeValue,
+            address,
+            addressNumber,
+            province,
+            postalCode
           });
           return res.status(200).json(result);
         } catch (error2) {

@@ -24,6 +24,7 @@ import * as S from '../Kitchen.styles';
 
 const activeStatuses: OrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
 const INITIAL_KITCHEN_TIME = Date.now();
+const HISTORY_PAGE_SIZE = 10;
 type ChannelFilterValue = OrderChannel | 'ALL';
 
 function useKitchenClock() {
@@ -574,6 +575,7 @@ export function KitchenHistoryPage() {
   const now = useKitchenClock();
   const [channel, setChannel] = useState<ChannelFilterValue>('ALL');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
   const completed = orders
     .filter(
       (order) =>
@@ -582,14 +584,28 @@ export function KitchenHistoryPage() {
         matchesOrderSearch(order, query),
     )
     .sort(newestCompletedFirst);
+  const totalPages = Math.max(1, Math.ceil(completed.length / HISTORY_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageStart = currentPage * HISTORY_PAGE_SIZE;
+  const visibleCompleted = completed.slice(pageStart, pageStart + HISTORY_PAGE_SIZE);
+
   return (
     <>
       <S.Toolbar>
-        <ChannelFilter value={channel} onChange={setChannel} />
+        <ChannelFilter
+          value={channel}
+          onChange={(value) => {
+            setChannel(value);
+            setPage(0);
+          }}
+        />
         <input
           aria-label="Buscar no histórico da cozinha"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+          }}
           placeholder="Buscar no histórico"
         />
       </S.Toolbar>
@@ -624,7 +640,7 @@ export function KitchenHistoryPage() {
           <span>Status</span>
           <span>Total</span>
         </div>
-        {completed.map((order) => (
+        {visibleCompleted.map((order) => (
           <div className="history-order" key={order.id}>
             <div className="row">
               <b>{order.id}</b>
@@ -652,6 +668,33 @@ export function KitchenHistoryPage() {
         ))}
         {!completed.length && <Empty>Nenhum pedido encontrado neste canal.</Empty>}
       </S.HistoryTable>
+      {completed.length > 0 && (
+        <S.HistoryPagination aria-label="Navegação do histórico">
+          <span>
+            Mostrando {pageStart + 1}–{Math.min(pageStart + HISTORY_PAGE_SIZE, completed.length)} de{' '}
+            {completed.length} pedidos
+          </span>
+          <div>
+            <button
+              type="button"
+              onClick={() => setPage((value) => Math.max(0, value - 1))}
+              disabled={currentPage === 0}
+            >
+              Voltar 10
+            </button>
+            <strong>
+              {currentPage + 1} de {totalPages}
+            </strong>
+            <button
+              type="button"
+              onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
+              disabled={currentPage >= totalPages - 1}
+            >
+              Próximos 10
+            </button>
+          </div>
+        </S.HistoryPagination>
+      )}
     </>
   );
 }

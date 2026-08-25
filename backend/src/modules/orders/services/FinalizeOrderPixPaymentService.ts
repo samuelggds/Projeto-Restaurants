@@ -34,15 +34,15 @@ class FinalizeOrderPixPaymentService {
       throw new Error('Pagamento PIX manual nao e permitido.');
     }
 
-    await orderPixPaymentService.ensurePaymentApproved({
-      paymentId: normalizedPaymentId,
-      restaurantId,
-    });
-
     const normalizedRestaurantId = Number(restaurantId || 0) || undefined;
+    const existingPaymentOrder = await orderRepository.findByPixPaymentId(normalizedPaymentId);
+    if (existingPaymentOrder && orderId && existingPaymentOrder.id !== Number(orderId)) {
+      throw new Error('Este pagamento PIX já foi utilizado em outro pedido.');
+    }
+
     const order = orderId
       ? await orderRepository.findById(orderId, Number(normalizedRestaurantId || 0))
-      : await orderRepository.findByPixPaymentId(normalizedPaymentId, normalizedRestaurantId);
+      : existingPaymentOrder;
 
     if (!order) {
       if (allowMissingOrder) {
@@ -52,15 +52,21 @@ class FinalizeOrderPixPaymentService {
       throw new Error('Pedido PIX nao encontrado para este pagamento.');
     }
 
+    if (normalizedRestaurantId && order.restaurantId !== normalizedRestaurantId) {
+      throw new Error('Este pagamento PIX não pertence ao restaurante do pedido.');
+    }
+
+    await orderPixPaymentService.ensurePaymentApproved({
+      paymentId: normalizedPaymentId,
+      restaurantId: order.restaurantId,
+      expectedOrderId: order.id,
+      expectedAmount: Number(order.total),
+      expectedCurrency: 'BRL',
+    });
+
     const storedPaymentId = String(order.pixPaymentId || '').trim();
     if (storedPaymentId !== normalizedPaymentId) {
-      if (!storedPaymentId && orderId && String(order.status) !== 'CANCELADO') {
-        await orderPixPaymentService.attachPaymentToOrder({
-          orderId: order.id,
-          restaurantId: order.restaurantId,
-          paymentId: normalizedPaymentId,
-        });
-      } else if (String(order.status) !== 'CANCELADO') {
+      if (storedPaymentId && String(order.status) !== 'CANCELADO') {
         throw new Error('Pagamento PIX nao corresponde ao pedido informado.');
       }
     }
@@ -82,6 +88,12 @@ class FinalizeOrderPixPaymentService {
     let updatedOrder;
     try {
       updatedOrder = await prisma.$transaction(async (tx) => {
+        await orderRepository.claimPixPaymentId(
+          order.id,
+          order.restaurantId,
+          normalizedPaymentId,
+          tx,
+        );
         const confirmedOrder = await orderRepository.confirmPayment(
           order.id,
           order.restaurantId,

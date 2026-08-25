@@ -5,7 +5,19 @@ class OnboardRestaurantAsaasController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user?.restaurantId;
-      const { cnpj, cpf, restaurantName, pixKey } = req.body;
+      const {
+        cnpj,
+        cpf,
+        restaurantName,
+        pixKey,
+        email,
+        mobilePhone,
+        incomeValue,
+        address,
+        addressNumber,
+        province,
+        postalCode,
+      } = req.body;
 
       const result = await onboardRestaurantAsaasService.execute({
         restaurantId,
@@ -13,6 +25,13 @@ class OnboardRestaurantAsaasController {
         cpf,
         restaurantName,
         pixKey,
+        email,
+        mobilePhone,
+        incomeValue,
+        address,
+        addressNumber,
+        province,
+        postalCode,
       });
 
       return res.status(200).json(result);

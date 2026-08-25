@@ -3,6 +3,7 @@ import type { OrderType, PaymentMethod } from '@prisma/client';
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { getMercadoPagoPreferenceApi } from '../../payments/providers/mercadoPagoClient.js';
+import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 
 type CheckoutOrder = {
@@ -95,24 +96,6 @@ async function getStripeClient(restaurantId: number) {
   }
 
   return new Stripe(secretKey);
-}
-
-function resolveMercadoPagoNotificationUrl(restaurantId?: number) {
-  const explicitNotificationUrl = String(process.env.MP_NOTIFICATION_URL || '').trim();
-
-  const backendUrl = String(process.env.BACKEND_URL || '')
-    .trim()
-    .replace(/\/+$/, '');
-  const baseNotificationUrl =
-    explicitNotificationUrl || (backendUrl ? `${backendUrl}/orders/webhook/mercadopago` : '');
-
-  if (!baseNotificationUrl || !restaurantId) {
-    return baseNotificationUrl;
-  }
-
-  return withQueryParam(baseNotificationUrl, {
-    restaurantId: String(restaurantId),
-  });
 }
 
 type PagBankCredentials = {
@@ -335,7 +318,6 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ order, successUrlBase, cancelUrlBase }) {
     const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
-    const notificationUrl = resolveMercadoPagoNotificationUrl(order.restaurantId);
     const marketplaceFee = Number(order.systemFee || 0);
 
     const buildPreferenceBody = (includeMarketplaceFee: boolean) => ({
@@ -356,7 +338,7 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
         source: 'order_card_checkout',
       },
       ...(includeMarketplaceFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee } : {}),
-      ...(notificationUrl ? { notification_url: notificationUrl } : {}),
+      ...mercadoPagoOrderNotificationFields(order.restaurantId),
       back_urls: {
         success: withQueryParam(successUrlBase, {
           cardCheckoutStatus: 'success',

@@ -580,14 +580,16 @@ class RefundOrderPaymentService {
     }
 
     const params = new URLSearchParams();
-    params.set('email', email);
-    params.set('token', token);
     params.set('transactionCode', normalizedTransactionCode);
     if (amount) {
       params.set('refundValue', amount.toFixed(2));
     }
 
-    const url = `${this.resolvePagBankApiBaseUrl(environment)}/v2/transactions/cancels`;
+    // Este serviço só recebe pedidos cujo pagamento já foi confirmado. Na API
+    // clássica do PagBank, transações pagas são devolvidas por /refunds;
+    // /cancels é exclusivo para operações ainda aguardando/em análise.
+    const credentials = new URLSearchParams({ email, token });
+    const url = `${this.resolvePagBankApiBaseUrl(environment)}/v2/transactions/refunds?${credentials.toString()}`;
 
     const response = await fetch(url, {
       method: 'POST',

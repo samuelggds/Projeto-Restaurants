@@ -45,6 +45,7 @@ type Props = {
     cnpj?: string;
     restaurantName: string;
     pixKey: string;
+    incomeValue: number;
   }) => void | Promise<void>;
 };
 

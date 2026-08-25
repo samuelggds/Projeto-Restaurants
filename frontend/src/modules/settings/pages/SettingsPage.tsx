@@ -90,6 +90,10 @@ function buildSettingsFromApi(raw: Record<string, unknown>): RestaurantSettings 
     mercadoPagoAccessTokenConfigured: Boolean(raw?.mercadoPagoAccessTokenConfigured),
     asaasAccessToken: '',
     asaasAccessTokenConfigured: Boolean(raw?.asaasAccessTokenConfigured),
+    monthlyRevenue:
+      raw?.monthlyRevenue === null || raw?.monthlyRevenue === undefined
+        ? null
+        : Number(raw.monthlyRevenue),
     pagbankEmail: String(raw?.pagbankEmail ?? ''),
     pagbankToken: '',
     pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
@@ -150,6 +154,9 @@ function buildApiPayload(settings: RestaurantSettings) {
     slogan: settings.slogan,
     email: settings.email,
     address: settings.address,
+    ownerEmail: settings.email.trim().toLowerCase(),
+    restaurantAddress: settings.address.trim(),
+    monthlyRevenue: settings.monthlyRevenue,
     pixProvider: settings.pixProvider,
     pixKey: settings.pixKey,
     cardGateway: settings.cardGateway,
