@@ -65,7 +65,9 @@ class CancelOrderService {
     });
 
     io.to(`restaurant:${orderRestaurantId}`).emit('order:status-changed', updatedOrder);
-    io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    if (updatedOrder.userId) {
+      io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    }
     emitWaiterTableOrderEvent(io, 'order:status-changed', updatedOrder);
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 

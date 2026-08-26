@@ -195,12 +195,14 @@ class AsaasOrderWebhookController {
           paid: true,
         });
 
-        io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-          status: updatedOrder.status,
-        });
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod,
+            status: updatedOrder.status,
+          });
+        }
       }
 
       return res.status(200).json({ received: true, processed: true });

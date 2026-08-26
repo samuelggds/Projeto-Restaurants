@@ -1,5 +1,12 @@
 import type { Prisma } from '@prisma/client';
-import { OrderRefundStatus, OrderStatus, PaymentMethod, OrderType } from '@prisma/client';
+import {
+  OrderRefundStatus,
+  OrderStatus,
+  PaymentMethod,
+  OrderType,
+  TableBillItemFinancialStatus,
+  TableOrderFinancialStatus,
+} from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -14,6 +21,12 @@ const operationalTableSelect = {
   active: true,
   restaurantId: true,
 } satisfies Prisma.TableSelect;
+
+const tableParticipantSelect = {
+  id: true,
+  publicId: true,
+  displayName: true,
+} satisfies Prisma.TableParticipantSelect;
 
 const waiterReadyOrderInclude = {
   user: { select: { id: true, name: true } },
@@ -55,6 +68,7 @@ class OrderRepository {
           },
         },
         table: { select: operationalTableSelect },
+        participant: { select: tableParticipantSelect },
         items: {
           include: {
             product: true,
@@ -94,6 +108,7 @@ class OrderRepository {
           },
         },
         table: { select: operationalTableSelect },
+        participant: { select: tableParticipantSelect },
         items: {
           include: {
             product: true,
@@ -341,6 +356,7 @@ class OrderRepository {
   }
 
   async confirmPayment(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
+    const paidAt = new Date();
     const result = await db.order.updateMany({
       where: {
         id: Number(id),
@@ -350,11 +366,22 @@ class OrderRepository {
       },
       data: {
         paid: true,
-        paidAt: new Date(),
+        paidAt,
         paymentConfirmationPin: null,
         paymentConfirmationPinExpiresAt: null,
       },
     });
+
+    if (result.count === 1) {
+      await db.order.updateMany({
+        where: { id: Number(id), restaurantId, tableSessionId: { not: null } },
+        data: { tableFinancialStatus: TableOrderFinancialStatus.PAID },
+      });
+      await db.tableBillItem.updateMany({
+        where: { orderId: Number(id), restaurantId, canceledAt: null },
+        data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
+      });
+    }
 
     const current = await this.findById(id, restaurantId, db);
     if (!current) {
@@ -384,6 +411,7 @@ class OrderRepository {
     } = {},
     db: PrismaClientLike = prisma,
   ) {
+    const paidAt = new Date();
     const result = await db.order.updateMany({
       where: {
         id: Number(id),
@@ -393,13 +421,24 @@ class OrderRepository {
       },
       data: {
         paid: true,
-        paidAt: new Date(),
+        paidAt,
         paymentProof: String(paymentProof || '').trim() || null,
         paymentProofImage: String(paymentProofImage || '').trim() || null,
         paymentConfirmationPin: null,
         paymentConfirmationPinExpiresAt: null,
       },
     });
+
+    if (result.count === 1) {
+      await db.order.updateMany({
+        where: { id: Number(id), restaurantId, tableSessionId: { not: null } },
+        data: { tableFinancialStatus: TableOrderFinancialStatus.PAID },
+      });
+      await db.tableBillItem.updateMany({
+        where: { orderId: Number(id), restaurantId, canceledAt: null },
+        data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
+      });
+    }
 
     const current = await this.findById(id, restaurantId, db);
     if (!current) {
@@ -497,6 +536,49 @@ class OrderRepository {
           },
         },
         table: { select: operationalTableSelect },
+        participant: { select: tableParticipantSelect },
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findByPublicIdForTableParticipant(
+    publicId: string,
+    tableSessionId: number,
+    restaurantId: number,
+    participantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        publicId,
+        tableSessionId,
+        restaurantId,
+        participantId,
+        type: OrderType.MESA,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+          },
+        },
+        table: { select: operationalTableSelect },
+        participant: { select: tableParticipantSelect },
         items: {
           include: {
             product: true,
@@ -540,6 +622,7 @@ class OrderRepository {
           },
         },
         table: { select: operationalTableSelect },
+        participant: { select: tableParticipantSelect },
         items: {
           include: {
             product: true,
@@ -582,6 +665,7 @@ class OrderRepository {
           },
         },
         table: { select: operationalTableSelect },
+        participant: { select: tableParticipantSelect },
         items: {
           include: {
             product: true,
@@ -765,6 +849,50 @@ class OrderRepository {
       orderBy: {
         createdAt: 'desc',
       },
+    });
+  }
+
+  async findLatestByTableParticipant(
+    tableSessionId: number | string,
+    restaurantId: number | string,
+    participantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        tableSessionId: Number(tableSessionId),
+        restaurantId: Number(restaurantId),
+        participantId: Number(participantId),
+        type: OrderType.MESA,
+      },
+      select: {
+        publicId: true,
+        total: true,
+        status: true,
+        type: true,
+        paid: true,
+        observation: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            observation: true,
+            ingredients: true,
+            customizations: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 

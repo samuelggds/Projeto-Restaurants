@@ -12,9 +12,9 @@ export async function billingMiddleware(req: Request, res: Response, next: NextF
     }
 
     checkedRequests.add(req);
-    const restaurantId = req.user.restaurantId;
+    const restaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
 
-    if (String(req.user.role || '').toUpperCase() === 'SUPER_ADMIN' || !restaurantId) {
+    if (String(req.user?.role || '').toUpperCase() === 'SUPER_ADMIN' || !restaurantId) {
       return next();
     }
 

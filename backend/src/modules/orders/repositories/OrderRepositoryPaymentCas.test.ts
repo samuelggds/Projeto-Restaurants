@@ -48,6 +48,89 @@ test('confirmPayment permanece idempotente quando outra confirmação venceu a c
   assert.equal(result, paidOrder);
 });
 
+async function assertTablePaymentSynchronization({
+  confirm,
+  expectedProof = undefined,
+}) {
+  const paidOrder = makeOrder({
+    tableSessionId: 55,
+    participantId: 80,
+    paid: true,
+    paidAt: new Date('2026-08-25T15:00:00.000Z'),
+  });
+  const orderUpdates = [];
+  const billItemUpdates = [];
+  const db = {
+    order: {
+      updateMany: async (args) => {
+        orderUpdates.push(args);
+        return { count: 1 };
+      },
+      findFirst: async () => paidOrder,
+    },
+    tableBillItem: {
+      updateMany: async (args) => {
+        billItemUpdates.push(args);
+        return { count: 2 };
+      },
+    },
+  };
+
+  const result = await confirm(db);
+
+  assert.equal(result, paidOrder);
+  assert.equal(orderUpdates.length, 2);
+  assert.deepEqual(orderUpdates[0].where, {
+    id: 91,
+    restaurantId: 7,
+    paid: false,
+    status: { not: OrderStatus.CANCELADO },
+  });
+  assert.equal(orderUpdates[0].data.paid, true);
+  assert.ok(orderUpdates[0].data.paidAt instanceof Date);
+  if (expectedProof) {
+    assert.equal(orderUpdates[0].data.paymentProof, expectedProof.paymentProof);
+    assert.equal(orderUpdates[0].data.paymentProofImage, expectedProof.paymentProofImage);
+  }
+  assert.deepEqual(orderUpdates[1], {
+    where: { id: 91, restaurantId: 7, tableSessionId: { not: null } },
+    data: { tableFinancialStatus: 'PAID' },
+  });
+  assert.equal(billItemUpdates.length, 1);
+  assert.deepEqual(billItemUpdates[0].where, {
+    orderId: 91,
+    restaurantId: 7,
+    canceledAt: null,
+  });
+  assert.equal(billItemUpdates[0].data.financialStatus, 'PAID');
+  assert.equal(billItemUpdates[0].data.paidAt, orderUpdates[0].data.paidAt);
+}
+
+test('confirmPayment sincroniza o pedido e somente as unidades ativas da conta da mesa', async () => {
+  await assertTablePaymentSynchronization({
+    confirm: (db) => orderRepository.confirmPayment(91, 7, db),
+  });
+});
+
+test('confirmPixPayment sincroniza a conta da mesa e preserva os dados da confirmação', async () => {
+  await assertTablePaymentSynchronization({
+    confirm: (db) =>
+      orderRepository.confirmPixPayment(
+        91,
+        7,
+        {
+          paymentProof: 'provider:approved',
+          paymentProofImage: 'https://provider.test/proof.png',
+        },
+        db,
+      ),
+    expectedProof: {
+      paymentProof: 'provider:approved',
+      paymentProofImage: 'https://provider.test/proof.png',
+    },
+  });
+});
+
 test('updateStatusIfCurrent rejeita cancelamento com leitura de pagamento obsoleta', async () => {
   const paidMeanwhile = makeOrder({ paid: true });
   const db = {

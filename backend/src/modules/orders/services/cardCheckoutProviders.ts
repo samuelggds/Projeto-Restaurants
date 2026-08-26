@@ -22,6 +22,8 @@ export type CreateOrderCardCheckoutPayload = {
   userRestaurantId?: number | string | null;
   tableSessionId?: number | string | null;
   tableSessionTableId?: number | string | null;
+  participantId?: number | string | null;
+  settlementMode?: string | null;
   type: OrderType;
   paymentMethod?: PaymentMethod;
   observation?: string;

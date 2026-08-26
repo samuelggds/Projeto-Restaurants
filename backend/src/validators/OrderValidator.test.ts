@@ -58,3 +58,31 @@ test('aceita somente um identificador de cupom resgatado por pedido', () => {
   assert.equal(oneCoupon.success, true);
   assert.equal(multipleCoupons.success, false);
 });
+
+test('limita quantidade por item antes de criar unidades financeiras', () => {
+  const result = createOrderSchema.safeParse({
+    ...baseOrder,
+    items: [{ productId: 10, quantity: 100_000_000 }],
+  });
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.match(result.error.issues[0]?.message || '', /quantidade máxima por item/i);
+  }
+});
+
+test('limita a quantidade total mesmo com vários itens válidos', () => {
+  const result = createOrderSchema.safeParse({
+    ...baseOrder,
+    items: [
+      { productId: 10, quantity: 100 },
+      { productId: 11, quantity: 100 },
+      { productId: 12, quantity: 1 },
+    ],
+  });
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.ok(result.error.issues.some((issue) => /200 unidades/i.test(issue.message)));
+  }
+});

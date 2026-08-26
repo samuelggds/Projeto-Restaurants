@@ -7,6 +7,7 @@ import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 
 const originalHttpCreateServer = http.createServer;
@@ -26,6 +27,7 @@ const originals = {
   findOrderById: orderRepository.findById,
   findProductById: productRepository.findById,
   findSettings: restaurantSettingsRepository.findByRestaurantId,
+  findTableSessionById: tableSessionRepository.findById,
 };
 
 afterEach(() => {
@@ -35,6 +37,7 @@ afterEach(() => {
   orderRepository.findById = originals.findOrderById;
   productRepository.findById = originals.findProductById;
   restaurantSettingsRepository.findByRestaurantId = originals.findSettings;
+  tableSessionRepository.findById = originals.findTableSessionById;
 });
 
 test('bloqueia a criação do pedido fora da agenda semanal', async () => {
@@ -66,16 +69,22 @@ test('bloqueia a criação do pedido fora da agenda semanal', async () => {
   );
 });
 
-test('persiste opções agrupadas e observação do item no createMany do pedido', async () => {
-  let persistedItems = null;
+test('persiste opções agrupadas e observação do item ao criar o pedido', async () => {
+  const persistedItems = [];
   const tx = {
     restaurantSettings: {
       findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0 }),
     },
     orderItem: {
-      createMany: async ({ data }) => {
-        persistedItems = data;
-        return { count: data.length };
+      create: async ({ data }) => {
+        persistedItems.push(data);
+        return {
+          id: 501,
+          orderId: data.orderId,
+          productId: data.productId,
+          quantity: data.quantity,
+          price: data.price,
+        };
       },
     },
     product: {
@@ -267,4 +276,393 @@ test('não permite que o cliente marque cartão como pago no payload de criaçã
       }),
     /pagamento só pode ser confirmado pelo provedor/i,
   );
+});
+
+test('pedido de mesa convidado vincula participante e cria uma unidade financeira por quantidade', async () => {
+  const persistedOrderItems = [];
+  let persistedOrder;
+  let persistedBillItems;
+  const session = {
+    id: 55,
+    publicId: '123e4567-e89b-42d3-a456-426614174001',
+    tableId: 91,
+    restaurantId: 7,
+    status: 'OPEN',
+    expiresAt: new Date(Date.now() + 60_000),
+    table: { id: 91, number: 1, active: true, restaurantId: 7 },
+  };
+  const tx = {
+    restaurantSettings: {
+      findUnique: async () => ({
+        deliveryFee: 0,
+        minimumOrder: 0,
+        tableOrderingEnabled: true,
+      }),
+    },
+    tableParticipant: {
+      findFirst: async ({ where }) => {
+        assert.equal(where.id, 80);
+        assert.equal(where.tableSessionId, 55);
+        assert.equal(where.restaurantId, 7);
+        assert.equal(where.status, 'ACTIVE');
+        assert.equal(where.revokedAt, null);
+        assert.deepEqual(where.OR[0], { userId: { not: null } });
+        assert.ok(where.OR[1].tokenExpiresAt.gt instanceof Date);
+        return {
+          id: 80,
+          userId: null,
+          publicId: '123e4567-e89b-42d3-a456-426614174002',
+          displayName: 'Convidado',
+        };
+      },
+    },
+    orderItem: {
+      create: async ({ data }) => {
+        persistedOrderItems.push(data);
+        return {
+          id: 501,
+          orderId: data.orderId,
+          productId: data.productId,
+          quantity: data.quantity,
+          price: data.price,
+        };
+      },
+    },
+    tableBillItem: {
+      createMany: async ({ data }) => {
+        persistedBillItems = data;
+        return { count: data.length };
+      },
+    },
+  };
+
+  tableSessionRepository.findById = async (id, database) => {
+    assert.equal(Number(id), 55);
+    if (database) assert.equal(database, tx);
+    return session;
+  };
+  prisma.$transaction = async (callback, options) => {
+    assert.equal(options?.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
+    return callback(tx);
+  };
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    autoAcceptOrders: false,
+    maxConcurrentOrders: 20,
+  });
+  orderRepository.countActiveOperationalOrders = async () => 0;
+  productRepository.findById = async () => ({
+    id: 10,
+    restaurantId: 7,
+    name: 'Produto da mesa',
+    saleMode: 'BUILDABLE',
+    price: 10.01,
+    active: true,
+    stock: null,
+    ingredients: [],
+    optionGroups: [
+      {
+        id: 100,
+        restaurantId: 7,
+        name: 'Escolha principal',
+        required: true,
+        selectionType: 'SINGLE',
+        minSelections: 1,
+        maxSelections: 1,
+        active: true,
+        options: [
+          {
+            id: 1001,
+            ingredientId: 11,
+            active: true,
+            ingredient: {
+              id: 11,
+              restaurantId: 7,
+              name: 'Opção padrão',
+              price: 0,
+              active: true,
+            },
+          },
+        ],
+      },
+    ],
+  });
+  orderRepository.create = async (data, database) => {
+    assert.equal(database, tx);
+    persistedOrder = data;
+    return { id: 400, ...data };
+  };
+  orderRepository.findById = async () => ({
+    id: 400,
+    restaurantId: 7,
+    userId: null,
+    tableSessionId: 55,
+    participantId: 80,
+    status: 'PENDENTE',
+    participant: { displayName: 'Convidado' },
+    items: persistedOrderItems,
+  });
+
+  const result = await createOrderService.execute({
+    restaurantId: 7,
+    userRestaurantId: 7,
+    tableSessionId: 55,
+    tableSessionTableId: 91,
+    participantId: 80,
+    settlementMode: 'TABLE_ACCOUNT',
+    type: OrderType.MESA,
+    tableId: 91,
+    items: [
+      {
+        productId: 10,
+        quantity: 2,
+        price: 0.01,
+        optionIds: [1001],
+        selectedOptions: [{ groupId: 100, optionIds: [1001] }],
+      },
+    ],
+  });
+
+  assert.equal(result.id, 400);
+  assert.equal(persistedOrder.userId, null);
+  assert.equal(persistedOrder.paymentMethod, null);
+  assert.equal(persistedOrder.tableSessionId, 55);
+  assert.equal(persistedOrder.participantId, 80);
+  assert.equal(persistedOrder.settlementMode, 'TABLE_ACCOUNT');
+  assert.equal(persistedOrder.tableFinancialStatus, 'UNPAID');
+  assert.equal(Number(persistedOrder.total), 20.02);
+  assert.equal(persistedOrderItems[0].restaurantId, 7);
+  assert.equal(persistedOrderItems[0].tableSessionId, 55);
+  assert.equal(persistedOrderItems[0].participantId, 80);
+  assert.deepEqual(
+    persistedBillItems.map((item) => Number(item.unitPriceCents)),
+    [1001, 1001],
+  );
+  assert.deepEqual(
+    persistedBillItems.map((item) => ({
+      restaurantId: item.restaurantId,
+      tableSessionId: item.tableSessionId,
+      participantId: item.participantId,
+      orderId: item.orderId,
+      orderItemId: item.orderItemId,
+      unitIndex: item.unitIndex,
+      productName: item.productName,
+    })),
+    [
+      {
+        restaurantId: 7,
+        tableSessionId: 55,
+        participantId: 80,
+        orderId: 400,
+        orderItemId: 501,
+        unitIndex: 1,
+        productName: 'Produto da mesa',
+      },
+      {
+        restaurantId: 7,
+        tableSessionId: 55,
+        participantId: 80,
+        orderId: 400,
+        orderItemId: 501,
+        unitIndex: 2,
+        productName: 'Produto da mesa',
+      },
+    ],
+  );
+  assert.ok(persistedBillItems.every((item) => item.financialStatus === 'UNPAID'));
+});
+
+test('interrompe sem gravar quando a mesa fecha entre a validação inicial e a transação', async () => {
+  const openSession = {
+    id: 55,
+    publicId: '123e4567-e89b-42d3-a456-426614174001',
+    tableId: 91,
+    restaurantId: 7,
+    status: 'OPEN',
+    expiresAt: new Date(Date.now() + 60_000),
+    table: { id: 91, number: 1, active: true, restaurantId: 7 },
+  };
+  const closedSession = { ...openSession, status: 'CLOSED' };
+  let sessionReads = 0;
+  let orderCreated = false;
+
+  tableSessionRepository.findById = async (_id, database) => {
+    sessionReads += 1;
+    return database ? closedSession : openSession;
+  };
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    autoAcceptOrders: false,
+    maxConcurrentOrders: 20,
+  });
+  prisma.$transaction = async (callback, options) => {
+    assert.equal(options?.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
+    return callback({});
+  };
+  orderRepository.create = async () => {
+    orderCreated = true;
+    throw new Error('O pedido não deveria ser gravado.');
+  };
+
+  await assert.rejects(
+    () =>
+      createOrderService.execute({
+        restaurantId: 7,
+        userRestaurantId: 7,
+        tableSessionId: 55,
+        tableSessionTableId: 91,
+        participantId: 80,
+        settlementMode: 'TABLE_ACCOUNT',
+        type: OrderType.MESA,
+        tableId: 91,
+        items: [{ productId: 10, quantity: 1 }],
+      }),
+    /mesa foi fechada durante o pedido/i,
+  );
+
+  assert.equal(sessionReads, 2);
+  assert.equal(orderCreated, false);
+});
+
+test('pagamento imediato mantém cartão no pedido e reserva as unidades como PROCESSING', async () => {
+  const persistedOrderItems = [];
+  let persistedOrder;
+  let persistedBillItems;
+  const session = {
+    id: 55,
+    publicId: '123e4567-e89b-42d3-a456-426614174001',
+    tableId: 91,
+    restaurantId: 7,
+    status: 'OPEN',
+    expiresAt: new Date(Date.now() + 60_000),
+    table: { id: 91, number: 1, active: true, restaurantId: 7 },
+  };
+  const tx = {
+    restaurantSettings: {
+      findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0, tableOrderingEnabled: true }),
+    },
+    tableParticipant: {
+      findFirst: async () => ({
+        id: 80,
+        userId: null,
+        publicId: '123e4567-e89b-42d3-a456-426614174002',
+        displayName: 'Convidado',
+      }),
+    },
+    orderItem: {
+      create: async ({ data }) => {
+        persistedOrderItems.push(data);
+        return {
+          id: 601,
+          orderId: data.orderId,
+          productId: data.productId,
+          quantity: data.quantity,
+          price: data.price,
+        };
+      },
+    },
+    tableBillItem: {
+      createMany: async ({ data }) => {
+        persistedBillItems = data;
+        return { count: data.length };
+      },
+    },
+  };
+
+  tableSessionRepository.findById = async () => session;
+  prisma.$transaction = async (callback, options) => {
+    assert.equal(options?.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
+    return callback(tx);
+  };
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    isOpenForOrders: true,
+    acceptsCard: true,
+    autoAcceptOrders: false,
+    maxConcurrentOrders: 20,
+  });
+  orderRepository.countActiveOperationalOrders = async () => 0;
+  productRepository.findById = async () => ({
+    id: 10,
+    restaurantId: 7,
+    name: 'Produto pagamento imediato',
+    saleMode: 'BUILDABLE',
+    price: 12.34,
+    active: true,
+    stock: null,
+    ingredients: [],
+    optionGroups: [
+      {
+        id: 100,
+        restaurantId: 7,
+        name: 'Escolha principal',
+        required: true,
+        selectionType: 'SINGLE',
+        minSelections: 1,
+        maxSelections: 1,
+        active: true,
+        options: [
+          {
+            id: 1001,
+            ingredientId: 11,
+            active: true,
+            ingredient: {
+              id: 11,
+              restaurantId: 7,
+              name: 'Opção padrão',
+              price: 0,
+              active: true,
+            },
+          },
+        ],
+      },
+    ],
+  });
+  orderRepository.create = async (data, database) => {
+    assert.equal(database, tx);
+    persistedOrder = data;
+    return { id: 401, ...data };
+  };
+  orderRepository.findById = async () => ({
+    id: 401,
+    restaurantId: 7,
+    userId: null,
+    tableSessionId: 55,
+    participantId: 80,
+    status: 'PENDENTE',
+    paid: false,
+    paymentMethod: PaymentMethod.CARTAO,
+    participant: { displayName: 'Convidado' },
+    items: persistedOrderItems,
+  });
+
+  const result = await createOrderService.execute({
+    restaurantId: 7,
+    userRestaurantId: 7,
+    tableSessionId: 55,
+    tableSessionTableId: 91,
+    participantId: 80,
+    settlementMode: 'PAY_NOW',
+    type: OrderType.MESA,
+    paymentMethod: PaymentMethod.CARTAO,
+    tableId: 91,
+    items: [
+      {
+        productId: 10,
+        quantity: 1,
+        optionIds: [1001],
+        selectedOptions: [{ groupId: 100, optionIds: [1001] }],
+      },
+    ],
+  });
+
+  assert.equal(result.id, 401);
+  assert.equal(persistedOrder.paymentMethod, PaymentMethod.CARTAO);
+  assert.equal(persistedOrder.settlementMode, 'PAY_NOW');
+  assert.equal(persistedOrder.tableFinancialStatus, 'PROCESSING');
+  assert.equal(persistedOrder.paid, false);
+  assert.equal(persistedBillItems.length, 1);
+  assert.equal(persistedBillItems[0].financialStatus, 'PROCESSING');
+  assert.equal(persistedBillItems[0].restaurantId, 7);
+  assert.equal(persistedBillItems[0].tableSessionId, 55);
+  assert.equal(persistedBillItems[0].participantId, 80);
 });

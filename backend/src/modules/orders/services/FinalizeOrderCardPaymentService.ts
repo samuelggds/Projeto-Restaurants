@@ -92,16 +92,20 @@ class FinalizeOrderCardPaymentService {
     });
     emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
 
-    io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
-      orderId: updatedOrder.id,
-      paid: true,
-      paymentMethod: updatedOrder.paymentMethod,
-      status: updatedOrder.status,
-    });
+    if (updatedOrder.userId) {
+      io.to(`user:${updatedOrder.userId}`).emit('payment-confirmed', {
+        orderId: updatedOrder.id,
+        paid: true,
+        paymentMethod: updatedOrder.paymentMethod,
+        status: updatedOrder.status,
+      });
+    }
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('new-order', updatedOrder);
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:status-changed', updatedOrder);
-    io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    if (updatedOrder.userId) {
+      io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    }
     emitWaiterTableOrderEvent(io, 'new-order', updatedOrder);
     emitTableSessionOrderEvent(io, 'new-order', updatedOrder);
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);

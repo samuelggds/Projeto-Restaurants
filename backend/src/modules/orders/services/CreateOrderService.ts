@@ -4,7 +4,17 @@ import { io } from '../../../server.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
-import { PaymentMethod, Prisma, TableSessionStatus, OrderType, OrderStatus } from '@prisma/client';
+import {
+  PaymentMethod,
+  Prisma,
+  TableBillItemFinancialStatus,
+  TableOrderFinancialStatus,
+  TableOrderSettlementMode,
+  TableParticipantStatus,
+  TableSessionStatus,
+  OrderType,
+  OrderStatus,
+} from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { z } from 'zod';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -20,6 +30,11 @@ import {
   emitTableSessionOrderEvent,
   emitWaiterTableOrderEvent,
 } from '../utils/waiterOrderRealtime.js';
+import { tableOrderContinuationInputSchema } from '../../tableAccount/domain/tableAccountSchemas.js';
+import {
+  buildTableBillUnitSeeds,
+  decimalMoneyToCents,
+} from '../../tableAccount/domain/tableBillItemPricing.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -29,6 +44,8 @@ type CreateOrderPayload = {
   userRestaurantId?: number | string | null;
   tableSessionId?: number | string | null;
   tableSessionTableId?: number | string | null;
+  participantId?: number | string | null;
+  settlementMode?: string | null;
   deferRealtimeUntilPaid?: boolean;
   type: OrderType;
   paymentMethod?: PaymentMethod;
@@ -234,6 +251,8 @@ class CreateOrderService {
     userRestaurantId,
     tableSessionId,
     tableSessionTableId,
+    participantId,
+    settlementMode,
     deferRealtimeUntilPaid,
     type,
     paymentMethod,
@@ -285,6 +304,35 @@ class CreateOrderService {
       ? payOnDeliveryMethod || paymentMethod
       : paymentMethod;
     const normalizedRequestedPaymentMethod = String(effectivePaymentMethod || '').toUpperCase();
+    const tablePaymentMethod =
+      normalizedRequestedPaymentMethod === PaymentMethod.PIX
+        ? 'PIX'
+        : normalizedRequestedPaymentMethod === PaymentMethod.CARTAO
+          ? 'CARD'
+          : undefined;
+    const tableContinuation =
+      type === OrderType.MESA
+        ? tableOrderContinuationInputSchema.parse({
+            settlementMode:
+              String(settlementMode || '').trim().toUpperCase() ||
+              (tablePaymentMethod ? TableOrderSettlementMode.PAY_NOW : TableOrderSettlementMode.TABLE_ACCOUNT),
+            ...(tablePaymentMethod ? { paymentMethod: tablePaymentMethod } : {}),
+          })
+        : null;
+
+    if (
+      type === OrderType.MESA &&
+      normalizedRequestedPaymentMethod &&
+      !tablePaymentMethod
+    ) {
+      throw new Error(
+        'O pedido da mesa só aceita PIX ou cartão no pagamento imediato. Dinheiro e maquininha são registrados na conta pelo garçom.',
+      );
+    }
+
+    if (type === OrderType.MESA && !Number(participantId || 0)) {
+      throw new Error('Participante da mesa não identificado. Leia o QR Code novamente.');
+    }
 
     if (
       normalizedRequestedPaymentMethod === PaymentMethod.PIX &&
@@ -422,6 +470,13 @@ class CreateOrderService {
 
     const createdOrder = await prisma.$transaction(
       async (tx) => {
+        let tableParticipant: {
+          id: number;
+          userId: number | null;
+          publicId: string;
+          displayName: string | null;
+        } | null = null;
+
         if (type === OrderType.MESA) {
           const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
           if (
@@ -435,6 +490,29 @@ class CreateOrderService {
               'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
             );
           }
+
+          tableParticipant = await tx.tableParticipant.findFirst({
+            where: {
+              id: Number(participantId),
+              tableSessionId: session.id,
+              restaurantId: resolvedRestaurantId,
+              status: TableParticipantStatus.ACTIVE,
+              revokedAt: null,
+              OR: [{ userId: { not: null } }, { tokenExpiresAt: { gt: new Date() } }],
+            },
+            select: {
+              id: true,
+              userId: true,
+              publicId: true,
+              displayName: true,
+            },
+          });
+
+          if (!tableParticipant) {
+            throw new Error(
+              'Sua identificação nesta mesa expirou. Leia o QR Code novamente antes de pedir.',
+            );
+          }
         }
 
         const activeOrders = await orderRepository.countActiveOperationalOrders(
@@ -443,14 +521,17 @@ class CreateOrderService {
         );
         assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
 
-        const resolvedUserId = await this.resolveOrderUser({
-          tx,
-          userId,
-          restaurantId: resolvedRestaurantId,
-          customerName,
-          customerCpf,
-          customerPhone,
-        });
+        const resolvedUserId =
+          type === OrderType.MESA
+            ? tableParticipant?.userId ?? null
+            : await this.resolveOrderUser({
+                tx,
+                userId,
+                restaurantId: resolvedRestaurantId,
+                customerName,
+                customerCpf,
+                customerPhone,
+              });
 
         const pricing = await orderPricingService.quote({
           restaurantId: resolvedRestaurantId,
@@ -464,7 +545,7 @@ class CreateOrderService {
 
         const formattedCpf = this.formatCpf(customerCpf);
         const guestSummary =
-          !userId && customerName
+          type !== OrderType.MESA && !userId && customerName
             ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
             : '';
 
@@ -488,7 +569,10 @@ class CreateOrderService {
             couponCode: pricing.couponCode,
             systemFee: 0,
             type,
-            paymentMethod: effectivePaymentMethod,
+            paymentMethod:
+              tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT
+                ? null
+                : effectivePaymentMethod,
             payOnDelivery: shouldPayOnDelivery,
             payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
             paid: shouldMarkAsPaid,
@@ -500,6 +584,18 @@ class CreateOrderService {
             userId: resolvedUserId,
             restaurantId: resolvedRestaurantId,
             tableId: normalizedTableId,
+            ...(type === OrderType.MESA
+              ? {
+                  tableSessionId: Number(tableSessionId),
+                  participantId: Number(tableParticipant?.id),
+                  settlementMode: tableContinuation?.settlementMode,
+                  tableFinancialStatus: shouldMarkAsPaid
+                    ? TableOrderFinancialStatus.PAID
+                    : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
+                      ? TableOrderFinancialStatus.PROCESSING
+                      : TableOrderFinancialStatus.UNPAID,
+                }
+              : {}),
             address,
             number,
             district,
@@ -524,12 +620,68 @@ class CreateOrderService {
           await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
         }
 
-        await tx.orderItem.createMany({
-          data: orderItems.map((item) => ({
-            ...item,
-            orderId: order.id,
-          })),
-        });
+        const persistedOrderItems = [];
+        for (const item of orderItems) {
+          const persistedItem = await tx.orderItem.create({
+            data: {
+              ...item,
+              orderId: order.id,
+              ...(type === OrderType.MESA
+                ? {
+                    restaurantId: resolvedRestaurantId,
+                    tableSessionId: Number(tableSessionId),
+                    participantId: Number(tableParticipant?.id),
+                  }
+                : {}),
+            },
+            select: {
+              id: true,
+              orderId: true,
+              productId: true,
+              quantity: true,
+              price: true,
+            },
+          });
+          persistedOrderItems.push(persistedItem);
+        }
+
+        if (type === OrderType.MESA) {
+          const billUnitSeeds = buildTableBillUnitSeeds(orderItems, pricing.couponDiscount);
+          const expectedOrderTotalCents = decimalMoneyToCents(
+            pricing.total,
+            'total do pedido da mesa',
+          );
+          const billTotalCents = billUnitSeeds.reduce(
+            (total, unit) => total + unit.unitPriceCents,
+            0,
+          );
+          if (billTotalCents !== expectedOrderTotalCents) {
+            throw new Error(
+              'Não foi possível fechar os centavos dos itens com o total do pedido da mesa.',
+            );
+          }
+
+          const financialStatus = shouldMarkAsPaid
+            ? TableBillItemFinancialStatus.PAID
+            : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
+              ? TableBillItemFinancialStatus.PROCESSING
+              : TableBillItemFinancialStatus.UNPAID;
+
+          await tx.tableBillItem.createMany({
+            data: billUnitSeeds.map((unit) => ({
+              restaurantId: resolvedRestaurantId,
+              tableSessionId: Number(tableSessionId),
+              participantId: Number(tableParticipant?.id),
+              orderId: order.id,
+              orderItemId: persistedOrderItems[unit.orderItemIndex].id,
+              unitIndex: unit.unitIndex,
+              productName: products[unit.orderItemIndex].name,
+              unitPriceCents: BigInt(unit.unitPriceCents),
+              financialStatus,
+              paidAt: shouldMarkAsPaid ? paidAt : null,
+            })),
+          });
+        }
 
         const requestedQuantityByProduct = new Map<number, number>();
         orderItems.forEach((item) => {
@@ -589,7 +741,9 @@ class CreateOrderService {
 
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);
-      io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);
+      if (createdOrder.userId) {
+        io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);
+      }
       emitWaiterTableOrderEvent(io, 'new-order', createdOrder);
       emitTableSessionOrderEvent(io, 'new-order', createdOrder);
     }
@@ -602,17 +756,20 @@ class CreateOrderService {
         status: createdOrder.status,
       });
 
-      io.to(`user:${createdOrder.userId}`).emit('payment-confirmed', {
-        orderId: createdOrder.id,
-        paymentMethod: normalizedPaymentMethod,
-        paid: true,
-        status: createdOrder.status,
-      });
+      if (createdOrder.userId) {
+        io.to(`user:${createdOrder.userId}`).emit('payment-confirmed', {
+          orderId: createdOrder.id,
+          paymentMethod: normalizedPaymentMethod,
+          paid: true,
+          status: createdOrder.status,
+        });
+      }
 
       notifyCustomerPaymentConfirmed({
         restaurantId: createdOrder.restaurantId,
         customerPhone: createdOrder?.user?.phone || customerPhone,
-        customerName: createdOrder?.user?.name || customerName,
+        customerName:
+          createdOrder?.user?.name || createdOrder?.participant?.displayName || customerName,
         restaurantName: createdOrder?.restaurant?.name,
         restaurantWhatsapp: createdOrder?.restaurant?.whatsapp,
         orderId: createdOrder?.id,

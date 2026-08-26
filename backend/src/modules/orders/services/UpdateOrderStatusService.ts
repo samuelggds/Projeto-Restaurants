@@ -169,6 +169,9 @@ class UpdateOrderStatusService {
             table: {
               select: { id: true, number: true, active: true, restaurantId: true },
             },
+            participant: {
+              select: { id: true, publicId: true, displayName: true },
+            },
             items: { include: { product: true } },
           },
         });
@@ -201,11 +204,13 @@ class UpdateOrderStatusService {
         paymentMethod: updatedOrder.paymentMethod,
       });
 
-      io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
-        orderId: updatedOrder.id,
-        paid: true,
-        paymentMethod: updatedOrder.paymentMethod,
-      });
+      if (updatedOrder.userId) {
+        io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
+          orderId: updatedOrder.id,
+          paid: true,
+          paymentMethod: updatedOrder.paymentMethod,
+        });
+      }
       emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
     }
 
@@ -225,7 +230,9 @@ class UpdateOrderStatusService {
     });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
-    io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    if (updatedOrder.userId) {
+      io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    }
     emitWaiterTableOrderEvent(io, 'waiter:order-updated', updatedOrder);
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
     return updatedOrder;

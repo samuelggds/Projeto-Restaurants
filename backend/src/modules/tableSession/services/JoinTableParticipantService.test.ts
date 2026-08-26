@@ -15,6 +15,8 @@ const originals = {
   linkGuest: tableParticipantRepository.linkGuestToUser,
   updateName: tableParticipantRepository.updateDisplayName,
   revoke: tableParticipantRepository.revoke,
+  attachUserToOwnedOrders: tableParticipantRepository.attachUserToOwnedOrders,
+  transferOwnedTableData: tableParticipantRepository.transferOwnedTableData,
 };
 
 afterEach(() => {
@@ -26,6 +28,8 @@ afterEach(() => {
   tableParticipantRepository.linkGuestToUser = originals.linkGuest;
   tableParticipantRepository.updateDisplayName = originals.updateName;
   tableParticipantRepository.revoke = originals.revoke;
+  tableParticipantRepository.attachUserToOwnedOrders = originals.attachUserToOwnedOrders;
+  tableParticipantRepository.transferOwnedTableData = originals.transferOwnedTableData;
 });
 
 const session = {
@@ -143,6 +147,11 @@ test('login associa o convidado ativo ao usuário sem criar outro participante',
     linked = args;
     return guestParticipant({ userId: 12, tokenExpiresAt: null, user: { name: 'Samuel' } });
   };
+  let attached;
+  tableParticipantRepository.attachUserToOwnedOrders = async (...args) => {
+    attached = args;
+    return { count: 2 };
+  };
 
   const result = await joinTableParticipantService.execute({
     session,
@@ -151,8 +160,50 @@ test('login associa o convidado ativo ao usuário sem criar outro participante',
   });
 
   assert.deepEqual(linked.slice(0, 5), [80, 12, 'Samuel', 55, 7]);
+  assert.deepEqual(attached.slice(0, 5), [80, 12, 55, 7, tx]);
   assert.equal(result.participant.authenticated, true);
   assert.equal(result.participantToken, null);
+  assert.equal(result.clearParticipantCookie, true);
+});
+
+test('login mescla o convidado no participante autenticado sem duplicar pedidos', async () => {
+  const rawToken = 'd'.repeat(43);
+  const tx = {
+    user: {
+      findFirst: async () => ({ id: 12 }),
+    },
+  };
+  const authenticatedParticipant = guestParticipant({
+    id: 81,
+    publicId: '123e4567-e89b-42d3-a456-426614174003',
+    userId: 12,
+    tokenExpiresAt: null,
+    user: { name: 'Cliente autenticado' },
+  });
+  prisma.$transaction = async (callback) => callback(tx);
+  tableParticipantRepository.findByUser = async () => authenticatedParticipant;
+  tableParticipantRepository.findGuestByTokenHash = async () => guestParticipant();
+  let transferred;
+  tableParticipantRepository.transferOwnedTableData = async (...args) => {
+    transferred = args;
+    return { orders: 2, orderItems: 3 };
+  };
+  let revoked;
+  tableParticipantRepository.revoke = async (...args) => {
+    revoked = args;
+    return { count: 1 };
+  };
+
+  const result = await joinTableParticipantService.execute({
+    session,
+    authenticatedUser: { id: 12, role: 'CLIENTE' },
+    cookies: { [`table_participant_${session.publicId}`]: rawToken },
+  });
+
+  assert.deepEqual(transferred.slice(0, 6), [80, 81, 12, 55, 7, tx]);
+  assert.deepEqual(revoked.slice(0, 4), [80, 55, 7, tx]);
+  assert.equal(result.participant.publicId, authenticatedParticipant.publicId);
+  assert.equal(result.participant.authenticated, true);
   assert.equal(result.clearParticipantCookie, true);
 });
 

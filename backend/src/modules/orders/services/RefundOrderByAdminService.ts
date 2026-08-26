@@ -120,7 +120,9 @@ class RefundOrderByAdminService {
     });
 
     io.to(`restaurant:${normalizedRestaurantId}`).emit('order:status-changed', updatedOrder);
-    io.to(`user:${order.userId}`).emit('order:status-changed', updatedOrder);
+    if (order.userId) {
+      io.to(`user:${order.userId}`).emit('order:status-changed', updatedOrder);
+    }
     emitWaiterTableOrderEvent(io, 'waiter:order-updated', updatedOrder);
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
@@ -129,7 +131,9 @@ class RefundOrderByAdminService {
         'order:issue-resolved',
         resolvedPayload,
       );
-      io.to(`user:${order.userId}`).emit('order:issue-resolved', resolvedPayload);
+      if (order.userId) {
+        io.to(`user:${order.userId}`).emit('order:issue-resolved', resolvedPayload);
+      }
     }
 
     return {

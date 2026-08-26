@@ -49,6 +49,8 @@ function makeOrder(overrides = {}) {
 
 function installStatefulDatabase(initialOrder) {
   const stored = { ...initialOrder };
+  const billItemUpdates = [];
+  stored.billItemUpdates = billItemUpdates;
 
   const updateMany = async ({ where, data }) => {
     if (where.id !== stored.id || where.restaurantId !== stored.restaurantId) {
@@ -93,6 +95,12 @@ function installStatefulDatabase(initialOrder) {
       couponRedemption: {
         updateMany: async () => ({ count: 0 }),
         findFirst: async () => null,
+      },
+      tableBillItem: {
+        updateMany: async (args) => {
+          billItemUpdates.push(args);
+          return { count: 2 };
+        },
       },
     });
 
@@ -226,4 +234,48 @@ test('pagamento na entrega cancela sem chamar qualquer provedor', async () => {
   assert.equal(result.refunded, false);
   assert.equal(stored.status, OrderStatus.CANCELADO);
   assert.equal(stored.refundStatus, OrderRefundStatus.NOT_REQUESTED);
+});
+
+test('cancelamento de pedido da mesa retira as unidades não pagas da conta', async () => {
+  const order = makeOrder({
+    paid: false,
+    paymentMethod: null,
+    tableSessionId: 55,
+    participantId: 80,
+  });
+  const stored = installStatefulDatabase(order);
+
+  const result = await cancelOrderWorkflowService.execute({ ...order });
+
+  assert.equal(result.order.status, OrderStatus.CANCELADO);
+  assert.equal(stored.billItemUpdates.length, 1);
+  assert.deepEqual(stored.billItemUpdates[0].where, {
+    orderId: 501,
+    restaurantId: 7,
+    canceledAt: null,
+  });
+  assert.ok(stored.billItemUpdates[0].data.canceledAt instanceof Date);
+  assert.equal(stored.billItemUpdates[0].data.cancellationReason, 'Pedido cancelado');
+});
+
+test('estorno concluído marca pedido e unidades da mesa como REFUNDED', async () => {
+  const refundedAt = new Date('2026-08-25T15:00:00.000Z');
+  const stored = installStatefulDatabase(
+    makeOrder({
+      tableSessionId: 55,
+      participantId: 80,
+      refundStatus: OrderRefundStatus.SUCCEEDED,
+      refundedAt,
+    }),
+  );
+
+  const result = await cancelOrderWorkflowService.execute({ ...stored });
+
+  assert.equal(result.refunded, true);
+  assert.equal(stored.status, OrderStatus.CANCELADO);
+  assert.equal(stored.tableFinancialStatus, 'REFUNDED');
+  assert.equal(stored.billItemUpdates.length, 1);
+  assert.equal(stored.billItemUpdates[0].data.financialStatus, 'REFUNDED');
+  assert.equal(stored.billItemUpdates[0].data.refundedAt, refundedAt);
+  assert.equal(stored.billItemUpdates[0].data.canceledAt, refundedAt);
 });

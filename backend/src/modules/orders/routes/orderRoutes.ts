@@ -9,6 +9,7 @@ import ListOrdersController from '../controllers/ListOrdersController.js';
 import GetOrderByIdController from '../controllers/GetOrderByIdController.js';
 import ListMyOrdersController from '../controllers/ListMyOrdersController.js';
 import CancelOrderController from '../controllers/CancelOrderController.js';
+import CancelTableParticipantOrderController from '../controllers/CancelTableParticipantOrderController.js';
 import ConfirmOrderPaymentController from '../controllers/ConfirmOrderPaymentController.js';
 import ConfirmOrderPaymentWithPinController from '../controllers/ConfirmOrderPaymentWithPinController.js';
 import GenerateOrderPaymentConfirmationPinController from '../controllers/GenerateOrderPaymentConfirmationPinController.js';
@@ -33,7 +34,9 @@ import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { orderAccessMiddleware } from '../../../middlewares/orderAccessMiddleware.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
+import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import {
   paymentPinAttemptRateLimitMiddleware,
   paymentPinRequestRateLimitMiddleware,
@@ -125,9 +128,25 @@ router.get('/my-orders', authMiddleware, (req, res) => {
   ListMyOrdersController.handle(req, res);
 });
 
-router.get('/table/current', sessionMiddleware, (req, res) => {
-  GetCurrentTableOrderController.handle(req, res);
-});
+router.get(
+  '/table/current',
+  optionalAuthMiddleware,
+  sessionMiddleware,
+  tableParticipantMiddleware,
+  (req, res) => {
+    GetCurrentTableOrderController.handle(req, res);
+  },
+);
+
+router.patch(
+  '/table/:publicOrderId/cancel',
+  optionalAuthMiddleware,
+  sessionMiddleware,
+  tableParticipantMiddleware,
+  (req, res) => {
+    CancelTableParticipantOrderController.handle(req, res);
+  },
+);
 
 router.get('/:id/tracking', authMiddleware, (req, res, next) => {
   GetDeliveryTrackingController.handle(req, res, next);

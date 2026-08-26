@@ -196,6 +196,57 @@ export class TableParticipantRepository {
       select: participantSelect,
     });
   }
+
+  async attachUserToOwnedOrders(
+    participantId: number,
+    userId: number,
+    tableSessionId: number,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.updateMany({
+      where: {
+        participantId,
+        tableSessionId,
+        restaurantId,
+      },
+      data: { userId },
+    });
+  }
+
+  async transferOwnedTableData(
+    sourceParticipantId: number,
+    targetParticipantId: number,
+    targetUserId: number,
+    tableSessionId: number,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    const orders = await db.order.updateMany({
+      where: {
+        participantId: sourceParticipantId,
+        tableSessionId,
+        restaurantId,
+      },
+      data: {
+        participantId: targetParticipantId,
+        userId: targetUserId,
+      },
+    });
+    const orderItems = await db.orderItem.updateMany({
+      where: {
+        participantId: sourceParticipantId,
+        tableSessionId,
+        restaurantId,
+      },
+      data: { participantId: targetParticipantId },
+    });
+
+    return {
+      orders: orders.count,
+      orderItems: orderItems.count,
+    };
+  }
 }
 
 export default new TableParticipantRepository();

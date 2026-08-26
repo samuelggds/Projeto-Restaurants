@@ -47,7 +47,11 @@ export const createOrderSchema = z
       .array(
         z.object({
           productId: z.number().int().positive(),
-          quantity: z.number().int().positive(),
+          quantity: z
+            .number()
+            .int()
+            .positive()
+            .max(100, 'A quantidade máxima por item é 100.'),
           observation: z
             .string()
             .trim()
@@ -66,9 +70,19 @@ export const createOrderSchema = z
             .optional(),
         }),
       )
-      .min(1, 'O pedido deve conter pelo menos um item.'),
+      .min(1, 'O pedido deve conter pelo menos um item.')
+      .max(50, 'O pedido deve conter no máximo 50 itens diferentes.'),
   })
   .superRefine((data, ctx) => {
+    const totalQuantity = data.items.reduce((total, item) => total + item.quantity, 0);
+    if (totalQuantity > 200) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['items'],
+        message: 'O pedido deve conter no máximo 200 unidades no total.',
+      });
+    }
+
     if (data.type !== OrderType.DELIVERY) {
       return;
     }

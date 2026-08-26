@@ -1,0 +1,171 @@
+// @ts-nocheck
+import assert from 'node:assert/strict';
+import test, { afterEach } from 'node:test';
+import tableAccountRepository from '../repositories/TableAccountRepository.js';
+import {
+  GetCurrentTableAccountService,
+  TableAccountAccessError,
+} from './GetCurrentTableAccountService.js';
+
+const originalFindSnapshotData = tableAccountRepository.findSnapshotData;
+
+afterEach(() => {
+  tableAccountRepository.findSnapshotData = originalFindSnapshotData;
+});
+
+const currentParticipantPublicId = '123e4567-e89b-42d3-a456-426614174001';
+
+function billItem({
+  publicId,
+  price,
+  financialStatus = 'UNPAID',
+  orderStatus = 'PENDENTE',
+  paid = false,
+  refundStatus = 'NONE',
+  canceledAt = null,
+  participantPublicId = currentParticipantPublicId,
+  displayName = 'Samuel',
+}) {
+  return {
+    publicId,
+    productName: `Produto ${publicId}`,
+    unitIndex: 1,
+    unitPriceCents: BigInt(price),
+    financialStatus,
+    canceledAt,
+    order: {
+      publicId: `223e4567-e89b-42d3-a456-4266141740${publicId}`,
+      status: orderStatus,
+      paid,
+      refundStatus,
+      // Mesmo que uma consulta futura retorne algo a mais, o DTO público não pode vazar isso.
+      paymentMethod: 'PIX',
+      customerCpf: '00000000000',
+    },
+    participant: {
+      publicId: participantPublicId,
+      displayName,
+      user: { email: 'privado@example.com' },
+    },
+  };
+}
+
+test('monta a conta com centavos exatos, ignora cancelados e não expõe dados de pagamento', async () => {
+  tableAccountRepository.findSnapshotData = async (sessionId, restaurantId, participantId) => {
+    assert.deepEqual([sessionId, restaurantId, participantId], [55, 7, 80]);
+    return {
+      publicId: '323e4567-e89b-42d3-a456-426614174001',
+      status: 'OPEN',
+      table: { number: 12 },
+      participants: [
+        {
+          publicId: currentParticipantPublicId,
+          displayName: 'Samuel',
+          status: 'ACTIVE',
+          joinedAt: new Date('2026-08-25T12:00:00.000Z'),
+          leftAt: null,
+          phone: '85999999999',
+        },
+        {
+          publicId: '123e4567-e89b-42d3-a456-426614174002',
+          displayName: null,
+          status: 'LEFT',
+          joinedAt: new Date('2026-08-25T12:01:00.000Z'),
+          leftAt: new Date('2026-08-25T12:30:00.000Z'),
+        },
+      ],
+      billItems: [
+        billItem({ publicId: '01', price: 1_000 }),
+        billItem({ publicId: '02', price: 250, paid: true, financialStatus: 'UNPAID' }),
+        billItem({
+          publicId: '03',
+          price: 400,
+          financialStatus: 'PAID',
+          refundStatus: 'SUCCEEDED',
+          canceledAt: new Date('2026-08-25T12:20:00.000Z'),
+        }),
+        billItem({ publicId: '04', price: 300, financialStatus: 'RESERVED' }),
+        billItem({ publicId: '05', price: 200, financialStatus: 'PROCESSING' }),
+        billItem({
+          publicId: '06',
+          price: 500,
+          orderStatus: 'CANCELADO',
+          displayName: null,
+        }),
+      ],
+    };
+  };
+
+  const result = await new GetCurrentTableAccountService().execute({
+    tableSessionId: 55,
+    restaurantId: 7,
+    participantId: 80,
+    participantPublicId: currentParticipantPublicId,
+  });
+
+  assert.deepEqual(result.summary, {
+    sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
+    tableNumber: 12,
+    status: 'OPEN',
+    consumedCents: 1_750,
+    serviceFeeCents: 0,
+    grossPaidCents: 650,
+    refundedCents: 400,
+    netPaidCents: 250,
+    reservedCents: 300,
+    processingCents: 200,
+    remainingCents: 1_500,
+    overpaidCents: 0,
+    participantsCount: 1,
+  });
+  assert.equal(result.contractVersion, 1);
+  assert.equal(result.currentParticipantPublicId, currentParticipantPublicId);
+  assert.deepEqual(result.payments, []);
+  assert.equal(result.items[1].financialStatus, 'PAID');
+  assert.equal(result.items[2].financialStatus, 'REFUNDED');
+  assert.equal(result.items[5].orderStatus, 'CANCELED');
+  assert.equal(result.items[5].orderedByDisplayName, 'Cliente da mesa');
+  assert.equal(result.participants[1].leftAt, '2026-08-25T12:30:00.000Z');
+
+  const publicPayload = JSON.stringify(result);
+  assert.doesNotMatch(publicPayload, /paymentMethod|customerCpf|privado@example\.com|85999999999/);
+});
+
+test('mantém o acesso preso à combinação de sessão, restaurante e participante', async () => {
+  tableAccountRepository.findSnapshotData = async (sessionId, restaurantId, participantId) => {
+    assert.deepEqual([sessionId, restaurantId, participantId], [55, 7, 999]);
+    return null;
+  };
+
+  await assert.rejects(
+    () =>
+      new GetCurrentTableAccountService().execute({
+        tableSessionId: 55,
+        restaurantId: 7,
+        participantId: 999,
+        participantPublicId: currentParticipantPublicId,
+      }),
+    (error) =>
+      error instanceof TableAccountAccessError && error.message === 'Conta da mesa não encontrada.',
+  );
+});
+
+test('rejeita identificadores inválidos antes de consultar o repositório', async () => {
+  let repositoryCalled = false;
+  tableAccountRepository.findSnapshotData = async () => {
+    repositoryCalled = true;
+    return null;
+  };
+
+  await assert.rejects(
+    () =>
+      new GetCurrentTableAccountService().execute({
+        tableSessionId: 0,
+        restaurantId: 7,
+        participantId: 80,
+        participantPublicId: currentParticipantPublicId,
+      }),
+    TableAccountAccessError,
+  );
+  assert.equal(repositoryCalled, false);
+});

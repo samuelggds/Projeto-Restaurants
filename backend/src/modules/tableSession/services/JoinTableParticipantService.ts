@@ -99,15 +99,21 @@ export class JoinTableParticipantService {
             : null;
 
           if (guest && existingAuthenticated && guest.id !== existingAuthenticated.id) {
-            // Nesta etapa ainda não existem relações financeiras com o participante.
-            // Quando elas forem adicionadas, a migração ocorre nesta mesma transação.
+            await tableParticipantRepository.transferOwnedTableData(
+              guest.id,
+              existingAuthenticated.id,
+              authenticatedCustomerId,
+              session.id,
+              session.restaurantId,
+              tx,
+            );
             await tableParticipantRepository.revoke(guest.id, session.id, session.restaurantId, tx);
             return existingAuthenticated;
           }
 
           if (guest) {
             try {
-              return await tableParticipantRepository.linkGuestToUser(
+              const linkedParticipant = await tableParticipantRepository.linkGuestToUser(
                 guest.id,
                 authenticatedCustomerId,
                 identity.displayName ?? guest.displayName,
@@ -115,6 +121,14 @@ export class JoinTableParticipantService {
                 session.restaurantId,
                 tx,
               );
+              await tableParticipantRepository.attachUserToOwnedOrders(
+                linkedParticipant.id,
+                authenticatedCustomerId,
+                session.id,
+                session.restaurantId,
+                tx,
+              );
+              return linkedParticipant;
             } catch (error: unknown) {
               if (!isUniqueConflict(error)) throw error;
               const concurrentParticipant = await tableParticipantRepository.findByUser(
@@ -124,6 +138,14 @@ export class JoinTableParticipantService {
                 tx,
               );
               if (!concurrentParticipant) throw error;
+              await tableParticipantRepository.transferOwnedTableData(
+                guest.id,
+                concurrentParticipant.id,
+                authenticatedCustomerId,
+                session.id,
+                session.restaurantId,
+                tx,
+              );
               await tableParticipantRepository.revoke(
                 guest.id,
                 session.id,

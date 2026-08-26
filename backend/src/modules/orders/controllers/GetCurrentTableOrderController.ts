@@ -4,14 +4,13 @@ import getCurrentTableOrderService from '../services/GetCurrentTableOrderService
 class GetCurrentTableOrderController {
   async handle(req: Request, res: Response) {
     try {
-      const tableId = req.tableSession?.tableId;
-      const restaurantId = req.tableSession?.restaurantId;
+      const order = await getCurrentTableOrderService.execute({
+        tableSessionId: req.tableSession?.id,
+        restaurantId: req.tableSession?.restaurantId,
+        participantId: req.tableParticipant?.id,
+      });
 
-      const order = await getCurrentTableOrderService.execute(
-        Number(tableId || 0),
-        Number(restaurantId || 0),
-      );
-
+      res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json({ order });
     } catch (error: unknown) {
       return res.status(400).json({

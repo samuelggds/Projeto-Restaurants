@@ -1,4 +1,10 @@
-import { OrderRefundStatus, OrderStatus, PaymentMethod } from '@prisma/client';
+import {
+  OrderRefundStatus,
+  OrderStatus,
+  PaymentMethod,
+  TableBillItemFinancialStatus,
+  TableOrderFinancialStatus,
+} from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
@@ -70,6 +76,7 @@ class CancelOrderWorkflowService {
 
     try {
       const cancelledOrder = await prisma.$transaction(async (tx) => {
+        const canceledAt = new Date();
         const updated = await orderRepository.updateStatusIfCurrent(
           order.id,
           OrderStatus.CANCELADO,
@@ -80,6 +87,19 @@ class CancelOrderWorkflowService {
 
         await restoreOrderItemsStock(tx, order);
         await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+        if (order.tableSessionId) {
+          await tx.tableBillItem.updateMany({
+            where: {
+              orderId: order.id,
+              restaurantId: order.restaurantId,
+              canceledAt: null,
+            },
+            data: {
+              canceledAt,
+              cancellationReason: 'Pedido cancelado',
+            },
+          });
+        }
         return updated;
       });
 
@@ -108,6 +128,7 @@ class CancelOrderWorkflowService {
 
     try {
       const cancelledOrder = await prisma.$transaction(async (tx) => {
+        const reconciledAt = order.refundedAt || new Date();
         const result = await tx.order.updateMany({
           where: {
             id: order.id,
@@ -117,6 +138,9 @@ class CancelOrderWorkflowService {
           },
           data: {
             status: OrderStatus.CANCELADO,
+            ...(order.tableSessionId
+              ? { tableFinancialStatus: TableOrderFinancialStatus.REFUNDED }
+              : {}),
           },
         });
 
@@ -126,6 +150,21 @@ class CancelOrderWorkflowService {
 
         await restoreOrderItemsStock(tx, order);
         await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+        if (order.tableSessionId) {
+          await tx.tableBillItem.updateMany({
+            where: {
+              orderId: order.id,
+              restaurantId: order.restaurantId,
+              canceledAt: null,
+            },
+            data: {
+              financialStatus: TableBillItemFinancialStatus.REFUNDED,
+              refundedAt: reconciledAt,
+              canceledAt: reconciledAt,
+              cancellationReason: 'Pedido cancelado após estorno',
+            },
+          });
+        }
 
         const updated = await orderRepository.findById(order.id, order.restaurantId, tx);
         if (!updated) {

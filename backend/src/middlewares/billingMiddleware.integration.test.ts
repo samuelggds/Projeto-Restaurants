@@ -31,6 +31,30 @@ function createAppWithProtectedRoute(restaurantId = 1) {
   return app;
 }
 
+function createAppWithGuestTableRoute(restaurantId = 7) {
+  const app = express();
+
+  app.get(
+    '/table-order',
+    (req, _res, next) => {
+      req.tableSession = {
+        id: 55,
+        publicId: '123e4567-e89b-42d3-a456-426614174001',
+        tableId: 91,
+        restaurantId,
+        status: 'OPEN',
+      };
+      next();
+    },
+    billingMiddleware,
+    (_req, res) => {
+      res.status(200).json({ ok: true });
+    },
+  );
+
+  return app;
+}
+
 async function requestProtectedRoute() {
   const app = createAppWithProtectedRoute(1);
   const server = app.listen(0);
@@ -69,6 +93,27 @@ test('deve permitir acesso na rota protegida sem invoices em aberto', async () =
   assert.equal(response.status, 200);
   assert.deepEqual(body, { ok: true });
   assert.equal(updateManyCalled, false);
+});
+
+test('deve validar cobrança pelo tenant da sessão para convidado sem req.user', async () => {
+  let queriedRestaurantId = null;
+  prisma.invoice.findMany = async ({ where }) => {
+    queriedRestaurantId = where.restaurantId;
+    return [];
+  };
+
+  const app = createAppWithGuestTableRoute(7);
+  const server = app.listen(0);
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : null;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/table-order`);
+    assert.equal(response.status, 200);
+    assert.equal(queriedRestaurantId, 7);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test('deve bloquear acesso na rota protegida quando houver invoice atrasada', async () => {

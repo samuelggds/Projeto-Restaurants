@@ -1321,8 +1321,8 @@ async function billingMiddleware(req, res, next) {
       return next();
     }
     checkedRequests.add(req);
-    const restaurantId = req.user.restaurantId;
-    if (String(req.user.role || "").toUpperCase() === "SUPER_ADMIN" || !restaurantId) {
+    const restaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
+    if (String(req.user?.role || "").toUpperCase() === "SUPER_ADMIN" || !restaurantId) {
       return next();
     }
     const openInvoices = await prisma_default.invoice.findMany({
@@ -3358,11 +3358,18 @@ var init_productsRoutes = __esm({
 });
 
 // src/modules/orders/repositories/OrderRepository.ts
-import { OrderRefundStatus, OrderStatus, PaymentMethod, OrderType } from "@prisma/client";
+import {
+  OrderRefundStatus,
+  OrderStatus,
+  PaymentMethod,
+  OrderType,
+  TableBillItemFinancialStatus,
+  TableOrderFinancialStatus
+} from "@prisma/client";
 function isUniqueConstraintError(error2) {
   return Boolean(error2 && typeof error2 === "object" && "code" in error2 && error2.code === "P2002");
 }
-var operationalTableSelect, waiterReadyOrderInclude, OrderRepository, OrderRepository_default;
+var operationalTableSelect, tableParticipantSelect, waiterReadyOrderInclude, OrderRepository, OrderRepository_default;
 var init_OrderRepository = __esm({
   "src/modules/orders/repositories/OrderRepository.ts"() {
     init_prisma();
@@ -3371,6 +3378,11 @@ var init_OrderRepository = __esm({
       number: true,
       active: true,
       restaurantId: true
+    };
+    tableParticipantSelect = {
+      id: true,
+      publicId: true,
+      displayName: true
     };
     waiterReadyOrderInclude = {
       user: { select: { id: true, name: true } },
@@ -3408,6 +3420,7 @@ var init_OrderRepository = __esm({
               }
             },
             table: { select: operationalTableSelect },
+            participant: { select: tableParticipantSelect },
             items: {
               include: {
                 product: true
@@ -3446,6 +3459,7 @@ var init_OrderRepository = __esm({
               }
             },
             table: { select: operationalTableSelect },
+            participant: { select: tableParticipantSelect },
             items: {
               include: {
                 product: true
@@ -3640,6 +3654,7 @@ var init_OrderRepository = __esm({
         return this.findById(id, restaurantId, db);
       }
       async confirmPayment(id, restaurantId, db = prisma_default) {
+        const paidAt = /* @__PURE__ */ new Date();
         const result = await db.order.updateMany({
           where: {
             id: Number(id),
@@ -3649,11 +3664,21 @@ var init_OrderRepository = __esm({
           },
           data: {
             paid: true,
-            paidAt: /* @__PURE__ */ new Date(),
+            paidAt,
             paymentConfirmationPin: null,
             paymentConfirmationPinExpiresAt: null
           }
         });
+        if (result.count === 1) {
+          await db.order.updateMany({
+            where: { id: Number(id), restaurantId, tableSessionId: { not: null } },
+            data: { tableFinancialStatus: TableOrderFinancialStatus.PAID }
+          });
+          await db.tableBillItem.updateMany({
+            where: { orderId: Number(id), restaurantId, canceledAt: null },
+            data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt }
+          });
+        }
         const current = await this.findById(id, restaurantId, db);
         if (!current) {
           throw new Error("Pedido n\xE3o encontrado para confirmar o pagamento.");
@@ -3670,6 +3695,7 @@ var init_OrderRepository = __esm({
         paymentProof,
         paymentProofImage
       } = {}, db = prisma_default) {
+        const paidAt = /* @__PURE__ */ new Date();
         const result = await db.order.updateMany({
           where: {
             id: Number(id),
@@ -3679,13 +3705,23 @@ var init_OrderRepository = __esm({
           },
           data: {
             paid: true,
-            paidAt: /* @__PURE__ */ new Date(),
+            paidAt,
             paymentProof: String(paymentProof || "").trim() || null,
             paymentProofImage: String(paymentProofImage || "").trim() || null,
             paymentConfirmationPin: null,
             paymentConfirmationPinExpiresAt: null
           }
         });
+        if (result.count === 1) {
+          await db.order.updateMany({
+            where: { id: Number(id), restaurantId, tableSessionId: { not: null } },
+            data: { tableFinancialStatus: TableOrderFinancialStatus.PAID }
+          });
+          await db.tableBillItem.updateMany({
+            where: { orderId: Number(id), restaurantId, canceledAt: null },
+            data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt }
+          });
+        }
         const current = await this.findById(id, restaurantId, db);
         if (!current) {
           throw new Error("Pedido n\xE3o encontrado para confirmar o pagamento PIX.");
@@ -3761,6 +3797,42 @@ var init_OrderRepository = __esm({
               }
             },
             table: { select: operationalTableSelect },
+            participant: { select: tableParticipantSelect },
+            items: {
+              include: {
+                product: true
+              }
+            }
+          }
+        });
+      }
+      async findByPublicIdForTableParticipant(publicId, tableSessionId, restaurantId, participantId, db = prisma_default) {
+        return db.order.findFirst({
+          where: {
+            publicId,
+            tableSessionId,
+            restaurantId,
+            participantId,
+            type: OrderType.MESA
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true
+              }
+            },
+            restaurant: {
+              select: {
+                id: true,
+                name: true,
+                whatsapp: true
+              }
+            },
+            table: { select: operationalTableSelect },
+            participant: { select: tableParticipantSelect },
             items: {
               include: {
                 product: true
@@ -3799,6 +3871,7 @@ var init_OrderRepository = __esm({
               }
             },
             table: { select: operationalTableSelect },
+            participant: { select: tableParticipantSelect },
             items: {
               include: {
                 product: true
@@ -3832,6 +3905,7 @@ var init_OrderRepository = __esm({
               }
             },
             table: { select: operationalTableSelect },
+            participant: { select: tableParticipantSelect },
             items: {
               include: {
                 product: true
@@ -3985,6 +4059,44 @@ var init_OrderRepository = __esm({
           }
         });
       }
+      async findLatestByTableParticipant(tableSessionId, restaurantId, participantId, db = prisma_default) {
+        return db.order.findFirst({
+          where: {
+            tableSessionId: Number(tableSessionId),
+            restaurantId: Number(restaurantId),
+            participantId: Number(participantId),
+            type: OrderType.MESA
+          },
+          select: {
+            publicId: true,
+            total: true,
+            status: true,
+            type: true,
+            paid: true,
+            observation: true,
+            createdAt: true,
+            updatedAt: true,
+            items: {
+              select: {
+                id: true,
+                quantity: true,
+                price: true,
+                observation: true,
+                ingredients: true,
+                customizations: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }]
+        });
+      }
       async findByUserId(userId, restaurantId, db = prisma_default) {
         const normalizedRestaurantId = Number(restaurantId);
         const where = {
@@ -4069,7 +4181,7 @@ var init_OrderValidator = __esm({
       items: z6.array(
         z6.object({
           productId: z6.number().int().positive(),
-          quantity: z6.number().int().positive(),
+          quantity: z6.number().int().positive().max(100, "A quantidade m\xE1xima por item \xE9 100."),
           observation: z6.string().trim().max(500, "A observa\xE7\xE3o do item deve ter no m\xE1ximo 500 caracteres.").optional(),
           ingredientIds: z6.array(z6.number().int().positive()).max(40).optional(),
           optionIds: z6.array(z6.number().int().positive()).max(100).optional(),
@@ -4080,8 +4192,16 @@ var init_OrderValidator = __esm({
             })
           ).max(20).optional()
         })
-      ).min(1, "O pedido deve conter pelo menos um item.")
+      ).min(1, "O pedido deve conter pelo menos um item.").max(50, "O pedido deve conter no m\xE1ximo 50 itens diferentes.")
     }).superRefine((data, ctx) => {
+      const totalQuantity = data.items.reduce((total, item) => total + item.quantity, 0);
+      if (totalQuantity > 200) {
+        ctx.addIssue({
+          code: z6.ZodIssueCode.custom,
+          path: ["items"],
+          message: "O pedido deve conter no m\xE1ximo 200 unidades no total."
+        });
+      }
       if (data.type !== OrderType2.DELIVERY) {
         return;
       }
@@ -4183,6 +4303,19 @@ var init_TableSessionRepository = __esm({
           orderBy: { openedAt: "desc" }
         });
       }
+      async findActiveByTable(tableId, db = prisma_default) {
+        return db.tableSession.findFirst({
+          where: {
+            tableId: Number(tableId),
+            status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: /* @__PURE__ */ new Date() } }]
+          },
+          include: {
+            table: { select: operationalTableSelect2 }
+          },
+          orderBy: { openedAt: "desc" }
+        });
+      }
       async findLatestOpenByTable(tableId, db = prisma_default) {
         return db.tableSession.findFirst({
           where: {
@@ -4197,7 +4330,7 @@ var init_TableSessionRepository = __esm({
         return db.tableSession.findMany({
           where: {
             tableId: Number(tableId),
-            status: TableSessionStatus.OPEN,
+            status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
             expiresAt: { lte: /* @__PURE__ */ new Date() }
           },
           include: { table: { select: operationalTableSelect2 } },
@@ -4241,7 +4374,7 @@ var init_TableSessionRepository = __esm({
       async listOpenByRestaurant(restaurantId, db = prisma_default) {
         return db.tableSession.findMany({
           where: {
-            status: TableSessionStatus.OPEN,
+            status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
             OR: [{ expiresAt: null }, { expiresAt: { gt: /* @__PURE__ */ new Date() } }],
             table: {
               restaurantId
@@ -4249,6 +4382,8 @@ var init_TableSessionRepository = __esm({
           },
           select: {
             id: true,
+            publicId: true,
+            restaurantId: true,
             tableId: true,
             status: true,
             openedAt: true,
@@ -6924,8 +7059,336 @@ var init_waiterOrderRealtime = __esm({
   }
 });
 
+// src/modules/tableAccount/domain/tableAccountContracts.ts
+var TABLE_ACCOUNT_CONTRACT_VERSION, TABLE_ORDER_SETTLEMENT_MODES, TABLE_PAYMENT_SELECTION_MODES, TABLE_PAYMENT_METHODS, TABLE_SERVICE_FEE_MODES, DEFAULT_TABLE_ACCOUNT_TIME_ZONE;
+var init_tableAccountContracts = __esm({
+  "src/modules/tableAccount/domain/tableAccountContracts.ts"() {
+    TABLE_ACCOUNT_CONTRACT_VERSION = 1;
+    TABLE_ORDER_SETTLEMENT_MODES = ["TABLE_ACCOUNT", "PAY_NOW"];
+    TABLE_PAYMENT_SELECTION_MODES = [
+      "MY_ITEMS",
+      "SELECTED_ITEMS",
+      "EQUAL_SPLIT",
+      "FULL_ACCOUNT",
+      "WAITER"
+    ];
+    TABLE_PAYMENT_METHODS = ["PIX", "CARD", "CASH", "CARD_MACHINE"];
+    TABLE_SERVICE_FEE_MODES = ["DISABLED", "OPTIONAL", "MANDATORY"];
+    DEFAULT_TABLE_ACCOUNT_TIME_ZONE = "America/Sao_Paulo";
+  }
+});
+
+// src/modules/tableAccount/domain/tableAccountSchemas.ts
+import { z as z7 } from "zod";
+function isValidTimeZone2(value) {
+  try {
+    new Intl.DateTimeFormat("pt-BR", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+var moneyCentsSchema, publicIdSchema, reasonSchema, tableParticipantIdentityInputSchema, tableOrderContinuationInputSchema, idempotencyKeySchema, createTablePaymentIntentInputSchema, forceCloseTableAccountInputSchema, cancelTableBillItemInputSchema, tablePrepaymentWindowSchema, tableAccountSettingsFields, tableAccountSettingsSchema, tableAccountSettingsPatchSchema;
+var init_tableAccountSchemas = __esm({
+  "src/modules/tableAccount/domain/tableAccountSchemas.ts"() {
+    init_tableAccountContracts();
+    moneyCentsSchema = z7.number({ invalid_type_error: "O valor deve ser informado em centavos inteiros." }).int("O valor deve ser informado em centavos inteiros.").min(0, "O valor n\xE3o pode ser negativo.").max(Number.MAX_SAFE_INTEGER, "O valor ultrapassa o limite monet\xE1rio seguro.");
+    publicIdSchema = z7.string().uuid("Identificador p\xFAblico inv\xE1lido.");
+    reasonSchema = z7.string().trim().min(5, "Informe um motivo com pelo menos 5 caracteres.").max(500, "O motivo deve ter no m\xE1ximo 500 caracteres.");
+    tableParticipantIdentityInputSchema = z7.object({
+      displayName: z7.string().trim().min(2, "Informe um nome com pelo menos 2 caracteres.").max(100, "O nome deve ter no m\xE1ximo 100 caracteres.").transform((value) => value.replace(/\s+/g, " ")).nullable().optional(),
+      phone: z7.string().trim().regex(/^\+?[0-9()\s-]+$/, "Informe um telefone v\xE1lido.").transform((value) => value.replace(/\D/g, "")).refine((value) => value.length >= 10 && value.length <= 15, "Informe um telefone v\xE1lido.").optional()
+    }).strict();
+    tableOrderContinuationInputSchema = z7.object({
+      settlementMode: z7.enum(TABLE_ORDER_SETTLEMENT_MODES),
+      paymentMethod: z7.enum(["PIX", "CARD"]).optional()
+    }).strict().superRefine((input, context) => {
+      if (input.settlementMode === "PAY_NOW" && !input.paymentMethod) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["paymentMethod"],
+          message: "Escolha PIX ou cart\xE3o para pagar este pedido agora."
+        });
+      }
+      if (input.settlementMode === "TABLE_ACCOUNT" && input.paymentMethod) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["paymentMethod"],
+          message: "A forma de pagamento s\xF3 deve ser informada ao pagar agora."
+        });
+      }
+    });
+    idempotencyKeySchema = z7.string().trim().min(16, "A chave de idempot\xEAncia deve ter pelo menos 16 caracteres.").max(128, "A chave de idempot\xEAncia deve ter no m\xE1ximo 128 caracteres.").regex(/^[A-Za-z0-9._:-]+$/, "A chave de idempot\xEAncia cont\xE9m caracteres inv\xE1lidos.");
+    createTablePaymentIntentInputSchema = z7.object({
+      selectionMode: z7.enum(TABLE_PAYMENT_SELECTION_MODES),
+      method: z7.enum(TABLE_PAYMENT_METHODS),
+      billItemPublicIds: z7.array(publicIdSchema).min(1).max(100).optional(),
+      splitCount: z7.number().int().min(2).max(100).optional(),
+      includeOptionalServiceFee: z7.boolean().optional().default(false),
+      idempotencyKey: idempotencyKeySchema
+    }).strict().superRefine((input, context) => {
+      if (input.billItemPublicIds && new Set(input.billItemPublicIds).size !== input.billItemPublicIds.length) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["billItemPublicIds"],
+          message: "Um mesmo item n\xE3o pode ser selecionado mais de uma vez."
+        });
+      }
+      if (input.selectionMode === "SELECTED_ITEMS" && !input.billItemPublicIds) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["billItemPublicIds"],
+          message: "Selecione ao menos um item para pagar."
+        });
+      }
+      if (input.selectionMode !== "SELECTED_ITEMS" && input.billItemPublicIds) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["billItemPublicIds"],
+          message: "A lista de itens s\xF3 pode ser enviada na op\xE7\xE3o de itens selecionados."
+        });
+      }
+      if (input.selectionMode === "EQUAL_SPLIT" && !input.splitCount) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["splitCount"],
+          message: "Informe entre quantas pessoas o saldo ser\xE1 dividido."
+        });
+      }
+      if (input.selectionMode !== "EQUAL_SPLIT" && input.splitCount) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["splitCount"],
+          message: "A quantidade de pessoas s\xF3 pode ser enviada na divis\xE3o igual."
+        });
+      }
+      const isWaiterPayment = input.selectionMode === "WAITER";
+      const isManualMethod = input.method === "CASH" || input.method === "CARD_MACHINE";
+      if (isWaiterPayment && !isManualMethod) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["method"],
+          message: "O pagamento com o gar\xE7om deve ser em dinheiro ou maquininha."
+        });
+      }
+      if (!isWaiterPayment && isManualMethod) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["method"],
+          message: "Dinheiro e maquininha s\xF3 podem ser escolhidos no pagamento com o gar\xE7om."
+        });
+      }
+    });
+    forceCloseTableAccountInputSchema = z7.object({ reason: reasonSchema }).strict();
+    cancelTableBillItemInputSchema = z7.object({ reason: reasonSchema }).strict();
+    tablePrepaymentWindowSchema = z7.object({
+      weekdays: z7.array(z7.number().int().min(0).max(6)).min(1, "Escolha ao menos um dia da semana.").max(7),
+      startsAtMinute: z7.number().int().min(0).max(1439),
+      endsAtMinute: z7.number().int().min(0).max(1439)
+    }).strict().superRefine((window, context) => {
+      if (new Set(window.weekdays).size !== window.weekdays.length) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["weekdays"],
+          message: "Um dia da semana n\xE3o pode ser repetido."
+        });
+      }
+      if (window.startsAtMinute === window.endsAtMinute) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["endsAtMinute"],
+          message: "O in\xEDcio e o fim do per\xEDodo devem ser diferentes."
+        });
+      }
+    });
+    tableAccountSettingsFields = {
+      enabled: z7.boolean(),
+      requirePrepaymentAboveCents: moneyCentsSchema.nullable(),
+      prepaymentWindows: z7.array(tablePrepaymentWindowSchema).max(50),
+      allowCash: z7.boolean(),
+      allowCardMachine: z7.boolean(),
+      allowSplit: z7.boolean(),
+      serviceFeeMode: z7.enum(TABLE_SERVICE_FEE_MODES),
+      serviceFeeBasisPoints: z7.number().int().min(0).max(1e4),
+      preventCloseWithOutstandingBalance: z7.boolean(),
+      requireEmployeeApprovalForPreparedItemCancellation: z7.boolean(),
+      blockNewOrdersOnClosingRequest: z7.boolean(),
+      reservationTimeoutMinutes: z7.number().int().min(1).max(60),
+      timeZone: z7.string().trim().min(1).max(100).refine(isValidTimeZone2, "Informe um fuso hor\xE1rio IANA v\xE1lido.")
+    };
+    tableAccountSettingsSchema = z7.object({
+      enabled: tableAccountSettingsFields.enabled.default(false),
+      requirePrepaymentAboveCents: tableAccountSettingsFields.requirePrepaymentAboveCents.default(null),
+      prepaymentWindows: tableAccountSettingsFields.prepaymentWindows.default([]),
+      allowCash: tableAccountSettingsFields.allowCash.default(false),
+      allowCardMachine: tableAccountSettingsFields.allowCardMachine.default(false),
+      allowSplit: tableAccountSettingsFields.allowSplit.default(true),
+      serviceFeeMode: tableAccountSettingsFields.serviceFeeMode.default("DISABLED"),
+      serviceFeeBasisPoints: tableAccountSettingsFields.serviceFeeBasisPoints.default(0),
+      preventCloseWithOutstandingBalance: tableAccountSettingsFields.preventCloseWithOutstandingBalance.default(true),
+      requireEmployeeApprovalForPreparedItemCancellation: tableAccountSettingsFields.requireEmployeeApprovalForPreparedItemCancellation.default(true),
+      blockNewOrdersOnClosingRequest: tableAccountSettingsFields.blockNewOrdersOnClosingRequest.default(true),
+      reservationTimeoutMinutes: tableAccountSettingsFields.reservationTimeoutMinutes.default(10),
+      timeZone: tableAccountSettingsFields.timeZone.default(DEFAULT_TABLE_ACCOUNT_TIME_ZONE)
+    }).strict().superRefine((settings, context) => {
+      if (settings.serviceFeeMode === "DISABLED" && settings.serviceFeeBasisPoints !== 0) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["serviceFeeBasisPoints"],
+          message: "A taxa deve ser zero quando a cobran\xE7a estiver desativada."
+        });
+      }
+      if (settings.serviceFeeMode !== "DISABLED" && settings.serviceFeeBasisPoints === 0) {
+        context.addIssue({
+          code: z7.ZodIssueCode.custom,
+          path: ["serviceFeeBasisPoints"],
+          message: "Informe o percentual da taxa de servi\xE7o."
+        });
+      }
+    });
+    tableAccountSettingsPatchSchema = z7.object(tableAccountSettingsFields).partial().strict();
+  }
+});
+
+// src/modules/tableAccount/domain/tableAccountRules.ts
+function assertMoneyCents(value, fieldName = "valor") {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${fieldName} deve ser um inteiro n\xE3o negativo em centavos.`);
+  }
+  return value;
+}
+function sumMoneyCents(values) {
+  return values.reduce((total, value, index) => {
+    const safeValue = assertMoneyCents(value, `valor[${index}]`);
+    const nextTotal = total + safeValue;
+    if (!Number.isSafeInteger(nextTotal)) {
+      throw new RangeError("A soma ultrapassa o limite monet\xE1rio seguro.");
+    }
+    return nextTotal;
+  }, 0);
+}
+function calculateTableAccountBalance({
+  consumedCents,
+  serviceFeeCents,
+  grossPaidCents,
+  refundedCents
+}) {
+  const safeConsumed = assertMoneyCents(consumedCents, "total consumido");
+  const safeFee = assertMoneyCents(serviceFeeCents, "taxa de servi\xE7o");
+  const safePaid = assertMoneyCents(grossPaidCents, "total pago bruto");
+  const safeRefunded = assertMoneyCents(refundedCents, "total estornado");
+  if (safeRefunded > safePaid) {
+    throw new RangeError("O total estornado n\xE3o pode ser maior que o total pago.");
+  }
+  const owedCents = sumMoneyCents([safeConsumed, safeFee]);
+  const netPaidCents = safePaid - safeRefunded;
+  return {
+    owedCents,
+    netPaidCents,
+    remainingCents: Math.max(0, owedCents - netPaidCents),
+    overpaidCents: Math.max(0, netPaidCents - owedCents)
+  };
+}
+var init_tableAccountRules = __esm({
+  "src/modules/tableAccount/domain/tableAccountRules.ts"() {
+  }
+});
+
+// src/modules/tableAccount/domain/tableBillItemPricing.ts
+function decimalMoneyToCents(value, fieldName = "valor") {
+  const normalized = String(value).trim();
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(normalized);
+  if (!match) {
+    throw new RangeError(`${fieldName} possui formato monet\xE1rio inv\xE1lido.`);
+  }
+  const [, sign, whole, fraction = ""] = match;
+  if (sign === "-") {
+    throw new RangeError(`${fieldName} n\xE3o pode ser negativo.`);
+  }
+  if (fraction.length > 2 && /[1-9]/.test(fraction.slice(2))) {
+    throw new RangeError(`${fieldName} deve possuir no m\xE1ximo duas casas decimais.`);
+  }
+  const cents = BigInt(whole) * 100n + BigInt((fraction + "00").slice(0, 2));
+  if (cents > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError(`${fieldName} ultrapassa o limite monet\xE1rio seguro.`);
+  }
+  return assertMoneyCents(Number(cents), fieldName);
+}
+function allocateDiscountAcrossUnitPrices(unitPricesCents, discountCents) {
+  const prices = unitPricesCents.map(
+    (value, index) => assertMoneyCents(value, `pre\xE7o da unidade ${index + 1}`)
+  );
+  const safeDiscount = assertMoneyCents(discountCents, "desconto");
+  const subtotal = sumMoneyCents(prices);
+  if (safeDiscount > subtotal) {
+    throw new RangeError("O desconto n\xE3o pode ser maior que o subtotal das unidades.");
+  }
+  if (safeDiscount === 0) {
+    return [...prices];
+  }
+  if (subtotal === 0) {
+    throw new RangeError("N\xE3o \xE9 poss\xEDvel aplicar desconto a um subtotal zerado.");
+  }
+  const subtotalBigInt = BigInt(subtotal);
+  const discountBigInt = BigInt(safeDiscount);
+  const shares = prices.map(
+    (price) => Number(BigInt(price) * discountBigInt / subtotalBigInt)
+  );
+  let remaining = safeDiscount - sumMoneyCents(shares);
+  for (let index = 0; index < shares.length && remaining > 0; index += 1) {
+    if (shares[index] < prices[index]) {
+      shares[index] += 1;
+      remaining -= 1;
+    }
+  }
+  if (remaining !== 0) {
+    throw new RangeError("N\xE3o foi poss\xEDvel distribuir todos os centavos do desconto.");
+  }
+  return prices.map((price, index) => price - shares[index]);
+}
+function buildTableBillUnitSeeds(orderItems, couponDiscount) {
+  const rawUnits = orderItems.flatMap((item, orderItemIndex) => {
+    const quantity = Number(item.quantity);
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new RangeError(`Quantidade inv\xE1lida no item ${orderItemIndex + 1}.`);
+    }
+    const unitPriceCents = decimalMoneyToCents(
+      item.price,
+      `pre\xE7o do item ${orderItemIndex + 1}`
+    );
+    return Array.from({ length: quantity }, (_, index) => ({
+      orderItemIndex,
+      unitIndex: index + 1,
+      unitPriceCents
+    }));
+  });
+  const discountedPrices = allocateDiscountAcrossUnitPrices(
+    rawUnits.map((unit) => unit.unitPriceCents),
+    decimalMoneyToCents(couponDiscount, "desconto do cupom")
+  );
+  return rawUnits.map((unit, index) => ({
+    ...unit,
+    unitPriceCents: discountedPrices[index]
+  }));
+}
+var init_tableBillItemPricing = __esm({
+  "src/modules/tableAccount/domain/tableBillItemPricing.ts"() {
+    init_tableAccountRules();
+  }
+});
+
 // src/modules/orders/services/CreateOrderService.ts
-import { PaymentMethod as PaymentMethod3, Prisma, TableSessionStatus as TableSessionStatus2, OrderType as OrderType5, OrderStatus as OrderStatus3 } from "@prisma/client";
+import {
+  PaymentMethod as PaymentMethod3,
+  Prisma,
+  TableBillItemFinancialStatus as TableBillItemFinancialStatus2,
+  TableOrderFinancialStatus as TableOrderFinancialStatus2,
+  TableOrderSettlementMode,
+  TableParticipantStatus,
+  TableSessionStatus as TableSessionStatus2,
+  OrderType as OrderType5,
+  OrderStatus as OrderStatus3
+} from "@prisma/client";
 var CreateOrderService, CreateOrderService_default;
 var init_CreateOrderService = __esm({
   "src/modules/orders/services/CreateOrderService.ts"() {
@@ -6943,6 +7406,8 @@ var init_CreateOrderService = __esm({
     init_OrderPricingService();
     init_couponRedemptionLifecycle();
     init_waiterOrderRealtime();
+    init_tableAccountSchemas();
+    init_tableBillItemPricing();
     CreateOrderService = class {
       formatCpf(value) {
         const digits = String(value || "").replace(/\D/g, "");
@@ -7078,6 +7543,8 @@ var init_CreateOrderService = __esm({
         userRestaurantId,
         tableSessionId,
         tableSessionTableId,
+        participantId,
+        settlementMode,
         deferRealtimeUntilPaid,
         type,
         paymentMethod,
@@ -7122,6 +7589,19 @@ var init_CreateOrderService = __esm({
         const shouldPayOnDelivery = payOnDelivery === true;
         const effectivePaymentMethod = shouldPayOnDelivery ? payOnDeliveryMethod || paymentMethod : paymentMethod;
         const normalizedRequestedPaymentMethod = String(effectivePaymentMethod || "").toUpperCase();
+        const tablePaymentMethod = normalizedRequestedPaymentMethod === PaymentMethod3.PIX ? "PIX" : normalizedRequestedPaymentMethod === PaymentMethod3.CARTAO ? "CARD" : void 0;
+        const tableContinuation = type === OrderType5.MESA ? tableOrderContinuationInputSchema.parse({
+          settlementMode: String(settlementMode || "").trim().toUpperCase() || (tablePaymentMethod ? TableOrderSettlementMode.PAY_NOW : TableOrderSettlementMode.TABLE_ACCOUNT),
+          ...tablePaymentMethod ? { paymentMethod: tablePaymentMethod } : {}
+        }) : null;
+        if (type === OrderType5.MESA && normalizedRequestedPaymentMethod && !tablePaymentMethod) {
+          throw new Error(
+            "O pedido da mesa s\xF3 aceita PIX ou cart\xE3o no pagamento imediato. Dinheiro e maquininha s\xE3o registrados na conta pelo gar\xE7om."
+          );
+        }
+        if (type === OrderType5.MESA && !Number(participantId || 0)) {
+          throw new Error("Participante da mesa n\xE3o identificado. Leia o QR Code novamente.");
+        }
         if (normalizedRequestedPaymentMethod === PaymentMethod3.PIX && restaurantSettings?.acceptsPix === false) {
           throw new Error("O restaurante n\xE3o est\xE1 aceitando pagamentos por PIX no momento.");
         }
@@ -7216,11 +7696,33 @@ var init_CreateOrderService = __esm({
         }
         const createdOrder = await prisma_default.$transaction(
           async (tx) => {
+            let tableParticipant = null;
             if (type === OrderType5.MESA) {
               const session = await TableSessionRepository_default.findById(Number(tableSessionId), tx);
               if (!session || session.status !== TableSessionStatus2.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now() || session.table.restaurantId !== resolvedRestaurantId || session.tableId !== Number(tableId)) {
                 throw new Error(
                   "A mesa foi fechada durante o pedido. Pe\xE7a ao gar\xE7om para abrir o atendimento novamente."
+                );
+              }
+              tableParticipant = await tx.tableParticipant.findFirst({
+                where: {
+                  id: Number(participantId),
+                  tableSessionId: session.id,
+                  restaurantId: resolvedRestaurantId,
+                  status: TableParticipantStatus.ACTIVE,
+                  revokedAt: null,
+                  OR: [{ userId: { not: null } }, { tokenExpiresAt: { gt: /* @__PURE__ */ new Date() } }]
+                },
+                select: {
+                  id: true,
+                  userId: true,
+                  publicId: true,
+                  displayName: true
+                }
+              });
+              if (!tableParticipant) {
+                throw new Error(
+                  "Sua identifica\xE7\xE3o nesta mesa expirou. Leia o QR Code novamente antes de pedir."
                 );
               }
             }
@@ -7229,7 +7731,7 @@ var init_CreateOrderService = __esm({
               tx
             );
             assertOrderCapacity(activeOrders, restaurantSettings?.maxConcurrentOrders);
-            const resolvedUserId = await this.resolveOrderUser({
+            const resolvedUserId = type === OrderType5.MESA ? tableParticipant?.userId ?? null : await this.resolveOrderUser({
               tx,
               userId,
               restaurantId: resolvedRestaurantId,
@@ -7247,7 +7749,7 @@ var init_CreateOrderService = __esm({
             });
             const { products, orderItems } = pricing;
             const formattedCpf = this.formatCpf(customerCpf);
-            const guestSummary = !userId && customerName ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}` : "";
+            const guestSummary = type !== OrderType5.MESA && !userId && customerName ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ""}` : "";
             const mergedObservation = [guestSummary, observation].map((item) => String(item || "").trim()).filter(Boolean).join(" | ");
             const normalizedTableId = tableId === null || tableId === void 0 || tableId === "" ? null : Number(tableId);
             const order = await OrderRepository_default.create(
@@ -7262,7 +7764,7 @@ var init_CreateOrderService = __esm({
                 couponCode: pricing.couponCode,
                 systemFee: 0,
                 type,
-                paymentMethod: effectivePaymentMethod,
+                paymentMethod: tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT ? null : effectivePaymentMethod,
                 payOnDelivery: shouldPayOnDelivery,
                 payOnDeliveryMethod: shouldPayOnDelivery ? effectivePaymentMethod : null,
                 paid: shouldMarkAsPaid,
@@ -7274,6 +7776,12 @@ var init_CreateOrderService = __esm({
                 userId: resolvedUserId,
                 restaurantId: resolvedRestaurantId,
                 tableId: normalizedTableId,
+                ...type === OrderType5.MESA ? {
+                  tableSessionId: Number(tableSessionId),
+                  participantId: Number(tableParticipant?.id),
+                  settlementMode: tableContinuation?.settlementMode,
+                  tableFinancialStatus: shouldMarkAsPaid ? TableOrderFinancialStatus2.PAID : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW ? TableOrderFinancialStatus2.PROCESSING : TableOrderFinancialStatus2.UNPAID
+                } : {},
                 address,
                 number,
                 district,
@@ -7295,12 +7803,59 @@ var init_CreateOrderService = __esm({
             if (shouldMarkAsPaid) {
               await markCouponRedemptionUsedForOrder(order.id, resolvedRestaurantId, tx);
             }
-            await tx.orderItem.createMany({
-              data: orderItems.map((item) => ({
-                ...item,
-                orderId: order.id
-              }))
-            });
+            const persistedOrderItems = [];
+            for (const item of orderItems) {
+              const persistedItem = await tx.orderItem.create({
+                data: {
+                  ...item,
+                  orderId: order.id,
+                  ...type === OrderType5.MESA ? {
+                    restaurantId: resolvedRestaurantId,
+                    tableSessionId: Number(tableSessionId),
+                    participantId: Number(tableParticipant?.id)
+                  } : {}
+                },
+                select: {
+                  id: true,
+                  orderId: true,
+                  productId: true,
+                  quantity: true,
+                  price: true
+                }
+              });
+              persistedOrderItems.push(persistedItem);
+            }
+            if (type === OrderType5.MESA) {
+              const billUnitSeeds = buildTableBillUnitSeeds(orderItems, pricing.couponDiscount);
+              const expectedOrderTotalCents = decimalMoneyToCents(
+                pricing.total,
+                "total do pedido da mesa"
+              );
+              const billTotalCents = billUnitSeeds.reduce(
+                (total, unit) => total + unit.unitPriceCents,
+                0
+              );
+              if (billTotalCents !== expectedOrderTotalCents) {
+                throw new Error(
+                  "N\xE3o foi poss\xEDvel fechar os centavos dos itens com o total do pedido da mesa."
+                );
+              }
+              const financialStatus = shouldMarkAsPaid ? TableBillItemFinancialStatus2.PAID : tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW ? TableBillItemFinancialStatus2.PROCESSING : TableBillItemFinancialStatus2.UNPAID;
+              await tx.tableBillItem.createMany({
+                data: billUnitSeeds.map((unit) => ({
+                  restaurantId: resolvedRestaurantId,
+                  tableSessionId: Number(tableSessionId),
+                  participantId: Number(tableParticipant?.id),
+                  orderId: order.id,
+                  orderItemId: persistedOrderItems[unit.orderItemIndex].id,
+                  unitIndex: unit.unitIndex,
+                  productName: products[unit.orderItemIndex].name,
+                  unitPriceCents: BigInt(unit.unitPriceCents),
+                  financialStatus,
+                  paidAt: shouldMarkAsPaid ? paidAt : null
+                }))
+              });
+            }
             const requestedQuantityByProduct = /* @__PURE__ */ new Map();
             orderItems.forEach((item) => {
               requestedQuantityByProduct.set(
@@ -7343,7 +7898,9 @@ var init_CreateOrderService = __esm({
         const shouldDeferRealtimeUntilPaid = deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
         if (!shouldDeferRealtimeUntilPaid) {
           io.to(`restaurant:${createdOrder.restaurantId}`).emit("new-order", createdOrder);
-          io.to(`user:${createdOrder.userId}`).emit("new-order", createdOrder);
+          if (createdOrder.userId) {
+            io.to(`user:${createdOrder.userId}`).emit("new-order", createdOrder);
+          }
           emitWaiterTableOrderEvent(io, "new-order", createdOrder);
           emitTableSessionOrderEvent(io, "new-order", createdOrder);
         }
@@ -7354,16 +7911,18 @@ var init_CreateOrderService = __esm({
             paid: true,
             status: createdOrder.status
           });
-          io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {
-            orderId: createdOrder.id,
-            paymentMethod: normalizedPaymentMethod,
-            paid: true,
-            status: createdOrder.status
-          });
+          if (createdOrder.userId) {
+            io.to(`user:${createdOrder.userId}`).emit("payment-confirmed", {
+              orderId: createdOrder.id,
+              paymentMethod: normalizedPaymentMethod,
+              paid: true,
+              status: createdOrder.status
+            });
+          }
           notifyCustomerPaymentConfirmed({
             restaurantId: createdOrder.restaurantId,
             customerPhone: createdOrder?.user?.phone || customerPhone,
-            customerName: createdOrder?.user?.name || customerName,
+            customerName: createdOrder?.user?.name || createdOrder?.participant?.displayName || customerName,
             restaurantName: createdOrder?.restaurant?.name,
             restaurantWhatsapp: createdOrder?.restaurant?.whatsapp,
             orderId: createdOrder?.id,
@@ -7402,6 +7961,7 @@ var init_CreateOrderController = __esm({
             customerCpf,
             customerPhone,
             tableId,
+            settlementMode,
             couponRedemptionId,
             items,
             address,
@@ -7423,6 +7983,8 @@ var init_CreateOrderController = __esm({
             userRestaurantId,
             tableSessionId: req.tableSession?.id ?? null,
             tableSessionTableId: req.tableSession?.tableId ?? null,
+            participantId: req.tableParticipant?.id ?? null,
+            settlementMode,
             type,
             paymentMethod,
             payOnDelivery,
@@ -7672,6 +8234,9 @@ var init_UpdateOrderStatusService = __esm({
                 table: {
                   select: { id: true, number: true, active: true, restaurantId: true }
                 },
+                participant: {
+                  select: { id: true, publicId: true, displayName: true }
+                },
                 items: { include: { product: true } }
               }
             });
@@ -7696,11 +8261,13 @@ var init_UpdateOrderStatusService = __esm({
             paid: true,
             paymentMethod: updatedOrder.paymentMethod
           });
-          io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
-            orderId: updatedOrder.id,
-            paid: true,
-            paymentMethod: updatedOrder.paymentMethod
-          });
+          if (updatedOrder.userId) {
+            io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
+              orderId: updatedOrder.id,
+              paid: true,
+              paymentMethod: updatedOrder.paymentMethod
+            });
+          }
           emitTableSessionOrderEvent(io, "order:payment-confirmed", updatedOrder);
         }
         notifyCustomerOrderStatusChanged({
@@ -7718,7 +8285,9 @@ var init_UpdateOrderStatusService = __esm({
           );
         });
         io.to(`restaurant:${restaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
         emitWaiterTableOrderEvent(io, "waiter:order-updated", updatedOrder);
         emitTableSessionOrderEvent(io, "order:status-changed", updatedOrder);
         return updatedOrder;
@@ -9220,7 +9789,13 @@ var init_RefundOrderPaymentService = __esm({
 });
 
 // src/modules/orders/services/CancelOrderWorkflowService.ts
-import { OrderRefundStatus as OrderRefundStatus2, OrderStatus as OrderStatus11, PaymentMethod as PaymentMethod6 } from "@prisma/client";
+import {
+  OrderRefundStatus as OrderRefundStatus2,
+  OrderStatus as OrderStatus11,
+  PaymentMethod as PaymentMethod6,
+  TableBillItemFinancialStatus as TableBillItemFinancialStatus3,
+  TableOrderFinancialStatus as TableOrderFinancialStatus3
+} from "@prisma/client";
 function getPublicOrderCancellationErrorMessage(error2, fallback) {
   if (error2 instanceof OrderCancellationError || error2 instanceof AutomaticRefundError) {
     return error2.message;
@@ -9259,6 +9834,7 @@ var init_CancelOrderWorkflowService = __esm({
         }
         try {
           const cancelledOrder = await prisma_default.$transaction(async (tx) => {
+            const canceledAt = /* @__PURE__ */ new Date();
             const updated = await OrderRepository_default.updateStatusIfCurrent(
               order.id,
               OrderStatus11.CANCELADO,
@@ -9268,6 +9844,19 @@ var init_CancelOrderWorkflowService = __esm({
             );
             await restoreOrderItemsStock(tx, order);
             await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+            if (order.tableSessionId) {
+              await tx.tableBillItem.updateMany({
+                where: {
+                  orderId: order.id,
+                  restaurantId: order.restaurantId,
+                  canceledAt: null
+                },
+                data: {
+                  canceledAt,
+                  cancellationReason: "Pedido cancelado"
+                }
+              });
+            }
             return updated;
           });
           return { order: cancelledOrder, refunded: false };
@@ -9290,6 +9879,7 @@ var init_CancelOrderWorkflowService = __esm({
         }
         try {
           const cancelledOrder = await prisma_default.$transaction(async (tx) => {
+            const reconciledAt = order.refundedAt || /* @__PURE__ */ new Date();
             const result = await tx.order.updateMany({
               where: {
                 id: order.id,
@@ -9298,7 +9888,8 @@ var init_CancelOrderWorkflowService = __esm({
                 status: { notIn: [OrderStatus11.CANCELADO, OrderStatus11.ENTREGUE] }
               },
               data: {
-                status: OrderStatus11.CANCELADO
+                status: OrderStatus11.CANCELADO,
+                ...order.tableSessionId ? { tableFinancialStatus: TableOrderFinancialStatus3.REFUNDED } : {}
               }
             });
             if (result.count !== 1) {
@@ -9306,6 +9897,21 @@ var init_CancelOrderWorkflowService = __esm({
             }
             await restoreOrderItemsStock(tx, order);
             await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+            if (order.tableSessionId) {
+              await tx.tableBillItem.updateMany({
+                where: {
+                  orderId: order.id,
+                  restaurantId: order.restaurantId,
+                  canceledAt: null
+                },
+                data: {
+                  financialStatus: TableBillItemFinancialStatus3.REFUNDED,
+                  refundedAt: reconciledAt,
+                  canceledAt: reconciledAt,
+                  cancellationReason: "Pedido cancelado ap\xF3s estorno"
+                }
+              });
+            }
             const updated = await OrderRepository_default.findById(order.id, order.restaurantId, tx);
             if (!updated) {
               throw new OrderCancellationError("Pedido n\xE3o encontrado ap\xF3s o cancelamento.");
@@ -9509,7 +10115,9 @@ var init_CancelOrderService = __esm({
           console.error("[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]", error2?.message || error2);
         });
         io.to(`restaurant:${orderRestaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
         emitWaiterTableOrderEvent(io, "order:status-changed", updatedOrder);
         emitTableSessionOrderEvent(io, "order:status-changed", updatedOrder);
         return updatedOrder;
@@ -9549,6 +10157,114 @@ var init_CancelOrderController = __esm({
       }
     };
     CancelOrderController_default = new CancelOrderController();
+  }
+});
+
+// src/modules/orders/services/CancelTableParticipantOrderService.ts
+import { OrderRefundStatus as OrderRefundStatus4, OrderStatus as OrderStatus13 } from "@prisma/client";
+import { z as z8 } from "zod";
+var publicOrderIdSchema, CancelTableParticipantOrderService, CancelTableParticipantOrderService_default;
+var init_CancelTableParticipantOrderService = __esm({
+  "src/modules/orders/services/CancelTableParticipantOrderService.ts"() {
+    init_server();
+    init_customerNotifier();
+    init_OrderRepository();
+    init_orderStateMachine();
+    init_waiterOrderRealtime();
+    init_CancelOrderWorkflowService();
+    publicOrderIdSchema = z8.string().uuid();
+    CancelTableParticipantOrderService = class {
+      async execute(input) {
+        const parsedPublicOrderId = publicOrderIdSchema.safeParse(input.publicOrderId);
+        const tableSessionId = Number(input.tableSessionId);
+        const restaurantId = Number(input.restaurantId);
+        const participantId = Number(input.participantId);
+        if (!parsedPublicOrderId.success || !Number.isSafeInteger(tableSessionId) || tableSessionId <= 0 || !Number.isSafeInteger(restaurantId) || restaurantId <= 0 || !Number.isSafeInteger(participantId) || participantId <= 0) {
+          throw new OrderCancellationError("Pedido n\xE3o encontrado!");
+        }
+        const order = await OrderRepository_default.findByPublicIdForTableParticipant(
+          parsedPublicOrderId.data,
+          tableSessionId,
+          restaurantId,
+          participantId
+        );
+        if (!order) {
+          throw new OrderCancellationError("Pedido n\xE3o encontrado!");
+        }
+        if (order.status === OrderStatus13.CANCELADO) {
+          if (!requiresAutomaticOrderRefund(order) || order.refundStatus === OrderRefundStatus4.SUCCEEDED) {
+            return order;
+          }
+          throw new OrderCancellationError(
+            "Este pedido j\xE1 est\xE1 cancelado, mas o estorno autom\xE1tico ainda n\xE3o foi confirmado."
+          );
+        }
+        if (!OrderStateMachine.canTransition(order.status, OrderStatus13.CANCELADO)) {
+          throw new OrderCancellationError("Pedido n\xE3o pode ser cancelado!");
+        }
+        const { order: updatedOrder } = await CancelOrderWorkflowService_default.execute(order);
+        notifyCustomerOrderStatusChanged({
+          restaurantId,
+          customerPhone: order.user?.phone,
+          customerName: order.user?.name || order.participant?.displayName,
+          restaurantName: order.restaurant?.name,
+          restaurantWhatsapp: order.restaurant?.whatsapp,
+          orderId: updatedOrder.id,
+          status: updatedOrder.status
+        }).catch((error2) => {
+          console.error(
+            "[TABLE_ORDER_STATUS_NOTIFICATION_UNHANDLED]",
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+        });
+        io.to(`restaurant:${restaurantId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
+        emitWaiterTableOrderEvent(io, "order:status-changed", updatedOrder);
+        emitTableSessionOrderEvent(io, "order:status-changed", updatedOrder);
+        return updatedOrder;
+      }
+    };
+    CancelTableParticipantOrderService_default = new CancelTableParticipantOrderService();
+  }
+});
+
+// src/modules/orders/controllers/CancelTableParticipantOrderController.ts
+var CancelTableParticipantOrderController, CancelTableParticipantOrderController_default;
+var init_CancelTableParticipantOrderController = __esm({
+  "src/modules/orders/controllers/CancelTableParticipantOrderController.ts"() {
+    init_CancelTableParticipantOrderService();
+    init_CancelOrderWorkflowService();
+    CancelTableParticipantOrderController = class {
+      async handle(req, res) {
+        try {
+          const order = await CancelTableParticipantOrderService_default.execute({
+            publicOrderId: req.params.publicOrderId,
+            tableSessionId: req.tableSession.id,
+            restaurantId: req.tableSession.restaurantId,
+            participantId: req.tableParticipant.id
+          });
+          return res.status(200).json({
+            order: {
+              publicId: order.publicId,
+              status: order.status,
+              paid: order.paid,
+              refundStatus: order.refundStatus,
+              updatedAt: order.updatedAt
+            }
+          });
+        } catch (error2) {
+          return res.status(400).json({
+            error: getPublicOrderCancellationErrorMessage(
+              error2,
+              "N\xE3o foi poss\xEDvel cancelar o pedido agora. Tente novamente ou chame o gar\xE7om."
+            )
+          });
+        }
+      }
+    };
+    CancelTableParticipantOrderController_default = new CancelTableParticipantOrderController();
   }
 });
 
@@ -9592,20 +10308,26 @@ var init_ConfirmOrderPaymentService = __esm({
           paid: true,
           paymentMethod: updatedOrder.paymentMethod
         });
-        io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod
-        });
-        io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod
-        });
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod
+          });
+          io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod
+          });
+        }
         io.to(`restaurant:${restaurantId}`).emit("new-order", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
+        }
         io.to(`restaurant:${restaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
         return updatedOrder;
       }
     };
@@ -9738,22 +10460,28 @@ var init_ConfirmOrderPaymentWithPinService = __esm({
           paymentMethod: updatedOrder.paymentMethod,
           confirmedWithPin: true
         });
-        io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-          confirmedWithPin: true
-        });
-        io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-          confirmedWithPin: true
-        });
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:payment-confirmed", {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod,
+            confirmedWithPin: true
+          });
+          io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod,
+            confirmedWithPin: true
+          });
+        }
         io.to(`restaurant:${restaurantId}`).emit("new-order", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("new-order", updatedOrder);
+        }
         io.to(`restaurant:${restaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
         return updatedOrder;
       }
     };
@@ -9988,6 +10716,7 @@ var init_CreateOrderPixPaymentController = __esm({
             pixProvider,
             observation,
             tableId,
+            settlementMode,
             items,
             address,
             number,
@@ -10013,6 +10742,8 @@ var init_CreateOrderPixPaymentController = __esm({
             userRestaurantId,
             tableSessionId: req.tableSession?.id ?? null,
             tableSessionTableId: req.tableSession?.tableId ?? null,
+            participantId: req.tableParticipant?.id ?? null,
+            settlementMode,
             deferRealtimeUntilPaid: true,
             type,
             paymentMethod,
@@ -10648,6 +11379,7 @@ var init_CreateOrderCardCheckoutController = __esm({
             customerPhone,
             observation,
             tableId,
+            settlementMode,
             cardProvider,
             successUrl,
             cancelUrl,
@@ -10661,6 +11393,8 @@ var init_CreateOrderCardCheckoutController = __esm({
             userRestaurantId,
             tableSessionId: req.tableSession?.id ?? null,
             tableSessionTableId: req.tableSession?.tableId ?? null,
+            participantId: req.tableParticipant?.id ?? null,
+            settlementMode,
             type,
             paymentMethod,
             items,
@@ -10724,7 +11458,7 @@ var init_GetOrderPixPaymentStatusController = __esm({
 });
 
 // src/modules/orders/services/ReconcileLateCancelledPaymentService.ts
-import { OrderRefundStatus as OrderRefundStatus4, OrderStatus as OrderStatus13, PaymentMethod as PaymentMethod7 } from "@prisma/client";
+import { OrderRefundStatus as OrderRefundStatus5, OrderStatus as OrderStatus14, PaymentMethod as PaymentMethod7 } from "@prisma/client";
 var ReconcileLateCancelledPaymentService, ReconcileLateCancelledPaymentService_default;
 var init_ReconcileLateCancelledPaymentService = __esm({
   "src/modules/orders/services/ReconcileLateCancelledPaymentService.ts"() {
@@ -10745,13 +11479,13 @@ var init_ReconcileLateCancelledPaymentService = __esm({
           throw new Error("Pagamento tardio sem refer\xEAncia para estorno.");
         }
         const order = await OrderRepository_default.findById(orderId, normalizedRestaurantId);
-        if (!order || order.status !== OrderStatus13.CANCELADO || order.paid === true) {
+        if (!order || order.status !== OrderStatus14.CANCELADO || order.paid === true) {
           return false;
         }
-        if (order.refundStatus === OrderRefundStatus4.SUCCEEDED) {
+        if (order.refundStatus === OrderRefundStatus5.SUCCEEDED) {
           return true;
         }
-        if (order.refundStatus === OrderRefundStatus4.PROCESSING) {
+        if (order.refundStatus === OrderRefundStatus5.PROCESSING) {
           throw new Error("Estorno de pagamento tardio j\xE1 est\xE1 em processamento.");
         }
         const isPix = normalizedMethod === PaymentMethod7.PIX;
@@ -10775,19 +11509,19 @@ var init_ReconcileLateCancelledPaymentService = __esm({
           where: {
             id: order.id,
             restaurantId: order.restaurantId,
-            status: OrderStatus13.CANCELADO,
+            status: OrderStatus14.CANCELADO,
             paid: false,
             ...isPix ? { pixPaymentId: order.pixPaymentId } : { cardCheckoutSessionId: order.cardCheckoutSessionId }
           },
           data: isPix ? {
             pixPaymentId: pendingMarker,
-            refundStatus: OrderRefundStatus4.PROCESSING,
+            refundStatus: OrderRefundStatus5.PROCESSING,
             refundRequestedAt: /* @__PURE__ */ new Date(),
             refundFailureReason: null,
             refundIdempotencyKey: idempotencyKey
           } : {
             cardCheckoutSessionId: pendingMarker,
-            refundStatus: OrderRefundStatus4.PROCESSING,
+            refundStatus: OrderRefundStatus5.PROCESSING,
             refundRequestedAt: /* @__PURE__ */ new Date(),
             refundFailureReason: null,
             refundIdempotencyKey: idempotencyKey
@@ -10813,7 +11547,7 @@ var init_ReconcileLateCancelledPaymentService = __esm({
             },
             {
               idempotencyKey,
-              verifyExistingRefund: order.refundStatus === OrderRefundStatus4.FAILED
+              verifyExistingRefund: order.refundStatus === OrderRefundStatus5.FAILED
             }
           );
         } catch (error2) {
@@ -10821,16 +11555,16 @@ var init_ReconcileLateCancelledPaymentService = __esm({
             where: {
               id: order.id,
               restaurantId: order.restaurantId,
-              refundStatus: OrderRefundStatus4.PROCESSING,
+              refundStatus: OrderRefundStatus5.PROCESSING,
               ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
             },
             data: isPix ? {
               pixPaymentId: order.pixPaymentId,
-              refundStatus: OrderRefundStatus4.FAILED,
+              refundStatus: OrderRefundStatus5.FAILED,
               refundFailureReason: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel confirmar o estorno do pagamento tardio."
             } : {
               cardCheckoutSessionId: order.cardCheckoutSessionId,
-              refundStatus: OrderRefundStatus4.FAILED,
+              refundStatus: OrderRefundStatus5.FAILED,
               refundFailureReason: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel confirmar o estorno do pagamento tardio."
             }
           });
@@ -10840,19 +11574,19 @@ var init_ReconcileLateCancelledPaymentService = __esm({
           where: {
             id: order.id,
             restaurantId: order.restaurantId,
-            refundStatus: OrderRefundStatus4.PROCESSING,
+            refundStatus: OrderRefundStatus5.PROCESSING,
             ...isPix ? { pixPaymentId: pendingMarker } : { cardCheckoutSessionId: pendingMarker }
           },
           data: isPix ? {
             pixPaymentId: completedMarker,
-            refundStatus: OrderRefundStatus4.SUCCEEDED,
+            refundStatus: OrderRefundStatus5.SUCCEEDED,
             refundedAt: /* @__PURE__ */ new Date(),
             refundFailureReason: null,
             refundProvider: receipt.provider,
             refundExternalId: receipt.externalId
           } : {
             cardCheckoutSessionId: completedMarker,
-            refundStatus: OrderRefundStatus4.SUCCEEDED,
+            refundStatus: OrderRefundStatus5.SUCCEEDED,
             refundedAt: /* @__PURE__ */ new Date(),
             refundFailureReason: null,
             refundProvider: receipt.provider,
@@ -10861,7 +11595,7 @@ var init_ReconcileLateCancelledPaymentService = __esm({
         });
         if (persisted.count !== 1) {
           const latest = await OrderRepository_default.findById(order.id, order.restaurantId);
-          if (latest?.refundStatus !== OrderRefundStatus4.SUCCEEDED) {
+          if (latest?.refundStatus !== OrderRefundStatus5.SUCCEEDED) {
             console.error("[LATE_ORDER_REFUND_RECONCILIATION_REQUIRED]", {
               orderId: order.id,
               restaurantId: order.restaurantId,
@@ -10988,15 +11722,19 @@ var init_FinalizeOrderPixPaymentService = __esm({
           paymentMethod: updatedOrder.paymentMethod
         });
         emitTableSessionOrderEvent(io, "order:payment-confirmed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-          status: updatedOrder.status
-        });
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod,
+            status: updatedOrder.status
+          });
+        }
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit("new-order", updatedOrder);
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
         emitWaiterTableOrderEvent(io, "new-order", updatedOrder);
         emitTableSessionOrderEvent(io, "new-order", updatedOrder);
         emitTableSessionOrderEvent(io, "order:status-changed", updatedOrder);
@@ -11826,7 +12564,7 @@ var init_ResolveOrderIssueController = __esm({
 });
 
 // src/modules/orders/services/RefundOrderByAdminService.ts
-import { OrderRefundStatus as OrderRefundStatus5, OrderStatus as OrderStatus14, UserRole as UserRole15 } from "@prisma/client";
+import { OrderRefundStatus as OrderRefundStatus6, OrderStatus as OrderStatus15, UserRole as UserRole15 } from "@prisma/client";
 var RefundOrderByAdminService, RefundOrderByAdminService_default;
 var init_RefundOrderByAdminService = __esm({
   "src/modules/orders/services/RefundOrderByAdminService.ts"() {
@@ -11876,8 +12614,8 @@ var init_RefundOrderByAdminService = __esm({
         if (!adminUser) {
           throw new OrderCancellationError("Admin sem permiss\xE3o para este restaurante.");
         }
-        if (order.status === OrderStatus14.CANCELADO) {
-          const alreadyRefunded = order.refundStatus === OrderRefundStatus5.SUCCEEDED;
+        if (order.status === OrderStatus15.CANCELADO) {
+          const alreadyRefunded = order.refundStatus === OrderRefundStatus6.SUCCEEDED;
           return {
             order,
             refunded: alreadyRefunded,
@@ -11885,7 +12623,7 @@ var init_RefundOrderByAdminService = __esm({
             issueThread: toOrderIssueThreadPayload(issueThread)
           };
         }
-        if (order.status === OrderStatus14.ENTREGUE) {
+        if (order.status === OrderStatus15.ENTREGUE) {
           throw new OrderCancellationError(
             "Pedidos j\xE1 entregues n\xE3o podem ser cancelados ou estornados por este fluxo. Abra uma concilia\xE7\xE3o financeira."
           );
@@ -11919,7 +12657,9 @@ var init_RefundOrderByAdminService = __esm({
           );
         });
         io.to(`restaurant:${normalizedRestaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${order.userId}`).emit("order:status-changed", updatedOrder);
+        if (order.userId) {
+          io.to(`user:${order.userId}`).emit("order:status-changed", updatedOrder);
+        }
         emitWaiterTableOrderEvent(io, "waiter:order-updated", updatedOrder);
         emitTableSessionOrderEvent(io, "order:status-changed", updatedOrder);
         if (resolvedPayload) {
@@ -11927,7 +12667,9 @@ var init_RefundOrderByAdminService = __esm({
             "order:issue-resolved",
             resolvedPayload
           );
-          io.to(`user:${order.userId}`).emit("order:issue-resolved", resolvedPayload);
+          if (order.userId) {
+            io.to(`user:${order.userId}`).emit("order:issue-resolved", resolvedPayload);
+          }
         }
         return {
           order: updatedOrder,
@@ -12225,15 +12967,19 @@ var init_FinalizeOrderCardPaymentService = __esm({
           paymentMethod: updatedOrder.paymentMethod
         });
         emitTableSessionOrderEvent(io, "order:payment-confirmed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
-          orderId: updatedOrder.id,
-          paid: true,
-          paymentMethod: updatedOrder.paymentMethod,
-          status: updatedOrder.status
-        });
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+            orderId: updatedOrder.id,
+            paid: true,
+            paymentMethod: updatedOrder.paymentMethod,
+            status: updatedOrder.status
+          });
+        }
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit("new-order", updatedOrder);
         io.to(`restaurant:${updatedOrder.restaurantId}`).emit("order:status-changed", updatedOrder);
-        io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        if (updatedOrder.userId) {
+          io.to(`user:${updatedOrder.userId}`).emit("order:status-changed", updatedOrder);
+        }
         emitWaiterTableOrderEvent(io, "new-order", updatedOrder);
         emitTableSessionOrderEvent(io, "new-order", updatedOrder);
         emitTableSessionOrderEvent(io, "order:status-changed", updatedOrder);
@@ -12260,7 +13006,7 @@ var init_FinalizeOrderCardPaymentService = __esm({
 });
 
 // src/modules/orders/services/FailPendingOrderPaymentService.ts
-import { OrderStatus as OrderStatus15 } from "@prisma/client";
+import { OrderStatus as OrderStatus16 } from "@prisma/client";
 var FailPendingOrderPaymentService, FailPendingOrderPaymentService_default;
 var init_FailPendingOrderPaymentService = __esm({
   "src/modules/orders/services/FailPendingOrderPaymentService.ts"() {
@@ -12288,10 +13034,10 @@ var init_FailPendingOrderPaymentService = __esm({
           normalizedCardSessionId,
           normalizedRestaurantId
         ) : null;
-        if (!order || order.paid === true || order.status === OrderStatus15.CANCELADO) {
+        if (!order || order.paid === true || order.status === OrderStatus16.CANCELADO) {
           return order;
         }
-        if (order.status !== OrderStatus15.PENDENTE) {
+        if (order.status !== OrderStatus16.PENDENTE) {
           throw new Error(
             "Falha de pagamento recebida para um pedido que j\xE1 avan\xE7ou na opera\xE7\xE3o."
           );
@@ -12299,9 +13045,9 @@ var init_FailPendingOrderPaymentService = __esm({
         const cancelledOrder = await prisma_default.$transaction(async (tx) => {
           const updated = await OrderRepository_default.updateStatusIfCurrent(
             order.id,
-            OrderStatus15.CANCELADO,
+            OrderStatus16.CANCELADO,
             order.restaurantId,
-            { status: OrderStatus15.PENDENTE, paid: false },
+            { status: OrderStatus16.PENDENTE, paid: false },
             tx
           );
           await restoreOrderItemsStock(tx, order);
@@ -12739,11 +13485,18 @@ var init_GetCurrentTableOrderService = __esm({
   "src/modules/orders/services/GetCurrentTableOrderService.ts"() {
     init_OrderRepository();
     GetCurrentTableOrderService = class {
-      async execute(tableId, restaurantId) {
-        if (!Number(tableId) || !Number(restaurantId)) {
+      async execute(input) {
+        const tableSessionId = Number(input.tableSessionId || 0);
+        const restaurantId = Number(input.restaurantId || 0);
+        const participantId = Number(input.participantId || 0);
+        if (!Number.isSafeInteger(tableSessionId) || tableSessionId <= 0 || !Number.isSafeInteger(restaurantId) || restaurantId <= 0 || !Number.isSafeInteger(participantId) || participantId <= 0) {
           return null;
         }
-        return OrderRepository_default.findLatestByTable(tableId, restaurantId);
+        return OrderRepository_default.findLatestByTableParticipant(
+          tableSessionId,
+          restaurantId,
+          participantId
+        );
       }
     };
     GetCurrentTableOrderService_default = new GetCurrentTableOrderService();
@@ -12758,12 +13511,12 @@ var init_GetCurrentTableOrderController = __esm({
     GetCurrentTableOrderController = class {
       async handle(req, res) {
         try {
-          const tableId = req.tableSession?.tableId;
-          const restaurantId = req.tableSession?.restaurantId;
-          const order = await GetCurrentTableOrderService_default.execute(
-            Number(tableId || 0),
-            Number(restaurantId || 0)
-          );
+          const order = await GetCurrentTableOrderService_default.execute({
+            tableSessionId: req.tableSession?.id,
+            restaurantId: req.tableSession?.restaurantId,
+            participantId: req.tableParticipant?.id
+          });
+          res.setHeader("Cache-Control", "no-store");
           return res.status(200).json({ order });
         } catch (error2) {
           return res.status(400).json({
@@ -12777,7 +13530,7 @@ var init_GetCurrentTableOrderController = __esm({
 });
 
 // src/modules/orders/utils/deliveryReceiptConfirmation.ts
-import { OrderStatus as OrderStatus16, OrderType as OrderType8, UserRole as UserRole16 } from "@prisma/client";
+import { OrderStatus as OrderStatus17, OrderType as OrderType8, UserRole as UserRole16 } from "@prisma/client";
 function canConfirmDeliveryReceipt(order, customerId2, role) {
   if (String(role).toUpperCase() !== UserRole16.CLIENTE) {
     throw new Error("Somente o cliente do pedido pode confirmar o recebimento.");
@@ -12788,7 +13541,7 @@ function canConfirmDeliveryReceipt(order, customerId2, role) {
   if (order.type !== OrderType8.DELIVERY) {
     throw new Error("A confirma\xE7\xE3o de recebimento \xE9 exclusiva para pedidos de entrega.");
   }
-  if (order.status !== OrderStatus16.ENTREGUE) {
+  if (order.status !== OrderStatus17.ENTREGUE) {
     throw new Error("O pedido ainda n\xE3o foi marcado como entregue.");
   }
   return !order.deliveryConfirmedAt;
@@ -12871,7 +13624,7 @@ var init_ConfirmOrderDeliveryReceivedController = __esm({
 
 // src/modules/orders/controllers/QuoteOrderController.ts
 import { OrderType as OrderType9 } from "@prisma/client";
-import { z as z7 } from "zod";
+import { z as z9 } from "zod";
 var QuoteOrderController, QuoteOrderController_default;
 var init_QuoteOrderController = __esm({
   "src/modules/orders/controllers/QuoteOrderController.ts"() {
@@ -12885,20 +13638,20 @@ var init_QuoteOrderController = __esm({
             requestedRestaurantId: restaurantId,
             contextRestaurantId: req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null
           });
-          const parsed = z7.object({
-            type: z7.nativeEnum(OrderType9),
-            couponRedemptionId: z7.number().int().positive().nullable().optional(),
-            items: z7.array(
-              z7.object({
-                productId: z7.number().int().positive(),
-                quantity: z7.number().int().positive(),
-                observation: z7.string().trim().max(500).optional(),
-                ingredientIds: z7.array(z7.number().int().positive()).max(40).optional(),
-                optionIds: z7.array(z7.number().int().positive()).max(100).optional(),
-                selectedOptions: z7.array(
-                  z7.object({
-                    groupId: z7.number().int().positive(),
-                    optionIds: z7.array(z7.number().int().positive()).max(40)
+          const parsed = z9.object({
+            type: z9.nativeEnum(OrderType9),
+            couponRedemptionId: z9.number().int().positive().nullable().optional(),
+            items: z9.array(
+              z9.object({
+                productId: z9.number().int().positive(),
+                quantity: z9.number().int().positive(),
+                observation: z9.string().trim().max(500).optional(),
+                ingredientIds: z9.array(z9.number().int().positive()).max(40).optional(),
+                optionIds: z9.array(z9.number().int().positive()).max(100).optional(),
+                selectedOptions: z9.array(
+                  z9.object({
+                    groupId: z9.number().int().positive(),
+                    optionIds: z9.array(z9.number().int().positive()).max(40)
                   })
                 ).max(20).optional()
               })
@@ -12951,6 +13704,43 @@ var init_staffMiddleware = __esm({
   }
 });
 
+// src/middlewares/optionalAuthMiddleware.ts
+import jwt4 from "jsonwebtoken";
+function optionalAuthMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return next();
+  }
+  const [scheme, token] = authHeader.split(" ");
+  if (scheme !== "Bearer" || !token) {
+    return res.status(401).json({ error: "Token inv\xE1lido!" });
+  }
+  try {
+    const decoded = jwt4.verify(token, process.env.JWT_SECRET);
+    if (typeof decoded === "string") {
+      return res.status(401).json({ error: "Token inv\xE1lido!" });
+    }
+    const userId = Number(decoded.id || 0);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(401).json({ error: "Token inv\xE1lido!" });
+    }
+    req.user = {
+      id: userId,
+      role: String(decoded.role || ""),
+      subRole: decoded.subRole === null || decoded.subRole === void 0 ? null : String(decoded.subRole),
+      restaurantId: decoded.restaurantId === null || decoded.restaurantId === void 0 ? null : Number(decoded.restaurantId),
+      email: decoded.email === null || decoded.email === void 0 ? null : String(decoded.email)
+    };
+    return next();
+  } catch {
+    return res.status(401).json({ error: "Token inv\xE1lido!" });
+  }
+}
+var init_optionalAuthMiddleware = __esm({
+  "src/middlewares/optionalAuthMiddleware.ts"() {
+  }
+});
+
 // src/middlewares/sessionMiddleware.ts
 import { TableSessionStatus as TableSessionStatus3 } from "@prisma/client";
 async function sessionMiddleware(req, res, next) {
@@ -12980,8 +13770,10 @@ async function sessionMiddleware(req, res, next) {
     }
     req.tableSession = {
       id: session.id,
+      publicId: session.publicId,
       tableId: session.tableId,
-      restaurantId: session.table.restaurantId
+      restaurantId: session.restaurantId,
+      status: session.status
     };
     return next();
   } catch (error2) {
@@ -12993,6 +13785,305 @@ async function sessionMiddleware(req, res, next) {
 var init_sessionMiddleware = __esm({
   "src/middlewares/sessionMiddleware.ts"() {
     init_TableSessionRepository();
+  }
+});
+
+// src/modules/tableSession/repositories/TableParticipantRepository.ts
+import { TableParticipantStatus as TableParticipantStatus2 } from "@prisma/client";
+var participantSelect, TableParticipantRepository, TableParticipantRepository_default;
+var init_TableParticipantRepository = __esm({
+  "src/modules/tableSession/repositories/TableParticipantRepository.ts"() {
+    init_prisma();
+    participantSelect = {
+      id: true,
+      publicId: true,
+      restaurantId: true,
+      tableSessionId: true,
+      userId: true,
+      displayName: true,
+      tokenExpiresAt: true,
+      status: true,
+      joinedAt: true,
+      leftAt: true,
+      revokedAt: true,
+      user: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    };
+    TableParticipantRepository = class {
+      async findGuestByTokenHash(guestTokenHash, tableSessionId, restaurantId, db = prisma_default) {
+        return db.tableParticipant.findFirst({
+          where: {
+            guestTokenHash,
+            tableSessionId,
+            restaurantId,
+            userId: null,
+            status: TableParticipantStatus2.ACTIVE,
+            revokedAt: null,
+            tokenExpiresAt: { gt: /* @__PURE__ */ new Date() }
+          },
+          select: participantSelect
+        });
+      }
+      async findByUser(userId, tableSessionId, restaurantId, db = prisma_default) {
+        return db.tableParticipant.findFirst({
+          where: {
+            userId,
+            tableSessionId,
+            restaurantId,
+            status: TableParticipantStatus2.ACTIVE,
+            revokedAt: null
+          },
+          select: participantSelect
+        });
+      }
+      async createGuest(data, db = prisma_default) {
+        return db.tableParticipant.create({
+          data,
+          select: participantSelect
+        });
+      }
+      async upsertAuthenticated(data, db = prisma_default) {
+        return db.tableParticipant.upsert({
+          where: {
+            tableSessionId_userId: {
+              tableSessionId: data.tableSessionId,
+              userId: data.userId
+            }
+          },
+          create: data,
+          update: {
+            displayName: data.displayName,
+            status: TableParticipantStatus2.ACTIVE,
+            leftAt: null,
+            revokedAt: null
+          },
+          select: participantSelect
+        });
+      }
+      async linkGuestToUser(guestParticipantId, userId, displayName, tableSessionId, restaurantId, db = prisma_default) {
+        return db.tableParticipant.update({
+          where: {
+            id: guestParticipantId,
+            tableSessionId,
+            restaurantId,
+            status: TableParticipantStatus2.ACTIVE,
+            revokedAt: null
+          },
+          data: {
+            userId,
+            displayName,
+            guestTokenHash: null,
+            tokenExpiresAt: null
+          },
+          select: participantSelect
+        });
+      }
+      async revoke(participantId, tableSessionId, restaurantId, db = prisma_default) {
+        const now = /* @__PURE__ */ new Date();
+        return db.tableParticipant.updateMany({
+          where: {
+            id: participantId,
+            tableSessionId,
+            restaurantId,
+            status: TableParticipantStatus2.ACTIVE
+          },
+          data: {
+            status: TableParticipantStatus2.LEFT,
+            leftAt: now,
+            revokedAt: now,
+            tokenExpiresAt: now
+          }
+        });
+      }
+      async revokeActiveBySession(tableSessionId, restaurantId, db = prisma_default) {
+        const now = /* @__PURE__ */ new Date();
+        return db.tableParticipant.updateMany({
+          where: {
+            tableSessionId,
+            restaurantId,
+            status: TableParticipantStatus2.ACTIVE
+          },
+          data: {
+            status: TableParticipantStatus2.LEFT,
+            leftAt: now,
+            revokedAt: now,
+            tokenExpiresAt: now
+          }
+        });
+      }
+      async updateDisplayName(participantId, tableSessionId, restaurantId, displayName, db = prisma_default) {
+        return db.tableParticipant.update({
+          where: {
+            id: participantId,
+            tableSessionId,
+            restaurantId,
+            status: TableParticipantStatus2.ACTIVE,
+            revokedAt: null
+          },
+          data: { displayName },
+          select: participantSelect
+        });
+      }
+      async attachUserToOwnedOrders(participantId, userId, tableSessionId, restaurantId, db = prisma_default) {
+        return db.order.updateMany({
+          where: {
+            participantId,
+            tableSessionId,
+            restaurantId
+          },
+          data: { userId }
+        });
+      }
+      async transferOwnedTableData(sourceParticipantId, targetParticipantId, targetUserId, tableSessionId, restaurantId, db = prisma_default) {
+        const orders = await db.order.updateMany({
+          where: {
+            participantId: sourceParticipantId,
+            tableSessionId,
+            restaurantId
+          },
+          data: {
+            participantId: targetParticipantId,
+            userId: targetUserId
+          }
+        });
+        const orderItems = await db.orderItem.updateMany({
+          where: {
+            participantId: sourceParticipantId,
+            tableSessionId,
+            restaurantId
+          },
+          data: { participantId: targetParticipantId }
+        });
+        return {
+          orders: orders.count,
+          orderItems: orderItems.count
+        };
+      }
+    };
+    TableParticipantRepository_default = new TableParticipantRepository();
+  }
+});
+
+// src/modules/tableSession/security/participantToken.ts
+import crypto7 from "crypto";
+function createParticipantToken() {
+  return crypto7.randomBytes(32).toString("base64url");
+}
+function hashParticipantToken(token) {
+  return crypto7.createHash("sha256").update(token, "utf8").digest("hex");
+}
+function isParticipantTokenShape(token) {
+  return typeof token === "string" && /^[a-zA-Z0-9_-]{43}$/.test(token);
+}
+function getParticipantCookieName(sessionPublicId) {
+  const safeSessionId = String(sessionPublicId || "").replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!safeSessionId) {
+    throw new Error("Sess\xE3o p\xFAblica inv\xE1lida para identificar o participante.");
+  }
+  return `${PARTICIPANT_COOKIE_PREFIX}${safeSessionId}`;
+}
+function parseCookieHeader(cookieHeader) {
+  if (!cookieHeader) return {};
+  return cookieHeader.split(";").reduce((cookies, part) => {
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex <= 0) return cookies;
+    const name = part.slice(0, separatorIndex).trim();
+    const value = part.slice(separatorIndex + 1).trim();
+    if (!name || !value) return cookies;
+    try {
+      cookies[name] = decodeURIComponent(value);
+    } catch {
+    }
+    return cookies;
+  }, {});
+}
+function resolveParticipantTokenExpiration(sessionExpiresAt, now = /* @__PURE__ */ new Date()) {
+  const configuredHours = Number(
+    process.env.TABLE_PARTICIPANT_TOKEN_HOURS || DEFAULT_PARTICIPANT_TOKEN_HOURS
+  );
+  const hours = Number.isFinite(configuredHours) ? Math.min(Math.max(configuredHours, 1), 24) : DEFAULT_PARTICIPANT_TOKEN_HOURS;
+  const configuredExpiration = now.getTime() + hours * 60 * 60 * 1e3;
+  const sessionExpiration = sessionExpiresAt?.getTime();
+  return new Date(
+    Number.isFinite(sessionExpiration) ? Math.min(configuredExpiration, Number(sessionExpiration)) : configuredExpiration
+  );
+}
+function getParticipantCookieOptions(expires) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires
+  };
+}
+var PARTICIPANT_COOKIE_PREFIX, DEFAULT_PARTICIPANT_TOKEN_HOURS;
+var init_participantToken = __esm({
+  "src/modules/tableSession/security/participantToken.ts"() {
+    PARTICIPANT_COOKIE_PREFIX = "table_participant_";
+    DEFAULT_PARTICIPANT_TOKEN_HOURS = 12;
+  }
+});
+
+// src/middlewares/tableParticipantMiddleware.ts
+import { UserRole as UserRole19 } from "@prisma/client";
+async function tableParticipantMiddleware(req, res, next) {
+  try {
+    const session = req.tableSession;
+    if (!session) {
+      return res.status(401).json({
+        error: "Entre novamente na mesa pelo QR Code.",
+        code: "TABLE_SESSION_REQUIRED"
+      });
+    }
+    const authenticatedCustomerId = req.user?.role === UserRole19.CLIENTE && Number(req.user.id) > 0 ? Number(req.user.id) : null;
+    let participant = authenticatedCustomerId ? await TableParticipantRepository_default.findByUser(
+      authenticatedCustomerId,
+      session.id,
+      session.restaurantId
+    ) : null;
+    if (!participant) {
+      const cookieName = getParticipantCookieName(session.publicId);
+      const rawToken = parseCookieHeader(req.headers.cookie)[cookieName];
+      if (isParticipantTokenShape(rawToken)) {
+        participant = await TableParticipantRepository_default.findGuestByTokenHash(
+          hashParticipantToken(rawToken),
+          session.id,
+          session.restaurantId
+        );
+      }
+    }
+    if (!participant) {
+      return res.status(401).json({
+        error: "Sua identifica\xE7\xE3o nesta mesa expirou. Leia o QR Code novamente.",
+        code: "TABLE_PARTICIPANT_REQUIRED"
+      });
+    }
+    req.tableParticipant = {
+      id: participant.id,
+      publicId: participant.publicId,
+      tableSessionId: participant.tableSessionId,
+      restaurantId: participant.restaurantId,
+      userId: participant.userId,
+      displayName: participant.displayName || participant.user?.name || null,
+      authenticated: Boolean(participant.userId)
+    };
+    return next();
+  } catch (error2) {
+    return res.status(500).json({
+      error: "N\xE3o foi poss\xEDvel validar sua identifica\xE7\xE3o nesta mesa.",
+      ...process.env.NODE_ENV === "development" && error2 instanceof Error ? { detail: error2.message } : {}
+    });
+  }
+}
+var init_tableParticipantMiddleware = __esm({
+  "src/middlewares/tableParticipantMiddleware.ts"() {
+    init_TableParticipantRepository();
+    init_participantToken();
   }
 });
 
@@ -13008,21 +14099,20 @@ async function orderAccessMiddleware(req, res, next) {
     });
   }
   if (orderType === "MESA" && sessionToken) {
-    return sessionMiddleware(req, res, () => {
-      const requestedTableId = Number(req.body?.tableId || 0);
-      if (requestedTableId > 0 && requestedTableId !== Number(req.tableSession.tableId)) {
-        return res.status(403).json({
-          error: "Sess\xE3o da mesa inv\xE1lida para este pedido."
-        });
-      }
-      req.body.tableId = Number(req.tableSession.tableId);
-      req.user = {
-        id: null,
-        restaurantId: req.tableSession.restaurantId,
-        role: "CLIENTE"
-      };
-      return next();
-    });
+    return optionalAuthMiddleware(
+      req,
+      res,
+      () => sessionMiddleware(req, res, () => {
+        const requestedTableId = Number(req.body?.tableId || 0);
+        if (requestedTableId > 0 && requestedTableId !== Number(req.tableSession.tableId)) {
+          return res.status(403).json({
+            error: "Sess\xE3o da mesa inv\xE1lida para este pedido."
+          });
+        }
+        req.body.tableId = Number(req.tableSession.tableId);
+        return tableParticipantMiddleware(req, res, next);
+      })
+    );
   }
   if (authHeader) {
     return authMiddleware(req, res, next);
@@ -13060,7 +14150,9 @@ async function orderAccessMiddleware(req, res, next) {
 var init_orderAccessMiddleware = __esm({
   "src/middlewares/orderAccessMiddleware.ts"() {
     init_authMiddleware();
+    init_optionalAuthMiddleware();
     init_sessionMiddleware();
+    init_tableParticipantMiddleware();
   }
 });
 
@@ -13114,6 +14206,7 @@ var init_orderRoutes = __esm({
     init_GetOrderByIdController();
     init_ListMyOrdersController();
     init_CancelOrderController();
+    init_CancelTableParticipantOrderController();
     init_ConfirmOrderPaymentController();
     init_ConfirmOrderPaymentWithPinController();
     init_GenerateOrderPaymentConfirmationPinController();
@@ -13138,7 +14231,9 @@ var init_orderRoutes = __esm({
     init_billingMiddleware();
     init_orderAccessMiddleware();
     init_authMiddleware();
+    init_optionalAuthMiddleware();
     init_sessionMiddleware();
+    init_tableParticipantMiddleware();
     init_orderPaymentRateLimitMiddleware();
     router3 = Router3();
     router3.post("/webhook/mercadopago", MercadoPagoOrderWebhookController_default.handle);
@@ -13207,9 +14302,24 @@ var init_orderRoutes = __esm({
     router3.get("/my-orders", authMiddleware, (req, res) => {
       ListMyOrdersController_default.handle(req, res);
     });
-    router3.get("/table/current", sessionMiddleware, (req, res) => {
-      GetCurrentTableOrderController_default.handle(req, res);
-    });
+    router3.get(
+      "/table/current",
+      optionalAuthMiddleware,
+      sessionMiddleware,
+      tableParticipantMiddleware,
+      (req, res) => {
+        GetCurrentTableOrderController_default.handle(req, res);
+      }
+    );
+    router3.patch(
+      "/table/:publicOrderId/cancel",
+      optionalAuthMiddleware,
+      sessionMiddleware,
+      tableParticipantMiddleware,
+      (req, res) => {
+        CancelTableParticipantOrderController_default.handle(req, res);
+      }
+    );
     router3.get("/:id/tracking", authMiddleware, (req, res, next) => {
       GetDeliveryTrackingController_default.handle(req, res, next);
     });
@@ -13239,12 +14349,12 @@ var init_orderRoutes = __esm({
 });
 
 // src/middlewares/superAdminMiddleware.ts
-import { UserRole as UserRole19 } from "@prisma/client";
+import { UserRole as UserRole20 } from "@prisma/client";
 function superAdminMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "N\xE3o autenticado" });
   }
-  if (req.user.role !== UserRole19.SUPER_ADMIN) {
+  if (req.user.role !== UserRole20.SUPER_ADMIN) {
     return res.status(403).json({ message: "Acesso negado!" });
   }
   return next();
@@ -13286,7 +14396,7 @@ var init_SubscriptionRepository = __esm({
 });
 
 // src/validators/RestaurantValidator.ts
-import { z as z8 } from "zod";
+import { z as z10 } from "zod";
 function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "").trim();
 }
@@ -13317,49 +14427,49 @@ var init_RestaurantValidator = __esm({
       "yahho.com": "yahoo.com",
       "outlok.com": "outlook.com"
     };
-    createRestaurantSchema = z8.object({
-      plan: z8.enum(["BASICO", "PREMIUM"], {
+    createRestaurantSchema = z10.object({
+      plan: z10.enum(["BASICO", "PREMIUM"], {
         errorMap: () => ({ message: "Escolha o plano B\xE1sico ou Premium." })
       }),
-      restaurant: z8.object({
-        name: z8.string().trim().min(2, "Nome do restaurante deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do restaurante muito longo!"),
-        slug: z8.string().trim().toLowerCase().min(3, "Slug deve ter no m\xEDnimo 3 caracteres!").max(60, "Slug muito longo!").regex(slugPattern, "Slug inv\xE1lido! Use apenas letras min\xFAsculas, n\xFAmeros e h\xEDfen."),
-        email: z8.string().trim().toLowerCase().email("Email do restaurante inv\xE1lido!").superRefine((value, context) => {
+      restaurant: z10.object({
+        name: z10.string().trim().min(2, "Nome do restaurante deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do restaurante muito longo!"),
+        slug: z10.string().trim().toLowerCase().min(3, "Slug deve ter no m\xEDnimo 3 caracteres!").max(60, "Slug muito longo!").regex(slugPattern, "Slug inv\xE1lido! Use apenas letras min\xFAsculas, n\xFAmeros e h\xEDfen."),
+        email: z10.string().trim().toLowerCase().email("Email do restaurante inv\xE1lido!").superRefine((value, context) => {
           const result = validateEmailDomainTypos(value);
           if (!result.valid) {
             context.addIssue({
-              code: z8.ZodIssueCode.custom,
+              code: z10.ZodIssueCode.custom,
               message: result.message
             });
           }
         }),
-        phone: z8.string().optional().transform((value) => normalizePhone(value || "")).refine((value) => !value || /^\d{10,11}$/.test(value), "Telefone do restaurante inv\xE1lido!"),
-        whatsapp: z8.string().optional(),
-        cnpj: z8.string().optional(),
-        logo: z8.string().optional(),
-        coverImage: z8.string().optional(),
-        description: z8.string().optional(),
-        address: z8.string().trim().optional(),
-        city: z8.string().trim().optional().refine((value) => !value || value.length >= 2, "Cidade deve ter no m\xEDnimo 2 caracteres!"),
-        state: z8.string().trim().toUpperCase().optional().refine(
+        phone: z10.string().optional().transform((value) => normalizePhone(value || "")).refine((value) => !value || /^\d{10,11}$/.test(value), "Telefone do restaurante inv\xE1lido!"),
+        whatsapp: z10.string().optional(),
+        cnpj: z10.string().optional(),
+        logo: z10.string().optional(),
+        coverImage: z10.string().optional(),
+        description: z10.string().optional(),
+        address: z10.string().trim().optional(),
+        city: z10.string().trim().optional().refine((value) => !value || value.length >= 2, "Cidade deve ter no m\xEDnimo 2 caracteres!"),
+        state: z10.string().trim().toUpperCase().optional().refine(
           (value) => !value || /^[A-Z]{2}$/.test(value),
           "Estado deve conter exatamente 2 letras."
         ),
-        zipCode: z8.string().optional(),
-        openingHours: z8.string().optional()
+        zipCode: z10.string().optional(),
+        openingHours: z10.string().optional()
       }),
-      admin: z8.object({
-        name: z8.string().trim().min(2, "Nome do admin deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do admin muito longo!"),
-        email: z8.string().trim().toLowerCase().email("Email do admin inv\xE1lido!").superRefine((value, context) => {
+      admin: z10.object({
+        name: z10.string().trim().min(2, "Nome do admin deve ter no m\xEDnimo 2 caracteres!").max(120, "Nome do admin muito longo!"),
+        email: z10.string().trim().toLowerCase().email("Email do admin inv\xE1lido!").superRefine((value, context) => {
           const result = validateEmailDomainTypos(value);
           if (!result.valid) {
             context.addIssue({
-              code: z8.ZodIssueCode.custom,
+              code: z10.ZodIssueCode.custom,
               message: result.message
             });
           }
         }),
-        password: z8.string().min(6, "Senha deve ter no m\xEDnimo 6 caracteres!").max(72, "Senha muito longa!")
+        password: z10.string().min(6, "Senha deve ter no m\xEDnimo 6 caracteres!").max(72, "Senha muito longa!")
       })
     });
   }
@@ -13367,7 +14477,7 @@ var init_RestaurantValidator = __esm({
 
 // src/modules/restaurants/services/CreateRestaurantService.ts
 import bcrypt8 from "bcrypt";
-import { SubscriptionStatus, UserRole as UserRole20 } from "@prisma/client";
+import { SubscriptionStatus, UserRole as UserRole21 } from "@prisma/client";
 function requireDefined2(value, message) {
   if (value === null || value === void 0) {
     throw new Error(message);
@@ -13434,7 +14544,7 @@ var init_CreateRestaurantService = __esm({
               name: parsedAdmin.name,
               email: parsedAdmin.email,
               password: passwordHash,
-              role: UserRole20.ADMIN,
+              role: UserRole21.ADMIN,
               active: true,
               mustChangePassword: true,
               restaurantId: createdRestaurant.id
@@ -13710,15 +14820,15 @@ var init_restaurantRoutes = __esm({
 });
 
 // src/validators/CategoryValidator.ts
-import { z as z9 } from "zod";
+import { z as z11 } from "zod";
 var createCategorySchema;
 var init_CategoryValidator = __esm({
   "src/validators/CategoryValidator.ts"() {
-    createCategorySchema = z9.object({
-      name: z9.string().trim().min(1, "Nome \xE9 obrigat\xF3rio!").max(50, "Nome deve ter no m\xE1ximo 50 caracteres."),
-      description: z9.string().trim().max(255, "Descri\xE7\xE3o deve ter no m\xE1ximo 255 caracteres.").optional(),
-      image: z9.string().trim().optional(),
-      active: z9.boolean().optional()
+    createCategorySchema = z11.object({
+      name: z11.string().trim().min(1, "Nome \xE9 obrigat\xF3rio!").max(50, "Nome deve ter no m\xE1ximo 50 caracteres."),
+      description: z11.string().trim().max(255, "Descri\xE7\xE3o deve ter no m\xE1ximo 255 caracteres.").optional(),
+      image: z11.string().trim().optional(),
+      active: z11.boolean().optional()
     });
   }
 });
@@ -13961,7 +15071,7 @@ var init_CategoryRoutes = __esm({
 });
 
 // src/modules/employee/repositories/EmployeeRepository.ts
-import { UserRole as UserRole21 } from "@prisma/client";
+import { UserRole as UserRole22 } from "@prisma/client";
 var employeePublicSelect, EmployeeRepository, EmployeeRepository_default;
 var init_EmployeeRepository = __esm({
   "src/modules/employee/repositories/EmployeeRepository.ts"() {
@@ -13996,7 +15106,7 @@ var init_EmployeeRepository = __esm({
           where: {
             restaurantId,
             role: {
-              in: [UserRole21.FUNCIONARIO, UserRole21.MOTOQUEIRO]
+              in: [UserRole22.FUNCIONARIO, UserRole22.MOTOQUEIRO]
             }
           },
           select: employeePublicSelect
@@ -14008,7 +15118,7 @@ var init_EmployeeRepository = __esm({
             id: Number(id),
             restaurantId,
             role: {
-              in: [UserRole21.FUNCIONARIO, UserRole21.MOTOQUEIRO]
+              in: [UserRole22.FUNCIONARIO, UserRole22.MOTOQUEIRO]
             }
           },
           select: employeePublicSelect
@@ -14063,7 +15173,7 @@ var init_EmployeeRepository = __esm({
 });
 
 // src/modules/employee/services/CreateEmployeeService.ts
-import { UserRole as UserRole22 } from "@prisma/client";
+import { UserRole as UserRole23 } from "@prisma/client";
 import bcrypt9 from "bcrypt";
 var CreateEmployeeService, CreateEmployeeService_default;
 var init_CreateEmployeeService = __esm({
@@ -14092,7 +15202,7 @@ var init_CreateEmployeeService = __esm({
           phone,
           cpf: cpf ? String(cpf).replace(/\D/g, "") : void 0,
           restaurantId,
-          role: role || UserRole22.FUNCIONARIO,
+          role: role || UserRole23.FUNCIONARIO,
           subRole: subRole ?? null
         });
         return employee;
@@ -14103,32 +15213,32 @@ var init_CreateEmployeeService = __esm({
 });
 
 // src/validators/EmployeeSchema.ts
-import { FuncionarioSubRole as FuncionarioSubRole5, UserRole as UserRole23 } from "@prisma/client";
-import { z as z10 } from "zod";
+import { FuncionarioSubRole as FuncionarioSubRole5, UserRole as UserRole24 } from "@prisma/client";
+import { z as z12 } from "zod";
 var phoneRegex, employeeNameSchema, employeeEmailSchema, employeePhoneSchema, EmployeeUserSchema, UpdateEmployeeSchema, loginSchema2;
 var init_EmployeeSchema = __esm({
   "src/validators/EmployeeSchema.ts"() {
     phoneRegex = /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
-    employeeNameSchema = z10.string().trim().min(2, "Nome deve conter pelo menos 2 caracteres").max(120, "Nome deve conter no m\xE1ximo 120 caracteres");
-    employeeEmailSchema = z10.string().trim().toLowerCase().email("Email inv\xE1lido").max(180, "Email deve conter no m\xE1ximo 180 caracteres");
-    employeePhoneSchema = z10.string({
+    employeeNameSchema = z12.string().trim().min(2, "Nome deve conter pelo menos 2 caracteres").max(120, "Nome deve conter no m\xE1ximo 120 caracteres");
+    employeeEmailSchema = z12.string().trim().toLowerCase().email("Email inv\xE1lido").max(180, "Email deve conter no m\xE1ximo 180 caracteres");
+    employeePhoneSchema = z12.string({
       required_error: "Telefone obrigat\xF3rio",
       invalid_type_error: "Telefone inv\xE1lido"
     }).trim().min(1, "Telefone obrigat\xF3rio").regex(phoneRegex, "N\xFAmero de telefone inv\xE1lido!");
-    EmployeeUserSchema = z10.object({
+    EmployeeUserSchema = z12.object({
       name: employeeNameSchema,
       email: employeeEmailSchema,
-      password: z10.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
-      confirmPassword: z10.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
-      role: z10.nativeEnum(UserRole23).optional().refine(
-        (value) => !value || value === UserRole23.FUNCIONARIO || value === UserRole23.MOTOQUEIRO,
+      password: z12.string().min(6, "Senha deve conter no m\xEDnimo 6 caracteres!"),
+      confirmPassword: z12.string().min(6, "Confirma\xE7\xE3o de senha obrigat\xF3ria"),
+      role: z12.nativeEnum(UserRole24).optional().refine(
+        (value) => !value || value === UserRole24.FUNCIONARIO || value === UserRole24.MOTOQUEIRO,
         {
           message: "Cargo inv\xE1lido"
         }
       ),
       phone: employeePhoneSchema,
-      subRole: z10.nativeEnum(FuncionarioSubRole5).optional().nullable(),
-      cpf: z10.string().optional().refine(
+      subRole: z12.nativeEnum(FuncionarioSubRole5).optional().nullable(),
+      cpf: z12.string().optional().refine(
         (value) => !value || /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(
           value.replace(/\D/g, "").replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
         ),
@@ -14138,21 +15248,21 @@ var init_EmployeeSchema = __esm({
       message: "As senhas n\xE3o conferem!",
       path: ["confirmPassword"]
     });
-    UpdateEmployeeSchema = z10.object({
+    UpdateEmployeeSchema = z12.object({
       name: employeeNameSchema.optional(),
       email: employeeEmailSchema.optional(),
-      phone: z10.union([employeePhoneSchema, z10.literal(""), z10.null()]).optional(),
-      role: z10.nativeEnum(UserRole23).optional().refine(
-        (value) => !value || value === UserRole23.FUNCIONARIO || value === UserRole23.MOTOQUEIRO,
+      phone: z12.union([employeePhoneSchema, z12.literal(""), z12.null()]).optional(),
+      role: z12.nativeEnum(UserRole24).optional().refine(
+        (value) => !value || value === UserRole24.FUNCIONARIO || value === UserRole24.MOTOQUEIRO,
         { message: "Cargo inv\xE1lido" }
       ),
-      subRole: z10.nativeEnum(FuncionarioSubRole5).optional().nullable()
+      subRole: z12.nativeEnum(FuncionarioSubRole5).optional().nullable()
     }).refine((data) => Object.keys(data).length > 0, {
       message: "Informe ao menos um dado para atualizar"
     });
-    loginSchema2 = z10.object({
-      email: z10.string().email("Email inv\xE1lido"),
-      password: z10.string().min(1, "Senha obrigat\xF3ria")
+    loginSchema2 = z12.object({
+      email: z12.string().email("Email inv\xE1lido"),
+      password: z12.string().min(1, "Senha obrigat\xF3ria")
     });
   }
 });
@@ -14234,7 +15344,7 @@ var init_ListEmployeeController = __esm({
 });
 
 // src/modules/employee/services/UpdateEmployeeService.ts
-import { UserRole as UserRole24 } from "@prisma/client";
+import { UserRole as UserRole25 } from "@prisma/client";
 var UpdateEmployeeService, UpdateEmployeeService_default;
 var init_UpdateEmployeeService = __esm({
   "src/modules/employee/services/UpdateEmployeeService.ts"() {
@@ -14256,7 +15366,7 @@ var init_UpdateEmployeeService = __esm({
             ...phone !== void 0 ? { phone: phone || null } : {},
             ...email !== void 0 ? { email } : {},
             ...role !== void 0 ? { role } : {},
-            ...role === UserRole24.MOTOQUEIRO ? { subRole: null } : subRole !== void 0 ? { subRole } : {}
+            ...role === UserRole25.MOTOQUEIRO ? { subRole: null } : subRole !== void 0 ? { subRole } : {}
           },
           restaurantId
         );
@@ -14433,15 +15543,15 @@ var init_EmployeeRoutes = __esm({
 });
 
 // src/middlewares/waiterMiddleware.ts
-import { FuncionarioSubRole as FuncionarioSubRole7, UserRole as UserRole25 } from "@prisma/client";
+import { FuncionarioSubRole as FuncionarioSubRole7, UserRole as UserRole26 } from "@prisma/client";
 function waiterMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ error: "N\xE3o autenticado" });
   }
   const role = String(req.user.role || "").toUpperCase();
   const subRole = String(req.user.subRole || "").toUpperCase();
-  const isAdmin = role === UserRole25.ADMIN;
-  const isWaiter = role === UserRole25.FUNCIONARIO && subRole === FuncionarioSubRole7.GARCOM;
+  const isAdmin = role === UserRole26.ADMIN;
+  const isWaiter = role === UserRole26.FUNCIONARIO && subRole === FuncionarioSubRole7.GARCOM;
   if (!isAdmin && !isWaiter) {
     return res.status(403).json({
       error: "Esta a\xE7\xE3o est\xE1 dispon\xEDvel apenas para o administrador ou gar\xE7ons cadastrados."
@@ -14459,11 +15569,7 @@ var init_waiterMiddleware = __esm({
 });
 
 // src/modules/table/repositories/TableRepository.ts
-import {
-  OrderStatus as OrderStatus17,
-  PaymentMethod as PaymentMethod8,
-  TableSessionStatus as TableSessionStatus4
-} from "@prisma/client";
+import { OrderStatus as OrderStatus18, PaymentMethod as PaymentMethod8, TableSessionStatus as TableSessionStatus4 } from "@prisma/client";
 var TableRepository, TableRepository_default;
 var init_TableRepository = __esm({
   "src/modules/table/repositories/TableRepository.ts"() {
@@ -14562,7 +15668,7 @@ var init_TableRepository = __esm({
             },
             orders: {
               where: {
-                status: { in: [OrderStatus17.PENDENTE, OrderStatus17.PREPARANDO, OrderStatus17.PRONTO] },
+                status: { in: [OrderStatus18.PENDENTE, OrderStatus18.PREPARANDO, OrderStatus18.PRONTO] },
                 NOT: {
                   paid: false,
                   paymentMethod: { in: [PaymentMethod8.PIX, PaymentMethod8.CARTAO] },
@@ -14606,6 +15712,17 @@ var init_TableRepository = __esm({
             active: false
           }
         });
+      }
+      async deleteIfUnused(id, restaurantId, db = prisma_default) {
+        const result = await db.table.deleteMany({
+          where: {
+            id: Number(id),
+            restaurantId,
+            orders: { none: {} },
+            tableSessions: { none: { status: TableSessionStatus4.OPEN } }
+          }
+        });
+        return result.count;
       }
     };
     TableRepository_default = new TableRepository();
@@ -14673,7 +15790,7 @@ var init_ResolvePublicTableService = __esm({
           ...normalizedRestaurantId ? { restaurantId: normalizedRestaurantId } : {},
           ...normalizedSlug ? { restaurantSlug: normalizedSlug } : {}
         });
-        if (!table || normalizedTableId && table.id !== normalizedTableId) {
+        if (!table) {
           throw new PublicTableResolutionError(
             "Mesa n\xE3o encontrada neste restaurante.",
             404,
@@ -14714,6 +15831,7 @@ var init_tableSessionEvents = __esm({
         const { io: io2 } = await Promise.resolve().then(() => (init_server(), server_exports));
         io2.to(`restaurant:${payload.restaurantId}:waiter`).emit("table:session-opened", payload);
         io2.to(`restaurant:${payload.restaurantId}:admin`).emit("table:session-opened", payload);
+        io2.to(`table-waiting:${payload.tableId}`).emit("table:session-opened", payload);
       },
       async closed(payload) {
         const { io: io2 } = await Promise.resolve().then(() => (init_server(), server_exports));
@@ -14826,7 +15944,9 @@ var init_TableServiceCallRepository = __esm({
       async listByRestaurant(restaurantId, filters = {}, db = prisma_default) {
         const statusFilter = filters.status ? { status: filters.status } : {
           OR: [
-            { status: { in: [TableServiceCallStatus.WAITING, TableServiceCallStatus.IN_PROGRESS] } },
+            {
+              status: { in: [TableServiceCallStatus.WAITING, TableServiceCallStatus.IN_PROGRESS] }
+            },
             {
               status: TableServiceCallStatus.RESOLVED,
               resolvedAt: { gte: filters.resolvedSince || /* @__PURE__ */ new Date(0) }
@@ -14864,6 +15984,12 @@ var init_TableServiceCallRepository = __esm({
             resolvedById,
             resolvedAt: /* @__PURE__ */ new Date()
           }
+        });
+        return result.count;
+      }
+      async deleteResolved(id, restaurantId, db = prisma_default) {
+        const result = await db.tableServiceCall.deleteMany({
+          where: { id, restaurantId, status: TableServiceCallStatus.RESOLVED }
         });
         return result.count;
       }
@@ -14917,7 +16043,7 @@ var init_tableServiceCallEvents = __esm({
 });
 
 // src/modules/tableSession/services/OpenTableSessionService.ts
-import crypto7 from "crypto";
+import crypto8 from "crypto";
 function isUniqueConflict(error2) {
   return Boolean(error2 && typeof error2 === "object" && "code" in error2 && error2.code === "P2002");
 }
@@ -14936,6 +16062,7 @@ var init_OpenTableSessionService = __esm({
     init_tableSessionEvents();
     init_TableServiceCallRepository();
     init_tableServiceCallEvents();
+    init_TableParticipantRepository();
     OpenTableSessionService = class {
       async execute({ tableId, restaurantId, openedById }) {
         const normalizedRestaurantId = Number(restaurantId);
@@ -14966,7 +16093,7 @@ var init_OpenTableSessionService = __esm({
         if (!publicTable.tableOrderingEnabled) {
           throw new Error("Os pedidos pelo card\xE1pio de mesa est\xE3o desativados neste restaurante.");
         }
-        const activeSession = await TableSessionRepository_default.findOpenedByTable(normalizedTableId);
+        const activeSession = await TableSessionRepository_default.findActiveByTable(normalizedTableId);
         if (activeSession) {
           throw new Error("Essa mesa j\xE1 est\xE1 aberta!");
         }
@@ -14979,6 +16106,10 @@ var init_OpenTableSessionService = __esm({
           const closedSession = await TableSessionRepository_default.close(
             expiredSession.id,
             normalizedOpenedById
+          );
+          await TableParticipantRepository_default.revokeActiveBySession(
+            expiredSession.id,
+            normalizedRestaurantId
           );
           await TableServiceCallRepository_default.resolveActiveBySession(
             expiredSession.id,
@@ -15004,9 +16135,7 @@ var init_OpenTableSessionService = __esm({
               normalizedRestaurantId
             );
             if (!resolvedCall) continue;
-            tableServiceCallEvents.updated(
-              resolvedCall
-            ).catch((error2) => {
+            tableServiceCallEvents.updated(resolvedCall).catch((error2) => {
               console.error(
                 "[WAITER_CALL_REALTIME_ERROR]",
                 error2 instanceof Error ? error2.message : String(error2)
@@ -15014,13 +16143,14 @@ var init_OpenTableSessionService = __esm({
             });
           }
         }
-        const sessionToken = crypto7.randomBytes(32).toString("hex");
+        const sessionToken = crypto8.randomBytes(32).toString("hex");
         const configuredHours = Number(process.env.TABLE_SESSION_MAX_HOURS || 12);
         const maxHours = Number.isFinite(configuredHours) ? Math.min(Math.max(configuredHours, 1), 24) : 12;
         const expiresAt = new Date(Date.now() + maxHours * 60 * 60 * 1e3);
         let session;
         try {
           session = await TableSessionRepository_default.create({
+            restaurantId: normalizedRestaurantId,
             tableId: normalizedTableId,
             // Kept only for backwards-compatible persistence. No PIN is generated or exposed.
             pinHash: "PIN_FLOW_DISABLED",
@@ -15141,7 +16271,7 @@ var init_ValidatePinController = __esm({
 });
 
 // src/modules/tableSession/services/CloseTableSessionService.ts
-import { Prisma as Prisma3, TableSessionStatus as TableSessionStatus6 } from "@prisma/client";
+import { Prisma as Prisma4, TableSessionStatus as TableSessionStatus6 } from "@prisma/client";
 var CloseTableSessionService, CloseTableSessionService_default;
 var init_CloseTableSessionService = __esm({
   "src/modules/tableSession/services/CloseTableSessionService.ts"() {
@@ -15150,6 +16280,7 @@ var init_CloseTableSessionService = __esm({
     init_TableServiceCallRepository();
     init_tableServiceCallEvents();
     init_tableSessionEvents();
+    init_TableParticipantRepository();
     CloseTableSessionService = class {
       async execute({ sessionId, closedById, restaurantId }) {
         const normalizedSessionId = Number(sessionId);
@@ -15195,6 +16326,11 @@ var init_CloseTableSessionService = __esm({
               normalizedClosedById,
               tx
             );
+            await TableParticipantRepository_default.revokeActiveBySession(
+              session.id,
+              normalizedRestaurantId,
+              tx
+            );
             if (activeCalls.length) {
               await TableServiceCallRepository_default.resolveActiveBySession(
                 session.id,
@@ -15205,7 +16341,7 @@ var init_CloseTableSessionService = __esm({
             }
             return { session, closedSession, activeCalls };
           },
-          { isolationLevel: Prisma3.TransactionIsolationLevel.Serializable }
+          { isolationLevel: Prisma4.TransactionIsolationLevel.Serializable }
         );
         if (result.activeCalls.length) {
           for (const activeCall of result.activeCalls) {
@@ -15371,8 +16507,14 @@ var init_GetCurrentSessionController = __esm({
         try {
           return res.status(200).json({
             sessionId: req.tableSession.id,
+            sessionPublicId: req.tableSession.publicId,
             tableId: req.tableSession.tableId,
-            restaurantId: req.tableSession.restaurantId
+            restaurantId: req.tableSession.restaurantId,
+            participant: req.tableParticipant ? {
+              publicId: req.tableParticipant.publicId,
+              displayName: req.tableParticipant.displayName,
+              authenticated: req.tableParticipant.authenticated
+            } : null
           });
         } catch (error2) {
           return res.status(400).json({
@@ -15385,14 +16527,204 @@ var init_GetCurrentSessionController = __esm({
   }
 });
 
+// src/modules/tableSession/services/JoinTableParticipantService.ts
+import crypto9 from "crypto";
+import { Prisma as Prisma5, UserRole as UserRole27 } from "@prisma/client";
+function isUniqueConflict2(error2) {
+  return Boolean(error2 && typeof error2 === "object" && "code" in error2 && error2.code === "P2002");
+}
+function toPublicParticipant(participant) {
+  return {
+    publicId: participant.publicId,
+    displayName: participant.displayName || participant.user?.name || null,
+    authenticated: Boolean(participant.userId),
+    status: participant.status,
+    joinedAt: participant.joinedAt,
+    leftAt: participant.leftAt
+  };
+}
+var JoinTableParticipantService, JoinTableParticipantService_default;
+var init_JoinTableParticipantService = __esm({
+  "src/modules/tableSession/services/JoinTableParticipantService.ts"() {
+    init_prisma();
+    init_tableAccountSchemas();
+    init_TableParticipantRepository();
+    init_participantToken();
+    JoinTableParticipantService = class {
+      async execute({ session, authenticatedUser, cookies = {}, displayName }) {
+        const identity = tableParticipantIdentityInputSchema.parse(
+          displayName === void 0 ? {} : { displayName }
+        );
+        const cookieName = getParticipantCookieName(session.publicId);
+        const existingRawToken = cookies[cookieName];
+        const existingTokenHash = isParticipantTokenShape(existingRawToken) ? hashParticipantToken(existingRawToken) : null;
+        const authenticatedCustomerId = authenticatedUser?.role === UserRole27.CLIENTE && Number(authenticatedUser.id) > 0 ? Number(authenticatedUser.id) : null;
+        if (authenticatedCustomerId) {
+          const participant2 = await prisma_default.$transaction(
+            async (tx) => {
+              const activeCustomer = await tx.user.findFirst({
+                where: {
+                  id: authenticatedCustomerId,
+                  role: UserRole27.CLIENTE,
+                  active: true
+                },
+                select: { id: true }
+              });
+              if (!activeCustomer) {
+                throw new Error("A conta autenticada n\xE3o est\xE1 dispon\xEDvel para entrar nesta mesa.");
+              }
+              const existingAuthenticated = await TableParticipantRepository_default.findByUser(
+                authenticatedCustomerId,
+                session.id,
+                session.restaurantId,
+                tx
+              );
+              const guest = existingTokenHash ? await TableParticipantRepository_default.findGuestByTokenHash(
+                existingTokenHash,
+                session.id,
+                session.restaurantId,
+                tx
+              ) : null;
+              if (guest && existingAuthenticated && guest.id !== existingAuthenticated.id) {
+                await TableParticipantRepository_default.transferOwnedTableData(
+                  guest.id,
+                  existingAuthenticated.id,
+                  authenticatedCustomerId,
+                  session.id,
+                  session.restaurantId,
+                  tx
+                );
+                await TableParticipantRepository_default.revoke(guest.id, session.id, session.restaurantId, tx);
+                return existingAuthenticated;
+              }
+              if (guest) {
+                try {
+                  const linkedParticipant = await TableParticipantRepository_default.linkGuestToUser(
+                    guest.id,
+                    authenticatedCustomerId,
+                    identity.displayName ?? guest.displayName,
+                    session.id,
+                    session.restaurantId,
+                    tx
+                  );
+                  await TableParticipantRepository_default.attachUserToOwnedOrders(
+                    linkedParticipant.id,
+                    authenticatedCustomerId,
+                    session.id,
+                    session.restaurantId,
+                    tx
+                  );
+                  return linkedParticipant;
+                } catch (error2) {
+                  if (!isUniqueConflict2(error2)) throw error2;
+                  const concurrentParticipant = await TableParticipantRepository_default.findByUser(
+                    authenticatedCustomerId,
+                    session.id,
+                    session.restaurantId,
+                    tx
+                  );
+                  if (!concurrentParticipant) throw error2;
+                  await TableParticipantRepository_default.transferOwnedTableData(
+                    guest.id,
+                    concurrentParticipant.id,
+                    authenticatedCustomerId,
+                    session.id,
+                    session.restaurantId,
+                    tx
+                  );
+                  await TableParticipantRepository_default.revoke(
+                    guest.id,
+                    session.id,
+                    session.restaurantId,
+                    tx
+                  );
+                  return concurrentParticipant;
+                }
+              }
+              return TableParticipantRepository_default.upsertAuthenticated(
+                {
+                  publicId: crypto9.randomUUID(),
+                  restaurantId: session.restaurantId,
+                  tableSessionId: session.id,
+                  userId: authenticatedCustomerId,
+                  displayName: identity.displayName
+                },
+                tx
+              );
+            },
+            { isolationLevel: Prisma5.TransactionIsolationLevel.Serializable }
+          );
+          return {
+            participant: toPublicParticipant(participant2),
+            participantToken: null,
+            participantCookieName: cookieName,
+            participantCookieExpiresAt: null,
+            clearParticipantCookie: Boolean(existingRawToken)
+          };
+        }
+        if (existingTokenHash) {
+          const existingGuest = await TableParticipantRepository_default.findGuestByTokenHash(
+            existingTokenHash,
+            session.id,
+            session.restaurantId
+          );
+          if (existingGuest) {
+            const participant2 = identity.displayName !== void 0 && identity.displayName !== existingGuest.displayName ? await TableParticipantRepository_default.updateDisplayName(
+              existingGuest.id,
+              session.id,
+              session.restaurantId,
+              identity.displayName
+            ) : existingGuest;
+            return {
+              participant: toPublicParticipant(participant2),
+              participantToken: existingRawToken,
+              participantCookieName: cookieName,
+              participantCookieExpiresAt: participant2.tokenExpiresAt,
+              clearParticipantCookie: false
+            };
+          }
+        }
+        const participantToken = createParticipantToken();
+        const participantCookieExpiresAt = resolveParticipantTokenExpiration(session.expiresAt);
+        const participant = await TableParticipantRepository_default.createGuest({
+          publicId: crypto9.randomUUID(),
+          restaurantId: session.restaurantId,
+          tableSessionId: session.id,
+          displayName: identity.displayName,
+          guestTokenHash: hashParticipantToken(participantToken),
+          tokenExpiresAt: participantCookieExpiresAt
+        });
+        return {
+          participant: toPublicParticipant(participant),
+          participantToken,
+          participantCookieName: cookieName,
+          participantCookieExpiresAt,
+          clearParticipantCookie: false
+        };
+      }
+    };
+    JoinTableParticipantService_default = new JoinTableParticipantService();
+  }
+});
+
 // src/modules/tableSession/services/JoinTableSessionService.ts
 var JoinTableSessionService, JoinTableSessionService_default;
 var init_JoinTableSessionService = __esm({
   "src/modules/tableSession/services/JoinTableSessionService.ts"() {
     init_TableSessionRepository();
     init_ResolvePublicTableService();
+    init_JoinTableParticipantService();
     JoinTableSessionService = class {
-      async execute({ tableId, tableNumber, tableToken, restaurantId, restaurantSlug }) {
+      async execute({
+        tableId,
+        tableNumber,
+        tableToken,
+        restaurantId,
+        restaurantSlug,
+        authenticatedUser,
+        cookies,
+        displayName
+      }) {
         const resolvedTable = await ResolvePublicTableService_default.execute({
           tableId,
           tableNumber,
@@ -15409,16 +16741,35 @@ var init_JoinTableSessionService = __esm({
             "Esta mesa ainda n\xE3o foi aberta pelo gar\xE7om. Aguarde o atendimento e tente novamente."
           );
         }
+        const sessionRestaurantId = Number(
+          session.restaurantId ?? session.table?.restaurantId ?? resolvedTable.restaurantId
+        );
+        if (sessionRestaurantId !== Number(resolvedTable.restaurantId)) {
+          throw new Error("A sess\xE3o aberta n\xE3o pertence ao restaurante informado pelo QR Code.");
+        }
+        const participantResult = await JoinTableParticipantService_default.execute({
+          session: {
+            id: session.id,
+            publicId: session.publicId || `legacy-session-${session.id}`,
+            restaurantId: sessionRestaurantId,
+            expiresAt: session.expiresAt
+          },
+          authenticatedUser,
+          cookies,
+          displayName
+        });
         return {
           sessionToken: session.sessionToken,
           sessionId: session.id,
+          sessionPublicId: session.publicId || null,
           tableId: session.tableId,
           tableNumber: session.table?.number ?? resolvedTable.number,
-          restaurantId: session.table?.restaurantId ?? resolvedTable.restaurantId,
+          restaurantId: sessionRestaurantId,
           expiresAt: session.expiresAt,
           tableOrderingEnabled: resolvedTable.tableOrderingEnabled,
           waiterCallEnabled: resolvedTable.waiterCallEnabled,
-          billRequestEnabled: resolvedTable.billRequestEnabled
+          billRequestEnabled: resolvedTable.billRequestEnabled,
+          ...participantResult
         };
       }
     };
@@ -15432,6 +16783,7 @@ var init_JoinTableSessionController = __esm({
   "src/modules/tableSession/controllers/JoinTableSessionController.ts"() {
     init_JoinTableSessionService();
     init_ResolvePublicTableService();
+    init_participantToken();
     JoinTableSessionController = class {
       async handle(req, res) {
         try {
@@ -15440,9 +16792,28 @@ var init_JoinTableSessionController = __esm({
             tableNumber: req.body?.tableNumber,
             tableToken: req.body?.tableToken || req.body?.token,
             restaurantId: req.body?.restaurantId,
-            restaurantSlug: req.body?.restaurantSlug || req.body?.slug
+            restaurantSlug: req.body?.restaurantSlug || req.body?.slug,
+            authenticatedUser: req.user ? { id: req.user.id, role: req.user.role } : null,
+            cookies: parseCookieHeader(req.headers.cookie),
+            displayName: req.body?.displayName ?? req.body?.guestName
           });
-          return res.status(200).json(result);
+          const {
+            participantToken,
+            participantCookieName,
+            participantCookieExpiresAt,
+            clearParticipantCookie,
+            ...publicResult
+          } = result;
+          if (clearParticipantCookie) {
+            res.clearCookie(participantCookieName, getParticipantCookieOptions(/* @__PURE__ */ new Date(0)));
+          } else if (participantToken && participantCookieExpiresAt) {
+            res.cookie(
+              participantCookieName,
+              participantToken,
+              getParticipantCookieOptions(participantCookieExpiresAt)
+            );
+          }
+          return res.status(200).json(publicResult);
         } catch (error2) {
           const statusCode = error2 instanceof PublicTableResolutionError ? error2.statusCode : 400;
           return res.status(statusCode).json({
@@ -15548,6 +16919,65 @@ var init_premiumTablePlanMiddleware = __esm({
   }
 });
 
+// src/modules/tableSession/services/UpdateTableParticipantService.ts
+var UpdateTableParticipantService, UpdateTableParticipantService_default;
+var init_UpdateTableParticipantService = __esm({
+  "src/modules/tableSession/services/UpdateTableParticipantService.ts"() {
+    init_tableAccountSchemas();
+    init_TableParticipantRepository();
+    UpdateTableParticipantService = class {
+      async execute({ participantId, tableSessionId, restaurantId, displayName }) {
+        const identity = tableParticipantIdentityInputSchema.parse({ displayName });
+        if (identity.displayName === void 0) {
+          throw new Error("Informe o nome que deseja usar nesta mesa.");
+        }
+        const participant = await TableParticipantRepository_default.updateDisplayName(
+          participantId,
+          tableSessionId,
+          restaurantId,
+          identity.displayName
+        );
+        return {
+          publicId: participant.publicId,
+          displayName: participant.displayName || participant.user?.name || null,
+          authenticated: Boolean(participant.userId),
+          status: participant.status,
+          joinedAt: participant.joinedAt,
+          leftAt: participant.leftAt
+        };
+      }
+    };
+    UpdateTableParticipantService_default = new UpdateTableParticipantService();
+  }
+});
+
+// src/modules/tableSession/controllers/UpdateTableParticipantController.ts
+import { ZodError } from "zod";
+var UpdateTableParticipantController, UpdateTableParticipantController_default;
+var init_UpdateTableParticipantController = __esm({
+  "src/modules/tableSession/controllers/UpdateTableParticipantController.ts"() {
+    init_UpdateTableParticipantService();
+    UpdateTableParticipantController = class {
+      async handle(req, res) {
+        try {
+          const participant = await UpdateTableParticipantService_default.execute({
+            participantId: req.tableParticipant.id,
+            tableSessionId: req.tableSession.id,
+            restaurantId: req.tableSession.restaurantId,
+            displayName: req.body?.displayName
+          });
+          return res.status(200).json(participant);
+        } catch (error2) {
+          return res.status(error2 instanceof ZodError ? 422 : 400).json({
+            error: error2 instanceof ZodError ? error2.issues[0]?.message || "Nome inv\xE1lido." : error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel atualizar seu nome nesta mesa."
+          });
+        }
+      }
+    };
+    UpdateTableParticipantController_default = new UpdateTableParticipantController();
+  }
+});
+
 // src/modules/tableSession/routes/SessionsTablesRoutes.ts
 import { Router as Router7 } from "express";
 var router7, SessionsTablesRoutes_default;
@@ -15565,10 +16995,14 @@ var init_SessionsTablesRoutes = __esm({
     init_JoinTableSessionController();
     init_tableSessionRateLimitMiddleware();
     init_premiumTablePlanMiddleware();
+    init_optionalAuthMiddleware();
+    init_tableParticipantMiddleware();
+    init_UpdateTableParticipantController();
     router7 = Router7();
     router7.post(
       "/join",
       tableJoinRateLimitMiddleware,
+      optionalAuthMiddleware,
       (req, res) => JoinTableSessionController_default.handle(req, res)
     );
     router7.post(
@@ -15583,8 +17017,17 @@ var init_SessionsTablesRoutes = __esm({
     );
     router7.get(
       "/current",
+      optionalAuthMiddleware,
       sessionMiddleware,
+      tableParticipantMiddleware,
       (req, res) => GetCurrentSessionController_default.handle(req, res)
+    );
+    router7.patch(
+      "/participant",
+      optionalAuthMiddleware,
+      sessionMiddleware,
+      tableParticipantMiddleware,
+      (req, res) => UpdateTableParticipantController_default.handle(req, res)
     );
     router7.post(
       "/open",
@@ -15612,7 +17055,7 @@ var init_SessionsTablesRoutes = __esm({
 });
 
 // src/modules/table/services/CreateTableService.ts
-import crypto8 from "crypto";
+import crypto10 from "crypto";
 var CreateTableService, CreateTableService_default;
 var init_CreateTableService = __esm({
   "src/modules/table/services/CreateTableService.ts"() {
@@ -15634,7 +17077,7 @@ var init_CreateTableService = __esm({
         if (tableExists) {
           throw new Error("J\xE1 existe uma mesa com esse n\xFAmero!");
         }
-        const token = crypto8.randomBytes(16).toString("hex");
+        const token = crypto10.randomBytes(16).toString("hex");
         return TableRepository_default.create({
           number: normalizedNumber,
           restaurantId: normalizedRestaurantId,
@@ -15714,7 +17157,7 @@ var init_ListTableService = __esm({
 });
 
 // src/modules/table/controllers/ListTableController.ts
-import { UserRole as UserRole26 } from "@prisma/client";
+import { UserRole as UserRole28 } from "@prisma/client";
 var ListTableController, ListTableController_default;
 var init_ListTableController = __esm({
   "src/modules/table/controllers/ListTableController.ts"() {
@@ -15725,7 +17168,7 @@ var init_ListTableController = __esm({
           const restaurantId = req.user.restaurantId;
           const tables = await ListTableService_default.execute({
             restaurantId,
-            includeQrToken: req.user.role === UserRole26.ADMIN
+            includeQrToken: req.user.role === UserRole28.ADMIN
           });
           return res.status(200).json(tables);
         } catch (error2) {
@@ -15773,7 +17216,7 @@ var init_GetTableByIdService = __esm({
 });
 
 // src/modules/table/controllers/GetTableByIdController.ts
-import { UserRole as UserRole27 } from "@prisma/client";
+import { UserRole as UserRole29 } from "@prisma/client";
 var GetTableByIdController, GetTableByIdController_default;
 var init_GetTableByIdController = __esm({
   "src/modules/table/controllers/GetTableByIdController.ts"() {
@@ -15786,7 +17229,7 @@ var init_GetTableByIdController = __esm({
           const table = await GetTableByIdService_default.execute({
             id: parsedId,
             restaurantId,
-            includeQrToken: req.user.role === UserRole27.ADMIN
+            includeQrToken: req.user.role === UserRole29.ADMIN
           });
           return res.status(200).json(table);
         } catch (error2) {
@@ -15901,14 +17344,11 @@ var init_DeactivateTableService = __esm({
         if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
           throw new Error("Restaurante inv\xE1lido para desativar mesa.");
         }
-        const table = await TableRepository_default.findByIdForRestaurant(
-          normalizedId,
-          normalizedRestaurantId
-        );
+        const table = await TableRepository_default.findByIdForRestaurant(normalizedId, normalizedRestaurantId);
         if (!table) {
           throw new Error("Mesa n\xE3o encontrada!");
         }
-        const openSession = await TableSessionRepository_default.findOpenedByTable(normalizedId);
+        const openSession = await TableSessionRepository_default.findActiveByTable(normalizedId);
         if (openSession) {
           throw new Error("Feche o atendimento da mesa antes de desativ\xE1-la.");
         }
@@ -15942,6 +17382,62 @@ var init_DeactivateTableController = __esm({
       }
     };
     DeactivateTableController_default = new DeactivateTableController();
+  }
+});
+
+// src/modules/table/services/DeleteTableService.ts
+var DeleteTableService, DeleteTableService_default;
+var init_DeleteTableService = __esm({
+  "src/modules/table/services/DeleteTableService.ts"() {
+    init_TableRepository();
+    init_TableSessionRepository();
+    DeleteTableService = class {
+      async execute({ id, restaurantId }) {
+        const normalizedId = Number(id);
+        const normalizedRestaurantId = Number(restaurantId);
+        if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+          throw new Error("Mesa inv\xE1lida para exclus\xE3o.");
+        }
+        if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+          throw new Error("Restaurante inv\xE1lido para excluir mesa.");
+        }
+        const table = await TableRepository_default.findByIdForRestaurant(normalizedId, normalizedRestaurantId);
+        if (!table) throw new Error("Mesa n\xE3o encontrada!");
+        const openSession = await TableSessionRepository_default.findActiveByTable(normalizedId);
+        if (openSession) throw new Error("Feche o atendimento da mesa antes de exclu\xED-la.");
+        const deleted = await TableRepository_default.deleteIfUnused(normalizedId, normalizedRestaurantId);
+        if (deleted !== 1) {
+          throw new Error("N\xE3o \xE9 poss\xEDvel excluir uma mesa que possui pedidos no hist\xF3rico.");
+        }
+        return { id: normalizedId };
+      }
+    };
+    DeleteTableService_default = new DeleteTableService();
+  }
+});
+
+// src/modules/table/controllers/DeleteTableController.ts
+var DeleteTableController, DeleteTableController_default;
+var init_DeleteTableController = __esm({
+  "src/modules/table/controllers/DeleteTableController.ts"() {
+    init_DeleteTableService();
+    DeleteTableController = class {
+      async handle(req, res) {
+        try {
+          const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+          const table = await DeleteTableService_default.execute({
+            id,
+            restaurantId: req.user.restaurantId
+          });
+          return res.status(200).json(table);
+        } catch (error2) {
+          return res.status(400).json({
+            error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel excluir a mesa."
+          });
+        }
+      }
+    };
+    DeleteTableController_default = new DeleteTableController();
   }
 });
 
@@ -15988,6 +17484,7 @@ var init_TablesRoutes = __esm({
     init_GetTableByIdController();
     init_UpdateTableController();
     init_DeactivateTableController();
+    init_DeleteTableController();
     init_ResolvePublicTableController();
     init_billingMiddleware();
     init_premiumTablePlanMiddleware();
@@ -16028,6 +17525,13 @@ var init_TablesRoutes = __esm({
       adminMiddleware,
       premiumTablePlanMiddleware,
       (req, res) => DeactivateTableController_default.handle(req, res)
+    );
+    router8.delete(
+      "/:id",
+      authMiddleware,
+      adminMiddleware,
+      premiumTablePlanMiddleware,
+      (req, res) => DeleteTableController_default.handle(req, res)
     );
     TablesRoutes_default = router8;
   }
@@ -17933,7 +19437,7 @@ var init_WithdrawAsaasWalletController = __esm({
 });
 
 // src/modules/restaurantSettings/services/StartMercadoPagoOAuthService.ts
-import jwt4 from "jsonwebtoken";
+import jwt5 from "jsonwebtoken";
 var StartMercadoPagoOAuthService, StartMercadoPagoOAuthService_default;
 var init_StartMercadoPagoOAuthService = __esm({
   "src/modules/restaurantSettings/services/StartMercadoPagoOAuthService.ts"() {
@@ -17976,7 +19480,7 @@ var init_StartMercadoPagoOAuthService = __esm({
         }
         const backendBaseUrl = this.getBackendBaseUrl();
         const redirectUri = this.getRedirectUri() || `${backendBaseUrl}/settings/mercado-pago/oauth/callback`;
-        const state = jwt4.sign(
+        const state = jwt5.sign(
           {
             restaurantId: normalizedRestaurantId,
             userId: normalizedUserId
@@ -18029,7 +19533,7 @@ var init_StartMercadoPagoOAuthController = __esm({
 });
 
 // src/modules/restaurantSettings/services/CompleteMercadoPagoOAuthService.ts
-import jwt5 from "jsonwebtoken";
+import jwt6 from "jsonwebtoken";
 var CompleteMercadoPagoOAuthService, CompleteMercadoPagoOAuthService_default;
 var init_CompleteMercadoPagoOAuthService = __esm({
   "src/modules/restaurantSettings/services/CompleteMercadoPagoOAuthService.ts"() {
@@ -18062,7 +19566,7 @@ var init_CompleteMercadoPagoOAuthService = __esm({
         if (jwtSecret.length < 32) {
           throw new Error("JWT_SECRET invalido para validar estado OAuth.");
         }
-        const decoded = jwt5.verify(rawState, jwtSecret);
+        const decoded = jwt6.verify(rawState, jwtSecret);
         const restaurantId = Number(decoded?.restaurantId || 0);
         if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
           throw new Error("Estado OAuth invalido para restaurante.");
@@ -18200,7 +19704,7 @@ var init_MercadoPagoOAuthCallbackController = __esm({
 });
 
 // src/modules/restaurantSettings/services/StartPagBankOAuthService.ts
-import jwt6 from "jsonwebtoken";
+import jwt7 from "jsonwebtoken";
 var StartPagBankOAuthService, StartPagBankOAuthService_default;
 var init_StartPagBankOAuthService = __esm({
   "src/modules/restaurantSettings/services/StartPagBankOAuthService.ts"() {
@@ -18225,7 +19729,7 @@ var init_StartPagBankOAuthService = __esm({
         const redirectUri = String(
           process.env.PAGBANK_CONNECT_REDIRECT_URI || `${backendUrl}/settings/pagbank/oauth/callback`
         ).trim();
-        const state = jwt6.sign(
+        const state = jwt7.sign(
           { restaurantId: normalizedRestaurantId, userId: normalizedUserId },
           jwtSecret,
           { expiresIn: "10m" }
@@ -18272,7 +19776,7 @@ var init_StartPagBankOAuthController = __esm({
 });
 
 // src/modules/restaurantSettings/services/CompletePagBankOAuthService.ts
-import jwt7 from "jsonwebtoken";
+import jwt8 from "jsonwebtoken";
 var CompletePagBankOAuthService, CompletePagBankOAuthService_default;
 var init_CompletePagBankOAuthService = __esm({
   "src/modules/restaurantSettings/services/CompletePagBankOAuthService.ts"() {
@@ -18285,7 +19789,7 @@ var init_CompletePagBankOAuthService = __esm({
         if (!normalizedCode || !normalizedState) {
           throw new Error("C\xF3digo de autoriza\xE7\xE3o PagBank n\xE3o recebido.");
         }
-        const decoded = jwt7.verify(normalizedState, jwtSecret);
+        const decoded = jwt8.verify(normalizedState, jwtSecret);
         const restaurantId = Number(decoded.restaurantId || 0);
         if (!restaurantId) throw new Error("Estado OAuth PagBank inv\xE1lido.");
         const clientId = String(process.env.PAGBANK_CONNECT_CLIENT_ID || "").trim();
@@ -18933,11 +20437,11 @@ var init_CouponRepository = __esm({
 });
 
 // src/validators/CouponValidator.ts
-import { z as z11 } from "zod";
+import { z as z13 } from "zod";
 function validatePercentage(payload, context) {
   if (payload.discountType === "PERCENTAGE" && Number(payload.discount) >= 100) {
     context.addIssue({
-      code: z11.ZodIssueCode.custom,
+      code: z13.ZodIssueCode.custom,
       path: ["discount"],
       message: "O desconto percentual deve ser menor que 100%."
     });
@@ -18949,38 +20453,38 @@ function couponValidationMessage(error2) {
 var nullableMoneySchema, nullableDateSchema, booleanSchema, couponCodeSchema, couponFields, createCouponSchema, updateCouponSchema, couponIdSchema, loyaltyRestaurantQuerySchema;
 var init_CouponValidator = __esm({
   "src/validators/CouponValidator.ts"() {
-    nullableMoneySchema = z11.preprocess(
+    nullableMoneySchema = z13.preprocess(
       (value) => value === "" || value === null || value === void 0 ? null : value,
-      z11.union([z11.coerce.number().positive("O limite de desconto deve ser maior que zero."), z11.null()])
+      z13.union([z13.coerce.number().positive("O limite de desconto deve ser maior que zero."), z13.null()])
     );
-    nullableDateSchema = z11.preprocess(
+    nullableDateSchema = z13.preprocess(
       (value) => value === "" || value === null || value === void 0 ? null : value,
-      z11.union([z11.null(), z11.coerce.date()])
+      z13.union([z13.null(), z13.coerce.date()])
     );
-    booleanSchema = z11.preprocess((value) => {
+    booleanSchema = z13.preprocess((value) => {
       if (value === "false" || value === 0 || value === "0") return false;
       if (value === "true" || value === 1 || value === "1") return true;
       return value;
-    }, z11.boolean());
-    couponCodeSchema = z11.string({ required_error: "Informe o c\xF3digo do cupom." }).trim().min(3, "O c\xF3digo deve ter pelo menos 3 caracteres.").max(40, "O c\xF3digo deve ter no m\xE1ximo 40 caracteres.").transform((value) => value.toUpperCase()).refine(
+    }, z13.boolean());
+    couponCodeSchema = z13.string({ required_error: "Informe o c\xF3digo do cupom." }).trim().min(3, "O c\xF3digo deve ter pelo menos 3 caracteres.").max(40, "O c\xF3digo deve ter no m\xE1ximo 40 caracteres.").transform((value) => value.toUpperCase()).refine(
       (value) => /^[A-Z0-9][A-Z0-9_-]*$/.test(value),
       "Use apenas letras, n\xFAmeros, h\xEDfen ou sublinhado no c\xF3digo."
     );
     couponFields = {
       code: couponCodeSchema,
-      title: z11.string().trim().max(80, "O t\xEDtulo deve ter no m\xE1ximo 80 caracteres.").optional(),
-      description: z11.string().trim().max(300, "A descri\xE7\xE3o deve ter no m\xE1ximo 300 caracteres.").optional(),
-      discountType: z11.enum(["FIXED", "PERCENTAGE"]),
-      discount: z11.coerce.number().positive("Informe um desconto maior que zero."),
-      minimumSubtotal: z11.coerce.number().min(0, "O pedido m\xEDnimo n\xE3o pode ser negativo."),
+      title: z13.string().trim().max(80, "O t\xEDtulo deve ter no m\xE1ximo 80 caracteres.").optional(),
+      description: z13.string().trim().max(300, "A descri\xE7\xE3o deve ter no m\xE1ximo 300 caracteres.").optional(),
+      discountType: z13.enum(["FIXED", "PERCENTAGE"]),
+      discount: z13.coerce.number().positive("Informe um desconto maior que zero."),
+      minimumSubtotal: z13.coerce.number().min(0, "O pedido m\xEDnimo n\xE3o pode ser negativo."),
       maxDiscount: nullableMoneySchema,
-      loyaltyPurchasesRequired: z11.coerce.number().int("A quantidade de compras deve ser um n\xFAmero inteiro.").min(1, "Exija pelo menos uma compra para liberar o cupom.").max(1e3, "A quantidade m\xE1xima \xE9 de 1000 compras."),
-      perCustomerLimit: z11.coerce.number().int("O limite por cliente deve ser um n\xFAmero inteiro.").min(1, "Permita pelo menos um cupom guardado por cliente.").max(100, "O limite m\xE1ximo \xE9 de 100 cupons guardados por cliente."),
-      redemptionValidityDays: z11.coerce.number().int("A validade da recompensa deve ser informada em dias inteiros.").min(1, "A recompensa deve ficar v\xE1lida por pelo menos um dia.").max(365, "A validade m\xE1xima da recompensa \xE9 de 365 dias."),
+      loyaltyPurchasesRequired: z13.coerce.number().int("A quantidade de compras deve ser um n\xFAmero inteiro.").min(1, "Exija pelo menos uma compra para liberar o cupom.").max(1e3, "A quantidade m\xE1xima \xE9 de 1000 compras."),
+      perCustomerLimit: z13.coerce.number().int("O limite por cliente deve ser um n\xFAmero inteiro.").min(1, "Permita pelo menos um cupom guardado por cliente.").max(100, "O limite m\xE1ximo \xE9 de 100 cupons guardados por cliente."),
+      redemptionValidityDays: z13.coerce.number().int("A validade da recompensa deve ser informada em dias inteiros.").min(1, "A recompensa deve ficar v\xE1lida por pelo menos um dia.").max(365, "A validade m\xE1xima da recompensa \xE9 de 365 dias."),
       active: booleanSchema,
       expiration: nullableDateSchema
     };
-    createCouponSchema = z11.object({
+    createCouponSchema = z13.object({
       ...couponFields,
       title: couponFields.title.default(""),
       description: couponFields.description.default(""),
@@ -18993,7 +20497,7 @@ var init_CouponValidator = __esm({
       active: couponFields.active.default(true),
       expiration: couponFields.expiration.default(null)
     }).superRefine(validatePercentage);
-    updateCouponSchema = z11.object({
+    updateCouponSchema = z13.object({
       code: couponFields.code.optional(),
       title: couponFields.title,
       description: couponFields.description,
@@ -19009,9 +20513,9 @@ var init_CouponValidator = __esm({
     }).refine((payload) => Object.keys(payload).length > 0, {
       message: "Informe ao menos um campo para atualizar o cupom."
     }).superRefine(validatePercentage);
-    couponIdSchema = z11.coerce.number().int("Cupom inv\xE1lido.").positive("Cupom inv\xE1lido.");
-    loyaltyRestaurantQuerySchema = z11.object({
-      restaurantId: z11.coerce.number({ required_error: "Informe o restaurante." }).int("Restaurante inv\xE1lido.").positive("Restaurante inv\xE1lido.")
+    couponIdSchema = z13.coerce.number().int("Cupom inv\xE1lido.").positive("Cupom inv\xE1lido.");
+    loyaltyRestaurantQuerySchema = z13.object({
+      restaurantId: z13.coerce.number({ required_error: "Informe o restaurante." }).int("Restaurante inv\xE1lido.").positive("Restaurante inv\xE1lido.")
     });
   }
 });
@@ -19099,9 +20603,9 @@ var init_CreateCouponService = __esm({
 });
 
 // src/modules/coupon/controllers/CouponControllerHelpers.ts
-import { ZodError } from "zod";
+import { ZodError as ZodError2 } from "zod";
 function couponControllerError(res, error2, fallback) {
-  if (error2 instanceof ZodError) {
+  if (error2 instanceof ZodError2) {
     return res.status(422).json({
       error: couponValidationMessage(error2),
       fields: error2.flatten().fieldErrors
@@ -20407,7 +21911,7 @@ var init_AiSupportRoutes = __esm({
 // src/modules/menuImport/services/ImportIfoodMenuScraperService.ts
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { z as z12 } from "zod";
+import { z as z14 } from "zod";
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -20587,9 +22091,9 @@ var init_ImportIfoodMenuScraperService = __esm({
     init_prisma();
     init_CategoryRepository();
     init_ProductRepository();
-    scrapeInputSchema = z12.object({
-      url: z12.string().trim().url("Informe uma URL v\xE1lida do iFood."),
-      restaurantId: z12.union([z12.number(), z12.string()])
+    scrapeInputSchema = z14.object({
+      url: z14.string().trim().url("Informe uma URL v\xE1lida do iFood."),
+      restaurantId: z14.union([z14.number(), z14.string()])
     });
     ImportIfoodMenuScraperService = class {
       async execute(input) {
@@ -20712,7 +22216,7 @@ var init_ImportIfoodMenuController = __esm({
 
 // src/modules/menuImport/services/ImportMenuFromImageService.ts
 import OpenAI from "openai";
-import { z as z13 } from "zod";
+import { z as z15 } from "zod";
 function normalizeText2(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -20821,23 +22325,23 @@ var init_ImportMenuFromImageService = __esm({
     init_prisma();
     init_CategoryRepository();
     init_ProductRepository();
-    importedMenuItemSchema = z13.object({
-      name: z13.string().trim().min(1, "Nome do item invalido."),
-      description: z13.string().trim().nullable().optional(),
-      price: z13.union([z13.number(), z13.string()]),
-      imageUrl: z13.string().trim().url().nullable().optional()
+    importedMenuItemSchema = z15.object({
+      name: z15.string().trim().min(1, "Nome do item invalido."),
+      description: z15.string().trim().nullable().optional(),
+      price: z15.union([z15.number(), z15.string()]),
+      imageUrl: z15.string().trim().url().nullable().optional()
     });
-    importedMenuCategorySchema = z13.object({
-      name: z13.string().trim().min(1, "Nome da categoria invalido."),
-      items: z13.array(importedMenuItemSchema).min(1, "Categoria sem itens.")
+    importedMenuCategorySchema = z15.object({
+      name: z15.string().trim().min(1, "Nome da categoria invalido."),
+      items: z15.array(importedMenuItemSchema).min(1, "Categoria sem itens.")
     });
-    importedMenuResponseSchema = z13.object({
-      restaurantName: z13.string().trim().nullable().optional(),
-      categories: z13.array(importedMenuCategorySchema).min(1, "Cardapio vazio.")
+    importedMenuResponseSchema = z15.object({
+      restaurantName: z15.string().trim().nullable().optional(),
+      categories: z15.array(importedMenuCategorySchema).min(1, "Cardapio vazio.")
     });
-    importInputSchema = z13.object({
-      imageUrl: z13.string().trim().url("Informe uma URL valida da imagem."),
-      restaurantId: z13.union([z13.number(), z13.string()])
+    importInputSchema = z15.object({
+      imageUrl: z15.string().trim().url("Informe uma URL valida da imagem."),
+      restaurantId: z15.union([z15.number(), z15.string()])
     });
     ImportMenuFromImageService = class {
       async execute(input) {
@@ -21197,7 +22701,7 @@ var init_ImageEnhancementRoutes = __esm({
 
 // src/modules/customerAddresses/routes/CustomerAddressRoutes.ts
 import { Router as Router18 } from "express";
-import { z as z14 } from "zod";
+import { z as z16 } from "zod";
 function customerId(req, res) {
   if (req.user.role !== "CLIENTE" || !req.user.id) {
     res.status(403).json({ error: "Endere\xE7os s\xE3o exclusivos para clientes." });
@@ -21212,16 +22716,16 @@ var init_CustomerAddressRoutes = __esm({
     init_authMiddleware();
     router18 = Router18();
     router18.use(authMiddleware);
-    addressSchema = z14.object({
-      label: z14.string().trim().min(1).max(40),
-      address: z14.string().trim().min(3).max(160),
-      number: z14.string().trim().regex(/^\d+[A-Za-z]?$/).max(10),
-      district: z14.string().trim().min(2).max(100),
-      city: z14.string().trim().min(2).max(100),
-      state: z14.string().trim().length(2).transform((value) => value.toUpperCase()),
-      zipCode: z14.string().transform((value) => value.replace(/\D/g, "")).refine((value) => value.length === 8),
-      complement: z14.string().trim().max(160).optional().default(""),
-      isDefault: z14.boolean().optional().default(false)
+    addressSchema = z16.object({
+      label: z16.string().trim().min(1).max(40),
+      address: z16.string().trim().min(3).max(160),
+      number: z16.string().trim().regex(/^\d+[A-Za-z]?$/).max(10),
+      district: z16.string().trim().min(2).max(100),
+      city: z16.string().trim().min(2).max(100),
+      state: z16.string().trim().length(2).transform((value) => value.toUpperCase()),
+      zipCode: z16.string().transform((value) => value.replace(/\D/g, "")).refine((value) => value.length === 8),
+      complement: z16.string().trim().max(160).optional().default(""),
+      isDefault: z16.boolean().optional().default(false)
     });
     router18.get("/", async (req, res) => {
       const userId = customerId(req, res);
@@ -21422,12 +22926,14 @@ var init_AsaasOrderWebhookController = __esm({
               restaurantId: updatedOrder.restaurantId,
               paid: true
             });
-            io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
-              orderId: updatedOrder.id,
-              paid: true,
-              paymentMethod: updatedOrder.paymentMethod,
-              status: updatedOrder.status
-            });
+            if (updatedOrder.userId) {
+              io.to(`user:${updatedOrder.userId}`).emit("payment-confirmed", {
+                orderId: updatedOrder.id,
+                paid: true,
+                paymentMethod: updatedOrder.paymentMethod,
+                status: updatedOrder.status
+              });
+            }
           }
           return res.status(200).json({ received: true, processed: true });
         } catch (error2) {
@@ -21486,21 +22992,21 @@ var init_AsaasWithdrawValidationWebhookController = __esm({
 });
 
 // src/validators/IngredientValidator.ts
-import { z as z15 } from "zod";
+import { z as z17 } from "zod";
 var createIngredientSchema, updateIngredientSchema;
 var init_IngredientValidator = __esm({
   "src/validators/IngredientValidator.ts"() {
-    createIngredientSchema = z15.object({
-      name: z15.string().trim().min(1, "Nome do ingrediente \xE9 obrigat\xF3rio.").max(80),
-      category: z15.string({
+    createIngredientSchema = z17.object({
+      name: z17.string().trim().min(1, "Nome do ingrediente \xE9 obrigat\xF3rio.").max(80),
+      category: z17.string({
         invalid_type_error: "A categoria do ingrediente deve ser um texto.",
         required_error: "Categoria do ingrediente \xE9 obrigat\xF3ria."
       }).trim().min(1, "Categoria do ingrediente \xE9 obrigat\xF3ria.").max(60, "A categoria deve ter no m\xE1ximo 60 caracteres."),
-      price: z15.number({
+      price: z17.number({
         invalid_type_error: "O valor adicional deve ser um n\xFAmero.",
         required_error: "O valor adicional \xE9 obrigat\xF3rio."
       }).min(0, "O valor adicional n\xE3o pode ser negativo.").max(99999, "O valor adicional informado \xE9 muito alto."),
-      active: z15.boolean().optional()
+      active: z17.boolean().optional()
     });
     updateIngredientSchema = createIngredientSchema.partial().refine(
       (data) => Object.keys(data).length > 0,
@@ -21709,7 +23215,7 @@ var init_ingredientRoutes = __esm({
 
 // src/modules/waiterCalls/services/CreateTableServiceCallService.ts
 import { PlanType as PlanType5, SubscriptionStatus as SubscriptionStatus2, TableServiceCallType as TableServiceCallType2 } from "@prisma/client";
-function isUniqueConflict2(error2) {
+function isUniqueConflict3(error2) {
   return Boolean(error2 && typeof error2 === "object" && "code" in error2 && error2.code === "P2002");
 }
 async function emitCreated(call) {
@@ -21759,7 +23265,7 @@ var init_CreateTableServiceCallService = __esm({
           await emitCreated(call);
           return { call, duplicate: false };
         } catch (error2) {
-          if (isUniqueConflict2(error2)) {
+          if (isUniqueConflict3(error2)) {
             const concurrent = await TableServiceCallRepository_default.findActiveByTableAndType(
               restaurantId,
               tableId,
@@ -21917,7 +23423,7 @@ var init_ListTableServiceCallsController = __esm({
 });
 
 // src/modules/waiterCalls/services/UpdateTableServiceCallStatusService.ts
-import { TableServiceCallStatus as TableServiceCallStatus3, UserRole as UserRole28 } from "@prisma/client";
+import { TableServiceCallStatus as TableServiceCallStatus3, UserRole as UserRole30 } from "@prisma/client";
 var UpdateTableServiceCallStatusService, UpdateTableServiceCallStatusService_default;
 var init_UpdateTableServiceCallStatusService = __esm({
   "src/modules/waiterCalls/services/UpdateTableServiceCallStatusService.ts"() {
@@ -21967,7 +23473,7 @@ var init_UpdateTableServiceCallStatusService = __esm({
           if (current.status !== TableServiceCallStatus3.IN_PROGRESS) {
             throw new Error("Assuma o chamado antes de conclu\xED-lo.");
           }
-          const isAdmin = String(actorRole || "").toUpperCase() === UserRole28.ADMIN;
+          const isAdmin = String(actorRole || "").toUpperCase() === UserRole30.ADMIN;
           if (!isAdmin && current.assignedToId !== normalizedActorId) {
             throw new Error("Somente o gar\xE7om que assumiu o chamado pode conclu\xED-lo.");
           }
@@ -22032,6 +23538,66 @@ var init_UpdateTableServiceCallStatusController = __esm({
   }
 });
 
+// src/modules/waiterCalls/services/DeleteTableServiceCallService.ts
+var DeleteTableServiceCallService, DeleteTableServiceCallService_default;
+var init_DeleteTableServiceCallService = __esm({
+  "src/modules/waiterCalls/services/DeleteTableServiceCallService.ts"() {
+    init_TableServiceCallRepository();
+    DeleteTableServiceCallService = class {
+      async execute({ id, restaurantId }) {
+        const normalizedId = Number(id);
+        const normalizedRestaurantId = Number(restaurantId);
+        if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+          throw new Error("Chamado inv\xE1lido.");
+        }
+        if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
+          throw new Error("Restaurante n\xE3o identificado para excluir o chamado.");
+        }
+        const current = await TableServiceCallRepository_default.findByIdForRestaurant(
+          normalizedId,
+          normalizedRestaurantId
+        );
+        if (!current) throw new Error("Chamado n\xE3o encontrado neste restaurante.");
+        if (current.status !== "RESOLVED") {
+          throw new Error("Somente chamados conclu\xEDdos podem ser exclu\xEDdos.");
+        }
+        const deleted = await TableServiceCallRepository_default.deleteResolved(
+          normalizedId,
+          normalizedRestaurantId
+        );
+        if (deleted !== 1) throw new Error("O chamado j\xE1 foi exclu\xEDdo. Atualize a tela.");
+        return { id: normalizedId };
+      }
+    };
+    DeleteTableServiceCallService_default = new DeleteTableServiceCallService();
+  }
+});
+
+// src/modules/waiterCalls/controllers/DeleteTableServiceCallController.ts
+var DeleteTableServiceCallController, DeleteTableServiceCallController_default;
+var init_DeleteTableServiceCallController = __esm({
+  "src/modules/waiterCalls/controllers/DeleteTableServiceCallController.ts"() {
+    init_DeleteTableServiceCallService();
+    DeleteTableServiceCallController = class {
+      async handle(req, res) {
+        try {
+          const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+          const result = await DeleteTableServiceCallService_default.execute({
+            id,
+            restaurantId: req.user.restaurantId
+          });
+          return res.status(200).json(result);
+        } catch (error2) {
+          return res.status(400).json({
+            error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel excluir o chamado."
+          });
+        }
+      }
+    };
+    DeleteTableServiceCallController_default = new DeleteTableServiceCallController();
+  }
+});
+
 // src/modules/waiterCalls/routes/TableServiceCallRoutes.ts
 import { Router as Router20 } from "express";
 var router20, TableServiceCallRoutes_default;
@@ -22044,6 +23610,7 @@ var init_TableServiceCallRoutes = __esm({
     init_CreateTableServiceCallController();
     init_ListTableServiceCallsController();
     init_UpdateTableServiceCallStatusController();
+    init_DeleteTableServiceCallController();
     router20 = Router20();
     router20.post(
       "/",
@@ -22063,13 +23630,338 @@ var init_TableServiceCallRoutes = __esm({
       waiterMiddleware,
       (req, res) => UpdateTableServiceCallStatusController_default.handle(req, res)
     );
+    router20.delete(
+      "/:id",
+      authMiddleware,
+      waiterMiddleware,
+      (req, res) => DeleteTableServiceCallController_default.handle(req, res)
+    );
     TableServiceCallRoutes_default = router20;
   }
 });
 
-// src/routes/index.ts
+// src/modules/tableAccount/repositories/TableAccountRepository.ts
+import { TableParticipantStatus as TableParticipantStatus3, TableSessionStatus as TableSessionStatus7 } from "@prisma/client";
+var activeSessionStatuses, TableAccountRepository, TableAccountRepository_default;
+var init_TableAccountRepository = __esm({
+  "src/modules/tableAccount/repositories/TableAccountRepository.ts"() {
+    init_prisma();
+    activeSessionStatuses = [
+      TableSessionStatus7.OPEN,
+      TableSessionStatus7.CLOSING_REQUESTED
+    ];
+    TableAccountRepository = class {
+      async findSessionContextByPublicId(publicId, db = prisma_default) {
+        return db.tableSession.findFirst({
+          where: {
+            publicId,
+            status: { in: [...activeSessionStatuses] }
+          },
+          select: {
+            id: true,
+            publicId: true,
+            tableId: true,
+            restaurantId: true,
+            status: true,
+            expiresAt: true
+          }
+        });
+      }
+      async findSnapshotData(tableSessionId, restaurantId, currentParticipantId, db = prisma_default) {
+        return db.tableSession.findFirst({
+          where: {
+            id: tableSessionId,
+            restaurantId,
+            status: { in: [...activeSessionStatuses] },
+            participants: {
+              some: {
+                id: currentParticipantId,
+                restaurantId,
+                status: TableParticipantStatus3.ACTIVE,
+                revokedAt: null
+              }
+            }
+          },
+          select: {
+            publicId: true,
+            status: true,
+            table: { select: { number: true } },
+            participants: {
+              select: {
+                publicId: true,
+                displayName: true,
+                status: true,
+                joinedAt: true,
+                leftAt: true
+              },
+              orderBy: [{ joinedAt: "asc" }, { id: "asc" }]
+            },
+            billItems: {
+              select: {
+                publicId: true,
+                productName: true,
+                unitIndex: true,
+                unitPriceCents: true,
+                financialStatus: true,
+                canceledAt: true,
+                order: {
+                  select: {
+                    publicId: true,
+                    status: true,
+                    paid: true,
+                    refundStatus: true
+                  }
+                },
+                participant: {
+                  select: {
+                    publicId: true,
+                    displayName: true
+                  }
+                }
+              },
+              orderBy: [{ createdAt: "asc" }, { orderItemId: "asc" }, { unitIndex: "asc" }]
+            }
+          }
+        });
+      }
+    };
+    TableAccountRepository_default = new TableAccountRepository();
+  }
+});
+
+// src/middlewares/tableAccountSessionMiddleware.ts
+import { z as z18 } from "zod";
+async function tableAccountSessionMiddleware(req, res, next) {
+  try {
+    const parsedPublicId = sessionPublicIdSchema.safeParse(req.params.sessionPublicId);
+    if (!parsedPublicId.success) {
+      return res.status(404).json({
+        error: "Conta da mesa n\xE3o encontrada.",
+        code: "TABLE_ACCOUNT_NOT_FOUND"
+      });
+    }
+    const session = await TableAccountRepository_default.findSessionContextByPublicId(parsedPublicId.data);
+    if (!session) {
+      return res.status(404).json({
+        error: "Conta da mesa n\xE3o encontrada ou j\xE1 encerrada.",
+        code: "TABLE_ACCOUNT_NOT_FOUND"
+      });
+    }
+    if (session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
+      return res.status(403).json({
+        error: "A sess\xE3o desta mesa expirou. Pe\xE7a ao gar\xE7om para abrir um novo atendimento.",
+        code: "TABLE_ACCOUNT_EXPIRED"
+      });
+    }
+    req.tableSession = {
+      id: session.id,
+      publicId: session.publicId,
+      tableId: session.tableId,
+      restaurantId: session.restaurantId,
+      status: session.status
+    };
+    return next();
+  } catch (error2) {
+    return res.status(500).json({
+      error: "N\xE3o foi poss\xEDvel validar a conta desta mesa.",
+      ...process.env.NODE_ENV === "development" && error2 instanceof Error ? { detail: error2.message } : {}
+    });
+  }
+}
+var sessionPublicIdSchema;
+var init_tableAccountSessionMiddleware = __esm({
+  "src/middlewares/tableAccountSessionMiddleware.ts"() {
+    init_TableAccountRepository();
+    sessionPublicIdSchema = z18.string().uuid();
+  }
+});
+
+// src/modules/tableAccount/services/GetCurrentTableAccountService.ts
+import {
+  OrderRefundStatus as OrderRefundStatus7,
+  OrderStatus as OrderStatus19
+} from "@prisma/client";
+function toSafeMoneyCents(value, fieldName) {
+  return assertMoneyCents(Number(value), fieldName);
+}
+function resolveFinancialStatus(item) {
+  if (item.order.refundStatus === OrderRefundStatus7.SUCCEEDED) {
+    return "REFUNDED";
+  }
+  if (item.order.paid) {
+    return "PAID";
+  }
+  return item.financialStatus;
+}
+var operationalStatusMap, TableAccountAccessError, GetCurrentTableAccountService, GetCurrentTableAccountService_default;
+var init_GetCurrentTableAccountService = __esm({
+  "src/modules/tableAccount/services/GetCurrentTableAccountService.ts"() {
+    init_tableAccountContracts();
+    init_tableAccountRules();
+    init_TableAccountRepository();
+    operationalStatusMap = {
+      [OrderStatus19.PENDENTE]: "PENDING",
+      [OrderStatus19.PREPARANDO]: "PREPARING",
+      [OrderStatus19.PRONTO]: "READY",
+      [OrderStatus19.SAIU_PARA_ENTREGA]: "READY",
+      [OrderStatus19.ENTREGUE]: "DELIVERED",
+      [OrderStatus19.CANCELADO]: "CANCELED"
+    };
+    TableAccountAccessError = class extends Error {
+      constructor(message = "Conta da mesa n\xE3o encontrada.") {
+        super(message);
+        this.name = "TableAccountAccessError";
+      }
+    };
+    GetCurrentTableAccountService = class {
+      async execute(input) {
+        const tableSessionId = Number(input.tableSessionId);
+        const restaurantId = Number(input.restaurantId);
+        const participantId = Number(input.participantId);
+        if (!Number.isSafeInteger(tableSessionId) || tableSessionId <= 0 || !Number.isSafeInteger(restaurantId) || restaurantId <= 0 || !Number.isSafeInteger(participantId) || participantId <= 0) {
+          throw new TableAccountAccessError();
+        }
+        const data = await TableAccountRepository_default.findSnapshotData(
+          tableSessionId,
+          restaurantId,
+          participantId
+        );
+        if (!data) {
+          throw new TableAccountAccessError();
+        }
+        const normalizedItems = data.billItems.map((item) => {
+          const unitPriceCents = toSafeMoneyCents(
+            item.unitPriceCents,
+            `valor do item ${item.publicId}`
+          );
+          const orderStatus = operationalStatusMap[item.order.status];
+          const financialStatus = resolveFinancialStatus(item);
+          const canceled = Boolean(item.canceledAt) || orderStatus === "CANCELED";
+          return {
+            canceled,
+            unitPriceCents,
+            financialStatus,
+            dto: {
+              publicId: item.publicId,
+              orderPublicId: item.order.publicId,
+              productName: item.productName,
+              unitIndex: item.unitIndex,
+              unitPriceCents,
+              financialStatus,
+              orderStatus,
+              orderedByParticipantPublicId: item.participant.publicId,
+              orderedByDisplayName: item.participant.displayName?.trim() || "Cliente da mesa"
+            }
+          };
+        });
+        const consumedCents = sumMoneyCents(
+          normalizedItems.filter((item) => !item.canceled).map((item) => item.unitPriceCents)
+        );
+        const grossPaidCents = sumMoneyCents(
+          normalizedItems.filter((item) => ["PAID", "REFUNDED"].includes(item.financialStatus)).map((item) => item.unitPriceCents)
+        );
+        const refundedCents = sumMoneyCents(
+          normalizedItems.filter((item) => item.financialStatus === "REFUNDED").map((item) => item.unitPriceCents)
+        );
+        const reservedCents = sumMoneyCents(
+          normalizedItems.filter((item) => !item.canceled && item.financialStatus === "RESERVED").map((item) => item.unitPriceCents)
+        );
+        const processingCents = sumMoneyCents(
+          normalizedItems.filter((item) => !item.canceled && item.financialStatus === "PROCESSING").map((item) => item.unitPriceCents)
+        );
+        const serviceFeeCents = 0;
+        const balance = calculateTableAccountBalance({
+          consumedCents,
+          serviceFeeCents,
+          grossPaidCents,
+          refundedCents
+        });
+        return {
+          contractVersion: TABLE_ACCOUNT_CONTRACT_VERSION,
+          currentParticipantPublicId: input.participantPublicId,
+          summary: {
+            sessionPublicId: data.publicId,
+            tableNumber: data.table.number,
+            status: data.status,
+            consumedCents,
+            serviceFeeCents,
+            grossPaidCents,
+            refundedCents,
+            netPaidCents: balance.netPaidCents,
+            reservedCents,
+            processingCents,
+            remainingCents: balance.remainingCents,
+            overpaidCents: balance.overpaidCents,
+            participantsCount: data.participants.filter((participant) => participant.status === "ACTIVE").length
+          },
+          participants: data.participants.map((participant) => ({
+            publicId: participant.publicId,
+            displayName: participant.displayName,
+            status: participant.status,
+            joinedAt: participant.joinedAt.toISOString(),
+            leftAt: participant.leftAt?.toISOString() || null
+          })),
+          items: normalizedItems.map((item) => item.dto),
+          payments: []
+        };
+      }
+    };
+    GetCurrentTableAccountService_default = new GetCurrentTableAccountService();
+  }
+});
+
+// src/modules/tableAccount/controllers/GetCurrentTableAccountController.ts
+var GetCurrentTableAccountController, GetCurrentTableAccountController_default;
+var init_GetCurrentTableAccountController = __esm({
+  "src/modules/tableAccount/controllers/GetCurrentTableAccountController.ts"() {
+    init_GetCurrentTableAccountService();
+    GetCurrentTableAccountController = class {
+      async handle(req, res) {
+        try {
+          const account = await GetCurrentTableAccountService_default.execute({
+            tableSessionId: req.tableSession.id,
+            restaurantId: req.tableSession.restaurantId,
+            participantId: req.tableParticipant.id,
+            participantPublicId: req.tableParticipant.publicId
+          });
+          res.setHeader("Cache-Control", "no-store");
+          return res.status(200).json(account);
+        } catch (error2) {
+          const expected = error2 instanceof TableAccountAccessError;
+          return res.status(expected ? 404 : 500).json({
+            error: expected ? error2.message : "N\xE3o foi poss\xEDvel carregar a conta desta mesa."
+          });
+        }
+      }
+    };
+    GetCurrentTableAccountController_default = new GetCurrentTableAccountController();
+  }
+});
+
+// src/modules/tableAccount/routes/TableAccountRoutes.ts
 import { Router as Router21 } from "express";
-var router21, routes_default;
+var router21, TableAccountRoutes_default;
+var init_TableAccountRoutes = __esm({
+  "src/modules/tableAccount/routes/TableAccountRoutes.ts"() {
+    init_optionalAuthMiddleware();
+    init_tableAccountSessionMiddleware();
+    init_tableParticipantMiddleware();
+    init_GetCurrentTableAccountController();
+    router21 = Router21();
+    router21.get(
+      "/sessions/:sessionPublicId",
+      optionalAuthMiddleware,
+      tableAccountSessionMiddleware,
+      tableParticipantMiddleware,
+      (req, res) => GetCurrentTableAccountController_default.handle(req, res)
+    );
+    TableAccountRoutes_default = router21;
+  }
+});
+
+// src/routes/index.ts
+import { Router as Router22 } from "express";
+var router22, routes_default;
 var init_routes = __esm({
   "src/routes/index.ts"() {
     init_authRoutes();
@@ -22095,40 +23987,42 @@ var init_routes = __esm({
     init_AsaasWithdrawValidationWebhookController();
     init_ingredientRoutes();
     init_TableServiceCallRoutes();
-    router21 = Router21();
-    router21.post("/api/webhooks/asaas", (req, res) => {
+    init_TableAccountRoutes();
+    router22 = Router22();
+    router22.post("/api/webhooks/asaas", (req, res) => {
       AsaasOrderWebhookController_default.handle(req, res);
     });
-    router21.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
+    router22.post("/api/webhooks/asaas/withdraw-validation", (req, res) => {
       AsaasWithdrawValidationWebhookController_default.handle(req, res);
     });
-    router21.use("/auth", authRoutes_default);
-    router21.use("/restaurants", restaurantRoutes_default);
-    router21.use("/categories", CategoryRoutes_default);
-    router21.use("/products", productsRoutes_default);
-    router21.use("/ingredients", ingredientRoutes_default);
-    router21.use("/orders", orderRoutes_default);
-    router21.use("/employees", EmployeeRoutes_default);
-    router21.use("/table-sessions", SessionsTablesRoutes_default);
-    router21.use("/waiter-calls", TableServiceCallRoutes_default);
-    router21.use("/tables", TablesRoutes_default);
-    router21.use("/settings", RestaurantSettingsRoutes_default);
-    router21.use("/banners", BannerRoutes_default);
-    router21.use("/coupons", CouponRoutes_default);
-    router21.use("/subscription", SubscriptionRoutes_default);
-    router21.use("/ai-support", AiSupportRoutes_default);
-    router21.use("/menu-import", MenuImportRoutes_default);
-    router21.use("/audit-logs", AuditRoutes_default);
-    router21.use("/favorites", FavoriteRoutes_default);
-    router21.use("/image-enhancement", ImageEnhancementRoutes_default);
-    router21.use("/customer-addresses", CustomerAddressRoutes_default);
-    router21.get("/profile", authMiddleware, (req, res) => {
+    router22.use("/auth", authRoutes_default);
+    router22.use("/restaurants", restaurantRoutes_default);
+    router22.use("/categories", CategoryRoutes_default);
+    router22.use("/products", productsRoutes_default);
+    router22.use("/ingredients", ingredientRoutes_default);
+    router22.use("/orders", orderRoutes_default);
+    router22.use("/employees", EmployeeRoutes_default);
+    router22.use("/table-sessions", SessionsTablesRoutes_default);
+    router22.use("/table-accounts", TableAccountRoutes_default);
+    router22.use("/waiter-calls", TableServiceCallRoutes_default);
+    router22.use("/tables", TablesRoutes_default);
+    router22.use("/settings", RestaurantSettingsRoutes_default);
+    router22.use("/banners", BannerRoutes_default);
+    router22.use("/coupons", CouponRoutes_default);
+    router22.use("/subscription", SubscriptionRoutes_default);
+    router22.use("/ai-support", AiSupportRoutes_default);
+    router22.use("/menu-import", MenuImportRoutes_default);
+    router22.use("/audit-logs", AuditRoutes_default);
+    router22.use("/favorites", FavoriteRoutes_default);
+    router22.use("/image-enhancement", ImageEnhancementRoutes_default);
+    router22.use("/customer-addresses", CustomerAddressRoutes_default);
+    router22.get("/profile", authMiddleware, (req, res) => {
       return res.json({
         message: "Rota protegida!",
         user: req.user
       });
     });
-    routes_default = router21;
+    routes_default = router22;
   }
 });
 
@@ -22386,7 +24280,7 @@ var init_MercadoPagoWebhookController = __esm({
 });
 
 // src/modules/billing/controllers/BillingWebhookController.ts
-import crypto9 from "crypto";
+import crypto11 from "crypto";
 var BillingWebhookController, BillingWebhookController_default;
 var init_BillingWebhookController = __esm({
   "src/modules/billing/controllers/BillingWebhookController.ts"() {
@@ -22405,7 +24299,7 @@ var init_BillingWebhookController = __esm({
           }
           const configuredBuffer = Buffer.from(configuredSecret);
           const receivedBuffer = Buffer.from(receivedSecret);
-          const secretMatches = configuredBuffer.length === receivedBuffer.length && crypto9.timingSafeEqual(configuredBuffer, receivedBuffer);
+          const secretMatches = configuredBuffer.length === receivedBuffer.length && crypto11.timingSafeEqual(configuredBuffer, receivedBuffer);
           if (!secretMatches) {
             return res.sendStatus(404);
           }
@@ -22756,8 +24650,8 @@ var init_RegenerateInvoicePaymentLinkController = __esm({
 });
 
 // src/modules/billing/routes/BillingRoutes.ts
-import { Router as Router22 } from "express";
-var router22, BillingRoutes_default;
+import { Router as Router23 } from "express";
+var router23, BillingRoutes_default;
 var init_BillingRoutes = __esm({
   "src/modules/billing/routes/BillingRoutes.ts"() {
     init_MercadoPagoWebhookController();
@@ -22769,42 +24663,42 @@ var init_BillingRoutes = __esm({
     init_authMiddleware();
     init_adminMiddleware();
     init_superAdminMiddleware();
-    router22 = Router22();
-    router22.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
-    router22.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
-    router22.get(
+    router23 = Router23();
+    router23.post("/webhook/mercadopago", MercadoPagoWebhookController_default.handle);
+    router23.post("/webhook/mercadopago/test", BillingWebhookController_default.handle);
+    router23.get(
       "/plans",
       authMiddleware,
       adminMiddleware,
       (req, res) => GetPlansController_default.handle(req, res)
     );
-    router22.get(
+    router23.get(
       "/invoices",
       authMiddleware,
       adminMiddleware,
       (req, res) => GetInvoicesController_default.handle(req, res)
     );
-    router22.get(
+    router23.get(
       "/invoices/all",
       authMiddleware,
       superAdminMiddleware,
       (req, res) => GetAllInvoicesController_default.handle(req, res)
     );
-    router22.post(
+    router23.post(
       "/invoices/:id/regenerate-link",
       authMiddleware,
       adminMiddleware,
       (req, res) => RegenerateInvoicePaymentLinkController_default.handle(req, res)
     );
-    BillingRoutes_default = router22;
+    BillingRoutes_default = router23;
   }
 });
 
 // src/middlewares/security/requestIdMiddleware.ts
-import crypto10 from "crypto";
+import crypto12 from "crypto";
 function requestIdMiddleware(req, res, next) {
   const rawRequestId = req.headers["x-request-id"];
-  const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId || crypto10.randomUUID();
+  const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId || crypto12.randomUUID();
   req.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);
   next();
@@ -23171,19 +25065,20 @@ var init_sentry = __esm({
 });
 
 // src/socket/socketAuth.ts
-import jwt8 from "jsonwebtoken";
-import { TableSessionStatus as TableSessionStatus7, UserRole as UserRole29 } from "@prisma/client";
+import jwt9 from "jsonwebtoken";
+import { TableSessionStatus as TableSessionStatus8, UserRole as UserRole31 } from "@prisma/client";
 async function socketAuth(socket, next) {
   try {
     const token = socket.handshake.auth?.token;
     const sessionToken = socket.handshake.auth?.sessionToken;
+    const tableToken = socket.handshake.auth?.tableToken;
     if (token) {
-      const decoded = jwt8.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt9.verify(token, process.env.JWT_SECRET);
       const normalizedRole = String(decoded.role || "").toUpperCase();
-      if (normalizedRole === UserRole29.MOTOQUEIRO || normalizedRole === UserRole29.ADMIN) {
+      if (normalizedRole === UserRole31.MOTOQUEIRO || normalizedRole === UserRole31.ADMIN) {
         const accountId = Number(decoded.id || 0);
         const restaurantId = Number(decoded.restaurantId || 0);
-        const isCourier = normalizedRole === UserRole29.MOTOQUEIRO;
+        const isCourier = normalizedRole === UserRole31.MOTOQUEIRO;
         if (!Number.isInteger(accountId) || accountId <= 0 || !Number.isInteger(restaurantId) || restaurantId <= 0) {
           return next(new Error(`Conta de ${isCourier ? "motoqueiro" : "administrador"} inv\xE1lida`));
         }
@@ -23191,7 +25086,7 @@ async function socketAuth(socket, next) {
           where: {
             id: accountId,
             restaurantId,
-            role: isCourier ? UserRole29.MOTOQUEIRO : UserRole29.ADMIN,
+            role: isCourier ? UserRole31.MOTOQUEIRO : UserRole31.ADMIN,
             active: true
           },
           select: {
@@ -23217,7 +25112,7 @@ async function socketAuth(socket, next) {
     }
     if (sessionToken) {
       const session = await TableSessionRepository_default.findBySessionToken(sessionToken);
-      if (!session || session.status !== TableSessionStatus7.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
+      if (!session || session.status !== TableSessionStatus8.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
         return next(new Error("Sess\xE3o da mesa inv\xE1lida"));
       }
       socket.authType = "table-session";
@@ -23229,6 +25124,21 @@ async function socketAuth(socket, next) {
       };
       return next();
     }
+    if (tableToken) {
+      const table = await ResolvePublicTableService_default.execute({
+        tableNumber: socket.handshake.auth?.tableNumber,
+        tableToken,
+        restaurantId: socket.handshake.auth?.restaurantId,
+        restaurantSlug: socket.handshake.auth?.restaurantSlug
+      });
+      socket.authType = "table-waiting";
+      socket.waitingTable = {
+        id: table.id,
+        number: table.number,
+        restaurantId: table.restaurantId
+      };
+      return next();
+    }
     return next(new Error("Token n\xE3o enviado"));
   } catch (_error) {
     return next(new Error("Token inv\xE1lido"));
@@ -23237,6 +25147,7 @@ async function socketAuth(socket, next) {
 var init_socketAuth = __esm({
   "src/socket/socketAuth.ts"() {
     init_TableSessionRepository();
+    init_ResolvePublicTableService();
     init_prisma();
   }
 });
@@ -23320,13 +25231,20 @@ var init_employeeIssuePayload = __esm({
 });
 
 // src/socket/socketHandler.ts
-import { OrderStatus as OrderStatus18, OrderType as OrderType10, UserRole as UserRole30 } from "@prisma/client";
+import { OrderStatus as OrderStatus20, OrderType as OrderType10, UserRole as UserRole32 } from "@prisma/client";
 function socketHandler(socket) {
   console.log("\u{1F50C} conectado:", socket.id);
   if (socket.authType === "table-session" && socket.tableSession) {
     const { id: id2, tableId, restaurantId: restaurantId2 } = socket.tableSession;
     socket.join(`table:${tableId}`);
     socket.join(`table-session:${id2}`);
+    socket.on("disconnect", () => {
+      console.log("\u274C desconectado:", socket.id);
+    });
+    return;
+  }
+  if (socket.authType === "table-waiting" && socket.waitingTable) {
+    socket.join(`table-waiting:${socket.waitingTable.id}`);
     socket.on("disconnect", () => {
       console.log("\u274C desconectado:", socket.id);
     });
@@ -23361,7 +25279,7 @@ function socketHandler(socket) {
         where: {
           id: Number(id || 0),
           restaurantId: Number(restaurantId || 0),
-          role: UserRole30.ADMIN,
+          role: UserRole32.ADMIN,
           active: true
         },
         select: { id: true }
@@ -23461,10 +25379,10 @@ function socketHandler(socket) {
           WHERE o."id" = ${order.id}
             AND o."restaurantId" = ${Number(restaurantId)}
             AND o."type" = CAST(${OrderType10.DELIVERY} AS "OrderType")
-            AND o."status" = CAST(${OrderStatus18.SAIU_PARA_ENTREGA} AS "OrderStatus")
+            AND o."status" = CAST(${OrderStatus20.SAIU_PARA_ENTREGA} AS "OrderStatus")
             AND o."assignedCourierId" = ${Number(id)}
             AND courier."restaurantId" = ${Number(restaurantId)}
-            AND courier."role" = CAST(${UserRole30.MOTOQUEIRO} AS "UserRole")
+            AND courier."role" = CAST(${UserRole32.MOTOQUEIRO} AS "UserRole")
             AND courier."active" = TRUE
           FOR UPDATE OF o, courier
         `;
