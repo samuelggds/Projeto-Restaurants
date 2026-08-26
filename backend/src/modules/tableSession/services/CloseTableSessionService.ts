@@ -4,6 +4,7 @@ import prisma from '../../../config/prisma.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
+import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 
 type CloseTableSessionPayload = {
   sessionId: number | string;
@@ -60,6 +61,11 @@ class CloseTableSessionService {
         const closedSession = await tableSessionRepository.close(
           normalizedSessionId,
           normalizedClosedById,
+          tx,
+        );
+        await tableParticipantRepository.revokeActiveBySession(
+          session.id,
+          normalizedRestaurantId,
           tx,
         );
         if (activeCalls.length) {

@@ -8,10 +8,11 @@ import openTableSessionService from './OpenTableSessionService.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
+import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 
 const originalFindByIdForRestaurant = tableRepository.findByIdForRestaurant;
 const originalResolvePublicTable = resolvePublicTableService.execute;
-const originalFindOpened = tableSessionRepository.findOpenedByTable;
+const originalFindActive = tableSessionRepository.findActiveByTable;
 const originalListExpired = tableSessionRepository.listExpiredOpenByTable;
 const originalClose = tableSessionRepository.close;
 const originalCreate = tableSessionRepository.create;
@@ -21,11 +22,12 @@ const originalFindCall = tableServiceCallRepository.findByIdForRestaurant;
 const originalOpenedEvent = tableSessionEvents.opened;
 const originalClosedEvent = tableSessionEvents.closed;
 const originalCallUpdatedEvent = tableServiceCallEvents.updated;
+const originalRevokeParticipants = tableParticipantRepository.revokeActiveBySession;
 
 afterEach(() => {
   tableRepository.findByIdForRestaurant = originalFindByIdForRestaurant;
   resolvePublicTableService.execute = originalResolvePublicTable;
-  tableSessionRepository.findOpenedByTable = originalFindOpened;
+  tableSessionRepository.findActiveByTable = originalFindActive;
   tableSessionRepository.listExpiredOpenByTable = originalListExpired;
   tableSessionRepository.close = originalClose;
   tableSessionRepository.create = originalCreate;
@@ -35,6 +37,7 @@ afterEach(() => {
   tableSessionEvents.opened = originalOpenedEvent;
   tableSessionEvents.closed = originalClosedEvent;
   tableServiceCallEvents.updated = originalCallUpdatedEvent;
+  tableParticipantRepository.revokeActiveBySession = originalRevokeParticipants;
 });
 
 test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessão', async () => {
@@ -62,7 +65,7 @@ test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessã
       billRequestEnabled: true,
     };
   };
-  tableSessionRepository.findOpenedByTable = async () => null;
+  tableSessionRepository.findActiveByTable = async () => null;
   tableSessionRepository.listExpiredOpenByTable = async () => [];
   let createData;
   tableSessionRepository.create = async (data) => {
@@ -94,6 +97,7 @@ test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessã
     restaurantId: 7,
   });
   assert.equal(createData.pinHash, 'PIN_FLOW_DISABLED');
+  assert.equal(createData.restaurantId, 7);
   assert.match(createData.sessionToken, /^[a-f0-9]{64}$/);
   assert.equal(result.sessionId, 55);
   assert.equal('pin' in result, false);
@@ -118,7 +122,7 @@ test('não cria uma segunda sessão quando já existe uma OPEN não expirada', a
     restaurantId: 7,
     tableOrderingEnabled: true,
   });
-  tableSessionRepository.findOpenedByTable = async () => ({
+  tableSessionRepository.findActiveByTable = async () => ({
     id: 54,
     tableId: 91,
     expiresAt: new Date(Date.now() + 60_000),
@@ -134,8 +138,7 @@ test('não cria uma segunda sessão quando já existe uma OPEN não expirada', a
   };
 
   await assert.rejects(
-    () =>
-      openTableSessionService.execute({ tableId: 91, restaurantId: 7, openedById: 3 }),
+    () => openTableSessionService.execute({ tableId: 91, restaurantId: 7, openedById: 3 }),
     /mesa já está aberta/i,
   );
   assert.equal(listedExpired, false);
@@ -160,7 +163,7 @@ test('encerra todas as sessões OPEN expiradas e avisa os clientes antes de abri
     waiterCallEnabled: true,
     billRequestEnabled: true,
   });
-  tableSessionRepository.findOpenedByTable = async () => null;
+  tableSessionRepository.findActiveByTable = async () => null;
   tableSessionRepository.listExpiredOpenByTable = async () => [
     {
       id: 54,
@@ -180,6 +183,7 @@ test('encerra todas as sessões OPEN expiradas e avisa os clientes antes de abri
     closedIds.push(Number(id));
     return { closedAt: new Date() };
   };
+  tableParticipantRepository.revokeActiveBySession = async () => ({ count: 0 });
   const resolvedSessionIds = [];
   tableServiceCallRepository.listActiveBySession = async (sessionId) => [
     { id: Number(sessionId) + 1000 },
@@ -247,12 +251,13 @@ test('falha de realtime ao avisar expiração não impede a nova abertura', asyn
     restaurantId: 7,
     tableOrderingEnabled: true,
   });
-  tableSessionRepository.findOpenedByTable = async () => null;
+  tableSessionRepository.findActiveByTable = async () => null;
   tableSessionRepository.listExpiredOpenByTable = async () => [
     { id: 54, tableId: 91, table, expiresAt: new Date(Date.now() - 1_000) },
   ];
   tableServiceCallRepository.listActiveBySession = async () => [];
   tableSessionRepository.close = async () => ({ closedAt: new Date() });
+  tableParticipantRepository.revokeActiveBySession = async () => ({ count: 0 });
   tableServiceCallRepository.resolveActiveBySession = async () => ({ count: 0 });
   tableSessionEvents.closed = async () => {
     throw new Error('socket indisponível');
@@ -277,7 +282,10 @@ test('falha de realtime ao avisar expiração não impede a nova abertura', asyn
       openedById: 3,
     });
     assert.equal(result.sessionId, 55);
-    assert.equal(logs.some((entry) => entry[0] === '[TABLE_SESSION_REALTIME_ERROR]'), true);
+    assert.equal(
+      logs.some((entry) => entry[0] === '[TABLE_SESSION_REALTIME_ERROR]'),
+      true,
+    );
   } finally {
     console.error = originalConsoleError;
   }
@@ -301,7 +309,7 @@ test('não abre mesa quando o administrador desativou pedidos pelo cardápio de 
     billRequestEnabled: true,
   });
   let searchedOpenSession = false;
-  tableSessionRepository.findOpenedByTable = async () => {
+  tableSessionRepository.findActiveByTable = async () => {
     searchedOpenSession = true;
     return null;
   };

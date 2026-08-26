@@ -172,6 +172,7 @@ test('reconhece janelas de antecipação comuns e que atravessam a meia-noite', 
 });
 
 test('normaliza identidade do participante e mantém telefone opcional', () => {
+  assert.deepEqual(tableParticipantIdentityInputSchema.parse({}), {});
   assert.deepEqual(tableParticipantIdentityInputSchema.parse({ displayName: '  Ana   Silva  ' }), {
     displayName: 'Ana Silva',
   });

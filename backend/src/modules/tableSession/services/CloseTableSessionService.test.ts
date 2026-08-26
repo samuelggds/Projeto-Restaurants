@@ -6,6 +6,7 @@ import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import closeTableSessionService from './CloseTableSessionService.js';
+import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -15,6 +16,7 @@ const originals = {
   listCalls: tableServiceCallRepository.listActiveBySession,
   resolveCalls: tableServiceCallRepository.resolveActiveBySession,
   closedEvent: tableSessionEvents.closed,
+  revokeParticipants: tableParticipantRepository.revokeActiveBySession,
 };
 
 afterEach(() => {
@@ -25,6 +27,7 @@ afterEach(() => {
   tableServiceCallRepository.listActiveBySession = originals.listCalls;
   tableServiceCallRepository.resolveActiveBySession = originals.resolveCalls;
   tableSessionEvents.closed = originals.closedEvent;
+  tableParticipantRepository.revokeActiveBySession = originals.revokeParticipants;
 });
 
 function mockTransaction() {
@@ -52,8 +55,7 @@ test('isola o fechamento pelo restaurantId do token', async () => {
   };
 
   await assert.rejects(
-    () =>
-      closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
+    () => closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
     /não encontrada neste restaurante/i,
   );
   assert.equal(searchedOrders, false);
@@ -77,8 +79,7 @@ test('bloqueia fechamento enquanto existe pedido ou pagamento pendente', async (
   };
 
   await assert.rejects(
-    () =>
-      closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
+    () => closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
     /pedidos ou pagamentos pendentes.*#101, #102/i,
   );
   assert.equal(closeCalled, false);
@@ -89,6 +90,7 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
   tableSessionRepository.findById = async () => openSession;
   tableSessionRepository.findBlockingOrdersForSession = async () => [];
   tableServiceCallRepository.listActiveBySession = async () => [];
+  tableParticipantRepository.revokeActiveBySession = async () => ({ count: 2 });
   tableSessionRepository.close = async (id, closedById) => ({
     id: Number(id),
     tableId: 91,
@@ -139,8 +141,5 @@ test('consulta somente pedidos da mesa/restaurante criados após a abertura', as
   assert.equal(query.where.restaurantId, 7);
   assert.equal(query.where.createdAt.gte, openedAt);
   assert.equal(query.where.status.not, 'CANCELADO');
-  assert.deepEqual(query.where.OR, [
-    { status: { not: 'ENTREGUE' } },
-    { paid: false },
-  ]);
+  assert.deepEqual(query.where.OR, [{ status: { not: 'ENTREGUE' } }, { paid: false }]);
 });

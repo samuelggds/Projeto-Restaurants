@@ -71,7 +71,7 @@ export const TABLE_ACCOUNT_PAYMENT_PROVIDER = null;
  * implícitas em controllers ou componentes de interface.
  */
 export const TABLE_ACCOUNT_PRODUCT_DECISIONS = {
-  participantDisplayNameRequired: true,
+  participantDisplayNameRequired: false,
   participantPhoneOrLoginRequired: false,
   participantsAndItemsVisibleToTable: true,
   paymentMethodVisibleToOtherParticipants: false,
@@ -134,7 +134,7 @@ export interface TableAccountSettingsDto {
 
 export interface TableParticipantDto {
   publicId: string;
-  displayName: string;
+  displayName: string | null;
   status: TableParticipantStatus;
   joinedAt: IsoDateTimeString;
   leftAt: IsoDateTimeString | null;

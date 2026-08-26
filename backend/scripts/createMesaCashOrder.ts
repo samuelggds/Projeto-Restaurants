@@ -68,6 +68,7 @@ import prisma from '../src/config/prisma.js';
 
     const session = await prisma.tableSession.create({
       data: {
+        restaurantId,
         tableId: table.id,
         openedById: openedBy.id,
         pinHash: `hash-${Date.now()}`,

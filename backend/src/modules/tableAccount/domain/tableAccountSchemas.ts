@@ -37,7 +37,9 @@ export const tableParticipantIdentityInputSchema = z
       .trim()
       .min(2, 'Informe um nome com pelo menos 2 caracteres.')
       .max(100, 'O nome deve ter no máximo 100 caracteres.')
-      .transform((value) => value.replace(/\s+/g, ' ')),
+      .transform((value) => value.replace(/\s+/g, ' '))
+      .nullable()
+      .optional(),
     phone: z
       .string()
       .trim()

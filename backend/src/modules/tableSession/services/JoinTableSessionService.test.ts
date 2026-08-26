@@ -4,13 +4,31 @@ import test, { afterEach } from 'node:test';
 import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import joinTableSessionService from './JoinTableSessionService.js';
+import joinTableParticipantService from './JoinTableParticipantService.js';
 
 const originalResolve = resolvePublicTableService.execute;
 const originalFindOpen = tableSessionRepository.findOpenedByTable;
+const originalJoinParticipant = joinTableParticipantService.execute;
 
 afterEach(() => {
   resolvePublicTableService.execute = originalResolve;
   tableSessionRepository.findOpenedByTable = originalFindOpen;
+  joinTableParticipantService.execute = originalJoinParticipant;
+});
+
+joinTableParticipantService.execute = async () => ({
+  participant: {
+    publicId: '123e4567-e89b-42d3-a456-426614174000',
+    displayName: null,
+    authenticated: false,
+    status: 'ACTIVE',
+    joinedAt: new Date(),
+    leftAt: null,
+  },
+  participantToken: 'participant-secret',
+  participantCookieName: 'table_participant_test',
+  participantCookieExpiresAt: new Date('2026-08-25T00:00:00.000Z'),
+  clearParticipantCookie: false,
 });
 
 const resolvedTable = {
@@ -34,6 +52,8 @@ test('entra automaticamente somente na sessão OPEN resolvida pelo token do QR',
     assert.equal(Number(tableId), 91);
     return {
       id: 55,
+      publicId: '123e4567-e89b-42d3-a456-426614174001',
+      restaurantId: 7,
       tableId: 91,
       sessionToken: 'session-secret',
       expiresAt: new Date('2026-08-25T00:00:00.000Z'),
@@ -61,6 +81,7 @@ test('entra automaticamente somente na sessão OPEN resolvida pelo token do QR',
   assert.equal(result.tableId, 91);
   assert.equal(result.restaurantId, 7);
   assert.equal(result.billRequestEnabled, false);
+  assert.equal(result.participant.publicId, '123e4567-e89b-42d3-a456-426614174000');
 });
 
 test('não libera o cardápio quando o garçom ainda não abriu a mesa', async () => {

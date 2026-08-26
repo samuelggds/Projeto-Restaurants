@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import joinTableSessionService from '../services/JoinTableSessionService.js';
 import { PublicTableResolutionError } from '../../table/services/ResolvePublicTableService.js';
+import { getParticipantCookieOptions, parseCookieHeader } from '../security/participantToken.js';
 
 class JoinTableSessionController {
   async handle(req: Request, res: Response) {
@@ -11,8 +12,29 @@ class JoinTableSessionController {
         tableToken: req.body?.tableToken || req.body?.token,
         restaurantId: req.body?.restaurantId,
         restaurantSlug: req.body?.restaurantSlug || req.body?.slug,
+        authenticatedUser: req.user ? { id: req.user.id, role: req.user.role } : null,
+        cookies: parseCookieHeader(req.headers.cookie),
+        displayName: req.body?.displayName ?? req.body?.guestName,
       });
-      return res.status(200).json(result);
+      const {
+        participantToken,
+        participantCookieName,
+        participantCookieExpiresAt,
+        clearParticipantCookie,
+        ...publicResult
+      } = result;
+
+      if (clearParticipantCookie) {
+        res.clearCookie(participantCookieName, getParticipantCookieOptions(new Date(0)));
+      } else if (participantToken && participantCookieExpiresAt) {
+        res.cookie(
+          participantCookieName,
+          participantToken,
+          getParticipantCookieOptions(participantCookieExpiresAt),
+        );
+      }
+
+      return res.status(200).json(publicResult);
     } catch (error: unknown) {
       const statusCode = error instanceof PublicTableResolutionError ? error.statusCode : 400;
       return res.status(statusCode).json({

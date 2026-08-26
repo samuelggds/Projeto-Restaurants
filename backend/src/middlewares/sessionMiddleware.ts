@@ -36,8 +36,10 @@ export async function sessionMiddleware(req: Request, res: Response, next: NextF
 
     req.tableSession = {
       id: session.id,
+      publicId: session.publicId,
       tableId: session.tableId,
-      restaurantId: session.table.restaurantId,
+      restaurantId: session.restaurantId,
+      status: session.status,
     };
 
     return next();

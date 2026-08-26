@@ -17,16 +17,13 @@ class DeactivateTableService {
       throw new Error('Restaurante inválido para desativar mesa.');
     }
 
-    const table = await tableRepository.findByIdForRestaurant(
-      normalizedId,
-      normalizedRestaurantId,
-    );
+    const table = await tableRepository.findByIdForRestaurant(normalizedId, normalizedRestaurantId);
 
     if (!table) {
       throw new Error('Mesa não encontrada!');
     }
 
-    const openSession = await tableSessionRepository.findOpenedByTable(normalizedId);
+    const openSession = await tableSessionRepository.findActiveByTable(normalizedId);
     if (openSession) {
       throw new Error('Feche o atendimento da mesa antes de desativá-la.');
     }

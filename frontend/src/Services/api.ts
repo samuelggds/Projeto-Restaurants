@@ -64,8 +64,16 @@ function getApiBaseUrls() {
 
   // In local development, prefer loopback endpoints first to avoid stale LAN hosts.
   if (isLocalRuntimeHost) {
-    urls.add(defaultLoopbackUrl);
-    urls.add(defaultLocalUrl);
+    // Cookies HttpOnly com SameSite=Lax precisam manter o mesmo hostname.
+    // localhost e 127.0.0.1 apontam para a mesma máquina, mas são sites
+    // diferentes para o navegador.
+    if (runtimeHost === 'localhost') {
+      urls.add(defaultLocalUrl);
+      urls.add(defaultLoopbackUrl);
+    } else {
+      urls.add(defaultLoopbackUrl);
+      urls.add(defaultLocalUrl);
+    }
   }
 
   // In production-like hosts, never fall back to host:3000.
@@ -110,6 +118,7 @@ const API_TIMEOUT_MS =
 const api = axios.create({
   baseURL: API_BASE_URLS[0] || '',
   timeout: API_TIMEOUT_MS,
+  withCredentials: true,
 });
 
 // Add auth token to all requests

@@ -5,6 +5,7 @@ import resolvePublicTableService from '../../table/services/ResolvePublicTableSe
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
+import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 
 function isUniqueConflict(error: unknown) {
   return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002');
@@ -58,7 +59,7 @@ class OpenTableSessionService {
       throw new Error('Os pedidos pelo cardápio de mesa estão desativados neste restaurante.');
     }
 
-    const activeSession = await tableSessionRepository.findOpenedByTable(normalizedTableId);
+    const activeSession = await tableSessionRepository.findActiveByTable(normalizedTableId);
     if (activeSession) {
       throw new Error('Essa mesa já está aberta!');
     }
@@ -72,6 +73,10 @@ class OpenTableSessionService {
       const closedSession = await tableSessionRepository.close(
         expiredSession.id,
         normalizedOpenedById,
+      );
+      await tableParticipantRepository.revokeActiveBySession(
+        expiredSession.id,
+        normalizedRestaurantId,
       );
       await tableServiceCallRepository.resolveActiveBySession(
         expiredSession.id,
@@ -102,9 +107,7 @@ class OpenTableSessionService {
         );
         if (!resolvedCall) continue;
         tableServiceCallEvents
-          .updated(
-            resolvedCall as unknown as Parameters<typeof tableServiceCallEvents.updated>[0],
-          )
+          .updated(resolvedCall as unknown as Parameters<typeof tableServiceCallEvents.updated>[0])
           .catch((error: unknown) => {
             console.error(
               '[WAITER_CALL_REALTIME_ERROR]',
@@ -124,6 +127,7 @@ class OpenTableSessionService {
     let session;
     try {
       session = await tableSessionRepository.create({
+        restaurantId: normalizedRestaurantId,
         tableId: normalizedTableId,
         // Kept only for backwards-compatible persistence. No PIN is generated or exposed.
         pinHash: 'PIN_FLOW_DISABLED',

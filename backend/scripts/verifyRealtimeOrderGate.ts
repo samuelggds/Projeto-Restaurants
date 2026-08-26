@@ -182,6 +182,7 @@ async function main() {
 
     const tableSession = await prisma.tableSession.create({
       data: {
+        restaurantId: restaurant.id,
         tableId: table.id,
         openedById: opener.id,
         pinHash: `hash-${suffix}`,

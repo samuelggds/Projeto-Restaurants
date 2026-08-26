@@ -17,10 +17,13 @@ import {
   tableJoinRateLimitMiddleware,
 } from '../../../middlewares/security/tableSessionRateLimitMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
+import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
+import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
+import UpdateTableParticipantController from '../controllers/UpdateTableParticipantController.js';
 
 const router = Router();
 
-router.post('/join', tableJoinRateLimitMiddleware, (req, res) =>
+router.post('/join', tableJoinRateLimitMiddleware, optionalAuthMiddleware, (req, res) =>
   JoinTableSessionController.handle(req, res),
 );
 
@@ -30,8 +33,19 @@ router.post('/validate', tablePinRateLimitMiddleware, (req, res) =>
 router.post('/request-pin', tablePinAssistanceRateLimitMiddleware, (req, res) =>
   RequestPinAssistanceController.handle(req, res),
 );
-router.get('/current', sessionMiddleware, (req, res) =>
-  GetCurrentSessionController.handle(req, res),
+router.get(
+  '/current',
+  optionalAuthMiddleware,
+  sessionMiddleware,
+  tableParticipantMiddleware,
+  (req, res) => GetCurrentSessionController.handle(req, res),
+);
+router.patch(
+  '/participant',
+  optionalAuthMiddleware,
+  sessionMiddleware,
+  tableParticipantMiddleware,
+  (req, res) => UpdateTableParticipantController.handle(req, res),
 );
 
 router.post('/open', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware, (req, res) =>

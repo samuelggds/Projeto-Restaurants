@@ -41,6 +41,20 @@ class TableSessionRepository {
     });
   }
 
+  async findActiveByTable(tableId: number | string, db: PrismaClientLike = prisma) {
+    return db.tableSession.findFirst({
+      where: {
+        tableId: Number(tableId),
+        status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: {
+        table: { select: operationalTableSelect },
+      },
+      orderBy: { openedAt: 'desc' },
+    });
+  }
+
   async findLatestOpenByTable(tableId: number | string, db: PrismaClientLike = prisma) {
     return db.tableSession.findFirst({
       where: {
@@ -56,7 +70,7 @@ class TableSessionRepository {
     return db.tableSession.findMany({
       where: {
         tableId: Number(tableId),
-        status: TableSessionStatus.OPEN,
+        status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
         expiresAt: { lte: new Date() },
       },
       include: { table: { select: operationalTableSelect } },
@@ -102,7 +116,7 @@ class TableSessionRepository {
   async listOpenByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.tableSession.findMany({
       where: {
-        status: TableSessionStatus.OPEN,
+        status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         table: {
           restaurantId,
@@ -110,6 +124,8 @@ class TableSessionRepository {
       },
       select: {
         id: true,
+        publicId: true,
+        restaurantId: true,
         tableId: true,
         status: true,
         openedAt: true,

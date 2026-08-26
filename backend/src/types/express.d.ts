@@ -14,8 +14,19 @@ declare global {
       };
       tableSession?: {
         id: number;
+        publicId: string;
         tableId: number;
         restaurantId: number;
+        status: string;
+      };
+      tableParticipant?: {
+        id: number;
+        publicId: string;
+        tableSessionId: number;
+        restaurantId: number;
+        userId: number | null;
+        displayName: string | null;
+        authenticated: boolean;
       };
       subscription?: unknown;
     }

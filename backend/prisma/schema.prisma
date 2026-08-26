@@ -40,6 +40,9 @@ model User {
   orderIssueThreads          OrderIssueThread[]
   closedTableSessions        TableSession[]       @relation("ClosedTableSessions")
   openedTableSessions        TableSession[]       @relation("OpenedTableSessions")
+  closingRequestedTableSessions TableSession[]       @relation("ClosingRequestedTableSessions")
+  forceClosedTableSessions   TableSession[]       @relation("ForceClosedTableSessions")
+  tableParticipants          TableParticipant[]
   restaurant                 Restaurant?          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages        SupportChatMessage[]
   productFavorites           ProductFavorite[]
@@ -109,6 +112,8 @@ model Restaurant {
   orderIssueThreads   OrderIssueThread[]
   couponRedemptions   CouponRedemption[]
   tableServiceCalls   TableServiceCall[]
+  tableSessions       TableSession[]
+  tableParticipants   TableParticipant[]
 }
 
 model SupportChatMessage {
@@ -319,25 +324,65 @@ model Table {
   serviceCalls  TableServiceCall[]
 
   @@unique([restaurantId, number])
+  @@unique([id, restaurantId])
 }
 
 model TableSession {
-  id           Int                @id @default(autoincrement())
-  tableId      Int
-  pinHash      String
-  sessionToken String             @unique
-  status       TableSessionStatus @default(OPEN)
-  openedById   Int
-  closedById   Int?
-  openedAt     DateTime           @default(now())
-  closedAt     DateTime?
-  expiresAt    DateTime?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  closedBy     User?              @relation("ClosedTableSessions", fields: [closedById], references: [id])
-  openedBy     User               @relation("OpenedTableSessions", fields: [openedById], references: [id])
-  table        Table              @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  serviceCalls TableServiceCall[]
+  id                   Int                @id @default(autoincrement())
+  publicId             String             @unique @default(uuid())
+  restaurantId         Int
+  tableId              Int
+  pinHash              String
+  sessionToken         String             @unique
+  status               TableSessionStatus @default(OPEN)
+  openedById           Int
+  closingRequestedById Int?
+  closedById           Int?
+  forceClosedById      Int?
+  openedAt             DateTime           @default(now())
+  closingRequestedAt   DateTime?
+  closedAt             DateTime?
+  expiresAt            DateTime?
+  forcedClosed         Boolean            @default(false)
+  forceCloseReason     String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  closedBy             User?              @relation("ClosedTableSessions", fields: [closedById], references: [id], onDelete: SetNull)
+  closingRequestedBy   User?              @relation("ClosingRequestedTableSessions", fields: [closingRequestedById], references: [id], onDelete: SetNull)
+  forceClosedBy        User?              @relation("ForceClosedTableSessions", fields: [forceClosedById], references: [id], onDelete: SetNull)
+  openedBy             User               @relation("OpenedTableSessions", fields: [openedById], references: [id])
+  restaurant           Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table                Table              @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  serviceCalls         TableServiceCall[]
+  participants         TableParticipant[]
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, status, openedAt])
+  @@index([tableId, status])
+}
+
+model TableParticipant {
+  id             Int                    @id @default(autoincrement())
+  publicId       String                 @unique @default(uuid())
+  restaurantId   Int
+  tableSessionId Int
+  userId         Int?
+  displayName    String?
+  guestTokenHash String?                @unique
+  tokenExpiresAt DateTime?
+  status         TableParticipantStatus @default(ACTIVE)
+  joinedAt       DateTime               @default(now())
+  leftAt         DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  restaurant     Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession   TableSession           @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  user           User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([tableSessionId, userId])
+  @@index([restaurantId, tableSessionId, status])
+  @@index([userId, status])
 }
 
 model TableServiceCall {
@@ -823,7 +868,13 @@ enum SubscriptionStatus {
 
 enum TableSessionStatus {
   OPEN
+  CLOSING_REQUESTED
   CLOSED
+}
+
+enum TableParticipantStatus {
+  ACTIVE
+  LEFT
 }
 
 enum TableServiceCallType {

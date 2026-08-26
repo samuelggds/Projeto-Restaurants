@@ -15,7 +15,7 @@ class DeleteTableService {
     const table = await tableRepository.findByIdForRestaurant(normalizedId, normalizedRestaurantId);
     if (!table) throw new Error('Mesa não encontrada!');
 
-    const openSession = await tableSessionRepository.findOpenedByTable(normalizedId);
+    const openSession = await tableSessionRepository.findActiveByTable(normalizedId);
     if (openSession) throw new Error('Feche o atendimento da mesa antes de excluí-la.');
 
     const deleted = await tableRepository.deleteIfUnused(normalizedId, normalizedRestaurantId);
