@@ -173,6 +173,18 @@ export interface TableAccountSummaryDto {
   participantsCount: number;
 }
 
+/** Recursos que o cliente pode usar na conta atual, sem expor regras internas. */
+export interface TableAccountCapabilitiesDto {
+  enabled: boolean;
+  allowCash: boolean;
+  allowCardMachine: boolean;
+  allowOnlinePayment: boolean;
+  allowSplit: boolean;
+  serviceFeeMode: TableServiceFeeMode;
+  serviceFeeBasisPoints: number;
+  reservationTimeoutMinutes: number;
+}
+
 export interface TablePaymentIntentDto {
   publicId: string;
   sessionPublicId: string;
@@ -229,6 +241,7 @@ export interface TableAccountBaseSnapshotDto {
 
 export interface TableAccountSnapshotDto extends TableAccountBaseSnapshotDto {
   currentParticipantPublicId: string;
+  capabilities: TableAccountCapabilitiesDto;
   payments: TablePaymentSummaryDto[];
 }
 

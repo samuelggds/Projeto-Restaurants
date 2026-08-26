@@ -134,6 +134,13 @@ export function useTableSession(options: Options) {
           Number(current?.tableId) !== Number(activeSession.tableId)
         ) {
           endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
+        } else if (!activeSession.sessionPublicId && current?.sessionPublicId) {
+          const enrichedSession = {
+            ...activeSession,
+            sessionPublicId: String(current.sessionPublicId),
+          };
+          localStorage.setItem('tableSession', JSON.stringify(enrichedSession));
+          setTableSession(enrichedSession);
         }
       } catch (error: unknown) {
         const status = Number((error as { response?: { status?: number } })?.response?.status || 0);

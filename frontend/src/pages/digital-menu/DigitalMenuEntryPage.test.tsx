@@ -63,6 +63,7 @@ describe('DigitalMenuEntryPage', () => {
     vi.mocked(tableSessionService.joinOpenSession).mockResolvedValue({
       sessionToken: 'sessao-segura',
       sessionId: 31,
+      sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
       tableId: 91,
       tableNumber: 12,
       restaurantId: 7,
@@ -94,6 +95,7 @@ describe('DigitalMenuEntryPage', () => {
     );
     expect(JSON.parse(localStorage.getItem('tableSession') || '{}')).toMatchObject({
       sessionToken: 'sessao-segura',
+      sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
       tableId: 91,
       restaurantId: 7,
     });

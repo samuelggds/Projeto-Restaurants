@@ -11,6 +11,7 @@ import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
 import { useCheckoutPayments } from './hooks/useCheckoutPayments';
 import { useTableSession } from './hooks/useTableSession';
+import { useTableAccount } from './hooks/useTableAccount';
 import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
 import { buildHomeData } from '../home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
@@ -44,6 +45,8 @@ import {
   resolveAvailableFulfillmentMethod,
 } from './domain/publicSettings';
 import { TableServiceActions } from './components/TableServiceActions';
+import { TableOrderContinuationModal } from './components/TableOrderContinuationModal';
+import { TableAccountPanel } from './components/TableAccountPanel';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -93,6 +96,9 @@ export default function Home() {
   } = useDeliveryAddress(user);
   const [notifs, setNotifs] = useState<HomeNotification[]>([]);
   const [tableServiceLoading, setTableServiceLoading] = useState<'WAITER' | 'BILL' | null>(null);
+  const [tableOrderLoading, setTableOrderLoading] = useState(false);
+  const [tableContinuationOpen, setTableContinuationOpen] = useState(false);
+  const [tableAccountOpen, setTableAccountOpen] = useState(false);
   const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(() =>
     /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname),
   );
@@ -150,6 +156,12 @@ export default function Home() {
         Number(localStorage.getItem('menuRestaurantId')) ||
         storedSessionRestaurantId ||
         null;
+
+  const tableAccount = useTableAccount({
+    enabled: mesaMode && mesaSessionIsActive,
+    sessionPublicId: tableSession?.sessionPublicId,
+    notify,
+  });
 
   const requireFavoriteLogin = useCallback(() => {
     navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
@@ -248,6 +260,11 @@ export default function Home() {
     ? paymentMethod
     : (availablePaymentMethods[0] ?? paymentMethod);
   const paymentAvailable = availablePaymentMethods.length > 0;
+  const tableAccountEnabled = tableAccount.snapshot?.capabilities.enabled === true;
+  const tableCheckoutPaymentMethod = selectedCheckoutPaymentMethod === 'card' ? 'card' : 'pix';
+  const tableCheckoutUnavailable = Boolean(
+    mesaMode && !tableAccount.loading && !tableAccountEnabled && !paymentAvailable,
+  );
 
   const orderQuote = useOrderQuote({
     restaurantId: checkoutChannelAvailable ? restaurantId : null,
@@ -283,8 +300,12 @@ export default function Home() {
         applyPurchasedStockToHome();
         setSelectedRedemptionId(null);
         void loyalty.refresh();
+        if (mesaMode) void tableAccount.refresh({ silent: true });
       },
-      onPaymentConfirmed: loyalty.refresh,
+      onPaymentConfirmed: async () => {
+        await loyalty.refresh();
+        if (mesaMode) await tableAccount.refresh({ silent: true });
+      },
       onClearCart: () => setCart([]),
       onCloseCart: () => setCartOpen(false),
     });
@@ -316,7 +337,7 @@ export default function Home() {
       return;
     }
 
-    if (!paymentAvailable) {
+    if (!mesaMode && !paymentAvailable) {
       notify(
         'warning',
         'Serviço indisponível',
@@ -345,6 +366,11 @@ export default function Home() {
       return;
     }
 
+    if (mesaMode) {
+      setTableContinuationOpen(true);
+      return;
+    }
+
     const { payload, payOnDelivery, resolvedPaymentMethod } = buildOrderPayload({
       restaurantId,
       type,
@@ -362,6 +388,71 @@ export default function Home() {
       payOnDelivery,
       resolvedPaymentMethod,
     );
+  }
+
+  async function addOrderToTableAccount() {
+    if (!restaurantId || !cart.length || tableOrderLoading || !tableAccountEnabled) return;
+    const customer = (user || {}) as Record<string, unknown>;
+    const { payload } = buildOrderPayload({
+      restaurantId,
+      type: 'MESA',
+      settlementMode: 'TABLE_ACCOUNT',
+      cart,
+      tableId: routeTableId,
+      customer,
+      deliveryAddress,
+      couponRedemptionId: appliedRedemptionId,
+    });
+
+    setTableOrderLoading(true);
+    try {
+      const order = await ordersService.createOrder(payload);
+      applyPurchasedStockToHome();
+      setSelectedRedemptionId(null);
+      setCart([]);
+      setCartOpen(false);
+      setTableContinuationOpen(false);
+      void loyalty.refresh();
+      await tableAccount.refresh({ silent: true });
+      notify(
+        'success',
+        `Pedido #${String(order?.id || '')} adicionado à mesa`,
+        'A cozinha recebeu o pedido. Você pode dividir e pagar pela conta da mesa depois.',
+        5000,
+      );
+    } catch (error: unknown) {
+      const typed = error as { response?: { data?: { error?: string } }; message?: string };
+      notify(
+        'error',
+        'Não foi possível adicionar à conta',
+        typed.response?.data?.error || typed.message || 'Escolha pagar agora ou tente novamente.',
+      );
+    } finally {
+      setTableOrderLoading(false);
+    }
+  }
+
+  async function payTableOrderNow() {
+    if (!restaurantId || !cart.length || checkoutLoading || !paymentAvailable) return;
+    const customer = (user || {}) as Record<string, unknown>;
+    const { payload, payOnDelivery, resolvedPaymentMethod } = buildOrderPayload({
+      restaurantId,
+      type: 'MESA',
+      settlementMode: 'PAY_NOW',
+      paymentMethod: tableCheckoutPaymentMethod,
+      cart,
+      tableId: routeTableId,
+      customer,
+      deliveryAddress,
+      couponRedemptionId: appliedRedemptionId,
+    });
+    const succeeded = await executePayment(
+      payload,
+      tableCheckoutPaymentMethod,
+      payOnDelivery,
+      resolvedPaymentMethod,
+    );
+    if (succeeded) setTableContinuationOpen(false);
   }
 
   const primary = homeData.brand.primaryColor || '#d64d08';
@@ -552,7 +643,7 @@ export default function Home() {
               />
             )}
 
-            {cart.length > 0 && (
+            {cart.length > 0 && !mesaMode && (
               <PaymentOptions
                 paymentMethod={selectedCheckoutPaymentMethod}
                 allowPayOnDelivery={allowPayOnDelivery}
@@ -569,20 +660,51 @@ export default function Home() {
             quote={orderQuote.quote}
             quoteLoading={orderQuote.loading}
             quoteError={orderQuote.error}
-            loading={checkoutLoading}
+            loading={checkoutLoading || tableOrderLoading}
             paymentMethod={selectedCheckoutPaymentMethod}
             isRestaurantOpen={homeData.isOpen}
+            checkoutButtonLabel={mesaMode ? 'Revisar e continuar' : undefined}
             checkoutBlockedMessage={
               !checkoutChannelAvailable
                 ? 'Canal indisponível'
-                : !paymentAvailable
-                  ? 'Serviço indisponível'
-                  : undefined
+                : tableCheckoutUnavailable
+                  ? 'Pagamento indisponível'
+                  : !mesaMode && !paymentAvailable
+                    ? 'Serviço indisponível'
+                    : undefined
             }
             onCheckout={() => void handleCheckout()}
           />
         </S.CartFoot>
       </S.CartDrawer>
+
+      <TableOrderContinuationModal
+        open={tableContinuationOpen}
+        accountEnabled={tableAccountEnabled}
+        accountLoading={tableAccount.loading}
+        payNowAvailable={paymentAvailable}
+        allowPix={availablePaymentMethods.includes('pix')}
+        allowCard={availablePaymentMethods.includes('card')}
+        paymentMethod={tableCheckoutPaymentMethod}
+        busy={checkoutLoading || tableOrderLoading}
+        onPaymentMethodChange={setPaymentMethod}
+        onChooseAccount={() => void addOrderToTableAccount()}
+        onChoosePayNow={() => void payTableOrderNow()}
+        onClose={() => setTableContinuationOpen(false)}
+      />
+
+      <TableAccountPanel
+        open={tableAccountOpen}
+        tableNumber={mesaLabel}
+        snapshot={tableAccount.snapshot}
+        loading={tableAccount.loading}
+        actionLoading={tableAccount.actionLoading}
+        error={tableAccount.error}
+        onRefresh={() => void tableAccount.refresh()}
+        onCreatePayment={tableAccount.createPayment}
+        onCancelPayment={tableAccount.cancelPayment}
+        onClose={() => setTableAccountOpen(false)}
+      />
 
       <HomeFeedback
         showLoginNudge={showLoginNudge}
@@ -614,9 +736,14 @@ export default function Home() {
                 tableNumber={mesaLabel}
                 waiterEnabled={tableSession.waiterCallEnabled !== false}
                 billEnabled={tableSession.billRequestEnabled !== false}
+                accountEnabled={Boolean(tableSession.sessionPublicId)}
                 loading={tableServiceLoading}
                 onCallWaiter={() => void requestTableService('WAITER')}
                 onRequestBill={() => void requestTableService('BILL')}
+                onOpenAccount={() => {
+                  setTableAccountOpen(true);
+                  void tableAccount.refresh();
+                }}
               />
             )}
             {whatsappUrl && (

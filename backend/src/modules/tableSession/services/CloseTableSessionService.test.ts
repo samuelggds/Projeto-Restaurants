@@ -32,11 +32,19 @@ afterEach(() => {
   tableSessionEvents.closed = originals.closedEvent;
   tableParticipantRepository.revokeActiveBySession = originals.revokeParticipants;
   tableAccountSettingsRepository.findByRestaurantId = originals.findAccountSettings;
-  tableSessionRepository.findOperationalBlockingOrdersForSession = originals.findOperationalBlocking;
+  tableSessionRepository.findOperationalBlockingOrdersForSession =
+    originals.findOperationalBlocking;
 });
 
 function mockTransaction() {
-  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async (query) => {
+        assert.match(String(query.sql), /SELECT 1::int AS "lockAcquired"/i);
+        assert.match(String(query.sql), /FROM pg_advisory_xact_lock/i);
+        return [{ lockAcquired: 1 }];
+      },
+    });
   tableAccountSettingsRepository.findByRestaurantId = async () => ({
     preventCloseWithOutstandingBalance: true,
   });

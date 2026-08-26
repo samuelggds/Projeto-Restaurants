@@ -177,6 +177,7 @@ export default function DigitalMenuEntryPage() {
         const storedSession: StoredTableSession = {
           sessionToken: String(result.sessionToken || ''),
           sessionId: Number(result.sessionId),
+          sessionPublicId: result.sessionPublicId ? String(result.sessionPublicId) : null,
           tableId: Number(result.tableId),
           tableNumber: Number(result.tableNumber),
           restaurantId: Number(result.restaurantId),

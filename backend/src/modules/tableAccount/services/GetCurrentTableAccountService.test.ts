@@ -2,15 +2,37 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import tableAccountRepository from '../repositories/TableAccountRepository.js';
+import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import {
   GetCurrentTableAccountService,
   TableAccountAccessError,
 } from './GetCurrentTableAccountService.js';
 
 const originalFindSnapshotData = tableAccountRepository.findSnapshotData;
+const originalFindSettings = tableAccountSettingsRepository.findByRestaurantId;
+
+const defaultCapabilities = {
+  enabled: true,
+  requirePrepaymentAboveCents: null,
+  prepaymentWindows: [],
+  allowCash: true,
+  allowCardMachine: true,
+  allowOnlinePayment: true,
+  allowSplit: true,
+  serviceFeeMode: 'OPTIONAL' as const,
+  serviceFeeBasisPoints: 1_000,
+  preventCloseWithOutstandingBalance: true,
+  requireEmployeeApprovalForPreparedItemCancellation: true,
+  blockNewOrdersOnClosingRequest: true,
+  reservationTimeoutMinutes: 10,
+  timeZone: 'America/Sao_Paulo',
+};
+
+tableAccountSettingsRepository.findByRestaurantId = async () => defaultCapabilities;
 
 afterEach(() => {
   tableAccountRepository.findSnapshotData = originalFindSnapshotData;
+  tableAccountSettingsRepository.findByRestaurantId = async () => defaultCapabilities;
 });
 
 const currentParticipantPublicId = '123e4567-e89b-42d3-a456-426614174001';
@@ -122,6 +144,16 @@ test('monta a conta com centavos exatos, ignora cancelados e não expõe dados d
   });
   assert.equal(result.contractVersion, 1);
   assert.equal(result.currentParticipantPublicId, currentParticipantPublicId);
+  assert.deepEqual(result.capabilities, {
+    enabled: true,
+    allowCash: true,
+    allowCardMachine: true,
+    allowOnlinePayment: true,
+    allowSplit: true,
+    serviceFeeMode: 'OPTIONAL',
+    serviceFeeBasisPoints: 1_000,
+    reservationTimeoutMinutes: 10,
+  });
   assert.deepEqual(result.payments, []);
   assert.equal(result.items[1].financialStatus, 'PAID');
   assert.equal(result.items[2].financialStatus, 'REFUNDED');

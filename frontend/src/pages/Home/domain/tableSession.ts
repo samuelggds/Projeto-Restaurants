@@ -3,6 +3,7 @@ import { toPositiveInteger } from './productAvailability';
 export type StoredTableSession = {
   sessionToken?: string;
   sessionId?: number | string;
+  sessionPublicId?: string | null;
   tableId?: number | null;
   tableNumber?: number | null;
   restaurantId?: number | null;

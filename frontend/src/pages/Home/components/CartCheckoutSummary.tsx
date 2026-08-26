@@ -13,6 +13,7 @@ type Props = {
   quote?: OrderQuote | null;
   quoteLoading?: boolean;
   quoteError?: boolean;
+  checkoutButtonLabel?: string;
   onCheckout: () => void;
 };
 
@@ -29,6 +30,7 @@ export function CartCheckoutSummary({
   quote,
   quoteLoading = false,
   quoteError = false,
+  checkoutButtonLabel,
   onCheckout,
 }: Props) {
   const finalTotal = quote?.total ?? total;
@@ -38,11 +40,13 @@ export function CartCheckoutSummary({
       ? 'Restaurante fechado'
       : checkoutBlockedMessage
         ? checkoutBlockedMessage
-        : paymentMethod === 'pix'
-          ? '⚡ Gerar código Pix'
-          : paymentMethod === 'card'
-            ? '💳 Ir para pagamento seguro'
-            : '✓ Fazer pedido e pagar na entrega';
+        : checkoutButtonLabel
+          ? checkoutButtonLabel
+          : paymentMethod === 'pix'
+            ? '⚡ Gerar código Pix'
+            : paymentMethod === 'card'
+              ? '💳 Ir para pagamento seguro'
+              : '✓ Fazer pedido e pagar na entrega';
   return (
     <div className="cart-checkout-area">
       {count > 0 && (

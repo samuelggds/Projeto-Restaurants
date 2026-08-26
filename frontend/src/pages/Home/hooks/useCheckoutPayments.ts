@@ -106,7 +106,7 @@ export function useCheckoutPayments(options: Options) {
     payOnDelivery: boolean,
     resolvedPaymentMethod: 'PIX' | 'CARTAO',
   ) => {
-    if (checkoutLoading) return;
+    if (checkoutLoading) return false;
     setCheckoutLoading(true);
     try {
       if (payOnDelivery) {
@@ -120,7 +120,7 @@ export function useCheckoutPayments(options: Options) {
           `Pagamento na entrega por ${resolvedPaymentMethod === 'PIX' ? 'Pix' : 'cartão'}.`,
           5000,
         );
-        return;
+        return true;
       }
 
       if (paymentMethod === 'pix') {
@@ -140,7 +140,7 @@ export function useCheckoutPayments(options: Options) {
         onPurchased();
         onClearCart();
         onCloseCart();
-        return;
+        return true;
       }
 
       const result = await ordersService.createCardCheckout({
@@ -155,12 +155,14 @@ export function useCheckoutPayments(options: Options) {
       onPurchased();
       onClearCart();
       window.location.assign(checkoutUrl);
+      return true;
     } catch (error: unknown) {
       notify(
         'error',
         'Não foi possível iniciar o pagamento',
         getCheckoutErrorMessage(error) || 'Confira as configurações de pagamento do restaurante.',
       );
+      return false;
     } finally {
       setCheckoutLoading(false);
     }

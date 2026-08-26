@@ -63,6 +63,46 @@ describe('checkout', () => {
     });
   });
 
+  it('adiciona o pedido à conta da mesa sem forjar uma forma de pagamento', () => {
+    const order = buildOrderPayload({
+      restaurantId: 7,
+      type: 'MESA',
+      settlementMode: 'TABLE_ACCOUNT',
+      tableId: 12,
+      cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+      customer: {},
+      deliveryAddress: address,
+    });
+
+    expect(order.payload).toMatchObject({
+      restaurantId: 7,
+      type: 'MESA',
+      settlementMode: 'TABLE_ACCOUNT',
+      tableId: 12,
+    });
+    expect(order.payload).not.toHaveProperty('paymentMethod');
+    expect(order.payload).not.toHaveProperty('payOnDelivery');
+  });
+
+  it('mantém pagamento imediato explícito no pedido da mesa', () => {
+    const order = buildOrderPayload({
+      restaurantId: 7,
+      type: 'MESA',
+      settlementMode: 'PAY_NOW',
+      paymentMethod: 'card',
+      tableId: 12,
+      cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+      customer: {},
+      deliveryAddress: address,
+    });
+
+    expect(order.payload).toMatchObject({
+      settlementMode: 'PAY_NOW',
+      paymentMethod: 'CARTAO',
+      payOnDelivery: false,
+    });
+  });
+
   it('leva o resgate escolhido para a cotação e para o pedido sem enviar preço do navegador', () => {
     const cart = [{ productId: '12', name: 'Pizza', price: 1, quantity: 2, image: '' }];
     expect(

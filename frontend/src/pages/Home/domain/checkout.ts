@@ -4,6 +4,7 @@ import { validateDeliveryAddress } from './deliveryAddress';
 
 export type CheckoutPaymentMethod = 'pix' | 'card' | 'delivery_pix' | 'delivery_card';
 export type OrderType = 'MESA' | 'DELIVERY' | 'RETIRADA';
+export type TableOrderSettlementMode = 'TABLE_ACCOUNT' | 'PAY_NOW';
 export type CheckoutIssue = { title: string; message: string };
 
 type ValidationInput = {
@@ -49,7 +50,8 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
 type PayloadInput = {
   restaurantId: number;
   type: OrderType;
-  paymentMethod: CheckoutPaymentMethod;
+  paymentMethod?: CheckoutPaymentMethod;
+  settlementMode?: TableOrderSettlementMode;
   cart: CartItem[];
   tableId?: number | null;
   customer: Record<string, unknown>;
@@ -98,9 +100,7 @@ export function buildOrderQuotePayload(input: {
     restaurantId: input.restaurantId,
     type: input.type,
     items: buildOrderItems(input.cart),
-    ...(input.couponRedemptionId
-      ? { couponRedemptionId: input.couponRedemptionId }
-      : {}),
+    ...(input.couponRedemptionId ? { couponRedemptionId: input.couponRedemptionId } : {}),
   };
 }
 
@@ -109,21 +109,29 @@ export function buildOrderPayload(input: PayloadInput) {
     restaurantId,
     type,
     paymentMethod,
+    settlementMode,
     cart,
     tableId,
     customer,
     deliveryAddress,
     couponRedemptionId,
   } = input;
-  const payOnDelivery = paymentMethod.startsWith('delivery_');
-  const resolvedPaymentMethod = paymentMethod.includes('pix') ? 'PIX' : 'CARTAO';
+  const isTableAccountOrder = type === 'MESA' && settlementMode === 'TABLE_ACCOUNT';
+  const safePaymentMethod = paymentMethod || 'pix';
+  const payOnDelivery = !isTableAccountOrder && safePaymentMethod.startsWith('delivery_');
+  const resolvedPaymentMethod = safePaymentMethod.includes('pix') ? 'PIX' : 'CARTAO';
   return {
     payload: {
       restaurantId,
       type,
-      paymentMethod: resolvedPaymentMethod,
-      payOnDelivery,
-      payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
+      ...(type === 'MESA' && settlementMode ? { settlementMode } : {}),
+      ...(!isTableAccountOrder
+        ? {
+            paymentMethod: resolvedPaymentMethod,
+            payOnDelivery,
+            payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
+          }
+        : {}),
       items: buildOrderItems(cart),
       ...(couponRedemptionId ? { couponRedemptionId } : {}),
       tableId: type === 'MESA' ? tableId || undefined : undefined,

@@ -22,8 +22,9 @@ export async function lockTablePaymentSession(
   restaurantId: number,
   tableSessionId: number,
 ) {
-  await tx.$queryRaw(
-    Prisma.sql`SELECT pg_advisory_xact_lock(${restaurantId}::int, ${tableSessionId}::int)`,
+  await tx.$queryRaw<Array<{ lockAcquired: number }>>(
+    Prisma.sql`SELECT 1::int AS "lockAcquired"
+               FROM pg_advisory_xact_lock(${restaurantId}::int, ${tableSessionId}::int)`,
   );
 }
 

@@ -14,6 +14,7 @@ import {
 import tableAccountRepository, {
   type TableAccountSnapshotRecord,
 } from '../repositories/TableAccountRepository.js';
+import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
 
 const operationalStatusMap: Record<OrderStatus, TableOrderOperationalStatus> = {
@@ -130,9 +131,7 @@ export function buildTableAccountBaseSnapshot(
       .map((payment) => toSafeMoneyCents(payment.serviceFeeCents, `taxa ${payment.publicId}`)),
   );
   const reservedCents = sumMoneyCents([
-    ...normalizedItems
-      .filter((item) => !item.canceled)
-      .map((item) => item.ledger.reservedCents),
+    ...normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.reservedCents),
     ...paymentIntents
       .filter((payment) => payment.status === 'RESERVED' && payment.expiresAt > now)
       .map((payment) =>
@@ -140,9 +139,7 @@ export function buildTableAccountBaseSnapshot(
       ),
   ]);
   const processingCents = sumMoneyCents([
-    ...normalizedItems
-      .filter((item) => !item.canceled)
-      .map((item) => item.ledger.processingCents),
+    ...normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.processingCents),
     ...paymentIntents
       .filter((payment) => payment.status === 'PROCESSING' && payment.expiresAt > now)
       .map((payment) =>
@@ -206,11 +203,10 @@ export class GetCurrentTableAccountService {
       throw new TableAccountAccessError();
     }
 
-    const data = await tableAccountRepository.findSnapshotData(
-      tableSessionId,
-      restaurantId,
-      participantId,
-    );
+    const [data, settings] = await Promise.all([
+      tableAccountRepository.findSnapshotData(tableSessionId, restaurantId, participantId),
+      tableAccountSettingsRepository.findByRestaurantId(restaurantId),
+    ]);
     if (!data) {
       throw new TableAccountAccessError();
     }
@@ -220,6 +216,16 @@ export class GetCurrentTableAccountService {
     return {
       ...buildTableAccountBaseSnapshot(data, now),
       currentParticipantPublicId: input.participantPublicId,
+      capabilities: {
+        enabled: settings.enabled,
+        allowCash: settings.allowCash,
+        allowCardMachine: settings.allowCardMachine,
+        allowOnlinePayment: settings.allowOnlinePayment,
+        allowSplit: settings.allowSplit,
+        serviceFeeMode: settings.serviceFeeMode,
+        serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
+        reservationTimeoutMinutes: settings.reservationTimeoutMinutes,
+      },
       payments: paymentIntents.map((payment) => ({
         publicId: payment.publicId,
         payerParticipantPublicId: payment.payerParticipant.publicId,

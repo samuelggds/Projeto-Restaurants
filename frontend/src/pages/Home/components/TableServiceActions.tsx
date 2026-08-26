@@ -1,13 +1,15 @@
-import { BellRing, ReceiptText } from 'lucide-react';
+import { BellRing, CreditCard, ReceiptText } from 'lucide-react';
 import styled from 'styled-components';
 
 type Props = {
   tableNumber: string | number;
   waiterEnabled: boolean;
   billEnabled: boolean;
+  accountEnabled: boolean;
   loading: 'WAITER' | 'BILL' | null;
   onCallWaiter: () => void;
   onRequestBill: () => void;
+  onOpenAccount: () => void;
 };
 
 const Card = styled.section`
@@ -62,7 +64,7 @@ const Card = styled.section`
 
   div.actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -109,6 +111,11 @@ const Card = styled.section`
     header small {
       max-width: 210px;
     }
+
+    button {
+      padding-inline: 6px;
+      font-size: 10px;
+    }
   }
 `;
 
@@ -116,11 +123,13 @@ export function TableServiceActions({
   tableNumber,
   waiterEnabled,
   billEnabled,
+  accountEnabled,
   loading,
   onCallWaiter,
   onRequestBill,
+  onOpenAccount,
 }: Props) {
-  if (!waiterEnabled && !billEnabled) return null;
+  if (!waiterEnabled && !billEnabled && !accountEnabled) return null;
 
   return (
     <Card aria-label={`Atendimento da mesa ${String(tableNumber)}`}>
@@ -132,21 +141,17 @@ export function TableServiceActions({
         <span>Mesa {String(tableNumber)}</span>
       </header>
       <div className="actions">
-        <button
-          type="button"
-          disabled={!waiterEnabled || loading !== null}
-          onClick={onCallWaiter}
-        >
+        <button type="button" disabled={!waiterEnabled || loading !== null} onClick={onCallWaiter}>
           <BellRing />
           {loading === 'WAITER' ? 'Enviando...' : 'Chamar garçom'}
         </button>
-        <button
-          type="button"
-          disabled={!billEnabled || loading !== null}
-          onClick={onRequestBill}
-        >
+        <button type="button" disabled={!billEnabled || loading !== null} onClick={onRequestBill}>
           <ReceiptText />
           {loading === 'BILL' ? 'Enviando...' : 'Pedir a conta'}
+        </button>
+        <button type="button" disabled={!accountEnabled} onClick={onOpenAccount}>
+          <CreditCard />
+          Ver conta
         </button>
       </div>
     </Card>
