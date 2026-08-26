@@ -1,5 +1,10 @@
 import type { Prisma } from '@prisma/client';
-import { OrderStatus, PaymentMethod, TableSessionStatus } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentMethod,
+  TableOrderSettlementMode,
+  TableSessionStatus,
+} from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
@@ -118,11 +123,16 @@ class TableRepository {
         orders: {
           where: {
             status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
-            NOT: {
-              paid: false,
-              paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-              payOnDelivery: false,
-            },
+            // Pedidos lançados na conta não possuem paymentMethod. O filtro anterior
+            // os eliminava por causa da semântica de NULL do banco e fazia o garçom
+            // enxergar R$ 0,00 mesmo com saldo pendente na mesa.
+            OR: [
+              { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
+              { paymentMethod: null },
+              { paid: true },
+              { payOnDelivery: true },
+              { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
+            ],
           },
           select: {
             id: true,

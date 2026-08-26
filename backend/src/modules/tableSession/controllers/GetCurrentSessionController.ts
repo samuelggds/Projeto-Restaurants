@@ -8,6 +8,7 @@ class GetCurrentSessionController {
         sessionPublicId: req.tableSession.publicId,
         tableId: req.tableSession.tableId,
         restaurantId: req.tableSession.restaurantId,
+        sessionStatus: req.tableSession.status,
         participant: req.tableParticipant
           ? {
               publicId: req.tableParticipant.publicId,

@@ -101,6 +101,25 @@ export class FakePaymentProvider implements PaymentProvider {
     return this.changeStatus(input.externalId, 'REFUNDED');
   }
 
+  /**
+   * Simula a confirmacao que, em producao, chegaria assinada pelo webhook do
+   * provedor real. Disponivel apenas para o fluxo local de desenvolvimento.
+   */
+  async simulatePaidWebhook(
+    externalId: string,
+    occurredAt = new Date(),
+  ): Promise<ValidatedPaymentWebhook> {
+    this.assertEnabled();
+    const payment = await this.changeStatus(externalId, 'PAID');
+    return {
+      eventId: `fake-table-paid:${externalId}`,
+      externalId,
+      status: 'PAID',
+      amountCents: payment.amountCents,
+      occurredAt,
+    };
+  }
+
   private async changeStatus(externalId: string, status: ProviderPaymentStatus) {
     this.assertEnabled();
     const current = await this.getPayment(externalId);

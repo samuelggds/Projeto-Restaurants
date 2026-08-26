@@ -96,7 +96,8 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
 
       if (
         !session ||
-        session.status !== TableSessionStatus.OPEN ||
+        (session.status !== TableSessionStatus.OPEN &&
+          session.status !== TableSessionStatus.CLOSING_REQUESTED) ||
         (session.expiresAt && session.expiresAt.getTime() <= Date.now())
       ) {
         return next(new Error('Sessão da mesa inválida'));

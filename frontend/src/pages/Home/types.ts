@@ -143,6 +143,7 @@ export type HomePageProps = {
   userLoggedIn?: boolean;
   isAdmin?: boolean;
   isTableMenu?: boolean;
+  orderingLocked?: boolean;
   tableLabel?: string | number;
   favoriteProductIds?: string[];
   savedAddresses?: CustomerAddress[];
@@ -152,6 +153,7 @@ export type HomePageProps = {
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
   onOpenCart?: () => void;
+  onOpenTableAccount?: () => void;
   onSearch?: () => void;
   onSelectCategory?: (categoryId: string) => void;
   onAddProduct?: (productId: string, configuration: ProductConfiguration) => void;

@@ -8,6 +8,7 @@ import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import type {
   PaymentProvider,
   ProviderWebhookInput,
+  ValidatedPaymentWebhook,
 } from '../providers/PaymentProvider.js';
 import { tablePaymentIntentDtoSelect } from '../repositories/TablePaymentRepository.js';
 import {
@@ -16,12 +17,17 @@ import {
 } from './tablePaymentLedger.js';
 import { sha256, TablePaymentError } from './tablePaymentSupport.js';
 import { resolveTablePaymentProviderTransition } from '../domain/tablePaymentProviderTransition.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class ProcessTablePaymentWebhookService {
   constructor(private readonly provider: PaymentProvider = fakePaymentProvider) {}
 
   async execute(input: ProviderWebhookInput) {
     const event = await this.provider.validateWebhook(input);
+    return this.executeValidated(event);
+  }
+
+  async executeValidated(event: ValidatedPaymentWebhook) {
     const initial = await prisma.tablePaymentIntent.findUnique({
       where: {
         provider_providerExternalId: {
@@ -156,6 +162,17 @@ export class ProcessTablePaymentWebhookService {
           metadata: { automaticLateRefund: true },
         },
         update: {},
+      });
+    }
+
+    if (!outcome.duplicate) {
+      await tableAccountEvents.updated({
+        sessionId: outcome.current.tableSessionId,
+        restaurantId: outcome.current.restaurantId,
+        reason: 'PAYMENT_STATUS_CHANGED',
+        paymentPublicId: outcome.current.publicId,
+        paymentStatus: outcome.current.status,
+        occurredAt: event.occurredAt,
       });
     }
 

@@ -11,6 +11,7 @@ import {
   projectTableSessionFinancialState,
 } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class CancelTablePaymentIntentService {
   constructor(
@@ -126,6 +127,17 @@ export class CancelTablePaymentIntentService {
           error instanceof Error ? error.name : 'UNKNOWN_ERROR',
         );
       }
+    }
+
+    if (result.changed) {
+      await tableAccountEvents.updated({
+        sessionId: result.intent.tableSessionId,
+        restaurantId: input.restaurantId,
+        reason: 'PAYMENT_CANCELED',
+        paymentPublicId: result.intent.publicId,
+        paymentStatus: result.intent.status,
+        occurredAt: result.intent.canceledAt || now,
+      });
     }
 
     return {

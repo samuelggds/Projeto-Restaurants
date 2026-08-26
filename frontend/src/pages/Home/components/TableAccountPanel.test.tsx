@@ -46,6 +46,13 @@ const snapshot: TableAccountSnapshot = {
       joinedAt: '',
       leftAt: null,
     },
+    {
+      publicId: 'participant-old',
+      displayName: 'Acesso encerrado',
+      status: 'LEFT',
+      joinedAt: '',
+      leftAt: '',
+    },
   ],
   items: [
     {
@@ -91,5 +98,8 @@ describe('TableAccountPanel', () => {
     expect(markup).toContain('Dividir igualmente');
     expect(markup).toContain('Pagar com o garçom');
     expect(markup).toContain('taxa de serviço de 10%');
+    expect(markup).toContain('Confirmação automática em tempo real');
+    expect(markup).toContain('Cada celular ou navegador recebe uma identificação segura');
+    expect(markup).not.toContain('Acesso encerrado');
   });
 });

@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { StrictMode, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -99,6 +99,74 @@ describe('DigitalMenuEntryPage', () => {
       tableId: 91,
       restaurantId: 7,
     });
+    expect(container.textContent).toContain('Fluxo funcional do cardápio');
+  });
+
+  it('não duplica a entrada nem o participante quando o StrictMode repete o efeito inicial', async () => {
+    const tableToken = '0123456789abcdef0123456789abcdef';
+    let resolveJoin:
+      | ((value: {
+          sessionToken: string;
+          sessionId: number;
+          sessionPublicId: string;
+          tableId: number;
+          tableNumber: number;
+          restaurantId: number;
+          expiresAt: string;
+          tableOrderingEnabled: boolean;
+          waiterCallEnabled: boolean;
+          billRequestEnabled: boolean;
+        }) => void)
+      | undefined;
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveJoin = resolve;
+        }),
+    );
+
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <MemoryRouter initialEntries={[`/restaurante-teste/mesa/12?tk=${tableToken}`]}>
+            <Routes>
+              <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenuEntryPage />} />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(tablesService.resolvePublicTable).toHaveBeenCalledTimes(1);
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveJoin?.({
+        sessionToken: 'sessao-segura',
+        sessionId: 31,
+        sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
+        tableId: 91,
+        tableNumber: 12,
+        restaurantId: 7,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
+      });
+      await Promise.resolve();
+    });
+
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('Fluxo funcional do cardápio');
   });
 
@@ -252,8 +320,7 @@ describe('DigitalMenuEntryPage', () => {
     expect(container.textContent).toContain('Fluxo funcional do cardápio');
   });
 
-  it('bloqueia novos pedidos quando a conta foi solicitada sem tentar reabrir automaticamente', async () => {
-    vi.useFakeTimers();
+  it('entra no cardápio em modo de fechamento para permitir consultar e pagar a conta', async () => {
     const tableToken = 'fedcba9876543210fedcba9876543210';
     vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
       id: 91,
@@ -264,13 +331,18 @@ describe('DigitalMenuEntryPage', () => {
       waiterCallEnabled: true,
       billRequestEnabled: true,
     });
-    vi.mocked(tableSessionService.joinOpenSession).mockRejectedValue({
-      response: {
-        data: {
-          code: 'TABLE_CLOSING_REQUESTED',
-          error: 'A conta desta mesa já foi solicitada.',
-        },
-      },
+    vi.mocked(tableSessionService.joinOpenSession).mockResolvedValue({
+      sessionToken: 'sessao-em-fechamento',
+      sessionId: 31,
+      sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
+      tableId: 91,
+      tableNumber: 12,
+      restaurantId: 7,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      sessionStatus: 'CLOSING_REQUESTED',
+      tableOrderingEnabled: false,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
     });
 
     await act(async () => {
@@ -283,23 +355,16 @@ describe('DigitalMenuEntryPage', () => {
       );
     });
 
-    expect(container.textContent).toContain('Conta solicitada');
-    expect(container.textContent).toContain('Novos pedidos estão bloqueados');
-    expect(container.textContent).toContain('Fechamento em andamento');
+    expect(container.textContent).toContain('Fluxo funcional do cardápio');
     expect(container.textContent).not.toContain('Mesa aguardando abertura');
-    expect(container.textContent).not.toContain('Aguarde o garçom');
     expect(connectTableWaitingSocket).not.toHaveBeenCalled();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(9_000);
+    expect(JSON.parse(localStorage.getItem('tableSession') || '{}')).toMatchObject({
+      sessionToken: 'sessao-em-fechamento',
+      sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
+      sessionStatus: 'CLOSING_REQUESTED',
+      tableOrderingEnabled: false,
     });
     expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(1);
-
-    const retry = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Verificar novamente'),
-    );
-    await act(async () => retry?.click());
-    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(2);
   });
 
   it('libera o cardápio em tempo real ao receber a abertura da mesa', async () => {

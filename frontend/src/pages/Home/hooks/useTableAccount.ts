@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import tableAccountService from '../../../Services/tableAccountService';
+import { connectTableSessionSocket } from '../../../Services/socketService';
 import {
   createTablePaymentIdempotencyKey,
   tablePaymentFingerprint,
@@ -13,6 +14,7 @@ type Notify = (type: 'success' | 'error', title: string, message?: string) => vo
 type Options = {
   enabled: boolean;
   sessionPublicId?: string | null;
+  sessionToken?: string | null;
   notify: Notify;
 };
 
@@ -28,7 +30,7 @@ function isDefinitiveClientError(error: unknown) {
   return status >= 400 && status < 500 && ![408, 425, 429].includes(status);
 }
 
-export function useTableAccount({ enabled, sessionPublicId, notify }: Options) {
+export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify }: Options) {
   const scopeKey = enabled && sessionPublicId ? sessionPublicId : '';
   const [queryState, setQueryState] = useState<{
     scopeKey: string;
@@ -45,6 +47,7 @@ export function useTableAccount({ enabled, sessionPublicId, notify }: Options) {
     fingerprint: string;
     key: string;
   } | null>(null);
+  const notifiedPaidPaymentsRef = useRef(new Set<string>());
 
   const scopedQueryState =
     queryState.scopeKey === scopeKey
@@ -112,6 +115,42 @@ export function useTableAccount({ enabled, sessionPublicId, notify }: Options) {
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [refresh, scopeKey]);
+
+  useEffect(() => {
+    if (!scopeKey || !sessionToken) return undefined;
+    const socket = connectTableSessionSocket(sessionToken, `table-account-${scopeKey}`);
+    const handleAccountUpdated = async (payload?: {
+      paymentPublicId?: string;
+      paymentStatus?: string;
+    }) => {
+      const refreshed = await refresh({ silent: true });
+      const paymentPublicId = String(payload?.paymentPublicId || '');
+      if (
+        payload?.paymentStatus === 'PAID' &&
+        paymentPublicId &&
+        !notifiedPaidPaymentsRef.current.has(paymentPublicId)
+      ) {
+        notifiedPaidPaymentsRef.current.add(paymentPublicId);
+        const confirmedPayment = refreshed?.payments.find(
+          (payment) => payment.publicId === paymentPublicId && payment.status === 'PAID',
+        );
+        const ownPayment =
+          confirmedPayment?.payerParticipantPublicId ===
+          refreshed?.currentParticipantPublicId;
+        notify(
+          'success',
+          ownPayment ? 'Seu pagamento foi confirmado' : 'Pagamento da mesa confirmado',
+          ownPayment
+            ? 'O valor pago já foi abatido automaticamente da sua conta.'
+            : 'A conta foi atualizada após a confirmação de outro participante.',
+        );
+      }
+    };
+    socket?.on('table-account:updated', handleAccountUpdated);
+    return () => {
+      socket?.off('table-account:updated', handleAccountUpdated);
+    };
+  }, [notify, refresh, scopeKey, sessionToken]);
 
   const createPayment = useCallback(
     async (draft: TablePaymentDraft): Promise<CreateTablePaymentResult | null> => {

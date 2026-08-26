@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import tableAccountService from '../../../Services/tableAccountService';
+import { connectTableSessionSocket } from '../../../Services/socketService';
 import type { TableAccountSnapshot } from '../domain/tableAccount';
 import { useTableAccount } from './useTableAccount';
 
@@ -11,6 +12,10 @@ vi.mock('../../../Services/tableAccountService', () => ({
     createPayment: vi.fn(),
     cancelPayment: vi.fn(),
   },
+}));
+
+vi.mock('../../../Services/socketService', () => ({
+  connectTableSessionSocket: vi.fn(),
 }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
@@ -74,6 +79,18 @@ function PaymentProbe() {
   );
 }
 
+const realtimeNotify = vi.fn();
+
+function RealtimeProbe() {
+  const account = useTableAccount({
+    enabled: true,
+    sessionPublicId: 'session-a',
+    sessionToken: 'token-session-a',
+    notify: realtimeNotify,
+  });
+  return <output>{account.snapshot?.payments[0]?.status || 'sem-pagamento'}</output>;
+}
+
 describe('useTableAccount isolamento entre sessões', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -83,6 +100,7 @@ describe('useTableAccount isolamento entre sessões', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    realtimeNotify.mockClear();
   });
 
   afterEach(async () => {
@@ -132,7 +150,7 @@ describe('useTableAccount isolamento entre sessões', () => {
           subtotalCents: 1_000,
           serviceFeeCents: 0,
           totalCents: 1_000,
-          provider: 'FAKE',
+          provider: 'FAKE_TABLE',
           externalId: null,
           checkoutUrl: null,
           expiresAt: '2026-08-26T15:00:00.000Z',
@@ -160,5 +178,61 @@ describe('useTableAccount isolamento entre sessões', () => {
     const secondKey = vi.mocked(tableAccountService.createPayment).mock.calls[1]?.[2];
     expect(firstKey).toBeTruthy();
     expect(secondKey).toBe(firstKey);
+  });
+
+  it('atualiza pelo socket e avisa uma única vez quando o próprio pagamento é confirmado', async () => {
+    let accountUpdated:
+      | ((payload?: { paymentPublicId?: string; paymentStatus?: string }) => Promise<void>)
+      | undefined;
+    const socket = {
+      on: vi.fn((event: string, handler: typeof accountUpdated) => {
+        if (event === 'table-account:updated') accountUpdated = handler;
+      }),
+      off: vi.fn(),
+    };
+    vi.mocked(connectTableSessionSocket).mockReturnValue(socket as never);
+
+    const processing = snapshotFor('session-a');
+    processing.summary.processingCents = 1_000;
+    processing.summary.remainingCents = 1_000;
+    processing.payments = [
+      {
+        publicId: 'payment-1',
+        payerParticipantPublicId: processing.currentParticipantPublicId,
+        selectionMode: 'FULL_ACCOUNT',
+        status: 'PROCESSING',
+        totalCents: 1_000,
+        createdAt: '2026-08-26T14:50:00.000Z',
+      },
+    ];
+    const paid = structuredClone(processing);
+    paid.summary.processingCents = 0;
+    paid.summary.remainingCents = 0;
+    paid.summary.netPaidCents = 1_000;
+    paid.payments[0].status = 'PAID';
+    vi.mocked(tableAccountService.getCurrent)
+      .mockResolvedValueOnce(processing)
+      .mockResolvedValue(paid);
+
+    await act(async () => root.render(<RealtimeProbe />));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
+    expect(container.textContent).toBe('PROCESSING');
+    expect(accountUpdated).toBeTypeOf('function');
+
+    await act(async () => {
+      await accountUpdated?.({ paymentPublicId: 'payment-1', paymentStatus: 'PAID' });
+    });
+
+    expect(container.textContent).toBe('PAID');
+    expect(realtimeNotify).toHaveBeenCalledWith(
+      'success',
+      'Seu pagamento foi confirmado',
+      expect.stringContaining('abatido automaticamente'),
+    );
+
+    await act(async () => {
+      await accountUpdated?.({ paymentPublicId: 'payment-1', paymentStatus: 'PAID' });
+    });
+    expect(realtimeNotify).toHaveBeenCalledTimes(1);
   });
 });

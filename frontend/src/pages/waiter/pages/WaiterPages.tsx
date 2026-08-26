@@ -266,11 +266,14 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
         await openTable(table.id);
       }
     } catch (requestError) {
+      const message = getErrorMessage(
+        requestError,
+        occupied ? 'Não foi possível fechar esta mesa.' : 'Não foi possível abrir esta mesa.',
+      );
       setError(
-        getErrorMessage(
-          requestError,
-          occupied ? 'Não foi possível fechar esta mesa.' : 'Não foi possível abrir esta mesa.',
-        ),
+        closingRequested && /pedidos ou pagamentos pendentes/i.test(message)
+          ? `${message} O cliente deve abrir este QR Code e usar “Ver e pagar a conta”. Depois, aguarde o pagamento ser confirmado e o pedido ser concluído pela cozinha.`
+          : message,
       );
     } finally {
       setLoading(false);

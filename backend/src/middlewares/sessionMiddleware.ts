@@ -22,7 +22,10 @@ export async function sessionMiddleware(req: Request, res: Response, next: NextF
       });
     }
 
-    if (session.status !== TableSessionStatus.OPEN) {
+    if (
+      session.status !== TableSessionStatus.OPEN &&
+      session.status !== TableSessionStatus.CLOSING_REQUESTED
+    ) {
       return res.status(403).json({
         error: 'Sessão encerrada',
       });

@@ -22,6 +22,8 @@ const tableAccountSnapshotSelect = {
       status: true,
       joinedAt: true,
       leftAt: true,
+      userId: true,
+      tokenExpiresAt: true,
     },
     orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
   },

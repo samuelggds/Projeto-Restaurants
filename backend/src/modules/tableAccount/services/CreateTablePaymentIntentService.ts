@@ -12,7 +12,7 @@ import {
   sumMoneyCents,
 } from '../domain/tableAccountRules.js';
 import { buildTablePaymentPlan, TablePaymentPlanError } from '../domain/tablePaymentPlan.js';
-import fakePaymentProvider from '../providers/FakePaymentProvider.js';
+import fakePaymentProvider, { FakePaymentProvider } from '../providers/FakePaymentProvider.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
@@ -31,6 +31,8 @@ import {
   sha256,
   TablePaymentError,
 } from './tablePaymentSupport.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
+import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 
 interface CreateTablePaymentIntentContext {
   tableSessionId: number;
@@ -243,6 +245,15 @@ export class CreateTablePaymentIntentService {
       reservation.intent.status !== TablePaymentIntentStatus.RESERVED ||
       reservation.intent.providerExternalId
     ) {
+      if (!reservation.reused) {
+        await tableAccountEvents.updated({
+          sessionId: context.tableSessionId,
+          restaurantId: context.restaurantId,
+          reason: 'PAYMENT_CREATED',
+          paymentPublicId: reservation.intent.publicId,
+          paymentStatus: reservation.intent.status,
+        });
+      }
       return {
         payment: serializeTablePaymentIntent(reservation.intent, context.sessionPublicId),
         idempotentReplay: reservation.reused,
@@ -316,6 +327,15 @@ export class CreateTablePaymentIntentService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
 
+      await tableAccountEvents.updated({
+        sessionId: context.tableSessionId,
+        restaurantId: context.restaurantId,
+        reason: 'PAYMENT_PROCESSING',
+        paymentPublicId: updated.publicId,
+        paymentStatus: updated.status,
+      });
+      this.scheduleFakeConfirmation(updated);
+
       return {
         payment: serializeTablePaymentIntent(updated, context.sessionPublicId),
         idempotentReplay: reused,
@@ -330,12 +350,44 @@ export class CreateTablePaymentIntentService {
     }
   }
 
+  private scheduleFakeConfirmation(intent: TablePaymentIntentRecord) {
+    const provider = this.provider;
+    if (
+      !(provider instanceof FakePaymentProvider) ||
+      process.env.NODE_ENV === 'production' ||
+      process.env.NODE_ENV === 'test' ||
+      process.env.FAKE_TABLE_PAYMENT_AUTO_APPROVE === 'false' ||
+      intent.status !== TablePaymentIntentStatus.PROCESSING ||
+      !intent.providerExternalId
+    ) {
+      return;
+    }
+
+    const configuredDelay = Number(process.env.FAKE_TABLE_PAYMENT_APPROVAL_DELAY_MS || 1_500);
+    const delayMs =
+      Number.isSafeInteger(configuredDelay) && configuredDelay >= 250
+        ? configuredDelay
+        : 1_500;
+    const timer = setTimeout(() => {
+      void provider
+        .simulatePaidWebhook(intent.providerExternalId as string)
+        .then((event) => new ProcessTablePaymentWebhookService(provider).executeValidated(event))
+        .catch((error) => {
+          console.error(
+            '[FAKE_TABLE_PAYMENT_AUTO_APPROVE_ERROR]',
+            error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+          );
+        });
+    }, delayMs);
+    timer.unref();
+  }
+
   private async failProviderCreation(
     context: CreateTablePaymentIntentContext,
     intent: TablePaymentIntentRecord,
     error: unknown,
   ) {
-    await prisma.$transaction(
+    const failed = await prisma.$transaction(
       async (tx) => {
         await lockTablePaymentSession(tx, context.restaurantId, context.tableSessionId);
         const changed = await tx.tablePaymentIntent.updateMany({
@@ -377,9 +429,19 @@ export class CreateTablePaymentIntentService {
             this.now(),
           );
         }
+        return changed.count === 1;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+    if (failed) {
+      await tableAccountEvents.updated({
+        sessionId: context.tableSessionId,
+        restaurantId: context.restaurantId,
+        reason: 'PAYMENT_STATUS_CHANGED',
+        paymentPublicId: intent.publicId,
+        paymentStatus: TablePaymentIntentStatus.FAILED,
+      });
+    }
   }
 }
 

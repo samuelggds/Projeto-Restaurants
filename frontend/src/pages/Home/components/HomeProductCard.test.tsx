@@ -36,16 +36,27 @@ describe('card de produto da Home', () => {
 
   it('usa uma etiqueta simples no conteúdo quando o produto está em destaque', () => {
     const html = renderToStaticMarkup(
-      <HomeProductCard
-        product={discountedProduct}
-        favorite={false}
-        featured
-        onOpen={vi.fn()}
-      />,
+      <HomeProductCard product={discountedProduct} favorite={false} featured onOpen={vi.fn()} />,
     );
 
     expect(html).toContain('data-featured="true"');
     expect(html).toContain('data-offer-label="inline"');
     expect(html).not.toContain('data-offer-label="overlay"');
+  });
+
+  it('bloqueia a montagem e a adição de produtos durante o fechamento da mesa', () => {
+    const html = renderToStaticMarkup(
+      <HomeProductCard
+        product={discountedProduct}
+        favorite={false}
+        orderingLocked
+        onOpen={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('novos pedidos bloqueados, conta solicitada');
+    expect(html).toContain('disabled=""');
+    expect(html).toContain('Bloqueado');
   });
 });

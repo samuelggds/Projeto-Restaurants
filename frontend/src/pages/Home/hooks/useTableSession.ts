@@ -77,6 +77,19 @@ export function useTableSession(options: Options) {
     [notify, setSessionEndedMessage, setTableSession],
   );
 
+  const markClosingRequested = useCallback(() => {
+    setTableSession((current) => {
+      if (!current) return current;
+      const closingSession: StoredTableSession = {
+        ...current,
+        sessionStatus: 'CLOSING_REQUESTED',
+        tableOrderingEnabled: false,
+      };
+      localStorage.setItem('tableSession', JSON.stringify(closingSession));
+      return closingSession;
+    });
+  }, []);
+
   useEffect(() => {
     if (!route.mesaMode || !tableSession?.sessionToken) return;
     if (sessionRouteMismatch) {
@@ -134,10 +147,25 @@ export function useTableSession(options: Options) {
           Number(current?.tableId) !== Number(activeSession.tableId)
         ) {
           endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
-        } else if (!activeSession.sessionPublicId && current?.sessionPublicId) {
-          const enrichedSession = {
+        } else {
+          const closingRequested = current?.sessionStatus === 'CLOSING_REQUESTED';
+          const shouldEnrichPublicId = !activeSession.sessionPublicId && current?.sessionPublicId;
+          const shouldSyncClosing =
+            closingRequested && activeSession.sessionStatus !== 'CLOSING_REQUESTED';
+
+          if (!shouldEnrichPublicId && !shouldSyncClosing) return;
+
+          const enrichedSession: StoredTableSession = {
             ...activeSession,
-            sessionPublicId: String(current.sessionPublicId),
+            ...(shouldEnrichPublicId
+              ? { sessionPublicId: String(current.sessionPublicId) }
+              : undefined),
+            ...(shouldSyncClosing
+              ? {
+                  sessionStatus: 'CLOSING_REQUESTED' as const,
+                  tableOrderingEnabled: false,
+                }
+              : undefined),
           };
           localStorage.setItem('tableSession', JSON.stringify(enrichedSession));
           setTableSession(enrichedSession);
@@ -176,5 +204,6 @@ export function useTableSession(options: Options) {
     hasValidQrContext,
     mesaSessionIsActive,
     storedSessionRestaurantId,
+    markClosingRequested,
   };
 }

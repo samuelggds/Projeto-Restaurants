@@ -338,7 +338,7 @@ export function connectTableSessionSocket(sessionToken, contextName = 'unknown')
   }
 
   if (
-    tableSessionSocket?.connected &&
+    tableSessionSocket &&
     tableSessionAuthToken === normalizedSessionToken &&
     tableSessionBaseUrl === baseUrl
   ) {
@@ -349,6 +349,9 @@ export function connectTableSessionSocket(sessionToken, contextName = 'unknown')
       previousContext: tableSessionContextName,
     });
     tableSessionContextName = normalizedContext;
+    if (!tableSessionSocket.connected && !tableSessionSocket.active) {
+      tableSessionSocket.connect();
+    }
     return tableSessionSocket;
   }
 

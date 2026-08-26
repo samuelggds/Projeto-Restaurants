@@ -4,6 +4,7 @@ import {
   expireTablePaymentReservations,
   lockTablePaymentSession,
 } from '../services/tablePaymentLedger.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 class TablePaymentReservationExpirationJob {
   async execute(now = new Date()) {
@@ -25,7 +26,7 @@ class TablePaymentReservationExpirationJob {
     let expiredCount = 0;
     for (const candidate of candidates) {
       try {
-        expiredCount += await prisma.$transaction(
+        const expiredForSession = await prisma.$transaction(
           async (tx) => {
             await lockTablePaymentSession(tx, candidate.restaurantId, candidate.tableSessionId);
             return expireTablePaymentReservations(
@@ -37,6 +38,15 @@ class TablePaymentReservationExpirationJob {
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
+        expiredCount += expiredForSession;
+        if (expiredForSession > 0) {
+          await tableAccountEvents.updated({
+            sessionId: candidate.tableSessionId,
+            restaurantId: candidate.restaurantId,
+            reason: 'PAYMENT_EXPIRED',
+            occurredAt: now,
+          });
+        }
       } catch (error) {
         console.error('[TABLE_PAYMENT_EXPIRATION_ERROR]', {
           restaurantId: candidate.restaurantId,

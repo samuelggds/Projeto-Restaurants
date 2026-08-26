@@ -53,6 +53,25 @@ test('valida assinatura, valor e evento do webhook simulado', async () => {
   );
 });
 
+test('simula a confirmacao assincrona usada no desenvolvimento', async () => {
+  const provider = new FakePaymentProvider({ enabled: true });
+  const payment = await provider.createPayment({
+    intentPublicId: '2a78522b-67be-474b-8462-7cae97e35f45',
+    amountCents: 1_846,
+    method: 'CARD',
+    idempotencyKeyHash: 'hash-auto-approval',
+    expiresAt: new Date('2026-08-26T18:00:00.000Z'),
+  });
+
+  const occurredAt = new Date('2026-08-26T17:59:00.000Z');
+  const event = await provider.simulatePaidWebhook(payment.externalId, occurredAt);
+
+  assert.equal(event.status, 'PAID');
+  assert.equal(event.amountCents, 1_846);
+  assert.equal(event.occurredAt, occurredAt);
+  assert.equal((await provider.getPayment(payment.externalId)).status, 'PAID');
+});
+
 test('estorna uma cobrança simulada de forma idempotente', async () => {
   const provider = new FakePaymentProvider({ enabled: true });
   const payment = await provider.createPayment({

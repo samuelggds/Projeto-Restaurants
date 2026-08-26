@@ -110,6 +110,10 @@ test('consulta do repositório isola restaurante e ignora sessões expiradas', a
   assert.ok(query.include.tableSessions.where.OR[1].expiresAt.gt instanceof Date);
   assert.deepEqual(query.include.tableSessions.orderBy, { openedAt: 'desc' });
   assert.equal(query.include.tableSessions.take, 1);
+  assert.ok(
+    query.include.orders.where.OR.some((condition) => condition.settlementMode === 'TABLE_ACCOUNT'),
+  );
+  assert.ok(query.include.orders.where.OR.some((condition) => condition.paymentMethod === null));
   assert.deepEqual(query.orderBy, { number: 'asc' });
 });
 

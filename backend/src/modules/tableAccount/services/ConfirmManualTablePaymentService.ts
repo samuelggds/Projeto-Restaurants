@@ -16,6 +16,7 @@ import {
   projectTableSessionFinancialState,
 } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class ConfirmManualTablePaymentService {
   constructor(private readonly now: () => Date = () => new Date()) {}
@@ -134,6 +135,15 @@ export class ConfirmManualTablePaymentService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+
+    await tableAccountEvents.updated({
+      sessionId: updated.tableSessionId,
+      restaurantId,
+      reason: 'PAYMENT_CONFIRMED_MANUALLY',
+      paymentPublicId: updated.publicId,
+      paymentStatus: updated.status,
+      occurredAt: updated.paidAt || now,
+    });
 
     return {
       payment: serializeTablePaymentIntent(updated, initial.tableSession.publicId),

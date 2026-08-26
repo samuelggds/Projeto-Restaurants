@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import tableSessionService from '../../Services/tableSessionService';
@@ -95,6 +95,100 @@ function persistTableSession(session: StoredTableSession) {
   }
 }
 
+type JoinResolution = {
+  table: ResolvedTable;
+  session: StoredTableSession;
+};
+
+class TableJoinFailure extends Error {
+  readonly resolvedTable: ResolvedTable;
+  readonly response?: { data?: { error?: string; code?: string } };
+
+  constructor(error: unknown, resolvedTable: ResolvedTable) {
+    const typed = error as {
+      response?: { data?: { error?: string; code?: string } };
+      message?: string;
+    };
+    super(typed.response?.data?.error || typed.message || 'Não foi possível entrar nesta mesa.');
+    this.name = 'TableJoinFailure';
+    this.resolvedTable = resolvedTable;
+    this.response = typed.response;
+  }
+}
+
+async function resolveAndJoinTable(input: {
+  routeTableNumber: number;
+  queryTableId: number | null;
+  queryRestaurantId: number | null;
+  normalizedSlug: string;
+  tableToken: string;
+}): Promise<JoinResolution> {
+  const raw = (await tablesService.resolvePublicTable({
+    tableNumber: input.routeTableNumber,
+    tableToken: input.tableToken,
+    tableId: input.queryTableId,
+    restaurantId: input.queryRestaurantId,
+    slug: input.normalizedSlug,
+  })) as ResolvedTable;
+  const table: ResolvedTable = {
+    ...raw,
+    id: Number(raw.id),
+    number: Number(raw.number),
+    restaurantId: Number(raw.restaurantId),
+  };
+
+  if (
+    !positiveInteger(table.id) ||
+    table.number !== input.routeTableNumber ||
+    !positiveInteger(table.restaurantId) ||
+    (input.queryRestaurantId && table.restaurantId !== input.queryRestaurantId) ||
+    (input.normalizedSlug && table.restaurantSlug !== input.normalizedSlug)
+  ) {
+    throw new Error('A mesa retornada não corresponde ao QR Code escaneado.');
+  }
+
+  if (!table.tableOrderingEnabled) {
+    throw new Error('O restaurante desativou temporariamente os pedidos pelo cardápio de mesa.');
+  }
+
+  let result;
+  try {
+    result = await tableSessionService.joinOpenSession({
+      tableId: table.id,
+      tableNumber: table.number,
+      tableToken: input.tableToken,
+      restaurantId: table.restaurantId,
+      restaurantSlug: table.restaurantSlug,
+    });
+  } catch (error) {
+    throw new TableJoinFailure(error, table);
+  }
+  const session: StoredTableSession = {
+    sessionToken: String(result.sessionToken || ''),
+    sessionId: Number(result.sessionId),
+    sessionPublicId: result.sessionPublicId ? String(result.sessionPublicId) : null,
+    tableId: Number(result.tableId),
+    tableNumber: Number(result.tableNumber),
+    restaurantId: Number(result.restaurantId),
+    expiresAt: result.expiresAt ? String(result.expiresAt) : null,
+    sessionStatus: result.sessionStatus === 'CLOSING_REQUESTED' ? 'CLOSING_REQUESTED' : 'OPEN',
+    tableOrderingEnabled: result.tableOrderingEnabled !== false,
+    waiterCallEnabled: result.waiterCallEnabled !== false,
+    billRequestEnabled: result.billRequestEnabled !== false,
+  };
+
+  if (
+    !session.sessionToken ||
+    Number(session.tableId) !== table.id ||
+    Number(session.tableNumber) !== table.number ||
+    Number(session.restaurantId) !== table.restaurantId
+  ) {
+    throw new Error('A sessão aberta não corresponde à mesa deste QR Code.');
+  }
+
+  return { table, session };
+}
+
 export default function DigitalMenuEntryPage() {
   const { tableNumber, restaurantSlug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,6 +218,20 @@ export default function DigitalMenuEntryPage() {
       ].join(':'),
     [normalizedSlug, queryRestaurantId, queryTableId, routeTableNumber, tableToken],
   );
+  const joinKey = useMemo(
+    () =>
+      [
+        routeTableNumber || '',
+        normalizedSlug ? `slug:${normalizedSlug}` : `restaurant:${queryRestaurantId || ''}`,
+        tableToken,
+      ].join(':'),
+    [normalizedSlug, queryRestaurantId, routeTableNumber, tableToken],
+  );
+  const joinInFlightRef = useRef<{
+    key: string;
+    promise: Promise<JoinResolution>;
+  } | null>(null);
+  const completedJoinRef = useRef<{ key: string; value: JoinResolution } | null>(null);
   const [entry, setEntry] = useState<EntryState>({
     status: 'loading',
     key: entryKey,
@@ -144,66 +252,50 @@ export default function DigitalMenuEntryPage() {
     const join = async () => {
       let resolvedTable: ResolvedTable | null = null;
       try {
-        const raw = (await tablesService.resolvePublicTable({
-          tableNumber: routeTableNumber,
-          tableToken,
-          tableId: queryTableId,
-          restaurantId: queryRestaurantId,
-          slug: normalizedSlug,
-        })) as ResolvedTable;
-        resolvedTable = {
-          ...raw,
-          id: Number(raw.id),
-          number: Number(raw.number),
-          restaurantId: Number(raw.restaurantId),
-        };
+        const completed = completedJoinRef.current;
+        const completedMatchesRoute = Boolean(
+          completed?.key === joinKey &&
+            completed.value.table.number === routeTableNumber &&
+            (!queryRestaurantId ||
+              completed.value.table.restaurantId === queryRestaurantId) &&
+            (!normalizedSlug || completed.value.table.restaurantSlug === normalizedSlug),
+        );
+        let resolution: JoinResolution;
 
-        if (
-          !positiveInteger(resolvedTable.id) ||
-          resolvedTable.number !== routeTableNumber ||
-          !positiveInteger(resolvedTable.restaurantId) ||
-          (queryRestaurantId && resolvedTable.restaurantId !== queryRestaurantId) ||
-          (normalizedSlug && resolvedTable.restaurantSlug !== normalizedSlug)
-        ) {
-          throw new Error('A mesa retornada não corresponde ao QR Code escaneado.');
+        if (completed && completedMatchesRoute) {
+          resolution = completed.value;
+        } else {
+          let request = joinInFlightRef.current;
+          if (!request || request.key !== joinKey) {
+            const promise = resolveAndJoinTable({
+              routeTableNumber: routeTableNumber as number,
+              queryTableId,
+              queryRestaurantId,
+              normalizedSlug,
+              tableToken,
+            });
+            request = { key: joinKey, promise };
+            joinInFlightRef.current = request;
+            void promise.then(
+              () => {
+                if (joinInFlightRef.current?.promise === promise) {
+                  joinInFlightRef.current = null;
+                }
+              },
+              () => {
+                if (joinInFlightRef.current?.promise === promise) {
+                  joinInFlightRef.current = null;
+                }
+              },
+            );
+          }
+          resolution = await request.promise;
+          completedJoinRef.current = { key: joinKey, value: resolution };
         }
 
-        if (!resolvedTable.tableOrderingEnabled) {
-          throw new Error(
-            'O restaurante desativou temporariamente os pedidos pelo cardápio de mesa.',
-          );
-        }
-
-        const result = await tableSessionService.joinOpenSession({
-          tableId: resolvedTable.id,
-          tableNumber: resolvedTable.number,
-          tableToken,
-          restaurantId: resolvedTable.restaurantId,
-          restaurantSlug: resolvedTable.restaurantSlug,
-        });
-        const storedSession: StoredTableSession = {
-          sessionToken: String(result.sessionToken || ''),
-          sessionId: Number(result.sessionId),
-          sessionPublicId: result.sessionPublicId ? String(result.sessionPublicId) : null,
-          tableId: Number(result.tableId),
-          tableNumber: Number(result.tableNumber),
-          restaurantId: Number(result.restaurantId),
-          expiresAt: result.expiresAt ? String(result.expiresAt) : null,
-          tableOrderingEnabled: result.tableOrderingEnabled !== false,
-          waiterCallEnabled: result.waiterCallEnabled !== false,
-          billRequestEnabled: result.billRequestEnabled !== false,
-        };
-
-        if (
-          !storedSession.sessionToken ||
-          Number(storedSession.tableId) !== resolvedTable.id ||
-          Number(storedSession.tableNumber) !== resolvedTable.number ||
-          Number(storedSession.restaurantId) !== resolvedTable.restaurantId
-        ) {
-          throw new Error('A sessão aberta não corresponde à mesa deste QR Code.');
-        }
-
-        persistTableSession(storedSession);
+        resolvedTable = resolution.table;
+        if (!active) return;
+        persistTableSession(resolution.session);
 
         const canonicalParams = new URLSearchParams(searchParamsString);
         canonicalParams.set('rid', String(resolvedTable.restaurantId));
@@ -222,6 +314,9 @@ export default function DigitalMenuEntryPage() {
         }
       } catch (error: unknown) {
         if (!active) return;
+        if (error instanceof TableJoinFailure) {
+          resolvedTable = error.resolvedTable;
+        }
         localStorage.removeItem('tableSession');
         localStorage.removeItem('tableSessionToken');
         const failure = apiError(error);
@@ -249,6 +344,7 @@ export default function DigitalMenuEntryPage() {
     entryKey,
     hasValidRestaurantReference,
     invalidQrContext,
+    joinKey,
     normalizedSlug,
     queryRestaurantId,
     queryTableId,

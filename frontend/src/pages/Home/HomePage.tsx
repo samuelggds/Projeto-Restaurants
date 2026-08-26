@@ -17,6 +17,7 @@ import * as Offers from './components/FeaturedOffers.styles';
 import { HomeHeader } from './components/HomeHeader';
 import { HomeProductCard } from './components/HomeProductCard';
 import { ProductConfigurator } from './components/ProductConfigurator';
+import { TableClosingNotice } from './components/TableClosingNotice';
 import * as S from './Home.styles';
 import type { HomePageProps, HomeProduct } from './types';
 import { getFeaturedProducts } from './domain/featuredProducts';
@@ -34,6 +35,7 @@ export function HomePage({
   userLoggedIn = false,
   isAdmin = false,
   isTableMenu = false,
+  orderingLocked = false,
   tableLabel,
   favoriteProductIds = [],
   savedAddresses = [],
@@ -43,6 +45,7 @@ export function HomePage({
   onOpenProfile,
   onOpenAdmin,
   onOpenCart,
+  onOpenTableAccount,
   onSearch,
   onSelectCategory,
   onAddProduct,
@@ -85,6 +88,10 @@ export function HomePage({
   };
 
   const openProductDetails = (product: HomeProduct) => {
+    if (orderingLocked) {
+      onOpenTableAccount?.();
+      return;
+    }
     setSelectedProduct(product);
   };
 
@@ -93,6 +100,7 @@ export function HomePage({
       key={product.id}
       product={product}
       featured={featured}
+      orderingLocked={orderingLocked}
       favorite={favoriteIds.has(product.id)}
       onOpen={() => openProductDetails(product)}
       onToggleFavorite={() => onToggleFavorite?.(product.id)}
@@ -124,6 +132,9 @@ export function HomePage({
         availabilityDetail={availability.detail}
       />
       <S.Main>
+        {isTableMenu && orderingLocked && (
+          <TableClosingNotice tableNumber={tableLabel} onOpenAccount={onOpenTableAccount} />
+        )}
         {data.about && (
           <S.About id="sobre">
             <small>{data.brand.name || 'NOSSA CASA'}</small>

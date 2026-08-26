@@ -4,11 +4,14 @@ import test, { afterEach } from 'node:test';
 import jwt from 'jsonwebtoken';
 import { socketAuth } from './socketAuth.js';
 import { socketHandler } from './socketHandler.js';
+import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
 
 const originalJwtSecret = process.env.JWT_SECRET;
+const originalFindBySessionToken = tableSessionRepository.findBySessionToken;
 
 afterEach(() => {
   process.env.JWT_SECRET = originalJwtSecret;
+  tableSessionRepository.findBySessionToken = originalFindBySessionToken;
 });
 
 function socketStub(user) {
@@ -108,4 +111,50 @@ test('sessão de mesa entra apenas nas rooms da mesa e da própria sessão', () 
 
   assert.deepEqual(socket.rooms, ['table:91', 'table-session:55']);
   assert.equal(socket.rooms.includes('restaurant:7'), false);
+});
+
+for (const status of ['OPEN', 'CLOSING_REQUESTED']) {
+  test(`socket mantém a conta da mesa conectada no status ${status}`, async () => {
+    tableSessionRepository.findBySessionToken = async () => ({
+      id: 55,
+      tableId: 91,
+      status,
+      expiresAt: new Date(Date.now() + 60_000),
+      table: { number: 12, restaurantId: 7 },
+    });
+    const socket = { handshake: { auth: { sessionToken: 'sessao-segura' } } };
+    let authError;
+
+    await socketAuth(socket, (error) => {
+      authError = error;
+    });
+
+    assert.equal(authError, undefined);
+    assert.equal(socket.authType, 'table-session');
+    assert.deepEqual(socket.tableSession, {
+      id: 55,
+      tableId: 91,
+      tableNumber: 12,
+      restaurantId: 7,
+    });
+  });
+}
+
+test('socket rejeita sessão da mesa encerrada', async () => {
+  tableSessionRepository.findBySessionToken = async () => ({
+    id: 55,
+    tableId: 91,
+    status: 'CLOSED',
+    expiresAt: new Date(Date.now() + 60_000),
+    table: { number: 12, restaurantId: 7 },
+  });
+  const socket = { handshake: { auth: { sessionToken: 'sessao-encerrada' } } };
+  let authError;
+
+  await socketAuth(socket, (error) => {
+    authError = error;
+  });
+
+  assert.equal(authError?.message, 'Sessão da mesa inválida');
+  assert.equal(socket.authType, undefined);
 });

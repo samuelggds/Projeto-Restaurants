@@ -8,6 +8,7 @@ export type StoredTableSession = {
   tableNumber?: number | null;
   restaurantId?: number | null;
   expiresAt?: string | null;
+  sessionStatus?: 'OPEN' | 'CLOSING_REQUESTED';
   tableOrderingEnabled?: boolean;
   waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;

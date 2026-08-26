@@ -140,6 +140,7 @@ export default function Home() {
     hasValidQrContext,
     mesaSessionIsActive,
     storedSessionRestaurantId,
+    markClosingRequested,
   } = useTableSession({
     tableNumber: routeTableNumber,
     restaurantId: searchParams.get('restaurantId') || searchParams.get('rid'),
@@ -157,11 +158,30 @@ export default function Home() {
         storedSessionRestaurantId ||
         null;
 
+  const tableClosingRequested = Boolean(
+    mesaMode &&
+    (tableSession?.sessionStatus === 'CLOSING_REQUESTED' ||
+      tableSession?.tableOrderingEnabled === false),
+  );
+
   const tableAccount = useTableAccount({
     enabled: mesaMode && mesaSessionIsActive,
     sessionPublicId: tableSession?.sessionPublicId,
+    sessionToken: tableSession?.sessionToken,
     notify,
   });
+
+  const openTableAccount = useCallback(() => {
+    setTableAccountOpen(true);
+    void tableAccount.refresh();
+  }, [tableAccount.refresh]);
+
+  useEffect(() => {
+    if (!tableClosingRequested || !tableSession?.sessionPublicId) return;
+    setCartOpen(false);
+    setTableContinuationOpen(false);
+    openTableAccount();
+  }, [openTableAccount, tableClosingRequested, tableSession?.sessionPublicId]);
 
   const requireFavoriteLogin = useCallback(() => {
     navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
@@ -311,6 +331,15 @@ export default function Home() {
     });
 
   async function handleCheckout() {
+    if (tableClosingRequested) {
+      notify(
+        'warning',
+        'Conta já solicitada',
+        'Novos pedidos estão bloqueados. Confira e pague os itens que já estão na conta.',
+      );
+      openTableAccount();
+      return;
+    }
     if (!restaurantId || !cart.length || checkoutLoading) return;
 
     const currentAvailability = getRestaurantAvailability(
@@ -501,6 +530,10 @@ export default function Home() {
             ? 'Seu chamado apareceu em tempo real no painel do salão.'
             : 'O garçom recebeu o pedido da conta em tempo real.',
       );
+      if (type === 'BILL') {
+        markClosingRequested();
+        openTableAccount();
+      }
     } catch (error: unknown) {
       const typed = error as { response?: { data?: { error?: string } }; message?: string };
       notify(
@@ -549,12 +582,13 @@ export default function Home() {
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <HomePage
         data={homeData}
-        cartCount={cartCount}
+        cartCount={tableClosingRequested ? 0 : cartCount}
         userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
         userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
         userLoggedIn={!!user}
         isAdmin={user?.role === 'ADMIN'}
         isTableMenu={mesaMode}
+        orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
         favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : []}
         savedAddresses={savedAddresses}
@@ -567,10 +601,17 @@ export default function Home() {
             'Este endereço será usado automaticamente no carrinho.',
           );
         }}
-        onOpenCart={() => setCartOpen(true)}
+        onOpenCart={() => (tableClosingRequested ? openTableAccount() : setCartOpen(true))}
+        onOpenTableAccount={openTableAccount}
         onOpenProfile={() => navigate('/profile')}
         onOpenAdmin={() => navigate('/admin')}
-        onAddProduct={addToCart}
+        onAddProduct={
+          tableClosingRequested
+            ? () => {
+                openTableAccount();
+              }
+            : addToCart
+        }
         onToggleFavorite={toggleFavorite}
         onLogout={() => {
           logout();
@@ -664,13 +705,15 @@ export default function Home() {
             isRestaurantOpen={homeData.isOpen}
             checkoutButtonLabel={mesaMode ? 'Revisar e continuar' : undefined}
             checkoutBlockedMessage={
-              !checkoutChannelAvailable
-                ? 'Canal indisponível'
-                : tableCheckoutUnavailable
-                  ? 'Pagamento indisponível'
-                  : !mesaMode && !paymentAvailable
-                    ? 'Serviço indisponível'
-                    : undefined
+              tableClosingRequested
+                ? 'Conta solicitada: novos pedidos bloqueados'
+                : !checkoutChannelAvailable
+                  ? 'Canal indisponível'
+                  : tableCheckoutUnavailable
+                    ? 'Pagamento indisponível'
+                    : !mesaMode && !paymentAvailable
+                      ? 'Serviço indisponível'
+                      : undefined
             }
             onCheckout={() => void handleCheckout()}
           />
@@ -734,15 +777,12 @@ export default function Home() {
               <TableServiceActions
                 tableNumber={mesaLabel}
                 waiterEnabled={tableSession.waiterCallEnabled !== false}
-                billEnabled={tableSession.billRequestEnabled !== false}
+                billEnabled={tableSession.billRequestEnabled !== false && !tableClosingRequested}
                 accountEnabled={Boolean(tableSession.sessionPublicId)}
                 loading={tableServiceLoading}
                 onCallWaiter={() => void requestTableService('WAITER')}
                 onRequestBill={() => void requestTableService('BILL')}
-                onOpenAccount={() => {
-                  setTableAccountOpen(true);
-                  void tableAccount.refresh();
-                }}
+                onOpenAccount={openTableAccount}
               />
             )}
             {whatsappUrl && (

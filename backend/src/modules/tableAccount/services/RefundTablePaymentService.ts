@@ -16,6 +16,7 @@ import {
   projectTableSessionFinancialState,
 } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class RefundTablePaymentService {
   constructor(
@@ -167,6 +168,17 @@ export class RefundTablePaymentService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+
+    if (!result.idempotentReplay) {
+      await tableAccountEvents.updated({
+        sessionId: result.intent.tableSessionId,
+        restaurantId,
+        reason: 'PAYMENT_REFUNDED',
+        paymentPublicId: result.intent.publicId,
+        paymentStatus: result.intent.status,
+        occurredAt: result.intent.refundedAt || now,
+      });
+    }
 
     return {
       payment: serializeTablePaymentIntent(result.intent, initial.tableSession.publicId),

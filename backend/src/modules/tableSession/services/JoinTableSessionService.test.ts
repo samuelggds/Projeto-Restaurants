@@ -187,7 +187,7 @@ test('repositório busca somente a sessão OPEN não expirada mais recente', asy
   assert.deepEqual(query.orderBy, { openedAt: 'desc' });
 });
 
-test('repositório de token nunca devolve sessão encerrada ou expirada', async () => {
+test('repositório de token mantém OPEN e CLOSING_REQUESTED acessíveis, mas exclui encerradas e expiradas', async () => {
   let query;
   const fakeDb = {
     tableSession: {
@@ -201,7 +201,9 @@ test('repositório de token nunca devolve sessão encerrada ou expirada', async 
   await tableSessionRepository.findBySessionToken('session-secret', fakeDb);
 
   assert.equal(query.where.sessionToken, 'session-secret');
-  assert.equal(query.where.status, 'OPEN');
+  assert.deepEqual(query.where.status, {
+    in: ['OPEN', 'CLOSING_REQUESTED'],
+  });
   assert.ok(query.where.OR[1].expiresAt.gt instanceof Date);
   assert.equal(query.include.table.select.restaurantId, true);
   assert.equal('token' in query.include.table.select, false);

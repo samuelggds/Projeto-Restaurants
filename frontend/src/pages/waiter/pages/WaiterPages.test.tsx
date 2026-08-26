@@ -252,6 +252,35 @@ describe('waiter operational pages', () => {
     expect(onCloseTable).toHaveBeenCalledWith('32');
   });
 
+  it('orienta o garçom quando a conta ainda precisa ser paga e o pedido concluído', async () => {
+    const onCloseTable = vi.fn(async () => {
+      throw new Error(
+        'Não é possível fechar a mesa: existem pedidos ou pagamentos pendentes (#66).',
+      );
+    });
+    await act(async () =>
+      root.render(
+        <WaiterProvider
+          employee={employee}
+          restaurant={restaurant}
+          data={{ ...data, tables: [closingRequestedTable] }}
+          onCloseTable={onCloseTable}
+        >
+          <WaiterTablesPage />
+        </WaiterProvider>,
+      ),
+    );
+
+    const finalize = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Finalizar mesa',
+    );
+    await act(async () => finalize?.click());
+
+    expect(container.textContent).toContain('Ver e pagar a conta');
+    expect(container.textContent).toContain('pagamento ser confirmado');
+    expect(container.textContent).toContain('pedido ser concluído pela cozinha');
+  });
+
   it('busca chamados e confirma Atender pelo contrato de atualização', async () => {
     const onUpdateCall = vi.fn(async () => undefined);
     await act(async () =>

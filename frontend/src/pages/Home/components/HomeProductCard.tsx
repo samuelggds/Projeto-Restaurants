@@ -12,6 +12,7 @@ type HomeProductCardProps = {
   onOpen: () => void;
   onToggleFavorite?: () => void;
   featured?: boolean;
+  orderingLocked?: boolean;
 };
 
 export function HomeProductCard({
@@ -20,19 +21,27 @@ export function HomeProductCard({
   onOpen,
   onToggleFavorite,
   featured = false,
+  orderingLocked = false,
 }: HomeProductCardProps) {
   return (
     <S.ProductCard
       data-featured={featured || undefined}
       role="button"
-      tabIndex={0}
-      aria-label={`Ver detalhes de ${product.name}`}
-      onClick={onOpen}
+      tabIndex={orderingLocked ? -1 : 0}
+      aria-disabled={orderingLocked || undefined}
+      aria-label={
+        orderingLocked
+          ? `${product.name}: novos pedidos bloqueados, conta solicitada`
+          : `Ver detalhes de ${product.name}`
+      }
+      onClick={() => {
+        if (!orderingLocked) onOpen();
+      }}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          onOpen();
+          if (!orderingLocked) onOpen();
         }
       }}
     >
@@ -72,15 +81,25 @@ export function HomeProductCard({
           </Promotion.Price>
           <button
             aria-label={
-              product.available ? `Adicionar ${product.name}` : `${product.name} esgotado`
+              orderingLocked
+                ? `Não é possível adicionar ${product.name}: conta solicitada`
+                : product.available
+                  ? `Adicionar ${product.name}`
+                  : `${product.name} esgotado`
             }
-            disabled={!product.available}
+            disabled={!product.available || orderingLocked}
             onClick={(event) => {
               event.stopPropagation();
-              onOpen();
+              if (!orderingLocked) onOpen();
             }}
           >
-            {product.available ? <Plus /> : 'Esgotado'}
+            {product.available && !orderingLocked ? (
+              <Plus />
+            ) : orderingLocked ? (
+              'Bloqueado'
+            ) : (
+              'Esgotado'
+            )}
           </button>
         </footer>
       </div>

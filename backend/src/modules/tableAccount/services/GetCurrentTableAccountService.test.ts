@@ -262,6 +262,58 @@ test('taxa de pagamento estornado permanece no histórico sem voltar ao saldo de
   assert.equal(result.summary.remainingCents, 0);
 });
 
+test('não conta convidado expirado como acesso ativo e preserva o registro no histórico', async () => {
+  tableAccountRepository.findSnapshotData = async () => ({
+    publicId: '323e4567-e89b-42d3-a456-426614174001',
+    status: 'OPEN',
+    table: { number: 12 },
+    participants: [
+      {
+        publicId: currentParticipantPublicId,
+        userId: null,
+        displayName: 'Convidado atual',
+        status: 'ACTIVE',
+        tokenExpiresAt: new Date('2099-08-25T13:00:00.000Z'),
+        joinedAt: new Date('2026-08-25T12:00:00.000Z'),
+        leftAt: null,
+      },
+      {
+        publicId: '123e4567-e89b-42d3-a456-426614174099',
+        userId: null,
+        displayName: 'Acesso expirado',
+        status: 'ACTIVE',
+        tokenExpiresAt: new Date('2026-08-25T11:00:00.000Z'),
+        joinedAt: new Date('2026-08-25T10:00:00.000Z'),
+        leftAt: null,
+      },
+      {
+        publicId: '123e4567-e89b-42d3-a456-426614174098',
+        userId: 80,
+        displayName: 'Cliente autenticado',
+        status: 'ACTIVE',
+        tokenExpiresAt: null,
+        joinedAt: new Date('2026-08-25T12:10:00.000Z'),
+        leftAt: null,
+      },
+    ],
+    billItems: [],
+    paymentIntents: [],
+  });
+
+  const result = await new GetCurrentTableAccountService().execute({
+    tableSessionId: 55,
+    restaurantId: 7,
+    participantId: 80,
+    participantPublicId: currentParticipantPublicId,
+  });
+
+  assert.equal(result.summary.participantsCount, 2);
+  assert.equal(result.participants[0].status, 'ACTIVE');
+  assert.equal(result.participants[1].status, 'LEFT');
+  assert.equal(result.participants[1].displayName, 'Acesso expirado');
+  assert.equal(result.participants[2].status, 'ACTIVE');
+});
+
 test('rejeita identificadores inválidos antes de consultar o repositório', async () => {
   let repositoryCalled = false;
   tableAccountRepository.findSnapshotData = async () => {

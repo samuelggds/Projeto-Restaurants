@@ -152,6 +152,11 @@ export function buildTableAccountBaseSnapshot(
     grossPaidCents,
     refundedCents,
   });
+  const participantIsActive = (participant: TableAccountSnapshotRecord['participants'][number]) =>
+    participant.status === 'ACTIVE' &&
+    (participant.userId !== null ||
+      participant.tokenExpiresAt === null ||
+      participant.tokenExpiresAt > now);
 
   return {
     contractVersion: TABLE_ACCOUNT_CONTRACT_VERSION,
@@ -168,13 +173,12 @@ export function buildTableAccountBaseSnapshot(
       processingCents,
       remainingCents: balance.remainingCents,
       overpaidCents: balance.overpaidCents,
-      participantsCount: data.participants.filter((participant) => participant.status === 'ACTIVE')
-        .length,
+      participantsCount: data.participants.filter(participantIsActive).length,
     },
     participants: data.participants.map((participant) => ({
       publicId: participant.publicId,
       displayName: participant.displayName,
-      status: participant.status,
+      status: participantIsActive(participant) ? ('ACTIVE' as const) : ('LEFT' as const),
       joinedAt: participant.joinedAt.toISOString(),
       leftAt: participant.leftAt?.toISOString() || null,
     })),
