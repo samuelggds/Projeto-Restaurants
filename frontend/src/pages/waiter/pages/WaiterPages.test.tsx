@@ -37,10 +37,16 @@ const freeTable: RestaurantTable = {
 const occupiedTable: RestaurantTable = {
   ...freeTable,
   status: 'OCCUPIED',
+  sessionStatus: 'OPEN',
   sessionId: '31',
   guests: 2,
   total: 58,
   openedAt: '18:30',
+};
+const closingRequestedTable: RestaurantTable = {
+  ...occupiedTable,
+  sessionStatus: 'CLOSING_REQUESTED',
+  sessionId: '32',
 };
 
 function changeInput(element: HTMLInputElement, value: string) {
@@ -213,10 +219,37 @@ describe('waiter operational pages', () => {
   it('permite somente abrir ou fechar a mesa sem expor ações administrativas do QR', () => {
     renderPage(<WaiterTablesPage />);
     expect(container.textContent).toContain('QR Codes administrados pelo restaurante.');
+    expect(container.textContent).toContain('ABERTA');
     expect(container.textContent).toContain('Fechar mesa');
     expect(container.textContent).not.toContain('Visualizar QR Code');
     expect(container.textContent).not.toContain('Imprimir QR');
     expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('distingue conta solicitada de mesa aberta e permite finalizar a sessão correta', async () => {
+    const onCloseTable = vi.fn(async () => undefined);
+    await act(async () =>
+      root.render(
+        <WaiterProvider
+          employee={employee}
+          restaurant={restaurant}
+          data={{ ...data, tables: [closingRequestedTable] }}
+          onCloseTable={onCloseTable}
+        >
+          <WaiterTablesPage />
+        </WaiterProvider>,
+      ),
+    );
+
+    expect(container.textContent).toContain('CONTA SOLICITADA');
+    expect(container.textContent).toContain('novos pedidos estão bloqueados');
+    expect(container.textContent).not.toContain('Abra a mesa antes');
+
+    const finalize = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Finalizar mesa',
+    );
+    await act(async () => finalize?.click());
+    expect(onCloseTable).toHaveBeenCalledWith('32');
   });
 
   it('busca chamados e confirma Atender pelo contrato de atualização', async () => {

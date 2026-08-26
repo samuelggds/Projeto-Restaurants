@@ -45,6 +45,23 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
         orders: [],
         _count: { orders: 0, tableSessions: 0 },
       },
+      {
+        id: 93,
+        number: 14,
+        token: 'c'.repeat(32),
+        active: true,
+        restaurantId: 7,
+        tableSessions: [
+          {
+            id: 56,
+            status: 'CLOSING_REQUESTED',
+            openedAt: new Date('2026-08-24T13:00:00.000Z'),
+            expiresAt: new Date('2026-08-25T01:00:00.000Z'),
+          },
+        ],
+        orders: [],
+        _count: { orders: 0, tableSessions: 1 },
+      },
     ];
   };
 
@@ -60,6 +77,10 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
   assert.equal(result[1].status, 'FREE');
   assert.equal(result[1].sessionId, null);
   assert.equal('token' in result[1], false);
+  assert.equal(result[2].status, 'OCCUPIED');
+  assert.equal(result[2].sessionId, 56);
+  assert.equal(result[2].operational.openSession.status, 'CLOSING_REQUESTED');
+  assert.equal('token' in result[2], false);
 
   const adminResult = await listTableService.execute({
     restaurantId: 7,
@@ -83,9 +104,30 @@ test('consulta do repositório isola restaurante e ignora sessões expiradas', a
   await tableRepository.findAllByRestaurant(7, fakeDb);
 
   assert.equal(query.where.restaurantId, 7);
-  assert.equal(query.include.tableSessions.where.status, 'OPEN');
+  assert.deepEqual(query.include.tableSessions.where.status, {
+    in: ['OPEN', 'CLOSING_REQUESTED'],
+  });
   assert.ok(query.include.tableSessions.where.OR[1].expiresAt.gt instanceof Date);
   assert.deepEqual(query.include.tableSessions.orderBy, { openedAt: 'desc' });
   assert.equal(query.include.tableSessions.take, 1);
   assert.deepEqual(query.orderBy, { number: 'asc' });
+});
+
+test('não permite excluir mesa enquanto existir sessão operacional ativa', async () => {
+  let query;
+  const fakeDb = {
+    table: {
+      deleteMany: async (args) => {
+        query = args;
+        return { count: 0 };
+      },
+    },
+  };
+
+  const deleted = await tableRepository.deleteIfUnused(91, 7, fakeDb);
+
+  assert.equal(deleted, 0);
+  assert.deepEqual(query.where.tableSessions.none.status, {
+    in: ['OPEN', 'CLOSING_REQUESTED'],
+  });
 });

@@ -22,11 +22,37 @@ describe('waiterAdapter', () => {
       id: '91',
       number: 12,
       status: 'OCCUPIED',
+      sessionStatus: 'OPEN',
       sessionId: '31',
       guests: 3,
       total: 87.5,
     });
     expect(table).not.toHaveProperty('token');
+    expect(table.openedAt).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it('mantém como ocupada a mesa cuja conta foi solicitada', () => {
+    const [table] = mapWaiterTables([
+      {
+        id: 91,
+        number: 12,
+        active: true,
+        tableSessions: [
+          {
+            id: 32,
+            status: 'CLOSING_REQUESTED',
+            openedAt: '2026-08-24T15:00:00.000Z',
+          },
+        ],
+      },
+    ]);
+
+    expect(table).toMatchObject({
+      id: '91',
+      status: 'OCCUPIED',
+      sessionStatus: 'CLOSING_REQUESTED',
+      sessionId: '32',
+    });
     expect(table.openedAt).toMatch(/^\d{2}:\d{2}$/);
   });
 
@@ -42,6 +68,7 @@ describe('waiterAdapter', () => {
         id: '1',
         number: 1,
         status: 'FREE',
+        sessionStatus: undefined,
         sessionId: undefined,
         guests: 0,
         total: 0,
@@ -82,5 +109,4 @@ describe('waiterAdapter', () => {
       }),
     ]);
   });
-
 });

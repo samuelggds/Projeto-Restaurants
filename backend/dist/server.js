@@ -16268,7 +16268,9 @@ var init_TableRepository = __esm({
           include: {
             tableSessions: {
               where: {
-                status: TableSessionStatus4.OPEN,
+                status: {
+                  in: [TableSessionStatus4.OPEN, TableSessionStatus4.CLOSING_REQUESTED]
+                },
                 OR: [{ expiresAt: null }, { expiresAt: { gt: /* @__PURE__ */ new Date() } }]
               },
               orderBy: { openedAt: "desc" },
@@ -16334,7 +16336,13 @@ var init_TableRepository = __esm({
             id: Number(id),
             restaurantId,
             orders: { none: {} },
-            tableSessions: { none: { status: TableSessionStatus4.OPEN } }
+            tableSessions: {
+              none: {
+                status: {
+                  in: [TableSessionStatus4.OPEN, TableSessionStatus4.CLOSING_REQUESTED]
+                }
+              }
+            }
           }
         });
         return result.count;
@@ -17348,12 +17356,23 @@ var init_JoinTableParticipantService = __esm({
 });
 
 // src/modules/tableSession/services/JoinTableSessionService.ts
-var JoinTableSessionService, JoinTableSessionService_default;
+import { TableSessionStatus as TableSessionStatus7 } from "@prisma/client";
+var TableSessionJoinError, JoinTableSessionService, JoinTableSessionService_default;
 var init_JoinTableSessionService = __esm({
   "src/modules/tableSession/services/JoinTableSessionService.ts"() {
     init_TableSessionRepository();
     init_ResolvePublicTableService();
     init_JoinTableParticipantService();
+    TableSessionJoinError = class extends Error {
+      constructor(message, statusCode, code) {
+        super(message);
+        this.statusCode = statusCode;
+        this.code = code;
+        this.name = "TableSessionJoinError";
+      }
+      statusCode;
+      code;
+    };
     JoinTableSessionService = class {
       async execute({
         tableId,
@@ -17375,12 +17394,15 @@ var init_JoinTableSessionService = __esm({
         if (!resolvedTable.tableOrderingEnabled) {
           throw new Error("Os pedidos pelo card\xE1pio de mesa est\xE3o desativados neste restaurante.");
         }
-        const session = await TableSessionRepository_default.findOpenedByTable(resolvedTable.id);
+        const session = await TableSessionRepository_default.findActiveByTable(resolvedTable.id);
         if (!session) {
-          throw new Error(
-            "Esta mesa ainda n\xE3o foi aberta pelo gar\xE7om. Aguarde o atendimento e tente novamente."
+          throw new TableSessionJoinError(
+            "Esta mesa ainda n\xE3o foi aberta pelo gar\xE7om. Aguarde o atendimento e tente novamente.",
+            409,
+            "TABLE_NOT_OPEN"
           );
         }
+        const closingRequested = session.status === TableSessionStatus7.CLOSING_REQUESTED;
         const sessionRestaurantId = Number(
           session.restaurantId ?? session.table?.restaurantId ?? resolvedTable.restaurantId
         );
@@ -17406,7 +17428,10 @@ var init_JoinTableSessionService = __esm({
           tableNumber: session.table?.number ?? resolvedTable.number,
           restaurantId: sessionRestaurantId,
           expiresAt: session.expiresAt,
-          tableOrderingEnabled: resolvedTable.tableOrderingEnabled,
+          sessionStatus: session.status,
+          // A sessão continua acessível para consultar e quitar a conta, mas o
+          // cardápio não deve oferecer novos pedidos após a solicitação de fechamento.
+          tableOrderingEnabled: resolvedTable.tableOrderingEnabled && !closingRequested,
           waiterCallEnabled: resolvedTable.waiterCallEnabled,
           billRequestEnabled: resolvedTable.billRequestEnabled,
           ...participantResult
@@ -17455,10 +17480,11 @@ var init_JoinTableSessionController = __esm({
           }
           return res.status(200).json(publicResult);
         } catch (error2) {
-          const statusCode = error2 instanceof PublicTableResolutionError ? error2.statusCode : 400;
+          const isTypedError = error2 instanceof PublicTableResolutionError || error2 instanceof TableSessionJoinError;
+          const statusCode = isTypedError ? error2.statusCode : 400;
           return res.status(statusCode).json({
             error: error2 instanceof Error ? error2.message : "N\xE3o foi poss\xEDvel acessar a mesa.",
-            ...error2 instanceof PublicTableResolutionError ? { code: error2.code } : {}
+            ...isTypedError ? { code: error2.code } : {}
           });
         }
       }
@@ -17623,7 +17649,7 @@ import {
   Prisma as Prisma7,
   TablePaymentEventType as TablePaymentEventType2,
   TablePaymentIntentStatus as TablePaymentIntentStatus2,
-  TableSessionStatus as TableSessionStatus7
+  TableSessionStatus as TableSessionStatus8
 } from "@prisma/client";
 var ForceCloseTableSessionService, ForceCloseTableSessionService_default;
 var init_ForceCloseTableSessionService = __esm({
@@ -17652,7 +17678,7 @@ var init_ForceCloseTableSessionService = __esm({
             if (!session || session.table.restaurantId !== restaurantId) {
               throw new Error("Sess\xE3o n\xE3o encontrada neste restaurante.");
             }
-            if (session.status === TableSessionStatus7.CLOSED) {
+            if (session.status === TableSessionStatus8.CLOSED) {
               throw new Error("Essa mesa j\xE1 est\xE1 fechada.");
             }
             const activePayments = await tx.tablePaymentIntent.findMany({
@@ -24492,7 +24518,7 @@ var init_TableServiceCallRoutes = __esm({
 });
 
 // src/modules/tableAccount/repositories/TablePaymentRepository.ts
-import { TableParticipantStatus as TableParticipantStatus3, TableSessionStatus as TableSessionStatus8 } from "@prisma/client";
+import { TableParticipantStatus as TableParticipantStatus3, TableSessionStatus as TableSessionStatus9 } from "@prisma/client";
 var tablePaymentIntentDtoSelect, tablePaymentIntentAdminSelect, TablePaymentRepository, TablePaymentRepository_default;
 var init_TablePaymentRepository = __esm({
   "src/modules/tableAccount/repositories/TablePaymentRepository.ts"() {
@@ -24580,7 +24606,7 @@ var init_TablePaymentRepository = __esm({
           where: {
             id: tableSessionId,
             restaurantId,
-            status: { in: [TableSessionStatus8.OPEN, TableSessionStatus8.CLOSING_REQUESTED] },
+            status: { in: [TableSessionStatus9.OPEN, TableSessionStatus9.CLOSING_REQUESTED] },
             OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
             participants: {
               some: {
@@ -24634,15 +24660,15 @@ var init_TablePaymentRepository = __esm({
 });
 
 // src/modules/tableAccount/repositories/TableAccountRepository.ts
-import { TableParticipantStatus as TableParticipantStatus4, TableSessionStatus as TableSessionStatus9 } from "@prisma/client";
+import { TableParticipantStatus as TableParticipantStatus4, TableSessionStatus as TableSessionStatus10 } from "@prisma/client";
 var activeSessionStatuses, tableAccountSnapshotSelect, TableAccountRepository, TableAccountRepository_default;
 var init_TableAccountRepository = __esm({
   "src/modules/tableAccount/repositories/TableAccountRepository.ts"() {
     init_prisma();
     init_TablePaymentRepository();
     activeSessionStatuses = [
-      TableSessionStatus9.OPEN,
-      TableSessionStatus9.CLOSING_REQUESTED
+      TableSessionStatus10.OPEN,
+      TableSessionStatus10.CLOSING_REQUESTED
     ];
     tableAccountSnapshotSelect = {
       id: true,
@@ -27869,7 +27895,7 @@ var init_sentry = __esm({
 
 // src/socket/socketAuth.ts
 import jwt9 from "jsonwebtoken";
-import { TableSessionStatus as TableSessionStatus10, UserRole as UserRole31 } from "@prisma/client";
+import { TableSessionStatus as TableSessionStatus11, UserRole as UserRole31 } from "@prisma/client";
 async function socketAuth(socket, next) {
   try {
     const token = socket.handshake.auth?.token;
@@ -27915,7 +27941,7 @@ async function socketAuth(socket, next) {
     }
     if (sessionToken) {
       const session = await TableSessionRepository_default.findBySessionToken(sessionToken);
-      if (!session || session.status !== TableSessionStatus10.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
+      if (!session || session.status !== TableSessionStatus11.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
         return next(new Error("Sess\xE3o da mesa inv\xE1lida"));
       }
       socket.authType = "table-session";

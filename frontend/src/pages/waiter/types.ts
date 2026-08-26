@@ -3,6 +3,7 @@ export type OrderChannel = 'TABLE' | 'PICKUP' | 'DELIVERY';
 export type OrderStatus =
   'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'ENTREGUE' | 'CANCELADO';
 export type TableStatus = 'FREE' | 'OCCUPIED';
+export type TableSessionStatus = 'OPEN' | 'CLOSING_REQUESTED';
 export type CallType = 'WAITER' | 'BILL';
 export type CallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
 
@@ -37,6 +38,7 @@ export interface RestaurantTable {
   id: string;
   number: number;
   status: TableStatus;
+  sessionStatus?: TableSessionStatus;
   sessionId?: string;
   guests: number;
   openedAt?: string;

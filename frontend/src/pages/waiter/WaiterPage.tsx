@@ -164,12 +164,16 @@ export default function WaiterPage() {
     socket.on('waiter:order-updated', refresh);
     socket.on('waiter-call:created', handleNewCall);
     socket.on('waiter-call:updated', refresh);
+    socket.on('table:session-opened', refresh);
+    socket.on('table:session-closed', refresh);
     return () => {
       socket.off('new-order', refresh);
       socket.off('order:status-changed', refresh);
       socket.off('waiter:order-updated', refresh);
       socket.off('waiter-call:created', handleNewCall);
       socket.off('waiter-call:updated', refresh);
+      socket.off('table:session-opened', refresh);
+      socket.off('table:session-closed', refresh);
       disconnectSocket();
     };
   }, [loadWorkspace, restaurantId, startCallAlarm]);
@@ -191,44 +195,54 @@ export default function WaiterPage() {
       workspaceState={workspaceState}
       onRefresh={() => loadWorkspace(true)}
       onOpenTable={async (tableId) => {
-        const result = asRecord(await tablesService.openTableSession(tableId));
-        const session = asRecord(result.session);
-        const sessionId = String(result.sessionId || session.id || '').trim();
-        if (!sessionId) throw new Error('O servidor não confirmou a abertura da mesa.');
-        setData((current) => ({
-          ...current,
-          tables: current.tables.map((table) =>
-            table.id === tableId
-              ? {
-                  ...table,
-                  status: 'OCCUPIED',
-                  sessionId,
-                  openedAt: formatTimeForWorkspace(session.openedAt),
-                }
-              : table,
-          ),
-        }));
-        void loadWorkspace(true);
-        return { sessionId };
+        try {
+          const result = asRecord(await tablesService.openTableSession(tableId));
+          const session = asRecord(result.session);
+          const sessionId = String(result.sessionId || session.id || '').trim();
+          if (!sessionId) throw new Error('O servidor não confirmou a abertura da mesa.');
+          setData((current) => ({
+            ...current,
+            tables: current.tables.map((table) =>
+              table.id === tableId
+                ? {
+                    ...table,
+                    status: 'OCCUPIED',
+                    sessionId,
+                    openedAt: formatTimeForWorkspace(session.openedAt),
+                  }
+                : table,
+            ),
+          }));
+          void loadWorkspace(true);
+          return { sessionId };
+        } catch (error: unknown) {
+          await loadWorkspace(true);
+          throw error;
+        }
       }}
       onCloseTable={async (sessionId) => {
-        await tablesService.closeTableSession(sessionId);
-        setData((current) => ({
-          ...current,
-          tables: current.tables.map((table) =>
-            table.sessionId === sessionId
-              ? {
-                  ...table,
-                  status: 'FREE',
-                  sessionId: undefined,
-                  openedAt: undefined,
-                  guests: 0,
-                  total: 0,
-                }
-              : table,
-          ),
-        }));
-        void loadWorkspace(true);
+        try {
+          await tablesService.closeTableSession(sessionId);
+          setData((current) => ({
+            ...current,
+            tables: current.tables.map((table) =>
+              table.sessionId === sessionId
+                ? {
+                    ...table,
+                    status: 'FREE',
+                    sessionId: undefined,
+                    openedAt: undefined,
+                    guests: 0,
+                    total: 0,
+                  }
+                : table,
+            ),
+          }));
+          void loadWorkspace(true);
+        } catch (error: unknown) {
+          await loadWorkspace(true);
+          throw error;
+        }
       }}
       onUpdateCall={async (callId, status) => {
         if (status === 'WAITING')

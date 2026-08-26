@@ -1,9 +1,10 @@
-import { Clock3, QrCode, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Clock3, LockKeyhole, QrCode, ReceiptText, RefreshCw, ShieldCheck } from 'lucide-react';
 import styled from 'styled-components';
 
 type Props = {
   primaryColor: string;
   invalidQr?: boolean;
+  closingRequested?: boolean;
   invalidTitle?: string;
   invalidMessage?: string;
   tableLabel?: string | number;
@@ -168,6 +169,7 @@ const Retry = styled.button`
 export function TableAccessGate({
   primaryColor,
   invalidQr = false,
+  closingRequested = false,
   invalidTitle,
   invalidMessage,
   tableLabel,
@@ -176,34 +178,62 @@ export function TableAccessGate({
 }: Props) {
   const title = invalidQr
     ? invalidTitle || 'Não foi possível abrir esta mesa'
-    : invalidTitle || 'Mesa aguardando abertura';
+    : closingRequested
+      ? invalidTitle || 'Conta solicitada'
+      : invalidTitle || 'Mesa aguardando abertura';
   const message = invalidQr
     ? invalidMessage || 'Escaneie novamente o QR Code oficial fixado nesta mesa.'
-    : invalidMessage ||
-      'O garçom precisa abrir o atendimento desta mesa antes que novos pedidos sejam enviados.';
+    : closingRequested
+      ? invalidMessage ||
+        'A conta desta mesa já foi solicitada. Novos pedidos estão bloqueados enquanto o atendimento é finalizado.'
+      : invalidMessage ||
+        'O garçom precisa abrir o atendimento desta mesa antes que novos pedidos sejam enviados.';
 
   return (
     <Root $primary={primaryColor}>
       <Card>
         <Hero>
-          <div className="icon">{invalidQr ? <QrCode /> : <Clock3 />}</div>
+          <div className="icon">
+            {invalidQr ? <QrCode /> : closingRequested ? <ReceiptText /> : <Clock3 />}
+          </div>
           <Eyebrow>{tableLabel ? `Mesa ${String(tableLabel)}` : 'Acesso por QR Code'}</Eyebrow>
           <h1>{title}</h1>
           <p role={invalidQr ? 'alert' : 'status'}>{message}</p>
         </Hero>
 
         {!invalidQr && (
-          <Steps aria-label="Como liberar o cardápio de mesa">
-            <div>
-              <ShieldCheck />
-              <b>1. Aguarde o garçom</b>
-              <small>Ele abre a mesa no painel de atendimento.</small>
-            </div>
-            <div>
-              <QrCode />
-              <b>2. Use este mesmo QR</b>
-              <small>O cardápio será liberado automaticamente após a abertura.</small>
-            </div>
+          <Steps
+            aria-label={
+              closingRequested ? 'Status da conta da mesa' : 'Como liberar o cardápio de mesa'
+            }
+          >
+            {closingRequested ? (
+              <>
+                <div>
+                  <LockKeyhole />
+                  <b>Novos pedidos bloqueados</b>
+                  <small>A mesa não aceita novos itens neste momento.</small>
+                </div>
+                <div>
+                  <ReceiptText />
+                  <b>Fechamento em andamento</b>
+                  <small>Aguarde a conferência da conta ou fale com o garçom.</small>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <ShieldCheck />
+                  <b>1. Aguarde o garçom</b>
+                  <small>Ele abre a mesa no painel de atendimento.</small>
+                </div>
+                <div>
+                  <QrCode />
+                  <b>2. Use este mesmo QR</b>
+                  <small>O cardápio será liberado automaticamente após a abertura.</small>
+                </div>
+              </>
+            )}
           </Steps>
         )}
 

@@ -252,6 +252,56 @@ describe('DigitalMenuEntryPage', () => {
     expect(container.textContent).toContain('Fluxo funcional do cardápio');
   });
 
+  it('bloqueia novos pedidos quando a conta foi solicitada sem tentar reabrir automaticamente', async () => {
+    vi.useFakeTimers();
+    const tableToken = 'fedcba9876543210fedcba9876543210';
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession).mockRejectedValue({
+      response: {
+        data: {
+          code: 'TABLE_CLOSING_REQUESTED',
+          error: 'A conta desta mesa já foi solicitada.',
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[`/mesa/12?rid=7&tk=${tableToken}`]}>
+          <Routes>
+            <Route path="/mesa/:tableNumber" element={<DigitalMenuEntryPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(container.textContent).toContain('Conta solicitada');
+    expect(container.textContent).toContain('Novos pedidos estão bloqueados');
+    expect(container.textContent).toContain('Fechamento em andamento');
+    expect(container.textContent).not.toContain('Mesa aguardando abertura');
+    expect(container.textContent).not.toContain('Aguarde o garçom');
+    expect(connectTableWaitingSocket).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(1);
+
+    const retry = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Verificar novamente'),
+    );
+    await act(async () => retry?.click());
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(2);
+  });
+
   it('libera o cardápio em tempo real ao receber a abertura da mesa', async () => {
     const tableToken = 'fedcba9876543210fedcba9876543210';
     let handleOpened: ((payload: { tableId: number; restaurantId: number }) => void) | undefined;

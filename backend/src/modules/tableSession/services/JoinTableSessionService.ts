@@ -1,6 +1,7 @@
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
 import joinTableParticipantService from './JoinTableParticipantService.js';
+import { TableSessionStatus } from '@prisma/client';
 
 type Input = {
   tableId?: number | string | null;
@@ -12,6 +13,17 @@ type Input = {
   cookies?: Record<string, string>;
   displayName?: unknown;
 };
+
+export class TableSessionJoinError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+    readonly code: 'TABLE_NOT_OPEN',
+  ) {
+    super(message);
+    this.name = 'TableSessionJoinError';
+  }
+}
 
 class JoinTableSessionService {
   async execute({
@@ -36,12 +48,16 @@ class JoinTableSessionService {
       throw new Error('Os pedidos pelo cardápio de mesa estão desativados neste restaurante.');
     }
 
-    const session = await tableSessionRepository.findOpenedByTable(resolvedTable.id);
+    const session = await tableSessionRepository.findActiveByTable(resolvedTable.id);
     if (!session) {
-      throw new Error(
+      throw new TableSessionJoinError(
         'Esta mesa ainda não foi aberta pelo garçom. Aguarde o atendimento e tente novamente.',
+        409,
+        'TABLE_NOT_OPEN',
       );
     }
+
+    const closingRequested = session.status === TableSessionStatus.CLOSING_REQUESTED;
 
     const sessionRestaurantId = Number(
       session.restaurantId ?? session.table?.restaurantId ?? resolvedTable.restaurantId,
@@ -70,7 +86,10 @@ class JoinTableSessionService {
       tableNumber: session.table?.number ?? resolvedTable.number,
       restaurantId: sessionRestaurantId,
       expiresAt: session.expiresAt,
-      tableOrderingEnabled: resolvedTable.tableOrderingEnabled,
+      sessionStatus: session.status,
+      // A sessão continua acessível para consultar e quitar a conta, mas o
+      // cardápio não deve oferecer novos pedidos após a solicitação de fechamento.
+      tableOrderingEnabled: resolvedTable.tableOrderingEnabled && !closingRequested,
       waiterCallEnabled: resolvedTable.waiterCallEnabled,
       billRequestEnabled: resolvedTable.billRequestEnabled,
       ...participantResult,

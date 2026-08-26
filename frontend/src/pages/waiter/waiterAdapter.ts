@@ -1,7 +1,20 @@
 import { formatElapsed } from '../operations/orderAdapter';
-import type { CallStatus, RestaurantTable, ServiceCall, TableStatus } from './types';
+import type {
+  CallStatus,
+  RestaurantTable,
+  ServiceCall,
+  TableSessionStatus,
+  TableStatus,
+} from './types';
 
 type GenericRecord = Record<string, unknown>;
+
+const ACTIVE_TABLE_SESSION_STATUSES = new Set(['OPEN', 'CLOSING_REQUESTED']);
+
+function asActiveTableSessionStatus(value: unknown): TableSessionStatus | undefined {
+  const status = String(value || '');
+  return ACTIVE_TABLE_SESSION_STATUSES.has(status) ? (status as TableSessionStatus) : undefined;
+}
 
 export function asRecord(value: unknown): GenericRecord {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -25,11 +38,12 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
     const sessions = Array.isArray(table.tableSessions) ? table.tableSessions.map(asRecord) : [];
     const openSession = Object.keys(asRecord(operational.openSession)).length
       ? asRecord(operational.openSession)
-      : sessions.find((session) => session.status === 'OPEN') || {};
+      : sessions.find((session) => asActiveTableSessionStatus(session.status)) || {};
+    const sessionStatus = asActiveTableSessionStatus(
+      openSession.status || operational.sessionStatus || table.sessionStatus,
+    );
     const status: TableStatus =
-      operational.status === 'OCCUPIED' ||
-      table.status === 'OCCUPIED' ||
-      openSession.status === 'OPEN'
+      operational.status === 'OCCUPIED' || table.status === 'OCCUPIED' || Boolean(sessionStatus)
         ? 'OCCUPIED'
         : 'FREE';
     const id = String(table.id || '').trim();
@@ -41,6 +55,7 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
         id,
         number,
         status,
+        sessionStatus: status === 'OCCUPIED' ? sessionStatus || 'OPEN' : undefined,
         sessionId:
           status === 'OCCUPIED'
             ? String(table.sessionId || openSession.id || '').trim() || undefined

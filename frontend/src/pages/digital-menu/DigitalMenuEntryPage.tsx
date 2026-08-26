@@ -24,7 +24,13 @@ type ResolvedTable = {
 type EntryState =
   | { status: 'loading'; key: string; table: null; error: '' }
   | { status: 'ready'; key: string; table: ResolvedTable; error: '' }
-  | { status: 'waiting'; key: string; table: ResolvedTable | null; error: string }
+  | {
+      status: 'waiting';
+      key: string;
+      table: ResolvedTable | null;
+      error: string;
+      reason: 'WAITING_OPEN' | 'CLOSING_REQUESTED';
+    }
   | { status: 'invalid'; key: string; table: null; error: string };
 
 const WAITING_RETRY_MS = 3_000;
@@ -128,6 +134,7 @@ export default function DigitalMenuEntryPage() {
   const waitingTableNumber = entry.status === 'waiting' ? entry.table?.number || null : null;
   const waitingRestaurantId = entry.status === 'waiting' ? entry.table?.restaurantId || null : null;
   const waitingRestaurantSlug = entry.status === 'waiting' ? entry.table?.restaurantSlug || '' : '';
+  const waitingReason = entry.status === 'waiting' ? entry.reason : null;
 
   useEffect(() => {
     let active = true;
@@ -218,7 +225,8 @@ export default function DigitalMenuEntryPage() {
         localStorage.removeItem('tableSession');
         localStorage.removeItem('tableSessionToken');
         const failure = apiError(error);
-        const waiting = isWaitingForWaiter(failure.message);
+        const closingRequested = failure.code === 'TABLE_CLOSING_REQUESTED';
+        const waiting = closingRequested || isWaitingForWaiter(failure.message);
         setEntry(
           waiting
             ? {
@@ -226,6 +234,7 @@ export default function DigitalMenuEntryPage() {
                 key: entryKey,
                 table: resolvedTable,
                 error: failure.message,
+                reason: closingRequested ? 'CLOSING_REQUESTED' : 'WAITING_OPEN',
               }
             : { status: 'invalid', key: entryKey, table: null, error: failure.message },
         );
@@ -254,6 +263,7 @@ export default function DigitalMenuEntryPage() {
     if (
       entry.status !== 'waiting' ||
       entry.key !== entryKey ||
+      waitingReason !== 'WAITING_OPEN' ||
       !isWaitingForTableOpening(entry.error)
     ) {
       return undefined;
@@ -272,12 +282,13 @@ export default function DigitalMenuEntryPage() {
       window.clearTimeout(timeoutId);
       document.removeEventListener('visibilitychange', retryWhenVisible);
     };
-  }, [entry, entryKey]);
+  }, [entry, entryKey, waitingReason]);
 
   useEffect(() => {
     if (
       entry.status !== 'waiting' ||
       entry.key !== entryKey ||
+      waitingReason !== 'WAITING_OPEN' ||
       !waitingTableId ||
       !waitingTableNumber ||
       !waitingRestaurantId
@@ -318,6 +329,7 @@ export default function DigitalMenuEntryPage() {
     waitingRestaurantSlug,
     waitingTableId,
     waitingTableNumber,
+    waitingReason,
   ]);
 
   const retry = () => {
@@ -354,11 +366,17 @@ export default function DigitalMenuEntryPage() {
   }
 
   if (entry.status === 'waiting') {
+    const closingRequested = entry.reason === 'CLOSING_REQUESTED';
     return (
       <TableAccessGate
         primaryColor="#d64d08"
+        closingRequested={closingRequested}
         tableLabel={entry.table?.number || routeTableNumber || ''}
-        invalidMessage={entry.error}
+        invalidMessage={
+          closingRequested
+            ? 'A conta desta mesa já foi solicitada. Novos pedidos estão bloqueados enquanto o atendimento é finalizado.'
+            : entry.error
+        }
         retrying={false}
         onRetry={retry}
       />

@@ -239,8 +239,9 @@ export function WaiterDeliveriesPage() {
   );
 }
 
-function tableStatusLabel(status: TableStatus) {
-  return status === 'FREE' ? 'LIVRE' : 'ABERTA';
+function tableStatusLabel(table: RestaurantTable) {
+  if (table.status === 'FREE') return 'LIVRE';
+  return table.sessionStatus === 'CLOSING_REQUESTED' ? 'CONTA SOLICITADA' : 'ABERTA';
 }
 
 function TableSessionButton({ table }: { table: RestaurantTable }) {
@@ -248,6 +249,7 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const occupied = table.status === 'OCCUPIED';
+  const closingRequested = table.sessionStatus === 'CLOSING_REQUESTED';
 
   const execute = async () => {
     setLoading(true);
@@ -283,7 +285,13 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
         onClick={() => void execute()}
         disabled={loading}
       >
-        {loading ? 'Salvando...' : occupied ? 'Fechar mesa' : 'Abrir mesa'}
+        {loading
+          ? 'Salvando...'
+          : closingRequested
+            ? 'Finalizar mesa'
+            : occupied
+              ? 'Fechar mesa'
+              : 'Abrir mesa'}
       </button>
       {error && <S.ActionError role="alert">{error}</S.ActionError>}
     </>
@@ -347,7 +355,7 @@ export function WaiterTablesPage() {
           <S.TableCard key={table.id}>
             <header>
               <b>Mesa {String(table.number).padStart(2, '0')}</b>
-              <S.TableState $state={table.status}>{tableStatusLabel(table.status)}</S.TableState>
+              <S.TableState $state={table.status}>{tableStatusLabel(table)}</S.TableState>
             </header>
             <div className="meta">
               <span>
@@ -357,8 +365,15 @@ export function WaiterTablesPage() {
                 <span>
                   <Clock3 size={14} /> Aberta às {table.openedAt}
                 </span>
+              ) : table.sessionStatus === 'CLOSING_REQUESTED' ? (
+                <span>Atendimento em finalização</span>
               ) : (
                 <span>Abra a mesa antes de o cliente fazer o pedido</span>
+              )}
+              {table.sessionStatus === 'CLOSING_REQUESTED' && (
+                <span>
+                  <ReceiptText size={14} /> Conta solicitada: novos pedidos estão bloqueados
+                </span>
               )}
               <strong>{brl(table.total || 0)}</strong>
             </div>

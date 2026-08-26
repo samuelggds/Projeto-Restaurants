@@ -100,7 +100,9 @@ class TableRepository {
       include: {
         tableSessions: {
           where: {
-            status: TableSessionStatus.OPEN,
+            status: {
+              in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED],
+            },
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
           orderBy: { openedAt: 'desc' },
@@ -169,7 +171,13 @@ class TableRepository {
         id: Number(id),
         restaurantId,
         orders: { none: {} },
-        tableSessions: { none: { status: TableSessionStatus.OPEN } },
+        tableSessions: {
+          none: {
+            status: {
+              in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED],
+            },
+          },
+        },
       },
     });
     return result.count;
