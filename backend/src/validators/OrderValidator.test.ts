@@ -86,3 +86,31 @@ test('limita a quantidade total mesmo com vários itens válidos', () => {
     assert.ok(result.error.issues.some((issue) => /200 unidades/i.test(issue.message)));
   }
 });
+
+test('aceita pedido de mesa sem telefone e normaliza uma string vazia', () => {
+  const result = createOrderSchema.safeParse({
+    ...baseOrder,
+    type: OrderType.MESA,
+    tableId: 12,
+    customerPhone: '   ',
+  });
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.customerPhone, undefined);
+  }
+});
+
+test('rejeita telefone opcional quando ele é informado sem DDD válido', () => {
+  const result = createOrderSchema.safeParse({
+    ...baseOrder,
+    type: OrderType.MESA,
+    tableId: 12,
+    customerPhone: '12345',
+  });
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.match(result.error.issues[0]?.message || '', /celular\/WhatsApp válido com DDD/i);
+  }
+});

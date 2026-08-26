@@ -1,5 +1,5 @@
 import { BellRing, Clock3, Eye, Info, ReceiptText, Trash2, Users } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } from '../types';
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
 import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
@@ -508,24 +508,26 @@ export function WaiterCallsPage() {
   const visibleResolved = resolved.slice(resolvedPageIndex * 5, resolvedPageIndex * 5 + 5);
   const activeCalls = calls.filter((call) => call.status !== 'RESOLVED');
 
-  useEffect(() => {
-    setResolvedPage(0);
-  }, [filter, normalizedQuery]);
-
   return (
     <>
       <S.Toolbar aria-label="Filtros dos chamados">
         <input
           aria-label="Buscar chamados"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setResolvedPage(0);
+          }}
           placeholder="Buscar mesa ou tipo de chamado"
           inputMode="numeric"
         />
         <select
           aria-label="Filtrar chamados por status"
           value={filter}
-          onChange={(event) => setFilter(event.target.value as CallStatus | 'ALL')}
+          onChange={(event) => {
+            setFilter(event.target.value as CallStatus | 'ALL');
+            setResolvedPage(0);
+          }}
         >
           <option value="ALL">Todos os status</option>
           <option value="WAITING">Aguardando</option>

@@ -1,6 +1,19 @@
 import { z } from 'zod';
 import { OrderType, PaymentMethod } from '@prisma/client';
 
+const optionalCustomerPhoneSchema = z.preprocess(
+  (value) =>
+    value === null || (typeof value === 'string' && value.trim() === '') ? undefined : value,
+  z
+    .string()
+    .trim()
+    .refine((value) => {
+      const digits = value.replace(/\D/g, '');
+      return digits.length >= 10 && digits.length <= 13;
+    }, 'Informe um celular/WhatsApp válido com DDD.')
+    .optional(),
+);
+
 export const createOrderSchema = z
   .object({
     restaurantId: z.number().int().positive().optional(),
@@ -9,7 +22,7 @@ export const createOrderSchema = z
 
     customerCpf: z.string().trim().min(11).optional(),
 
-    customerPhone: z.string().trim().min(10).optional(),
+    customerPhone: optionalCustomerPhoneSchema,
 
     type: z.nativeEnum(OrderType),
 

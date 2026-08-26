@@ -37,7 +37,23 @@ export function getCheckoutErrorMessage(error: unknown): string {
     response?: { data?: { error?: unknown } };
     message?: unknown;
   };
-  return String(typed.response?.data?.error || typed.message || '');
+  const candidate = typed.response?.data?.error || typed.message || '';
+
+  if (Array.isArray(candidate)) {
+    const firstMessage = (candidate[0] as { message?: unknown } | undefined)?.message;
+    return typeof firstMessage === 'string' ? firstMessage : '';
+  }
+
+  const message = String(candidate).trim();
+  if (!message.startsWith('[')) return message;
+
+  try {
+    const issues = JSON.parse(message) as Array<{ message?: unknown }>;
+    const firstMessage = issues.find((issue) => typeof issue?.message === 'string')?.message;
+    return typeof firstMessage === 'string' ? firstMessage : '';
+  } catch {
+    return 'Revise os dados do pedido e tente novamente.';
+  }
 }
 
 export function useCheckoutPayments(options: Options) {

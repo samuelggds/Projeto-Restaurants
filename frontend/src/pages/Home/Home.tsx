@@ -9,7 +9,7 @@ import { useResolvedRestaurantId, useRestaurantCatalog } from './hooks/useRestau
 import { useFavorites } from './hooks/useFavorites';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
-import { useCheckoutPayments } from './hooks/useCheckoutPayments';
+import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckoutPayments';
 import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
 import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
@@ -421,11 +421,10 @@ export default function Home() {
         5000,
       );
     } catch (error: unknown) {
-      const typed = error as { response?: { data?: { error?: string } }; message?: string };
       notify(
         'error',
         'Não foi possível adicionar à conta',
-        typed.response?.data?.error || typed.message || 'Escolha pagar agora ou tente novamente.',
+        getCheckoutErrorMessage(error) || 'Escolha pagar agora ou tente novamente.',
       );
     } finally {
       setTableOrderLoading(false);

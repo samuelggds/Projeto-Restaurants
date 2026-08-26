@@ -82,25 +82,48 @@ describe('checkout', () => {
     });
     expect(order.payload).not.toHaveProperty('paymentMethod');
     expect(order.payload).not.toHaveProperty('payOnDelivery');
+    expect(order.payload).not.toHaveProperty('customerPhone');
   });
 
-  it('mantém pagamento imediato explícito no pedido da mesa', () => {
+  it.each([
+    ['pix', 'PIX'],
+    ['card', 'CARTAO'],
+  ] as const)(
+    'mantém pagamento imediato por %s explícito sem enviar telefone vazio',
+    (paymentMethod, expectedPaymentMethod) => {
+      const order = buildOrderPayload({
+        restaurantId: 7,
+        type: 'MESA',
+        settlementMode: 'PAY_NOW',
+        paymentMethod,
+        tableId: 12,
+        cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+        customer: {},
+        deliveryAddress: address,
+      });
+
+      expect(order.payload).toMatchObject({
+        settlementMode: 'PAY_NOW',
+        paymentMethod: expectedPaymentMethod,
+        payOnDelivery: false,
+      });
+      expect(order.payload).not.toHaveProperty('customerPhone');
+    },
+  );
+
+  it('preserva um telefone válido quando o cliente o possui', () => {
     const order = buildOrderPayload({
       restaurantId: 7,
       type: 'MESA',
       settlementMode: 'PAY_NOW',
-      paymentMethod: 'card',
+      paymentMethod: 'pix',
       tableId: 12,
       cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
-      customer: {},
+      customer: { phone: '(85) 99999-9999' },
       deliveryAddress: address,
     });
 
-    expect(order.payload).toMatchObject({
-      settlementMode: 'PAY_NOW',
-      paymentMethod: 'CARTAO',
-      payOnDelivery: false,
-    });
+    expect(order.payload.customerPhone).toBe('(85) 99999-9999');
   });
 
   it('leva o resgate escolhido para a cotação e para o pedido sem enviar preço do navegador', () => {

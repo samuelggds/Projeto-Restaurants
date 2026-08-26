@@ -246,4 +246,27 @@ describe('waiter operational pages', () => {
     });
     expect(container.textContent).toContain('Nenhum chamado aguardando atendimento.');
   });
+
+  it('volta à primeira página dos concluídos quando a busca muda', () => {
+    const resolvedCalls = Array.from({ length: 6 }, (_, index) => ({
+      id: String(index + 1),
+      tableNumber: index + 1,
+      type: 'WAITER' as const,
+      status: 'RESOLVED' as const,
+      elapsed: '01:00',
+      resolvedAt: new Date().toISOString(),
+    }));
+    renderPage(<WaiterCallsPage />, { calls: resolvedCalls });
+
+    const next = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Próximos 5',
+    );
+    act(() => next?.click());
+    expect(container.textContent).toContain('6-6 de 6');
+
+    const search = container.querySelector('[aria-label="Buscar chamados"]') as HTMLInputElement;
+    act(() => changeInput(search, 'mesa'));
+
+    expect(container.textContent).toContain('1-5 de 6');
+  });
 });

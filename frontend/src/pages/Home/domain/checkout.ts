@@ -7,6 +7,13 @@ export type OrderType = 'MESA' | 'DELIVERY' | 'RETIRADA';
 export type TableOrderSettlementMode = 'TABLE_ACCOUNT' | 'PAY_NOW';
 export type CheckoutIssue = { title: string; message: string };
 
+function optionalCustomerPhone(value: unknown) {
+  const phone = String(value || '').trim();
+  const digits = phone.replace(/\D/g, '');
+
+  return digits.length >= 10 && digits.length <= 13 ? phone : undefined;
+}
+
 type ValidationInput = {
   type: OrderType;
   customerPhone: unknown;
@@ -120,6 +127,7 @@ export function buildOrderPayload(input: PayloadInput) {
   const safePaymentMethod = paymentMethod || 'pix';
   const payOnDelivery = !isTableAccountOrder && safePaymentMethod.startsWith('delivery_');
   const resolvedPaymentMethod = safePaymentMethod.includes('pix') ? 'PIX' : 'CARTAO';
+  const customerPhone = optionalCustomerPhone(customer.phone);
   return {
     payload: {
       restaurantId,
@@ -136,7 +144,7 @@ export function buildOrderPayload(input: PayloadInput) {
       ...(couponRedemptionId ? { couponRedemptionId } : {}),
       tableId: type === 'MESA' ? tableId || undefined : undefined,
       customerName: String(customer.name || 'Cliente'),
-      customerPhone: String(customer.phone || ''),
+      ...(customerPhone ? { customerPhone } : {}),
       address: deliveryAddress.address.trim(),
       number: deliveryAddress.number.trim(),
       district: deliveryAddress.district.trim(),
