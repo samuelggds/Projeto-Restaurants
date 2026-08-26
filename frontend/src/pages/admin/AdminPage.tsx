@@ -40,6 +40,7 @@ import { validateEstablishmentAddress } from './domain/establishmentAddress';
 import { validateBusinessHours } from './domain/businessHours';
 import { validateBrandSettings } from './domain/brandSettingsValidation';
 import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
+import { validateTableAccountSettings } from './domain/tableAccountSettingsValidation';
 import supportChatService from '../../Services/supportChatService';
 
 function hasBusinessIdentityInput(settings: typeof adminMockSettings) {
@@ -356,6 +357,12 @@ export function AdminPage({
       setArea('settings');
       setSection('orders');
       setFeedbackError('Revise os prazos e limites de pedidos destacados antes de salvar.');
+      return;
+    }
+    if (Object.keys(validateTableAccountSettings(settings.tableAccount)).length > 0) {
+      setArea('settings');
+      setSection('table-account');
+      setFeedbackError('Revise as regras da conta e pagamento da mesa antes de salvar.');
       return;
     }
     setIsSavingSettings(true);

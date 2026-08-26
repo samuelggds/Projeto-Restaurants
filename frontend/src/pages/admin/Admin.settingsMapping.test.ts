@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { adminMockSettings } from './data';
-import { mapSettingsFromApi, mapSettingsToApi } from './Admin';
+import {
+  mapSettingsFromApi,
+  mapSettingsToApi,
+  mapTableAccountSettingsFromApi,
+} from './Admin';
 
 describe('mapeamento das configurações administrativas', () => {
   it('mantém marca, negócio, endereço e regras de pedidos no ciclo API/interface', () => {
@@ -135,5 +139,44 @@ describe('mapeamento das configurações administrativas', () => {
     expect(payload).not.toHaveProperty('companyDocument');
     expect(payload).not.toHaveProperty('restaurantAddress');
     expect(payload).not.toHaveProperty('restaurantZipCode');
+  });
+
+  it('normaliza e preserva as regras da conta de mesa recebidas da API dedicada', () => {
+    const tableAccount = mapTableAccountSettingsFromApi({
+      enabled: true,
+      requirePrepaymentAboveCents: '25000',
+      prepaymentWindows: [
+        { weekdays: [5, 6], startsAtMinute: 1080, endsAtMinute: 120 },
+        { weekdays: [], startsAtMinute: 600, endsAtMinute: 700 },
+      ],
+      allowCash: true,
+      allowCardMachine: true,
+      allowOnlinePayment: false,
+      allowSplit: false,
+      serviceFeeMode: 'mandatory',
+      serviceFeeBasisPoints: 1_250,
+      preventCloseWithOutstandingBalance: true,
+      requireEmployeeApprovalForPreparedItemCancellation: false,
+      blockNewOrdersOnClosingRequest: true,
+      reservationTimeoutMinutes: 15,
+      timeZone: 'America/Manaus',
+    });
+
+    expect(tableAccount).toEqual({
+      enabled: true,
+      requirePrepaymentAboveCents: 25_000,
+      prepaymentWindows: [{ weekdays: [5, 6], startsAtMinute: 1080, endsAtMinute: 120 }],
+      allowCash: true,
+      allowCardMachine: true,
+      allowOnlinePayment: false,
+      allowSplit: false,
+      serviceFeeMode: 'MANDATORY',
+      serviceFeeBasisPoints: 1_250,
+      preventCloseWithOutstandingBalance: true,
+      requireEmployeeApprovalForPreparedItemCancellation: false,
+      blockNewOrdersOnClosingRequest: true,
+      reservationTimeoutMinutes: 15,
+      timeZone: 'America/Manaus',
+    });
   });
 });

@@ -23,6 +23,7 @@ import type {
   AdminSettings,
   Employee,
   EmployeeFormPayload,
+  TableAccountAdminSettings,
 } from './types';
 import { isPersistentImageSource } from '../../utils/persistentImage';
 import bannerService, { type BannerRecord } from '../../Services/bannerService';
@@ -33,6 +34,7 @@ import {
 } from '../../Services/socketService';
 import { getStoredAccessToken } from '../../modules/auth/session/authSession';
 import { playOrderNotificationSound } from './domain/orderNotificationSound';
+import tableAccountService from '../../Services/tableAccountService';
 
 const BANNER_TITLES = {
   main: 'Banner principal',
@@ -187,9 +189,62 @@ function mapIngredient(value: unknown): AdminIngredient {
   };
 }
 
+export function mapTableAccountSettingsFromApi(value: unknown): TableAccountAdminSettings {
+  const raw = asRecord(value);
+  const defaults = adminMockSettings.tableAccount;
+  const windows = (Array.isArray(raw.prepaymentWindows) ? raw.prepaymentWindows : [])
+    .map((windowValue) => {
+      const window = asRecord(windowValue);
+      return {
+        weekdays: (Array.isArray(window.weekdays) ? window.weekdays : [])
+          .map(Number)
+          .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+        startsAtMinute: Number(window.startsAtMinute ?? 0),
+        endsAtMinute: Number(window.endsAtMinute ?? 0),
+      };
+    })
+    .filter(
+      (window) =>
+        window.weekdays.length > 0 &&
+        Number.isInteger(window.startsAtMinute) &&
+        Number.isInteger(window.endsAtMinute),
+    );
+  const feeMode = String(raw.serviceFeeMode ?? defaults.serviceFeeMode).toUpperCase();
+  return {
+    enabled: raw.enabled === true,
+    requirePrepaymentAboveCents:
+      raw.requirePrepaymentAboveCents === null ||
+      raw.requirePrepaymentAboveCents === undefined
+        ? null
+        : Math.max(0, Number(raw.requirePrepaymentAboveCents)),
+    prepaymentWindows: windows,
+    allowCash: raw.allowCash === true,
+    allowCardMachine: raw.allowCardMachine === true,
+    allowOnlinePayment: raw.allowOnlinePayment !== false,
+    allowSplit: raw.allowSplit !== false,
+    serviceFeeMode: ['OPTIONAL', 'MANDATORY'].includes(feeMode)
+      ? (feeMode as 'OPTIONAL' | 'MANDATORY')
+      : 'DISABLED',
+    serviceFeeBasisPoints: Math.min(
+      10_000,
+      Math.max(0, Number(raw.serviceFeeBasisPoints ?? 0)),
+    ),
+    preventCloseWithOutstandingBalance: raw.preventCloseWithOutstandingBalance !== false,
+    requireEmployeeApprovalForPreparedItemCancellation:
+      raw.requireEmployeeApprovalForPreparedItemCancellation !== false,
+    blockNewOrdersOnClosingRequest: raw.blockNewOrdersOnClosingRequest !== false,
+    reservationTimeoutMinutes: Math.min(
+      60,
+      Math.max(1, Number(raw.reservationTimeoutMinutes ?? defaults.reservationTimeoutMinutes)),
+    ),
+    timeZone: String(raw.timeZone ?? defaults.timeZone),
+  };
+}
+
 export function mapSettingsFromApi(
   raw: Record<string, unknown>,
   banners: BannerRecord[] = [],
+  tableAccountRaw: unknown = {},
 ): AdminSettings {
   const r = (raw?.restaurant as Record<string, unknown>) ?? {};
   const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? '';
@@ -256,6 +311,7 @@ export function mapSettingsFromApi(
     ),
     waiterCallEnabled: raw?.waiterCallEnabled !== false,
     billRequestEnabled: raw?.billRequestEnabled !== false,
+    tableAccount: mapTableAccountSettingsFromApi(tableAccountRaw),
     fontFamily: String(raw?.fontFamily ?? adminMockSettings.fontFamily),
     seoTitle: String(raw?.seoTitle ?? adminMockSettings.seoTitle),
     seoDescription: String(raw?.seoDescription ?? adminMockSettings.seoDescription),
@@ -502,11 +558,17 @@ export default function Admin() {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([restaurantSettingsService.getMySettings(), bannerService.list()])
-      .then(([data, banners]) => {
+    Promise.all([
+      restaurantSettingsService.getMySettings(),
+      bannerService.list(),
+      tableAccountService.getSettings(),
+    ])
+      .then(([data, banners, tableAccountSettings]) => {
         if (!mounted) return;
         setSettingsId(Number((data as Record<string, unknown>)?.id ?? 0) || null);
-        setSettings(mapSettingsFromApi(data as Record<string, unknown>, banners));
+        setSettings(
+          mapSettingsFromApi(data as Record<string, unknown>, banners, tableAccountSettings),
+        );
       })
       .catch((error) => {
         console.error('Não foi possível carregar as configurações.', error);
@@ -537,9 +599,15 @@ export default function Admin() {
     const payload = mapSettingsToApi(updated);
     try {
       if (settingsId) {
-        await restaurantSettingsService.updateSettings(settingsId, payload);
+        await Promise.all([
+          restaurantSettingsService.updateSettings(settingsId, payload),
+          tableAccountService.updateSettings(updated.tableAccount),
+        ]);
       } else {
-        const created = await restaurantSettingsService.createSettings(payload);
+        const [created] = await Promise.all([
+          restaurantSettingsService.createSettings(payload),
+          tableAccountService.updateSettings(updated.tableAccount),
+        ]);
         setSettingsId(Number((created as Record<string, unknown>)?.id ?? 0) || null);
       }
       const slots = [
@@ -554,13 +622,16 @@ export default function Admin() {
               : bannerService.create({ title: slot.title, image: String(slot.image) }),
           ),
       );
-      const [refreshed, refreshedBanners] = await Promise.all([
+      const [refreshed, refreshedBanners, refreshedTableAccount] = await Promise.all([
         restaurantSettingsService.getMySettings(),
         bannerService.list(),
+        tableAccountService.getSettings(),
       ]);
       const refreshedRecord = refreshed as Record<string, unknown>;
       setSettingsId(Number(refreshedRecord?.id ?? 0) || null);
-      setSettings(mapSettingsFromApi(refreshedRecord, refreshedBanners));
+      setSettings(
+        mapSettingsFromApi(refreshedRecord, refreshedBanners, refreshedTableAccount),
+      );
     } catch (error) {
       console.error('Não foi possível salvar as configurações.', error);
       throw error;
@@ -743,8 +814,18 @@ export default function Admin() {
       }}
       onOnboardAsaas={async (payload) => {
         await restaurantSettingsService.onboardAsaas(payload);
-        const refreshed = await restaurantSettingsService.getMySettings();
-        setSettings(mapSettingsFromApi(refreshed as Record<string, unknown>));
+        const [refreshed, refreshedBanners, refreshedTableAccount] = await Promise.all([
+          restaurantSettingsService.getMySettings(),
+          bannerService.list(),
+          tableAccountService.getSettings(),
+        ]);
+        setSettings(
+          mapSettingsFromApi(
+            refreshed as Record<string, unknown>,
+            refreshedBanners,
+            refreshedTableAccount,
+          ),
+        );
       }}
       onCreateEmployee={handleCreateEmployee}
       onUpdateEmployee={handleUpdateEmployee}

@@ -35,6 +35,15 @@ import {
   buildTableBillUnitSeeds,
   decimalMoneyToCents,
 } from '../../tableAccount/domain/tableBillItemPricing.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
+import {
+  getWeekdayAndMinuteInTimeZone,
+  requiresPrepayment,
+} from '../../tableAccount/domain/tableAccountRules.js';
+import {
+  loadTablePaymentLedgerItems,
+  lockTablePaymentSession,
+} from '../../tableAccount/services/tablePaymentLedger.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -294,6 +303,10 @@ class CreateOrderService {
 
     const restaurantSettings =
       await restaurantSettingsRepository.findByRestaurantId(resolvedRestaurantId);
+    const preliminaryTableAccountSettings =
+      type === OrderType.MESA
+        ? await tableAccountSettingsRepository.findByRestaurantId(resolvedRestaurantId)
+        : null;
     assertRestaurantIsOpenForOrders(
       restaurantSettings?.isOpenForOrders,
       restaurantSettings?.businessHours,
@@ -328,6 +341,15 @@ class CreateOrderService {
       throw new Error(
         'O pedido da mesa só aceita PIX ou cartão no pagamento imediato. Dinheiro e maquininha são registrados na conta pelo garçom.',
       );
+    }
+
+    if (
+      type === OrderType.MESA &&
+      tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW &&
+      preliminaryTableAccountSettings?.enabled &&
+      !preliminaryTableAccountSettings.allowOnlinePayment
+    ) {
+      throw new Error('O pagamento online de pedidos da mesa está desativado neste restaurante.');
     }
 
     if (type === OrderType.MESA && !Number(participantId || 0)) {
@@ -411,7 +433,12 @@ class CreateOrderService {
 
       if (
         !session ||
-        session.status !== TableSessionStatus.OPEN ||
+        (session.status !== TableSessionStatus.OPEN &&
+          !(
+            preliminaryTableAccountSettings?.enabled &&
+            !preliminaryTableAccountSettings.blockNewOrdersOnClosingRequest &&
+            session.status === TableSessionStatus.CLOSING_REQUESTED
+          )) ||
         (session.expiresAt && session.expiresAt.getTime() <= Date.now())
       ) {
         throw new Error('Essa mesa está fechada. Peça ao garçom para abrir o atendimento.');
@@ -478,10 +505,22 @@ class CreateOrderService {
         } | null = null;
 
         if (type === OrderType.MESA) {
+          await lockTablePaymentSession(
+            tx,
+            resolvedRestaurantId,
+            Number(tableSessionId),
+          );
+          const tableAccountSettings =
+            await tableAccountSettingsRepository.findByRestaurantId(resolvedRestaurantId, tx);
           const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
           if (
             !session ||
-            session.status !== TableSessionStatus.OPEN ||
+            (session.status !== TableSessionStatus.OPEN &&
+              !(
+                tableAccountSettings.enabled &&
+                !tableAccountSettings.blockNewOrdersOnClosingRequest &&
+                session.status === TableSessionStatus.CLOSING_REQUESTED
+              )) ||
             (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
             session.table.restaurantId !== resolvedRestaurantId ||
             session.tableId !== Number(tableId)
@@ -542,6 +581,61 @@ class CreateOrderService {
           db: tx,
         });
         const { products, orderItems } = pricing;
+
+        if (type === OrderType.MESA) {
+          const tableAccountSettings =
+            await tableAccountSettingsRepository.findByRestaurantId(resolvedRestaurantId, tx);
+          if (!tableAccountSettings.enabled) {
+            throw new Error(
+              'A conta por mesa está desativada. Peça ao administrador para revisar as configurações.',
+            );
+          }
+          if (
+            tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW &&
+            !tableAccountSettings.allowOnlinePayment
+          ) {
+            throw new Error(
+              'O pagamento online de pedidos da mesa está desativado neste restaurante.',
+            );
+          }
+
+          if (tableContinuation?.settlementMode === TableOrderSettlementMode.TABLE_ACCOUNT) {
+            const ledgerItems = await loadTablePaymentLedgerItems(
+              tx,
+              resolvedRestaurantId,
+              Number(tableSessionId),
+            );
+            const currentOutstandingCents = ledgerItems
+              .filter((item) => !item.canceled && item.projectedStatus !== 'REFUNDED')
+              .reduce(
+                (total, item) => total + Math.max(0, item.unitPriceCents - item.paidCents),
+                0,
+              );
+            const incomingOrderCents = decimalMoneyToCents(
+              pricing.total,
+              'total do novo pedido da mesa',
+            );
+            const localTime = getWeekdayAndMinuteInTimeZone(
+              new Date(),
+              tableAccountSettings.timeZone,
+            );
+            const prepayment = requiresPrepayment({
+              currentOutstandingCents,
+              incomingOrderCents,
+              thresholdCents: tableAccountSettings.requirePrepaymentAboveCents,
+              windows: tableAccountSettings.prepaymentWindows,
+              currentWeekday: localTime.weekday,
+              currentMinute: localTime.minuteOfDay,
+            });
+            if (prepayment.required) {
+              throw new Error(
+                prepayment.reason === 'SCHEDULE'
+                  ? 'Neste horário, o pedido da mesa precisa ser pago antes de ser enviado.'
+                  : 'Este pedido ultrapassa o limite da conta da mesa. Escolha pagar agora.',
+              );
+            }
+          }
+        }
 
         const formattedCpf = this.formatCpf(customerCpf);
         const guestSummary =

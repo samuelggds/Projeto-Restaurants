@@ -41,7 +41,7 @@ class TableServiceCallRepository {
       where: {
         id: sessionId,
         tableId,
-        status: TableSessionStatus.OPEN,
+        status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         table: {
           restaurantId,
@@ -219,6 +219,25 @@ class TableServiceCallRepository {
         status: TableServiceCallStatus.RESOLVED,
         resolvedById,
         resolvedAt: new Date(),
+      },
+    });
+  }
+
+
+  async requestSessionClosing(
+    tableSessionId: number,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.tableSession.updateMany({
+      where: {
+        id: tableSessionId,
+        restaurantId,
+        status: TableSessionStatus.OPEN,
+      },
+      data: {
+        status: TableSessionStatus.CLOSING_REQUESTED,
+        closingRequestedAt: new Date(),
       },
     });
   }

@@ -202,6 +202,29 @@ export function requiresPrepayment({
   };
 }
 
+export function getWeekdayAndMinuteInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  );
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+  if (weekday < 0 || !Number.isInteger(hour) || !Number.isInteger(minute)) {
+    throw new RangeError('Não foi possível calcular o horário local do restaurante.');
+  }
+  return { weekday, minuteOfDay: hour * 60 + minute };
+}
+
 export function isActorFromRestaurant(actor: TableAccountActor, restaurantId: number) {
   return (
     Number.isSafeInteger(restaurantId) && restaurantId > 0 && actor.restaurantId === restaurantId

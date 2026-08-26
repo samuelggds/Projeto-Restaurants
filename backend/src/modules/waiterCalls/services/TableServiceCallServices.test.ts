@@ -1,6 +1,6 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import {
   PlanType,
   SubscriptionStatus,
@@ -13,6 +13,8 @@ import { tableServiceCallEvents } from '../realtime/tableServiceCallEvents.js';
 import createTableServiceCallService from './CreateTableServiceCallService.js';
 import listTableServiceCallsService from './ListTableServiceCallsService.js';
 import updateTableServiceCallStatusService from './UpdateTableServiceCallStatusService.js';
+import prisma from '../../../config/prisma.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 
 const originals = {
   findContext: tableServiceCallRepository.findOpenSessionContext,
@@ -24,7 +26,18 @@ const originals = {
   resolve: tableServiceCallRepository.resolveIfInProgress,
   createdEvent: tableServiceCallEvents.created,
   updatedEvent: tableServiceCallEvents.updated,
+  transaction: prisma.$transaction,
+  findAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
+  requestSessionClosing: tableServiceCallRepository.requestSessionClosing,
 };
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  tableAccountSettingsRepository.findByRestaurantId = async () => ({
+    blockNewOrdersOnClosingRequest: true,
+  });
+  tableServiceCallRepository.requestSessionClosing = async () => ({ count: 1 });
+});
 
 afterEach(() => {
   tableServiceCallRepository.findOpenSessionContext = originals.findContext;
@@ -36,6 +49,9 @@ afterEach(() => {
   tableServiceCallRepository.resolveIfInProgress = originals.resolve;
   tableServiceCallEvents.created = originals.createdEvent;
   tableServiceCallEvents.updated = originals.updatedEvent;
+  prisma.$transaction = originals.transaction;
+  tableAccountSettingsRepository.findByRestaurantId = originals.findAccountSettings;
+  tableServiceCallRepository.requestSessionClosing = originals.requestSessionClosing;
 });
 
 const activeContext = {

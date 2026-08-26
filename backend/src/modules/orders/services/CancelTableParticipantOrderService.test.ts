@@ -15,19 +15,23 @@ const [
   { default: cancelTableParticipantOrderService },
   { default: cancelOrderWorkflowService },
   { default: orderRepository },
+  { default: tableAccountSettingsRepository },
 ] = await Promise.all([
   import('./CancelTableParticipantOrderService.js'),
   import('./CancelOrderWorkflowService.js'),
   import('../repositories/OrderRepository.js'),
+  import('../../tableAccount/repositories/TableAccountSettingsRepository.js'),
 ]);
 http.createServer = originalHttpCreateServer;
 
 const originalFindOwnedOrder = orderRepository.findByPublicIdForTableParticipant;
 const originalWorkflowExecute = cancelOrderWorkflowService.execute;
+const originalFindTableAccountSettings = tableAccountSettingsRepository.findByRestaurantId;
 
 afterEach(() => {
   orderRepository.findByPublicIdForTableParticipant = originalFindOwnedOrder;
   cancelOrderWorkflowService.execute = originalWorkflowExecute;
+  tableAccountSettingsRepository.findByRestaurantId = originalFindTableAccountSettings;
 });
 
 const publicOrderId = '123e4567-e89b-42d3-a456-426614174010';
@@ -101,6 +105,52 @@ test('não revela nem cancela pedido de outro participante ou tenant', async () 
     /pedido não encontrado/i,
   );
   assert.equal(workflowCalled, false);
+});
+
+test('pedido em preparo exige autorização quando a configuração do restaurante estiver ativa', async () => {
+  const order = makeTableOrder({ status: OrderStatus.PREPARANDO });
+  orderRepository.findByPublicIdForTableParticipant = async () => order;
+  tableAccountSettingsRepository.findByRestaurantId = async (restaurantId) => {
+    assert.equal(restaurantId, 7);
+    return { requireEmployeeApprovalForPreparedItemCancellation: true };
+  };
+  let workflowCalled = false;
+  cancelOrderWorkflowService.execute = async () => {
+    workflowCalled = true;
+  };
+
+  await assert.rejects(
+    () =>
+      cancelTableParticipantOrderService.execute({
+        publicOrderId,
+        tableSessionId: 55,
+        restaurantId: 7,
+        participantId: 80,
+      }),
+    /precisa da autorização de um funcionário/i,
+  );
+  assert.equal(workflowCalled, false);
+});
+
+test('restaurante pode permitir que o participante cancele o próprio pedido em preparo', async () => {
+  const order = makeTableOrder({ status: OrderStatus.PREPARANDO });
+  orderRepository.findByPublicIdForTableParticipant = async () => order;
+  tableAccountSettingsRepository.findByRestaurantId = async () => ({
+    requireEmployeeApprovalForPreparedItemCancellation: false,
+  });
+  cancelOrderWorkflowService.execute = async (received) => ({
+    order: { ...received, status: OrderStatus.CANCELADO },
+    refunded: false,
+  });
+
+  const result = await cancelTableParticipantOrderService.execute({
+    publicOrderId,
+    tableSessionId: 55,
+    restaurantId: 7,
+    participantId: 80,
+  });
+
+  assert.equal(result.status, OrderStatus.CANCELADO);
 });
 
 test('repositório mantém a busca presa à chave composta do participante', async () => {

@@ -122,6 +122,7 @@ export interface TableAccountSettingsDto {
   prepaymentWindows: TablePrepaymentWindowDto[];
   allowCash: boolean;
   allowCardMachine: boolean;
+  allowOnlinePayment: boolean;
   allowSplit: boolean;
   serviceFeeMode: TableServiceFeeMode;
   serviceFeeBasisPoints: number;

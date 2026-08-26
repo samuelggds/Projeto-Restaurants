@@ -22,7 +22,9 @@ export async function lockTablePaymentSession(
   restaurantId: number,
   tableSessionId: number,
 ) {
-  await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${restaurantId}, ${tableSessionId})`);
+  await tx.$queryRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(${restaurantId}::int, ${tableSessionId}::int)`,
+  );
 }
 
 export async function loadTablePaymentLedgerItems(

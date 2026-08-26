@@ -5,6 +5,8 @@ import tableServiceCallRepository from '../../waiterCalls/repositories/TableServ
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
+import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
 
 type CloseTableSessionPayload = {
   sessionId: number | string;
@@ -29,6 +31,7 @@ class CloseTableSessionService {
 
     const result = await prisma.$transaction(
       async (tx) => {
+        await lockTablePaymentSession(tx, normalizedRestaurantId, normalizedSessionId);
         const session = await tableSessionRepository.findById(normalizedSessionId, tx);
         if (!session || session.table.restaurantId !== normalizedRestaurantId) {
           throw new Error('Sessão não encontrada neste restaurante!');
@@ -37,19 +40,32 @@ class CloseTableSessionService {
           throw new Error('Essa mesa já está fechada!');
         }
 
-        const blockingOrders = await tableSessionRepository.findBlockingOrdersForSession(
-          session.tableId,
+        const settings = await tableAccountSettingsRepository.findByRestaurantId(
           normalizedRestaurantId,
-          session.openedAt,
           tx,
         );
+        const blockingOrders = settings.preventCloseWithOutstandingBalance
+          ? await tableSessionRepository.findBlockingOrdersForSession(
+              session.tableId,
+              normalizedRestaurantId,
+              session.openedAt,
+              tx,
+            )
+          : await tableSessionRepository.findOperationalBlockingOrdersForSession(
+              session.tableId,
+              normalizedRestaurantId,
+              session.openedAt,
+              tx,
+            );
         if (blockingOrders.length) {
           const orderReferences = blockingOrders
             .slice(0, 5)
             .map((order) => `#${order.id}`)
             .join(', ');
           throw new Error(
-            `Não é possível fechar a mesa: existem pedidos ou pagamentos pendentes (${orderReferences}).`,
+            settings.preventCloseWithOutstandingBalance
+              ? `Não é possível fechar a mesa: existem pedidos ou pagamentos pendentes (${orderReferences}).`
+              : `Não é possível fechar a mesa: existem pedidos em andamento (${orderReferences}).`,
           );
         }
 

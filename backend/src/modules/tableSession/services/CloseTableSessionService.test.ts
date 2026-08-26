@@ -7,6 +7,7 @@ import tableServiceCallRepository from '../../waiterCalls/repositories/TableServ
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import closeTableSessionService from './CloseTableSessionService.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -17,6 +18,8 @@ const originals = {
   resolveCalls: tableServiceCallRepository.resolveActiveBySession,
   closedEvent: tableSessionEvents.closed,
   revokeParticipants: tableParticipantRepository.revokeActiveBySession,
+  findAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
+  findOperationalBlocking: tableSessionRepository.findOperationalBlockingOrdersForSession,
 };
 
 afterEach(() => {
@@ -28,10 +31,15 @@ afterEach(() => {
   tableServiceCallRepository.resolveActiveBySession = originals.resolveCalls;
   tableSessionEvents.closed = originals.closedEvent;
   tableParticipantRepository.revokeActiveBySession = originals.revokeParticipants;
+  tableAccountSettingsRepository.findByRestaurantId = originals.findAccountSettings;
+  tableSessionRepository.findOperationalBlockingOrdersForSession = originals.findOperationalBlocking;
 });
 
 function mockTransaction() {
-  prisma.$transaction = async (callback) => callback({});
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  tableAccountSettingsRepository.findByRestaurantId = async () => ({
+    preventCloseWithOutstandingBalance: true,
+  });
 }
 
 const openSession = {

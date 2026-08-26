@@ -122,13 +122,33 @@ export function buildTableAccountBaseSnapshot(
       .filter((payment) => payment.status === 'REFUNDED')
       .map((payment) => toSafeMoneyCents(payment.totalCents, `estorno ${payment.publicId}`)),
   ]);
-  const reservedCents = sumMoneyCents(
-    normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.reservedCents),
+  const serviceFeeCents = sumMoneyCents(
+    paymentIntents
+      // Uma cobrança totalmente estornada não pode continuar compondo o
+      // valor devido da mesa. O histórico permanece em grossPaid/refunded.
+      .filter((payment) => payment.status === 'PAID')
+      .map((payment) => toSafeMoneyCents(payment.serviceFeeCents, `taxa ${payment.publicId}`)),
   );
-  const processingCents = sumMoneyCents(
-    normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.processingCents),
-  );
-  const serviceFeeCents = 0;
+  const reservedCents = sumMoneyCents([
+    ...normalizedItems
+      .filter((item) => !item.canceled)
+      .map((item) => item.ledger.reservedCents),
+    ...paymentIntents
+      .filter((payment) => payment.status === 'RESERVED' && payment.expiresAt > now)
+      .map((payment) =>
+        toSafeMoneyCents(payment.serviceFeeCents, `taxa reservada ${payment.publicId}`),
+      ),
+  ]);
+  const processingCents = sumMoneyCents([
+    ...normalizedItems
+      .filter((item) => !item.canceled)
+      .map((item) => item.ledger.processingCents),
+    ...paymentIntents
+      .filter((payment) => payment.status === 'PROCESSING' && payment.expiresAt > now)
+      .map((payment) =>
+        toSafeMoneyCents(payment.serviceFeeCents, `taxa em processamento ${payment.publicId}`),
+      ),
+  ]);
   const balance = calculateTableAccountBalance({
     consumedCents,
     serviceFeeCents,

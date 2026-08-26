@@ -18,6 +18,7 @@ import { SocialMediaSettings } from './SocialMediaSettings';
 import { AppearanceSettings } from './AppearanceSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { PromotionsSettings } from './PromotionsSettings';
+import { TableAccountSettings } from './TableAccountSettings';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -72,6 +73,8 @@ export function AdminSettingsContent(props: Props) {
     );
   if (section === 'delivery') return <DeliverySettings settings={settings} update={update} />;
   if (section === 'table') return <TableMenuSettings settings={settings} update={update} />;
+  if (section === 'table-account')
+    return <TableAccountSettings settings={settings} update={update} />;
   if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
   if (section === 'payments')
     return (

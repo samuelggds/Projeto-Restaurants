@@ -1,6 +1,9 @@
-import { PlanType, SubscriptionStatus, TableServiceCallType } from '@prisma/client';
+import { PlanType, Prisma, SubscriptionStatus, TableServiceCallType } from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 import tableServiceCallRepository from '../repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../realtime/tableServiceCallEvents.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
+import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
 
 type SessionCallInput = {
   sessionId: number;
@@ -38,16 +41,19 @@ class CreateTableServiceCallService {
     tableId,
     tableSessionId,
     type,
+    db,
   }: {
     restaurantId: number;
     tableId: number;
     tableSessionId: number;
     type: TableServiceCallType;
+    db: Prisma.TransactionClient;
   }) {
     const existing = await tableServiceCallRepository.findActiveByTableAndType(
       restaurantId,
       tableId,
       type,
+      db,
     );
     if (existing) {
       return { call: existing, duplicate: true };
@@ -59,8 +65,7 @@ class CreateTableServiceCallService {
         tableId,
         tableSessionId,
         type,
-      });
-      await emitCreated(call as unknown as Record<string, unknown>);
+      }, db);
       return { call, duplicate: false };
     } catch (error: unknown) {
       // The partial unique index also protects the race between two concurrent
@@ -70,6 +75,7 @@ class CreateTableServiceCallService {
           restaurantId,
           tableId,
           type,
+          db,
         );
         if (concurrent) {
           return { call: concurrent, duplicate: true };
@@ -95,40 +101,72 @@ class CreateTableServiceCallService {
     }
 
     const normalizedType = this.normalizeSessionCallType(type);
-    const context = await tableServiceCallRepository.findOpenSessionContext(
-      normalizedSessionId,
-      normalizedTableId,
-      normalizedRestaurantId,
+    const result = await prisma.$transaction(
+      async (tx) => {
+        await lockTablePaymentSession(tx, normalizedRestaurantId, normalizedSessionId);
+        const context = await tableServiceCallRepository.findOpenSessionContext(
+          normalizedSessionId,
+          normalizedTableId,
+          normalizedRestaurantId,
+          tx,
+        );
+        if (!context) {
+          throw new Error('A sessão desta mesa não está mais ativa. Escaneie o QR novamente.');
+        }
+
+        const subscription = context.table.restaurant.subscription;
+        const subscriptionIsActive =
+          subscription?.status === SubscriptionStatus.ATIVA ||
+          subscription?.status === SubscriptionStatus.TESTE;
+        if (!subscriptionIsActive || subscription?.plan !== PlanType.PREMIUM) {
+          throw new Error(
+            'O atendimento pelo cardápio de mesa não está disponível neste restaurante.',
+          );
+        }
+
+        const settings = context.table.restaurant.settings;
+        if (settings?.tableOrderingEnabled === false) {
+          throw new Error('O atendimento pelo cardápio de mesa está desativado neste restaurante.');
+        }
+        if (
+          normalizedType === TableServiceCallType.WAITER &&
+          settings?.waiterCallEnabled === false
+        ) {
+          throw new Error('Chamados ao garçom estão desativados neste restaurante.');
+        }
+        if (normalizedType === TableServiceCallType.BILL && settings?.billRequestEnabled === false) {
+          throw new Error('Solicitações de conta estão desativadas neste restaurante.');
+        }
+
+        const callResult = await this.createIdempotently({
+          restaurantId: normalizedRestaurantId,
+          tableId: normalizedTableId,
+          tableSessionId: normalizedSessionId,
+          type: normalizedType,
+          db: tx,
+        });
+        if (normalizedType === TableServiceCallType.BILL) {
+          const accountSettings = await tableAccountSettingsRepository.findByRestaurantId(
+            normalizedRestaurantId,
+            tx,
+          );
+          if (accountSettings.blockNewOrdersOnClosingRequest) {
+            await tableServiceCallRepository.requestSessionClosing(
+              normalizedSessionId,
+              normalizedRestaurantId,
+              tx,
+            );
+          }
+        }
+        return callResult;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
-    if (!context) {
-      throw new Error('A sessão desta mesa não está mais ativa. Escaneie o QR novamente.');
-    }
 
-    const subscription = context.table.restaurant.subscription;
-    const subscriptionIsActive =
-      subscription?.status === SubscriptionStatus.ATIVA ||
-      subscription?.status === SubscriptionStatus.TESTE;
-    if (!subscriptionIsActive || subscription?.plan !== PlanType.PREMIUM) {
-      throw new Error('O atendimento pelo cardápio de mesa não está disponível neste restaurante.');
+    if (!result.duplicate) {
+      await emitCreated(result.call as unknown as Record<string, unknown>);
     }
-
-    const settings = context.table.restaurant.settings;
-    if (settings?.tableOrderingEnabled === false) {
-      throw new Error('O atendimento pelo cardápio de mesa está desativado neste restaurante.');
-    }
-    if (normalizedType === TableServiceCallType.WAITER && settings?.waiterCallEnabled === false) {
-      throw new Error('Chamados ao garçom estão desativados neste restaurante.');
-    }
-    if (normalizedType === TableServiceCallType.BILL && settings?.billRequestEnabled === false) {
-      throw new Error('Solicitações de conta estão desativadas neste restaurante.');
-    }
-
-    return this.createIdempotently({
-      restaurantId: normalizedRestaurantId,
-      tableId: normalizedTableId,
-      tableSessionId: normalizedSessionId,
-      type: normalizedType,
-    });
+    return result;
   }
 }
 

@@ -12,6 +12,7 @@ import cancelOrderWorkflowService, {
   OrderCancellationError,
   requiresAutomaticOrderRefund,
 } from './CancelOrderWorkflowService.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 
 const publicOrderIdSchema = z.string().uuid();
 
@@ -62,7 +63,15 @@ class CancelTableParticipantOrderService {
       );
     }
 
-    if (!OrderStateMachine.canTransition(order.status, OrderStatus.CANCELADO)) {
+    const isPreparing = order.status === OrderStatus.PREPARANDO;
+    if (isPreparing) {
+      const settings = await tableAccountSettingsRepository.findByRestaurantId(restaurantId);
+      if (settings.requireEmployeeApprovalForPreparedItemCancellation) {
+        throw new OrderCancellationError(
+          'Este pedido já está em preparo e precisa da autorização de um funcionário para ser cancelado.',
+        );
+      }
+    } else if (!OrderStateMachine.canTransition(order.status, OrderStatus.CANCELADO)) {
       throw new OrderCancellationError('Pedido não pode ser cancelado!');
     }
 

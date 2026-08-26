@@ -13,8 +13,23 @@ import FakeTablePaymentWebhookController from '../controllers/FakeTablePaymentWe
 import RefundTablePaymentController from '../controllers/RefundTablePaymentController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import GetTableAccountAdminSnapshotController from '../controllers/GetTableAccountAdminSnapshotController.js';
+import GetTableAccountSettingsController from '../controllers/GetTableAccountSettingsController.js';
+import UpdateTableAccountSettingsController from '../controllers/UpdateTableAccountSettingsController.js';
+import ListTableAccountAdminSessionsController from '../controllers/ListTableAccountAdminSessionsController.js';
 
 const router = Router();
+
+router.get('/settings', authMiddleware, adminMiddleware, (req, res) =>
+  GetTableAccountSettingsController.handle(req, res),
+);
+
+router.patch('/settings', authMiddleware, adminMiddleware, (req, res) =>
+  UpdateTableAccountSettingsController.handle(req, res),
+);
+
+router.get('/admin/sessions', authMiddleware, waiterMiddleware, (req, res) =>
+  ListTableAccountAdminSessionsController.handle(req, res),
+);
 
 router.post('/webhooks/fake', (req, res) => FakeTablePaymentWebhookController.handle(req, res));
 

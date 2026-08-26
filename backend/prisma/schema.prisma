@@ -75,50 +75,51 @@ model UserAddress {
 }
 
 model Restaurant {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  slug                String               @unique
-  email               String               @unique
-  phone               String?
-  whatsapp            String?
-  cnpj                String?              @unique
-  logo                String?
-  coverImage          String?
-  description         String?
-  address             String?
-  addressNumber       String?
-  addressComplement   String?
-  addressDistrict     String?
-  city                String?
-  state               String?
-  zipCode             String?
-  openingHours        String?
-  active              Boolean              @default(true)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  banners             Banner[]
-  categories          Category[]
-  coupons             Coupon[]
-  invoices            Invoice[]
-  orders              Order[]
-  products            Product[]
-  productDiscounts    ProductDiscount[]
-  ingredients         Ingredient[]
-  productOptionGroups ProductOptionGroup[]
-  ratings             ProductRating[]
-  settings            RestaurantSettings?
-  supportChatMessages SupportChatMessage[]
-  subscription        Subscription?
-  tables              Table[]
-  users               User[]
-  orderIssueThreads   OrderIssueThread[]
-  couponRedemptions   CouponRedemption[]
-  tableServiceCalls   TableServiceCall[]
-  tableSessions       TableSession[]
-  tableParticipants   TableParticipant[]
-  tableBillItems      TableBillItem[]
-  tablePaymentIntents TablePaymentIntent[]
-  tablePaymentEvents  TablePaymentEvent[]
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  slug                 String                @unique
+  email                String                @unique
+  phone                String?
+  whatsapp             String?
+  cnpj                 String?               @unique
+  logo                 String?
+  coverImage           String?
+  description          String?
+  address              String?
+  addressNumber        String?
+  addressComplement    String?
+  addressDistrict      String?
+  city                 String?
+  state                String?
+  zipCode              String?
+  openingHours         String?
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  banners              Banner[]
+  categories           Category[]
+  coupons              Coupon[]
+  invoices             Invoice[]
+  orders               Order[]
+  products             Product[]
+  productDiscounts     ProductDiscount[]
+  ingredients          Ingredient[]
+  productOptionGroups  ProductOptionGroup[]
+  ratings              ProductRating[]
+  settings             RestaurantSettings?
+  supportChatMessages  SupportChatMessage[]
+  subscription         Subscription?
+  tables               Table[]
+  users                User[]
+  orderIssueThreads    OrderIssueThread[]
+  couponRedemptions    CouponRedemption[]
+  tableServiceCalls    TableServiceCall[]
+  tableSessions        TableSession[]
+  tableParticipants    TableParticipant[]
+  tableBillItems       TableBillItem[]
+  tablePaymentIntents  TablePaymentIntent[]
+  tablePaymentEvents   TablePaymentEvent[]
+  tableAccountSettings TableAccountSettings?
 }
 
 model SupportChatMessage {
@@ -686,6 +687,28 @@ model TablePaymentEvent {
   @@index([paymentIntentId, createdAt])
 }
 
+model TableAccountSettings {
+  id                                                 Int                 @id @default(autoincrement())
+  restaurantId                                       Int                 @unique
+  enabled                                            Boolean             @default(false)
+  requirePrepaymentAboveCents                        BigInt?
+  prepaymentWindows                                  Json                @default("[]")
+  allowCash                                          Boolean             @default(false)
+  allowCardMachine                                   Boolean             @default(false)
+  allowOnlinePayment                                 Boolean             @default(true)
+  allowSplit                                         Boolean             @default(true)
+  serviceFeeMode                                     TableServiceFeeMode @default(DISABLED)
+  serviceFeeBasisPoints                              Int                 @default(0)
+  preventCloseWithOutstandingBalance                 Boolean             @default(true)
+  requireEmployeeApprovalForPreparedItemCancellation Boolean             @default(true)
+  blockNewOrdersOnClosingRequest                     Boolean             @default(true)
+  reservationTimeoutMinutes                          Int                 @default(10)
+  timeZone                                           String              @default("America/Sao_Paulo")
+  createdAt                                          DateTime            @default(now())
+  updatedAt                                          DateTime            @updatedAt
+  restaurant                                         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
 model RestaurantSettings {
   id           Int @id @default(autoincrement())
   restaurantId Int @unique
@@ -1073,6 +1096,12 @@ enum TablePaymentMethod {
   CARD
   CASH
   CARD_MACHINE
+}
+
+enum TableServiceFeeMode {
+  DISABLED
+  OPTIONAL
+  MANDATORY
 }
 
 enum TablePaymentEventType {

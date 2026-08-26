@@ -16,6 +16,7 @@ export type SettingsSection =
   | 'promotions'
   | 'delivery'
   | 'table'
+  | 'table-account'
   | 'whatsapp'
   | 'payments'
   | 'social'
@@ -28,6 +29,29 @@ export type BusinessHour = {
   enabled: boolean;
   openingTime: string;
   closingTime: string;
+};
+
+export type TablePrepaymentWindow = {
+  weekdays: number[];
+  startsAtMinute: number;
+  endsAtMinute: number;
+};
+
+export type TableAccountAdminSettings = {
+  enabled: boolean;
+  requirePrepaymentAboveCents: number | null;
+  prepaymentWindows: TablePrepaymentWindow[];
+  allowCash: boolean;
+  allowCardMachine: boolean;
+  allowOnlinePayment: boolean;
+  allowSplit: boolean;
+  serviceFeeMode: 'DISABLED' | 'OPTIONAL' | 'MANDATORY';
+  serviceFeeBasisPoints: number;
+  preventCloseWithOutstandingBalance: boolean;
+  requireEmployeeApprovalForPreparedItemCancellation: boolean;
+  blockNewOrdersOnClosingRequest: boolean;
+  reservationTimeoutMinutes: number;
+  timeZone: string;
 };
 
 export type AdminOrder = {
@@ -197,6 +221,7 @@ export type AdminSettings = {
   tableOrderingEnabled: boolean;
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
+  tableAccount: TableAccountAdminSettings;
   fontFamily: string;
   seoTitle: string;
   seoDescription: string;

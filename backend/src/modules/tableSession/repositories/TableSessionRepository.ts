@@ -113,6 +113,25 @@ class TableSessionRepository {
       },
     });
   }
+
+  async forceClose(
+    id: number | string,
+    closedById: number,
+    reason: string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.tableSession.update({
+      where: { id: Number(id) },
+      data: {
+        status: TableSessionStatus.CLOSED,
+        closedById,
+        forceClosedById: closedById,
+        forcedClosed: true,
+        forceCloseReason: reason,
+        closedAt: new Date(),
+      },
+    });
+  }
   async listOpenByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.tableSession.findMany({
       where: {
@@ -152,6 +171,31 @@ class TableSessionRepository {
         createdAt: { gte: openedAt },
         status: { not: OrderStatus.CANCELADO },
         OR: [{ status: { not: OrderStatus.ENTREGUE } }, { paid: false }],
+      },
+      select: {
+        id: true,
+        status: true,
+        paid: true,
+        total: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+
+  async findOperationalBlockingOrdersForSession(
+    tableId: number,
+    restaurantId: number,
+    openedAt: Date,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findMany({
+      where: {
+        tableId,
+        restaurantId,
+        createdAt: { gte: openedAt },
+        status: { notIn: [OrderStatus.CANCELADO, OrderStatus.ENTREGUE] },
       },
       select: {
         id: true,

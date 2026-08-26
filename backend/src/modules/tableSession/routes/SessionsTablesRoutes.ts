@@ -20,6 +20,8 @@ import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePla
 import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import UpdateTableParticipantController from '../controllers/UpdateTableParticipantController.js';
+import ForceCloseTableSessionController from '../controllers/ForceCloseTableSessionController.js';
+import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 
 const router = Router();
 
@@ -58,6 +60,14 @@ router.patch(
   waiterMiddleware,
   premiumTablePlanMiddleware,
   (req, res) => CloseTableSessionController.handle(req, res),
+);
+
+router.patch(
+  '/:id/force-close',
+  authMiddleware,
+  adminMiddleware,
+  premiumTablePlanMiddleware,
+  (req, res) => ForceCloseTableSessionController.handle(req, res),
 );
 
 router.get('/open', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware, (req, res) =>

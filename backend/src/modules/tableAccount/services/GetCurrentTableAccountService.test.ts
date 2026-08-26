@@ -25,6 +25,7 @@ function billItem({
   canceledAt = null,
   participantPublicId = currentParticipantPublicId,
   displayName = 'Samuel',
+  paymentAllocations = [],
 }) {
   return {
     publicId,
@@ -47,6 +48,7 @@ function billItem({
       displayName,
       user: { email: 'privado@example.com' },
     },
+    paymentAllocations,
   };
 }
 
@@ -148,6 +150,84 @@ test('mantém o acesso preso à combinação de sessão, restaurante e participa
     (error) =>
       error instanceof TableAccountAccessError && error.message === 'Conta da mesa não encontrada.',
   );
+});
+
+test('taxa de pagamento estornado permanece no histórico sem voltar ao saldo devido', async () => {
+  const paidAt = new Date('2026-08-25T13:00:00.000Z');
+  const refundedAt = new Date('2026-08-25T13:30:00.000Z');
+  tableAccountRepository.findSnapshotData = async () => ({
+    publicId: '323e4567-e89b-42d3-a456-426614174001',
+    status: 'OPEN',
+    table: { number: 12 },
+    participants: [
+      {
+        publicId: currentParticipantPublicId,
+        displayName: 'Samuel',
+        status: 'ACTIVE',
+        joinedAt: new Date('2026-08-25T12:00:00.000Z'),
+        leftAt: null,
+      },
+    ],
+    billItems: [
+      billItem({
+        publicId: '11',
+        price: 100,
+        paid: true,
+        financialStatus: 'PAID',
+        paymentAllocations: [
+          { amountCents: 100n, paymentIntent: { status: 'PAID', expiresAt: paidAt } },
+        ],
+      }),
+      billItem({
+        publicId: '12',
+        price: 200,
+        financialStatus: 'REFUNDED',
+        refundStatus: 'SUCCEEDED',
+        canceledAt: refundedAt,
+        paymentAllocations: [
+          { amountCents: 200n, paymentIntent: { status: 'REFUNDED', expiresAt: paidAt } },
+        ],
+      }),
+    ],
+    paymentIntents: [
+      {
+        publicId: '423e4567-e89b-42d3-a456-426614174011',
+        status: 'PAID',
+        subtotalCents: 100n,
+        serviceFeeCents: 10n,
+        totalCents: 110n,
+        expiresAt: paidAt,
+        createdAt: paidAt,
+        selectionMode: 'MY_ITEMS',
+        payerParticipant: { publicId: currentParticipantPublicId },
+      },
+      {
+        publicId: '423e4567-e89b-42d3-a456-426614174012',
+        status: 'REFUNDED',
+        subtotalCents: 200n,
+        serviceFeeCents: 20n,
+        totalCents: 220n,
+        expiresAt: paidAt,
+        createdAt: paidAt,
+        payerParticipant: { publicId: currentParticipantPublicId },
+        selectionMode: 'SELECTED_ITEMS',
+      },
+    ],
+  });
+
+  const result = await new GetCurrentTableAccountService().execute({
+    tableSessionId: 55,
+    restaurantId: 7,
+    participantId: 80,
+    participantPublicId: currentParticipantPublicId,
+  });
+
+  assert.equal(result.summary.consumedCents, 100);
+  assert.equal(result.summary.serviceFeeCents, 10);
+  assert.equal(result.summary.grossPaidCents, 330);
+  assert.equal(result.summary.refundedCents, 220);
+  assert.equal(result.summary.netPaidCents, 110);
+  assert.equal(result.summary.remainingCents, 0);
 });
 
 test('rejeita identificadores inválidos antes de consultar o repositório', async () => {

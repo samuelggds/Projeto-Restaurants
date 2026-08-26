@@ -1,5 +1,5 @@
 // @ts-nocheck
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { OrderType, PaymentMethod, Prisma } from '@prisma/client';
@@ -8,6 +8,7 @@ import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
+import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
 
 const originalHttpCreateServer = http.createServer;
@@ -28,7 +29,29 @@ const originals = {
   findProductById: productRepository.findById,
   findSettings: restaurantSettingsRepository.findByRestaurantId,
   findTableSessionById: tableSessionRepository.findById,
+  findTableAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
 };
+
+const enabledTableAccountSettings = {
+  enabled: true,
+  requirePrepaymentAboveCents: null,
+  prepaymentWindows: [],
+  allowCash: false,
+  allowCardMachine: false,
+  allowOnlinePayment: true,
+  allowSplit: true,
+  serviceFeeMode: 'DISABLED',
+  serviceFeeBasisPoints: 0,
+  preventCloseWithOutstandingBalance: true,
+  requireEmployeeApprovalForPreparedItemCancellation: true,
+  blockNewOrdersOnClosingRequest: true,
+  reservationTimeoutMinutes: 10,
+  timeZone: 'America/Sao_Paulo',
+};
+
+beforeEach(() => {
+  tableAccountSettingsRepository.findByRestaurantId = async () => enabledTableAccountSettings;
+});
 
 afterEach(() => {
   prisma.$transaction = originals.transaction;
@@ -38,6 +61,7 @@ afterEach(() => {
   productRepository.findById = originals.findProductById;
   restaurantSettingsRepository.findByRestaurantId = originals.findSettings;
   tableSessionRepository.findById = originals.findTableSessionById;
+  tableAccountSettingsRepository.findByRestaurantId = originals.findTableAccountSettings;
 });
 
 test('bloqueia a criação do pedido fora da agenda semanal', async () => {
@@ -72,6 +96,7 @@ test('bloqueia a criação do pedido fora da agenda semanal', async () => {
 test('persiste opções agrupadas e observação do item ao criar o pedido', async () => {
   const persistedItems = [];
   const tx = {
+    $queryRaw: async () => [],
     restaurantSettings: {
       findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0 }),
     },
@@ -292,6 +317,7 @@ test('pedido de mesa convidado vincula participante e cria uma unidade financeir
     table: { id: 91, number: 1, active: true, restaurantId: 7 },
   };
   const tx = {
+    $queryRaw: async () => [],
     restaurantSettings: {
       findUnique: async () => ({
         deliveryFee: 0,
@@ -329,6 +355,7 @@ test('pedido de mesa convidado vincula participante e cria uma unidade financeir
       },
     },
     tableBillItem: {
+      findMany: async () => [],
       createMany: async ({ data }) => {
         persistedBillItems = data;
         return { count: data.length };
@@ -497,7 +524,7 @@ test('interrompe sem gravar quando a mesa fecha entre a validação inicial e a 
   });
   prisma.$transaction = async (callback, options) => {
     assert.equal(options?.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
-    return callback({});
+    return callback({ $queryRaw: async () => [] });
   };
   orderRepository.create = async () => {
     orderCreated = true;
@@ -538,6 +565,7 @@ test('pagamento imediato mantém cartão no pedido e reserva as unidades como PR
     table: { id: 91, number: 1, active: true, restaurantId: 7 },
   };
   const tx = {
+    $queryRaw: async () => [],
     restaurantSettings: {
       findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0, tableOrderingEnabled: true }),
     },

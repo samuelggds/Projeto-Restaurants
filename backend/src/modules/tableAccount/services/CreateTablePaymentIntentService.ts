@@ -6,7 +6,11 @@ import {
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { createTablePaymentIntentInputSchema } from '../domain/tableAccountSchemas.js';
-import { sumMoneyCents } from '../domain/tableAccountRules.js';
+import {
+  calculateServiceFeeCents,
+  shouldIncludeServiceFee,
+  sumMoneyCents,
+} from '../domain/tableAccountRules.js';
 import { buildTablePaymentPlan, TablePaymentPlanError } from '../domain/tablePaymentPlan.js';
 import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
@@ -14,6 +18,7 @@ import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
   type TablePaymentIntentRecord,
 } from '../repositories/TablePaymentRepository.js';
+import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import {
   expireTablePaymentReservations,
   loadTablePaymentLedgerItems,
@@ -74,6 +79,49 @@ export class CreateTablePaymentIntentService {
           );
         }
 
+        const settings = await tableAccountSettingsRepository.findByRestaurantId(
+          context.restaurantId,
+          tx,
+        );
+        if (!settings.enabled) {
+          throw new TablePaymentError(
+            'A conta e o pagamento por mesa não estão habilitados neste restaurante.',
+            409,
+            'TABLE_ACCOUNT_DISABLED',
+          );
+        }
+
+        const onlineMethod =
+          input.method === TablePaymentMethod.PIX || input.method === TablePaymentMethod.CARD;
+        if (onlineMethod && !settings.allowOnlinePayment) {
+          throw new TablePaymentError(
+            'O pagamento online da conta da mesa está desativado.',
+            409,
+            'ONLINE_TABLE_PAYMENT_DISABLED',
+          );
+        }
+        if (input.method === TablePaymentMethod.CASH && !settings.allowCash) {
+          throw new TablePaymentError(
+            'O pagamento em dinheiro não está disponível para esta mesa.',
+            409,
+            'CASH_TABLE_PAYMENT_DISABLED',
+          );
+        }
+        if (input.method === TablePaymentMethod.CARD_MACHINE && !settings.allowCardMachine) {
+          throw new TablePaymentError(
+            'O pagamento na maquininha não está disponível para esta mesa.',
+            409,
+            'CARD_MACHINE_TABLE_PAYMENT_DISABLED',
+          );
+        }
+        if (input.selectionMode === 'EQUAL_SPLIT' && !settings.allowSplit) {
+          throw new TablePaymentError(
+            'A divisão igual da conta está desativada neste restaurante.',
+            409,
+            'TABLE_SPLIT_DISABLED',
+          );
+        }
+
         const existing = await tablePaymentRepository.findByIdempotencyHash(
           context.restaurantId,
           context.tableSessionId,
@@ -114,10 +162,15 @@ export class CreateTablePaymentIntentService {
           throw error;
         }
         const subtotalCents = plan.subtotalCents;
-        const serviceFeeCents = 0;
+        const serviceFeeCents = shouldIncludeServiceFee(
+          settings.serviceFeeMode,
+          input.includeOptionalServiceFee,
+        )
+          ? calculateServiceFeeCents(subtotalCents, settings.serviceFeeBasisPoints)
+          : 0;
         const totalCents = sumMoneyCents([subtotalCents, serviceFeeCents]);
         const allocationSeeds = plan.allocations;
-        const expiresAt = new Date(now.getTime() + 10 * 60_000);
+        const expiresAt = new Date(now.getTime() + settings.reservationTimeoutMinutes * 60_000);
 
         const created = await tx.tablePaymentIntent.create({
           data: {
