@@ -159,6 +159,8 @@ export const forceCloseTableAccountInputSchema = z.object({ reason: reasonSchema
 
 export const cancelTableBillItemInputSchema = z.object({ reason: reasonSchema }).strict();
 
+export const refundTablePaymentInputSchema = z.object({ reason: reasonSchema }).strict();
+
 export const tablePrepaymentWindowSchema = z
   .object({
     weekdays: z
@@ -261,5 +263,6 @@ export type TableOrderContinuationInput = z.infer<typeof tableOrderContinuationI
 export type CreateTablePaymentIntentInput = z.infer<typeof createTablePaymentIntentInputSchema>;
 export type ForceCloseTableAccountInput = z.infer<typeof forceCloseTableAccountInputSchema>;
 export type CancelTableBillItemInput = z.infer<typeof cancelTableBillItemInputSchema>;
+export type RefundTablePaymentInput = z.infer<typeof refundTablePaymentInputSchema>;
 export type TableAccountSettingsInput = z.infer<typeof tableAccountSettingsSchema>;
 export type TableAccountSettingsPatchInput = z.infer<typeof tableAccountSettingsPatchSchema>;

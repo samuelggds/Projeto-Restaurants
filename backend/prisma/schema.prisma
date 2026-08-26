@@ -50,6 +50,8 @@ model User {
   couponRedemptions             CouponRedemption[]
   assignedTableServiceCalls     TableServiceCall[]   @relation("AssignedTableServiceCalls")
   resolvedTableServiceCalls     TableServiceCall[]   @relation("ResolvedTableServiceCalls")
+  confirmedTablePayments        TablePaymentIntent[] @relation("ManualTablePaymentConfirmations")
+  tablePaymentEvents            TablePaymentEvent[]  @relation("TablePaymentEventActor")
 }
 
 model UserAddress {
@@ -115,6 +117,8 @@ model Restaurant {
   tableSessions       TableSession[]
   tableParticipants   TableParticipant[]
   tableBillItems      TableBillItem[]
+  tablePaymentIntents TablePaymentIntent[]
+  tablePaymentEvents  TablePaymentEvent[]
 }
 
 model SupportChatMessage {
@@ -329,35 +333,38 @@ model Table {
 }
 
 model TableSession {
-  id                   Int                @id @default(autoincrement())
-  publicId             String             @unique @default(uuid())
+  id                   Int                      @id @default(autoincrement())
+  publicId             String                   @unique @default(uuid())
   restaurantId         Int
   tableId              Int
   pinHash              String
-  sessionToken         String             @unique
-  status               TableSessionStatus @default(OPEN)
+  sessionToken         String                   @unique
+  status               TableSessionStatus       @default(OPEN)
   openedById           Int
   closingRequestedById Int?
   closedById           Int?
   forceClosedById      Int?
-  openedAt             DateTime           @default(now())
+  openedAt             DateTime                 @default(now())
   closingRequestedAt   DateTime?
   closedAt             DateTime?
   expiresAt            DateTime?
-  forcedClosed         Boolean            @default(false)
+  forcedClosed         Boolean                  @default(false)
   forceCloseReason     String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  closedBy             User?              @relation("ClosedTableSessions", fields: [closedById], references: [id], onDelete: SetNull)
-  closingRequestedBy   User?              @relation("ClosingRequestedTableSessions", fields: [closingRequestedById], references: [id], onDelete: SetNull)
-  forceClosedBy        User?              @relation("ForceClosedTableSessions", fields: [forceClosedById], references: [id], onDelete: SetNull)
-  openedBy             User               @relation("OpenedTableSessions", fields: [openedById], references: [id])
-  restaurant           Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table                Table              @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  closedBy             User?                    @relation("ClosedTableSessions", fields: [closedById], references: [id], onDelete: SetNull)
+  closingRequestedBy   User?                    @relation("ClosingRequestedTableSessions", fields: [closingRequestedById], references: [id], onDelete: SetNull)
+  forceClosedBy        User?                    @relation("ForceClosedTableSessions", fields: [forceClosedById], references: [id], onDelete: SetNull)
+  openedBy             User                     @relation("OpenedTableSessions", fields: [openedById], references: [id])
+  restaurant           Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table                Table                    @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
   serviceCalls         TableServiceCall[]
   participants         TableParticipant[]
   orders               Order[]
   billItems            TableBillItem[]
+  paymentIntents       TablePaymentIntent[]
+  paymentAllocations   TablePaymentAllocation[]
+  paymentEvents        TablePaymentEvent[]
 
   @@unique([id, restaurantId])
   @@index([restaurantId, status, openedAt])
@@ -385,6 +392,7 @@ model TableParticipant {
   orders         Order[]
   orderItems     OrderItem[]
   billItems      TableBillItem[]
+  paymentIntents TablePaymentIntent[]
 
   @@unique([tableSessionId, userId])
   @@unique([id, tableSessionId, restaurantId])
@@ -584,11 +592,98 @@ model TableBillItem {
   participant        TableParticipant             @relation(fields: [participantId, tableSessionId, restaurantId], references: [id, tableSessionId, restaurantId], onDelete: Restrict)
   order              Order                        @relation(fields: [orderId, restaurantId, tableSessionId, participantId], references: [id, restaurantId, tableSessionId, participantId], onDelete: Cascade)
   orderItem          OrderItem                    @relation(fields: [orderItemId, orderId, restaurantId, tableSessionId, participantId], references: [id, orderId, restaurantId, tableSessionId, participantId], onDelete: Cascade)
+  paymentAllocations TablePaymentAllocation[]
 
   @@unique([orderItemId, unitIndex])
+  @@unique([id, restaurantId, tableSessionId])
   @@index([restaurantId, tableSessionId, financialStatus])
   @@index([participantId, financialStatus])
   @@index([orderId])
+}
+
+model TablePaymentIntent {
+  id                  Int                       @id @default(autoincrement())
+  publicId            String                    @unique @default(uuid())
+  restaurantId        Int
+  tableSessionId      Int
+  payerParticipantId  Int
+  selectionMode       TablePaymentSelectionMode
+  method              TablePaymentMethod
+  status              TablePaymentIntentStatus  @default(RESERVED)
+  splitCount          Int?
+  idempotencyKeyHash  String
+  requestFingerprint  String
+  subtotalCents       BigInt
+  serviceFeeCents     BigInt                    @default(0)
+  totalCents          BigInt
+  provider            String?
+  providerExternalId  String?
+  providerCheckoutUrl String?
+  expiresAt           DateTime
+  processingAt        DateTime?
+  paidAt              DateTime?
+  failedAt            DateTime?
+  canceledAt          DateTime?
+  refundedAt          DateTime?
+  failureCode         String?
+  manualConfirmedById Int?
+  manualConfirmedAt   DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  restaurant          Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  tableSession        TableSession              @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  payerParticipant    TableParticipant          @relation(fields: [payerParticipantId, tableSessionId, restaurantId], references: [id, tableSessionId, restaurantId], onDelete: Restrict)
+  manualConfirmedBy   User?                     @relation("ManualTablePaymentConfirmations", fields: [manualConfirmedById], references: [id], onDelete: SetNull)
+  allocations         TablePaymentAllocation[]
+  events              TablePaymentEvent[]
+
+  @@unique([restaurantId, tableSessionId, idempotencyKeyHash])
+  @@unique([provider, providerExternalId])
+  @@unique([id, restaurantId, tableSessionId])
+  @@index([restaurantId, tableSessionId, status, expiresAt])
+  @@index([payerParticipantId, createdAt])
+}
+
+model TablePaymentAllocation {
+  id              Int                @id @default(autoincrement())
+  restaurantId    Int
+  tableSessionId  Int
+  paymentIntentId Int
+  tableBillItemId Int
+  amountCents     BigInt
+  createdAt       DateTime           @default(now())
+  paymentIntent   TablePaymentIntent @relation(fields: [paymentIntentId, restaurantId, tableSessionId], references: [id, restaurantId, tableSessionId], onDelete: Restrict)
+  tableBillItem   TableBillItem      @relation(fields: [tableBillItemId, restaurantId, tableSessionId], references: [id, restaurantId, tableSessionId], onDelete: Restrict)
+  tableSession    TableSession       @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([paymentIntentId, tableBillItemId])
+  @@index([tableBillItemId])
+  @@index([restaurantId, tableSessionId])
+}
+
+model TablePaymentEvent {
+  id               Int                       @id @default(autoincrement())
+  restaurantId     Int
+  tableSessionId   Int
+  paymentIntentId  Int
+  deduplicationKey String                    @unique
+  type             TablePaymentEventType
+  fromStatus       TablePaymentIntentStatus?
+  toStatus         TablePaymentIntentStatus?
+  provider         String?
+  providerEventId  String?
+  amountCents      BigInt?
+  actorUserId      Int?
+  metadata         Json?
+  occurredAt       DateTime                  @default(now())
+  createdAt        DateTime                  @default(now())
+  restaurant       Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  tableSession     TableSession              @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  paymentIntent    TablePaymentIntent        @relation(fields: [paymentIntentId, restaurantId, tableSessionId], references: [id, restaurantId, tableSessionId], onDelete: Restrict)
+  actorUser        User?                     @relation("TablePaymentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, tableSessionId, createdAt])
+  @@index([paymentIntentId, createdAt])
 }
 
 model RestaurantSettings {
@@ -953,6 +1048,43 @@ enum TableBillItemFinancialStatus {
   PROCESSING
   PAID
   REFUNDED
+}
+
+enum TablePaymentIntentStatus {
+  RESERVED
+  PROCESSING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELED
+  REFUNDED
+}
+
+enum TablePaymentSelectionMode {
+  MY_ITEMS
+  SELECTED_ITEMS
+  EQUAL_SPLIT
+  FULL_ACCOUNT
+  WAITER
+}
+
+enum TablePaymentMethod {
+  PIX
+  CARD
+  CASH
+  CARD_MACHINE
+}
+
+enum TablePaymentEventType {
+  CREATED
+  PROCESSING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELED
+  REFUNDED
+  MANUAL_CONFIRMED
+  PROVIDER_WEBHOOK
 }
 
 enum TableServiceCallType {

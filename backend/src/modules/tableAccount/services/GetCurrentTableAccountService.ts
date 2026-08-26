@@ -1,9 +1,6 @@
-import {
-  OrderRefundStatus,
-  OrderStatus,
-  TableBillItemFinancialStatus,
-} from '@prisma/client';
+import { OrderRefundStatus, OrderStatus, TableBillItemFinancialStatus } from '@prisma/client';
 import type {
+  TableAccountBaseSnapshotDto,
   TableAccountSnapshotDto,
   TableBillItemFinancialStatus as TableBillItemFinancialStatusDto,
   TableOrderOperationalStatus,
@@ -14,7 +11,10 @@ import {
   calculateTableAccountBalance,
   sumMoneyCents,
 } from '../domain/tableAccountRules.js';
-import tableAccountRepository from '../repositories/TableAccountRepository.js';
+import tableAccountRepository, {
+  type TableAccountSnapshotRecord,
+} from '../repositories/TableAccountRepository.js';
+import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
 
 const operationalStatusMap: Record<OrderStatus, TableOrderOperationalStatus> = {
   [OrderStatus.PENDENTE]: 'PENDING',
@@ -49,6 +49,122 @@ export class TableAccountAccessError extends Error {
   }
 }
 
+export function buildTableAccountBaseSnapshot(
+  data: TableAccountSnapshotRecord,
+  now = new Date(),
+): TableAccountBaseSnapshotDto {
+  const paymentIntents = data.paymentIntents || [];
+  const normalizedItems = data.billItems.map((item) => {
+    const unitPriceCents = toSafeMoneyCents(item.unitPriceCents, `valor do item ${item.publicId}`);
+    const orderStatus = operationalStatusMap[item.order.status];
+    const financialStatus = resolveFinancialStatus(item);
+    const canceled = Boolean(item.canceledAt) || orderStatus === 'CANCELED';
+    const paymentAllocations = item.paymentAllocations || [];
+    const ledger = calculateTableBillItemLedger({
+      unitPriceCents,
+      projectedStatus: financialStatus,
+      canceled,
+      allocations: paymentAllocations.map((allocation) => ({
+        amountCents: toSafeMoneyCents(allocation.amountCents, `alocação do item ${item.publicId}`),
+        intentStatus: allocation.paymentIntent.status,
+        expiresAt: allocation.paymentIntent.expiresAt,
+      })),
+    });
+
+    return {
+      canceled,
+      hasAllocations: paymentAllocations.length > 0,
+      unitPriceCents,
+      financialStatus: ledger.projectedStatus,
+      ledger,
+      dto: {
+        publicId: item.publicId,
+        orderPublicId: item.order.publicId,
+        productName: item.productName,
+        unitIndex: item.unitIndex,
+        unitPriceCents,
+        paidCents: ledger.paidCents,
+        reservedCents: ledger.reservedCents,
+        processingCents: ledger.processingCents,
+        availableCents: ledger.availableCents,
+        financialStatus: ledger.projectedStatus,
+        orderStatus,
+        orderedByParticipantPublicId: item.participant.publicId,
+        orderedByDisplayName: item.participant.displayName?.trim() || 'Cliente da mesa',
+      },
+    };
+  });
+
+  const consumedCents = sumMoneyCents(
+    normalizedItems
+      .filter((item) => !item.canceled && item.financialStatus !== 'REFUNDED')
+      .map((item) => item.unitPriceCents),
+  );
+  const legacyGrossPaidCents = sumMoneyCents(
+    normalizedItems
+      .filter((item) => !item.hasAllocations && ['PAID', 'REFUNDED'].includes(item.financialStatus))
+      .map((item) => item.unitPriceCents),
+  );
+  const legacyRefundedCents = sumMoneyCents(
+    normalizedItems
+      .filter((item) => !item.hasAllocations && item.financialStatus === 'REFUNDED')
+      .map((item) => item.unitPriceCents),
+  );
+  const grossPaidCents = sumMoneyCents([
+    legacyGrossPaidCents,
+    ...paymentIntents
+      .filter((payment) => ['PAID', 'REFUNDED'].includes(payment.status))
+      .map((payment) => toSafeMoneyCents(payment.totalCents, `pagamento ${payment.publicId}`)),
+  ]);
+  const refundedCents = sumMoneyCents([
+    legacyRefundedCents,
+    ...paymentIntents
+      .filter((payment) => payment.status === 'REFUNDED')
+      .map((payment) => toSafeMoneyCents(payment.totalCents, `estorno ${payment.publicId}`)),
+  ]);
+  const reservedCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.reservedCents),
+  );
+  const processingCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.processingCents),
+  );
+  const serviceFeeCents = 0;
+  const balance = calculateTableAccountBalance({
+    consumedCents,
+    serviceFeeCents,
+    grossPaidCents,
+    refundedCents,
+  });
+
+  return {
+    contractVersion: TABLE_ACCOUNT_CONTRACT_VERSION,
+    summary: {
+      sessionPublicId: data.publicId,
+      tableNumber: data.table.number,
+      status: data.status,
+      consumedCents,
+      serviceFeeCents,
+      grossPaidCents,
+      refundedCents,
+      netPaidCents: balance.netPaidCents,
+      reservedCents,
+      processingCents,
+      remainingCents: balance.remainingCents,
+      overpaidCents: balance.overpaidCents,
+      participantsCount: data.participants.filter((participant) => participant.status === 'ACTIVE')
+        .length,
+    },
+    participants: data.participants.map((participant) => ({
+      publicId: participant.publicId,
+      displayName: participant.displayName,
+      status: participant.status,
+      joinedAt: participant.joinedAt.toISOString(),
+      leftAt: participant.leftAt?.toISOString() || null,
+    })),
+    items: normalizedItems.map((item) => item.dto),
+  };
+}
+
 export class GetCurrentTableAccountService {
   async execute(input: {
     tableSessionId: number;
@@ -78,93 +194,23 @@ export class GetCurrentTableAccountService {
     if (!data) {
       throw new TableAccountAccessError();
     }
-
-    const normalizedItems = data.billItems.map((item) => {
-      const unitPriceCents = toSafeMoneyCents(
-        item.unitPriceCents,
-        `valor do item ${item.publicId}`,
-      );
-      const orderStatus = operationalStatusMap[item.order.status];
-      const financialStatus = resolveFinancialStatus(item);
-      const canceled = Boolean(item.canceledAt) || orderStatus === 'CANCELED';
-
-      return {
-        canceled,
-        unitPriceCents,
-        financialStatus,
-        dto: {
-          publicId: item.publicId,
-          orderPublicId: item.order.publicId,
-          productName: item.productName,
-          unitIndex: item.unitIndex,
-          unitPriceCents,
-          financialStatus,
-          orderStatus,
-          orderedByParticipantPublicId: item.participant.publicId,
-          orderedByDisplayName: item.participant.displayName?.trim() || 'Cliente da mesa',
-        },
-      };
-    });
-
-    const consumedCents = sumMoneyCents(
-      normalizedItems.filter((item) => !item.canceled).map((item) => item.unitPriceCents),
-    );
-    const grossPaidCents = sumMoneyCents(
-      normalizedItems
-        .filter((item) => ['PAID', 'REFUNDED'].includes(item.financialStatus))
-        .map((item) => item.unitPriceCents),
-    );
-    const refundedCents = sumMoneyCents(
-      normalizedItems
-        .filter((item) => item.financialStatus === 'REFUNDED')
-        .map((item) => item.unitPriceCents),
-    );
-    const reservedCents = sumMoneyCents(
-      normalizedItems
-        .filter((item) => !item.canceled && item.financialStatus === 'RESERVED')
-        .map((item) => item.unitPriceCents),
-    );
-    const processingCents = sumMoneyCents(
-      normalizedItems
-        .filter((item) => !item.canceled && item.financialStatus === 'PROCESSING')
-        .map((item) => item.unitPriceCents),
-    );
-    const serviceFeeCents = 0;
-    const balance = calculateTableAccountBalance({
-      consumedCents,
-      serviceFeeCents,
-      grossPaidCents,
-      refundedCents,
-    });
+    const now = new Date();
+    const paymentIntents = data.paymentIntents || [];
 
     return {
-      contractVersion: TABLE_ACCOUNT_CONTRACT_VERSION,
+      ...buildTableAccountBaseSnapshot(data, now),
       currentParticipantPublicId: input.participantPublicId,
-      summary: {
-        sessionPublicId: data.publicId,
-        tableNumber: data.table.number,
-        status: data.status,
-        consumedCents,
-        serviceFeeCents,
-        grossPaidCents,
-        refundedCents,
-        netPaidCents: balance.netPaidCents,
-        reservedCents,
-        processingCents,
-        remainingCents: balance.remainingCents,
-        overpaidCents: balance.overpaidCents,
-        participantsCount: data.participants.filter((participant) => participant.status === 'ACTIVE')
-          .length,
-      },
-      participants: data.participants.map((participant) => ({
-        publicId: participant.publicId,
-        displayName: participant.displayName,
-        status: participant.status,
-        joinedAt: participant.joinedAt.toISOString(),
-        leftAt: participant.leftAt?.toISOString() || null,
+      payments: paymentIntents.map((payment) => ({
+        publicId: payment.publicId,
+        payerParticipantPublicId: payment.payerParticipant.publicId,
+        selectionMode: payment.selectionMode,
+        status:
+          ['RESERVED', 'PROCESSING'].includes(payment.status) && payment.expiresAt <= now
+            ? ('EXPIRED' as const)
+            : payment.status,
+        totalCents: toSafeMoneyCents(payment.totalCents, `pagamento ${payment.publicId}`),
+        createdAt: payment.createdAt.toISOString(),
       })),
-      items: normalizedItems.map((item) => item.dto),
-      payments: [],
     };
   }
 }

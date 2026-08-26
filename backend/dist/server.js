@@ -2070,7 +2070,16 @@ function getEmailKey(req) {
   const ip = ipKeyGenerator2(String(req.ip || "unknown").trim());
   return `${ip}:${email || "no-email"}`;
 }
-var passwordResetRateLimitMiddleware, registrationRateLimitMiddleware;
+function getTablePaymentKey(req) {
+  const ip = ipKeyGenerator2(String(req.ip || "unknown").trim());
+  const sessionPublicId = String(req.tableSession?.publicId || "no-session").slice(0, 64);
+  const participantPublicId = String(req.tableParticipant?.publicId || "no-participant").slice(
+    0,
+    64
+  );
+  return `${ip}:${sessionPublicId}:${participantPublicId}`;
+}
+var passwordResetRateLimitMiddleware, registrationRateLimitMiddleware, tablePaymentActionRateLimitMiddleware;
 var init_accountActionRateLimitMiddleware = __esm({
   "src/middlewares/security/accountActionRateLimitMiddleware.ts"() {
     passwordResetRateLimitMiddleware = rateLimit2({
@@ -2091,6 +2100,16 @@ var init_accountActionRateLimitMiddleware = __esm({
       keyGenerator: (req) => ipKeyGenerator2(String(req.ip || "unknown").trim()),
       message: {
         error: "Muitos cadastros originados deste endere\xE7o. Tente mais tarde."
+      }
+    });
+    tablePaymentActionRateLimitMiddleware = rateLimit2({
+      windowMs: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_WINDOW_MS || 6e4),
+      max: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_MAX_REQUESTS || 20),
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: getTablePaymentKey,
+      message: {
+        error: "Muitas tentativas de pagamento nesta mesa. Aguarde alguns instantes."
       }
     });
   }
@@ -7088,7 +7107,7 @@ function isValidTimeZone2(value) {
     return false;
   }
 }
-var moneyCentsSchema, publicIdSchema, reasonSchema, tableParticipantIdentityInputSchema, tableOrderContinuationInputSchema, idempotencyKeySchema, createTablePaymentIntentInputSchema, forceCloseTableAccountInputSchema, cancelTableBillItemInputSchema, tablePrepaymentWindowSchema, tableAccountSettingsFields, tableAccountSettingsSchema, tableAccountSettingsPatchSchema;
+var moneyCentsSchema, publicIdSchema, reasonSchema, tableParticipantIdentityInputSchema, tableOrderContinuationInputSchema, idempotencyKeySchema, createTablePaymentIntentInputSchema, forceCloseTableAccountInputSchema, cancelTableBillItemInputSchema, refundTablePaymentInputSchema, tablePrepaymentWindowSchema, tableAccountSettingsFields, tableAccountSettingsSchema, tableAccountSettingsPatchSchema;
 var init_tableAccountSchemas = __esm({
   "src/modules/tableAccount/domain/tableAccountSchemas.ts"() {
     init_tableAccountContracts();
@@ -7181,6 +7200,7 @@ var init_tableAccountSchemas = __esm({
     });
     forceCloseTableAccountInputSchema = z7.object({ reason: reasonSchema }).strict();
     cancelTableBillItemInputSchema = z7.object({ reason: reasonSchema }).strict();
+    refundTablePaymentInputSchema = z7.object({ reason: reasonSchema }).strict();
     tablePrepaymentWindowSchema = z7.object({
       weekdays: z7.array(z7.number().int().min(0).max(6)).min(1, "Escolha ao menos um dia da semana.").max(7),
       startsAtMinute: z7.number().int().min(0).max(1439),
@@ -7267,6 +7287,15 @@ function sumMoneyCents(values) {
     return nextTotal;
   }, 0);
 }
+function splitCentsEqually(totalCents, parts) {
+  const safeTotal = assertMoneyCents(totalCents, "total");
+  if (!Number.isSafeInteger(parts) || parts < 2 || parts > 100 || safeTotal === 0 || parts > safeTotal) {
+    throw new RangeError("A quantidade de partes deve ser um inteiro entre 2 e 100.");
+  }
+  const base = Math.floor(safeTotal / parts);
+  const remainder = safeTotal % parts;
+  return Array.from({ length: parts }, (_, index) => base + (index < remainder ? 1 : 0));
+}
 function calculateTableAccountBalance({
   consumedCents,
   serviceFeeCents,
@@ -7288,6 +7317,18 @@ function calculateTableAccountBalance({
     remainingCents: Math.max(0, owedCents - netPaidCents),
     overpaidCents: Math.max(0, netPaidCents - owedCents)
   };
+}
+function isActorFromRestaurant(actor, restaurantId) {
+  return Number.isSafeInteger(restaurantId) && restaurantId > 0 && actor.restaurantId === restaurantId;
+}
+function canConfirmManualTablePayment(actor, restaurantId) {
+  return isActorFromRestaurant(actor, restaurantId) && (actor.role === "ADMIN" || actor.role === "FUNCIONARIO" && actor.subRole === "GARCOM");
+}
+function canViewTableAccountFinancialHistory(actor, restaurantId) {
+  return canConfirmManualTablePayment(actor, restaurantId);
+}
+function canRefundTablePayment(actor, restaurantId) {
+  return isActorFromRestaurant(actor, restaurantId) && actor.role === "ADMIN";
 }
 var init_tableAccountRules = __esm({
   "src/modules/tableAccount/domain/tableAccountRules.ts"() {
@@ -13958,9 +13999,18 @@ var init_TableParticipantRepository = __esm({
           },
           data: { participantId: targetParticipantId }
         });
+        const paymentIntents = await db.tablePaymentIntent.updateMany({
+          where: {
+            payerParticipantId: sourceParticipantId,
+            tableSessionId,
+            restaurantId
+          },
+          data: { payerParticipantId: targetParticipantId }
+        });
         return {
           orders: orders.count,
-          orderItems: orderItems.count
+          orderItems: orderItems.count,
+          paymentIntents: paymentIntents.count
         };
       }
     };
@@ -23640,16 +23690,216 @@ var init_TableServiceCallRoutes = __esm({
   }
 });
 
-// src/modules/tableAccount/repositories/TableAccountRepository.ts
+// src/modules/tableAccount/repositories/TablePaymentRepository.ts
 import { TableParticipantStatus as TableParticipantStatus3, TableSessionStatus as TableSessionStatus7 } from "@prisma/client";
-var activeSessionStatuses, TableAccountRepository, TableAccountRepository_default;
+var tablePaymentIntentDtoSelect, tablePaymentIntentAdminSelect, TablePaymentRepository, TablePaymentRepository_default;
+var init_TablePaymentRepository = __esm({
+  "src/modules/tableAccount/repositories/TablePaymentRepository.ts"() {
+    init_prisma();
+    tablePaymentIntentDtoSelect = {
+      id: true,
+      publicId: true,
+      restaurantId: true,
+      tableSessionId: true,
+      payerParticipantId: true,
+      selectionMode: true,
+      method: true,
+      status: true,
+      splitCount: true,
+      idempotencyKeyHash: true,
+      requestFingerprint: true,
+      subtotalCents: true,
+      serviceFeeCents: true,
+      totalCents: true,
+      provider: true,
+      providerExternalId: true,
+      providerCheckoutUrl: true,
+      expiresAt: true,
+      processingAt: true,
+      paidAt: true,
+      failedAt: true,
+      canceledAt: true,
+      refundedAt: true,
+      failureCode: true,
+      manualConfirmedById: true,
+      manualConfirmedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      payerParticipant: {
+        select: {
+          publicId: true
+        }
+      },
+      tableSession: {
+        select: {
+          publicId: true
+        }
+      },
+      allocations: {
+        select: {
+          amountCents: true,
+          tableBillItem: {
+            select: {
+              publicId: true
+            }
+          }
+        },
+        orderBy: { id: "asc" }
+      }
+    };
+    tablePaymentIntentAdminSelect = {
+      ...tablePaymentIntentDtoSelect,
+      manualConfirmedBy: {
+        select: {
+          name: true
+        }
+      },
+      events: {
+        select: {
+          type: true,
+          fromStatus: true,
+          toStatus: true,
+          provider: true,
+          providerEventId: true,
+          amountCents: true,
+          metadata: true,
+          occurredAt: true,
+          actorUser: {
+            select: {
+              name: true
+            }
+          }
+        },
+        orderBy: [{ occurredAt: "asc" }, { id: "asc" }]
+      }
+    };
+    TablePaymentRepository = class {
+      async findSessionParticipantForPayment(tableSessionId, restaurantId, participantId, now, db = prisma_default) {
+        return db.tableSession.findFirst({
+          where: {
+            id: tableSessionId,
+            restaurantId,
+            status: { in: [TableSessionStatus7.OPEN, TableSessionStatus7.CLOSING_REQUESTED] },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            participants: {
+              some: {
+                id: participantId,
+                restaurantId,
+                status: TableParticipantStatus3.ACTIVE,
+                revokedAt: null
+              }
+            }
+          },
+          select: {
+            id: true,
+            publicId: true,
+            restaurantId: true,
+            status: true
+          }
+        });
+      }
+      async findByIdempotencyHash(restaurantId, tableSessionId, idempotencyKeyHash, db = prisma_default) {
+        return db.tablePaymentIntent.findUnique({
+          where: {
+            restaurantId_tableSessionId_idempotencyKeyHash: {
+              restaurantId,
+              tableSessionId,
+              idempotencyKeyHash
+            }
+          },
+          select: tablePaymentIntentDtoSelect
+        });
+      }
+      async findOwnedByPublicId(publicId, restaurantId, tableSessionId, participantId, db = prisma_default) {
+        return db.tablePaymentIntent.findFirst({
+          where: {
+            publicId,
+            restaurantId,
+            tableSessionId,
+            payerParticipantId: participantId
+          },
+          select: tablePaymentIntentDtoSelect
+        });
+      }
+      async findForStaffByPublicId(publicId, restaurantId, db = prisma_default) {
+        return db.tablePaymentIntent.findFirst({
+          where: { publicId, restaurantId },
+          select: tablePaymentIntentDtoSelect
+        });
+      }
+    };
+    TablePaymentRepository_default = new TablePaymentRepository();
+  }
+});
+
+// src/modules/tableAccount/repositories/TableAccountRepository.ts
+import { TableParticipantStatus as TableParticipantStatus4, TableSessionStatus as TableSessionStatus8 } from "@prisma/client";
+var activeSessionStatuses, tableAccountSnapshotSelect, TableAccountRepository, TableAccountRepository_default;
 var init_TableAccountRepository = __esm({
   "src/modules/tableAccount/repositories/TableAccountRepository.ts"() {
     init_prisma();
+    init_TablePaymentRepository();
     activeSessionStatuses = [
-      TableSessionStatus7.OPEN,
-      TableSessionStatus7.CLOSING_REQUESTED
+      TableSessionStatus8.OPEN,
+      TableSessionStatus8.CLOSING_REQUESTED
     ];
+    tableAccountSnapshotSelect = {
+      id: true,
+      publicId: true,
+      restaurantId: true,
+      status: true,
+      table: { select: { number: true } },
+      participants: {
+        select: {
+          publicId: true,
+          displayName: true,
+          status: true,
+          joinedAt: true,
+          leftAt: true
+        },
+        orderBy: [{ joinedAt: "asc" }, { id: "asc" }]
+      },
+      billItems: {
+        select: {
+          publicId: true,
+          productName: true,
+          unitIndex: true,
+          unitPriceCents: true,
+          financialStatus: true,
+          canceledAt: true,
+          order: {
+            select: {
+              publicId: true,
+              status: true,
+              paid: true,
+              refundStatus: true
+            }
+          },
+          participant: {
+            select: {
+              publicId: true,
+              displayName: true
+            }
+          },
+          paymentAllocations: {
+            select: {
+              amountCents: true,
+              paymentIntent: {
+                select: {
+                  status: true,
+                  expiresAt: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: [{ createdAt: "asc" }, { orderItemId: "asc" }, { unitIndex: "asc" }]
+      },
+      paymentIntents: {
+        select: tablePaymentIntentAdminSelect,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }]
+      }
+    };
     TableAccountRepository = class {
       async findSessionContextByPublicId(publicId, db = prisma_default) {
         return db.tableSession.findFirst({
@@ -23677,51 +23927,21 @@ var init_TableAccountRepository = __esm({
               some: {
                 id: currentParticipantId,
                 restaurantId,
-                status: TableParticipantStatus3.ACTIVE,
+                status: TableParticipantStatus4.ACTIVE,
                 revokedAt: null
               }
             }
           },
-          select: {
-            publicId: true,
-            status: true,
-            table: { select: { number: true } },
-            participants: {
-              select: {
-                publicId: true,
-                displayName: true,
-                status: true,
-                joinedAt: true,
-                leftAt: true
-              },
-              orderBy: [{ joinedAt: "asc" }, { id: "asc" }]
-            },
-            billItems: {
-              select: {
-                publicId: true,
-                productName: true,
-                unitIndex: true,
-                unitPriceCents: true,
-                financialStatus: true,
-                canceledAt: true,
-                order: {
-                  select: {
-                    publicId: true,
-                    status: true,
-                    paid: true,
-                    refundStatus: true
-                  }
-                },
-                participant: {
-                  select: {
-                    publicId: true,
-                    displayName: true
-                  }
-                }
-              },
-              orderBy: [{ createdAt: "asc" }, { orderItemId: "asc" }, { unitIndex: "asc" }]
-            }
-          }
+          select: tableAccountSnapshotSelect
+        });
+      }
+      async findAdminSnapshotData(sessionPublicId, restaurantId, db = prisma_default) {
+        return db.tableSession.findFirst({
+          where: {
+            publicId: sessionPublicId,
+            restaurantId
+          },
+          select: tableAccountSnapshotSelect
         });
       }
     };
@@ -23776,11 +23996,119 @@ var init_tableAccountSessionMiddleware = __esm({
   }
 });
 
+// src/modules/tableAccount/domain/tablePaymentAllocation.ts
+function isReservationCurrent(expiresAt, now) {
+  if (!expiresAt) {
+    return true;
+  }
+  const parsed = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+  return Number.isFinite(parsed.getTime()) && parsed.getTime() > now.getTime();
+}
+function calculateTableBillItemLedger({
+  unitPriceCents,
+  projectedStatus,
+  allocations,
+  canceled = false,
+  now = /* @__PURE__ */ new Date()
+}) {
+  const safeUnitPrice = assertMoneyCents(unitPriceCents, "pre\xE7o unit\xE1rio");
+  if (canceled || projectedStatus === "REFUNDED") {
+    return {
+      unitPriceCents: safeUnitPrice,
+      paidCents: 0,
+      reservedCents: 0,
+      processingCents: 0,
+      availableCents: 0,
+      projectedStatus: projectedStatus === "REFUNDED" ? "REFUNDED" : "UNPAID"
+    };
+  }
+  if (allocations.length === 0) {
+    const paidCents2 = projectedStatus === "PAID" ? safeUnitPrice : 0;
+    const reservedCents2 = projectedStatus === "RESERVED" ? safeUnitPrice : 0;
+    const processingCents2 = projectedStatus === "PROCESSING" ? safeUnitPrice : 0;
+    return {
+      unitPriceCents: safeUnitPrice,
+      paidCents: paidCents2,
+      reservedCents: reservedCents2,
+      processingCents: processingCents2,
+      availableCents: Math.max(
+        0,
+        safeUnitPrice - paidCents2 - reservedCents2 - processingCents2
+      ),
+      projectedStatus
+    };
+  }
+  let paidCents = 0;
+  let reservedCents = 0;
+  let processingCents = 0;
+  allocations.forEach((allocation, index) => {
+    const amountCents = assertMoneyCents(allocation.amountCents, `aloca\xE7\xE3o[${index}]`);
+    if (allocation.intentStatus === "PAID") {
+      paidCents = sumMoneyCents([paidCents, amountCents]);
+      return;
+    }
+    if (allocation.intentStatus === "RESERVED" && isReservationCurrent(allocation.expiresAt, now)) {
+      reservedCents = sumMoneyCents([reservedCents, amountCents]);
+      return;
+    }
+    if (allocation.intentStatus === "PROCESSING" && isReservationCurrent(allocation.expiresAt, now)) {
+      processingCents = sumMoneyCents([processingCents, amountCents]);
+    }
+  });
+  const committedCents = sumMoneyCents([paidCents, reservedCents, processingCents]);
+  if (committedCents > safeUnitPrice) {
+    throw new RangeError("As aloca\xE7\xF5es financeiras ultrapassam o valor do item.");
+  }
+  const availableCents = safeUnitPrice - committedCents;
+  const nextProjectedStatus = paidCents === safeUnitPrice ? "PAID" : processingCents > 0 ? "PROCESSING" : reservedCents > 0 ? "RESERVED" : "UNPAID";
+  return {
+    unitPriceCents: safeUnitPrice,
+    paidCents,
+    reservedCents,
+    processingCents,
+    availableCents,
+    projectedStatus: nextProjectedStatus
+  };
+}
+function allocateCentsAcrossTableBillItems(items, requestedCents) {
+  const safeRequested = assertMoneyCents(requestedCents, "valor solicitado");
+  if (safeRequested === 0) {
+    throw new RangeError("O pagamento deve possuir valor maior que zero.");
+  }
+  let remainingCents = safeRequested;
+  const result = [];
+  for (const item of items) {
+    if (remainingCents === 0) {
+      break;
+    }
+    const availableCents = assertMoneyCents(item.availableCents, "saldo dispon\xEDvel do item");
+    const amountCents = Math.min(availableCents, remainingCents);
+    if (amountCents <= 0) {
+      continue;
+    }
+    result.push({
+      tableBillItemId: item.id,
+      tableBillItemPublicId: item.publicId,
+      amountCents
+    });
+    remainingCents -= amountCents;
+  }
+  if (remainingCents !== 0) {
+    throw new RangeError("O saldo dispon\xEDvel n\xE3o cobre o valor solicitado.");
+  }
+  return result;
+}
+function sumAvailableTableBillItemCents(items) {
+  return sumMoneyCents(items.map((item) => item.availableCents));
+}
+var init_tablePaymentAllocation = __esm({
+  "src/modules/tableAccount/domain/tablePaymentAllocation.ts"() {
+    init_tableAccountRules();
+  }
+});
+
 // src/modules/tableAccount/services/GetCurrentTableAccountService.ts
-import {
-  OrderRefundStatus as OrderRefundStatus7,
-  OrderStatus as OrderStatus19
-} from "@prisma/client";
+import { OrderRefundStatus as OrderRefundStatus7, OrderStatus as OrderStatus19 } from "@prisma/client";
 function toSafeMoneyCents(value, fieldName) {
   return assertMoneyCents(Number(value), fieldName);
 }
@@ -23793,12 +24121,111 @@ function resolveFinancialStatus(item) {
   }
   return item.financialStatus;
 }
+function buildTableAccountBaseSnapshot(data, now = /* @__PURE__ */ new Date()) {
+  const paymentIntents = data.paymentIntents || [];
+  const normalizedItems = data.billItems.map((item) => {
+    const unitPriceCents = toSafeMoneyCents(item.unitPriceCents, `valor do item ${item.publicId}`);
+    const orderStatus = operationalStatusMap[item.order.status];
+    const financialStatus = resolveFinancialStatus(item);
+    const canceled = Boolean(item.canceledAt) || orderStatus === "CANCELED";
+    const paymentAllocations = item.paymentAllocations || [];
+    const ledger = calculateTableBillItemLedger({
+      unitPriceCents,
+      projectedStatus: financialStatus,
+      canceled,
+      allocations: paymentAllocations.map((allocation) => ({
+        amountCents: toSafeMoneyCents(allocation.amountCents, `aloca\xE7\xE3o do item ${item.publicId}`),
+        intentStatus: allocation.paymentIntent.status,
+        expiresAt: allocation.paymentIntent.expiresAt
+      }))
+    });
+    return {
+      canceled,
+      hasAllocations: paymentAllocations.length > 0,
+      unitPriceCents,
+      financialStatus: ledger.projectedStatus,
+      ledger,
+      dto: {
+        publicId: item.publicId,
+        orderPublicId: item.order.publicId,
+        productName: item.productName,
+        unitIndex: item.unitIndex,
+        unitPriceCents,
+        paidCents: ledger.paidCents,
+        reservedCents: ledger.reservedCents,
+        processingCents: ledger.processingCents,
+        availableCents: ledger.availableCents,
+        financialStatus: ledger.projectedStatus,
+        orderStatus,
+        orderedByParticipantPublicId: item.participant.publicId,
+        orderedByDisplayName: item.participant.displayName?.trim() || "Cliente da mesa"
+      }
+    };
+  });
+  const consumedCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.canceled && item.financialStatus !== "REFUNDED").map((item) => item.unitPriceCents)
+  );
+  const legacyGrossPaidCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.hasAllocations && ["PAID", "REFUNDED"].includes(item.financialStatus)).map((item) => item.unitPriceCents)
+  );
+  const legacyRefundedCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.hasAllocations && item.financialStatus === "REFUNDED").map((item) => item.unitPriceCents)
+  );
+  const grossPaidCents = sumMoneyCents([
+    legacyGrossPaidCents,
+    ...paymentIntents.filter((payment) => ["PAID", "REFUNDED"].includes(payment.status)).map((payment) => toSafeMoneyCents(payment.totalCents, `pagamento ${payment.publicId}`))
+  ]);
+  const refundedCents = sumMoneyCents([
+    legacyRefundedCents,
+    ...paymentIntents.filter((payment) => payment.status === "REFUNDED").map((payment) => toSafeMoneyCents(payment.totalCents, `estorno ${payment.publicId}`))
+  ]);
+  const reservedCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.reservedCents)
+  );
+  const processingCents = sumMoneyCents(
+    normalizedItems.filter((item) => !item.canceled).map((item) => item.ledger.processingCents)
+  );
+  const serviceFeeCents = 0;
+  const balance = calculateTableAccountBalance({
+    consumedCents,
+    serviceFeeCents,
+    grossPaidCents,
+    refundedCents
+  });
+  return {
+    contractVersion: TABLE_ACCOUNT_CONTRACT_VERSION,
+    summary: {
+      sessionPublicId: data.publicId,
+      tableNumber: data.table.number,
+      status: data.status,
+      consumedCents,
+      serviceFeeCents,
+      grossPaidCents,
+      refundedCents,
+      netPaidCents: balance.netPaidCents,
+      reservedCents,
+      processingCents,
+      remainingCents: balance.remainingCents,
+      overpaidCents: balance.overpaidCents,
+      participantsCount: data.participants.filter((participant) => participant.status === "ACTIVE").length
+    },
+    participants: data.participants.map((participant) => ({
+      publicId: participant.publicId,
+      displayName: participant.displayName,
+      status: participant.status,
+      joinedAt: participant.joinedAt.toISOString(),
+      leftAt: participant.leftAt?.toISOString() || null
+    })),
+    items: normalizedItems.map((item) => item.dto)
+  };
+}
 var operationalStatusMap, TableAccountAccessError, GetCurrentTableAccountService, GetCurrentTableAccountService_default;
 var init_GetCurrentTableAccountService = __esm({
   "src/modules/tableAccount/services/GetCurrentTableAccountService.ts"() {
     init_tableAccountContracts();
     init_tableAccountRules();
     init_TableAccountRepository();
+    init_tablePaymentAllocation();
     operationalStatusMap = {
       [OrderStatus19.PENDENTE]: "PENDING",
       [OrderStatus19.PREPARANDO]: "PREPARING",
@@ -23829,80 +24256,19 @@ var init_GetCurrentTableAccountService = __esm({
         if (!data) {
           throw new TableAccountAccessError();
         }
-        const normalizedItems = data.billItems.map((item) => {
-          const unitPriceCents = toSafeMoneyCents(
-            item.unitPriceCents,
-            `valor do item ${item.publicId}`
-          );
-          const orderStatus = operationalStatusMap[item.order.status];
-          const financialStatus = resolveFinancialStatus(item);
-          const canceled = Boolean(item.canceledAt) || orderStatus === "CANCELED";
-          return {
-            canceled,
-            unitPriceCents,
-            financialStatus,
-            dto: {
-              publicId: item.publicId,
-              orderPublicId: item.order.publicId,
-              productName: item.productName,
-              unitIndex: item.unitIndex,
-              unitPriceCents,
-              financialStatus,
-              orderStatus,
-              orderedByParticipantPublicId: item.participant.publicId,
-              orderedByDisplayName: item.participant.displayName?.trim() || "Cliente da mesa"
-            }
-          };
-        });
-        const consumedCents = sumMoneyCents(
-          normalizedItems.filter((item) => !item.canceled).map((item) => item.unitPriceCents)
-        );
-        const grossPaidCents = sumMoneyCents(
-          normalizedItems.filter((item) => ["PAID", "REFUNDED"].includes(item.financialStatus)).map((item) => item.unitPriceCents)
-        );
-        const refundedCents = sumMoneyCents(
-          normalizedItems.filter((item) => item.financialStatus === "REFUNDED").map((item) => item.unitPriceCents)
-        );
-        const reservedCents = sumMoneyCents(
-          normalizedItems.filter((item) => !item.canceled && item.financialStatus === "RESERVED").map((item) => item.unitPriceCents)
-        );
-        const processingCents = sumMoneyCents(
-          normalizedItems.filter((item) => !item.canceled && item.financialStatus === "PROCESSING").map((item) => item.unitPriceCents)
-        );
-        const serviceFeeCents = 0;
-        const balance = calculateTableAccountBalance({
-          consumedCents,
-          serviceFeeCents,
-          grossPaidCents,
-          refundedCents
-        });
+        const now = /* @__PURE__ */ new Date();
+        const paymentIntents = data.paymentIntents || [];
         return {
-          contractVersion: TABLE_ACCOUNT_CONTRACT_VERSION,
+          ...buildTableAccountBaseSnapshot(data, now),
           currentParticipantPublicId: input.participantPublicId,
-          summary: {
-            sessionPublicId: data.publicId,
-            tableNumber: data.table.number,
-            status: data.status,
-            consumedCents,
-            serviceFeeCents,
-            grossPaidCents,
-            refundedCents,
-            netPaidCents: balance.netPaidCents,
-            reservedCents,
-            processingCents,
-            remainingCents: balance.remainingCents,
-            overpaidCents: balance.overpaidCents,
-            participantsCount: data.participants.filter((participant) => participant.status === "ACTIVE").length
-          },
-          participants: data.participants.map((participant) => ({
-            publicId: participant.publicId,
-            displayName: participant.displayName,
-            status: participant.status,
-            joinedAt: participant.joinedAt.toISOString(),
-            leftAt: participant.leftAt?.toISOString() || null
-          })),
-          items: normalizedItems.map((item) => item.dto),
-          payments: []
+          payments: paymentIntents.map((payment) => ({
+            publicId: payment.publicId,
+            payerParticipantPublicId: payment.payerParticipant.publicId,
+            selectionMode: payment.selectionMode,
+            status: ["RESERVED", "PROCESSING"].includes(payment.status) && payment.expiresAt <= now ? "EXPIRED" : payment.status,
+            totalCents: toSafeMoneyCents(payment.totalCents, `pagamento ${payment.publicId}`),
+            createdAt: payment.createdAt.toISOString()
+          }))
         };
       }
     };
@@ -23938,6 +24304,1662 @@ var init_GetCurrentTableAccountController = __esm({
   }
 });
 
+// src/modules/tableAccount/domain/tablePaymentPlan.ts
+function buildTablePaymentPlan(input) {
+  const eligibleItems = input.items.filter(
+    (item) => !item.canceled && item.projectedStatus !== "REFUNDED" && item.availableCents > 0
+  );
+  const activeBlockers = input.items.filter(
+    (item) => !item.canceled && (item.reservedCents > 0 || item.processingCents > 0)
+  );
+  let selected;
+  if (input.payment.selectionMode === "SELECTED_ITEMS") {
+    const requestedIds = new Set(input.payment.billItemPublicIds || []);
+    selected = eligibleItems.filter((item) => requestedIds.has(item.publicId));
+    const fullyAvailable = selected.every(
+      (item) => item.availableCents === item.unitPriceCents - item.paidCents
+    );
+    if (selected.length !== requestedIds.size || !fullyAvailable) {
+      throw new TablePaymentPlanError(
+        "Um ou mais itens j\xE1 foram pagos, reservados ou n\xE3o pertencem a esta mesa.",
+        "BILL_ITEM_UNAVAILABLE"
+      );
+    }
+  } else if (input.payment.selectionMode === "MY_ITEMS") {
+    if (activeBlockers.some((item) => item.participantId === input.participantId)) {
+      throw new TablePaymentPlanError(
+        "Seus itens j\xE1 possuem um pagamento em andamento. Aguarde ou atualize a conta.",
+        "PARTICIPANT_BALANCE_RESERVED"
+      );
+    }
+    selected = eligibleItems.filter((item) => item.participantId === input.participantId);
+  } else {
+    if (activeBlockers.length > 0) {
+      throw new TablePaymentPlanError(
+        "J\xE1 existe outro pagamento em andamento nesta mesa. Aguarde ou atualize a conta.",
+        "TABLE_BALANCE_RESERVED"
+      );
+    }
+    selected = eligibleItems;
+  }
+  const selectedAvailableCents = sumAvailableTableBillItemCents(selected);
+  if (selectedAvailableCents <= 0) {
+    throw new TablePaymentPlanError(
+      "N\xE3o h\xE1 saldo dispon\xEDvel para esta forma de pagamento.",
+      "NO_AVAILABLE_BALANCE"
+    );
+  }
+  const subtotalCents = input.payment.selectionMode === "EQUAL_SPLIT" ? splitCentsEqually(selectedAvailableCents, Number(input.payment.splitCount))[0] : selectedAvailableCents;
+  return {
+    subtotalCents,
+    allocations: allocateCentsAcrossTableBillItems(selected, subtotalCents),
+    selectedItemPublicIds: selected.map((item) => item.publicId)
+  };
+}
+var TablePaymentPlanError;
+var init_tablePaymentPlan = __esm({
+  "src/modules/tableAccount/domain/tablePaymentPlan.ts"() {
+    init_tableAccountRules();
+    init_tablePaymentAllocation();
+    TablePaymentPlanError = class extends Error {
+      constructor(message, code) {
+        super(message);
+        this.code = code;
+        this.name = "TablePaymentPlanError";
+      }
+      code;
+    };
+  }
+});
+
+// src/modules/tableAccount/providers/FakePaymentProvider.ts
+import { timingSafeEqual } from "crypto";
+function safeSecretMatches(received, expected) {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+var WEBHOOK_STATUSES, FakePaymentProvider, FakePaymentProvider_default;
+var init_FakePaymentProvider = __esm({
+  "src/modules/tableAccount/providers/FakePaymentProvider.ts"() {
+    init_tableAccountRules();
+    WEBHOOK_STATUSES = /* @__PURE__ */ new Set([
+      "PENDING",
+      "PAID",
+      "FAILED",
+      "EXPIRED",
+      "CANCELED",
+      "REFUNDED"
+    ]);
+    FakePaymentProvider = class {
+      constructor(options = {}) {
+        this.options = options;
+      }
+      options;
+      code = "FAKE_TABLE";
+      payments = /* @__PURE__ */ new Map();
+      assertEnabled() {
+        const enabled = this.options.enabled ?? (process.env.NODE_ENV === "test" || String(process.env.NODE_ENV) !== "production");
+        if (!enabled || process.env.NODE_ENV === "production") {
+          throw new Error("O provedor de pagamento simulado est\xE1 desativado neste ambiente.");
+        }
+      }
+      async createPayment(input) {
+        this.assertEnabled();
+        const amountCents = assertMoneyCents(input.amountCents, "valor do pagamento");
+        if (amountCents === 0) {
+          throw new Error("O pagamento deve possuir valor maior que zero.");
+        }
+        const externalId = `fake-table:${input.intentPublicId}`;
+        const existing = this.payments.get(externalId);
+        if (existing) {
+          if (existing.amountCents !== amountCents) {
+            throw new Error("A chave do pagamento simulado j\xE1 foi usada com outro valor.");
+          }
+          return { ...existing };
+        }
+        const payment = {
+          externalId,
+          status: "PENDING",
+          amountCents,
+          checkoutUrl: `/pagamentos/mesa/simulado/${encodeURIComponent(externalId)}`,
+          expiresAt: new Date(input.expiresAt)
+        };
+        this.payments.set(externalId, payment);
+        return { ...payment };
+      }
+      async getPayment(externalId) {
+        this.assertEnabled();
+        const payment = this.payments.get(externalId);
+        if (!payment) {
+          throw new Error("Pagamento simulado n\xE3o encontrado.");
+        }
+        return { ...payment };
+      }
+      async cancelPayment(input) {
+        return this.changeStatus(input.externalId, "CANCELED");
+      }
+      async refundPayment(input) {
+        return this.changeStatus(input.externalId, "REFUNDED");
+      }
+      async changeStatus(externalId, status) {
+        this.assertEnabled();
+        const current = await this.getPayment(externalId);
+        const updated = { ...current, status };
+        this.payments.set(externalId, updated);
+        return { ...updated };
+      }
+      async validateWebhook(input) {
+        this.assertEnabled();
+        const expectedSecret = String(
+          this.options.webhookSecret || process.env.FAKE_TABLE_PAYMENT_WEBHOOK_SECRET || ""
+        ).trim();
+        const receivedSecret = String(input.headers["x-fake-table-payment-secret"] || "").trim();
+        if (!expectedSecret || !safeSecretMatches(receivedSecret, expectedSecret)) {
+          throw new Error("Assinatura do webhook simulado inv\xE1lida.");
+        }
+        const body = input.body || {};
+        const eventId = String(body.eventId || "").trim();
+        const externalId = String(body.externalId || "").trim();
+        const status = String(body.status || "").trim().toUpperCase();
+        const amountCents = Number(body.amountCents);
+        const occurredAt = new Date(String(body.occurredAt || ""));
+        if (!eventId || !externalId || !WEBHOOK_STATUSES.has(status) || !Number.isSafeInteger(amountCents) || amountCents < 0 || !Number.isFinite(occurredAt.getTime())) {
+          throw new Error("Evento do webhook simulado inv\xE1lido.");
+        }
+        const payment = await this.getPayment(externalId);
+        if (payment.amountCents !== amountCents) {
+          throw new Error("O valor do evento n\xE3o corresponde ao pagamento simulado.");
+        }
+        this.payments.set(externalId, { ...payment, status });
+        return { eventId, externalId, status, amountCents, occurredAt };
+      }
+    };
+    FakePaymentProvider_default = new FakePaymentProvider();
+  }
+});
+
+// src/modules/tableAccount/services/tablePaymentLedger.ts
+import {
+  OrderStatus as OrderStatus20,
+  Prisma as Prisma8,
+  TableOrderFinancialStatus as TableOrderFinancialStatus4,
+  TablePaymentEventType,
+  TablePaymentIntentStatus
+} from "@prisma/client";
+function bigintToMoneyCents(value, fieldName) {
+  return assertMoneyCents(Number(value), fieldName);
+}
+async function lockTablePaymentSession(tx, restaurantId, tableSessionId) {
+  await tx.$queryRaw(
+    Prisma8.sql`SELECT pg_advisory_xact_lock(${restaurantId}, ${tableSessionId})`
+  );
+}
+async function loadTablePaymentLedgerItems(db, restaurantId, tableSessionId, now = /* @__PURE__ */ new Date()) {
+  const items = await db.tableBillItem.findMany({
+    where: {
+      restaurantId,
+      tableSessionId
+    },
+    select: {
+      id: true,
+      publicId: true,
+      participantId: true,
+      orderId: true,
+      unitPriceCents: true,
+      financialStatus: true,
+      canceledAt: true,
+      createdAt: true,
+      order: {
+        select: {
+          status: true
+        }
+      },
+      paymentAllocations: {
+        select: {
+          amountCents: true,
+          paymentIntent: {
+            select: {
+              status: true,
+              expiresAt: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }]
+  });
+  return items.map((item) => {
+    const canceled = Boolean(item.canceledAt) || item.order.status === OrderStatus20.CANCELADO;
+    const ledger = calculateTableBillItemLedger({
+      unitPriceCents: bigintToMoneyCents(
+        item.unitPriceCents,
+        `valor do item financeiro ${item.publicId}`
+      ),
+      projectedStatus: item.financialStatus,
+      canceled,
+      now,
+      allocations: item.paymentAllocations.map((allocation) => ({
+        amountCents: bigintToMoneyCents(
+          allocation.amountCents,
+          `aloca\xE7\xE3o do item ${item.publicId}`
+        ),
+        intentStatus: allocation.paymentIntent.status,
+        expiresAt: allocation.paymentIntent.expiresAt
+      }))
+    });
+    return {
+      id: item.id,
+      publicId: item.publicId,
+      participantId: item.participantId,
+      orderId: item.orderId,
+      createdAt: item.createdAt,
+      canceled,
+      currentProjectedStatus: item.financialStatus,
+      ...ledger
+    };
+  });
+}
+async function projectTableSessionFinancialState(tx, restaurantId, tableSessionId, now = /* @__PURE__ */ new Date()) {
+  const items = await loadTablePaymentLedgerItems(tx, restaurantId, tableSessionId, now);
+  for (const item of items) {
+    if (item.currentProjectedStatus !== item.projectedStatus) {
+      await tx.tableBillItem.update({
+        where: { id: item.id },
+        data: {
+          financialStatus: item.projectedStatus,
+          paidAt: item.projectedStatus === "PAID" ? now : void 0
+        }
+      });
+    }
+  }
+  const orders = await tx.order.findMany({
+    where: {
+      restaurantId,
+      tableSessionId
+    },
+    select: {
+      id: true,
+      status: true,
+      paid: true,
+      paidAt: true,
+      tableFinancialStatus: true
+    }
+  });
+  for (const order of orders) {
+    if (order.status === OrderStatus20.CANCELADO) {
+      continue;
+    }
+    const activeItems = items.filter(
+      (item) => item.orderId === order.id && !item.canceled && item.projectedStatus !== "REFUNDED"
+    );
+    if (activeItems.length === 0) {
+      continue;
+    }
+    const allPaid = activeItems.every(
+      (item) => item.paidCents === item.unitPriceCents && item.availableCents === 0
+    );
+    const hasProcessing = activeItems.some((item) => item.processingCents > 0);
+    const hasReservation = activeItems.some((item) => item.reservedCents > 0);
+    const financialStatus = allPaid ? TableOrderFinancialStatus4.PAID : hasProcessing ? TableOrderFinancialStatus4.PROCESSING : hasReservation ? TableOrderFinancialStatus4.RESERVED : TableOrderFinancialStatus4.UNPAID;
+    if (order.paid !== allPaid || order.tableFinancialStatus !== financialStatus || allPaid && !order.paidAt) {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          paid: allPaid,
+          tableFinancialStatus: financialStatus,
+          paidAt: allPaid ? order.paidAt || now : order.paidAt
+        }
+      });
+    }
+  }
+  return items;
+}
+async function expireTablePaymentReservations(tx, restaurantId, tableSessionId, now = /* @__PURE__ */ new Date()) {
+  const expired = await tx.tablePaymentIntent.findMany({
+    where: {
+      restaurantId,
+      tableSessionId,
+      status: {
+        in: [TablePaymentIntentStatus.RESERVED, TablePaymentIntentStatus.PROCESSING]
+      },
+      expiresAt: { lte: now }
+    },
+    select: {
+      id: true,
+      publicId: true,
+      status: true,
+      totalCents: true
+    }
+  });
+  for (const intent of expired) {
+    const updated = await tx.tablePaymentIntent.updateMany({
+      where: {
+        id: intent.id,
+        restaurantId,
+        tableSessionId,
+        status: intent.status
+      },
+      data: {
+        status: TablePaymentIntentStatus.EXPIRED,
+        failedAt: now,
+        failureCode: "RESERVATION_EXPIRED"
+      }
+    });
+    if (updated.count === 1) {
+      await tx.tablePaymentEvent.create({
+        data: {
+          restaurantId,
+          tableSessionId,
+          paymentIntentId: intent.id,
+          deduplicationKey: `table-payment:${intent.publicId}:expired`,
+          type: TablePaymentEventType.EXPIRED,
+          fromStatus: intent.status,
+          toStatus: TablePaymentIntentStatus.EXPIRED,
+          amountCents: intent.totalCents,
+          occurredAt: now
+        }
+      });
+    }
+  }
+  if (expired.length > 0) {
+    await projectTableSessionFinancialState(tx, restaurantId, tableSessionId, now);
+  }
+  return expired.length;
+}
+var init_tablePaymentLedger = __esm({
+  "src/modules/tableAccount/services/tablePaymentLedger.ts"() {
+    init_tableAccountRules();
+    init_tablePaymentAllocation();
+  }
+});
+
+// src/modules/tableAccount/services/tablePaymentSupport.ts
+import { createHash } from "crypto";
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+function buildTablePaymentRequestFingerprint(participantId, input) {
+  return sha256(
+    JSON.stringify({
+      participantId,
+      selectionMode: input.selectionMode,
+      method: input.method,
+      billItemPublicIds: [...input.billItemPublicIds || []].sort(),
+      splitCount: input.splitCount || null,
+      includeOptionalServiceFee: input.includeOptionalServiceFee
+    })
+  );
+}
+function serializeTablePaymentIntent(record, sessionPublicId) {
+  return {
+    publicId: record.publicId,
+    sessionPublicId,
+    payerParticipantPublicId: record.payerParticipant.publicId,
+    selectionMode: record.selectionMode,
+    method: record.method,
+    status: record.status,
+    billItemPublicIds: record.allocations.map((allocation) => allocation.tableBillItem.publicId),
+    subtotalCents: bigintToMoneyCents(
+      record.subtotalCents,
+      `subtotal do pagamento ${record.publicId}`
+    ),
+    serviceFeeCents: bigintToMoneyCents(
+      record.serviceFeeCents,
+      `taxa do pagamento ${record.publicId}`
+    ),
+    totalCents: bigintToMoneyCents(record.totalCents, `total do pagamento ${record.publicId}`),
+    provider: record.provider,
+    externalId: record.providerExternalId,
+    checkoutUrl: record.providerCheckoutUrl,
+    expiresAt: record.expiresAt.toISOString(),
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString()
+  };
+}
+function readAuditReason(metadata) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const reason = metadata.reason;
+  return typeof reason === "string" ? reason : null;
+}
+function serializeTablePaymentIntentForAdmin(record, sessionPublicId) {
+  return {
+    ...serializeTablePaymentIntent(record, sessionPublicId),
+    manualConfirmedAt: record.manualConfirmedAt?.toISOString() || null,
+    manualConfirmedByName: record.manualConfirmedBy?.name || null,
+    events: record.events.map((event) => ({
+      type: event.type,
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      provider: event.provider,
+      providerEventId: event.providerEventId,
+      amountCents: event.amountCents === null ? null : bigintToMoneyCents(event.amountCents, `evento do pagamento ${record.publicId}`),
+      actorName: event.actorUser?.name || null,
+      reason: readAuditReason(event.metadata),
+      occurredAt: event.occurredAt.toISOString()
+    }))
+  };
+}
+var TablePaymentError;
+var init_tablePaymentSupport = __esm({
+  "src/modules/tableAccount/services/tablePaymentSupport.ts"() {
+    init_tablePaymentLedger();
+    TablePaymentError = class extends Error {
+      constructor(message, statusCode = 400, code = "TABLE_PAYMENT_ERROR") {
+        super(message);
+        this.statusCode = statusCode;
+        this.code = code;
+        this.name = "TablePaymentError";
+      }
+      statusCode;
+      code;
+    };
+  }
+});
+
+// src/modules/tableAccount/services/CreateTablePaymentIntentService.ts
+import {
+  Prisma as Prisma9,
+  TablePaymentEventType as TablePaymentEventType2,
+  TablePaymentIntentStatus as TablePaymentIntentStatus2,
+  TablePaymentMethod
+} from "@prisma/client";
+var CreateTablePaymentIntentService, CreateTablePaymentIntentService_default;
+var init_CreateTablePaymentIntentService = __esm({
+  "src/modules/tableAccount/services/CreateTablePaymentIntentService.ts"() {
+    init_prisma();
+    init_tableAccountSchemas();
+    init_tableAccountRules();
+    init_tablePaymentPlan();
+    init_FakePaymentProvider();
+    init_TablePaymentRepository();
+    init_tablePaymentLedger();
+    init_tablePaymentSupport();
+    CreateTablePaymentIntentService = class {
+      constructor(provider = FakePaymentProvider_default, now = () => /* @__PURE__ */ new Date()) {
+        this.provider = provider;
+        this.now = now;
+      }
+      provider;
+      now;
+      async execute(context, rawInput) {
+        const input = createTablePaymentIntentInputSchema.parse(rawInput);
+        const now = this.now();
+        const idempotencyKeyHash = sha256(input.idempotencyKey);
+        const requestFingerprint = buildTablePaymentRequestFingerprint(
+          context.participantId,
+          input
+        );
+        const reservation = await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, context.restaurantId, context.tableSessionId);
+            await expireTablePaymentReservations(
+              tx,
+              context.restaurantId,
+              context.tableSessionId,
+              now
+            );
+            const session = await TablePaymentRepository_default.findSessionParticipantForPayment(
+              context.tableSessionId,
+              context.restaurantId,
+              context.participantId,
+              now,
+              tx
+            );
+            if (!session || session.publicId !== context.sessionPublicId) {
+              throw new TablePaymentError(
+                "Sua participa\xE7\xE3o nesta mesa n\xE3o est\xE1 mais ativa.",
+                403,
+                "TABLE_PARTICIPANT_INACTIVE"
+              );
+            }
+            const existing = await TablePaymentRepository_default.findByIdempotencyHash(
+              context.restaurantId,
+              context.tableSessionId,
+              idempotencyKeyHash,
+              tx
+            );
+            if (existing) {
+              if (existing.payerParticipantId !== context.participantId || existing.requestFingerprint !== requestFingerprint) {
+                throw new TablePaymentError(
+                  "Esta chave de idempot\xEAncia j\xE1 foi usada em outro pagamento.",
+                  409,
+                  "IDEMPOTENCY_KEY_REUSED"
+                );
+              }
+              return { intent: existing, reused: true };
+            }
+            const ledgerItems = await loadTablePaymentLedgerItems(
+              tx,
+              context.restaurantId,
+              context.tableSessionId,
+              now
+            );
+            let plan;
+            try {
+              plan = buildTablePaymentPlan({
+                payment: input,
+                participantId: context.participantId,
+                items: ledgerItems
+              });
+            } catch (error2) {
+              if (error2 instanceof TablePaymentPlanError) {
+                throw new TablePaymentError(error2.message, 409, error2.code);
+              }
+              throw error2;
+            }
+            const subtotalCents = plan.subtotalCents;
+            const serviceFeeCents = 0;
+            const totalCents = sumMoneyCents([subtotalCents, serviceFeeCents]);
+            const allocationSeeds = plan.allocations;
+            const expiresAt = new Date(now.getTime() + 10 * 6e4);
+            const created = await tx.tablePaymentIntent.create({
+              data: {
+                restaurantId: context.restaurantId,
+                tableSessionId: context.tableSessionId,
+                payerParticipantId: context.participantId,
+                selectionMode: input.selectionMode,
+                method: input.method,
+                status: TablePaymentIntentStatus2.RESERVED,
+                splitCount: input.splitCount || null,
+                idempotencyKeyHash,
+                requestFingerprint,
+                subtotalCents: BigInt(subtotalCents),
+                serviceFeeCents: BigInt(serviceFeeCents),
+                totalCents: BigInt(totalCents),
+                expiresAt
+              },
+              select: {
+                id: true,
+                publicId: true
+              }
+            });
+            await tx.tablePaymentAllocation.createMany({
+              data: allocationSeeds.map((allocation) => ({
+                restaurantId: context.restaurantId,
+                tableSessionId: context.tableSessionId,
+                paymentIntentId: created.id,
+                tableBillItemId: allocation.tableBillItemId,
+                amountCents: BigInt(allocation.amountCents)
+              }))
+            });
+            await tx.tablePaymentEvent.create({
+              data: {
+                restaurantId: context.restaurantId,
+                tableSessionId: context.tableSessionId,
+                paymentIntentId: created.id,
+                deduplicationKey: `table-payment:${created.publicId}:created`,
+                type: TablePaymentEventType2.CREATED,
+                fromStatus: null,
+                toStatus: TablePaymentIntentStatus2.RESERVED,
+                amountCents: BigInt(totalCents),
+                occurredAt: now
+              }
+            });
+            await projectTableSessionFinancialState(
+              tx,
+              context.restaurantId,
+              context.tableSessionId,
+              now
+            );
+            const intent = await tx.tablePaymentIntent.findUniqueOrThrow({
+              where: { id: created.id },
+              select: tablePaymentIntentDtoSelect
+            });
+            return { intent, reused: false };
+          },
+          { isolationLevel: Prisma9.TransactionIsolationLevel.Serializable }
+        );
+        const onlineMethod = reservation.intent.method === TablePaymentMethod.PIX || reservation.intent.method === TablePaymentMethod.CARD;
+        if (!onlineMethod || reservation.intent.status !== TablePaymentIntentStatus2.RESERVED || reservation.intent.providerExternalId) {
+          return {
+            payment: serializeTablePaymentIntent(reservation.intent, context.sessionPublicId),
+            idempotentReplay: reservation.reused
+          };
+        }
+        return this.createProviderPayment(context, reservation.intent, reservation.reused);
+      }
+      async createProviderPayment(context, intent, reused) {
+        try {
+          const payment = await this.provider.createPayment({
+            intentPublicId: intent.publicId,
+            amountCents: Number(intent.totalCents),
+            method: intent.method,
+            idempotencyKeyHash: intent.idempotencyKeyHash,
+            expiresAt: intent.expiresAt
+          });
+          const updated = await prisma_default.$transaction(
+            async (tx) => {
+              await lockTablePaymentSession(tx, context.restaurantId, context.tableSessionId);
+              const changed = await tx.tablePaymentIntent.updateMany({
+                where: {
+                  id: intent.id,
+                  restaurantId: context.restaurantId,
+                  tableSessionId: context.tableSessionId,
+                  status: TablePaymentIntentStatus2.RESERVED
+                },
+                data: {
+                  status: TablePaymentIntentStatus2.PROCESSING,
+                  provider: this.provider.code,
+                  providerExternalId: payment.externalId,
+                  providerCheckoutUrl: payment.checkoutUrl,
+                  processingAt: this.now()
+                }
+              });
+              if (changed.count === 1) {
+                await tx.tablePaymentEvent.create({
+                  data: {
+                    restaurantId: context.restaurantId,
+                    tableSessionId: context.tableSessionId,
+                    paymentIntentId: intent.id,
+                    deduplicationKey: `table-payment:${intent.publicId}:processing`,
+                    type: TablePaymentEventType2.PROCESSING,
+                    fromStatus: TablePaymentIntentStatus2.RESERVED,
+                    toStatus: TablePaymentIntentStatus2.PROCESSING,
+                    provider: this.provider.code,
+                    amountCents: intent.totalCents,
+                    occurredAt: this.now()
+                  }
+                });
+                await projectTableSessionFinancialState(
+                  tx,
+                  context.restaurantId,
+                  context.tableSessionId,
+                  this.now()
+                );
+              }
+              return tx.tablePaymentIntent.findUniqueOrThrow({
+                where: { id: intent.id },
+                select: tablePaymentIntentDtoSelect
+              });
+            },
+            { isolationLevel: Prisma9.TransactionIsolationLevel.Serializable }
+          );
+          return {
+            payment: serializeTablePaymentIntent(updated, context.sessionPublicId),
+            idempotentReplay: reused
+          };
+        } catch (error2) {
+          await this.failProviderCreation(context, intent, error2);
+          throw new TablePaymentError(
+            "N\xE3o foi poss\xEDvel iniciar o pagamento online. A reserva foi liberada.",
+            502,
+            "PAYMENT_PROVIDER_UNAVAILABLE"
+          );
+        }
+      }
+      async failProviderCreation(context, intent, error2) {
+        await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, context.restaurantId, context.tableSessionId);
+            const changed = await tx.tablePaymentIntent.updateMany({
+              where: {
+                id: intent.id,
+                restaurantId: context.restaurantId,
+                tableSessionId: context.tableSessionId,
+                status: TablePaymentIntentStatus2.RESERVED
+              },
+              data: {
+                status: TablePaymentIntentStatus2.FAILED,
+                failedAt: this.now(),
+                failureCode: "PROVIDER_CREATE_FAILED"
+              }
+            });
+            if (changed.count === 1) {
+              await tx.tablePaymentEvent.create({
+                data: {
+                  restaurantId: context.restaurantId,
+                  tableSessionId: context.tableSessionId,
+                  paymentIntentId: intent.id,
+                  deduplicationKey: `table-payment:${intent.publicId}:provider-create-failed`,
+                  type: TablePaymentEventType2.FAILED,
+                  fromStatus: TablePaymentIntentStatus2.RESERVED,
+                  toStatus: TablePaymentIntentStatus2.FAILED,
+                  provider: this.provider.code,
+                  amountCents: intent.totalCents,
+                  occurredAt: this.now(),
+                  metadata: {
+                    code: error2 instanceof Error ? error2.name : "UNKNOWN_ERROR"
+                  }
+                }
+              });
+              await projectTableSessionFinancialState(
+                tx,
+                context.restaurantId,
+                context.tableSessionId,
+                this.now()
+              );
+            }
+          },
+          { isolationLevel: Prisma9.TransactionIsolationLevel.Serializable }
+        );
+      }
+    };
+    CreateTablePaymentIntentService_default = new CreateTablePaymentIntentService();
+  }
+});
+
+// src/modules/tableAccount/controllers/CreateTablePaymentIntentController.ts
+import { ZodError as ZodError3 } from "zod";
+var CreateTablePaymentIntentController, CreateTablePaymentIntentController_default;
+var init_CreateTablePaymentIntentController = __esm({
+  "src/modules/tableAccount/controllers/CreateTablePaymentIntentController.ts"() {
+    init_CreateTablePaymentIntentService();
+    init_tablePaymentSupport();
+    CreateTablePaymentIntentController = class {
+      async handle(req, res) {
+        try {
+          const result = await CreateTablePaymentIntentService_default.execute(
+            {
+              tableSessionId: Number(req.tableSession?.id),
+              sessionPublicId: String(req.tableSession?.publicId || ""),
+              restaurantId: Number(req.tableSession?.restaurantId),
+              participantId: Number(req.tableParticipant?.id)
+            },
+            {
+              ...req.body || {},
+              idempotencyKey: String(req.header("idempotency-key") || "").trim() || req.body?.idempotencyKey
+            }
+          );
+          res.setHeader("Cache-Control", "no-store");
+          return res.status(result.idempotentReplay ? 200 : 201).json(result);
+        } catch (error2) {
+          if (error2 instanceof ZodError3) {
+            return res.status(400).json({
+              error: error2.issues[0]?.message || "Dados do pagamento inv\xE1lidos.",
+              code: "INVALID_TABLE_PAYMENT_INPUT"
+            });
+          }
+          if (error2 instanceof TablePaymentError) {
+            return res.status(error2.statusCode).json({ error: error2.message, code: error2.code });
+          }
+          console.error(
+            "[CREATE_TABLE_PAYMENT_INTENT_ERROR]",
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+          return res.status(500).json({
+            error: "N\xE3o foi poss\xEDvel iniciar o pagamento da mesa.",
+            code: "TABLE_PAYMENT_INTERNAL_ERROR"
+          });
+        }
+      }
+    };
+    CreateTablePaymentIntentController_default = new CreateTablePaymentIntentController();
+  }
+});
+
+// src/modules/tableAccount/services/CancelTablePaymentIntentService.ts
+import {
+  Prisma as Prisma10,
+  TablePaymentEventType as TablePaymentEventType3,
+  TablePaymentIntentStatus as TablePaymentIntentStatus3
+} from "@prisma/client";
+var CancelTablePaymentIntentService, CancelTablePaymentIntentService_default;
+var init_CancelTablePaymentIntentService = __esm({
+  "src/modules/tableAccount/services/CancelTablePaymentIntentService.ts"() {
+    init_prisma();
+    init_FakePaymentProvider();
+    init_TablePaymentRepository();
+    init_tablePaymentLedger();
+    init_tablePaymentSupport();
+    CancelTablePaymentIntentService = class {
+      constructor(provider = FakePaymentProvider_default, now = () => /* @__PURE__ */ new Date()) {
+        this.provider = provider;
+        this.now = now;
+      }
+      provider;
+      now;
+      async execute(input) {
+        const now = this.now();
+        const result = await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, input.restaurantId, input.tableSessionId);
+            await expireTablePaymentReservations(
+              tx,
+              input.restaurantId,
+              input.tableSessionId,
+              now
+            );
+            const intent = await TablePaymentRepository_default.findOwnedByPublicId(
+              input.publicId,
+              input.restaurantId,
+              input.tableSessionId,
+              input.participantId,
+              tx
+            );
+            if (!intent) {
+              throw new TablePaymentError(
+                "Pagamento n\xE3o encontrado nesta participa\xE7\xE3o.",
+                404,
+                "TABLE_PAYMENT_NOT_FOUND"
+              );
+            }
+            if (intent.status === TablePaymentIntentStatus3.CANCELED) {
+              return { intent, previousStatus: intent.status, changed: false };
+            }
+            if (intent.status !== TablePaymentIntentStatus3.RESERVED && intent.status !== TablePaymentIntentStatus3.PROCESSING) {
+              throw new TablePaymentError(
+                "Este pagamento n\xE3o pode mais ser cancelado pelo cliente.",
+                409,
+                "TABLE_PAYMENT_NOT_CANCELABLE"
+              );
+            }
+            const changed = await tx.tablePaymentIntent.updateMany({
+              where: {
+                id: intent.id,
+                restaurantId: input.restaurantId,
+                tableSessionId: input.tableSessionId,
+                payerParticipantId: input.participantId,
+                status: intent.status
+              },
+              data: {
+                status: TablePaymentIntentStatus3.CANCELED,
+                canceledAt: now,
+                failureCode: "CANCELED_BY_PAYER"
+              }
+            });
+            if (changed.count !== 1) {
+              throw new TablePaymentError(
+                "O pagamento foi atualizado por outra opera\xE7\xE3o. Atualize a conta.",
+                409,
+                "TABLE_PAYMENT_CONFLICT"
+              );
+            }
+            await tx.tablePaymentEvent.create({
+              data: {
+                restaurantId: input.restaurantId,
+                tableSessionId: input.tableSessionId,
+                paymentIntentId: intent.id,
+                deduplicationKey: `table-payment:${intent.publicId}:canceled-by-payer`,
+                type: TablePaymentEventType3.CANCELED,
+                fromStatus: intent.status,
+                toStatus: TablePaymentIntentStatus3.CANCELED,
+                provider: intent.provider,
+                amountCents: intent.totalCents,
+                occurredAt: now
+              }
+            });
+            await projectTableSessionFinancialState(
+              tx,
+              input.restaurantId,
+              input.tableSessionId,
+              now
+            );
+            const updated = await tx.tablePaymentIntent.findUniqueOrThrow({
+              where: { id: intent.id },
+              select: tablePaymentIntentDtoSelect
+            });
+            return { intent: updated, previousStatus: intent.status, changed: true };
+          },
+          { isolationLevel: Prisma10.TransactionIsolationLevel.Serializable }
+        );
+        let providerCancellationPending = false;
+        if (result.changed && result.previousStatus === TablePaymentIntentStatus3.PROCESSING && result.intent.provider === this.provider.code && result.intent.providerExternalId) {
+          try {
+            await this.provider.cancelPayment({
+              externalId: result.intent.providerExternalId,
+              idempotencyKey: `cancel:${result.intent.publicId}`
+            });
+          } catch (error2) {
+            providerCancellationPending = true;
+            console.error(
+              "[CANCEL_TABLE_PAYMENT_PROVIDER_ERROR]",
+              error2 instanceof Error ? error2.name : "UNKNOWN_ERROR"
+            );
+          }
+        }
+        return {
+          payment: serializeTablePaymentIntent(result.intent, input.sessionPublicId),
+          providerCancellationPending
+        };
+      }
+    };
+    CancelTablePaymentIntentService_default = new CancelTablePaymentIntentService();
+  }
+});
+
+// src/modules/tableAccount/controllers/CancelTablePaymentIntentController.ts
+var CancelTablePaymentIntentController, CancelTablePaymentIntentController_default;
+var init_CancelTablePaymentIntentController = __esm({
+  "src/modules/tableAccount/controllers/CancelTablePaymentIntentController.ts"() {
+    init_CancelTablePaymentIntentService();
+    init_tablePaymentSupport();
+    CancelTablePaymentIntentController = class {
+      async handle(req, res) {
+        try {
+          const result = await CancelTablePaymentIntentService_default.execute({
+            publicId: String(req.params.publicId || "").trim(),
+            tableSessionId: Number(req.tableSession?.id),
+            sessionPublicId: String(req.tableSession?.publicId || ""),
+            restaurantId: Number(req.tableSession?.restaurantId),
+            participantId: Number(req.tableParticipant?.id)
+          });
+          res.setHeader("Cache-Control", "no-store");
+          return res.json(result);
+        } catch (error2) {
+          if (error2 instanceof TablePaymentError) {
+            return res.status(error2.statusCode).json({ error: error2.message, code: error2.code });
+          }
+          console.error(
+            "[CANCEL_TABLE_PAYMENT_ERROR]",
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+          return res.status(500).json({ error: "N\xE3o foi poss\xEDvel cancelar este pagamento." });
+        }
+      }
+    };
+    CancelTablePaymentIntentController_default = new CancelTablePaymentIntentController();
+  }
+});
+
+// src/modules/tableAccount/services/ConfirmManualTablePaymentService.ts
+import {
+  Prisma as Prisma11,
+  TablePaymentEventType as TablePaymentEventType4,
+  TablePaymentIntentStatus as TablePaymentIntentStatus4,
+  TablePaymentMethod as TablePaymentMethod2
+} from "@prisma/client";
+var ConfirmManualTablePaymentService, ConfirmManualTablePaymentService_default;
+var init_ConfirmManualTablePaymentService = __esm({
+  "src/modules/tableAccount/services/ConfirmManualTablePaymentService.ts"() {
+    init_prisma();
+    init_tableAccountRules();
+    init_TablePaymentRepository();
+    init_tablePaymentLedger();
+    init_tablePaymentSupport();
+    ConfirmManualTablePaymentService = class {
+      constructor(now = () => /* @__PURE__ */ new Date()) {
+        this.now = now;
+      }
+      now;
+      async execute(input) {
+        const restaurantId = Number(input.actor.restaurantId || 0);
+        if (!canConfirmManualTablePayment(input.actor, restaurantId)) {
+          throw new TablePaymentError(
+            "Somente o administrador ou um gar\xE7om deste restaurante pode confirmar o pagamento.",
+            403,
+            "MANUAL_PAYMENT_FORBIDDEN"
+          );
+        }
+        const initial = await TablePaymentRepository_default.findForStaffByPublicId(
+          input.publicId,
+          restaurantId
+        );
+        if (!initial) {
+          throw new TablePaymentError(
+            "Pagamento presencial n\xE3o encontrado neste restaurante.",
+            404,
+            "TABLE_PAYMENT_NOT_FOUND"
+          );
+        }
+        const now = this.now();
+        const updated = await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, restaurantId, initial.tableSessionId);
+            await expireTablePaymentReservations(tx, restaurantId, initial.tableSessionId, now);
+            const intent = await TablePaymentRepository_default.findForStaffByPublicId(
+              input.publicId,
+              restaurantId,
+              tx
+            );
+            if (!intent) {
+              throw new TablePaymentError(
+                "Pagamento presencial n\xE3o encontrado neste restaurante.",
+                404,
+                "TABLE_PAYMENT_NOT_FOUND"
+              );
+            }
+            const manualMethod = intent.method === TablePaymentMethod2.CASH || intent.method === TablePaymentMethod2.CARD_MACHINE;
+            if (!manualMethod) {
+              throw new TablePaymentError(
+                "Somente pagamentos em dinheiro ou maquininha podem ser confirmados manualmente.",
+                409,
+                "NOT_A_MANUAL_PAYMENT"
+              );
+            }
+            if (intent.status === TablePaymentIntentStatus4.PAID && intent.manualConfirmedById === input.actor.id) {
+              return intent;
+            }
+            if (intent.status !== TablePaymentIntentStatus4.RESERVED && intent.status !== TablePaymentIntentStatus4.PROCESSING) {
+              throw new TablePaymentError(
+                "Este pagamento n\xE3o est\xE1 mais aguardando confirma\xE7\xE3o.",
+                409,
+                "MANUAL_PAYMENT_NOT_PENDING"
+              );
+            }
+            const changed = await tx.tablePaymentIntent.updateMany({
+              where: {
+                id: intent.id,
+                restaurantId,
+                tableSessionId: intent.tableSessionId,
+                status: intent.status
+              },
+              data: {
+                status: TablePaymentIntentStatus4.PAID,
+                paidAt: now,
+                manualConfirmedAt: now,
+                manualConfirmedById: input.actor.id
+              }
+            });
+            if (changed.count !== 1) {
+              throw new TablePaymentError(
+                "O pagamento foi atualizado por outra opera\xE7\xE3o. Atualize a conta.",
+                409,
+                "TABLE_PAYMENT_CONFLICT"
+              );
+            }
+            await tx.tablePaymentEvent.create({
+              data: {
+                restaurantId,
+                tableSessionId: intent.tableSessionId,
+                paymentIntentId: intent.id,
+                deduplicationKey: `table-payment:${intent.publicId}:manual-confirmed`,
+                type: TablePaymentEventType4.MANUAL_CONFIRMED,
+                fromStatus: intent.status,
+                toStatus: TablePaymentIntentStatus4.PAID,
+                amountCents: intent.totalCents,
+                actorUserId: input.actor.id,
+                occurredAt: now
+              }
+            });
+            await projectTableSessionFinancialState(tx, restaurantId, intent.tableSessionId, now);
+            return tx.tablePaymentIntent.findUniqueOrThrow({
+              where: { id: intent.id },
+              select: tablePaymentIntentDtoSelect
+            });
+          },
+          { isolationLevel: Prisma11.TransactionIsolationLevel.Serializable }
+        );
+        return {
+          payment: serializeTablePaymentIntent(updated, initial.tableSession.publicId)
+        };
+      }
+    };
+    ConfirmManualTablePaymentService_default = new ConfirmManualTablePaymentService();
+  }
+});
+
+// src/modules/tableAccount/controllers/ConfirmManualTablePaymentController.ts
+var ConfirmManualTablePaymentController, ConfirmManualTablePaymentController_default;
+var init_ConfirmManualTablePaymentController = __esm({
+  "src/modules/tableAccount/controllers/ConfirmManualTablePaymentController.ts"() {
+    init_ConfirmManualTablePaymentService();
+    init_tablePaymentSupport();
+    ConfirmManualTablePaymentController = class {
+      async handle(req, res) {
+        try {
+          const result = await ConfirmManualTablePaymentService_default.execute({
+            publicId: String(req.params.publicId || "").trim(),
+            actor: {
+              id: Number(req.user?.id),
+              role: String(req.user?.role || ""),
+              subRole: req.user?.subRole || null,
+              restaurantId: Number(req.user?.restaurantId || 0)
+            }
+          });
+          res.setHeader("Cache-Control", "no-store");
+          return res.json(result);
+        } catch (error2) {
+          if (error2 instanceof TablePaymentError) {
+            return res.status(error2.statusCode).json({ error: error2.message, code: error2.code });
+          }
+          console.error(
+            "[CONFIRM_MANUAL_TABLE_PAYMENT_ERROR]",
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+          return res.status(500).json({ error: "N\xE3o foi poss\xEDvel confirmar este pagamento." });
+        }
+      }
+    };
+    ConfirmManualTablePaymentController_default = new ConfirmManualTablePaymentController();
+  }
+});
+
+// src/modules/tableAccount/domain/tablePaymentProviderTransition.ts
+function resolveTablePaymentProviderTransition(currentStatus, providerStatus) {
+  const latePayment = providerStatus === "PAID" && latePaymentStatuses.includes(currentStatus);
+  if (latePayment) {
+    return {
+      nextStatus: null,
+      eventType: "PROVIDER_WEBHOOK",
+      latePayment: true
+    };
+  }
+  if (providerStatus === "PAID" && (currentStatus === "RESERVED" || currentStatus === "PROCESSING")) {
+    return { nextStatus: "PAID", eventType: "PAID", latePayment: false };
+  }
+  if (providerStatus === "REFUNDED" && currentStatus === "PAID") {
+    return {
+      nextStatus: "REFUNDED",
+      eventType: "REFUNDED",
+      latePayment: false
+    };
+  }
+  const failureStatus = providerStatus === "FAILED" ? "FAILED" : providerStatus === "EXPIRED" ? "EXPIRED" : providerStatus === "CANCELED" ? "CANCELED" : null;
+  if (failureStatus && (currentStatus === "RESERVED" || currentStatus === "PROCESSING")) {
+    return {
+      nextStatus: failureStatus,
+      eventType: failureStatus,
+      latePayment: false
+    };
+  }
+  return {
+    nextStatus: null,
+    eventType: "PROVIDER_WEBHOOK",
+    latePayment: false
+  };
+}
+var latePaymentStatuses;
+var init_tablePaymentProviderTransition = __esm({
+  "src/modules/tableAccount/domain/tablePaymentProviderTransition.ts"() {
+    latePaymentStatuses = [
+      "FAILED",
+      "EXPIRED",
+      "CANCELED"
+    ];
+  }
+});
+
+// src/modules/tableAccount/services/ProcessTablePaymentWebhookService.ts
+import {
+  Prisma as Prisma12,
+  TablePaymentEventType as TablePaymentEventType5,
+  TablePaymentIntentStatus as TablePaymentIntentStatus5
+} from "@prisma/client";
+var ProcessTablePaymentWebhookService, ProcessTablePaymentWebhookService_default;
+var init_ProcessTablePaymentWebhookService = __esm({
+  "src/modules/tableAccount/services/ProcessTablePaymentWebhookService.ts"() {
+    init_prisma();
+    init_FakePaymentProvider();
+    init_TablePaymentRepository();
+    init_tablePaymentLedger();
+    init_tablePaymentSupport();
+    init_tablePaymentProviderTransition();
+    ProcessTablePaymentWebhookService = class {
+      constructor(provider = FakePaymentProvider_default) {
+        this.provider = provider;
+      }
+      provider;
+      async execute(input) {
+        const event = await this.provider.validateWebhook(input);
+        const initial = await prisma_default.tablePaymentIntent.findUnique({
+          where: {
+            provider_providerExternalId: {
+              provider: this.provider.code,
+              providerExternalId: event.externalId
+            }
+          },
+          select: tablePaymentIntentDtoSelect
+        });
+        if (!initial) {
+          return { received: true, ignored: true };
+        }
+        if (Number(initial.totalCents) !== event.amountCents) {
+          throw new TablePaymentError(
+            "O valor do evento n\xE3o corresponde ao pagamento.",
+            409,
+            "PROVIDER_AMOUNT_MISMATCH"
+          );
+        }
+        const deduplicationKey = `table-payment-webhook:${sha256(
+          `${this.provider.code}:${event.eventId}`
+        )}`;
+        const outcome = await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, initial.restaurantId, initial.tableSessionId);
+            const duplicate = await tx.tablePaymentEvent.findUnique({
+              where: { deduplicationKey },
+              select: { id: true }
+            });
+            const current = await tx.tablePaymentIntent.findUniqueOrThrow({
+              where: { id: initial.id },
+              select: tablePaymentIntentDtoSelect
+            });
+            const transition = resolveTablePaymentProviderTransition(current.status, event.status);
+            const latePayment = transition.latePayment;
+            if (duplicate) {
+              return { duplicate: true, latePayment, current };
+            }
+            const nextStatus = transition.nextStatus;
+            const eventType = transition.eventType;
+            if (nextStatus) {
+              const timestampData = nextStatus === TablePaymentIntentStatus5.PAID ? { paidAt: event.occurredAt } : nextStatus === TablePaymentIntentStatus5.REFUNDED ? { refundedAt: event.occurredAt } : nextStatus === TablePaymentIntentStatus5.CANCELED ? { canceledAt: event.occurredAt } : { failedAt: event.occurredAt, failureCode: `PROVIDER_${event.status}` };
+              const changed = await tx.tablePaymentIntent.updateMany({
+                where: {
+                  id: current.id,
+                  restaurantId: current.restaurantId,
+                  tableSessionId: current.tableSessionId,
+                  status: current.status
+                },
+                data: { status: nextStatus, ...timestampData }
+              });
+              if (changed.count !== 1) {
+                throw new TablePaymentError(
+                  "O pagamento foi atualizado por outra opera\xE7\xE3o.",
+                  409,
+                  "TABLE_PAYMENT_CONFLICT"
+                );
+              }
+            }
+            await tx.tablePaymentEvent.create({
+              data: {
+                restaurantId: current.restaurantId,
+                tableSessionId: current.tableSessionId,
+                paymentIntentId: current.id,
+                deduplicationKey,
+                type: eventType,
+                fromStatus: current.status,
+                toStatus: nextStatus || current.status,
+                provider: this.provider.code,
+                providerEventId: event.eventId,
+                amountCents: BigInt(event.amountCents),
+                occurredAt: event.occurredAt,
+                metadata: latePayment ? { latePayment: true, refundRequired: true } : void 0
+              }
+            });
+            if (nextStatus) {
+              await projectTableSessionFinancialState(
+                tx,
+                current.restaurantId,
+                current.tableSessionId,
+                event.occurredAt
+              );
+            }
+            const updated = await tx.tablePaymentIntent.findUniqueOrThrow({
+              where: { id: current.id },
+              select: tablePaymentIntentDtoSelect
+            });
+            return { duplicate: false, latePayment, current: updated };
+          },
+          { isolationLevel: Prisma12.TransactionIsolationLevel.Serializable }
+        );
+        if (outcome.latePayment && outcome.current.providerExternalId) {
+          await this.provider.refundPayment({
+            externalId: outcome.current.providerExternalId,
+            idempotencyKey: `late-refund:${outcome.current.publicId}`
+          });
+          await prisma_default.tablePaymentEvent.upsert({
+            where: {
+              deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`
+            },
+            create: {
+              restaurantId: outcome.current.restaurantId,
+              tableSessionId: outcome.current.tableSessionId,
+              paymentIntentId: outcome.current.id,
+              deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`,
+              type: TablePaymentEventType5.REFUNDED,
+              fromStatus: outcome.current.status,
+              toStatus: outcome.current.status,
+              provider: this.provider.code,
+              providerEventId: event.eventId,
+              amountCents: outcome.current.totalCents,
+              occurredAt: /* @__PURE__ */ new Date(),
+              metadata: { automaticLateRefund: true }
+            },
+            update: {}
+          });
+        }
+        return {
+          received: true,
+          processed: true,
+          duplicate: outcome.duplicate,
+          latePaymentRefunded: outcome.latePayment
+        };
+      }
+    };
+    ProcessTablePaymentWebhookService_default = new ProcessTablePaymentWebhookService();
+  }
+});
+
+// src/modules/tableAccount/controllers/FakeTablePaymentWebhookController.ts
+var FakeTablePaymentWebhookController, FakeTablePaymentWebhookController_default;
+var init_FakeTablePaymentWebhookController = __esm({
+  "src/modules/tableAccount/controllers/FakeTablePaymentWebhookController.ts"() {
+    init_ProcessTablePaymentWebhookService();
+    init_tablePaymentSupport();
+    FakeTablePaymentWebhookController = class {
+      async handle(req, res) {
+        try {
+          const result = await ProcessTablePaymentWebhookService_default.execute({
+            headers: req.headers,
+            body: req.body
+          });
+          return res.status(200).json(result);
+        } catch (error2) {
+          if (error2 instanceof TablePaymentError) {
+            return res.status(error2.statusCode).json({ error: error2.message, code: error2.code });
+          }
+          const message = error2 instanceof Error ? error2.message : String(error2);
+          if (/assinatura|desativado/i.test(message)) {
+            return res.status(401).json({ error: "Webhook de pagamento n\xE3o autorizado." });
+          }
+          console.error(
+            "[FAKE_TABLE_PAYMENT_WEBHOOK_ERROR]",
+            error2 instanceof Error ? error2.name : "UNKNOWN_ERROR"
+          );
+          return res.status(500).json({ received: false });
+        }
+      }
+    };
+    FakeTablePaymentWebhookController_default = new FakeTablePaymentWebhookController();
+  }
+});
+
+// src/modules/tableAccount/services/RefundTablePaymentService.ts
+import { Prisma as Prisma13, TablePaymentEventType as TablePaymentEventType6, TablePaymentIntentStatus as TablePaymentIntentStatus6 } from "@prisma/client";
+var RefundTablePaymentService, RefundTablePaymentService_default;
+var init_RefundTablePaymentService = __esm({
+  "src/modules/tableAccount/services/RefundTablePaymentService.ts"() {
+    init_prisma();
+    init_tableAccountSchemas();
+    init_tableAccountRules();
+    init_FakePaymentProvider();
+    init_TablePaymentRepository();
+    init_tablePaymentLedger();
+    init_tablePaymentSupport();
+    RefundTablePaymentService = class {
+      constructor(provider = FakePaymentProvider_default, now = () => /* @__PURE__ */ new Date()) {
+        this.provider = provider;
+        this.now = now;
+      }
+      provider;
+      now;
+      async execute(input, rawPayload) {
+        const payload = refundTablePaymentInputSchema.parse(rawPayload);
+        const restaurantId = Number(input.actor.restaurantId || 0);
+        if (!canRefundTablePayment(input.actor, restaurantId)) {
+          throw new TablePaymentError(
+            "Somente o administrador deste restaurante pode estornar pagamentos da mesa.",
+            403,
+            "TABLE_PAYMENT_REFUND_FORBIDDEN"
+          );
+        }
+        const initial = await TablePaymentRepository_default.findForStaffByPublicId(
+          input.publicId,
+          restaurantId
+        );
+        if (!initial) {
+          throw new TablePaymentError(
+            "Pagamento n\xE3o encontrado neste restaurante.",
+            404,
+            "TABLE_PAYMENT_NOT_FOUND"
+          );
+        }
+        if (initial.status === TablePaymentIntentStatus6.REFUNDED) {
+          return {
+            payment: serializeTablePaymentIntent(initial, initial.tableSession.publicId),
+            idempotentReplay: true
+          };
+        }
+        if (initial.status !== TablePaymentIntentStatus6.PAID) {
+          throw new TablePaymentError(
+            "Somente pagamentos confirmados podem ser estornados.",
+            409,
+            "TABLE_PAYMENT_NOT_REFUNDABLE"
+          );
+        }
+        if (initial.provider) {
+          if (initial.provider !== this.provider.code || !initial.providerExternalId) {
+            throw new TablePaymentError(
+              "O provedor deste pagamento ainda n\xE3o possui integra\xE7\xE3o de estorno.",
+              409,
+              "TABLE_PAYMENT_PROVIDER_UNAVAILABLE"
+            );
+          }
+          try {
+            const providerPayment = await this.provider.refundPayment({
+              externalId: initial.providerExternalId,
+              idempotencyKey: `admin-refund:${initial.publicId}`
+            });
+            if (providerPayment.status !== "REFUNDED") {
+              throw new Error("O provedor n\xE3o confirmou o estorno.");
+            }
+          } catch (error2) {
+            console.error(
+              "[REFUND_TABLE_PAYMENT_PROVIDER_ERROR]",
+              error2 instanceof Error ? error2.name : "UNKNOWN_ERROR"
+            );
+            throw new TablePaymentError(
+              "O provedor n\xE3o confirmou o estorno. Tente novamente sem alterar o pagamento.",
+              502,
+              "TABLE_PAYMENT_PROVIDER_REFUND_FAILED"
+            );
+          }
+        }
+        const now = this.now();
+        const result = await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, restaurantId, initial.tableSessionId);
+            const intent = await TablePaymentRepository_default.findForStaffByPublicId(
+              input.publicId,
+              restaurantId,
+              tx
+            );
+            if (!intent) {
+              throw new TablePaymentError(
+                "Pagamento n\xE3o encontrado neste restaurante.",
+                404,
+                "TABLE_PAYMENT_NOT_FOUND"
+              );
+            }
+            if (intent.status === TablePaymentIntentStatus6.REFUNDED) {
+              return { intent, idempotentReplay: true };
+            }
+            if (intent.status !== TablePaymentIntentStatus6.PAID) {
+              throw new TablePaymentError(
+                "O pagamento foi atualizado por outra opera\xE7\xE3o e n\xE3o pode ser estornado.",
+                409,
+                "TABLE_PAYMENT_CONFLICT"
+              );
+            }
+            const changed = await tx.tablePaymentIntent.updateMany({
+              where: {
+                id: intent.id,
+                restaurantId,
+                tableSessionId: intent.tableSessionId,
+                status: TablePaymentIntentStatus6.PAID
+              },
+              data: {
+                status: TablePaymentIntentStatus6.REFUNDED,
+                refundedAt: now
+              }
+            });
+            if (changed.count !== 1) {
+              throw new TablePaymentError(
+                "O pagamento foi atualizado por outra opera\xE7\xE3o. Atualize a conta.",
+                409,
+                "TABLE_PAYMENT_CONFLICT"
+              );
+            }
+            await tx.tablePaymentEvent.create({
+              data: {
+                restaurantId,
+                tableSessionId: intent.tableSessionId,
+                paymentIntentId: intent.id,
+                deduplicationKey: `table-payment:${intent.publicId}:admin-refunded`,
+                type: TablePaymentEventType6.REFUNDED,
+                fromStatus: TablePaymentIntentStatus6.PAID,
+                toStatus: TablePaymentIntentStatus6.REFUNDED,
+                provider: intent.provider,
+                amountCents: intent.totalCents,
+                actorUserId: input.actor.id,
+                occurredAt: now,
+                metadata: { reason: payload.reason }
+              }
+            });
+            await projectTableSessionFinancialState(tx, restaurantId, intent.tableSessionId, now);
+            const updated = await tx.tablePaymentIntent.findUniqueOrThrow({
+              where: { id: intent.id },
+              select: tablePaymentIntentDtoSelect
+            });
+            return { intent: updated, idempotentReplay: false };
+          },
+          { isolationLevel: Prisma13.TransactionIsolationLevel.Serializable }
+        );
+        return {
+          payment: serializeTablePaymentIntent(result.intent, initial.tableSession.publicId),
+          idempotentReplay: result.idempotentReplay
+        };
+      }
+    };
+    RefundTablePaymentService_default = new RefundTablePaymentService();
+  }
+});
+
+// src/modules/tableAccount/controllers/RefundTablePaymentController.ts
+import { ZodError as ZodError4 } from "zod";
+var RefundTablePaymentController, RefundTablePaymentController_default;
+var init_RefundTablePaymentController = __esm({
+  "src/modules/tableAccount/controllers/RefundTablePaymentController.ts"() {
+    init_RefundTablePaymentService();
+    init_tablePaymentSupport();
+    RefundTablePaymentController = class {
+      async handle(req, res) {
+        try {
+          const result = await RefundTablePaymentService_default.execute(
+            {
+              publicId: String(req.params.publicId || "").trim(),
+              actor: {
+                id: Number(req.user?.id),
+                role: String(req.user?.role || ""),
+                subRole: req.user?.subRole || null,
+                restaurantId: Number(req.user?.restaurantId || 0)
+              }
+            },
+            req.body
+          );
+          res.setHeader("Cache-Control", "no-store");
+          return res.json(result);
+        } catch (error2) {
+          if (error2 instanceof ZodError4) {
+            return res.status(400).json({
+              error: error2.issues[0]?.message || "Dados do estorno inv\xE1lidos.",
+              code: "INVALID_TABLE_PAYMENT_REFUND_INPUT"
+            });
+          }
+          if (error2 instanceof TablePaymentError) {
+            return res.status(error2.statusCode).json({ error: error2.message, code: error2.code });
+          }
+          console.error(
+            "[REFUND_TABLE_PAYMENT_ERROR]",
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+          return res.status(500).json({ error: "N\xE3o foi poss\xEDvel estornar este pagamento." });
+        }
+      }
+    };
+    RefundTablePaymentController_default = new RefundTablePaymentController();
+  }
+});
+
+// src/modules/tableAccount/services/GetTableAccountAdminSnapshotService.ts
+import { Prisma as Prisma14 } from "@prisma/client";
+var GetTableAccountAdminSnapshotService, GetTableAccountAdminSnapshotService_default;
+var init_GetTableAccountAdminSnapshotService = __esm({
+  "src/modules/tableAccount/services/GetTableAccountAdminSnapshotService.ts"() {
+    init_prisma();
+    init_tableAccountRules();
+    init_TableAccountRepository();
+    init_tablePaymentSupport();
+    init_tablePaymentLedger();
+    init_GetCurrentTableAccountService();
+    GetTableAccountAdminSnapshotService = class {
+      constructor(now = () => /* @__PURE__ */ new Date()) {
+        this.now = now;
+      }
+      now;
+      async execute(input) {
+        const restaurantId = Number(input.actor.restaurantId || 0);
+        if (!canViewTableAccountFinancialHistory(input.actor, restaurantId)) {
+          throw new TablePaymentError(
+            "Somente o administrador ou um gar\xE7om deste restaurante pode consultar este hist\xF3rico.",
+            403,
+            "TABLE_ACCOUNT_HISTORY_FORBIDDEN"
+          );
+        }
+        const sessionPublicId = String(input.sessionPublicId || "").trim();
+        const initial = await TableAccountRepository_default.findAdminSnapshotData(
+          sessionPublicId,
+          restaurantId
+        );
+        if (!initial) {
+          throw new TablePaymentError(
+            "Conta da mesa n\xE3o encontrada neste restaurante.",
+            404,
+            "TABLE_ACCOUNT_NOT_FOUND"
+          );
+        }
+        const now = this.now();
+        const data = await prisma_default.$transaction(
+          async (tx) => {
+            await lockTablePaymentSession(tx, restaurantId, initial.id);
+            await expireTablePaymentReservations(tx, restaurantId, initial.id, now);
+            const refreshed = await TableAccountRepository_default.findAdminSnapshotData(
+              sessionPublicId,
+              restaurantId,
+              tx
+            );
+            if (!refreshed) {
+              throw new TablePaymentError(
+                "Conta da mesa n\xE3o encontrada neste restaurante.",
+                404,
+                "TABLE_ACCOUNT_NOT_FOUND"
+              );
+            }
+            return refreshed;
+          },
+          { isolationLevel: Prisma14.TransactionIsolationLevel.Serializable }
+        );
+        return {
+          ...buildTableAccountBaseSnapshot(data, now),
+          paymentIntents: data.paymentIntents.map(
+            (payment) => serializeTablePaymentIntentForAdmin(payment, data.publicId)
+          )
+        };
+      }
+    };
+    GetTableAccountAdminSnapshotService_default = new GetTableAccountAdminSnapshotService();
+  }
+});
+
+// src/modules/tableAccount/controllers/GetTableAccountAdminSnapshotController.ts
+var GetTableAccountAdminSnapshotController, GetTableAccountAdminSnapshotController_default;
+var init_GetTableAccountAdminSnapshotController = __esm({
+  "src/modules/tableAccount/controllers/GetTableAccountAdminSnapshotController.ts"() {
+    init_GetTableAccountAdminSnapshotService();
+    init_tablePaymentSupport();
+    GetTableAccountAdminSnapshotController = class {
+      async handle(req, res) {
+        try {
+          const result = await GetTableAccountAdminSnapshotService_default.execute({
+            sessionPublicId: String(req.params.sessionPublicId || "").trim(),
+            actor: {
+              id: Number(req.user?.id),
+              role: String(req.user?.role || ""),
+              subRole: req.user?.subRole || null,
+              restaurantId: Number(req.user?.restaurantId || 0)
+            }
+          });
+          res.setHeader("Cache-Control", "no-store");
+          return res.json(result);
+        } catch (error2) {
+          if (error2 instanceof TablePaymentError) {
+            return res.status(error2.statusCode).json({ error: error2.message, code: error2.code });
+          }
+          console.error(
+            "[GET_TABLE_ACCOUNT_ADMIN_SNAPSHOT_ERROR]",
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+          return res.status(500).json({ error: "N\xE3o foi poss\xEDvel carregar o hist\xF3rico da mesa." });
+        }
+      }
+    };
+    GetTableAccountAdminSnapshotController_default = new GetTableAccountAdminSnapshotController();
+  }
+});
+
 // src/modules/tableAccount/routes/TableAccountRoutes.ts
 import { Router as Router21 } from "express";
 var router21, TableAccountRoutes_default;
@@ -23947,13 +25969,58 @@ var init_TableAccountRoutes = __esm({
     init_tableAccountSessionMiddleware();
     init_tableParticipantMiddleware();
     init_GetCurrentTableAccountController();
+    init_CreateTablePaymentIntentController();
+    init_CancelTablePaymentIntentController();
+    init_accountActionRateLimitMiddleware();
+    init_ConfirmManualTablePaymentController();
+    init_authMiddleware();
+    init_waiterMiddleware();
+    init_FakeTablePaymentWebhookController();
+    init_RefundTablePaymentController();
+    init_adminMiddleware();
+    init_GetTableAccountAdminSnapshotController();
     router21 = Router21();
+    router21.post("/webhooks/fake", (req, res) => FakeTablePaymentWebhookController_default.handle(req, res));
     router21.get(
       "/sessions/:sessionPublicId",
       optionalAuthMiddleware,
       tableAccountSessionMiddleware,
       tableParticipantMiddleware,
       (req, res) => GetCurrentTableAccountController_default.handle(req, res)
+    );
+    router21.get(
+      "/sessions/:sessionPublicId/admin",
+      authMiddleware,
+      waiterMiddleware,
+      (req, res) => GetTableAccountAdminSnapshotController_default.handle(req, res)
+    );
+    router21.post(
+      "/sessions/:sessionPublicId/payments",
+      optionalAuthMiddleware,
+      tableAccountSessionMiddleware,
+      tableParticipantMiddleware,
+      tablePaymentActionRateLimitMiddleware,
+      (req, res) => CreateTablePaymentIntentController_default.handle(req, res)
+    );
+    router21.patch(
+      "/sessions/:sessionPublicId/payments/:publicId/cancel",
+      optionalAuthMiddleware,
+      tableAccountSessionMiddleware,
+      tableParticipantMiddleware,
+      tablePaymentActionRateLimitMiddleware,
+      (req, res) => CancelTablePaymentIntentController_default.handle(req, res)
+    );
+    router21.post(
+      "/payments/:publicId/confirm-manual",
+      authMiddleware,
+      waiterMiddleware,
+      (req, res) => ConfirmManualTablePaymentController_default.handle(req, res)
+    );
+    router21.post(
+      "/payments/:publicId/refund",
+      authMiddleware,
+      adminMiddleware,
+      (req, res) => RefundTablePaymentController_default.handle(req, res)
     );
     TableAccountRoutes_default = router21;
   }
@@ -24965,20 +27032,20 @@ function readinessTimeoutMs() {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 3e3;
 }
 async function probeDatabaseReadiness(probe = () => prisma_default.$queryRaw`SELECT 1`, timeoutMs = readinessTimeoutMs()) {
-  let timer;
+  let timer2;
   try {
     await Promise.race([
       probe(),
       new Promise((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error("database readiness timeout")), timeoutMs);
-        timer.unref?.();
+        timer2 = setTimeout(() => reject(new Error("database readiness timeout")), timeoutMs);
+        timer2.unref?.();
       })
     ]);
     return { ready: true };
   } catch {
     return { ready: false };
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer2) clearTimeout(timer2);
   }
 }
 var init_readiness = __esm({
@@ -25066,7 +27133,7 @@ var init_sentry = __esm({
 
 // src/socket/socketAuth.ts
 import jwt9 from "jsonwebtoken";
-import { TableSessionStatus as TableSessionStatus8, UserRole as UserRole31 } from "@prisma/client";
+import { TableSessionStatus as TableSessionStatus9, UserRole as UserRole31 } from "@prisma/client";
 async function socketAuth(socket, next) {
   try {
     const token = socket.handshake.auth?.token;
@@ -25112,7 +27179,7 @@ async function socketAuth(socket, next) {
     }
     if (sessionToken) {
       const session = await TableSessionRepository_default.findBySessionToken(sessionToken);
-      if (!session || session.status !== TableSessionStatus8.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
+      if (!session || session.status !== TableSessionStatus9.OPEN || session.expiresAt && session.expiresAt.getTime() <= Date.now()) {
         return next(new Error("Sess\xE3o da mesa inv\xE1lida"));
       }
       socket.authType = "table-session";
@@ -25231,7 +27298,7 @@ var init_employeeIssuePayload = __esm({
 });
 
 // src/socket/socketHandler.ts
-import { OrderStatus as OrderStatus20, OrderType as OrderType10, UserRole as UserRole32 } from "@prisma/client";
+import { OrderStatus as OrderStatus21, OrderType as OrderType10, UserRole as UserRole32 } from "@prisma/client";
 function socketHandler(socket) {
   console.log("\u{1F50C} conectado:", socket.id);
   if (socket.authType === "table-session" && socket.tableSession) {
@@ -25379,7 +27446,7 @@ function socketHandler(socket) {
           WHERE o."id" = ${order.id}
             AND o."restaurantId" = ${Number(restaurantId)}
             AND o."type" = CAST(${OrderType10.DELIVERY} AS "OrderType")
-            AND o."status" = CAST(${OrderStatus20.SAIU_PARA_ENTREGA} AS "OrderStatus")
+            AND o."status" = CAST(${OrderStatus21.SAIU_PARA_ENTREGA} AS "OrderStatus")
             AND o."assignedCourierId" = ${Number(id)}
             AND courier."restaurantId" = ${Number(restaurantId)}
             AND courier."role" = CAST(${UserRole32.MOTOQUEIRO} AS "UserRole")
@@ -26012,6 +28079,94 @@ var init_scheduler = __esm({
   }
 });
 
+// src/modules/tableAccount/jobs/TablePaymentReservationExpirationJob.ts
+import { Prisma as Prisma15, TablePaymentIntentStatus as TablePaymentIntentStatus7 } from "@prisma/client";
+var TablePaymentReservationExpirationJob, TablePaymentReservationExpirationJob_default;
+var init_TablePaymentReservationExpirationJob = __esm({
+  "src/modules/tableAccount/jobs/TablePaymentReservationExpirationJob.ts"() {
+    init_prisma();
+    init_tablePaymentLedger();
+    TablePaymentReservationExpirationJob = class {
+      async execute(now = /* @__PURE__ */ new Date()) {
+        const candidates = await prisma_default.tablePaymentIntent.findMany({
+          where: {
+            status: {
+              in: [TablePaymentIntentStatus7.RESERVED, TablePaymentIntentStatus7.PROCESSING]
+            },
+            expiresAt: { lte: now }
+          },
+          select: {
+            restaurantId: true,
+            tableSessionId: true
+          },
+          distinct: ["restaurantId", "tableSessionId"],
+          take: 200
+        });
+        let expiredCount = 0;
+        for (const candidate of candidates) {
+          try {
+            expiredCount += await prisma_default.$transaction(
+              async (tx) => {
+                await lockTablePaymentSession(
+                  tx,
+                  candidate.restaurantId,
+                  candidate.tableSessionId
+                );
+                return expireTablePaymentReservations(
+                  tx,
+                  candidate.restaurantId,
+                  candidate.tableSessionId,
+                  now
+                );
+              },
+              { isolationLevel: Prisma15.TransactionIsolationLevel.Serializable }
+            );
+          } catch (error2) {
+            console.error("[TABLE_PAYMENT_EXPIRATION_ERROR]", {
+              restaurantId: candidate.restaurantId,
+              tableSessionId: candidate.tableSessionId,
+              error: error2 instanceof Error ? error2.name : "UNKNOWN_ERROR"
+            });
+          }
+        }
+        return { sessionsChecked: candidates.length, expiredCount };
+      }
+    };
+    TablePaymentReservationExpirationJob_default = new TablePaymentReservationExpirationJob();
+  }
+});
+
+// src/modules/tableAccount/jobs/tablePaymentScheduler.ts
+function startTablePaymentJobs() {
+  if (timer) {
+    return;
+  }
+  const configuredInterval = Number(process.env.TABLE_PAYMENT_EXPIRATION_INTERVAL_MS || 6e4);
+  const intervalMs = Number.isSafeInteger(configuredInterval) && configuredInterval >= 1e4 ? configuredInterval : 6e4;
+  timer = setInterval(() => {
+    TablePaymentReservationExpirationJob_default.execute().catch((error2) => {
+      console.error(
+        "[TABLE_PAYMENT_EXPIRATION_JOB_ERROR]",
+        error2 instanceof Error ? error2.name : "UNKNOWN_ERROR"
+      );
+    });
+  }, intervalMs);
+  timer.unref();
+}
+function stopTablePaymentJobs() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+var timer;
+var init_tablePaymentScheduler = __esm({
+  "src/modules/tableAccount/jobs/tablePaymentScheduler.ts"() {
+    init_TablePaymentReservationExpirationJob();
+    timer = null;
+  }
+});
+
 // src/server.ts
 var server_exports = {};
 __export(server_exports, {
@@ -26025,6 +28180,7 @@ async function shutdown(signal, exitCode = 0) {
   shuttingDown = true;
   console.info("[SHUTDOWN_STARTED]", { signal });
   stopJobs();
+  stopTablePaymentJobs();
   const configuredTimeout = Number(process.env.SHUTDOWN_TIMEOUT_MS || 1e4);
   const shutdownTimeoutMs = Number.isInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 1e4;
   const forceExitTimer = setTimeout(() => {
@@ -26061,6 +28217,7 @@ var init_server = __esm({
     init_ReconcileMercadoPagoInvoicesService();
     init_alertNotifier();
     init_prisma();
+    init_tablePaymentScheduler();
     server = http.createServer(app_default);
     port = Number(process.env.PORT) || 3e3;
     isProduction = process.env.NODE_ENV === "production";
@@ -26083,6 +28240,7 @@ var init_server = __esm({
     server.listen(port, "0.0.0.0", () => {
       console.log(`Servidor rodando na porta ${port}`);
       startJobs();
+      startTablePaymentJobs();
       BillingJob_default.execute().catch((error2) => {
         console.error(error2);
         Sentry2.captureException(error2);

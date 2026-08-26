@@ -146,6 +146,10 @@ export interface TableBillItemDto {
   productName: string;
   unitIndex: number;
   unitPriceCents: MoneyCents;
+  paidCents: MoneyCents;
+  reservedCents: MoneyCents;
+  processingCents: MoneyCents;
+  availableCents: MoneyCents;
   financialStatus: TableBillItemFinancialStatus;
   orderStatus: TableOrderOperationalStatus;
   orderedByParticipantPublicId: string;
@@ -181,6 +185,7 @@ export interface TablePaymentIntentDto {
   totalCents: MoneyCents;
   provider: string | null;
   externalId: string | null;
+  checkoutUrl: string | null;
   expiresAt: IsoDateTimeString;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
@@ -196,6 +201,24 @@ export interface TablePaymentSummaryDto {
   createdAt: IsoDateTimeString;
 }
 
+export interface TablePaymentEventDto {
+  type: string;
+  fromStatus: TablePaymentIntentStatus | null;
+  toStatus: TablePaymentIntentStatus | null;
+  provider: string | null;
+  providerEventId: string | null;
+  amountCents: MoneyCents | null;
+  actorName: string | null;
+  reason: string | null;
+  occurredAt: IsoDateTimeString;
+}
+
+export interface TablePaymentIntentAdminDto extends TablePaymentIntentDto {
+  manualConfirmedAt: IsoDateTimeString | null;
+  manualConfirmedByName: string | null;
+  events: TablePaymentEventDto[];
+}
+
 export interface TableAccountBaseSnapshotDto {
   contractVersion: typeof TABLE_ACCOUNT_CONTRACT_VERSION;
   summary: TableAccountSummaryDto;
@@ -209,5 +232,5 @@ export interface TableAccountSnapshotDto extends TableAccountBaseSnapshotDto {
 }
 
 export interface TableAccountAdminSnapshotDto extends TableAccountBaseSnapshotDto {
-  paymentIntents: TablePaymentIntentDto[];
+  paymentIntents: TablePaymentIntentAdminDto[];
 }

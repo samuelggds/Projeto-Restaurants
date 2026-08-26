@@ -241,10 +241,19 @@ export class TableParticipantRepository {
       },
       data: { participantId: targetParticipantId },
     });
+    const paymentIntents = await db.tablePaymentIntent.updateMany({
+      where: {
+        payerParticipantId: sourceParticipantId,
+        tableSessionId,
+        restaurantId,
+      },
+      data: { payerParticipantId: targetParticipantId },
+    });
 
     return {
       orders: orders.count,
       orderItems: orderItems.count,
+      paymentIntents: paymentIntents.count,
     };
   }
 }

@@ -32,3 +32,25 @@ export const registrationRateLimitMiddleware = rateLimit({
     error: 'Muitos cadastros originados deste endereço. Tente mais tarde.',
   },
 });
+
+function getTablePaymentKey(req: Request) {
+  const ip = ipKeyGenerator(String(req.ip || 'unknown').trim());
+  const sessionPublicId = String(req.tableSession?.publicId || 'no-session').slice(0, 64);
+  const participantPublicId = String(req.tableParticipant?.publicId || 'no-participant').slice(
+    0,
+    64,
+  );
+
+  return `${ip}:${sessionPublicId}:${participantPublicId}`;
+}
+
+export const tablePaymentActionRateLimitMiddleware = rateLimit({
+  windowMs: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_WINDOW_MS || 60_000),
+  max: Number(process.env.TABLE_PAYMENT_RATE_LIMIT_MAX_REQUESTS || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getTablePaymentKey,
+  message: {
+    error: 'Muitas tentativas de pagamento nesta mesa. Aguarde alguns instantes.',
+  },
+});

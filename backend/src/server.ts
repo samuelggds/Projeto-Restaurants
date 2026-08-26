@@ -12,6 +12,10 @@ import billingJob from './modules/billing/jobs/BillingJob.js';
 import reconcileMercadoPagoInvoicesService from './modules/billing/services/ReconcileMercadoPagoInvoicesService.js';
 import { notifyCriticalError } from './services/alertNotifier.js';
 import prisma from './config/prisma.js';
+import {
+  startTablePaymentJobs,
+  stopTablePaymentJobs,
+} from './modules/tableAccount/jobs/tablePaymentScheduler.js';
 
 const server = http.createServer(app);
 const port = Number(process.env.PORT) || 3000;
@@ -41,6 +45,7 @@ io.on('connection', socketHandler);
 server.listen(port, '0.0.0.0', () => {
   console.log(`Servidor rodando na porta ${port}`);
   startJobs();
+  startTablePaymentJobs();
 
   billingJob.execute().catch((error) => {
     console.error(error);
@@ -60,6 +65,7 @@ async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
   shuttingDown = true;
   console.info('[SHUTDOWN_STARTED]', { signal });
   stopJobs();
+  stopTablePaymentJobs();
 
   const configuredTimeout = Number(process.env.SHUTDOWN_TIMEOUT_MS || 10_000);
   const shutdownTimeoutMs =

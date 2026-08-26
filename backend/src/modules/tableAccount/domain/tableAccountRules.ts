@@ -215,6 +215,13 @@ export function canConfirmManualTablePayment(actor: TableAccountActor, restauran
   );
 }
 
+export function canViewTableAccountFinancialHistory(
+  actor: TableAccountActor,
+  restaurantId: number,
+) {
+  return canConfirmManualTablePayment(actor, restaurantId);
+}
+
 export function canAuthorizePreparedItemCancellation(
   actor: TableAccountActor,
   restaurantId: number,
@@ -242,8 +249,8 @@ const PAYMENT_INTENT_TRANSITIONS: Record<
   TablePaymentIntentStatus,
   readonly TablePaymentIntentStatus[]
 > = {
-  RESERVED: ['PROCESSING', 'EXPIRED', 'CANCELED'],
-  PROCESSING: ['PAID', 'FAILED'],
+  RESERVED: ['PROCESSING', 'FAILED', 'EXPIRED', 'CANCELED'],
+  PROCESSING: ['PAID', 'FAILED', 'EXPIRED', 'CANCELED'],
   PAID: ['REFUNDED'],
   FAILED: [],
   EXPIRED: [],

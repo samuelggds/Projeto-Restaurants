@@ -27,6 +27,7 @@ import {
   canFinalizeBillItemCancellation,
   canForceCloseTableAccount,
   canRefundTablePayment,
+  canViewTableAccountFinancialHistory,
   canTransitionTablePaymentIntent,
   requiresPrepayment,
   shouldIncludeServiceFee,
@@ -378,6 +379,8 @@ test('limita confirmação manual ao admin e ao garçom do restaurante', () => {
   assert.equal(canForceCloseTableAccount(waiter, 10), false);
   assert.equal(canRefundTablePayment(admin, 10), true);
   assert.equal(canRefundTablePayment(superAdmin, 10), false);
+  assert.equal(canViewTableAccountFinancialHistory(waiter, 10), true);
+  assert.equal(canViewTableAccountFinancialHistory(kitchen, 10), false);
 });
 
 test('só finaliza cancelamento financeiro seguro e controla transições de pagamento', () => {
@@ -389,7 +392,7 @@ test('só finaliza cancelamento financeiro seguro e controla transições de pag
 
   assert.equal(canTransitionTablePaymentIntent('RESERVED', 'PROCESSING'), true);
   assert.equal(canTransitionTablePaymentIntent('PROCESSING', 'PAID'), true);
-  assert.equal(canTransitionTablePaymentIntent('PROCESSING', 'EXPIRED'), false);
+  assert.equal(canTransitionTablePaymentIntent('PROCESSING', 'EXPIRED'), true);
   assert.equal(canTransitionTablePaymentIntent('PAID', 'REFUNDED'), true);
   assert.equal(canTransitionTablePaymentIntent('PAID', 'FAILED'), false);
   assert.equal(canTransitionTablePaymentIntent('REFUNDED', 'PAID'), false);
@@ -398,8 +401,8 @@ test('só finaliza cancelamento financeiro seguro e controla transições de pag
 test('mantém fechada a matriz completa de transições do pagamento', () => {
   const allowedTransitions: Record<TablePaymentIntentStatus, readonly TablePaymentIntentStatus[]> =
     {
-      RESERVED: ['PROCESSING', 'EXPIRED', 'CANCELED'],
-      PROCESSING: ['PAID', 'FAILED'],
+      RESERVED: ['PROCESSING', 'FAILED', 'EXPIRED', 'CANCELED'],
+      PROCESSING: ['PAID', 'FAILED', 'EXPIRED', 'CANCELED'],
       PAID: ['REFUNDED'],
       FAILED: [],
       EXPIRED: [],
