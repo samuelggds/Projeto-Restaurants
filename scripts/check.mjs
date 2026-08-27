@@ -117,6 +117,16 @@ function run(cmd) {
 // ── Definição das verificações ────────────────────────────────────────────────
 const checks = [
   {
+    label: "ESLint      —  Backend",
+    cmd: "npm --prefix backend run lint",
+    parse(r) {
+      const { errors, warnings } = parseEslint(r.stdout + r.stderr);
+      return errors > 0 || warnings > 0
+        ? { ok: false, detail: `${RED}${errors} erros, ${warnings} avisos${R}` }
+        : { ok: true, detail: `${D}0 erros, 0 avisos${R}` };
+    },
+  },
+  {
     label: "TypeScript  —  Backend",
     cmd: "npm --prefix backend run typecheck",
     parse(r) {

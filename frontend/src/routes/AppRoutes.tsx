@@ -33,6 +33,14 @@ import {
 } from '../Services/systemBlock';
 import { authorizeRoute } from './routeAuthorization';
 
+function RouteLoading() {
+  return (
+    <main className="app-route-loading" aria-busy="true" aria-live="polite">
+      <span role="status">Carregando página…</span>
+    </main>
+  );
+}
+
 function RestaurantLoginRedirect() {
   const { restaurantSlug } = useParams();
 
@@ -67,7 +75,7 @@ function RequireAuth() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return null;
+    return <RouteLoading />;
   }
 
   if (!user) {
@@ -91,7 +99,7 @@ function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) return null;
+  if (isLoading) return <RouteLoading />;
 
   const decision = authorizeRoute(location.pathname, user);
   if ('redirectTo' in decision) {
@@ -185,7 +193,7 @@ function BillingGate() {
   }, [user, isLoading]);
 
   if (isLoading || isCheckingBilling) {
-    return null;
+    return <RouteLoading />;
   }
 
   if (blockState?.blocked) {
@@ -206,7 +214,7 @@ function BillingGate() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
-      <Suspense fallback={null}>
+      <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route element={<PageTransition />}>
             <Route element={<RouteAuthorizationGuard />}>

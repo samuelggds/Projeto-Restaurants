@@ -87,6 +87,21 @@ export const GlobalStyles = createGlobalStyle`
     animation: app-page-enter 240ms ease both;
   }
 
+  .app-route-loading {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    color: #334155;
+    background: #f8fafc;
+  }
+
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 3px;
+  }
+
   [role="dialog"],
   [aria-modal="true"] {
     animation: app-dialog-enter 220ms cubic-bezier(.22, .8, .35, 1);

@@ -70,6 +70,12 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'src/main.tsx', 'src/vite-env.d.ts'],
+      thresholds: {
+        lines: 35,
+        functions: 35,
+        statements: 35,
+        branches: 25,
+      },
     },
   },
 });

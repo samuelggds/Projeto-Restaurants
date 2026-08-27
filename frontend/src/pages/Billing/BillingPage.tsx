@@ -139,27 +139,18 @@ export default function BillingPage() {
   }, []);
 
   useEffect(() => {
-    // Wait for context to load
     if (isLoading) {
-      console.log('BillingPage: Waiting for context to load...');
       return undefined;
     }
 
-    console.log('BillingPage: Context loaded');
-    console.log('BillingPage: User from context:', user);
-
-    // Check if user is authenticated
     const token = localStorage.getItem('token');
-    console.log('BillingPage: Token from localStorage:', !!token);
 
     if (!token) {
-      console.log('BillingPage: No token found, redirecting to login');
       toast.error('Você precisa estar autenticado para acessar esta página');
       navigate('/login');
       return undefined;
     }
 
-    console.log('BillingPage: Authentication OK, fetching invoices');
     const timeoutId = setTimeout(() => {
       fetchInvoices();
       fetchSubscription();
@@ -516,12 +507,6 @@ export default function BillingPage() {
                       {invoice.paidAt && (
                         <S.PaidInfo>Pago em: {formatDate(invoice.paidAt)}</S.PaidInfo>
                       )}
-
-                      {console.log(`Invoice ${invoice.id}:`, {
-                        status: invoice.status,
-                        hasPaymentLink: !!invoice.paymentLink,
-                        paymentLink: invoice.paymentLink,
-                      })}
 
                       {isPayableStatus(invoice.status) ? (
                         <S.PaymentButton onClick={() => handlePaymentClick(invoice)}>

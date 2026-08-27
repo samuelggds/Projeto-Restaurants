@@ -91,6 +91,14 @@ Use uma réplica do backend enquanto o Socket.IO utilizar o adapter em memória.
 4. Execute `prisma migrate deploy` pelo container novo.
 5. Suba a aplicação e valide `/health`, `/ready`, login, pedido e Socket.IO.
 6. Em mudança de rastreamento, faça o smoke test com um celular real.
+
+Para validar automaticamente a aplicação após o deploy:
+
+```bash
+SMOKE_BASE_URL=https://seu-dominio.example npm run smoke
+```
+
+O comando possui timeout e falha se `/health` ou `/ready` não responderem com JSON e HTTP 2xx.
 7. Se falhar, restaure a imagem anterior; migrations destrutivas exigem plano próprio de rollback de dados.
 
 Use a política de baixo custo de manutenção descrita em [TESTING.md](./TESTING.md). O E2E obrigatório fica restrito às jornadas críticas.

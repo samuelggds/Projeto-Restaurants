@@ -138,7 +138,10 @@ test('consulta pronta aplica tenant, canal, status, pagamento confirmado e respo
   assert.equal(query.where.tableSession.is.restaurantId, 7);
   assert.equal(query.where.tableSession.is.OR[0].expiresAt, null);
   assert.ok(query.where.tableSession.is.OR[1].expiresAt.gt instanceof Date);
-  assert.deepEqual(query.where.NOT.paymentMethod.in, ['PIX', 'CARTAO']);
+  assert.deepEqual(query.where.AND[0].OR[0], { settlementMode: 'TABLE_ACCOUNT' });
+  assert.equal(query.where.AND[0].OR[1].NOT.paid, false);
+  assert.equal(query.where.AND[0].OR[1].NOT.payOnDelivery, false);
+  assert.deepEqual(query.where.AND[0].OR[1].NOT.paymentMethod.in, ['PIX', 'CARTAO']);
   assert.deepEqual(query.include.user.select, { id: true, name: true });
   assert.equal('phone' in query.include.user.select, false);
   assert.deepEqual(query.include.table.select, { id: true, number: true });

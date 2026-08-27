@@ -254,6 +254,13 @@ test('consulta do repositório prende tenant, canal, pagamento, status e atribui
       assignedCourierId: 31,
     },
   ]);
-  assert.equal(query.where.NOT.payOnDelivery, false);
-  assert.deepEqual(query.where.NOT.paymentMethod.in, [PaymentMethod.PIX, PaymentMethod.CARTAO]);
+  assert.deepEqual(query.where.AND[0].OR[0], {
+    settlementMode: 'TABLE_ACCOUNT',
+  });
+  assert.equal(query.where.AND[0].OR[1].NOT.payOnDelivery, false);
+  assert.equal(query.where.AND[0].OR[1].NOT.paid, false);
+  assert.deepEqual(query.where.AND[0].OR[1].NOT.paymentMethod.in, [
+    PaymentMethod.PIX,
+    PaymentMethod.CARTAO,
+  ]);
 });
