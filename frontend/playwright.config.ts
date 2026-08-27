@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const localChromeExecutable = process.env.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
+const localChromeExecutable = (
+  globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  }
+).process?.env?.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
 
 export default defineConfig({
   testDir: './e2e',
