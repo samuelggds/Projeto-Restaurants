@@ -170,17 +170,21 @@ export default function Home() {
     sessionToken: tableSession?.sessionToken,
     notify,
   });
+  const { refresh: refreshTableAccount } = tableAccount;
 
   const openTableAccount = useCallback(() => {
     setTableAccountOpen(true);
-    void tableAccount.refresh();
-  }, [tableAccount.refresh]);
+    void refreshTableAccount();
+  }, [refreshTableAccount]);
 
   useEffect(() => {
-    if (!tableClosingRequested || !tableSession?.sessionPublicId) return;
-    setCartOpen(false);
-    setTableContinuationOpen(false);
-    openTableAccount();
+    if (!tableClosingRequested || !tableSession?.sessionPublicId) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      setCartOpen(false);
+      setTableContinuationOpen(false);
+      openTableAccount();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [openTableAccount, tableClosingRequested, tableSession?.sessionPublicId]);
 
   const requireFavoriteLogin = useCallback(() => {

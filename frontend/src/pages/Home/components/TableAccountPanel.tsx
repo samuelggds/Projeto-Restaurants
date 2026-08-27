@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Banknote,
@@ -155,7 +155,7 @@ function paymentStatusDescription(payment: TableAccountSnapshot['payments'][numb
   return statusDescriptions[payment.status];
 }
 
-export function TableAccountPanel({
+function TableAccountPanelContent({
   open,
   tableNumber,
   snapshot,
@@ -173,6 +173,8 @@ export function TableAccountPanel({
   const [method, setMethod] = useState<TablePaymentMethod>('PIX');
   const [includeOptionalServiceFee, setIncludeOptionalServiceFee] = useState(true);
   const [resultMessage, setResultMessage] = useState('');
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const items = useMemo(
     () => snapshot?.items.filter((item) => item.orderStatus !== 'CANCELED') || [],
@@ -226,15 +228,21 @@ export function TableAccountPanel({
         : 'Ir para pagamento com cartão';
 
   useEffect(() => {
-    setSelectionMode('MY_ITEMS');
-    setSelectedItemIds([]);
-    setSplitCount(2);
-    setMethod('PIX');
-    setIncludeOptionalServiceFee(true);
-    setResultMessage('');
-  }, [open, snapshot?.summary.sessionPublicId]);
-
-  if (!open) return null;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus?.();
+    };
+  }, [onClose, open]);
 
   const chooseMode = (nextMode: TablePaymentSelectionMode) => {
     setSelectionMode(nextMode);
@@ -266,6 +274,10 @@ export function TableAccountPanel({
     });
     if (!result) return;
 
+    // Evita que uma seleção antiga reapareça automaticamente se esta reserva
+    // for cancelada ou expirar. Cada nova tentativa exige uma escolha consciente.
+    setSelectedItemIds([]);
+
     const checkoutUrl = String(result.payment.checkoutUrl || '');
     if (/^https:\/\//i.test(checkoutUrl)) {
       window.location.assign(checkoutUrl);
@@ -296,14 +308,21 @@ export function TableAccountPanel({
             <h2 id="table-account-title">Conta da mesa {String(tableNumber)}</h2>
             <p>Escolha o que pagar, a forma de pagamento e acompanhe a confirmação.</p>
           </div>
-          <button type="button" aria-label="Fechar conta da mesa" onClick={onClose}>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            aria-label="Fechar conta da mesa"
+            onClick={onClose}
+          >
             <X size={19} />
           </button>
         </S.Header>
 
         <S.Scroll>
           {loading && !snapshot ? (
-            <S.Loading>Atualizando a conta da mesa...</S.Loading>
+            <S.Loading role="status" aria-live="polite">
+              Atualizando a conta da mesa...
+            </S.Loading>
           ) : !snapshot ? (
             <S.Alert $error>
               <span>{error || 'Não foi possível carregar a conta desta mesa.'}</span>
@@ -322,7 +341,7 @@ export function TableAccountPanel({
                 </S.Alert>
               )}
               {resultMessage && (
-                <S.Alert $info>
+                <S.Alert $info role="status" aria-live="polite">
                   <span>{resultMessage}</span>
                 </S.Alert>
               )}
@@ -428,7 +447,7 @@ export function TableAccountPanel({
                   <S.Items>
                     {items.map((item) => {
                       return (
-                        <S.Item key={item.publicId}>
+                        <S.Item as="div" key={item.publicId}>
                           <span>
                             <b>{item.productName}</b>
                             <small>
@@ -459,21 +478,29 @@ export function TableAccountPanel({
                   <span>Seguro</span>
                 </header>
                 <S.Modes>
-                  {modeLabels.map((mode) => (
-                    <button
-                      key={mode.value}
-                      type="button"
-                      aria-pressed={selectionMode === mode.value}
-                      disabled={mode.value === 'EQUAL_SPLIT' && !capabilities.allowSplit}
-                      onClick={() => chooseMode(mode.value)}
-                    >
-                      <span className="mode-copy">
-                        <b>{mode.title}</b>
-                        <small>{mode.description}</small>
-                      </span>
-                      {selectionMode === mode.value && <CheckCircle2 size={17} />}
-                    </button>
-                  ))}
+                  {modeLabels.map((mode) => {
+                    const unavailable =
+                      actionLoading ||
+                      (mode.value === 'EQUAL_SPLIT' && !capabilities.allowSplit) ||
+                      (mode.value === 'WAITER'
+                        ? waiterMethods.length === 0
+                        : onlineMethods.length === 0);
+                    return (
+                      <button
+                        key={mode.value}
+                        type="button"
+                        aria-pressed={selectionMode === mode.value}
+                        disabled={unavailable}
+                        onClick={() => chooseMode(mode.value)}
+                      >
+                        <span className="mode-copy">
+                          <b>{mode.title}</b>
+                          <small>{mode.description}</small>
+                        </span>
+                        {selectionMode === mode.value && <CheckCircle2 size={17} />}
+                      </button>
+                    );
+                  })}
                 </S.Modes>
 
                 <S.SelectionHelp>
@@ -502,6 +529,7 @@ export function TableAccountPanel({
                               <input
                                 type="checkbox"
                                 checked={selected}
+                                disabled={actionLoading}
                                 onChange={() => toggleItem(item.publicId)}
                                 aria-label={`Selecionar ${item.productName}`}
                               />
@@ -532,6 +560,7 @@ export function TableAccountPanel({
                         min={2}
                         max={100}
                         value={splitCount}
+                        disabled={actionLoading}
                         onChange={(event) =>
                           setSplitCount(Math.min(100, Math.max(2, Number(event.target.value) || 2)))
                         }
@@ -553,13 +582,13 @@ export function TableAccountPanel({
                 </S.MethodHeading>
 
                 {availableMethods.length ? (
-                  <S.Methods role="radiogroup" aria-label="Forma de pagamento">
+                  <S.Methods role="group" aria-label="Forma de pagamento">
                     {availableMethods.map((availableMethod) => (
                       <button
                         key={availableMethod}
                         type="button"
-                        role="radio"
-                        aria-checked={resolvedMethod === availableMethod}
+                        aria-pressed={resolvedMethod === availableMethod}
+                        disabled={actionLoading}
                         onClick={() => setMethod(availableMethod)}
                       >
                         <span className="method-icon">
@@ -598,6 +627,7 @@ export function TableAccountPanel({
                     <input
                       type="checkbox"
                       checked={includeOptionalServiceFee}
+                      disabled={actionLoading}
                       onChange={(event) => setIncludeOptionalServiceFee(event.target.checked)}
                     />
                     <span>
@@ -700,4 +730,13 @@ export function TableAccountPanel({
       </S.Panel>
     </S.Backdrop>
   );
+}
+
+export function TableAccountPanel(props: Props) {
+  if (!props.open) return null;
+
+  // Desmontar o conteúdo ao fechar limpa escolhas e mensagens da tentativa anterior.
+  // A chave também impede que uma seleção de outra sessão seja reaproveitada.
+  const sessionKey = props.snapshot?.summary.sessionPublicId || 'loading';
+  return <TableAccountPanelContent key={sessionKey} {...props} />;
 }

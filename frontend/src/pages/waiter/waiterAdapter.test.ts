@@ -11,7 +11,12 @@ describe('waiterAdapter', () => {
         active: true,
         operational: {
           status: 'OCCUPIED',
-          openSession: { id: 31, status: 'OPEN', openedAt: '2026-08-24T15:00:00.000Z' },
+          openSession: {
+            id: 31,
+            publicId: 'session-public-31',
+            status: 'OPEN',
+            openedAt: '2026-08-24T15:00:00.000Z',
+          },
           guests: 3,
           total: 87.5,
         },
@@ -24,6 +29,7 @@ describe('waiterAdapter', () => {
       status: 'OCCUPIED',
       sessionStatus: 'OPEN',
       sessionId: '31',
+      sessionPublicId: 'session-public-31',
       guests: 3,
       total: 87.5,
     });
@@ -70,6 +76,7 @@ describe('waiterAdapter', () => {
         status: 'FREE',
         sessionStatus: undefined,
         sessionId: undefined,
+        sessionPublicId: undefined,
         guests: 0,
         total: 0,
         openedAt: undefined,

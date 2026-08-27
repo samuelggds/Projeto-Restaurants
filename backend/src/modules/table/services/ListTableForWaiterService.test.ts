@@ -23,6 +23,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
         tableSessions: [
           {
             id: 55,
+            publicId: 'session-public-55',
             status: 'OPEN',
             openedAt: new Date('2026-08-24T12:00:00.000Z'),
             expiresAt: new Date('2026-08-25T00:00:00.000Z'),
@@ -69,6 +70,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
 
   assert.equal(result[0].status, 'OCCUPIED');
   assert.equal(result[0].sessionId, 55);
+  assert.equal(result[0].operational.openSession.publicId, 'session-public-55');
   assert.equal(result[0].guests, 2);
   assert.equal(result[0].total, 40);
   assert.equal(result[0].operational.activeOrdersCount, 3);

@@ -9,6 +9,7 @@ import tableAccountRepository from '../repositories/TableAccountRepository.js';
 import { serializeTablePaymentIntentForAdmin, TablePaymentError } from './tablePaymentSupport.js';
 import { expireTablePaymentReservations, lockTablePaymentSession } from './tablePaymentLedger.js';
 import { buildTableAccountBaseSnapshot } from './GetCurrentTableAccountService.js';
+import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class GetTableAccountAdminSnapshotService {
   constructor(private readonly now: () => Date = () => new Date()) {}
@@ -40,10 +41,15 @@ export class GetTableAccountAdminSnapshotService {
     }
 
     const now = this.now();
-    const data = await prisma.$transaction(
+    const { data, expiredCount } = await prisma.$transaction(
       async (tx) => {
         await lockTablePaymentSession(tx, restaurantId, initial.id);
-        await expireTablePaymentReservations(tx, restaurantId, initial.id, now);
+        const expiredCount = await expireTablePaymentReservations(
+          tx,
+          restaurantId,
+          initial.id,
+          now,
+        );
 
         const refreshed = await tableAccountRepository.findAdminSnapshotData(
           sessionPublicId,
@@ -57,10 +63,19 @@ export class GetTableAccountAdminSnapshotService {
             'TABLE_ACCOUNT_NOT_FOUND',
           );
         }
-        return refreshed;
+        return { data: refreshed, expiredCount };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+
+    if (expiredCount > 0) {
+      await tableAccountEvents.updated({
+        sessionId: data.id,
+        restaurantId,
+        reason: 'PAYMENT_EXPIRED',
+        occurredAt: now,
+      });
+    }
 
     return {
       ...buildTableAccountBaseSnapshot(data, now),

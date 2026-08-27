@@ -114,6 +114,7 @@ class TableRepository {
           take: 1,
           select: {
             id: true,
+            publicId: true,
             status: true,
             openedAt: true,
             expiresAt: true,

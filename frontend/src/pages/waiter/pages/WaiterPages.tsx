@@ -1,8 +1,17 @@
-import { BellRing, Clock3, Eye, Info, ReceiptText, Trash2, Users } from 'lucide-react';
+import {
+  BellRing,
+  Clock3,
+  Eye,
+  Info,
+  ReceiptText,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } from '../types';
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
 import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
+import { WaiterTableAccountDialog } from '../components/WaiterTableAccountDialog';
 import * as S from '../Waiter.styles';
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -305,6 +314,7 @@ export function WaiterTablesPage() {
   const { tables } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TableStatus | 'ALL'>('ALL');
+  const [accountTable, setAccountTable] = useState<RestaurantTable | null>(null);
   const visible = tables.filter(
     (table) =>
       (status === 'ALL' || table.status === status) && String(table.number).includes(query.trim()),
@@ -381,12 +391,30 @@ export function WaiterTablesPage() {
               <strong>{brl(table.total || 0)}</strong>
             </div>
             <div className="actions">
+              {table.status === 'OCCUPIED' && (
+                <button
+                  type="button"
+                  className="view-account"
+                  disabled={!table.sessionPublicId}
+                  title={
+                    table.sessionPublicId
+                      ? 'Abrir conta e pagamentos desta mesa'
+                      : 'Atualize os dados para carregar a conta desta mesa'
+                  }
+                  onClick={() => setAccountTable(table)}
+                >
+                  <ReceiptText size={14} /> Ver conta e pagamentos
+                </button>
+              )}
               <TableSessionButton table={table} />
             </div>
           </S.TableCard>
         ))}
       </S.TableGrid>
       {!visible.length && <Empty>Nenhuma mesa encontrada com estes filtros.</Empty>}
+      {accountTable && (
+        <WaiterTableAccountDialog table={accountTable} onClose={() => setAccountTable(null)} />
+      )}
     </>
   );
 }

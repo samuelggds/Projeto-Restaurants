@@ -130,10 +130,14 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
         paymentPublicId &&
         !notifiedPaidPaymentsRef.current.has(paymentPublicId)
       ) {
-        notifiedPaidPaymentsRef.current.add(paymentPublicId);
         const confirmedPayment = refreshed?.payments.find(
           (payment) => payment.publicId === paymentPublicId && payment.status === 'PAID',
         );
+        // O socket apenas avisa que algo mudou. A confirmação exibida ao cliente
+        // precisa vir da leitura canônica do backend, nunca só do payload do evento.
+        if (!confirmedPayment || !refreshed) return;
+
+        notifiedPaidPaymentsRef.current.add(paymentPublicId);
         const ownPayment =
           confirmedPayment?.payerParticipantPublicId ===
           refreshed?.currentParticipantPublicId;

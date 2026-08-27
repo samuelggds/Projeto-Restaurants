@@ -1,7 +1,12 @@
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { TableAccountSnapshot } from '../domain/tableAccount';
 import { TableAccountPanel } from './TableAccountPanel';
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
+  true;
 
 const snapshot: TableAccountSnapshot = {
   contractVersion: 1,
@@ -101,5 +106,75 @@ describe('TableAccountPanel', () => {
     expect(markup).toContain('Confirmação automática em tempo real');
     expect(markup).toContain('Cada celular ou navegador recebe uma identificação segura');
     expect(markup).not.toContain('Acesso encerrado');
+  });
+
+  it('limpa os itens escolhidos depois de criar uma reserva com sucesso', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onCreatePayment = vi.fn(async () => ({
+      idempotentReplay: false,
+      payment: {
+        publicId: 'payment-1',
+        sessionPublicId: 'session-1',
+        payerParticipantPublicId: 'participant-1',
+        selectionMode: 'SELECTED_ITEMS' as const,
+        method: 'PIX' as const,
+        status: 'PROCESSING' as const,
+        billItemPublicIds: ['item-1'],
+        subtotalCents: 3_000,
+        serviceFeeCents: 0,
+        totalCents: 3_000,
+        provider: 'FAKE_TABLE',
+        externalId: 'fake-1',
+        checkoutUrl: null,
+        expiresAt: '2026-08-26T15:10:00.000Z',
+        createdAt: '2026-08-26T15:00:00.000Z',
+        updatedAt: '2026-08-26T15:00:00.000Z',
+      },
+    }));
+
+    await act(async () => {
+      root.render(
+        <TableAccountPanel
+          open
+          tableNumber={4}
+          snapshot={snapshot}
+          loading={false}
+          actionLoading={false}
+          error=""
+          onRefresh={() => undefined}
+          onCreatePayment={onCreatePayment}
+          onCancelPayment={async () => true}
+          onClose={() => undefined}
+        />,
+      );
+    });
+
+    const chooseItems = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Escolher itens'),
+    );
+    await act(async () => chooseItems?.click());
+    const checkbox = container.querySelector(
+      'input[aria-label="Selecionar Pizza personalizada"]',
+    ) as HTMLInputElement;
+    await act(async () => checkbox.click());
+    expect(checkbox.checked).toBe(true);
+
+    const submit = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Gerar pagamento Pix'),
+    );
+    await act(async () => {
+      submit?.click();
+      await Promise.resolve();
+    });
+
+    expect(onCreatePayment).toHaveBeenCalledWith(
+      expect.objectContaining({ billItemPublicIds: ['item-1'] }),
+    );
+    expect(checkbox.checked).toBe(false);
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 });

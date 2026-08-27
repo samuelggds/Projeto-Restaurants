@@ -29,6 +29,7 @@ import {
   canRefundTablePayment,
   canViewTableAccountFinancialHistory,
   canTransitionTablePaymentIntent,
+  isManualTablePaymentIntent,
   requiresPrepayment,
   shouldIncludeServiceFee,
   splitCentsEqually,
@@ -396,6 +397,54 @@ test('só finaliza cancelamento financeiro seguro e controla transições de pag
   assert.equal(canTransitionTablePaymentIntent('PAID', 'REFUNDED'), true);
   assert.equal(canTransitionTablePaymentIntent('PAID', 'FAILED'), false);
   assert.equal(canTransitionTablePaymentIntent('REFUNDED', 'PAID'), false);
+});
+
+test('confirma manualmente somente solicitações presenciais sem provedor online', () => {
+  assert.equal(
+    isManualTablePaymentIntent({
+      method: 'CASH',
+      selectionMode: 'WAITER',
+      provider: null,
+      providerExternalId: null,
+    }),
+    true,
+  );
+  assert.equal(
+    isManualTablePaymentIntent({
+      method: 'CARD_MACHINE',
+      selectionMode: 'WAITER',
+      provider: null,
+      providerExternalId: null,
+    }),
+    true,
+  );
+  assert.equal(
+    isManualTablePaymentIntent({
+      method: 'PIX',
+      selectionMode: 'WAITER',
+      provider: null,
+      providerExternalId: null,
+    }),
+    false,
+  );
+  assert.equal(
+    isManualTablePaymentIntent({
+      method: 'CASH',
+      selectionMode: 'FULL_ACCOUNT',
+      provider: null,
+      providerExternalId: null,
+    }),
+    false,
+  );
+  assert.equal(
+    isManualTablePaymentIntent({
+      method: 'CARD_MACHINE',
+      selectionMode: 'WAITER',
+      provider: 'MERCADO_PAGO',
+      providerExternalId: 'payment-123',
+    }),
+    false,
+  );
 });
 
 test('mantém fechada a matriz completa de transições do pagamento', () => {

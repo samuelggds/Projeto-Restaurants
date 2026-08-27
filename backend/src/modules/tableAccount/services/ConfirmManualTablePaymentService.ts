@@ -2,11 +2,13 @@ import {
   Prisma,
   TablePaymentEventType,
   TablePaymentIntentStatus,
-  TablePaymentMethod,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import type { TableAccountActor } from '../domain/tableAccountContracts.js';
-import { canConfirmManualTablePayment } from '../domain/tableAccountRules.js';
+import {
+  canConfirmManualTablePayment,
+  isManualTablePaymentIntent,
+} from '../domain/tableAccountRules.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
 } from '../repositories/TablePaymentRepository.js';
@@ -62,21 +64,17 @@ export class ConfirmManualTablePaymentService {
           );
         }
 
-        const manualMethod =
-          intent.method === TablePaymentMethod.CASH ||
-          intent.method === TablePaymentMethod.CARD_MACHINE;
-        if (!manualMethod) {
+        if (!isManualTablePaymentIntent(intent)) {
           throw new TablePaymentError(
-            'Somente pagamentos em dinheiro ou maquininha podem ser confirmados manualmente.',
+            'Somente solicitações presenciais em dinheiro ou maquininha podem ser confirmadas manualmente.',
             409,
             'NOT_A_MANUAL_PAYMENT',
           );
         }
 
-        if (
-          intent.status === TablePaymentIntentStatus.PAID &&
-          intent.manualConfirmedById === input.actor.id
-        ) {
+        // A confirmação é idempotente mesmo se outro funcionário tocar no botão
+        // depois do primeiro. O histórico preserva quem confirmou originalmente.
+        if (intent.status === TablePaymentIntentStatus.PAID && intent.manualConfirmedAt) {
           return intent;
         }
         if (

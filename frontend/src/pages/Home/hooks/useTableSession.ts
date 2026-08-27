@@ -88,7 +88,7 @@ export function useTableSession(options: Options) {
       localStorage.setItem('tableSession', JSON.stringify(closingSession));
       return closingSession;
     });
-  }, []);
+  }, [setTableSession]);
 
   useEffect(() => {
     if (!route.mesaMode || !tableSession?.sessionToken) return;

@@ -40,9 +40,35 @@ export interface RestaurantTable {
   status: TableStatus;
   sessionStatus?: TableSessionStatus;
   sessionId?: string;
+  sessionPublicId?: string;
   guests: number;
   openedAt?: string;
   total: number;
+}
+
+export interface WaiterTableAccountSnapshot {
+  summary: {
+    consumedCents: number;
+    netPaidCents: number;
+    processingCents: number;
+    remainingCents: number;
+  };
+  paymentIntents: Array<{
+    publicId: string;
+    method: 'PIX' | 'CARD' | 'CASH' | 'CARD_MACHINE';
+    status:
+      | 'RESERVED'
+      | 'PROCESSING'
+      | 'PAID'
+      | 'FAILED'
+      | 'EXPIRED'
+      | 'CANCELED'
+      | 'REFUNDED';
+    totalCents: number;
+    createdAt: string;
+    manualConfirmedAt: string | null;
+    manualConfirmedByName: string | null;
+  }>;
 }
 export interface ServiceCall {
   id: string;
@@ -79,6 +105,7 @@ export interface EmployeeWorkspaceProps {
   onUpdateCall?: (callId: string, status: CallStatus) => void | Promise<void>;
   onDeleteCall?: (callId: string) => void | Promise<void>;
   workspaceState?: WaiterWorkspaceState;
+  tableAccountRefreshKey?: number;
   onRefresh?: () => void | Promise<void>;
   onLogout?: () => void;
 }

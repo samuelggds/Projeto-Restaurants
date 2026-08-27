@@ -2,7 +2,9 @@ import type {
   MoneyCents,
   TableAccountActor,
   TableBillItemFinancialStatus,
+  TablePaymentMethod,
   TablePaymentIntentStatus,
+  TablePaymentSelectionMode,
   TablePrepaymentWindowDto,
   TableServiceFeeMode,
 } from './tableAccountContracts.js';
@@ -235,6 +237,20 @@ export function canConfirmManualTablePayment(actor: TableAccountActor, restauran
   return (
     isActorFromRestaurant(actor, restaurantId) &&
     (actor.role === 'ADMIN' || (actor.role === 'FUNCIONARIO' && actor.subRole === 'GARCOM'))
+  );
+}
+
+export function isManualTablePaymentIntent(input: {
+  method: TablePaymentMethod;
+  selectionMode: TablePaymentSelectionMode;
+  provider: string | null;
+  providerExternalId: string | null;
+}) {
+  return (
+    input.selectionMode === 'WAITER' &&
+    (input.method === 'CASH' || input.method === 'CARD_MACHINE') &&
+    !input.provider &&
+    !input.providerExternalId
   );
 }
 

@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import tableAccountService from '../../../Services/tableAccountService';
 import { WaiterProvider } from '../WaiterContext';
 import type { EmployeeWorkspaceData, RestaurantTable } from '../types';
 import {
@@ -9,6 +10,13 @@ import {
   WaiterOverviewPage,
   WaiterTablesPage,
 } from './WaiterPages';
+
+vi.mock('../../../Services/tableAccountService', () => ({
+  default: {
+    getAdminSnapshot: vi.fn(),
+    confirmManualPayment: vi.fn(),
+  },
+}));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -39,6 +47,7 @@ const occupiedTable: RestaurantTable = {
   status: 'OCCUPIED',
   sessionStatus: 'OPEN',
   sessionId: '31',
+  sessionPublicId: 'session-public-31',
   guests: 2,
   total: 58,
   openedAt: '18:30',
@@ -96,6 +105,7 @@ describe('waiter operational pages', () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -104,6 +114,7 @@ describe('waiter operational pages', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.restoreAllMocks();
   });
 
   function renderPage(page: React.ReactNode, overrides: Partial<EmployeeWorkspaceData> = {}) {
@@ -279,6 +290,58 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('Ver e pagar a conta');
     expect(container.textContent).toContain('pagamento ser confirmado');
     expect(container.textContent).toContain('pedido ser concluído pela cozinha');
+  });
+
+  it('mostra a conta e permite confirmar somente dinheiro ou maquininha já recebidos', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(tableAccountService.getAdminSnapshot).mockResolvedValue({
+      summary: {
+        consumedCents: 5800,
+        netPaidCents: 0,
+        processingCents: 5800,
+        remainingCents: 5800,
+      },
+      paymentIntents: [
+        {
+          publicId: 'manual-payment',
+          method: 'CARD_MACHINE',
+          status: 'RESERVED',
+          totalCents: 2900,
+          createdAt: '2026-08-26T18:00:00.000Z',
+          manualConfirmedAt: null,
+          manualConfirmedByName: null,
+        },
+        {
+          publicId: 'online-payment',
+          method: 'PIX',
+          status: 'PROCESSING',
+          totalCents: 2900,
+          createdAt: '2026-08-26T18:01:00.000Z',
+          manualConfirmedAt: null,
+          manualConfirmedByName: null,
+        },
+      ],
+    });
+    vi.mocked(tableAccountService.confirmManualPayment).mockResolvedValue({});
+
+    renderPage(<WaiterTablesPage />);
+    const openAccount = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('Ver conta e pagamentos'),
+    );
+    await act(async () => openAccount?.click());
+
+    expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledWith('session-public-31');
+    expect(container.textContent).toContain('Pix e cartão online');
+    expect(container.textContent).toContain('Aguardando confirmação automática do provedor');
+    const confirmButtons = [...container.querySelectorAll('button')].filter(
+      (button) => button.textContent?.trim() === 'Confirmar valor recebido',
+    );
+    expect(confirmButtons).toHaveLength(1);
+
+    await act(async () => confirmButtons[0]?.click());
+    expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('manual-payment');
+    expect(tableAccountService.confirmManualPayment).not.toHaveBeenCalledWith('online-payment');
+    expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it('busca chamados e confirma Atender pelo contrato de atualização', async () => {

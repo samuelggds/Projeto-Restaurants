@@ -75,7 +75,7 @@ export const Scroll = styled.div`
   flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 18px clamp(13px, 4vw, 25px) 100px;
+  padding: 18px clamp(13px, 4vw, 25px) calc(100px + env(safe-area-inset-bottom));
 `;
 
 export const Loading = styled.div`
@@ -164,7 +164,7 @@ export const SummaryNote = styled.div`
   gap: 7px;
   margin: -7px 2px 16px;
   color: #7a7068;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.4;
 
   svg {
@@ -259,7 +259,7 @@ export const Guide = styled.section`
   small {
     margin-top: 3px;
     color: #877c73;
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.35;
   }
 
@@ -338,7 +338,7 @@ export const ContextNote = styled.div`
   border-radius: 11px;
   background: #f8f4f0;
   color: #70655c;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.4;
 
   svg {
@@ -377,17 +377,16 @@ export const Item = styled.label<{ $selectable?: boolean; $selected?: boolean }>
   }
 
   b {
-    overflow: hidden;
+    overflow-wrap: anywhere;
     color: #312a25;
     font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
   }
 
   small {
     margin-top: 3px;
     color: #887e75;
-    font-size: 9px;
+    font-size: 10px;
   }
 
   strong {
@@ -433,7 +432,7 @@ export const Modes = styled.div`
   button small {
     margin-top: 3px;
     color: #847970;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.3;
   }
 
@@ -482,7 +481,7 @@ export const SelectionBox = styled.div`
   p {
     margin-top: 3px;
     color: #82776e;
-    font-size: 8px;
+    font-size: 10px;
   }
 
   header > span {
@@ -491,7 +490,7 @@ export const SelectionBox = styled.div`
     border-radius: 999px;
     background: color-mix(in srgb, var(--home-primary) 10%, white);
     color: var(--home-primary);
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 850;
   }
 `;
@@ -524,7 +523,7 @@ export const SelectionHelp = styled.div`
 
   small {
     margin-top: 2px;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.4;
   }
 `;
@@ -581,7 +580,7 @@ export const MethodHeading = styled.div`
   p {
     margin-top: 3px;
     color: #81766e;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.4;
   }
 
@@ -614,7 +613,7 @@ export const Methods = styled.div`
     text-align: left;
   }
 
-  button[aria-checked='true'] {
+  button[aria-pressed='true'] {
     border-color: var(--home-primary);
     background: color-mix(in srgb, var(--home-primary) 6%, white);
     color: var(--home-primary);
@@ -631,7 +630,7 @@ export const Methods = styled.div`
     color: #675a50;
   }
 
-  button[aria-checked='true'] .method-icon {
+  button[aria-pressed='true'] .method-icon {
     background: var(--home-primary);
     color: #fff;
   }
@@ -648,7 +647,7 @@ export const Methods = styled.div`
   small {
     margin-top: 3px;
     color: #82776e;
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.35;
   }
 
@@ -683,7 +682,7 @@ export const ConfirmationInfo = styled.div<{ $manual?: boolean }>`
 
   small {
     margin-top: 3px;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.45;
   }
 `;
@@ -727,7 +726,7 @@ export const Submit = styled.button`
 
   @media (max-width: 700px) {
     position: sticky;
-    bottom: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
     z-index: 2;
     box-shadow: 0 9px 24px color-mix(in srgb, var(--home-primary) 26%, transparent);
   }
@@ -736,6 +735,11 @@ export const Submit = styled.button`
     cursor: not-allowed;
     filter: grayscale(0.15);
     opacity: 0.52;
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-primary) 24%, transparent);
+    outline-offset: 2px;
   }
 `;
 
@@ -804,7 +808,7 @@ export const PaymentList = styled.div`
     display: block;
     margin-top: 3px;
     color: #9a8e84;
-    font-size: 8px;
+    font-size: 10px;
   }
 
   article[data-status='PAID'] .status-label {
@@ -824,7 +828,7 @@ export const PaymentList = styled.div`
   small {
     margin-top: 3px;
     color: #887e75;
-    font-size: 9px;
+    font-size: 10px;
   }
 
   strong {
@@ -840,7 +844,7 @@ export const PaymentList = styled.div`
     color: #ac3e34;
     cursor: pointer;
     font: inherit;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 800;
   }
 
@@ -869,7 +873,7 @@ export const StatusLegend = styled.div`
     border-radius: 10px;
     background: #f7f3ef;
     color: #796e65;
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.35;
   }
 

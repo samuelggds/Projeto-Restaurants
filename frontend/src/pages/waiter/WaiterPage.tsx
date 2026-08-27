@@ -45,6 +45,7 @@ export default function WaiterPage() {
       : 'Seu usuário não está vinculado a um restaurante. Entre novamente ou procure o administrador.',
     lastUpdatedAt: null,
   });
+  const [tableAccountRefreshKey, setTableAccountRefreshKey] = useState(0);
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const callAlarmIntervalRef = useRef<number | null>(null);
@@ -159,6 +160,10 @@ export default function WaiterPage() {
       startCallAlarm();
       refresh();
     };
+    const handleTableAccountUpdate = () => {
+      setTableAccountRefreshKey((current) => current + 1);
+      refresh();
+    };
     socket.on('new-order', refresh);
     socket.on('order:status-changed', refresh);
     socket.on('waiter:order-updated', refresh);
@@ -166,6 +171,7 @@ export default function WaiterPage() {
     socket.on('waiter-call:updated', refresh);
     socket.on('table:session-opened', refresh);
     socket.on('table:session-closed', refresh);
+    socket.on('table-account:updated', handleTableAccountUpdate);
     return () => {
       socket.off('new-order', refresh);
       socket.off('order:status-changed', refresh);
@@ -174,6 +180,7 @@ export default function WaiterPage() {
       socket.off('waiter-call:updated', refresh);
       socket.off('table:session-opened', refresh);
       socket.off('table:session-closed', refresh);
+      socket.off('table-account:updated', handleTableAccountUpdate);
       disconnectSocket();
     };
   }, [loadWorkspace, restaurantId, startCallAlarm]);
@@ -193,12 +200,14 @@ export default function WaiterPage() {
       restaurant={restaurant}
       data={data}
       workspaceState={workspaceState}
+      tableAccountRefreshKey={tableAccountRefreshKey}
       onRefresh={() => loadWorkspace(true)}
       onOpenTable={async (tableId) => {
         try {
           const result = asRecord(await tablesService.openTableSession(tableId));
           const session = asRecord(result.session);
           const sessionId = String(result.sessionId || session.id || '').trim();
+          const sessionPublicId = String(result.sessionPublicId || session.publicId || '').trim();
           if (!sessionId) throw new Error('O servidor não confirmou a abertura da mesa.');
           setData((current) => ({
             ...current,
@@ -208,6 +217,7 @@ export default function WaiterPage() {
                     ...table,
                     status: 'OCCUPIED',
                     sessionId,
+                    sessionPublicId: sessionPublicId || undefined,
                     openedAt: formatTimeForWorkspace(session.openedAt),
                   }
                 : table,
@@ -231,6 +241,7 @@ export default function WaiterPage() {
                     ...table,
                     status: 'FREE',
                     sessionId: undefined,
+                    sessionPublicId: undefined,
                     openedAt: undefined,
                     guests: 0,
                     total: 0,

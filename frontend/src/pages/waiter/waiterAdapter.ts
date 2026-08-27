@@ -60,6 +60,10 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
           status === 'OCCUPIED'
             ? String(table.sessionId || openSession.id || '').trim() || undefined
             : undefined,
+        sessionPublicId:
+          status === 'OCCUPIED'
+            ? String(table.sessionPublicId || openSession.publicId || '').trim() || undefined
+            : undefined,
         guests: Math.max(0, Number(operational.guests ?? table.guests ?? 0) || 0),
         total: Math.max(0, Number(operational.total ?? table.total ?? 0) || 0),
         openedAt: formatTime(table.openedAt || openSession.openedAt),

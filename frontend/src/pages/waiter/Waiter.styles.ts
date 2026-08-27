@@ -1237,6 +1237,13 @@ export const TableCard = styled.article`
     border-color: #efc2aa;
     background: #fff6f0;
   }
+  .actions .view-account {
+    flex-basis: 100%;
+    min-height: 39px;
+    color: #243f4c;
+    border-color: #b9ccd5;
+    background: #f4f8fa;
+  }
 `;
 export const TableState = styled.span<{
   $state: 'FREE' | 'OCCUPIED';

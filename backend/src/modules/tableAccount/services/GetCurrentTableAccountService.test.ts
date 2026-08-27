@@ -154,6 +154,20 @@ test('monta a conta com centavos exatos, ignora cancelados e não expõe dados d
     serviceFeeBasisPoints: 1_000,
     reservationTimeoutMinutes: 10,
   });
+
+  const previousNodeEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    const productionResult = await new GetCurrentTableAccountService().execute({
+      tableSessionId: 55,
+      restaurantId: 7,
+      participantId: 80,
+      participantPublicId: currentParticipantPublicId,
+    });
+    assert.equal(productionResult.capabilities.allowOnlinePayment, false);
+  } finally {
+    process.env.NODE_ENV = previousNodeEnv;
+  }
   assert.deepEqual(result.payments, []);
   assert.equal(result.items[1].financialStatus, 'PAID');
   assert.equal(result.items[2].financialStatus, 'REFUNDED');

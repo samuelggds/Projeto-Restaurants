@@ -216,6 +216,10 @@ export class GetCurrentTableAccountService {
     }
     const now = new Date();
     const paymentIntents = data.paymentIntents || [];
+    // Nesta etapa o único adapter disponível é o simulador local, que se
+    // desativa em produção. Não ofereça Pix/cartão online ao cliente quando
+    // não existe um provedor real capaz de criar e confirmar a cobrança.
+    const onlinePaymentProviderAvailable = process.env.NODE_ENV !== 'production';
 
     return {
       ...buildTableAccountBaseSnapshot(data, now),
@@ -224,7 +228,7 @@ export class GetCurrentTableAccountService {
         enabled: settings.enabled,
         allowCash: settings.allowCash,
         allowCardMachine: settings.allowCardMachine,
-        allowOnlinePayment: settings.allowOnlinePayment,
+        allowOnlinePayment: settings.allowOnlinePayment && onlinePaymentProviderAvailable,
         allowSplit: settings.allowSplit,
         serviceFeeMode: settings.serviceFeeMode,
         serviceFeeBasisPoints: settings.serviceFeeBasisPoints,

@@ -235,4 +235,54 @@ describe('useTableAccount isolamento entre sessões', () => {
     });
     expect(realtimeNotify).toHaveBeenCalledTimes(1);
   });
+
+  it('não anuncia pagamento confirmado até a leitura canônica do backend confirmar o status', async () => {
+    let accountUpdated:
+      | ((payload?: { paymentPublicId?: string; paymentStatus?: string }) => Promise<void>)
+      | undefined;
+    const socket = {
+      on: vi.fn((event: string, handler: typeof accountUpdated) => {
+        if (event === 'table-account:updated') accountUpdated = handler;
+      }),
+      off: vi.fn(),
+    };
+    vi.mocked(connectTableSessionSocket).mockReturnValue(socket as never);
+
+    const processing = snapshotFor('session-a');
+    processing.payments = [
+      {
+        publicId: 'payment-2',
+        payerParticipantPublicId: processing.currentParticipantPublicId,
+        selectionMode: 'FULL_ACCOUNT',
+        status: 'PROCESSING',
+        totalCents: 1_000,
+        createdAt: '2026-08-26T14:50:00.000Z',
+      },
+    ];
+    const paid = structuredClone(processing);
+    paid.payments[0].status = 'PAID';
+
+    vi.mocked(tableAccountService.getCurrent)
+      .mockResolvedValueOnce(processing)
+      .mockRejectedValueOnce(new Error('rede indisponível'))
+      .mockResolvedValue(paid);
+
+    await act(async () => root.render(<RealtimeProbe />));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
+
+    await act(async () => {
+      await accountUpdated?.({ paymentPublicId: 'payment-2', paymentStatus: 'PAID' });
+    });
+    expect(realtimeNotify).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await accountUpdated?.({ paymentPublicId: 'payment-2', paymentStatus: 'PAID' });
+    });
+    expect(realtimeNotify).toHaveBeenCalledTimes(1);
+    expect(realtimeNotify).toHaveBeenCalledWith(
+      'success',
+      'Seu pagamento foi confirmado',
+      expect.any(String),
+    );
+  });
 });
