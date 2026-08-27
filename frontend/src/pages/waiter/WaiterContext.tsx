@@ -1,11 +1,17 @@
 import { createContext, useCallback, useMemo, type PropsWithChildren } from 'react';
 import { workspaceMock } from './data';
-import type { CallStatus, EmployeeWorkspaceData, EmployeeWorkspaceProps } from './types';
+import type {
+  CallStatus,
+  EmployeeWorkspaceData,
+  EmployeeWorkspaceProps,
+  OrderStatus,
+} from './types';
 
-export type WaiterModuleProps = Omit<EmployeeWorkspaceProps, 'role' | 'onUpdateOrderStatus'>;
+export type WaiterModuleProps = Omit<EmployeeWorkspaceProps, 'role'>;
 export type WaiterContextValue = WaiterModuleProps &
   EmployeeWorkspaceData & {
     role: 'WAITER';
+    updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
     openTable: (tableId: string) => Promise<void>;
     closeTable: (sessionId: string) => Promise<void>;
     updateCall: (id: string, status: CallStatus) => Promise<void>;
@@ -19,7 +25,17 @@ export function WaiterProvider({
   data = workspaceMock,
   ...props
 }: PropsWithChildren<WaiterModuleProps>) {
-  const { onOpenTable, onCloseTable, onUpdateCall, onDeleteCall } = props;
+  const { onUpdateOrderStatus, onOpenTable, onCloseTable, onUpdateCall, onDeleteCall } = props;
+
+  const updateOrderStatus = useCallback(
+    async (orderId: string, status: OrderStatus) => {
+      if (!onUpdateOrderStatus) {
+        throw new Error('A confirmação de entrega não está disponível neste momento.');
+      }
+      await onUpdateOrderStatus(orderId, status);
+    },
+    [onUpdateOrderStatus],
+  );
 
   const openTable = useCallback(
     async (tableId: string) => {
@@ -68,12 +84,13 @@ export function WaiterProvider({
       orders: data.orders,
       tables: data.tables,
       calls: data.calls,
+      updateOrderStatus,
       openTable,
       closeTable,
       updateCall,
       deleteCall,
     }),
-    [props, data, openTable, closeTable, updateCall, deleteCall],
+    [props, data, updateOrderStatus, openTable, closeTable, updateCall, deleteCall],
   );
   return <WaiterContext.Provider value={value}>{children}</WaiterContext.Provider>;
 }

@@ -202,6 +202,21 @@ export default function WaiterPage() {
       workspaceState={workspaceState}
       tableAccountRefreshKey={tableAccountRefreshKey}
       onRefresh={() => loadWorkspace(true)}
+      onUpdateOrderStatus={async (orderId, status) => {
+        try {
+          await ordersService.updateStatus(orderId.replace(/^#/, ''), status);
+          setData((current) => ({
+            ...current,
+            orders: current.orders.map((order) =>
+              order.id === orderId ? { ...order, status } : order,
+            ),
+          }));
+          void loadWorkspace(true);
+        } catch (error: unknown) {
+          await loadWorkspace(true);
+          throw error;
+        }
+      }}
       onOpenTable={async (tableId) => {
         try {
           const result = asRecord(await tablesService.openTableSession(tableId));

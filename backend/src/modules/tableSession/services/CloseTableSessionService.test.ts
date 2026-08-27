@@ -80,10 +80,9 @@ test('isola o fechamento pelo restaurantId do token', async () => {
 test('bloqueia fechamento enquanto existe pedido ou pagamento pendente', async () => {
   mockTransaction();
   tableSessionRepository.findById = async () => openSession;
-  tableSessionRepository.findBlockingOrdersForSession = async (tableId, restaurantId, openedAt) => {
-    assert.equal(tableId, 91);
+  tableSessionRepository.findBlockingOrdersForSession = async (tableSessionId, restaurantId) => {
+    assert.equal(tableSessionId, 55);
     assert.equal(restaurantId, 7);
-    assert.equal(openedAt.toISOString(), openSession.openedAt.toISOString());
     return [
       { id: 101, status: 'PRONTO', paid: true },
       { id: 102, status: 'ENTREGUE', paid: false },
@@ -96,7 +95,7 @@ test('bloqueia fechamento enquanto existe pedido ou pagamento pendente', async (
 
   await assert.rejects(
     () => closeTableSessionService.execute({ sessionId: 55, restaurantId: 7, closedById: 3 }),
-    /pedidos ou pagamentos pendentes.*#101, #102/i,
+    /pedidos aguardando entrega e pagamentos pendentes.*#101, #102/i,
   );
   assert.equal(closeCalled, false);
 });
@@ -139,7 +138,7 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
   assert.equal(eventPayload.status, 'CLOSED');
 });
 
-test('consulta somente pedidos da mesa/restaurante criados após a abertura', async () => {
+test('consulta somente pedidos MESA vinculados exatamente à sessão e ao restaurante', async () => {
   let query;
   const fakeDb = {
     order: {
@@ -149,13 +148,34 @@ test('consulta somente pedidos da mesa/restaurante criados após a abertura', as
       },
     },
   };
-  const openedAt = new Date('2026-08-24T12:00:00.000Z');
+  await tableSessionRepository.findBlockingOrdersForSession(55, 7, fakeDb);
 
-  await tableSessionRepository.findBlockingOrdersForSession(91, 7, openedAt, fakeDb);
-
-  assert.equal(query.where.tableId, 91);
   assert.equal(query.where.restaurantId, 7);
-  assert.equal(query.where.createdAt.gte, openedAt);
+  assert.equal(query.where.tableSessionId, 55);
+  assert.equal(query.where.type, 'MESA');
+  assert.equal('tableId' in query.where, false);
+  assert.equal('createdAt' in query.where, false);
   assert.equal(query.where.status.not, 'CANCELADO');
   assert.deepEqual(query.where.OR, [{ status: { not: 'ENTREGUE' } }, { paid: false }]);
+});
+
+test('consulta operacional também isola sessão, restaurante e canal MESA', async () => {
+  let query;
+  const fakeDb = {
+    order: {
+      findMany: async (args) => {
+        query = args;
+        return [];
+      },
+    },
+  };
+
+  await tableSessionRepository.findOperationalBlockingOrdersForSession(55, 7, fakeDb);
+
+  assert.equal(query.where.restaurantId, 7);
+  assert.equal(query.where.tableSessionId, 55);
+  assert.equal(query.where.type, 'MESA');
+  assert.equal('tableId' in query.where, false);
+  assert.equal('createdAt' in query.where, false);
+  assert.deepEqual(query.where.status.notIn, ['CANCELADO', 'ENTREGUE']);
 });

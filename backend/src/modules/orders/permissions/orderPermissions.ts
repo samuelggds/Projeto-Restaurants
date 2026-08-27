@@ -28,9 +28,14 @@ function canUserChangeStatus(
   subRole?: FuncionarioSubRole | string | null,
 ) {
   if (role === UserRole.FUNCIONARIO) {
-    if (String(subRole || '').toUpperCase() !== FuncionarioSubRole.COZINHA) {
-      return false;
+    const normalizedSubRole = String(subRole || '').toUpperCase();
+
+    if (normalizedSubRole === FuncionarioSubRole.GARCOM) {
+      return status === OrderStatus.ENTREGUE;
     }
+
+    if (normalizedSubRole !== FuncionarioSubRole.COZINHA) return false;
+
     const kitchenStatuses: OrderStatus[] = [OrderStatus.PREPARANDO, OrderStatus.PRONTO];
     return kitchenStatuses.includes(status);
   }

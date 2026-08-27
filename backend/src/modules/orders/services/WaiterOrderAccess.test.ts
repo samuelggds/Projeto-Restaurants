@@ -1,26 +1,57 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import test, { afterEach } from 'node:test';
-import { FuncionarioSubRole, OrderStatus, OrderType, UserRole } from '@prisma/client';
+import {
+  FuncionarioSubRole,
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+  UserRole,
+} from '@prisma/client';
+import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
 import getOrderByIdService from './GetOrderByIdService.js';
 import listOrdersService from './ListOrdersService.js';
 
+const originalHttpCreateServer = http.createServer;
+http.createServer = ((...args) => {
+  const server = originalHttpCreateServer(...args);
+  server.listen = () => server;
+  return server;
+}) as typeof http.createServer;
+
+const { io } = await import('../../../server.js');
+const { default: updateOrderStatusService } = await import('./UpdateOrderStatusService.js');
+http.createServer = originalHttpCreateServer;
+
 const originals = {
   findAll: orderRepository.findAll,
   findReady: orderRepository.findReadyTableOrders,
   findReadyById: orderRepository.findReadyTableOrderById,
+  findDeliverableById: orderRepository.findDeliverableTableOrderById,
   findOperationalById: orderRepository.findOperationalById,
   findById: orderRepository.findById,
+  updateStatusIfCurrent: orderRepository.updateStatusIfCurrent,
+  confirmPayment: orderRepository.confirmPayment,
+  transaction: prisma.$transaction,
+  settingsFindUnique: prisma.restaurantSettings.findUnique,
+  ioTo: io.to,
 };
 
 afterEach(() => {
   orderRepository.findAll = originals.findAll;
   orderRepository.findReadyTableOrders = originals.findReady;
   orderRepository.findReadyTableOrderById = originals.findReadyById;
+  orderRepository.findDeliverableTableOrderById = originals.findDeliverableById;
   orderRepository.findOperationalById = originals.findOperationalById;
   orderRepository.findById = originals.findById;
+  orderRepository.updateStatusIfCurrent = originals.updateStatusIfCurrent;
+  orderRepository.confirmPayment = originals.confirmPayment;
+  prisma.$transaction = originals.transaction;
+  prisma.restaurantSettings.findUnique = originals.settingsFindUnique;
+  io.to = originals.ioTo;
 });
 
 test('garçom lista somente pedidos MESA prontos do próprio restaurante', async () => {
@@ -103,12 +134,39 @@ test('consulta pronta aplica tenant, canal, status, pagamento confirmado e respo
   assert.equal(query.where.restaurantId, 7);
   assert.equal(query.where.type, OrderType.MESA);
   assert.equal(query.where.status, OrderStatus.PRONTO);
+  assert.deepEqual(query.where.tableSession.is.status.in, ['OPEN', 'CLOSING_REQUESTED']);
+  assert.equal(query.where.tableSession.is.restaurantId, 7);
+  assert.equal(query.where.tableSession.is.OR[0].expiresAt, null);
+  assert.ok(query.where.tableSession.is.OR[1].expiresAt.gt instanceof Date);
   assert.deepEqual(query.where.NOT.paymentMethod.in, ['PIX', 'CARTAO']);
   assert.deepEqual(query.include.user.select, { id: true, name: true });
   assert.equal('phone' in query.include.user.select, false);
   assert.deepEqual(query.include.table.select, { id: true, number: true });
   assert.equal('token' in query.include.table.select, false);
   assert.deepEqual(query.orderBy, [{ readyAt: 'asc' }, { createdAt: 'asc' }]);
+});
+
+test('consulta de entrega exige pedido pronto em sessão ativa do mesmo restaurante', async () => {
+  let query;
+  const fakeDb = {
+    order: {
+      findFirst: async (args) => {
+        query = args;
+        return null;
+      },
+    },
+  };
+
+  await orderRepository.findDeliverableTableOrderById(101, 7, fakeDb);
+
+  assert.equal(query.where.id, 101);
+  assert.equal(query.where.restaurantId, 7);
+  assert.equal(query.where.type, OrderType.MESA);
+  assert.equal(query.where.status, OrderStatus.PRONTO);
+  assert.equal(query.where.tableSession.is.restaurantId, 7);
+  assert.deepEqual(query.where.tableSession.is.status.in, ['OPEN', 'CLOSING_REQUESTED']);
+  assert.equal(query.where.tableSession.is.OR[0].expiresAt, null);
+  assert.ok(query.where.tableSession.is.OR[1].expiresAt.gt instanceof Date);
 });
 
 test('fila da cozinha recebe o número correto da mesa sem expor o token do QR', async () => {
@@ -167,14 +225,14 @@ test('cozinha consulta detalhe pela visão operacional e exige subperfil válido
   );
 });
 
-test('garçom não altera status; cozinha continua limitada ao preparo', () => {
+test('garçom altera somente para ENTREGUE; cozinha continua limitada ao preparo', () => {
   assert.equal(
     OrderPermissions.canUserChangeStatus(
       UserRole.FUNCIONARIO,
       OrderStatus.ENTREGUE,
       FuncionarioSubRole.GARCOM,
     ),
-    false,
+    true,
   );
   assert.equal(
     OrderPermissions.canUserChangeStatus(
@@ -200,4 +258,144 @@ test('garçom não altera status; cozinha continua limitada ao preparo', () => {
     ),
     false,
   );
+});
+
+test('garçom entrega somente pedido MESA/PRONTO sem confirmar pagamento automaticamente', async () => {
+  const readyOrder = {
+    id: 101,
+    restaurantId: 7,
+    userId: null,
+    type: OrderType.MESA,
+    status: OrderStatus.PRONTO,
+    paid: false,
+    paymentMethod: PaymentMethod.DINHEIRO,
+    payOnDelivery: false,
+    observation: null,
+    user: null,
+    restaurant: { id: 7, name: 'Restaurante', whatsapp: null },
+    table: { id: 91, number: 1, active: true, restaurantId: 7 },
+    participant: { id: 51, publicId: 'participant', displayName: 'Cliente da mesa' },
+    items: [{ id: 1, quantity: 1, product: { id: 10, name: 'Produto' } }],
+  };
+  const tx = {
+    order: {
+      update: async ({ where, data }) => {
+        assert.equal(where.id, 101);
+        assert.ok(data.deliveredAt instanceof Date);
+        return { ...readyOrder, status: OrderStatus.ENTREGUE, deliveredAt: data.deliveredAt };
+      },
+    },
+  };
+  let confirmPaymentCalls = 0;
+
+  orderRepository.findDeliverableTableOrderById = async (id, restaurantId) => {
+    assert.deepEqual([Number(id), restaurantId], [101, 7]);
+    return readyOrder;
+  };
+  orderRepository.updateStatusIfCurrent = async (id, status, restaurantId, expected, db) => {
+    assert.deepEqual([Number(id), status, restaurantId], [101, OrderStatus.ENTREGUE, 7]);
+    assert.deepEqual(expected, { status: OrderStatus.PRONTO, paid: false });
+    assert.equal(db, tx);
+    return { ...readyOrder, status };
+  };
+  orderRepository.confirmPayment = async () => {
+    confirmPaymentCalls += 1;
+    return { ...readyOrder, status: OrderStatus.ENTREGUE, paid: true };
+  };
+  prisma.$transaction = async (callback) => callback(tx);
+  prisma.restaurantSettings.findUnique = async () => null;
+  io.to = () => ({ emit() {} });
+
+  const result = await updateOrderStatusService.execute(
+    101,
+    7,
+    OrderStatus.ENTREGUE,
+    UserRole.FUNCIONARIO,
+    undefined,
+    44,
+    FuncionarioSubRole.GARCOM,
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(result.status, OrderStatus.ENTREGUE);
+  assert.equal(result.paid, false);
+  assert.equal(confirmPaymentCalls, 0);
+});
+
+test('garçom não entrega outro canal, pedido não pronto ou altera para outro status', async () => {
+  let updateCalls = 0;
+  orderRepository.updateStatusIfCurrent = async () => {
+    updateCalls += 1;
+  };
+
+  const invalidAttempts = [
+    {
+      type: OrderType.DELIVERY,
+      currentStatus: OrderStatus.PRONTO,
+      targetStatus: OrderStatus.ENTREGUE,
+    },
+    {
+      type: OrderType.MESA,
+      currentStatus: OrderStatus.SAIU_PARA_ENTREGA,
+      targetStatus: OrderStatus.ENTREGUE,
+    },
+    {
+      type: OrderType.MESA,
+      currentStatus: OrderStatus.PRONTO,
+      targetStatus: OrderStatus.SAIU_PARA_ENTREGA,
+    },
+  ];
+
+  for (const attempt of invalidAttempts) {
+    orderRepository.findDeliverableTableOrderById = async () => ({
+      id: 101,
+      restaurantId: 7,
+      userId: null,
+      type: attempt.type,
+      status: attempt.currentStatus,
+      paid: true,
+      paymentMethod: PaymentMethod.DINHEIRO,
+      payOnDelivery: false,
+      observation: null,
+    });
+
+    await assert.rejects(
+      () =>
+        updateOrderStatusService.execute(
+          101,
+          7,
+          attempt.targetStatus,
+          UserRole.FUNCIONARIO,
+          undefined,
+          44,
+          FuncionarioSubRole.GARCOM,
+        ),
+      /garçom só pode marcar como entregue um pedido de mesa que esteja pronto/i,
+    );
+  }
+
+  assert.equal(updateCalls, 0);
+});
+
+test('garçom não entrega pedido pronto cuja sessão de mesa já encerrou ou expirou', async () => {
+  let updateCalls = 0;
+  orderRepository.findDeliverableTableOrderById = async () => null;
+  orderRepository.updateStatusIfCurrent = async () => {
+    updateCalls += 1;
+  };
+
+  await assert.rejects(
+    () =>
+      updateOrderStatusService.execute(
+        101,
+        7,
+        OrderStatus.ENTREGUE,
+        UserRole.FUNCIONARIO,
+        undefined,
+        44,
+        FuncionarioSubRole.GARCOM,
+      ),
+    /sessão de mesa ativa/i,
+  );
+  assert.equal(updateCalls, 0);
 });

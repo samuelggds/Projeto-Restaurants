@@ -2,7 +2,13 @@ import orderRepository from '../repositories/OrderRepository.js';
 import { io } from '../../../server.js';
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
-import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client';
+import {
+  FuncionarioSubRole,
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+  UserRole,
+} from '@prisma/client';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import prisma from '../../../config/prisma.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
@@ -34,13 +40,35 @@ class UpdateOrderStatusService {
     actorUserId?: number | null,
     actorSubRole?: string | null,
   ) {
-    const order = await orderRepository.findById(orderId, restaurantId);
+    const normalizedRole = String(role || '').toUpperCase() as UserRole;
+    const normalizedSubRole = String(actorSubRole || '').toUpperCase();
+    const isWaiter =
+      normalizedRole === UserRole.FUNCIONARIO &&
+      normalizedSubRole === FuncionarioSubRole.GARCOM;
+    const order = isWaiter
+      ? await orderRepository.findDeliverableTableOrderById(orderId, restaurantId)
+      : await orderRepository.findById(orderId, restaurantId);
 
     if (!order) {
-      throw new Error('Pedido não encontrado!');
+      throw new Error(
+        isWaiter
+          ? 'Pedido não encontrado em uma sessão de mesa ativa para entrega.'
+          : 'Pedido não encontrado!',
+      );
     }
 
     const currentStatus = order.status;
+
+    if (
+      isWaiter &&
+      !(
+        order.type === OrderType.MESA &&
+        currentStatus === OrderStatus.PRONTO &&
+        status === OrderStatus.ENTREGUE
+      )
+    ) {
+      throw new Error('O garçom só pode marcar como entregue um pedido de mesa que esteja pronto.');
+    }
 
     const canChange = OrderStateMachine.canTransition(currentStatus, status);
 
@@ -48,7 +76,6 @@ class UpdateOrderStatusService {
       throw new Error(`Transição inválida: ${currentStatus} → ${status} `);
     }
 
-    const normalizedRole = String(role || '').toUpperCase() as UserRole;
     const canUserChange = OrderPermissions.canUserChangeStatus(
       normalizedRole,
       status,
@@ -177,6 +204,7 @@ class UpdateOrderStatusService {
         });
 
         if (
+          order.type !== OrderType.MESA &&
           (order.paymentMethod === PaymentMethod.DINHEIRO || isPayOnDelivery) &&
           deliveredOrder.paid !== true
         ) {

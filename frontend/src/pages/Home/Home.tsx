@@ -157,6 +157,10 @@ export default function Home() {
         Number(localStorage.getItem('menuRestaurantId')) ||
         storedSessionRestaurantId ||
         null;
+  const activeTableId =
+    routeTableId ||
+    (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) ||
+    null;
 
   const tableClosingRequested = Boolean(
     mesaMode &&
@@ -346,6 +350,15 @@ export default function Home() {
     }
     if (!restaurantId || !cart.length || checkoutLoading) return;
 
+    if (mesaMode && !activeTableId) {
+      notify(
+        'error',
+        'Mesa não identificada',
+        'Escaneie novamente o QR Code oficial desta mesa antes de enviar o pedido.',
+      );
+      return;
+    }
+
     const currentAvailability = getRestaurantAvailability(
       homeData.businessHours,
       homeData.isOpenForOrders ?? homeData.isOpen,
@@ -409,7 +422,7 @@ export default function Home() {
       type,
       paymentMethod: selectedCheckoutPaymentMethod,
       cart,
-      tableId: routeTableId,
+      tableId: activeTableId,
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
@@ -431,7 +444,7 @@ export default function Home() {
       type: 'MESA',
       settlementMode: 'TABLE_ACCOUNT',
       cart,
-      tableId: routeTableId,
+      tableId: activeTableId,
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
@@ -473,7 +486,7 @@ export default function Home() {
       settlementMode: 'PAY_NOW',
       paymentMethod: tableCheckoutPaymentMethod,
       cart,
-      tableId: routeTableId,
+      tableId: activeTableId,
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,

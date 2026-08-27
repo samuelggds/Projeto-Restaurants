@@ -6,6 +6,7 @@ import {
   OrderType,
   TableBillItemFinancialStatus,
   TableOrderFinancialStatus,
+  TableSessionStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 
@@ -43,6 +44,22 @@ const waiterReadyOrderInclude = {
     },
   },
 } satisfies Prisma.OrderInclude;
+
+const statusUpdateOrderInclude = {
+  user: { select: { id: true, name: true, email: true, phone: true } },
+  restaurant: { select: { id: true, name: true, whatsapp: true } },
+  table: { select: operationalTableSelect },
+  participant: { select: tableParticipantSelect },
+  items: { include: { product: true } },
+} satisfies Prisma.OrderInclude;
+
+function activeTableSessionWhere(restaurantId: number): Prisma.TableSessionWhereInput {
+  return {
+    restaurantId,
+    status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
+    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+  };
+}
 
 class OrderRepository {
   async create(
@@ -256,6 +273,7 @@ class OrderRepository {
         restaurantId,
         type: OrderType.MESA,
         status: OrderStatus.PRONTO,
+        tableSession: { is: activeTableSessionWhere(restaurantId) },
         NOT: {
           paid: false,
           paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
@@ -278,6 +296,7 @@ class OrderRepository {
         restaurantId,
         type: OrderType.MESA,
         status: OrderStatus.PRONTO,
+        tableSession: { is: activeTableSessionWhere(restaurantId) },
         NOT: {
           paid: false,
           paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
@@ -285,6 +304,28 @@ class OrderRepository {
         },
       },
       include: waiterReadyOrderInclude,
+    });
+  }
+
+  async findDeliverableTableOrderById(
+    id: number | string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: {
+        id: Number(id),
+        restaurantId,
+        type: OrderType.MESA,
+        status: OrderStatus.PRONTO,
+        tableSession: { is: activeTableSessionWhere(restaurantId) },
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+      include: statusUpdateOrderInclude,
     });
   }
 
@@ -519,30 +560,7 @@ class OrderRepository {
         id: Number(id),
         restaurantId,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
-        },
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            whatsapp: true,
-          },
-        },
-        table: { select: operationalTableSelect },
-        participant: { select: tableParticipantSelect },
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
+      include: statusUpdateOrderInclude,
     });
   }
 

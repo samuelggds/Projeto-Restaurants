@@ -138,6 +138,22 @@ describe('waiter operational pages', () => {
     expect(container.textContent).not.toMatch(/PIN|código solicitado|gerar código/i);
   });
 
+  it('abre a aba operacional ao clicar ou usar o teclado no cartão de pedido pronto', () => {
+    const onOpenOrder = vi.fn();
+    renderPage(<WaiterOverviewPage onOpenOrder={onOpenOrder} />);
+
+    const orderCard = container.querySelector(
+      'article[role="button"][aria-label="Abrir pedido #14 em Para entregar"]',
+    ) as HTMLElement;
+    expect(orderCard).toBeTruthy();
+
+    act(() => orderCard.click());
+    expect(onOpenOrder).toHaveBeenLastCalledWith('#14');
+
+    act(() => orderCard.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    expect(onOpenOrder).toHaveBeenCalledTimes(2);
+  });
+
   it('usa a quantidade real de mesas na aba Para entregar e filtra pedidos', () => {
     renderPage(<WaiterDeliveriesPage />);
     expect(container.textContent).toContain('Mesas ocupadas1');
@@ -150,6 +166,30 @@ describe('waiter operational pages', () => {
       changeInput(search, 'mesa inexistente');
     });
     expect(container.textContent).toContain('Nenhum pedido pronto para os filtros selecionados.');
+  });
+
+  it('permite ao garçom confirmar a entrega de um pedido pronto à mesa', async () => {
+    const onUpdateOrderStatus = vi.fn(async () => undefined);
+    await act(async () =>
+      root.render(
+        <WaiterProvider
+          employee={employee}
+          restaurant={restaurant}
+          data={data}
+          onUpdateOrderStatus={onUpdateOrderStatus}
+        >
+          <WaiterDeliveriesPage />
+        </WaiterProvider>,
+      ),
+    );
+
+    expect(container.textContent).toContain('Depois de levar o pedido, confirme a entrega');
+    const delivered = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Entregue à mesa',
+    );
+    await act(async () => delivered?.click());
+
+    expect(onUpdateOrderStatus).toHaveBeenCalledWith('#14', 'ENTREGUE');
   });
 
   it('abre e fecha mesa somente após o callback real e mostra bloqueio do backend', async () => {
@@ -263,7 +303,7 @@ describe('waiter operational pages', () => {
     expect(onCloseTable).toHaveBeenCalledWith('32');
   });
 
-  it('orienta o garçom quando a conta ainda precisa ser paga e o pedido concluído', async () => {
+  it('orienta o garçom a conferir pagamentos e confirmar a entrega operacional', async () => {
     const onCloseTable = vi.fn(async () => {
       throw new Error(
         'Não é possível fechar a mesa: existem pedidos ou pagamentos pendentes (#66).',
@@ -287,9 +327,9 @@ describe('waiter operational pages', () => {
     );
     await act(async () => finalize?.click());
 
-    expect(container.textContent).toContain('Ver e pagar a conta');
-    expect(container.textContent).toContain('pagamento ser confirmado');
-    expect(container.textContent).toContain('pedido ser concluído pela cozinha');
+    expect(container.textContent).toContain('Ver conta e pagamentos');
+    expect(container.textContent).toContain('Para entregar');
+    expect(container.textContent).toContain('Entregue à mesa');
   });
 
   it('mostra a conta e permite confirmar somente dinheiro ou maquininha já recebidos', async () => {

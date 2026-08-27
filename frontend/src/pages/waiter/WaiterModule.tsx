@@ -12,7 +12,7 @@ import {
   ShoppingBag,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { WaiterProvider, type WaiterModuleProps as BaseProps } from './WaiterContext';
 import { useWaiterWorkspace } from './useWaiterWorkspace';
 import {
@@ -55,6 +55,8 @@ function WaiterShell({
   const { employee, restaurant, onLogout, onRefresh, workspaceState, orders, tables, calls } =
     useWaiterWorkspace();
   const [view, setView] = useState<WaiterView | 'help'>(initialView);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
+  const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
   const navigate = (next: WaiterView | 'help') => {
     setView(next);
@@ -189,6 +191,18 @@ function WaiterShell({
             </S.WorkspaceLoading>
           ) : view === 'help' ? (
             <EmployeeHelpCenter role="waiter" onReport={reportEmployeeIssue} />
+          ) : view === 'overview' ? (
+            <WaiterOverviewPage
+              onOpenOrder={(orderId) => {
+                setFocusedOrderId(orderId);
+                navigate('deliveries');
+              }}
+            />
+          ) : view === 'deliveries' ? (
+            <WaiterDeliveriesPage
+              focusedOrderId={focusedOrderId}
+              onFocusComplete={clearFocusedOrder}
+            />
           ) : (
             Page && <Page />
           )}

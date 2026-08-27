@@ -27,6 +27,7 @@ type WaiterE2EState = {
   openRequests: number;
   closeRequests: number;
   joinRequests: number;
+  deliveredOrders: number[];
   callUpdates: Array<{ id: number; status: CallStatus }>;
   calls: WaiterCall[];
 };
@@ -83,6 +84,7 @@ function initialState(): WaiterE2EState {
     openRequests: 0,
     closeRequests: 0,
     joinRequests: 0,
+    deliveredOrders: [],
     callUpdates: [],
     calls: [
       {
@@ -276,6 +278,18 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
 
     if (pathname === '/orders' && method === 'GET') {
       return json(route, { orders: rawOrders(state) });
+    }
+
+    const deliveredOrder = pathname.match(/^\/orders\/(\d+)\/status$/);
+    if (deliveredOrder && method === 'PUT') {
+      const orderId = Number(deliveredOrder[1]);
+      const payload = request.postDataJSON() as { status?: string };
+      if (orderId !== 710 || payload.status !== 'ENTREGUE') {
+        return json(route, { error: 'Transição de pedido inválida.' }, 400);
+      }
+      state.includeReadyOrder = false;
+      state.deliveredOrders.push(orderId);
+      return json(route, { id: orderId, type: 'MESA', status: 'ENTREGUE', paid: true });
     }
 
     if (pathname === '/tables' && method === 'GET') {
@@ -531,14 +545,19 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
   await expect(metric(page, 'Prontos para entregar').getByText('1', { exact: true })).toBeVisible();
   await expect(metric(page, 'Chamados aguardando').getByText('1', { exact: true })).toBeVisible();
   await expect(metric(page, 'Mesas ocupadas').getByText('2', { exact: true })).toBeVisible();
-  await expect(page.locator('article').filter({ hasText: 'Pedido #710' }).first()).toBeVisible();
   await expect(page.getByText('Levar talheres')).toBeVisible();
-
-  await page.locator('nav').getByText('Para entregar', { exact: true }).click();
+  const readyOrder = page.getByRole('button', { name: 'Abrir pedido #710 em Para entregar' });
+  await expect(readyOrder).toBeVisible();
+  await readyOrder.click();
   await expect(page.getByRole('heading', { name: 'Pedidos para entregar' })).toBeVisible();
+  await expect(page.locator('#waiter-ready-order-710')).toHaveClass(/highlighted/);
+
   await page.getByLabel('Buscar pedidos prontos').fill('Mesa 7');
   await expect(page.locator('article').filter({ hasText: 'Pedido #710' }).first()).toBeVisible();
   await expect(page.locator('article').filter({ hasText: 'Pedido #712' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Entregue à mesa' }).click();
+  await expect.poll(() => state.deliveredOrders).toEqual([710]);
+  await expect(page.locator('article').filter({ hasText: 'Pedido #710' })).toHaveCount(0);
   await page.getByLabel('Buscar pedidos prontos').fill('Mesa inexistente');
   await expect(page.getByText('Nenhum pedido pronto para os filtros selecionados.')).toBeVisible();
 
@@ -598,7 +617,13 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.getByText('Arroz da casa').click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await page.getByRole('button', { name: /Gerar código Pix/ }).click();
+  await page.getByRole('button', { name: 'Revisar e continuar' }).click();
+  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
+  await expect(continuationDialog).toBeVisible();
+  await continuationDialog
+    .getByRole('button', { name: 'Pix' })
+    .click();
+  await continuationDialog.getByRole('button', { name: /Pagar agora/ }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,

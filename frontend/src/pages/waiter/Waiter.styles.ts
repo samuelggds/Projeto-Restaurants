@@ -638,14 +638,60 @@ export const Stack = styled.div`
   display: grid;
   gap: 11px;
 `;
-export const PriorityOrder = styled.article`
+export const PriorityOrder = styled.article<{ $interactive?: boolean }>`
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: 11px;
   padding: 14px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   display: grid;
   grid-template-columns: minmax(130px, 0.8fr) minmax(180px, 1.2fr) auto;
   align-items: center;
   gap: 15px;
+  cursor: ${({ $interactive }) => ($interactive ? 'pointer' : 'default')};
+  scroll-margin: 120px;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    background 180ms ease;
+  ${({ $interactive }) =>
+    $interactive
+      ? `
+        &:hover {
+          border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+          background: color-mix(in srgb, var(--brand) 3%, #fff);
+          box-shadow: 0 9px 22px rgba(41, 25, 11, 0.1);
+          transform: translateY(-2px);
+        }
+        &:focus-visible {
+          outline: 3px solid color-mix(in srgb, var(--brand) 22%, transparent);
+          outline-offset: 3px;
+        }
+      `
+      : ''}
+  &.highlighted {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 7%, #fff);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent),
+      0 14px 30px color-mix(in srgb, var(--brand) 18%, transparent);
+    animation: waiter-order-focus 720ms ease both;
+  }
+  @keyframes waiter-order-focus {
+    0% {
+      transform: scale(0.98);
+    }
+    55% {
+      transform: scale(1.018);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
   .identity {
     display: grid;
     gap: 5px;
@@ -800,6 +846,28 @@ export const GreenButton = styled.button`
   color: #18752d;
   padding: 0 13px;
   font-weight: 750;
+`;
+export const DeliveryConfirmButton = styled.button`
+  && {
+    min-width: 154px;
+    height: 38px;
+    border: 1px solid #8bc99a;
+    border-radius: 8px;
+    background: #eff9f1;
+    color: #176f31;
+    padding: 0 13px;
+    font-weight: 750;
+  }
+
+  &&:hover:not(:disabled) {
+    border-color: #2c963f;
+    background: #e4f5e8;
+  }
+
+  &&:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
 `;
 export const CallCard = styled.article`
   border-bottom: 1px solid var(--border);

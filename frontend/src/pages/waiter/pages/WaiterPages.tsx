@@ -1,5 +1,6 @@
 import {
   BellRing,
+  CheckCircle2,
   Clock3,
   Eye,
   Info,
@@ -7,7 +8,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } from '../types';
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
 import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
@@ -33,10 +34,54 @@ function formatAverageDuration(calls: ServiceCall[]) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function ReadyOrderCard({ order }: { order: Order }) {
+function ReadyOrderCard({
+  order,
+  onOpenOrder,
+  onMarkDelivered,
+  highlighted = false,
+}: {
+  order: Order;
+  onOpenOrder?: (order: Order) => void;
+  onMarkDelivered?: (order: Order) => Promise<void>;
+  highlighted?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const detailsId = useId();
+
+  const toggleDetails = () => setExpanded((current) => !current);
+
+  const markDelivered = async () => {
+    if (!onMarkDelivered || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await onMarkDelivered(order);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'Não foi possível confirmar a entrega à mesa.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <S.PriorityOrder>
+    <S.PriorityOrder
+      id={`waiter-ready-order-${encodeURIComponent(order.id.replace(/^#/, ''))}`}
+      className={highlighted ? 'highlighted' : undefined}
+      $interactive={Boolean(onOpenOrder)}
+      role={onOpenOrder ? 'button' : undefined}
+      tabIndex={onOpenOrder ? 0 : undefined}
+      aria-label={onOpenOrder ? `Abrir pedido ${order.id} em Para entregar` : undefined}
+      onClick={onOpenOrder ? () => onOpenOrder(order) : undefined}
+      onKeyDown={(event) => {
+        if (!onOpenOrder) return;
+        if (event.target !== event.currentTarget) return;
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onOpenOrder(order);
+      }}
+    >
       <div className="identity">
         <b>{order.reference}</b>
         <span>
@@ -45,8 +90,12 @@ function ReadyOrderCard({ order }: { order: Order }) {
       </div>
       <div className="items">
         <OrderItems order={order} />
-        {expanded && (
-          <S.OrderDetails role="region" aria-label={`Detalhes do pedido ${order.id}`}>
+        {!onOpenOrder && expanded && (
+          <S.OrderDetails
+            id={detailsId}
+            role="region"
+            aria-label={`Detalhes do pedido ${order.id}`}
+          >
             <span>
               <small>Cliente</small>
               <b>{order.customer || 'Não informado'}</b>
@@ -64,19 +113,37 @@ function ReadyOrderCard({ order }: { order: Order }) {
       </div>
       <div className="right">
         <StatusBadge status={order.status} />
-        <S.LinkButton
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((current) => !current)}
-        >
-          <Eye size={15} /> {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
-        </S.LinkButton>
+        {!onOpenOrder && (
+          <S.LinkButton
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={detailsId}
+            onClick={toggleDetails}
+          >
+            <Eye size={15} /> {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+          </S.LinkButton>
+        )}
+        {onMarkDelivered && (
+          <S.DeliveryConfirmButton
+            type="button"
+            onClick={() => void markDelivered()}
+            disabled={submitting}
+          >
+            <CheckCircle2 size={15} />
+            {submitting ? 'Confirmando...' : 'Entregue à mesa'}
+          </S.DeliveryConfirmButton>
+        )}
+        {error && <S.ActionError role="alert">{error}</S.ActionError>}
       </div>
     </S.PriorityOrder>
   );
 }
 
-export function WaiterOverviewPage() {
+export function WaiterOverviewPage({
+  onOpenOrder,
+}: {
+  onOpenOrder?: (orderId: string) => void;
+} = {}) {
   const { orders, tables, calls } = useWorkspace();
   const ready = orders
     .filter((order) => order.channel === 'TABLE' && order.status === 'PRONTO')
@@ -115,7 +182,11 @@ export function WaiterOverviewPage() {
           </header>
           <S.Stack>
             {ready.slice(0, 4).map((order) => (
-              <ReadyOrderCard key={order.id} order={order} />
+              <ReadyOrderCard
+                key={order.id}
+                order={order}
+                onOpenOrder={onOpenOrder ? (currentOrder) => onOpenOrder(currentOrder.id) : undefined}
+              />
             ))}
             {!ready.length && <Empty>Nenhum pedido pronto para entrega.</Empty>}
           </S.Stack>
@@ -175,10 +246,55 @@ function WaiterCallsSummary() {
   );
 }
 
-export function WaiterDeliveriesPage() {
-  const { orders, tables } = useWorkspace();
+export function WaiterDeliveriesPage({
+  focusedOrderId,
+  onFocusComplete,
+}: {
+  focusedOrderId?: string | null;
+  onFocusComplete?: () => void;
+} = {}) {
+  const { orders, tables, updateOrderStatus } = useWorkspace();
   const [query, setQuery] = useState('');
   const [table, setTable] = useState('ALL');
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
+    focusedOrderId ?? null,
+  );
+
+  useEffect(() => {
+    if (!focusedOrderId) return;
+    const targetOrder = orders.find(
+      (order) =>
+        order.id === focusedOrderId && order.channel === 'TABLE' && order.status === 'PRONTO',
+    );
+    if (!targetOrder) {
+      onFocusComplete?.();
+      return;
+    }
+
+    let scrollFrame = 0;
+    const frame = window.requestAnimationFrame(() => {
+      setQuery('');
+      setTable('ALL');
+      setHighlightedOrderId(focusedOrderId);
+      scrollFrame = window.requestAnimationFrame(() => {
+        document
+          .getElementById(
+            `waiter-ready-order-${encodeURIComponent(focusedOrderId.replace(/^#/, ''))}`,
+          )
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+    const timer = window.setTimeout(() => {
+      setHighlightedOrderId(null);
+      onFocusComplete?.();
+    }, 2600);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(scrollFrame);
+      window.clearTimeout(timer);
+    };
+  }, [focusedOrderId, onFocusComplete, orders]);
   const ready = useMemo(
     () =>
       orders
@@ -234,12 +350,22 @@ export function WaiterDeliveriesPage() {
         <header>
           <div>
             <h2>Prontos para entregar</h2>
-            <p>Somente leitura: a cozinha controla o preparo e os status dos pedidos.</p>
+            <p>
+              A cozinha conclui o preparo. Depois de levar o pedido, confirme a entrega para liberar
+              o fechamento da mesa.
+            </p>
           </div>
         </header>
         <S.Stack>
           {ready.map((order) => (
-            <ReadyOrderCard key={order.id} order={order} />
+            <ReadyOrderCard
+              key={order.id}
+              order={order}
+              highlighted={highlightedOrderId === order.id}
+              onMarkDelivered={(currentOrder) =>
+                updateOrderStatus(currentOrder.id, 'ENTREGUE')
+              }
+            />
           ))}
           {!ready.length && <Empty>Nenhum pedido pronto para os filtros selecionados.</Empty>}
         </S.Stack>
@@ -280,8 +406,8 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
         occupied ? 'Não foi possível fechar esta mesa.' : 'Não foi possível abrir esta mesa.',
       );
       setError(
-        closingRequested && /pedidos ou pagamentos pendentes/i.test(message)
-          ? `${message} O cliente deve abrir este QR Code e usar “Ver e pagar a conta”. Depois, aguarde o pagamento ser confirmado e o pedido ser concluído pela cozinha.`
+        closingRequested && /(pedidos|pagamentos)/i.test(message)
+          ? `${message} Confira “Ver conta e pagamentos” para valores pendentes. Se houver pedido PRONTO, acesse “Para entregar” e confirme “Entregue à mesa”.`
           : message,
       );
     } finally {

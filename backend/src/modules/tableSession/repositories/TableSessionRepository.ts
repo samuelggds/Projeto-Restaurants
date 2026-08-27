@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { OrderStatus, TableSessionStatus } from '@prisma/client';
+import { OrderStatus, OrderType, TableSessionStatus } from '@prisma/client';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -161,16 +161,15 @@ class TableSessionRepository {
   }
 
   async findBlockingOrdersForSession(
-    tableId: number,
+    tableSessionId: number,
     restaurantId: number,
-    openedAt: Date,
     db: PrismaClientLike = prisma,
   ) {
     return db.order.findMany({
       where: {
-        tableId,
         restaurantId,
-        createdAt: { gte: openedAt },
+        tableSessionId,
+        type: OrderType.MESA,
         status: { not: OrderStatus.CANCELADO },
         OR: [{ status: { not: OrderStatus.ENTREGUE } }, { paid: false }],
       },
@@ -186,16 +185,15 @@ class TableSessionRepository {
   }
 
   async findOperationalBlockingOrdersForSession(
-    tableId: number,
+    tableSessionId: number,
     restaurantId: number,
-    openedAt: Date,
     db: PrismaClientLike = prisma,
   ) {
     return db.order.findMany({
       where: {
-        tableId,
         restaurantId,
-        createdAt: { gte: openedAt },
+        tableSessionId,
+        type: OrderType.MESA,
         status: { notIn: [OrderStatus.CANCELADO, OrderStatus.ENTREGUE] },
       },
       select: {

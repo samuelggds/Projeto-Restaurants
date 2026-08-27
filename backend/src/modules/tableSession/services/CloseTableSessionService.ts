@@ -1,5 +1,5 @@
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
-import { Prisma, TableSessionStatus } from '@prisma/client';
+import { OrderStatus, Prisma, TableSessionStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
@@ -46,15 +46,13 @@ class CloseTableSessionService {
         );
         const blockingOrders = settings.preventCloseWithOutstandingBalance
           ? await tableSessionRepository.findBlockingOrdersForSession(
-              session.tableId,
+              session.id,
               normalizedRestaurantId,
-              session.openedAt,
               tx,
             )
           : await tableSessionRepository.findOperationalBlockingOrdersForSession(
-              session.tableId,
+              session.id,
               normalizedRestaurantId,
-              session.openedAt,
               tx,
             );
         if (blockingOrders.length) {
@@ -62,10 +60,20 @@ class CloseTableSessionService {
             .slice(0, 5)
             .map((order) => `#${order.id}`)
             .join(', ');
+          const hasOperationalPending = blockingOrders.some(
+            (order) => order.status !== OrderStatus.ENTREGUE,
+          );
+          const hasPaymentPending = blockingOrders.some((order) => order.paid !== true);
+          const pendingReason =
+            hasOperationalPending && hasPaymentPending
+              ? 'existem pedidos aguardando entrega e pagamentos pendentes'
+              : hasOperationalPending
+                ? 'existem pedidos aguardando entrega'
+                : 'existem pagamentos pendentes';
           throw new Error(
             settings.preventCloseWithOutstandingBalance
-              ? `Não é possível fechar a mesa: existem pedidos ou pagamentos pendentes (${orderReferences}).`
-              : `Não é possível fechar a mesa: existem pedidos em andamento (${orderReferences}).`,
+              ? `Não é possível fechar a mesa: ${pendingReason} (${orderReferences}).`
+              : `Não é possível fechar a mesa: existem pedidos aguardando entrega (${orderReferences}).`,
           );
         }
 
