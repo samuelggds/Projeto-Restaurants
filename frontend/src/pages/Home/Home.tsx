@@ -13,6 +13,7 @@ import { getCheckoutErrorMessage, useCheckoutPayments } from './hooks/useCheckou
 import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
 import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
+import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
 import { CartItemsList } from '../home/components/CartItemsList';
@@ -29,6 +30,7 @@ import {
   type CheckoutPaymentMethod,
 } from './domain/checkout';
 import { ActiveOrderNotice } from './components/ActiveOrderNotice';
+import { TableOrderStatusNotice } from './components/TableOrderStatusNotice';
 import { LoyaltyProgramCard } from './components/LoyaltyProgramCard';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import ordersService from '../../Services/ordersService';
@@ -104,7 +106,6 @@ export default function Home() {
   );
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
-  const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(customerId);
 
   // ── Notification system (defined early so useEffects can use it)
   const notify = useCallback((type: NotifType, title: string, msg?: string, duration = 3500) => {
@@ -158,9 +159,14 @@ export default function Home() {
         storedSessionRestaurantId ||
         null;
   const activeTableId =
-    routeTableId ||
-    (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) ||
-    null;
+    routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
+
+  const { activeOrder, refreshActiveOrder } = useActiveOrderNotice(mesaMode ? null : customerId);
+  const { tableOrder, refreshTableOrder } = useTableOrderNotice({
+    enabled: mesaMode && mesaSessionIsActive,
+    sessionKey: tableSession?.sessionPublicId || tableSession?.sessionId || activeTableId,
+    sessionToken: tableSession?.sessionToken,
+  });
 
   const tableClosingRequested = Boolean(
     mesaMode &&
@@ -460,6 +466,7 @@ export default function Home() {
       setTableContinuationOpen(false);
       void loyalty.refresh();
       await tableAccount.refresh({ silent: true });
+      await refreshTableOrder();
       notify(
         'success',
         `Pedido #${String(order?.id || '')} adicionado à mesa`,
@@ -814,20 +821,28 @@ export default function Home() {
               </S.Whatsapp>
             )}
             {loyaltyProgram && <LoyaltyProgramCard loyalty={loyaltyProgram} />}
-            <ActiveOrderNotice
-              primaryColor={primary}
-              order={activeOrder}
-              onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
-              onConfirmDelivery={async (orderId) => {
-                await ordersService.confirmDeliveryReceived(orderId);
-                await refreshActiveOrder();
-                notify(
-                  'success',
-                  'Recebimento confirmado',
-                  'A cozinha e o restaurante foram avisados.',
-                );
-              }}
-            />
+            {mesaMode ? (
+              <TableOrderStatusNotice
+                primaryColor={primary}
+                tableLabel={mesaLabel}
+                order={tableOrder}
+              />
+            ) : (
+              <ActiveOrderNotice
+                primaryColor={primary}
+                order={activeOrder}
+                onTrack={(orderId) => navigate(`/orders/${orderId}/tracking`)}
+                onConfirmDelivery={async (orderId) => {
+                  await ordersService.confirmDeliveryReceived(orderId);
+                  await refreshActiveOrder();
+                  notify(
+                    'success',
+                    'Recebimento confirmado',
+                    'A cozinha e o restaurante foram avisados.',
+                  );
+                }}
+              />
+            )}
           </>
         )}
       </S.FloatingActions>

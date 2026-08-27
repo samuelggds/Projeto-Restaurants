@@ -13,6 +13,7 @@ type FlowState = {
   tableOpen: boolean;
   createTablePayload: Record<string, unknown> | null;
   orderPayload: Record<string, unknown> | null;
+  orderStatus: 'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'ENTREGUE';
   adminTableReads: number;
   waiterTableReads: number;
 };
@@ -121,7 +122,7 @@ function createdKitchenOrder(state: FlowState) {
       restaurantId: RESTAURANT_ID,
       type: 'MESA',
       tableId: TABLE_ID,
-      status: 'PENDENTE',
+      status: state.orderStatus,
       paid: true,
       total: 28,
       createdAt: new Date().toISOString(),
@@ -346,7 +347,28 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
     }
 
     if (pathname === '/orders/table/current' && method === 'GET') {
-      return json(route, { order: null });
+      return json(route, {
+        order: state.orderPayload
+          ? {
+              publicId: 'table-order-public-id',
+              type: 'MESA',
+              status: state.orderStatus,
+              createdAt: new Date().toISOString(),
+              items: [
+                {
+                  quantity: 1,
+                  observation: 'Bem passado',
+                  customizations: [{ groupName: 'Acompanhamentos', options: [{ name: 'Arroz' }] }],
+                  product: { id: product.id, name: product.name },
+                },
+                {
+                  quantity: 1,
+                  product: { id: 99, name: 'Suco da casa' },
+                },
+              ],
+            }
+          : null,
+      });
     }
 
     if (pathname === '/coupons/loyalty' && method === 'GET') return json(route, null);
@@ -400,6 +422,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     tableOpen: false,
     createTablePayload: null,
     orderPayload: null,
+    orderStatus: 'PENDENTE',
     adminTableReads: 0,
     waiterTableReads: 0,
   };
@@ -448,7 +471,10 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await page.getByRole('button', { name: /Gerar código Pix/ }).click();
+  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
+  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
+  await continuationDialog.getByRole('button', { name: 'Pix' }).click();
+  await continuationDialog.getByRole('button', { name: /Pagar agora/ }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
@@ -456,6 +482,41 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     tableId: TABLE_ID,
     paymentMethod: 'PIX',
   });
+
+  await page.getByRole('button', { name: 'Voltar para o cardápio' }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.getByRole('button', { name: /Abrir cupons, status do pedido/i }).click();
+  await page.getByRole('button', { name: /Status do pedido da mesa/i }).click();
+  const tableOrderDialog = page.getByRole('dialog', { name: 'Pedido da mesa 1' });
+  await expect(tableOrderDialog).toBeVisible();
+  await expect(tableOrderDialog.getByText('Pedido recebido', { exact: true })).toBeVisible();
+  await expect(tableOrderDialog.getByText('Todos os itens deste pedido')).toBeVisible();
+  await expect(
+    tableOrderDialog.getByRole('article').filter({ hasText: product.name }),
+  ).toBeVisible();
+  await expect(
+    tableOrderDialog.getByRole('article').filter({ hasText: 'Suco da casa' }),
+  ).toBeVisible();
+  await expect(tableOrderDialog.getByText('Arroz', { exact: true })).toBeVisible();
+  await expect(tableOrderDialog.getByText('Obs.: Bem passado', { exact: true })).toBeVisible();
+
+  for (const [status, label] of [
+    ['PREPARANDO', 'Em preparo'],
+    ['PRONTO', 'Pronto para servir'],
+    ['ENTREGUE', 'Servido na mesa'],
+  ] as const) {
+    state.orderStatus = status;
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(tableOrderDialog.getByText(label, { exact: true }).first()).toBeVisible();
+  }
+  await expect(
+    tableOrderDialog.getByRole('button', { name: /Confirmar recebimento/i }),
+  ).toHaveCount(0);
+  await expect(
+    tableOrderDialog.getByRole('button', { name: /Acompanhar entrega no GPS/i }),
+  ).toHaveCount(0);
+
+  state.orderStatus = 'PENDENTE';
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
@@ -472,6 +533,7 @@ test('impressão individual ocupa uma única folha A4 com QR Code grande', async
     tableOpen: false,
     createTablePayload: null,
     orderPayload: null,
+    orderStatus: 'PENDENTE',
     adminTableReads: 0,
     waiterTableReads: 0,
   };

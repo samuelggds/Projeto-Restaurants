@@ -185,7 +185,9 @@ export function WaiterOverviewPage({
               <ReadyOrderCard
                 key={order.id}
                 order={order}
-                onOpenOrder={onOpenOrder ? (currentOrder) => onOpenOrder(currentOrder.id) : undefined}
+                onOpenOrder={
+                  onOpenOrder ? (currentOrder) => onOpenOrder(currentOrder.id) : undefined
+                }
               />
             ))}
             {!ready.length && <Empty>Nenhum pedido pronto para entrega.</Empty>}
@@ -362,9 +364,7 @@ export function WaiterDeliveriesPage({
               key={order.id}
               order={order}
               highlighted={highlightedOrderId === order.id}
-              onMarkDelivered={(currentOrder) =>
-                updateOrderStatus(currentOrder.id, 'ENTREGUE')
-              }
+              onMarkDelivered={(currentOrder) => updateOrderStatus(currentOrder.id, 'ENTREGUE')}
             />
           ))}
           {!ready.length && <Empty>Nenhum pedido pronto para os filtros selecionados.</Empty>}

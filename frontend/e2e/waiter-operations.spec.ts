@@ -620,9 +620,7 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.getByRole('button', { name: 'Revisar e continuar' }).click();
   const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
   await expect(continuationDialog).toBeVisible();
-  await continuationDialog
-    .getByRole('button', { name: 'Pix' })
-    .click();
+  await continuationDialog.getByRole('button', { name: 'Pix' }).click();
   await continuationDialog.getByRole('button', { name: /Pagar agora/ }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({

@@ -150,7 +150,9 @@ describe('waiter operational pages', () => {
     act(() => orderCard.click());
     expect(onOpenOrder).toHaveBeenLastCalledWith('#14');
 
-    act(() => orderCard.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    act(() =>
+      orderCard.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })),
+    );
     expect(onOpenOrder).toHaveBeenCalledTimes(2);
   });
 
@@ -365,8 +367,8 @@ describe('waiter operational pages', () => {
     vi.mocked(tableAccountService.confirmManualPayment).mockResolvedValue({});
 
     renderPage(<WaiterTablesPage />);
-    const openAccount = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.includes('Ver conta e pagamentos'),
+    const openAccount = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Ver conta e pagamentos'),
     );
     await act(async () => openAccount?.click());
 
