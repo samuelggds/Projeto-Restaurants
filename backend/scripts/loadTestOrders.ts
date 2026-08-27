@@ -1,6 +1,25 @@
 import dotenv from 'dotenv';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  assertHttpTarget,
+  assertOperationalEnvironment,
+  normalizeEnvironment,
+} from './_shared/environmentGuard.mjs';
+import {
+  requireReason,
+  requireWriteConfirmation,
+  resolveExecutionMode,
+} from './_shared/confirmation.mjs';
+import {
+  assertAllowedOptions,
+  hasFlag,
+  optionalString,
+  parseCliArgs,
+  rejectPositionals,
+  requiredString,
+} from './_shared/cli.mjs';
+import { redactText, safeError } from './_shared/redaction.mjs';
 
 dotenv.config();
 dotenv.config({ path: path.resolve('backend/.env') });
@@ -21,38 +40,79 @@ type CliOptions = {
   targetRpm: number;
   timeoutMs: number;
   restaurantIds: number[];
+  environment: string;
+  mode: 'dry-run' | 'write';
+  reason: string;
+  expectedConfirmation: string;
 };
 
 function parseArgs(argv: string[]): CliOptions {
-  const map = new Map<string, string>();
+  const parsed = parseCliArgs(argv);
+  rejectPositionals(parsed);
+  assertAllowedOptions(parsed, [
+    'environment',
+    'base-url',
+    'duration-sec',
+    'target-rpm',
+    'timeout-ms',
+    'restaurant-ids',
+    'execute',
+    'dry-run',
+    'allow-production',
+    'confirm',
+    'reason',
+  ]);
 
-  for (let i = 0; i < argv.length; i += 1) {
-    const item = String(argv[i] || '').trim();
-    if (!item.startsWith('--')) {
-      continue;
-    }
-
-    const key = item.slice(2);
-    const next = String(argv[i + 1] || '').trim();
-    if (!next || next.startsWith('--')) {
-      map.set(key, 'true');
-      continue;
-    }
-
-    map.set(key, next);
-    i += 1;
+  const environment = requiredString(parsed, 'Ambiente alvo', 'environment');
+  const context = assertOperationalEnvironment({
+    targetEnvironment: environment,
+    allowProduction: hasFlag(parsed, 'allow-production'),
+  });
+  const apiEnvironment = normalizeEnvironment(process.env.OPS_API_ENV, 'OPS_API_ENV');
+  if (apiEnvironment !== context.target) {
+    throw new Error(
+      `A API foi marcada como ${apiEnvironment}, mas --environment declarou ${context.target}.`,
+    );
   }
 
-  const baseUrl = String(map.get('baseUrl') || 'http://127.0.0.1:3000')
-    .trim()
-    .replace(/\/+$/, '');
-  const durationSec = Number(map.get('durationSec') || 300);
-  const targetRpm = Number(map.get('targetRpm') || 300);
-  const timeoutMs = Number(map.get('timeoutMs') || 10000);
-  const restaurantIds = String(map.get('restaurantIds') || '')
-    .split(',')
-    .map((value) => Number(value.trim()))
-    .filter((value) => Number.isInteger(value) && value > 0);
+  const baseUrl = assertHttpTarget(
+    requiredString(parsed, 'URL base da API', 'base-url'),
+    context.target,
+  );
+  const durationSec = Number(optionalString(parsed, 'duration-sec') || 300);
+  const targetRpm = Number(optionalString(parsed, 'target-rpm') || 300);
+  const timeoutMs = Number(optionalString(parsed, 'timeout-ms') || 10000);
+  const rawRestaurantIds = requiredString(parsed, 'IDs dos restaurantes', 'restaurant-ids');
+  const restaurantIdParts = rawRestaurantIds.split(',').map((value) => value.trim());
+  const restaurantIds = restaurantIdParts.map((value) => Number(value));
+  if (
+    !restaurantIds.length ||
+    restaurantIds.some((value) => !Number.isSafeInteger(value) || value <= 0) ||
+    new Set(restaurantIds).size !== restaurantIds.length
+  ) {
+    throw new Error('--restaurant-ids deve conter inteiros positivos, únicos e separados por vírgula.');
+  }
+
+  const mode = resolveExecutionMode({
+    execute: hasFlag(parsed, 'execute'),
+    dryRun: hasFlag(parsed, 'dry-run'),
+  });
+  const reason = optionalString(parsed, 'reason');
+  requireReason(mode, reason);
+  const expectedConfirmation = [
+    'LOAD_TEST',
+    restaurantIds.join(','),
+    `${durationSec}s`,
+    `${targetRpm}rpm`,
+    baseUrl,
+    context.databaseLabel,
+  ].join(':');
+  requireWriteConfirmation({
+    mode,
+    provided: optionalString(parsed, 'confirm'),
+    expected: expectedConfirmation,
+    action: 'criar pedidos de teste de carga',
+  });
 
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
     throw new Error('durationSec invalido. Use valor inteiro > 0.');
@@ -72,6 +132,10 @@ function parseArgs(argv: string[]): CliOptions {
     targetRpm,
     timeoutMs,
     restaurantIds,
+    environment: context.target,
+    mode,
+    reason,
+    expectedConfirmation,
   };
 }
 
@@ -145,6 +209,28 @@ async function run() {
   const runId = `LOAD_${Date.now()}`;
   const targetTotal = Math.max(1, Math.round((options.targetRpm / 60) * options.durationSec));
 
+  if (options.mode === 'dry-run') {
+    console.log(
+      JSON.stringify(
+        {
+          mode: options.mode,
+          environment: options.environment,
+          baseUrl: options.baseUrl,
+          durationSec: options.durationSec,
+          targetRpm: options.targetRpm,
+          targetTotal,
+          seeds,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(
+      `DRY_RUN: use --execute --reason="..." --confirm="${options.expectedConfirmation}" para enviar pedidos.`,
+    );
+    return;
+  }
+
   let sent = 0;
   let ok = 0;
   let failed = 0;
@@ -209,7 +295,7 @@ async function run() {
           const body = await response.text();
           sampleErrors.push({
             status: response.status,
-            body: String(body || '').slice(0, 500),
+            body: redactText(String(body || '').slice(0, 500)),
           });
         }
       }
@@ -221,7 +307,7 @@ async function run() {
       if (sampleErrors.length < 10) {
         sampleErrors.push({
           status: 0,
-          body: error instanceof Error ? error.message : String(error),
+          body: redactText(error instanceof Error ? error.message : String(error)),
         });
       }
     }
@@ -274,7 +360,7 @@ async function run() {
 
 run()
   .catch((error) => {
-    console.error(error);
+    console.error(safeError(error));
     process.exitCode = 1;
   })
   .finally(async () => {

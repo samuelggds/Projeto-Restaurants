@@ -10,6 +10,7 @@ import userRepository from '../repositories/UserRepository.js';
 
 const originalFindUnique = prisma.authMfaChallenge.findUnique;
 const originalUpsert = prisma.authMfaChallenge.upsert;
+const originalUpdate = prisma.authMfaChallenge.update;
 const originalDeleteMany = prisma.authMfaChallenge.deleteMany;
 const originalCreateAccessToken = authTokenService.createAccessToken;
 const originalCreateRefreshToken = authTokenService.createRefreshToken;
@@ -26,6 +27,7 @@ const challenges = new Map();
 afterEach(() => {
   prisma.authMfaChallenge.findUnique = originalFindUnique;
   prisma.authMfaChallenge.upsert = originalUpsert;
+  prisma.authMfaChallenge.update = originalUpdate;
   prisma.authMfaChallenge.deleteMany = originalDeleteMany;
   authTokenService.createAccessToken = originalCreateAccessToken;
   authTokenService.createRefreshToken = originalCreateRefreshToken;
@@ -51,12 +53,27 @@ function installPrismaMocks() {
   prisma.authMfaChallenge.upsert = async ({ where, create, update }) => {
     const userId = Number(where.userId);
     const next = {
+      id: userId,
       userId,
+      failedAttempts: 0,
       ...(challenges.get(userId) || {}),
       ...(challenges.has(userId) ? update : create),
     };
     challenges.set(userId, next);
     return next;
+  };
+
+  prisma.authMfaChallenge.update = async ({ where, data }) => {
+    const userId = Number(where.userId);
+    const current = challenges.get(userId);
+    if (!current) throw new Error('challenge not found');
+    const increment = Number(data?.failedAttempts?.increment || 0);
+    const next = {
+      ...current,
+      failedAttempts: Number(current.failedAttempts || 0) + increment,
+    };
+    challenges.set(userId, next);
+    return data?.select?.failedAttempts ? { failedAttempts: next.failedAttempts } : next;
   };
 
   prisma.authMfaChallenge.deleteMany = async ({ where }) => {
@@ -72,9 +89,16 @@ function installPrismaMocks() {
     }
 
     if (where?.userId) {
-      const exists = challenges.has(Number(where.userId));
-      challenges.delete(Number(where.userId));
-      return { count: exists ? 1 : 0 };
+      const userId = Number(where.userId);
+      const current = challenges.get(userId);
+      const matches =
+        Boolean(current) &&
+        (where.id === undefined || Number(where.id) === Number(current.id)) &&
+        (where.codeHash === undefined || where.codeHash === current.codeHash) &&
+        (where.expiresAt?.gt === undefined ||
+          new Date(current.expiresAt).getTime() > new Date(where.expiresAt.gt).getTime());
+      if (matches) challenges.delete(userId);
+      return { count: matches ? 1 : 0 };
     }
 
     const total = challenges.size;
@@ -244,4 +268,101 @@ test('2FA preserva o perfil COZINHA no usuário e nos tokens emitidos', async ()
   assert.equal(result.user.subRole, 'COZINHA');
   assert.equal(accessPayload.subRole, 'COZINHA');
   assert.equal(refreshPayload.subRole, 'COZINHA');
+});
+
+test('bloqueia e consome o desafio depois de cinco codigos invalidos', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+
+  const begin = await loginMfaService.beginIfRequired({
+    id: 90,
+    role: 'ADMIN',
+    restaurantId: 1,
+    email: 'blocked@pizza.com',
+    name: 'Blocked',
+    active: true,
+    mustChangePassword: false,
+  });
+  const challenge = challenges.get(90);
+  challenge.codeHash = await bcrypt.hash('123456', 10);
+  challenges.set(90, challenge);
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    await assert.rejects(
+      () => loginMfaService.verifyAndIssueTokens({ mfaToken: begin.mfaToken, code: '000000' }),
+      /Codigo de verificacao invalido/,
+    );
+  }
+  await assert.rejects(
+    () => loginMfaService.verifyAndIssueTokens({ mfaToken: begin.mfaToken, code: '000000' }),
+    /Muitas tentativas/,
+  );
+  assert.equal(challenges.has(90), false);
+});
+
+test('novo envio de codigo não reinicia tentativas do desafio vigente', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+  challenges.set(91, {
+    id: 91,
+    userId: 91,
+    codeHash: 'old',
+    failedAttempts: 3,
+    expiresAt: new Date(Date.now() + 60_000),
+  });
+
+  await loginMfaService.beginIfRequired({
+    id: 91,
+    role: 'ADMIN',
+    restaurantId: 1,
+    email: 'retry@pizza.com',
+    name: 'Retry',
+    active: true,
+    mustChangePassword: false,
+  });
+
+  assert.equal(challenges.get(91).failedAttempts, 3);
+});
+
+test('codigo MFA válido só pode ser consumido uma vez em concorrência', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+  authTokenService.createAccessToken = () => 'access';
+  authTokenService.createRefreshToken = async () => 'refresh';
+  userRepository.findByIdWithPassword = async () => ({
+    id: 92,
+    role: 'ADMIN',
+    restaurantId: 1,
+    email: 'once@pizza.com',
+    name: 'Once',
+    active: true,
+    mustChangePassword: false,
+    authVersion: 0,
+  });
+
+  const begin = await loginMfaService.beginIfRequired({
+    id: 92,
+    role: 'ADMIN',
+    restaurantId: 1,
+    email: 'once@pizza.com',
+    name: 'Once',
+    active: true,
+    mustChangePassword: false,
+  });
+  const challenge = challenges.get(92);
+  challenge.codeHash = await bcrypt.hash('654321', 10);
+  challenges.set(92, challenge);
+
+  const results = await Promise.allSettled([
+    loginMfaService.verifyAndIssueTokens({ mfaToken: begin.mfaToken, code: '654321' }),
+    loginMfaService.verifyAndIssueTokens({ mfaToken: begin.mfaToken, code: '654321' }),
+  ]);
+  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+  assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
 });

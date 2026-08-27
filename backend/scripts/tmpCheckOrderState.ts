@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import './_shared/guardSensitiveRead.mjs';
 dotenv.config({ path: 'backend/.env' });
 
 import prisma from '../src/config/prisma.js';

@@ -1,0 +1,138 @@
+import 'dotenv/config';
+import type { Prisma } from '@prisma/client';
+import prisma from '../src/config/prisma.js';
+import {
+  credentialEncryptionContext,
+  encryptCredential,
+  isEncryptedCredential,
+  parseCredentialEncryptionKey,
+  RESTAURANT_CREDENTIAL_FIELDS,
+} from '../src/modules/restaurantSettings/security/credentialEncryption.js';
+import {
+  assertAllowedOptions,
+  hasFlag,
+  optionalString,
+  parseCliArgs,
+  rejectPositionals,
+  requiredString,
+} from './_shared/cli.mjs';
+import {
+  requireReason,
+  requireWriteConfirmation,
+  resolveExecutionMode,
+} from './_shared/confirmation.mjs';
+import { assertOperationalEnvironment } from './_shared/environmentGuard.mjs';
+import { safeError } from './_shared/redaction.mjs';
+
+async function main() {
+  const parsed = parseCliArgs(process.argv.slice(2));
+  rejectPositionals(parsed);
+  assertAllowedOptions(parsed, [
+    'environment',
+    'apply',
+    'dry-run',
+    'reason',
+    'actor',
+    'confirm',
+    'allow-production',
+  ]);
+  const environment = requiredString(parsed, 'Ambiente alvo', 'environment');
+  const mode = resolveExecutionMode({
+    apply: hasFlag(parsed, 'apply'),
+    dryRun: hasFlag(parsed, 'dry-run'),
+  });
+  const reason = optionalString(parsed, 'reason');
+  const actor = optionalString(parsed, 'actor');
+  const context = assertOperationalEnvironment({
+    targetEnvironment: environment,
+    allowProduction: hasFlag(parsed, 'allow-production'),
+  });
+  const encryptionKey = String(process.env.CREDENTIAL_ENCRYPTION_KEY || '').trim();
+  if (!encryptionKey) throw new Error('CREDENTIAL_ENCRYPTION_KEY é obrigatória.');
+  parseCredentialEncryptionKey(encryptionKey);
+  requireReason(mode, reason);
+  if (mode === 'write' && actor.length < 3) {
+    throw new Error('--actor é obrigatório para escrita e identifica o operador/ticket.');
+  }
+  const expectedConfirmation = `ENCRYPT_GATEWAY_CREDENTIALS:${context.databaseLabel}`;
+  requireWriteConfirmation({
+    mode,
+    provided: optionalString(parsed, 'confirm'),
+    expected: expectedConfirmation,
+    action: 'criptografar credenciais legadas de gateways',
+  });
+
+  const rows = await prisma.restaurantSettings.findMany({
+    select: {
+      id: true,
+      restaurantId: true,
+      stripeSecretKey: true,
+      stripeWebhookSecret: true,
+      pagbankToken: true,
+      pagbankRefreshToken: true,
+      mercadoPagoAccessToken: true,
+      picpayToken: true,
+      asaasAccessToken: true,
+    },
+    orderBy: { id: 'asc' },
+  });
+  const pending = rows
+    .map((row) => ({
+      row,
+      fields: RESTAURANT_CREDENTIAL_FIELDS.filter((field) => {
+        const value = String(row[field] || '').trim();
+        return value && !isEncryptedCredential(value);
+      }),
+    }))
+    .filter(({ fields }) => fields.length > 0);
+  const plan = {
+    mode,
+    environment: context.target,
+    database: context.database,
+    rowsScanned: rows.length,
+    rowsToEncrypt: pending.length,
+    credentialsToEncrypt: pending.reduce((total, item) => total + item.fields.length, 0),
+    restaurantIds: pending.map(({ row }) => row.restaurantId),
+    reason: reason || null,
+  };
+
+  if (mode === 'dry-run') {
+    console.log(JSON.stringify(plan, null, 2));
+    console.log(
+      `DRY_RUN: use --apply --actor="..." --reason="..." --confirm="${expectedConfirmation}".`,
+    );
+    return;
+  }
+
+  for (const { row, fields } of pending) {
+    const data = Object.fromEntries(
+      fields.map((field) => [
+        field,
+        encryptCredential(row[field], credentialEncryptionContext(row.restaurantId, field)),
+      ]),
+    ) as Prisma.RestaurantSettingsUpdateInput;
+    await prisma.restaurantSettings.update({ where: { id: row.id }, data });
+  }
+  await prisma.auditLog.create({
+    data: {
+      userName: actor,
+      userRole: 'OPS_OPERATOR',
+      action: 'ENCRYPT_GATEWAY_CREDENTIALS',
+      resource: JSON.stringify({
+        database: context.databaseLabel,
+        rows: pending.length,
+        reason,
+      }),
+    },
+  });
+  console.log(JSON.stringify({ status: 'applied', ...plan }, null, 2));
+}
+
+main()
+  .catch((error) => {
+    console.error(safeError(error));
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
 
 const mode = String(process.argv[2] || '')

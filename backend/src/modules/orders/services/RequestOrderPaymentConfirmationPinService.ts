@@ -1,5 +1,5 @@
 import { UserRole } from '@prisma/client';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { notifyRestaurantPaymentPinRequested } from '../../../services/customerNotifier.js';
 import courierAccessService from './CourierAccessService.js';

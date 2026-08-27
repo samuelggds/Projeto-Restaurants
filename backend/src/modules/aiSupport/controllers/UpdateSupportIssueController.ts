@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../../config/prisma.js';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 
 const validStatuses = new Set(['OPEN', 'IN_PROGRESS', 'CLOSED']);
 

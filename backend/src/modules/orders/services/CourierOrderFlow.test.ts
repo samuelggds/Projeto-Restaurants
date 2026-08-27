@@ -1,28 +1,16 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import http from 'node:http';
 import test, { afterEach } from 'node:test';
 import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
-
-const originalHttpCreateServer = http.createServer;
-http.createServer = ((...args) => {
-  const server = originalHttpCreateServer(...args);
-  server.listen = () => server;
-  return server;
-}) as typeof http.createServer;
-
-const { io } = await import('../../../server.js');
-const { default: claimOrderForDeliveryService } = await import('./ClaimOrderForDeliveryService.js');
-const { default: getOrderByIdService } = await import('./GetOrderByIdService.js');
-const { default: updateOrderStatusService } = await import('./UpdateOrderStatusService.js');
-const { default: requestOrderPaymentConfirmationPinService } =
-  await import('./RequestOrderPaymentConfirmationPinService.js');
-const { default: confirmOrderPaymentWithPinService } =
-  await import('./ConfirmOrderPaymentWithPinService.js');
-http.createServer = originalHttpCreateServer;
+import claimOrderForDeliveryService from './ClaimOrderForDeliveryService.js';
+import getOrderByIdService from './GetOrderByIdService.js';
+import updateOrderStatusService from './UpdateOrderStatusService.js';
+import requestOrderPaymentConfirmationPinService from './RequestOrderPaymentConfirmationPinService.js';
+import confirmOrderPaymentWithPinService from './ConfirmOrderPaymentWithPinService.js';
 
 const originals = {
   transaction: prisma.$transaction,

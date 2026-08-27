@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import { billingMiddleware } from './billingMiddleware.js';
+import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
 
 function canBypassBillingCheck(req: Request) {
   const role = String(req.user?.role || '').toUpperCase();
@@ -18,7 +18,7 @@ function canBypassBillingCheck(req: Request) {
   return req.baseUrl === '/billing' || req.path.startsWith('/billing/');
 }
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -28,23 +28,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   const [, token] = authHeader.split(' ');
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (typeof decoded === 'string') {
-      return res.status(401).json({ error: 'Token inválido!' });
-    }
-
-    req.user = {
-      id: Number(decoded.id || 0),
-      role: String(decoded.role || ''),
-      subRole:
-        decoded.subRole === null || decoded.subRole === undefined ? null : String(decoded.subRole),
-      restaurantId:
-        decoded.restaurantId === null || decoded.restaurantId === undefined
-          ? null
-          : Number(decoded.restaurantId),
-      email: decoded.email === null || decoded.email === undefined ? null : String(decoded.email),
-    };
+    const { user } = await resolveAccessToken(token);
+    req.user = user;
 
     if (canBypassBillingCheck(req)) {
       return next();

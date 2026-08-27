@@ -1,6 +1,5 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import http from 'node:http';
 import test, { afterEach } from 'node:test';
 import {
   FuncionarioSubRole,
@@ -11,20 +10,11 @@ import {
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
 import getOrderByIdService from './GetOrderByIdService.js';
 import listOrdersService from './ListOrdersService.js';
-
-const originalHttpCreateServer = http.createServer;
-http.createServer = ((...args) => {
-  const server = originalHttpCreateServer(...args);
-  server.listen = () => server;
-  return server;
-}) as typeof http.createServer;
-
-const { io } = await import('../../../server.js');
-const { default: updateOrderStatusService } = await import('./UpdateOrderStatusService.js');
-http.createServer = originalHttpCreateServer;
+import updateOrderStatusService from './UpdateOrderStatusService.js';
 
 const originals = {
   findAll: orderRepository.findAll,

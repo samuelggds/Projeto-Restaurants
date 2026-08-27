@@ -7,12 +7,11 @@ class PagBankOAuthCallbackController {
       .trim()
       .replace(/\/+$/, '');
     try {
-      if (req.query.error) {
-        throw new Error(String(req.query.error_description || req.query.error));
-      }
       await service.execute({
         code: String(req.query.code || ''),
         state: String(req.query.state || ''),
+        providerError: String(req.query.error || ''),
+        providerErrorDescription: String(req.query.error_description || ''),
       });
       return res.redirect(`${frontendUrl}/admin?pagbank_oauth=success`);
     } catch (error) {

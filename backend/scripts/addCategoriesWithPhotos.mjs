@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import prisma from '../src/config/prisma.js';
 
 const restaurantId = Number(process.argv[2] || 15);

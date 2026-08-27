@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './_shared/guardSensitiveRead.mjs';
 import restaurantSettingsRepository from '../src/modules/restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import prisma from '../src/config/prisma.js';
 
@@ -13,16 +14,15 @@ function maskEmail(value: string) {
   return `${localMasked}@${domain}`;
 }
 
-function tokenFingerprint(value: string) {
+function tokenStatus(value: string) {
   const text = String(value || '').trim();
   if (!text) {
     return null;
   }
 
   return {
+    configured: true,
     length: text.length,
-    head: text.slice(0, 4),
-    tail: text.slice(-4),
   };
 }
 
@@ -57,7 +57,6 @@ function tokenFingerprint(value: string) {
         id: true,
         status: true,
         paid: true,
-        cardCheckoutSessionId: true,
         createdAt: true,
       },
       orderBy: {
@@ -72,11 +71,11 @@ function tokenFingerprint(value: string) {
           restaurantName: settings?.restaurant?.name || null,
           source,
           effectiveEmailMasked: maskEmail(effectiveEmail),
-          effectiveTokenFingerprint: tokenFingerprint(effectiveToken),
+          effectiveTokenStatus: tokenStatus(effectiveToken),
           envEmailMasked: maskEmail(envEmail),
-          envTokenFingerprint: tokenFingerprint(envToken),
+          envTokenStatus: tokenStatus(envToken),
           settingsEmailMasked: maskEmail(settingsEmail),
-          settingsTokenFingerprint: tokenFingerprint(settingsToken),
+          settingsTokenStatus: tokenStatus(settingsToken),
           lastPagbankTxOrder,
           hints: [
             '401 Unauthorized normalmente indica email/token invalidos ou sem permissao para estorno.',

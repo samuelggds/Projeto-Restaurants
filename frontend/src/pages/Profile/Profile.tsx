@@ -11,12 +11,12 @@ import customerAddressService, {
 } from '../../Services/customerAddressService';
 import { useAuth } from '../../contexts/authContext';
 import { ProfilePage } from './ProfilePage';
-import { buildProfileData } from '../profile/adapters/profileDataAdapter';
+import { buildProfileData } from '../Profile/adapters/profileDataAdapter';
 import { AddressModal } from './components/AddressModal';
-import { buildReorderCart, findOrderByDisplayId } from '../profile/domain/reorderCart';
-import { addFavoriteToCart } from '../profile/domain/favoriteCart';
+import { buildReorderCart, findOrderByDisplayId } from '../Profile/domain/reorderCart';
+import { addFavoriteToCart } from '../Profile/domain/favoriteCart';
 import { readJsonStorage } from '../../shared/storage/jsonStorage';
-import type { CartItem } from '../home/hooks/useCart';
+import type { CartItem } from '../Home/hooks/useCart';
 import type { LoyaltySummary } from '../Home/types';
 import type { ProfileFavorite } from './types';
 
@@ -228,22 +228,23 @@ export default function Profile() {
         oldPassword: payload.currentPassword,
         newPassword: payload.newPassword,
       });
+      logout();
+      toast.success('Senha atualizada. Entre novamente para continuar.');
+      navigate('/login');
     },
-    [],
+    [logout, navigate],
   );
 
   const handleToggleTwoFactor = useCallback(
     async (enabled: boolean) => {
-      const { data: updated } = await api.patch('/auth/mfa', { enabled });
-      const token = localStorage.getItem('token') || '';
-      if (token) {
-        login({ ...(user ?? {}), mfaEnabled: Boolean(updated?.mfaEnabled) }, token);
-      }
+      await api.patch('/auth/mfa', { enabled });
       toast.success(
-        enabled ? 'Verificação em duas etapas ativada.' : 'Verificação em duas etapas desativada.',
+        `${enabled ? 'Verificação em duas etapas ativada' : 'Verificação em duas etapas desativada'}. Entre novamente.`,
       );
+      logout();
+      navigate('/login');
     },
-    [login, user],
+    [logout, navigate],
   );
 
   const handleDeactivateAccount = useCallback(async () => {

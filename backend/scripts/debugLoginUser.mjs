@@ -1,51 +1,78 @@
-import bcrypt from 'bcrypt';
+import 'dotenv/config';
 import prisma from '../src/config/prisma.js';
+import {
+  assertAllowedOptions,
+  hasFlag,
+  parseCliArgs,
+  rejectPositionals,
+  requiredString,
+} from './_shared/cli.mjs';
+import { assertOperationalEnvironment } from './_shared/environmentGuard.mjs';
+import { redactEmail, safeError } from './_shared/redaction.mjs';
 
-const email = process.argv[2] || 'admin@hotmail.com';
-const password = process.argv[3] || '123456';
+async function main() {
+  const parsed = parseCliArgs(process.argv.slice(2));
+  rejectPositionals(parsed);
+  assertAllowedOptions(parsed, ['email', 'environment', 'allow-production']);
+  const email = requiredString(parsed, 'Email do usuário', 'email').trim().toLowerCase();
+  const targetEnvironment = requiredString(parsed, 'Ambiente alvo', 'environment');
+  const context = assertOperationalEnvironment({
+    targetEnvironment,
+    allowProduction: hasFlag(parsed, 'allow-production'),
+  });
 
-(async () => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        active: true,
-        restaurantId: true,
-        password: true,
-      },
-    });
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+    select: {
+      id: true,
+      role: true,
+      subRole: true,
+      active: true,
+      restaurantId: true,
+      password: true,
+      authVersion: true,
+      mfaEnabled: true,
+    },
+  });
 
-    if (!user) {
-      console.log('USER_NOT_FOUND');
-      return;
-    }
-
-    const looksHashed = String(user.password || '').startsWith('$2');
-    const passwordMatches = await bcrypt.compare(password, user.password || '');
-
+  if (!user) {
     console.log(
-      JSON.stringify(
-        {
+      JSON.stringify({ status: 'not_found', email: redactEmail(email), database: context.database }),
+    );
+    return;
+  }
+
+  const passwordHash = String(user.password || '');
+  console.log(
+    JSON.stringify(
+      {
+        status: 'found',
+        environment: context.target,
+        database: context.database,
+        user: {
           id: user.id,
-          email: user.email,
+          email: redactEmail(email),
           role: user.role,
+          subRole: user.subRole,
           active: user.active,
           restaurantId: user.restaurantId,
-          looksHashed,
-          passwordMatches,
-          passwordLength: user.password?.length || 0,
+          authVersion: user.authVersion,
+          mfaEnabled: user.mfaEnabled,
+          passwordHashConfigured: passwordHash.length > 0,
+          passwordHashAlgorithm: passwordHash.startsWith('$2') ? 'bcrypt' : 'unknown',
         },
-        null,
-        2,
-      ),
-    );
-  } catch (err) {
-    console.error(err);
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+main()
+  .catch((error) => {
+    console.error(safeError(error));
     process.exitCode = 1;
-  } finally {
+  })
+  .finally(async () => {
     await prisma.$disconnect();
-  }
-})();
+  });

@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './_shared/guardSensitiveRead.mjs';
 import prisma from '../src/config/prisma.js';
 import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';
 

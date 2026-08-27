@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
 import prisma from '../src/config/prisma.js';
 import orderPixPaymentService from '../src/modules/orders/services/OrderPixPaymentService.js';

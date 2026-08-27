@@ -7,7 +7,6 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import UpdatePasswordController from '../controllers/UpdatePasswordController.js';
 import UpdateProfileController from '../controllers/UpdateProfileController.js';
 import DeactivateUserController from '../controllers/DeactivateUserController.js';
-import ReactivateUserController from '../controllers/ReactivateUserController.js';
 import RequestPasswordResetController from '../controllers/RequestPasswordResetController.js';
 import ResetPasswordByCodeController from '../controllers/ResetPasswordByCodeController.js';
 import { loginRateLimitMiddleware } from '../../../middlewares/security/loginRateLimitMiddleware.js';
@@ -85,9 +84,6 @@ router.patch('/mfa', authMiddleware, (req, res) => {
 
 router.patch('/deactivate', authMiddleware, (req, res) => {
   DeactivateUserController.handle(req, res);
-});
-router.patch('/reactivate', authMiddleware, (req, res) => {
-  ReactivateUserController.handle(req, res);
 });
 
 export default router;

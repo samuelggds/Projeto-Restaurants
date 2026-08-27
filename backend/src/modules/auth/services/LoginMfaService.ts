@@ -267,16 +267,36 @@ class LoginMfaService {
       throw new Error('Codigo de verificacao expirado');
     }
 
+    if (Number(challenge.failedAttempts || 0) >= 5) {
+      await prisma.authMfaChallenge.deleteMany({ where: { userId } });
+      throw new Error('Muitas tentativas de verificacao. Inicie o login novamente.');
+    }
+
     const validCode = await bcrypt.compare(rawCode, challenge.codeHash);
     if (!validCode) {
+      const updated = await prisma.authMfaChallenge.update({
+        where: { userId },
+        data: { failedAttempts: { increment: 1 } },
+        select: { failedAttempts: true },
+      });
+      if (updated.failedAttempts >= 5) {
+        await prisma.authMfaChallenge.deleteMany({ where: { userId } });
+        throw new Error('Muitas tentativas de verificacao. Inicie o login novamente.');
+      }
       throw new Error('Codigo de verificacao invalido');
     }
 
-    await prisma.authMfaChallenge.deleteMany({
+    const consumed = await prisma.authMfaChallenge.deleteMany({
       where: {
+        id: challenge.id,
         userId,
+        codeHash: challenge.codeHash,
+        expiresAt: { gt: new Date() },
       },
     });
+    if (consumed.count !== 1) {
+      throw new Error('Codigo de verificacao expirado ou ja utilizado');
+    }
 
     const user = await userRepository.findByIdWithPassword(userId);
     if (!user || !user.active) {
@@ -288,6 +308,7 @@ class LoginMfaService {
       role: user.role,
       subRole: user.subRole ?? null,
       restaurantId: user.restaurantId,
+      authVersion: user.authVersion,
     };
 
     const token = authTokenService.createAccessToken(tokenPayload);

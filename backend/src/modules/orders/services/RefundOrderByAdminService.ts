@@ -1,6 +1,6 @@
 import { OrderRefundStatus, OrderStatus, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import cancelOrderWorkflowService, {

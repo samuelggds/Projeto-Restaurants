@@ -1,4 +1,4 @@
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import prisma from '../../../config/prisma.js';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';

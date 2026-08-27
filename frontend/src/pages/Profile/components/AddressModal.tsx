@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { X } from 'lucide-react';
 import { lookupCep } from '../../../Services/cepService';
 import type { CustomerAddressInput } from '../../../Services/customerAddressService';
-import { formatCep, validateDeliveryAddress } from '../../home/domain/deliveryAddress';
+import { formatCep, validateDeliveryAddress } from '../../Home/domain/deliveryAddress';
 import * as S from '../Profile.styles';
 
 type Props = { onClose: () => void; onSave: (address: CustomerAddressInput) => Promise<void> };

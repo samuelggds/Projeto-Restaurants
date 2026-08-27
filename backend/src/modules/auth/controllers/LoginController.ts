@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import loginService from '../services/LoginService.js';
+import { moveRefreshTokenToCookie } from './refreshTokenCookie.js';
 
 class LoginController {
   async handle(req: Request, res: Response) {
@@ -11,7 +12,7 @@ class LoginController {
         password,
       });
 
-      return res.json(result);
+      return res.json(moveRefreshTokenToCookie(res, result));
     } catch (error: unknown) {
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Erro ao fazer login',

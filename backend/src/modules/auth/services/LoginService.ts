@@ -34,11 +34,11 @@ class LoginService {
         throw new Error(`Muitas tentativas de login. Tente novamente em ${failure.waitSeconds}s.`);
       }
 
-      throw new Error('Senha incorreta!');
+      throw new Error('Email ou senha inválidos!');
     }
     if (!user.active) {
       await loginLockoutService.registerFailure(normalizedEmail);
-      throw new Error('Conta desativada. Reative sua conta para continuar.');
+      throw new Error('Email ou senha inválidos!');
     }
 
     await loginLockoutService.registerSuccess(normalizedEmail);
@@ -53,6 +53,7 @@ class LoginService {
       role: user.role,
       subRole: user.subRole ?? null,
       restaurantId: user.restaurantId,
+      authVersion: user.authVersion,
     };
     const token = authTokenService.createAccessToken(tokenPayload);
     const refreshToken = await authTokenService.createRefreshToken(tokenPayload);

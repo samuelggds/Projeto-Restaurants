@@ -9,12 +9,14 @@ import {
 } from './supportChatPolicy.js';
 import { validateEmployeeIssuePayload } from './employeeIssuePayload.js';
 import { validateDeliveryLocationPayload } from './deliveryLocationPayload.js';
+import { isSocketAccountAuthorized } from './socketAccountPolicy.js';
 
 type SocketUser = {
   id: number | string;
   role: string;
   subRole?: string | null;
-  restaurantId: number | string;
+  restaurantId: number | string | null;
+  authVersion?: number | null;
 };
 
 type SocketTableSession = {
@@ -68,7 +70,7 @@ export function socketHandler(socket: AppSocket) {
     return;
   }
 
-  const { id, role, subRole, restaurantId } = user;
+  const { id, role, subRole, restaurantId, authVersion } = user;
   const lastLocationStoredAtByOrder = new Map<number, number>();
   let accountValidationTimer: NodeJS.Timeout | null = null;
 
@@ -92,35 +94,52 @@ export function socketHandler(socket: AppSocket) {
     socket.join(`restaurant:${restaurantId}`);
     socket.join('admin');
     socket.join(`restaurant:${restaurantId}:admin`);
-    accountValidationTimer = setInterval(() => {
-      void prisma.user
-        .findFirst({
-          where: {
-            id: Number(id || 0),
-            restaurantId: Number(restaurantId || 0),
-            role: UserRole.ADMIN,
-            active: true,
-          },
-          select: { id: true },
-        })
-        .then((activeAdmin) => {
-          if (!activeAdmin) socket.disconnect(true);
-        })
-        .catch((error) => {
-          console.warn('[SOCKET_ACCOUNT_REVALIDATION_FAILED]', {
-            userId: Number(id || 0),
-            restaurantId: Number(restaurantId || 0),
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
-    }, 60_000);
-    accountValidationTimer.unref();
   }
 
   if (role === 'SUPER_ADMIN') {
     socket.join('admin');
     socket.join('super_admin');
   }
+
+  const configuredRevalidationMs = Number(process.env.SOCKET_AUTH_REVALIDATE_MS || 30_000);
+  const revalidationMs = Math.min(
+    Math.max(Number.isFinite(configuredRevalidationMs) ? configuredRevalidationMs : 30_000, 5_000),
+    5 * 60_000,
+  );
+  accountValidationTimer = setInterval(() => {
+    void prisma.user
+      .findUnique({
+        where: { id: Number(id || 0) },
+        select: {
+          id: true,
+          active: true,
+          role: true,
+          subRole: true,
+          restaurantId: true,
+          authVersion: true,
+        },
+      })
+      .then((account) => {
+        if (
+          !isSocketAccountAuthorized(account, {
+            id,
+            role,
+            subRole,
+            restaurantId,
+            authVersion,
+          })
+        ) {
+          socket.disconnect(true);
+        }
+      })
+      .catch((error) => {
+        console.warn('[SOCKET_ACCOUNT_REVALIDATION_FAILED]', {
+          userId: Number(id || 0),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+  }, revalidationMs);
+  accountValidationTimer.unref();
 
   socket.on('delivery:location:update', async (rawPayload, ack) => {
     const reply =

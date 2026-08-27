@@ -14,15 +14,15 @@ import { useTableSession } from './hooks/useTableSession';
 import { useTableAccount } from './hooks/useTableAccount';
 import { useActiveOrderNotice } from './hooks/useActiveOrderNotice';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
-import { buildHomeData } from '../home/adapters/homeDataAdapter';
+import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { CartItemsList } from '../home/components/CartItemsList';
-import { DeliveryAddressForm } from '../home/components/DeliveryAddressForm';
-import { PaymentOptions } from '../home/components/PaymentOptions';
-import { DeliveryMethodSelector } from '../home/components/DeliveryMethodSelector';
-import { CartCheckoutSummary } from '../home/components/CartCheckoutSummary';
-import { LoyaltyCouponPanel } from '../home/components/LoyaltyCouponPanel';
-import { HomeFeedback, type HomeNotification } from '../home/components/HomeFeedback';
+import { CartItemsList } from '../Home/components/CartItemsList';
+import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
+import { PaymentOptions } from '../Home/components/PaymentOptions';
+import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
+import { CartCheckoutSummary } from '../Home/components/CartCheckoutSummary';
+import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
+import { HomeFeedback, type HomeNotification } from '../Home/components/HomeFeedback';
 import {
   buildOrderPayload,
   resolveOrderType,

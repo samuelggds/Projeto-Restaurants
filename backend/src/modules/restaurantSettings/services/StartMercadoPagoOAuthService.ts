@@ -1,4 +1,5 @@
-import jwt from 'jsonwebtoken';
+import { createSingleUseOAuthState } from '../security/oauthState.js';
+import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 
 type StartMercadoPagoOAuthPayload = {
   restaurantId: number | string;
@@ -17,9 +18,7 @@ class StartMercadoPagoOAuthService {
   }
 
   private getAuthBaseUrl() {
-    return String(process.env.MP_OAUTH_AUTH_URL || 'https://auth.mercadopago.com.br/authorization')
-      .trim()
-      .replace(/\/+$/, '');
+    return resolveOAuthEndpoint('MERCADO_PAGO_AUTHORIZATION');
   }
 
   private getClientId() {
@@ -29,10 +28,6 @@ class StartMercadoPagoOAuthService {
         process.env.MERCADO_PAGO_CLIENT_ID ||
         '',
     ).trim();
-  }
-
-  private getJwtSecret() {
-    return String(process.env.JWT_SECRET || '').trim();
   }
 
   async execute({ restaurantId, userId }: StartMercadoPagoOAuthPayload) {
@@ -54,25 +49,15 @@ class StartMercadoPagoOAuthService {
       );
     }
 
-    const jwtSecret = this.getJwtSecret();
-    if (jwtSecret.length < 32) {
-      throw new Error('JWT_SECRET invalido para assinar estado OAuth.');
-    }
-
     const backendBaseUrl = this.getBackendBaseUrl();
     const redirectUri =
       this.getRedirectUri() || `${backendBaseUrl}/settings/mercado-pago/oauth/callback`;
 
-    const state = jwt.sign(
-      {
-        restaurantId: normalizedRestaurantId,
-        userId: normalizedUserId,
-      },
-      jwtSecret,
-      {
-        expiresIn: '10m',
-      },
-    );
+    const state = await createSingleUseOAuthState({
+      provider: 'MERCADO_PAGO',
+      restaurantId: normalizedRestaurantId,
+      userId: normalizedUserId,
+    });
 
     const query = new URLSearchParams({
       client_id: clientId,

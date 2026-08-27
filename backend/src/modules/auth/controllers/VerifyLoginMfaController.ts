@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import loginMfaService from '../services/LoginMfaService.js';
+import { moveRefreshTokenToCookie } from './refreshTokenCookie.js';
 
 class VerifyLoginMfaController {
   async handle(req: Request, res: Response) {
@@ -11,7 +12,7 @@ class VerifyLoginMfaController {
         code,
       });
 
-      return res.status(200).json(result);
+      return res.status(200).json(moveRefreshTokenToCookie(res, result));
     } catch (error: unknown) {
       return res.status(401).json({
         error: error instanceof Error ? error.message : 'Falha na verificacao de login',

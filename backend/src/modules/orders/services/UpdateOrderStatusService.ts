@@ -1,5 +1,5 @@
 import orderRepository from '../repositories/OrderRepository.js';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
 import {

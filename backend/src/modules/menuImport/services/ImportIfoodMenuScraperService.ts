@@ -1,9 +1,9 @@
-import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
+import { fetchIfoodHtml } from '../security/ifoodScraperHttp.js';
 
 type ScrapeIfoodMenuInput = {
   url: string;
@@ -38,14 +38,6 @@ function normalizeComparableName(value: string | null | undefined) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
-}
-
-function buildUserAgent() {
-  return [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    'AppleWebKit/537.36 (KHTML, like Gecko)',
-    'Chrome/126.0.0.0 Safari/537.36',
-  ].join(' ');
 }
 
 function parsePrice(raw: string | number | null | undefined) {
@@ -270,24 +262,7 @@ class ImportIfoodMenuScraperService {
       throw new Error('restauranteId inválido.');
     }
 
-    const response = await axios.get(parsedInput.url, {
-      headers: {
-        'User-Agent': buildUserAgent(),
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-        Referer: 'https://www.ifood.com.br/',
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-      timeout: 15000,
-      maxRedirects: 5,
-    });
-
-    const html = String(response.data || '');
-    if (!html.trim()) {
-      throw new Error('Não foi possível carregar o HTML da página informada.');
-    }
+    const { html, finalUrl } = await fetchIfoodHtml(parsedInput.url);
 
     const $ = cheerio.load(html);
     const parsedMenu = extractMenuFromCheerio($);
@@ -355,7 +330,7 @@ class ImportIfoodMenuScraperService {
 
       return {
         restaurantName: parsedMenu.restaurantName || null,
-        sourceUrl: parsedInput.url,
+        sourceUrl: finalUrl,
         categoriesCreated: createdCategories.length,
         productsCreated: createdProducts.length,
         createdCategories,

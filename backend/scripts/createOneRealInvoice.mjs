@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
 import prisma from '../src/config/prisma.js';
 import mercadoPagoService from '../src/modules/billing/services/MercadoPagoService.js';

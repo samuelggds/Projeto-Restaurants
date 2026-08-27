@@ -1,10 +1,10 @@
-import jwt from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';
 import type { Socket } from 'socket.io';
 import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
 import resolvePublicTableService from '../modules/table/services/ResolvePublicTableService.js';
 import { TableSessionStatus, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
+import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
 
 type SocketAuthNext = (err?: Error) => void;
 
@@ -13,6 +13,7 @@ type SocketUser = JwtPayload & {
   role?: string;
   subRole?: string | null;
   restaurantId?: number | null;
+  authVersion?: number | null;
 };
 
 type SocketTableSession = {
@@ -42,10 +43,14 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
     const tableToken = socket.handshake.auth?.tableToken;
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET) as SocketUser;
+      const resolved = await resolveAccessToken(String(token));
+      const decoded = { ...resolved.user } as SocketUser;
 
       const normalizedRole = String(decoded.role || '').toUpperCase();
-      if (normalizedRole === UserRole.MOTOQUEIRO || normalizedRole === UserRole.ADMIN) {
+      if (
+        resolved.legacy &&
+        (normalizedRole === UserRole.MOTOQUEIRO || normalizedRole === UserRole.ADMIN)
+      ) {
         const accountId = Number(decoded.id || 0);
         const restaurantId = Number(decoded.restaurantId || 0);
         const isCourier = normalizedRole === UserRole.MOTOQUEIRO;

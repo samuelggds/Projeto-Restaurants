@@ -164,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function logout() {
     authRevision.current += 1;
+    void api.post('/auth/logout').catch(() => undefined);
     clearAuthSession();
     clearSystemBlockState();
     disconnectSocket();

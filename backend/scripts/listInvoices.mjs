@@ -1,3 +1,4 @@
+import './_shared/guardSensitiveRead.mjs';
 import prisma from '../src/config/prisma.js';
 
 (async () => {

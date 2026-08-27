@@ -1,4 +1,5 @@
-import jwt from 'jsonwebtoken';
+import { createSingleUseOAuthState } from '../security/oauthState.js';
+import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 
 type Payload = { restaurantId: number | string; userId: number | string };
 
@@ -7,16 +8,12 @@ class StartPagBankOAuthService {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedUserId = Number(userId);
     const clientId = String(process.env.PAGBANK_CONNECT_CLIENT_ID || '').trim();
-    const jwtSecret = String(process.env.JWT_SECRET || '').trim();
 
     if (!normalizedRestaurantId || !normalizedUserId) {
       throw new Error('Restaurante ou administrador inválido para conectar PagBank.');
     }
     if (!clientId) {
       throw new Error('PAGBANK_CONNECT_CLIENT_ID não configurado no backend.');
-    }
-    if (jwtSecret.length < 32) {
-      throw new Error('JWT_SECRET inválido para iniciar conexão PagBank.');
     }
 
     const backendUrl = String(
@@ -27,14 +24,12 @@ class StartPagBankOAuthService {
     const redirectUri = String(
       process.env.PAGBANK_CONNECT_REDIRECT_URI || `${backendUrl}/settings/pagbank/oauth/callback`,
     ).trim();
-    const state = jwt.sign(
-      { restaurantId: normalizedRestaurantId, userId: normalizedUserId },
-      jwtSecret,
-      { expiresIn: '10m' },
-    );
-    const authBaseUrl = String(
-      process.env.PAGBANK_CONNECT_AUTH_URL || 'https://connect.pagbank.com.br/oauth2/authorize',
-    ).trim();
+    const state = await createSingleUseOAuthState({
+      provider: 'PAGBANK',
+      restaurantId: normalizedRestaurantId,
+      userId: normalizedUserId,
+    });
+    const authBaseUrl = resolveOAuthEndpoint('PAGBANK_AUTHORIZATION');
     const query = new URLSearchParams({
       response_type: 'code',
       client_id: clientId,

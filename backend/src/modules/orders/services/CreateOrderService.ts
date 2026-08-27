@@ -1,6 +1,6 @@
 ﻿import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';

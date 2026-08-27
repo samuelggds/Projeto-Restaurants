@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { hashPaymentConfirmationPin } from '../utils/paymentConfirmationPin.js';
 

@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
 import { PrismaClient, OrderType, PaymentMethod } from '@prisma/client';
 import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';

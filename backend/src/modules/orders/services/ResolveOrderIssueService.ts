@@ -1,5 +1,5 @@
 import prisma from '../../../config/prisma.js';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { resolveOrderIssueThread, toOrderIssueThreadPayload } from './orderIssueChatStore.js';
 
 class ResolveOrderIssueService {

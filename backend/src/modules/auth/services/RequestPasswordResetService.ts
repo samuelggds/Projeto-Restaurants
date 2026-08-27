@@ -91,11 +91,22 @@ class RequestPasswordResetService {
       return { message: safeMessage };
     }
 
+    const now = new Date();
+    if (
+      user.resetPasswordLockedUntil &&
+      new Date(user.resetPasswordLockedUntil).getTime() > now.getTime()
+    ) {
+      return { message: safeMessage };
+    }
+
     const code = String(crypto.randomInt(100000, 1000000));
     const codeHash = await bcrypt.hash(code, 10);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    await userRepository.savePasswordResetCode(user.id, codeHash, expiresAt);
+    const resetAttempts =
+      !user.resetPasswordCodeExpiresAt ||
+      new Date(user.resetPasswordCodeExpiresAt).getTime() <= now.getTime();
+    await userRepository.savePasswordResetCode(user.id, codeHash, expiresAt, resetAttempts);
 
     const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').replace(
       /\/$/,

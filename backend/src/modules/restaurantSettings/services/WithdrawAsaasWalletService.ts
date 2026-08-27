@@ -1,7 +1,11 @@
+import crypto from 'node:crypto';
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
+import { buildWithdrawalReference } from './asaasWithdrawalValidation.js';
 
 type WithdrawAsaasWalletPayload = {
   restaurantId: number | string;
+  requestedByUserId: number | string;
   value: number;
   pixKey?: string;
   description?: string;
@@ -36,10 +40,21 @@ class WithdrawAsaasWalletService {
     return firstError || 'Falha ao solicitar saque no Asaas.';
   }
 
-  async execute({ restaurantId, value, pixKey, description }: WithdrawAsaasWalletPayload) {
+  async execute({
+    restaurantId,
+    requestedByUserId,
+    value,
+    pixKey,
+    description,
+  }: WithdrawAsaasWalletPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error('Restaurante invalido para saque Asaas.');
+    }
+
+    const normalizedUserId = Number(requestedByUserId);
+    if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+      throw new Error('Administrador invalido para saque Asaas.');
     }
 
     const normalizedValue = Number(value);
@@ -59,29 +74,60 @@ class WithdrawAsaasWalletService {
       throw new Error('Chave PIX obrigatoria para saque.');
     }
 
-    const transferDescription = String(description || 'Saque carteira Asaas')
+    const baseDescription = String(description || 'Saque carteira Asaas')
       .trim()
-      .slice(0, 150);
+      .slice(0, 90);
+
+    const withdrawalRequest = await prisma.asaasWithdrawalRequest.create({
+      data: {
+        restaurantId: normalizedRestaurantId,
+        requestedByUserId: normalizedUserId,
+        value: normalizedValue.toFixed(2),
+        pixKeyHash: crypto.createHash('sha256').update(targetPixKey).digest('hex'),
+        pixKeyLastFour: targetPixKey.slice(-4) || null,
+        description: baseDescription,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+      select: { id: true, publicId: true },
+    });
+    const transferDescription = `${baseDescription} ${buildWithdrawalReference(withdrawalRequest.publicId)}`;
 
     const asaasBaseUrl = this.getAsaasBaseUrl();
-    const response = await fetch(`${asaasBaseUrl}/v3/transfers`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        access_token: asaasToken,
-      },
-      body: JSON.stringify({
-        value: Number(normalizedValue.toFixed(2)),
-        operationType: 'PIX',
-        pixAddressKey: targetPixKey,
-        description: transferDescription,
-      }),
-    });
+    let responseBody: AsaasTransferResponse;
+    try {
+      const response = await fetch(`${asaasBaseUrl}/v3/transfers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          access_token: asaasToken,
+        },
+        body: JSON.stringify({
+          value: Number(normalizedValue.toFixed(2)),
+          operationType: 'PIX',
+          pixAddressKey: targetPixKey,
+          description: transferDescription,
+        }),
+      });
 
-    const responseBody = (await response.json()) as AsaasTransferResponse;
-    if (!response.ok) {
-      throw new Error(this.extractProviderError(responseBody));
+      responseBody = (await response.json()) as AsaasTransferResponse;
+      if (!response.ok) {
+        throw new Error(this.extractProviderError(responseBody));
+      }
+    } catch (error) {
+      await prisma.asaasWithdrawalRequest.updateMany({
+        where: { id: withdrawalRequest.id, status: 'REQUESTED' },
+        data: { status: 'FAILED' },
+      });
+      throw error;
     }
+
+    await prisma.asaasWithdrawalRequest.updateMany({
+      where: { id: withdrawalRequest.id, status: 'REQUESTED' },
+      data: {
+        providerTransferId: String(responseBody?.id || '').trim() || null,
+        providerStatus: String(responseBody?.status || 'PENDING'),
+      },
+    });
 
     return {
       transferId: String(responseBody?.id || ''),

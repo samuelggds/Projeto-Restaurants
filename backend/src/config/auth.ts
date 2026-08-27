@@ -1,6 +1,6 @@
 import type { SignOptions } from 'jsonwebtoken';
 
-const DEFAULT_JWT_EXPIRES_IN = '12h';
+const DEFAULT_JWT_EXPIRES_IN = '15m';
 const DEFAULT_JWT_REFRESH_EXPIRES_IN = '14d';
 const DEFAULT_JWT_MFA_EXPIRES_IN = '10m';
 

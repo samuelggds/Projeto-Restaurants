@@ -5,10 +5,12 @@ class WithdrawAsaasWalletController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user?.restaurantId;
+      const requestedByUserId = req.user?.id;
       const { value, pixKey, description } = req.body;
 
       const result = await withdrawAsaasWalletService.execute({
         restaurantId,
+        requestedByUserId,
         value: Number(value),
         pixKey,
         description,

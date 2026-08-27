@@ -1,0 +1,1 @@
+ALTER TABLE "AuthMfaChallenge" ADD COLUMN "failedAttempts" INTEGER NOT NULL DEFAULT 0;

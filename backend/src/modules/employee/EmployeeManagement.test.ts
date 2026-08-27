@@ -137,7 +137,11 @@ test('permite mover um acesso para motoqueiro e remove o subcargo incompatível'
     subRole: 'GARCOM',
   });
 
-  assert.deepEqual(capturedData, { role: 'MOTOQUEIRO', subRole: null });
+  assert.deepEqual(capturedData, {
+    role: 'MOTOQUEIRO',
+    subRole: null,
+    authVersion: { increment: 1 },
+  });
 });
 
 test('desativação revoga a sessão renovável do funcionário no mesmo tenant', async () => {

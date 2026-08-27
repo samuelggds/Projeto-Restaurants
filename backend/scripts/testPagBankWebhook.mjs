@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
 
 const backendBaseUrl = String(process.env.BACKEND_URL || 'http://localhost:3000')

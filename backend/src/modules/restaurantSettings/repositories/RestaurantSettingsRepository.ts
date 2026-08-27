@@ -1,9 +1,48 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import {
+  credentialEncryptionContext,
+  decryptCredential,
+  encryptCredential,
+  RESTAURANT_CREDENTIAL_FIELDS,
+} from '../security/credentialEncryption.js';
+
+function encryptCredentialData<T extends Record<string, any>>(data: T, restaurantId: number | string) {
+  const result: Record<string, any> = { ...data };
+  for (const field of RESTAURANT_CREDENTIAL_FIELDS) {
+    if (!(field in result)) continue;
+    const value = result[field];
+    result[field] =
+      value && typeof value === 'object' && 'set' in value
+        ? {
+            ...value,
+            set: encryptCredential(value.set, credentialEncryptionContext(restaurantId, field)),
+          }
+        : encryptCredential(value, credentialEncryptionContext(restaurantId, field));
+  }
+  return result as T;
+}
+
+function decryptCredentialRecord<T extends Record<string, any> | null>(
+  record: T,
+  restaurantId: number | string,
+) {
+  if (!record) return record;
+  const result: Record<string, any> = { ...record };
+  for (const field of RESTAURANT_CREDENTIAL_FIELDS) {
+    if (field in result) {
+      result[field] = decryptCredential(
+        result[field],
+        credentialEncryptionContext(restaurantId, field),
+      );
+    }
+  }
+  return result as T;
+}
 
 class RestaurantSettingsRepository {
   async findByRestaurantId(restaurantId: number | string) {
-    return prisma.restaurantSettings.findUnique({
+    const settings = await prisma.restaurantSettings.findUnique({
       where: {
         restaurantId: Number(restaurantId),
       },
@@ -30,6 +69,7 @@ class RestaurantSettingsRepository {
         },
       },
     });
+    return decryptCredentialRecord(settings, restaurantId);
   }
 
   async findRestaurantById(restaurantId: number | string) {
@@ -143,18 +183,21 @@ class RestaurantSettingsRepository {
   }
 
   async create(data: Prisma.RestaurantSettingsUncheckedCreateInput) {
-    return prisma.restaurantSettings.create({
-      data,
+    const restaurantId = Number(data.restaurantId);
+    const created = await prisma.restaurantSettings.create({
+      data: encryptCredentialData(data, restaurantId),
     });
+    return decryptCredentialRecord(created, restaurantId);
   }
 
   async update(restaurantId: number | string, data: Prisma.RestaurantSettingsUpdateInput) {
-    return prisma.restaurantSettings.update({
+    const updated = await prisma.restaurantSettings.update({
       where: {
         restaurantId: Number(restaurantId),
       },
-      data,
+      data: encryptCredentialData(data, restaurantId),
     });
+    return decryptCredentialRecord(updated, restaurantId);
   }
 }
 

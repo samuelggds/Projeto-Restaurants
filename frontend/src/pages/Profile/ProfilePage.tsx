@@ -709,7 +709,9 @@ function Security({
           {showDeactivateConfirmation && (
             <div className="security-confirmation" role="alert">
               <b>Deseja desativar sua conta?</b>
-              <span>Você perderá o acesso até que a conta seja reativada.</span>
+              <span>
+                Você perderá o acesso. Para reativar com segurança, use a recuperação de senha.
+              </span>
               <div>
                 <button
                   type="button"

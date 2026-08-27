@@ -1,5 +1,6 @@
-import jwt from 'jsonwebtoken';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
+import { consumeSingleUseOAuthState } from '../security/oauthState.js';
+import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 
 type TokenResponse = {
   access_token?: string;
@@ -10,18 +11,27 @@ type TokenResponse = {
 };
 
 class CompletePagBankOAuthService {
-  async execute({ code, state }: { code?: string; state?: string }) {
+  async execute({
+    code,
+    state,
+    providerError,
+    providerErrorDescription,
+  }: {
+    code?: string;
+    state?: string;
+    providerError?: string;
+    providerErrorDescription?: string;
+  }) {
     const normalizedCode = String(code || '').trim();
     const normalizedState = String(state || '').trim();
-    const jwtSecret = String(process.env.JWT_SECRET || '').trim();
-    if (!normalizedCode || !normalizedState) {
-      throw new Error('Código de autorização PagBank não recebido.');
+    if (!normalizedState) throw new Error('Estado OAuth PagBank não recebido.');
+    const { restaurantId } = await consumeSingleUseOAuthState(normalizedState, 'PAGBANK');
+    if (providerError) {
+      throw new Error(
+        String(providerErrorDescription || providerError || 'PagBank recusou a autorização.'),
+      );
     }
-    const decoded = jwt.verify(normalizedState, jwtSecret) as {
-      restaurantId?: number;
-    };
-    const restaurantId = Number(decoded.restaurantId || 0);
-    if (!restaurantId) throw new Error('Estado OAuth PagBank inválido.');
+    if (!normalizedCode) throw new Error('Código de autorização PagBank não recebido.');
 
     const clientId = String(process.env.PAGBANK_CONNECT_CLIENT_ID || '').trim();
     const clientSecret = String(process.env.PAGBANK_CONNECT_CLIENT_SECRET || '').trim();
@@ -37,11 +47,10 @@ class CompletePagBankOAuthService {
     const redirectUri = String(
       process.env.PAGBANK_CONNECT_REDIRECT_URI || `${backendUrl}/settings/pagbank/oauth/callback`,
     ).trim();
-    const apiBaseUrl = String(process.env.PAGBANK_CONNECT_API_URL || 'https://api.pagseguro.com')
-      .trim()
-      .replace(/\/+$/, '');
+    const apiBaseUrl = resolveOAuthEndpoint('PAGBANK_API');
     const response = await fetch(`${apiBaseUrl}/oauth2/token`, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         Authorization: `Bearer ${platformToken}`,
         X_CLIENT_ID: clientId,
@@ -49,6 +58,7 @@ class CompletePagBankOAuthService {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
+      signal: AbortSignal.timeout(15_000),
       body: JSON.stringify({
         grant_type: 'authorization_code',
         code: normalizedCode,

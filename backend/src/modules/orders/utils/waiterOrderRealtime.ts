@@ -1,12 +1,7 @@
 import { OrderType } from '@prisma/client';
+import type { RealtimeTransport } from '../../../realtime/realtimePublisher.js';
 
 type AnyOrder = Record<string, any>;
-
-type RoomEmitter = {
-  to(room: string): {
-    emit(event: string, payload: unknown): unknown;
-  };
-};
 
 export function buildWaiterOrderRealtimePayload(order: AnyOrder | null | undefined) {
   if (!order || order.type !== OrderType.MESA || !order.table) {
@@ -41,7 +36,7 @@ export function buildWaiterOrderRealtimePayload(order: AnyOrder | null | undefin
 }
 
 export function emitWaiterTableOrderEvent(
-  io: RoomEmitter,
+  io: Pick<RealtimeTransport, 'to'>,
   event: string,
   order: AnyOrder | null | undefined,
 ) {
@@ -53,7 +48,7 @@ export function emitWaiterTableOrderEvent(
 }
 
 export function emitTableSessionOrderEvent(
-  io: RoomEmitter,
+  io: Pick<RealtimeTransport, 'to'>,
   event: string,
   order: AnyOrder | null | undefined,
 ) {

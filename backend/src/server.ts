@@ -16,6 +16,8 @@ import {
   startTablePaymentJobs,
   stopTablePaymentJobs,
 } from './modules/tableAccount/jobs/tablePaymentScheduler.js';
+import { registerRealtimeTransport } from './realtime/realtimePublisher.js';
+import { createSocketIoRealtimeTransport } from './realtime/socketIoRealtimeTransport.js';
 
 const server = http.createServer(app);
 const port = Number(process.env.PORT) || 3000;
@@ -38,6 +40,8 @@ export const io = new Server(server, {
   },
   transports: ['polling', 'websocket'],
 });
+
+const unregisterRealtimeTransport = registerRealtimeTransport(createSocketIoRealtimeTransport(io));
 
 io.use(socketAuth);
 io.on('connection', socketHandler);
@@ -66,6 +70,7 @@ async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
   console.info('[SHUTDOWN_STARTED]', { signal });
   stopJobs();
   stopTablePaymentJobs();
+  unregisterRealtimeTransport();
 
   const configuredTimeout = Number(process.env.SHUTDOWN_TIMEOUT_MS || 10_000);
   const shutdownTimeoutMs =

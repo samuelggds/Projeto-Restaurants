@@ -10,6 +10,7 @@
     "noEmit": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
     "strict": false,
     "types": ["node"]
   },

@@ -13,11 +13,18 @@ type AuthPayload = {
   role: string;
   subRole?: string | null;
   restaurantId: number | null;
+  authVersion?: number;
 };
 
 type RefreshPayload = AuthPayload & {
   type: 'refresh';
   jti: string;
+};
+
+type SignedRefreshToken = {
+  token: string;
+  jti: string;
+  expiresAt: Date;
 };
 
 function getSafeRefreshSecret() {
@@ -34,18 +41,19 @@ function normalizePayload(payload: AuthPayload) {
       payload.restaurantId === null || payload.restaurantId === undefined
         ? null
         : Number(payload.restaurantId),
+    authVersion: Number.isInteger(Number(payload.authVersion)) ? Number(payload.authVersion) : 0,
   };
 }
 
 class AuthTokenService {
   createAccessToken(payload: AuthPayload) {
     const normalized = normalizePayload(payload);
-    return jwt.sign(normalized, getJwtSecret(), {
+    return jwt.sign({ ...normalized, type: 'access' }, getJwtSecret(), {
       expiresIn: getJwtExpiresIn(),
     });
   }
 
-  async createRefreshToken(payload: AuthPayload) {
+  private signRefreshToken(payload: AuthPayload): SignedRefreshToken {
     const normalized = normalizePayload(payload);
     const jti = crypto.randomUUID();
     const refreshPayload: RefreshPayload = {
@@ -54,33 +62,44 @@ class AuthTokenService {
       jti,
     };
 
-    const refreshToken = jwt.sign(refreshPayload, getSafeRefreshSecret(), {
+    const token = jwt.sign(refreshPayload, getSafeRefreshSecret(), {
       expiresIn: getJwtRefreshExpiresIn(),
     });
 
-    const decoded = jwt.decode(refreshToken);
+    const decoded = jwt.decode(token);
     const exp =
       decoded && typeof decoded !== 'string' ? Number((decoded as jwt.JwtPayload).exp || 0) : 0;
     if (!exp) {
       throw new Error('Falha ao gerar refresh token');
     }
 
+    return {
+      token,
+      jti,
+      expiresAt: new Date(exp * 1000),
+    };
+  }
+
+  async createRefreshToken(payload: AuthPayload) {
+    const normalized = normalizePayload(payload);
+    const signed = this.signRefreshToken(normalized);
+
     await prisma.authRefreshSession.upsert({
       where: {
         userId: normalized.id,
       },
       update: {
-        jti,
-        expiresAt: new Date(exp * 1000),
+        jti: signed.jti,
+        expiresAt: signed.expiresAt,
       },
       create: {
         userId: normalized.id,
-        jti,
-        expiresAt: new Date(exp * 1000),
+        jti: signed.jti,
+        expiresAt: signed.expiresAt,
       },
     });
 
-    return refreshToken;
+    return signed.token;
   }
 
   async rotateRefreshToken(refreshToken: string) {
@@ -90,17 +109,17 @@ class AuthTokenService {
     }
 
     const userId = Number(decoded.id || 0);
-    const role = String(decoded.role || '');
-    const subRole =
-      decoded.subRole === null || decoded.subRole === undefined ? null : String(decoded.subRole);
-    const restaurantId =
-      decoded.restaurantId === null || decoded.restaurantId === undefined
-        ? null
-        : Number(decoded.restaurantId);
     const jti = String(decoded.jti || '').trim();
     const tokenType = String(decoded.type || '').trim();
+    const tokenAuthVersion = Number(decoded.authVersion);
 
-    if (!Number.isInteger(userId) || userId <= 0 || !role || !jti) {
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !jti ||
+      !Number.isInteger(tokenAuthVersion) ||
+      tokenAuthVersion < 0
+    ) {
       throw new Error('Refresh token invalido');
     }
 
@@ -115,6 +134,16 @@ class AuthTokenService {
       select: {
         jti: true,
         expiresAt: true,
+        user: {
+          select: {
+            id: true,
+            active: true,
+            role: true,
+            subRole: true,
+            restaurantId: true,
+            authVersion: true,
+          },
+        },
       },
     });
 
@@ -128,19 +157,40 @@ class AuthTokenService {
       throw new Error('Refresh token expirado');
     }
 
+    if (!session.user.active || Number(session.user.authVersion) !== tokenAuthVersion) {
+      throw new Error('Refresh token expirado');
+    }
+
     const payload = {
-      id: userId,
-      role,
-      subRole,
-      restaurantId,
+      id: session.user.id,
+      role: session.user.role,
+      subRole: session.user.subRole,
+      restaurantId: session.user.restaurantId,
+      authVersion: session.user.authVersion,
     };
 
+    const nextRefresh = this.signRefreshToken(payload);
+    const claimedSession = await prisma.authRefreshSession.updateMany({
+      where: {
+        userId,
+        jti,
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        jti: nextRefresh.jti,
+        expiresAt: nextRefresh.expiresAt,
+      },
+    });
+
+    if (claimedSession.count !== 1) {
+      throw new Error('Refresh token expirado');
+    }
+
     const accessToken = this.createAccessToken(payload);
-    const nextRefreshToken = await this.createRefreshToken(payload);
 
     return {
       accessToken,
-      refreshToken: nextRefreshToken,
+      refreshToken: nextRefresh.token,
     };
   }
 

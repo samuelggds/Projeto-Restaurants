@@ -1,4 +1,4 @@
-import type { CartItem } from '../../home/hooks/useCart';
+import type { CartItem } from '../../Home/hooks/useCart';
 import type { ProfileFavorite } from '../types';
 
 export type FavoriteCartResult =

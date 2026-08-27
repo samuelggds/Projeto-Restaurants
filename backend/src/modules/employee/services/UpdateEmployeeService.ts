@@ -37,6 +37,9 @@ class UpdateEmployeeService {
           : subRole !== undefined
             ? { subRole }
             : {}),
+        ...(role !== undefined || subRole !== undefined
+          ? { authVersion: { increment: 1 } }
+          : {}),
       },
       restaurantId,
     );

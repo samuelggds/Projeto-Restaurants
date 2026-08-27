@@ -1,3 +1,6 @@
+import { parseCredentialEncryptionKey } from '../modules/restaurantSettings/security/credentialEncryption.js';
+import { validateConfiguredOAuthEndpoints } from '../modules/restaurantSettings/security/oauthEndpoints.js';
+
 function asNumber(value: string, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -80,11 +83,20 @@ export function validateCriticalEnv() {
   const databaseUrl = requireValue('DATABASE_URL', errors);
   validateDatabaseUrl(databaseUrl, errors);
 
+  const credentialEncryptionKey = requireValue('CREDENTIAL_ENCRYPTION_KEY', errors);
+  if (credentialEncryptionKey) {
+    try {
+      parseCredentialEncryptionKey(credentialEncryptionKey);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : 'CREDENTIAL_ENCRYPTION_KEY inválida.');
+    }
+  }
+
   const frontendUrl = requireValue('FRONTEND_URL', errors);
   if (frontendUrl) parsePublicUrl('FRONTEND_URL', frontendUrl, errors);
 
   const backendUrl = requireValue('BACKEND_URL', errors);
-  if (backendUrl) parsePublicUrl('BACKEND_URL', backendUrl, errors);
+  const parsedBackendUrl = backendUrl ? parsePublicUrl('BACKEND_URL', backendUrl, errors) : null;
 
   const corsOrigins = requireValue('CORS_ORIGINS', errors);
   if (corsOrigins) {
@@ -149,8 +161,13 @@ export function validateCriticalEnv() {
 
   const mfaRoles = String(process.env.MFA_REQUIRED_ROLES || 'ADMIN,SUPER_ADMIN')
     .split(',')
-    .map((item) => item.trim())
+    .map((item) => item.trim().toUpperCase())
     .filter(Boolean);
+  for (const requiredRole of ['ADMIN', 'SUPER_ADMIN']) {
+    if (!mfaRoles.includes(requiredRole)) {
+      errors.push(`MFA_REQUIRED_ROLES deve incluir ${requiredRole} em producao.`);
+    }
+  }
   if (mfaRoles.length > 0) {
     const jwtMfaSecret = String(process.env.JWT_MFA_SECRET || jwtSecret).trim();
 
@@ -174,6 +191,32 @@ export function validateCriticalEnv() {
     String(process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK || 'false').trim() === 'true';
   if (allowGlobalFallback) {
     errors.push('ALLOW_GLOBAL_PAYMENT_FALLBACK nao pode ser true em producao multi-tenant.');
+  }
+
+  const allowLegacyAccessTokens =
+    String(process.env.ALLOW_LEGACY_ACCESS_TOKENS || 'false').trim() === 'true';
+  if (allowLegacyAccessTokens) {
+    errors.push('ALLOW_LEGACY_ACCESS_TOKENS nao pode ser true em producao.');
+  }
+
+  const allowUntrustedOAuthEndpoints =
+    String(process.env.ALLOW_UNTRUSTED_OAUTH_ENDPOINTS || 'false').trim() === 'true';
+  if (allowUntrustedOAuthEndpoints) {
+    errors.push('ALLOW_UNTRUSTED_OAUTH_ENDPOINTS nao pode ser true em producao.');
+  }
+  try {
+    validateConfiguredOAuthEndpoints(process.env);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'Endpoints OAuth invalidos.');
+  }
+
+  for (const redirectName of ['MP_OAUTH_REDIRECT_URI', 'PAGBANK_CONNECT_REDIRECT_URI']) {
+    const redirectValue = String(process.env[redirectName] || '').trim();
+    if (!redirectValue) continue;
+    const redirectUrl = parsePublicUrl(redirectName, redirectValue, errors);
+    if (redirectUrl && parsedBackendUrl && redirectUrl.origin !== parsedBackendUrl.origin) {
+      errors.push(`${redirectName} deve usar a mesma origem de BACKEND_URL em producao.`);
+    }
   }
 
   const paymentPinSecret = String(

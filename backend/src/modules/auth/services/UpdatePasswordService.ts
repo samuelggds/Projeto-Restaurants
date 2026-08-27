@@ -1,5 +1,6 @@
 import userRepository from '../repositories/UserRepository.js';
 import bcrypt from 'bcrypt';
+import prisma from '../../../config/prisma.js';
 
 class UpdatePasswordService {
   async execute(userId: number | string, oldPassword: string, newPassword: string) {
@@ -26,7 +27,11 @@ class UpdatePasswordService {
 
     const hashPassword = await bcrypt.hash(newPassword, 10);
 
-    return userRepository.updatePassword(userId, hashPassword);
+    return prisma.$transaction(async (transaction) => {
+      const updated = await userRepository.updatePassword(userId, hashPassword, transaction);
+      await transaction.authRefreshSession.deleteMany({ where: { userId: Number(userId) } });
+      return updated;
+    });
   }
 }
 

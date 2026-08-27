@@ -1,4 +1,5 @@
 import userRepository from '../repositories/UserRepository.js';
+import prisma from '../../../config/prisma.js';
 
 class UpdateMfaPreferenceService {
   async execute(userId: number | string, enabled: unknown) {
@@ -11,7 +12,11 @@ class UpdateMfaPreferenceService {
       throw new Error('Usuario nao encontrado');
     }
 
-    return userRepository.updateMfaEnabled(userId, enabled);
+    return prisma.$transaction(async (transaction) => {
+      const updated = await userRepository.updateMfaEnabled(userId, enabled, transaction);
+      await transaction.authRefreshSession.deleteMany({ where: { userId: Number(userId) } });
+      return updated;
+    });
   }
 }
 

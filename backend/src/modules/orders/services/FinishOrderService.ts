@@ -1,7 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
-import { io } from '../../../server.js';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';

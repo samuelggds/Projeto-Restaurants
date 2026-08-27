@@ -1,4 +1,5 @@
 import type { TablePaymentIntentStatus } from '@prisma/client';
+import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 
 type TableAccountUpdateReason =
   | 'PAYMENT_CREATED'
@@ -26,7 +27,6 @@ export type TableAccountUpdatedEvent = {
 export const tableAccountEvents = {
   async updated(payload: TableAccountUpdatedEvent) {
     try {
-      const { io } = await import('../../../server.js');
       const event = {
         ...payload,
         occurredAt: payload.occurredAt || new Date().toISOString(),

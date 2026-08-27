@@ -1,5 +1,6 @@
-import jwt from 'jsonwebtoken';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
+import { consumeSingleUseOAuthState } from '../security/oauthState.js';
+import { resolveOAuthEndpoint } from '../security/oauthEndpoints.js';
 
 type CompleteMercadoPagoOAuthPayload = {
   code?: string;
@@ -15,18 +16,9 @@ type MercadoPagoOAuthTokenResponse = {
   status?: number;
 };
 
-type OAuthStatePayload = {
-  restaurantId: number;
-  userId: number;
-  iat?: number;
-  exp?: number;
-};
-
 class CompleteMercadoPagoOAuthService {
   private getApiBaseUrl() {
-    return String(process.env.MP_OAUTH_API_BASE_URL || 'https://api.mercadopago.com')
-      .trim()
-      .replace(/\/+$/, '');
+    return resolveOAuthEndpoint('MERCADO_PAGO_API');
   }
 
   private getBackendBaseUrl() {
@@ -57,29 +49,6 @@ class CompleteMercadoPagoOAuthService {
     ).trim();
   }
 
-  private getJwtSecret() {
-    return String(process.env.JWT_SECRET || '').trim();
-  }
-
-  private decodeState(rawState: string) {
-    const jwtSecret = this.getJwtSecret();
-    if (jwtSecret.length < 32) {
-      throw new Error('JWT_SECRET invalido para validar estado OAuth.');
-    }
-
-    const decoded = jwt.verify(rawState, jwtSecret) as OAuthStatePayload;
-    const restaurantId = Number(decoded?.restaurantId || 0);
-
-    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
-      throw new Error('Estado OAuth invalido para restaurante.');
-    }
-
-    return {
-      restaurantId,
-      userId: Number(decoded?.userId || 0),
-    };
-  }
-
   private extractProviderError(response: MercadoPagoOAuthTokenResponse) {
     const apiError = String(response?.error || '').trim();
     const apiMessage = String(response?.message || '').trim();
@@ -97,6 +66,12 @@ class CompleteMercadoPagoOAuthService {
     providerError,
     providerErrorDescription,
   }: CompleteMercadoPagoOAuthPayload) {
+    const normalizedState = String(state || '').trim();
+    if (!normalizedState) {
+      throw new Error('State OAuth do Mercado Pago nao recebido.');
+    }
+    const { restaurantId } = await consumeSingleUseOAuthState(normalizedState, 'MERCADO_PAGO');
+
     if (providerError) {
       const details = String(providerErrorDescription || '').trim();
       const baseMessage = `Mercado Pago recusou autorizacao (${providerError}).`;
@@ -107,13 +82,6 @@ class CompleteMercadoPagoOAuthService {
     if (!normalizedCode) {
       throw new Error('Codigo OAuth do Mercado Pago nao recebido.');
     }
-
-    const normalizedState = String(state || '').trim();
-    if (!normalizedState) {
-      throw new Error('State OAuth do Mercado Pago nao recebido.');
-    }
-
-    const { restaurantId } = this.decodeState(normalizedState);
 
     const clientId = this.getClientId();
     const clientSecret = this.getClientSecret();
@@ -128,10 +96,12 @@ class CompleteMercadoPagoOAuthService {
 
     const tokenResponse = await fetch(`${this.getApiBaseUrl()}/oauth/token`, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
+      signal: AbortSignal.timeout(15_000),
       body: JSON.stringify({
         client_id: clientId,
         client_secret: clientSecret,

@@ -1,4 +1,4 @@
-import type { CartItem } from '../../home/hooks/useCart';
+import type { CartItem } from '../../Home/hooks/useCart';
 
 type RecordValue = Record<string, unknown>;
 

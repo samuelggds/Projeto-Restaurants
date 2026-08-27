@@ -1,3 +1,4 @@
+import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import prisma from '../src/config/prisma.js';

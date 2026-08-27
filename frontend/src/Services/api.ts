@@ -121,6 +121,31 @@ const api = axios.create({
   withCredentials: true,
 });
 
+let refreshRequest: Promise<string> | null = null;
+
+function refreshAccessToken() {
+  if (!refreshRequest) {
+    const baseURL = normalizeBaseUrl(api.defaults.baseURL || API_BASE_URLS[0] || '');
+    refreshRequest = axios
+      .post(
+        `${baseURL}/auth/refresh`,
+        {},
+        { withCredentials: true, timeout: API_TIMEOUT_MS },
+      )
+      .then((response) => {
+        const accessToken = String(response?.data?.accessToken || '').trim();
+        if (!accessToken) throw new Error('Backend não retornou um novo access token.');
+        localStorage.setItem('token', accessToken);
+        return accessToken;
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+
+  return refreshRequest;
+}
+
 // Add auth token to all requests
 api.interceptors.request.use(
   (config) => {
@@ -178,6 +203,34 @@ api.interceptors.response.use(
 
     const status = error?.response?.status;
     const data = error?.response?.data;
+    const requestPath = String(originalConfig?.url || '');
+    const canRefresh =
+      status === 401 &&
+      originalConfig &&
+      !originalConfig.__authRetry &&
+      Boolean(localStorage.getItem('token')) &&
+      !requestPath.includes('/auth/login') &&
+      !requestPath.includes('/auth/refresh') &&
+      !requestPath.includes('/auth/logout');
+
+    if (canRefresh) {
+      originalConfig.__authRetry = true;
+      return refreshAccessToken()
+        .then((accessToken) => {
+          originalConfig.headers = originalConfig.headers || {};
+          originalConfig.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalConfig);
+        })
+        .catch((refreshError) => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.assign('/login');
+          }
+          return Promise.reject(refreshError);
+        });
+    }
+
     const currentUser = (() => {
       try {
         return JSON.parse(localStorage.getItem('user') || 'null');

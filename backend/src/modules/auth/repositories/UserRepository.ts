@@ -115,6 +115,7 @@ class UserRepository {
       data: {
         password,
         mustChangePassword: false,
+        authVersion: { increment: 1 },
       },
     });
   }
@@ -122,7 +123,10 @@ class UserRepository {
   async updateMfaEnabled(id: number | string, mfaEnabled: boolean, db: PrismaClientLike = prisma) {
     return db.user.update({
       where: { id: Number(id) },
-      data: { mfaEnabled },
+      data: {
+        mfaEnabled,
+        authVersion: { increment: 1 },
+      },
       select: {
         id: true,
         mfaEnabled: true,
@@ -134,6 +138,7 @@ class UserRepository {
     id: number | string,
     codeHash: string,
     expiresAt: Date,
+    resetAttempts = false,
     db: PrismaClientLike = prisma,
   ) {
     return db.user.update({
@@ -143,6 +148,12 @@ class UserRepository {
       data: {
         resetPasswordCodeHash: codeHash,
         resetPasswordCodeExpiresAt: expiresAt,
+        ...(resetAttempts
+          ? {
+              resetPasswordFailedAttempts: 0,
+              resetPasswordLockedUntil: null,
+            }
+          : {}),
       },
     });
   }
@@ -155,6 +166,8 @@ class UserRepository {
       data: {
         resetPasswordCodeHash: null,
         resetPasswordCodeExpiresAt: null,
+        resetPasswordFailedAttempts: 0,
+        resetPasswordLockedUntil: null,
       },
     });
   }
@@ -172,6 +185,10 @@ class UserRepository {
         password,
         resetPasswordCodeHash: null,
         resetPasswordCodeExpiresAt: null,
+        resetPasswordFailedAttempts: 0,
+        resetPasswordLockedUntil: null,
+        active: true,
+        authVersion: { increment: 1 },
       },
     });
   }
@@ -190,15 +207,10 @@ class UserRepository {
       },
       data: {
         active: false,
+        authVersion: { increment: 1 },
       },
-    });
-  }
-  async reactivate(id: number | string, db: PrismaClientLike = prisma) {
-    return db.user.update({
-      where: {
-        id: Number(id),
-      },
-      data: {
+      select: {
+        id: true,
         active: true,
       },
     });

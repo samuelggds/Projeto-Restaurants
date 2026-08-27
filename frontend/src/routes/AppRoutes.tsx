@@ -13,7 +13,7 @@ const Login = lazy(() => import('../pages/Login/Login'));
 const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
 const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
 const Register = lazy(() => import('../pages/Register/Register'));
-const UserProfile = lazy(() => import('../pages/profile/Profile'));
+const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));

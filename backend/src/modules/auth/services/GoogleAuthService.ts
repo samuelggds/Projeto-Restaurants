@@ -79,6 +79,7 @@ class GoogleAuthService {
       id: user.id,
       role: user.role,
       restaurantId: user.restaurantId,
+      authVersion: user.authVersion,
     };
     const token = authTokenService.createAccessToken(tokenPayload);
     const refreshToken = await authTokenService.createRefreshToken(tokenPayload);

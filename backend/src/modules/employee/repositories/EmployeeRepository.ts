@@ -91,6 +91,7 @@ class EmployeeRepository {
       },
       data: {
         active: false,
+        authVersion: { increment: 1 },
       },
       select: employeePublicSelect,
     });
