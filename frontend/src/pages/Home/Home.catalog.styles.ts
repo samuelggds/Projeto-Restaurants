@@ -60,7 +60,9 @@ export const HomeRoot = styled.div<{ $primary: string; $fontFamily?: string }>`
   --home-muted: #6f6a63;
   width: 100%;
   min-height: 100vh;
-  background: #fffdf9;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.58)),
+    #f7f4ef;
   color: var(--home-text);
   font-family: ${({ $fontFamily }) => homeFontStack($fontFamily)};
   *,
@@ -230,7 +232,7 @@ export const InfoBar = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   align-items: center;
-  background: #fffdf9;
+  background: rgba(255, 255, 255, 0.88);
   span {
     display: flex;
     align-items: center;
@@ -291,8 +293,8 @@ export const CategoryRow = styled.div`
   padding: 18px;
   border: 1px solid #eee5dc;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 12px 35px rgba(70, 45, 20, 0.055);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 28px rgba(70, 45, 20, 0.045);
   scroll-behavior: smooth;
   &::-webkit-scrollbar {
     display: none;
@@ -374,7 +376,7 @@ export const ProductCategoryGroup = styled.section`
   padding: 18px;
   border: 1px solid #eee5dc;
   border-radius: 20px;
-  background: linear-gradient(145deg, #fff 0%, #fffcf8 100%);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 12px 32px rgba(70, 45, 20, 0.045);
   h3 {
     margin: 0 0 16px;

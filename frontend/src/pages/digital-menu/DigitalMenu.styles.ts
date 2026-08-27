@@ -8,7 +8,9 @@ export const Root = styled.main<{ $primary: string }>`
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 176px minmax(0, 1fr);
-  background: #fffdf9;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.58)),
+    #f7f4ef;
   color: #191816;
   font-family:
     Inter,

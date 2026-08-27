@@ -12,29 +12,11 @@ export const Section = styled.section`
   margin: 34px auto 0;
   padding: clamp(20px, 3vw, 30px);
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--home-primary) 22%, #eadfd3);
+  border: 1px solid #e9e2da;
   border-radius: 26px;
-  background:
-    radial-gradient(
-      circle at 92% 8%,
-      color-mix(in srgb, var(--home-primary) 15%, transparent) 0,
-      transparent 31%
-    ),
-    linear-gradient(145deg, #fff 0%, color-mix(in srgb, var(--home-primary) 5%, #fffaf5) 100%);
-  box-shadow: 0 20px 54px rgba(70, 45, 20, 0.09);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 14px 38px rgba(70, 45, 20, 0.055);
   animation: ${offerReveal} 320ms ease both;
-
-  &::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    top: -74px;
-    right: -58px;
-    width: 190px;
-    height: 190px;
-    border: 32px solid color-mix(in srgb, var(--home-primary) 8%, transparent);
-    border-radius: 50%;
-  }
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -106,11 +88,11 @@ export const Count = styled.span`
   align-items: center;
   gap: 7px;
   flex: 0 0 auto;
-  border: 1px solid color-mix(in srgb, var(--home-primary) 22%, #eadfd3);
+  border: 1px solid #e7ded5;
   border-radius: 999px;
   color: var(--home-primary);
   background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 8px 20px rgba(70, 45, 20, 0.07);
+  box-shadow: 0 5px 14px rgba(70, 45, 20, 0.045);
   font-size: 12px;
   font-weight: 800;
 
