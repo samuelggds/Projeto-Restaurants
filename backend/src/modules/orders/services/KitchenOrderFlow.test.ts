@@ -8,6 +8,7 @@ import {
   OrderStatus,
   OrderType,
   PaymentMethod,
+  TableOrderSettlementMode,
   UserRole,
 } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -88,7 +89,7 @@ test('fila da cozinha mantém MESA, RETIRADA e DELIVERY do mesmo tenant com iten
   assert.equal(result[0].items[0].product.name, 'Pizza da casa');
 });
 
-test('consulta operacional aplica tenant e oculta PIX/cartão online ainda não pagos', async () => {
+test('consulta operacional inclui conta da mesa e oculta somente PIX/cartão online ainda não pagos', async () => {
   let query;
   const fakeDb = {
     order: {
@@ -103,9 +104,16 @@ test('consulta operacional aplica tenant e oculta PIX/cartão online ainda não 
 
   assert.equal(query.where.id, 81);
   assert.equal(query.where.restaurantId, 7);
-  assert.equal(query.where.NOT.paid, false);
-  assert.equal(query.where.NOT.payOnDelivery, false);
-  assert.deepEqual(query.where.NOT.paymentMethod.in, [PaymentMethod.PIX, PaymentMethod.CARTAO]);
+  const paymentVisibility = query.where.AND[0].OR;
+  assert.deepEqual(paymentVisibility[0], {
+    settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT,
+  });
+  assert.equal(paymentVisibility[1].NOT.paid, false);
+  assert.equal(paymentVisibility[1].NOT.payOnDelivery, false);
+  assert.deepEqual(paymentVisibility[1].NOT.paymentMethod.in, [
+    PaymentMethod.PIX,
+    PaymentMethod.CARTAO,
+  ]);
   assert.equal(query.include.items.include.product, true);
   assert.equal(query.include.table.select.number, true);
   assert.equal('token' in query.include.table.select, false);

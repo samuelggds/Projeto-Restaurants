@@ -6,6 +6,7 @@ import {
   OrderType,
   TableBillItemFinancialStatus,
   TableOrderFinancialStatus,
+  TableOrderSettlementMode,
   TableSessionStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
@@ -61,6 +62,21 @@ function activeTableSessionWhere(restaurantId: number): Prisma.TableSessionWhere
   };
 }
 
+function operationalPaymentWhere(): Prisma.OrderWhereInput {
+  return {
+    OR: [
+      { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
+      {
+        NOT: {
+          paid: false,
+          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
+          payOnDelivery: false,
+        },
+      },
+    ],
+  };
+}
+
 class OrderRepository {
   async create(
     data: Prisma.OrderCreateInput | Prisma.OrderUncheckedCreateInput,
@@ -99,13 +115,7 @@ class OrderRepository {
     return db.order.findMany({
       where: {
         restaurantId,
-        NOT: {
-          paid: false,
-          paymentMethod: {
-            in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
-          },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
         ...(status && { status }),
       },
       include: {
@@ -159,11 +169,7 @@ class OrderRepository {
       where: {
         restaurantId,
         status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
     });
   }
@@ -193,11 +199,7 @@ class OrderRepository {
           { status: OrderStatus.PRONTO, assignedCourierId: null },
           { assignedCourierId: courierId },
         ],
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
       include: {
         user: {
@@ -230,11 +232,7 @@ class OrderRepository {
             assignedCourierId: courierId,
           },
         ],
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
       include: {
         user: { select: { id: true, name: true, phone: true } },
@@ -274,11 +272,7 @@ class OrderRepository {
         type: OrderType.MESA,
         status: OrderStatus.PRONTO,
         tableSession: { is: activeTableSessionWhere(restaurantId) },
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
       include: waiterReadyOrderInclude,
       orderBy: [{ readyAt: 'asc' }, { createdAt: 'asc' }],
@@ -297,11 +291,7 @@ class OrderRepository {
         type: OrderType.MESA,
         status: OrderStatus.PRONTO,
         tableSession: { is: activeTableSessionWhere(restaurantId) },
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
       include: waiterReadyOrderInclude,
     });
@@ -319,11 +309,7 @@ class OrderRepository {
         type: OrderType.MESA,
         status: OrderStatus.PRONTO,
         tableSession: { is: activeTableSessionWhere(restaurantId) },
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
       include: statusUpdateOrderInclude,
     });
@@ -615,13 +601,7 @@ class OrderRepository {
       where: {
         id: Number(id),
         restaurantId,
-        NOT: {
-          paid: false,
-          paymentMethod: {
-            in: [PaymentMethod.PIX, PaymentMethod.CARTAO],
-          },
-          payOnDelivery: false,
-        },
+        AND: [operationalPaymentWhere()],
       },
       include: {
         user: {
