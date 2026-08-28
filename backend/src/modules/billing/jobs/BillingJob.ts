@@ -9,20 +9,30 @@ class BillingJob {
   async execute() {
     info('BillingJob started');
     const now = new Date();
+    const failures: Error[] = [];
 
     // 1. Processa os Trials primeiro (Eles viram "ATIVA" e já ganham faturas com links da Stripe)
     try {
       await trialService.execute();
-    } catch (err) {
+    } catch (cause) {
+      failures.push(new Error('Trial billing phase failed.', { cause }));
       error('failed to process trial service', {
-        message: err?.message || String(err),
+        errorType: cause instanceof Error ? cause.name : 'UNKNOWN_ERROR',
       });
     }
 
     // 2. Busca assinaturas ATIVAS para checar quem precisa de renovação mensal
-    const activeSubscriptions = await prisma.subscription.findMany({
-      where: { status: 'ATIVA' },
-    });
+    let activeSubscriptions: Awaited<ReturnType<typeof prisma.subscription.findMany>> = [];
+    try {
+      activeSubscriptions = await prisma.subscription.findMany({
+        where: { status: 'ATIVA' },
+      });
+    } catch (cause) {
+      failures.push(new Error('Active subscription lookup failed.', { cause }));
+      error('failed to load active subscriptions', {
+        errorType: cause instanceof Error ? cause.name : 'UNKNOWN_ERROR',
+      });
+    }
 
     debug('active subscriptions to process', {
       count: activeSubscriptions.length,
@@ -44,25 +54,34 @@ class BillingJob {
           startDate,
           endDate,
         });
-      } catch (err) {
+      } catch (cause) {
+        failures.push(new Error('Restaurant billing item failed.', { cause }));
         error('failed to process restaurant billing', {
           restaurantId: sub.restaurantId,
-          message: err?.message || String(err),
+          errorType: cause instanceof Error ? cause.name : 'UNKNOWN_ERROR',
         });
       }
     }
 
     // 3. Bloqueia quem ultrapassou 30 dias + 5 dias úteis de tolerância
+    let pendingInvoices: Awaited<ReturnType<typeof billingRepository.findPendingInvoices>> = [];
     try {
-      const pendingInvoices = await billingRepository.findPendingInvoices();
+      pendingInvoices = await billingRepository.findPendingInvoices();
+    } catch (cause) {
+      failures.push(new Error('Pending invoice lookup failed.', { cause }));
+      error('failed to load pending invoices', {
+        errorType: cause instanceof Error ? cause.name : 'UNKNOWN_ERROR',
+      });
+    }
 
-      for (const invoice of pendingInvoices) {
-        const shouldBlock = isInvoiceBlocking(invoice, now);
+    for (const invoice of pendingInvoices) {
+      const shouldBlock = isInvoiceBlocking(invoice, now);
 
-        if (!shouldBlock) {
-          continue;
-        }
+      if (!shouldBlock) {
+        continue;
+      }
 
+      try {
         warn('applying block for overdue invoice', {
           invoiceId: invoice.id,
           dueDate: invoice.dueDate,
@@ -83,14 +102,22 @@ class BillingJob {
         }
 
         await billingRepository.deactivateRestaurant(invoice.restaurantId);
+      } catch (cause) {
+        failures.push(new Error('Overdue invoice item failed.', { cause }));
+        error('failed to process overdue invoice', {
+          invoiceId: invoice.id,
+          restaurantId: invoice.restaurantId,
+          errorType: cause instanceof Error ? cause.name : 'UNKNOWN_ERROR',
+        });
       }
-    } catch (err) {
-      error('failed to process overdue invoices', {
-        message: err?.message || String(err),
-      });
     }
 
-    info('BillingJob finished');
+    if (failures.length > 0) {
+      error('BillingJob finished with failures', { failureCount: failures.length });
+      throw new AggregateError(failures, 'Billing job completed with failures.');
+    }
+
+    info('BillingJob finished', { failureCount: 0 });
   }
 }
 

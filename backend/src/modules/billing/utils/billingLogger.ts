@@ -1,3 +1,5 @@
+import { sanitizeTelemetryValue } from '../../../services/telemetrySanitizer.js';
+
 const DEBUG_ENABLED = process.env.BILLING_DEBUG === 'true';
 
 type LogMeta = Record<string, unknown>;
@@ -7,7 +9,7 @@ function formatMeta(meta?: LogMeta) {
     return '';
   }
 
-  return ` ${JSON.stringify(meta)}`;
+  return ` ${JSON.stringify(sanitizeTelemetryValue(meta))}`;
 }
 
 function log(level: string, message: string, meta?: LogMeta) {

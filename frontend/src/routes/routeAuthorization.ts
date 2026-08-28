@@ -1,10 +1,15 @@
-export type RouteUser = { role?: string; subRole?: unknown } | null;
+export type RouteUser = {
+  role?: string;
+  subRole?: unknown;
+  mustChangePassword?: boolean;
+} | null;
 export type RouteDecision = { allowed: true } | { allowed: false; redirectTo: string };
 
 const SERVICE_PATHS = ['/system-blocked', '/system-maintenance'];
 const RESERVED_ROOTS = new Set([
   'admin',
   'billing',
+  'change-password',
   'courier',
   'kitchen',
   'login',
@@ -40,6 +45,8 @@ export function isPublicRoute(pathname: string) {
 }
 
 export function getRoleHome(user: RouteUser) {
+  if (user?.mustChangePassword === true) return '/change-password';
+
   const role = String(user?.role || '').toUpperCase();
   const subRole = String(user?.subRole || '').toUpperCase();
   if (role === 'SUPER_ADMIN') return '/super_admin';
@@ -60,6 +67,12 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
       ? { allowed: true }
       : { allowed: false, redirectTo: '/login' };
   const home = getRoleHome(user);
+  if (user.mustChangePassword === true) {
+    return path === '/change-password'
+      ? { allowed: true }
+      : { allowed: false, redirectTo: '/change-password' };
+  }
+  if (path === '/change-password') return { allowed: true };
   if (role === 'SUPER_ADMIN')
     return isPath(path, '/super_admin') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (isPath(path, '/super_admin') || isGuestEntry(path))

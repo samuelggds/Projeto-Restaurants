@@ -9,6 +9,7 @@ export type ResolvedAccessUser = {
   restaurantId: number | null;
   email: string | null;
   authVersion: number | null;
+  mustChangePassword: boolean;
 };
 
 export type ResolvedAccessToken = {
@@ -18,12 +19,6 @@ export type ResolvedAccessToken = {
 
 function invalidToken(): never {
   throw new Error('Token de acesso inválido');
-}
-
-function nullableNumber(value: unknown) {
-  if (value === null || value === undefined) return null;
-  const normalized = Number(value);
-  return Number.isInteger(normalized) && normalized > 0 ? normalized : invalidToken();
 }
 
 function allowsLegacyAccessTokens() {
@@ -67,50 +62,34 @@ export async function resolveAccessToken(rawToken: string): Promise<ResolvedAcce
   const isLegacy = tokenType !== 'access' || authVersion === null;
   if (isLegacy && !allowsLegacyAccessTokens()) invalidToken();
 
-  if (authVersion !== null) {
-    const account = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        active: true,
-        role: true,
-        subRole: true,
-        restaurantId: true,
-        email: true,
-        authVersion: true,
-      },
-    });
+  const account = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      active: true,
+      role: true,
+      subRole: true,
+      restaurantId: true,
+      email: true,
+      authVersion: true,
+      mustChangePassword: true,
+    },
+  });
 
-    if (!account?.active || account.authVersion !== authVersion) {
-      throw new Error('Sessão expirada');
-    }
-
-    return {
-      legacy: isLegacy,
-      user: {
-        id: account.id,
-        role: account.role,
-        subRole: account.subRole,
-        restaurantId: account.restaurantId,
-        email: account.email,
-        authVersion: account.authVersion,
-      },
-    };
+  if (!account?.active || (authVersion !== null && account.authVersion !== authVersion)) {
+    throw new Error('Sessão expirada');
   }
 
-  const role = String(payload.role || '').trim();
-  if (!role) invalidToken();
-
   return {
-    legacy: true,
+    legacy: isLegacy,
     user: {
-      id: userId,
-      role,
-      subRole:
-        payload.subRole === null || payload.subRole === undefined ? null : String(payload.subRole),
-      restaurantId: nullableNumber(payload.restaurantId),
-      email: payload.email === null || payload.email === undefined ? null : String(payload.email),
-      authVersion: null,
+      id: account.id,
+      role: account.role,
+      subRole: account.subRole,
+      restaurantId: account.restaurantId,
+      email: account.email,
+      authVersion: authVersion === null ? null : account.authVersion,
+      mustChangePassword: account.mustChangePassword,
     },
   };
 }

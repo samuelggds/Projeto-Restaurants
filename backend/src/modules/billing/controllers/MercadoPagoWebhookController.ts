@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { getPlatformPaymentClient } from '../services/MercadoPagoClient.js';
-import processPaymentService from '../services/ProcessPaymentService.js';
-import { extractInvoiceId, isApprovedPaymentStatus } from '../utils/webhookUtils.js';
+import processMercadoPagoInvoiceWebhookService from '../services/ProcessMercadoPagoInvoiceWebhookService.js';
 import { debug, info, error as logError } from '../utils/billingLogger.js';
 
 class MercadoPagoWebhookController {
@@ -15,45 +13,13 @@ class MercadoPagoWebhookController {
         return res.sendStatus(200);
       }
 
-      const paymentApi = getPlatformPaymentClient();
-      const payment = (await paymentApi.get({ id: paymentId })) as unknown;
-      const paymentDetails =
-        typeof payment === 'object' && payment !== null
-          ? ((payment as { body?: unknown }).body ?? payment)
-          : {};
-      const paymentDetailsRecord =
-        typeof paymentDetails === 'object' && paymentDetails !== null
-          ? (paymentDetails as Record<string, unknown>)
-          : {};
-      const payloadRecord =
-        typeof req.body === 'object' && req.body !== null
-          ? (req.body as Record<string, unknown>)
-          : {};
-      const payloadData =
-        typeof payloadRecord['data'] === 'object' && payloadRecord['data'] !== null
-          ? (payloadRecord['data'] as Record<string, unknown>)
-          : {};
-
-      const status =
-        paymentDetailsRecord['status'] || payloadRecord['status'] || payloadData['status'];
-      debug('MP payment status', { status });
-
-      if (!isApprovedPaymentStatus(status)) {
-        debug('webhook ignored: payment not approved');
+      const result = await processMercadoPagoInvoiceWebhookService.execute(paymentId);
+      if (!result.processed) {
+        debug('webhook ignored: payment validation rejected', result);
         return res.sendStatus(200);
       }
 
-      const invoiceId = extractInvoiceId(payloadRecord, paymentDetailsRecord);
-      debug('webhook extracted invoice', { invoiceId });
-
-      if (!invoiceId) {
-        debug('webhook ignored: missing invoiceId');
-        return res.sendStatus(200);
-      }
-
-      await processPaymentService.execute({ invoiceId });
-
-      info('webhook processed', { invoiceId });
+      info('webhook processed', { invoiceId: result.invoiceId });
       return res.sendStatus(200);
     } catch (err: unknown) {
       logError('webhook processing failed', {

@@ -40,6 +40,20 @@ describe('política de autorização de rotas', () => {
     expect(authorizeRoute('/', user)).toEqual({ allowed: false, redirectTo: '/super_admin' });
     expect(allowed('/admin', user)).toBe(false);
   });
+  it('isola qualquer conta com troca de senha obrigatória na página dedicada', () => {
+    for (const role of ['SUPER_ADMIN', 'ADMIN']) {
+      const user = { role, mustChangePassword: true };
+      expect(authorizeRoute('/change-password', user)).toEqual({ allowed: true });
+      expect(authorizeRoute(role === 'SUPER_ADMIN' ? '/super_admin' : '/admin', user)).toEqual({
+        allowed: false,
+        redirectTo: '/change-password',
+      });
+    }
+    expect(authorizeRoute('/change-password', null)).toEqual({
+      allowed: false,
+      redirectTo: '/login',
+    });
+  });
   it('isola motoqueiro, cozinha e garçom', () => {
     const cases = [
       [{ role: 'MOTOQUEIRO' }, '/courier', '/admin'],

@@ -1,5 +1,6 @@
 import { parseCredentialEncryptionKey } from '../modules/restaurantSettings/security/credentialEncryption.js';
 import { validateConfiguredOAuthEndpoints } from '../modules/restaurantSettings/security/oauthEndpoints.js';
+import { collectSuperAdminBootstrapConfigErrors } from '../modules/superAdmin/security/superAdminBootstrapConfig.js';
 
 function asNumber(value: string, fallback: number) {
   const parsed = Number(value);
@@ -83,12 +84,43 @@ export function validateCriticalEnv() {
   const databaseUrl = requireValue('DATABASE_URL', errors);
   validateDatabaseUrl(databaseUrl, errors);
 
+  const superAdminBootstrapEnabled = String(
+    process.env.SUPER_ADMIN_BOOTSTRAP_ENABLED || 'true',
+  )
+    .trim()
+    .toLowerCase();
+  if (superAdminBootstrapEnabled !== 'true') {
+    errors.push('SUPER_ADMIN_BOOTSTRAP_ENABLED deve ser true em producao.');
+  }
+  errors.push(
+    ...collectSuperAdminBootstrapConfigErrors({
+      ...process.env,
+      SUPER_ADMIN_BOOTSTRAP_ENABLED: 'true',
+    }),
+  );
+
   const credentialEncryptionKey = requireValue('CREDENTIAL_ENCRYPTION_KEY', errors);
+  let parsedCredentialEncryptionKey: Buffer | null = null;
   if (credentialEncryptionKey) {
     try {
-      parseCredentialEncryptionKey(credentialEncryptionKey);
+      parsedCredentialEncryptionKey = parseCredentialEncryptionKey(credentialEncryptionKey);
     } catch (error) {
       errors.push(error instanceof Error ? error.message : 'CREDENTIAL_ENCRYPTION_KEY inválida.');
+    }
+  }
+  const previousCredentialEncryptionKey = String(
+    process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS || '',
+  ).trim();
+  if (previousCredentialEncryptionKey) {
+    try {
+      const parsedPreviousKey = parseCredentialEncryptionKey(previousCredentialEncryptionKey);
+      if (parsedPreviousKey && parsedCredentialEncryptionKey?.equals(parsedPreviousKey)) {
+        errors.push(
+          'CREDENTIAL_ENCRYPTION_KEY_PREVIOUS deve ser diferente da chave atual durante a rotação.',
+        );
+      }
+    } catch {
+      errors.push('CREDENTIAL_ENCRYPTION_KEY_PREVIOUS deve representar exatamente 32 bytes.');
     }
   }
 
@@ -114,6 +146,13 @@ export function validateCriticalEnv() {
       .map((origin) => origin.trim())
       .filter(Boolean)
       .forEach((origin) => parsePublicUrl('SOCKET_CORS_ORIGINS', origin, errors));
+  }
+
+  const refreshCookieSameSite = String(process.env.REFRESH_COOKIE_SAME_SITE || 'lax')
+    .trim()
+    .toLowerCase();
+  if (!['lax', 'strict', 'none'].includes(refreshCookieSameSite)) {
+    errors.push('REFRESH_COOKIE_SAME_SITE deve ser lax, strict ou none.');
   }
 
   const jwtSecret = String(process.env.JWT_SECRET || '').trim();
@@ -179,6 +218,33 @@ export function validateCriticalEnv() {
     if (jwtMfaSecret === jwtSecret || jwtMfaSecret === jwtRefreshSecret) {
       errors.push('JWT_MFA_SECRET deve ser diferente dos demais segredos JWT em producao.');
     }
+
+    requireValue('SMTP_HOST', errors);
+    const smtpPort = requireValue('SMTP_PORT', errors);
+    if (smtpPort && (!Number.isInteger(Number(smtpPort)) || Number(smtpPort) <= 0)) {
+      errors.push('SMTP_PORT deve ser um numero inteiro maior que zero.');
+    }
+    requireValue('SMTP_USER', errors);
+
+    const smtpSecure = String(process.env.SMTP_SECURE || 'false')
+      .trim()
+      .toLowerCase();
+    if (!['true', 'false'].includes(smtpSecure)) {
+      errors.push('SMTP_SECURE deve ser true ou false.');
+    }
+
+    const smtpAuthType = String(process.env.SMTP_AUTH_TYPE || 'basic')
+      .trim()
+      .toLowerCase();
+    if (!['basic', 'oauth2'].includes(smtpAuthType)) {
+      errors.push('SMTP_AUTH_TYPE deve ser basic ou oauth2.');
+    } else if (smtpAuthType === 'oauth2') {
+      requireValue('SMTP_CLIENT_ID', errors);
+      requireValue('SMTP_CLIENT_SECRET', errors);
+      requireValue('SMTP_REFRESH_TOKEN', errors);
+    } else {
+      requireValue('SMTP_PASS', errors);
+    }
   }
 
   const allowInsecureStripe =
@@ -197,6 +263,12 @@ export function validateCriticalEnv() {
     String(process.env.ALLOW_LEGACY_ACCESS_TOKENS || 'false').trim() === 'true';
   if (allowLegacyAccessTokens) {
     errors.push('ALLOW_LEGACY_ACCESS_TOKENS nao pode ser true em producao.');
+  }
+
+  const allowLocalAuthCodeLogging =
+    String(process.env.ALLOW_LOCAL_AUTH_CODE_LOGGING || 'false').trim() === 'true';
+  if (allowLocalAuthCodeLogging) {
+    errors.push('ALLOW_LOCAL_AUTH_CODE_LOGGING nao pode ser true em producao.');
   }
 
   const allowUntrustedOAuthEndpoints =

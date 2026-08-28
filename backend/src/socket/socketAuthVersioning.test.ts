@@ -40,6 +40,7 @@ test('handshake versionado usa role e tenant atuais do banco', async () => {
     restaurantId: 8,
     email: 'waiter@example.test',
     authVersion: 6,
+    mustChangePassword: false,
   });
   const token = authTokenService.createAccessToken({
     id: 44,
@@ -68,6 +69,7 @@ test('handshake rejeita conta inativa ou authVersion revogada', async () => {
     restaurantId: 8,
     email: 'admin@example.test',
     authVersion: 7,
+    mustChangePassword: false,
   });
   const token = authTokenService.createAccessToken({
     id: 44,
@@ -90,5 +92,31 @@ test('handshake nunca aceita refresh token como access token', async () => {
   assert.match(
     String((await authenticate(socketWithToken(refreshToken)))?.message),
     /Token inválido/,
+  );
+});
+
+test('handshake rejeita conta que ainda precisa trocar a senha', async () => {
+  process.env.JWT_SECRET = 'socket-versioning-secret-with-32-characters';
+  process.env.NODE_ENV = 'production';
+  prisma.user.findUnique = async () => ({
+    id: 44,
+    active: true,
+    role: 'SUPER_ADMIN',
+    subRole: null,
+    restaurantId: null,
+    email: 'developer@example.test',
+    authVersion: 6,
+    mustChangePassword: true,
+  });
+  const token = authTokenService.createAccessToken({
+    id: 44,
+    role: 'SUPER_ADMIN',
+    restaurantId: null,
+    authVersion: 6,
+  });
+
+  assert.match(
+    String((await authenticate(socketWithToken(token)))?.message),
+    /Troca de senha obrigatória/,
   );
 });

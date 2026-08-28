@@ -15,6 +15,7 @@ import { toast } from 'react-toastify';
 import * as S from './styles';
 import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext.js';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { clearSystemBlockState, setSystemBlockState } from '../../Services/systemBlock';
 
 const darkTheme = {
@@ -143,7 +144,7 @@ export default function BillingPage() {
       return undefined;
     }
 
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
 
     if (!token) {
       toast.error('Você precisa estar autenticado para acessar esta página');

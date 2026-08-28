@@ -3,9 +3,11 @@ import type { Prisma } from '@prisma/client';
 import prisma from '../src/config/prisma.js';
 import {
   credentialEncryptionContext,
+  credentialNeedsReencryption,
   encryptCredential,
   isEncryptedCredential,
   parseCredentialEncryptionKey,
+  reencryptCredential,
   RESTAURANT_CREDENTIAL_FIELDS,
 } from '../src/modules/restaurantSettings/security/credentialEncryption.js';
 import {
@@ -35,6 +37,7 @@ async function main() {
     'actor',
     'confirm',
     'allow-production',
+    'rotate',
   ]);
   const environment = requiredString(parsed, 'Ambiente alvo', 'environment');
   const mode = resolveExecutionMode({
@@ -47,19 +50,34 @@ async function main() {
     targetEnvironment: environment,
     allowProduction: hasFlag(parsed, 'allow-production'),
   });
+  const rotate = hasFlag(parsed, 'rotate');
   const encryptionKey = String(process.env.CREDENTIAL_ENCRYPTION_KEY || '').trim();
   if (!encryptionKey) throw new Error('CREDENTIAL_ENCRYPTION_KEY é obrigatória.');
   parseCredentialEncryptionKey(encryptionKey);
+  if (rotate) {
+    const previousKey = String(process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS || '').trim();
+    if (!previousKey) {
+      throw new Error('CREDENTIAL_ENCRYPTION_KEY_PREVIOUS é obrigatória com --rotate.');
+    }
+    const parsedCurrent = parseCredentialEncryptionKey(encryptionKey);
+    const parsedPrevious = parseCredentialEncryptionKey(previousKey);
+    if (parsedCurrent?.equals(parsedPrevious)) {
+      throw new Error('A chave anterior deve ser diferente da chave atual.');
+    }
+  }
   requireReason(mode, reason);
   if (mode === 'write' && actor.length < 3) {
     throw new Error('--actor é obrigatório para escrita e identifica o operador/ticket.');
   }
-  const expectedConfirmation = `ENCRYPT_GATEWAY_CREDENTIALS:${context.databaseLabel}`;
+  const operation = rotate ? 'ROTATE_GATEWAY_CREDENTIALS' : 'ENCRYPT_GATEWAY_CREDENTIALS';
+  const expectedConfirmation = `${operation}:${context.databaseLabel}`;
   requireWriteConfirmation({
     mode,
     provided: optionalString(parsed, 'confirm'),
     expected: expectedConfirmation,
-    action: 'criptografar credenciais legadas de gateways',
+    action: rotate
+      ? 'rotacionar a criptografia das credenciais de gateways'
+      : 'criptografar credenciais legadas de gateways',
   });
 
   const rows = await prisma.restaurantSettings.findMany({
@@ -81,17 +99,23 @@ async function main() {
       row,
       fields: RESTAURANT_CREDENTIAL_FIELDS.filter((field) => {
         const value = String(row[field] || '').trim();
-        return value && !isEncryptedCredential(value);
+        if (!value) return false;
+        if (!rotate) return !isEncryptedCredential(value);
+        return credentialNeedsReencryption(
+          value,
+          credentialEncryptionContext(row.restaurantId, field),
+        );
       }),
     }))
     .filter(({ fields }) => fields.length > 0);
   const plan = {
     mode,
+    operation,
     environment: context.target,
     database: context.database,
     rowsScanned: rows.length,
-    rowsToEncrypt: pending.length,
-    credentialsToEncrypt: pending.reduce((total, item) => total + item.fields.length, 0),
+    rowsToProcess: pending.length,
+    credentialsToProcess: pending.reduce((total, item) => total + item.fields.length, 0),
     restaurantIds: pending.map(({ row }) => row.restaurantId),
     reason: reason || null,
   };
@@ -104,27 +128,47 @@ async function main() {
     return;
   }
 
-  for (const { row, fields } of pending) {
+  const updates = pending.map(({ row, fields }) => {
     const data = Object.fromEntries(
       fields.map((field) => [
         field,
-        encryptCredential(row[field], credentialEncryptionContext(row.restaurantId, field)),
+        rotate
+          ? reencryptCredential(row[field], credentialEncryptionContext(row.restaurantId, field))
+          : encryptCredential(row[field], credentialEncryptionContext(row.restaurantId, field)),
       ]),
-    ) as Prisma.RestaurantSettingsUpdateInput;
-    await prisma.restaurantSettings.update({ where: { id: row.id }, data });
-  }
-  await prisma.auditLog.create({
-    data: {
-      userName: actor,
-      userRole: 'OPS_OPERATOR',
-      action: 'ENCRYPT_GATEWAY_CREDENTIALS',
-      resource: JSON.stringify({
-        database: context.databaseLabel,
-        rows: pending.length,
-        reason,
-      }),
-    },
+    ) as Prisma.RestaurantSettingsUpdateManyMutationInput;
+    const expectedValues = Object.fromEntries(fields.map((field) => [field, row[field]])) as
+      Prisma.RestaurantSettingsWhereInput;
+    return { id: row.id, data, expectedValues };
   });
+
+  await prisma.$transaction(
+    async (transaction) => {
+      for (const update of updates) {
+        const result = await transaction.restaurantSettings.updateMany({
+          where: { id: update.id, ...update.expectedValues },
+          data: update.data,
+        });
+        if (result.count !== 1) {
+          throw new Error('Credencial alterada durante a rotação; nenhuma mudança foi aplicada.');
+        }
+      }
+      await transaction.auditLog.create({
+        data: {
+          userName: actor,
+          userRole: 'OPS_OPERATOR',
+          action: operation,
+          resource: JSON.stringify({
+            database: context.databaseLabel,
+            rows: pending.length,
+            credentials: plan.credentialsToProcess,
+            reason,
+          }),
+        },
+      });
+    },
+    { timeout: 60_000 },
+  );
   console.log(JSON.stringify({ status: 'applied', ...plan }, null, 2));
 }
 

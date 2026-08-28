@@ -24,4 +24,4 @@ RUN chown -R node:node /app
 USER node
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run bootstrap:superadmin && unset SUPER_ADMIN_BOOTSTRAP_PASSWORD SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE && npm run start"]

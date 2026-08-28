@@ -33,13 +33,16 @@ class RegenerateInvoicePaymentLinkService {
       payerEmail: invoice.restaurant.email,
     });
 
-    const updatedInvoice = await billingRepository.updateInvoice(invoice.id, {
-      paymentLink: payment.ticketUrl,
-      paymentExternalId: payment.id,
-      pixQrCode: payment.qrCode,
-      pixQrCodeBase64: payment.qrCodeBase64,
-      pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null,
-    });
+    const updatedInvoice = await billingRepository.updateInvoicePaymentDetailsAndResetReconciliation(
+      invoice.id,
+      {
+        paymentLink: payment.ticketUrl,
+        paymentExternalId: payment.id,
+        pixQrCode: payment.qrCode,
+        pixQrCodeBase64: payment.qrCodeBase64,
+        pixExpiresAt: payment.expiresAt ? new Date(payment.expiresAt) : null,
+      },
+    );
 
     return {
       invoice: updatedInvoice,

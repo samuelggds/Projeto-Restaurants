@@ -7,6 +7,7 @@ test('never allows password reset codes in production logs', () => {
 });
 
 test('keeps the local development fallback available', () => {
-  assert.equal(canLogPasswordResetCode('development'), true);
-  assert.equal(canLogPasswordResetCode('test'), true);
+  assert.equal(canLogPasswordResetCode('development'), false);
+  assert.equal(canLogPasswordResetCode('development', 'true'), true);
+  assert.equal(canLogPasswordResetCode('test', 'true'), true);
 });

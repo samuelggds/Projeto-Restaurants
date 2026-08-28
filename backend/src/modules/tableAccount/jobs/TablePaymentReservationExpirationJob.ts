@@ -24,6 +24,7 @@ class TablePaymentReservationExpirationJob {
     });
 
     let expiredCount = 0;
+    const failures: Error[] = [];
     for (const candidate of candidates) {
       try {
         const expiredForSession = await prisma.$transaction(
@@ -48,12 +49,20 @@ class TablePaymentReservationExpirationJob {
           });
         }
       } catch (error) {
+        failures.push(new Error('Table payment expiration item failed.', { cause: error }));
         console.error('[TABLE_PAYMENT_EXPIRATION_ERROR]', {
           restaurantId: candidate.restaurantId,
           tableSessionId: candidate.tableSessionId,
           error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
         });
       }
+    }
+
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures,
+        'Table payment reservation expiration completed with failures.',
+      );
     }
 
     return { sessionsChecked: candidates.length, expiredCount };

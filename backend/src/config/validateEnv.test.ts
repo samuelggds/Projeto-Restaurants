@@ -8,6 +8,9 @@ function setValidProductionEnv() {
   Object.assign(process.env, {
     NODE_ENV: 'production',
     DATABASE_URL: 'postgresql://app:secret@db:5432/app',
+    SUPER_ADMIN_BOOTSTRAP_ENABLED: 'true',
+    SUPER_ADMIN_BOOTSTRAP_EMAIL: 'developer@example.com',
+    SUPER_ADMIN_BOOTSTRAP_NAME: 'Desenvolvedor da Plataforma',
     CREDENTIAL_ENCRYPTION_KEY: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
     FRONTEND_URL: 'https://app.example.com',
     BACKEND_URL: 'https://api.example.com',
@@ -18,9 +21,17 @@ function setValidProductionEnv() {
     JWT_MFA_SECRET: 'mfa_secret_with_at_least_32_characters_123',
     PAYMENT_PIN_SECRET: 'pin_secret_with_at_least_32_characters_123',
     MFA_REQUIRED_ROLES: 'ADMIN,SUPER_ADMIN',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_SECURE: 'false',
+    SMTP_AUTH_TYPE: 'basic',
+    SMTP_USER: 'mailer@example.com',
+    SMTP_PASS: 'smtp-app-password',
     ALLOW_LEGACY_ACCESS_TOKENS: 'false',
+    ALLOW_LOCAL_AUTH_CODE_LOGGING: 'false',
     ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'false',
     MP_OAUTH_API_BASE_URL: 'https://api.mercadopago.com',
+    MP_API_BASE_URL: 'https://api.mercadopago.com',
     MP_OAUTH_AUTH_URL: 'https://auth.mercadopago.com/authorization',
     MP_OAUTH_REDIRECT_URI: '',
     PAGBANK_CONNECT_API_URL: 'https://api.pagseguro.com',
@@ -77,6 +88,26 @@ test('falha cedo quando URLs e origens essenciais nao foram configuradas', () =>
   );
 });
 
+test('exige a identidade do bootstrap do unico SUPER_ADMIN em producao', () => {
+  delete process.env.SUPER_ADMIN_BOOTSTRAP_EMAIL;
+  delete process.env.SUPER_ADMIN_BOOTSTRAP_NAME;
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /SUPER_ADMIN_BOOTSTRAP_EMAIL deve conter um email v.lido.*SUPER_ADMIN_BOOTSTRAP_NAME deve conter entre 2 e 120/i,
+  );
+});
+
+test('nao permite desativar ou configurar uma senha inicial fraca no bootstrap de producao', () => {
+  process.env.SUPER_ADMIN_BOOTSTRAP_ENABLED = 'false';
+  process.env.SUPER_ADMIN_BOOTSTRAP_PASSWORD = 'senha123';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /SUPER_ADMIN_BOOTSTRAP_ENABLED deve ser true.*senha inicial deve conter entre 16 e 128.*valor previs.vel/i,
+  );
+});
+
 test('permite desativar explicitamente o calculo de rota', () => {
   process.env.ROUTING_REQUIRED = 'false';
   delete process.env.OSRM_BASE_URL;
@@ -109,6 +140,14 @@ test('exige chave AES de 32 bytes para credenciais dos gateways', () => {
   assert.throws(() => validateCriticalEnv(), /exatamente 32 bytes/i);
 });
 
+test('valida a chave anterior usada durante rotação de credenciais', () => {
+  process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = process.env.CREDENTIAL_ENCRYPTION_KEY;
+  assert.throws(() => validateCriticalEnv(), /PREVIOUS deve ser diferente/u);
+
+  process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = 'curta';
+  assert.throws(() => validateCriticalEnv(), /PREVIOUS deve representar exatamente 32 bytes/u);
+});
+
 test('permite HTTP apenas em loopback para a execução local', () => {
   process.env.FRONTEND_URL = 'http://localhost:5173';
   process.env.BACKEND_URL = 'http://127.0.0.1:3000';
@@ -126,12 +165,34 @@ test('exige MFA para administradores e super administradores', () => {
   assert.throws(() => validateCriticalEnv(), /deve incluir ADMIN/i);
 });
 
+test('exige um transporte SMTP utilizável para entregar o MFA em produção', () => {
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_PASS;
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /SMTP_HOST e obrigatoria.*SMTP_PASS e obrigatoria/i,
+  );
+
+  setValidProductionEnv();
+  process.env.SMTP_AUTH_TYPE = 'oauth2';
+  delete process.env.SMTP_CLIENT_ID;
+  delete process.env.SMTP_CLIENT_SECRET;
+  delete process.env.SMTP_REFRESH_TOKEN;
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /SMTP_CLIENT_ID e obrigatoria.*SMTP_CLIENT_SECRET e obrigatoria.*SMTP_REFRESH_TOKEN e obrigatoria/i,
+  );
+});
+
 test('rejeita flags temporárias de compatibilidade em produção', () => {
   process.env.ALLOW_LEGACY_ACCESS_TOKENS = 'true';
   process.env.ALLOW_UNTRUSTED_OAUTH_ENDPOINTS = 'true';
+  process.env.ALLOW_LOCAL_AUTH_CODE_LOGGING = 'true';
   assert.throws(
     () => validateCriticalEnv(),
-    /ALLOW_LEGACY_ACCESS_TOKENS nao pode.*ALLOW_UNTRUSTED_OAUTH_ENDPOINTS nao pode/i,
+    /ALLOW_LEGACY_ACCESS_TOKENS nao pode.*ALLOW_LOCAL_AUTH_CODE_LOGGING nao pode.*ALLOW_UNTRUSTED_OAUTH_ENDPOINTS nao pode/i,
   );
 });
 
@@ -142,4 +203,14 @@ test('rejeita endpoint OAuth não oficial e redirect fora da origem do backend',
     () => validateCriticalEnv(),
     /MP_OAUTH_API_BASE_URL deve apontar.*PAGBANK_CONNECT_REDIRECT_URI deve usar a mesma origem/i,
   );
+});
+
+test('rejeita endpoint de reconciliação Mercado Pago não oficial', () => {
+  process.env.MP_API_BASE_URL = 'https://attacker.example';
+  assert.throws(() => validateCriticalEnv(), /MP_API_BASE_URL deve apontar.*producao/i);
+});
+
+test('rejeita política SameSite inválida para o refresh cookie', () => {
+  process.env.REFRESH_COOKIE_SAME_SITE = 'disabled';
+  assert.throws(() => validateCriticalEnv(), /REFRESH_COOKIE_SAME_SITE deve ser/u);
 });

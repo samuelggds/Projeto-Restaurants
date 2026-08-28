@@ -6,13 +6,28 @@ import {
   clearRefreshTokenCookie,
   moveRefreshTokenToCookie,
   readRefreshToken,
+  resolveRefreshCookieSameSite,
   setRefreshTokenCookie,
 } from './refreshTokenCookie.js';
 
 const originalNodeEnv = process.env.NODE_ENV;
+const originalRefreshCookieSameSite = process.env.REFRESH_COOKIE_SAME_SITE;
 
 afterEach(() => {
   process.env.NODE_ENV = originalNodeEnv;
+  process.env.REFRESH_COOKIE_SAME_SITE = originalRefreshCookieSameSite;
+});
+
+test('permite SameSite=None para frontend e API em sites diferentes', () => {
+  process.env.NODE_ENV = 'production';
+  process.env.REFRESH_COOKIE_SAME_SITE = 'none';
+  const response = responseDouble();
+
+  setRefreshTokenCookie(response, 'refresh-value');
+
+  assert.equal(resolveRefreshCookieSameSite(), 'none');
+  assert.equal(response.calls[0][3].sameSite, 'none');
+  assert.equal(response.calls[0][3].secure, true);
 });
 
 function responseDouble() {
@@ -47,9 +62,10 @@ test('move refresh para cookie HttpOnly e nunca o devolve no JSON', () => {
   const result = moveRefreshTokenToCookie(response, {
     accessToken: 'access-value',
     refreshToken: 'refresh-value',
+    userId: 17,
   });
 
-  assert.deepEqual(result, { accessToken: 'access-value' });
+  assert.deepEqual(result, { accessToken: 'access-value', userId: 17 });
   assert.equal(response.calls[0][1], 'pizza_refresh');
 });
 

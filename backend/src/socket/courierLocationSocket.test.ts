@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken';
 const originals = {
   findUnique: prisma.order.findUnique,
   createLocation: prisma.deliveryLocation.create,
-  findUser: prisma.user.findFirst,
+  findUserById: prisma.user.findUnique,
   transaction: prisma.$transaction,
   jwtSecret: process.env.JWT_SECRET,
 };
@@ -27,7 +27,7 @@ beforeEach(() => {
 afterEach(() => {
   prisma.order.findUnique = originals.findUnique;
   prisma.deliveryLocation.create = originals.createLocation;
-  prisma.user.findFirst = originals.findUser;
+  prisma.user.findUnique = originals.findUserById;
   prisma.$transaction = originals.transaction;
   process.env.JWT_SECRET = originals.jwtSecret;
 });
@@ -128,11 +128,22 @@ test('persiste GPS da conta atribuída e emite somente ao cliente e admin do ten
 
 test('handshake do motoqueiro confirma conta ativa e tenant no banco', async () => {
   process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
-  const token = jwt.sign({ id: 31, role: 'MOTOQUEIRO', restaurantId: 7 }, process.env.JWT_SECRET);
+  const token = jwt.sign(
+    { id: 31, role: 'MOTOQUEIRO', restaurantId: 7, authVersion: 0, type: 'access' },
+    process.env.JWT_SECRET,
+  );
   let query;
-  prisma.user.findFirst = async (args) => {
+  prisma.user.findUnique = async (args) => {
     query = args;
-    return { id: 31, role: 'MOTOQUEIRO', restaurantId: 7 };
+    return {
+      id: 31,
+      active: true,
+      role: 'MOTOQUEIRO',
+      subRole: null,
+      restaurantId: 7,
+      email: 'courier@example.test',
+      authVersion: 0,
+    };
   };
   const socket = { handshake: { auth: { token } } };
   let authError;
@@ -143,29 +154,35 @@ test('handshake do motoqueiro confirma conta ativa e tenant no banco', async () 
 
   assert.equal(authError, undefined);
   assert.equal(socket.user.id, 31);
-  assert.deepEqual(query.where, {
-    id: 31,
-    restaurantId: 7,
-    role: 'MOTOQUEIRO',
-    active: true,
-  });
+  assert.deepEqual(query.where, { id: 31 });
 
-  prisma.user.findFirst = async () => null;
+  prisma.user.findUnique = async () => null;
   const staleSocket = { handshake: { auth: { token } } };
   let staleError;
   await socketAuth(staleSocket, (error) => {
     staleError = error;
   });
-  assert.match(staleError?.message || '', /inativa ou fora do restaurante/);
+  assert.match(staleError?.message || '', /Token inválido/);
 });
 
 test('handshake do admin confirma conta ativa e tenant antes de liberar a sala privada', async () => {
   process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
-  const token = jwt.sign({ id: 9, role: 'ADMIN', restaurantId: 7 }, process.env.JWT_SECRET);
+  const token = jwt.sign(
+    { id: 9, role: 'ADMIN', restaurantId: 7, authVersion: 0, type: 'access' },
+    process.env.JWT_SECRET,
+  );
   let query;
-  prisma.user.findFirst = async (args) => {
+  prisma.user.findUnique = async (args) => {
     query = args;
-    return { id: 9, role: 'ADMIN', restaurantId: 7 };
+    return {
+      id: 9,
+      active: true,
+      role: 'ADMIN',
+      subRole: null,
+      restaurantId: 7,
+      email: 'admin@example.test',
+      authVersion: 0,
+    };
   };
   const socket = { handshake: { auth: { token } } };
   let authError;
@@ -175,12 +192,7 @@ test('handshake do admin confirma conta ativa e tenant antes de liberar a sala p
   });
 
   assert.equal(authError, undefined);
-  assert.deepEqual(query.where, {
-    id: 9,
-    restaurantId: 7,
-    role: 'ADMIN',
-    active: true,
-  });
+  assert.deepEqual(query.where, { id: 9 });
   assert.deepEqual(socket.user, {
     ...socket.user,
     id: 9,
@@ -188,13 +200,13 @@ test('handshake do admin confirma conta ativa e tenant antes de liberar a sala p
     restaurantId: 7,
   });
 
-  prisma.user.findFirst = async () => null;
+  prisma.user.findUnique = async () => null;
   const staleSocket = { handshake: { auth: { token } } };
   let staleError;
   await socketAuth(staleSocket, (error) => {
     staleError = error;
   });
-  assert.match(staleError?.message || '', /administrador inativa ou fora do restaurante/);
+  assert.match(staleError?.message || '', /Token inválido/);
   assert.equal(staleSocket.user, undefined);
 });
 

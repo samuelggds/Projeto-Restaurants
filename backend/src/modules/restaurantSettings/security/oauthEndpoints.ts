@@ -38,6 +38,12 @@ const ENDPOINTS: Record<OAuthEndpoint, EndpointDefinition> = {
   },
 };
 
+const MERCADO_PAGO_RECONCILIATION_API: EndpointDefinition = {
+  envName: 'MP_API_BASE_URL',
+  defaultUrl: 'https://api.mercadopago.com',
+  productionUrls: ['https://api.mercadopago.com'],
+};
+
 function canonicalizeEndpoint(name: string, rawValue: string) {
   let url: URL;
   try {
@@ -62,8 +68,7 @@ function canonicalizeEndpoint(name: string, rawValue: string) {
  * host arbitrário. Overrides locais exigem uma liberação explícita e nunca são
  * aceitos em produção.
  */
-export function resolveOAuthEndpoint(endpoint: OAuthEndpoint, env: Environment = process.env) {
-  const definition = ENDPOINTS[endpoint];
+function resolveTrustedEndpoint(definition: EndpointDefinition, env: Environment) {
   const configured = String(env[definition.envName] || definition.defaultUrl).trim();
   const resolved = canonicalizeEndpoint(definition.envName, configured);
   const productionAllowed = definition.productionUrls.includes(resolved);
@@ -84,8 +89,17 @@ export function resolveOAuthEndpoint(endpoint: OAuthEndpoint, env: Environment =
   );
 }
 
+export function resolveOAuthEndpoint(endpoint: OAuthEndpoint, env: Environment = process.env) {
+  return resolveTrustedEndpoint(ENDPOINTS[endpoint], env);
+}
+
+export function resolveMercadoPagoApiEndpoint(env: Environment = process.env) {
+  return resolveTrustedEndpoint(MERCADO_PAGO_RECONCILIATION_API, env);
+}
+
 export function validateConfiguredOAuthEndpoints(env: Environment = process.env) {
   (Object.keys(ENDPOINTS) as OAuthEndpoint[]).forEach((endpoint) => {
     resolveOAuthEndpoint(endpoint, env);
   });
+  resolveMercadoPagoApiEndpoint(env);
 }

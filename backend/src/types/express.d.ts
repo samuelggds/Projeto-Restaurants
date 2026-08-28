@@ -10,6 +10,7 @@ declare global {
         role: string;
         subRole?: string | null;
         email?: string | null;
+        mustChangePassword?: boolean;
         isGuest?: boolean;
       };
       tableSession?: {

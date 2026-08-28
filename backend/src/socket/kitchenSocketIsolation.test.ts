@@ -5,13 +5,16 @@ import jwt from 'jsonwebtoken';
 import { socketAuth } from './socketAuth.js';
 import { socketHandler } from './socketHandler.js';
 import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
+import prisma from '../config/prisma.js';
 
 const originalJwtSecret = process.env.JWT_SECRET;
 const originalFindBySessionToken = tableSessionRepository.findBySessionToken;
+const originalFindUser = prisma.user.findUnique;
 
 afterEach(() => {
   process.env.JWT_SECRET = originalJwtSecret;
   tableSessionRepository.findBySessionToken = originalFindBySessionToken;
+  prisma.user.findUnique = originalFindUser;
 });
 
 function socketStub(user) {
@@ -40,9 +43,20 @@ test('token do cozinheiro mantém subperfil e tenant no handshake', async () => 
       role: 'FUNCIONARIO',
       subRole: 'COZINHA',
       restaurantId: 7,
+      authVersion: 0,
+      type: 'access',
     },
     process.env.JWT_SECRET,
   );
+  prisma.user.findUnique = async () => ({
+    id: 44,
+    active: true,
+    role: 'FUNCIONARIO',
+    subRole: 'COZINHA',
+    restaurantId: 7,
+    email: 'kitchen@example.test',
+    authVersion: 0,
+  });
   const socket = { handshake: { auth: { token } } };
   let authError;
 

@@ -3,20 +3,16 @@ services:
     image: postgres:16-alpine
     container_name: pizza_db_dev
     restart: unless-stopped
-    environment:
+    environment: &development-backend-environment
       POSTGRES_DB: ${POSTGRES_DB:-pizza_ia}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pizza_ia}",
-        ]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pizza_ia}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,17 +30,30 @@ services:
       PORT: ${PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
       JWT_SECRET: ${JWT_SECRET:-change_me}
+      ALLOW_LOCAL_AUTH_CODE_LOGGING: ${ALLOW_LOCAL_AUTH_CODE_LOGGING:-false}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
+      CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5174}
       SOCKET_CORS_ORIGINS: ${SOCKET_CORS_ORIGINS:-http://localhost:5174}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5174}
+      REFRESH_COOKIE_SAME_SITE: ${REFRESH_COOKIE_SAME_SITE:-lax}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
       MP_NOTIFICATION_URL: ${MP_NOTIFICATION_URL:-}
       MP_ORDER_NOTIFICATION_URL: ${MP_ORDER_NOTIFICATION_URL:-}
+      MP_AUTO_RECONCILE_ENABLED: ${MP_AUTO_RECONCILE_ENABLED:-true}
+      MP_AUTO_RECONCILE_MAX_INVOICES: ${MP_AUTO_RECONCILE_MAX_INVOICES:-50}
+      MP_RECONCILE_TIMEOUT_MS: ${MP_RECONCILE_TIMEOUT_MS:-15000}
+      MP_API_BASE_URL: ${MP_API_BASE_URL:-https://api.mercadopago.com}
+      BILLING_MP_RECONCILE_CRON: '${BILLING_MP_RECONCILE_CRON:-*/5 * * * *}'
+      LOYALTY_REDEMPTION_EXPIRATION_CRON: '${LOYALTY_REDEMPTION_EXPIRATION_CRON:-*/5 * * * *}'
+      TABLE_PAYMENT_EXPIRATION_INTERVAL_MS: ${TABLE_PAYMENT_EXPIRATION_INTERVAL_MS:-60000}
+      JOBS_TIMEZONE: ${JOBS_TIMEZONE:-America/Sao_Paulo}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
-      PRISMA_HIDE_UPDATE_MESSAGE: "true"
+      PRISMA_HIDE_UPDATE_MESSAGE: 'true'
       ALERT_PROVIDER: ${ALERT_PROVIDER:-email}
+      ALERT_TIMEOUT_MS: ${ALERT_TIMEOUT_MS:-5000}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -57,7 +66,33 @@ services:
       - ./backend:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - '3000:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  worker:
+    image: node:22-alpine
+    container_name: pizza_worker_dev
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *development-backend-environment
+    command: sh -c "npm install && npm run dev:worker"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
 
   frontend:
     image: node:22-alpine
@@ -76,7 +111,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "5174:5173"
+      - '5174:5173'
 
 volumes:
   postgres_data_dev:

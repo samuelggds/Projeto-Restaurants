@@ -6,7 +6,7 @@ import restaurantSettingsService from '../../Services/restaurantSettingsService'
 import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import tablesService from '../../Services/tablesService';
 import waiterCallsService from '../../Services/waiterCallsService';
-import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { WaiterModule } from './WaiterModule';
 import type { EmployeeWorkspaceData, RestaurantBrand, WaiterWorkspaceState } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
@@ -152,7 +152,7 @@ export default function WaiterPage() {
   }, [loadWorkspace, restaurantId]);
 
   useEffect(() => {
-    const token = getStoredAccessToken();
+    const token = getAccessToken();
     if (!token || !restaurantId) return;
     const socket = connectSocket(token, 'waiter-workspace');
     const refresh = () => void loadWorkspace(true);

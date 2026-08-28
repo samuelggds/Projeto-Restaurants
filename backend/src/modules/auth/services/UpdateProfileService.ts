@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { UserRole, type Prisma } from '@prisma/client';
 import userRepository from '../repositories/UserRepository.js';
 
 type UpdateProfilePayload = {
@@ -26,13 +26,24 @@ class UpdateProfileService {
 
     const hasField = (field: keyof UpdateProfilePayload) =>
       Object.prototype.hasOwnProperty.call(profileData, field);
+    const currentEmail = String(currentUser.email || '')
+      .trim()
+      .toLowerCase();
     const nextEmail = hasField('email')
       ? String(profileData.email || '')
           .trim()
           .toLowerCase()
-      : currentUser.email;
+      : currentEmail;
 
-    if (nextEmail && nextEmail !== currentUser.email) {
+    if (
+      currentUser.role === UserRole.SUPER_ADMIN &&
+      hasField('email') &&
+      nextEmail !== currentEmail
+    ) {
+      throw new Error('O e-mail da conta SUPER_ADMIN não pode ser alterado pelo perfil');
+    }
+
+    if (nextEmail && nextEmail !== currentEmail) {
       const emailInUse = await userRepository.findByEmail(nextEmail);
 
       if (emailInUse && Number(emailInUse.id) !== Number(userId)) {

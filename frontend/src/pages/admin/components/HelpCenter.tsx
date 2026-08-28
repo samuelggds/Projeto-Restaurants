@@ -28,7 +28,7 @@ import * as S from './HelpCenter.styles';
 import { FaithfulGuidePreview } from './HelpCenterPreviews';
 import supportChatService from '../../../Services/supportChatService';
 import { connectSocket } from '../../../Services/socketService';
-import { getStoredAccessToken } from '../../../modules/auth/session/authSession';
+import { getAccessToken } from '../../../modules/auth/session/authSession';
 import { useAppDialog } from '../../../components/AppDialog/context';
 
 type HelpCenterProps = {
@@ -649,7 +649,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
     return () => window.clearTimeout(loadOnMount);
   }, []);
   useEffect(() => {
-    const token = getStoredAccessToken();
+    const token = getAccessToken();
     if (!token) return undefined;
 
     const socket = connectSocket(token, 'admin-help-issues');

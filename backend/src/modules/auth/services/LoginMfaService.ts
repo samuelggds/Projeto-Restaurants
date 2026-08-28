@@ -7,6 +7,8 @@ import prisma from '../../../config/prisma.js';
 import { getJwtMfaExpiresIn, getJwtMfaSecret, getJwtSecret } from '../../../config/auth.js';
 import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
+import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
+import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 
 type LoginUser = {
   id: number;
@@ -95,28 +97,8 @@ function getMfaSecret() {
   return getJwtMfaSecret() || getJwtSecret();
 }
 
-function getRequiredMfaRoles() {
-  const rawEnvValue = process.env.MFA_REQUIRED_ROLES;
-  const envValue =
-    rawEnvValue === undefined ? `${UserRole.ADMIN},${UserRole.SUPER_ADMIN}` : String(rawEnvValue);
-
-  return new Set(
-    envValue
-      .split(',')
-      .map((item) => item.trim().toUpperCase())
-      .filter(Boolean),
-  );
-}
-
 function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
-  return (
-    Boolean(user.mfaEnabled) ||
-    getRequiredMfaRoles().has(
-      String(user.role || '')
-        .trim()
-        .toUpperCase(),
-    )
-  );
+  return Boolean(user.mfaEnabled) || isMfaRequiredForRole(user.role);
 }
 
 function mapUser(user: any) {
@@ -202,9 +184,15 @@ class LoginMfaService {
         });
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
-          console.warn(
-            `[login-2fa] Falha no SMTP em desenvolvimento. Codigo para ${user.email}: ${code}`,
-          );
+          if (canLogLocalAuthCode()) {
+            console.warn(
+              `[login-2fa] Falha no SMTP local. Codigo para ${user.email}: ${code}`,
+            );
+          } else {
+            console.warn(
+              '[login-2fa] Falha no SMTP local; o codigo nao foi exibido. Configure o SMTP ou habilite explicitamente o fallback local.',
+            );
+          }
           return {
             mfaRequired: true,
             mfaToken: token,
@@ -227,7 +215,13 @@ class LoginMfaService {
         );
       }
 
-      console.warn(`[login-2fa] SMTP nao configurado. Codigo para ${user.email}: ${code}`);
+      if (canLogLocalAuthCode()) {
+        console.warn(`[login-2fa] SMTP nao configurado. Codigo para ${user.email}: ${code}`);
+      } else {
+        console.warn(
+          '[login-2fa] SMTP nao configurado; o codigo nao foi exibido. Configure o SMTP ou habilite explicitamente o fallback local.',
+        );
+      }
     }
 
     return {

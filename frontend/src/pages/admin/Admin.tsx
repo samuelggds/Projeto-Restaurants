@@ -32,7 +32,7 @@ import {
   disconnectSocket,
   waitForSocketConnection,
 } from '../../Services/socketService';
-import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { playOrderNotificationSound } from './domain/orderNotificationSound';
 import tableAccountService from '../../Services/tableAccountService';
 
@@ -522,7 +522,7 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    const token = getStoredAccessToken();
+    const token = getAccessToken();
     if (!token) return;
 
     const socket = connectSocket(token, 'admin-orders');
@@ -674,7 +674,7 @@ export default function Admin() {
   }
 
   async function handleReportSupport(payload: { subject: string; message: string }) {
-    const token = getStoredAccessToken();
+    const token = getAccessToken();
     if (!token) throw new Error('Sessão não encontrada.');
 
     const socket = connectSocket(token, 'admin-help');

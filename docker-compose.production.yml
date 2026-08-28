@@ -70,13 +70,13 @@ services:
     logging: *default-logging
 
   backend:
-    build:
+    build: &production-backend-build
       context: ./backend
     restart: unless-stopped
     init: true
-    env_file:
+    env_file: &production-backend-env-files
       - ${PRODUCTION_ENV_FILE:-.env.production}
-    environment:
+    environment: &production-backend-environment
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL em .env.production}
@@ -111,6 +111,30 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - edge
+      - data_internal
+      - routing_internal
+    logging: *default-logging
+
+  worker:
+    build: *production-backend-build
+    restart: unless-stopped
+    init: true
+    env_file: *production-backend-env-files
+    environment:
+      <<: *production-backend-environment
+      # O worker nunca participa do bootstrap e não deve receber o segredo inicial.
+      SUPER_ADMIN_BOOTSTRAP_PASSWORD: ''
+      SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE: ''
+    command: ['npm', 'run', 'start:worker']
+    depends_on:
+      backend:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
     cap_drop:

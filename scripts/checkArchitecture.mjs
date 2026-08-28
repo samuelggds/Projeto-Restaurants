@@ -30,6 +30,23 @@ const forbiddenImportRules = [
     target: /(?:^|\/)server\.js$/u,
     reason: "módulos devem publicar por uma porta realtime, sem importar o bootstrap HTTP",
   },
+  {
+    source: /^backend\/src\/server\.(?:ts|js)$/u,
+    target: /modules\/.*\/(?:jobs\/scheduler|tablePaymentScheduler)\.js$/u,
+    reason: "o processo HTTP não pode inicializar schedulers de negócio diretamente",
+  },
+  {
+    source: /^backend\/src\/worker\.(?:ts|js)$/u,
+    target: /^(?:(?:node:)?http|socket\.io)$|(?:^|\/)(?:server|app)\.js$/u,
+    reason: "o worker não pode criar servidor HTTP ou Socket.IO",
+  },
+];
+const forbiddenContentRules = [
+  {
+    source: /^backend\/src\/modules\/[^/]+\/services\//u,
+    pattern: /\bRouter\s*\(/gu,
+    reason: "services não podem declarar rotas Express; use a pasta routes",
+  },
 ];
 const importSpecifierPattern =
   /\bfrom\s+["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)|\bimport\s+["']([^"']+)["']/gu;
@@ -49,6 +66,7 @@ async function collectFiles(directory) {
 const files = (await Promise.all(roots.map(collectFiles))).flat();
 const oversized = [];
 const forbiddenImports = [];
+const forbiddenContent = [];
 
 for (const file of files) {
   const content = await readFile(file, "utf8");
@@ -69,6 +87,16 @@ for (const file of files) {
       forbiddenImports.push({ file: normalizedFile, line, specifier, reason: rule.reason });
     }
   }
+
+  for (const rule of forbiddenContentRules) {
+    if (!rule.source.test(normalizedFile)) continue;
+
+    rule.pattern.lastIndex = 0;
+    for (const match of content.matchAll(rule.pattern)) {
+      const line = content.slice(0, match.index).split(/\r?\n/u).length;
+      forbiddenContent.push({ file: normalizedFile, line, reason: rule.reason });
+    }
+  }
 }
 
 if (oversized.length) {
@@ -85,7 +113,14 @@ if (forbiddenImports.length) {
   }
 }
 
-if (oversized.length || forbiddenImports.length) {
+if (forbiddenContent.length) {
+  console.error("Conteúdo que viola as fronteiras arquiteturais:");
+  for (const item of forbiddenContent) {
+    console.error(`- ${item.file}:${item.line} (${item.reason})`);
+  }
+}
+
+if (oversized.length || forbiddenImports.length || forbiddenContent.length) {
   process.exitCode = 1;
 } else {
   console.log(

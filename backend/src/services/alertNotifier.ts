@@ -1,5 +1,11 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import {
+  limitTelemetryText,
+  redactTelemetryText,
+  safeErrorName,
+  sanitizeTelemetryValue,
+} from './telemetrySanitizer.js';
 
 const alertWebhookUrl = process.env.ALERT_WEBHOOK_URL || '';
 const configuredProvider = (process.env.ALERT_PROVIDER || 'generic').trim().toLowerCase();
@@ -10,6 +16,13 @@ const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpSecure = process.env.SMTP_SECURE === 'true';
 const smtpUser = process.env.SMTP_USER || '';
 const smtpPass = process.env.SMTP_PASS || '';
+const configuredTimeoutMs = Number(process.env.ALERT_TIMEOUT_MS || 5_000);
+const alertTimeoutMs =
+  Number.isSafeInteger(configuredTimeoutMs) &&
+  configuredTimeoutMs >= 1_000 &&
+  configuredTimeoutMs <= 30_000
+    ? configuredTimeoutMs
+    : 5_000;
 
 type AlertDetails = string | Record<string, unknown>;
 
@@ -64,11 +77,14 @@ function getTransporter() {
 }
 
 function formatDetails(details: AlertDetails) {
-  if (typeof details === 'string') {
-    return details;
-  }
+  const sanitized = sanitizeTelemetryValue(details, {
+    maxDepth: 5,
+    maxEntries: 100,
+    maxStringLength: 1_000,
+  });
+  const formatted = typeof sanitized === 'string' ? sanitized : JSON.stringify(sanitized, null, 2);
 
-  return JSON.stringify(details, null, 2);
+  return limitTelemetryText(formatted, 4_000);
 }
 
 async function sendEmailAlert(title: string, details: AlertDetails) {
@@ -80,23 +96,22 @@ async function sendEmailAlert(title: string, details: AlertDetails) {
     await getTransporter().sendMail({
       from: alertEmailFrom,
       to: alertEmailTo,
-      subject: `[ALERTA] ${title}`,
-      text: `${title}\n\n${formatDetails(details)}`,
+      subject: `[ALERTA] ${redactTelemetryText(title, 160)}`,
+      text: `${redactTelemetryText(title, 300)}\n\n${formatDetails(details)}`,
     });
 
     return true;
   } catch (emailError: unknown) {
-    console.error(
-      '[ALERT_EMAIL_ERROR]',
-      emailError instanceof Error ? emailError.message : String(emailError),
-    );
+    console.error('[ALERT_EMAIL_ERROR]', { errorType: safeErrorName(emailError) });
     return false;
   }
 }
 
 function buildPayload(title: string, details: AlertDetails) {
   const provider = resolveProvider();
-  const message = `${title}\n${formatDetails(details)}`;
+  const safeTitle = redactTelemetryText(title, 300);
+  const safeDetails = formatDetails(details);
+  const message = `${safeTitle}\n${safeDetails}`;
 
   if (provider === 'discord') {
     return {
@@ -106,7 +121,7 @@ function buildPayload(title: string, details: AlertDetails) {
 
   if (provider === 'slack') {
     return {
-      text: `*${title}*\n${details}`,
+      text: `*${safeTitle}*\n${safeDetails}`,
     };
   }
 
@@ -137,17 +152,19 @@ export async function notifyCriticalError(title: string, details: AlertDetails) 
   }
 
   try {
-    await fetch(alertWebhookUrl, {
+    const response = await fetch(alertWebhookUrl, {
       method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(alertTimeoutMs),
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(buildPayload(title, details)),
     });
+    if (!response.ok) {
+      console.error('[ALERT_WEBHOOK_HTTP_ERROR]', { status: response.status });
+    }
   } catch (notificationError: unknown) {
-    console.error(
-      '[ALERT_WEBHOOK_ERROR]',
-      notificationError instanceof Error ? notificationError.message : String(notificationError),
-    );
+    console.error('[ALERT_WEBHOOK_ERROR]', { errorType: safeErrorName(notificationError) });
   }
 }

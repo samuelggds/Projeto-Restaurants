@@ -23,6 +23,8 @@ import {
 import { assertOperationalEnvironment } from './_shared/environmentGuard.mjs';
 import { redactEmail, safeError } from './_shared/redaction.mjs';
 
+const ADMIN_CHANGE_ADVISORY_LOCK = 742839105;
+
 const parsed = parseCliArgs(process.argv.slice(2));
 rejectPositionals(parsed);
 assertAllowedOptions(parsed, [
@@ -184,6 +186,23 @@ async function main() {
 
   const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;
   const result = await prisma.$transaction(async (transaction) => {
+    // Compartilha a mesma trava dos demais fluxos administrativos e do bootstrap
+    // para que duas promoções concorrentes não observem a ausência de SUPER_ADMIN.
+    await transaction.$queryRaw`SELECT pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})`;
+
+    const anotherSuperAdmin = await transaction.user.findFirst({
+      where: {
+        role: UserRole.SUPER_ADMIN,
+        ...(existing ? { id: { not: existing.id } } : {}),
+      },
+      select: { id: true },
+    });
+    if (anotherSuperAdmin) {
+      throw new Error(
+        'Operação bloqueada: já existe um SUPER_ADMIN. A plataforma permite somente uma conta com esse papel.',
+      );
+    }
+
     let updated;
     if (existing) {
       const snapshotFields = [

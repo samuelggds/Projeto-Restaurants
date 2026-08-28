@@ -10,6 +10,46 @@ Todo executável desta pasta é classificado em `operational-scripts.json`. O CI
 - `guardedWrite`: escrita suportada, com dry-run padrão, ambiente e banco identificados, motivo e confirmação exata.
 - `disabledLegacy`: código histórico em quarentena. A importação de `_shared/disabledLegacyScript.mjs` encerra a execução antes da lógica antiga.
 
+## Bootstrap automático do único SUPER_ADMIN
+
+Na imagem de produção, a inicialização executa as migrations, confirma ou cria o
+`SUPER_ADMIN` e somente então inicia o servidor. O bootstrap é idempotente: se a
+conta esperada já existe, nenhum hash de senha é calculado e nenhum dado de
+autenticação é redefinido.
+
+Mantenha estas variáveis de identidade configuradas em produção:
+
+```dotenv
+SUPER_ADMIN_BOOTSTRAP_ENABLED=true
+SUPER_ADMIN_BOOTSTRAP_NAME=Desenvolvedor da Plataforma
+SUPER_ADMIN_BOOTSTRAP_EMAIL=desenvolvedor@seudominio.com
+```
+
+Somente na primeira subida, forneça uma senha forte por **uma** destas fontes:
+
+```dotenv
+# Segredo injetado temporariamente pelo gerenciador do deploy
+SUPER_ADMIN_BOOTSTRAP_PASSWORD=
+
+# Ou, preferencialmente, caminho absoluto de um secret montado no runtime
+SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE=/run/secrets/super_admin_password
+```
+
+Não defina as duas fontes ao mesmo tempo, não versione a senha e não a escreva
+na imagem. Depois que o log confirmar a criação, remova a variável ou o secret
+do ambiente e faça novo deploy. Reinicializações futuras continuam validando a
+conta, mas não precisam da senha inicial e nunca a restauram.
+
+A primeira criação gera uma conta ativa, sem restaurante e sem subpapel, com
+MFA habilitado e troca de senha obrigatória. O processo falha de forma segura se
+encontrar mais de um `SUPER_ADMIN`, se o e-mail esperado pertencer a outra conta
+ou se a conta existente não estiver no escopo global esperado. Ele não promove
+automaticamente um usuário comum.
+
+O comando manual `create:superadmin` abaixo fica reservado para recuperação
+operacional auditada. Ele não deve fazer parte do startup nem ser usado para
+criar um segundo administrador da plataforma.
+
 ## Executar escrita suportada
 
 Defina `NODE_ENV`, `OPS_DATABASE_ENV` e `DATABASE_URL` para o mesmo ambiente. Para load test, defina também `OPS_API_ENV`. Primeiro execute sem `--apply`/`--execute`, revise o plano e copie literalmente a confirmação exibida.
@@ -46,6 +86,23 @@ anterior/posterior e flags que mudam dados. Promoções sempre habilitam MFA; re
 exigem troca no próximo login. A alteração de papel não pode demover o último `SUPER_ADMIN` ativo.
 Produção acrescenta `--allow-production` e
 `OPS_ALLOW_PRODUCTION=ALLOW_PRODUCTION_OPERATIONS`.
+
+## Rotacionar a chave das credenciais de gateways
+
+1. Gere uma nova chave de 32 bytes. Publique a chave nova em
+   `CREDENTIAL_ENCRYPTION_KEY` e mantenha temporariamente a chave atual em
+   `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS`.
+2. Faça o deploy. A aplicação passa a escrever com a chave nova e ainda lê os
+   registros antigos pela chave anterior.
+3. Revise o dry-run com `npm run credentials:rotate -- --environment production
+   --allow-production`.
+4. Execute novamente com `--apply`, `--actor`, `--reason` e a confirmação
+   exibida. Todas as credenciais e o audit log são gravados na mesma transação.
+5. Repita o dry-run; quando ele indicar zero credenciais pendentes, remova
+   `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` e faça outro deploy.
+
+Nunca remova a chave anterior antes de o dry-run chegar a zero. O comando não
+imprime valores descriptografados nem credenciais do banco.
 
 ## Reativar um legado
 

@@ -10,6 +10,7 @@ import customerAddressService, {
   type CustomerAddressInput,
 } from '../../Services/customerAddressService';
 import { useAuth } from '../../contexts/authContext';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { ProfilePage } from './ProfilePage';
 import { buildProfileData } from '../Profile/adapters/profileDataAdapter';
 import { AddressModal } from './components/AddressModal';
@@ -206,7 +207,7 @@ export default function Profile() {
       });
       const persistedAvatar = String(updated?.avatar || base64);
       setLocalAvatar(persistedAvatar);
-      const token = localStorage.getItem('token') || '';
+      const token = getAccessToken() || '';
       if (token) login({ ...(user ?? {}), ...updated, avatar: persistedAvatar }, token);
     },
     [user, login],
@@ -216,7 +217,7 @@ export default function Profile() {
     async (payload: { name: string; email: string; phone: string }) => {
       const { data: updated } = await api.put('/auth/profile', payload);
       // Sync auth context immediately so useMemo recomputes without a refresh
-      const token = localStorage.getItem('token') || '';
+      const token = getAccessToken() || '';
       if (token && updated) login({ ...(user ?? {}), ...updated }, token);
     },
     [user, login],

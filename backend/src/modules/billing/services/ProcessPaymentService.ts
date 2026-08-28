@@ -16,23 +16,20 @@ class ProcessPaymentService {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const existingInvoice = await billingRepository.findInvoiceById(normalizedInvoiceId, tx);
+      const payment = await billingRepository.markInvoicePaidIfOpen(
+        normalizedInvoiceId,
+        new Date(),
+        tx,
+      );
+      const invoice = payment.invoice;
 
-      if (!existingInvoice) {
+      if (!invoice) {
         throw new Error('Fatura não encontrada.');
       }
 
-      const invoice =
-        existingInvoice.status === 'PAGO'
-          ? existingInvoice
-          : await billingRepository.updateInvoice(
-              normalizedInvoiceId,
-              {
-                status: 'PAGO',
-                paidAt: new Date(),
-              },
-              tx,
-            );
+      if (invoice.status !== 'PAGO') {
+        throw new Error('Fatura não está disponível para pagamento.');
+      }
 
       const subscription = await billingRepository.findSubscriptionByRestaurantId(
         invoice.restaurantId,

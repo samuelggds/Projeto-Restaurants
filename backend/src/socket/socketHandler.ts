@@ -10,6 +10,7 @@ import {
 import { validateEmployeeIssuePayload } from './employeeIssuePayload.js';
 import { validateDeliveryLocationPayload } from './deliveryLocationPayload.js';
 import { isSocketAccountAuthorized } from './socketAccountPolicy.js';
+import { safeErrorName } from '../services/telemetrySanitizer.js';
 
 type SocketUser = {
   id: number | string;
@@ -135,7 +136,7 @@ export function socketHandler(socket: AppSocket) {
       .catch((error) => {
         console.warn('[SOCKET_ACCOUNT_REVALIDATION_FAILED]', {
           userId: Number(id || 0),
-          error: error instanceof Error ? error.message : String(error),
+          errorType: safeErrorName(error),
         });
       });
   }, revalidationMs);
@@ -305,7 +306,7 @@ export function socketHandler(socket: AppSocket) {
         orderId: locationOrderId || null,
         courierId: Number(id || 0),
         restaurantId: Number(restaurantId || 0),
-        error: error instanceof Error ? error.message : String(error),
+        errorType: safeErrorName(error),
       });
       reply({
         ok: false,

@@ -46,6 +46,7 @@ vi.mock('../Courier/components/DeliveryMap', () => ({
 }));
 
 import DeliveryTrackingPage from './DeliveryTrackingPage';
+import { clearAuthSession, persistAuthSession } from '../../modules/auth/session/authSession';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -92,8 +93,9 @@ describe('DeliveryTrackingPage integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    clearAuthSession();
     localStorage.clear();
-    localStorage.setItem('token', 'customer-token');
+    persistAuthSession({ id: 12, role: 'CLIENTE' }, 'customer-token');
     mocks.id = '601';
     mocks.mapProps = null;
     mocks.listeners.clear();

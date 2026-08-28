@@ -18,14 +18,14 @@ services:
       retries: 5
 
   backend:
-    build:
+    build: &backend-build
       context: ./backend
     container_name: pizza_backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    environment:
+    environment: &backend-environment
       NODE_ENV: ${NODE_ENV:-development}
       OPS_DATABASE_ENV: ${OPS_DATABASE_ENV:-development}
       OPS_API_ENV: ${OPS_API_ENV:-development}
@@ -33,6 +33,7 @@ services:
       PORT: ${PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
+      CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
       DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
       JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
@@ -45,6 +46,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       SOCKET_CORS_ORIGINS: ${SOCKET_CORS_ORIGINS:-http://localhost:5173}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      REFRESH_COOKIE_SAME_SITE: ${REFRESH_COOKIE_SAME_SITE:-lax}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
       READINESS_TIMEOUT_MS: ${READINESS_TIMEOUT_MS:-3000}
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
@@ -59,6 +61,7 @@ services:
       LOGIN_LOCKOUT_MAX_SECONDS: ${LOGIN_LOCKOUT_MAX_SECONDS:-3600}
       LOGIN_LOCKOUT_STATE_TTL_MS: ${LOGIN_LOCKOUT_STATE_TTL_MS:-86400000}
       MFA_REQUIRED_ROLES: ${MFA_REQUIRED_ROLES:-ADMIN,SUPER_ADMIN}
+      ALLOW_LOCAL_AUTH_CODE_LOGGING: ${ALLOW_LOCAL_AUTH_CODE_LOGGING:-false}
       MFA_CODE_TTL_MIN: ${MFA_CODE_TTL_MIN:-10}
       ALLOW_INSECURE_STRIPE_WEBHOOK: ${ALLOW_INSECURE_STRIPE_WEBHOOK:-false}
       ALLOW_GLOBAL_PAYMENT_FALLBACK: ${ALLOW_GLOBAL_PAYMENT_FALLBACK:-false}
@@ -73,9 +76,18 @@ services:
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
       MP_NOTIFICATION_URL: ${MP_NOTIFICATION_URL:-}
       MP_ORDER_NOTIFICATION_URL: ${MP_ORDER_NOTIFICATION_URL:-}
+      MP_AUTO_RECONCILE_ENABLED: ${MP_AUTO_RECONCILE_ENABLED:-true}
+      MP_AUTO_RECONCILE_MAX_INVOICES: ${MP_AUTO_RECONCILE_MAX_INVOICES:-50}
+      MP_RECONCILE_TIMEOUT_MS: ${MP_RECONCILE_TIMEOUT_MS:-15000}
+      MP_API_BASE_URL: ${MP_API_BASE_URL:-https://api.mercadopago.com}
+      BILLING_MP_RECONCILE_CRON: '${BILLING_MP_RECONCILE_CRON:-*/5 * * * *}'
+      LOYALTY_REDEMPTION_EXPIRATION_CRON: '${LOYALTY_REDEMPTION_EXPIRATION_CRON:-*/5 * * * *}'
+      TABLE_PAYMENT_EXPIRATION_INTERVAL_MS: ${TABLE_PAYMENT_EXPIRATION_INTERVAL_MS:-60000}
+      JOBS_TIMEZONE: ${JOBS_TIMEZONE:-America/Sao_Paulo}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
       ALERT_PROVIDER: ${ALERT_PROVIDER:-email}
+      ALERT_TIMEOUT_MS: ${ALERT_TIMEOUT_MS:-5000}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -102,6 +114,16 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  worker:
+    build: *backend-build
+    container_name: pizza_worker
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *backend-environment
+    command: ['npm', 'run', 'start:worker']
 
   frontend:
     build:

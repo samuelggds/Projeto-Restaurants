@@ -108,6 +108,11 @@ export default function Login() {
 
   const redirectByRole = useCallback(
     (user) => {
+      if (user?.mustChangePassword === true) {
+        navigate('/change-password');
+        return;
+      }
+
       const nextPath = getSafeNextPath();
       if (nextPath) {
         navigate(nextPath);

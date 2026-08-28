@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import { getMercadoPagoPaymentApi } from '../../payments/providers/mercadoPagoClient.js';
@@ -148,10 +149,7 @@ class MercadoPagoOrderWebhookController {
 
       return res.sendStatus(200);
     } catch (error: unknown) {
-      console.error(
-        '[ORDER_PIX_WEBHOOK_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[ORDER_PIX_WEBHOOK_ERROR]', { errorType: safeErrorName(error) });
 
       return res.sendStatus(500);
     }

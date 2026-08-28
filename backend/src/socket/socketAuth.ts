@@ -14,6 +14,7 @@ type SocketUser = JwtPayload & {
   subRole?: string | null;
   restaurantId?: number | null;
   authVersion?: number | null;
+  mustChangePassword?: boolean;
 };
 
 type SocketTableSession = {
@@ -45,6 +46,10 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
     if (token) {
       const resolved = await resolveAccessToken(String(token));
       const decoded = { ...resolved.user } as SocketUser;
+
+      if (decoded.mustChangePassword) {
+        return next(new Error('Troca de senha obrigatória'));
+      }
 
       const normalizedRole = String(decoded.role || '').toUpperCase();
       if (

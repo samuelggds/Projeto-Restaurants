@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { connectSocket } from '../../Services/socketService';
-import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import supportChatService from '../../Services/supportChatService';
 
 export function useEmployeeIssueNotifications() {
   useEffect(() => {
-    const token = getStoredAccessToken();
+    const token = getAccessToken();
     if (!token) return undefined;
 
     const socket = connectSocket(token, 'operational-issue-notifications');

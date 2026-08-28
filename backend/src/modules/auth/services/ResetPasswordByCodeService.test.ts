@@ -25,6 +25,8 @@ async function installResetState() {
     resetPasswordLockedUntil: null,
     active: false,
     authVersion: 2,
+    role: 'CLIENTE',
+    mustChangePassword: false,
   };
   let revoked = 0;
   userRepository.findByEmail = async () => ({ ...state });
@@ -103,4 +105,18 @@ test('código válido é consumido uma vez, reativa conta e revoga sessões', as
   assert.equal(state.active, true);
   assert.equal(state.authVersion, 3);
   assert.equal(revoked(), 1);
+});
+
+test('SUPER_ADMIN não consegue redefinir a conta com senha fraca', async () => {
+  const { state, revoked } = await installResetState();
+  state.role = 'SUPER_ADMIN';
+
+  await assert.rejects(
+    () => resetPasswordByCodeService.execute(validPayload),
+    /entre 16 e 128 caracteres|previsível/,
+  );
+
+  assert.notEqual(state.resetPasswordCodeHash, null);
+  assert.equal(state.authVersion, 2);
+  assert.equal(revoked(), 0);
 });

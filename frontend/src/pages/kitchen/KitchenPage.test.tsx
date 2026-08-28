@@ -46,7 +46,7 @@ vi.mock('../../Services/socketService', () => ({
   disconnectSocket: vi.fn(),
 }));
 vi.mock('../../modules/auth/session/authSession', () => ({
-  getStoredAccessToken: () => 'kitchen-token',
+  getAccessToken: () => 'kitchen-token',
 }));
 vi.mock('./KitchenModule', () => ({
   KitchenModule: (props: KitchenModuleProps) => {

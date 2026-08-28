@@ -11,33 +11,36 @@ type WithdrawAsaasWalletPayload = {
   description?: string;
 };
 
-type AsaasErrorItem = {
-  description?: string;
-};
-
 type AsaasTransferResponse = {
   id?: string;
   value?: number;
   status?: string;
   operationType?: string;
   dateCreated?: string;
-  errors?: AsaasErrorItem[];
 };
+
+export const ASAAS_WITHDRAW_REQUEST_TIMEOUT_MS = 15_000;
+
+class SafeAsaasWithdrawalError extends Error {}
+
+function redactSensitiveValue(value: unknown, sensitiveValue: string) {
+  const normalizedValue = String(value || '');
+  if (!sensitiveValue || !normalizedValue.includes(sensitiveValue)) {
+    return normalizedValue;
+  }
+
+  return normalizedValue.split(sensitiveValue).join('[DADO REDIGIDO]');
+}
+
+function isTimeoutError(error: unknown) {
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+}
 
 class WithdrawAsaasWalletService {
   private getAsaasBaseUrl() {
     return String(process.env.ASAAS_API_BASE_URL || 'https://api.asaas.com')
       .trim()
       .replace(/\/+$/, '');
-  }
-
-  private extractProviderError(payload: AsaasTransferResponse) {
-    if (!Array.isArray(payload?.errors) || payload.errors.length === 0) {
-      return 'Falha ao solicitar saque no Asaas.';
-    }
-
-    const firstError = String(payload.errors[0]?.description || '').trim();
-    return firstError || 'Falha ao solicitar saque no Asaas.';
   }
 
   async execute({
@@ -97,6 +100,7 @@ class WithdrawAsaasWalletService {
     try {
       const response = await fetch(`${asaasBaseUrl}/v3/transfers`, {
         method: 'POST',
+        signal: AbortSignal.timeout(ASAAS_WITHDRAW_REQUEST_TIMEOUT_MS),
         headers: {
           'Content-Type': 'application/json',
           access_token: asaasToken,
@@ -111,31 +115,48 @@ class WithdrawAsaasWalletService {
 
       responseBody = (await response.json()) as AsaasTransferResponse;
       if (!response.ok) {
-        throw new Error(this.extractProviderError(responseBody));
+        throw new SafeAsaasWithdrawalError(
+          'O Asaas recusou a solicitacao de saque. Revise os dados e tente novamente.',
+        );
       }
     } catch (error) {
       await prisma.asaasWithdrawalRequest.updateMany({
         where: { id: withdrawalRequest.id, status: 'REQUESTED' },
         data: { status: 'FAILED' },
       });
-      throw error;
+
+      if (error instanceof SafeAsaasWithdrawalError) {
+        throw error;
+      }
+
+      if (isTimeoutError(error)) {
+        throw new Error('Tempo limite excedido ao solicitar saque no Asaas. Tente novamente.');
+      }
+
+      throw new Error('Nao foi possivel comunicar com o Asaas para solicitar o saque.');
     }
+
+    const safeTransferId = redactSensitiveValue(responseBody?.id, targetPixKey);
+    const safeProviderStatus = redactSensitiveValue(
+      responseBody?.status || 'PENDING',
+      targetPixKey,
+    );
 
     await prisma.asaasWithdrawalRequest.updateMany({
       where: { id: withdrawalRequest.id, status: 'REQUESTED' },
       data: {
-        providerTransferId: String(responseBody?.id || '').trim() || null,
-        providerStatus: String(responseBody?.status || 'PENDING'),
+        providerTransferId: safeTransferId.trim() || null,
+        providerStatus: safeProviderStatus,
       },
     });
 
     return {
-      transferId: String(responseBody?.id || ''),
-      status: String(responseBody?.status || 'PENDING'),
+      withdrawalRequestId: withdrawalRequest.publicId,
+      transferId: safeTransferId,
+      status: safeProviderStatus,
       value: Number(responseBody?.value || normalizedValue),
-      operationType: String(responseBody?.operationType || 'PIX'),
-      dateCreated: String(responseBody?.dateCreated || ''),
-      pixKey: targetPixKey,
+      operationType: redactSensitiveValue(responseBody?.operationType || 'PIX', targetPixKey),
+      dateCreated: redactSensitiveValue(responseBody?.dateCreated, targetPixKey),
     };
   }
 }

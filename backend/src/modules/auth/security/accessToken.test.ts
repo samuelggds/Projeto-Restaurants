@@ -33,6 +33,7 @@ function installAccount(overrides = {}) {
     restaurantId: 9,
     email: 'admin@example.test',
     authVersion: 2,
+    mustChangePassword: false,
     ...overrides,
   };
   prisma.user.findUnique = async () => account;
@@ -53,6 +54,21 @@ test('resolve token de acesso versionado com os dados atuais do banco', async ()
   assert.equal(resolved.legacy, false);
   assert.equal(resolved.user.role, 'ADMIN');
   assert.equal(resolved.user.restaurantId, 9);
+  assert.equal(resolved.user.mustChangePassword, false);
+});
+
+test('propaga do banco a exigência atual de troca de senha', async () => {
+  const account = installAccount({ mustChangePassword: true });
+  const token = authTokenService.createAccessToken({
+    id: account.id,
+    role: account.role,
+    restaurantId: account.restaurantId,
+    authVersion: account.authVersion,
+  });
+
+  const resolved = await resolveAccessToken(token);
+
+  assert.equal(resolved.user.mustChangePassword, true);
 });
 
 test('rejeita refresh token usado como access mesmo quando o segredo coincide', async () => {

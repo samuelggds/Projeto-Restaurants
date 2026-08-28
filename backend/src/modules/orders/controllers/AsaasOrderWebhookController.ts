@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -207,10 +208,7 @@ class AsaasOrderWebhookController {
 
       return res.status(200).json({ received: true, processed: true });
     } catch (error: unknown) {
-      console.error(
-        '[ASAAS_WEBHOOK_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[ASAAS_WEBHOOK_ERROR]', { errorType: safeErrorName(error) });
 
       return res.status(500).json({ received: true, processed: false });
     }

@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import ordersService from '../../Services/ordersService';
 import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
 import {
   mergeTrackingLocation,
@@ -110,7 +111,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
 
     void refreshTracking();
 
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     if (!token) return () => void (active = false);
     const socket = connectSocket(token, `delivery-tracking-${orderId}`);
     const onConnect = () => setSocketConnected(true);

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import userRepository from '../repositories/UserRepository.js';
 import { forgotPasswordSchema } from '../../../validators/ForgotPasswordValidator.js';
+import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
 
 function createTransporter() {
   const smtpHost = String(process.env.SMTP_HOST || '').trim();
@@ -66,8 +67,14 @@ function isBasicAuthDisabledError(error: unknown) {
   return normalized.includes('535') && normalized.includes('basic authentication is disabled');
 }
 
-export function canLogPasswordResetCode(nodeEnv = process.env.NODE_ENV) {
-  return nodeEnv !== 'production';
+export function canLogPasswordResetCode(
+  nodeEnv = process.env.NODE_ENV,
+  allowLocalLogging = process.env.ALLOW_LOCAL_AUTH_CODE_LOGGING,
+) {
+  return canLogLocalAuthCode({
+    NODE_ENV: nodeEnv,
+    ALLOW_LOCAL_AUTH_CODE_LOGGING: allowLocalLogging,
+  });
 }
 
 class RequestPasswordResetService {

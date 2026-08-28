@@ -11,6 +11,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 
 const Login = lazy(() => import('../pages/Login/Login'));
 const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
+const ChangePasswordPage = lazy(() => import('../pages/ChangePassword/ChangePasswordPage'));
 const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
 const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
@@ -26,6 +27,7 @@ const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
 import api from '../Services/api';
 import { useAuth } from '../contexts/authContext';
+import { getAccessToken } from '../modules/auth/session/authSession';
 import {
   clearSystemBlockState,
   getSystemBlockState,
@@ -128,7 +130,7 @@ function BillingGate() {
         return;
       }
 
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
 
       if (!token) {
         clearSystemBlockState();
@@ -230,6 +232,7 @@ export default function AppRoutes() {
               <Route path="/" element={<Home />} />
 
               <Route element={<RequireAuth />}>
+                <Route path="/change-password" element={<ChangePasswordPage />} />
                 <Route path="/system-blocked" element={<SystemBlockedPage />} />
                 <Route path="/billing" element={<BillingPage />} />
 

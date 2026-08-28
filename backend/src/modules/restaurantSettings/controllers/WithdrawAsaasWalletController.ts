@@ -16,11 +16,24 @@ class WithdrawAsaasWalletController {
         description,
       });
 
-      return res.status(200).json(result);
+      return res.status(200).json({
+        withdrawalRequestId: result.withdrawalRequestId,
+        transferId: result.transferId,
+        status: result.status,
+        value: result.value,
+        operationType: result.operationType,
+        dateCreated: result.dateCreated,
+      });
     } catch (error: unknown) {
+      const sensitivePixKey = String(req.body?.pixKey || '').trim();
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro ao solicitar saque da carteira Asaas.';
+      const safeErrorMessage = sensitivePixKey
+        ? errorMessage.split(sensitivePixKey).join('[DADO REDIGIDO]')
+        : errorMessage;
+
       return res.status(400).json({
-        error:
-          error instanceof Error ? error.message : 'Erro ao solicitar saque da carteira Asaas.',
+        error: safeErrorMessage,
       });
     }
   }

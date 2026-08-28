@@ -2,18 +2,43 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import {
   decryptCredential,
+  credentialNeedsReencryption,
   encryptCredential,
   isEncryptedCredential,
   parseCredentialEncryptionKey,
+  reencryptCredential,
 } from './credentialEncryption.js';
 
 const originalKey = process.env.CREDENTIAL_ENCRYPTION_KEY;
+const originalPreviousKey = process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
 const originalNodeEnv = process.env.NODE_ENV;
 
 afterEach(() => {
   if (originalKey === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
   else process.env.CREDENTIAL_ENCRYPTION_KEY = originalKey;
+  if (originalPreviousKey === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
+  else process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = originalPreviousKey;
   process.env.NODE_ENV = originalNodeEnv;
+});
+
+test('lê pela chave anterior e recriptografa atomicamente para a chave atual', () => {
+  const previous = Buffer.from('previous-key-0123456789abcdefghi').toString('base64');
+  const current = Buffer.from('current-key--0123456789abcdefghi').toString('base64');
+  const context = 'restaurant-settings:9:mercadoPagoAccessToken';
+
+  process.env.CREDENTIAL_ENCRYPTION_KEY = previous;
+  const oldCiphertext = encryptCredential('old-provider-secret', context);
+
+  process.env.CREDENTIAL_ENCRYPTION_KEY = current;
+  process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = previous;
+  assert.equal(decryptCredential(oldCiphertext, context), 'old-provider-secret');
+  assert.equal(credentialNeedsReencryption(oldCiphertext, context), true);
+
+  const rotated = reencryptCredential(oldCiphertext, context);
+  assert.notEqual(rotated, oldCiphertext);
+  assert.equal(credentialNeedsReencryption(rotated, context), false);
+  delete process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
+  assert.equal(decryptCredential(rotated, context), 'old-provider-secret');
 });
 
 test('criptografa com AES-GCM e autentica contexto de tenant/campo', () => {

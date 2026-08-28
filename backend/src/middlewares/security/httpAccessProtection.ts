@@ -16,6 +16,22 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
     .filter(Boolean);
   const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 300);
 
+  app.use((req, res, next) => {
+    const fetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();
+    const origin = normalizeOrigin(String(req.headers.origin || ''));
+    const isUnsafeMethod = !['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase());
+    const isTrustedOrigin = Boolean(origin && allowedOrigins.includes(origin));
+
+    // Defesa adicional de CSRF para cookies SameSite=None. Clientes de API não
+    // enviam Sec-Fetch-Site e continuam aceitos; navegadores cross-site precisam
+    // vir de uma origem explicitamente autorizada.
+    if (isProduction && fetchSite === 'cross-site' && isUnsafeMethod && !isTrustedOrigin) {
+      return res.status(403).json({ error: 'Origem da requisicao nao autorizada.' });
+    }
+
+    return next();
+  });
+
   app.use(
     cors({
       origin: (origin, callback) => {

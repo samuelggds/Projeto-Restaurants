@@ -43,13 +43,6 @@ class InvoiceService {
       throw new Error('Plano inválido.');
     }
 
-    // Evita criar duas invoices do mesmo mês
-    const invoiceExists = await billingRepository.findInvoiceByMonth(restaurantId, month, year);
-
-    if (invoiceExists) {
-      return invoiceExists;
-    }
-
     const total = plan.monthlyFee;
 
     const trialEndsAtDate = subscription.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
@@ -58,8 +51,9 @@ class InvoiceService {
         ? trialEndsAtDate
         : addDays(new Date(), 30);
 
-    // Cria invoice
-    return billingRepository.createInvoice({
+    // O upsert na chave unica mensal evita duplicidade mesmo com duas
+    // execucoes concorrentes (job, retry ou chamada administrativa).
+    return billingRepository.createMonthlyInvoiceIfAbsent({
       restaurantId,
       month,
       year,

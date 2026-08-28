@@ -30,7 +30,7 @@ import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
-import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import * as L from '../kitchen/Kitchen.styles';
 import * as S from './styles';
 import {
@@ -383,7 +383,7 @@ export default function CourierWorkspace() {
   }, []);
 
   useEffect(() => {
-    const token = getStoredAccessToken();
+    const token = getAccessToken();
     if (!token || !accountId) return;
     const socket = connectSocket(token, `courier-workspace:${accountId}`);
     socketRef.current = socket;
@@ -1032,7 +1032,7 @@ export default function CourierWorkspace() {
               <ProfilePanel
                 user={user}
                 onUpdated={(updated) => {
-                  const token = localStorage.getItem('token');
+                  const token = getAccessToken();
                   if (token) login(updated, token);
                 }}
               />

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
+import { requiredPasswordChangeMiddleware } from './requiredPasswordChangeMiddleware.js';
 
 /**
  * Reconhece um cliente autenticado em rotas que também aceitam convidados.
@@ -21,7 +22,7 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
     const { user } = await resolveAccessToken(token);
     req.user = user;
 
-    return next();
+    return requiredPasswordChangeMiddleware(req, res, next);
   } catch {
     return res.status(401).json({ error: 'Token inválido!' });
   }

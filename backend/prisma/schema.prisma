@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                            Int                  @id @default(autoincrement())
+  id                            Int                       @id @default(autoincrement())
   name                          String
-  email                         String               @unique
+  email                         String                    @unique
   password                      String
   address                       String?
   city                          String?
@@ -19,42 +19,43 @@ model User {
   number                        String?
   state                         String?
   zipCode                       String?
-  active                        Boolean              @default(true)
-  authVersion                   Int                  @default(0)
-  createdAt                     DateTime             @default(now())
+  active                        Boolean                   @default(true)
+  authVersion                   Int                       @default(0)
+  createdAt                     DateTime                  @default(now())
   phone                         String?
   restaurantId                  Int?
-  updatedAt                     DateTime             @updatedAt
-  role                          UserRole             @default(CLIENTE)
+  updatedAt                     DateTime                  @updatedAt
+  /// O índice único parcial `User_single_super_admin_idx` (migration SQL) limita a plataforma a um SUPER_ADMIN.
+  role                          UserRole                  @default(CLIENTE)
   subRole                       FuncionarioSubRole?
   cpf                           String?
   resetPasswordCodeExpiresAt    DateTime?
   resetPasswordCodeHash         String?
-  resetPasswordFailedAttempts   Int                  @default(0)
+  resetPasswordFailedAttempts   Int                       @default(0)
   resetPasswordLockedUntil      DateTime?
-  mustChangePassword            Boolean              @default(false)
-  mfaEnabled                    Boolean              @default(false)
+  mustChangePassword            Boolean                   @default(false)
+  mfaEnabled                    Boolean                   @default(false)
   avatar                        String?
   authMfaChallenge              AuthMfaChallenge?
   authRefreshSession            AuthRefreshSession?
   orders                        Order[]
-  assignedDeliveries            Order[]              @relation("CourierDeliveries")
+  assignedDeliveries            Order[]                   @relation("CourierDeliveries")
   deliveryLocations             DeliveryLocation[]
   orderIssueThreads             OrderIssueThread[]
-  closedTableSessions           TableSession[]       @relation("ClosedTableSessions")
-  openedTableSessions           TableSession[]       @relation("OpenedTableSessions")
-  closingRequestedTableSessions TableSession[]       @relation("ClosingRequestedTableSessions")
-  forceClosedTableSessions      TableSession[]       @relation("ForceClosedTableSessions")
+  closedTableSessions           TableSession[]            @relation("ClosedTableSessions")
+  openedTableSessions           TableSession[]            @relation("OpenedTableSessions")
+  closingRequestedTableSessions TableSession[]            @relation("ClosingRequestedTableSessions")
+  forceClosedTableSessions      TableSession[]            @relation("ForceClosedTableSessions")
   tableParticipants             TableParticipant[]
-  restaurant                    Restaurant?          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant                    Restaurant?               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages           SupportChatMessage[]
   productFavorites              ProductFavorite[]
   addresses                     UserAddress[]
   couponRedemptions             CouponRedemption[]
-  assignedTableServiceCalls     TableServiceCall[]   @relation("AssignedTableServiceCalls")
-  resolvedTableServiceCalls     TableServiceCall[]   @relation("ResolvedTableServiceCalls")
-  confirmedTablePayments        TablePaymentIntent[] @relation("ManualTablePaymentConfirmations")
-  tablePaymentEvents            TablePaymentEvent[]  @relation("TablePaymentEventActor")
+  assignedTableServiceCalls     TableServiceCall[]        @relation("AssignedTableServiceCalls")
+  resolvedTableServiceCalls     TableServiceCall[]        @relation("ResolvedTableServiceCalls")
+  confirmedTablePayments        TablePaymentIntent[]      @relation("ManualTablePaymentConfirmations")
+  tablePaymentEvents            TablePaymentEvent[]       @relation("TablePaymentEventActor")
   requestedAsaasWithdrawals     AsaasWithdrawalRequest[]
   oauthAuthorizationStates      OAuthAuthorizationState[]
 }
@@ -80,53 +81,53 @@ model UserAddress {
 }
 
 model Restaurant {
-  id                   Int                   @id @default(autoincrement())
-  name                 String
-  slug                 String                @unique
-  email                String                @unique
-  phone                String?
-  whatsapp             String?
-  cnpj                 String?               @unique
-  logo                 String?
-  coverImage           String?
-  description          String?
-  address              String?
-  addressNumber        String?
-  addressComplement    String?
-  addressDistrict      String?
-  city                 String?
-  state                String?
-  zipCode              String?
-  openingHours         String?
-  active               Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  banners              Banner[]
-  categories           Category[]
-  coupons              Coupon[]
-  invoices             Invoice[]
-  orders               Order[]
-  products             Product[]
-  productDiscounts     ProductDiscount[]
-  ingredients          Ingredient[]
-  productOptionGroups  ProductOptionGroup[]
-  ratings              ProductRating[]
-  settings             RestaurantSettings?
-  supportChatMessages  SupportChatMessage[]
-  subscription         Subscription?
-  tables               Table[]
-  users                User[]
-  orderIssueThreads    OrderIssueThread[]
-  couponRedemptions    CouponRedemption[]
-  tableServiceCalls    TableServiceCall[]
-  tableSessions        TableSession[]
-  tableParticipants    TableParticipant[]
-  tableBillItems       TableBillItem[]
-  tablePaymentIntents  TablePaymentIntent[]
-  tablePaymentEvents   TablePaymentEvent[]
-  asaasWithdrawals     AsaasWithdrawalRequest[]
+  id                       Int                       @id @default(autoincrement())
+  name                     String
+  slug                     String                    @unique
+  email                    String                    @unique
+  phone                    String?
+  whatsapp                 String?
+  cnpj                     String?                   @unique
+  logo                     String?
+  coverImage               String?
+  description              String?
+  address                  String?
+  addressNumber            String?
+  addressComplement        String?
+  addressDistrict          String?
+  city                     String?
+  state                    String?
+  zipCode                  String?
+  openingHours             String?
+  active                   Boolean                   @default(true)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  banners                  Banner[]
+  categories               Category[]
+  coupons                  Coupon[]
+  invoices                 Invoice[]
+  orders                   Order[]
+  products                 Product[]
+  productDiscounts         ProductDiscount[]
+  ingredients              Ingredient[]
+  productOptionGroups      ProductOptionGroup[]
+  ratings                  ProductRating[]
+  settings                 RestaurantSettings?
+  supportChatMessages      SupportChatMessage[]
+  subscription             Subscription?
+  tables                   Table[]
+  users                    User[]
+  orderIssueThreads        OrderIssueThread[]
+  couponRedemptions        CouponRedemption[]
+  tableServiceCalls        TableServiceCall[]
+  tableSessions            TableSession[]
+  tableParticipants        TableParticipant[]
+  tableBillItems           TableBillItem[]
+  tablePaymentIntents      TablePaymentIntent[]
+  tablePaymentEvents       TablePaymentEvent[]
+  asaasWithdrawals         AsaasWithdrawalRequest[]
   oauthAuthorizationStates OAuthAuthorizationState[]
-  tableAccountSettings TableAccountSettings?
+  tableAccountSettings     TableAccountSettings?
 }
 
 model SupportChatMessage {
@@ -649,6 +650,7 @@ model TablePaymentIntent {
   @@unique([provider, providerExternalId])
   @@unique([id, restaurantId, tableSessionId])
   @@index([restaurantId, tableSessionId, status, expiresAt])
+  @@index([status, expiresAt, restaurantId, tableSessionId])
   @@index([payerParticipantId, createdAt])
 }
 
@@ -808,21 +810,21 @@ model RestaurantSettings {
 }
 
 model AsaasWithdrawalRequest {
-  id                 Int       @id @default(autoincrement())
-  publicId           String    @unique @default(uuid())
+  id                 Int        @id @default(autoincrement())
+  publicId           String     @unique @default(uuid())
   restaurantId       Int
   requestedByUserId  Int
-  value              Decimal   @db.Decimal(12, 2)
+  value              Decimal    @db.Decimal(12, 2)
   pixKeyHash         String
   pixKeyLastFour     String?
   description        String?
-  status             String    @default("REQUESTED")
-  providerTransferId String?   @unique
+  status             String     @default("REQUESTED")
+  providerTransferId String?    @unique
   providerStatus     String?
   expiresAt          DateTime
   validatedAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
   restaurant         Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   requestedBy        User       @relation(fields: [requestedByUserId], references: [id], onDelete: Restrict)
 
@@ -845,6 +847,7 @@ model DeliveryLocation {
 
   @@index([orderId, recordedAt])
   @@index([courierId, recordedAt])
+  @@index([recordedAt])
 }
 
 model Banner {
@@ -903,6 +906,7 @@ model CouponRedemption {
   @@index([restaurantId, userId, status])
   @@index([restaurantId, userId, status, expiresAt])
   @@index([couponId, status])
+  @@index([status, expiresAt])
 }
 
 model Subscription {
@@ -922,28 +926,36 @@ model Subscription {
   scheduledPlanEffectiveMonth Int?
   scheduledPlanEffectiveYear  Int?
   restaurant                  Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([status, trialEndsAt])
 }
 
 model Invoice {
-  id                Int           @id @default(autoincrement())
-  restaurantId      Int
-  month             Int
-  year              Int
-  monthlyFee        Decimal       @db.Decimal(10, 2)
-  systemFees        Decimal       @db.Decimal(10, 2)
-  total             Decimal       @db.Decimal(10, 2)
-  status            InvoiceStatus @default(PENDENTE)
-  createdAt         DateTime      @default(now())
-  dueDate           DateTime
-  paidAt            DateTime?
-  paymentLink       String?
-  paymentExternalId String?
-  pixQrCode         String?
-  pixQrCodeBase64   String?
-  pixExpiresAt      DateTime?
-  restaurant        Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                     Int           @id @default(autoincrement())
+  restaurantId           Int
+  month                  Int
+  year                   Int
+  monthlyFee             Decimal       @db.Decimal(10, 2)
+  systemFees             Decimal       @db.Decimal(10, 2)
+  total                  Decimal       @db.Decimal(10, 2)
+  status                 InvoiceStatus @default(PENDENTE)
+  createdAt              DateTime      @default(now())
+  dueDate                DateTime
+  paidAt                 DateTime?
+  paymentLink            String?
+  paymentExternalId      String?
+  pixQrCode              String?
+  pixQrCodeBase64        String?
+  pixExpiresAt           DateTime?
+  lastReconciledAt       DateTime?
+  reconciliationAttempts Int           @default(0)
+  nextReconciliationAt   DateTime      @default(now())
+  restaurant             Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, month, year])
+  @@index([status, dueDate])
+  @@index([status, createdAt])
+  @@index([status, nextReconciliationAt, id])
 }
 
 model AuthRefreshSession {
@@ -971,14 +983,14 @@ model LoginLockout {
 }
 
 model AuthMfaChallenge {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
-  codeHash  String
-  failedAttempts Int @default(0)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  codeHash       String
+  failedAttempts Int      @default(0)
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
 }
@@ -1000,6 +1012,25 @@ model OAuthAuthorizationState {
   @@unique([provider, userId])
   @@index([expiresAt])
   @@index([restaurantId, provider])
+}
+
+model ScheduledJobState {
+  jobKey              String    @id @db.VarChar(191)
+  ownerId             String?   @db.VarChar(191)
+  leaseVersion        BigInt    @default(0)
+  leaseExpiresAt      DateTime?
+  nextRunAt           DateTime  @default(now())
+  lastStartedAt       DateTime?
+  lastCompletedAt     DateTime?
+  lastFailedAt        DateTime?
+  lastError           String?   @db.VarChar(2000)
+  consecutiveFailures Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([nextRunAt, leaseExpiresAt])
+  @@index([leaseExpiresAt])
+  @@index([ownerId, leaseVersion])
 }
 
 model AuditLog {

@@ -1,4 +1,12 @@
 import axios from 'axios';
+import {
+  applyRefreshedAccessToken,
+  clearAuthSession,
+  getAccessToken,
+  getAuthSessionRevision,
+  getAuthSessionUserId,
+  invalidateAuthSessionMemory,
+} from '../modules/auth/session/authSession';
 import { setSystemBlockState } from './systemBlock';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
@@ -122,25 +130,70 @@ const api = axios.create({
 });
 
 let refreshRequest: Promise<string> | null = null;
+const AUTH_REFRESH_LOCK_NAME = 'pizza-ia-auth-refresh';
 
-function refreshAccessToken() {
+export class AuthSessionChangedError extends Error {
+  constructor() {
+    super('A sessão mudou durante a renovação do token.');
+    this.name = 'AuthSessionChangedError';
+  }
+}
+
+export class AuthSessionIdentityChangedError extends Error {
+  constructor() {
+    super('A conta autenticada mudou em outra aba.');
+    this.name = 'AuthSessionIdentityChangedError';
+  }
+}
+
+function normalizeUserId(value: unknown) {
+  const normalized = Number(value);
+  return Number.isSafeInteger(normalized) && normalized > 0 ? normalized : null;
+}
+
+function withCrossTabRefreshLock<T>(callback: () => Promise<T>) {
+  if (typeof navigator === 'undefined' || !navigator.locks?.request) {
+    return callback();
+  }
+
+  // O refresh cookie e compartilhado entre abas. Serializar a rotacao evita
+  // que duas requisicoes legitimas reutilizem o mesmo token ao mesmo tempo e
+  // sejam interpretadas pelo backend como comprometimento da familia.
+  const lockedRefresh = navigator.locks.request(
+    AUTH_REFRESH_LOCK_NAME,
+    { mode: 'exclusive' },
+    callback,
+  );
+  return lockedRefresh.then((result) => result);
+}
+
+export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserId()) {
   if (!refreshRequest) {
-    const baseURL = normalizeBaseUrl(api.defaults.baseURL || API_BASE_URLS[0] || '');
-    refreshRequest = axios
-      .post(
+    const expectedSessionUserId = normalizeUserId(expectedUserId);
+    refreshRequest = withCrossTabRefreshLock(async () => {
+      const baseURL = normalizeBaseUrl(api.defaults.baseURL || API_BASE_URLS[0] || '');
+      const expectedRevision = getAuthSessionRevision();
+      const response = await axios.post(
         `${baseURL}/auth/refresh`,
         {},
         { withCredentials: true, timeout: API_TIMEOUT_MS },
-      )
-      .then((response) => {
-        const accessToken = String(response?.data?.accessToken || '').trim();
-        if (!accessToken) throw new Error('Backend não retornou um novo access token.');
-        localStorage.setItem('token', accessToken);
-        return accessToken;
-      })
-      .finally(() => {
-        refreshRequest = null;
-      });
+      );
+      const accessToken = String(response?.data?.accessToken || '').trim();
+      if (!accessToken) throw new Error('Backend não retornou um novo access token.');
+      const refreshedUserId = normalizeUserId(response?.data?.userId);
+      if (!refreshedUserId) {
+        throw new Error('Backend não retornou a identidade da sessão renovada.');
+      }
+      if (expectedSessionUserId && refreshedUserId !== expectedSessionUserId) {
+        throw new AuthSessionIdentityChangedError();
+      }
+      if (!applyRefreshedAccessToken(accessToken, expectedRevision, refreshedUserId)) {
+        throw new AuthSessionChangedError();
+      }
+      return accessToken;
+    }).finally(() => {
+      refreshRequest = null;
+    });
   }
 
   return refreshRequest;
@@ -149,7 +202,7 @@ function refreshAccessToken() {
 // Add auth token to all requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -208,7 +261,7 @@ api.interceptors.response.use(
       status === 401 &&
       originalConfig &&
       !originalConfig.__authRetry &&
-      Boolean(localStorage.getItem('token')) &&
+      Boolean(getAccessToken()) &&
       !requestPath.includes('/auth/login') &&
       !requestPath.includes('/auth/refresh') &&
       !requestPath.includes('/auth/logout');
@@ -222,10 +275,18 @@ api.interceptors.response.use(
           return api(originalConfig);
         })
         .catch((refreshError) => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-            window.location.assign('/login');
+          if (refreshError instanceof AuthSessionIdentityChangedError) {
+            // O cookie HttpOnly e compartilhado entre abas. Nunca repita uma
+            // acao da conta antiga usando o token renovado da conta nova.
+            invalidateAuthSessionMemory();
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+              window.location.assign('/login');
+            }
+          } else if (!(refreshError instanceof AuthSessionChangedError)) {
+            clearAuthSession();
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+              window.location.assign('/login');
+            }
           }
           return Promise.reject(refreshError);
         });

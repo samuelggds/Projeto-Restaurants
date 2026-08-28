@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveOAuthEndpoint, validateConfiguredOAuthEndpoints } from './oauthEndpoints.js';
+import {
+  resolveMercadoPagoApiEndpoint,
+  resolveOAuthEndpoint,
+  validateConfiguredOAuthEndpoints,
+} from './oauthEndpoints.js';
 
 test('usa por padrão os endpoints oficiais dos provedores', () => {
   const env = { NODE_ENV: 'production' };
@@ -19,6 +23,15 @@ test('produção rejeita host arbitrário mesmo com flag de override', () => {
       }),
     /endpoint oficial.*producao/i,
   );
+  assert.throws(
+    () =>
+      resolveMercadoPagoApiEndpoint({
+        NODE_ENV: 'production',
+        MP_API_BASE_URL: 'https://attacker.example',
+        ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
+      }),
+    /MP_API_BASE_URL.*endpoint oficial.*producao/i,
+  );
 });
 
 test('override local só funciona mediante flag explícita', () => {
@@ -33,6 +46,19 @@ test('override local só funciona mediante flag explícita', () => {
       ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
     }),
     'http://127.0.0.1:4321/mock',
+  );
+
+  const reconciliationEnv = {
+    NODE_ENV: 'development',
+    MP_API_BASE_URL: 'http://127.0.0.1:4321/reconciliation',
+  };
+  assert.throws(() => resolveMercadoPagoApiEndpoint(reconciliationEnv), /ALLOW_UNTRUSTED/i);
+  assert.equal(
+    resolveMercadoPagoApiEndpoint({
+      ...reconciliationEnv,
+      ALLOW_UNTRUSTED_OAUTH_ENDPOINTS: 'true',
+    }),
+    'http://127.0.0.1:4321/reconciliation',
   );
 });
 

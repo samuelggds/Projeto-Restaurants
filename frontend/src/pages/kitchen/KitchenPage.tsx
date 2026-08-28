@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { connectSocket, disconnectSocket } from '../../Services/socketService';
-import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { KitchenModule } from './KitchenModule';
 import type { EmployeeWorkspaceData, KitchenWorkspaceState, RestaurantBrand } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
@@ -26,7 +26,7 @@ export default function KitchenPage() {
   });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restaurantId = Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
-  const accessToken = getStoredAccessToken();
+  const accessToken = getAccessToken();
   const mountedRef = useRef(true);
   const latestOrdersRequestRef = useRef(0);
   const [workspaceState, setWorkspaceState] = useState<KitchenWorkspaceState>({

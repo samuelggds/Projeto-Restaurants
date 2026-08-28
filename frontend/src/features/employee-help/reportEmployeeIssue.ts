@@ -1,4 +1,4 @@
-import { getStoredAccessToken } from '../../modules/auth/session/authSession';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { connectSocket, waitForSocketConnection } from '../../Services/socketService';
 
 export type EmployeeIssueReport = {
@@ -9,7 +9,7 @@ export type EmployeeIssueReport = {
 };
 
 export async function reportEmployeeIssue(payload: EmployeeIssueReport) {
-  const token = getStoredAccessToken();
+  const token = getAccessToken();
   if (!token) throw new Error('Sessão não encontrada. Entre novamente para relatar o problema.');
 
   const socket = connectSocket(token, 'operational-help');

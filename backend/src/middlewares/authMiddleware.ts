@@ -1,21 +1,29 @@
 import { NextFunction, Request, Response } from 'express';
 import { billingMiddleware } from './billingMiddleware.js';
 import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
+import {
+  getNormalizedRequestPath,
+  requiredPasswordChangeMiddleware,
+} from './requiredPasswordChangeMiddleware.js';
 
 function canBypassBillingCheck(req: Request) {
   const role = String(req.user?.role || '').toUpperCase();
+  const routePath = getNormalizedRequestPath(req);
 
   if (role === 'SUPER_ADMIN') {
     return true;
   }
 
-  if (req.baseUrl === '/auth' && req.path === '/me') {
+  if (
+    (routePath === '/auth/me' && req.method === 'GET') ||
+    (routePath === '/auth/password' && req.method === 'PUT')
+  ) {
     return true;
   }
 
   // A cobrança precisa continuar acessível durante o bloqueio para que o
   // administrador consiga pagar a mensalidade e reativar o restaurante.
-  return req.baseUrl === '/billing' || req.path.startsWith('/billing/');
+  return routePath === '/billing' || routePath.startsWith('/billing/');
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -31,11 +39,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     const { user } = await resolveAccessToken(token);
     req.user = user;
 
-    if (canBypassBillingCheck(req)) {
-      return next();
-    }
+    return requiredPasswordChangeMiddleware(req, res, () => {
+      if (canBypassBillingCheck(req)) {
+        return next();
+      }
 
-    return billingMiddleware(req, res, next);
+      return billingMiddleware(req, res, next);
+    });
   } catch (_error: unknown) {
     return res.status(401).json({ error: 'Token inválido!' });
   }

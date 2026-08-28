@@ -9,8 +9,7 @@ const originalConsoleLog = console.log;
 
 const originalMethods = {
   transaction: prisma.$transaction,
-  findInvoiceById: billingRepository.findInvoiceById,
-  updateInvoice: billingRepository.updateInvoice,
+  markInvoicePaidIfOpen: billingRepository.markInvoicePaidIfOpen,
   findSubscriptionByRestaurantId: billingRepository.findSubscriptionByRestaurantId,
   updateSubscription: billingRepository.updateSubscription,
   activateRestaurant: billingRepository.activateRestaurant,
@@ -22,8 +21,7 @@ afterEach(() => {
   console.log = originalConsoleLog;
 
   prisma.$transaction = originalMethods.transaction;
-  billingRepository.findInvoiceById = originalMethods.findInvoiceById;
-  billingRepository.updateInvoice = originalMethods.updateInvoice;
+  billingRepository.markInvoicePaidIfOpen = originalMethods.markInvoicePaidIfOpen;
   billingRepository.findSubscriptionByRestaurantId = originalMethods.findSubscriptionByRestaurantId;
   billingRepository.updateSubscription = originalMethods.updateSubscription;
   billingRepository.activateRestaurant = originalMethods.activateRestaurant;
@@ -43,27 +41,24 @@ test('pagando deve liberar o sistema para o dono do restaurante', async () => {
   silenceServiceLogs();
   useImmediateTransaction();
 
-  billingRepository.findInvoiceById = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 10,
-    status: 'PENDENTE',
-  });
-
   const calls = {
     updateSubscriptionStatus: null,
     activatedRestaurantId: null,
     deactivatedRestaurantId: null,
   };
 
-  billingRepository.updateInvoice = async (invoiceId, data) => {
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, paidAt) => {
     assert.equal(invoiceId, 123);
-    assert.equal(data.status, 'PAGO');
-    assert.ok(data.paidAt instanceof Date);
+    assert.ok(paidAt instanceof Date);
 
     return {
-      id: invoiceId,
-      restaurantId: 10,
-      status: 'PAGO',
+      marked: true,
+      invoice: {
+        id: invoiceId,
+        restaurantId: 10,
+        status: 'PAGO',
+        paidAt,
+      },
     };
   };
 
@@ -108,22 +103,20 @@ test('deve manter bloqueio quando existir invoice bloqueante em aberto', async (
   silenceServiceLogs();
   useImmediateTransaction();
 
-  billingRepository.findInvoiceById = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 20,
-    status: 'PENDENTE',
-  });
-
   const calls = {
     updateSubscriptionStatus: null,
     activatedRestaurantId: null,
     deactivatedRestaurantId: null,
   };
 
-  billingRepository.updateInvoice = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 20,
-    status: 'PAGO',
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, paidAt) => ({
+    marked: true,
+    invoice: {
+      id: invoiceId,
+      restaurantId: 20,
+      status: 'PAGO',
+      paidAt,
+    },
   });
 
   billingRepository.findSubscriptionByRestaurantId = async (restaurantId) => ({
@@ -167,22 +160,20 @@ test('deve reativar restaurante mesmo sem assinatura quando nao houver bloqueio'
   silenceServiceLogs();
   useImmediateTransaction();
 
-  billingRepository.findInvoiceById = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 30,
-    status: 'PENDENTE',
-  });
-
   const calls = {
     updateSubscriptionCalled: false,
     activatedRestaurantId: null,
     deactivatedRestaurantId: null,
   };
 
-  billingRepository.updateInvoice = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 30,
-    status: 'PAGO',
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, paidAt) => ({
+    marked: true,
+    invoice: {
+      id: invoiceId,
+      restaurantId: 30,
+      status: 'PAGO',
+      paidAt,
+    },
   });
 
   billingRepository.findSubscriptionByRestaurantId = async () => null;
@@ -223,22 +214,20 @@ test('deve manter bloqueio sem assinatura quando houver invoice bloqueante', asy
   silenceServiceLogs();
   useImmediateTransaction();
 
-  billingRepository.findInvoiceById = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 40,
-    status: 'PENDENTE',
-  });
-
   const calls = {
     updateSubscriptionCalled: false,
     activatedRestaurantId: null,
     deactivatedRestaurantId: null,
   };
 
-  billingRepository.updateInvoice = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 40,
-    status: 'PAGO',
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, paidAt) => ({
+    marked: true,
+    invoice: {
+      id: invoiceId,
+      restaurantId: 40,
+      status: 'PAGO',
+      paidAt,
+    },
   });
 
   billingRepository.findSubscriptionByRestaurantId = async () => null;
@@ -280,17 +269,19 @@ test('nao deve registrar novamente uma fatura que ja esta paga', async () => {
   useImmediateTransaction();
 
   const paidAt = new Date('2026-08-01T12:00:00.000Z');
-  let updateInvoiceCalled = false;
+  let attemptedPaidAt = null;
 
-  billingRepository.findInvoiceById = async (invoiceId) => ({
-    id: invoiceId,
-    restaurantId: 50,
-    status: 'PAGO',
-    paidAt,
-  });
-  billingRepository.updateInvoice = async () => {
-    updateInvoiceCalled = true;
-    throw new Error('nao deveria atualizar a fatura');
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, requestedPaidAt) => {
+    attemptedPaidAt = requestedPaidAt;
+    return {
+      marked: false,
+      invoice: {
+        id: invoiceId,
+        restaurantId: 50,
+        status: 'PAGO',
+        paidAt,
+      },
+    };
   };
   billingRepository.findSubscriptionByRestaurantId = async () => null;
   prisma.invoice.findMany = async () => [];
@@ -301,7 +292,41 @@ test('nao deve registrar novamente uma fatura que ja esta paga', async () => {
 
   const result = await processPaymentService.execute({ invoiceId: 321 });
 
-  assert.equal(updateInvoiceCalled, false);
+  assert.ok(attemptedPaidAt instanceof Date);
   assert.equal(result.status, 'PAGO');
   assert.equal(result.paidAt, paidAt);
+});
+
+test('deve preservar o primeiro paidAt quando perder o compare-and-set concorrente', async () => {
+  silenceServiceLogs();
+  useImmediateTransaction();
+
+  const winnerPaidAt = new Date('2026-08-10T10:00:00.000Z');
+  let losingAttemptPaidAt = null;
+
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, requestedPaidAt) => {
+    losingAttemptPaidAt = requestedPaidAt;
+    return {
+      marked: false,
+      invoice: {
+        id: invoiceId,
+        restaurantId: 60,
+        status: 'PAGO',
+        paidAt: winnerPaidAt,
+      },
+    };
+  };
+  billingRepository.findSubscriptionByRestaurantId = async () => null;
+  prisma.invoice.findMany = async () => [];
+  billingRepository.activateRestaurant = async (restaurantId) => ({
+    id: restaurantId,
+    active: true,
+  });
+
+  const result = await processPaymentService.execute({ invoiceId: 654 });
+
+  assert.ok(losingAttemptPaidAt instanceof Date);
+  assert.notEqual(losingAttemptPaidAt, winnerPaidAt);
+  assert.equal(result.status, 'PAGO');
+  assert.equal(result.paidAt, winnerPaidAt);
 });

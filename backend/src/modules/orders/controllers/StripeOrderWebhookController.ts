@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import Stripe from 'stripe';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -104,10 +105,7 @@ class StripeOrderWebhookController {
 
       return res.sendStatus(200);
     } catch (error: unknown) {
-      console.error(
-        '[ORDER_CARD_WEBHOOK_ERROR]',
-        error instanceof Error ? error.message : String(error),
-      );
+      console.error('[ORDER_CARD_WEBHOOK_ERROR]', { errorType: safeErrorName(error) });
 
       return res.sendStatus(500);
     }

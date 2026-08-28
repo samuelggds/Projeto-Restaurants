@@ -64,6 +64,7 @@ vi.mock('../../features/employee-help/EmployeeHelpCenter', () => ({
 vi.mock('./components/DeliveryMap', () => ({ default: () => <div>Mapa</div> }));
 
 import CourierWorkspace from './CourierWorkspace';
+import { clearAuthSession, persistAuthSession } from '../../modules/auth/session/authSession';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -139,8 +140,9 @@ describe('CourierWorkspace integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.socket.connected = true;
+    clearAuthSession();
     localStorage.clear();
-    localStorage.setItem('token', 'courier-token');
+    persistAuthSession({ id: 44, role: 'MOTOQUEIRO' }, 'courier-token');
     mocks.listeners.clear();
     mocks.socket.on.mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
       mocks.listeners.set(event, listener);

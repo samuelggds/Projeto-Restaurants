@@ -19,6 +19,7 @@ import * as S from './styles';
 import ordersService from '../../Services/ordersService';
 import { connectSocket, disconnectSocket } from '../../Services/socketService';
 import { useAuth } from '../../contexts/authContext';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
@@ -78,7 +79,7 @@ export default function CourierDashboard() {
   }, [orders]);
 
   function handleProfileUpdated(updatedUser) {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     if (token) login(updatedUser, token);
   }
 
@@ -123,7 +124,7 @@ export default function CourierDashboard() {
   }, [refreshKey]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     if (!token || !locationTrackingRequested) return;
 
     const socket = connectSocket(token, 'courier-dashboard');

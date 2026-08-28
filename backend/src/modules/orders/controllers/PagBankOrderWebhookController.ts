@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
@@ -258,9 +259,15 @@ class PagBankOrderWebhookController {
       return res.sendStatus(200);
     } catch (error: unknown) {
       const statusCode = error instanceof PagBankWebhookError ? error.statusCode : 500;
-      const message = error instanceof Error ? error.message : 'Erro interno no webhook PagBank.';
+      const message =
+        error instanceof PagBankWebhookError
+          ? error.message
+          : 'Erro interno no webhook PagBank.';
 
-      console.error('[ORDER_CARD_PAGBANK_WEBHOOK_ERROR]', message);
+      console.error('[ORDER_CARD_PAGBANK_WEBHOOK_ERROR]', {
+        statusCode,
+        errorType: safeErrorName(error),
+      });
 
       return res.status(statusCode).json({ error: message });
     }

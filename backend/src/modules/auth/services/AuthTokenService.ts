@@ -19,13 +19,18 @@ type AuthPayload = {
 type RefreshPayload = AuthPayload & {
   type: 'refresh';
   jti: string;
+  familyId: string;
 };
 
 type SignedRefreshToken = {
   token: string;
   jti: string;
+  familyId: string;
+  persistedJti: string;
   expiresAt: Date;
 };
+
+const REFRESH_TOKEN_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 function getSafeRefreshSecret() {
   const refreshSecret = getJwtRefreshSecret();
@@ -45,6 +50,51 @@ function normalizePayload(payload: AuthPayload) {
   };
 }
 
+function isValidRefreshIdentifier(value: string) {
+  return REFRESH_TOKEN_IDENTIFIER_PATTERN.test(value);
+}
+
+function getLegacyFamilyId(userId: number, jti: string) {
+  return crypto
+    .createHmac('sha256', getSafeRefreshSecret())
+    .update(`legacy-refresh-family:${userId}:${jti}`)
+    .digest('base64url')
+    .slice(0, 32);
+}
+
+function getRefreshTokenIdentifiers(decoded: jwt.JwtPayload) {
+  const userId = Number(decoded.id || 0);
+  const tokenJti = String(decoded.jti || '').trim();
+  const claimedFamilyId = String(decoded.familyId || '').trim();
+
+  if (
+    !Number.isInteger(userId) ||
+    userId <= 0 ||
+    !tokenJti ||
+    !isValidRefreshIdentifier(tokenJti)
+  ) {
+    throw new Error('Refresh token invalido');
+  }
+
+  if (claimedFamilyId && !isValidRefreshIdentifier(claimedFamilyId)) {
+    throw new Error('Refresh token invalido');
+  }
+
+  const isLegacy = !claimedFamilyId;
+  const familyId = claimedFamilyId || getLegacyFamilyId(userId, tokenJti);
+
+  return {
+    userId,
+    tokenJti,
+    familyId,
+    persistedJti: isLegacy ? tokenJti : `${familyId}.${tokenJti}`,
+  };
+}
+
+function belongsToFamily(persistedJti: string, familyId: string) {
+  return persistedJti.startsWith(`${familyId}.`);
+}
+
 class AuthTokenService {
   createAccessToken(payload: AuthPayload) {
     const normalized = normalizePayload(payload);
@@ -53,13 +103,17 @@ class AuthTokenService {
     });
   }
 
-  private signRefreshToken(payload: AuthPayload): SignedRefreshToken {
+  private signRefreshToken(
+    payload: AuthPayload,
+    familyId: string = crypto.randomUUID(),
+  ): SignedRefreshToken {
     const normalized = normalizePayload(payload);
     const jti = crypto.randomUUID();
     const refreshPayload: RefreshPayload = {
       ...normalized,
       type: 'refresh',
       jti,
+      familyId,
     };
 
     const token = jwt.sign(refreshPayload, getSafeRefreshSecret(), {
@@ -76,8 +130,70 @@ class AuthTokenService {
     return {
       token,
       jti,
+      familyId,
+      persistedJti: `${familyId}.${jti}`,
       expiresAt: new Date(exp * 1000),
     };
+  }
+
+  private async revokeCompromisedFamily({
+    userId,
+    familyId,
+    expectedAuthVersion,
+  }: {
+    userId: number;
+    familyId: string;
+    expectedAuthVersion: number;
+  }) {
+    return prisma.$transaction(async (transaction) => {
+      const activeSession = await transaction.authRefreshSession.findUnique({
+        where: { userId },
+        select: {
+          jti: true,
+          user: {
+            select: { authVersion: true },
+          },
+        },
+      });
+
+      if (
+        !activeSession ||
+        !belongsToFamily(String(activeSession.jti || ''), familyId) ||
+        Number(activeSession.user.authVersion) !== expectedAuthVersion
+      ) {
+        return false;
+      }
+
+      // O JTI exato funciona como fencing token: se um novo login substituir a
+      // família entre a leitura e a exclusão, essa transação não o revoga.
+      const revokedSession = await transaction.authRefreshSession.deleteMany({
+        where: {
+          userId,
+          jti: activeSession.jti,
+        },
+      });
+
+      if (revokedSession.count !== 1) {
+        return false;
+      }
+
+      const revokedAccountTokens = await transaction.user.updateMany({
+        where: {
+          id: userId,
+          authVersion: expectedAuthVersion,
+        },
+        data: {
+          authVersion: { increment: 1 },
+        },
+      });
+
+      if (revokedAccountTokens.count !== 1) {
+        // Lançar faz o Prisma desfazer também a exclusão da sessão.
+        throw new Error('Falha ao revogar familia de refresh token');
+      }
+
+      return true;
+    });
   }
 
   async createRefreshToken(payload: AuthPayload) {
@@ -89,12 +205,12 @@ class AuthTokenService {
         userId: normalized.id,
       },
       update: {
-        jti: signed.jti,
+        jti: signed.persistedJti,
         expiresAt: signed.expiresAt,
       },
       create: {
         userId: normalized.id,
-        jti: signed.jti,
+        jti: signed.persistedJti,
         expiresAt: signed.expiresAt,
       },
     });
@@ -108,18 +224,11 @@ class AuthTokenService {
       throw new Error('Refresh token invalido');
     }
 
-    const userId = Number(decoded.id || 0);
-    const jti = String(decoded.jti || '').trim();
+    const { userId, familyId, persistedJti } = getRefreshTokenIdentifiers(decoded);
     const tokenType = String(decoded.type || '').trim();
     const tokenAuthVersion = Number(decoded.authVersion);
 
-    if (
-      !Number.isInteger(userId) ||
-      userId <= 0 ||
-      !jti ||
-      !Number.isInteger(tokenAuthVersion) ||
-      tokenAuthVersion < 0
-    ) {
+    if (!Number.isInteger(tokenAuthVersion) || tokenAuthVersion < 0) {
       throw new Error('Refresh token invalido');
     }
 
@@ -148,7 +257,19 @@ class AuthTokenService {
     });
 
     const latestJti = String(session?.jti || '');
-    if (!latestJti || latestJti !== jti) {
+    if (!latestJti) {
+      throw new Error('Refresh token expirado');
+    }
+
+    if (latestJti !== persistedJti) {
+      if (belongsToFamily(latestJti, familyId)) {
+        await this.revokeCompromisedFamily({
+          userId,
+          familyId,
+          expectedAuthVersion: tokenAuthVersion,
+        });
+      }
+
       throw new Error('Refresh token expirado');
     }
 
@@ -169,20 +290,25 @@ class AuthTokenService {
       authVersion: session.user.authVersion,
     };
 
-    const nextRefresh = this.signRefreshToken(payload);
+    const nextRefresh = this.signRefreshToken(payload, familyId);
     const claimedSession = await prisma.authRefreshSession.updateMany({
       where: {
         userId,
-        jti,
+        jti: persistedJti,
         expiresAt: { gt: new Date() },
       },
       data: {
-        jti: nextRefresh.jti,
+        jti: nextRefresh.persistedJti,
         expiresAt: nextRefresh.expiresAt,
       },
     });
 
     if (claimedSession.count !== 1) {
+      await this.revokeCompromisedFamily({
+        userId,
+        familyId,
+        expectedAuthVersion: tokenAuthVersion,
+      });
       throw new Error('Refresh token expirado');
     }
 
@@ -191,6 +317,7 @@ class AuthTokenService {
     return {
       accessToken,
       refreshToken: nextRefresh.token,
+      userId: session.user.id,
     };
   }
 
@@ -200,16 +327,12 @@ class AuthTokenService {
       throw new Error('Refresh token invalido');
     }
 
-    const userId = Number(decoded.id || 0);
-    const jti = String(decoded.jti || '').trim();
-    if (!Number.isInteger(userId) || userId <= 0 || !jti) {
-      throw new Error('Refresh token invalido');
-    }
+    const { userId, persistedJti } = getRefreshTokenIdentifiers(decoded);
 
     await prisma.authRefreshSession.deleteMany({
       where: {
         userId,
-        jti,
+        jti: persistedJti,
       },
     });
   }

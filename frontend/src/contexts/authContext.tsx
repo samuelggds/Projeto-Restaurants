@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import api from '../Services/api';
+import api, { AuthSessionIdentityChangedError, refreshAccessToken } from '../Services/api';
 import { clearSystemBlockState } from '../Services/systemBlock';
 import { disconnectSocket } from '../Services/socketService';
 import {
   clearAuthSession,
-  getStoredAccessToken,
+  getAccessToken,
+  invalidateAuthSessionMemory,
   isAuthSnapshotCurrent,
   persistAuthSession,
 } from '../modules/auth/session/authSession';
@@ -104,27 +105,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function bootstrapAuth() {
       const storedUser = readStoredUser();
-      const token = getStoredAccessToken();
       const bootstrapRevision = authRevision.current;
+      let token: string | null = null;
 
       const sessionIsStillCurrent = () =>
         mounted &&
         isAuthSnapshotCurrent({
           snapshotToken: token,
-          currentToken: getStoredAccessToken(),
+          currentToken: getAccessToken(),
           snapshotRevision: bootstrapRevision,
           currentRevision: authRevision.current,
         });
 
-      if (!token) {
-        if (mounted) {
-          setUser(null);
-          setIsLoading(false);
-        }
-        return;
-      }
-
       try {
+        token = await refreshAccessToken(storedUser?.id);
+        if (!sessionIsStillCurrent()) return;
+
         const response = await api.get('/auth/me');
         const remoteUser = response?.data?.user || response?.data;
         const mergedUser = mergeUserData(remoteUser, storedUser);
@@ -135,13 +131,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (storedUser && sessionIsStillCurrent()) {
           setUser(storedUser);
         }
-      } catch {
+      } catch (error) {
         if (sessionIsStillCurrent()) {
-          clearAuthSession();
+          if (error instanceof AuthSessionIdentityChangedError) {
+            invalidateAuthSessionMemory();
+          } else {
+            clearAuthSession();
+          }
           setUser(null);
         }
       } finally {
-        if (sessionIsStillCurrent() || (mounted && !getStoredAccessToken())) {
+        if (sessionIsStillCurrent() || (mounted && !getAccessToken())) {
           setIsLoading(false);
         }
       }
