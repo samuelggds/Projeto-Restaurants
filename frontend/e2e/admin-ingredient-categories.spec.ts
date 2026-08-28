@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-test('admin separa ingredientes em categorias dinâmicas e configura cada grupo', async ({ page }) => {
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
+test('admin separa ingredientes em categorias dinâmicas e configura cada grupo', async ({
+  page,
+}) => {
   const ingredients = [
     { id: 1, name: 'Massa fina', category: 'Massas', price: 0, active: true },
     { id: 2, name: 'Massa grossa', category: 'Massas', price: 2, active: true },
@@ -52,12 +56,18 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ user: { id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 } }),
+        body: JSON.stringify({
+          user: { id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 },
+        }),
       });
       return;
     }
     if (pathname === '/billing/invoices') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"invoices":[]}' });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '{"invoices":[]}',
+      });
       return;
     }
     if (pathname === '/products' && request.method() === 'GET') {
@@ -85,19 +95,31 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
           }),
         ),
       };
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(product) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(product),
+      });
       return;
     }
     if (pathname === '/ingredients') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ingredients, count: ingredients.length, categories: ['Adicionais', 'Massas', 'Molhos'] }),
+        body: JSON.stringify({
+          ingredients,
+          count: ingredients.length,
+          categories: ['Adicionais', 'Massas', 'Molhos'],
+        }),
       });
       return;
     }
     if (pathname === '/categories') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"categories":[{"id":10,"name":"Principais","active":true}]}' });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '{"categories":[{"id":10,"name":"Principais","active":true}]}',
+      });
       return;
     }
     if (pathname === '/orders') {
@@ -105,7 +127,11 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
       return;
     }
     if (pathname === '/settings') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"id":1,"restaurant":{"id":9,"name":"Restaurante Teste"}}' });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '{"id":1,"restaurant":{"id":9,"name":"Restaurante Teste"}}',
+      });
       return;
     }
     if (pathname === '/banners' || pathname === '/employees') {
@@ -117,12 +143,12 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
 
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-admin-token');
     localStorage.setItem(
       'user',
       JSON.stringify({ id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 }),
     );
   });
+  await mockAuthRefresh(page, 9, 'e2e-admin-token');
   await page.goto('/admin');
 
   await page.getByRole('button', { name: 'Cardápio' }).click();
@@ -178,7 +204,6 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
 test('editor de produto permanece contido e utilizável no celular', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-admin-token');
     localStorage.setItem(
       'user',
       JSON.stringify({ id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 }),
@@ -205,9 +230,7 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
         ],
       },
       '/ingredients': {
-        ingredients: [
-          { id: 1, name: 'Massa fina', category: 'Massas', price: 0, active: true },
-        ],
+        ingredients: [{ id: 1, name: 'Massa fina', category: 'Massas', price: 0, active: true }],
         count: 1,
         categories: ['Massas'],
       },
@@ -225,6 +248,8 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
     });
   });
 
+  await mockAuthRefresh(page, 9, 'e2e-admin-token');
+
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Cardápio' }).click();
   await page.getByRole('button', { name: 'Opções de Produto artesanal' }).click();
@@ -239,9 +264,9 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
     dialog.getByRole('navigation', { name: 'Etapas do cadastro do produto' }),
   ).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Apresente o produto' })).toHaveCount(1);
-  await expect(
-    dialog.getByRole('heading', { name: 'Organize a montagem do cliente' }),
-  ).toHaveCount(1);
+  await expect(dialog.getByRole('heading', { name: 'Organize a montagem do cliente' })).toHaveCount(
+    1,
+  );
   await expect(dialog.getByRole('heading', { name: 'Disponibilidade e revisão' })).toHaveCount(1);
 
   const overflowReport = await dialog.evaluate((element) => {
@@ -257,7 +282,8 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
         };
       })
       .filter(
-        ({ left, right }) => left < Math.floor(dialogRect.left) || right > Math.ceil(dialogRect.right),
+        ({ left, right }) =>
+          left < Math.floor(dialogRect.left) || right > Math.ceil(dialogRect.right),
       )
       .slice(0, 5);
 

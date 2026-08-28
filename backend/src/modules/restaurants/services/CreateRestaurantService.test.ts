@@ -43,12 +43,12 @@ function validPayload() {
     admin: {
       name: 'Administrador',
       email: 'admin@pizzasegura.com',
-      password: 'T3mporaria!Admin2026',
+      password: 'Segura1!',
     },
   };
 }
 
-test('usa trial do plano, senha forte e auditoria no mesmo contexto transacional', async () => {
+test('usa trial do plano, senha forte de oito caracteres e auditoria no mesmo contexto', async () => {
   const transaction = {
     user: {
       findUnique: async ({ where }) => ({
@@ -144,6 +144,9 @@ test('rejeita senha temporária fraca antes de consultar ou gravar dados', async
   const payload = validPayload();
   payload.admin.password = 'senha123';
 
-  await assert.rejects(() => createRestaurantService.execute(payload), /senha temporária|16/u);
+  await assert.rejects(
+    () => createRestaurantService.execute(payload),
+    /senha temporária.*(?:maiúscula|previsível)/u,
+  );
   assert.equal(repositoryCalls, 0);
 });

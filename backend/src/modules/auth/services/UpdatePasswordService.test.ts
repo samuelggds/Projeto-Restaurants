@@ -39,24 +39,36 @@ test('conta em troca obrigatória rejeita nova senha fraca', async () => {
 
   await assert.rejects(
     () => updatePasswordService.execute(17, currentPassword, 'Senha123!'),
-    /entre 16 e 128 caracteres|previsível/,
+    /previsível/,
   );
   assert.equal(updated, false);
 });
 
-test('SUPER_ADMIN sempre precisa usar senha forte, mesmo após o primeiro acesso', async () => {
+test('SUPER_ADMIN sempre precisa usar todas as classes, mesmo após o primeiro acesso', async () => {
   const currentPassword = await installUser({
     role: 'SUPER_ADMIN',
     mustChangePassword: false,
   });
 
   await assert.rejects(
-    () => updatePasswordService.execute(17, currentPassword, 'short-2A!'),
-    /entre 16 e 128 caracteres/,
+    () => updatePasswordService.execute(17, currentPassword, 'Curta123'),
+    /símbolo/u,
   );
 });
 
-test('troca obrigatória aceita senha forte, revoga refresh e persiste novo hash', async () => {
+test('conta comum também precisa usar maiúscula, minúscula, número e símbolo', async () => {
+  const currentPassword = await installUser({
+    role: 'CLIENTE',
+    mustChangePassword: false,
+  });
+
+  await assert.rejects(
+    () => updatePasswordService.execute(17, currentPassword, 'sem-maiuscula1!'),
+    /maiúscula/u,
+  );
+});
+
+test('troca obrigatória aceita senha forte com oito caracteres, revoga refresh e persiste hash', async () => {
   const currentPassword = await installUser();
   let persistedHash = '';
   let refreshSessionsRevoked = false;
@@ -74,7 +86,7 @@ test('troca obrigatória aceita senha forte, revoga refresh e persiste novo hash
       },
     });
 
-  const newPassword = 'Nova-Chave-Forte-2026!';
+  const newPassword = 'Segura1!';
   const result = await updatePasswordService.execute(17, currentPassword, newPassword);
 
   assert.equal(result.mustChangePassword, false);

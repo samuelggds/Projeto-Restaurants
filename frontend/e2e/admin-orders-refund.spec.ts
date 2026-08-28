@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
 type MockOrder = {
   id: number;
   restaurantId: number;
@@ -133,7 +135,6 @@ async function mockAdminApi(page: Page, state: TestState) {
   await page.addInitScript(() => {
     localStorage.clear();
     sessionStorage.clear();
-    localStorage.setItem('token', 'e2e-admin-token');
     localStorage.setItem(
       'user',
       JSON.stringify({
@@ -144,6 +145,7 @@ async function mockAdminApi(page: Page, state: TestState) {
       }),
     );
   });
+  await mockAuthRefresh(page, 9, 'e2e-admin-token');
 }
 
 test('admin cancela Pix online com estorno único e distingue pagamento na entrega', async ({
@@ -164,26 +166,20 @@ test('admin cancela Pix online com estorno único e distingue pagamento na entre
 
   const payOnDeliveryOrder = page.locator('article.order-card').filter({ hasText: '#702' });
   await expect(payOnDeliveryOrder).toContainText('Pago na entrega');
-  await expect(payOnDeliveryOrder).toContainText(
-    'Pagamento na entrega exige devolução manual',
-  );
+  await expect(payOnDeliveryOrder).toContainText('Pagamento na entrega exige devolução manual');
   await expect(payOnDeliveryOrder).not.toContainText('estorno automático ao cancelar');
   await expect(
     payOnDeliveryOrder.getByRole('button', { name: 'Cancelar e estornar o pedido #702' }),
   ).toHaveCount(0);
 
-  await onlinePixOrder
-    .getByRole('button', { name: 'Cancelar e estornar o pedido #701' })
-    .click();
+  await onlinePixOrder.getByRole('button', { name: 'Cancelar e estornar o pedido #701' }).click();
 
   const confirmation = page.getByRole('dialog');
   await expect(confirmation).toContainText('Cancelar pedido e solicitar estorno?');
   await expect(confirmation).toContainText(
     'o estorno de R$ 72,50 será solicitado automaticamente no Pix',
   );
-  await confirmation
-    .getByRole('button', { name: 'Cancelar e estornar', exact: true })
-    .click();
+  await confirmation.getByRole('button', { name: 'Cancelar e estornar', exact: true }).click();
 
   await expect.poll(() => state.refundRequests).toBe(1);
   await expect(page.getByText('Pedido #701 cancelado e estorno solicitado.')).toBeVisible();

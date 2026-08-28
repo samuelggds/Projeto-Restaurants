@@ -4,6 +4,11 @@ import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { Utensils, Sun, Moon } from 'lucide-react';
 import authService from '../../Services/authService'; // Ajuste o caminho conforme seu projeto
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  STANDARD_PASSWORD_POLICY,
+} from '../../features/password-policy';
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 
@@ -17,13 +22,28 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const passwordEvaluation = evaluatePassword(
+    password,
+    confirmPassword,
+    STANDARD_PASSWORD_POLICY,
+  );
+  const passwordHasError =
+    password.length > 0 &&
+    passwordEvaluation.requirements.some(
+      (requirement) => requirement.id !== 'confirmation' && !requirement.met,
+    );
+  const confirmationHasError =
+    confirmPassword.length > 0 &&
+    passwordEvaluation.requirements.some(
+      (requirement) => requirement.id === 'confirmation' && !requirement.met,
+    );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validação básica de senhas incompatíveis antes de enviar para a API
-    if (password !== confirmPassword) {
-      return toast.error('As senhas não coincidem!');
+    if (!passwordEvaluation.isValid) {
+      toast.error(passwordEvaluation.errors[0]);
+      return;
     }
 
     try {
@@ -54,7 +74,11 @@ export default function Register() {
       <S.Container>
         {/* INTERRUPTOR DE TEMA (SOL/LUA) NO TOPO */}
         <S.TopBar>
-          <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
+          <S.ThemeToggleButton
+            type="button"
+            aria-label={isDarkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            onClick={() => setIsDarkMode(!isDarkMode)}
+          >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </S.ThemeToggleButton>
         </S.TopBar>
@@ -116,9 +140,14 @@ export default function Register() {
                 <S.Input
                   id="password"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
+                  autoComplete="new-password"
+                  minLength={STANDARD_PASSWORD_POLICY.minLength}
+                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  aria-invalid={passwordHasError}
+                  aria-describedby="register-password-requirements"
                   required
                 />
               </S.InputGroup>
@@ -130,13 +159,27 @@ export default function Register() {
                   id="confirmPassword"
                   type="password"
                   placeholder="Repita sua senha"
+                  autoComplete="new-password"
+                  minLength={STANDARD_PASSWORD_POLICY.minLength}
+                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  aria-invalid={confirmationHasError}
+                  aria-describedby="register-password-requirements"
                   required
                 />
               </S.InputGroup>
 
-              <S.Button type="submit">Finalizar Cadastro</S.Button>
+              <PasswordRequirements
+                id="register-password-requirements"
+                password={password}
+                confirmation={confirmPassword}
+                policy={STANDARD_PASSWORD_POLICY}
+              />
+
+              <S.Button type="submit" disabled={!passwordEvaluation.isValid}>
+                Finalizar Cadastro
+              </S.Button>
             </S.Form>
 
             <S.RegisterText>

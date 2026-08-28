@@ -6,7 +6,7 @@ import {
   validateInitialSuperAdminPassword,
 } from './superAdminBootstrapConfig.js';
 
-const securePassword = 'V3ry-Str0ng-Bootstrap!';
+const securePassword = 'Segura1!';
 
 test('produção habilita o bootstrap por padrão e normaliza sua identidade', () => {
   assert.deepEqual(
@@ -53,6 +53,7 @@ test('valida identidade, fonte única do segredo e caminho absoluto', () => {
 
 test('senha inicial exige comprimento, diversidade e rejeita placeholders', () => {
   assert.deepEqual(validateInitialSuperAdminPassword(securePassword), []);
-  assert.match(validateInitialSuperAdminPassword('password').join(' '), /entre 16.*minúscula.*previsível/u);
+  assert.match(validateInitialSuperAdminPassword('pass').join(' '), /entre 8.*minúscula/u);
+  assert.match(validateInitialSuperAdminPassword('Password1!').join(' '), /previsível/u);
   assert.match(validateInitialSuperAdminPassword(`Aa1!${'x'.repeat(69)}`).join(' '), /72 bytes/u);
 });

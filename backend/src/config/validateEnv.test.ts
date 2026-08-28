@@ -104,8 +104,14 @@ test('nao permite desativar ou configurar uma senha inicial fraca no bootstrap d
 
   assert.throws(
     () => validateCriticalEnv(),
-    /SUPER_ADMIN_BOOTSTRAP_ENABLED deve ser true.*senha inicial deve conter entre 16 e 128.*valor previs.vel/i,
+    /SUPER_ADMIN_BOOTSTRAP_ENABLED deve ser true.*senha inicial deve conter.*valor previs.vel/i,
   );
+});
+
+test('bootstrap de producao rejeita senha com menos de oito caracteres', () => {
+  process.env.SUPER_ADMIN_BOOTSTRAP_PASSWORD = 'Ab1!xyz';
+
+  assert.throws(() => validateCriticalEnv(), /senha inicial deve conter entre 8 e 128/i);
 });
 
 test('permite desativar explicitamente o calculo de rota', () => {
@@ -169,10 +175,7 @@ test('exige um transporte SMTP utilizável para entregar o MFA em produção', (
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PASS;
 
-  assert.throws(
-    () => validateCriticalEnv(),
-    /SMTP_HOST e obrigatoria.*SMTP_PASS e obrigatoria/i,
-  );
+  assert.throws(() => validateCriticalEnv(), /SMTP_HOST e obrigatoria.*SMTP_PASS e obrigatoria/i);
 
   setValidProductionEnv();
   process.env.SMTP_AUTH_TYPE = 'oauth2';

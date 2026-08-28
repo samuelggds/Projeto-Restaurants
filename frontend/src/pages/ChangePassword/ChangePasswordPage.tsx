@@ -4,7 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext';
-import { validatePrivilegedPassword } from './domain/passwordChangePolicy';
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  PRIVILEGED_PASSWORD_POLICY,
+} from '../../features/password-policy';
 import * as S from './styles';
 
 export default function ChangePasswordPage() {
@@ -15,6 +19,11 @@ export default function ChangePasswordPage() {
   const [confirmation, setConfirmation] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordEvaluation = evaluatePassword(
+    newPassword,
+    confirmation,
+    PRIVILEGED_PASSWORD_POLICY,
+  );
 
   const leaveSession = () => {
     logout();
@@ -29,14 +38,8 @@ export default function ChangePasswordPage() {
       setErrorMessage('Informe a senha temporária atual.');
       return;
     }
-    if (newPassword !== confirmation) {
-      setErrorMessage('A confirmação não corresponde à nova senha.');
-      return;
-    }
-
-    const policyErrors = validatePrivilegedPassword(newPassword);
-    if (policyErrors.length) {
-      setErrorMessage(policyErrors.join(' '));
+    if (!passwordEvaluation.isValid) {
+      setErrorMessage(passwordEvaluation.errors.join(' '));
       return;
     }
 
@@ -87,8 +90,17 @@ export default function ChangePasswordPage() {
             <S.Input
               type="password"
               autoComplete="new-password"
+              minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
+              maxLength={PRIVILEGED_PASSWORD_POLICY.maxLength}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
+              aria-describedby="change-password-requirements"
+              aria-invalid={
+                newPassword.length > 0 &&
+                passwordEvaluation.requirements.some(
+                  (requirement) => requirement.id !== 'confirmation' && !requirement.met,
+                )
+              }
               disabled={isSubmitting}
             />
           </S.Field>
@@ -98,16 +110,27 @@ export default function ChangePasswordPage() {
             <S.Input
               type="password"
               autoComplete="new-password"
+              minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
+              maxLength={PRIVILEGED_PASSWORD_POLICY.maxLength}
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
+              aria-describedby="change-password-requirements"
+              aria-invalid={
+                confirmation.length > 0 &&
+                passwordEvaluation.requirements.some(
+                  (requirement) => requirement.id === 'confirmation' && !requirement.met,
+                )
+              }
               disabled={isSubmitting}
             />
           </S.Field>
 
-          <S.Policy>
-            Use 16 ou mais caracteres, com maiúscula, minúscula, número e símbolo. O limite
-            técnico é 72 bytes.
-          </S.Policy>
+          <PasswordRequirements
+            id="change-password-requirements"
+            password={newPassword}
+            confirmation={confirmation}
+            policy={PRIVILEGED_PASSWORD_POLICY}
+          />
 
           {errorMessage ? (
             <S.ErrorMessage role="alert" aria-live="polite">
@@ -116,7 +139,10 @@ export default function ChangePasswordPage() {
           ) : null}
 
           <S.Actions>
-            <S.PrimaryButton type="submit" disabled={isSubmitting}>
+            <S.PrimaryButton
+              type="submit"
+              disabled={isSubmitting || !currentPassword || !passwordEvaluation.isValid}
+            >
               {isSubmitting ? 'Alterando…' : 'Alterar senha e continuar'}
             </S.PrimaryButton>
             <S.SecondaryButton type="button" onClick={leaveSession} disabled={isSubmitting}>

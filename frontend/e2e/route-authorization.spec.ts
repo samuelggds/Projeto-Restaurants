@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
 async function mockSession(page: Page, user: Record<string, unknown> | null) {
   await page.route('http://127.0.0.1:3000/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -16,10 +18,13 @@ async function mockSession(page: Page, user: Record<string, unknown> | null) {
   await page.addInitScript((sessionUser) => {
     localStorage.clear();
     if (sessionUser) {
-      localStorage.setItem('token', 'e2e-token');
       localStorage.setItem('user', JSON.stringify(sessionUser));
     }
   }, user);
+
+  if (user) {
+    await mockAuthRefresh(page, Number(user.id), 'e2e-token');
+  }
 }
 
 test('Home é pública e rota privada exige login', async ({ page }) => {

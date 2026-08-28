@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
+import { Button as SharedButton } from '../Login/styles';
 
 export {
   lightTheme,
@@ -19,8 +20,17 @@ export {
   InputGroup,
   Label,
   Input,
-  Button,
 } from '../Login/styles';
+
+export const Button = styled(SharedButton)`
+  &:disabled,
+  &:disabled:hover {
+    background-color: ${(props) => props.theme.primary};
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+`;
 
 export const SwitchRow = styled.div`
   display: grid;

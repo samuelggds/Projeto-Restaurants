@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordSchema } from './PasswordValidator.js';
 
 export const forgotPasswordSchema = z
   .object({
@@ -18,8 +19,8 @@ export const resetPasswordSchema = z
       .string()
       .trim()
       .regex(/^\d{6}$/, 'Codigo invalido'),
-    newPassword: z.string().min(6, 'A nova senha deve ter pelo menos 6 caracteres'),
-    confirmPassword: z.string().min(6, 'Confirme a nova senha'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, 'Confirme a nova senha'),
   })
   .refine((data) => Boolean(data.email || data.phone), {
     message: 'Informe e-mail ou telefone',

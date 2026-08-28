@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
 test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate no pedido', async ({
   page,
 }) => {
@@ -227,12 +229,12 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
 
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-customer-token');
     localStorage.setItem(
       'user',
       JSON.stringify({ id: 22, name: 'Cliente Teste', role: 'CLIENTE', phone: '85999999999' }),
     );
   });
+  await mockAuthRefresh(page, 22, 'e2e-customer-token');
   await page.goto('/restaurante-teste');
 
   const featuredOffers = page.getByRole('region', { name: 'Ofertas em destaque' });
@@ -457,12 +459,12 @@ test('campanha criada com a Home aberta aparece quando o cliente volta para a ab
 
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-customer-token');
     localStorage.setItem(
       'user',
       JSON.stringify({ id: 22, name: 'Cliente Teste', role: 'CLIENTE' }),
     );
   });
+  await mockAuthRefresh(page, 22, 'e2e-customer-token');
   await page.goto('/restaurante-teste');
 
   await expect(

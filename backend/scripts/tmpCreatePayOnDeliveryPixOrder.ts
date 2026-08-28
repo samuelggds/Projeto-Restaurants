@@ -2,8 +2,10 @@ import './_shared/disabledLegacyScript.mjs';
 import dotenv from 'dotenv';
 dotenv.config({ path: 'backend/.env' });
 
+import bcrypt from 'bcrypt';
 import prisma from '../src/config/prisma.js';
 import { OrderStatus, OrderType, PaymentMethod, UserRole } from '@prisma/client';
+import { generateStrongRandomPassword } from '../src/modules/auth/security/passwordPolicy.js';
 
 async function main() {
   const courier = await prisma.user.findFirst({
@@ -24,11 +26,12 @@ async function main() {
   });
 
   if (!customer) {
+    const passwordHash = await bcrypt.hash(generateStrongRandomPassword(), 10);
     customer = await prisma.user.create({
       data: {
         name: 'Cliente Teste PayOnDelivery',
         email: `cliente.payondelivery.${Date.now()}@pizzaia.demo`,
-        password: '123456',
+        password: passwordHash,
         role: UserRole.CLIENTE,
         active: true,
         phone: '+5585999998888',

@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 42;
 const OTHER_RESTAURANT_ID = 84;
@@ -442,15 +443,13 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
     return json(route, { error: 'Endpoint não mockado no cenário do motoqueiro.' }, 404);
   });
 
-  await page.addInitScript(
-    ({ token, user }) => {
-      localStorage.clear();
-      sessionStorage.clear();
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { token: COURIER_TOKEN, user: courierUser },
-  );
+  await mockAuthRefresh(page, courierUser.id, COURIER_TOKEN);
+
+  await page.addInitScript((user) => {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem('user', JSON.stringify(user));
+  }, courierUser);
 }
 
 async function enableSyntheticLocation(context: BrowserContext) {
@@ -529,15 +528,14 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
     state.unexpectedRequests.push(`${method} ${pathname}`);
     return json(route, { error: 'Endpoint não autorizado para este cliente.' }, 403);
   });
-  await page.addInitScript(
-    ({ token, user }) => {
-      localStorage.clear();
-      sessionStorage.clear();
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { token: CUSTOMER_TOKEN, user: customerUser },
-  );
+
+  await mockAuthRefresh(page, customerUser.id, CUSTOMER_TOKEN);
+
+  await page.addInitScript((user) => {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem('user', JSON.stringify(user));
+  }, customerUser);
 
   return {
     markDelivered() {

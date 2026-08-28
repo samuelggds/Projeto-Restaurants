@@ -74,17 +74,6 @@ export function downloadCsv(filename: string, headers: string[], rows: unknown[]
   URL.revokeObjectURL(url);
 }
 
-export function passwordErrors(password: string) {
-  const errors: string[] = [];
-  if (password.length < 16) errors.push('Use pelo menos 16 caracteres.');
-  if (!/[a-z]/.test(password)) errors.push('Inclua uma letra minúscula.');
-  if (!/[A-Z]/.test(password)) errors.push('Inclua uma letra maiúscula.');
-  if (!/\d/.test(password)) errors.push('Inclua um número.');
-  if (!/[^A-Za-z0-9]/.test(password)) errors.push('Inclua um símbolo.');
-  if (/^(password|senha|admin|1234)/i.test(password)) errors.push('Evite senhas previsíveis.');
-  return errors;
-}
-
 export function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }

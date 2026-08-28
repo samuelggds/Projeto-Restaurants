@@ -1,10 +1,14 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  PRIVILEGED_PASSWORD_POLICY,
+} from '../../../features/password-policy';
 import superAdminService, { type CreateRestaurantInput } from '../../../Services/superAdminService';
 import {
   formatCurrency,
   normalizeEmail,
-  passwordErrors,
   requestErrorMessage,
   slugify,
 } from '../domain/superAdminDomain';
@@ -26,9 +30,10 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const selectedPlan = plans.find((plan) => plan.code === form.plan);
-  const passwordRequirements = useMemo(
-    () => passwordErrors(form.admin.password),
-    [form.admin.password],
+  const passwordEvaluation = useMemo(
+    () =>
+      evaluatePassword(form.admin.password, form.passwordConfirmation, PRIVILEGED_PASSWORD_POLICY),
+    [form.admin.password, form.passwordConfirmation],
   );
 
   const setRestaurant = (field: keyof Form['restaurant'], value: string) => {
@@ -51,12 +56,8 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
       setError('Selecione um plano ativo.');
       return;
     }
-    if (passwordRequirements.length) {
-      setError(passwordRequirements.join(' '));
-      return;
-    }
-    if (form.admin.password !== form.passwordConfirmation) {
-      setError('A confirmação da senha não confere.');
+    if (!passwordEvaluation.isValid) {
+      setError(passwordEvaluation.errors.join(' '));
       return;
     }
     setSaving(true);
@@ -172,32 +173,38 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
             <input
               required
               type="password"
-              minLength={16}
-              maxLength={72}
+              minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
+              maxLength={PRIVILEGED_PASSWORD_POLICY.maxLength}
               autoComplete="new-password"
+              aria-describedby="restaurant-admin-password-requirements"
               value={form.admin.password}
               onChange={(e) => setAdmin('password', e.target.value)}
             />
-            <small>
-              {form.admin.password
-                ? passwordRequirements[0] || 'Senha forte.'
-                : '16+ caracteres, com maiúscula, minúscula, número e símbolo.'}
-            </small>
           </label>
           <label>
             Confirmar senha
             <input
               required
               type="password"
-              minLength={16}
-              maxLength={72}
+              minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
+              maxLength={PRIVILEGED_PASSWORD_POLICY.maxLength}
               autoComplete="new-password"
+              aria-describedby="restaurant-admin-password-requirements"
               value={form.passwordConfirmation}
               onChange={(e) =>
                 setForm((current) => ({ ...current, passwordConfirmation: e.target.value }))
               }
             />
           </label>
+          <div className="wide">
+            <PasswordRequirements
+              id="restaurant-admin-password-requirements"
+              password={form.admin.password}
+              confirmation={form.passwordConfirmation}
+              policy={PRIVILEGED_PASSWORD_POLICY}
+              title="A senha temporária precisa ter:"
+            />
+          </div>
           <label className="wide">
             Plano
             <select
@@ -234,7 +241,7 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
           <button className="cancel" type="button" onClick={onClose}>
             Cancelar
           </button>
-          <button className="submit" type="submit" disabled={saving}>
+          <button className="submit" type="submit" disabled={saving || !passwordEvaluation.isValid}>
             {saving ? 'Criando…' : 'Criar restaurante'}
           </button>
         </footer>

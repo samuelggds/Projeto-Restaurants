@@ -77,9 +77,26 @@ async function installResetState() {
 const validPayload = {
   email: 'client@example.test',
   code: '123456',
-  newPassword: 'new-password-123',
-  confirmPassword: 'new-password-123',
+  newPassword: 'New-password-123!',
+  confirmPassword: 'New-password-123!',
 };
+
+test('conta comum também rejeita redefinição sem todas as classes obrigatórias', async () => {
+  const { state, revoked } = await installResetState();
+
+  await assert.rejects(
+    () =>
+      resetPasswordByCodeService.execute({
+        ...validPayload,
+        newPassword: 'sem-maiuscula1!',
+        confirmPassword: 'sem-maiuscula1!',
+      }),
+    /maiúscula/u,
+  );
+
+  assert.notEqual(state.resetPasswordCodeHash, null);
+  assert.equal(revoked(), 0);
+});
 
 test('bloqueia recuperação após cinco códigos inválidos', async () => {
   const { state } = await installResetState();
@@ -112,25 +129,22 @@ test('SUPER_ADMIN não consegue redefinir a conta com senha fraca', async () => 
   const { state, revoked } = await installResetState();
   state.role = 'SUPER_ADMIN';
 
-  await assert.rejects(
-    () => resetPasswordByCodeService.execute(validPayload),
-    /entre 16 e 128 caracteres|previsível/,
-  );
+  await assert.rejects(() => resetPasswordByCodeService.execute(validPayload), /previsível/);
 
   assert.notEqual(state.resetPasswordCodeHash, null);
   assert.equal(state.authVersion, 2);
   assert.equal(revoked(), 0);
 });
 
-test('recuperação forte do SUPER_ADMIN conclui a troca obrigatória e usa bcrypt 12', async () => {
+test('recuperação do SUPER_ADMIN aceita senha forte com oito caracteres e usa bcrypt 12', async () => {
   const { state, revoked } = await installResetState();
   state.role = 'SUPER_ADMIN';
   state.mustChangePassword = true;
 
   await resetPasswordByCodeService.execute({
     ...validPayload,
-    newPassword: 'Nova-Chave-Forte-2026!',
-    confirmPassword: 'Nova-Chave-Forte-2026!',
+    newPassword: 'Segura1!',
+    confirmPassword: 'Segura1!',
   });
 
   assert.equal(state.mustChangePassword, false);

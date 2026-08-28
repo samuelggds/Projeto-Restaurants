@@ -44,6 +44,8 @@ import {
   loadTablePaymentLedgerItems,
   lockTablePaymentSession,
 } from '../../tableAccount/services/tablePaymentLedger.js';
+import bcrypt from 'bcrypt';
+import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -67,6 +69,7 @@ type CreateOrderPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+  guestPasswordHash?: string;
   tableId?: number | string | null;
   couponRedemptionId?: number | string | null;
   items: OrderItemInput[];
@@ -87,6 +90,7 @@ type ResolveOrderUserPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+  guestPasswordHash?: string;
 };
 
 type ResolvePaymentStatePayload = {
@@ -134,6 +138,7 @@ class CreateOrderService {
     customerName,
     customerCpf,
     customerPhone,
+    guestPasswordHash,
   }: ResolveOrderUserPayload) {
     const normalizedPhone = this.normalizePhone(customerPhone);
 
@@ -164,7 +169,9 @@ class CreateOrderService {
     }
 
     const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
-    const guestPassword = `guest-${restaurantId}-${cpfDigits}`;
+    if (!guestPasswordHash) {
+      throw new Error('Não foi possível proteger a credencial interna do cliente convidado.');
+    }
 
     const guestUser = await tx.user.upsert({
       where: {
@@ -182,7 +189,7 @@ class CreateOrderService {
       create: {
         name: normalizedName,
         email: guestEmail,
-        password: guestPassword,
+        password: guestPasswordHash,
         role: 'CLIENTE',
         active: true,
         phone: normalizedPhone,
@@ -327,17 +334,17 @@ class CreateOrderService {
       type === OrderType.MESA
         ? tableOrderContinuationInputSchema.parse({
             settlementMode:
-              String(settlementMode || '').trim().toUpperCase() ||
-              (tablePaymentMethod ? TableOrderSettlementMode.PAY_NOW : TableOrderSettlementMode.TABLE_ACCOUNT),
+              String(settlementMode || '')
+                .trim()
+                .toUpperCase() ||
+              (tablePaymentMethod
+                ? TableOrderSettlementMode.PAY_NOW
+                : TableOrderSettlementMode.TABLE_ACCOUNT),
             ...(tablePaymentMethod ? { paymentMethod: tablePaymentMethod } : {}),
           })
         : null;
 
-    if (
-      type === OrderType.MESA &&
-      normalizedRequestedPaymentMethod &&
-      !tablePaymentMethod
-    ) {
+    if (type === OrderType.MESA && normalizedRequestedPaymentMethod && !tablePaymentMethod) {
       throw new Error(
         'O pedido da mesa só aceita PIX ou cartão no pagamento imediato. Dinheiro e maquininha são registrados na conta pelo garçom.',
       );
@@ -495,6 +502,11 @@ class CreateOrderService {
       }
     }
 
+    const guestPasswordHash =
+      type !== OrderType.MESA && !userId
+        ? await bcrypt.hash(generateStrongRandomPassword(), 10)
+        : undefined;
+
     const createdOrder = await prisma.$transaction(
       async (tx) => {
         let tableParticipant: {
@@ -505,13 +517,11 @@ class CreateOrderService {
         } | null = null;
 
         if (type === OrderType.MESA) {
-          await lockTablePaymentSession(
-            tx,
+          await lockTablePaymentSession(tx, resolvedRestaurantId, Number(tableSessionId));
+          const tableAccountSettings = await tableAccountSettingsRepository.findByRestaurantId(
             resolvedRestaurantId,
-            Number(tableSessionId),
+            tx,
           );
-          const tableAccountSettings =
-            await tableAccountSettingsRepository.findByRestaurantId(resolvedRestaurantId, tx);
           const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
           if (
             !session ||
@@ -562,7 +572,7 @@ class CreateOrderService {
 
         const resolvedUserId =
           type === OrderType.MESA
-            ? tableParticipant?.userId ?? null
+            ? (tableParticipant?.userId ?? null)
             : await this.resolveOrderUser({
                 tx,
                 userId,
@@ -570,6 +580,7 @@ class CreateOrderService {
                 customerName,
                 customerCpf,
                 customerPhone,
+                guestPasswordHash,
               });
 
         const pricing = await orderPricingService.quote({
@@ -583,8 +594,10 @@ class CreateOrderService {
         const { products, orderItems } = pricing;
 
         if (type === OrderType.MESA) {
-          const tableAccountSettings =
-            await tableAccountSettingsRepository.findByRestaurantId(resolvedRestaurantId, tx);
+          const tableAccountSettings = await tableAccountSettingsRepository.findByRestaurantId(
+            resolvedRestaurantId,
+            tx,
+          );
           if (!tableAccountSettings.enabled) {
             throw new Error(
               'A conta por mesa está desativada. Peça ao administrador para revisar as configurações.',

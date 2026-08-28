@@ -1,5 +1,6 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import { z } from 'zod';
+import { passwordSchema } from './PasswordValidator.js';
 
 const phoneRegex =
   /^(?:\+?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\s?-?\s?(\d{4}))$/;
@@ -30,8 +31,8 @@ export const EmployeeUserSchema = z
   .object({
     name: employeeNameSchema,
     email: employeeEmailSchema,
-    password: z.string().min(6, 'Senha deve conter no mínimo 6 caracteres!'),
-    confirmPassword: z.string().min(6, 'Confirmação de senha obrigatória'),
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, 'Confirmação de senha obrigatória'),
     role: z
       .nativeEnum(UserRole)
       .optional()

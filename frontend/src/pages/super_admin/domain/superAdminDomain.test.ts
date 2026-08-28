@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   normalizeEmail,
-  passwordErrors,
   slugify,
   superAdminPath,
   toCsv,
@@ -47,18 +46,6 @@ describe('superAdminDomain', () => {
 
     expect(csv).toContain('"\'=2+2"');
     expect(csv).toContain('"Cliente ""VIP"""');
-  });
-
-  it('exige senha administrativa forte', () => {
-    expect(passwordErrors('senha123')).toEqual(
-      expect.arrayContaining([
-        'Use pelo menos 16 caracteres.',
-        'Inclua uma letra maiúscula.',
-        'Inclua um símbolo.',
-        'Evite senhas previsíveis.',
-      ]),
-    );
-    expect(passwordErrors('UmaSenha#MuitoForte2026')).toEqual([]);
   });
 
   it('valida configurações persistidas e exige mensagem durante manutenção', () => {

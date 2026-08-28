@@ -27,6 +27,9 @@ SUPER_ADMIN_BOOTSTRAP_EMAIL=desenvolvedor@seudominio.com
 
 Somente na primeira subida, forneça uma senha forte por **uma** destas fontes:
 
+A senha deve ter no mínimo 8 caracteres, com letra minúscula, maiúscula, número e símbolo,
+e não pode ser um valor previsível ou placeholder.
+
 ```dotenv
 # Segredo injetado temporariamente pelo gerenciador do deploy
 SUPER_ADMIN_BOOTSTRAP_PASSWORD=
@@ -87,7 +90,7 @@ criação, e `--password-env NOME_DA_VARIAVEL`. O dry-run nunca lê o valor da s
 precisa estar presente para que a confirmação fique vinculada ao plano completo. Exemplo:
 
 ```powershell
-$env:NEW_SUPER_ADMIN_PASSWORD = 'use-um-segredo-forte-aqui'
+$env:NEW_SUPER_ADMIN_PASSWORD = 'Use-Um-Segredo-Forte-2026!'
 npm run create:superadmin -- --email admin@example.test --environment development --create-if-missing --name 'Administrador' --password-env NEW_SUPER_ADMIN_PASSWORD
 ```
 
@@ -106,7 +109,7 @@ Produção acrescenta `--allow-production` e
 2. Faça o deploy. A aplicação passa a escrever com a chave nova e ainda lê os
    registros antigos pela chave anterior.
 3. Revise o dry-run com `npm run credentials:rotate -- --environment production
-   --allow-production`.
+--allow-production`.
 4. Execute novamente com `--apply`, `--actor`, `--reason` e a confirmação
    exibida. Todas as credenciais e o audit log são gravados na mesma transação.
 5. Repita o dry-run; quando ele indicar zero credenciais pendentes, remova

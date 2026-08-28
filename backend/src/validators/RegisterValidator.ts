@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordSchema } from './PasswordValidator.js';
 
 export const registerSchema = z
   .object({
@@ -6,7 +7,7 @@ export const registerSchema = z
 
     email: z.string().min(1, 'Email obrigatório').email('Email inválido'),
 
-    password: z.string().min(6, 'Senha deve conter no mínimo 6 caracteres!'),
+    password: passwordSchema,
 
     confirmPassword: z.string().min(1, 'Confirmação de senha obrigatória'),
   })

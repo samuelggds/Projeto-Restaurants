@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
 test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', async ({ page }) => {
   let loyaltyRestaurantId = '';
   const quotePayloads: Array<Record<string, unknown>> = [];
@@ -193,7 +195,6 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
 
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-customer-token');
     localStorage.setItem(
       'user',
       JSON.stringify({
@@ -221,6 +222,8 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
       ]),
     );
   });
+
+  await mockAuthRefresh(page, 22, 'e2e-customer-token');
 
   await page.goto('/profile');
   await page.getByRole('button', { name: 'Meus cupons', exact: true }).first().click();

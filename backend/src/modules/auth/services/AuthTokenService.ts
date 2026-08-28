@@ -7,6 +7,9 @@ import {
   getJwtRefreshSecret,
   getJwtSecret,
 } from '../../../config/auth.js';
+import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+
+type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleAllowed'>;
 
 type AuthPayload = {
   id: number;
@@ -95,7 +98,9 @@ function belongsToFamily(persistedJti: string, familyId: string) {
   return persistedJti.startsWith(`${familyId}.`);
 }
 
-class AuthTokenService {
+export class AuthTokenService {
+  constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
+
   createAccessToken(payload: AuthPayload) {
     const normalized = normalizePayload(payload);
     return jwt.sign({ ...normalized, type: 'access' }, getJwtSecret(), {
@@ -281,6 +286,10 @@ class AuthTokenService {
     if (!session.user.active || Number(session.user.authVersion) !== tokenAuthVersion) {
       throw new Error('Refresh token expirado');
     }
+
+    // A rota de refresh permanece alcançável para descobrir a identidade, mas
+    // só o SUPER_ADMIN pode renovar a sessão durante manutenção global.
+    await this.platformAccess.assertRoleAllowed(session.user.role);
 
     const payload = {
       id: session.user.id,

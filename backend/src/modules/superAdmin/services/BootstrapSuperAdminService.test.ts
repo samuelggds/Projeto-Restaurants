@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BootstrapSuperAdminService } from './BootstrapSuperAdminService.js';
 
-const securePassword = 'V3ry-Str0ng-Bootstrap!';
+const securePassword = 'Segura1!';
 
 function productionEnv(overrides = {}) {
   return {
@@ -78,10 +78,10 @@ test('reinício apenas confirma o único SUPER_ADMIN esperado e não relê a sen
     ],
   });
 
-  assert.deepEqual(
-    await service.execute(productionEnv({ SUPER_ADMIN_BOOTSTRAP_PASSWORD: '' })),
-    { status: 'ready', userId: 7 },
-  );
+  assert.deepEqual(await service.execute(productionEnv({ SUPER_ADMIN_BOOTSTRAP_PASSWORD: '' })), {
+    status: 'ready',
+    userId: 7,
+  });
   assert.equal(calls.advisoryLocks, 1);
   assert.deepEqual(calls.hashInputs, []);
   assert.deepEqual(calls.userCreates, []);

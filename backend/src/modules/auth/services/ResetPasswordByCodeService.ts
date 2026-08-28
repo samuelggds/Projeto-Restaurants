@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../../../config/prisma.js';
 import userRepository from '../repositories/UserRepository.js';
 import { resetPasswordSchema } from '../../../validators/ForgotPasswordValidator.js';
-import { validateStrongPassword } from '../security/passwordPolicy.js';
+import { validatePassword, validateStrongPassword } from '../security/passwordPolicy.js';
 
 const MAX_RESET_ATTEMPTS = 5;
 const RESET_LOCK_MS = 30 * 60 * 1000;
@@ -81,9 +81,8 @@ class ResetPasswordByCodeService {
 
     const requiresStrongPassword =
       user.mustChangePassword || String(user.role || '').toUpperCase() === 'SUPER_ADMIN';
-    if (requiresStrongPassword) {
-      validateStrongPassword(newPassword);
-    }
+    if (requiresStrongPassword) validateStrongPassword(newPassword);
+    else validatePassword(newPassword, 'A nova senha');
 
     const passwordHash = await bcrypt.hash(newPassword, requiresStrongPassword ? 12 : 10);
     const consumed = await prisma.$transaction(async (transaction) => {

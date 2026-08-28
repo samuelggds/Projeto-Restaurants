@@ -1,5 +1,10 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  STANDARD_PASSWORD_POLICY,
+} from '../../../features/password-policy';
 import * as S from '../Admin.styles';
 import type { Employee, EmployeeFormPayload, EmployeeRole } from '../types';
 
@@ -20,6 +25,10 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const passwordEvaluation = useMemo(
+    () => evaluatePassword(password, confirmPassword, STANDARD_PASSWORD_POLICY),
+    [confirmPassword, password],
+  );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -43,12 +52,8 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
       setError('Informe um telefone com DDD.');
       return;
     }
-    if (!employee && password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-    if (!employee && password !== confirmPassword) {
-      setError('A senha e a confirmação precisam ser iguais.');
+    if (!employee && !passwordEvaluation.isValid) {
+      setError(passwordEvaluation.errors.join(' '));
       return;
     }
 
@@ -109,8 +114,11 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
               <input
                 type="password"
                 autoComplete="new-password"
+                minLength={STANDARD_PASSWORD_POLICY.minLength}
+                maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                aria-describedby="employee-password-requirements"
                 value={password}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo de 8 caracteres"
                 onChange={(event) => setPassword(event.target.value)}
               />
             </S.Field>
@@ -119,11 +127,20 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
               <input
                 type="password"
                 autoComplete="new-password"
+                minLength={STANDARD_PASSWORD_POLICY.minLength}
+                maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                aria-describedby="employee-password-requirements"
                 value={confirmPassword}
                 placeholder="Digite a mesma senha"
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
             </S.Field>
+            <PasswordRequirements
+              id="employee-password-requirements"
+              password={password}
+              confirmation={confirmPassword}
+              policy={STANDARD_PASSWORD_POLICY}
+            />
           </>
         )}
         <S.Field>
@@ -147,7 +164,11 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
           <button type="button" onClick={close} disabled={saving}>
             Cancelar
           </button>
-          <button className="primary" type="submit" disabled={saving}>
+          <button
+            className="primary"
+            type="submit"
+            disabled={saving || (!employee && !passwordEvaluation.isValid)}
+          >
             {saving ? 'Salvando...' : employee ? 'Salvar' : 'Criar funcionário'}
           </button>
         </footer>

@@ -5,7 +5,13 @@ import loginLockoutService from './LoginLockoutService.js';
 import authTokenService from './AuthTokenService.js';
 import loginMfaService from './LoginMfaService.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
-class LoginService {
+import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+
+type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleAllowed'>;
+
+export class LoginService {
+  constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
+
   async execute({ email, password }: { email: string; password: string }) {
     const normalizedEmail = String(email || '')
       .trim()
@@ -43,6 +49,7 @@ class LoginService {
     }
 
     await loginLockoutService.registerSuccess(normalizedEmail);
+    await this.platformAccess.assertRoleAllowed(user.role);
 
     const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
     if (mfaChallenge) {

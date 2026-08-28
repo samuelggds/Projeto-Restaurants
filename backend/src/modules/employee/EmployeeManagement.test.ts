@@ -28,8 +28,8 @@ test('valida e normaliza os dados obrigatórios na criação do funcionário', (
     name: '  Ana Souza  ',
     email: '  ANA@EXEMPLO.COM  ',
     phone: '(85) 99999-9999',
-    password: 'segura123',
-    confirmPassword: 'segura123',
+    password: 'Segura123!',
+    confirmPassword: 'Segura123!',
     role: 'FUNCIONARIO',
     subRole: 'COZINHA',
   });
@@ -45,8 +45,8 @@ test('rejeita criação sem telefone e senhas divergentes', () => {
       EmployeeUserSchema.parse({
         name: 'Ana Souza',
         email: 'ana@exemplo.com',
-        password: 'segura123',
-        confirmPassword: 'outra123',
+        password: 'Segura123!',
+        confirmPassword: 'Outra123!',
         role: 'FUNCIONARIO',
       }),
     /Telefone obrigatório|As senhas não conferem/,

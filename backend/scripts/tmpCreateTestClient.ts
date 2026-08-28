@@ -5,6 +5,7 @@ dotenv.config({ path: 'backend/.env' });
 import bcrypt from 'bcrypt';
 import prisma from '../src/config/prisma.js';
 import { UserRole } from '@prisma/client';
+import { validatePassword } from '../src/modules/auth/security/passwordPolicy.js';
 
 async function main() {
   const restaurant = await prisma.restaurant.findFirst({
@@ -16,7 +17,8 @@ async function main() {
     throw new Error('Restaurante pizza-ia-demo nao encontrado.');
   }
 
-  const password = '123456';
+  const password = 'Teste123!';
+  validatePassword(password, 'A senha de teste');
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.upsert({

@@ -10,6 +10,9 @@ import userRepository from '../repositories/UserRepository.js';
 import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
 import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
+import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+
+type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleAllowed'>;
 
 type LoginUser = {
   id: number;
@@ -125,7 +128,9 @@ function mapUser(user: any) {
   };
 }
 
-class LoginMfaService {
+export class LoginMfaService {
+  constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
+
   async beginIfRequired(user: LoginUser) {
     if (!requiresMfa(user)) {
       return null;
@@ -265,6 +270,15 @@ class LoginMfaService {
       throw new Error('Muitas tentativas de verificacao. Inicie o login novamente.');
     }
 
+    const user = await userRepository.findByIdWithPassword(userId);
+    if (!user || !user.active) {
+      throw new Error('Conta desativada. Reative sua conta para continuar.');
+    }
+
+    // Verifica antes de consumir o desafio: um usuário bloqueado pela
+    // manutenção não perde um código válido só por tentar entrar.
+    await this.platformAccess.assertRoleAllowed(user.role);
+
     const validCode = await bcrypt.compare(rawCode, challenge.codeHash);
     if (!validCode) {
       const updated = await prisma.authMfaChallenge.update({
@@ -289,11 +303,6 @@ class LoginMfaService {
     });
     if (consumed.count !== 1) {
       throw new Error('Codigo de verificacao expirado ou ja utilizado');
-    }
-
-    const user = await userRepository.findByIdWithPassword(userId);
-    if (!user || !user.active) {
-      throw new Error('Conta desativada. Reative sua conta para continuar.');
     }
 
     const tokenPayload = {

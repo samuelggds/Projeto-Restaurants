@@ -35,6 +35,10 @@ test('políticas retornam o contrato agrupado e reconhecem integrações sem exp
   assert.equal(policies.integrations.find((item) => item.key === 'whatsapp')?.configured, true);
   assert.equal(policies.email.find((item) => item.key === 'smtp')?.configured, true);
   assert.equal(policies.maintenance.find((item) => item.key === 'maintenanceMode')?.value, true);
+  assert.equal(
+    policies.security.find((item) => item.key === 'passwordPolicy')?.value,
+    '8–128 caracteres',
+  );
 
   const serialized = JSON.stringify(policies);
   for (const secret of Object.values(secrets)) {

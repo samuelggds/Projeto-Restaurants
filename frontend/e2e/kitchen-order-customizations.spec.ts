@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 41;
 const OTHER_RESTAURANT_ID = 99;
@@ -384,15 +385,13 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
     return json(route, { error: 'Endpoint não mockado no cenário da cozinha.' }, 404);
   });
 
-  await page.addInitScript(
-    ({ token, user }) => {
-      localStorage.clear();
-      sessionStorage.clear();
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { token: KITCHEN_TOKEN, user: kitchenUser },
-  );
+  await mockAuthRefresh(page, kitchenUser.id, KITCHEN_TOKEN);
+
+  await page.addInitScript((user) => {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem('user', JSON.stringify(user));
+  }, kitchenUser);
 }
 
 function orderCard(page: Page, id: number) {

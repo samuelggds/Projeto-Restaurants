@@ -1,10 +1,17 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 1;
 const TABLE_ID = 101;
 const TABLE_NUMBER = 1;
 const TABLE_TOKEN = '11112222333344445555666677778888';
 const TABLE_SESSION_ID = 701;
+
+const ACCESS_TOKENS = {
+  admin: 'e2e-admin-token',
+  waiter: 'e2e-waiter-token',
+  kitchen: 'e2e-kitchen-token',
+} as const;
 
 type Persona = 'admin' | 'waiter' | 'customer' | 'kitchen';
 
@@ -85,10 +92,28 @@ function json(route: Route, body: unknown, status = 200) {
 
 function bearerPersona(route: Route): Persona | null {
   const authorization = route.request().headers().authorization || '';
-  if (authorization.includes('e2e-admin-token')) return 'admin';
-  if (authorization.includes('e2e-waiter-token')) return 'waiter';
-  if (authorization.includes('e2e-kitchen-token')) return 'kitchen';
+  if (authorization.includes(ACCESS_TOKENS.admin)) return 'admin';
+  if (authorization.includes(ACCESS_TOKENS.waiter)) return 'waiter';
+  if (authorization.includes(ACCESS_TOKENS.kitchen)) return 'kitchen';
   return null;
+}
+
+async function mockPersonaAuthRefresh(page: Page, persona: Persona) {
+  if (persona === 'customer') {
+    await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+
+      if (pathname === '/auth/refresh' && request.method() === 'POST') {
+        return json(route, { error: 'Não autenticado.' }, 401);
+      }
+
+      await route.fallback();
+    });
+    return;
+  }
+
+  await mockAuthRefresh(page, users[persona].id, ACCESS_TOKENS[persona]);
 }
 
 function tableFor(persona: Persona | null, state: FlowState) {
@@ -385,6 +410,8 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
     return json(route, emptyResponses[pathname] ?? {});
   });
 
+  await mockPersonaAuthRefresh(page, 'admin');
+
   await page.addInitScript((sessionUsers) => {
     const persona = (localStorage.getItem('tableQrE2EPersona') || 'admin') as Persona;
     localStorage.removeItem('tableSession');
@@ -394,12 +421,6 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
       localStorage.removeItem('user');
       return;
     }
-    const tokenByPersona: Record<Exclude<Persona, 'customer'>, string> = {
-      admin: 'e2e-admin-token',
-      waiter: 'e2e-waiter-token',
-      kitchen: 'e2e-kitchen-token',
-    };
-    localStorage.setItem('token', tokenByPersona[persona]);
     localStorage.setItem('user', JSON.stringify(sessionUsers[persona]));
   }, users);
 }
@@ -412,6 +433,7 @@ async function selectPersona(page: Page, persona: Persona) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }, persona);
+  await mockPersonaAuthRefresh(page, persona);
 }
 
 test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1', async ({

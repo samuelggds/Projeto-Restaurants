@@ -281,13 +281,10 @@ test('SUPER_ADMIN navega por links profundos e salva configurações versionadas
   await expect(page.getByRole('heading', { name: 'Visão geral da plataforma' })).toBeVisible();
   await expect(page.getByText('Restaurante Aurora')).toBeVisible();
   await expect(page.getByText('R$ 249,90').first()).toBeVisible();
-  await page.screenshot({ path: 'test-results/super-admin-overview.png', fullPage: true });
 
   await page.getByRole('button', { name: 'Configurações' }).click();
   await expect(page).toHaveURL(/\/super_admin\/settings$/);
   await expect(page.getByRole('heading', { name: 'Configurações da plataforma' })).toBeVisible();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: 'test-results/super-admin-settings.png', fullPage: true });
 
   const platformName = page.getByLabel('Nome da plataforma');
   await platformName.fill('Peça Já Cloud');
@@ -356,8 +353,6 @@ test('painel continua contido no celular e mantém navegação acessível', asyn
   await page.getByRole('button', { name: 'Abrir menu' }).click();
   await page.getByRole('button', { name: 'Suporte' }).click();
   await expect(page).toHaveURL(/\/super_admin\/support$/);
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: 'test-results/super-admin-mobile.png', fullPage: true });
 
   const dimensions = await page.locator('main').evaluate((element) => ({
     clientWidth: element.clientWidth,

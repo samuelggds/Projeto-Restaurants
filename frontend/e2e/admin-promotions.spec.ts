@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
 type TestState = {
   product: Record<string, unknown>;
   coupons: Array<Record<string, unknown>>;
@@ -117,12 +119,12 @@ async function mockAdminApi(page: Page, state: TestState) {
 
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-admin-token');
     localStorage.setItem(
       'user',
       JSON.stringify({ id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 }),
     );
   });
+  await mockAuthRefresh(page, 9, 'e2e-admin-token');
 }
 
 function initialState(): TestState {

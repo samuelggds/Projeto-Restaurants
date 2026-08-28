@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { temporaryStrongPasswordSchema } from './PasswordValidator.js';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COMMON_EMAIL_DOMAIN_TYPOS: Record<string, string> = {
@@ -126,9 +127,6 @@ export const createRestaurantSchema = z.object({
           });
         }
       }),
-    password: z
-      .string()
-      .min(6, 'Senha deve ter no mínimo 6 caracteres!')
-      .max(72, 'Senha muito longa!'),
+    password: temporaryStrongPasswordSchema,
   }),
 });

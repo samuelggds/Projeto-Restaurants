@@ -30,7 +30,10 @@ test('validação de configurações é estrita, normaliza valores e exige versi
   assert.equal(parsed.primaryColor, '#E9530B');
   assert.equal(parsed.currency, 'BRL');
 
-  assert.equal(platformSettingsUpdateSchema.safeParse({ ...validSettings, version: undefined }).success, false);
+  assert.equal(
+    platformSettingsUpdateSchema.safeParse({ ...validSettings, version: undefined }).success,
+    false,
+  );
   assert.equal(
     platformSettingsUpdateSchema.safeParse({ ...validSettings, secret: 'não deve entrar' }).success,
     false,
@@ -62,12 +65,12 @@ test('operações de bloqueio exigem justificativa auditável', () => {
   );
 });
 
-test('novo administrador exige senha forte e confirmação idêntica', () => {
+test('novo administrador aceita senha forte com oito caracteres e exige confirmação idêntica', () => {
   const valid = {
     name: 'Administrador Local',
     email: 'admin@restaurante.com',
-    password: 'Senha-Longa-Segura-2026!',
-    passwordConfirmation: 'Senha-Longa-Segura-2026!',
+    password: 'Segura1!',
+    passwordConfirmation: 'Segura1!',
   };
   assert.equal(createRestaurantAdministratorSchema.safeParse(valid).success, true);
   assert.equal(
@@ -86,4 +89,3 @@ test('novo administrador exige senha forte e confirmação idêntica', () => {
     false,
   );
 });
-

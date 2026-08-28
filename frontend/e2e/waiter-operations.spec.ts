@@ -1,6 +1,8 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const TABLE_TOKEN = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+const WAITER_ACCESS_TOKEN = 'e2e-waiter-token';
 const RESTAURANT_ID = 41;
 const TABLE_ID = 11;
 const SESSION_ID = 501;
@@ -227,6 +229,19 @@ function json(route: Route, body: unknown, status = 200) {
     status,
     contentType: 'application/json',
     body: JSON.stringify(body),
+  });
+}
+
+async function mockAnonymousAuthRefresh(page: Page) {
+  await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+
+    if (pathname === '/auth/refresh' && request.method() === 'POST') {
+      return json(route, { error: 'Não autenticado.' }, 401);
+    }
+
+    await route.fallback();
   });
 }
 
@@ -471,10 +486,11 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
     return json(route, {});
   });
 
+  await mockAuthRefresh(page, waiterUser.id, WAITER_ACCESS_TOKEN);
+
   await page.addInitScript((user) => {
     const persona = localStorage.getItem('waiterE2EPersona') || 'waiter';
     if (persona === 'waiter') {
-      localStorage.setItem('token', 'e2e-waiter-token');
       localStorage.setItem('user', JSON.stringify(user));
       return;
     }
@@ -499,9 +515,9 @@ async function restoreWaiterSession(page: Page) {
     localStorage.setItem('waiterE2EPersona', 'waiter');
     localStorage.removeItem('tableSession');
     localStorage.removeItem('tableSessionToken');
-    localStorage.setItem('token', 'e2e-waiter-token');
     localStorage.setItem('user', JSON.stringify(user));
   }, waiterUser);
+  await mockAuthRefresh(page, waiterUser.id, WAITER_ACCESS_TOKEN);
 }
 
 async function clearEmployeeSession(page: Page) {
@@ -512,6 +528,7 @@ async function clearEmployeeSession(page: Page) {
     localStorage.removeItem('tableSession');
     localStorage.removeItem('tableSessionToken');
   });
+  await mockAnonymousAuthRefresh(page);
 }
 
 test('garçom consulta visão geral, filtra entregas e atende chamados persistidos', async ({

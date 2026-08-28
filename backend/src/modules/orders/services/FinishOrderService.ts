@@ -9,6 +9,8 @@ import { PaymentMethod, Prisma, TableSessionStatus, OrderType } from '@prisma/cl
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { z } from 'zod';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import bcrypt from 'bcrypt';
+import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -27,6 +29,7 @@ type CreateOrderPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+  guestPasswordHash?: string;
   tableId?: number | string | null;
   items: OrderItemInput[];
   address?: string;
@@ -46,6 +49,7 @@ type ResolveOrderUserPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+  guestPasswordHash?: string;
 };
 
 class CreateOrderService {
@@ -84,6 +88,7 @@ class CreateOrderService {
     customerName,
     customerCpf,
     customerPhone,
+    guestPasswordHash,
   }: ResolveOrderUserPayload) {
     const normalizedPhone = this.normalizePhone(customerPhone);
 
@@ -114,7 +119,9 @@ class CreateOrderService {
     }
 
     const guestEmail = `guest.${restaurantId}.${cpfDigits}@pecaja.local`;
-    const guestPassword = `guest-${restaurantId}-${cpfDigits}`;
+    if (!guestPasswordHash) {
+      throw new Error('Não foi possível proteger a credencial interna do cliente convidado.');
+    }
 
     const guestUser = await tx.user.upsert({
       where: {
@@ -132,7 +139,7 @@ class CreateOrderService {
       create: {
         name: normalizedName,
         email: guestEmail,
-        password: guestPassword,
+        password: guestPasswordHash,
         role: 'CLIENTE',
         active: true,
         phone: normalizedPhone,
@@ -255,137 +262,147 @@ class CreateOrderService {
     const normalizedPaymentMethod = String(paymentMethod || '').toUpperCase();
     const shouldMarkAsPaid = paid === true;
 
-    const createdOrder = await prisma.$transaction(async (tx) => {
-      if (type === OrderType.MESA) {
-        const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
-        if (
-          !session ||
-          session.status !== TableSessionStatus.OPEN ||
-          (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
-          session.table.restaurantId !== resolvedRestaurantId ||
-          session.tableId !== Number(tableId)
-        ) {
-          throw new Error(
-            'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
-          );
-        }
-      }
+    const guestPasswordHash = !userId
+      ? await bcrypt.hash(generateStrongRandomPassword(), 10)
+      : undefined;
 
-      const resolvedUserId = await this.resolveOrderUser({
-        tx,
-        userId,
-        restaurantId: resolvedRestaurantId,
-        customerName,
-        customerCpf,
-        customerPhone,
-      });
-
-      const products = await Promise.all(
-        items.map((item) => productRepository.findById(item.productId, resolvedRestaurantId, tx)),
-      );
-
-      products.forEach((product, index) => {
-        const item = items[index];
-
-        if (!product) {
-          throw new Error(`Produto não encontrado: ${items[index].productId}`);
+    const createdOrder = await prisma.$transaction(
+      async (tx) => {
+        if (type === OrderType.MESA) {
+          const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
+          if (
+            !session ||
+            session.status !== TableSessionStatus.OPEN ||
+            (session.expiresAt && session.expiresAt.getTime() <= Date.now()) ||
+            session.table.restaurantId !== resolvedRestaurantId ||
+            session.tableId !== Number(tableId)
+          ) {
+            throw new Error(
+              'A mesa foi fechada durante o pedido. Peça ao garçom para abrir o atendimento novamente.',
+            );
+          }
         }
 
-        if (product.active === false) {
-          throw new Error(`Produto indisponível: ${product.name}`);
-        }
-
-        const quantity = Number(item.quantity || 0);
-
-        if (!Number.isInteger(quantity) || quantity <= 0) {
-          throw new Error(`Quantidade inválida para ${product.name}.`);
-        }
-
-        const stockValue =
-          product.stock === null || product.stock === undefined ? null : Number(product.stock);
-
-        if (Number.isInteger(stockValue) && stockValue >= 0 && quantity > stockValue) {
-          throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`);
-        }
-      });
-
-      const orderItems = items.map((item: OrderItemInput, index: number) =>
-        buildOrderItemCustomizationSnapshot(products[index], item),
-      );
-
-      const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-
-      const formattedCpf = this.formatCpf(customerCpf);
-      const guestSummary =
-        !userId && customerName
-          ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
-          : '';
-
-      const mergedObservation = [guestSummary, observation]
-        .map((item) => String(item || '').trim())
-        .filter(Boolean)
-        .join(' | ');
-
-      const normalizedTableId =
-        tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
-
-      const order = await orderRepository.create(
-        {
-          total,
-          systemFee: 0,
-          type,
-          paymentMethod,
-          paid: shouldMarkAsPaid,
-          paymentProof: null,
-          paymentProofImage: null,
-          observation: mergedObservation || null,
-          userId: resolvedUserId,
+        const resolvedUserId = await this.resolveOrderUser({
+          tx,
+          userId,
           restaurantId: resolvedRestaurantId,
-          tableId: normalizedTableId,
-          address,
-          number,
-          district,
-          city,
-          state,
-          zipCode,
-          complement,
-        },
-        tx,
-      );
+          customerName,
+          customerCpf,
+          customerPhone,
+          guestPasswordHash,
+        });
 
-      await tx.orderItem.createMany({
-        data: orderItems.map((item) => ({
-          ...item,
-          orderId: order.id,
-        })),
-      });
+        const products = await Promise.all(
+          items.map((item) => productRepository.findById(item.productId, resolvedRestaurantId, tx)),
+        );
 
-      await Promise.all(
-        orderItems.map(async (item, index) => {
-          const product = products[index];
+        products.forEach((product, index) => {
+          const item = items[index];
+
+          if (!product) {
+            throw new Error(`Produto não encontrado: ${items[index].productId}`);
+          }
+
+          if (product.active === false) {
+            throw new Error(`Produto indisponível: ${product.name}`);
+          }
+
+          const quantity = Number(item.quantity || 0);
+
+          if (!Number.isInteger(quantity) || quantity <= 0) {
+            throw new Error(`Quantidade inválida para ${product.name}.`);
+          }
+
           const stockValue =
             product.stock === null || product.stock === undefined ? null : Number(product.stock);
 
-          if (!Number.isInteger(stockValue) || stockValue < 0) {
-            return;
+          if (Number.isInteger(stockValue) && stockValue >= 0 && quantity > stockValue) {
+            throw new Error(
+              `Estoque insuficiente para ${product.name}. Disponível: ${stockValue}.`,
+            );
           }
+        });
 
-          const nextStock = Math.max(stockValue - Number(item.quantity || 0), 0);
+        const orderItems = items.map((item: OrderItemInput, index: number) =>
+          buildOrderItemCustomizationSnapshot(products[index], item),
+        );
 
-          await tx.product.update({
-            where: {
-              id: Number(product.id),
-            },
-            data: {
-              stock: nextStock,
-              active: nextStock === 0 ? false : Boolean(product.active),
-            },
-          });
-        }),
-      );
+        const total = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
-      return orderRepository.findById(order.id, resolvedRestaurantId, tx);
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        const formattedCpf = this.formatCpf(customerCpf);
+        const guestSummary =
+          !userId && customerName
+            ? `Cliente: ${String(customerName).trim()}${formattedCpf ? ` | CPF: ${formattedCpf}` : ''}`
+            : '';
+
+        const mergedObservation = [guestSummary, observation]
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+          .join(' | ');
+
+        const normalizedTableId =
+          tableId === null || tableId === undefined || tableId === '' ? null : Number(tableId);
+
+        const order = await orderRepository.create(
+          {
+            total,
+            systemFee: 0,
+            type,
+            paymentMethod,
+            paid: shouldMarkAsPaid,
+            paymentProof: null,
+            paymentProofImage: null,
+            observation: mergedObservation || null,
+            userId: resolvedUserId,
+            restaurantId: resolvedRestaurantId,
+            tableId: normalizedTableId,
+            address,
+            number,
+            district,
+            city,
+            state,
+            zipCode,
+            complement,
+          },
+          tx,
+        );
+
+        await tx.orderItem.createMany({
+          data: orderItems.map((item) => ({
+            ...item,
+            orderId: order.id,
+          })),
+        });
+
+        await Promise.all(
+          orderItems.map(async (item, index) => {
+            const product = products[index];
+            const stockValue =
+              product.stock === null || product.stock === undefined ? null : Number(product.stock);
+
+            if (!Number.isInteger(stockValue) || stockValue < 0) {
+              return;
+            }
+
+            const nextStock = Math.max(stockValue - Number(item.quantity || 0), 0);
+
+            await tx.product.update({
+              where: {
+                id: Number(product.id),
+              },
+              data: {
+                stock: nextStock,
+                active: nextStock === 0 ? false : Boolean(product.active),
+              },
+            });
+          }),
+        );
+
+        return orderRepository.findById(order.id, resolvedRestaurantId, tx);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);
     io.to(`user:${createdOrder.userId}`).emit('new-order', createdOrder);

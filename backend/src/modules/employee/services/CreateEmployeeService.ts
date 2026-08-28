@@ -1,6 +1,7 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import employeeRepository from '../repositories/EmployeeRepository.js';
 import bcrypt from 'bcrypt';
+import { validatePassword } from '../../auth/security/passwordPolicy.js';
 
 type CreateEmployeePayload = {
   name: string;
@@ -24,6 +25,8 @@ class CreateEmployeeService {
     subRole,
     cpf,
   }: CreateEmployeePayload) {
+    validatePassword(password);
+
     const exists = await employeeRepository.findByEmail(email);
 
     if (exists) {

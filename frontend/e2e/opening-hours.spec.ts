@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+
 type BusinessHour = {
   id: string;
   label: string;
@@ -77,6 +79,7 @@ async function mockAdminApi(page: Page, state: AdminApiState) {
     restaurantName: 'Restaurante Teste',
     primaryColor: '#d05632',
     isOpenForOrders: true,
+    averageDeliveryTime: 45,
     businessHours: weeklySchedule(),
     restaurant: { id: 9, name: 'Restaurante Teste' },
   };
@@ -135,12 +138,12 @@ async function mockAdminApi(page: Page, state: AdminApiState) {
 
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('token', 'e2e-admin-token');
     localStorage.setItem(
       'user',
       JSON.stringify({ id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 }),
     );
   });
+  await mockAuthRefresh(page, 9, 'e2e-admin-token');
 }
 
 test('Home respeita a agenda fechada sem mostrar estado aberto contraditório', async ({ page }) => {

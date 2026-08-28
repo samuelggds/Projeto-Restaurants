@@ -1,8 +1,10 @@
 import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
+import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { io as ioClient, Socket } from 'socket.io-client';
+import { generateStrongRandomPassword } from '../src/modules/auth/security/passwordPolicy.js';
 
 type NewOrderPayload = {
   id?: number | string;
@@ -133,11 +135,12 @@ async function main() {
   let socket: Socket | null = null;
 
   try {
+    const passwordHash = await bcrypt.hash(generateStrongRandomPassword(), 10);
     const admin = await prisma.user.create({
       data: {
         name: `Admin Realtime ${suffix}`,
         email: `admin.realtime.${suffix}@example.com`,
-        password: '123456',
+        password: passwordHash,
         role: 'ADMIN',
         active: true,
         restaurantId: restaurant.id,
@@ -148,7 +151,7 @@ async function main() {
       data: {
         name: `Abertura Mesa ${suffix}`,
         email: `mesa.realtime.${suffix}@example.com`,
-        password: '123456',
+        password: passwordHash,
         role: 'ADMIN',
         active: true,
         restaurantId: restaurant.id,

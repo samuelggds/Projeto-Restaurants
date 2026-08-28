@@ -8,6 +8,7 @@ import {
   invalidateAuthSessionMemory,
 } from '../modules/auth/session/authSession';
 import { setSystemBlockState } from './systemBlock';
+import { setPlatformMaintenanceState } from './platformMaintenance';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 
@@ -300,6 +301,22 @@ api.interceptors.response.use(
       }
     })();
     const role = currentUser?.role || null;
+    const platformMaintenance =
+      status === 503 &&
+      (data?.code === 'PLATFORM_MAINTENANCE' || data?.maintenanceMode === true);
+
+    if (platformMaintenance) {
+      const currentLocation =
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+          : null;
+      setPlatformMaintenanceState({
+        message: data?.error || data?.maintenanceMessage || data?.message,
+        returnTo: currentLocation,
+      });
+      return Promise.reject(error);
+    }
+
     const blockedByBilling =
       (status === 403 || status === 423) &&
       (data?.code === 'BILLING_BLOCKED' ||
@@ -317,14 +334,12 @@ api.interceptors.response.use(
         paymentLink: data?.paymentLink || null,
         invoiceId: data?.invoiceId || null,
         dueDate: data?.dueDate || null,
+        restaurantId: currentUser?.restaurantId || currentUser?.restaurant?.id || null,
       });
 
       const currentPath = window.location.pathname;
-      const targetPath = role === 'ADMIN' ? '/system-blocked' : '/system-maintenance';
-      const allowedPaths = ['/billing', '/system-blocked', '/system-maintenance', '/login'];
-
-      if (!allowedPaths.includes(currentPath)) {
-        window.location.href = targetPath;
+      if (role !== 'ADMIN' && currentPath !== '/system-maintenance') {
+        window.location.assign('/system-maintenance');
       }
     }
 

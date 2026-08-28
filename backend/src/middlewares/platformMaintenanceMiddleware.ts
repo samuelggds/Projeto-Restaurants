@@ -1,122 +1,36 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import prisma from '../config/prisma.js';
-import { safeErrorName } from '../services/telemetrySanitizer.js';
+import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
+import {
+  platformMaintenanceResponse,
+  platformMaintenanceStateService,
+  type PlatformMaintenanceStateService,
+} from '../modules/platform/services/PlatformMaintenanceService.js';
 
-const DEFAULT_MAINTENANCE_MESSAGE = 'Plataforma temporariamente em manutenção.';
-const DEFAULT_CACHE_TTL_MS = 5_000;
-const MIN_CACHE_TTL_MS = 1_000;
-const MAX_CACHE_TTL_MS = 30_000;
+export {
+  PlatformMaintenanceStateService,
+  resolvePlatformSettingsCacheTtlMs,
+} from '../modules/platform/services/PlatformMaintenanceService.js';
 
-export type PlatformMaintenanceState = {
-  maintenanceMode: boolean;
-  maintenanceMessage: string;
-};
+type AccessRoleResolver = (token: string) => Promise<string | null>;
 
-type PlatformSettingsLoader = () => Promise<{
-  maintenanceMode: boolean;
-  maintenanceMessage: string;
-} | null>;
-
-type CachedState = {
-  value: PlatformMaintenanceState;
-  expiresAt: number;
-};
-
-export function resolvePlatformSettingsCacheTtlMs(
-  rawValue: string | number | undefined = process.env.PLATFORM_SETTINGS_CACHE_TTL_MS,
-) {
-  const parsed = Number(rawValue);
-  if (!Number.isFinite(parsed)) return DEFAULT_CACHE_TTL_MS;
-  return Math.min(MAX_CACHE_TTL_MS, Math.max(MIN_CACHE_TTL_MS, Math.trunc(parsed)));
-}
-
-async function loadPlatformMaintenanceSettings() {
-  return prisma.platformSettings.findUnique({
-    where: { id: 1 },
-    select: {
-      maintenanceMode: true,
-      maintenanceMessage: true,
-    },
-  });
-}
-
-export class PlatformMaintenanceStateService {
-  private cachedState: CachedState | null = null;
-  private pendingLoad: Promise<PlatformMaintenanceState> | null = null;
-  private cacheRevision = 0;
-  private readonly cacheTtlMs: number;
-
-  constructor(
-    private readonly loader: PlatformSettingsLoader = loadPlatformMaintenanceSettings,
-    cacheTtlMs = resolvePlatformSettingsCacheTtlMs(),
-    private readonly now: () => number = Date.now,
-    private readonly onLoadError: (error: unknown) => void = (error) => {
-      console.warn('[PLATFORM_MAINTENANCE_CHECK_FAILED]', {
-        errorType: safeErrorName(error),
-      });
-    },
-  ) {
-    this.cacheTtlMs = resolvePlatformSettingsCacheTtlMs(cacheTtlMs);
-  }
-
-  invalidate() {
-    this.cacheRevision += 1;
-    this.cachedState = null;
-    // Uma leitura iniciada antes da alteração não deve bloquear uma nova
-    // consulta nem repopular o cache com o estado anterior.
-    this.pendingLoad = null;
-  }
-
-  async getState(): Promise<PlatformMaintenanceState> {
-    const now = this.now();
-    if (this.cachedState && this.cachedState.expiresAt > now) {
-      return this.cachedState.value;
-    }
-    if (this.pendingLoad) return this.pendingLoad;
-
-    const revision = this.cacheRevision;
-    const pendingLoad = this.loadAndCache(revision);
-    this.pendingLoad = pendingLoad;
-
-    try {
-      return await pendingLoad;
-    } finally {
-      if (this.pendingLoad === pendingLoad) this.pendingLoad = null;
-    }
-  }
-
-  private async loadAndCache(revision: number): Promise<PlatformMaintenanceState> {
-    let value: PlatformMaintenanceState;
-
-    try {
-      const settings = await this.loader();
-      const configuredMessage = String(settings?.maintenanceMessage || '').trim();
-      value = {
-        maintenanceMode: Boolean(settings?.maintenanceMode),
-        maintenanceMessage: configuredMessage || DEFAULT_MAINTENANCE_MESSAGE,
-      };
-    } catch (error) {
-      this.onLoadError(error);
-      // Falhar aberto evita transformar uma indisponibilidade momentânea do
-      // banco (ou uma migração em andamento) em queda total da API.
-      value = {
-        maintenanceMode: false,
-        maintenanceMessage: DEFAULT_MAINTENANCE_MESSAGE,
-      };
-    }
-
-    if (revision === this.cacheRevision) {
-      this.cachedState = {
-        value,
-        expiresAt: this.now() + this.cacheTtlMs,
-      };
-    }
-    return value;
-  }
-}
+const AUTHENTICATION_BOOTSTRAP_ROUTES = new Set([
+  'POST /auth/login',
+  'POST /auth/google',
+  'POST /auth/login/verify-2fa',
+  'POST /auth/refresh',
+  'POST /auth/logout',
+  'GET /auth/google/client-id',
+]);
 
 function matchesPathPrefix(path: string, prefix: string) {
   return path === prefix || path.startsWith(`${prefix}/`);
+}
+
+function normalizedRouteKey(req: Pick<Request, 'method' | 'path'>) {
+  const path = String(req.path || '')
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  return `${String(req.method || '').toUpperCase()} ${path || '/'}`;
 }
 
 export function isMaintenanceBypassRequest(req: Pick<Request, 'method' | 'path'>) {
@@ -126,17 +40,30 @@ export function isMaintenanceBypassRequest(req: Pick<Request, 'method' | 'path'>
     .replace(/\/+$/, '')
     .toLowerCase();
 
-  if (path === '/health' || path === '/ready') return true;
-  if (matchesPathPrefix(path, '/auth')) return true;
-  if (matchesPathPrefix(path, '/super-admin')) return true;
+  if (path === '/health' || path === '/ready' || path === '/platform/status') return true;
+  if (AUTHENTICATION_BOOTSTRAP_ROUTES.has(normalizedRouteKey(req))) return true;
 
   return ['/api/webhooks', '/billing/webhook', '/orders/webhook', '/table-accounts/webhooks'].some(
     (prefix) => matchesPathPrefix(path, prefix),
   );
 }
 
+function readBearerToken(req: Request) {
+  const [scheme, token] = String(req.headers.authorization || '')
+    .trim()
+    .split(/\s+/u);
+  if (String(scheme || '').toLowerCase() !== 'bearer' || !token) return null;
+  return token;
+}
+
+async function resolveRoleFromAccessToken(token: string) {
+  const resolved = await resolveAccessToken(token);
+  return resolved.user.role;
+}
+
 export function createPlatformMaintenanceMiddleware(
   stateService: Pick<PlatformMaintenanceStateService, 'getState'>,
+  accessRoleResolver: AccessRoleResolver = resolveRoleFromAccessToken,
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (isMaintenanceBypassRequest(req)) return next();
@@ -144,17 +71,41 @@ export function createPlatformMaintenanceMiddleware(
     const state = await stateService.getState();
     if (!state.maintenanceMode) return next();
 
+    const token = readBearerToken(req);
+    if (token) {
+      try {
+        const role = await accessRoleResolver(token);
+        if (String(role || '').toUpperCase() === 'SUPER_ADMIN') return next();
+      } catch {
+        // Durante manutenção, tokens ausentes ou inválidos recebem a mesma
+        // resposta pública, sem revelar detalhes de autenticação.
+      }
+    }
+
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Retry-After', '60');
-    return res.status(503).json({
-      error: state.maintenanceMessage,
-      code: 'PLATFORM_MAINTENANCE',
-      requestId: req.requestId,
+    return res
+      .status(503)
+      .json(platformMaintenanceResponse(state.maintenanceMessage, req.requestId));
+  };
+}
+
+export const platformMaintenanceMiddleware = createPlatformMaintenanceMiddleware(
+  platformMaintenanceStateService,
+);
+
+export function createPlatformStatusHandler(
+  stateService: Pick<PlatformMaintenanceStateService, 'getState'> = platformMaintenanceStateService,
+): RequestHandler {
+  return async (_req, res) => {
+    const state = await stateService.getState();
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({
+      available: !state.maintenanceMode,
+      maintenanceMode: state.maintenanceMode,
+      maintenanceMessage: state.maintenanceMessage,
     });
   };
 }
 
-export const platformMaintenanceStateService = new PlatformMaintenanceStateService();
-export const platformMaintenanceMiddleware = createPlatformMaintenanceMiddleware(
-  platformMaintenanceStateService,
-);
+export const platformStatusHandler = createPlatformStatusHandler();

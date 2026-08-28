@@ -1,27 +1,78 @@
-const STRONG_PASSWORD_CHARACTER_CLASSES = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^\p{L}\p{N}\s]/u];
+import { randomBytes } from 'node:crypto';
 
-export function collectStrongPasswordErrors(password: string) {
+export const PASSWORD_POLICY = Object.freeze({
+  minimumLength: 8,
+  maximumLength: 128,
+  maximumUtf8Bytes: 72,
+});
+
+const REQUIRED_PASSWORD_CHARACTER_CLASSES = [/\p{Ll}/u, /\p{Lu}/u, /\p{N}/u, /[^\p{L}\p{N}\s]/u];
+const PREDICTABLE_PASSWORD_PATTERN =
+  /change[_-]?me|replace[_-]?me|substitua|password|senha123|superadmin/iu;
+
+type PasswordPolicyOptions = {
+  minimumLength: number;
+  rejectPredictableValues: boolean;
+};
+
+function collectPasswordPolicyErrors(
+  password: unknown,
+  { minimumLength, rejectPredictableValues }: PasswordPolicyOptions,
+) {
   const errors: string[] = [];
 
-  if (password.length < 16 || password.length > 128) {
-    errors.push('deve conter entre 16 e 128 caracteres');
+  if (typeof password !== 'string') {
+    return ['deve ser informada'];
   }
-  if (Buffer.byteLength(password, 'utf8') > 72) {
-    errors.push('deve conter no máximo 72 bytes em UTF-8');
+
+  if (password.length < minimumLength || password.length > PASSWORD_POLICY.maximumLength) {
+    errors.push(`deve conter entre ${minimumLength} e ${PASSWORD_POLICY.maximumLength} caracteres`);
   }
-  if (!STRONG_PASSWORD_CHARACTER_CLASSES.every((pattern) => pattern.test(password))) {
+  if (Buffer.byteLength(password, 'utf8') > PASSWORD_POLICY.maximumUtf8Bytes) {
+    errors.push(`deve conter no máximo ${PASSWORD_POLICY.maximumUtf8Bytes} bytes em UTF-8`);
+  }
+  if (!REQUIRED_PASSWORD_CHARACTER_CLASSES.every((pattern) => pattern.test(password))) {
     errors.push('deve conter letra minúscula, maiúscula, número e símbolo');
   }
-  if (/change[_-]?me|replace[_-]?me|substitua|password|senha123|superadmin/iu.test(password)) {
+  if (rejectPredictableValues && PREDICTABLE_PASSWORD_PATTERN.test(password)) {
     errors.push('não pode usar um valor previsível ou placeholder');
   }
 
   return errors;
 }
 
-export function validateStrongPassword(password: string) {
-  const errors = collectStrongPasswordErrors(password);
+export function collectPasswordErrors(password: unknown) {
+  return collectPasswordPolicyErrors(password, {
+    minimumLength: PASSWORD_POLICY.minimumLength,
+    rejectPredictableValues: false,
+  });
+}
+
+export function collectStrongPasswordErrors(password: unknown) {
+  return collectPasswordPolicyErrors(password, {
+    minimumLength: PASSWORD_POLICY.minimumLength,
+    rejectPredictableValues: true,
+  });
+}
+
+function assertPasswordPolicy(errors: string[], label: string) {
   if (errors.length > 0) {
-    throw new Error(`A nova senha ${errors.join('; ')}.`);
+    throw new Error(`${label} ${errors.join('; ')}.`);
   }
+}
+
+export function validatePassword(password: unknown, label = 'A senha') {
+  assertPasswordPolicy(collectPasswordErrors(password), label);
+}
+
+export function validateStrongPassword(password: unknown, label = 'A nova senha') {
+  const errors = collectStrongPasswordErrors(password);
+  assertPasswordPolicy(errors, label);
+}
+
+export function generateStrongRandomPassword() {
+  // O prefixo garante todas as classes exigidas independentemente dos bytes aleatórios.
+  const password = `Aa1!${randomBytes(32).toString('base64url')}`;
+  validateStrongPassword(password, 'A senha gerada');
+  return password;
 }

@@ -1040,6 +1040,9 @@ export const SettingsForm = styled.form`
   label.full {
     grid-column: 1/-1;
   }
+  .password-requirements {
+    grid-column: 1/-1;
+  }
   footer {
     grid-column: 1/-1;
     display: flex;
@@ -1059,6 +1062,7 @@ export const SettingsForm = styled.form`
   @media (max-width: 600px) {
     grid-template-columns: 1fr;
     label.full,
+    .password-requirements,
     footer {
       grid-column: auto;
     }

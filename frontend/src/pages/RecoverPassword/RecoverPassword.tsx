@@ -4,6 +4,11 @@ import { ThemeProvider } from 'styled-components';
 import { Moon, Sun, Utensils } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import authService from '../../Services/authService';
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  STANDARD_PASSWORD_POLICY,
+} from '../../features/password-policy';
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 
@@ -21,6 +26,21 @@ export default function RecoverPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const passwordEvaluation = evaluatePassword(
+    newPassword,
+    confirmPassword,
+    STANDARD_PASSWORD_POLICY,
+  );
+  const passwordHasError =
+    newPassword.length > 0 &&
+    passwordEvaluation.requirements.some(
+      (requirement) => requirement.id !== 'confirmation' && !requirement.met,
+    );
+  const confirmationHasError =
+    confirmPassword.length > 0 &&
+    passwordEvaluation.requirements.some(
+      (requirement) => requirement.id === 'confirmation' && !requirement.met,
+    );
 
   const buildIdentifierPayload = () => {
     const value = String(identifier || '').trim();
@@ -61,6 +81,11 @@ export default function RecoverPassword() {
   const handleResetPassword = async (event) => {
     event.preventDefault();
 
+    if (!passwordEvaluation.isValid) {
+      toast.error(passwordEvaluation.errors[0]);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const response = await authService.resetPassword({
@@ -92,7 +117,11 @@ export default function RecoverPassword() {
     >
       <S.Container>
         <S.TopBar>
-          <S.ThemeToggleButton onClick={() => setIsDarkMode((prev) => !prev)}>
+          <S.ThemeToggleButton
+            type="button"
+            aria-label={isDarkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            onClick={() => setIsDarkMode((prev) => !prev)}
+          >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </S.ThemeToggleButton>
         </S.TopBar>
@@ -179,9 +208,14 @@ export default function RecoverPassword() {
                     <S.Input
                       id="new-password"
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="Mínimo 8 caracteres"
+                      autoComplete="new-password"
+                      minLength={STANDARD_PASSWORD_POLICY.minLength}
+                      maxLength={STANDARD_PASSWORD_POLICY.maxLength}
                       value={newPassword}
                       onChange={(event) => setNewPassword(event.target.value)}
+                      aria-invalid={passwordHasError}
+                      aria-describedby="recover-password-requirements"
                       required
                     />
                   </S.InputGroup>
@@ -192,15 +226,33 @@ export default function RecoverPassword() {
                       id="confirm-password"
                       type="password"
                       placeholder="••••••••"
+                      autoComplete="new-password"
+                      minLength={STANDARD_PASSWORD_POLICY.minLength}
+                      maxLength={STANDARD_PASSWORD_POLICY.maxLength}
                       value={confirmPassword}
                       onChange={(event) => setConfirmPassword(event.target.value)}
+                      aria-invalid={confirmationHasError}
+                      aria-describedby="recover-password-requirements"
                       required
                     />
                   </S.InputGroup>
+
+                  <PasswordRequirements
+                    id="recover-password-requirements"
+                    password={newPassword}
+                    confirmation={confirmPassword}
+                    policy={STANDARD_PASSWORD_POLICY}
+                  />
                 </>
               )}
 
-              <S.Button type="submit" disabled={isLoading}>
+              <S.Button
+                type="submit"
+                disabled={
+                  isLoading ||
+                  (step === 'reset' && (code.length !== 6 || !passwordEvaluation.isValid))
+                }
+              >
                 {isLoading
                   ? 'Processando...'
                   : step === 'request'

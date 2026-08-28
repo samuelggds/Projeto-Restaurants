@@ -9,7 +9,10 @@ import { notFoundMiddleware } from './middlewares/security/notFoundMiddleware.js
 import { errorHandlerMiddleware } from './middlewares/security/errorHandlerMiddleware.js';
 import { applyCorsAndGlobalRateLimit } from './middlewares/security/httpAccessProtection.js';
 import { probeDatabaseReadiness } from './health/readiness.js';
-import { platformMaintenanceMiddleware } from './middlewares/platformMaintenanceMiddleware.js';
+import {
+  platformMaintenanceMiddleware,
+  platformStatusHandler,
+} from './middlewares/platformMaintenanceMiddleware.js';
 
 const app = express();
 
@@ -52,6 +55,10 @@ app.get('/ready', async (_req, res) => {
 });
 
 applyCorsAndGlobalRateLimit(app);
+
+// Disponibilidade pública e sem dados sensíveis para que clientes já abertos
+// troquem imediatamente para a tela de manutenção.
+app.get('/platform/status', platformStatusHandler);
 
 // O modo de manutenção é avaliado antes do parsing do corpo e das rotas de
 // negócio. Sondas, autenticação, webhooks e o painel do SUPER_ADMIN são

@@ -1,12 +1,15 @@
 import './_shared/disabledLegacyScript.mjs';
 import 'dotenv/config';
+import bcrypt from 'bcrypt';
 import { PrismaClient, OrderType, PaymentMethod } from '@prisma/client';
 import orderRepository from '../src/modules/orders/repositories/OrderRepository.js';
+import { generateStrongRandomPassword } from '../src/modules/auth/security/passwordPolicy.js';
 
 const prisma = new PrismaClient();
 
 async function main() {
   const suffix = Date.now();
+  const passwordHash = await bcrypt.hash(generateStrongRandomPassword(), 10);
 
   const restaurant = await prisma.restaurant.create({
     data: {
@@ -22,7 +25,7 @@ async function main() {
       data: {
         name: `Cliente Sample ${suffix}`,
         email: `cliente.sample.${suffix}@example.com`,
-        password: '123456',
+        password: passwordHash,
         role: 'CLIENTE',
         active: true,
         restaurantId: restaurant.id,

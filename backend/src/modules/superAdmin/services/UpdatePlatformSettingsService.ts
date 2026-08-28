@@ -10,7 +10,7 @@ import superAdminRepository, {
 } from '../repositories/SuperAdminRepository.js';
 import { presentPlatformSettings } from './superAdminPresenters.js';
 import { parseSuperAdminPayload, requireSuperAdminActor } from './superAdminServiceSupport.js';
-import { platformMaintenanceStateService } from '../../../middlewares/platformMaintenanceMiddleware.js';
+import { platformMaintenanceStateService } from '../../platform/services/PlatformMaintenanceService.js';
 
 export class UpdatePlatformSettingsService {
   constructor(

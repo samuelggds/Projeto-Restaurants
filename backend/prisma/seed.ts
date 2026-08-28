@@ -1,8 +1,9 @@
 ﻿import bcrypt from 'bcrypt';
 import { FuncionarioSubRole, PrismaClient, UserRole } from '@prisma/client';
+import { validateStrongPassword } from '../src/modules/auth/security/passwordPolicy.js';
 
 const prisma = new PrismaClient();
-const PASSWORD = '123456';
+const PASSWORD = 'Demo123!';
 
 async function clearDatabase() {
   await prisma.supportChatMessage.deleteMany();
@@ -45,6 +46,7 @@ async function createUser(data: {
 }
 
 async function main() {
+  validateStrongPassword(PASSWORD, 'A senha do seed');
   console.log('Limpando banco de dados...');
   await clearDatabase();
   console.log('Banco limpo.\n');

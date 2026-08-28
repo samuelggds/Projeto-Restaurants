@@ -5,6 +5,10 @@ import userRepository from '../repositories/UserRepository.js';
 import authTokenService from './AuthTokenService.js';
 import loginMfaService from './LoginMfaService.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
+import { generateStrongRandomPassword } from '../security/passwordPolicy.js';
+import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+
+type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleAllowed'>;
 
 function getSafeNameFromEmail(email: string | undefined) {
   const username = String(email || '')
@@ -25,7 +29,9 @@ function parseGoogleClientIds() {
   return Array.from(new Set(merged));
 }
 
-class GoogleAuthService {
+export class GoogleAuthService {
+  constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
+
   async execute({ idToken }: { idToken: string }) {
     if (!idToken) {
       throw new Error('Token do Google não informado');
@@ -56,7 +62,12 @@ class GoogleAuthService {
     let user = await userRepository.findByEmail(email);
 
     if (!user) {
-      const generatedPassword = `google:${payload?.sub || email}:${Date.now()}`;
+      // Não cria novas contas por um endpoint de autenticação liberado apenas
+      // para permitir a entrada do SUPER_ADMIN durante a manutenção.
+      await this.platformAccess.assertRoleAllowed(UserRole.CLIENTE);
+
+      // Contas OAuth recebem uma credencial local aleatória e desconhecida pelo usuário.
+      const generatedPassword = generateStrongRandomPassword();
       const passwordHash = await bcrypt.hash(generatedPassword, 10);
 
       user = await userRepository.create({
@@ -70,6 +81,8 @@ class GoogleAuthService {
     if (!user.active) {
       throw new Error('Conta desativada. Reative sua conta para continuar.');
     }
+
+    await this.platformAccess.assertRoleAllowed(user.role);
 
     const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
     if (mfaChallenge) {

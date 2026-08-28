@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  PRIVILEGED_PASSWORD_POLICY,
+} from '../../../features/password-policy';
 import type {
   AuditLog,
   Invoice,
@@ -13,7 +18,6 @@ import {
   formatCurrency,
   formatDate,
   normalizeEmail,
-  passwordErrors,
   requestErrorMessage,
   statusTone,
   tenantLabels,
@@ -424,18 +428,17 @@ export function CreateAdministratorDialog({
   const [confirmation, setConfirmation] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const requirements = useMemo(() => passwordErrors(password), [password]);
+  const passwordEvaluation = useMemo(
+    () => evaluatePassword(password, confirmation, PRIVILEGED_PASSWORD_POLICY),
+    [confirmation, password],
+  );
   const save = async () => {
     if (!restaurantId || name.trim().length < 2 || !/^\S+@\S+\.\S+$/.test(normalizeEmail(email))) {
       setError('Preencha restaurante, nome e e-mail válido.');
       return;
     }
-    if (requirements.length) {
-      setError(requirements.join(' '));
-      return;
-    }
-    if (password !== confirmation) {
-      setError('A confirmação da senha não confere.');
+    if (!passwordEvaluation.isValid) {
+      setError(passwordEvaluation.errors.join(' '));
       return;
     }
     setSaving(true);
@@ -463,7 +466,11 @@ export function CreateAdministratorDialog({
       footer={
         <>
           <S.Button onClick={onClose}>Cancelar</S.Button>
-          <S.Button $variant="primary" disabled={saving} onClick={() => void save()}>
+          <S.Button
+            $variant="primary"
+            disabled={saving || !passwordEvaluation.isValid}
+            onClick={() => void save()}
+          >
             {saving ? 'Criando…' : 'Criar administrador'}
           </S.Button>
         </>
@@ -498,25 +505,33 @@ export function CreateAdministratorDialog({
           <input
             type="password"
             autoComplete="new-password"
+            minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
+            maxLength={PRIVILEGED_PASSWORD_POLICY.maxLength}
+            aria-describedby="administrator-password-requirements"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <small>
-            {password
-              ? requirements[0] || 'Senha forte.'
-              : 'Mínimo de 16 caracteres com maiúscula, minúscula, número e símbolo.'}
-          </small>
         </label>
         <label>
           Confirmar senha
           <input
             type="password"
             autoComplete="new-password"
+            minLength={PRIVILEGED_PASSWORD_POLICY.minLength}
+            maxLength={PRIVILEGED_PASSWORD_POLICY.maxLength}
+            aria-describedby="administrator-password-requirements"
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
           />
         </label>
       </S.Fields>
+      <PasswordRequirements
+        id="administrator-password-requirements"
+        password={password}
+        confirmation={confirmation}
+        policy={PRIVILEGED_PASSWORD_POLICY}
+        title="A senha temporária precisa ter:"
+      />
       {error ? (
         <S.InlineAlert $tone="error" role="alert">
           {error}

@@ -71,13 +71,6 @@ export const Input = styled.input`
   }
 `;
 
-export const Policy = styled.p`
-  margin: -4px 0 2px;
-  color: #bcae9f;
-  font-size: 13px;
-  line-height: 1.5;
-`;
-
 export const ErrorMessage = styled.div`
   border: 1px solid rgba(255, 111, 60, 0.55);
   border-radius: 12px;
@@ -107,7 +100,7 @@ export const PrimaryButton = styled.button`
   cursor: pointer;
 
   &:disabled {
-    cursor: wait;
+    cursor: not-allowed;
     opacity: 0.65;
   }
 `;

@@ -16,7 +16,12 @@ import {
   Trash2,
   WalletCards,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import {
+  evaluatePassword,
+  PasswordRequirements,
+  STANDARD_PASSWORD_POLICY,
+} from '../../features/password-policy';
 import { ProfileHeader } from './components/ProfileHeader';
 import { ProfileNavigation } from './components/ProfileNavigation';
 import { LoyaltyWallet } from './components/LoyaltyWallet';
@@ -551,15 +556,19 @@ function Security({
   const [showDeactivateConfirmation, setShowDeactivateConfirmation] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [securityError, setSecurityError] = useState('');
+  const passwordEvaluation = useMemo(
+    () => evaluatePassword(newPassword, confirmPassword, STANDARD_PASSWORD_POLICY),
+    [confirmPassword, newPassword],
+  );
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setPwError('As senhas não coincidem.');
+    if (!currentPassword) {
+      setPwError('Informe a senha atual.');
       return;
     }
-    if (newPassword.length < 6) {
-      setPwError('A nova senha deve ter pelo menos 6 caracteres.');
+    if (!passwordEvaluation.isValid) {
+      setPwError(passwordEvaluation.errors.join(' '));
       return;
     }
     setSaving(true);
@@ -637,6 +646,7 @@ function Security({
                 Senha atual
                 <input
                   type="password"
+                  autoComplete="current-password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
@@ -646,6 +656,10 @@ function Security({
                 Nova senha
                 <input
                   type="password"
+                  autoComplete="new-password"
+                  minLength={STANDARD_PASSWORD_POLICY.minLength}
+                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                  aria-describedby="profile-password-requirements"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -655,11 +669,23 @@ function Security({
                 Confirmar nova senha
                 <input
                   type="password"
+                  autoComplete="new-password"
+                  minLength={STANDARD_PASSWORD_POLICY.minLength}
+                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                  aria-describedby="profile-password-requirements"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                 />
               </label>
+              <div className="password-requirements">
+                <PasswordRequirements
+                  id="profile-password-requirements"
+                  password={newPassword}
+                  confirmation={confirmPassword}
+                  policy={STANDARD_PASSWORD_POLICY}
+                />
+              </div>
               {pwError && (
                 <span
                   style={{
@@ -672,7 +698,10 @@ function Security({
                 </span>
               )}
               <footer>
-                <button type="submit" disabled={saving}>
+                <button
+                  type="submit"
+                  disabled={saving || !currentPassword || !passwordEvaluation.isValid}
+                >
                   {saving ? 'Salvando…' : 'Confirmar nova senha'}
                 </button>
               </footer>

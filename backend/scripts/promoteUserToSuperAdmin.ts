@@ -22,6 +22,7 @@ import {
 } from './_shared/adminChangePlan.mjs';
 import { assertOperationalEnvironment } from './_shared/environmentGuard.mjs';
 import { redactEmail, safeError } from './_shared/redaction.mjs';
+import { validateStrongPassword } from '../src/modules/auth/security/passwordPolicy.js';
 
 const ADMIN_CHANGE_ADVISORY_LOCK = 742839105;
 
@@ -177,11 +178,7 @@ async function main() {
 
   if (needsPassword) {
     password = String(process.env[passwordEnvironmentKey] ?? '');
-    if (password.length < 12) {
-      throw new Error(
-        `A variável ${passwordEnvironmentKey} deve conter uma senha com pelo menos 12 caracteres. O valor não foi exibido.`,
-      );
-    }
+    validateStrongPassword(password, `A variável ${passwordEnvironmentKey}`);
   }
 
   const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;

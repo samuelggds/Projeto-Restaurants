@@ -1,4 +1,5 @@
 import { getRequiredMfaRoles } from '../../auth/security/mfaPolicy.js';
+import { PASSWORD_POLICY } from '../../auth/security/passwordPolicy.js';
 
 type PolicyItem = {
   key: string;
@@ -192,7 +193,7 @@ export function getPublicSystemPolicies(
       policy(
         'passwordPolicy',
         'Política de senha administrativa',
-        '16–128 caracteres',
+        `${PASSWORD_POLICY.minimumLength}–${PASSWORD_POLICY.maximumLength} caracteres`,
         'Exige minúscula, maiúscula, número e símbolo; limite de 72 bytes UTF-8.',
         true,
       ),
