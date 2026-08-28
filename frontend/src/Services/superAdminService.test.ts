@@ -106,14 +106,15 @@ describe('superAdminService', () => {
       version: 2,
     });
     await superAdminService.getSupportMessages(17);
-    await superAdminService.sendSupportMessage(17, 'Como podemos ajudar?');
+    await superAdminService.sendSupportMessage(17, 'Configuração concluída.', true);
 
     expect(api.patch).toHaveBeenCalledWith('/super-admin/plans/PREMIUM%20BR', expect.any(Object));
     expect(api.get).toHaveBeenCalledWith('/ai-support/messages', {
       params: { restaurantId: 17 },
     });
     expect(api.post).toHaveBeenCalledWith('/super-admin/support/17/messages', {
-      message: 'Como podemos ajudar?',
+      message: 'Configuração concluída.',
+      closeConversation: true,
     });
   });
 });

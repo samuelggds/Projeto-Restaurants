@@ -24,6 +24,8 @@ import {
 } from '../domain/superAdminDomain';
 import * as S from '../SuperAdmin.styles';
 import { ConfirmAction, Empty, Modal } from './Shared';
+import { connectSocket } from '../../../Services/socketService';
+import { getAccessToken } from '../../../modules/auth/session/authSession';
 
 const isoToLocalInput = (value: string | null | undefined) =>
   value ? new Date(value).toISOString().slice(0, 16) : '';
@@ -66,6 +68,16 @@ export function RestaurantDetails({
             <dt>Acesso</dt>
             <dd>{restaurant.active ? 'Liberado' : 'Bloqueado'}</dd>
           </div>
+          {!restaurant.active ? (
+            <div>
+              <dt>Origem do bloqueio</dt>
+              <dd>
+                {restaurant.accessBlockReason === 'BILLING'
+                  ? 'Inadimplência detectada automaticamente'
+                  : 'Suspensão manual da plataforma'}
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt>E-mail</dt>
             <dd>{restaurant.email || 'Não informado'}</dd>
@@ -669,7 +681,22 @@ export function SupportConversation({
       active = false;
     };
   }, [actions, ticket.restaurantId]);
-  const send = async () => {
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return undefined;
+
+    const socket = connectSocket(token, 'super-admin-support-conversation');
+    const onMessage = (incoming: { restaurantId?: number | string }) => {
+      if (Number(incoming?.restaurantId) !== Number(ticket.restaurantId)) return;
+      void actions
+        .getSupportMessages(ticket.restaurantId)
+        .then(setMessages)
+        .catch(() => undefined);
+    };
+    socket.on('support:chat-message', onMessage);
+    return () => socket.off('support:chat-message', onMessage);
+  }, [actions, ticket.restaurantId]);
+  const send = async (closeConversation = false) => {
     if (message.trim().length < 2) {
       setError('Escreva uma resposta antes de enviar.');
       return;
@@ -677,10 +704,18 @@ export function SupportConversation({
     setSending(true);
     setError('');
     try {
-      await actions.sendSupportMessage(ticket.restaurantId, message.trim());
+      await actions.sendSupportMessage(
+        ticket.restaurantId,
+        message.trim(),
+        closeConversation,
+      );
       setMessage('');
       await load();
-      notify('Resposta enviada ao restaurante.');
+      notify(
+        closeConversation
+          ? 'Resposta enviada e atendimento encerrado.'
+          : 'Resposta enviada ao restaurante.',
+      );
     } catch (requestError) {
       setError(requestErrorMessage(requestError, 'Não foi possível enviar a resposta.'));
     } finally {
@@ -695,6 +730,9 @@ export function SupportConversation({
       footer={
         <>
           <S.Button onClick={onClose}>Fechar</S.Button>
+          <S.Button disabled={sending} onClick={() => void send(true)}>
+            {sending ? 'Enviando…' : 'Responder e encerrar'}
+          </S.Button>
           <S.Button $variant="primary" disabled={sending} onClick={() => void send()}>
             {sending ? 'Enviando…' : 'Enviar resposta'}
           </S.Button>
@@ -723,6 +761,12 @@ export function SupportConversation({
         )}
       </S.Chat>
       <S.Fields>
+        {ticket.status === 'CLOSED' ? (
+          <S.InlineAlert $tone="success" className="wide" role="status">
+            Atendimento encerrado. Uma nova mensagem do restaurante reabrirá a conversa
+            automaticamente.
+          </S.InlineAlert>
+        ) : null}
         <label className="wide">
           Sua resposta
           <textarea

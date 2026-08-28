@@ -17,6 +17,7 @@ import monthlyBillingService, {
   type PlanCode,
   type Subscription,
 } from '../../../Services/monthlyBillingService';
+import { clearSystemBlockState, findBlockingInvoice } from '../../../Services/systemBlock';
 import * as S from './MonthlyBilling.styles';
 
 const benefits: Record<PlanCode, string[]> = {
@@ -70,8 +71,12 @@ const date = (value?: string | null) =>
 const errorMessage = (error: unknown) =>
   (error as { response?: { data?: { error?: string } } }).response?.data?.error;
 
-export function MonthlyBilling() {
-  const [view, setView] = useState<'plans' | 'charges'>('plans');
+type MonthlyBillingProps = {
+  restricted?: boolean;
+};
+
+export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {}) {
+  const [view, setView] = useState<'plans' | 'charges'>(restricted ? 'charges' : 'plans');
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -98,12 +103,15 @@ export function MonthlyBilling() {
       setSubscription(current);
       setInvoices(overview.invoices || []);
       setBilling(overview.billing);
+      if (restricted && !findBlockingInvoice(overview.invoices || [])) {
+        clearSystemBlockState();
+      }
     } catch (error) {
       toast.error(errorMessage(error) || 'Não foi possível carregar as mensalidades.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [restricted]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -226,15 +234,17 @@ export function MonthlyBilling() {
       ) : null}
 
       <S.ViewTabs aria-label="Seções de cobrança e assinatura">
-        <button className={view === 'plans' ? 'active' : ''} onClick={() => setView('plans')}>
-          <Layers3 size={17} /> Assinatura e planos
-        </button>
+        {!restricted ? (
+          <button className={view === 'plans' ? 'active' : ''} onClick={() => setView('plans')}>
+            <Layers3 size={17} /> Assinatura e planos
+          </button>
+        ) : null}
         <button className={view === 'charges' ? 'active' : ''} onClick={() => setView('charges')}>
           <CreditCard size={17} /> Cobranças
         </button>
       </S.ViewTabs>
 
-      {view === 'plans' ? (
+      {!restricted && view === 'plans' ? (
         <>
           <S.SectionTitle>
             <h2>Planos disponíveis</h2>

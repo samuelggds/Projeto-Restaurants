@@ -30,8 +30,9 @@ export function SupportPage({
   return (
     <S.PageStack>
       <S.InlineAlert $tone="info">
-        A fila é ordenada pela mensagem mais recente. Responda com diagnóstico, ação realizada e
-        próximo passo esperado do restaurante.
+        Este canal recebe somente mensagens dos administradores responsáveis pelos restaurantes.
+        Relatos de cozinha, salão e entregas ficam na Central de Ajuda interna de cada unidade. A
+        fila abaixo é ordenada pela mensagem mais recente.
       </S.InlineAlert>
       <Toolbar
         query={query}
@@ -63,7 +64,7 @@ export function SupportPage({
             value: data.tickets.filter((t) => t.status === 'WAITING_CUSTOMER').length,
             icon: <UserRoundCheck />,
           },
-          { label: 'Conversas monitoradas', value: data.tickets.length, icon: <MessageCircle /> },
+          { label: 'Restaurantes em contato', value: data.tickets.length, icon: <MessageCircle /> },
           {
             label: 'Mensagens registradas',
             value: data.tickets.reduce((sum, t) => sum + t.messageCount, 0),
@@ -76,8 +77,8 @@ export function SupportPage({
           <div>
             <h2>Fila de atendimento</h2>
             <p>
-              {visible.length} conversa(s). Nenhum SLA é exibido sem telemetria calculada pelo
-              backend.
+              {visible.length} conversa(s) direta(s) entre ADMIN e SUPER_ADMIN. Responda com o
+              diagnóstico, a ação realizada e o próximo passo esperado.
             </p>
           </div>
         </S.SectionHeading>

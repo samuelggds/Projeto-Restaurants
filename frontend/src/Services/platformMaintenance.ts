@@ -3,6 +3,14 @@ const PLATFORM_MAINTENANCE_EVENT = 'platform-maintenance-state-changed';
 
 export const PLATFORM_STATUS_PATH = '/platform/status';
 
+export const DEFAULT_PLATFORM_MAINTENANCE_MESSAGE = 'Plataforma temporariamente em manutenção.';
+
+export type PlatformStatus = {
+  available: boolean;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+};
+
 export type PlatformMaintenanceState = {
   active: true;
   message: string;
@@ -27,7 +35,7 @@ export function getPlatformMaintenanceState(): PlatformMaintenanceState | null {
 
     return {
       active: true,
-      message: String(parsed.message || 'Plataforma temporariamente em manutenção.'),
+      message: String(parsed.message || DEFAULT_PLATFORM_MAINTENANCE_MESSAGE),
       returnTo: typeof parsed.returnTo === 'string' ? parsed.returnTo : null,
       updatedAt: String(parsed.updatedAt || new Date(0).toISOString()),
     };
@@ -45,12 +53,20 @@ export function setPlatformMaintenanceState(
   const current = getPlatformMaintenanceState();
   const state: PlatformMaintenanceState = {
     active: true,
-    message: String(payload.message || 'Plataforma temporariamente em manutenção.'),
+    message: String(payload.message || DEFAULT_PLATFORM_MAINTENANCE_MESSAGE),
     returnTo: payload.returnTo ?? current?.returnTo ?? null,
     updatedAt: new Date().toISOString(),
   };
   window.localStorage.setItem(PLATFORM_MAINTENANCE_KEY, JSON.stringify(state));
   notifyPlatformMaintenanceChange();
+}
+
+export function isTechnicalMaintenancePath(pathname: string) {
+  const path = String(pathname || '')
+    .split(/[?#]/u, 1)[0]
+    .replace(/\/+$/u, '')
+    .toLowerCase();
+  return path === '/super_admin/login';
 }
 
 export function clearPlatformMaintenanceState() {

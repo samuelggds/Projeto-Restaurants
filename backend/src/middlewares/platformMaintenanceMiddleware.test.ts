@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import {
   createPlatformMaintenanceMiddleware,
+  createPlatformStatusHandler,
   PlatformMaintenanceStateService,
   resolvePlatformSettingsCacheTtlMs,
 } from './platformMaintenanceMiddleware.js';
@@ -30,15 +31,19 @@ test('bloqueia negócio, mantém rotas essenciais e reutiliza cache curto', asyn
     };
   }, 5_000);
   const app = express();
-  app.use(createPlatformMaintenanceMiddleware(stateService));
+  app.use(
+    createPlatformMaintenanceMiddleware(stateService, async (token) =>
+      token === 'super-admin-token' ? 'SUPER_ADMIN' : null,
+    ),
+  );
   app.use((req, res) => res.status(200).json({ path: req.path }));
 
   await withServer(app, async (baseUrl) => {
     for (const [path, method] of [
       ['/health', 'GET'],
       ['/ready', 'GET'],
+      ['/platform/status', 'GET'],
       ['/auth/login', 'POST'],
-      ['/super-admin/settings', 'PUT'],
       ['/api/webhooks/asaas', 'POST'],
       ['/billing/webhook/mercadopago', 'POST'],
       ['/orders/webhook/stripe', 'POST'],
@@ -48,6 +53,24 @@ test('bloqueia negócio, mantém rotas essenciais e reutiliza cache curto', asyn
       assert.equal(response.status, 200, `${method} ${path}`);
     }
     assert.equal(loads, 0);
+
+    for (const path of [
+      '/super-admin/dashboard',
+      '/restaurants',
+      '/ai-support/messages',
+      '/billing/invoices/all',
+    ]) {
+      const superAdminRequest = await fetch(`${baseUrl}${path}`, {
+        headers: { Authorization: 'Bearer super-admin-token' },
+      });
+      assert.equal(superAdminRequest.status, 200, path);
+    }
+    assert.equal(loads, 1);
+
+    // O bypass é definido pela identidade autenticada, nunca por um prefixo
+    // de URL que poderia ser explorado por outro papel.
+    const pathOnlyBypass = await fetch(`${baseUrl}/super-admin/settings`, { method: 'PUT' });
+    assert.equal(pathOnlyBypass.status, 503);
 
     const blocked = await fetch(`${baseUrl}/orders`);
     const repeated = await fetch(`${baseUrl}/restaurants`);
@@ -86,6 +109,30 @@ test('falha de leitura abre a plataforma e também é cacheada', async () => {
     assert.equal(second.status, 200);
     assert.equal(loads, 1);
     assert.equal(errors.length, 1);
+  });
+});
+
+test('status público informa apenas disponibilidade e mensagem operacional', async () => {
+  const app = express();
+  app.get(
+    '/platform/status',
+    createPlatformStatusHandler({
+      getState: async () => ({
+        maintenanceMode: true,
+        maintenanceMessage: 'Atualização programada.',
+      }),
+    }),
+  );
+
+  await withServer(app, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/platform/status`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await response.json(), {
+      available: false,
+      maintenanceMode: true,
+      maintenanceMessage: 'Atualização programada.',
+    });
   });
 });
 

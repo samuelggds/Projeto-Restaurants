@@ -3,7 +3,7 @@ import { deriveSupportConversationStatus } from '../../aiSupport/domain/supportC
 
 export type TenantStatus = 'ACTIVE' | 'TRIAL' | 'OVERDUE' | 'BLOCKED' | 'CANCELED';
 export type PublicInvoiceStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'CANCELED';
-export type SupportTicketStatus = 'OPEN' | 'WAITING_CUSTOMER';
+export type SupportTicketStatus = 'OPEN' | 'WAITING_CUSTOMER' | 'CLOSED';
 
 export function deriveTenantStatus(input: {
   active: boolean;
@@ -30,8 +30,9 @@ export function mapInvoiceStatus(status: InvoiceStatus): PublicInvoiceStatus {
 
 export function deriveSupportTicketStatus(
   lastSenderRole: SupportChatSenderRole | string,
+  issueStatus?: string | null,
 ): SupportTicketStatus {
-  return deriveSupportConversationStatus(lastSenderRole);
+  return deriveSupportConversationStatus(lastSenderRole, issueStatus);
 }
 
 export function decimalToNumber(value: unknown) {

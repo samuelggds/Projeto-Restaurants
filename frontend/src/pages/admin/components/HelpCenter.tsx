@@ -42,6 +42,14 @@ type EmployeeIssue = {
   issueResponse?: string | null;
   sentAt: string | null;
 };
+type PlatformSupportMessage = {
+  id: string;
+  senderRole: 'ADMIN' | 'SUPER_ADMIN';
+  senderLabel: string;
+  message: string;
+  issueStatus?: string | null;
+  sentAt: string | null;
+};
 type GuideSection = {
   title: string;
   icon: typeof Store;
@@ -626,12 +634,14 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
   const [errorMessage, setErrorMessage] = useState('');
   const [employeeIssues, setEmployeeIssues] = useState<EmployeeIssue[]>([]);
   const [issuesState, setIssuesState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [platformMessages, setPlatformMessages] = useState<PlatformSupportMessage[]>([]);
+  const [platformState, setPlatformState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [showIssueHistory, setShowIssueHistory] = useState(false);
   const loadEmployeeIssues = async () => {
     setIssuesState('loading');
     try {
-      const result = await supportChatService.getMessages({ limit: 100 });
+      const result = await supportChatService.getMessages({ limit: 100, channel: 'internal' });
       setEmployeeIssues(
         (result?.messages || []).filter(
           (item: { issueStatus?: string | null }) => item.issueStatus,
@@ -642,9 +652,25 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       setIssuesState('error');
     }
   };
+  const loadPlatformConversation = async () => {
+    setPlatformState('loading');
+    try {
+      const result = await supportChatService.getMessages({ limit: 100, channel: 'platform' });
+      setPlatformMessages(
+        (result?.messages || []).filter(
+          (item: { senderRole?: string }) =>
+            ['ADMIN', 'SUPER_ADMIN'].includes(String(item.senderRole || '')),
+        ),
+      );
+      setPlatformState('ready');
+    } catch {
+      setPlatformState('error');
+    }
+  };
   useEffect(() => {
     const loadOnMount = window.setTimeout(() => {
       void loadEmployeeIssues();
+      void loadPlatformConversation();
     }, 0);
     return () => window.clearTimeout(loadOnMount);
   }, []);
@@ -654,10 +680,22 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
 
     const socket = connectSocket(token, 'admin-help-issues');
     const refresh = () => void loadEmployeeIssues();
-    const onNewIssue = (issue: { issueStatus?: string | null; senderLabel?: string }) => {
-      if (issue.issueStatus !== 'OPEN') return;
-      toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
-      refresh();
+    const onNewIssue = (issue: {
+      issueStatus?: string | null;
+      senderRole?: string;
+      senderLabel?: string;
+    }) => {
+      if (issue.issueStatus === 'OPEN') {
+        toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
+        refresh();
+        return;
+      }
+      if (issue.senderRole === 'ADMIN' || issue.senderRole === 'SUPER_ADMIN') {
+        if (issue.senderRole === 'SUPER_ADMIN') {
+          toast.info('Nova resposta do suporte da plataforma.');
+        }
+        void loadPlatformConversation();
+      }
     };
     const onUpdatedIssue = () => {
       toast.info('Um relato da equipe foi atualizado.');
@@ -715,6 +753,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       await onReport({ subject, message: message.trim() });
       setMessage('');
       setStatus('success');
+      await loadPlatformConversation();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Não foi possível enviar agora. Tente novamente.',
@@ -898,11 +937,53 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
             <Headphones />
           </i>
           <div>
-            <h2>Não encontrou o que precisava?</h2>
-            <p>
-              Envie um relato ao Super Admin. Sua mensagem ficará registrada no suporte do sistema.
-            </p>
+            <h2>Suporte da plataforma</h2>
+            <p>Canal exclusivo entre o administrador responsável e o Super Admin da plataforma.</p>
           </div>
+          <button
+            type="button"
+            className="refresh-issues"
+            onClick={() => void loadPlatformConversation()}
+          >
+            Atualizar conversa
+          </button>
+        </div>
+        <div className="platform-conversation" aria-live="polite">
+          {platformState === 'loading' && <p>Carregando conversa com a plataforma...</p>}
+          {platformState === 'error' && (
+            <p className="error">Não foi possível carregar a conversa. Tente novamente.</p>
+          )}
+          {platformState === 'ready' && !platformMessages.length && (
+            <div className="platform-empty">
+              <MessageCircle />
+              <span>
+                <b>Nenhuma mensagem enviada ainda</b>
+                <small>Descreva abaixo o que precisa e aguarde o retorno do Super Admin.</small>
+              </span>
+            </div>
+          )}
+          {platformMessages.map((item) => (
+            <article
+              key={item.id}
+              className={item.senderRole === 'ADMIN' ? 'from-admin' : 'from-platform'}
+            >
+              <header>
+                <b>{item.senderRole === 'SUPER_ADMIN' ? 'Suporte da plataforma' : 'Você'}</b>
+                <time>
+                  {item.sentAt
+                    ? new Intl.DateTimeFormat('pt-BR', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      }).format(new Date(item.sentAt))
+                    : 'Agora'}
+                </time>
+              </header>
+              <p>{item.message}</p>
+              {item.issueStatus === 'CLOSED' ? (
+                <small className="conversation-status">Atendimento encerrado</small>
+              ) : null}
+            </article>
+          ))}
         </div>
         <form onSubmit={submit}>
           <label>

@@ -5,19 +5,40 @@ import prisma from '../config/prisma.js';
 import { socketHandler } from './socketHandler.js';
 import { socketAuth } from './socketAuth.js';
 import jwt from 'jsonwebtoken';
+import { platformMaintenanceStateService } from '../modules/platform/services/PlatformMaintenanceService.js';
 
 const originals = {
   findUnique: prisma.order.findUnique,
   createLocation: prisma.deliveryLocation.create,
   findUserById: prisma.user.findUnique,
+  findPlatformSettings: prisma.platformSettings.findUnique,
+  findRestaurant: prisma.restaurant.findUnique,
+  findInvoices: prisma.invoice.findMany,
   transaction: prisma.$transaction,
   jwtSecret: process.env.JWT_SECRET,
 };
 
 beforeEach(() => {
+  prisma.platformSettings.findUnique = async () => ({
+    maintenanceMode: false,
+    maintenanceMessage: 'Manutenção.',
+  });
+  prisma.restaurant.findUnique = async ({ where }) => ({
+    id: where.id,
+    active: true,
+    accessBlockReason: 'NONE',
+  });
+  prisma.invoice.findMany = async () => [];
+  platformMaintenanceStateService.invalidate();
   prisma.$transaction = async (callback) =>
     callback({
       $queryRaw: async () => [{ id: 91 }],
+      restaurant: {
+        findUnique: (args) => prisma.restaurant.findUnique(args),
+      },
+      invoice: {
+        findMany: (args) => prisma.invoice.findMany(args),
+      },
       deliveryLocation: {
         create: (args) => prisma.deliveryLocation.create(args),
       },
@@ -28,7 +49,11 @@ afterEach(() => {
   prisma.order.findUnique = originals.findUnique;
   prisma.deliveryLocation.create = originals.createLocation;
   prisma.user.findUnique = originals.findUserById;
+  prisma.platformSettings.findUnique = originals.findPlatformSettings;
+  prisma.restaurant.findUnique = originals.findRestaurant;
+  prisma.invoice.findMany = originals.findInvoices;
   prisma.$transaction = originals.transaction;
+  platformMaintenanceStateService.invalidate();
   process.env.JWT_SECRET = originals.jwtSecret;
 });
 

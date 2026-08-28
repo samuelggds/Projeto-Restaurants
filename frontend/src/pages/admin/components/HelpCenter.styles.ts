@@ -1385,6 +1385,83 @@ export const ReportCard = styled.section`
     padding: 8px 10px;
     font-size: 12px;
   }
+  .platform-conversation {
+    display: grid;
+    gap: 10px;
+    max-height: 340px;
+    margin: 0 0 18px;
+    padding: 14px;
+    overflow-y: auto;
+    border: 1px solid #e5ded7;
+    border-radius: 14px;
+    background: #faf8f5;
+  }
+  .platform-conversation article {
+    width: min(78%, 720px);
+    padding: 11px 13px;
+    border: 1px solid #e2d9d1;
+    border-radius: 13px 13px 13px 4px;
+    background: #fff;
+    box-shadow: 0 5px 14px rgba(60, 43, 29, 0.05);
+  }
+  .platform-conversation article.from-admin {
+    justify-self: end;
+    border-color: color-mix(in srgb, var(--a) 25%, #e2d9d1);
+    border-radius: 13px 13px 4px 13px;
+    background: color-mix(in srgb, var(--a) 7%, #fff);
+  }
+  .platform-conversation article header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 5px;
+  }
+  .platform-conversation article b {
+    color: #40372f;
+    font-size: 12px;
+  }
+  .platform-conversation article time {
+    color: #887d73;
+    font-size: 10px;
+  }
+  .platform-conversation article p {
+    color: #514840;
+    white-space: pre-wrap;
+  }
+  .platform-conversation .conversation-status {
+    display: inline-flex;
+    margin-top: 8px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: #e8f5eb;
+    color: #24733a;
+    font-size: 10px;
+    font-weight: 800;
+  }
+  .platform-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 86px;
+    color: #766b62;
+  }
+  .platform-empty svg {
+    width: 25px;
+    color: var(--a);
+  }
+  .platform-empty span {
+    display: grid;
+    gap: 2px;
+  }
+  .platform-empty b {
+    color: #40372f;
+    font-size: 13px;
+  }
+  .platform-empty small {
+    font-size: 11px;
+  }
   @media (max-width: 650px) {
     padding: 20px;
     form {
@@ -1397,6 +1474,15 @@ export const ReportCard = styled.section`
     footer button {
       margin-left: 0;
       justify-content: center;
+    }
+    .heading {
+      flex-wrap: wrap;
+    }
+    .heading .refresh-issues:first-of-type {
+      margin-left: 0;
+    }
+    .platform-conversation article {
+      width: 94%;
     }
   }
 `;

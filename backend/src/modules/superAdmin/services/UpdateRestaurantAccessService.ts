@@ -64,6 +64,7 @@ export class UpdateRestaurantAccessService {
         id: after.id,
         name: after.name,
         active: after.active,
+        accessBlockReason: after.accessBlockReason,
         updatedAt: after.updatedAt.toISOString(),
       };
     });
@@ -71,4 +72,3 @@ export class UpdateRestaurantAccessService {
 }
 
 export default new UpdateRestaurantAccessService();
-

@@ -22,6 +22,8 @@ class BillingRepository {
           select: {
             name: true,
             email: true,
+            active: true,
+            accessBlockReason: true,
             createdAt: true,
             users: {
               where: { role: UserRole.ADMIN },
@@ -194,23 +196,27 @@ class BillingRepository {
   }
 
   async deactivateRestaurant(id: number | string, db: PrismaClientLike = prisma) {
-    return db.restaurant.update({
+    return db.restaurant.updateMany({
       where: {
         id: Number(id),
+        accessBlockReason: { not: 'MANUAL' },
       },
       data: {
         active: false,
+        accessBlockReason: 'BILLING',
       },
     });
   }
 
   async activateRestaurant(id: number | string, db: PrismaClientLike = prisma) {
-    return db.restaurant.update({
+    return db.restaurant.updateMany({
       where: {
         id: Number(id),
+        accessBlockReason: 'BILLING',
       },
       data: {
         active: true,
+        accessBlockReason: 'NONE',
       },
     });
   }

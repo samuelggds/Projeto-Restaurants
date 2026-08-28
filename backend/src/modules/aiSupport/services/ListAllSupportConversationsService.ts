@@ -18,7 +18,7 @@ export class ListAllSupportConversationsService {
       restaurantId: conversation.restaurantId,
       restaurant: conversation.restaurantName,
       subject: conversation.subject.slice(0, 100),
-      status: deriveSupportConversationStatus(conversation.senderRole),
+      status: deriveSupportConversationStatus(conversation.senderRole, conversation.issueStatus),
       messageCount: Number(conversation.messageCount),
       lastMessageAt: conversation.sentAt.toISOString(),
       lastSenderRole: conversation.senderRole,

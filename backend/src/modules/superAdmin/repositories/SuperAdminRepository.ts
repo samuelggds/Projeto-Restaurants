@@ -76,6 +76,7 @@ export class SuperAdminRepository {
           email: true,
           phone: true,
           active: true,
+          accessBlockReason: true,
           createdAt: true,
           subscription: { select: safeSubscriptionSelect },
           users: {
@@ -205,6 +206,7 @@ export class SuperAdminRepository {
           zipCode: true,
           openingHours: true,
           active: true,
+          accessBlockReason: true,
           createdAt: true,
           updatedAt: true,
           subscription: { select: safeSubscriptionSelect },
@@ -229,6 +231,9 @@ export class SuperAdminRepository {
             },
           },
           supportChatMessages: {
+            where: {
+              senderRole: { in: ['ADMIN', 'SUPER_ADMIN'] },
+            },
             orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
             take: 100,
             select: {
@@ -294,15 +299,24 @@ export class SuperAdminRepository {
   findRestaurantForMutation(id: number, db: SuperAdminDatabaseClient = prisma) {
     return db.restaurant.findUnique({
       where: { id },
-      select: { id: true, name: true, active: true },
+      select: { id: true, name: true, active: true, accessBlockReason: true },
     });
   }
 
   updateRestaurantAccess(id: number, active: boolean, db: SuperAdminDatabaseClient = prisma) {
     return db.restaurant.update({
       where: { id },
-      data: { active },
-      select: { id: true, name: true, active: true, updatedAt: true },
+      data: {
+        active,
+        accessBlockReason: active ? 'NONE' : 'MANUAL',
+      },
+      select: {
+        id: true,
+        name: true,
+        active: true,
+        accessBlockReason: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -394,6 +408,7 @@ export class SuperAdminRepository {
       senderUserId: number;
       senderLabel: string;
       message: string;
+      issueStatus?: string | null;
     },
     db: SuperAdminDatabaseClient = prisma,
   ) {
@@ -409,6 +424,7 @@ export class SuperAdminRepository {
         senderRole: true,
         senderLabel: true,
         message: true,
+        issueStatus: true,
         sentAt: true,
       },
     });

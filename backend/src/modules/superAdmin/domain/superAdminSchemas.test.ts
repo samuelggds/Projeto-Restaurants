@@ -5,6 +5,7 @@ import {
   platformPlanUpdateSchema,
   platformSettingsUpdateSchema,
   restaurantAccessUpdateSchema,
+  supportMessageSchema,
 } from './superAdminSchemas.js';
 
 const validSettings = {
@@ -86,6 +87,23 @@ test('novo administrador aceita senha forte com oito caracteres e exige confirma
       password: 'senha123',
       passwordConfirmation: 'senha123',
     }).success,
+    false,
+  );
+});
+
+test('resposta do suporte pode encerrar a conversa sem aceitar campos arbitrários', () => {
+  assert.deepEqual(
+    supportMessageSchema.parse({
+      message: 'Configuração corrigida e validada.',
+      closeConversation: true,
+    }),
+    {
+      message: 'Configuração corrigida e validada.',
+      closeConversation: true,
+    },
+  );
+  assert.equal(
+    supportMessageSchema.safeParse({ message: 'Resolvido.', secret: 'não permitido' }).success,
     false,
   );
 });

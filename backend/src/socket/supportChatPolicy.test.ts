@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   canSendSupportChat,
+  getSupportChatRecipientRooms,
   getSupportMessageSender,
   isOperationalSupportReporter,
 } from './supportChatPolicy.js';
@@ -23,4 +24,14 @@ test('mantém o chat restrito aos perfis permitidos', () => {
     senderRole: 'ADMIN',
     senderLabel: 'Admin',
   });
+});
+
+test('separa relatos internos da fila exclusiva do SUPER_ADMIN', () => {
+  assert.deepEqual(getSupportChatRecipientRooms('FUNCIONARIO', 7), ['restaurant:7:admin']);
+  assert.deepEqual(getSupportChatRecipientRooms('MOTOQUEIRO', 7), ['restaurant:7:admin']);
+  assert.deepEqual(getSupportChatRecipientRooms('ADMIN', 7), ['super_admin']);
+  assert.deepEqual(getSupportChatRecipientRooms('SUPER_ADMIN', 7), [
+    'restaurant:7:admin',
+    'super_admin',
+  ]);
 });

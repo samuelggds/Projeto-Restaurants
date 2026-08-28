@@ -61,6 +61,9 @@ export function mapRestaurantTenant(value: unknown): RestaurantTenant {
     email: text(item.email),
     phone: nullableText(item.phone),
     active,
+    accessBlockReason: ['MANUAL', 'BILLING'].includes(text(item.accessBlockReason).toUpperCase())
+      ? (text(item.accessBlockReason).toUpperCase() as 'MANUAL' | 'BILLING')
+      : 'NONE',
     status: mapTenantStatus(item.status ?? subscription.status ?? (active ? 'ACTIVE' : 'BLOCKED')),
     createdAt: text(item.createdAt),
     lastAccessAt: nullableText(item.lastAccessAt ?? item.lastAccess),

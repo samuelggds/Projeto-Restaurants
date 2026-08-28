@@ -1,4 +1,7 @@
-import prisma from '../../../config/prisma.js';
+import supportMessageRepository, {
+  type SupportMessageChannel,
+  type SupportMessageRepository,
+} from '../repositories/SupportMessageRepository.js';
 
 type ExecuteInput = {
   requesterRole: string;
@@ -6,9 +9,17 @@ type ExecuteInput = {
   queryRestaurantId: number | string | null;
   queryBeforeId: number | string | null;
   queryLimit: number | string | null;
+  queryChannel: string | null;
 };
 
-class ListSupportChatMessagesService {
+export class ListSupportChatMessagesService {
+  constructor(
+    private readonly repository: Pick<
+      SupportMessageRepository,
+      'listForRestaurant'
+    > = supportMessageRepository,
+  ) {}
+
   async execute(input: ExecuteInput) {
     const normalizedRole = String(input.requesterRole || '').toUpperCase();
     const isAdmin = normalizedRole === 'ADMIN';
@@ -24,48 +35,30 @@ class ListSupportChatMessagesService {
     const restaurantId = isSuperAdmin ? queryRestaurantId : requesterRestaurantId;
     const beforeId = Number(input.queryBeforeId || 0);
     const requestedLimit = Number(input.queryLimit || 0);
-    const limit = Number.isInteger(requestedLimit)
-      ? Math.min(Math.max(requestedLimit, 1), 100)
-      : 40;
+    const limit =
+      Number.isInteger(requestedLimit) && requestedLimit > 0
+        ? Math.min(Math.max(requestedLimit, 1), 100)
+        : 40;
+    const requestedChannel = String(input.queryChannel || 'ALL').toUpperCase();
+    if (!['ALL', 'PLATFORM', 'INTERNAL'].includes(requestedChannel)) {
+      throw new Error('Canal de suporte inválido.');
+    }
+    // SUPER_ADMIN nunca recebe relatos operacionais da equipe. Esses relatos
+    // pertencem exclusivamente ao ADMIN do restaurante.
+    const channel: SupportMessageChannel = isSuperAdmin
+      ? 'PLATFORM'
+      : (requestedChannel as SupportMessageChannel);
 
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
       throw new Error('Restaurante inválido para carregar histórico.');
     }
 
-    const messages = await prisma.$queryRaw<
-      Array<{
-        id: number;
-        message: string;
-        senderRole: string;
-        senderUserId: number | null;
-        senderLabel: string;
-        issueStatus: string | null;
-        issueResponse: string | null;
-        issueRespondedAt: Date | null;
-        issueClosedAt: Date | null;
-        restaurantId: number;
-        sentAt: Date;
-      }>
-    >`
-      SELECT
-        "id",
-        "message",
-        "senderRole",
-        "senderUserId",
-        "senderLabel",
-        "issueStatus",
-        "issueResponse",
-        "issueRespondedAt",
-        "issueClosedAt",
-        "restaurantId",
-        "sentAt"
-      FROM "SupportChatMessage"
-      WHERE
-        "restaurantId" = ${restaurantId}
-        AND (${beforeId} <= 0 OR "id" < ${beforeId})
-      ORDER BY "id" DESC
-      LIMIT ${limit + 1}
-    `;
+    const messages = await this.repository.listForRestaurant({
+      restaurantId,
+      beforeId: Number.isInteger(beforeId) ? beforeId : 0,
+      limit: limit + 1,
+      channel,
+    });
 
     const hasMore = messages.length > limit;
     const slicedMessages = hasMore ? messages.slice(0, limit) : messages;

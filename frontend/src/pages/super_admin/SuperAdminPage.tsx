@@ -60,8 +60,10 @@ export default function SuperAdminPage() {
       },
       getSupportMessages: async (restaurantId) =>
         mapSupportMessages(await superAdminService.getSupportMessages(restaurantId)),
-      sendSupportMessage: async (restaurantId, message) => {
-        await mutateAndRefresh(() => superAdminService.sendSupportMessage(restaurantId, message));
+      sendSupportMessage: async (restaurantId, message, closeConversation = false) => {
+        await mutateAndRefresh(() =>
+          superAdminService.sendSupportMessage(restaurantId, message, closeConversation),
+        );
       },
     }),
     [mutateAndRefresh, refresh],

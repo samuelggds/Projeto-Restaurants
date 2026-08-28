@@ -64,8 +64,15 @@ class SuperAdminService {
     return response.data;
   }
 
-  async sendSupportMessage(restaurantId: number, message: string) {
-    const response = await api.post(`/super-admin/support/${restaurantId}/messages`, { message });
+  async sendSupportMessage(
+    restaurantId: number,
+    message: string,
+    closeConversation = false,
+  ) {
+    const response = await api.post(`/super-admin/support/${restaurantId}/messages`, {
+      message,
+      closeConversation,
+    });
     return response.data;
   }
 }

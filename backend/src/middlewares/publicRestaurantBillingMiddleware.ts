@@ -1,16 +1,12 @@
-import { NextFunction, Request, Response } from 'express';
-import { InvoiceStatus } from '@prisma/client';
+import type { NextFunction, Request, Response } from 'express';
 import prisma from '../config/prisma.js';
-import { hasBlockingInvoices } from '../modules/billing/utils/billingRules.js';
+import restaurantAccessService from '../modules/billing/services/RestaurantAccessService.js';
 
-async function resolveRestaurantId(req: Request) {
+export async function resolvePublicRestaurantId(req: Request) {
   const directId = Number(
     req.params.restaurantId || req.query.restaurantId || req.body?.restaurantId || 0,
   );
-
-  if (Number.isInteger(directId) && directId > 0) {
-    return directId;
-  }
+  if (Number.isInteger(directId) && directId > 0) return directId;
 
   const slug = String(req.params.slug || req.query.slug || '').trim();
   if (slug) {
@@ -38,32 +34,22 @@ export async function publicRestaurantBillingMiddleware(
   next: NextFunction,
 ) {
   try {
-    const restaurantId = await resolveRestaurantId(req);
+    const restaurantId = await resolvePublicRestaurantId(req);
+    if (!restaurantId) return next();
 
-    if (!restaurantId) {
-      return next();
-    }
+    const decision = await restaurantAccessService.evaluate(restaurantId);
+    if (!decision) return res.status(404).json({ error: 'Restaurante não encontrado.' });
+    if (!('code' in decision)) return next();
 
-    const openInvoices = await prisma.invoice.findMany({
-      where: {
-        restaurantId,
-        status: { in: [InvoiceStatus.PENDENTE, InvoiceStatus.ATRASADO] },
-      },
-      select: { status: true, dueDate: true },
-    });
-
-    if (!hasBlockingInvoices(openInvoices, new Date())) {
-      return next();
-    }
-
+    // Rotas públicas não expõem informações financeiras nem links de pagamento.
     return res.status(403).json({
-      code: 'BILLING_BLOCKED',
+      code: decision.code,
       blocked: true,
-      error: 'Restaurante temporariamente indisponível',
+      reason: decision.reason,
+      restaurantId,
+      error: 'Restaurante temporariamente indisponível.',
     });
   } catch {
-    return res.status(500).json({
-      error: 'Erro ao validar disponibilidade do restaurante',
-    });
+    return res.status(500).json({ error: 'Erro ao validar disponibilidade do restaurante.' });
   }
 }

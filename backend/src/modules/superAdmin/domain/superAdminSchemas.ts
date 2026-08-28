@@ -131,6 +131,7 @@ export const administratorAccessUpdateSchema = z
 export const supportMessageSchema = z
   .object({
     message: normalizedText(2, 1200, 'Mensagem'),
+    closeConversation: z.boolean().optional().default(false),
   })
   .strict();
 
@@ -147,4 +148,3 @@ export type AdministratorAccessUpdateInput = z.infer<
   typeof administratorAccessUpdateSchema
 >;
 export type SupportMessageInput = z.infer<typeof supportMessageSchema>;
-

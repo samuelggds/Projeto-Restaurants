@@ -6,12 +6,25 @@ import prisma from '../config/prisma.js';
 import { billingMiddleware } from './billingMiddleware.js';
 
 const originalMethods = {
+  transaction: prisma.$transaction,
+  queryRaw: prisma.$queryRaw,
   invoiceFindMany: prisma.invoice.findMany,
   invoiceUpdateMany: prisma.invoice.updateMany,
   subscriptionFindUnique: prisma.subscription.findUnique,
-  subscriptionUpdate: prisma.subscription.update,
-  restaurantUpdate: prisma.restaurant.update,
+  subscriptionUpdateMany: prisma.subscription.updateMany,
+  restaurantFindUnique: prisma.restaurant.findUnique,
+  restaurantUpdateMany: prisma.restaurant.updateMany,
 };
+
+function mockAccessibleRestaurant(restaurantId = 1) {
+  prisma.$transaction = async (operation) => operation(prisma);
+  prisma.$queryRaw = async () => [];
+  prisma.restaurant.findUnique = async () => ({
+    id: restaurantId,
+    active: true,
+    accessBlockReason: 'NONE',
+  });
+}
 
 function createAppWithProtectedRoute(restaurantId = 1) {
   const app = express();
@@ -72,14 +85,18 @@ async function requestProtectedRoute() {
 }
 
 afterEach(() => {
+  prisma.$transaction = originalMethods.transaction;
+  prisma.$queryRaw = originalMethods.queryRaw;
   prisma.invoice.findMany = originalMethods.invoiceFindMany;
   prisma.invoice.updateMany = originalMethods.invoiceUpdateMany;
   prisma.subscription.findUnique = originalMethods.subscriptionFindUnique;
-  prisma.subscription.update = originalMethods.subscriptionUpdate;
-  prisma.restaurant.update = originalMethods.restaurantUpdate;
+  prisma.subscription.updateMany = originalMethods.subscriptionUpdateMany;
+  prisma.restaurant.findUnique = originalMethods.restaurantFindUnique;
+  prisma.restaurant.updateMany = originalMethods.restaurantUpdateMany;
 });
 
 test('deve permitir acesso na rota protegida sem invoices em aberto', async () => {
+  mockAccessibleRestaurant();
   prisma.invoice.findMany = async () => [];
 
   let updateManyCalled = false;
@@ -96,6 +113,7 @@ test('deve permitir acesso na rota protegida sem invoices em aberto', async () =
 });
 
 test('deve validar cobrança pelo tenant da sessão para convidado sem req.user', async () => {
+  mockAccessibleRestaurant(7);
   let queriedRestaurantId = null;
   prisma.invoice.findMany = async ({ where }) => {
     queriedRestaurantId = where.restaurantId;
@@ -117,6 +135,7 @@ test('deve validar cobrança pelo tenant da sessão para convidado sem req.user'
 });
 
 test('deve bloquear acesso na rota protegida quando houver invoice atrasada', async () => {
+  mockAccessibleRestaurant();
   prisma.invoice.findMany = async () => [
     {
       id: 10,
@@ -130,15 +149,15 @@ test('deve bloquear acesso na rota protegida quando houver invoice atrasada', as
   prisma.subscription.findUnique = async () => ({ id: 99 });
 
   let subscriptionUpdated = false;
-  prisma.subscription.update = async () => {
+  prisma.subscription.updateMany = async () => {
     subscriptionUpdated = true;
-    return { id: 99, status: 'EXPIRADA' };
+    return { count: 1 };
   };
 
   let restaurantUpdated = false;
-  prisma.restaurant.update = async () => {
+  prisma.restaurant.updateMany = async () => {
     restaurantUpdated = true;
-    return { id: 1, active: false };
+    return { count: 1 };
   };
 
   const { response, body } = await requestProtectedRoute();
@@ -154,6 +173,7 @@ test('deve bloquear acesso na rota protegida quando houver invoice atrasada', as
 });
 
 test('deve promover pendentes vencidas para ATRASADO e bloquear', async () => {
+  mockAccessibleRestaurant();
   prisma.invoice.findMany = async () => [
     {
       id: 20,
@@ -176,8 +196,8 @@ test('deve promover pendentes vencidas para ATRASADO e bloquear', async () => {
   };
 
   prisma.subscription.findUnique = async () => ({ id: 99 });
-  prisma.subscription.update = async () => ({ id: 99, status: 'EXPIRADA' });
-  prisma.restaurant.update = async () => ({ id: 1, active: false });
+  prisma.subscription.updateMany = async () => ({ count: 1 });
+  prisma.restaurant.updateMany = async () => ({ count: 1 });
 
   const { response, body } = await requestProtectedRoute();
 

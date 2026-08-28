@@ -302,8 +302,7 @@ api.interceptors.response.use(
     })();
     const role = currentUser?.role || null;
     const platformMaintenance =
-      status === 503 &&
-      (data?.code === 'PLATFORM_MAINTENANCE' || data?.maintenanceMode === true);
+      status === 503 && (data?.code === 'PLATFORM_MAINTENANCE' || data?.maintenanceMode === true);
 
     if (platformMaintenance) {
       const currentLocation =
@@ -323,22 +322,31 @@ api.interceptors.response.use(
         String(data?.error || '')
           .toLowerCase()
           .includes('bloqueado por inadimpl'));
+    const blockedByManualRestriction =
+      (status === 403 || status === 423) && data?.code === 'RESTAURANT_ACCESS_BLOCKED';
 
-    if (blockedByBilling) {
+    if (blockedByBilling || blockedByManualRestriction) {
       if (role === 'SUPER_ADMIN') {
         return Promise.reject(error);
       }
 
       setSystemBlockState({
-        message: data?.error || 'Sistema bloqueado por inadimplência',
+        reason: blockedByManualRestriction ? 'MANUAL' : 'BILLING',
+        message:
+          data?.error ||
+          (blockedByManualRestriction
+            ? 'Restaurante temporariamente indisponível'
+            : 'Sistema bloqueado por inadimplência'),
         paymentLink: data?.paymentLink || null,
         invoiceId: data?.invoiceId || null,
         dueDate: data?.dueDate || null,
-        restaurantId: currentUser?.restaurantId || currentUser?.restaurant?.id || null,
+        restaurantId:
+          data?.restaurantId || currentUser?.restaurantId || currentUser?.restaurant?.id || null,
       });
 
       const currentPath = window.location.pathname;
-      if (role !== 'ADMIN' && currentPath !== '/system-maintenance') {
+      const adminCanUseBillingOnly = role === 'ADMIN' && !blockedByManualRestriction;
+      if (!adminCanUseBillingOnly && currentPath !== '/system-maintenance') {
         window.location.assign('/system-maintenance');
       }
     }

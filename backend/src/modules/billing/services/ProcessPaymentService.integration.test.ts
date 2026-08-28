@@ -264,6 +264,35 @@ test('deve manter bloqueio sem assinatura quando houver invoice bloqueante', asy
   assert.equal(calls.deactivatedRestaurantId, 40);
 });
 
+test('pagamento não reativa assinatura cancelada', async () => {
+  silenceServiceLogs();
+  useImmediateTransaction();
+  let subscriptionUpdated = false;
+  let restaurantActivated = false;
+
+  billingRepository.markInvoicePaidIfOpen = async (invoiceId, paidAt) => ({
+    marked: true,
+    invoice: { id: invoiceId, restaurantId: 70, status: 'PAGO', paidAt },
+  });
+  billingRepository.findSubscriptionByRestaurantId = async () => ({
+    id: 88,
+    restaurantId: 70,
+    status: 'CANCELADA',
+  });
+  prisma.invoice.findMany = async () => [];
+  billingRepository.updateSubscription = async () => {
+    subscriptionUpdated = true;
+  };
+  billingRepository.activateRestaurant = async () => {
+    restaurantActivated = true;
+  };
+
+  const result = await processPaymentService.execute({ invoiceId: 700 });
+  assert.equal(result.status, 'PAGO');
+  assert.equal(subscriptionUpdated, false);
+  assert.equal(restaurantActivated, false);
+});
+
 test('nao deve registrar novamente uma fatura que ja esta paga', async () => {
   silenceServiceLogs();
   useImmediateTransaction();

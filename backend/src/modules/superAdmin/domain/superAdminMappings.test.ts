@@ -37,6 +37,7 @@ test('status de suporte é derivado do último remetente sem prioridade ou SLA i
   assert.equal(deriveSupportTicketStatus('SUPER_ADMIN'), 'WAITING_CUSTOMER');
   assert.equal(deriveSupportTicketStatus('ADMIN'), 'OPEN');
   assert.equal(deriveSupportTicketStatus('FUNCIONARIO'), 'OPEN');
+  assert.equal(deriveSupportTicketStatus('SUPER_ADMIN', 'CLOSED'), 'CLOSED');
 });
 
 test('MRR soma somente mensalidades das assinaturas ATIVA', () => {
@@ -55,4 +56,3 @@ test('MRR soma somente mensalidades das assinaturas ATIVA', () => {
   );
   assert.equal(result, 399.8);
 });
-

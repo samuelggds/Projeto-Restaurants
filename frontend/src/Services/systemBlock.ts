@@ -3,7 +3,7 @@ const SYSTEM_BLOCK_EVENT = 'system-block-state-changed';
 
 export type SystemBlockState = {
   blocked: true;
-  reason: 'BILLING';
+  reason: 'BILLING' | 'MANUAL';
   message: string;
   paymentLink: string | null;
   invoiceId: number | string | null;
@@ -48,15 +48,10 @@ export function isBillingInvoiceBlocking(invoice: BillingInvoiceLike, now = new 
   return now > addBusinessDays(dueDate, 5);
 }
 
-export function findBlockingInvoice(
-  invoices: BillingInvoiceLike[] = [],
-  now = new Date(),
-) {
+export function findBlockingInvoice(invoices: BillingInvoiceLike[] = [], now = new Date()) {
   const blockingInvoices = invoices.filter((invoice) => isBillingInvoiceBlocking(invoice, now));
   return (
-    blockingInvoices.find((invoice) => Boolean(invoice.paymentLink)) ||
-    blockingInvoices[0] ||
-    null
+    blockingInvoices.find((invoice) => Boolean(invoice.paymentLink)) || blockingInvoices[0] || null
   );
 }
 
@@ -72,7 +67,7 @@ export function getSystemBlockState(): SystemBlockState | null {
 
     return {
       blocked: true,
-      reason: 'BILLING',
+      reason: parsed.reason === 'MANUAL' ? 'MANUAL' : 'BILLING',
       message: String(parsed.message || 'Sistema bloqueado por inadimplência'),
       paymentLink: typeof parsed.paymentLink === 'string' ? parsed.paymentLink : null,
       invoiceId: parsed.invoiceId ?? null,
@@ -90,13 +85,13 @@ export function getSystemBlockState(): SystemBlockState | null {
 }
 
 export function setSystemBlockState(
-  payload: Partial<Omit<SystemBlockState, 'blocked' | 'reason' | 'updatedAt'>>,
+  payload: Partial<Omit<SystemBlockState, 'blocked' | 'updatedAt'>>,
 ) {
   if (typeof window === 'undefined') return;
 
   const state: SystemBlockState = {
     blocked: true,
-    reason: 'BILLING',
+    reason: payload.reason === 'MANUAL' ? 'MANUAL' : 'BILLING',
     message: String(payload.message || 'Sistema bloqueado por inadimplência'),
     paymentLink: typeof payload.paymentLink === 'string' ? payload.paymentLink : null,
     invoiceId: payload.invoiceId ?? null,

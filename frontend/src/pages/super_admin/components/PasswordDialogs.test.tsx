@@ -11,6 +11,7 @@ const restaurant: RestaurantTenant = {
   email: 'contato@restaurante.test',
   phone: null,
   active: true,
+  accessBlockReason: 'NONE',
   status: 'ACTIVE',
   createdAt: '2026-08-28T00:00:00.000Z',
   lastAccessAt: null,

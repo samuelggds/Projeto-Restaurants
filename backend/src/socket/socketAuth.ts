@@ -5,6 +5,7 @@ import resolvePublicTableService from '../modules/table/services/ResolvePublicTa
 import { TableSessionStatus, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
+import { assertSocketAccess, SocketAccessDeniedError } from './socketAccessPolicy.js';
 
 type SocketAuthNext = (err?: Error) => void;
 
@@ -50,6 +51,8 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
       if (decoded.mustChangePassword) {
         return next(new Error('Troca de senha obrigatória'));
       }
+
+      await assertSocketAccess(decoded.role, decoded.restaurantId);
 
       const normalizedRole = String(decoded.role || '').toUpperCase();
       if (
@@ -121,6 +124,8 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
         restaurantId: session?.table?.restaurantId ?? null,
       };
 
+      await assertSocketAccess(null, socket.tableSession.restaurantId);
+
       return next();
     }
 
@@ -139,11 +144,16 @@ export async function socketAuth(socket: AppSocket, next: SocketAuthNext) {
         restaurantId: table.restaurantId,
       };
 
+      await assertSocketAccess(null, socket.waitingTable.restaurantId);
+
       return next();
     }
 
     return next(new Error('Token não enviado'));
-  } catch (_error: unknown) {
+  } catch (error: unknown) {
+    if (error instanceof SocketAccessDeniedError) {
+      return next(new Error(error.code));
+    }
     return next(new Error('Token inválido'));
   }
 }

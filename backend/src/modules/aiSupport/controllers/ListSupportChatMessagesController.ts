@@ -25,6 +25,10 @@ class ListSupportChatMessagesController {
           : req.query.limit || null;
       const queryLimit =
         typeof rawLimit === 'string' || typeof rawLimit === 'number' ? rawLimit : null;
+      const rawChannel = Array.isArray(req.query.channel)
+        ? req.query.channel[0]
+        : req.query.channel;
+      const queryChannel = typeof rawChannel === 'string' ? rawChannel : null;
 
       const result = await listSupportChatMessagesService.execute({
         requesterRole: role,
@@ -32,6 +36,7 @@ class ListSupportChatMessagesController {
         queryRestaurantId,
         queryBeforeId,
         queryLimit,
+        queryChannel,
       });
 
       return res.status(200).json(result);

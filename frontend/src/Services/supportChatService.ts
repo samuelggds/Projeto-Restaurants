@@ -5,6 +5,7 @@ class SupportChatService {
     restaurantId?: number | string;
     beforeId?: number | string;
     limit?: number;
+    channel?: 'platform' | 'internal';
   }) {
     const params: Record<string, string | number> = {};
 
@@ -26,6 +27,10 @@ class SupportChatService {
 
     if (Number.isInteger(options?.limit) && Number(options?.limit) > 0) {
       params.limit = Number(options?.limit);
+    }
+
+    if (options?.channel) {
+      params.channel = options.channel;
     }
 
     const query = Object.keys(params).length > 0 ? { params } : undefined;

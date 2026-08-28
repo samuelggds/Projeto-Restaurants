@@ -20,7 +20,6 @@ const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTracki
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
-const SystemMaintenancePage = lazy(() => import('../pages/SystemMaintenance/SystemMaintenance'));
 const Home = lazy(() => import('../pages/Home/Home'));
 const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuEntryPage'));
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
@@ -30,10 +29,14 @@ import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
 import {
   clearSystemBlockState,
+  findBlockingInvoice,
   getSystemBlockState,
   setSystemBlockState,
+  subscribeSystemBlockState,
 } from '../Services/systemBlock';
 import { authorizeRoute } from './routeAuthorization';
+import SystemAvailabilityGate from './SystemAvailabilityGate';
+import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 
 function RouteLoading() {
   return (
@@ -114,100 +117,69 @@ function BillingGate() {
   const { user, isLoading } = useAuth();
   const [blockState, setBlockState] = useState(() => getSystemBlockState());
   const [isCheckingBilling, setIsCheckingBilling] = useState(true);
+  const role = String(user?.role || '').toUpperCase();
+
+  useEffect(() => subscribeSystemBlockState(() => setBlockState(getSystemBlockState())), []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const syncBlockState = () => {
-      if (!cancelled) {
-        setBlockState(getSystemBlockState());
-      }
-    };
+    let active = true;
 
     const validateBillingBlock = async () => {
-      if (isLoading) {
-        setIsCheckingBilling(true);
-        return;
-      }
+      if (isLoading) return;
 
       const token = getAccessToken();
-
-      if (!token) {
+      if (!token || role === 'SUPER_ADMIN') {
         clearSystemBlockState();
-        syncBlockState();
-        setIsCheckingBilling(false);
-        return;
-      }
-
-      if (user?.role === 'SUPER_ADMIN') {
-        clearSystemBlockState();
-        syncBlockState();
-        setIsCheckingBilling(false);
-        return;
-      }
-
-      const isAdminUser = user?.role === 'ADMIN';
-
-      if (!isAdminUser) {
-        setIsCheckingBilling(false);
-        return;
-      }
-
-      try {
-        const response = await api.get('/billing/invoices');
-        const invoiceList = Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response?.data?.invoices)
-            ? response.data.invoices
-            : [];
-        const overdueInvoices = invoiceList.filter((invoice) => invoice.status === 'ATRASADO');
-
-        const overdueInvoice =
-          overdueInvoices.find((invoice) => Boolean(invoice.paymentLink)) ||
-          overdueInvoices[0] ||
-          null;
-
-        if (overdueInvoice) {
-          setSystemBlockState({
-            message: 'Sistema bloqueado por inadimplência',
-            paymentLink: overdueInvoice.paymentLink || null,
-            invoiceId: overdueInvoice.id,
-            dueDate: overdueInvoice.dueDate,
-          });
-        } else {
-          clearSystemBlockState();
+      } else if (role === 'ADMIN') {
+        try {
+          const response = await api.get('/billing/invoices');
+          const invoiceList = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.data?.invoices)
+              ? response.data.invoices
+              : [];
+          const blockingInvoice = findBlockingInvoice(invoiceList);
+          if (blockingInvoice) {
+            setSystemBlockState({
+              reason: 'BILLING',
+              message: 'Sistema bloqueado por inadimplência',
+              paymentLink: blockingInvoice.paymentLink || null,
+              invoiceId: blockingInvoice.id ?? null,
+              dueDate: blockingInvoice.dueDate ? String(blockingInvoice.dueDate) : null,
+            });
+          } else {
+            clearSystemBlockState();
+          }
+        } catch {
+          // O interceptor persiste respostas de bloqueio retornadas pelo backend.
         }
-      } catch {
-        // O interceptor já trata bloqueio 403 e estado local.
-      } finally {
-        syncBlockState();
-        if (!cancelled) {
-          setIsCheckingBilling(false);
-        }
+      }
+
+      if (active) {
+        setBlockState(getSystemBlockState());
+        setIsCheckingBilling(false);
       }
     };
 
-    validateBillingBlock();
-
+    void validateBillingBlock();
+    const timer = window.setInterval(() => void validateBillingBlock(), 30_000);
+    const onFocus = () => void validateBillingBlock();
+    window.addEventListener('focus', onFocus);
     return () => {
-      cancelled = true;
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
     };
-  }, [user, isLoading]);
+  }, [isLoading, role]);
 
   if (isLoading || isCheckingBilling) {
     return <RouteLoading />;
   }
 
   if (blockState?.blocked) {
-    if (user?.role === 'SUPER_ADMIN') {
-      return <Outlet />;
-    }
-
-    if (['CLIENTE', 'FUNCIONARIO', 'MOTOQUEIRO'].includes(user?.role)) {
-      return <Navigate to="/system-maintenance" replace />;
-    }
-
-    return <Navigate to="/system-blocked" replace />;
+    // SystemAvailabilityGate observa o mesmo estado e substitui toda a árvore
+    // pela manutenção ou pelo painel financeiro restrito.
+    return <RouteLoading />;
   }
 
   return <Outlet />;
@@ -217,52 +189,55 @@ export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Suspense fallback={<RouteLoading />}>
-        <Routes>
-          <Route element={<PageTransition />}>
-            <Route element={<RouteAuthorizationGuard />}>
-              <Route path="/login" element={<Login />} />
-              <Route path="/:restaurantSlug/login" element={<RestaurantLoginRedirect />} />
-              <Route path="/recover-password" element={<RecoverPassword />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
-              <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
-              <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
-              <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
+        <SystemAvailabilityGate>
+          <Routes>
+            <Route element={<PageTransition />}>
+              <Route path="/super_admin/login" element={<Login />} />
+              <Route element={<RouteAuthorizationGuard />}>
+                <Route path="/login" element={<Login />} />
+                <Route path="/:restaurantSlug/login" element={<RestaurantLoginRedirect />} />
+                <Route path="/recover-password" element={<RecoverPassword />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
+                <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+                <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
+                <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
 
-              <Route path="/" element={<Home />} />
+                <Route path="/" element={<Home />} />
 
-              <Route element={<RequireAuth />}>
-                <Route path="/change-password" element={<ChangePasswordPage />} />
-                <Route path="/system-blocked" element={<SystemBlockedPage />} />
-                <Route path="/billing" element={<BillingPage />} />
+                <Route element={<RequireAuth />}>
+                  <Route path="/change-password" element={<ChangePasswordPage />} />
+                  <Route path="/system-blocked" element={<SystemBlockedPage />} />
 
-                <Route element={<BillingGate />}>
-                  <Route path="/profile" element={<UserProfile />} />
-                  <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
+                  <Route element={<BillingGate />}>
+                    <Route path="/billing" element={<BillingPage />} />
+                    <Route path="/profile" element={<UserProfile />} />
+                    <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
 
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route
-                    path="/admin/configuracoes"
-                    element={<Navigate to="/admin?settings=brand" replace />}
-                  />
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route
+                      path="/admin/configuracoes"
+                      element={<Navigate to="/admin?settings=brand" replace />}
+                    />
 
-                  <Route path="/courier" element={<CourierDashboard />} />
+                    <Route path="/courier" element={<CourierDashboard />} />
 
-                  <Route path="/kitchen" element={<KitchenPage />} />
+                    <Route path="/kitchen" element={<KitchenPage />} />
 
-                  <Route path="/waiter" element={<WaiterPage />} />
+                    <Route path="/waiter" element={<WaiterPage />} />
+                  </Route>
+                </Route>
+
+                <Route element={<RequireAuth />}>
+                  <Route path="/super_admin" element={<SuperAdminPage />} />
+                  <Route path="/super_admin/*" element={<SuperAdminPage />} />
                 </Route>
               </Route>
 
-              <Route element={<RequireAuth />}>
-                <Route path="/super_admin" element={<SuperAdminPage />} />
-                <Route path="/super_admin/*" element={<SuperAdminPage />} />
-              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
-
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
+          </Routes>
+        </SystemAvailabilityGate>
       </Suspense>
     </BrowserRouter>
   );

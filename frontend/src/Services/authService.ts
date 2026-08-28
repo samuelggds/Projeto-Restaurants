@@ -31,6 +31,15 @@ class AuthService {
     return response.data;
   }
 
+  async logout(accessToken) {
+    const response = await api.post(
+      '/auth/logout',
+      {},
+      accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
+    );
+    return response.data;
+  }
+
   async getGoogleClientId() {
     const response = await api.get('/auth/google/client-id');
 

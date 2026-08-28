@@ -48,6 +48,18 @@ function installPrismaMocks() {
   process.env.SMTP_USER = '';
   process.env.SMTP_PASS = '';
   userRepository.recordSuccessfulLogin = async () => new Date();
+  userRepository.findByIdWithPassword = async (userId) => ({
+    id: Number(userId),
+    role: 'ADMIN',
+    subRole: null,
+    restaurantId: 1,
+    email: 'mfa-user@pizza.test',
+    name: 'MFA User',
+    active: true,
+    authVersion: 0,
+    mustChangePassword: false,
+    mfaEnabled: true,
+  });
 
   prisma.authMfaChallenge.findUnique = async ({ where }) => {
     return challenges.get(Number(where.userId)) || null;

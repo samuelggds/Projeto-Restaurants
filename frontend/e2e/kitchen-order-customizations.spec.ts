@@ -298,6 +298,9 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
     if (pathname.startsWith('/socket.io/')) {
       return route.abort();
     }
+    if (pathname === '/platform/status' && method === 'GET') {
+      return json(route, { available: true, message: 'Plataforma disponível.' });
+    }
 
     if (token !== `Bearer ${KITCHEN_TOKEN}`) {
       state.rejectedTenantRequests += 1;

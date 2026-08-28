@@ -8,11 +8,21 @@ import authTokenService from '../modules/auth/services/AuthTokenService.js';
 import { socketAuth } from './socketAuth.js';
 
 const originalFindUnique = prisma.user.findUnique;
+const originalTransaction = prisma.$transaction;
+const originalQueryRaw = prisma.$queryRaw;
+const originalPlatformSettingsFindUnique = prisma.platformSettings.findUnique;
+const originalRestaurantFindUnique = prisma.restaurant.findUnique;
+const originalInvoiceFindMany = prisma.invoice.findMany;
 const originalJwtSecret = process.env.JWT_SECRET;
 const originalNodeEnv = process.env.NODE_ENV;
 
 afterEach(() => {
   prisma.user.findUnique = originalFindUnique;
+  prisma.$transaction = originalTransaction;
+  prisma.$queryRaw = originalQueryRaw;
+  prisma.platformSettings.findUnique = originalPlatformSettingsFindUnique;
+  prisma.restaurant.findUnique = originalRestaurantFindUnique;
+  prisma.invoice.findMany = originalInvoiceFindMany;
   process.env.JWT_SECRET = originalJwtSecret;
   process.env.NODE_ENV = originalNodeEnv;
 });
@@ -42,6 +52,18 @@ test('handshake versionado usa role e tenant atuais do banco', async () => {
     authVersion: 6,
     mustChangePassword: false,
   });
+  prisma.platformSettings.findUnique = async () => ({
+    maintenanceMode: false,
+    maintenanceMessage: 'Manutenção.',
+  });
+  prisma.$transaction = async (operation) => operation(prisma);
+  prisma.$queryRaw = async () => [];
+  prisma.restaurant.findUnique = async () => ({
+    id: 8,
+    active: true,
+    accessBlockReason: 'NONE',
+  });
+  prisma.invoice.findMany = async () => [];
   const token = authTokenService.createAccessToken({
     id: 44,
     role: 'ADMIN',

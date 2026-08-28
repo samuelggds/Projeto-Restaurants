@@ -123,13 +123,13 @@ model UserAddress {
 }
 
 model Restaurant {
-  id                       Int                       @id @default(autoincrement())
+  id                       Int                         @id @default(autoincrement())
   name                     String
-  slug                     String                    @unique
-  email                    String                    @unique
+  slug                     String                      @unique
+  email                    String                      @unique
   phone                    String?
   whatsapp                 String?
-  cnpj                     String?                   @unique
+  cnpj                     String?                     @unique
   logo                     String?
   coverImage               String?
   description              String?
@@ -141,9 +141,10 @@ model Restaurant {
   state                    String?
   zipCode                  String?
   openingHours             String?
-  active                   Boolean                   @default(true)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
+  active                   Boolean                     @default(true)
+  accessBlockReason        RestaurantAccessBlockReason @default(NONE)
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
   banners                  Banner[]
   categories               Category[]
   coupons                  Coupon[]
@@ -1166,6 +1167,14 @@ enum SubscriptionStatus {
   ATIVA
   EXPIRADA
   CANCELADA
+}
+
+/// Motivo operacional do bloqueio do tenant. Separar a origem impede que um
+/// pagamento remova uma suspensão manual aplicada pelo SUPER_ADMIN.
+enum RestaurantAccessBlockReason {
+  NONE
+  MANUAL
+  BILLING
 }
 
 enum TableSessionStatus {

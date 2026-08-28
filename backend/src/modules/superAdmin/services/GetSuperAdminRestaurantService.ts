@@ -43,6 +43,7 @@ export class GetSuperAdminRestaurantService {
       },
       openingHours: restaurant.openingHours,
       active: restaurant.active,
+      accessBlockReason: restaurant.accessBlockReason,
       status: deriveTenantStatus({
         active: restaurant.active,
         subscriptionStatus: restaurant.subscription?.status,
@@ -83,4 +84,3 @@ export class GetSuperAdminRestaurantService {
 }
 
 export default new GetSuperAdminRestaurantService();
-

@@ -45,8 +45,9 @@ class ProcessPaymentService {
         },
       });
       const remainsBlocked = hasBlockingInvoices(openInvoices, new Date());
+      const subscriptionWasCanceled = subscription?.status === 'CANCELADA';
 
-      if (subscription) {
+      if (subscription && !subscriptionWasCanceled) {
         await billingRepository.updateSubscription(
           subscription.id,
           { status: remainsBlocked ? 'EXPIRADA' : 'ATIVA' },
@@ -56,7 +57,9 @@ class ProcessPaymentService {
 
       if (remainsBlocked) {
         await billingRepository.deactivateRestaurant(invoice.restaurantId, tx);
-      } else {
+      } else if (!subscriptionWasCanceled) {
+        // O repositório libera somente bloqueios com origem BILLING. Uma
+        // suspensão MANUAL do SUPER_ADMIN nunca é removida pelo webhook.
         await billingRepository.activateRestaurant(invoice.restaurantId, tx);
       }
 

@@ -3,6 +3,7 @@ import { OrderStatus, OrderType, UserRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import {
   canSendSupportChat,
+  getSupportChatRecipientRooms,
   getSupportMessageSender,
   isOperationalSupportReporter,
   normalizeSupportChatRole,
@@ -11,6 +12,7 @@ import { validateEmployeeIssuePayload } from './employeeIssuePayload.js';
 import { validateDeliveryLocationPayload } from './deliveryLocationPayload.js';
 import { isSocketAccountAuthorized } from './socketAccountPolicy.js';
 import { safeErrorName } from '../services/telemetrySanitizer.js';
+import { assertSocketAccess, SocketAccessDeniedError } from './socketAccessPolicy.js';
 
 type SocketUser = {
   id: number | string;
@@ -39,16 +41,44 @@ type AppSocket = Socket & {
   waitingTable?: SocketWaitingTable;
 };
 
+function resolveSocketRevalidationMs() {
+  const configured = Number(process.env.SOCKET_AUTH_REVALIDATE_MS || 30_000);
+  return Math.min(Math.max(Number.isFinite(configured) ? configured : 30_000, 5_000), 5 * 60_000);
+}
+
+function startTenantAccessRevalidation(
+  socket: AppSocket,
+  role: string | null,
+  restaurantId: number | string | null,
+) {
+  const timer = setInterval(() => {
+    void assertSocketAccess(role, restaurantId).catch((error) => {
+      if (error instanceof SocketAccessDeniedError) {
+        socket.disconnect(true);
+        return;
+      }
+      console.warn('[SOCKET_ACCESS_REVALIDATION_FAILED]', {
+        restaurantId: Number(restaurantId || 0) || null,
+        errorType: safeErrorName(error),
+      });
+    });
+  }, resolveSocketRevalidationMs());
+  timer.unref();
+  return timer;
+}
+
 export function socketHandler(socket: AppSocket) {
   console.log('🔌 conectado:', socket.id);
 
   if (socket.authType === 'table-session' && socket.tableSession) {
     const { id, tableId, restaurantId } = socket.tableSession;
+    const accessValidationTimer = startTenantAccessRevalidation(socket, null, restaurantId);
 
     socket.join(`table:${tableId}`);
     socket.join(`table-session:${id}`);
 
     socket.on('disconnect', () => {
+      clearInterval(accessValidationTimer);
       console.log('❌ desconectado:', socket.id);
     });
 
@@ -56,9 +86,15 @@ export function socketHandler(socket: AppSocket) {
   }
 
   if (socket.authType === 'table-waiting' && socket.waitingTable) {
+    const accessValidationTimer = startTenantAccessRevalidation(
+      socket,
+      null,
+      socket.waitingTable.restaurantId,
+    );
     socket.join(`table-waiting:${socket.waitingTable.id}`);
 
     socket.on('disconnect', () => {
+      clearInterval(accessValidationTimer);
       console.log('❌ desconectado:', socket.id);
     });
 
@@ -102,11 +138,7 @@ export function socketHandler(socket: AppSocket) {
     socket.join('super_admin');
   }
 
-  const configuredRevalidationMs = Number(process.env.SOCKET_AUTH_REVALIDATE_MS || 30_000);
-  const revalidationMs = Math.min(
-    Math.max(Number.isFinite(configuredRevalidationMs) ? configuredRevalidationMs : 30_000, 5_000),
-    5 * 60_000,
-  );
+  const revalidationMs = resolveSocketRevalidationMs();
   accountValidationTimer = setInterval(() => {
     void prisma.user
       .findUnique({
@@ -120,7 +152,7 @@ export function socketHandler(socket: AppSocket) {
           authVersion: true,
         },
       })
-      .then((account) => {
+      .then(async (account) => {
         if (
           !isSocketAccountAuthorized(account, {
             id,
@@ -131,9 +163,16 @@ export function socketHandler(socket: AppSocket) {
           })
         ) {
           socket.disconnect(true);
+          return;
         }
+
+        await assertSocketAccess(role, restaurantId);
       })
       .catch((error) => {
+        if (error instanceof SocketAccessDeniedError) {
+          socket.disconnect(true);
+          return;
+        }
         console.warn('[SOCKET_ACCOUNT_REVALIDATION_FAILED]', {
           userId: Number(id || 0),
           errorType: safeErrorName(error),
@@ -331,6 +370,14 @@ export function socketHandler(socket: AppSocket) {
     let employeeIssueMessage: string | null = null;
     let employeeIssueReporterName: string | null = null;
 
+    if (isOperationalRole && !employeeIssue.isEmployeeIssue) {
+      reply({
+        ok: false,
+        error: 'Envie o problema pelo formulário de relato da sua área.',
+      });
+      return;
+    }
+
     if (employeeIssue.isEmployeeIssue) {
       if (!isOperationalRole) {
         reply({
@@ -508,20 +555,9 @@ export function socketHandler(socket: AppSocket) {
     socket.to(`user:${id}`).emit('support:chat-message', payload);
     socket.emit('support:chat-message', payload);
 
-    if (isOperationalRole) {
-      socket.to(`restaurant:${targetRestaurantId}:admin`).emit('support:chat-message', payload);
-      reply({ ok: true });
-      return;
+    for (const room of getSupportChatRecipientRooms(normalizedRole, targetRestaurantId)) {
+      socket.to(room).emit('support:chat-message', payload);
     }
-
-    if (normalizedRole === 'ADMIN') {
-      socket.to('super_admin').emit('support:chat-message', payload);
-      reply({ ok: true });
-      return;
-    }
-
-    socket.to(`restaurant:${targetRestaurantId}:admin`).emit('support:chat-message', payload);
-    socket.to('super_admin').emit('support:chat-message', payload);
     reply({ ok: true });
   });
 

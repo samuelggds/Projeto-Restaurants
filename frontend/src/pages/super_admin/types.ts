@@ -16,6 +16,7 @@ export type SubscriptionLifecycleStatus = 'TESTE' | 'ATIVA' | 'EXPIRADA' | 'CANC
 export type PaymentStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'CANCELED' | 'REFUNDED';
 export type AdministratorStatus = 'ACTIVE' | 'BLOCKED';
 export type SupportStatus = 'OPEN' | 'WAITING_CUSTOMER' | 'CLOSED';
+export type RestaurantAccessBlockReason = 'NONE' | 'MANUAL' | 'BILLING';
 
 export interface SuperAdminUser {
   id: string;
@@ -54,6 +55,7 @@ export interface RestaurantTenant {
   email: string;
   phone: string | null;
   active: boolean;
+  accessBlockReason: RestaurantAccessBlockReason;
   status: TenantStatus;
   createdAt: string;
   lastAccessAt: string | null;
@@ -250,7 +252,11 @@ export interface SuperAdminActions {
   createAdministrator: (id: number, input: AdministratorCreateInput) => Promise<void>;
   updateAdministratorAccess: (id: number, input: AdministratorAccessInput) => Promise<void>;
   getSupportMessages: (restaurantId: number) => Promise<SupportMessage[]>;
-  sendSupportMessage: (restaurantId: number, message: string) => Promise<void>;
+  sendSupportMessage: (
+    restaurantId: number,
+    message: string,
+    closeConversation?: boolean,
+  ) => Promise<void>;
 }
 
 export interface SuperAdminModuleProps {

@@ -34,6 +34,7 @@ export class SendSuperAdminSupportMessageService {
           senderUserId: actor.id,
           senderLabel: actor.name,
           message: parsed.message,
+          issueStatus: parsed.closeConversation ? 'CLOSED' : null,
         },
         transaction,
       );
@@ -54,6 +55,7 @@ export class SendSuperAdminSupportMessageService {
               restaurantId,
               senderRole: message.senderRole,
               messageLength: message.message.length,
+              conversationClosed: parsed.closeConversation,
             },
           }),
         },
@@ -70,6 +72,7 @@ export class SendSuperAdminSupportMessageService {
       senderRole: saved.senderRole,
       senderLabel: saved.senderLabel,
       message: saved.message,
+      issueStatus: saved.issueStatus,
       sentAt: saved.sentAt.toISOString(),
     };
     realtimePublisher.to(`restaurant:${restaurantId}:admin`).emit('support:chat-message', response);
@@ -79,4 +82,3 @@ export class SendSuperAdminSupportMessageService {
 }
 
 export default new SendSuperAdminSupportMessageService();
-

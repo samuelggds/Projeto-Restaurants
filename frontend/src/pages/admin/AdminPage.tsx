@@ -171,7 +171,7 @@ export function AdminPage({
     const refreshUnreadIssues = () => {
       const lastSeenId = Number(sessionStorage.getItem(issuesLastSeenStorageKey) || 0);
       void supportChatService
-        .getMessages({ limit: 100 })
+        .getMessages({ limit: 100, channel: 'internal' })
         .then((result) => {
           if (!active) return;
           const pending = (result?.messages || []).filter(
@@ -197,7 +197,7 @@ export function AdminPage({
     setUnreadEmployeeIssues(0);
     sessionStorage.setItem(unreadIssuesStorageKey, '0');
     void supportChatService
-      .getMessages({ limit: 1 })
+      .getMessages({ limit: 1, channel: 'internal' })
       .then((result) => {
         const latestId = Number(result?.messages?.[0]?.id || 0);
         sessionStorage.setItem(issuesLastSeenStorageKey, String(latestId));

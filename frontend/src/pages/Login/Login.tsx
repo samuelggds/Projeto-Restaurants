@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { CheckCircle2, AlertCircle, Utensils, Sun, Moon } from 'lucide-react';
 import authService from '../../Services/authService';
@@ -7,10 +7,13 @@ import { useAuth } from '../../contexts/authContext.js';
 import * as S from './styles';
 import { useAppDialog } from '../../components/AppDialog/context';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
+import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+  const isTechnicalAccess = location.pathname === '/super_admin/login';
   const branding = useRestaurantLoginBranding(searchParams);
   const restaurantQuery = searchParams.toString();
   const { login } = useAuth();
@@ -113,14 +116,14 @@ export default function Login() {
         return;
       }
 
-      const nextPath = getSafeNextPath();
-      if (nextPath) {
-        navigate(nextPath);
+      if (user?.role === 'SUPER_ADMIN') {
+        navigate('/super_admin');
         return;
       }
 
-      if (user?.role === 'SUPER_ADMIN') {
-        navigate('/super_admin');
+      const nextPath = getSafeNextPath();
+      if (nextPath) {
+        navigate(nextPath);
         return;
       }
 
@@ -261,6 +264,9 @@ export default function Login() {
   ]);
 
   useEffect(() => {
+    if (isTechnicalAccess) {
+      return;
+    }
     isGoogleMountedRef.current = true;
 
     const timeoutId = setTimeout(() => {
@@ -271,7 +277,7 @@ export default function Login() {
       clearTimeout(timeoutId);
       isGoogleMountedRef.current = false;
     };
-  }, [initializeGoogleLogin]);
+  }, [initializeGoogleLogin, isTechnicalAccess]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -283,6 +289,11 @@ export default function Login() {
         password,
       });
       const response = await completeLoginWithMfaIfNeeded(firstStep);
+
+      if (isTechnicalAccess && !canUseTechnicalAccess(response?.user)) {
+        await authService.logout(response?.token).catch(() => undefined);
+        throw new Error(TECHNICAL_ACCESS_DENIED_MESSAGE);
+      }
 
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', email);
@@ -298,9 +309,11 @@ export default function Login() {
     } catch (error) {
       const message =
         error?.response?.data?.error ||
-        (error.request
+        (error?.request
           ? 'Sem conexão com o servidor. Verifique se backend/frontend estão na mesma rede e tente novamente.'
-          : 'E-mail ou senha incorretos.');
+          : error instanceof Error
+            ? error.message
+            : 'E-mail ou senha incorretos.');
       setFeedback({ type: 'error', message });
     } finally {
       setIsLoading(false);
@@ -334,16 +347,21 @@ export default function Login() {
             <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
-            Acesse nosso menu interativo global. Faça seus pedidos de forma rápida na mesa e
-            gerencie sua experiência gastronômica sem complicações.
+            {isTechnicalAccess
+              ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
+              : 'Acesse nosso menu interativo global. Faça seus pedidos de forma rápida na mesa e gerencie sua experiência gastronômica sem complicações.'}
           </S.BrandSubtitle>
         </S.BannerSection>
 
         {/* LADO DIREITO: FORMULÁRIO PADRÃO */}
         <S.FormSection>
           <S.FormWrapper>
-            <S.WelcomeText>Bem-vindo!</S.WelcomeText>
-            <S.FormSubtitle>Por favor, insira seus dados de acesso para continuar.</S.FormSubtitle>
+            <S.WelcomeText>{isTechnicalAccess ? 'Acesso técnico' : 'Bem-vindo!'}</S.WelcomeText>
+            <S.FormSubtitle>
+              {isTechnicalAccess
+                ? 'Entre com a conta exclusiva de Super Admin para acompanhar a manutenção.'
+                : 'Por favor, insira seus dados de acesso para continuar.'}
+            </S.FormSubtitle>
 
             {feedback && (
               <div
@@ -407,14 +425,16 @@ export default function Login() {
                   />{' '}
                   Lembrar de mim
                 </S.CheckboxLabel>
-                <S.ForgotLink
-                  type="button"
-                  onClick={() =>
-                    navigate(`/recover-password${restaurantQuery ? `?${restaurantQuery}` : ''}`)
-                  }
-                >
-                  Esqueceu a senha?
-                </S.ForgotLink>
+                {!isTechnicalAccess ? (
+                  <S.ForgotLink
+                    type="button"
+                    onClick={() =>
+                      navigate(`/recover-password${restaurantQuery ? `?${restaurantQuery}` : ''}`)
+                    }
+                  >
+                    Esqueceu a senha?
+                  </S.ForgotLink>
+                ) : null}
               </S.Row>
 
               <S.Button type="submit" disabled={isLoading}>
@@ -422,26 +442,29 @@ export default function Login() {
               </S.Button>
             </S.Form>
 
-            <S.Divider>ou</S.Divider>
-            <S.GoogleButtonContainer>
-              <div ref={googleButtonRef} />
-              {googleStatus !== 'ready' && (
-                <S.GoogleFallbackButton
-                  type="button"
-                  onClick={initializeGoogleLogin}
-                  disabled={googleStatus === 'loading'}
-                >
-                  {googleStatus === 'loading'
-                    ? 'Carregando login com Google...'
-                    : 'Tentar carregar login com Google'}
-                </S.GoogleFallbackButton>
-              )}
-            </S.GoogleButtonContainer>
-            {googleMessage && <S.GoogleHint>{googleMessage}</S.GoogleHint>}
-
-            <S.RegisterText>
-              Não tem uma conta? <a href="/register">Cadastre-se aqui</a>
-            </S.RegisterText>
+            {!isTechnicalAccess ? (
+              <>
+                <S.Divider>ou</S.Divider>
+                <S.GoogleButtonContainer>
+                  <div ref={googleButtonRef} />
+                  {googleStatus !== 'ready' && (
+                    <S.GoogleFallbackButton
+                      type="button"
+                      onClick={initializeGoogleLogin}
+                      disabled={googleStatus === 'loading'}
+                    >
+                      {googleStatus === 'loading'
+                        ? 'Carregando login com Google...'
+                        : 'Tentar carregar login com Google'}
+                    </S.GoogleFallbackButton>
+                  )}
+                </S.GoogleButtonContainer>
+                {googleMessage && <S.GoogleHint>{googleMessage}</S.GoogleHint>}
+                <S.RegisterText>
+                  Não tem uma conta? <a href="/register">Cadastre-se aqui</a>
+                </S.RegisterText>
+              </>
+            ) : null}
           </S.FormWrapper>
         </S.FormSection>
       </S.Container>

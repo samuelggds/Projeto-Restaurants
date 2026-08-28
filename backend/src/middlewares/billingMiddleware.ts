@@ -1,99 +1,74 @@
-import { NextFunction, Request, Response } from 'express';
-import { InvoiceStatus } from '@prisma/client';
-import prisma from '../config/prisma.js';
-import { hasBlockingInvoices, isInvoiceBlocking } from '../modules/billing/utils/billingRules.js';
+import type { NextFunction, Request, Response } from 'express';
+import restaurantAccessService from '../modules/billing/services/RestaurantAccessService.js';
 
-const checkedRequests = new WeakSet<Request>();
+const validatedRestaurantIds = new WeakMap<Request, Set<number>>();
 
-export async function billingMiddleware(req: Request, res: Response, next: NextFunction) {
-  try {
-    if (checkedRequests.has(req)) {
-      return next();
-    }
+export function resolveBillingRestaurantId(req: Request) {
+  const candidates = [
+    req.user?.restaurantId,
+    req.tableSession?.restaurantId,
+    req.body?.restaurantId,
+  ];
 
-    checkedRequests.add(req);
-    const restaurantId = req.user?.restaurantId ?? req.tableSession?.restaurantId ?? null;
-
-    if (String(req.user?.role || '').toUpperCase() === 'SUPER_ADMIN' || !restaurantId) {
-      return next();
-    }
-
-    const openInvoices = await prisma.invoice.findMany({
-      where: {
-        restaurantId: Number(restaurantId),
-        status: {
-          in: [InvoiceStatus.PENDENTE, InvoiceStatus.ATRASADO],
-        },
-      },
-      orderBy: {
-        dueDate: 'asc',
-      },
-    });
-
-    if (!openInvoices.length) {
-      return next();
-    }
-
-    const now = new Date();
-    const shouldBlock = hasBlockingInvoices(openInvoices, now);
-
-    if (shouldBlock) {
-      const blockingInvoices = openInvoices.filter((invoice) => isInvoiceBlocking(invoice, now));
-
-      const blockingInvoice =
-        blockingInvoices.find((invoice) => Boolean(invoice.paymentLink)) ||
-        blockingInvoices[0] ||
-        null;
-
-      const pendingToOverdue = openInvoices
-        .filter((invoice) => invoice.status === InvoiceStatus.PENDENTE)
-        .filter((invoice) => isInvoiceBlocking(invoice, now));
-
-      if (pendingToOverdue.length) {
-        await prisma.invoice.updateMany({
-          where: {
-            id: {
-              in: pendingToOverdue.map((invoice) => invoice.id),
-            },
-          },
-          data: {
-            status: InvoiceStatus.ATRASADO,
-          },
-        });
-      }
-
-      const subscription = await prisma.subscription.findUnique({
-        where: {
-          restaurantId: Number(restaurantId),
-        },
-      });
-
-      if (subscription) {
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: { status: 'EXPIRADA' },
-        });
-      }
-
-      await prisma.restaurant.update({
-        where: { id: Number(restaurantId) },
-        data: { active: false },
-      });
-
-      return res.status(403).json({
-        code: 'BILLING_BLOCKED',
-        blocked: true,
-        error: 'Restaurante bloqueado por inadimplência',
-        invoiceId: blockingInvoice?.id ?? null,
-        paymentLink: blockingInvoice?.paymentLink ?? null,
-        dueDate: blockingInvoice?.dueDate ?? null,
-      });
-    }
-
-    return next();
-  } catch (_error: unknown) {
-    return res.status(500).json({
-      error: 'Erro ao validar cobrança',
-    });
+  for (const candidate of candidates) {
+    const restaurantId = Number(candidate || 0);
+    if (Number.isInteger(restaurantId) && restaurantId > 0) return restaurantId;
   }
+
+  return null;
+}
+
+async function validateRestaurantAccess(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  allowBillingRecovery: boolean,
+) {
+  try {
+    if (String(req.user?.role || '').toUpperCase() === 'SUPER_ADMIN') return next();
+
+    const restaurantId = resolveBillingRestaurantId(req);
+    // Um cliente autenticado pode não carregar tenant no token. Não marcamos a
+    // requisição como validada: a rota de pedido ainda resolverá restaurantId
+    // pelo corpo ou pela sessão da mesa e executará esta verificação novamente.
+    if (!restaurantId) return next();
+
+    const alreadyValidated = validatedRestaurantIds.get(req);
+    if (alreadyValidated?.has(restaurantId)) return next();
+
+    const decision = await restaurantAccessService.evaluate(restaurantId);
+    if (!decision) {
+      return res.status(404).json({ error: 'Restaurante não encontrado.' });
+    }
+
+    if ('code' in decision) {
+      if (allowBillingRecovery && decision.reason === 'BILLING') {
+        return next();
+      }
+      return res.status(403).json({
+        code: decision.code,
+        blocked: true,
+        reason: decision.reason,
+        error: decision.message,
+        invoiceId: decision.invoiceId,
+        paymentLink: decision.paymentLink,
+        dueDate: decision.dueDate,
+      });
+    }
+
+    const validated = alreadyValidated || new Set<number>();
+    validated.add(restaurantId);
+    validatedRestaurantIds.set(req, validated);
+    return next();
+  } catch {
+    return res.status(500).json({ error: 'Erro ao validar acesso do restaurante.' });
+  }
+}
+
+export function billingMiddleware(req: Request, res: Response, next: NextFunction) {
+  return validateRestaurantAccess(req, res, next, false);
+}
+
+export function billingRecoveryMiddleware(req: Request, res: Response, next: NextFunction) {
+  return validateRestaurantAccess(req, res, next, true);
 }

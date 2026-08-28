@@ -62,6 +62,7 @@ export class GetSuperAdminDashboardService {
         email: restaurant.email,
         phone: restaurant.phone,
         active: restaurant.active,
+        accessBlockReason: restaurant.accessBlockReason,
         status: deriveTenantStatus({
           active: restaurant.active,
           subscriptionStatus: subscription?.status,
@@ -70,11 +71,9 @@ export class GetSuperAdminDashboardService {
         createdAt: restaurant.createdAt.toISOString(),
         lastAccessAt: toIso(lastAccess),
         nextBillingAt: toIso(subscription?.currentPeriodEnd),
-        monthlyFee: subscription ? feesByPlan.get(subscription.plan) ?? 0 : 0,
+        monthlyFee: subscription ? (feesByPlan.get(subscription.plan) ?? 0) : 0,
         monthlyOrderRevenue: monthlyRevenueByRestaurant.get(restaurant.id) ?? 0,
-        primaryAdmin: primaryAdmin
-          ? presentAdministrator(primaryAdmin, restaurant.name)
-          : null,
+        primaryAdmin: primaryAdmin ? presentAdministrator(primaryAdmin, restaurant.name) : null,
         subscription: presentSubscription(subscription),
       };
     });
@@ -138,7 +137,7 @@ export class GetSuperAdminDashboardService {
         id: ticket.id,
         restaurant: ticket.restaurantName,
         subject: ticket.subject.slice(0, 100),
-        status: deriveSupportTicketStatus(ticket.senderRole),
+        status: deriveSupportTicketStatus(ticket.senderRole, ticket.issueStatus),
         messageCount: Number(ticket.messageCount),
         lastMessageAt: ticket.sentAt.toISOString(),
         lastSenderRole: ticket.senderRole,

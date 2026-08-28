@@ -8,6 +8,7 @@ export type LatestSupportConversationRow = {
   message: string;
   subject: string;
   senderRole: SupportChatSenderRole;
+  issueStatus: string | null;
   sentAt: Date;
   messageCount: number;
 };
@@ -25,6 +26,7 @@ export class SupportConversationRepository {
             ORDER BY message."sentAt" ASC, message."id" ASC
           ) AS "subject",
           message."senderRole",
+          message."issueStatus",
           message."sentAt",
           ROW_NUMBER() OVER (
             PARTITION BY message."restaurantId"
@@ -32,6 +34,11 @@ export class SupportConversationRepository {
           ) AS position,
           (COUNT(*) OVER (PARTITION BY message."restaurantId"))::integer AS "messageCount"
         FROM "SupportChatMessage" AS message
+        WHERE
+          message."senderRole" IN (
+            'ADMIN'::"SupportChatSenderRole",
+            'SUPER_ADMIN'::"SupportChatSenderRole"
+          )
       )
       SELECT
         ranked."id",
@@ -40,6 +47,7 @@ export class SupportConversationRepository {
         ranked."message",
         ranked."subject",
         ranked."senderRole",
+        ranked."issueStatus",
         ranked."sentAt",
         ranked."messageCount"
       FROM ranked_messages AS ranked

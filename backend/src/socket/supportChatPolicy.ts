@@ -39,3 +39,13 @@ export function getSupportMessageSender(role: unknown) {
 
   return { senderRole: 'ADMIN' as SupportChatRole, senderLabel: 'Admin' };
 }
+
+export function getSupportChatRecipientRooms(role: unknown, restaurantId: number) {
+  const normalizedRole = normalizeSupportChatRole(role);
+  const adminRoom = `restaurant:${restaurantId}:admin`;
+
+  if (isOperationalSupportReporter(normalizedRole)) return [adminRoom];
+  if (normalizedRole === 'ADMIN') return ['super_admin'];
+  if (normalizedRole === 'SUPER_ADMIN') return [adminRoom, 'super_admin'];
+  return [];
+}

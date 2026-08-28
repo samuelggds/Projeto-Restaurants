@@ -191,6 +191,17 @@ async function mockSuperAdminApi(
   state: DashboardState,
   writes: Array<{ path: string; body: Record<string, unknown> }>,
 ) {
+  const supportMessages: Array<Record<string, unknown>> = [
+    {
+      id: 91,
+      restaurantId: 17,
+      senderRole: 'ADMIN',
+      senderLabel: 'Ana Responsável',
+      message: 'Ajuda com a configuração do cardápio',
+      issueStatus: null,
+      sentAt: '2026-08-28T10:00:00.000Z',
+    },
+  ];
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
@@ -249,6 +260,37 @@ async function mockSuperAdminApi(
       state.metrics.restaurantsActive = body.active ? 1 : 0;
       state.metrics.restaurantsBlocked = body.active ? 0 : 1;
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      return;
+    }
+    if (pathname === '/ai-support/messages' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ messages: supportMessages }),
+      });
+      return;
+    }
+    if (pathname === '/super-admin/support/17/messages' && method === 'POST') {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      writes.push({ path: pathname, body });
+      supportMessages.push({
+        id: 92,
+        restaurantId: 17,
+        senderRole: 'SUPER_ADMIN',
+        senderLabel: 'Super Admin',
+        message: String(body.message || ''),
+        issueStatus: body.closeConversation === true ? 'CLOSED' : null,
+        sentAt: '2026-08-28T10:10:00.000Z',
+      });
+      state.tickets[0].status = body.closeConversation === true ? 'CLOSED' : 'WAITING_CUSTOMER';
+      state.tickets[0].messageCount = supportMessages.length;
+      state.tickets[0].lastSenderRole = 'SUPER_ADMIN';
+      state.tickets[0].lastMessageAt = '2026-08-28T10:10:00.000Z';
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(supportMessages.at(-1)),
+      });
       return;
     }
 
@@ -342,6 +384,33 @@ test('mudança de acesso exige justificativa e atualiza o tenant', async ({ page
   await expect(page.getByRole('dialog', { name: 'Restaurante Aurora' })).toContainText('Bloqueado');
 });
 
+test('SUPER_ADMIN responde e encerra um chamado exclusivo do administrador', async ({ page }) => {
+  const state = createDashboard();
+  const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+  await mockSuperAdminApi(page, state, writes);
+
+  await page.goto('/super_admin/support');
+  await page.getByRole('button', { name: 'Ver conversa' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Suporte • Restaurante Aurora' });
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByPlaceholder('Descreva o diagnóstico e o próximo passo com clareza')
+    .fill('Configuração revisada e funcionamento confirmado.');
+  await dialog.getByRole('button', { name: 'Responder e encerrar' }).click();
+
+  await expect
+    .poll(() => writes)
+    .toContainEqual({
+      path: '/super-admin/support/17/messages',
+      body: {
+        message: 'Configuração revisada e funcionamento confirmado.',
+        closeConversation: true,
+      },
+    });
+  await expect(dialog.getByText('Atendimento encerrado.')).toBeVisible();
+  await expect(page.getByText('Resposta enviada e atendimento encerrado.')).toBeVisible();
+});
+
 test('painel continua contido no celular e mantém navegação acessível', async ({ page }) => {
   const state = createDashboard();
   const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
@@ -353,6 +422,9 @@ test('painel continua contido no celular e mantém navegação acessível', asyn
   await page.getByRole('button', { name: 'Abrir menu' }).click();
   await page.getByRole('button', { name: 'Suporte' }).click();
   await expect(page).toHaveURL(/\/super_admin\/support$/);
+  await expect(
+    page.getByText('Este canal recebe somente mensagens dos administradores responsáveis'),
+  ).toBeVisible();
 
   const dimensions = await page.locator('main').evaluate((element) => ({
     clientWidth: element.clientWidth,

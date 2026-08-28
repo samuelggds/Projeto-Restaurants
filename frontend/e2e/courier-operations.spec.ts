@@ -280,6 +280,9 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
     const token = authorization(route);
 
     if (pathname.startsWith('/socket.io/')) return route.abort();
+    if (pathname === '/platform/status' && method === 'GET') {
+      return json(route, { available: true, message: 'Plataforma disponível.' });
+    }
 
     if (token !== `Bearer ${COURIER_TOKEN}`) {
       state.rejectedTenantRequests += 1;
@@ -486,6 +489,9 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
     const token = authorization(route);
 
     if (pathname.startsWith('/socket.io/')) return route.abort();
+    if (pathname === '/platform/status' && method === 'GET') {
+      return json(route, { available: true, message: 'Plataforma disponível.' });
+    }
     if (token !== `Bearer ${CUSTOMER_TOKEN}`) {
       state.rejectedTenantRequests += 1;
       return json(route, { error: 'Sessão do cliente inválida.' }, 401);
