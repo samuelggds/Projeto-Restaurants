@@ -46,6 +46,17 @@ encontrar mais de um `SUPER_ADMIN`, se o e-mail esperado pertencer a outra conta
 ou se a conta existente não estiver no escopo global esperado. Ele não promove
 automaticamente um usuário comum.
 
+Enquanto `mustChangePassword` estiver ativo, apenas a consulta da sessão e a
+troca de senha ficam disponíveis; as demais APIs e o Socket.IO respondem de
+forma fechada. A senha definitiva do `SUPER_ADMIN` mantém a política forte e
+bcrypt com custo 12. Como o MFA é obrigatório, a validação de produção também
+exige um SMTP funcional antes do bootstrap.
+
+A conta única não pode ser desativada, desligar o MFA ou alterar o e-mail pelo
+perfil genérico. Uma futura troca do desenvolvedor deve ser uma operação
+coordenada e auditada com a atualização de `SUPER_ADMIN_BOOTSTRAP_EMAIL`; não
+edite diretamente o banco ou apenas a variável durante um deploy.
+
 O comando manual `create:superadmin` abaixo fica reservado para recuperação
 operacional auditada. Ele não deve fazer parte do startup nem ser usado para
 criar um segundo administrador da plataforma.

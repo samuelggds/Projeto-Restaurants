@@ -1,81 +1,95 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
-import restaurantsService, {
-  type CreateRestaurantPayload,
-} from '../../../Services/restaurantsService';
+import superAdminService, { type CreateRestaurantInput } from '../../../Services/superAdminService';
+import {
+  formatCurrency,
+  normalizeEmail,
+  passwordErrors,
+  requestErrorMessage,
+  slugify,
+} from '../domain/superAdminDomain';
+import type { PlatformPlan } from '../types';
 import * as S from '../SuperAdmin.styles';
 
-type Props = {
-  onClose: () => void;
-  onCreated: () => void | Promise<void>;
-};
+type Props = { plans: PlatformPlan[]; onClose: () => void; onCreated: () => void | Promise<void> };
+type Form = CreateRestaurantInput & { passwordConfirmation: string };
 
-const initialForm: CreateRestaurantPayload = {
-  plan: 'BASICO',
-  restaurant: { name: '', slug: '', email: '', phone: '' },
-  admin: { name: '', email: '', password: '' },
-};
-
-function slugify(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
-
-export function CreateRestaurantDialog({ onClose, onCreated }: Props) {
-  const [form, setForm] = useState(initialForm);
+export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
+  const firstPlan = plans.find((plan) => plan.active)?.code || plans[0]?.code || '';
+  const [form, setForm] = useState<Form>({
+    plan: firstPlan,
+    restaurant: { name: '', slug: '', email: '', phone: '' },
+    admin: { name: '', email: '', password: '' },
+    passwordConfirmation: '',
+  });
+  const [slugEdited, setSlugEdited] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const planDescription = useMemo(
-    () =>
-      form.plan === 'PREMIUM'
-        ? 'Premium — R$ 249,90/mês: delivery, cardápio digital com QR Code de mesa e suporte prioritário.'
-        : 'Básico — R$ 149,90/mês: sistema de delivery e suporte padrão.',
-    [form.plan],
+  const selectedPlan = plans.find((plan) => plan.code === form.plan);
+  const passwordRequirements = useMemo(
+    () => passwordErrors(form.admin.password),
+    [form.admin.password],
   );
 
-  const setRestaurant = (field: keyof CreateRestaurantPayload['restaurant'], value: string) => {
+  const setRestaurant = (field: keyof Form['restaurant'], value: string) => {
     setForm((current) => ({
       ...current,
       restaurant: {
         ...current.restaurant,
         [field]: value,
-        ...(field === 'name' && !current.restaurant.slug ? { slug: slugify(value) } : {}),
+        ...(field === 'name' && !slugEdited ? { slug: slugify(value) } : {}),
       },
     }));
   };
-
-  const setAdmin = (field: keyof CreateRestaurantPayload['admin'], value: string) => {
-    setForm((current) => ({
-      ...current,
-      admin: { ...current.admin, [field]: value },
-    }));
-  };
+  const setAdmin = (field: keyof Form['admin'], value: string) =>
+    setForm((current) => ({ ...current, admin: { ...current.admin, [field]: value } }));
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setSaving(true);
     setError('');
-
+    if (!form.plan) {
+      setError('Selecione um plano ativo.');
+      return;
+    }
+    if (passwordRequirements.length) {
+      setError(passwordRequirements.join(' '));
+      return;
+    }
+    if (form.admin.password !== form.passwordConfirmation) {
+      setError('A confirmação da senha não confere.');
+      return;
+    }
+    setSaving(true);
     try {
-      await restaurantsService.createRestaurant(form);
+      await superAdminService.createRestaurant({
+        plan: form.plan,
+        restaurant: {
+          ...form.restaurant,
+          name: form.restaurant.name.trim(),
+          slug: slugify(form.restaurant.slug),
+          email: normalizeEmail(form.restaurant.email),
+          phone: form.restaurant.phone.replace(/\D/g, ''),
+        },
+        admin: {
+          ...form.admin,
+          name: form.admin.name.trim(),
+          email: normalizeEmail(form.admin.email),
+        },
+      });
       await onCreated();
       onClose();
     } catch (requestError) {
-      const message = (requestError as { response?: { data?: { message?: string } } }).response
-        ?.data?.message;
-      setError(message || 'Não foi possível criar o restaurante.');
+      setError(requestErrorMessage(requestError, 'Não foi possível criar o restaurante.'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <S.CreateBackdrop role="presentation" onMouseDown={onClose}>
+    <S.CreateBackdrop onMouseDown={onClose}>
       <S.CreateDialog
+        role="dialog"
+        aria-modal="true"
         aria-label="Criar restaurante"
         onSubmit={(event) => void submit(event)}
         onMouseDown={(event) => event.stopPropagation()}
@@ -83,30 +97,36 @@ export function CreateRestaurantDialog({ onClose, onCreated }: Props) {
         <header>
           <div>
             <h2>Novo restaurante</h2>
-            <p>Cadastre o restaurante, o administrador e o plano escolhido.</p>
+            <p>Crie o tenant, a assinatura e um acesso administrativo individual.</p>
           </div>
           <button className="close" type="button" aria-label="Fechar" onClick={onClose}>
             <X size={19} />
           </button>
         </header>
-
         <div className="fields">
           <label>
             Nome do restaurante
             <input
+              autoFocus
               required
               minLength={2}
+              maxLength={120}
               value={form.restaurant.name}
-              onChange={(event) => setRestaurant('name', event.target.value)}
+              onChange={(e) => setRestaurant('name', e.target.value)}
             />
           </label>
           <label>
-            Endereço da loja (slug)
+            Endereço público (slug)
             <input
               required
               minLength={3}
+              maxLength={60}
+              pattern="[a-z0-9-]+"
               value={form.restaurant.slug}
-              onChange={(event) => setRestaurant('slug', slugify(event.target.value))}
+              onChange={(e) => {
+                setSlugEdited(true);
+                setRestaurant('slug', slugify(e.target.value));
+              }}
             />
           </label>
           <label>
@@ -115,15 +135,16 @@ export function CreateRestaurantDialog({ onClose, onCreated }: Props) {
               required
               type="email"
               value={form.restaurant.email}
-              onChange={(event) => setRestaurant('email', event.target.value)}
+              onChange={(e) => setRestaurant('email', e.target.value)}
             />
           </label>
           <label>
             Telefone
             <input
               inputMode="numeric"
+              placeholder="DDD + número"
               value={form.restaurant.phone}
-              onChange={(event) => setRestaurant('phone', event.target.value)}
+              onChange={(e) => setRestaurant('phone', e.target.value)}
             />
           </label>
           <label>
@@ -131,8 +152,9 @@ export function CreateRestaurantDialog({ onClose, onCreated }: Props) {
             <input
               required
               minLength={2}
+              maxLength={120}
               value={form.admin.name}
-              onChange={(event) => setAdmin('name', event.target.value)}
+              onChange={(e) => setAdmin('name', e.target.value)}
             />
           </label>
           <label>
@@ -140,45 +162,80 @@ export function CreateRestaurantDialog({ onClose, onCreated }: Props) {
             <input
               required
               type="email"
+              autoComplete="off"
               value={form.admin.email}
-              onChange={(event) => setAdmin('email', event.target.value)}
+              onChange={(e) => setAdmin('email', e.target.value)}
             />
           </label>
           <label>
-            Senha inicial
+            Senha temporária
             <input
               required
               type="password"
-              minLength={6}
+              minLength={16}
+              maxLength={72}
+              autoComplete="new-password"
               value={form.admin.password}
-              onChange={(event) => setAdmin('password', event.target.value)}
+              onChange={(e) => setAdmin('password', e.target.value)}
             />
+            <small>
+              {form.admin.password
+                ? passwordRequirements[0] || 'Senha forte.'
+                : '16+ caracteres, com maiúscula, minúscula, número e símbolo.'}
+            </small>
           </label>
           <label>
-            Plano escolhido pelo cliente
-            <select
-              value={form.plan}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  plan: event.target.value as CreateRestaurantPayload['plan'],
-                }))
+            Confirmar senha
+            <input
+              required
+              type="password"
+              minLength={16}
+              maxLength={72}
+              autoComplete="new-password"
+              value={form.passwordConfirmation}
+              onChange={(e) =>
+                setForm((current) => ({ ...current, passwordConfirmation: e.target.value }))
               }
+            />
+          </label>
+          <label className="wide">
+            Plano
+            <select
+              required
+              value={form.plan}
+              onChange={(e) => setForm((current) => ({ ...current, plan: e.target.value }))}
             >
-              <option value="BASICO">Plano Básico — R$ 149,90</option>
-              <option value="PREMIUM">Plano Premium — R$ 249,90</option>
+              {plans
+                .filter((plan) => plan.active)
+                .map((plan) => (
+                  <option key={plan.code} value={plan.code}>
+                    {plan.name} — {formatCurrency(plan.monthlyFee)}
+                  </option>
+                ))}
             </select>
           </label>
-          <div className="plan-help">{planDescription}</div>
-          {error ? <div className="form-error">{error}</div> : null}
+          {selectedPlan ? (
+            <div className="plan-help">
+              <b>{selectedPlan.name}</b> — {selectedPlan.description} Trial padrão deste plano:{' '}
+              {selectedPlan.trialDays} dias.
+            </div>
+          ) : null}
+          <div className="plan-help">
+            O administrador deverá trocar a senha temporária no primeiro login. Envie a credencial
+            por um canal seguro.
+          </div>
+          {error ? (
+            <div className="form-error" role="alert">
+              {error}
+            </div>
+          ) : null}
         </div>
-
         <footer>
           <button className="cancel" type="button" onClick={onClose}>
             Cancelar
           </button>
           <button className="submit" type="submit" disabled={saving}>
-            {saving ? 'Criando...' : 'Criar restaurante'}
+            {saving ? 'Criando…' : 'Criar restaurante'}
           </button>
         </footer>
       </S.CreateDialog>

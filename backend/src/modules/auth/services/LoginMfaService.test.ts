@@ -15,6 +15,7 @@ const originalDeleteMany = prisma.authMfaChallenge.deleteMany;
 const originalCreateAccessToken = authTokenService.createAccessToken;
 const originalCreateRefreshToken = authTokenService.createRefreshToken;
 const originalFindByIdWithPassword = userRepository.findByIdWithPassword;
+const originalRecordSuccessfulLogin = userRepository.recordSuccessfulLogin;
 const originalMfaRoles = process.env.MFA_REQUIRED_ROLES;
 const originalJwtSecret = process.env.JWT_SECRET;
 const originalJwtMfaSecret = process.env.JWT_MFA_SECRET;
@@ -32,6 +33,7 @@ afterEach(() => {
   authTokenService.createAccessToken = originalCreateAccessToken;
   authTokenService.createRefreshToken = originalCreateRefreshToken;
   userRepository.findByIdWithPassword = originalFindByIdWithPassword;
+  userRepository.recordSuccessfulLogin = originalRecordSuccessfulLogin;
   process.env.MFA_REQUIRED_ROLES = originalMfaRoles;
   process.env.JWT_SECRET = originalJwtSecret;
   process.env.JWT_MFA_SECRET = originalJwtMfaSecret;
@@ -45,6 +47,7 @@ function installPrismaMocks() {
   process.env.SMTP_HOST = '';
   process.env.SMTP_USER = '';
   process.env.SMTP_PASS = '';
+  userRepository.recordSuccessfulLogin = async () => new Date();
 
   prisma.authMfaChallenge.findUnique = async ({ where }) => {
     return challenges.get(Number(where.userId)) || null;
@@ -172,8 +175,15 @@ test('deve validar codigo 2FA e emitir tokens', async () => {
   process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
   process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
 
-  authTokenService.createAccessToken = () => 'access_test_token';
-  authTokenService.createRefreshToken = async () => 'refresh_test_token';
+  const completionEvents = [];
+  authTokenService.createAccessToken = () => {
+    completionEvents.push('access-token');
+    return 'access_test_token';
+  };
+  authTokenService.createRefreshToken = async () => {
+    completionEvents.push('refresh-token');
+    return 'refresh_test_token';
+  };
   userRepository.findByIdWithPassword = async () => ({
     id: 77,
     role: 'ADMIN',
@@ -191,6 +201,12 @@ test('deve validar codigo 2FA e emitir tokens', async () => {
     zipCode: null,
     complement: null,
   });
+  const completedLogins = [];
+  userRepository.recordSuccessfulLogin = async (userId) => {
+    completionEvents.push('last-login');
+    completedLogins.push(userId);
+    return new Date();
+  };
 
   const begin = await loginMfaService.beginIfRequired({
     id: 77,
@@ -215,6 +231,8 @@ test('deve validar codigo 2FA e emitir tokens', async () => {
   assert.equal(result.token, 'access_test_token');
   assert.equal(result.refreshToken, 'refresh_test_token');
   assert.equal(challenges.has(77), false);
+  assert.deepEqual(completedLogins, [77]);
+  assert.deepEqual(completionEvents, ['access-token', 'refresh-token', 'last-login']);
 });
 
 test('2FA preserva o perfil COZINHA no usuário e nos tokens emitidos', async () => {

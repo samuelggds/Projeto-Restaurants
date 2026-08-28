@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { collectStrongPasswordErrors } from '../../auth/security/passwordPolicy.js';
 
 export type BootstrapEnvironment = Record<string, string | undefined>;
 
@@ -11,30 +12,15 @@ export type SuperAdminBootstrapConfig = {
 };
 
 function parseEnabled(env: BootstrapEnvironment) {
-  const configured = String(env.SUPER_ADMIN_BOOTSTRAP_ENABLED || '').trim().toLowerCase();
+  const configured = String(env.SUPER_ADMIN_BOOTSTRAP_ENABLED || '')
+    .trim()
+    .toLowerCase();
   if (configured) return configured === 'true';
   return env.NODE_ENV === 'production';
 }
 
 export function validateInitialSuperAdminPassword(password: string) {
-  const errors: string[] = [];
-  if (password.length < 16 || password.length > 128) {
-    errors.push('a senha inicial deve conter entre 16 e 128 caracteres');
-  }
-  if (Buffer.byteLength(password, 'utf8') > 72) {
-    errors.push('a senha inicial deve conter no máximo 72 bytes em UTF-8');
-  }
-
-  const characterClasses = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^\p{L}\p{N}\s]/u];
-  if (!characterClasses.every((pattern) => pattern.test(password))) {
-    errors.push('a senha inicial deve conter letra minúscula, maiúscula, número e símbolo');
-  }
-
-  if (/change[_-]?me|replace[_-]?me|substitua|password|senha123|superadmin/i.test(password)) {
-    errors.push('a senha inicial não pode usar um valor previsível ou placeholder');
-  }
-
-  return errors;
+  return collectStrongPasswordErrors(password).map((error) => `a senha inicial ${error}`);
 }
 
 export function collectSuperAdminBootstrapConfigErrors(
@@ -45,7 +31,9 @@ export function collectSuperAdminBootstrapConfigErrors(
   if (!enabled) return [];
 
   const errors: string[] = [];
-  const email = String(env.SUPER_ADMIN_BOOTSTRAP_EMAIL || '').trim().toLowerCase();
+  const email = String(env.SUPER_ADMIN_BOOTSTRAP_EMAIL || '')
+    .trim()
+    .toLowerCase();
   const name = String(env.SUPER_ADMIN_BOOTSTRAP_NAME || '').trim();
   const password = String(env.SUPER_ADMIN_BOOTSTRAP_PASSWORD || '');
   const passwordFile = String(env.SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE || '').trim();

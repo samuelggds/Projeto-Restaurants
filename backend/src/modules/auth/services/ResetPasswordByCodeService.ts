@@ -79,11 +79,13 @@ class ResetPasswordByCodeService {
       throw new Error(INVALID_CODE_MESSAGE);
     }
 
-    if (user.mustChangePassword || String(user.role || '').toUpperCase() === 'SUPER_ADMIN') {
+    const requiresStrongPassword =
+      user.mustChangePassword || String(user.role || '').toUpperCase() === 'SUPER_ADMIN';
+    if (requiresStrongPassword) {
       validateStrongPassword(newPassword);
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, requiresStrongPassword ? 12 : 10);
     const consumed = await prisma.$transaction(async (transaction) => {
       const claimed = await transaction.user.updateMany({
         where: {
@@ -99,6 +101,7 @@ class ResetPasswordByCodeService {
           resetPasswordCodeExpiresAt: null,
           resetPasswordFailedAttempts: 0,
           resetPasswordLockedUntil: null,
+          mustChangePassword: false,
           active: true,
           authVersion: { increment: 1 },
         },

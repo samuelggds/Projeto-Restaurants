@@ -21,7 +21,9 @@ class UpdatePasswordService {
       throw new Error('Usuário não encontrado!');
     }
 
-    if (user.mustChangePassword || String(user.role || '').toUpperCase() === 'SUPER_ADMIN') {
+    const requiresStrongPassword =
+      user.mustChangePassword || String(user.role || '').toUpperCase() === 'SUPER_ADMIN';
+    if (requiresStrongPassword) {
       validateStrongPassword(newPassword);
     }
 
@@ -35,7 +37,7 @@ class UpdatePasswordService {
       throw new Error('A nova senha deve ser diferente da senha atual.');
     }
 
-    const hashPassword = await bcrypt.hash(newPassword, 10);
+    const hashPassword = await bcrypt.hash(newPassword, requiresStrongPassword ? 12 : 10);
 
     return prisma.$transaction(async (transaction) => {
       const updated = await userRepository.updatePassword(userId, hashPassword, transaction);

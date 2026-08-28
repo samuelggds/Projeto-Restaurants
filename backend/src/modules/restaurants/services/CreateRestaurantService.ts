@@ -7,8 +7,22 @@ import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { createRestaurantSchema } from '../../../validators/RestaurantValidator.js';
 import { z } from 'zod';
+import { collectStrongPasswordErrors } from '../../auth/security/passwordPolicy.js';
+import platformPlanCatalogService from '../../billing/services/PlatformPlanCatalogService.js';
+import { addDays } from '../../billing/utils/dateUtils.js';
 
 type CreateRestaurantPayload = z.infer<typeof createRestaurantSchema>;
+
+export type CreateRestaurantAuditActor = {
+  userId: number;
+  ipAddress?: string | null;
+  requestId?: string | null;
+  userAgent?: string | null;
+};
+
+type CreateRestaurantCommand = CreateRestaurantPayload & {
+  actor?: CreateRestaurantAuditActor;
+};
 
 function requireDefined<T>(value: T | null | undefined, message: string): NonNullable<T> {
   if (value === null || value === undefined) {
@@ -18,8 +32,21 @@ function requireDefined<T>(value: T | null | undefined, message: string): NonNul
   return value as NonNullable<T>;
 }
 
-class CreateRestaurantService {
-  async execute({ restaurant, admin, plan }: CreateRestaurantPayload) {
+function isValidAuditActor(
+  actor: CreateRestaurantAuditActor | undefined,
+): actor is CreateRestaurantAuditActor {
+  return Boolean(actor && Number.isSafeInteger(actor.userId) && actor.userId > 0);
+}
+
+function validateTemporaryAdministratorPassword(password: string) {
+  const errors = collectStrongPasswordErrors(password);
+  if (errors.length > 0) {
+    throw new Error(`A senha temporária ${errors.join('; ')}.`);
+  }
+}
+
+export class CreateRestaurantService {
+  async execute({ restaurant, admin, plan, actor }: CreateRestaurantCommand) {
     const parsedPayloadResult = createRestaurantSchema.safeParse({
       restaurant,
       admin,
@@ -34,6 +61,10 @@ class CreateRestaurantService {
     const parsedPayload = parsedPayloadResult.data;
     const parsedRestaurant = parsedPayload.restaurant;
     const parsedAdmin = parsedPayload.admin;
+
+    // A senha fornecida é temporária porque o administrador deverá trocá-la
+    // no primeiro acesso, mas ainda precisa cumprir a política forte desde já.
+    validateTemporaryAdministratorPassword(parsedAdmin.password);
 
     const restaurantExists = await restaurantRepository.findByEmail(parsedRestaurant.email);
 
@@ -53,7 +84,18 @@ class CreateRestaurantService {
       throw new Error('Já existe um admin com esse e-mail.');
     }
 
+    // O hash é calculado antes da transação para não manter uma conexão e locks
+    // do banco ocupados durante uma operação intencionalmente custosa.
+    const passwordHash = await bcrypt.hash(parsedAdmin.password, 12);
+
     return prisma.$transaction(async (tx) => {
+      const selectedPlan = await platformPlanCatalogService.getByCode(
+        parsedPayload.plan as PlanType,
+        {
+          activeOnly: true,
+          db: tx,
+        },
+      );
       const requiredName = requireDefined(
         parsedRestaurant.name,
         'Nome do restaurante é obrigatório.',
@@ -76,8 +118,6 @@ class CreateRestaurantService {
 
       const createdRestaurant = await restaurantRepository.create(restaurantCreateData, tx);
 
-      const passwordHash = await bcrypt.hash(parsedAdmin.password, 10);
-
       const createdAdmin = await userRepository.create(
         {
           name: parsedAdmin.name,
@@ -91,12 +131,8 @@ class CreateRestaurantService {
         tx,
       );
 
-      const TRIAL_DAYS = 30;
-
       const today = new Date();
-
-      const trialEndsAt = new Date(today);
-      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+      const trialEndsAt = addDays(today, selectedPlan.trialDays);
 
       await subscriptionRepository.create(
         {
@@ -109,6 +145,38 @@ class CreateRestaurantService {
         },
         tx,
       );
+
+      // O log participa da mesma transação: se ele falhar, restaurante,
+      // administrador e assinatura também são revertidos. Nenhum ator é
+      // fabricado quando o caller não fornece um contexto autenticado válido.
+      if (isValidAuditActor(actor)) {
+        const persistedActor = await tx.user.findUnique({
+          where: { id: actor.userId },
+          select: { id: true, name: true, role: true },
+        });
+
+        if (persistedActor) {
+          await tx.auditLog.create({
+            data: {
+              userId: persistedActor.id,
+              userName: persistedActor.name,
+              userRole: persistedActor.role,
+              restaurantId: createdRestaurant.id,
+              restaurantName: createdRestaurant.name,
+              action: 'RESTAURANT_CREATED',
+              resource: `Restaurant:${createdRestaurant.id}`,
+              ipAddress: actor.ipAddress ?? null,
+              requestId: actor.requestId ?? null,
+              userAgent: actor.userAgent ?? null,
+              metadata: {
+                plan: selectedPlan.plan,
+                trialDays: selectedPlan.trialDays,
+                adminUserId: createdAdmin.id,
+              },
+            },
+          });
+        }
+      }
 
       return {
         restaurant: createdRestaurant,

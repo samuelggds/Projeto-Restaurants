@@ -80,6 +80,7 @@ test('troca obrigatória aceita senha forte, revoga refresh e persiste novo hash
   assert.equal(result.mustChangePassword, false);
   assert.equal(refreshSessionsRevoked, true);
   assert.equal(await bcrypt.compare(newPassword, persistedHash), true);
+  assert.equal(bcrypt.getRounds(persistedHash), 12);
 });
 
 test('não permite reutilizar a senha atual', async () => {

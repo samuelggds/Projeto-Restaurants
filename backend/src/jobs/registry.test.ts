@@ -5,9 +5,9 @@ import { createJobDefinitions } from './registry.js';
 
 test('registro possui chaves únicas e agendas válidas', () => {
   const jobs = createJobDefinitions({});
-  assert.equal(jobs.length, 5);
+  assert.equal(jobs.length, 6);
   assert.equal(new Set(jobs.map((job) => job.key)).size, jobs.length);
-  assert.equal(jobs.filter((job) => job.runtime === 'worker').length, 4);
+  assert.equal(jobs.filter((job) => job.runtime === 'worker').length, 5);
   assert.deepEqual(
     jobs.filter((job) => job.runtime === 'api').map((job) => job.key),
     ['table-account.payment-expiration'],

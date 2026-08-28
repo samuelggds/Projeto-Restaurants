@@ -10,6 +10,15 @@ class CreateRestaurantController {
         restaurant,
         admin,
         plan,
+        actor:
+          req.user?.id && req.user.role
+            ? {
+                userId: req.user.id,
+                ipAddress: req.ip,
+                requestId: req.requestId ?? null,
+                userAgent: req.get('user-agent') ?? null,
+              }
+            : undefined,
       });
 
       return res.status(201).json(result);

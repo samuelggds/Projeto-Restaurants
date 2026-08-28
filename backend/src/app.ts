@@ -9,6 +9,7 @@ import { notFoundMiddleware } from './middlewares/security/notFoundMiddleware.js
 import { errorHandlerMiddleware } from './middlewares/security/errorHandlerMiddleware.js';
 import { applyCorsAndGlobalRateLimit } from './middlewares/security/httpAccessProtection.js';
 import { probeDatabaseReadiness } from './health/readiness.js';
+import { platformMaintenanceMiddleware } from './middlewares/platformMaintenanceMiddleware.js';
 
 const app = express();
 
@@ -51,6 +52,11 @@ app.get('/ready', async (_req, res) => {
 });
 
 applyCorsAndGlobalRateLimit(app);
+
+// O modo de manutenção é avaliado antes do parsing do corpo e das rotas de
+// negócio. Sondas, autenticação, webhooks e o painel do SUPER_ADMIN são
+// liberados pelo próprio middleware.
+app.use(platformMaintenanceMiddleware);
 
 // Stripe signature verification requires the exact raw request body.
 app.use('/orders/webhook/stripe', express.raw({ type: 'application/json' }));

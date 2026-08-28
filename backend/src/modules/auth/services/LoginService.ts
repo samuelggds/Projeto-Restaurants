@@ -4,6 +4,7 @@ import { loginSchema } from '../../../validators/LoginValidator.js';
 import loginLockoutService from './LoginLockoutService.js';
 import authTokenService from './AuthTokenService.js';
 import loginMfaService from './LoginMfaService.js';
+import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 class LoginService {
   async execute({ email, password }: { email: string; password: string }) {
     const normalizedEmail = String(email || '')
@@ -57,6 +58,7 @@ class LoginService {
     };
     const token = authTokenService.createAccessToken(tokenPayload);
     const refreshToken = await authTokenService.createRefreshToken(tokenPayload);
+    await successfulLoginRecorderService.execute(user.id);
 
     return {
       user: {

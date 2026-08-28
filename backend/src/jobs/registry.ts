@@ -1,4 +1,5 @@
 import billingJob from '../modules/billing/jobs/BillingJob.js';
+import auditRetentionJob from '../modules/audit/jobs/AuditRetentionJob.js';
 import reconcileMercadoPagoInvoicesService from '../modules/billing/services/ReconcileMercadoPagoInvoicesService.js';
 import loyaltyRedemptionExpirationJob from '../modules/coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationCleanupJob.js';
@@ -36,6 +37,16 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
   );
 
   return [
+    {
+      key: 'audit.retention-cleanup',
+      description: 'Remocao em lotes de logs de auditoria alem da retencao configurada',
+      runtime: 'worker',
+      schedule: { kind: 'cron', expression: '15 4 * * *', timezone },
+      leaseDurationMs: 30 * 60 * 1000,
+      successCooldownMs: 20 * 60 * 60 * 1000,
+      failureBackoffMs: 60 * 60 * 1000,
+      execute: () => auditRetentionJob.execute(),
+    },
     {
       key: 'billing.daily',
       description: 'Geração de faturas, renovação e bloqueios de inadimplência',

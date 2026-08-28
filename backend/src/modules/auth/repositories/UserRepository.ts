@@ -200,6 +200,28 @@ class UserRepository {
     });
   }
 
+  async recordSuccessfulLogin(
+    id: number | string,
+    completedAt: Date = new Date(),
+    db: PrismaClientLike = prisma,
+  ) {
+    const updated = await db.user.updateMany({
+      where: {
+        id: Number(id),
+        active: true,
+      },
+      data: {
+        lastLoginAt: completedAt,
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new Error('Não foi possível concluir o login desta conta.');
+    }
+
+    return completedAt;
+  }
+
   async deactivate(id: number | string, db: PrismaClientLike = prisma) {
     return db.user.update({
       where: {

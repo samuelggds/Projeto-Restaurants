@@ -24,6 +24,7 @@ import AsaasWithdrawValidationWebhookController from '../modules/restaurantSetti
 import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js';
 import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCallRoutes.js';
 import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoutes.js';
+import superAdminRoutes from '../modules/superAdmin/routes/SuperAdminRoutes.js';
 
 const router = Router();
 
@@ -56,6 +57,7 @@ router.use('/audit-logs', auditRoutes);
 router.use('/favorites', favoriteRoutes);
 router.use('/image-enhancement', imageEnhancementRoutes);
 router.use('/customer-addresses', customerAddressRoutes);
+router.use('/super-admin', superAdminRoutes);
 
 router.get('/profile', authMiddleware, (req, res) => {
   return res.json({

@@ -1,106 +1,109 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
-import restaurantsService from '../../Services/restaurantsService';
-import { SuperAdminModule } from './SuperAdminModule';
-import { superAdminMockData } from './data';
-import type { SuperAdminData } from './types';
+import superAdminService from '../../Services/superAdminService';
+import { mapSupportMessages } from './adapters/superAdminDataAdapter';
 import { CreateRestaurantDialog } from './components/CreateRestaurantDialog';
-import {
-  buildPlatformMetrics,
-  deriveAdministrators,
-  derivePlans,
-  mapRestaurantTenant,
-} from './adapters/superAdminDataAdapter';
+import { LoadState } from './components/Shared';
+import { superAdminPath, viewFromPath } from './domain/superAdminDomain';
+import { useSuperAdminDashboard } from './hooks/useSuperAdminDashboard';
+import { SuperAdminModule } from './SuperAdminModule';
+import type { SuperAdminActions, SuperAdminUser, SuperAdminView } from './types';
 
 export default function SuperAdminPage() {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
-  const [data, setData] = useState<SuperAdminData>(superAdminMockData);
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const loadData = useCallback(async () => {
-    const results = await Promise.allSettled([
-      restaurantsService.listRestaurants(),
-      restaurantsService.getMetrics(),
-      restaurantsService.getAllInvoices(),
-      restaurantsService.getAllSupportTickets(),
-      restaurantsService.getAuditLogs(),
-    ]);
-    const [restaurantsResult, metricsResult, invoicesResult, ticketsResult, auditResult] = results;
-    const rawList =
-      restaurantsResult.status === 'fulfilled' && Array.isArray(restaurantsResult.value)
-        ? restaurantsResult.value
-        : null;
-    const rawMetrics =
-      metricsResult.status === 'fulfilled' && metricsResult.value
-        ? (metricsResult.value as Record<string, unknown>)
-        : {};
-    const rawInvoices =
-      invoicesResult.status === 'fulfilled' && Array.isArray(invoicesResult.value)
-        ? invoicesResult.value
-        : null;
-    const rawTickets =
-      ticketsResult.status === 'fulfilled' && Array.isArray(ticketsResult.value)
-        ? ticketsResult.value
-        : null;
-    const rawAuditLogs =
-      auditResult.status === 'fulfilled' && Array.isArray(auditResult.value)
-        ? auditResult.value
-        : null;
-
-    if (!rawList) return;
-
-    const restaurants = rawList.map((restaurant) =>
-      mapRestaurantTenant(restaurant as Record<string, unknown>),
-    );
-    const plans = derivePlans(restaurants);
-    const administrators = deriveAdministrators(restaurants);
-    const metrics = buildPlatformMetrics(restaurants, rawMetrics);
-
-    setData((previous) => ({
-      ...previous,
-      restaurants,
-      plans,
-      administrators,
-      metrics,
-      ...(rawInvoices ? { invoices: rawInvoices } : {}),
-      ...(rawTickets ? { tickets: rawTickets } : {}),
-      ...(rawAuditLogs ? { auditLogs: rawAuditLogs } : {}),
-    }));
-  }, []);
+  const { data, error, loading, refreshing, refresh } = useSuperAdminDashboard();
+  const [createRestaurantOpen, setCreateRestaurantOpen] = useState(false);
+  const currentView = viewFromPath(location.pathname);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadData(), 0);
-    return () => window.clearTimeout(timer);
-  }, [loadData]);
+    const expectedPath = superAdminPath(currentView);
+    const normalizedPath = location.pathname.replace(/\/+$/, '');
+    if (normalizedPath !== expectedPath) {
+      navigate(
+        { pathname: expectedPath, search: location.search, hash: location.hash },
+        { replace: true },
+      );
+    }
+  }, [currentView, location.hash, location.pathname, location.search, navigate]);
 
-  const u = user as Record<string, unknown>;
+  const mutateAndRefresh = useCallback(
+    async (mutation: () => Promise<unknown>) => {
+      await mutation();
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const actions = useMemo<SuperAdminActions>(
+    () => ({
+      refresh,
+      updateSettings: async (settings) => {
+        await mutateAndRefresh(() => superAdminService.updateSettings(settings));
+      },
+      updatePlan: async (code, input) => {
+        await mutateAndRefresh(() => superAdminService.updatePlan(code, input));
+      },
+      updateRestaurantAccess: async (id, input) => {
+        await mutateAndRefresh(() => superAdminService.updateRestaurantAccess(id, input));
+      },
+      updateSubscription: async (id, input) => {
+        await mutateAndRefresh(() => superAdminService.updateRestaurantSubscription(id, input));
+      },
+      createAdministrator: async (restaurantId, input) => {
+        await mutateAndRefresh(() => superAdminService.createAdministrator(restaurantId, input));
+      },
+      updateAdministratorAccess: async (id, input) => {
+        await mutateAndRefresh(() => superAdminService.updateAdministratorAccess(id, input));
+      },
+      getSupportMessages: async (restaurantId) =>
+        mapSupportMessages(await superAdminService.getSupportMessages(restaurantId)),
+      sendSupportMessage: async (restaurantId, message) => {
+        await mutateAndRefresh(() => superAdminService.sendSupportMessage(restaurantId, message));
+      },
+    }),
+    [mutateAndRefresh, refresh],
+  );
+
+  const currentUser: SuperAdminUser = {
+    id: String(user?.id ?? ''),
+    name: String(user?.name ?? 'Super Admin'),
+    email: String(user?.email ?? ''),
+    role: String(user?.role ?? '').toUpperCase(),
+  };
+
+  const changeView = (view: SuperAdminView) => {
+    navigate(superAdminPath(view));
+  };
+
+  if (!data) {
+    return <LoadState loading={loading} error={error} onRetry={() => void refresh()} />;
+  }
 
   return (
     <>
       <SuperAdminModule
-        currentUser={{
-          id: String(u?.id || ''),
-          name: String(u?.name || 'Super Admin'),
-          email: String(u?.email || ''),
-          role: 'SUPER_ADMIN',
-        }}
+        currentUser={currentUser}
         data={data}
-        onCreateRestaurant={() => setCreateOpen(true)}
-        onSelectRestaurant={() => {
-          /* detail view not yet implemented */
-        }}
-        onSaveSettings={async () => {
-          /* settings API not yet implemented */
-        }}
+        currentView={currentView}
+        onViewChange={changeView}
+        actions={actions}
+        onCreateRestaurant={() => setCreateRestaurantOpen(true)}
         onLogout={() => {
           logout();
-          navigate('/login');
+          navigate('/login', { replace: true });
         }}
+        refreshing={refreshing}
+        loadError={error}
       />
-      {createOpen ? (
-        <CreateRestaurantDialog onClose={() => setCreateOpen(false)} onCreated={loadData} />
+      {createRestaurantOpen ? (
+        <CreateRestaurantDialog
+          plans={data.plans}
+          onClose={() => setCreateRestaurantOpen(false)}
+          onCreated={refresh}
+        />
       ) : null}
     </>
   );

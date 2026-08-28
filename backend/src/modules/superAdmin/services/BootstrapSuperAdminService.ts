@@ -33,8 +33,7 @@ const defaultDependencies: ServiceDependencies = {
 };
 
 export type SuperAdminBootstrapResult =
-  | { status: 'disabled' }
-  | { status: 'ready' | 'created'; userId: number };
+  { status: 'disabled' } | { status: 'ready' | 'created'; userId: number };
 
 export class BootstrapSuperAdminService {
   constructor(
@@ -48,97 +47,95 @@ export class BootstrapSuperAdminService {
 
     return this.database.$transaction(
       async (transaction: Prisma.TransactionClient): Promise<SuperAdminBootstrapResult> => {
-      await transaction.$queryRaw`SELECT pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})`;
+        await transaction.$queryRaw`SELECT pg_advisory_xact_lock(${ADMIN_CHANGE_ADVISORY_LOCK})`;
 
-      const superAdmins = await transaction.user.findMany({
-        where: { role: UserRole.SUPER_ADMIN },
-        orderBy: { id: 'asc' },
-        take: 2,
-        select: {
-          id: true,
-          email: true,
-          active: true,
-          restaurantId: true,
-          subRole: true,
-          mfaEnabled: true,
-        },
-      });
+        const superAdmins = await transaction.user.findMany({
+          where: { role: UserRole.SUPER_ADMIN },
+          orderBy: { id: 'asc' },
+          take: 2,
+          select: {
+            id: true,
+            email: true,
+            active: true,
+            restaurantId: true,
+            subRole: true,
+            mfaEnabled: true,
+          },
+        });
 
-      if (superAdmins.length > 1) {
-        throw new Error(
-          'Mais de um SUPER_ADMIN foi encontrado. Corrija as contas duplicadas antes de iniciar a plataforma.',
-        );
-      }
-
-      const existingSuperAdmin = superAdmins[0];
-      if (existingSuperAdmin) {
-        const matchesExpectedIdentity =
-          existingSuperAdmin.email.trim().toLowerCase() === config.email;
-        const hasSafePlatformScope =
-          existingSuperAdmin.active &&
-          existingSuperAdmin.restaurantId === null &&
-          existingSuperAdmin.subRole === null &&
-          existingSuperAdmin.mfaEnabled;
-
-        if (!matchesExpectedIdentity || !hasSafePlatformScope) {
+        if (superAdmins.length > 1) {
           throw new Error(
-            'O SUPER_ADMIN existente não corresponde à identidade ou à política de segurança configurada.',
+            'Mais de um SUPER_ADMIN foi encontrado. Corrija as contas duplicadas antes de iniciar a plataforma.',
           );
         }
 
-        return { status: 'ready', userId: existingSuperAdmin.id };
-      }
+        const existingSuperAdmin = superAdmins[0];
+        if (existingSuperAdmin) {
+          const matchesExpectedIdentity =
+            existingSuperAdmin.email.trim().toLowerCase() === config.email;
+          const hasSafePlatformScope =
+            existingSuperAdmin.active &&
+            existingSuperAdmin.restaurantId === null &&
+            existingSuperAdmin.subRole === null &&
+            existingSuperAdmin.mfaEnabled;
 
-      const accountWithBootstrapEmail = await transaction.user.findFirst({
-        where: { email: { equals: config.email, mode: 'insensitive' } },
-        select: { id: true },
-      });
-      if (accountWithBootstrapEmail) {
-        throw new Error(
-          'O email de bootstrap já pertence a outra conta. Use o script operacional de promoção após revisar o usuário.',
-        );
-      }
+          if (!matchesExpectedIdentity || !hasSafePlatformScope) {
+            throw new Error(
+              'O SUPER_ADMIN existente não corresponde à identidade ou à política de segurança configurada.',
+            );
+          }
 
-      const initialPassword =
-        config.password ||
-        (config.passwordFile
-          ? await this.dependencies.readSecretFile(config.passwordFile)
-          : '');
-      const passwordErrors = validateInitialSuperAdminPassword(initialPassword);
-      if (!initialPassword || passwordErrors.length) {
-        throw new Error(
-          `Não foi possível criar o SUPER_ADMIN: ${passwordErrors.join('; ') || 'senha inicial ausente'}.`,
-        );
-      }
+          return { status: 'ready', userId: existingSuperAdmin.id };
+        }
 
-      const passwordHash = await this.dependencies.hashPassword(initialPassword);
-      const created = await transaction.user.create({
-        data: {
-          name: config.name,
-          email: config.email,
-          password: passwordHash,
-          role: UserRole.SUPER_ADMIN,
-          active: true,
-          restaurantId: null,
-          subRole: null,
-          mfaEnabled: true,
-          mustChangePassword: true,
-        },
-        select: { id: true, name: true },
-      });
+        const accountWithBootstrapEmail = await transaction.user.findFirst({
+          where: { email: { equals: config.email, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        if (accountWithBootstrapEmail) {
+          throw new Error(
+            'O email de bootstrap já pertence a outra conta. Use o script operacional de promoção após revisar o usuário.',
+          );
+        }
 
-      await transaction.auditLog.create({
-        data: {
-          userId: created.id,
-          userName: created.name,
-          userRole: UserRole.SUPER_ADMIN,
-          action: 'BOOTSTRAP_SUPER_ADMIN',
-          resource: `User:${created.id}`,
-          result: 'SUCCESS',
-        },
-      });
+        const initialPassword =
+          config.password ||
+          (config.passwordFile ? await this.dependencies.readSecretFile(config.passwordFile) : '');
+        const passwordErrors = validateInitialSuperAdminPassword(initialPassword);
+        if (!initialPassword || passwordErrors.length) {
+          throw new Error(
+            `Não foi possível criar o SUPER_ADMIN: ${passwordErrors.join('; ') || 'senha inicial ausente'}.`,
+          );
+        }
 
-      return { status: 'created', userId: created.id };
+        const passwordHash = await this.dependencies.hashPassword(initialPassword);
+        const created = await transaction.user.create({
+          data: {
+            name: config.name,
+            email: config.email,
+            password: passwordHash,
+            role: UserRole.SUPER_ADMIN,
+            active: true,
+            restaurantId: null,
+            subRole: null,
+            mfaEnabled: true,
+            mustChangePassword: true,
+          },
+          select: { id: true, name: true },
+        });
+
+        await transaction.auditLog.create({
+          data: {
+            userId: created.id,
+            userName: created.name,
+            userRole: UserRole.SUPER_ADMIN,
+            action: 'BOOTSTRAP_SUPER_ADMIN',
+            resource: `User:${created.id}`,
+            result: 'SUCCESS',
+          },
+        });
+
+        return { status: 'created', userId: created.id };
       },
     );
   }

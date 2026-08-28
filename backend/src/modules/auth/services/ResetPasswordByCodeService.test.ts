@@ -53,6 +53,7 @@ async function installResetState() {
           state.resetPasswordFailedAttempts = 0;
           state.resetPasswordLockedUntil = null;
           state.active = true;
+          state.mustChangePassword = data.mustChangePassword;
           state.authVersion += 1;
           return { count: 1 };
         }
@@ -119,4 +120,20 @@ test('SUPER_ADMIN não consegue redefinir a conta com senha fraca', async () => 
   assert.notEqual(state.resetPasswordCodeHash, null);
   assert.equal(state.authVersion, 2);
   assert.equal(revoked(), 0);
+});
+
+test('recuperação forte do SUPER_ADMIN conclui a troca obrigatória e usa bcrypt 12', async () => {
+  const { state, revoked } = await installResetState();
+  state.role = 'SUPER_ADMIN';
+  state.mustChangePassword = true;
+
+  await resetPasswordByCodeService.execute({
+    ...validPayload,
+    newPassword: 'Nova-Chave-Forte-2026!',
+    confirmPassword: 'Nova-Chave-Forte-2026!',
+  });
+
+  assert.equal(state.mustChangePassword, false);
+  assert.equal(bcrypt.getRounds(state.password), 12);
+  assert.equal(revoked(), 1);
 });

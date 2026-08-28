@@ -1,70 +1,135 @@
-export type SuperAdminView =
-  | 'overview'
-  | 'restaurants'
-  | 'subscriptions'
-  | 'plans'
-  | 'billing'
-  | 'administrators'
-  | 'support'
-  | 'audit'
-  | 'settings';
-export type TenantStatus = 'ACTIVE' | 'TRIAL' | 'OVERDUE' | 'BLOCKED' | 'CANCELED';
-export type PaymentStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'REFUNDED';
+export const SUPER_ADMIN_VIEWS = [
+  'overview',
+  'restaurants',
+  'subscriptions',
+  'plans',
+  'billing',
+  'administrators',
+  'support',
+  'audit',
+  'settings',
+] as const;
+
+export type SuperAdminView = (typeof SUPER_ADMIN_VIEWS)[number];
+export type TenantStatus = 'ACTIVE' | 'TRIAL' | 'OVERDUE' | 'BLOCKED' | 'CANCELED' | 'UNKNOWN';
+export type SubscriptionLifecycleStatus = 'TESTE' | 'ATIVA' | 'EXPIRADA' | 'CANCELADA';
+export type PaymentStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'CANCELED' | 'REFUNDED';
+export type AdministratorStatus = 'ACTIVE' | 'BLOCKED';
+export type SupportStatus = 'OPEN' | 'WAITING_CUSTOMER' | 'CLOSED';
+
 export interface SuperAdminUser {
   id: string;
   name: string;
   email: string;
   role: string;
 }
-export interface RestaurantTenant {
-  id: string;
+
+export interface RestaurantAdministratorSummary {
+  id: number;
   name: string;
-  responsible: string;
   email: string;
-  plan: string;
+  active: boolean;
+  lastAccessAt: string | null;
+}
+
+export interface RestaurantSubscription {
+  id: number | null;
+  planCode: string;
+  status: SubscriptionLifecycleStatus;
+  trialEndsAt: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  nextBillingAt: string | null;
+  monthlyFee: number;
+  balanceDebt: number;
+  scheduledPlan: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface RestaurantTenant {
+  id: number;
+  name: string;
+  slug: string;
+  email: string;
+  phone: string | null;
+  active: boolean;
   status: TenantStatus;
   createdAt: string;
-  lastAccess: string;
+  lastAccessAt: string | null;
   nextBillingAt: string | null;
-  monthlyRevenue: number;
+  monthlyFee: number;
+  monthlyOrderRevenue: number;
+  primaryAdmin: RestaurantAdministratorSummary | null;
+  subscription: RestaurantSubscription | null;
 }
-export interface Plan {
-  id: string;
+
+export interface PlatformPlan {
+  code: string;
   name: string;
-  price: number | null;
-  restaurants: number;
-  featured?: boolean;
+  description: string;
+  monthlyFee: number;
+  trialDays: number;
   features: string[];
+  featured: boolean;
+  active: boolean;
+  restaurantsCount: number;
+  version: number;
 }
+
 export interface Invoice {
-  id: string;
+  id: number;
+  code: string;
+  restaurantId: number;
   restaurant: string;
   dueDate: string;
+  paidAt: string | null;
   value: number;
-  method: string;
+  monthlyFee: number;
+  systemFees: number;
   status: PaymentStatus;
+  paymentLink: string | null;
 }
+
 export interface PlatformAdministrator {
-  id: string;
+  id: number;
   name: string;
-  restaurant: string;
   email: string;
-  status: 'ACTIVE' | 'INVITED' | 'BLOCKED';
-  lastAccess: string;
-  twoFactor: boolean;
+  restaurantId: number;
+  restaurant: string;
+  status: AdministratorStatus;
+  lastAccessAt: string | null;
+  mfaEnabled: boolean;
+  mfaRequired: boolean;
+  effectiveMfa: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
 }
+
 export interface SupportTicket {
-  id: string;
+  id: number;
+  restaurantId: number;
   restaurant: string;
   subject: string;
-  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER';
-  responsible: string;
-  elapsed: string;
+  status: SupportStatus;
+  messageCount: number;
+  lastMessageAt: string;
+  lastSenderRole: string;
 }
+
+export interface SupportMessage {
+  id: number;
+  restaurantId: number;
+  senderRole: string;
+  senderLabel: string;
+  message: string;
+  issueStatus: string | null;
+  sentAt: string;
+}
+
 export interface AuditLog {
-  id: string;
-  date: string;
+  id: number;
+  createdAt: string;
   user: string;
   role: string;
   restaurant: string;
@@ -72,34 +137,31 @@ export interface AuditLog {
   resource: string;
   ip: string;
   result: 'SUCCESS' | 'FAILURE' | 'BLOCKED';
+  requestId: string | null;
+  userAgent: string | null;
+  metadata: unknown;
 }
+
+/** Campos persistidos e editáveis pelo SUPER_ADMIN. Credenciais nunca pertencem a este DTO. */
 export interface PlatformSettings {
   platformName: string;
-  domain: string;
+  platformDomain: string;
   supportEmail: string;
   primaryColor: string;
-  language: string;
+  locale: string;
   currency: string;
   timezone: string;
   dateFormat: string;
-  allowSignup: boolean;
-  manualApproval: boolean;
-  trialDays: number;
-  uploadLimitMb: number;
-  logRetentionDays: number;
-  adminSessionHours: number;
+  allowRestaurantSignup: boolean;
+  requireManualApproval: boolean;
+  defaultTrialDays: number;
+  auditRetentionDays: number;
   maintenanceMode: boolean;
+  maintenanceMessage: string;
+  version: number;
+  updatedAt: string | null;
 }
-export interface SuperAdminData {
-  restaurants: RestaurantTenant[];
-  plans: Plan[];
-  invoices: Invoice[];
-  administrators: PlatformAdministrator[];
-  tickets: SupportTicket[];
-  auditLogs: AuditLog[];
-  settings: PlatformSettings;
-  metrics?: PlatformMetrics;
-}
+
 export interface PlatformMetrics {
   restaurantsTotal: number;
   restaurantsActive: number;
@@ -115,13 +177,90 @@ export interface PlatformMetrics {
   monthlyGrowth: { label: string; count: number }[];
   monthlyRevenue: { label: string; value: number }[];
 }
+
+export type SystemPolicyValue = string | number | boolean | null;
+
+export interface SystemPolicyItem {
+  key: string;
+  label: string;
+  value: SystemPolicyValue;
+  description?: string;
+  configured?: boolean;
+  sensitive?: boolean;
+}
+
+export interface SystemPolicies {
+  deployment: SystemPolicyItem[];
+  email: SystemPolicyItem[];
+  integrations: SystemPolicyItem[];
+  security: SystemPolicyItem[];
+  maintenance: SystemPolicyItem[];
+}
+
+export interface SuperAdminData {
+  restaurants: RestaurantTenant[];
+  metrics: PlatformMetrics;
+  plans: PlatformPlan[];
+  invoices: Invoice[];
+  administrators: PlatformAdministrator[];
+  tickets: SupportTicket[];
+  auditLogs: AuditLog[];
+  settings: PlatformSettings;
+  systemPolicies: SystemPolicies;
+}
+
+export interface RestaurantAccessInput {
+  active: boolean;
+  reason: string;
+}
+export interface SubscriptionUpdateInput {
+  planCode?: string;
+  status?: SubscriptionLifecycleStatus;
+  trialEndsAt?: string | null;
+  nextBillingAt?: string | null;
+  reason: string;
+}
+export interface PlanUpdateInput {
+  name: string;
+  description: string;
+  monthlyFee: number;
+  trialDays: number;
+  features: string[];
+  featured: boolean;
+  active: boolean;
+  version: number;
+}
+export interface AdministratorCreateInput {
+  name: string;
+  email: string;
+  password: string;
+  passwordConfirmation: string;
+}
+export interface AdministratorAccessInput {
+  active: boolean;
+  reason: string;
+}
+
+export interface SuperAdminActions {
+  refresh: () => Promise<void>;
+  updateSettings: (settings: PlatformSettings) => Promise<void>;
+  updatePlan: (code: string, input: PlanUpdateInput) => Promise<void>;
+  updateRestaurantAccess: (id: number, input: RestaurantAccessInput) => Promise<void>;
+  updateSubscription: (id: number, input: SubscriptionUpdateInput) => Promise<void>;
+  createAdministrator: (id: number, input: AdministratorCreateInput) => Promise<void>;
+  updateAdministratorAccess: (id: number, input: AdministratorAccessInput) => Promise<void>;
+  getSupportMessages: (restaurantId: number) => Promise<SupportMessage[]>;
+  sendSupportMessage: (restaurantId: number, message: string) => Promise<void>;
+}
+
 export interface SuperAdminModuleProps {
   currentUser: SuperAdminUser;
-  data?: SuperAdminData;
-  initialView?: SuperAdminView;
-  onViewChange?: (view: SuperAdminView) => void;
-  onCreateRestaurant?: () => void;
-  onSelectRestaurant?: (restaurantId: string) => void;
-  onSaveSettings?: (settings: PlatformSettings) => void | Promise<void>;
-  onLogout?: () => void;
+  data: SuperAdminData;
+  currentView: SuperAdminView;
+  onViewChange: (view: SuperAdminView) => void;
+  actions: SuperAdminActions;
+  onCreateRestaurant: () => void;
+  onLogout: () => void;
+  refreshing?: boolean;
+  loadError?: string | null;
 }

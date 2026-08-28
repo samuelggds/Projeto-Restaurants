@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import userRepository from '../repositories/UserRepository.js';
 import authTokenService from './AuthTokenService.js';
 import loginMfaService from './LoginMfaService.js';
+import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 
 function getSafeNameFromEmail(email: string | undefined) {
   const username = String(email || '')
@@ -83,6 +84,7 @@ class GoogleAuthService {
     };
     const token = authTokenService.createAccessToken(tokenPayload);
     const refreshToken = await authTokenService.createRefreshToken(tokenPayload);
+    await successfulLoginRecorderService.execute(user.id);
 
     return {
       user: {

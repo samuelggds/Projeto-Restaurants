@@ -25,6 +25,7 @@ model User {
   phone                         String?
   restaurantId                  Int?
   updatedAt                     DateTime                  @updatedAt
+  lastLoginAt                   DateTime?
   /// O índice único parcial `User_single_super_admin_idx` (migration SQL) limita a plataforma a um SUPER_ADMIN.
   role                          UserRole                  @default(CLIENTE)
   subRole                       FuncionarioSubRole?
@@ -58,6 +59,47 @@ model User {
   tablePaymentEvents            TablePaymentEvent[]       @relation("TablePaymentEventActor")
   requestedAsaasWithdrawals     AsaasWithdrawalRequest[]
   oauthAuthorizationStates      OAuthAuthorizationState[]
+}
+
+/// Configuracao publica e operacional da plataforma. Segredos e politicas que
+/// exigem restart continuam exclusivamente no ambiente de deploy.
+model PlatformSettings {
+  id                    Int      @id @default(1)
+  platformName          String   @default("S&C Platform")
+  platformDomain        String   @default("app.scplatform.com.br")
+  supportEmail          String   @default("suporte@scplatform.com.br")
+  primaryColor          String   @default("#E9530B")
+  locale                String   @default("pt-BR")
+  currency              String   @default("BRL")
+  timezone              String   @default("America/Sao_Paulo")
+  dateFormat            String   @default("dd/MM/yyyy")
+  allowRestaurantSignup Boolean  @default(false)
+  requireManualApproval Boolean  @default(true)
+  defaultTrialDays      Int      @default(30)
+  auditRetentionDays    Int      @default(180)
+  maintenanceMode       Boolean  @default(false)
+  maintenanceMessage    String   @default("Plataforma temporariamente em manutencao.")
+  version               Int      @default(1)
+  updatedByUserId       Int?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+/// Catalogo financeiro editavel pelo SUPER_ADMIN. O codigo do plano segue o
+/// enum usado pelas assinaturas e os precos valem apenas para novas faturas.
+model PlatformPlan {
+  code            PlanType @id
+  name            String
+  description     String
+  monthlyFee      Decimal  @db.Decimal(10, 2)
+  trialDays       Int      @default(30)
+  features        Json
+  featured        Boolean  @default(false)
+  active          Boolean  @default(true)
+  version         Int      @default(1)
+  updatedByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model UserAddress {
@@ -1044,10 +1086,14 @@ model AuditLog {
   resource       String?
   ipAddress      String?
   result         String   @default("SUCCESS")
+  requestId      String?
+  userAgent      String?
+  metadata       Json?
   createdAt      DateTime @default(now())
 
   @@index([createdAt])
   @@index([userId])
+  @@index([restaurantId, createdAt])
 }
 
 enum UserRole {

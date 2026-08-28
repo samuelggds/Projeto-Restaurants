@@ -1,16 +1,22 @@
 export { SuperAdminModule } from './SuperAdminModule';
-export { superAdminMockData } from './data';
 export type {
+  AdministratorAccessInput,
+  AdministratorCreateInput,
   AuditLog,
   Invoice,
-  Plan,
+  PlanUpdateInput,
   PlatformAdministrator,
+  PlatformMetrics,
+  PlatformPlan,
   PlatformSettings,
+  RestaurantAccessInput,
   RestaurantTenant,
+  SubscriptionUpdateInput,
   SuperAdminData,
   SuperAdminModuleProps,
   SuperAdminUser,
   SuperAdminView,
+  SupportMessage,
   SupportTicket,
   TenantStatus,
 } from './types';

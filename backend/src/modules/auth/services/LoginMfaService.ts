@@ -9,6 +9,7 @@ import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
 import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
 import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
+import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 
 type LoginUser = {
   id: number;
@@ -185,9 +186,7 @@ class LoginMfaService {
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
           if (canLogLocalAuthCode()) {
-            console.warn(
-              `[login-2fa] Falha no SMTP local. Codigo para ${user.email}: ${code}`,
-            );
+            console.warn(`[login-2fa] Falha no SMTP local. Codigo para ${user.email}: ${code}`);
           } else {
             console.warn(
               '[login-2fa] Falha no SMTP local; o codigo nao foi exibido. Configure o SMTP ou habilite explicitamente o fallback local.',
@@ -307,6 +306,7 @@ class LoginMfaService {
 
     const token = authTokenService.createAccessToken(tokenPayload);
     const refreshToken = await authTokenService.createRefreshToken(tokenPayload);
+    await successfulLoginRecorderService.execute(user.id);
 
     return {
       user: mapUser(user),

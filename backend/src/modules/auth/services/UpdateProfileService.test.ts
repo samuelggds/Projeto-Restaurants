@@ -62,3 +62,21 @@ test('normaliza somente os campos enviados na edição do perfil', async () => {
     cpf: '12345678900',
   });
 });
+
+test('não permite alterar o email fixo do SUPER_ADMIN pelo perfil genérico', async () => {
+  let updated = false;
+  userRepository.findById = async () => ({
+    id: 1,
+    role: 'SUPER_ADMIN',
+    email: 'developer@example.com',
+  });
+  userRepository.updateProfile = async () => {
+    updated = true;
+  };
+
+  await assert.rejects(
+    () => updateProfileService.execute(1, { email: 'attacker@example.com' }),
+    /e-mail da conta SUPER_ADMIN não pode ser alterado/u,
+  );
+  assert.equal(updated, false);
+});

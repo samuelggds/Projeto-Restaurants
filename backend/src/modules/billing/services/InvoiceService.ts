@@ -1,6 +1,6 @@
 import billingRepository from '../repositories/BillingRepository.js';
-import { PLAN_CONFIG } from '../config/planConfig.js';
 import { addDays } from '../utils/dateUtils.js';
+import platformPlanCatalogService from './PlatformPlanCatalogService.js';
 
 type InvoicePayload = {
   restaurantId: number;
@@ -10,10 +10,21 @@ type InvoicePayload = {
   endDate: Date;
 };
 
-class InvoiceService {
+export class InvoiceService {
+  constructor(
+    private readonly repository: Pick<
+      typeof billingRepository,
+      'findSubscriptionByRestaurantId' | 'updateSubscription' | 'createMonthlyInvoiceIfAbsent'
+    > = billingRepository,
+    private readonly planCatalog: Pick<
+      typeof platformPlanCatalogService,
+      'getByCode'
+    > = platformPlanCatalogService,
+  ) {}
+
   async execute({ restaurantId, month, year, startDate, endDate }: InvoicePayload) {
     // Busca a assinatura
-    const subscription = await billingRepository.findSubscriptionByRestaurantId(restaurantId);
+    const subscription = await this.repository.findSubscriptionByRestaurantId(restaurantId);
 
     if (!subscription) {
       throw new Error('Assinatura não encontrada.');
@@ -26,7 +37,7 @@ class InvoiceService {
       subscription.scheduledPlanEffectiveYear === year;
 
     if (shouldApplyScheduledPlan) {
-      const updatedSubscription = await billingRepository.updateSubscription(subscription.id, {
+      const updatedSubscription = await this.repository.updateSubscription(subscription.id, {
         plan: subscription.scheduledPlan,
         scheduledPlan: null,
         scheduledPlanEffectiveMonth: null,
@@ -37,11 +48,7 @@ class InvoiceService {
     }
 
     // Busca o plano
-    const plan = PLAN_CONFIG[activePlan];
-
-    if (!plan) {
-      throw new Error('Plano inválido.');
-    }
+    const plan = await this.planCatalog.getByCode(activePlan, { activeOnly: false });
 
     const total = plan.monthlyFee;
 
@@ -53,7 +60,7 @@ class InvoiceService {
 
     // O upsert na chave unica mensal evita duplicidade mesmo com duas
     // execucoes concorrentes (job, retry ou chamada administrativa).
-    return billingRepository.createMonthlyInvoiceIfAbsent({
+    return this.repository.createMonthlyInvoiceIfAbsent({
       restaurantId,
       month,
       year,
