@@ -4,6 +4,7 @@ import prisma from '../../../config/prisma.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import { roundMoney } from '../../products/utils/productDiscount.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
+import deliveryFeeByDistanceService from './DeliveryFeeByDistanceService.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -22,6 +23,7 @@ type QuotePayload = {
   type: OrderType | string;
   items: PricingItemInput[];
   couponRedemptionId?: number | string | null;
+  deliveryDistanceMeters?: number | null;
   now?: Date;
   db?: PrismaClientLike;
 };
@@ -33,6 +35,7 @@ class OrderPricingService {
     type,
     items,
     couponRedemptionId,
+    deliveryDistanceMeters,
     now = new Date(),
     db = prisma,
   }: QuotePayload) {
@@ -91,6 +94,7 @@ class OrderPricingService {
     const settings = await db.restaurantSettings.findUnique({
       where: { restaurantId: normalizedRestaurantId },
       select: {
+        deliveryFeeMode: true,
         deliveryFee: true,
         minimumOrder: true,
         freeShippingMinimum: true,
@@ -110,17 +114,32 @@ class OrderPricingService {
       throw new Error('Os pedidos pelo cardápio de mesa estão desativados no momento.');
     }
 
+    let configuredDeliveryFeeAmount = 0;
+    if (normalizedType === OrderType.DELIVERY) {
+      if (settings?.deliveryFeeMode === 'DISTANCE') {
+        const normalizedDistanceMeters = Number(deliveryDistanceMeters);
+        if (!Number.isFinite(normalizedDistanceMeters) || normalizedDistanceMeters < 0) {
+          throw new Error('Não foi possível calcular a distância para a taxa de entrega.');
+        }
+
+        const distanceFee = await deliveryFeeByDistanceService.calculate({
+          restaurantId: normalizedRestaurantId,
+          distanceMeters: normalizedDistanceMeters,
+          db,
+        });
+        configuredDeliveryFeeAmount = distanceFee.deliveryFeeAmount;
+      } else {
+        configuredDeliveryFeeAmount = roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0));
+      }
+    }
+
     const freeShippingMinimum = Math.max(Number(settings?.freeShippingMinimum || 0), 0);
     const hasFreeShipping =
       normalizedType === OrderType.DELIVERY &&
       freeShippingMinimum > 0 &&
       itemsSubtotal >= freeShippingMinimum;
-    const deliveryFeeAmount =
-      normalizedType === OrderType.DELIVERY
-        ? hasFreeShipping
-          ? 0
-          : roundMoney(Math.max(Number(settings?.deliveryFee || 0), 0))
-        : 0;
+    const deliveryFeeAmount = hasFreeShipping ? 0 : configuredDeliveryFeeAmount;
+
     const minimumOrder = Math.max(Number(settings?.minimumOrder || 0), 0);
     if (normalizedType === OrderType.DELIVERY && minimumOrder > 0 && itemsSubtotal < minimumOrder) {
       throw new Error(
@@ -180,7 +199,11 @@ class OrderPricingService {
       couponCode = coupon.code;
       couponId = coupon.id;
       redemptionId = redemption.id;
-    } else if (couponRedemptionId !== null && couponRedemptionId !== undefined && couponRedemptionId !== '') {
+    } else if (
+      couponRedemptionId !== null &&
+      couponRedemptionId !== undefined &&
+      couponRedemptionId !== ''
+    ) {
       throw new Error('Cupom resgatado inválido.');
     }
 
@@ -191,6 +214,10 @@ class OrderPricingService {
       productDiscountTotal,
       couponDiscount,
       deliveryFeeAmount,
+      deliveryDistanceMeters:
+        normalizedType === OrderType.DELIVERY && settings?.deliveryFeeMode === 'DISTANCE'
+          ? Number(deliveryDistanceMeters)
+          : null,
       total,
       couponCode,
       couponId,
