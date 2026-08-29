@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
 import { buildOrderQuotePayload, type OrderType } from '../domain/checkout';
+import type { DeliveryAddress } from './useDeliveryAddress';
 import type { CartItem } from './useCart';
 
 export type OrderQuote = {
@@ -8,6 +9,7 @@ export type OrderQuote = {
   productDiscountTotal: number;
   couponDiscount: number;
   deliveryFeeAmount: number;
+  deliveryDistanceMeters: number | null;
   total: number;
   couponCode: string | null;
 };
@@ -15,6 +17,12 @@ export type OrderQuote = {
 function money(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function optionalNonNegativeNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 export function normalizeOrderQuote(payload: unknown): OrderQuote {
@@ -29,6 +37,7 @@ export function normalizeOrderQuote(payload: unknown): OrderQuote {
     productDiscountTotal: money(quote.productDiscountTotal),
     couponDiscount: money(quote.couponDiscount),
     deliveryFeeAmount: money(quote.deliveryFeeAmount),
+    deliveryDistanceMeters: optionalNonNegativeNumber(quote.deliveryDistanceMeters),
     total: money(quote.total),
     couponCode: quote.couponCode ? String(quote.couponCode) : null,
   };
@@ -38,10 +47,17 @@ type Options = {
   restaurantId: number | null;
   type: OrderType;
   cart: CartItem[];
+  deliveryAddress?: DeliveryAddress;
   couponRedemptionId: number | null;
 };
 
-export function useOrderQuote({ restaurantId, type, cart, couponRedemptionId }: Options) {
+export function useOrderQuote({
+  restaurantId,
+  type,
+  cart,
+  deliveryAddress,
+  couponRedemptionId,
+}: Options) {
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [resolvedKey, setResolvedKey] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,6 +68,16 @@ export function useOrderQuote({ restaurantId, type, cart, couponRedemptionId }: 
         restaurantId,
         type,
         couponRedemptionId,
+        deliveryAddress:
+          type === 'DELIVERY' && deliveryAddress
+            ? {
+                address: deliveryAddress.address.trim(),
+                number: deliveryAddress.number.trim(),
+                district: deliveryAddress.district.trim(),
+                city: deliveryAddress.city.trim(),
+                state: deliveryAddress.state.trim().toUpperCase(),
+              }
+            : null,
         items: cart.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -59,7 +85,7 @@ export function useOrderQuote({ restaurantId, type, cart, couponRedemptionId }: 
           selectedOptions: item.selectedOptions,
         })),
       }),
-    [cart, couponRedemptionId, restaurantId, type],
+    [cart, couponRedemptionId, deliveryAddress, restaurantId, type],
   );
 
   useEffect(() => {
@@ -74,7 +100,13 @@ export function useOrderQuote({ restaurantId, type, cart, couponRedemptionId }: 
       setError(false);
       try {
         const response = await ordersService.quoteOrder(
-          buildOrderQuotePayload({ restaurantId, type, cart, couponRedemptionId }),
+          buildOrderQuotePayload({
+            restaurantId,
+            type,
+            cart,
+            deliveryAddress,
+            couponRedemptionId,
+          }),
         );
         if (active) {
           setQuote(normalizeOrderQuote(response));
@@ -94,7 +126,7 @@ export function useOrderQuote({ restaurantId, type, cart, couponRedemptionId }: 
       active = false;
       window.clearTimeout(timeout);
     };
-  }, [cart, couponRedemptionId, requestKey, restaurantId, type]);
+  }, [cart, couponRedemptionId, deliveryAddress, requestKey, restaurantId, type]);
 
   const enabled = Boolean(restaurantId && cart.length);
   return {
