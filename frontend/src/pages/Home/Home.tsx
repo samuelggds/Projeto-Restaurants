@@ -107,7 +107,6 @@ export default function Home() {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
 
-  // ── Notification system (defined early so useEffects can use it)
   const notify = useCallback((type: NotifType, title: string, msg?: string, duration = 3500) => {
     const id = Date.now();
     setNotifs((prev) => {
@@ -304,6 +303,7 @@ export default function Home() {
     restaurantId: checkoutChannelAvailable ? restaurantId : null,
     type: checkoutOrderType,
     cart,
+    deliveryAddress,
     couponRedemptionId: appliedRedemptionId,
   });
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
@@ -626,7 +626,6 @@ export default function Home() {
     );
   }
 
-  // ── Main render
   return (
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <HomePage
@@ -672,7 +671,6 @@ export default function Home() {
         }}
       />
 
-      {/* ── Cart drawer */}
       <S.CartOverlay
         $open={cartOpen}
         onClick={() => setCartOpen(false)}
