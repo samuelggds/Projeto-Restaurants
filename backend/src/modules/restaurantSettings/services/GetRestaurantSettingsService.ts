@@ -7,7 +7,14 @@ type RestaurantIdPayload = {
 type RestaurantSettingsFallback = {
   id: number | null;
   restaurantId: number;
+  deliveryFeeMode: 'FIXED' | 'DISTANCE';
   deliveryFee: number;
+  deliveryFeeRanges: Array<{
+    id: number;
+    maxDistanceKm: number;
+    fee: number;
+    active: boolean;
+  }>;
   minimumOrder: number;
   freeShippingMinimum: number | null;
   acceptsDelivery: boolean;
@@ -110,7 +117,9 @@ class GetRestaurantSettingsService {
       const fallback: RestaurantSettingsFallback = {
         id: null,
         restaurantId: normalizedRestaurantId,
+        deliveryFeeMode: 'FIXED',
         deliveryFee: 0,
+        deliveryFeeRanges: [],
         minimumOrder: 0,
         freeShippingMinimum: null,
         acceptsDelivery: true,
@@ -200,8 +209,17 @@ class GetRestaurantSettingsService {
       return fallback;
     }
 
+    const { deliveryFeeRanges = [], ...restaurant } = settings.restaurant;
+
     return {
       ...settings,
+      restaurant,
+      deliveryFeeRanges: deliveryFeeRanges.map((range) => ({
+        id: range.id,
+        maxDistanceKm: Number(range.maxDistanceKm),
+        fee: Number(range.fee),
+        active: range.active,
+      })),
       stripeSecretKey: null,
       stripeWebhookSecret: null,
       mercadoPagoAccessToken: null,
