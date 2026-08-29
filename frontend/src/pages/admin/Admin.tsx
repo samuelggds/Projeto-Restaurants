@@ -308,7 +308,28 @@ export function mapSettingsFromApi(
     tiktok: String(raw?.tiktok ?? adminMockSettings.tiktok),
     youtube: String(raw?.youtube ?? adminMockSettings.youtube),
     minimumOrder: Number(raw?.minimumOrder ?? adminMockSettings.minimumOrder),
+    deliveryFeeMode:
+      String(raw?.deliveryFeeMode ?? adminMockSettings.deliveryFeeMode).toUpperCase() === 'DISTANCE'
+        ? 'DISTANCE'
+        : 'FIXED',
     deliveryFee: Number(raw?.deliveryFee ?? adminMockSettings.deliveryFee),
+    deliveryFeeRanges: (Array.isArray(raw?.deliveryFeeRanges) ? raw.deliveryFeeRanges : [])
+      .map((rangeValue) => {
+        const range = asRecord(rangeValue);
+        return {
+          id: range.id === undefined || range.id === null ? undefined : Number(range.id),
+          maxDistanceKm: Math.max(0, Number(range.maxDistanceKm ?? 0)),
+          fee: Math.max(0, Number(range.fee ?? 0)),
+          active: range.active !== false,
+        };
+      })
+      .filter(
+        (range) =>
+          range.maxDistanceKm > 0 &&
+          Number.isFinite(range.maxDistanceKm) &&
+          Number.isFinite(range.fee),
+      )
+      .sort((first, second) => first.maxDistanceKm - second.maxDistanceKm),
     freeShippingMinimum: Number(raw?.freeShippingMinimum ?? adminMockSettings.freeShippingMinimum),
     acceptsDelivery: raw?.acceptsDelivery !== false,
     acceptsPickup: raw?.acceptsPickup !== false,
