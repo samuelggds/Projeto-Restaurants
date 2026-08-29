@@ -10,14 +10,16 @@ import {
 const ROUTE_CACHE_TTL_MS = 20_000;
 const GEOCODE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+export type DeliveryRouteAddress = {
+  address?: string | null;
+  number?: string | null;
+  district?: string | null;
+  city?: string | null;
+  state?: string | null;
+};
+
 type EstimateInput = DeliveryCoordinates & {
-  destination: {
-    address?: string | null;
-    number?: string | null;
-    district?: string | null;
-    city?: string | null;
-    state?: string | null;
-  };
+  destination: DeliveryRouteAddress;
 };
 
 type CachedValue<T> = { expiresAt: number; value: T };
@@ -148,11 +150,17 @@ class GetOsrmDeliveryRouteService {
     }
   }
 
+  async geocodeAddress(address: DeliveryRouteAddress): Promise<DeliveryCoordinates | null> {
+    const destination = buildDeliveryDestination(address);
+    if (!destination) return null;
+    return this.geocode(destination);
+  }
+
   async execute(input: EstimateInput): Promise<DeliveryRouteEstimate | null> {
     const destination = buildDeliveryDestination(input.destination);
     if (!this.osrmBaseUrl || !destination || !hasValidCoordinates(input)) return null;
 
-    const destinationCoordinates = await this.geocode(destination);
+    const destinationCoordinates = await this.geocodeAddress(input.destination);
     if (!destinationCoordinates) return null;
 
     const cacheKey = `${input.latitude.toFixed(4)}:${input.longitude.toFixed(4)}:${destinationCoordinates.latitude.toFixed(4)}:${destinationCoordinates.longitude.toFixed(4)}`;
