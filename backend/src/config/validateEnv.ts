@@ -335,28 +335,43 @@ export function validateCriticalEnv() {
 
   const routingRequired = asBoolean(process.env.ROUTING_REQUIRED, true);
   if (routingRequired) {
-    const osrmBaseUrl = requireValue('OSRM_BASE_URL', errors);
-    const geocoderBaseUrl = requireValue('GEOCODER_BASE_URL', errors);
-    const routingUserAgent = requireValue('ROUTING_USER_AGENT', errors);
+    const routingProvider = String(process.env.ROUTING_PROVIDER || 'osrm')
+      .trim()
+      .toLowerCase();
 
-    const osrmUrl = osrmBaseUrl ? parseHttpUrl('OSRM_BASE_URL', osrmBaseUrl, errors) : null;
-    const geocoderUrl = geocoderBaseUrl
-      ? parseHttpUrl('GEOCODER_BASE_URL', geocoderBaseUrl, errors)
-      : null;
+    if (routingProvider === 'geoapify') {
+      requireValue('GEOAPIFY_API_KEY', errors);
+      const geoapifyBaseUrl = String(
+        process.env.GEOAPIFY_BASE_URL || 'https://api.geoapify.com',
+      ).trim();
+      if (geoapifyBaseUrl) parsePublicUrl('GEOAPIFY_BASE_URL', geoapifyBaseUrl, errors);
+    } else if (routingProvider === 'osrm') {
+      const osrmBaseUrl = requireValue('OSRM_BASE_URL', errors);
+      const geocoderBaseUrl = requireValue('GEOCODER_BASE_URL', errors);
+      const routingUserAgent = requireValue('ROUTING_USER_AGENT', errors);
 
-    const publicDemoHosts = new Set(['router.project-osrm.org', 'nominatim.openstreetmap.org']);
-    if (osrmUrl && publicDemoHosts.has(osrmUrl.hostname.toLowerCase())) {
-      errors.push('OSRM_BASE_URL nao pode usar o servidor publico de demonstracao em producao.');
-    }
-    if (geocoderUrl && publicDemoHosts.has(geocoderUrl.hostname.toLowerCase())) {
-      errors.push('GEOCODER_BASE_URL nao pode usar o Nominatim publico em producao.');
-    }
-    if (routingUserAgent && routingUserAgent === 'PizzaIADelivery/1.0') {
-      errors.push('ROUTING_USER_AGENT deve incluir um contato real em producao.');
+      const osrmUrl = osrmBaseUrl ? parseHttpUrl('OSRM_BASE_URL', osrmBaseUrl, errors) : null;
+      const geocoderUrl = geocoderBaseUrl
+        ? parseHttpUrl('GEOCODER_BASE_URL', geocoderBaseUrl, errors)
+        : null;
+
+      const publicDemoHosts = new Set(['router.project-osrm.org', 'nominatim.openstreetmap.org']);
+      if (osrmUrl && publicDemoHosts.has(osrmUrl.hostname.toLowerCase())) {
+        errors.push('OSRM_BASE_URL nao pode usar o servidor publico de demonstracao em producao.');
+      }
+      if (geocoderUrl && publicDemoHosts.has(geocoderUrl.hostname.toLowerCase())) {
+        errors.push('GEOCODER_BASE_URL nao pode usar o Nominatim publico em producao.');
+      }
+      if (routingUserAgent && routingUserAgent === 'PizzaIADelivery/1.0') {
+        errors.push('ROUTING_USER_AGENT deve incluir um contato real em producao.');
+      }
+
+      validatePositiveInteger('GEOCODER_REQUEST_TIMEOUT_MS', 4000, errors);
+    } else {
+      errors.push('ROUTING_PROVIDER deve ser osrm ou geoapify em producao.');
     }
 
     validatePositiveInteger('ROUTING_REQUEST_TIMEOUT_MS', 4000, errors);
-    validatePositiveInteger('GEOCODER_REQUEST_TIMEOUT_MS', 4000, errors);
     validatePositiveInteger('ROUTING_CACHE_MAX_ENTRIES', 5000, errors);
   }
 
