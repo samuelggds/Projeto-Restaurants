@@ -9,6 +9,7 @@ describe('useOrderQuote', () => {
         productDiscountTotal: '10',
         couponDiscount: 7,
         deliveryFeeAmount: 5,
+        deliveryDistanceMeters: 4200,
         total: '68',
         couponCode: 'FIEL7',
       }),
@@ -17,6 +18,7 @@ describe('useOrderQuote', () => {
       productDiscountTotal: 10,
       couponDiscount: 7,
       deliveryFeeAmount: 5,
+      deliveryDistanceMeters: 4200,
       total: 68,
       couponCode: 'FIEL7',
     });
