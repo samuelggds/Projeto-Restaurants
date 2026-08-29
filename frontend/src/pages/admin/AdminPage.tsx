@@ -140,6 +140,7 @@ export function AdminPage({
   const [saved, setSaved] = useState(paymentOAuthStatus === 'success');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isEnhancingCover, setIsEnhancingCover] = useState(false);
+  const [enhancingBannerLocalId, setEnhancingBannerLocalId] = useState<string | null>(null);
   const [feedbackError, setFeedbackError] = useState(
     paymentOAuthStatus === 'error'
       ? oauthParams.get('message') || 'Não foi possível conectar ao Mercado Pago.'
@@ -296,25 +297,63 @@ export function AdminPage({
       setIsEnhancingCover(false);
     }
   };
-  const banner = async (key: 'mainBannerUrl', event: ChangeEvent<HTMLInputElement>) => {
+  const processBannerImage = (file: File) =>
+    createPersistentImageDataUrl(file, 1440, {
+      upscale: true,
+      targetWidth: 1440,
+      targetHeight: 560,
+      maximumDataUrlLength: 420_000,
+    });
+
+  const updateBannerImage = (localId: string, image: string) => {
+    setSaved(false);
+    setSettings((current) => ({
+      ...current,
+      promotionalBanners: current.promotionalBanners.map((banner) =>
+        banner.localId === localId ? { ...banner, image } : banner,
+      ),
+    }));
+  };
+
+  const banner = async (localId: string, event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setFeedbackError('');
     try {
-      update(
-        key,
-        await createPersistentImageDataUrl(file, 1440, {
-          upscale: true,
-          targetWidth: 1440,
-          targetHeight: 560,
-        }),
-      );
+      updateBannerImage(localId, await processBannerImage(file));
     } catch (error) {
       setFeedbackError(
         error instanceof Error ? error.message : 'Não foi possível processar a imagem.',
       );
     } finally {
       event.target.value = '';
+    }
+  };
+
+  const enhanceBanner = async (localId: string) => {
+    if (enhancingBannerLocalId) return;
+    const selectedBanner = settings.promotionalBanners.find((banner) => banner.localId === localId);
+    if (!selectedBanner?.image) return;
+
+    setFeedbackError('');
+    setEnhancingBannerLocalId(localId);
+    try {
+      const enhanced = await imageEnhancementService.enhanceBannerImage(selectedBanner.image);
+      if (!enhanced) throw new Error('A IA não retornou uma imagem para o banner.');
+      const response = await fetch(enhanced);
+      const blob = await response.blob();
+      const file = new File([blob], 'banner-melhorado.png', {
+        type: blob.type || 'image/png',
+      });
+      updateBannerImage(localId, await processBannerImage(file));
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
+      setFeedbackError(
+        apiError.response?.data?.error ||
+          (error instanceof Error ? error.message : 'Não foi possível melhorar o banner com IA.'),
+      );
+    } finally {
+      setEnhancingBannerLocalId(null);
     }
   };
   const save = async () => {
@@ -691,7 +730,9 @@ export function AdminPage({
                 onCoverChange={cover}
                 onEnhanceCover={enhanceCover}
                 isEnhancingCover={isEnhancingCover}
-                onBannerChange={banner}
+                onBannerImageChange={banner}
+                onEnhanceBanner={enhanceBanner}
+                enhancingBannerLocalId={enhancingBannerLocalId}
               />
             ) : (
               <AdminSettingsContent

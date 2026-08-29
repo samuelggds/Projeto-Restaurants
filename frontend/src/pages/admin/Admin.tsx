@@ -20,6 +20,7 @@ import type {
   AdminOrder,
   AdminProduct,
   AdminProductOptionGroup,
+  AdminPromotionBanner,
   AdminSettings,
   Employee,
   EmployeeFormPayload,
@@ -35,10 +36,6 @@ import {
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { playOrderNotificationSound } from './domain/orderNotificationSound';
 import tableAccountService from '../../Services/tableAccountService';
-
-const BANNER_TITLES = {
-  main: 'Banner principal',
-} as const;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -213,8 +210,7 @@ export function mapTableAccountSettingsFromApi(value: unknown): TableAccountAdmi
   return {
     enabled: raw.enabled === true,
     requirePrepaymentAboveCents:
-      raw.requirePrepaymentAboveCents === null ||
-      raw.requirePrepaymentAboveCents === undefined
+      raw.requirePrepaymentAboveCents === null || raw.requirePrepaymentAboveCents === undefined
         ? null
         : Math.max(0, Number(raw.requirePrepaymentAboveCents)),
     prepaymentWindows: windows,
@@ -225,10 +221,7 @@ export function mapTableAccountSettingsFromApi(value: unknown): TableAccountAdmi
     serviceFeeMode: ['OPTIONAL', 'MANDATORY'].includes(feeMode)
       ? (feeMode as 'OPTIONAL' | 'MANDATORY')
       : 'DISABLED',
-    serviceFeeBasisPoints: Math.min(
-      10_000,
-      Math.max(0, Number(raw.serviceFeeBasisPoints ?? 0)),
-    ),
+    serviceFeeBasisPoints: Math.min(10_000, Math.max(0, Number(raw.serviceFeeBasisPoints ?? 0))),
     preventCloseWithOutstandingBalance: raw.preventCloseWithOutstandingBalance !== false,
     requireEmployeeApprovalForPreparedItemCancellation:
       raw.requireEmployeeApprovalForPreparedItemCancellation !== false,
@@ -250,8 +243,31 @@ export function mapSettingsFromApi(
   const logoCandidate = r?.logo ?? raw?.restaurantLogo ?? adminMockSettings.logoUrl ?? '';
   const coverCandidate =
     r?.coverImage ?? raw?.restaurantCoverImage ?? adminMockSettings.coverImageUrl ?? '';
-  const banner = (title: string) => banners.find((item) => item.title === title);
-  const mainBanner = banner(BANNER_TITLES.main);
+  const promotionalBanners = banners
+    .map((banner, index): AdminPromotionBanner => {
+      const id = Number(banner.id ?? 0) || undefined;
+      const legacyMainBanner =
+        banner.title === 'Banner principal' &&
+        !String(banner.highlight || '').trim() &&
+        !String(banner.description || '').trim();
+      return {
+        id,
+        localId: id ? `promotion-banner-${id}` : `promotion-banner-loaded-${index}`,
+        title: legacyMainBanner ? 'Confira nossas ofertas' : String(banner.title || ''),
+        highlight: legacyMainBanner ? 'Promoções' : String(banner.highlight || ''),
+        description: legacyMainBanner
+          ? 'Ofertas especiais preparadas para você.'
+          : String(banner.description || ''),
+        buttonLabel: String(banner.buttonLabel || 'Ver cardápio'),
+        image: String(banner.image || ''),
+        active: banner.active !== false,
+        position: Number.isInteger(Number(banner.position)) ? Number(banner.position) : index,
+      };
+    })
+    .sort(
+      (first, second) => first.position - second.position || Number(first.id) - Number(second.id),
+    )
+    .map((banner, position) => ({ ...banner, position }));
   const businessHoursState = resolveEditableBusinessHours(raw?.businessHours, defaultBusinessHours);
   return {
     restaurantName: String(r?.name ?? raw?.restaurantName ?? adminMockSettings.restaurantName),
@@ -329,8 +345,7 @@ export function mapSettingsFromApi(
     pagbankEmail: String(raw?.pagbankEmail ?? ''),
     pagbankToken: '',
     pagbankTokenConfigured: Boolean(raw?.pagbankTokenConfigured),
-    mainBannerId: mainBanner?.id,
-    mainBannerUrl: mainBanner?.image ?? '',
+    promotionalBanners,
   };
 }
 
@@ -610,18 +625,31 @@ export default function Admin() {
         ]);
         setSettingsId(Number((created as Record<string, unknown>)?.id ?? 0) || null);
       }
-      const slots = [
-        { id: updated.mainBannerId, title: BANNER_TITLES.main, image: updated.mainBannerUrl },
-      ];
-      await Promise.all(
-        slots
-          .filter((slot) => Boolean(slot.image))
-          .map((slot) =>
-            slot.id
-              ? bannerService.update(slot.id, { title: slot.title, image: String(slot.image) })
-              : bannerService.create({ title: slot.title, image: String(slot.image) }),
-          ),
+      const nextBannerIds = new Set(
+        updated.promotionalBanners
+          .map((banner) => banner.id)
+          .filter((id): id is number => Boolean(id)),
       );
+      const removedBannerIds = settings.promotionalBanners
+        .map((banner) => banner.id)
+        .filter((id): id is number => Boolean(id) && !nextBannerIds.has(id));
+      await Promise.all([
+        ...updated.promotionalBanners.map((banner) => {
+          const bannerPayload = {
+            title: banner.title.trim(),
+            highlight: banner.highlight.trim(),
+            description: banner.description.trim(),
+            buttonLabel: banner.buttonLabel.trim(),
+            image: banner.image,
+            active: banner.active,
+            position: banner.position,
+          };
+          return banner.id
+            ? bannerService.update(banner.id, bannerPayload)
+            : bannerService.create(bannerPayload);
+        }),
+        ...removedBannerIds.map((id) => bannerService.delete(id)),
+      ]);
       const [refreshed, refreshedBanners, refreshedTableAccount] = await Promise.all([
         restaurantSettingsService.getMySettings(),
         bannerService.list(),
@@ -629,9 +657,7 @@ export default function Admin() {
       ]);
       const refreshedRecord = refreshed as Record<string, unknown>;
       setSettingsId(Number(refreshedRecord?.id ?? 0) || null);
-      setSettings(
-        mapSettingsFromApi(refreshedRecord, refreshedBanners, refreshedTableAccount),
-      );
+      setSettings(mapSettingsFromApi(refreshedRecord, refreshedBanners, refreshedTableAccount));
     } catch (error) {
       console.error('Não foi possível salvar as configurações.', error);
       throw error;

@@ -94,8 +94,7 @@ export const Alert = styled.div<{ $error?: boolean; $info?: boolean }>`
   gap: 12px;
   margin-bottom: 14px;
   padding: 12px 14px;
-  border: 1px solid
-    ${({ $error, $info }) => ($error ? '#f0c4bd' : $info ? '#cbdceb' : '#cce3d2')};
+  border: 1px solid ${({ $error, $info }) => ($error ? '#f0c4bd' : $info ? '#cbdceb' : '#cce3d2')};
   border-radius: 13px;
   background: ${({ $error, $info }) => ($error ? '#fff3f0' : $info ? '#f1f7fc' : '#eff9f1')};
   color: ${({ $error, $info }) => ($error ? '#9d3329' : $info ? '#315f82' : '#286b39')};
@@ -355,7 +354,7 @@ export const Items = styled.div`
 export const Item = styled.label<{ $selectable?: boolean; $selected?: boolean }>`
   min-width: 0;
   display: grid;
-  grid-template-columns: ${({ $selectable }) => ($selectable ? '22px ' : '')}minmax(0, 1fr) auto;
+  grid-template-columns: ${({ $selectable }) => ($selectable ? '22px ' : '')}minmax (0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 11px 12px;

@@ -6,13 +6,18 @@ class UpdateBannerController {
     try {
       const restaurantId = req.user.restaurantId;
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const { title, image } = req.body;
+      const { title, highlight, description, buttonLabel, image, active, position } = req.body;
 
       const banner = await updateBannerService.execute({
         id,
         restaurantId,
         title,
+        highlight,
+        description,
+        buttonLabel,
         image,
+        active,
+        position,
       });
 
       return res.status(200).json(banner);

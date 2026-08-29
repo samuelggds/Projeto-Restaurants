@@ -1,4 +1,5 @@
 import bannerRepository from '../repositories/BannerRepository.js';
+import { normalizeBannerId } from '../domain/bannerValidation.js';
 
 type DeleteBannerPayload = {
   id: number | string;
@@ -7,13 +8,15 @@ type DeleteBannerPayload = {
 
 class DeleteBannerService {
   async execute({ id, restaurantId }: DeleteBannerPayload) {
-    const banner = await bannerRepository.findById(id, restaurantId);
+    const normalizedId = normalizeBannerId(id);
+    const normalizedRestaurantId = normalizeBannerId(restaurantId, 'Restaurante');
+    const banner = await bannerRepository.findById(normalizedId, normalizedRestaurantId);
 
     if (!banner) {
       throw new Error('Banner não encontrado');
     }
 
-    await bannerRepository.delete(id, restaurantId);
+    await bannerRepository.delete(normalizedId, normalizedRestaurantId);
 
     return { message: 'Banner removido com sucesso' };
   }

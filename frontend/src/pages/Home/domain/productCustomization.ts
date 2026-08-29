@@ -96,7 +96,9 @@ export function normalizeProductOptionGroups(product: ConfigurableProduct): Prod
       .filter((group) => group.options.length > 0);
   }
 
-  const ingredients = (product.ingredients || []).filter((ingredient) => ingredient.active !== false);
+  const ingredients = (product.ingredients || []).filter(
+    (ingredient) => ingredient.active !== false,
+  );
   if (!ingredients.length) return [];
 
   return [

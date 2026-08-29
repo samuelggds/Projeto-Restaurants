@@ -1,37 +1,71 @@
+import type { Prisma } from '@prisma/client';
 import bannerRepository from '../repositories/BannerRepository.js';
-import { normalizeRestaurantImage } from '../../restaurantSettings/utils/normalizeRestaurantImage.js';
+import {
+  normalizeBannerActive,
+  normalizeBannerId,
+  normalizeBannerImage,
+  normalizeBannerPosition,
+  normalizeBannerTitle,
+  normalizeOptionalBannerText,
+} from '../domain/bannerValidation.js';
 
 type UpdateBannerPayload = {
   id: number | string;
   restaurantId: number | string;
-  title?: string;
-  image?: string;
+  title?: unknown;
+  highlight?: unknown;
+  description?: unknown;
+  buttonLabel?: unknown;
+  image?: unknown;
+  active?: unknown;
+  position?: unknown;
 };
 
 class UpdateBannerService {
-  async execute({ id, restaurantId, title, image }: UpdateBannerPayload) {
-    const banner = await bannerRepository.findById(id, restaurantId);
+  async execute({
+    id,
+    restaurantId,
+    title,
+    highlight,
+    description,
+    buttonLabel,
+    image,
+    active,
+    position,
+  }: UpdateBannerPayload) {
+    const normalizedId = normalizeBannerId(id);
+    const normalizedRestaurantId = normalizeBannerId(restaurantId, 'Restaurante');
+    const banner = await bannerRepository.findById(normalizedId, normalizedRestaurantId);
 
     if (!banner) {
       throw new Error('Banner não encontrado');
     }
 
-    const normalizedTitle = title === undefined ? undefined : String(title || '').trim();
-    if (normalizedTitle !== undefined && !normalizedTitle) {
-      throw new Error('O título do banner é obrigatório.');
+    const data: Prisma.BannerUpdateInput = {};
+    if (title !== undefined) data.title = normalizeBannerTitle(title);
+    if (highlight !== undefined) {
+      data.highlight = normalizeOptionalBannerText(highlight, {
+        field: 'O destaque',
+        maxLength: 50,
+      });
     }
-    if (normalizedTitle && normalizedTitle.length > 80) {
-      throw new Error('O título pode ter no máximo 80 caracteres.');
+    if (description !== undefined) {
+      data.description = normalizeOptionalBannerText(description, {
+        field: 'A descrição',
+        maxLength: 180,
+      });
     }
-    const normalizedImage = image === undefined ? undefined : normalizeRestaurantImage(image);
-    if (image !== undefined && !normalizedImage) {
-      throw new Error('A imagem do banner é obrigatória.');
+    if (buttonLabel !== undefined) {
+      data.buttonLabel = normalizeOptionalBannerText(buttonLabel, {
+        field: 'O texto do botão',
+        maxLength: 30,
+      });
     }
+    if (image !== undefined) data.image = normalizeBannerImage(image);
+    if (active !== undefined) data.active = normalizeBannerActive(active);
+    if (position !== undefined) data.position = normalizeBannerPosition(position);
 
-    return await bannerRepository.update(id, restaurantId, {
-      title: normalizedTitle,
-      image: normalizedImage,
-    });
+    return bannerRepository.update(normalizedId, normalizedRestaurantId, data);
   }
 }
 

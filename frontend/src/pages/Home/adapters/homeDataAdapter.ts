@@ -1,6 +1,6 @@
 import { isPersistentImageSource } from '../../../utils/persistentImage';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
-import type { HomeCategory, HomeData, HomeProduct } from '../../Home/types';
+import type { HomeBanner, HomeCategory, HomeData, HomeProduct } from '../../Home/types';
 import { isProductUnavailable } from '../domain/productAvailability';
 import {
   getRestaurantAvailability,
@@ -127,6 +127,52 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function optionalBannerText(value: unknown) {
+  const normalized = String(value || '').trim();
+  return normalized || undefined;
+}
+
+export function mapHomeBanners(values: unknown[]): HomeBanner[] {
+  return values
+    .map<HomeBanner | null>((value, index) => {
+      const banner = asRecord(value);
+      const id = Number(banner.id);
+      const storedTitle = String(banner.title || '').trim();
+      const image = String(banner.image || '').trim();
+      const rawPosition = Number(banner.position);
+      const position = Number.isInteger(rawPosition) && rawPosition >= 0 ? rawPosition : index;
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0 ||
+        !storedTitle ||
+        !isPersistentImageSource(image) ||
+        banner.active === false
+      ) {
+        return null;
+      }
+
+      const highlight = optionalBannerText(banner.highlight);
+      const description = optionalBannerText(banner.description);
+      const buttonLabel = optionalBannerText(banner.buttonLabel);
+      const isLegacyMainBanner =
+        storedTitle === 'Banner principal' && !highlight && !description;
+
+      return {
+        id,
+        title: isLegacyMainBanner ? 'Confira nossas' : storedTitle,
+        highlight: isLegacyMainBanner ? 'promoções' : highlight,
+        description: isLegacyMainBanner ? 'Ofertas especiais preparadas para você.' : description,
+        buttonLabel: isLegacyMainBanner ? 'Ver cardápio' : buttonLabel,
+        image,
+        active: true,
+        position,
+      };
+    })
+    .filter((banner): banner is HomeBanner => banner !== null)
+    .sort((left, right) => left.position - right.position || left.id - right.id);
+}
+
 export function mapProductPricingFromApi(product: Record<string, unknown>) {
   const pricing = asRecord(product.pricing);
   const discount = asRecord(product.discount);
@@ -176,19 +222,16 @@ export function buildHomeData(
   const persistedBanners = Array.isArray(restaurant.banners)
     ? (restaurant.banners as Record<string, unknown>[])
     : [];
-  const bannerByTitle = (title: string) =>
-    persistedBanners.find((item) => String(item.title || '') === title);
-  const mainBanner = bannerByTitle('Banner principal');
-  const hero =
-    mainBanner && isPersistentImageSource(mainBanner.image)
-      ? {
-          title: 'Confira nossas',
-          highlight: 'promoções',
-          description: 'Ofertas especiais preparadas para você.',
-          image: String(mainBanner.image),
-        }
-      : { title: '', highlight: '', description: '', image: '' };
-  const banners = [];
+  const banners = mapHomeBanners(persistedBanners);
+  const firstBanner = banners[0];
+  const hero = firstBanner
+    ? {
+        title: firstBanner.title,
+        highlight: firstBanner.highlight,
+        description: firstBanner.description,
+        image: firstBanner.image,
+      }
+    : { title: '', highlight: '', description: '', image: '' };
   const restaurantName = String(restaurant.name || '');
   const rawWhatsapp = String(settings?.whatsapp || restaurant.whatsapp || '').replace(/\D/g, '');
   const hasWhatsappFlag = Boolean(

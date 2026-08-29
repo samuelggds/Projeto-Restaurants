@@ -7,7 +7,10 @@ import {
   RESTAURANT_CREDENTIAL_FIELDS,
 } from '../security/credentialEncryption.js';
 
-function encryptCredentialData<T extends Record<string, any>>(data: T, restaurantId: number | string) {
+function encryptCredentialData<T extends Record<string, any>>(
+  data: T,
+  restaurantId: number | string,
+) {
   const result: Record<string, any> = { ...data };
   for (const field of RESTAURANT_CREDENTIAL_FIELDS) {
     if (!(field in result)) continue;
@@ -98,8 +101,16 @@ class RestaurantSettingsRepository {
         zipCode: true,
         banners: {
           where: { active: true },
-          select: { id: true, title: true, image: true },
-          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            highlight: true,
+            description: true,
+            buttonLabel: true,
+            image: true,
+            position: true,
+          },
+          orderBy: [{ position: 'asc' }, { id: 'asc' }],
         },
       },
     });
@@ -173,8 +184,16 @@ class RestaurantSettingsRepository {
             zipCode: true,
             banners: {
               where: { active: true },
-              select: { id: true, title: true, image: true },
-              orderBy: { id: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                highlight: true,
+                description: true,
+                buttonLabel: true,
+                image: true,
+                position: true,
+              },
+              orderBy: [{ position: 'asc' }, { id: 'asc' }],
             },
           },
         },

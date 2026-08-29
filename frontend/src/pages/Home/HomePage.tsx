@@ -1,6 +1,5 @@
 import {
   BadgePercent,
-  ChevronRight,
   LayoutGrid,
   Mail,
   MapPin,
@@ -18,6 +17,7 @@ import { HomeHeader } from './components/HomeHeader';
 import { HomeProductCard } from './components/HomeProductCard';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import { TableClosingNotice } from './components/TableClosingNotice';
+import { PromotionCarousel } from './components/PromotionCarousel';
 import * as S from './Home.styles';
 import type { HomePageProps, HomeProduct } from './types';
 import { getFeaturedProducts } from './domain/featuredProducts';
@@ -81,6 +81,22 @@ export function HomePage({
     data.businessHours,
     data.isOpenForOrders ?? data.isOpen,
   );
+  const promotionBanners = data.banners.length
+    ? data.banners
+    : data.hero.image
+      ? [
+          {
+            id: -1,
+            title: data.hero.title,
+            highlight: data.hero.highlight,
+            description: data.hero.description,
+            buttonLabel: 'Ver cardápio',
+            image: data.hero.image,
+            active: true,
+            position: 0,
+          },
+        ]
+      : [];
 
   const selectCategory = (id: string) => {
     setActiveCategory(id);
@@ -142,24 +158,7 @@ export function HomePage({
           </S.About>
         )}
 
-        {data.hero.image && (
-          <S.HeroGrid>
-            <S.MainBanner>
-              <img src={data.hero.image} alt={data.hero.highlight} />
-              <S.BannerCopy>
-                <h1>
-                  {data.hero.title}
-                  <br />
-                  <em>{data.hero.highlight}</em>
-                </h1>
-                <p>{data.hero.description}</p>
-                <button onClick={onOpenMenu}>
-                  Ver cardápio <ChevronRight size={18} />
-                </button>
-              </S.BannerCopy>
-            </S.MainBanner>
-          </S.HeroGrid>
-        )}
+        <PromotionCarousel banners={promotionBanners} onOpenMenu={onOpenMenu} />
 
         {/* InfoBar: only shows fields that have real backend data */}
         {(data.minimumOrder > 0 || (data.acceptsDelivery && data.freeDeliveryFrom > 0)) && (

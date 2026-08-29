@@ -6,7 +6,11 @@ export const Panel = styled.section`
   border: 1px solid #e6dbd2;
   border-radius: 16px;
   background:
-    radial-gradient(circle at 96% 0%, color-mix(in srgb, var(--home-primary) 12%, transparent), transparent 35%),
+    radial-gradient(
+      circle at 96% 0%,
+      color-mix(in srgb, var(--home-primary) 12%, transparent),
+      transparent 35%
+    ),
     #fff;
 `;
 
@@ -25,10 +29,23 @@ export const Heading = styled.header`
     color: var(--home-primary);
     background: color-mix(in srgb, var(--home-primary) 11%, #fff);
   }
-  svg { width: 18px; }
-  > div { min-width: 0; display: grid; gap: 2px; }
-  strong { color: #211c18; font-size: 13px; }
-  small { color: #81766e; font-size: 10px; line-height: 1.3; }
+  svg {
+    width: 18px;
+  }
+  > div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  strong {
+    color: #211c18;
+    font-size: 13px;
+  }
+  small {
+    color: #81766e;
+    font-size: 10px;
+    line-height: 1.3;
+  }
 `;
 
 export const Empty = styled.div`
@@ -44,8 +61,14 @@ export const Empty = styled.div`
   font-size: 11px;
   line-height: 1.35;
 
-  > svg { width: 16px; flex: 0 0 auto; color: var(--home-primary); }
-  > span { flex: 1; }
+  > svg {
+    width: 16px;
+    flex: 0 0 auto;
+    color: var(--home-primary);
+  }
+  > span {
+    flex: 1;
+  }
   button {
     flex: 0 0 auto;
     min-height: 32px;
@@ -94,18 +117,50 @@ export const CouponList = styled.div`
     color: var(--home-primary);
     background: color-mix(in srgb, var(--home-primary) 10%, #fff);
   }
-  svg { width: 15px; }
-  button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
-  b { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-  small { color: #7e736b; font-size: 9px; }
-  em { color: var(--home-primary); font-size: 10px; font-style: normal; font-weight: 900; }
+  svg {
+    width: 15px;
+  }
+  button > span:nth-child(2) {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  b {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  small {
+    color: #7e736b;
+    font-size: 9px;
+  }
+  em {
+    color: var(--home-primary);
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 900;
+  }
 `;
 
 export const Earned = styled(Empty)`
   border: 1px solid color-mix(in srgb, var(--home-primary) 20%, #eadfd7);
   background: color-mix(in srgb, var(--home-primary) 6%, #fff);
-  > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
-  b { color: #2a231f; font-size: 11px; }
-  small { font-size: 9px; }
-  button:disabled { opacity: 0.6; cursor: wait; }
+  > div {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 2px;
+  }
+  b {
+    color: #2a231f;
+    font-size: 11px;
+  }
+  small {
+    font-size: 9px;
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
 `;

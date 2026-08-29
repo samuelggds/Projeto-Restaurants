@@ -139,8 +139,7 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
 
         notifiedPaidPaymentsRef.current.add(paymentPublicId);
         const ownPayment =
-          confirmedPayment?.payerParticipantPublicId ===
-          refreshed?.currentParticipantPublicId;
+          confirmedPayment?.payerParticipantPublicId === refreshed?.currentParticipantPublicId;
         notify(
           'success',
           ownPayment ? 'Seu pagamento foi confirmado' : 'Pagamento da mesa confirmado',

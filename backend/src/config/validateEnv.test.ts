@@ -21,6 +21,8 @@ function setValidProductionEnv() {
     JWT_MFA_SECRET: 'mfa_secret_with_at_least_32_characters_123',
     PAYMENT_PIN_SECRET: 'pin_secret_with_at_least_32_characters_123',
     MFA_REQUIRED_ROLES: 'ADMIN,SUPER_ADMIN',
+    IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS: '900000',
+    IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS: '5',
     SMTP_HOST: 'smtp.example.com',
     SMTP_PORT: '587',
     SMTP_SECURE: 'false',
@@ -216,4 +218,14 @@ test('rejeita endpoint de reconciliação Mercado Pago não oficial', () => {
 test('rejeita política SameSite inválida para o refresh cookie', () => {
   process.env.REFRESH_COOKIE_SAME_SITE = 'disabled';
   assert.throws(() => validateCriticalEnv(), /REFRESH_COOKIE_SAME_SITE deve ser/u);
+});
+
+test('impõe uma janela e um teto seguros para melhorias de imagem por IA', () => {
+  process.env.IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS = '50';
+  process.env.IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS = '1000';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 20.*IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000/u,
+  );
 });

@@ -106,15 +106,27 @@ export type LoyaltyProgramProps = {
 };
 
 export type HomeBanner = {
+  id: number;
   title: string;
-  highlight: string;
+  highlight?: string;
+  description?: string;
+  buttonLabel?: string;
+  image: string;
+  active: boolean;
+  position: number;
+};
+
+export type HomeHero = {
+  title: string;
+  highlight?: string;
   description?: string;
   image: string;
 };
 
 export type HomeData = {
   brand: HomeBrand;
-  hero: HomeBanner;
+  /** Compatibilidade com respostas antigas que possuíam somente um banner principal. */
+  hero: HomeHero;
   banners: HomeBanner[];
   categories: HomeCategory[];
   products: HomeProduct[];

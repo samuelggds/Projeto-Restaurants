@@ -671,11 +671,7 @@ function TableAccountPanelContent({
                     <h3>3. Acompanhe os pagamentos</h3>
                     <p>Veja quando o valor está em confirmação, pago, liberado ou estornado.</p>
                   </div>
-                  <S.IconButton
-                    type="button"
-                    aria-label="Atualizar pagamentos"
-                    onClick={onRefresh}
-                  >
+                  <S.IconButton type="button" aria-label="Atualizar pagamentos" onClick={onRefresh}>
                     <RefreshCw size={15} />
                   </S.IconButton>
                 </header>

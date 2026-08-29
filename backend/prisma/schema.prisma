@@ -896,10 +896,18 @@ model DeliveryLocation {
 model Banner {
   id           Int        @id @default(autoincrement())
   title        String
+  highlight    String?
+  description  String?
+  buttonLabel  String?    @default("Ver cardápio")
   image        String
   active       Boolean    @default(true)
+  position     Int        @default(0)
   restaurantId Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, active, position, id])
 }
 
 model Coupon {

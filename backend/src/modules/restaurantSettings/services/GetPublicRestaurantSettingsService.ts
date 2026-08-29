@@ -58,7 +58,15 @@ type PublicSettingsFallback = {
     city: string | null;
     state: string | null;
     zipCode: string | null;
-    banners: Array<{ id: number; title: string; image: string }>;
+    banners: Array<{
+      id: number;
+      title: string;
+      highlight: string | null;
+      description: string | null;
+      buttonLabel: string | null;
+      image: string;
+      position: number;
+    }>;
   };
 };
 

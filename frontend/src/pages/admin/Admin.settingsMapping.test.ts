@@ -1,12 +1,50 @@
 import { describe, expect, it } from 'vitest';
 import { adminMockSettings } from './data';
-import {
-  mapSettingsFromApi,
-  mapSettingsToApi,
-  mapTableAccountSettingsFromApi,
-} from './Admin';
+import { mapSettingsFromApi, mapSettingsToApi, mapTableAccountSettingsFromApi } from './Admin';
 
 describe('mapeamento das configurações administrativas', () => {
+  it('mapeia todos os banners promocionais pela posição e mantém ids estáveis', () => {
+    const settings = mapSettingsFromApi({ restaurant: { name: 'Casa Teste' } }, [
+      {
+        id: 12,
+        title: 'Sobremesa grátis',
+        highlight: 'Hoje',
+        description: 'Nos pedidos acima de R$ 80.',
+        buttonLabel: 'Ver cardápio',
+        image: 'https://cdn.example.com/sobremesa.webp',
+        active: false,
+        position: 1,
+      },
+      {
+        id: 7,
+        title: 'Festival de pizzas',
+        highlight: '30% OFF',
+        description: 'Oferta especial da semana.',
+        buttonLabel: 'Pedir agora',
+        image: 'https://cdn.example.com/pizza.webp',
+        active: true,
+        position: 0,
+      },
+    ]);
+
+    expect(settings.promotionalBanners).toEqual([
+      expect.objectContaining({
+        id: 7,
+        localId: 'promotion-banner-7',
+        title: 'Festival de pizzas',
+        active: true,
+        position: 0,
+      }),
+      expect.objectContaining({
+        id: 12,
+        localId: 'promotion-banner-12',
+        title: 'Sobremesa grátis',
+        active: false,
+        position: 1,
+      }),
+    ]);
+  });
+
   it('mantém marca, negócio, endereço e regras de pedidos no ciclo API/interface', () => {
     const settings = mapSettingsFromApi({
       companyLegalName: 'Restaurante Exemplo LTDA',

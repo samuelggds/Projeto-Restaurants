@@ -4,9 +4,9 @@ import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { createRestaurantMonogram } from '../../../utils/restaurantMonogram';
 import { validateBrandSettings } from '../domain/brandSettingsValidation';
+import { PromotionBannerSettings } from './PromotionBannerSettings';
 
 type Settings = typeof adminMockSettings;
-type BannerKey = 'mainBannerUrl';
 
 type Props = {
   settings: Settings;
@@ -16,7 +16,12 @@ type Props = {
   onCoverChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onEnhanceCover: () => void | Promise<void>;
   isEnhancingCover: boolean;
-  onBannerChange: (key: BannerKey, event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onBannerImageChange: (
+    localId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void | Promise<void>;
+  onEnhanceBanner: (localId: string) => void | Promise<void>;
+  enhancingBannerLocalId: string | null;
 };
 
 export function BrandSettings({
@@ -27,37 +32,12 @@ export function BrandSettings({
   onCoverChange,
   onEnhanceCover,
   isEnhancingCover,
-  onBannerChange,
+  onBannerImageChange,
+  onEnhanceBanner,
+  enhancingBannerLocalId,
 }: Props) {
   const errors = validateBrandSettings(settings);
   const coverInput = useRef<HTMLInputElement>(null);
-  const mainBannerInput = useRef<HTMLInputElement>(null);
-  const bannerPicker = (
-    key: BannerKey,
-    label: string,
-    size: string,
-    input: RefObject<HTMLInputElement | null>,
-  ) => (
-    <>
-      <input
-        ref={input}
-        hidden
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        aria-label={`Selecionar ${label.toLocaleLowerCase('pt-BR')}`}
-        onChange={(event) => onBannerChange(key, event)}
-      />
-      <button
-        type="button"
-        aria-label={`Alterar ${label.toLocaleLowerCase('pt-BR')}`}
-        onClick={() => input.current?.click()}
-      >
-        {settings[key] ? <img src={String(settings[key])} alt={label} /> : <ImagePlus />}
-        <b>{label}</b>
-        <span>{size}</span>
-      </button>
-    </>
-  );
 
   return (
     <S.Stack>
@@ -185,10 +165,18 @@ export function BrandSettings({
       </S.Card>
       <S.Card>
         <h2>Banner da home</h2>
-        <p>Use uma imagem horizontal para destacar sua principal promoção.</p>
-        <S.Banners>
-          {bannerPicker('mainBannerUrl', 'Banner de promoção', '1440 × 560 px', mainBannerInput)}
-        </S.Banners>
+        <p>
+          Monte um carrossel de promoções com imagem, título e descrição. A ordem definida aqui será
+          respeitada na Home e cada banner poderá ser ocultado sem ser excluído.
+        </p>
+        {errors.promotionalBanners && <small>{errors.promotionalBanners}</small>}
+        <PromotionBannerSettings
+          banners={settings.promotionalBanners}
+          onChange={(banners) => update('promotionalBanners', banners)}
+          onImageChange={onBannerImageChange}
+          onEnhance={onEnhanceBanner}
+          enhancingLocalId={enhancingBannerLocalId}
+        />
       </S.Card>
     </S.Stack>
   );

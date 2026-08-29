@@ -46,6 +46,17 @@ test('expõe somente os campos públicos necessários para a Home respeitar a co
       restaurant: {
         active: true,
         whatsapp: '+55 (85) 99999-9999',
+        banners: [
+          {
+            id: 9,
+            title: 'Festival de pizzas',
+            highlight: '30% OFF',
+            description: 'Somente neste fim de semana.',
+            buttonLabel: 'Ver promoção',
+            image: 'https://cdn.example.com/banner.webp',
+            position: 0,
+          },
+        ],
       },
     }) as never;
 
@@ -57,6 +68,17 @@ test('expõe somente os campos públicos necessários para a Home respeitar a co
   assert.equal(settings.freeShippingMinimum, 80);
   assert.equal(settings.fontFamily, 'Manrope');
   assert.equal(settings.seoTitle, 'Restaurante do Bairro');
+  assert.deepEqual(settings.restaurant.banners, [
+    {
+      id: 9,
+      title: 'Festival de pizzas',
+      highlight: '30% OFF',
+      description: 'Somente neste fim de semana.',
+      buttonLabel: 'Ver promoção',
+      image: 'https://cdn.example.com/banner.webp',
+      position: 0,
+    },
+  ]);
 });
 
 test('não publica um restaurante que foi desativado', async () => {

@@ -84,9 +84,7 @@ export function validateCriticalEnv() {
   const databaseUrl = requireValue('DATABASE_URL', errors);
   validateDatabaseUrl(databaseUrl, errors);
 
-  const superAdminBootstrapEnabled = String(
-    process.env.SUPER_ADMIN_BOOTSTRAP_ENABLED || 'true',
-  )
+  const superAdminBootstrapEnabled = String(process.env.SUPER_ADMIN_BOOTSTRAP_ENABLED || 'true')
     .trim()
     .toLowerCase();
   if (superAdminBootstrapEnabled !== 'true') {
@@ -180,6 +178,22 @@ export function validateCriticalEnv() {
   const authRateLimitMax = asNumber(String(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || '50'), 50);
   if (authRateLimitMax <= 0) {
     errors.push('AUTH_RATE_LIMIT_MAX_REQUESTS deve ser maior que zero.');
+  }
+
+  const imageEnhancementRateLimitMax = asNumber(
+    String(process.env.IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS || '5'),
+    5,
+  );
+  if (imageEnhancementRateLimitMax <= 0 || imageEnhancementRateLimitMax > 20) {
+    errors.push('IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 20.');
+  }
+
+  const imageEnhancementRateLimitWindow = asNumber(
+    String(process.env.IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS || '900000'),
+    900000,
+  );
+  if (imageEnhancementRateLimitWindow < 60_000) {
+    errors.push('IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000.');
   }
 
   const loginLockoutAfterFailures = asNumber(

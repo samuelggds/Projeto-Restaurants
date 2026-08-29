@@ -5,6 +5,7 @@ export type {
   HomeBrand,
   HomeCategory,
   HomeData,
+  HomeHero,
   HomePageProps,
   HomeProduct,
 } from './types';

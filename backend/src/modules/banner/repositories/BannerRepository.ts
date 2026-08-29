@@ -13,9 +13,7 @@ class BannerRepository {
       where: {
         restaurantId: Number(restaurantId),
       },
-      orderBy: {
-        id: 'desc',
-      },
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
     });
   }
 

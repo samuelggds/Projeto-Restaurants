@@ -94,7 +94,7 @@ export const adminMockSettings: AdminSettings = {
   pagbankEmail: '',
   pagbankToken: '',
   pagbankTokenConfigured: false,
-  mainBannerUrl: '',
+  promotionalBanners: [],
 };
 
 export const adminMockEmployees: Employee[] = [];

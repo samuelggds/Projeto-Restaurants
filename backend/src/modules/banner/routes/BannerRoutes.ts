@@ -1,14 +1,12 @@
 import { Router } from 'express';
 
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
-import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 
 import CreateBannerController from '../controllers/CreateBannerController.js';
 import ListBannerController from '../controllers/ListBannerController.js';
 import UpdateBannerController from '../controllers/UpdateBannerController.js';
 import DeleteBannerController from '../controllers/DeleteBannerController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
-import { subscriptionMiddleware } from '../../../middlewares/subscriptionMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 const router = Router();
 
@@ -20,11 +18,11 @@ router.get('/', authMiddleware, adminMiddleware, (req, res) =>
   ListBannerController.handle(req, res),
 );
 
-router.put('/:id', authMiddleware, adminMiddleware, (req, res) =>
+router.put('/:id', authMiddleware, adminMiddleware, billingMiddleware, (req, res) =>
   UpdateBannerController.handle(req, res),
 );
 
-router.delete('/:id', authMiddleware, adminMiddleware, (req, res) =>
+router.delete('/:id', authMiddleware, adminMiddleware, billingMiddleware, (req, res) =>
   DeleteBannerController.handle(req, res),
 );
 

@@ -48,7 +48,9 @@ describe('configurações principais do administrador', () => {
           onCoverChange={() => undefined}
           onEnhanceCover={() => undefined}
           isEnhancingCover={false}
-          onBannerChange={() => undefined}
+          onBannerImageChange={() => undefined}
+          onEnhanceBanner={() => undefined}
+          enhancingBannerLocalId={null}
         />,
       ),
     );

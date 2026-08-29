@@ -32,6 +32,8 @@ type PersistentImageOptions = {
   upscale?: boolean;
   targetWidth?: number;
   targetHeight?: number;
+  /** Permite impor um orçamento menor para coleções com várias imagens. */
+  maximumDataUrlLength?: number;
 };
 
 export async function createPersistentImageDataUrl(
@@ -87,14 +89,18 @@ export async function createPersistentImageDataUrl(
     context.drawImage(image, 0, 0, width, height);
   }
 
+  const maximumDataUrlLength = Math.min(
+    MAX_OUTPUT_LENGTH,
+    Math.max(100_000, options.maximumDataUrlLength ?? MAX_OUTPUT_LENGTH),
+  );
   let quality = 0.88;
   let result = canvas.toDataURL('image/webp', quality);
-  while (result.length > MAX_OUTPUT_LENGTH && quality > 0.5) {
+  while (result.length > maximumDataUrlLength && quality > 0.5) {
     quality -= 0.08;
     result = canvas.toDataURL('image/webp', quality);
   }
 
-  if (!result.startsWith('data:image/') || result.length > MAX_OUTPUT_LENGTH) {
+  if (!result.startsWith('data:image/') || result.length > maximumDataUrlLength) {
     throw new Error('A imagem ficou muito grande mesmo após a otimização.');
   }
 

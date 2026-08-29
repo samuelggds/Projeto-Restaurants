@@ -53,7 +53,9 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
                   ))}
                 </div>
               )}
-              {item.observation && <small className="item-observation">Obs.: {item.observation}</small>}
+              {item.observation && (
+                <small className="item-observation">Obs.: {item.observation}</small>
+              )}
             </S.CartItemInfo>
           </S.CartItemRow>
         ))

@@ -5,11 +5,16 @@ class CreateBannerController {
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = req.user.restaurantId;
-      const { title, image } = req.body;
+      const { title, highlight, description, buttonLabel, image, active, position } = req.body;
 
       const banner = await createBannerService.execute({
         title,
+        highlight,
+        description,
+        buttonLabel,
         image,
+        active,
+        position,
         restaurantId,
       });
 

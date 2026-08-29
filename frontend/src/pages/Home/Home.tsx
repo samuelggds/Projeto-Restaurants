@@ -529,6 +529,12 @@ export default function Home() {
           onRetry: () => void loyalty.refresh(),
           onRedeem: (couponId: number) => void loyalty.redeem(couponId),
         };
+  const openMenu = useCallback(() => {
+    const menu = document.getElementById('cardapio');
+    if (!menu) return;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    menu.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  }, []);
 
   async function requestTableService(type: 'WAITER' | 'BILL') {
     const sessionToken = String(tableSession?.sessionToken || '').trim();
@@ -626,6 +632,7 @@ export default function Home() {
           );
         }}
         onOpenCart={() => (tableClosingRequested ? openTableAccount() : setCartOpen(true))}
+        onOpenMenu={openMenu}
         onOpenTableAccount={openTableAccount}
         onOpenProfile={() => navigate('/profile')}
         onOpenAdmin={() => navigate('/admin')}

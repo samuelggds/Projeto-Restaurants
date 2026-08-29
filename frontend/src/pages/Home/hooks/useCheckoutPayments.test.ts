@@ -34,9 +34,9 @@ describe('getCheckoutErrorMessage', () => {
   });
 
   it('não expõe uma resposta técnica inválida ao cliente', () => {
-    expect(
-      getCheckoutErrorMessage({ response: { data: { error: '[resposta inválida' } } }),
-    ).toBe('Revise os dados do pedido e tente novamente.');
+    expect(getCheckoutErrorMessage({ response: { data: { error: '[resposta inválida' } } })).toBe(
+      'Revise os dados do pedido e tente novamente.',
+    );
   });
 
   it('retorna vazio para valores desconhecidos', () => {

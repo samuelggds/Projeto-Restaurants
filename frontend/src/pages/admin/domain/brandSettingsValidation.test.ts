@@ -32,4 +32,25 @@ describe('brand settings validation', () => {
       logoUrl: expect.any(String),
     });
   });
+
+  it('resume erros dos banners promocionais para impedir um salvamento parcial', () => {
+    const errors = validateBrandSettings({
+      ...adminMockSettings,
+      restaurantName: 'Casa Teste',
+      promotionalBanners: [
+        {
+          localId: 'banner-incompleto',
+          title: '',
+          highlight: '',
+          description: '',
+          buttonLabel: 'Ver cardápio',
+          image: '',
+          active: true,
+          position: 0,
+        },
+      ],
+    });
+
+    expect(errors.promotionalBanners).toMatch(/Revise os banners/);
+  });
 });

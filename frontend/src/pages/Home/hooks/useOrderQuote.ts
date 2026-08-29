@@ -23,9 +23,7 @@ export function normalizeOrderQuote(payload: unknown): OrderQuote {
       ? (payload as Record<string, unknown>)
       : {};
   const quote =
-    root.quote && typeof root.quote === 'object'
-      ? (root.quote as Record<string, unknown>)
-      : root;
+    root.quote && typeof root.quote === 'object' ? (root.quote as Record<string, unknown>) : root;
   return {
     itemsSubtotal: money(quote.itemsSubtotal),
     productDiscountTotal: money(quote.productDiscountTotal),

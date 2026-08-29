@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { defaultBusinessHours } from '../../admin/data';
-import { buildHomeData, mapProductPricingFromApi, resolveProductImage } from './homeDataAdapter';
+import {
+  buildHomeData,
+  mapHomeBanners,
+  mapProductPricingFromApi,
+  resolveProductImage,
+} from './homeDataAdapter';
 
 describe('homeDataAdapter', () => {
   it('preserva a imagem real do produto', () => {
@@ -25,21 +30,67 @@ describe('homeDataAdapter', () => {
       'Bebidas',
     ]);
   });
-  it('monta marca e os três banners configurados', () => {
+  it('normaliza todos os banners ativos e usa posição e id como ordenação estável', () => {
     const data = buildHomeData([], {
       restaurant: {
         name: 'North Pizza',
         logo: 'https://cdn.test/logo.png',
         banners: [
-          { title: 'Banner principal', image: 'https://cdn.test/main.png' },
-          { title: 'Promoção 1', image: 'https://cdn.test/promo1.png' },
-          { title: 'Promoção 2', image: 'https://cdn.test/promo2.png' },
+          {
+            id: 3,
+            title: 'Combo em família',
+            description: 'Pizza grande e refrigerante com preço especial.',
+            buttonLabel: 'Escolher combo',
+            image: 'https://cdn.test/combo.png',
+            active: true,
+            position: 2,
+          },
+          {
+            id: 2,
+            title: 'Quarta da pizza',
+            highlight: '30% OFF',
+            image: 'https://cdn.test/desconto.png',
+            active: true,
+            position: 0,
+          },
+          {
+            id: 1,
+            title: 'Entrega grátis',
+            image: 'https://cdn.test/frete.png',
+            active: true,
+            position: 2,
+          },
         ],
       },
     });
     expect(data.brand).toMatchObject({ name: 'North Pizza', monogram: 'NP' });
-    expect(data.hero.image).toContain('main.png');
-    expect(data.banners).toHaveLength(0);
+    expect(data.banners.map((banner) => banner.id)).toEqual([2, 1, 3]);
+    expect(data.banners[0]).toMatchObject({
+      title: 'Quarta da pizza',
+      highlight: '30% OFF',
+      image: 'https://cdn.test/desconto.png',
+    });
+    expect(data.banners[0]).toMatchObject(data.hero);
+  });
+
+  it('remove banners inativos ou inválidos e mantém compatibilidade com o banner principal', () => {
+    expect(
+      mapHomeBanners([
+        { id: 1, title: 'Desativado', image: 'https://cdn.test/1.png', active: false },
+        { id: 2, title: 'Imagem temporária', image: 'blob:http://localhost/banner' },
+        { id: 3, title: '', image: 'https://cdn.test/3.png' },
+        { id: 4, title: 'Sem imagem', image: '' },
+        { id: 5, title: 'Banner principal', image: 'https://cdn.test/legacy.png' },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        id: 5,
+        title: 'Confira nossas',
+        highlight: 'promoções',
+        description: 'Ofertas especiais preparadas para você.',
+        buttonLabel: 'Ver cardápio',
+      }),
+    ]);
   });
 
   it('combina o controle manual com a agenda persistida', () => {

@@ -174,6 +174,19 @@ export type AdminProductOptionGroup = {
   options: AdminProductOption[];
 };
 
+export type AdminPromotionBanner = {
+  id?: number;
+  /** Identidade estável do rascunho, inclusive antes de o backend atribuir um id. */
+  localId: string;
+  title: string;
+  highlight: string;
+  description: string;
+  buttonLabel: string;
+  image: string;
+  active: boolean;
+  position: number;
+};
+
 export type AdminSettings = {
   restaurantName: string;
   companyLegalName: string;
@@ -239,8 +252,7 @@ export type AdminSettings = {
   pagbankEmail: string;
   pagbankToken: string;
   pagbankTokenConfigured: boolean;
-  mainBannerId?: number;
-  mainBannerUrl?: string;
+  promotionalBanners: AdminPromotionBanner[];
 };
 
 export type Employee = {

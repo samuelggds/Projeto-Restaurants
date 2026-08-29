@@ -1,5 +1,6 @@
 import { isPersistentImageSource } from '../../../utils/persistentImage';
 import type { AdminSettings } from '../types';
+import { validatePromotionBanners } from './promotionBannerValidation';
 
 export type BrandSettingsErrors = Partial<
   Record<
@@ -8,7 +9,7 @@ export type BrandSettingsErrors = Partial<
     | 'description'
     | 'logoUrl'
     | 'coverImageUrl'
-    | 'mainBannerUrl',
+    | 'promotionalBanners',
     string
   >
 >;
@@ -34,7 +35,6 @@ export function validateBrandSettings(settings: AdminSettings): BrandSettingsErr
   const imageFields = [
     ['logoUrl', settings.logoUrl],
     ['coverImageUrl', settings.coverImageUrl],
-    ['mainBannerUrl', settings.mainBannerUrl],
   ] as const;
 
   imageFields.forEach(([key, value]) => {
@@ -42,6 +42,10 @@ export function validateBrandSettings(settings: AdminSettings): BrandSettingsErr
       errors[key] = 'Selecione novamente a imagem para que ela possa ser salva.';
     }
   });
+
+  if (Object.keys(validatePromotionBanners(settings.promotionalBanners)).length > 0) {
+    errors.promotionalBanners = 'Revise os banners destacados antes de salvar.';
+  }
 
   return errors;
 }
