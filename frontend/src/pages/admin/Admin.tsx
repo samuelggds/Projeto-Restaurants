@@ -819,6 +819,7 @@ export default function Admin() {
       }}
       onDeleteIngredient={async (id) => {
         await ingredientsService.deleteIngredient(id);
+        await loadOperations();
       }}
       onApplyProductDiscount={async (productId, payload) => {
         await promotionsService.applyProductDiscount(productId, payload);
