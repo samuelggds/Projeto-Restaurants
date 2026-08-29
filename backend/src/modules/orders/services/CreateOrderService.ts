@@ -1,4 +1,4 @@
-﻿import prisma from '../../../config/prisma.js';
+import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
@@ -22,6 +22,7 @@ import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability
 import { assertOrderCapacity } from '../utils/orderCapacity.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderPricingService from './OrderPricingService.js';
+import resolveDeliveryDistanceService from './ResolveDeliveryDistanceService.js';
 import {
   markCouponRedemptionUsedForOrder,
   reserveCouponRedemption,
@@ -502,6 +503,20 @@ class CreateOrderService {
       }
     }
 
+    const deliveryDistanceMeters =
+      type === OrderType.DELIVERY && restaurantSettings?.deliveryFeeMode === 'DISTANCE'
+        ? await resolveDeliveryDistanceService.execute({
+            restaurantId: resolvedRestaurantId,
+            destination: {
+              address,
+              number,
+              district,
+              city,
+              state,
+            },
+          })
+        : null;
+
     const guestPasswordHash =
       type !== OrderType.MESA && !userId
         ? await bcrypt.hash(generateStrongRandomPassword(), 10)
@@ -589,6 +604,7 @@ class CreateOrderService {
           type,
           items,
           couponRedemptionId,
+          deliveryDistanceMeters,
           db: tx,
         });
         const { products, orderItems } = pricing;
