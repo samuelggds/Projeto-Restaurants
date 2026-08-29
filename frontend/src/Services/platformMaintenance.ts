@@ -18,6 +18,13 @@ export type PlatformMaintenanceState = {
   updatedAt: string;
 };
 
+function normalizeAvailabilityPath(pathname: string) {
+  return String(pathname || '')
+    .split(/[?#]/u, 1)[0]
+    .replace(/\/+$/u, '')
+    .toLowerCase();
+}
+
 function notifyPlatformMaintenanceChange() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(PLATFORM_MAINTENANCE_EVENT));
@@ -62,11 +69,21 @@ export function setPlatformMaintenanceState(
 }
 
 export function isTechnicalMaintenancePath(pathname: string) {
-  const path = String(pathname || '')
-    .split(/[?#]/u, 1)[0]
-    .replace(/\/+$/u, '')
-    .toLowerCase();
-  return path === '/super_admin/login';
+  return normalizeAvailabilityPath(pathname) === '/super_admin/login';
+}
+
+export function isAlwaysAvailableLoginPath(pathname: string) {
+  const path = normalizeAvailabilityPath(pathname);
+  return path === '/login' || path === '/super_admin/login' || /^\/[^/]+\/login$/u.test(path);
+}
+
+export function isSuperAdminAccessPath(pathname: string) {
+  const path = normalizeAvailabilityPath(pathname);
+  return path === '/super_admin' || path.startsWith('/super_admin/');
+}
+
+export function isMaintenanceBypassPath(pathname: string) {
+  return isAlwaysAvailableLoginPath(pathname) || isSuperAdminAccessPath(pathname);
 }
 
 export function clearPlatformMaintenanceState() {

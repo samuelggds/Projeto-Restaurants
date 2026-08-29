@@ -4,9 +4,13 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcrypt';
 
 import prisma from '../../../config/prisma.js';
-import loginMfaService from './LoginMfaService.js';
+import { LoginMfaService } from './LoginMfaService.js';
 import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
+
+const loginMfaService = new LoginMfaService({
+  assertRoleAllowed: async () => undefined,
+});
 
 const originalFindUnique = prisma.authMfaChallenge.findUnique;
 const originalUpsert = prisma.authMfaChallenge.upsert;

@@ -4,7 +4,7 @@ import api from '../Services/api';
 import {
   clearPlatformMaintenanceState,
   getPlatformMaintenanceState,
-  isTechnicalMaintenancePath,
+  isMaintenanceBypassPath,
   PLATFORM_STATUS_PATH,
   setPlatformMaintenanceState,
   subscribePlatformMaintenanceState,
@@ -45,7 +45,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
       const active = status?.maintenanceMode === true || status?.available === false;
 
       if (active) {
-        const returnTo = isTechnicalMaintenancePath(location.pathname)
+        const returnTo = isMaintenanceBypassPath(location.pathname)
           ? null
           : `${location.pathname}${location.search}${location.hash}`;
         setPlatformMaintenanceState({

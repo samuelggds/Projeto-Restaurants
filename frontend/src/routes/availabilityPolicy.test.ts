@@ -38,6 +38,45 @@ describe('política de disponibilidade do sistema', () => {
     ).toBe('APP');
   });
 
+  it('mantém qualquer tela de login disponível durante manutenção ou bloqueio local', () => {
+    for (const pathname of ['/login', '/pizzaria/login', '/super_admin/login']) {
+      expect(
+        resolveAvailabilityView({
+          ...base,
+          pathname,
+          role: '',
+          userPresent: false,
+          platformMaintenance: true,
+          initialStatusPending: true,
+          systemBlock: { reason: 'BILLING' },
+        }),
+        pathname,
+      ).toBe('APP');
+    }
+  });
+
+  it('deixa a rota SUPER_ADMIN chegar ao guard de autenticação e RBAC', () => {
+    expect(
+      resolveAvailabilityView({
+        ...base,
+        pathname: '/super_admin',
+        role: '',
+        userPresent: false,
+        platformMaintenance: true,
+        initialStatusPending: true,
+        systemBlock: { reason: 'MANUAL' },
+      }),
+    ).toBe('APP');
+    expect(
+      resolveAvailabilityView({
+        ...base,
+        pathname: '/super_admin/restaurantes',
+        role: 'ADMIN',
+        platformMaintenance: true,
+      }),
+    ).toBe('APP');
+  });
+
   it('mantém somente o financeiro para ADMIN inadimplente', () => {
     expect(resolveAvailabilityView({ ...base, systemBlock: { reason: 'BILLING' } })).toBe(
       'BILLING_ADMIN',

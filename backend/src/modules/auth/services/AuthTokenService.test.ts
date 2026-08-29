@@ -4,8 +4,12 @@ import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
 
 import prisma from '../../../config/prisma.js';
-import authTokenService from './AuthTokenService.js';
+import { AuthTokenService } from './AuthTokenService.js';
 import { getJwtRefreshSecret, getJwtSecret } from '../../../config/auth.js';
+
+const authTokenService = new AuthTokenService({
+  assertRoleAllowed: async () => undefined,
+});
 
 const originalFindUnique = prisma.authRefreshSession.findUnique;
 const originalUpsert = prisma.authRefreshSession.upsert;

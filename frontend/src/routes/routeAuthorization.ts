@@ -62,6 +62,9 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
   const path = normalizePath(pathname);
   const role = String(user?.role || '').toUpperCase();
   const subRole = String(user?.subRole || '').toUpperCase();
+  if (!user && isPath(path, '/super_admin') && path !== '/super_admin/login') {
+    return { allowed: false, redirectTo: '/super_admin/login' };
+  }
   if (!user)
     return isPublicRoute(path) || isGuestEntry(path)
       ? { allowed: true }

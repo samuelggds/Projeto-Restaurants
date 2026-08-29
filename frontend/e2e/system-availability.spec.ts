@@ -30,20 +30,28 @@ async function mockGlobalMaintenance(page: Page) {
   await page.addInitScript(() => localStorage.clear());
 }
 
-test('manutenção global cobre qualquer rota e preserva o login técnico', async ({ page }) => {
+test('manutenção global cobre o negócio e mantém todos os logins acessíveis', async ({ page }) => {
   await mockGlobalMaintenance(page);
   await page.goto('/qualquer-restaurante');
 
+  await expect(page.getByRole('heading', { name: 'Sistema em manutenção' })).toBeVisible();
+  await expect(page.getByText('Tente novamente em alguns instantes')).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Estamos preparando uma experiência ainda melhor.' }),
-  ).toBeVisible();
-  await expect(page.getByText('Atualização programada dos servidores de pagamento.')).toBeVisible();
-  await expect(page.getByText('Seus dados continuam protegidos')).toBeVisible();
+    page.getByText('Atualização programada dos servidores de pagamento.'),
+  ).not.toBeVisible();
 
   await page.getByRole('link', { name: 'Acesso técnico' }).click();
   await expect(page).toHaveURL(/\/super_admin\/login$/);
   await expect(page.getByRole('heading', { name: 'Acesso técnico' })).toBeVisible();
   await expect(page.getByText('conta exclusiva de Super Admin')).toBeVisible();
+
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Bem-vindo!' })).toBeVisible();
+  await expect(page.getByLabel('E-mail')).toBeVisible();
+
+  await page.goto('/super_admin');
+  await expect(page).toHaveURL(/\/super_admin\/login$/);
+  await expect(page.getByRole('heading', { name: 'Acesso técnico' })).toBeVisible();
 });
 
 test('ADMIN inadimplente acessa somente mensalidades e volta após a liberação', async ({

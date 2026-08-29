@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import jwt from 'jsonwebtoken';
-import { socketAuth } from './socketAuth.js';
+import { createSocketAuth } from './socketAuth.js';
 import { socketHandler } from './socketHandler.js';
 import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
 import prisma from '../config/prisma.js';
@@ -10,6 +10,7 @@ import prisma from '../config/prisma.js';
 const originalJwtSecret = process.env.JWT_SECRET;
 const originalFindBySessionToken = tableSessionRepository.findBySessionToken;
 const originalFindUser = prisma.user.findUnique;
+const socketAuth = createSocketAuth(async () => undefined);
 
 afterEach(() => {
   process.env.JWT_SECRET = originalJwtSecret;

@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearPlatformMaintenanceState,
   getPlatformMaintenanceState,
+  isAlwaysAvailableLoginPath,
+  isMaintenanceBypassPath,
+  isSuperAdminAccessPath,
   isTechnicalMaintenancePath,
   setPlatformMaintenanceState,
   subscribePlatformMaintenanceState,
@@ -32,10 +35,21 @@ describe('estados locais de disponibilidade', () => {
     unsubscribe();
   });
 
-  it('reconhece somente a rota técnica exata', () => {
+  it('mantém os logins e o painel técnico fora da manutenção visual', () => {
     expect(isTechnicalMaintenancePath('/super_admin/login')).toBe(true);
     expect(isTechnicalMaintenancePath('/super_admin/login/extra')).toBe(false);
     expect(isTechnicalMaintenancePath('/super-admin/login')).toBe(false);
+
+    for (const path of ['/login', '/login/', '/pizzaria/login', '/super_admin/login']) {
+      expect(isAlwaysAvailableLoginPath(path), path).toBe(true);
+      expect(isMaintenanceBypassPath(path), path).toBe(true);
+    }
+
+    expect(isAlwaysAvailableLoginPath('/admin')).toBe(false);
+    expect(isSuperAdminAccessPath('/super_admin')).toBe(true);
+    expect(isSuperAdminAccessPath('/super_admin/restaurantes')).toBe(true);
+    expect(isSuperAdminAccessPath('/super-admin')).toBe(false);
+    expect(isMaintenanceBypassPath('/super_admin/support')).toBe(true);
   });
 
   it('distingue suspensão manual de bloqueio financeiro', () => {

@@ -2,10 +2,11 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import resolvePublicTableService from '../modules/table/services/ResolvePublicTableService.js';
-import { socketAuth } from './socketAuth.js';
+import { createSocketAuth } from './socketAuth.js';
 import { socketHandler } from './socketHandler.js';
 
 const originalResolve = resolvePublicTableService.execute;
+const socketAuth = createSocketAuth(async () => undefined);
 
 afterEach(() => {
   resolvePublicTableService.execute = originalResolve;

@@ -40,6 +40,17 @@ describe('política de autorização de rotas', () => {
     expect(authorizeRoute('/', user)).toEqual({ allowed: false, redirectTo: '/super_admin' });
     expect(allowed('/admin', user)).toBe(false);
   });
+  it('encaminha visitante do painel diretamente ao login técnico', () => {
+    expect(authorizeRoute('/super_admin', null)).toEqual({
+      allowed: false,
+      redirectTo: '/super_admin/login',
+    });
+    expect(authorizeRoute('/super_admin/restaurantes', null)).toEqual({
+      allowed: false,
+      redirectTo: '/super_admin/login',
+    });
+    expect(authorizeRoute('/super_admin/login', null)).toEqual({ allowed: true });
+  });
   it('isola qualquer conta com troca de senha obrigatória na página dedicada', () => {
     for (const role of ['SUPER_ADMIN', 'ADMIN']) {
       const user = { role, mustChangePassword: true };
