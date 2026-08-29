@@ -40,6 +40,7 @@ function setValidProductionEnv() {
     PAGBANK_CONNECT_AUTH_URL: 'https://connect.pagbank.com.br/oauth2/authorize',
     PAGBANK_CONNECT_REDIRECT_URI: '',
     ROUTING_REQUIRED: 'true',
+    ROUTING_PROVIDER: 'osrm',
     OSRM_BASE_URL: 'http://osrm:5000',
     GEOCODER_BASE_URL: 'http://nominatim:8080',
     ROUTING_USER_AGENT: 'PizzaIADelivery/1.0 (ops@example.com)',
@@ -52,6 +53,8 @@ function setValidProductionEnv() {
     ENABLE_TEST_PAYMENT_WEBHOOK: 'false',
     ENABLE_DESTRUCTIVE_CLEANUP: 'false',
   });
+  delete process.env.GEOAPIFY_API_KEY;
+  delete process.env.GEOAPIFY_BASE_URL;
 }
 
 beforeEach(() => {
@@ -69,7 +72,34 @@ test('aceita configuracao completa com roteamento interno', () => {
   assert.doesNotThrow(() => validateCriticalEnv());
 });
 
-test('bloqueia servicos publicos de demonstracao quando o roteamento e obrigatorio', () => {
+test('aceita geoapify em producao sem exigir osrm ou nominatim', () => {
+  process.env.ROUTING_PROVIDER = 'geoapify';
+  process.env.GEOAPIFY_API_KEY = 'geoapify-production-key';
+  process.env.GEOAPIFY_BASE_URL = 'https://api.geoapify.com';
+  delete process.env.OSRM_BASE_URL;
+  delete process.env.GEOCODER_BASE_URL;
+  delete process.env.ROUTING_USER_AGENT;
+
+  assert.doesNotThrow(() => validateCriticalEnv());
+});
+
+test('geoapify exige chave quando o roteamento e obrigatorio', () => {
+  process.env.ROUTING_PROVIDER = 'geoapify';
+  delete process.env.GEOAPIFY_API_KEY;
+  delete process.env.OSRM_BASE_URL;
+  delete process.env.GEOCODER_BASE_URL;
+
+  assert.throws(() => validateCriticalEnv(), /GEOAPIFY_API_KEY e obrigatoria/i);
+});
+
+test('rejeita provider de roteamento desconhecido em producao', () => {
+  process.env.ROUTING_PROVIDER = 'outro';
+
+  assert.throws(() => validateCriticalEnv(), /ROUTING_PROVIDER deve ser osrm ou geoapify/i);
+});
+
+test('bloqueia servicos publicos de demonstracao quando osrm e obrigatorio', () => {
+  process.env.ROUTING_PROVIDER = 'osrm';
   process.env.OSRM_BASE_URL = 'https://router.project-osrm.org';
   process.env.GEOCODER_BASE_URL = 'https://nominatim.openstreetmap.org';
 
@@ -118,9 +148,11 @@ test('bootstrap de producao rejeita senha com menos de oito caracteres', () => {
 
 test('permite desativar explicitamente o calculo de rota', () => {
   process.env.ROUTING_REQUIRED = 'false';
+  delete process.env.ROUTING_PROVIDER;
   delete process.env.OSRM_BASE_URL;
   delete process.env.GEOCODER_BASE_URL;
   delete process.env.ROUTING_USER_AGENT;
+  delete process.env.GEOAPIFY_API_KEY;
 
   assert.doesNotThrow(() => validateCriticalEnv());
 });
