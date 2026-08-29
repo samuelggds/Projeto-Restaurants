@@ -16,6 +16,7 @@ import * as Offers from './components/FeaturedOffers.styles';
 import { HomeHeader } from './components/HomeHeader';
 import { HomeProductCard } from './components/HomeProductCard';
 import { ProductConfigurator } from './components/ProductConfigurator';
+import { ProductSearchDialog } from './components/ProductSearchDialog';
 import { TableClosingNotice } from './components/TableClosingNotice';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import * as S from './Home.styles';
@@ -55,6 +56,7 @@ export function HomePage({
 }: HomePageProps) {
   const [activeCategory, setActiveCategory] = useState(data.categories[0]?.id ?? '');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const selectedCategory = data.categories.some((category) => category.id === activeCategory)
     ? activeCategory
     : (data.categories[0]?.id ?? '');
@@ -67,6 +69,10 @@ export function HomePage({
     return data.products.filter((product) => product.categoryId === selectedCategory);
   }, [selectedCategory, data.products]);
   const featuredProducts = useMemo(() => getFeaturedProducts(data.products), [data.products]);
+  const searchableProducts = useMemo(
+    () => data.products.filter((product) => product.available),
+    [data.products],
+  );
   const activeCategoryName =
     data.categories.find((category) => category.id === selectedCategory)?.name || 'Produtos';
   const favoriteIds = useMemo(() => new Set(favoriteProductIds), [favoriteProductIds]);
@@ -139,11 +145,13 @@ export function HomePage({
         selectedAddressId={selectedAddressId}
         onSelectAddress={onSelectAddress}
         onManageAddresses={onManageAddresses}
-        onOpenMenu={onOpenMenu}
         onOpenProfile={onOpenProfile}
         onOpenAdmin={onOpenAdmin}
         onOpenCart={onOpenCart}
-        onSearch={onSearch}
+        onSearch={() => {
+          setSearchOpen(true);
+          onSearch?.();
+        }}
         onLogout={onLogout}
         isRestaurantOpen={availability.isOpen}
         availabilityLabel={availability.label}
@@ -329,6 +337,19 @@ export function HomePage({
           reservados.
         </S.FooterBottom>
       </S.Footer>
+
+      {searchOpen && (
+        <ProductSearchDialog
+          open
+          products={searchableProducts}
+          primaryColor={primary}
+          onClose={() => setSearchOpen(false)}
+          onSelect={(product) => {
+            setSearchOpen(false);
+            openProductDetails(product);
+          }}
+        />
+      )}
 
       {selectedProduct && (
         <ProductConfigurator

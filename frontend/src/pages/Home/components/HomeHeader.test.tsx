@@ -11,6 +11,15 @@ const brand = {
 };
 
 describe('status de funcionamento da Home', () => {
+  it('não renderiza o menu de navegação removido', () => {
+    const markup = renderToStaticMarkup(<HomeHeader brand={brand} cartCount={0} />);
+
+    expect(markup).not.toContain('<nav');
+    expect(markup).not.toContain('Cardápio');
+    expect(markup).not.toContain('Sobre');
+    expect(markup).not.toContain('Abrir menu');
+  });
+
   it('mostra um único estado aberto com o horário de fechamento', () => {
     const markup = renderToStaticMarkup(
       <HomeHeader

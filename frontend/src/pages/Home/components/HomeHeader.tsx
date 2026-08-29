@@ -3,11 +3,9 @@ import {
   LogOut,
   LayoutDashboard,
   MapPin,
-  Menu,
   Search,
   ShoppingBag,
   UserRound,
-  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -27,7 +25,6 @@ type Props = {
   selectedAddressId?: string;
   onSelectAddress?: (addressId: string) => void;
   onManageAddresses?: () => void;
-  onOpenMenu?: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
   onOpenCart?: () => void;
@@ -52,7 +49,6 @@ export function HomeHeader({
   selectedAddressId,
   onSelectAddress,
   onManageAddresses,
-  onOpenMenu,
   onOpenProfile,
   onOpenAdmin,
   onOpenCart,
@@ -63,7 +59,6 @@ export function HomeHeader({
   availabilityLabel,
   availabilityDetail,
 }: Props) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -218,23 +213,6 @@ export function HomeHeader({
         {statusDetail && <small>{statusDetail}</small>}
       </BusinessStatus>
 
-      <Navigation $open={mobileOpen}>
-        <a href="#inicio" onClick={() => setMobileOpen(false)}>
-          Início
-        </a>
-        <button
-          onClick={() => {
-            onOpenMenu?.();
-            setMobileOpen(false);
-          }}
-        >
-          Cardápio
-        </button>
-        <a href="#sobre" onClick={() => setMobileOpen(false)}>
-          Sobre
-        </a>
-      </Navigation>
-
       <Actions>
         <RoundButton aria-label="Buscar" onClick={onSearch}>
           <Search size={20} />
@@ -304,9 +282,6 @@ export function HomeHeader({
           <span>Sacola</span>
           <i>{cartCount}</i>
         </CartButton>
-        <MobileMenu aria-label="Abrir menu" onClick={() => setMobileOpen((value) => !value)}>
-          {mobileOpen ? <X /> : <Menu />}
-        </MobileMenu>
       </Actions>
     </Header>
   );
@@ -314,6 +289,7 @@ export function HomeHeader({
 
 const Header = styled.header<{ $primary: string }>`
   --home-primary: ${({ $primary }) => $primary};
+  --home-control-height: 44px;
   position: sticky;
   top: 0;
   z-index: 50;
@@ -342,7 +318,11 @@ const Header = styled.header<{ $primary: string }>`
     padding: 14px 14px 50px;
     align-items: flex-start;
   }
+  @media (max-width: 520px) {
+    --home-control-height: 40px;
+  }
   @media (max-width: 360px) {
+    --home-control-height: 36px;
     padding-inline: 10px;
     gap: 6px;
   }
@@ -364,8 +344,6 @@ const Brand = styled.a`
   @media (max-width: 520px) {
     gap: 7px;
     font-size: 15px;
-  }
-  @media (max-width: 360px) {
     strong {
       display: none;
     }
@@ -398,7 +376,8 @@ const LocationWrap = styled.div`
   margin-left: auto;
   position: relative;
   @media (max-width: 980px) {
-    display: none;
+    width: min(300px, 34vw);
+    min-width: 160px;
   }
   @media (max-width: 760px) {
     display: block;
@@ -418,11 +397,13 @@ const LocationWrap = styled.div`
 `;
 const Location = styled.button`
   width: 100%;
+  height: var(--home-control-height);
   min-width: 0;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 0 16px;
   border: 1px solid #eadfd3;
   border-radius: 999px;
   font-size: 14px;
@@ -445,8 +426,7 @@ const Location = styled.button`
   }
   @media (max-width: 760px) {
     width: 100%;
-    height: 40px;
-    padding: 8px 12px;
+    padding: 0 12px;
     max-width: none;
     font-size: 12px;
     b {
@@ -560,59 +540,15 @@ const AddressAction = styled.button`
     outline-offset: 2px;
   }
 `;
-const Navigation = styled.nav<{ $open: boolean }>`
-  min-width: 0;
-  flex-shrink: 0;
-  display: flex;
-  gap: clamp(14px, 1.45vw, 28px);
-  height: 100%;
-  align-items: center;
-  a,
-  button {
-    border: 0;
-    background: transparent;
-    color: #191816;
-    text-decoration: none;
-    font: inherit;
-    cursor: pointer;
-  }
-  a:first-child {
-    color: var(--home-primary);
-    font-weight: 700;
-  }
-  @media (max-width: 760px) {
-    display: ${({ $open }) => ($open ? 'flex' : 'none')};
-    position: fixed;
-    top: 118px;
-    left: 0;
-    right: 0;
-    height: auto;
-    padding: 18px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    background: #fffdf9;
-    border-bottom: 1px solid #eadfd3;
-    box-shadow: 0 18px 30px rgba(50, 30, 15, 0.1);
-    a,
-    button {
-      padding: 14px;
-      text-align: left;
-      border-radius: 10px;
-    }
-    a:hover,
-    button:hover {
-      background: #fbf4ec;
-    }
-  }
-`;
 const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
+  height: var(--home-control-height);
+  box-sizing: border-box;
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 8px 11px;
+  padding: 0 11px;
   border: 1px solid ${({ $open }) => ($open ? '#bfe4ca' : '#f1aaa4')};
   border-radius: 999px;
   background: ${({ $open }) => ($open ? '#f0faf1' : '#fff1f0')};
@@ -638,7 +574,7 @@ const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
     }
   }
   @media (max-width: 980px) {
-    padding: 7px 9px;
+    padding: 0 9px;
     font-size: 11px;
     margin-left: auto;
   }
@@ -655,7 +591,7 @@ const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
   }
   @media (max-width: 520px) {
     gap: 4px;
-    padding: 7px 8px;
+    padding: 0 8px;
     svg {
       display: none;
     }
@@ -718,8 +654,8 @@ const Actions = styled.div`
   }
 `;
 const RoundButton = styled.button`
-  width: 44px;
-  height: 44px;
+  width: var(--home-control-height);
+  height: var(--home-control-height);
   border-radius: 50%;
   background: transparent;
   border: 1px solid #eadfd3;
@@ -727,16 +663,13 @@ const RoundButton = styled.button`
   place-items: center;
   color: #191816;
   cursor: pointer;
-  @media (max-width: 520px) {
-    display: none;
-  }
 `;
 const ProfileWrap = styled.div`
   position: relative;
 `;
 const AvatarButton = styled.button<{ $open: boolean }>`
-  width: 40px;
-  height: 40px;
+  width: var(--home-control-height);
+  height: var(--home-control-height);
   border-radius: 50%;
   border: 2px solid ${({ $open }) => ($open ? 'var(--home-primary)' : '#eadfd3')};
   background: ${({ $open }) => ($open ? '#fdeee7' : '#fff')};
@@ -752,10 +685,6 @@ const AvatarButton = styled.button<{ $open: boolean }>`
     border-color: var(--home-primary);
     background: #fdeee7;
     color: var(--home-primary);
-  }
-  @media (max-width: 360px) {
-    width: 36px;
-    height: 36px;
   }
 `;
 const ProfileDropdown = styled.div<{ $open: boolean }>`
@@ -861,7 +790,8 @@ const DropdownItem = styled.button<{ $danger?: boolean }>`
   }
 `;
 const CartButton = styled.button`
-  height: 48px;
+  position: relative;
+  height: var(--home-control-height);
   padding: 0 18px;
   border: 0;
   border-radius: 13px;
@@ -883,8 +813,7 @@ const CartButton = styled.button`
     font-style: normal;
   }
   @media (max-width: 520px) {
-    width: 44px;
-    height: 40px;
+    width: var(--home-control-height);
     padding: 0;
     justify-content: center;
     span {
@@ -899,23 +828,6 @@ const CartButton = styled.button`
     }
   }
   @media (max-width: 360px) {
-    width: 40px;
-    height: 36px;
-  }
-`;
-const MobileMenu = styled.button`
-  display: none;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  background: transparent;
-  color: #191816;
-  place-items: center;
-  @media (max-width: 760px) {
-    display: grid;
-  }
-  @media (max-width: 360px) {
-    width: 36px;
-    height: 36px;
+    width: var(--home-control-height);
   }
 `;
