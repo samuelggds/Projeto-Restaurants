@@ -1,8 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import getOsrmDeliveryRouteService, {
-  type DeliveryRouteAddress,
-} from './GetOsrmDeliveryRouteService.js';
+import type { DeliveryRouteAddress } from './DeliveryRoutingProvider.js';
+import { getDeliveryRoutingProvider } from './GetDeliveryRoutingProvider.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -85,17 +84,14 @@ class ResolveDeliveryDistanceService {
       );
     }
 
-    const originCoordinates = await getOsrmDeliveryRouteService.geocodeAddress(originAddress);
-    if (!originCoordinates) {
-      throw new Error('Não foi possível localizar o endereço do restaurante para calcular a entrega.');
-    }
+    const provider = getDeliveryRoutingProvider();
+    const distanceMeters = Number(
+      await provider.calculateDistanceMeters({
+        origin: originAddress,
+        destination,
+      }),
+    );
 
-    const route = await getOsrmDeliveryRouteService.execute({
-      ...originCoordinates,
-      destination,
-    });
-
-    const distanceMeters = Number(route?.distanceMeters);
     if (!Number.isFinite(distanceMeters) || distanceMeters < 0) {
       throw new Error('Não foi possível calcular a rota até este endereço de entrega.');
     }
