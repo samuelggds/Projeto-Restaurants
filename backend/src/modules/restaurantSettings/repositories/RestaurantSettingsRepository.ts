@@ -68,6 +68,17 @@ class RestaurantSettingsRepository {
             city: true,
             state: true,
             zipCode: true,
+            deliveryFeeRanges: {
+              select: {
+                id: true,
+                maxDistanceKm: true,
+                fee: true,
+                active: true,
+              },
+              orderBy: {
+                maxDistanceKm: 'asc',
+              },
+            },
           },
         },
       },
