@@ -440,61 +440,146 @@ const LocationDropdown = styled.div<{ $open: boolean }>`
   position: absolute;
   top: calc(100% + 10px);
   left: 0;
+
   width: min(360px, 86vw);
-  padding: 10px;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  padding: 12px;
+
   border: 1px solid #eadfd3;
   border-radius: 16px;
   background: #fff;
+
   box-shadow: 0 18px 40px rgba(50, 30, 15, 0.16);
+
   opacity: ${({ $open }) => ($open ? 1 : 0)};
+
   transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
+
   pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
+
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;
+
   z-index: 210;
+
   > strong {
     display: block;
-    padding: 7px 9px 9px;
+    padding: 5px 7px 12px;
     font-size: 14px;
   }
+
   @media (max-width: 760px) {
     width: 100%;
-    max-height: min(360px, 55vh);
+    max-width: 100%;
+
+    max-height: min(420px, 65vh);
     overflow-y: auto;
+
+    padding: 10px;
+  }
+
+  @media (max-width: 380px) {
+    padding: 8px;
+    border-radius: 14px;
   }
 `;
 const LocationOption = styled.button<{ $active: boolean }>`
   width: 100%;
+  min-width: 0;
+
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px;
+  gap: 12px;
+
+  padding: 12px;
+
+  /* cria espaço entre um endereço e outro */
+  margin-bottom: 8px;
+
   border: 1px solid ${({ $active }) => ($active ? 'var(--home-primary)' : 'transparent')};
+
   border-radius: 11px;
+
   background: ${({ $active }) => ($active ? '#fff5ef' : 'transparent')};
+
   color: #191816;
   text-align: left;
   cursor: pointer;
+
+  box-sizing: border-box;
+
+  > svg {
+    flex-shrink: 0;
+  }
+
   &:hover {
     background: #fbf4ec;
   }
+
   > span {
     min-width: 0;
+    flex: 1;
   }
+
   b,
   small {
     display: block;
   }
+
   b {
     font-size: 13px;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
   }
+
   small {
     color: #746d66;
+    font-size: 12px;
+    line-height: 1.4;
+
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  @media (max-width: 520px) {
+    align-items: flex-start;
+
+    padding: 12px 10px;
+    gap: 10px;
+
+    > svg {
+      margin-top: 2px;
+    }
+
+    b {
+      font-size: 14px;
+    }
+
+    small {
+      /*
+       * Em celular pequeno deixamos o endereço quebrar
+       * em mais de uma linha em vez de cortar.
+       */
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  @media (max-width: 360px) {
+    padding: 11px 9px;
+
+    b {
+      font-size: 13px;
+    }
+
+    small {
+      font-size: 11px;
+    }
   }
 `;
 const EmptyAddress = styled.div`
@@ -521,15 +606,23 @@ const EmptyAddress = styled.div`
 `;
 const AddressAction = styled.button`
   width: 100%;
+  min-height: 44px;
+
   padding: 10px 12px;
+
   border: 0;
   border-radius: 10px;
+
   background: var(--home-primary);
   color: #fff;
+
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 750;
+
   cursor: pointer;
+
+  box-sizing: border-box;
 
   &:hover {
     filter: brightness(0.94);
@@ -537,7 +630,14 @@ const AddressAction = styled.button`
 
   &:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--home-primary) 28%, transparent);
+
     outline-offset: 2px;
+  }
+
+  @media (max-width: 360px) {
+    min-height: 42px;
+    font-size: 13px;
+    padding-inline: 10px;
   }
 `;
 const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
