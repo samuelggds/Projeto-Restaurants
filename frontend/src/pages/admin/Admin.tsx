@@ -427,6 +427,13 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     youtube: settings.youtube,
     minimumOrder: settings.minimumOrder,
     deliveryFee: settings.deliveryFee,
+    deliveryFeeMode: settings.deliveryFeeMode,
+    deliveryFeeRanges: settings.deliveryFeeRanges.map((range) => ({
+      id: range.id,
+      maxDistanceKm: range.maxDistanceKm,
+      fee: range.fee,
+      active: range.active,
+    })),
     freeShippingMinimum: settings.freeShippingMinimum > 0 ? settings.freeShippingMinimum : null,
     acceptsDelivery: settings.acceptsDelivery,
     acceptsPickup: settings.acceptsPickup,
@@ -812,7 +819,6 @@ export default function Admin() {
       }}
       onDeleteIngredient={async (id) => {
         await ingredientsService.deleteIngredient(id);
-        await loadOperations();
       }}
       onApplyProductDiscount={async (productId, payload) => {
         await promotionsService.applyProductDiscount(productId, payload);
