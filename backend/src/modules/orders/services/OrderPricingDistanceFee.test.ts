@@ -19,7 +19,15 @@ const product = {
   stock: null,
   saleMode: 'BUILDABLE',
   discount: null,
-  ingredients: [],
+  ingredients: [
+    {
+      id: 100,
+      name: 'Massa padrão',
+      price: 0,
+      required: false,
+      active: true,
+    },
+  ],
   optionGroups: [],
 };
 
