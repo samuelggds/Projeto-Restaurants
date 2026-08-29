@@ -1,6 +1,12 @@
 import OpenAI, { toFile } from 'openai';
+import {
+  ImageEnhancementConfigurationError,
+  ImageEnhancementInputError,
+  ImageEnhancementResultError,
+} from '../errors/ImageEnhancementErrors.js';
 
 const DATA_URL_PATTERN = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$/;
+export const IMAGE_ENHANCEMENT_PROVIDER_TIMEOUT_MS = 165_000;
 
 export type RestaurantImagePurpose = 'COVER' | 'BANNER';
 
@@ -25,17 +31,25 @@ export function getImageEnhancementProfile(purpose: RestaurantImagePurpose) {
 class EnhanceRestaurantImageService {
   async execute(imageDataUrl: unknown, purpose: RestaurantImagePurpose = 'COVER') {
     const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
-    if (!apiKey) throw new Error('OPENAI_API_KEY não configurada no servidor.');
+    if (!apiKey) throw new ImageEnhancementConfigurationError();
 
     const match = String(imageDataUrl || '').match(DATA_URL_PATTERN);
-    if (!match) throw new Error('Envie uma imagem JPG, PNG ou WebP válida.');
+    if (!match) {
+      throw new ImageEnhancementInputError('Envie uma imagem JPG, PNG ou WebP válida.');
+    }
 
     const input = Buffer.from(match[2], 'base64');
     if (!input.length || input.length > 5 * 1024 * 1024) {
-      throw new Error('A imagem deve ter no máximo 5 MB.');
+      throw new ImageEnhancementInputError('A imagem deve ter no máximo 5 MB.');
     }
 
-    const client = new OpenAI({ apiKey });
+    // Edição de imagem é uma operação paga e não idempotente. Um timeout deve
+    // encerrar a tentativa, sem o retry automático padrão do SDK.
+    const client = new OpenAI({
+      apiKey,
+      timeout: IMAGE_ENHANCEMENT_PROVIDER_TIMEOUT_MS,
+      maxRetries: 0,
+    });
     const profile = getImageEnhancementProfile(purpose);
     const editRequest: OpenAI.Images.ImageEditParams = {
       model: 'gpt-image-2',
@@ -47,7 +61,7 @@ class EnhanceRestaurantImageService {
     const result = await client.images.edit(editRequest);
 
     const base64 = result.data?.[0]?.b64_json;
-    if (!base64) throw new Error('A IA não retornou a imagem melhorada.');
+    if (!base64) throw new ImageEnhancementResultError();
     return { imageDataUrl: `data:image/png;base64,${base64}` };
   }
 }

@@ -238,7 +238,7 @@ api.interceptors.response.use(
     const hasHttpResponse = Boolean(error?.response);
 
     // Retry across known base URLs when mobile/web is pointing to a stale host or protocol.
-    if (!hasHttpResponse && originalConfig) {
+    if (!hasHttpResponse && originalConfig && !originalConfig.skipBaseUrlFallback) {
       const currentBase = normalizeBaseUrl(originalConfig.baseURL || api.defaults.baseURL);
       const tried = new Set((originalConfig.__triedBaseUrls || []).map(normalizeBaseUrl));
       if (currentBase) {

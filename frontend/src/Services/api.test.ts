@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAuthSession,
@@ -65,6 +65,32 @@ describe('api auth session', () => {
 
     expect(authorization).toBe('Bearer memory-token');
     expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('não repete em outro endereço uma operação marcada como não repetível', async () => {
+    const originalBaseURL = api.defaults.baseURL;
+    let attempts = 0;
+
+    try {
+      await expect(
+        api.post(
+          '/image-enhancement/banner',
+          { imageDataUrl: 'data:image/webp;base64,original' },
+          {
+            skipBaseUrlFallback: true,
+            adapter: async (config) => {
+              attempts += 1;
+              throw new AxiosError('timeout', 'ECONNABORTED', config);
+            },
+          },
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+
+      expect(attempts).toBe(1);
+      expect(api.defaults.baseURL).toBe(originalBaseURL);
+    } finally {
+      api.defaults.baseURL = originalBaseURL;
+    }
   });
 
   it('compartilha uma única renovação concorrente e mantém o novo token fora do storage', async () => {
