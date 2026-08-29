@@ -38,8 +38,29 @@ export function useDeliveryAddress(user: unknown) {
   }, []);
 
   useEffect(() => {
-    if (!(user as { role?: string } | null)?.role) return;
+    const account = (user as { role?: string } | null) || null;
+    const isCustomer = String(account?.role || '').toUpperCase() === 'CLIENTE';
+    const accountAddress = isCustomer ? createDeliveryAddress(user) : createDeliveryAddress(null);
     let active = true;
+
+    // Clear the previous account immediately. Besides avoiding a misleading
+    // fallback, this prevents a customer's address from remaining visible
+    // after logout or while another account is being loaded.
+    queueMicrotask(() => {
+      if (!active) return;
+      setSavedAddresses([]);
+      setSelectedAddressId('');
+      setDeliveryAddress(accountAddress);
+      setCepStatus('idle');
+      setCepMessage('');
+    });
+
+    if (!isCustomer) {
+      return () => {
+        active = false;
+      };
+    }
+
     customerAddressService
       .list()
       .then((items) => {
@@ -50,9 +71,20 @@ export function useDeliveryAddress(user: unknown) {
           items.find((item) => String(item.id) === storedId) ||
           items.find((item) => item.isDefault) ||
           items[0];
-        if (selected) selectSavedAddress(selected, false);
+        if (selected) {
+          selectSavedAddress(selected, false);
+          return;
+        }
+
+        setSelectedAddressId('');
+        setDeliveryAddress(accountAddress);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        setSavedAddresses([]);
+        setSelectedAddressId('');
+        setDeliveryAddress(accountAddress);
+      });
     return () => {
       active = false;
     };

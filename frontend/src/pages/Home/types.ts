@@ -161,6 +161,7 @@ export type HomePageProps = {
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
   onSelectAddress?: (addressId: string) => void;
+  onManageAddresses?: () => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;

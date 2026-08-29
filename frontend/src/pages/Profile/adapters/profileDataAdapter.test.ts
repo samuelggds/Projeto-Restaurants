@@ -33,4 +33,18 @@ describe('profileDataAdapter', () => {
       image: 'https://cdn.test/pizza.png',
     });
   });
+
+  it('não inventa endereço do restaurante nem do cliente quando os dados estão ausentes', () => {
+    const data = buildProfileData({
+      user: { name: 'Samuel', email: 'cliente@demo.com' },
+      settings: null,
+      favorites: [],
+      addresses: [],
+      avatarUrl: '',
+      orders: [],
+    });
+
+    expect(data.brand.address).toBe('');
+    expect(data.user.mainAddress).toBe('Nenhum endereço cadastrado');
+  });
 });

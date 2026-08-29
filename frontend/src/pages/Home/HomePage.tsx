@@ -41,6 +41,7 @@ export function HomePage({
   savedAddresses = [],
   selectedAddressId,
   onSelectAddress,
+  onManageAddresses,
   onOpenMenu,
   onOpenProfile,
   onOpenAdmin,
@@ -137,6 +138,7 @@ export function HomePage({
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={onSelectAddress}
+        onManageAddresses={onManageAddresses}
         onOpenMenu={onOpenMenu}
         onOpenProfile={onOpenProfile}
         onOpenAdmin={onOpenAdmin}

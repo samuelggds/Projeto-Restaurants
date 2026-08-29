@@ -45,6 +45,8 @@ export function ProfileHeader({
     .map((w) => w[0])
     .join('')
     .toUpperCase();
+  const mainAddress = String(user.mainAddress || '').trim();
+  const hasMainAddress = Boolean(mainAddress && mainAddress !== 'Nenhum endereço cadastrado');
 
   return (
     <Header $primary={brand.primaryColor ?? '#d64d08'}>
@@ -58,8 +60,8 @@ export function ProfileHeader({
       </Brand>
       <Location>
         <MapPin size={17} />
-        <span>Entregar em</span>
-        <b>• {user.mainAddress || brand.address}</b>
+        <span>{hasMainAddress ? 'Entregar em' : 'Endereço de entrega'}</span>
+        <b>• {hasMainAddress ? mainAddress : 'Não cadastrado'}</b>
       </Location>
       <Nav $open={open}>
         <button onClick={onGoHome}>Início</button>

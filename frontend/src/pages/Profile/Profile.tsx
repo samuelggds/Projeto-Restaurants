@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import ordersService from '../../Services/ordersService';
@@ -52,10 +52,13 @@ function resizeToSquareBase64(file: File, size: number, quality: number): Promis
 export default function Profile() {
   const { user, logout, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
   const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
-  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [addressModalOpen, setAddressModalOpen] = useState(
+    () => searchParams.get('newAddress') === '1',
+  );
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [loyaltySummary, setLoyaltySummary] = useState<LoyaltySummary | null>(null);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
@@ -324,6 +327,7 @@ export default function Profile() {
     <>
       <ProfilePage
         data={data}
+        initialView={searchParams.get('view') === 'addresses' ? 'addresses' : 'overview'}
         cartCount={0}
         onGoHome={() => navigate('/')}
         onOpenMenu={() => navigate('/')}

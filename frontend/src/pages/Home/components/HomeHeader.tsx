@@ -26,6 +26,7 @@ type Props = {
   savedAddresses?: CustomerAddress[];
   selectedAddressId?: string;
   onSelectAddress?: (addressId: string) => void;
+  onManageAddresses?: () => void;
   onOpenMenu?: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
@@ -50,6 +51,7 @@ export function HomeHeader({
   savedAddresses = [],
   selectedAddressId,
   onSelectAddress,
+  onManageAddresses,
   onOpenMenu,
   onOpenProfile,
   onOpenAdmin,
@@ -89,12 +91,20 @@ export function HomeHeader({
         .join('')
         .toUpperCase()
     : 'U';
-  const selectedAddress = savedAddresses.find(
+  // Saved delivery addresses are private customer data. Even if stale props are
+  // briefly present during logout, never expose them to an unauthenticated view.
+  const availableAddresses = userLoggedIn ? savedAddresses : [];
+  const selectedAddress = availableAddresses.find(
     (address) => String(address.id) === String(selectedAddressId),
   );
   const locationText = selectedAddress
-    ? `${selectedAddress.address}, ${selectedAddress.number}`
-    : brand.address;
+    ? [selectedAddress.address, selectedAddress.number].filter(Boolean).join(', ')
+    : '';
+  const locationLabel = selectedAddress
+    ? 'Entregar em'
+    : availableAddresses.length > 0
+      ? 'Escolher endereço'
+      : 'Cadastrar endereço';
   const statusLabel = availabilityLabel || (isRestaurantOpen ? 'Aberto agora' : 'Fechado agora');
   const requestedDetail = (availabilityDetail || businessHoursLabel).replace(/^Hoje:\s*/i, '');
   const detailContradictsStatus = isRestaurantOpen
@@ -125,36 +135,71 @@ export function HomeHeader({
         <LocationWrap ref={locationRef}>
           <Location
             type="button"
-            aria-label="Escolher endereço de entrega"
+            aria-label={selectedAddress ? `Endereço de entrega: ${locationText}` : locationLabel}
             aria-expanded={locationOpen}
-            onClick={() => savedAddresses.length > 0 && setLocationOpen((open) => !open)}
+            aria-controls="home-delivery-address-menu"
+            onClick={() => setLocationOpen((open) => !open)}
           >
             <MapPin size={17} />
-            <span>Entregar em</span>
-            <b>• {locationText || 'Escolha um endereço'}</b>
+            <span>{locationLabel}</span>
+            {locationText && <b>• {locationText}</b>}
           </Location>
-          {savedAddresses.length > 0 && (
-            <LocationDropdown $open={locationOpen}>
-              <strong>Onde deseja receber?</strong>
-              {savedAddresses.map((address) => (
-                <LocationOption
-                  type="button"
-                  key={address.id}
-                  $active={String(address.id) === String(selectedAddressId)}
-                  onClick={() => {
-                    onSelectAddress?.(String(address.id));
-                    setLocationOpen(false);
-                  }}
-                >
-                  <MapPin size={17} />
-                  <span>
-                    <b>{address.label}</b>
-                    <small>
-                      {address.address}, {address.number} • {address.district}
-                    </small>
-                  </span>
-                </LocationOption>
-              ))}
+          {locationOpen && (
+            <LocationDropdown id="home-delivery-address-menu" $open>
+              {availableAddresses.length > 0 ? (
+                <>
+                  <strong>Onde deseja receber?</strong>
+                  {availableAddresses.map((address) => (
+                    <LocationOption
+                      type="button"
+                      key={address.id}
+                      $active={String(address.id) === String(selectedAddressId)}
+                      onClick={() => {
+                        onSelectAddress?.(String(address.id));
+                        setLocationOpen(false);
+                      }}
+                    >
+                      <MapPin size={17} />
+                      <span>
+                        <b>{address.label}</b>
+                        <small>
+                          {address.address}, {address.number} • {address.district}
+                        </small>
+                      </span>
+                    </LocationOption>
+                  ))}
+                  <AddressAction
+                    type="button"
+                    onClick={() => {
+                      setLocationOpen(false);
+                      onManageAddresses?.();
+                    }}
+                  >
+                    Cadastrar outro endereço
+                  </AddressAction>
+                </>
+              ) : (
+                <EmptyAddress>
+                  <MapPin size={23} />
+                  <strong>
+                    {userLoggedIn ? 'Cadastre seu endereço' : 'Entre para cadastrar um endereço'}
+                  </strong>
+                  <p>
+                    {userLoggedIn
+                      ? 'Salve um endereço para escolhê-lo nas próximas entregas.'
+                      : 'Faça login para salvar e escolher seus endereços de entrega.'}
+                  </p>
+                  <AddressAction
+                    type="button"
+                    onClick={() => {
+                      setLocationOpen(false);
+                      onManageAddresses?.();
+                    }}
+                  >
+                    {userLoggedIn ? 'Cadastrar endereço' : 'Entrar na conta'}
+                  </AddressAction>
+                </EmptyAddress>
+              )}
             </LocationDropdown>
           )}
         </LocationWrap>
@@ -470,6 +515,49 @@ const LocationOption = styled.button<{ $active: boolean }>`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+`;
+const EmptyAddress = styled.div`
+  padding: 13px 11px 7px;
+  color: #191816;
+  text-align: center;
+
+  > svg {
+    margin-bottom: 7px;
+    color: var(--home-primary);
+  }
+
+  > strong {
+    display: block;
+    font-size: 14px;
+  }
+
+  > p {
+    margin: 6px 0 13px;
+    color: #746d66;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+`;
+const AddressAction = styled.button`
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--home-primary);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(0.94);
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-primary) 28%, transparent);
+    outline-offset: 2px;
   }
 `;
 const Navigation = styled.nav<{ $open: boolean }>`

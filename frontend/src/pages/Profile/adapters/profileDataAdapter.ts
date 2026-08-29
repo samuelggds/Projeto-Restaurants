@@ -70,7 +70,7 @@ export function buildProfileData({
   const brand = {
     name: String(restaurantName || settings?.restaurantName || profileMockData.brand.name),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
-    address: String(settings?.address || profileMockData.brand.address),
+    address: String(settings?.address || ''),
     primaryColor: String(settings?.primaryColor || profileMockData.brand.primaryColor),
     logoUrl: String(restaurant.logo || ''),
   };

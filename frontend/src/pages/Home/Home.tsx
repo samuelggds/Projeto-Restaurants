@@ -536,6 +536,25 @@ export default function Home() {
     menu.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
   }, []);
 
+  const manageDeliveryAddresses = useCallback(() => {
+    if (!user) {
+      const next = encodeURIComponent(`${location.pathname}${location.search}`);
+      navigate(`/login?next=${next}`);
+      return;
+    }
+
+    if (String(user.role || '').toUpperCase() !== 'CLIENTE') {
+      notify(
+        'info',
+        'Endereços de entrega são do cliente',
+        'Entre com uma conta de cliente para cadastrar um endereço de entrega.',
+      );
+      return;
+    }
+
+    navigate('/profile?view=addresses&newAddress=1');
+  }, [location.pathname, location.search, navigate, notify, user]);
+
   async function requestTableService(type: 'WAITER' | 'BILL') {
     const sessionToken = String(tableSession?.sessionToken || '').trim();
     if (!sessionToken || tableServiceLoading) {
@@ -631,6 +650,7 @@ export default function Home() {
             'Este endereço será usado automaticamente no carrinho.',
           );
         }}
+        onManageAddresses={manageDeliveryAddresses}
         onOpenCart={() => (tableClosingRequested ? openTableAccount() : setCartOpen(true))}
         onOpenMenu={openMenu}
         onOpenTableAccount={openTableAccount}

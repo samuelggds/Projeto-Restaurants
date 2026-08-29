@@ -73,6 +73,7 @@ const trackingSteps = [
 export function ProfilePage(props: ProfilePageProps) {
   const {
     data = profileMockData,
+    initialView = 'overview',
     cartCount = 2,
     onGoHome,
     onOpenMenu,
@@ -80,7 +81,7 @@ export function ProfilePage(props: ProfilePageProps) {
     onOpenSearch,
     onLogout,
   } = props;
-  const [view, setView] = useState<ProfileView>('overview');
+  const [view, setView] = useState<ProfileView>(initialView);
   const { brand, user } = data;
   return (
     <S.Root $primary={brand.primaryColor ?? '#d64d08'}>

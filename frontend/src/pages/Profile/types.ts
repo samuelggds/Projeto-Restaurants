@@ -75,6 +75,7 @@ export type ProfileData = {
 
 export type ProfilePageProps = {
   data?: ProfileData;
+  initialView?: ProfileView;
   cartCount?: number;
   onGoHome?: () => void;
   onOpenMenu?: () => void;

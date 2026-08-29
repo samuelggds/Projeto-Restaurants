@@ -1,5 +1,7 @@
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { HomeHeader } from './HomeHeader';
 
 const brand = {
@@ -52,5 +54,108 @@ describe('status de funcionamento da Home', () => {
 
     expect(markup).toContain('Aberto agora');
     expect(markup).not.toMatch(/fechado/i);
+  });
+});
+
+describe('endereço de entrega da Home', () => {
+  it('não apresenta o endereço do restaurante como destino de um visitante', () => {
+    const markup = renderToStaticMarkup(<HomeHeader brand={brand} cartCount={0} />);
+
+    expect(markup).toContain('Cadastrar endereço');
+    expect(markup).not.toContain(brand.address);
+  });
+
+  it('não apresenta o endereço do restaurante para um cliente sem endereço salvo', () => {
+    const markup = renderToStaticMarkup(
+      <HomeHeader brand={brand} cartCount={0} userLoggedIn savedAddresses={[]} />,
+    );
+
+    expect(markup).toContain('Cadastrar endereço');
+    expect(markup).not.toContain(brand.address);
+  });
+
+  it('ignora endereços residuais quando a sessão não está autenticada', () => {
+    const markup = renderToStaticMarkup(
+      <HomeHeader
+        brand={brand}
+        cartCount={0}
+        savedAddresses={[
+          {
+            id: 9,
+            label: 'Casa',
+            address: 'Rua privada',
+            number: '99',
+            district: 'Centro',
+            city: 'Fortaleza',
+            state: 'CE',
+            zipCode: '60000000',
+            isDefault: true,
+          },
+        ]}
+        selectedAddressId="9"
+      />,
+    );
+
+    expect(markup).not.toContain('Rua privada');
+    expect(markup).toContain('Cadastrar endereço');
+  });
+
+  it('mostra somente o endereço real selecionado do cliente autenticado', () => {
+    const markup = renderToStaticMarkup(
+      <HomeHeader
+        brand={brand}
+        cartCount={0}
+        userLoggedIn
+        savedAddresses={[
+          {
+            id: 3,
+            label: 'Casa',
+            address: 'Avenida do Cliente',
+            number: '42',
+            district: 'Centro',
+            city: 'Fortaleza',
+            state: 'CE',
+            zipCode: '60000000',
+            isDefault: true,
+          },
+        ]}
+        selectedAddressId="3"
+      />,
+    );
+
+    expect(markup).toContain('Avenida do Cliente, 42');
+    expect(markup).not.toContain(brand.address);
+  });
+
+  it('explica a exigência de login antes de encaminhar o visitante', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onManageAddresses = vi.fn();
+
+    act(() =>
+      root.render(<HomeHeader brand={brand} cartCount={0} onManageAddresses={onManageAddresses} />),
+    );
+
+    const locationButton = container.querySelector(
+      'button[aria-label="Cadastrar endereço"]',
+    ) as HTMLButtonElement;
+    act(() => locationButton.click());
+
+    expect(locationButton.getAttribute('aria-expanded')).toBe('true');
+    expect(container.textContent).toContain('Entre para cadastrar um endereço');
+    expect(container.textContent).toContain(
+      'Faça login para salvar e escolher seus endereços de entrega.',
+    );
+    expect(onManageAddresses).not.toHaveBeenCalled();
+
+    const loginButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Entrar na conta',
+    ) as HTMLButtonElement;
+    act(() => loginButton.click());
+    expect(onManageAddresses).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+    container.remove();
   });
 });
