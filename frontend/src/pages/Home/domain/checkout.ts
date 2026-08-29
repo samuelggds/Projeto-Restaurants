@@ -101,13 +101,25 @@ export function buildOrderQuotePayload(input: {
   restaurantId: number;
   type: OrderType;
   cart: CartItem[];
+  deliveryAddress?: DeliveryAddress;
   couponRedemptionId?: number | null;
 }) {
+  const deliveryAddress = input.deliveryAddress;
+
   return {
     restaurantId: input.restaurantId,
     type: input.type,
     items: buildOrderItems(input.cart),
     ...(input.couponRedemptionId ? { couponRedemptionId: input.couponRedemptionId } : {}),
+    ...(input.type === 'DELIVERY' && deliveryAddress
+      ? {
+          address: deliveryAddress.address.trim(),
+          number: deliveryAddress.number.trim(),
+          district: deliveryAddress.district.trim(),
+          city: deliveryAddress.city.trim(),
+          state: deliveryAddress.state.trim().toUpperCase(),
+        }
+      : {}),
   };
 }
 
