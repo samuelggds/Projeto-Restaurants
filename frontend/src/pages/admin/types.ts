@@ -30,6 +30,12 @@ export type BusinessHour = {
   openingTime: string;
   closingTime: string;
 };
+export type DeliveryFeeRangeAdmin = {
+  id?: number;
+  maxDistanceKm: number;
+  fee: number;
+  active: boolean;
+};
 
 export type TablePrepaymentWindow = {
   weekdays: number[];
@@ -221,6 +227,7 @@ export type AdminSettings = {
   youtube: string;
   minimumOrder: number;
   deliveryFee: number;
+  deliveryFeeMode: 'FIXED' | 'DISTANCE';
   freeShippingMinimum: number;
   acceptsDelivery: boolean;
   acceptsPickup: boolean;
@@ -253,6 +260,7 @@ export type AdminSettings = {
   pagbankToken: string;
   pagbankTokenConfigured: boolean;
   promotionalBanners: AdminPromotionBanner[];
+  deliveryFeeRanges: DeliveryFeeRangeAdmin[];
 };
 
 export type Employee = {

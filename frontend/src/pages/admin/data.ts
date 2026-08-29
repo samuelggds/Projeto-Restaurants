@@ -95,6 +95,10 @@ export const adminMockSettings: AdminSettings = {
   pagbankToken: '',
   pagbankTokenConfigured: false,
   promotionalBanners: [],
+
+  deliveryFeeMode: 'FIXED',
+
+  deliveryFeeRanges: [],
 };
 
 export const adminMockEmployees: Employee[] = [];

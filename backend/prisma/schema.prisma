@@ -171,6 +171,7 @@ model Restaurant {
   asaasWithdrawals         AsaasWithdrawalRequest[]
   oauthAuthorizationStates OAuthAuthorizationState[]
   tableAccountSettings     TableAccountSettings?
+  deliveryFeeRanges        DeliveryFeeRange[]
 }
 
 model SupportChatMessage {
@@ -766,22 +767,23 @@ model RestaurantSettings {
   restaurantId Int @unique
 
   // Operação de pedidos
-  deliveryFee           Decimal  @default(0) @db.Decimal(10, 2)
-  courierFeePerDelivery Decimal  @default(0) @db.Decimal(10, 2)
-  minimumOrder          Decimal  @default(0) @db.Decimal(10, 2)
-  freeShippingMinimum   Decimal? @db.Decimal(10, 2)
-  acceptsDelivery       Boolean  @default(true)
-  acceptsPickup         Boolean  @default(true)
+  deliveryFeeMode       DeliveryFeeMode @default(FIXED)
+  deliveryFee           Decimal         @default(0) @db.Decimal(10, 2)
+  courierFeePerDelivery Decimal         @default(0) @db.Decimal(10, 2)
+  minimumOrder          Decimal         @default(0) @db.Decimal(10, 2)
+  freeShippingMinimum   Decimal?        @db.Decimal(10, 2)
+  acceptsDelivery       Boolean         @default(true)
+  acceptsPickup         Boolean         @default(true)
   averageDeliveryTime   String?
-  autoAcceptOrders      Boolean  @default(false)
-  trackingRequiresLogin Boolean  @default(true)
-  soundNotifications    Boolean  @default(true)
-  maxConcurrentOrders   Int      @default(20)
-  acceptsPix            Boolean  @default(true)
-  acceptsCard           Boolean  @default(true)
-  tableOrderingEnabled  Boolean  @default(true)
-  waiterCallEnabled     Boolean  @default(true)
-  billRequestEnabled    Boolean  @default(true)
+  autoAcceptOrders      Boolean         @default(false)
+  trackingRequiresLogin Boolean         @default(true)
+  soundNotifications    Boolean         @default(true)
+  maxConcurrentOrders   Int             @default(20)
+  acceptsPix            Boolean         @default(true)
+  acceptsCard           Boolean         @default(true)
+  tableOrderingEnabled  Boolean         @default(true)
+  waiterCallEnabled     Boolean         @default(true)
+  billRequestEnabled    Boolean         @default(true)
 
   // Aparência e presença digital
   slogan         String?
@@ -850,6 +852,21 @@ model RestaurantSettings {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model DeliveryFeeRange {
+  id            Int      @id @default(autoincrement())
+  restaurantId  Int
+  maxDistanceKm Decimal  @db.Decimal(6, 2)
+  fee           Decimal  @db.Decimal(10, 2)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, maxDistanceKm])
+  @@index([restaurantId, active, maxDistanceKm])
 }
 
 model AsaasWithdrawalRequest {
@@ -1276,4 +1293,9 @@ enum InvoiceStatus {
   PAGO
   ATRASADO
   CANCELADO
+}
+
+enum DeliveryFeeMode {
+  FIXED
+  DISTANCE
 }

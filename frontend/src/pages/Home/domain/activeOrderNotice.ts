@@ -10,7 +10,7 @@ const ACTIVE_STATUSES = new Set(['PENDENTE', 'PREPARANDO', 'PRONTO', 'SAIU_PARA_
 const STATUS_LABELS: Record<string, string> = {
   PENDENTE: 'Pedido confirmado',
   PREPARANDO: 'Em preparo',
-  PRONTO: 'Pronto para retirada',
+  PRONTO: 'Pronto para entrega',
   SAIU_PARA_ENTREGA: 'Saiu para entrega',
   ENTREGUE: 'Entrega realizada',
 };
@@ -28,17 +28,30 @@ function orderSummary(order: Record<string, unknown>) {
 }
 
 export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveOrderNotice | null {
-  const latestOrder = orders.sort(
+  const deliveryOrders = orders.filter(
+    (order) =>
+      String(order.type || '')
+        .trim()
+        .toUpperCase() === 'DELIVERY',
+  );
+
+  const latestOrder = [...deliveryOrders].sort(
     (first, second) =>
       new Date(String(second.createdAt || 0)).getTime() -
       new Date(String(first.createdAt || 0)).getTime(),
   )[0];
 
-  if (!latestOrder || latestOrder.id == null) return null;
+  if (!latestOrder || latestOrder.id == null) {
+    return null;
+  }
 
   const status = String(latestOrder.status || '').toUpperCase();
+
   const awaitsReceiptConfirmation = status === 'ENTREGUE' && !latestOrder.deliveryConfirmedAt;
-  if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) return null;
+
+  if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) {
+    return null;
+  }
 
   return {
     id: String(latestOrder.id),
