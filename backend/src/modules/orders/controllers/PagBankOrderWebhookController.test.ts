@@ -21,6 +21,7 @@ const originalOrderRepositoryMethods = {
 const originalPrismaRestaurantUpdate = prisma.restaurant.update;
 const originalPrismaOrderUpdateMany = prisma.order.updateMany;
 const originalPrismaOrderFindFirst = prisma.order.findFirst;
+const originalPrismaTableBillItemUpdateMany = prisma.tableBillItem.updateMany;
 const originalPrismaTransaction = prisma.$transaction;
 const originalFetch = globalThis.fetch;
 
@@ -55,6 +56,7 @@ afterEach(() => {
   prisma.restaurant.update = originalPrismaRestaurantUpdate;
   prisma.order.updateMany = originalPrismaOrderUpdateMany;
   prisma.order.findFirst = originalPrismaOrderFindFirst;
+  prisma.tableBillItem.updateMany = originalPrismaTableBillItemUpdateMany;
   prisma.$transaction = originalPrismaTransaction;
   globalThis.fetch = originalFetch;
 });
@@ -177,6 +179,7 @@ test('deve cadastrar o restaurante, abrir checkout de cartao e marcar o pedido c
     return { count: 1 };
   };
   prisma.order.findFirst = async () => ({ couponRedemptionId: null });
+  prisma.tableBillItem.updateMany = async () => ({ count: 0 });
   prisma.$transaction = async (callback) => callback(prisma);
 
   globalThis.fetch = async (url) => {
@@ -298,6 +301,7 @@ const originalFindById = orderRepository.findById;
 
 afterEach(() => {
   prisma.order.updateMany = originalOrderUpdateMany;
+  prisma.tableBillItem.updateMany = originalPrismaTableBillItemUpdateMany;
   orderRepository.findById = originalFindById;
 });
 
@@ -336,6 +340,7 @@ test('deve marcar o pedido como pago apos a confirmacao', async () => {
 
     return { count: 1 };
   };
+  prisma.tableBillItem.updateMany = async () => ({ count: 0 });
 
   const paidOrder = await orderRepository.confirmPayment(storedOrder.id, storedOrder.restaurantId);
 
