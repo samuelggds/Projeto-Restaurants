@@ -14,14 +14,19 @@ describe('identidade dinâmica do login', () => {
       slug: '',
     });
   });
-  it('mapeia nome, logo e cor cadastrados', () => {
+  it('mapeia nome, descrição, logo e cor cadastrados', () => {
     expect(
       mapLoginBranding({
         primaryColor: '#123456',
-        restaurant: { name: 'North Pizza', logo: 'https://cdn.test/logo.png' },
+        restaurant: {
+          name: 'North Pizza',
+          description: 'A melhor experiência em cada pedido',
+          logo: 'https://cdn.test/logo.png',
+        },
       }),
     ).toEqual({
       name: 'North Pizza',
+      description: 'A melhor experiência em cada pedido',
       logoUrl: 'https://cdn.test/logo.png',
       primaryColor: '#123456',
     });
