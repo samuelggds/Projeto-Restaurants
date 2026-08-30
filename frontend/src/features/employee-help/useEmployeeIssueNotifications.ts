@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { connectSocket } from '../../Services/socketService';
+import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import supportChatService from '../../Services/supportChatService';
 
@@ -9,7 +9,7 @@ export function useEmployeeIssueNotifications() {
     const token = getAccessToken();
     if (!token) return undefined;
 
-    const socket = connectSocket(token, 'operational-issue-notifications');
+    const { socket, release } = acquireSocket(token, 'operational-issue-notifications');
     const notify = (issue: {
       id?: string;
       status?: string;
@@ -55,6 +55,7 @@ export function useEmployeeIssueNotifications() {
     return () => {
       socket.off('support:issue-updated', onIssueUpdated);
       window.clearInterval(intervalId);
+      release();
     };
   }, []);
 }

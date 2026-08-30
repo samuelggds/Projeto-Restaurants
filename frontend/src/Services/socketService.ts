@@ -12,8 +12,14 @@ let tableWaitingBaseUrl = '';
 let socketContextName = 'unknown';
 let tableSessionContextName = 'unknown';
 let tableWaitingContextName = 'unknown';
+let socketDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let tableSessionDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let tableWaitingDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let socketGeneration = 0;
+const socketLeases = new Set<symbol>();
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
+const SOCKET_DISCONNECT_GRACE_MS = 75;
 const SOCKET_DEBUG_ENABLED =
   import.meta.env.DEV ||
   (typeof window !== 'undefined' && localStorage.getItem('@PecaJaFood:socketDebug') === 'true');
@@ -178,7 +184,16 @@ function debugSocket(message, data) {
   console.info(`[socket-debug] ${message}`);
 }
 
+function clearDisconnectTimer(timer: ReturnType<typeof setTimeout> | null) {
+  if (timer !== null) {
+    clearTimeout(timer);
+  }
+}
+
 export function connectSocket(token, contextName = 'unknown') {
+  clearDisconnectTimer(socketDisconnectTimer);
+  socketDisconnectTimer = null;
+
   const baseUrl = getSocketBaseUrl();
   const normalizedToken = normalizeAuthValue(token);
   const normalizedContext = normalizeAuthValue(contextName) || 'unknown';
@@ -201,8 +216,7 @@ export function connectSocket(token, contextName = 'unknown') {
   }
 
   if (socket) {
-    socket.disconnect();
-    socket = null;
+    disconnectSocketNow();
   }
 
   socket = io(baseUrl, {
@@ -212,6 +226,7 @@ export function connectSocket(token, contextName = 'unknown') {
       token: normalizedToken,
     },
   });
+  socketGeneration += 1;
 
   socketAuthToken = normalizedToken;
   socketBaseUrl = baseUrl;
@@ -316,7 +331,10 @@ export function waitForSocketConnection(timeoutMs = 6000) {
   });
 }
 
-export function disconnectSocket() {
+function disconnectSocketNow() {
+  clearDisconnectTimer(socketDisconnectTimer);
+  socketDisconnectTimer = null;
+
   if (socket) {
     debugSocket(`manual disconnect user socket (${socketContextName})`, {
       socketId: socket.id,
@@ -328,6 +346,62 @@ export function disconnectSocket() {
   socketAuthToken = '';
   socketBaseUrl = '';
   socketContextName = 'unknown';
+  socketLeases.clear();
+  socketGeneration += 1;
+}
+
+function scheduleSocketDisconnect() {
+  clearDisconnectTimer(socketDisconnectTimer);
+  socketDisconnectTimer = null;
+
+  if (!socket) {
+    disconnectSocketNow();
+    return;
+  }
+
+  const socketPendingDisconnect = socket;
+  const pendingGeneration = socketGeneration;
+  socketDisconnectTimer = setTimeout(() => {
+    socketDisconnectTimer = null;
+    if (
+      socket === socketPendingDisconnect &&
+      socketGeneration === pendingGeneration &&
+      socketLeases.size === 0
+    ) {
+      disconnectSocketNow();
+    }
+  }, SOCKET_DISCONNECT_GRACE_MS);
+}
+
+export function acquireSocket(token, contextName = 'unknown') {
+  const leasedSocket = connectSocket(token, contextName);
+  const lease = Symbol(normalizeAuthValue(contextName) || 'unknown');
+  const leaseGeneration = socketGeneration;
+  let released = false;
+  socketLeases.add(lease);
+
+  return {
+    socket: leasedSocket,
+    release() {
+      if (released) return;
+      released = true;
+      if (leaseGeneration !== socketGeneration) return;
+
+      socketLeases.delete(lease);
+      if (socketLeases.size === 0) {
+        scheduleSocketDisconnect();
+      }
+    },
+  };
+}
+
+export function disconnectSocket({ immediate = false } = {}) {
+  socketLeases.clear();
+  if (immediate) {
+    disconnectSocketNow();
+    return;
+  }
+  scheduleSocketDisconnect();
 }
 
 export function connectTableSessionSocket(sessionToken, contextName = 'unknown') {
@@ -338,6 +412,9 @@ export function connectTableSessionSocket(sessionToken, contextName = 'unknown')
   if (!normalizedSessionToken) {
     return null;
   }
+
+  clearDisconnectTimer(tableSessionDisconnectTimer);
+  tableSessionDisconnectTimer = null;
 
   if (
     tableSessionSocket &&
@@ -401,7 +478,10 @@ export function connectTableSessionSocket(sessionToken, contextName = 'unknown')
   return tableSessionSocket;
 }
 
-export function disconnectTableSessionSocket() {
+function disconnectTableSessionSocketNow() {
+  clearDisconnectTimer(tableSessionDisconnectTimer);
+  tableSessionDisconnectTimer = null;
+
   if (tableSessionSocket) {
     debugSocket(`manual disconnect table-session socket (${tableSessionContextName})`, {
       socketId: tableSessionSocket.id,
@@ -413,6 +493,24 @@ export function disconnectTableSessionSocket() {
   tableSessionAuthToken = '';
   tableSessionBaseUrl = '';
   tableSessionContextName = 'unknown';
+}
+
+export function disconnectTableSessionSocket({ immediate = false } = {}) {
+  clearDisconnectTimer(tableSessionDisconnectTimer);
+  tableSessionDisconnectTimer = null;
+
+  if (immediate || !tableSessionSocket) {
+    disconnectTableSessionSocketNow();
+    return;
+  }
+
+  const socketPendingDisconnect = tableSessionSocket;
+  tableSessionDisconnectTimer = setTimeout(() => {
+    tableSessionDisconnectTimer = null;
+    if (tableSessionSocket === socketPendingDisconnect) {
+      disconnectTableSessionSocketNow();
+    }
+  }, SOCKET_DISCONNECT_GRACE_MS);
 }
 
 export function connectTableWaitingSocket(
@@ -440,6 +538,9 @@ export function connectTableWaitingSocket(
   ) {
     return null;
   }
+
+  clearDisconnectTimer(tableWaitingDisconnectTimer);
+  tableWaitingDisconnectTimer = null;
 
   if (tableWaitingSocket && tableWaitingAuthKey === authKey && tableWaitingBaseUrl === baseUrl) {
     tableWaitingContextName = normalizedContext;
@@ -486,7 +587,10 @@ export function connectTableWaitingSocket(
   return tableWaitingSocket;
 }
 
-export function disconnectTableWaitingSocket() {
+function disconnectTableWaitingSocketNow() {
+  clearDisconnectTimer(tableWaitingDisconnectTimer);
+  tableWaitingDisconnectTimer = null;
+
   if (tableWaitingSocket) {
     tableWaitingSocket.disconnect();
     tableWaitingSocket = null;
@@ -495,4 +599,22 @@ export function disconnectTableWaitingSocket() {
   tableWaitingAuthKey = '';
   tableWaitingBaseUrl = '';
   tableWaitingContextName = 'unknown';
+}
+
+export function disconnectTableWaitingSocket({ immediate = false } = {}) {
+  clearDisconnectTimer(tableWaitingDisconnectTimer);
+  tableWaitingDisconnectTimer = null;
+
+  if (immediate || !tableWaitingSocket) {
+    disconnectTableWaitingSocketNow();
+    return;
+  }
+
+  const socketPendingDisconnect = tableWaitingSocket;
+  tableWaitingDisconnectTimer = setTimeout(() => {
+    tableWaitingDisconnectTimer = null;
+    if (tableWaitingSocket === socketPendingDisconnect) {
+      disconnectTableWaitingSocketNow();
+    }
+  }, SOCKET_DISCONNECT_GRACE_MS);
 }

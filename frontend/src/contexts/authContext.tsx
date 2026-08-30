@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void api.post('/auth/logout').catch(() => undefined);
     clearAuthSession();
     clearSystemBlockState();
-    disconnectSocket();
+    disconnectSocket({ immediate: true });
     setUser(null);
     setIsLoading(false);
   }

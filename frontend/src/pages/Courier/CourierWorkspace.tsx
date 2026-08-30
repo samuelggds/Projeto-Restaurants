@@ -25,7 +25,7 @@ import {
 import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
-import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { acquireSocket } from '../../Services/socketService';
 import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
@@ -138,7 +138,7 @@ export default function CourierWorkspace() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
   const ordersRef = useRef<CourierOrder[]>([]);
   const selectedRouteOrderIdRef = useRef<number | null>(null);
-  const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
+  const socketRef = useRef<ReturnType<typeof acquireSocket>['socket'] | null>(null);
   const latestPositionRef = useRef<CourierRoutePoint | null>(null);
   const hadActiveRouteRef = useRef(false);
   const ordersRequestRef = useRef(0);
@@ -385,7 +385,7 @@ export default function CourierWorkspace() {
   useEffect(() => {
     const token = getAccessToken();
     if (!token || !accountId) return;
-    const socket = connectSocket(token, `courier-workspace:${accountId}`);
+    const { socket, release } = acquireSocket(token, `courier-workspace:${accountId}`);
     socketRef.current = socket;
 
     const onConnect = () => {
@@ -449,7 +449,7 @@ export default function CourierWorkspace() {
       socket.off('order:status-changed', onChanged);
       socket.off('order:delivery-location', onLocation);
       socketRef.current = null;
-      disconnectSocket();
+      release();
     };
   }, [accountId, emitLocationForOrders, restaurantId]);
 

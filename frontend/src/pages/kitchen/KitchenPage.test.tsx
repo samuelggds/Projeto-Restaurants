@@ -42,8 +42,7 @@ vi.mock('../../Services/restaurantSettingsService', () => ({
   default: { getPublicSettings: mocks.getSettings },
 }));
 vi.mock('../../Services/socketService', () => ({
-  connectSocket: () => mocks.socket,
-  disconnectSocket: vi.fn(),
+  acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
 }));
 vi.mock('../../modules/auth/session/authSession', () => ({
   getAccessToken: () => 'kitchen-token',

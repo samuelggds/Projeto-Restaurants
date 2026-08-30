@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
-import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { KitchenModule } from './KitchenModule';
 import type { EmployeeWorkspaceData, KitchenWorkspaceState, RestaurantBrand } from './types';
@@ -110,7 +110,7 @@ export default function KitchenPage() {
   useEffect(() => {
     if (!accessToken || !restaurantId) return;
 
-    const socket = connectSocket(accessToken, 'kitchen-orders');
+    const { socket, release } = acquireSocket(accessToken, 'kitchen-orders');
     const refreshOrders = () => {
       void loadOrders(true);
     };
@@ -143,7 +143,7 @@ export default function KitchenPage() {
       socket.off('connect', markConnected);
       socket.off('disconnect', markDisconnected);
       socket.off('connect_error', markDisconnected);
-      disconnectSocket();
+      release();
     };
   }, [accessToken, restaurantId, loadOrders]);
 

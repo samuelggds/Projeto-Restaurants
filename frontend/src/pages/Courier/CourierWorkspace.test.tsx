@@ -52,8 +52,7 @@ vi.mock('../../Services/restaurantSettingsService', () => ({
   default: { getPublicSettings: mocks.getSettings },
 }));
 vi.mock('../../Services/socketService', () => ({
-  connectSocket: () => mocks.socket,
-  disconnectSocket: vi.fn(),
+  acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
 }));
 vi.mock('../../features/employee-help/useEmployeeIssueNotifications', () => ({
   useEmployeeIssueNotifications: vi.fn(),

@@ -26,9 +26,12 @@ vi.mock('../../../Services/supportChatService', () => ({
 }));
 
 vi.mock('../../../Services/socketService', () => ({
-  connectSocket: vi.fn(() => ({
-    on: mocks.socketOn,
-    off: mocks.socketOff,
+  acquireSocket: vi.fn(() => ({
+    socket: {
+      on: mocks.socketOn,
+      off: mocks.socketOff,
+    },
+    release: vi.fn(),
   })),
 }));
 
@@ -49,61 +52,59 @@ describe('HelpCenter support channels', () => {
     root = createRoot(container);
     vi.clearAllMocks();
 
-    mocks.getMessages.mockImplementation(
-      ({ channel }: { channel: 'internal' | 'platform' }) => {
-        if (channel === 'internal') {
-          return Promise.resolve({
-            messages: [
-              {
-                id: 'employee-issue',
-                senderRole: 'FUNCIONARIO',
-                senderLabel: 'Cozinha',
-                message: 'Forno principal não está aquecendo.',
-                issueStatus: 'OPEN',
-                sentAt: '2026-08-28T10:00:00.000Z',
-              },
-              {
-                id: 'platform-internal-leak',
-                senderRole: 'SUPER_ADMIN',
-                senderLabel: 'Plataforma',
-                message: 'Mensagem da plataforma indevida em relatos.',
-                issueStatus: null,
-                sentAt: '2026-08-28T10:01:00.000Z',
-              },
-            ],
-          });
-        }
-
+    mocks.getMessages.mockImplementation(({ channel }: { channel: 'internal' | 'platform' }) => {
+      if (channel === 'internal') {
         return Promise.resolve({
           messages: [
             {
-              id: 'admin-platform',
-              senderRole: 'ADMIN',
-              senderLabel: 'Administrador',
-              message: 'Preciso de ajuda para configurar o gateway.',
-              issueStatus: null,
-              sentAt: '2026-08-28T10:02:00.000Z',
-            },
-            {
-              id: 'super-admin-platform',
-              senderRole: 'SUPER_ADMIN',
-                senderLabel: 'Super Admin',
-                message: 'Vou revisar a configuração com você.',
-                issueStatus: 'CLOSED',
-              sentAt: '2026-08-28T10:03:00.000Z',
-            },
-            {
-              id: 'employee-platform-leak',
+              id: 'employee-issue',
               senderRole: 'FUNCIONARIO',
-              senderLabel: 'Garçom',
-              message: 'Relato operacional indevido na plataforma.',
+              senderLabel: 'Cozinha',
+              message: 'Forno principal não está aquecendo.',
               issueStatus: 'OPEN',
-              sentAt: '2026-08-28T10:04:00.000Z',
+              sentAt: '2026-08-28T10:00:00.000Z',
+            },
+            {
+              id: 'platform-internal-leak',
+              senderRole: 'SUPER_ADMIN',
+              senderLabel: 'Plataforma',
+              message: 'Mensagem da plataforma indevida em relatos.',
+              issueStatus: null,
+              sentAt: '2026-08-28T10:01:00.000Z',
             },
           ],
         });
-      },
-    );
+      }
+
+      return Promise.resolve({
+        messages: [
+          {
+            id: 'admin-platform',
+            senderRole: 'ADMIN',
+            senderLabel: 'Administrador',
+            message: 'Preciso de ajuda para configurar o gateway.',
+            issueStatus: null,
+            sentAt: '2026-08-28T10:02:00.000Z',
+          },
+          {
+            id: 'super-admin-platform',
+            senderRole: 'SUPER_ADMIN',
+            senderLabel: 'Super Admin',
+            message: 'Vou revisar a configuração com você.',
+            issueStatus: 'CLOSED',
+            sentAt: '2026-08-28T10:03:00.000Z',
+          },
+          {
+            id: 'employee-platform-leak',
+            senderRole: 'FUNCIONARIO',
+            senderLabel: 'Garçom',
+            message: 'Relato operacional indevido na plataforma.',
+            issueStatus: 'OPEN',
+            sentAt: '2026-08-28T10:04:00.000Z',
+          },
+        ],
+      });
+    });
   });
 
   afterEach(() => {

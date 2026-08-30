@@ -29,8 +29,7 @@ vi.mock('../../Services/ordersService', () => ({
   default: { getDeliveryTracking: mocks.getTracking },
 }));
 vi.mock('../../Services/socketService', () => ({
-  connectSocket: () => mocks.socket,
-  disconnectSocket: vi.fn(),
+  acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
 }));
 vi.mock('../Courier/components/DeliveryMap', () => ({
   default: (props: typeof mocks.mapProps) => {

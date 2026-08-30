@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
-import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { acquireSocket } from '../../Services/socketService';
 import tablesService from '../../Services/tablesService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
@@ -154,7 +154,7 @@ export default function WaiterPage() {
   useEffect(() => {
     const token = getAccessToken();
     if (!token || !restaurantId) return;
-    const socket = connectSocket(token, 'waiter-workspace');
+    const { socket, release } = acquireSocket(token, 'waiter-workspace');
     const refresh = () => void loadWorkspace(true);
     const handleNewCall = () => {
       startCallAlarm();
@@ -181,7 +181,7 @@ export default function WaiterPage() {
       socket.off('table:session-opened', refresh);
       socket.off('table:session-closed', refresh);
       socket.off('table-account:updated', handleTableAccountUpdate);
-      disconnectSocket();
+      release();
     };
   }, [loadWorkspace, restaurantId, startCallAlarm]);
 

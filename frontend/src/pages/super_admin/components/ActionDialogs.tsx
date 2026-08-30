@@ -24,7 +24,7 @@ import {
 } from '../domain/superAdminDomain';
 import * as S from '../SuperAdmin.styles';
 import { ConfirmAction, Empty, Modal } from './Shared';
-import { connectSocket } from '../../../Services/socketService';
+import { acquireSocket } from '../../../Services/socketService';
 import { getAccessToken } from '../../../modules/auth/session/authSession';
 
 const isoToLocalInput = (value: string | null | undefined) =>
@@ -685,7 +685,7 @@ export function SupportConversation({
     const token = getAccessToken();
     if (!token) return undefined;
 
-    const socket = connectSocket(token, 'super-admin-support-conversation');
+    const { socket, release } = acquireSocket(token, 'super-admin-support-conversation');
     const onMessage = (incoming: { restaurantId?: number | string }) => {
       if (Number(incoming?.restaurantId) !== Number(ticket.restaurantId)) return;
       void actions
@@ -694,7 +694,10 @@ export function SupportConversation({
         .catch(() => undefined);
     };
     socket.on('support:chat-message', onMessage);
-    return () => socket.off('support:chat-message', onMessage);
+    return () => {
+      socket.off('support:chat-message', onMessage);
+      release();
+    };
   }, [actions, ticket.restaurantId]);
   const send = async (closeConversation = false) => {
     if (message.trim().length < 2) {
@@ -704,11 +707,7 @@ export function SupportConversation({
     setSending(true);
     setError('');
     try {
-      await actions.sendSupportMessage(
-        ticket.restaurantId,
-        message.trim(),
-        closeConversation,
-      );
+      await actions.sendSupportMessage(ticket.restaurantId, message.trim(), closeConversation);
       setMessage('');
       await load();
       notify(

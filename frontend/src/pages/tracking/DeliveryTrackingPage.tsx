@@ -13,7 +13,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import ordersService from '../../Services/ordersService';
-import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
 import {
@@ -113,7 +113,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
 
     const token = getAccessToken();
     if (!token) return () => void (active = false);
-    const socket = connectSocket(token, `delivery-tracking-${orderId}`);
+    const { socket, release } = acquireSocket(token, `delivery-tracking-${orderId}`);
     const onConnect = () => setSocketConnected(true);
     const onDisconnect = () => setSocketConnected(false);
     const onLocation = (point: unknown) => {
@@ -170,7 +170,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
       socket.off('disconnect', onDisconnect);
       socket.off('order:delivery-location', onLocation);
       socket.off('order:status-changed', onStatus);
-      disconnectSocket();
+      release();
     };
   }, [hasInvalidOrderId, orderId, retryKey]);
 

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import * as S from './styles';
 import ordersService from '../../Services/ordersService';
-import { connectSocket, disconnectSocket } from '../../Services/socketService';
+import { acquireSocket } from '../../Services/socketService';
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
@@ -127,7 +127,7 @@ export default function CourierDashboard() {
     const token = getAccessToken();
     if (!token || !locationTrackingRequested) return;
 
-    const socket = connectSocket(token, 'courier-dashboard');
+    const { socket, release } = acquireSocket(token, 'courier-dashboard');
     let watchId: number | null = null;
     let emitTimer: ReturnType<typeof setInterval> | null = null;
     const latestPositionRef: {
@@ -243,7 +243,7 @@ export default function CourierDashboard() {
         navigator.geolocation.clearWatch(watchId);
       }
       socket.off('order:status-changed', onStatusChanged);
-      disconnectSocket();
+      release();
     };
   }, [locationTrackingRequested]);
 

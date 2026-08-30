@@ -29,8 +29,8 @@ import type {
 import { isPersistentImageSource } from '../../utils/persistentImage';
 import bannerService, { type BannerRecord } from '../../Services/bannerService';
 import {
+  acquireSocket,
   connectSocket,
-  disconnectSocket,
   waitForSocketConnection,
 } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
@@ -568,7 +568,7 @@ export default function Admin() {
     const token = getAccessToken();
     if (!token) return;
 
-    const socket = connectSocket(token, 'admin-orders');
+    const { socket, release } = acquireSocket(token, 'admin-orders');
     const refreshOrders = () => {
       void loadOperations().catch((error) =>
         console.error('Não foi possível atualizar os pedidos em tempo real.', error),
@@ -595,7 +595,7 @@ export default function Admin() {
       socket.off('order:payment-confirmed', refreshOrders);
       socket.off('order:status-changed', refreshOrders);
       socket.off('support:chat-message', onEmployeeIssue);
-      disconnectSocket();
+      release();
     };
   }, []);
 

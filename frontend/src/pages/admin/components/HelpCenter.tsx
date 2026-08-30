@@ -27,7 +27,7 @@ import {
 import * as S from './HelpCenter.styles';
 import { FaithfulGuidePreview } from './HelpCenterPreviews';
 import supportChatService from '../../../Services/supportChatService';
-import { connectSocket } from '../../../Services/socketService';
+import { acquireSocket } from '../../../Services/socketService';
 import { getAccessToken } from '../../../modules/auth/session/authSession';
 import { useAppDialog } from '../../../components/AppDialog/context';
 
@@ -657,9 +657,8 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
     try {
       const result = await supportChatService.getMessages({ limit: 100, channel: 'platform' });
       setPlatformMessages(
-        (result?.messages || []).filter(
-          (item: { senderRole?: string }) =>
-            ['ADMIN', 'SUPER_ADMIN'].includes(String(item.senderRole || '')),
+        (result?.messages || []).filter((item: { senderRole?: string }) =>
+          ['ADMIN', 'SUPER_ADMIN'].includes(String(item.senderRole || '')),
         ),
       );
       setPlatformState('ready');
@@ -678,7 +677,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
     const token = getAccessToken();
     if (!token) return undefined;
 
-    const socket = connectSocket(token, 'admin-help-issues');
+    const { socket, release } = acquireSocket(token, 'admin-help-issues');
     const refresh = () => void loadEmployeeIssues();
     const onNewIssue = (issue: {
       issueStatus?: string | null;
@@ -710,6 +709,7 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
       socket.off('support:chat-message', onNewIssue);
       socket.off('support:issue-updated', onUpdatedIssue);
       socket.off('support:issue-deleted', onDeletedIssue);
+      release();
     };
   }, []);
   const updateEmployeeIssue = async (
