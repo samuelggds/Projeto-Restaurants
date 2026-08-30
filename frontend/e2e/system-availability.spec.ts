@@ -206,7 +206,7 @@ test('login técnico recusa qualquer conta que não seja SUPER_ADMIN', async ({ 
 
   await page.goto('/super_admin/login');
   await page.getByLabel('E-mail').fill('admin@restaurante.test');
-  await page.getByLabel('Senha').fill('Senha@123');
+  await page.getByRole('textbox', { name: 'Senha' }).fill('Senha@123');
   await page.getByRole('button', { name: 'Entrar' }).click();
 
   await expect(
