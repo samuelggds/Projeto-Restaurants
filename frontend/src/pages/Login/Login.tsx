@@ -329,6 +329,8 @@ export default function Login() {
     }
   };
 
+  const hasCover = Boolean(branding.logoUrl);
+
   return (
     <ThemeProvider
       theme={{
@@ -337,7 +339,7 @@ export default function Login() {
         primaryHover: branding.primaryColor,
       }}
     >
-      <S.Container>
+      <S.Container data-testid="login-layout">
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -348,15 +350,24 @@ export default function Login() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
+        <S.BannerSection
+          $hasLogo={hasCover}
+          data-testid="login-cover"
+          data-has-cover={hasCover ? 'true' : 'false'}
+        >
+          {hasCover ? (
+            <S.RestaurantLogo
+              data-testid="login-cover-image"
+              src={branding.logoUrl}
+              alt={`Capa ${branding.name}`}
+            />
+          ) : null}
+
           <S.BrandTitle>
-            {branding.logoUrl ? (
-              <S.RestaurantLogo src={branding.logoUrl} alt={`Capa ${branding.name}`} />
-            ) : (
-              <Utensils size={32} strokeWidth={2.5} />
-            )}
+            {!hasCover ? <Utensils size={32} strokeWidth={2.5} /> : null}
             <span>{branding.name}</span>
           </S.BrandTitle>
+
           <S.BrandSubtitle>
             {isTechnicalAccess
               ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
@@ -364,8 +375,8 @@ export default function Login() {
           </S.BrandSubtitle>
         </S.BannerSection>
 
-        <S.FormSection>
-          <S.FormWrapper>
+        <S.FormSection data-testid="login-form-section">
+          <S.FormWrapper data-testid="login-card">
             <S.WelcomeText>{isTechnicalAccess ? 'Acesso técnico' : 'Bem-vindo!'}</S.WelcomeText>
             <S.FormSubtitle>
               {isTechnicalAccess
