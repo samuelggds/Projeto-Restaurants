@@ -35,15 +35,26 @@ export function useResolvedRestaurantId(slug: string) {
   useEffect(() => {
     if (!slug) return;
     let active = true;
-    restaurantSettingsService
-      .getPublicSettingsRevisionBySlug(slug)
-      .then((settings) => {
+
+    const resolveRestaurant = async () => {
+      try {
+        const revision = await restaurantSettingsService.getPublicSettingsRevisionBySlug(slug);
+        let id = toPositiveInteger(revision?.restaurantId);
+
+        if (!id) {
+          const settings = await restaurantSettingsService.getPublicSettingsBySlug(slug);
+          id = toPositiveInteger(settings?.restaurantId);
+        }
+
         if (!active) return;
-        const id = toPositiveInteger(settings?.restaurantId);
         setRestaurantId(id);
         if (id) localStorage.setItem('menuRestaurantId', String(id));
-      })
-      .catch(() => undefined);
+      } catch {
+        if (active) setRestaurantId(null);
+      }
+    };
+
+    void resolveRestaurant();
     return () => {
       active = false;
     };
