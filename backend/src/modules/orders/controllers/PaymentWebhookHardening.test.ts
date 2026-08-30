@@ -1,6 +1,7 @@
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 
 const originalHttpCreateServer = http.createServer;
 
@@ -33,6 +34,7 @@ type MockResponse = {
 };
 
 const originalFinalizeExecute = finalizeOrderCardPaymentService.execute;
+const originalFindRestaurantSettings = restaurantSettingsRepository.findByRestaurantId;
 const originalEnv = {
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
@@ -60,8 +62,13 @@ function createMockResponse(): MockResponse {
   };
 }
 
+beforeEach(() => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+});
+
 afterEach(() => {
   finalizeOrderCardPaymentService.execute = originalFinalizeExecute;
+  restaurantSettingsRepository.findByRestaurantId = originalFindRestaurantSettings;
 
   process.env.STRIPE_WEBHOOK_SECRET = originalEnv.STRIPE_WEBHOOK_SECRET;
   process.env.STRIPE_SECRET_KEY = originalEnv.STRIPE_SECRET_KEY;
