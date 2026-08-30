@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import styled from 'styled-components';
 import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
   Gift,
   LockKeyhole,
+  PanelBottomClose,
+  PanelBottomOpen,
   ShoppingBag,
   Sparkles,
   X,
@@ -13,6 +16,104 @@ import {
 import type { LoyaltyProgramProps, LoyaltyRewardProgress } from '../types';
 import { isActiveLoyaltyRedemption, loyaltyRedemptionEntries } from '../domain/loyaltyRedemption';
 import * as S from './LoyaltyProgramCard.styles';
+
+const FloatingGroup = styled.div`
+  width: min(350px, calc(100vw - 32px));
+  display: grid;
+  gap: 7px;
+
+  &[data-collapsed='true'] ~ * {
+    display: none !important;
+  }
+
+  @media (max-width: 700px) {
+    width: 100%;
+  }
+`;
+
+const GroupControl = styled.button`
+  width: 100%;
+  min-height: 56px;
+  padding: 9px 10px 9px 13px;
+  border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 32%, #eadfd3);
+  border-radius: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #302923;
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--home-primary, #d64d08) 7%, #fff),
+    #fff 62%
+  );
+  box-shadow: 0 10px 26px rgba(55, 38, 26, 0.13);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  strong,
+  small {
+    display: block;
+  }
+
+  strong {
+    color: #26211d;
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 900;
+  }
+
+  small {
+    color: #776d65;
+    font-size: 10px;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+
+  .action {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 7px 9px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: color-mix(in srgb, var(--home-primary, #d64d08) 88%, #2b211b);
+    background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
+    font-size: 10px;
+    font-weight: 900;
+  }
+
+  .action svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--home-primary, #d64d08) 52%, #eadfd3);
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-primary, #d64d08) 24%, transparent);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 350px) {
+    padding-left: 10px;
+
+    .action span {
+      display: none;
+    }
+  }
+`;
 
 function rewardLabel(discountType: 'PERCENTAGE' | 'FIXED', discount: number) {
   if (discountType === 'PERCENTAGE') return `${discount}% de desconto`;
@@ -122,6 +223,7 @@ function RewardCard({
 
 export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [floatingCollapsed, setFloatingCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -239,24 +341,45 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
   }
 
   return (
-    <>
-      <S.CompactNotice
-        ref={triggerRef}
-        type="button"
-        onClick={() => setIsOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        aria-busy={loyalty.loading}
-        aria-label={`${title}. ${description}`}
-      >
-        <i className="icon">{claimed || highlightedReward?.canRedeem ? <Sparkles /> : <Gift />}</i>
-        <span>
-          <strong>{title}</strong>
-          <small>{description}</small>
-        </span>
-        <b className="notice-badge">{badge}</b>
-        <ChevronRight className="chevron" size={18} />
-      </S.CompactNotice>
+    <FloatingGroup data-collapsed={loyalty.loggedIn && floatingCollapsed ? 'true' : 'false'}>
+      {loyalty.loggedIn && (
+        <GroupControl
+          type="button"
+          data-testid="customer-coupon-status-toggle"
+          aria-expanded={!floatingCollapsed}
+          aria-label={`${floatingCollapsed ? 'Mostrar' : 'Minimizar'} cupom, fidelidade e status do pedido`}
+          onClick={() => setFloatingCollapsed((collapsed) => !collapsed)}
+        >
+          <span>
+            <strong>Cupom e status</strong>
+            <small>Fidelidade • Pedido em andamento</small>
+          </span>
+          <span className="action" aria-hidden="true">
+            {floatingCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}
+            <span>{floatingCollapsed ? 'Mostrar' : 'Minimizar'}</span>
+          </span>
+        </GroupControl>
+      )}
+
+      {!floatingCollapsed && (
+        <S.CompactNotice
+          ref={triggerRef}
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          aria-busy={loyalty.loading}
+          aria-label={`${title}. ${description}`}
+        >
+          <i className="icon">{claimed || highlightedReward?.canRedeem ? <Sparkles /> : <Gift />}</i>
+          <span>
+            <strong>{title}</strong>
+            <small>{description}</small>
+          </span>
+          <b className="notice-badge">{badge}</b>
+          <ChevronRight className="chevron" size={18} />
+        </S.CompactNotice>
+      )}
 
       {isOpen &&
         createPortal(
@@ -360,6 +483,6 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
           </S.Backdrop>,
           document.body,
         )}
-    </>
+    </FloatingGroup>
   );
 }
