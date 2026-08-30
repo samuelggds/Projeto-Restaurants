@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "postinstall": "prisma generate",
     "test": "node scripts/runAllTests.mjs",
     "scripts:check": "node scripts/checkOperationalScripts.mjs",
     "credentials:encrypt": "node ./scripts/runTsxWithOsUserInfoFallback.cjs scripts/encryptGatewayCredentials.ts",
