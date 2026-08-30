@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 64" role="img" aria-label="Diners Club International">
+  <g fill="none" fill-rule="evenodd">
+    <path fill="#0079BE" d="M33 4h17c17 0 30 12 30 28S67 60 50 60H33C16 60 3 48 3 32S16 4 33 4Z"/>
+    <circle cx="35" cy="32" r="20" fill="#fff"/>
+    <path fill="#0079BE" d="M32 14v36a18 18 0 0 1 0-36Zm7 0a18 18 0 0 1 0 36V14Z"/>
+    <text x="88" y="29" fill="#123E7C" font-family="Arial, sans-serif" font-size="17" font-weight="700">DINERS CLUB</text>
+    <text x="88" y="47" fill="#123E7C" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1.5">INTERNATIONAL</text>
+  </g>
+</svg>

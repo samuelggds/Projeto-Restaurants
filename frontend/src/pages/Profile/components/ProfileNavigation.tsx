@@ -8,6 +8,7 @@ import {
   ShoppingBag,
   TicketPercent,
   UserRound,
+  WalletCards,
 } from 'lucide-react';
 import type { ProfilePageProps, ProfileView } from '../types';
 import * as S from '../Profile.styles';
@@ -18,6 +19,7 @@ const icons = {
   orders: ShoppingBag,
   coupons: TicketPercent,
   addresses: MapPin,
+  paymentMethods: WalletCards,
   favorites: Heart,
   personalData: UserRound,
   security: LockKeyhole,

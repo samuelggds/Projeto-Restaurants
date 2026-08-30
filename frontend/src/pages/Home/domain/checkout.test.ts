@@ -47,6 +47,23 @@ describe('checkout', () => {
     ).toBe('Opção indisponível');
   });
 
+  it('valida a identificação necessária para o pedido de visitante', () => {
+    const base = {
+      type: 'RETIRADA' as const,
+      customerPhone: '(85) 99999-9999',
+      customerName: 'Samuel Gomes',
+      customerCpf: '529.982.247-25',
+      requireGuestIdentity: true,
+      deliveryAddress: address,
+      cepStatus: 'idle' as const,
+      paymentMethod: 'card' as const,
+    };
+    expect(validateCheckout({ ...base, customerName: '' })?.title).toBe('Informe seu nome');
+    expect(validateCheckout({ ...base, customerCpf: '123' })?.title).toBe('CPF inválido');
+    expect(validateCheckout({ ...base, customerPhone: '8599' })?.title).toBe('Celular inválido');
+    expect(validateCheckout(base)).toBeNull();
+  });
+
   it('monta e normaliza o pedido', () => {
     const result = buildOrderPayload({
       restaurantId: 7,

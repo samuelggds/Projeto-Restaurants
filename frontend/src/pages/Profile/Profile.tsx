@@ -20,6 +20,9 @@ import { readJsonStorage } from '../../shared/storage/jsonStorage';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { LoyaltySummary } from '../Home/types';
 import type { ProfileFavorite } from './types';
+import customerPaymentMethodService, { type CustomerPaymentMethod } from '../../Services/customerPaymentMethodService';
+import { PaymentMethodModal } from './components/PaymentMethodModal';
+import { resolveProfileView } from './domain/profileView';
 
 function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -56,6 +59,8 @@ export default function Profile() {
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
   const [favorites, setFavorites] = useState<Record<string, unknown>[]>([]);
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<CustomerPaymentMethod[]>([]);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [addressModalOpen, setAddressModalOpen] = useState(
     () => searchParams.get('newAddress') === '1',
   );
@@ -150,6 +155,17 @@ export default function Profile() {
       active = false;
     };
   }, []);
+
+  const loadPaymentMethods = useCallback(async () => {
+    if (!restaurantId) { setPaymentMethods([]); return; }
+    try { setPaymentMethods(await customerPaymentMethodService.list(restaurantId)); }
+    catch { setPaymentMethods([]); }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadPaymentMethods(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadPaymentMethods]);
 
   useEffect(() => {
     let active = true;
@@ -326,8 +342,14 @@ export default function Profile() {
   return (
     <>
       <ProfilePage
-        data={data}
-        initialView={searchParams.get('view') === 'addresses' ? 'addresses' : 'overview'}
+        data={{
+          ...data,
+          user: {
+            ...data.user,
+            paymentLastDigits: paymentMethods.find((method) => method.isDefault)?.last4,
+          },
+        }}
+        initialView={resolveProfileView(searchParams.get('view'))}
         cartCount={0}
         onGoHome={() => navigate('/')}
         onOpenMenu={() => navigate('/')}
@@ -340,6 +362,19 @@ export default function Profile() {
         onDeactivateAccount={handleDeactivateAccount}
         onNewAddress={() => setAddressModalOpen(true)}
         onSelectAddress={selectAddress}
+        paymentMethods={paymentMethods}
+        onEditPayment={() => setPaymentModalOpen(true)}
+        onAddPaymentMethod={() => setPaymentModalOpen(true)}
+        onSelectPaymentMethod={async (publicId) => {
+          await customerPaymentMethodService.makeDefault(publicId);
+          await loadPaymentMethods();
+          toast.success('Cartão principal atualizado.');
+        }}
+        onRemovePaymentMethod={async (publicId) => {
+          await customerPaymentMethodService.remove(publicId);
+          await loadPaymentMethods();
+          toast.success('Cartão removido.');
+        }}
         onAddFavoriteToCart={handleAddFavoriteToCart}
         onToggleFavorite={async (productId) => {
           await favoritesService.remove(productId);
@@ -360,6 +395,17 @@ export default function Profile() {
       />
       {addressModalOpen && (
         <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />
+      )}
+      {paymentModalOpen && restaurantId && (
+        <PaymentMethodModal
+          restaurantId={restaurantId}
+          onClose={() => setPaymentModalOpen(false)}
+          onSaved={() => {
+            setPaymentModalOpen(false);
+            void loadPaymentMethods();
+            toast.success('Cartão cadastrado com segurança.');
+          }}
+        />
       )}
     </>
   );

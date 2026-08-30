@@ -5,6 +5,7 @@ import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { getMercadoPagoPreferenceApi } from '../../payments/providers/mercadoPagoClient.js';
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import prisma from '../../../config/prisma.js';
 
 type CheckoutOrder = {
   id: number;
@@ -50,6 +51,8 @@ export type CreateOrderCardCheckoutPayload = {
   successUrl?: string;
   cancelUrl?: string;
   couponRedemptionId?: number | string | null;
+  paymentMethodId?: string | null;
+  customerIp?: string | null;
 };
 
 export type CardCheckoutResult = {
@@ -57,6 +60,7 @@ export type CardCheckoutResult = {
   sessionId: string;
   checkoutUrl: string;
   persistenceSessionId?: string;
+  paymentApproved?: boolean;
 };
 
 type CardCheckoutProviderContext = {
@@ -119,6 +123,7 @@ type AsaasCustomerPayload = {
 type AsaasCardPaymentPayload = {
   id?: string;
   invoiceUrl?: string;
+  status?: string;
   errors?: AsaasErrorItem[];
 };
 
@@ -318,9 +323,30 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
 };
 
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ order, successUrlBase, cancelUrlBase }) {
+  async createCheckout({ payload, order, successUrlBase, cancelUrlBase }) {
     const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
     const marketplaceFee = Number(order.systemFee || 0);
+    const savedMethodId = String(payload.paymentMethodId || '').trim();
+    let payerEmail = '';
+
+    if (savedMethodId) {
+      const userId = Number(payload.userId || 0);
+      if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
+      const savedMethod = await prisma.customerPaymentMethod.findFirst({
+        where: {
+          publicId: savedMethodId,
+          userId,
+          restaurantId: order.restaurantId,
+          provider: 'MERCADO_PAGO',
+          active: true,
+        },
+      });
+      if (!savedMethod?.providerCustomerId) {
+        throw new Error('O cartão selecionado não foi encontrado no Mercado Pago.');
+      }
+      const payer = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      payerEmail = String(payer?.email || '').trim();
+    }
 
     const buildPreferenceBody = (includeMarketplaceFee: boolean) => ({
       items: [
@@ -339,6 +365,7 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
         restaurant_id: String(order.restaurantId),
         source: 'order_card_checkout',
       },
+      ...(payerEmail ? { payer: { email: payerEmail } } : {}),
       ...(includeMarketplaceFee && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee } : {}),
       ...mercadoPagoOrderNotificationFields(order.restaurantId),
       back_urls: {
@@ -409,8 +436,89 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
 };
 
 const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ order, successUrlBase }) {
+  async createCheckout({ payload, order, successUrlBase }) {
     const { email, token, environment } = await getPagBankCredentials(order.restaurantId);
+
+    const savedMethodId = String(payload.paymentMethodId || '').trim();
+    if (savedMethodId) {
+      const userId = Number(payload.userId || 0);
+      if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
+      const savedMethod = await prisma.customerPaymentMethod.findFirst({
+        where: {
+          publicId: savedMethodId,
+          userId,
+          restaurantId: order.restaurantId,
+          provider: 'PAGBANK',
+          active: true,
+        },
+      });
+      if (!savedMethod) throw new Error('O cartão selecionado não foi encontrado.');
+      const cpf = String(payload.customerCpf || '').replace(/\D/g, '');
+      if (![11, 14].includes(cpf.length)) {
+        throw new Error('Cadastre um CPF válido nos seus dados pessoais para pagar com cartão salvo.');
+      }
+      const apiBaseUrl = String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
+        .trim()
+        .replace(/\/+$/, '');
+      const response = await fetch(`${apiBaseUrl}/orders`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'x-idempotency-key': `order-card-${order.restaurantId}-${order.id}`,
+        },
+        body: JSON.stringify({
+          reference_id: `ordercard:${order.id}:${order.restaurantId}`,
+          customer: {
+            name: String(payload.customerName || 'Cliente').trim(),
+            tax_id: cpf,
+          },
+          items: [{
+            reference_id: String(order.id),
+            name: `Pedido #${order.id}`,
+            quantity: 1,
+            unit_amount: Math.round(Number(order.total || 0) * 100),
+          }],
+          charges: [{
+            reference_id: `ordercard:${order.id}:${order.restaurantId}`,
+            description: `Pedido #${order.id}`,
+            amount: { value: Math.round(Number(order.total || 0) * 100), currency: 'BRL' },
+            payment_method: {
+              type: 'CREDIT_CARD',
+              installments: 1,
+              capture: true,
+              card: { id: savedMethod.providerPaymentMethodId },
+              holder: { name: savedMethod.holderName || String(payload.customerName || 'Cliente'), tax_id: cpf },
+            },
+          }],
+          ...(resolvePagBankNotificationUrl(order.restaurantId)
+            ? { notification_urls: [resolvePagBankNotificationUrl(order.restaurantId)] }
+            : {}),
+        }),
+      });
+      const responseBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const charges = Array.isArray(responseBody.charges) ? responseBody.charges : [];
+      const charge = (charges[0] || {}) as Record<string, unknown>;
+      if (!response.ok) {
+        const errors = Array.isArray(responseBody.error_messages) ? responseBody.error_messages : [];
+        const first = errors[0] as { description?: unknown } | undefined;
+        throw new Error(String(first?.description || responseBody.message || 'O PagBank recusou o pagamento.'));
+      }
+      const status = String(charge.status || '').toUpperCase();
+      const transactionId = String(charge.id || responseBody.id || '').trim();
+      if (!transactionId) throw new Error('O PagBank não retornou a identificação do pagamento.');
+      return {
+        provider: CARD_PROVIDERS.PAGBANK,
+        sessionId: transactionId,
+        persistenceSessionId: `pagbank_tx:${transactionId}`,
+        checkoutUrl: withQueryParam(successUrlBase, {
+          cardCheckoutStatus: status === 'PAID' ? 'success' : 'pending',
+          orderId: String(order.id),
+        }),
+        paymentApproved: status === 'PAID',
+      };
+    }
 
     const params = new URLSearchParams();
     params.set('email', email);
@@ -468,9 +576,68 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
 };
 
 const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
-  async createCheckout({ payload, order }) {
+  async createCheckout({ payload, order, successUrlBase }) {
     const asaasBaseUrl = resolveAsaasBaseUrl();
     const accessToken = await getAsaasAccessToken(order.restaurantId);
+    const savedMethodId = String(payload.paymentMethodId || '').trim();
+
+    if (savedMethodId) {
+      const userId = Number(payload.userId || 0);
+      if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
+      const savedMethod = await prisma.customerPaymentMethod.findFirst({
+        where: {
+          publicId: savedMethodId,
+          userId,
+          restaurantId: order.restaurantId,
+          provider: 'ASAAS',
+          active: true,
+        },
+      });
+      if (!savedMethod?.providerCustomerId) {
+        throw new Error('O cartão selecionado não foi encontrado no Asaas.');
+      }
+
+      const paymentResult = await fetchAsaasJson<AsaasCardPaymentPayload>(
+        `${asaasBaseUrl}/v3/payments`,
+        accessToken,
+        {
+          method: 'POST',
+          body: {
+            customer: savedMethod.providerCustomerId,
+            billingType: 'CREDIT_CARD',
+            value: Number(order.total || 0),
+            dueDate: new Date().toISOString().slice(0, 10),
+            description: `Pedido #${order.id}`,
+            externalReference: `ordercard:${order.id}:${order.restaurantId}`,
+            creditCardToken: savedMethod.providerPaymentMethodId,
+            remoteIp: String(payload.customerIp || '').trim() || undefined,
+          },
+        },
+      );
+
+      if (!paymentResult.ok) {
+        throw new Error(
+          getAsaasError(paymentResult.responseBody, 'O Asaas recusou o pagamento com o cartão salvo.'),
+        );
+      }
+
+      const sessionId = String(paymentResult.responseBody?.id || '').trim();
+      const status = String(paymentResult.responseBody?.status || '').trim().toUpperCase();
+      if (!sessionId) throw new Error('O Asaas não retornou a identificação do pagamento.');
+      const paymentApproved = ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].includes(status);
+
+      return {
+        provider: CARD_PROVIDERS.ASAAS,
+        sessionId,
+        persistenceSessionId: `asaas_pay:${sessionId}`,
+        checkoutUrl: withQueryParam(successUrlBase, {
+          cardCheckoutStatus: paymentApproved ? 'success' : 'pending',
+          orderId: String(order.id),
+        }),
+        paymentApproved,
+      };
+    }
+
     const payerEmail = String(payload.userId ? '' : '').trim();
     const customerName = String(payload.customerName || 'Cliente').trim();
     const cpf = String(payload.customerCpf || '').replace(/\D/g, '');

@@ -5,6 +5,7 @@ export const profileTabs: [ProfileView, string][] = [
   ['orders', 'Meus pedidos'],
   ['coupons', 'Meus cupons'],
   ['addresses', 'Endereços'],
+  ['paymentMethods', 'Meus cartões'],
   ['favorites', 'Favoritos'],
   ['personalData', 'Dados pessoais'],
   ['security', 'Segurança'],

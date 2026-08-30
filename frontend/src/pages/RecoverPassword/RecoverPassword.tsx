@@ -126,7 +126,10 @@ export default function RecoverPassword() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
+        <S.BannerSection
+          $hasLogo={Boolean(branding.logoUrl)}
+          data-has-cover={branding.logoUrl ? 'true' : 'false'}
+        >
           <S.BrandTitle>
             {branding.logoUrl ? (
               <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />

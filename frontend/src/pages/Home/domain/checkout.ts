@@ -14,9 +14,26 @@ function optionalCustomerPhone(value: unknown) {
   return digits.length >= 10 && digits.length <= 13 ? phone : undefined;
 }
 
+function isValidCpf(value: unknown) {
+  const cpf = String(value || '').replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digit = (length: number) => {
+    const sum = cpf
+      .slice(0, length)
+      .split('')
+      .reduce((total, item, index) => total + Number(item) * (length + 1 - index), 0);
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+  return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
+}
+
 type ValidationInput = {
   type: OrderType;
   customerPhone: unknown;
+  customerName?: unknown;
+  customerCpf?: unknown;
+  requireGuestIdentity?: boolean;
   deliveryAddress: DeliveryAddress;
   cepStatus: 'idle' | 'loading' | 'success' | 'error';
   paymentMethod: CheckoutPaymentMethod;
@@ -28,7 +45,25 @@ export function resolveOrderType(mesaMode: boolean, orderType: 'delivery' | 'pic
 }
 
 export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
-  const { type, customerPhone, deliveryAddress, cepStatus, paymentMethod } = input;
+  const {
+    type,
+    customerPhone,
+    customerName,
+    customerCpf,
+    requireGuestIdentity,
+    deliveryAddress,
+    cepStatus,
+    paymentMethod,
+  } = input;
+  if (requireGuestIdentity) {
+    if (String(customerName || '').trim().length < 2)
+      return { title: 'Informe seu nome', message: 'Digite seu nome para identificar o pedido.' };
+    if (!isValidCpf(customerCpf))
+      return { title: 'CPF inválido', message: 'Informe um CPF válido com 11 dígitos.' };
+    const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 13)
+      return { title: 'Celular inválido', message: 'Informe um celular com DDD para acompanhar o pedido.' };
+  }
   if (type === 'DELIVERY') {
     const addressErrors = validateDeliveryAddress(deliveryAddress);
     const firstAddressError = Object.values(addressErrors)[0];
@@ -156,6 +191,7 @@ export function buildOrderPayload(input: PayloadInput) {
       ...(couponRedemptionId ? { couponRedemptionId } : {}),
       tableId: type === 'MESA' ? tableId || undefined : undefined,
       customerName: String(customer.name || 'Cliente'),
+      customerCpf: String(customer.cpf || '').replace(/\D/g, '') || undefined,
       ...(customerPhone ? { customerPhone } : {}),
       address: deliveryAddress.address.trim(),
       number: deliveryAddress.number.trim(),

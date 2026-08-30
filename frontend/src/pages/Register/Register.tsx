@@ -84,7 +84,10 @@ export default function Register() {
         </S.TopBar>
 
         {/* LADO ESQUERDO: BANNER INSTITUCIONAL PADRÃO */}
-        <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
+        <S.BannerSection
+          $hasLogo={Boolean(branding.logoUrl)}
+          data-has-cover={branding.logoUrl ? 'true' : 'false'}
+        >
           <S.BrandTitle>
             {branding.logoUrl ? (
               <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />

@@ -5,6 +5,7 @@ import http from 'node:http';
 
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
+import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 
 const originalHttpCreateServer = http.createServer;
@@ -30,6 +31,7 @@ const originalRepositoryMethods = {
 const originalCreateOrderExecute = createOrderService.execute;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalDeleteById = orderRepository.deleteById;
+const originalFindCustomerPaymentMethod = prisma.customerPaymentMethod.findFirst;
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
@@ -37,6 +39,7 @@ afterEach(() => {
   createOrderService.execute = originalCreateOrderExecute;
   orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
   orderRepository.deleteById = originalDeleteById;
+  prisma.customerPaymentMethod.findFirst = originalFindCustomerPaymentMethod;
   globalThis.fetch = originalFetch;
   delete process.env.BACKEND_URL;
   delete process.env.PAGBANK_EMAIL;
@@ -260,4 +263,65 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
   assert.equal(paymentBodies.length, 2);
   assert.ok(Array.isArray(paymentBodies[0].split));
   assert.equal(paymentBodies[1].split, undefined);
+});
+
+test('deve reutilizar token Asaas sem expor os dados completos do cartão', async () => {
+  let paymentBody = null;
+  let savedSessionId = null;
+
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    cardGateway: 'ASAAS',
+    asaasAccessToken: 'asaas-token-restaurante',
+  });
+  createOrderService.execute = async () => ({
+    id: 655,
+    restaurantId: 9,
+    total: 89.9,
+    systemFee: 0,
+    restaurant: { name: 'Pizzaria da Ana' },
+  });
+  prisma.customerPaymentMethod.findFirst = async () => ({
+    publicId: 'saved-card-public-id',
+    providerCustomerId: 'cus_saved_001',
+    providerPaymentMethodId: 'tok_saved_001',
+    active: true,
+  });
+  orderRepository.setCardCheckoutSessionId = async (_orderId, _restaurantId, sessionId) => {
+    savedSessionId = sessionId;
+  };
+  globalThis.fetch = async (input, init = {}) => {
+    assert.match(String(input), /\/v3\/payments$/);
+    paymentBody = JSON.parse(String(init.body || '{}'));
+    return new Response(JSON.stringify({ id: 'pay_saved_001', status: 'PENDING' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const result = await createOrderCardCheckoutService.execute({
+    userId: 33,
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: 'DELIVERY',
+    paymentMethod: 'CARTAO',
+    paymentMethodId: 'saved-card-public-id',
+    customerIp: '203.0.113.42',
+    items: [{ productId: 1, quantity: 1 }],
+    successUrl: 'https://pedido.local/sucesso',
+  });
+
+  assert.equal(result.provider, 'ASAAS');
+  assert.equal(result.sessionId, 'pay_saved_001');
+  assert.equal(result.paid, false);
+  assert.equal(savedSessionId, 'asaas_pay:pay_saved_001');
+  assert.deepEqual(paymentBody, {
+    customer: 'cus_saved_001',
+    billingType: 'CREDIT_CARD',
+    value: 89.9,
+    dueDate: new Date().toISOString().slice(0, 10),
+    description: 'Pedido #655',
+    externalReference: 'ordercard:655:9',
+    creditCardToken: 'tok_saved_001',
+    remoteIp: '203.0.113.42',
+  });
 });

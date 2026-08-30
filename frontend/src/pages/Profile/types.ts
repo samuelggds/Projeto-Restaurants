@@ -21,7 +21,12 @@ export type ProfileUser = {
 
 export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
 export type ProfileView =
-  'overview' | 'orders' | 'coupons' | 'addresses' | 'favorites' | 'personalData' | 'security';
+  'overview' | 'orders' | 'coupons' | 'addresses' | 'paymentMethods' | 'favorites' | 'personalData' | 'security';
+
+export type ProfilePaymentMethod = {
+  publicId: string; provider: string; brand: string; last4: string; expMonth: number; expYear: number;
+  holderName?: string | null; isDefault: boolean;
+};
 
 export type ProfileOrder = {
   id: string;
@@ -90,6 +95,10 @@ export type ProfilePageProps = {
   onNewAddress?: () => void;
   onSelectAddress?: (addressId: string) => void | Promise<void>;
   onEditPayment?: () => void;
+  paymentMethods?: ProfilePaymentMethod[];
+  onAddPaymentMethod?: () => void;
+  onSelectPaymentMethod?: (publicId: string) => void | Promise<void>;
+  onRemovePaymentMethod?: (publicId: string) => void | Promise<void>;
   onOpenFavorites?: () => void;
   onToggleFavorite?: (productId: string) => void | Promise<void>;
   onAddFavoriteToCart?: (favorite: ProfileFavorite) => void;

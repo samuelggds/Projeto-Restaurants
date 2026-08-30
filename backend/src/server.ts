@@ -12,7 +12,7 @@ import prisma from './config/prisma.js';
 import { registerRealtimeTransport } from './realtime/realtimePublisher.js';
 import { createSocketIoRealtimeTransport } from './realtime/socketIoRealtimeTransport.js';
 import { createJobScheduler } from './jobs/runtime.js';
-import { safeErrorName } from './services/telemetrySanitizer.js';
+import { safeErrorName, safeErrorSummary } from './services/telemetrySanitizer.js';
 
 const server = http.createServer(app);
 const apiJobScheduler = createJobScheduler('api');
@@ -95,8 +95,9 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (error) => {
   const errorType = safeErrorName(error);
-  console.error('[UNCAUGHT_EXCEPTION]', { errorType });
+  const errorSummary = safeErrorSummary(error);
+  console.error('[UNCAUGHT_EXCEPTION]', { errorType, errorSummary });
   Sentry.captureException(error);
-  void notifyCriticalError('[UNCAUGHT_EXCEPTION]', { errorType });
+  void notifyCriticalError('[UNCAUGHT_EXCEPTION]', { errorType, errorSummary });
   void shutdown('SIGTERM', 1);
 });

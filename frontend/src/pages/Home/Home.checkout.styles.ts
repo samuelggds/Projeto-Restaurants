@@ -495,6 +495,90 @@ export const PaymentGrid = styled.div`
     grid-template-columns: 1fr;
   }
 `;
+export const SavedPaymentChooser = styled.div`
+  display: grid; gap: 8px; margin-top: 10px;
+  > button, > a { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: var(--text); padding: 11px 13px; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; text-decoration: none; transition: border-color .2s, transform .2s, background .2s, box-shadow .2s; }
+  > button:hover, > a:hover { transform: translateY(-1px); border-color: var(--primary); }
+  > button.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, white); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 12%, transparent); }
+  span { display: flex; flex-direction: column; gap: 2px; }
+  small { color: var(--muted); }
+  > a.add {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 66px;
+    padding: 11px 12px;
+    border-color: #e6ded7;
+    border-radius: 14px;
+    background: #fbfaf8;
+    color: #27231f;
+    box-shadow: 0 6px 18px rgba(38, 31, 25, .05);
+  }
+  > a.add:hover {
+    border-color: color-mix(in srgb, var(--primary) 45%, #e6ded7);
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(38, 31, 25, .09);
+  }
+  .add-icon {
+    width: 38px; height: 38px; border-radius: 11px;
+    display: grid; place-items: center;
+    background: color-mix(in srgb, var(--primary) 10%, #f5f1ed);
+    color: var(--primary);
+  }
+  .add-copy { min-width: 0; gap: 3px; }
+  .add-copy b { color: #27231f; font-size: 12px; line-height: 1.25; }
+  .add-copy small { overflow: hidden; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+  .add-arrow { color: #9b938c; transition: color .2s, transform .2s; }
+  > a.add:hover .add-arrow { color: var(--primary); transform: translateX(2px); }
+`;
+export const CardAccountNotice = styled.div`
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px;
+  margin: 4px 0 12px; padding: 14px; border: 1px solid #d9d0ff; border-radius: 14px;
+  background: linear-gradient(135deg, #f8f6ff, #fff); color: #292342;
+  animation: cardNoticeIn .28s ease-out both;
+  @keyframes cardNoticeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+  .notice-icon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: #ebe7ff; color: #5842c3; }
+  .notice-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .notice-copy b { font-size: 13px; }
+  .notice-copy span { color: #686178; font-size: 11px; line-height: 1.45; }
+  .notice-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button { min-height: 38px; border: 1px solid #d9d0ff; border-radius: 10px; background: #fff; color: #4a3a9b; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: transform .18s, box-shadow .18s; }
+  button:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(73, 53, 159, .12); }
+  button.primary { border-color: #5943c7; background: #5943c7; color: #fff; }
+  button.guest { grid-column: 1 / -1; border-color: #cdc4f5; background: #f1eeff; color: #392985; }
+  @media (max-width: 360px) { .notice-actions { grid-template-columns: 1fr; } }
+`;
+
+export const GuestCheckoutForm = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid #e7ddd2;
+  border-radius: 14px;
+  background: #fcfaf7;
+  animation: guestCheckoutIn 0.25s ease-out both;
+  @keyframes guestCheckoutIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .guest-heading, .full { grid-column: 1 / -1; }
+  .guest-heading { display: flex; flex-direction: column; gap: 3px; }
+  .guest-heading b { font-size: 13px; color: #2d2925; }
+  .guest-heading span, small { color: #756e67; font-size: 10px; line-height: 1.4; }
+  label { display: grid; gap: 5px; min-width: 0; }
+  label > span { color: #514b44; font-size: 11px; font-weight: 750; }
+  input {
+    width: 100%; height: 40px; padding: 0 11px; border: 1px solid #dcd2c7;
+    border-radius: 10px; background: #fff; color: #241f1b; font: inherit; font-size: 12px;
+    outline: none; transition: border-color .2s, box-shadow .2s;
+  }
+  input:focus { border-color: var(--primary, #d65a38); box-shadow: 0 0 0 3px rgba(214, 90, 56, .1); }
+  @media (max-width: 390px) {
+    grid-template-columns: 1fr;
+    .guest-heading, .full { grid-column: 1; }
+  }
+`;
 
 export const AddressForm = styled.div`
   display: grid;

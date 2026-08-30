@@ -114,9 +114,7 @@ const accountProtectionToggles: ReadonlyArray<{
 ];
 
 function money(cents: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    cents / 100,
-  );
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 }
 
 function minuteToTime(value: number) {
@@ -432,9 +430,7 @@ export function TableAccountSettings({ settings, update }: Props) {
                 <option value="America/Rio_Branco">Rio Branco</option>
                 <option value="America/Noronha">Fernando de Noronha</option>
               </select>
-              {validation.timeZone && (
-                <small className="field-error">{validation.timeZone}</small>
-              )}
+              {validation.timeZone && <small className="field-error">{validation.timeZone}</small>}
             </label>
           </S.Fields>
         </S.Card>
@@ -640,7 +636,8 @@ export function TableAccountSettings({ settings, update }: Props) {
                 </div>
                 <div className="actions">
                   <span className="meta">
-                    {session.summary.participantsCount} participante(s) · {session.itemsCount} item(ns)
+                    {session.summary.participantsCount} participante(s) · {session.itemsCount}{' '}
+                    item(ns)
                   </span>
                   <div>
                     <S.Button
@@ -704,7 +701,9 @@ export function TableAccountSettings({ settings, update }: Props) {
                                 $danger
                                 type="button"
                                 disabled={busyId === payment.publicId}
-                                onClick={() => void refund(payment.publicId, session.sessionPublicId)}
+                                onClick={() =>
+                                  void refund(payment.publicId, session.sessionPublicId)
+                                }
                               >
                                 Estornar
                               </S.Button>

@@ -4,6 +4,7 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
+import { isValidCpf } from './pixPayload.js';
 import {
   PaymentMethod,
   Prisma,
@@ -165,7 +166,7 @@ class CreateOrderService {
       throw new Error('Informe o nome para finalizar o pedido.');
     }
 
-    if (cpfDigits.length !== 11) {
+    if (!isValidCpf(cpfDigits)) {
       throw new Error('Informe um CPF válido com 11 dígitos.');
     }
 

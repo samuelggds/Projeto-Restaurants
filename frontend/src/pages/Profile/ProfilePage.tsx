@@ -27,6 +27,8 @@ import { ProfileNavigation } from './components/ProfileNavigation';
 import { LoyaltyWallet } from './components/LoyaltyWallet';
 import { profileTabs as tabs } from './config/profileTabs';
 import { profileMockData } from './data';
+import { getCardBrandDetails } from './domain/cardBrand';
+import { CardBrandLogo } from './components/CardBrandLogo';
 import * as S from './Profile.styles';
 import type { ProfileOrder, ProfileOrderStatus, ProfilePageProps, ProfileView } from './types';
 
@@ -124,6 +126,7 @@ export function ProfilePage(props: ProfilePageProps) {
                   onViewAllOrders={() => setView('orders')}
                   onOpenFavorites={() => setView('favorites')}
                   onOpenCoupons={() => setView('coupons')}
+                  onEditPayment={() => setView('paymentMethods')}
                   data={data}
                 />
               )}
@@ -139,6 +142,7 @@ export function ProfilePage(props: ProfilePageProps) {
                 />
               )}
               {view === 'addresses' && <Addresses {...props} data={data} />}
+              {view === 'paymentMethods' && <PaymentMethods {...props} />}
               {view === 'favorites' && <Favorites {...props} data={data} />}
               {view === 'personalData' && <PersonalData {...props} data={data} />}
               {view === 'security' && <Security {...props} />}
@@ -147,6 +151,41 @@ export function ProfilePage(props: ProfilePageProps) {
         </S.Layout>
       </S.Page>
     </S.Root>
+  );
+}
+
+function PaymentMethods({ paymentMethods = [], onAddPaymentMethod, onSelectPaymentMethod, onRemovePaymentMethod }: ProfilePageProps) {
+  return (
+    <>
+      <S.ViewHeader>
+        <div><h2>Meus cartões</h2><p>Escolha o cartão principal usado para pagamentos rápidos e seguros.</p></div>
+        <button type="button" onClick={onAddPaymentMethod}><Plus size={17} /> Adicionar cartão</button>
+      </S.ViewHeader>
+      <S.PaymentMethodGrid>
+        {paymentMethods.map((method) => {
+          const brand = getCardBrandDetails(method.brand);
+          return (
+            <S.SavedCard key={method.publicId} $default={method.isDefault} $brand={brand.id}>
+              <header>
+                <span className="saved-card-chip" aria-hidden="true" />
+                <span className="saved-card-brand">{method.isDefault && <b>Principal</b>}<CardBrandLogo brand={brand.id} /></span>
+              </header>
+              <strong>•••• •••• •••• {method.last4}</strong>
+              <div className="saved-card-details">
+                <span><small>Titular</small><b>{method.holderName || 'Cartão salvo'}</b></span>
+                <span><small>Validade</small><b>{String(method.expMonth).padStart(2, '0')}/{String(method.expYear).slice(-2)}</b></span>
+              </div>
+              <footer>
+                {!method.isDefault && <button type="button" onClick={() => onSelectPaymentMethod?.(method.publicId)}>Usar como principal</button>}
+                <button type="button" className="danger" onClick={() => onRemovePaymentMethod?.(method.publicId)}><Trash2 size={15} /> Remover</button>
+              </footer>
+            </S.SavedCard>
+          );
+        })}
+        {!paymentMethods.length && <S.Empty>Nenhum cartão cadastrado. Adicione um cartão para pagar sem digitar os dados a cada pedido.</S.Empty>}
+      </S.PaymentMethodGrid>
+      <S.PaymentProtection><ShieldCheck /> <span><b>Pagamento protegido</b>O provedor de pagamento protege os dados sensíveis. Este site armazena somente o token seguro e os quatro últimos dígitos.</span></S.PaymentProtection>
+    </>
   );
 }
 

@@ -26,6 +26,7 @@ import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCa
 import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoutes.js';
 import superAdminRoutes from '../modules/superAdmin/routes/SuperAdminRoutes.js';
 import publicMediaRoutes from '../modules/publicMedia/routes/PublicMediaRoutes.js';
+import customerPaymentMethodRoutes from '../modules/customerPaymentMethods/routes/CustomerPaymentMethodRoutes.js';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.use('/audit-logs', auditRoutes);
 router.use('/favorites', favoriteRoutes);
 router.use('/image-enhancement', imageEnhancementRoutes);
 router.use('/customer-addresses', customerAddressRoutes);
+router.use('/customer-payment-methods', customerPaymentMethodRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/public-media', publicMediaRoutes);
 

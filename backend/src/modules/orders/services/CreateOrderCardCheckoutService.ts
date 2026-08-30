@@ -15,6 +15,7 @@ import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import prisma from '../../../config/prisma.js';
 import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 
 class CreateOrderCardCheckoutService {
   async resolveCardProvider(payload: CreateOrderCardCheckoutPayload) {
@@ -112,11 +113,20 @@ class CreateOrderCardCheckoutService {
       );
     }
 
+    if (checkout.paymentApproved) {
+      await finalizeOrderCardPaymentService.execute({
+        orderId: createdOrder.id,
+        restaurantId: createdOrder.restaurantId,
+        checkoutSessionId: String(checkout.persistenceSessionId || checkout.sessionId),
+      });
+    }
+
     return {
       orderId: createdOrder.id,
       provider: checkout.provider,
       sessionId: checkout.sessionId,
       checkoutUrl: checkout.checkoutUrl,
+      paid: Boolean(checkout.paymentApproved),
     };
   }
 }

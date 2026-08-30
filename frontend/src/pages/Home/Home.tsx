@@ -23,6 +23,10 @@ import { TableAccessGate } from './components/TableAccessGate';
 import { CartItemsList } from '../Home/components/CartItemsList';
 import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
+import {
+  GuestCheckoutForm,
+  type GuestCheckoutDetails,
+} from '../Home/components/GuestCheckoutForm';
 import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
 import { CartCheckoutSummary } from '../Home/components/CartCheckoutSummary';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
@@ -89,6 +93,11 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(() => Boolean(navigationState?.openCart));
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('pix');
+  const [guestCheckoutDetails, setGuestCheckoutDetails] = useState<GuestCheckoutDetails>({
+    name: '',
+    cpf: '',
+    phone: '',
+  });
   const {
     deliveryAddress,
     setDeliveryAddress,
@@ -432,17 +441,15 @@ export default function Home() {
       return;
     }
 
-    const customer = (user || {}) as Record<string, unknown>;
+    const customer = (user || guestCheckoutDetails) as Record<string, unknown>;
     const type = checkoutOrderType;
-
-    if (!mesaMode && !user) {
-      navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
-      return;
-    }
 
     const issue = validateCheckout({
       type,
       customerPhone: customer.phone,
+      customerName: customer.name,
+      customerCpf: customer.cpf,
+      requireGuestIdentity: !user,
       deliveryAddress,
       cepStatus,
       paymentMethod: selectedCheckoutPaymentMethod,
@@ -748,6 +755,13 @@ export default function Home() {
               />
             )}
 
+            {cart.length > 0 && !mesaMode && !user && (
+              <GuestCheckoutForm
+                value={guestCheckoutDetails}
+                onChange={setGuestCheckoutDetails}
+              />
+            )}
+
             {cart.length > 0 && !mesaMode && availableOrderType === 'delivery' && (
               <DeliveryAddressForm
                 address={deliveryAddress}
@@ -782,6 +796,8 @@ export default function Home() {
                 allowPayOnDelivery={allowPayOnDelivery}
                 allowPix={homeData.acceptsPix}
                 allowCard={homeData.acceptsCard}
+                restaurantId={restaurantId}
+                loggedIn={Boolean(user)}
                 onChange={setPaymentMethod}
               />
             )}

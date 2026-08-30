@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
 import type { CheckoutPaymentMethod } from '../domain/checkout';
+import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
 
 export type PixPaymentData = {
   orderId: number | null;
@@ -159,8 +160,14 @@ export function useCheckoutPayments(options: Options) {
         return true;
       }
 
+      const savedMethods = restaurantId
+        ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
+        : [];
+      const storedMethodId = restaurantId ? localStorage.getItem(`selectedCustomerPaymentMethodId:${restaurantId}`) : '';
+      const selectedSavedMethod = savedMethods.find((method) => method.publicId === storedMethodId) || savedMethods.find((method) => method.isDefault) || savedMethods[0];
       const result = await ordersService.createCardCheckout({
         ...payload,
+        ...(selectedSavedMethod ? { paymentMethodId: selectedSavedMethod.publicId } : {}),
         successUrl: window.location.href,
         cancelUrl: window.location.href,
       });
@@ -170,7 +177,13 @@ export function useCheckoutPayments(options: Options) {
       }
       onPurchased();
       onClearCart();
-      window.location.assign(checkoutUrl);
+      if (result.paid) {
+        onCloseCart();
+        await onPaymentConfirmed();
+        notify('success', 'Pagamento aprovado', `Pedido #${String(result.orderId || '')} confirmado automaticamente.`, 5000);
+      } else {
+        window.location.assign(checkoutUrl);
+      }
       return true;
     } catch (error: unknown) {
       notify(
