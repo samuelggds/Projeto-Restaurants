@@ -38,7 +38,7 @@ export const Container = styled.div`
   position: relative;
 
   @media (max-width: 968px) {
-    --mobile-cover-height: clamp(180px, 52vw, 248px);
+    --mobile-cover-height: clamp(230px, 67vw, 330px);
     --mobile-overlap: 24px;
 
     flex-direction: column;
