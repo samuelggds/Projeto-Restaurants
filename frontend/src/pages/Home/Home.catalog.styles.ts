@@ -813,27 +813,49 @@ export const CategoryPlaceholder = styled.span`
 
 export const Footer = styled.footer`
   margin-top: 64px;
-  background: #201d1a;
+  background:
+    radial-gradient(
+      circle at 85% 0%,
+      color-mix(in srgb, var(--home-primary) 13%, transparent),
+      transparent 34%
+    ),
+    #1c1917;
   color: #fff;
 `;
 export const FooterContent = styled.div`
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 44px 0 36px;
+  padding: 48px 0 40px;
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) 1fr 1fr;
-  gap: 48px;
-  @media (max-width: 760px) {
+  grid-template-columns: minmax(260px, 1fr) minmax(190px, 0.7fr) minmax(390px, 1.5fr);
+  align-items: stretch;
+  gap: 18px;
+
+  @media (max-width: 980px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > :last-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 680px) {
     width: min(100% - 24px, 560px);
     grid-template-columns: 1fr;
-    gap: 28px;
-    padding: 36px 0 30px;
+    gap: 14px;
+    padding: 28px 0 24px;
+
+    > :last-child {
+      grid-column: 1;
+    }
   }
 `;
 export const FooterBrand = styled.div`
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  padding: 4px 0;
   img,
   > span {
     width: 58px;
@@ -853,9 +875,11 @@ export const FooterBrand = styled.div`
   div {
     display: grid;
     gap: 6px;
+    min-width: 0;
   }
   strong {
     font-size: 18px;
+    overflow-wrap: anywhere;
   }
   small {
     color: #aaa39c;
@@ -866,10 +890,13 @@ export const FooterColumn = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 11px;
+  gap: 14px;
+  min-width: 0;
+  padding: 4px 0;
   > strong {
-    margin-bottom: 4px;
-    font-size: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--home-primary);
+    font-size: 15px;
   }
   a,
   span {
@@ -878,7 +905,6 @@ export const FooterColumn = styled.div`
     gap: 8px;
     color: #aaa39c;
     font-size: 14px;
-    margin-top: auto;
     line-height: 1.45;
     text-decoration: none;
   }
@@ -886,22 +912,116 @@ export const FooterColumn = styled.div`
     cursor: pointer;
     transition:
       color 180ms ease,
-      transform 180ms ease;
+      transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
   }
   a:hover {
     color: #fff;
-    transform: translateX(3px);
+    transform: translateY(-2px);
+  }
+  a:active {
+    transform: translateY(0) scale(0.98);
   }
   svg {
     flex: 0 0 auto;
     margin-top: 2px;
     color: var(--home-primary);
+    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  a:hover svg {
+    transform: translateX(2px) scale(1.08);
+  }
+`;
+
+export const FooterNavigation = styled.nav`
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+
+  > a {
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 0;
+    align-items: center;
+    position: relative;
+  }
+
+  > a::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 2px;
+    left: 0;
+    height: 1px;
+    background: var(--home-primary);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  > a:hover::after,
+  > a:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  @media (max-width: 680px) and (min-width: 381px) {
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+
+    > a {
+      justify-content: center;
+      text-align: center;
+    }
+  }
+`;
+
+export const FooterContactGrid = styled.div`
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+`;
+
+export const FooterContactItem = styled.div<{ $wide?: boolean }>`
+  min-width: 0;
+  grid-column: ${({ $wide }) => ($wide ? '1 / -1' : 'auto')};
+
+  > a,
+  > span {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 0;
+    min-height: 34px;
+    padding: 6px 0;
+    align-items: center;
+    overflow-wrap: anywhere;
+  }
+
+  > span {
+    color: #c9c3bd;
+  }
+
+  > a:focus-visible {
+    color: #fff;
+    outline: 2px solid color-mix(in srgb, var(--home-primary) 70%, white);
+    outline-offset: 4px;
   }
 `;
 export const FooterBottom = styled.div`
   border-top: 1px solid #ffffff14;
-  padding: 18px 20px;
-  color: #817b75;
+  padding: 20px;
+  color: #958e87;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   text-align: center;
+
+  strong {
+    color: color-mix(in srgb, var(--home-primary) 78%, white);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
 `;

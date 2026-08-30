@@ -31,6 +31,9 @@ describe('HomePage com configurações públicas', () => {
     expect(markup).toContain('text=Ol%C3%A1%2C%20quero%20pedir.');
     expect(markup).toContain('https://tiktok.com/@casateste');
     expect(markup).toContain('https://youtube.com/@casateste');
+    expect(markup).toContain('data-testid="footer-contact-grid"');
+    expect(markup).toContain('Desenvolvido por');
+    expect(markup).toContain('SG Website');
   });
 
   it('não anuncia frete grátis quando o delivery está desativado', () => {

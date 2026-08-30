@@ -323,58 +323,87 @@ export function HomePage({
           </S.FooterBrand>
           <S.FooterColumn>
             <strong>Navegação</strong>
-            <a href="#inicio">Início</a>
-            <a href="#cardapio">Cardápio</a>
-            {data.about && <a href="#sobre">Sobre nós</a>}
+            <S.FooterNavigation aria-label="Navegação do rodapé">
+              <a href="#inicio">Início</a>
+              <a href="#cardapio">Cardápio</a>
+              {data.about && <a href="#sobre">Sobre nós</a>}
+            </S.FooterNavigation>
           </S.FooterColumn>
           <S.FooterColumn>
             <strong>Contato</strong>
-            {data.brand.legalName && <span>{data.brand.legalName}</span>}
-            {data.brand.address && (
-              <span>
-                <MapPin size={17} /> {data.brand.address}
-              </span>
-            )}
-            {whatsappUrl && (
-              <a href={whatsappUrl} target="_blank" rel="noreferrer">
-                <WhatsAppIcon size={17} /> {whatsappLabel}
-              </a>
-            )}
-            {data.brand.phone && (
-              <a href={`tel:${data.brand.phone.replace(/\D/g, '')}`}>
-                <Phone size={17} /> {data.brand.phone}
-              </a>
-            )}
-            {data.brand.email && (
-              <a href={`mailto:${data.brand.email}`}>
-                <Mail size={17} /> {data.brand.email}
-              </a>
-            )}
-            {instagramUrl && (
-              <a href={instagramUrl} target="_blank" rel="noreferrer">
-                <InstagramIcon size={17} /> Instagram
-              </a>
-            )}
-            {facebookUrl && (
-              <a href={facebookUrl} target="_blank" rel="noreferrer">
-                <FacebookIcon size={17} /> Facebook
-              </a>
-            )}
-            {tiktokUrl && (
-              <a href={tiktokUrl} target="_blank" rel="noreferrer">
-                <Music2 size={17} /> TikTok
-              </a>
-            )}
-            {youtubeUrl && (
-              <a href={youtubeUrl} target="_blank" rel="noreferrer">
-                <Play size={17} /> YouTube
-              </a>
-            )}
+            <S.FooterContactGrid data-testid="footer-contact-grid">
+              {data.brand.legalName && (
+                <S.FooterContactItem $wide>
+                  <span>{data.brand.legalName}</span>
+                </S.FooterContactItem>
+              )}
+              {data.brand.address && (
+                <S.FooterContactItem $wide>
+                  <span>
+                    <MapPin size={17} /> {data.brand.address}
+                  </span>
+                </S.FooterContactItem>
+              )}
+              {whatsappUrl && (
+                <S.FooterContactItem>
+                  <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                    <WhatsAppIcon size={17} /> {whatsappLabel}
+                  </a>
+                </S.FooterContactItem>
+              )}
+              {data.brand.phone && (
+                <S.FooterContactItem>
+                  <a href={`tel:${data.brand.phone.replace(/\D/g, '')}`}>
+                    <Phone size={17} /> {data.brand.phone}
+                  </a>
+                </S.FooterContactItem>
+              )}
+              {data.brand.email && (
+                <S.FooterContactItem>
+                  <a href={`mailto:${data.brand.email}`}>
+                    <Mail size={17} /> {data.brand.email}
+                  </a>
+                </S.FooterContactItem>
+              )}
+              {instagramUrl && (
+                <S.FooterContactItem>
+                  <a href={instagramUrl} target="_blank" rel="noreferrer">
+                    <InstagramIcon size={17} /> Instagram
+                  </a>
+                </S.FooterContactItem>
+              )}
+              {facebookUrl && (
+                <S.FooterContactItem>
+                  <a href={facebookUrl} target="_blank" rel="noreferrer">
+                    <FacebookIcon size={17} /> Facebook
+                  </a>
+                </S.FooterContactItem>
+              )}
+              {tiktokUrl && (
+                <S.FooterContactItem>
+                  <a href={tiktokUrl} target="_blank" rel="noreferrer">
+                    <Music2 size={17} /> TikTok
+                  </a>
+                </S.FooterContactItem>
+              )}
+              {youtubeUrl && (
+                <S.FooterContactItem>
+                  <a href={youtubeUrl} target="_blank" rel="noreferrer">
+                    <Play size={17} /> YouTube
+                  </a>
+                </S.FooterContactItem>
+              )}
+            </S.FooterContactGrid>
           </S.FooterColumn>
         </S.FooterContent>
         <S.FooterBottom>
-          © {new Date().getFullYear()} {data.brand.name || 'Restaurante'}. Todos os direitos
-          reservados.
+          <span>
+            © {new Date().getFullYear()} {data.brand.name || 'Restaurante'}. Todos os direitos
+            reservados.
+          </span>
+          <span>
+            Desenvolvido por <strong>SG Website</strong>
+          </span>
         </S.FooterBottom>
       </S.Footer>
 
