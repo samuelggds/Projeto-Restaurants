@@ -160,7 +160,19 @@ jobs:
           retention-days: 3
 
       - name: Run frontend tests with coverage thresholds
-        run: npm --prefix frontend run test:coverage
+        shell: bash
+        run: |
+          set -o pipefail
+          npm --prefix frontend run test:coverage 2>&1 | tee frontend-test.log
+
+      - name: Upload frontend coverage log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-log
+          path: frontend-test.log
+          if-no-files-found: error
+          retention-days: 3
 
   # Somente jornadas que atravessam várias telas permanecem no E2E obrigatório.
   e2e-critical:
