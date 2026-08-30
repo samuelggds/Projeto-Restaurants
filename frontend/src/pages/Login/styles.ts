@@ -185,7 +185,6 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
       pointer-events: none;
     }
 
-    > h1,
     > p,
     > h1 > span {
       position: relative;
