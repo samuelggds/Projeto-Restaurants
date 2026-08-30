@@ -65,7 +65,12 @@ function getApiBaseUrls() {
   const runtimeUrl = normalizeBaseUrl(getRuntimeBaseUrl());
   const sameOriginUrl =
     typeof window !== 'undefined' ? normalizeBaseUrl(window.location.origin) : '';
-  const developmentProxyUrl = import.meta.env.DEV && sameOriginUrl ? `${sameOriginUrl}/api` : '';
+  const e2eDirectApi =
+    String(import.meta.env.VITE_E2E_DIRECT_API || '')
+      .trim()
+      .toLowerCase() === 'true';
+  const developmentProxyUrl =
+    import.meta.env.DEV && sameOriginUrl && !e2eDirectApi ? `${sameOriginUrl}/api` : '';
   const defaultLoopbackUrl = 'http://127.0.0.1:3000';
   const defaultLocalUrl = 'http://localhost:3000';
   const urls = new Set<string>();
@@ -74,6 +79,8 @@ function getApiBaseUrls() {
   // Keep browser traffic on the Vite origin in development. Vite owns the
   // canonical IPv4 proxy target, so localhost/127.0.0.1/IPv6 cannot select
   // different backend processes merely because of hostname resolution.
+  // Playwright disables this proxy explicitly so page.route can intercept
+  // the direct API requests without requiring a real backend process.
   if (developmentProxyUrl) {
     urls.add(developmentProxyUrl);
   }
