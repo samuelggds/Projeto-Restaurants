@@ -64,6 +64,21 @@ describe('checkout', () => {
     expect(validateCheckout(base)).toBeNull();
   });
 
+  it('não exige identidade do visitante no pedido por QR da mesa', () => {
+    expect(
+      validateCheckout({
+        type: 'MESA',
+        customerPhone: '',
+        customerName: '',
+        customerCpf: '',
+        requireGuestIdentity: true,
+        deliveryAddress: address,
+        cepStatus: 'idle',
+        paymentMethod: 'pix',
+      }),
+    ).toBeNull();
+  });
+
   it('monta e normaliza o pedido', () => {
     const result = buildOrderPayload({
       restaurantId: 7,
