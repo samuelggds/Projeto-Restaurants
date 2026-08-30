@@ -18,6 +18,6 @@
     "audit": "npm --prefix backend audit --audit-level=high && npm --prefix frontend audit --audit-level=high",
     "check:bundle": "node scripts/checkBundleBudget.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "ci": "npm --prefix backend ci && npm --prefix frontend ci && npm run check:architecture && npm run check:scripts && npm run lint && npm run typecheck && npm run test && npm run audit && npm run build && npm run check:bundle"
+    "ci": "npm --prefix backend ci && npm --prefix backend run db:generate && npm --prefix frontend ci && npm run check:architecture && npm run check:scripts && npm run lint && npm run typecheck && npm run test && npm run audit && npm run build && npm run check:bundle"
   }
 }
