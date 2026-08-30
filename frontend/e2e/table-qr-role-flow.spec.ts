@@ -507,7 +507,6 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
 
   await page.getByRole('button', { name: 'Voltar para o cardápio' }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await page.getByRole('button', { name: /Abrir cupons, status do pedido/i }).click();
   await page.getByRole('button', { name: /Status do pedido da mesa/i }).click();
   const tableOrderDialog = page.getByRole('dialog', { name: 'Pedido da mesa 1' });
   await expect(tableOrderDialog).toBeVisible();
