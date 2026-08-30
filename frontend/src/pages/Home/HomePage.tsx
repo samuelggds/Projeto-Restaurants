@@ -402,7 +402,7 @@ export function HomePage({
             reservados.
           </span>
           <span>
-            Desenvolvido por <strong>SG Website</strong>
+            Desenvolvido por <strong>SG Websites</strong>
           </span>
         </S.FooterBottom>
       </S.Footer>

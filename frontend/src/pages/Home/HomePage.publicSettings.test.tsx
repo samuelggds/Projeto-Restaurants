@@ -33,7 +33,7 @@ describe('HomePage com configurações públicas', () => {
     expect(markup).toContain('https://youtube.com/@casateste');
     expect(markup).toContain('data-testid="footer-contact-grid"');
     expect(markup).toContain('Desenvolvido por');
-    expect(markup).toContain('SG Website');
+    expect(markup).toContain('SG Websites');
   });
 
   it('não anuncia frete grátis quando o delivery está desativado', () => {
