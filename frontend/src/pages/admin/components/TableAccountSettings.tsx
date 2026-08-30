@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useAppDialog } from '../../../components/AppDialog/context';
 import tableAccountService from '../../../Services/tableAccountService';
 import { adminMockSettings } from '../data';
 import {
@@ -136,6 +137,7 @@ function timeToMinute(value: string, fallback: number) {
 }
 
 export function TableAccountSettings({ settings, update }: Props) {
+  const { promptDialog } = useAppDialog();
   const account = settings.tableAccount;
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [details, setDetails] = useState<Record<string, AccountDetail>>({});
@@ -248,10 +250,23 @@ export function TableAccountSettings({ settings, update }: Props) {
   };
 
   const forceClose = async (session: AdminSession) => {
-    const reason = window
-      .prompt(`Informe por que a Mesa ${session.tableNumber} será fechada administrativamente:`)
-      ?.trim();
-    if (!reason || reason.length < 5) return;
+    const reason = (
+      await promptDialog({
+        title: `Fechar a Mesa ${session.tableNumber}?`,
+        description:
+          'Use esta ação somente quando o atendimento não puder ser encerrado pelo fluxo normal. O motivo ficará registrado na auditoria.',
+        inputLabel: 'Motivo do fechamento administrativo',
+        placeholder: 'Ex.: atendimento cancelado diretamente no caixa',
+        confirmLabel: 'Fechar mesa',
+        cancelLabel: 'Manter aberta',
+        tone: 'danger',
+      })
+    )?.trim();
+    if (!reason) return;
+    if (reason.length < 5) {
+      toast.warning('Informe um motivo com pelo menos 5 caracteres.');
+      return;
+    }
     setBusyId(session.sessionPublicId);
     try {
       await tableAccountService.forceCloseSession(session.tableSessionId, reason);
