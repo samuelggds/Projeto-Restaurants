@@ -55,7 +55,7 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
     cepStatus,
     paymentMethod,
   } = input;
-  if (requireGuestIdentity) {
+  if (requireGuestIdentity && type !== 'MESA') {
     if (String(customerName || '').trim().length < 2)
       return { title: 'Informe seu nome', message: 'Digite seu nome para identificar o pedido.' };
     if (!isValidCpf(customerCpf))
