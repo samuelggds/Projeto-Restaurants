@@ -38,11 +38,18 @@ export const Container = styled.div`
   position: relative;
 
   @media (max-width: 968px) {
+    --mobile-cover-height: clamp(180px, 52vw, 248px);
+    --mobile-overlap: 24px;
+
     flex-direction: column;
     align-items: stretch;
     width: 100%;
     min-height: 100dvh;
     overflow-x: clip;
+  }
+
+  @media (max-width: 968px) and (orientation: landscape) {
+    --mobile-cover-height: clamp(150px, 42dvh, 205px);
   }
 `;
 
@@ -53,8 +60,8 @@ export const TopBar = styled.div`
   z-index: 10;
 
   @media (max-width: 968px) {
-    top: clamp(0.8rem, 2.6vw, 1rem);
-    right: clamp(0.8rem, 2.6vw, 1rem);
+    top: calc(0.8rem + env(safe-area-inset-top, 0px));
+    right: calc(0.8rem + env(safe-area-inset-right, 0px));
   }
 `;
 
@@ -78,10 +85,9 @@ export const ThemeToggleButton = styled.button`
   }
 
   @media (max-width: 968px) {
-    width: 38px;
-    height: 38px;
     background: color-mix(in srgb, ${(props) => props.theme.surface} 94%, transparent);
     backdrop-filter: blur(10px);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.14);
   }
 `;
 
@@ -151,17 +157,18 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
 
   @media (max-width: 968px) {
     display: flex;
-    flex: 0 0 auto;
-    width: min(calc(100% - 1.25rem), 620px);
-    aspect-ratio: 2 / 1;
-    margin: clamp(0.6rem, 2.2vw, 0.9rem) auto 0;
-    padding: clamp(1rem, 4vw, 1.45rem);
+    flex: 0 0 var(--mobile-cover-height);
+    width: min(calc(100% - 1rem), 480px);
+    height: var(--mobile-cover-height);
+    min-height: var(--mobile-cover-height);
+    margin: calc(0.5rem + env(safe-area-inset-top, 0px)) auto 0;
+    padding: clamp(1rem, 4.6vw, 1.45rem);
     border: none;
-    border-radius: clamp(22px, 5vw, 30px);
+    border-radius: clamp(24px, 6vw, 30px);
     justify-content: flex-end;
     align-items: flex-start;
     box-sizing: border-box;
-    box-shadow: 0 16px 38px rgba(45, 34, 25, 0.14);
+    box-shadow: 0 14px 36px rgba(45, 34, 25, 0.14);
     isolation: isolate;
 
     &::after {
@@ -171,9 +178,9 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
       z-index: 1;
       background: linear-gradient(
         180deg,
-        rgba(0, 0, 0, 0) 18%,
-        rgba(0, 0, 0, 0.06) 48%,
-        rgba(0, 0, 0, 0.72) 100%
+        rgba(0, 0, 0, 0) 28%,
+        rgba(0, 0, 0, 0.05) 50%,
+        rgba(0, 0, 0, 0.74) 100%
       );
       pointer-events: none;
     }
@@ -184,31 +191,31 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
       position: relative;
       z-index: 2;
       color: #fff;
-      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.68);
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.72);
     }
 
     > h1 {
-      max-width: calc(100% - 3rem);
-      margin: 0 0 0.35rem;
+      max-width: calc(100% - 2.5rem);
+      margin: 0 0 0.4rem;
     }
 
     > h1 > span {
       color: #fff;
       max-width: 100%;
-      font-size: clamp(1.45rem, 6.8vw, 2.15rem);
-      line-height: 1.02;
-      letter-spacing: -0.04em;
+      font-size: clamp(1.6rem, 7.4vw, 2.25rem);
+      line-height: 1;
+      letter-spacing: -0.045em;
       font-weight: 900;
       overflow-wrap: anywhere;
     }
 
     > p {
-      width: min(100%, 470px);
-      max-width: calc(100% - 1rem);
+      width: min(100%, 430px);
+      max-width: calc(100% - 0.75rem);
       margin: 0;
-      padding-left: 0.7rem;
+      padding: 0.1rem 0 0.1rem 0.7rem;
       border-left: 3px solid ${(props) => props.theme.primary};
-      font-size: clamp(0.72rem, 2.8vw, 0.88rem);
+      font-size: clamp(0.72rem, 2.85vw, 0.88rem);
       line-height: 1.35;
       font-weight: 600;
       display: -webkit-box;
@@ -218,10 +225,18 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
     }
   }
 
-  @media (max-width: 390px) {
-    width: calc(100% - 0.9rem);
-    margin-top: 0.45rem;
-    border-radius: 21px;
+  @media (max-width: 340px) {
+    width: calc(100% - 0.65rem);
+    padding-inline: 0.9rem;
+    border-radius: 22px;
+
+    > h1 > span {
+      font-size: 1.5rem;
+    }
+
+    > p {
+      font-size: 0.7rem;
+    }
   }
 `;
 
@@ -260,7 +275,12 @@ export const RestaurantLogo = styled.img`
   height: 100%;
   object-fit: cover;
   object-position: center center;
+  image-rendering: auto;
   opacity: 1;
+
+  @media (max-width: 968px) {
+    object-position: center 62%;
+  }
 `;
 
 export const BrandSubtitle = styled.p`
@@ -280,14 +300,15 @@ export const FormSection = styled.div`
   background-color: ${(props) => props.theme.background};
 
   @media (max-width: 968px) {
-    flex: 1 1 auto;
-    width: 100%;
-    align-items: flex-start;
-    padding: 0 clamp(0.55rem, 2.2vw, 0.9rem) 1.5rem;
-    margin-top: -18px;
+    flex: 1 0 auto;
+    width: min(100%, 496px);
+    align-items: stretch;
+    padding: 0 0.5rem max(0.5rem, env(safe-area-inset-bottom, 0px));
+    margin: calc(var(--mobile-overlap) * -1) auto 0;
     box-sizing: border-box;
     position: relative;
     z-index: 3;
+    background: transparent;
   }
 `;
 
@@ -298,13 +319,21 @@ export const FormWrapper = styled.div`
   flex-direction: column;
 
   @media (max-width: 968px) {
-    max-width: 560px;
-    padding: clamp(1.25rem, 4.4vw, 1.7rem) clamp(1rem, 4vw, 1.4rem) 1.35rem;
-    border-radius: clamp(22px, 5vw, 28px);
+    width: 100%;
+    max-width: none;
+    min-height: calc(
+      100dvh - var(--mobile-cover-height) - 0.5rem + var(--mobile-overlap) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
+    );
+    padding: clamp(1.45rem, 5vw, 1.85rem) clamp(1rem, 4.4vw, 1.45rem) clamp(1.2rem, 4vw, 1.55rem);
+    border-radius: clamp(24px, 6vw, 30px);
     background: ${(props) => props.theme.surface};
     border: 1px solid ${(props) => props.theme.border};
-    box-shadow: 0 16px 42px ${(props) => props.theme.shadow};
+    box-shadow: 0 14px 38px ${(props) => props.theme.shadow};
     box-sizing: border-box;
+  }
+
+  @media (max-width: 968px) and (orientation: landscape) {
+    min-height: auto;
   }
 `;
 
@@ -315,8 +344,8 @@ export const WelcomeText = styled.h2`
   margin: 0 0 0.5rem 0;
 
   @media (max-width: 968px) {
-    font-size: clamp(1.65rem, 7vw, 2rem);
-    line-height: 1.08;
+    font-size: clamp(1.75rem, 7.2vw, 2.05rem);
+    line-height: 1.06;
     margin-bottom: 0.35rem;
   }
 `;
@@ -329,7 +358,7 @@ export const FormSubtitle = styled.p`
   @media (max-width: 968px) {
     font-size: clamp(0.82rem, 3vw, 0.92rem);
     line-height: 1.45;
-    margin-bottom: 1.35rem;
+    margin-bottom: clamp(1.15rem, 3.8vw, 1.45rem);
   }
 `;
 
@@ -448,6 +477,11 @@ export const CheckboxLabel = styled.label`
   @media (max-width: 420px) {
     font-size: 0.77rem;
   }
+
+  @media (max-width: 335px) {
+    font-size: 0.72rem;
+    gap: 0.35rem;
+  }
 `;
 
 export const ForgotLink = styled.button`
@@ -468,6 +502,10 @@ export const ForgotLink = styled.button`
 
   @media (max-width: 420px) {
     font-size: 0.77rem;
+  }
+
+  @media (max-width: 335px) {
+    font-size: 0.72rem;
   }
 `;
 
@@ -514,7 +552,7 @@ export const Divider = styled.div`
   }
 
   @media (max-width: 968px) {
-    margin-top: 0.85rem;
+    margin-top: 0.9rem;
   }
 `;
 
@@ -527,12 +565,15 @@ export const GoogleButtonContainer = styled.div`
   justify-content: center;
 
   @media (max-width: 968px) {
-    margin-top: 0.75rem;
+    margin-top: 0.8rem;
     width: 100%;
+    overflow: hidden;
 
     > div,
-    > div > div {
-      max-width: 100%;
+    > div > div,
+    iframe {
+      width: 100% !important;
+      max-width: 100% !important;
     }
   }
 `;
@@ -557,6 +598,11 @@ export const GoogleFallbackButton = styled.button`
   &:disabled {
     cursor: progress;
     opacity: 0.75;
+  }
+
+  @media (max-width: 968px) {
+    max-width: 100%;
+    min-height: 44px;
   }
 `;
 
@@ -585,7 +631,8 @@ export const RegisterText = styled.p`
   }
 
   @media (max-width: 968px) {
-    margin: 1.3rem 0 0;
+    margin: auto 0 0;
+    padding-top: 1.3rem;
     font-size: 0.82rem;
   }
 `;
