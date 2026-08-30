@@ -163,6 +163,11 @@ export const BrandTitle = styled.h1`
   font-weight: 900;
   color: ${(props) => props.theme.text};
 
+  ${BannerSection}[data-has-cover='true'] & {
+    color: #fff;
+    text-shadow: 0 3px 18px rgba(0, 0, 0, 0.68);
+  }
+
   > span,
   > svg {
     position: relative;
@@ -219,6 +224,7 @@ export const BrandSubtitle = styled.p`
 
   ${BannerSection}[data-has-cover='true'] & {
     color: rgba(255, 255, 255, 0.94);
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
   }
 
   @media (max-width: 968px) {
@@ -227,11 +233,15 @@ export const BrandSubtitle = styled.p`
     border-left-width: 3px;
     font-size: clamp(0.78rem, 3.1vw, 0.94rem);
     line-height: 1.4;
-    color: rgba(255, 255, 255, 0.94);
+    color: ${(props) => props.theme.textMuted};
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+
+    ${BannerSection}[data-has-cover='true'] & {
+      color: rgba(255, 255, 255, 0.94);
+    }
   }
 `;
 
