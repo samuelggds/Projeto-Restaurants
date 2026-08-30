@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { CheckCircle2, AlertCircle, Utensils, Sun, Moon } from 'lucide-react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  Utensils,
+  Sun,
+  Moon,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import authService from '../../Services/authService';
 import { useAuth } from '../../contexts/authContext.js';
 import * as S from './styles';
@@ -21,6 +29,7 @@ export default function Login() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -329,18 +338,20 @@ export default function Login() {
       }}
     >
       <S.Container>
-        {/* INTERRUPTOR DE TEMA (SOL/LUA) NO TOPO */}
         <S.TopBar>
-          <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
+          <S.ThemeToggleButton
+            type="button"
+            aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            onClick={() => setIsDarkMode(!isDarkMode)}
+          >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        {/* LADO ESQUERDO: BANNER INSTITUCIONAL PADRÃO */}
         <S.BannerSection $hasLogo={Boolean(branding.logoUrl)}>
           <S.BrandTitle>
             {branding.logoUrl ? (
-              <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />
+              <S.RestaurantLogo src={branding.logoUrl} alt={`Capa ${branding.name}`} />
             ) : (
               <Utensils size={32} strokeWidth={2.5} />
             )}
@@ -349,11 +360,10 @@ export default function Login() {
           <S.BrandSubtitle>
             {isTechnicalAccess
               ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
-              : 'Acesse nosso menu interativo global. Faça seus pedidos de forma rápida na mesa e gerencie sua experiência gastronômica sem complicações.'}
+              : branding.description}
           </S.BrandSubtitle>
         </S.BannerSection>
 
-        {/* LADO DIREITO: FORMULÁRIO PADRÃO */}
         <S.FormSection>
           <S.FormWrapper>
             <S.WelcomeText>{isTechnicalAccess ? 'Acesso técnico' : 'Bem-vindo!'}</S.WelcomeText>
@@ -405,14 +415,24 @@ export default function Login() {
 
               <S.InputGroup>
                 <S.Label htmlFor="password">Senha</S.Label>
-                <S.Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <S.PasswordField>
+                  <S.Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <S.PasswordToggleButton
+                    type="button"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((current) => !current)}
+                  >
+                    {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                  </S.PasswordToggleButton>
+                </S.PasswordField>
               </S.InputGroup>
 
               <S.Row>
