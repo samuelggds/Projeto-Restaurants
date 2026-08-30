@@ -1,63 +1,54 @@
 import styled from 'styled-components';
 
 export const lightTheme = {
-  background: '#fdfbf7',
-  surface: '#ffffff',
-  text: '#2d2219',
-  textMuted: '#7c6e65',
-  border: '#f1ede4',
+  background: '#f7f2eb',
+  surface: '#fffdf9',
+  text: '#241a14',
+  textMuted: '#7f7066',
+  border: '#eadfd4',
   primary: '#e65c00',
   primaryHover: '#cc5200',
-  shadow: 'rgba(230, 92, 0, 0.05)',
+  shadow: 'rgba(60, 35, 20, 0.12)',
   success: '#10b981',
 };
 
 export const darkTheme = {
-  background: '#18130f',
-  surface: '#241c16',
-  text: '#fdfbf7',
-  textMuted: '#a39385',
-  border: '#362b22',
+  background: '#15110e',
+  surface: '#211a15',
+  text: '#fffaf5',
+  textMuted: '#b5a69a',
+  border: '#3a2d24',
   primary: '#ff6b00',
   primaryHover: '#e65c00',
-  shadow: 'rgba(0, 0, 0, 0.4)',
+  shadow: 'rgba(0, 0, 0, 0.42)',
   success: '#10b981',
 };
 
 export const Container = styled.div`
+  position: relative;
   display: flex;
+  width: 100%;
   min-height: 100vh;
-  width: 100vw;
-  background-color: ${(props) => props.theme.background};
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: ${(props) => props.theme.background};
   color: ${(props) => props.theme.text};
   font-family: 'Inter', sans-serif;
   transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
-  overflow-x: hidden;
-  position: relative;
+    background-color 0.25s ease,
+    color 0.25s ease;
 
   @media (max-width: 968px) {
-    --mobile-cover-height: clamp(230px, 67vw, 330px);
-    --mobile-overlap: 24px;
-
     flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    min-height: 100dvh;
     overflow-x: clip;
-  }
-
-  @media (max-width: 968px) and (orientation: landscape) {
-    --mobile-cover-height: clamp(150px, 42dvh, 205px);
   }
 `;
 
 export const TopBar = styled.div`
   position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  z-index: 10;
+  top: 1.35rem;
+  right: 1.35rem;
+  z-index: 20;
 
   @media (max-width: 968px) {
     top: calc(0.8rem + env(safe-area-inset-top, 0px));
@@ -66,202 +57,138 @@ export const TopBar = styled.div`
 `;
 
 export const ThemeToggleButton = styled.button`
-  width: 40px;
-  height: 40px;
-  background: ${(props) => props.theme.surface};
-  border: 1px solid ${(props) => props.theme.border};
-  color: ${(props) => props.theme.text};
+  width: 42px;
+  height: 42px;
   padding: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
+  border-radius: 999px;
+  border: 1px solid ${(props) => props.theme.border};
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px ${(props) => props.theme.shadow};
-  transition: all 0.2s ease;
+  color: ${(props) => props.theme.text};
+  background: color-mix(in srgb, ${(props) => props.theme.surface} 94%, transparent);
+  box-shadow: 0 8px 24px ${(props) => props.theme.shadow};
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
 
   &:hover {
-    background: ${(props) => props.theme.border};
+    transform: translateY(-1px);
+    background: ${(props) => props.theme.surface};
   }
 
-  @media (max-width: 968px) {
-    background: color-mix(in srgb, ${(props) => props.theme.surface} 94%, transparent);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.14);
+  &:focus-visible {
+    outline: 3px solid ${(props) => props.theme.primary}33;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 380px) {
+    width: 38px;
+    height: 38px;
   }
 `;
 
-export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
-  flex: 1;
+export const BannerSection = styled.section<{ $hasLogo?: boolean }>`
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 100vh;
+  padding: 4rem;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: ${(props) => (props.$hasLogo ? '0' : '4rem')};
+  justify-content: ${(props) => (props.$hasLogo ? 'flex-end' : 'center')};
+  align-items: flex-start;
   background: linear-gradient(
-    135deg,
+    145deg,
     ${(props) => props.theme.surface} 0%,
     ${(props) => props.theme.background} 100%
   );
   border-right: 1px solid ${(props) => props.theme.border};
-  position: relative;
-  overflow: hidden;
 
-  ${({ $hasLogo, theme }) =>
-    $hasLogo &&
-    `
-    justify-content: flex-end;
-    align-items: flex-start;
-    padding: 4rem;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      background: linear-gradient(180deg, transparent 24%, rgba(0, 0, 0, 0.08) 46%, rgba(0, 0, 0, 0.82) 100%);
-      pointer-events: none;
-    }
-
-    > h1 > span,
-    > p {
-      position: relative;
-      z-index: 2;
-      color: #fff;
-      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
-    }
-
-    > h1 {
-      margin: 0 0 14px;
-    }
-
-    > h1 > span {
-      display: inline-block;
-      max-width: 620px;
-      font-size: clamp(2.5rem, 5vw, 4.8rem);
-      line-height: 0.98;
-      letter-spacing: -0.055em;
-      font-weight: 900;
-    }
-
-    > p {
-      max-width: 540px;
-      margin: 0;
-      padding: 4px 0 4px 18px;
-      border-left: 4px solid ${theme.primary};
-      font-size: clamp(1rem, 1.35vw, 1.2rem);
-      line-height: 1.65;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.94);
-    }
-  `}
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: ${(props) =>
+      props.$hasLogo
+        ? 'linear-gradient(180deg, rgba(0,0,0,0.02) 22%, rgba(0,0,0,0.16) 56%, rgba(0,0,0,0.84) 100%)'
+        : 'transparent'};
+  }
 
   @media (max-width: 968px) {
-    display: flex;
-    flex: 0 0 var(--mobile-cover-height);
-    width: min(calc(100% - 1rem), 480px);
-    height: var(--mobile-cover-height);
-    min-height: var(--mobile-cover-height);
-    margin: calc(0.5rem + env(safe-area-inset-top, 0px)) auto 0;
-    padding: clamp(1rem, 4.6vw, 1.45rem);
-    border: none;
-    border-radius: clamp(24px, 6vw, 30px);
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 0;
+    height: clamp(230px, 34dvh, 330px);
+    padding:
+      calc(1.35rem + env(safe-area-inset-top, 0px))
+      clamp(1.15rem, 5vw, 1.6rem)
+      clamp(2.9rem, 8vw, 3.6rem);
+    border-right: 0;
+    border-bottom: 1px solid ${(props) => props.theme.border};
+    border-radius: 0 0 clamp(28px, 8vw, 42px) clamp(28px, 8vw, 42px);
     justify-content: flex-end;
-    align-items: flex-start;
-    box-sizing: border-box;
-    box-shadow: 0 14px 36px rgba(45, 34, 25, 0.14);
-    isolation: isolate;
 
     &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      background: linear-gradient(
-        180deg,
-        rgba(0, 0, 0, 0) 28%,
-        rgba(0, 0, 0, 0.05) 50%,
-        rgba(0, 0, 0, 0.74) 100%
-      );
-      pointer-events: none;
-    }
-
-    > p,
-    > h1 > span {
-      position: relative;
-      z-index: 2;
-      color: #fff;
-      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.72);
-    }
-
-    > h1 {
-      max-width: calc(100% - 2.5rem);
-      margin: 0 0 0.4rem;
-    }
-
-    > h1 > span {
-      color: #fff;
-      max-width: 100%;
-      font-size: clamp(1.6rem, 7.4vw, 2.25rem);
-      line-height: 1;
-      letter-spacing: -0.045em;
-      font-weight: 900;
-      overflow-wrap: anywhere;
-    }
-
-    > p {
-      width: min(100%, 430px);
-      max-width: calc(100% - 0.75rem);
-      margin: 0;
-      padding: 0.1rem 0 0.1rem 0.7rem;
-      border-left: 3px solid ${(props) => props.theme.primary};
-      font-size: clamp(0.72rem, 2.85vw, 0.88rem);
-      line-height: 1.35;
-      font-weight: 600;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      background: ${(props) =>
+        props.$hasLogo
+          ? 'linear-gradient(180deg, rgba(0,0,0,0.02) 18%, rgba(0,0,0,0.10) 46%, rgba(0,0,0,0.80) 100%)'
+          : 'transparent'};
     }
   }
 
-  @media (max-width: 340px) {
-    width: calc(100% - 0.65rem);
-    padding-inline: 0.9rem;
-    border-radius: 22px;
-
-    > h1 > span {
-      font-size: 1.5rem;
-    }
-
-    > p {
-      font-size: 0.7rem;
-    }
+  @media (max-width: 968px) and (orientation: landscape) {
+    height: clamp(180px, 56dvh, 250px);
+    padding-bottom: 2.5rem;
   }
 `;
 
 export const BrandTitle = styled.h1`
-  font-size: 2.8rem;
-  font-weight: 800;
-  letter-spacing: -1px;
-  margin: 0 0 1rem 0;
+  position: static;
+  z-index: auto;
+  margin: 0 0 0.75rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  max-width: min(100%, 680px);
+  font-size: clamp(2.6rem, 5vw, 4.8rem);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  font-weight: 900;
   color: ${(props) => props.theme.text};
 
-  span {
-    color: ${(props) => props.theme.primary};
+  > span,
+  > svg {
+    position: relative;
+    z-index: 2;
+  }
+
+  > span {
+    color: inherit;
   }
 
   @media (max-width: 968px) {
-    gap: 0.45rem;
+    margin-bottom: 0.48rem;
+    gap: 0.55rem;
+    font-size: clamp(1.9rem, 8.5vw, 2.65rem);
+    line-height: 1;
+    letter-spacing: -0.045em;
 
     > svg {
+      width: 26px;
+      height: 26px;
       flex: 0 0 auto;
-      width: 24px;
-      height: 24px;
-      color: #fff;
     }
+  }
+
+  @media (max-width: 340px) {
+    font-size: 1.72rem;
   }
 `;
 
@@ -269,145 +196,171 @@ export const RestaurantLogo = styled.img`
   position: absolute;
   inset: 0;
   z-index: 0;
-  display: block;
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
   object-position: center center;
   image-rendering: auto;
   opacity: 1;
-
-  @media (max-width: 968px) {
-    object-position: center 62%;
-  }
 `;
 
 export const BrandSubtitle = styled.p`
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: ${(props) => props.theme.textMuted};
-  max-width: 480px;
+  position: relative;
+  z-index: 2;
+  max-width: 560px;
   margin: 0;
+  padding-left: 1rem;
+  border-left: 4px solid ${(props) => props.theme.primary};
+  color: ${(props) => props.theme.textMuted};
+  font-size: clamp(1rem, 1.3vw, 1.16rem);
+  line-height: 1.6;
+  font-weight: 600;
+
+  ${BannerSection}[data-has-cover='true'] & {
+    color: rgba(255, 255, 255, 0.94);
+  }
+
+  @media (max-width: 968px) {
+    max-width: min(92%, 500px);
+    padding-left: 0.75rem;
+    border-left-width: 3px;
+    font-size: clamp(0.78rem, 3.1vw, 0.94rem);
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.94);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 `;
 
-export const FormSection = styled.div`
-  flex: 1;
+export const FormSection = styled.main`
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 100vh;
+  padding: clamp(2rem, 5vw, 4rem);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
-  background-color: ${(props) => props.theme.background};
+  background: ${(props) => props.theme.background};
 
   @media (max-width: 968px) {
-    flex: 1 0 auto;
-    width: min(100%, 496px);
-    align-items: stretch;
-    padding: 0 0.5rem max(0.5rem, env(safe-area-inset-bottom, 0px));
-    margin: calc(var(--mobile-overlap) * -1) auto 0;
-    box-sizing: border-box;
     position: relative;
-    z-index: 3;
+    z-index: 5;
+    flex: 1 0 auto;
+    width: 100%;
+    min-height: 0;
+    margin-top: -32px;
+    padding:
+      0
+      clamp(0.75rem, 3.5vw, 1.1rem)
+      calc(1.4rem + env(safe-area-inset-bottom, 0px));
+    align-items: flex-start;
     background: transparent;
+  }
+
+  @media (max-width: 340px) {
+    padding-inline: 0.55rem;
   }
 `;
 
 export const FormWrapper = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   display: flex;
   flex-direction: column;
 
   @media (max-width: 968px) {
-    width: 100%;
+    width: min(100%, 540px);
     max-width: none;
-    min-height: calc(
-      100dvh - var(--mobile-cover-height) - 0.5rem + var(--mobile-overlap) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
-    );
-    padding: clamp(1.45rem, 5vw, 1.85rem) clamp(1rem, 4.4vw, 1.45rem) clamp(1.2rem, 4vw, 1.55rem);
-    border-radius: clamp(24px, 6vw, 30px);
-    background: ${(props) => props.theme.surface};
+    margin: 0 auto;
+    padding: clamp(1.35rem, 5vw, 1.8rem);
     border: 1px solid ${(props) => props.theme.border};
-    box-shadow: 0 14px 38px ${(props) => props.theme.shadow};
+    border-radius: clamp(24px, 7vw, 32px);
+    background: ${(props) => props.theme.surface};
+    box-shadow: 0 18px 50px ${(props) => props.theme.shadow};
     box-sizing: border-box;
   }
 
-  @media (max-width: 968px) and (orientation: landscape) {
-    min-height: auto;
+  @media (max-width: 340px) {
+    padding: 1.15rem 0.9rem;
+    border-radius: 22px;
   }
 `;
 
 export const WelcomeText = styled.h2`
-  font-size: 2rem;
-  font-weight: 800;
+  margin: 0 0 0.45rem;
   color: ${(props) => props.theme.text};
-  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -0.03em;
 
   @media (max-width: 968px) {
-    font-size: clamp(1.75rem, 7.2vw, 2.05rem);
-    line-height: 1.06;
-    margin-bottom: 0.35rem;
+    font-size: clamp(1.75rem, 7vw, 2.15rem);
   }
 `;
 
 export const FormSubtitle = styled.p`
-  font-size: 0.95rem;
+  margin: 0 0 2rem;
   color: ${(props) => props.theme.textMuted};
-  margin: 0 0 2.5rem 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
 
   @media (max-width: 968px) {
+    margin-bottom: 1.4rem;
     font-size: clamp(0.82rem, 3vw, 0.92rem);
-    line-height: 1.45;
-    margin-bottom: clamp(1.15rem, 3.8vw, 1.45rem);
   }
 `;
 
 export const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-
-  @media (max-width: 968px) {
-    gap: 1rem;
-  }
+  gap: 1rem;
 `;
 
 export const InputGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.48rem;
 `;
 
 export const Label = styled.label`
-  font-size: 0.85rem;
-  font-weight: 700;
   color: ${(props) => props.theme.text};
+  font-size: 0.84rem;
+  font-weight: 800;
 `;
 
 export const Input = styled.input`
   width: 100%;
-  padding: 0.85rem 1rem;
-  border: 1px solid ${(props) => props.theme.border};
-  border-radius: 10px;
-  font-size: 0.95rem;
-  color: ${(props) => props.theme.text};
-  background-color: ${(props) => props.theme.surface};
-  transition: all 0.2s ease-in-out;
+  min-height: 50px;
+  padding: 0 0.95rem;
   box-sizing: border-box;
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 12px;
+  color: ${(props) => props.theme.text};
+  background: ${(props) => props.theme.surface};
+  font-size: 0.95rem;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 
   &::placeholder {
     color: ${(props) => props.theme.textMuted};
-    opacity: 0.6;
+    opacity: 0.68;
   }
 
   &:focus {
-    outline: none;
     border-color: ${(props) => props.theme.primary};
-    box-shadow: 0 0 0 4px ${(props) => props.theme.primary}15;
+    box-shadow: 0 0 0 4px ${(props) => props.theme.primary}16;
   }
 
-  @media (max-width: 968px) {
+  @media (max-width: 380px) {
     min-height: 48px;
-    border-radius: 12px;
+    font-size: 0.9rem;
   }
 `;
 
@@ -416,29 +369,26 @@ export const PasswordField = styled.div`
   width: 100%;
 
   ${Input} {
-    padding-right: 3rem;
+    padding-right: 3.4rem;
   }
 `;
 
 export const PasswordToggleButton = styled.button`
   position: absolute;
   top: 50%;
-  right: 0.75rem;
+  right: 0.55rem;
   transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   padding: 0;
-  border: none;
+  border: 0;
   border-radius: 10px;
-  background: transparent;
-  color: ${(props) => props.theme.textMuted};
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: ${(props) => props.theme.textMuted};
+  background: transparent;
   cursor: pointer;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease;
 
   &:hover,
   &:focus-visible {
@@ -452,96 +402,96 @@ export const Row = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.25rem;
-  gap: 0.75rem;
+  gap: 0.8rem;
+  margin-top: 0.05rem;
+
+  @media (max-width: 350px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const CheckboxLabel = styled.label`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 0.48rem;
+  min-width: 0;
   color: ${(props) => props.theme.textMuted};
-  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 650;
   white-space: nowrap;
+  cursor: pointer;
 
   input {
-    cursor: pointer;
-    accent-color: ${(props) => props.theme.primary};
     width: 16px;
     height: 16px;
+    margin: 0;
+    accent-color: ${(props) => props.theme.primary};
+    cursor: pointer;
   }
 
-  @media (max-width: 420px) {
-    font-size: 0.77rem;
-  }
-
-  @media (max-width: 335px) {
-    font-size: 0.72rem;
+  @media (max-width: 350px) {
     gap: 0.35rem;
+    font-size: 0.72rem;
   }
 `;
 
 export const ForgotLink = styled.button`
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: ${(props) => props.theme.primary};
-  text-decoration: none;
-  border: none;
-  background: transparent;
+  flex: 0 0 auto;
   padding: 0;
-  cursor: pointer;
+  border: 0;
+  color: ${(props) => props.theme.primary};
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 800;
   white-space: nowrap;
+  cursor: pointer;
 
   &:hover {
-    color: ${(props) => props.theme.primaryHover};
     text-decoration: underline;
   }
 
-  @media (max-width: 420px) {
-    font-size: 0.77rem;
-  }
-
-  @media (max-width: 335px) {
+  @media (max-width: 350px) {
     font-size: 0.72rem;
   }
 `;
 
 export const Button = styled.button`
   width: 100%;
-  padding: 0.85rem;
-  background-color: ${(props) => props.theme.primary};
-  color: white;
-  border: none;
-  border-radius: 10px;
+  min-height: 50px;
+  margin-top: 0.25rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: ${(props) => props.theme.primary};
+  box-shadow: 0 9px 22px ${(props) => props.theme.primary}30;
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 850;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  margin-top: 0.5rem;
-  box-shadow: 0 4px 12px ${(props) => props.theme.primary}20;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
 
-  &:hover {
-    background-color: ${(props) => props.theme.primaryHover};
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(0.96);
   }
 
-  @media (max-width: 968px) {
-    min-height: 48px;
-    border-radius: 12px;
+  &:disabled {
+    opacity: 0.7;
+    cursor: progress;
   }
 `;
 
 export const Divider = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  margin-top: 1rem;
+  gap: 0.8rem;
+  margin-top: 1.15rem;
   color: ${(props) => props.theme.textMuted};
   font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  text-transform: lowercase;
 
   &::before,
   &::after {
@@ -549,89 +499,81 @@ export const Divider = styled.div`
     flex: 1;
     border-bottom: 1px solid ${(props) => props.theme.border};
   }
-
-  @media (max-width: 968px) {
-    margin-top: 0.9rem;
-  }
 `;
 
 export const GoogleButtonContainer = styled.div`
-  margin-top: 0.9rem;
+  width: 100%;
+  margin-top: 0.85rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  justify-content: center;
+  gap: 0.7rem;
+  overflow: hidden;
+
+  > div,
+  > div > div,
+  iframe {
+    max-width: 100% !important;
+  }
 
   @media (max-width: 968px) {
-    margin-top: 0.8rem;
-    width: 100%;
-    overflow: hidden;
-
     > div,
     > div > div,
     iframe {
       width: 100% !important;
-      max-width: 100% !important;
     }
   }
 `;
 
 export const GoogleFallbackButton = styled.button`
   width: 100%;
-  max-width: 320px;
-  padding: 0.85rem 1rem;
-  border-radius: 999px;
+  min-height: 46px;
+  padding: 0.75rem 1rem;
   border: 1px solid ${(props) => props.theme.border};
-  background: ${(props) => props.theme.surface};
+  border-radius: 999px;
   color: ${(props) => props.theme.text};
-  font-size: 0.92rem;
-  font-weight: 700;
+  background: ${(props) => props.theme.surface};
+  box-shadow: 0 5px 16px ${(props) => props.theme.shadow};
+  font-size: 0.88rem;
+  font-weight: 750;
   cursor: pointer;
-  box-shadow: 0 4px 12px ${(props) => props.theme.shadow};
 
   &:hover:not(:disabled) {
     border-color: ${(props) => props.theme.primary};
   }
 
   &:disabled {
+    opacity: 0.7;
     cursor: progress;
-    opacity: 0.75;
-  }
-
-  @media (max-width: 968px) {
-    max-width: 100%;
-    min-height: 44px;
   }
 `;
 
 export const GoogleHint = styled.p`
   margin: 0.65rem 0 0;
-  text-align: center;
-  font-size: 0.82rem;
   color: ${(props) => props.theme.textMuted};
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.45;
 `;
 
 export const RegisterText = styled.p`
-  font-size: 0.9rem;
+  margin: 1.45rem 0 0;
   color: ${(props) => props.theme.textMuted};
   text-align: center;
-  margin-top: 2rem;
+  font-size: 0.86rem;
 
   a {
     color: ${(props) => props.theme.primary};
-    font-weight: 700;
+    font-weight: 850;
     text-decoration: none;
-
-    &:hover {
-      color: ${(props) => props.theme.primaryHover};
-      text-decoration: underline;
-    }
   }
 
-  @media (max-width: 968px) {
-    margin: auto 0 0;
-    padding-top: 1.3rem;
-    font-size: 0.82rem;
+  a:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 380px) {
+    margin-top: 1.2rem;
+    font-size: 0.78rem;
   }
 `;
