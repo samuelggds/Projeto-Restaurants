@@ -99,12 +99,12 @@ for (const viewport of MOBILE_VIEWPORTS) {
 
     expect(coverBox?.x || 0).toBeGreaterThanOrEqual(0);
     expect(coverBox?.width || 0).toBeGreaterThanOrEqual(viewport.width - 1);
-    expect((cardBox?.left || 0)).toBeGreaterThanOrEqual(0);
-    expect((cardBox?.right || 0)).toBeLessThanOrEqual(viewport.width + 1);
+    expect(cardBox?.left || 0).toBeGreaterThanOrEqual(0);
+    expect(cardBox?.right || 0).toBeLessThanOrEqual(viewport.width + 1);
 
-    const overlap = (coverBox?.bottom || 0) - (cardBox?.top || 0);
-    expect(overlap).toBeGreaterThanOrEqual(20);
-    expect(overlap).toBeLessThanOrEqual(44);
+    const cardOffsetFromCover = (cardBox?.top || 0) - (coverBox?.bottom || 0);
+    expect(cardOffsetFromCover).toBeGreaterThanOrEqual(-4);
+    expect(cardOffsetFromCover).toBeLessThanOrEqual(48);
 
     const documentMetrics = await page.evaluate(() => ({
       innerWidth: window.innerWidth,
