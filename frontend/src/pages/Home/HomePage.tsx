@@ -35,6 +35,7 @@ export function HomePage({
   cartCount = 0,
   userName,
   userEmail,
+  userAvatar,
   userLoggedIn = false,
   isAdmin = false,
   isTableMenu = false,
@@ -150,6 +151,7 @@ export function HomePage({
         cartCount={cartCount}
         userName={userName}
         userEmail={userEmail}
+        userAvatar={userAvatar}
         userLoggedIn={userLoggedIn}
         isAdmin={isAdmin}
         isTableMenu={isTableMenu}

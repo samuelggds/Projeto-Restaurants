@@ -45,6 +45,7 @@ import ordersService from '../../Services/ordersService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
+import { useDraggableFloatingActions } from './hooks/useDraggableFloatingActions';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
@@ -117,6 +118,17 @@ export default function Home() {
   const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(() =>
     /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname),
   );
+  const {
+    elementRef: floatingActionsRef,
+    style: floatingActionsStyle,
+    dragging: floatingActionsDragging,
+    positioned: floatingActionsPositioned,
+    onPointerDown: handleFloatingPointerDown,
+    onPointerMove: handleFloatingPointerMove,
+    onPointerUp: handleFloatingPointerUp,
+    onPointerCancel: handleFloatingPointerCancel,
+    onClickCapture: handleFloatingClickCapture,
+  } = useDraggableFloatingActions();
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
 
@@ -696,6 +708,7 @@ export default function Home() {
         cartCount={tableClosingRequested ? 0 : cartCount}
         userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
         userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
+        userAvatar={user ? String((user as Record<string, unknown>).avatar || '') : undefined}
         userLoggedIn={!!user}
         isAdmin={user?.role === 'ADMIN'}
         isTableMenu={mesaMode}
@@ -864,10 +877,24 @@ export default function Home() {
         onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
       />
-      <S.FloatingActions $aboveNudge={showLoginNudge} $primary={primary}>
+      <S.FloatingActions
+        ref={floatingActionsRef}
+        style={floatingActionsStyle}
+        data-dragging={floatingActionsDragging ? 'true' : 'false'}
+        data-drag-positioned={floatingActionsPositioned ? 'true' : 'false'}
+        $aboveNudge={showLoginNudge}
+        $primary={primary}
+        onPointerDown={handleFloatingPointerDown}
+        onPointerMove={handleFloatingPointerMove}
+        onPointerUp={handleFloatingPointerUp}
+        onPointerCancel={handleFloatingPointerCancel}
+        onClickCapture={handleFloatingClickCapture}
+      >
         {mesaMode && (
           <S.FloatingActionsToggle
             type="button"
+            data-floating-drag-handle="true"
+            title="Clique para abrir ou arraste para mover"
             aria-expanded={!floatingActionsCollapsed}
             aria-label={
               floatingActionsCollapsed

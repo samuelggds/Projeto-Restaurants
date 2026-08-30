@@ -11,6 +11,29 @@ const brand = {
 };
 
 describe('status de funcionamento da Home', () => {
+  it('mostra no círculo a foto persistida do perfil do usuário', () => {
+    const markup = renderToStaticMarkup(
+      <HomeHeader
+        brand={brand}
+        cartCount={0}
+        userLoggedIn
+        userName="Samuel Gomes"
+        userAvatar="data:image/jpeg;base64,foto-persistida"
+      />,
+    );
+
+    expect(markup).toContain('src="data:image/jpeg;base64,foto-persistida"');
+    expect(markup).not.toContain('>SG</button>');
+  });
+
+  it('mantém as iniciais quando o usuário ainda não possui foto', () => {
+    const markup = renderToStaticMarkup(
+      <HomeHeader brand={brand} cartCount={0} userLoggedIn userName="Samuel Gomes" />,
+    );
+
+    expect(markup).toContain('>SG</button>');
+  });
+
   it('mantém o nome completo do restaurante no cabeçalho', () => {
     const fullName = 'Restaurante Pizzaria e Hamburgueria Sabor da Família';
     const markup = renderToStaticMarkup(

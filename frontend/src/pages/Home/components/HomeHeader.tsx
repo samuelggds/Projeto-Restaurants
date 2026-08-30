@@ -17,6 +17,7 @@ type Props = {
   cartCount: number;
   userName?: string;
   userEmail?: string;
+  userAvatar?: string;
   userLoggedIn?: boolean;
   isAdmin?: boolean;
   isTableMenu?: boolean;
@@ -41,6 +42,7 @@ export const HomeHeader = memo(function HomeHeader({
   cartCount,
   userName,
   userEmail,
+  userAvatar,
   userLoggedIn = false,
   isAdmin = false,
   isTableMenu = false,
@@ -61,6 +63,7 @@ export const HomeHeader = memo(function HomeHeader({
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +80,10 @@ export const HomeHeader = memo(function HomeHeader({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [userAvatar]);
+
   const initials = userName
     ? userName
         .split(' ')
@@ -86,6 +93,7 @@ export const HomeHeader = memo(function HomeHeader({
         .join('')
         .toUpperCase()
     : 'U';
+  const showAvatar = Boolean(userAvatar && !avatarFailed);
   // Saved delivery addresses are private customer data. Even if stale props are
   // briefly present during logout, never expose them to an unauthenticated view.
   const availableAddresses = userLoggedIn ? savedAddresses : [];
@@ -231,7 +239,16 @@ export const HomeHeader = memo(function HomeHeader({
               $open={profileOpen}
               onClick={() => setProfileOpen((o) => !o)}
             >
-              {initials}
+              {showAvatar ? (
+                <AvatarPhoto
+                  src={userAvatar}
+                  alt=""
+                  decoding="async"
+                  onError={() => setAvatarFailed(true)}
+                />
+              ) : (
+                initials
+              )}
             </AvatarButton>
           ) : (
             <RoundButton aria-label="Minha conta" onClick={onOpenProfile}>
@@ -242,7 +259,18 @@ export const HomeHeader = memo(function HomeHeader({
           <ProfileDropdown $open={profileOpen}>
             <DropdownArrow />
             <DropdownUser>
-              <DropdownAvatar>{initials}</DropdownAvatar>
+              <DropdownAvatar>
+                {showAvatar ? (
+                  <AvatarPhoto
+                    src={userAvatar}
+                    alt=""
+                    decoding="async"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  initials
+                )}
+              </DropdownAvatar>
               <div>
                 <span className="name">{userName || 'Usuário'}</span>
                 {userEmail && <span className="email">{userEmail}</span>}
@@ -820,6 +848,8 @@ const AvatarButton = styled.button<{ $open: boolean }>`
   cursor: pointer;
   display: grid;
   place-items: center;
+  overflow: hidden;
+  padding: 0;
   transition:
     background-color 0.18s,
     border-color 0.18s,
@@ -831,6 +861,12 @@ const AvatarButton = styled.button<{ $open: boolean }>`
     background: #fdeee7;
     color: var(--home-primary);
   }
+`;
+const AvatarPhoto = styled.img`
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 `;
 const ProfileDropdown = styled.div<{ $open: boolean }>`
   position: absolute;
@@ -903,6 +939,7 @@ const DropdownAvatar = styled.div`
   place-items: center;
   flex-shrink: 0;
   font-family: inherit;
+  overflow: hidden;
 `;
 const DropdownDivider = styled.div`
   height: 1px;

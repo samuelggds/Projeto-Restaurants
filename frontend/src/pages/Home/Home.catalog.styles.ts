@@ -719,7 +719,7 @@ export const About = styled.section`
 `;
 export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: string }>`
   position: fixed;
-  z-index: 45;
+  z-index: 55;
   right: 24px;
   bottom: ${({ $aboveNudge }) => ($aboveNudge ? '86px' : '24px')};
   width: min-content;
@@ -736,6 +736,24 @@ export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: stri
     pointer-events: auto;
   }
 
+  [data-floating-drag-handle='true'] {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  &[data-dragging='true'],
+  &[data-dragging='true'] [data-floating-drag-handle='true'] {
+    cursor: grabbing;
+  }
+
+  &[data-dragging='true'] {
+    transition: none;
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
   @media (max-width: 700px) {
     left: 12px;
     right: 12px;
@@ -750,21 +768,21 @@ export const FloatingActionsToggle = styled.button`
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 8px 12px;
+  min-height: 32px;
+  padding: 6px 9px;
   border: 1px solid #eadfd3;
   border-radius: 999px;
   background: rgba(255, 253, 249, 0.96);
   color: #514b44;
   box-shadow: 0 10px 24px rgba(55, 38, 26, 0.14);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   cursor: pointer;
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
 
   &:hover {

@@ -152,6 +152,7 @@ export type HomePageProps = {
   cartCount?: number;
   userName?: string;
   userEmail?: string;
+  userAvatar?: string;
   userLoggedIn?: boolean;
   isAdmin?: boolean;
   isTableMenu?: boolean;

@@ -100,6 +100,7 @@ describe('LoyaltyProgramCard', () => {
 
     expect(markup).toContain('Ganhe descontos');
     expect(markup).toContain('Entre para acompanhar sua fidelidade');
+    expect(markup).toContain('data-floating-drag-handle="true"');
   });
 
   it('diferencia falha de consulta de ausência de benefícios', () => {

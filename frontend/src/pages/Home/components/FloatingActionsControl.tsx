@@ -49,15 +49,15 @@ export function FloatingActionsControl({
 }
 
 const ControlButton = styled.button`
-  width: min(360px, calc(100vw - 32px));
-  min-height: 58px;
-  padding: 9px 10px 9px 14px;
+  width: min(290px, calc(100vw - 24px));
+  min-height: 48px;
+  padding: 6px 7px 6px 10px;
   border: 1px solid color-mix(in srgb, var(--home-primary) 34%, #e8ddd3);
-  border-radius: 18px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   color: #3d352f;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--home-primary) 7%, #fff), #fff 62%),
@@ -87,9 +87,9 @@ const ControlButton = styled.button`
   }
 
   @media (max-width: 700px) {
-    width: 100%;
-    min-height: 56px;
-    border-radius: 16px;
+    width: min(290px, 100%);
+    min-height: 48px;
+    border-radius: 14px;
   }
 
   @media (max-width: 350px) {
@@ -105,7 +105,7 @@ const Copy = styled.span`
 
   strong {
     color: #26211d;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.15;
     font-weight: 900;
     letter-spacing: -0.01em;
@@ -113,7 +113,7 @@ const Copy = styled.span`
 
   small {
     color: #776c63;
-    font-size: 10px;
+    font-size: 9px;
     line-height: 1.25;
     font-weight: 700;
     overflow-wrap: anywhere;
@@ -132,25 +132,25 @@ const Copy = styled.span`
 
 const Action = styled.span`
   flex: 0 0 auto;
-  min-height: 38px;
-  padding: 7px 10px;
-  border-radius: 12px;
+  min-height: 32px;
+  padding: 5px 7px;
+  border-radius: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   color: color-mix(in srgb, var(--home-primary) 88%, #2b211b);
   background: color-mix(in srgb, var(--home-primary) 10%, #fff);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
 
   @media (max-width: 350px) {
-    min-height: 36px;
+    min-height: 32px;
     padding-inline: 8px;
 
     span {
