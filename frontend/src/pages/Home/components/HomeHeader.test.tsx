@@ -11,6 +11,15 @@ const brand = {
 };
 
 describe('status de funcionamento da Home', () => {
+  it('mantém o nome completo do restaurante no cabeçalho', () => {
+    const fullName = 'Restaurante Pizzaria e Hamburgueria Sabor da Família';
+    const markup = renderToStaticMarkup(
+      <HomeHeader brand={{ ...brand, name: fullName }} cartCount={0} />,
+    );
+
+    expect(markup).toContain(fullName);
+  });
+
   it('não renderiza o menu de navegação removido', () => {
     const markup = renderToStaticMarkup(<HomeHeader brand={brand} cartCount={0} />);
 

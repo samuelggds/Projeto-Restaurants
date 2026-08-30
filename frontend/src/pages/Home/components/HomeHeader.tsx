@@ -122,7 +122,7 @@ export const HomeHeader = memo(function HomeHeader({
         ) : (
           <Monogram>{brand.monogram ?? brand.name.slice(0, 2)}</Monogram>
         )}
-        <strong>{brand.name}</strong>
+        <BrandName>{brand.name}</BrandName>
       </Brand>
 
       {isTableMenu && tableLabel && (
@@ -208,7 +208,6 @@ export const HomeHeader = memo(function HomeHeader({
 
       <BusinessStatus
         $open={isRestaurantOpen}
-        $tableMenu={isTableMenu}
         title={statusDescription}
         role="status"
         aria-label={statusDescription}
@@ -320,9 +319,19 @@ const Header = styled.header<{ $primary: string }>`
     gap: 10px;
   }
   @media (max-width: 760px) {
-    height: 118px;
-    padding: 14px 14px 50px;
-    align-items: flex-start;
+    --home-control-height: 40px;
+    height: auto;
+    min-height: 0;
+    padding: 10px 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand brand'
+      'status actions'
+      'footer footer';
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 8px;
     background: #fffdf9;
     backdrop-filter: none;
   }
@@ -331,7 +340,7 @@ const Header = styled.header<{ $primary: string }>`
   }
   @media (max-width: 360px) {
     --home-control-height: 36px;
-    padding-inline: 10px;
+    padding: 9px 10px;
     gap: 6px;
   }
 `;
@@ -349,12 +358,36 @@ const Brand = styled.a`
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  @media (max-width: 760px) {
+    grid-area: brand;
+    width: 100%;
+    flex: none;
+    gap: 10px;
+    white-space: normal;
+    font-size: clamp(15px, 4.2vw, 18px);
+    line-height: 1.18;
+
+    strong {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  }
   @media (max-width: 520px) {
     gap: 7px;
-    font-size: 15px;
-    strong {
-      display: none;
-    }
+  }
+`;
+const BrandName = styled.strong`
+  min-width: 0;
+
+  @media (max-width: 760px) {
+    display: block;
+    flex: 1;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 `;
 const Logo = styled.img`
@@ -365,6 +398,10 @@ const Logo = styled.img`
   @media (max-width: 520px) {
     width: 38px;
     height: 38px;
+  }
+  @media (max-width: 360px) {
+    width: 34px;
+    height: 34px;
   }
 `;
 const Monogram = styled.span`
@@ -388,19 +425,16 @@ const LocationWrap = styled.div`
     min-width: 160px;
   }
   @media (max-width: 760px) {
-    display: block;
-    position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: 8px;
-    width: auto;
+    grid-area: footer;
+    position: relative;
+    inset: auto;
+    width: 100%;
     min-width: 0;
     max-width: none;
     margin-left: 0;
   }
   @media (max-width: 360px) {
-    right: 10px;
-    left: 10px;
+    inset: auto;
   }
 `;
 const Location = styled.button`
@@ -648,7 +682,7 @@ const AddressAction = styled.button`
     padding-inline: 10px;
   }
 `;
-const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
+const BusinessStatus = styled.div<{ $open: boolean }>`
   height: var(--home-control-height);
   box-sizing: border-box;
   display: flex;
@@ -687,15 +721,9 @@ const BusinessStatus = styled.div<{ $open: boolean; $tableMenu: boolean }>`
     margin-left: auto;
   }
   @media (max-width: 760px) {
-    ${({ $tableMenu }) =>
-      $tableMenu
-        ? `
-          position: absolute;
-          left: 14px;
-          bottom: 10px;
-          margin-left: 0;
-        `
-        : 'margin-left: auto;'}
+    grid-area: status;
+    justify-self: start;
+    margin-left: 0;
   }
   @media (max-width: 520px) {
     gap: 4px;
@@ -740,14 +768,14 @@ const TableBadge = styled.div`
   }
 
   @media (max-width: 760px) {
-    position: absolute;
-    right: 14px;
-    bottom: 10px;
+    grid-area: footer;
+    position: static;
+    justify-self: start;
     padding: 7px 10px;
   }
 
   @media (max-width: 360px) {
-    right: 10px;
+    padding: 6px 9px;
   }
 `;
 const Actions = styled.div`
@@ -757,6 +785,11 @@ const Actions = styled.div`
   align-items: center;
   gap: 9px;
   margin-left: auto;
+  @media (max-width: 760px) {
+    grid-area: actions;
+    justify-self: end;
+    margin-left: 0;
+  }
   @media (max-width: 360px) {
     gap: 6px;
   }
