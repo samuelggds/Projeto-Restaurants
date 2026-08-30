@@ -42,7 +42,7 @@ export const Container = styled.div`
     align-items: stretch;
     width: 100%;
     min-height: 100dvh;
-    padding: 0;
+    overflow-x: clip;
   }
 `;
 
@@ -53,23 +53,25 @@ export const TopBar = styled.div`
   z-index: 10;
 
   @media (max-width: 968px) {
-    top: 0.9rem;
-    right: 0.9rem;
+    top: clamp(0.8rem, 2.6vw, 1rem);
+    right: clamp(0.8rem, 2.6vw, 1rem);
   }
 `;
 
 export const ThemeToggleButton = styled.button`
+  width: 40px;
+  height: 40px;
   background: ${(props) => props.theme.surface};
   border: 1px solid ${(props) => props.theme.border};
   color: ${(props) => props.theme.text};
-  padding: 0.6rem;
+  padding: 0;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px ${(props) => props.theme.shadow};
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 
   &:hover {
     background: ${(props) => props.theme.border};
@@ -78,9 +80,8 @@ export const ThemeToggleButton = styled.button`
   @media (max-width: 968px) {
     width: 38px;
     height: 38px;
-    padding: 0;
-    background: color-mix(in srgb, ${(props) => props.theme.surface} 92%, transparent);
-    backdrop-filter: blur(8px);
+    background: color-mix(in srgb, ${(props) => props.theme.surface} 94%, transparent);
+    backdrop-filter: blur(10px);
   }
 `;
 
@@ -107,11 +108,11 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
     padding: 4rem;
 
     &::after {
-      content: "";
+      content: '';
       position: absolute;
       inset: 0;
       z-index: 1;
-      background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 30%, rgba(0, 0, 0, 0.78) 100%);
+      background: linear-gradient(180deg, transparent 24%, rgba(0, 0, 0, 0.08) 46%, rgba(0, 0, 0, 0.82) 100%);
       pointer-events: none;
     }
 
@@ -144,32 +145,36 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
       font-size: clamp(1rem, 1.35vw, 1.2rem);
       line-height: 1.65;
       font-weight: 500;
-      color: rgba(255, 255, 255, 0.9);
+      color: rgba(255, 255, 255, 0.94);
     }
   `}
 
   @media (max-width: 968px) {
     display: flex;
     flex: 0 0 auto;
-    width: calc(100% - 1.5rem);
-    min-height: 205px;
-    height: 27vh;
-    max-height: 245px;
-    margin: 0.75rem 0.75rem 0;
-    padding: 1.2rem 1.25rem 1.55rem;
+    width: min(calc(100% - 1.25rem), 620px);
+    aspect-ratio: 2 / 1;
+    margin: clamp(0.6rem, 2.2vw, 0.9rem) auto 0;
+    padding: clamp(1rem, 4vw, 1.45rem);
     border: none;
-    border-radius: 28px 28px 22px 22px;
+    border-radius: clamp(22px, 5vw, 30px);
     justify-content: flex-end;
     align-items: flex-start;
     box-sizing: border-box;
-    box-shadow: 0 14px 36px rgba(45, 34, 25, 0.12);
+    box-shadow: 0 16px 38px rgba(45, 34, 25, 0.14);
+    isolation: isolate;
 
     &::after {
       content: '';
       position: absolute;
       inset: 0;
       z-index: 1;
-      background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 16%, rgba(0, 0, 0, 0.72) 100%);
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0) 18%,
+        rgba(0, 0, 0, 0.06) 48%,
+        rgba(0, 0, 0, 0.72) 100%
+      );
       pointer-events: none;
     }
 
@@ -179,27 +184,31 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
       position: relative;
       z-index: 2;
       color: #fff;
-      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.68);
     }
 
     > h1 {
-      margin: 0 0 0.32rem;
+      max-width: calc(100% - 3rem);
+      margin: 0 0 0.35rem;
     }
 
     > h1 > span {
       color: #fff;
-      font-size: clamp(1.45rem, 7vw, 2rem);
-      line-height: 1.05;
+      max-width: 100%;
+      font-size: clamp(1.45rem, 6.8vw, 2.15rem);
+      line-height: 1.02;
       letter-spacing: -0.04em;
       font-weight: 900;
+      overflow-wrap: anywhere;
     }
 
     > p {
+      width: min(100%, 470px);
+      max-width: calc(100% - 1rem);
       margin: 0;
-      max-width: 94%;
       padding-left: 0.7rem;
       border-left: 3px solid ${(props) => props.theme.primary};
-      font-size: 0.74rem;
+      font-size: clamp(0.72rem, 2.8vw, 0.88rem);
       line-height: 1.35;
       font-weight: 600;
       display: -webkit-box;
@@ -209,11 +218,10 @@ export const BannerSection = styled.div<{ $hasLogo?: boolean }>`
     }
   }
 
-  @media (max-width: 480px) {
-    min-height: 180px;
-    height: 24vh;
-    max-height: 210px;
-    border-radius: 24px 24px 20px 20px;
+  @media (max-width: 390px) {
+    width: calc(100% - 0.9rem);
+    margin-top: 0.45rem;
+    border-radius: 21px;
   }
 `;
 
@@ -235,6 +243,7 @@ export const BrandTitle = styled.h1`
     gap: 0.45rem;
 
     > svg {
+      flex: 0 0 auto;
       width: 24px;
       height: 24px;
       color: #fff;
@@ -246,15 +255,12 @@ export const RestaurantLogo = styled.img`
   position: absolute;
   inset: 0;
   z-index: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
-  opacity: 0.72;
-
-  @media (max-width: 968px) {
-    opacity: 1;
-  }
+  object-position: center center;
+  opacity: 1;
 `;
 
 export const BrandSubtitle = styled.p`
@@ -277,8 +283,8 @@ export const FormSection = styled.div`
     flex: 1 1 auto;
     width: 100%;
     align-items: flex-start;
-    padding: 0 0.75rem 1.25rem;
-    margin-top: -0.55rem;
+    padding: 0 clamp(0.55rem, 2.2vw, 0.9rem) 1.5rem;
+    margin-top: -18px;
     box-sizing: border-box;
     position: relative;
     z-index: 3;
@@ -292,18 +298,13 @@ export const FormWrapper = styled.div`
   flex-direction: column;
 
   @media (max-width: 968px) {
-    max-width: 520px;
-    padding: 1.55rem 1.25rem 1.35rem;
-    border-radius: 24px;
+    max-width: 560px;
+    padding: clamp(1.25rem, 4.4vw, 1.7rem) clamp(1rem, 4vw, 1.4rem) 1.35rem;
+    border-radius: clamp(22px, 5vw, 28px);
     background: ${(props) => props.theme.surface};
     border: 1px solid ${(props) => props.theme.border};
-    box-shadow: 0 14px 38px ${(props) => props.theme.shadow};
+    box-shadow: 0 16px 42px ${(props) => props.theme.shadow};
     box-sizing: border-box;
-  }
-
-  @media (max-width: 480px) {
-    padding: 1.35rem 1rem 1.2rem;
-    border-radius: 22px;
   }
 `;
 
@@ -314,8 +315,9 @@ export const WelcomeText = styled.h2`
   margin: 0 0 0.5rem 0;
 
   @media (max-width: 968px) {
-    font-size: 1.65rem;
-    margin-bottom: 0.32rem;
+    font-size: clamp(1.65rem, 7vw, 2rem);
+    line-height: 1.08;
+    margin-bottom: 0.35rem;
   }
 `;
 
@@ -325,7 +327,8 @@ export const FormSubtitle = styled.p`
   margin: 0 0 2.5rem 0;
 
   @media (max-width: 968px) {
-    font-size: 0.84rem;
+    font-size: clamp(0.82rem, 3vw, 0.92rem);
+    line-height: 1.45;
     margin-bottom: 1.35rem;
   }
 `;
