@@ -3,6 +3,7 @@
   "readOnly": [
     "checkDatabaseConnection.mjs",
     "checkDatabaseConnection.ts",
+    "checkMigrationState.mjs",
     "printDatabaseFingerprint.mjs"
   ],
   "guardedRead": [
@@ -33,6 +34,7 @@
   "disabledLegacy": [
     "addCategoriesWithPhotos.mjs",
     "addMoreProducts.mjs",
+    "cleanupRolledBackMigration.mjs",
     "confirmOrderPaymentNow.ts",
     "confirmPixAsClientByOrder.ts",
     "createMesaCashOrder.ts",
