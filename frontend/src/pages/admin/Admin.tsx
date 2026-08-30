@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- os mapeadores exportados são contratos puros cobertos por testes. */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/authContext';
@@ -36,6 +36,10 @@ import {
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { playOrderNotificationSound } from './domain/orderNotificationSound';
 import tableAccountService from '../../Services/tableAccountService';
+import {
+  EMPLOYEE_ISSUES_SYNC_EVENT,
+  EMPLOYEE_ISSUES_UNREAD_EVENT,
+} from './hooks/useAdminUnreadIssues';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -512,29 +516,41 @@ export default function Admin() {
     soundNotificationsRef.current = settings.soundNotifications;
   }, [settings.soundNotifications]);
 
-  async function loadOperations() {
-    const [orderData, productData, categoryData, ingredientData] = await Promise.all([
-      ordersService.listRestaurantOrders(),
-      productsService.listProducts(),
-      categoriesService.listCategories(),
-      ingredientsService.listIngredients(),
-    ]);
+  const loadOrders = useCallback(async () => {
+    const orderData = await ordersService.listRestaurantOrders();
     setOrders(orderData.map(mapOrder));
+  }, []);
+
+  const loadProducts = useCallback(async () => {
+    const productData = await productsService.listProducts();
     setProducts(productData.map(mapProduct));
+  }, []);
+
+  const loadCategories = useCallback(async () => {
+    const categoryData = await categoriesService.listCategories();
     setCategories(
       categoryData.map((value: unknown) => {
         const raw = asRecord(value);
         return { id: Number(raw.id), name: String(raw.name), active: raw.active !== false };
       }),
     );
+  }, []);
+
+  const loadIngredients = useCallback(async () => {
+    const ingredientData = await ingredientsService.listIngredients();
     setIngredients(
       ingredientData
         .map(mapIngredient)
         .filter((ingredient) => ingredient.id > 0 && ingredient.name),
     );
-  }
+  }, []);
 
-  async function loadCoupons() {
+  const loadCatalog = useCallback(
+    () => Promise.all([loadProducts(), loadCategories(), loadIngredients()]),
+    [loadCategories, loadIngredients, loadProducts],
+  );
+
+  const loadCoupons = useCallback(async () => {
     setPromotionsLoading(true);
     setPromotionsError('');
     try {
@@ -546,23 +562,23 @@ export default function Admin() {
     } finally {
       setPromotionsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     Promise.resolve()
       .then(async () => {
-        if (mounted) await loadOperations();
+        if (mounted) await Promise.all([loadOrders(), loadCatalog()]);
       })
       .catch((error) => console.error('Não foi possível carregar a operação.', error));
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadCatalog, loadOrders]);
 
   useEffect(() => {
     void Promise.resolve().then(loadCoupons);
-  }, []);
+  }, [loadCoupons]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -570,7 +586,7 @@ export default function Admin() {
 
     const { socket, release } = acquireSocket(token, 'admin-orders');
     const refreshOrders = () => {
-      void loadOperations().catch((error) =>
+      void loadOrders().catch((error) =>
         console.error('Não foi possível atualizar os pedidos em tempo real.', error),
       );
     };
@@ -581,23 +597,30 @@ export default function Admin() {
     const onEmployeeIssue = (issue: { issueStatus?: string | null; senderLabel?: string }) => {
       if (issue.issueStatus === 'OPEN') {
         toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
-        window.dispatchEvent(new CustomEvent('employee-issues-unread'));
+        window.dispatchEvent(new CustomEvent(EMPLOYEE_ISSUES_UNREAD_EVENT));
       }
+    };
+    const syncEmployeeIssues = () => {
+      window.dispatchEvent(new CustomEvent(EMPLOYEE_ISSUES_SYNC_EVENT));
     };
 
     socket.on('new-order', onNewOrder);
     socket.on('order:payment-confirmed', refreshOrders);
     socket.on('order:status-changed', refreshOrders);
     socket.on('support:chat-message', onEmployeeIssue);
+    socket.on('support:issue-updated', syncEmployeeIssues);
+    socket.on('support:issue-deleted', syncEmployeeIssues);
 
     return () => {
       socket.off('new-order', onNewOrder);
       socket.off('order:payment-confirmed', refreshOrders);
       socket.off('order:status-changed', refreshOrders);
       socket.off('support:chat-message', onEmployeeIssue);
+      socket.off('support:issue-updated', syncEmployeeIssues);
+      socket.off('support:issue-deleted', syncEmployeeIssues);
       release();
     };
-  }, []);
+  }, [loadOrders]);
 
   useEffect(() => {
     let mounted = true;
@@ -758,15 +781,15 @@ export default function Admin() {
       promotionsError={promotionsError}
       onUpdateOrderStatus={async (id, status) => {
         await ordersService.updateStatus(id, status);
-        await loadOperations();
+        await loadOrders();
       }}
       onConfirmOrderPayment={async (id) => {
         await ordersService.confirmPayment(id);
-        await loadOperations();
+        await loadOrders();
       }}
       onCancelOrder={async (id) => {
         await ordersService.refundOrder(id);
-        await loadOperations();
+        await loadOrders();
       }}
       onSaveProduct={async (product) => {
         const activeFromStock =
@@ -786,27 +809,27 @@ export default function Admin() {
         };
         if (product.id) await productsService.updateProduct(product.id, payload);
         else await productsService.createProduct(payload);
-        await loadOperations();
+        await loadProducts();
       }}
       onDeleteProduct={async (id) => {
         await productsService.deleteProduct(id);
-        await loadOperations();
+        await loadProducts();
       }}
       onCreateCategory={async (name) => {
         await categoriesService.createCategory({ name, active: true });
-        await loadOperations();
+        await loadCategories();
       }}
       onUpdateCategory={async (id, name) => {
         await categoriesService.updateCategory(id, { name });
-        await loadOperations();
+        await loadCategories();
       }}
       onDeleteCategory={async (id) => {
         await categoriesService.deleteCategory(id);
-        await loadOperations();
+        await Promise.all([loadCategories(), loadProducts()]);
       }}
       onCreateIngredient={async (ingredient) => {
         await ingredientsService.createIngredient(ingredient);
-        await loadOperations();
+        await loadIngredients();
       }}
       onUpdateIngredient={async (ingredient) => {
         await ingredientsService.updateIngredient(ingredient.id, {
@@ -815,19 +838,19 @@ export default function Admin() {
           category: ingredient.category,
           active: ingredient.active,
         });
-        await loadOperations();
+        await loadIngredients();
       }}
       onDeleteIngredient={async (id) => {
         await ingredientsService.deleteIngredient(id);
-        await loadOperations();
+        await loadIngredients();
       }}
       onApplyProductDiscount={async (productId, payload) => {
         await promotionsService.applyProductDiscount(productId, payload);
-        await loadOperations();
+        await loadProducts();
       }}
       onDeleteProductDiscount={async (productId) => {
         await promotionsService.deleteProductDiscount(productId);
-        await loadOperations();
+        await loadProducts();
       }}
       onCreateCoupon={async (payload) => {
         await promotionsService.createCoupon(payload);
@@ -842,7 +865,7 @@ export default function Admin() {
         await loadCoupons();
       }}
       onReloadPromotions={async () => {
-        await Promise.all([loadOperations(), loadCoupons()]);
+        await Promise.all([loadProducts(), loadCoupons()]);
       }}
       onSaveSettings={handleSaveSettings}
       onReportSupport={handleReportSupport}

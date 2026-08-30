@@ -6,6 +6,7 @@ import CreateRestaurantSettingsController from '../controllers/CreateRestaurantS
 import GetRestaurantSettingsController from '../controllers/GetRestaurantSettingsController.js';
 import UpdateRestaurantSettingsController from '../controllers/UpdateRestaurantSettingsController.js';
 import GetPublicRestaurantSettingsController from '../controllers/GetPublicRestaurantSettingsController.js';
+import GetPublicRestaurantSettingsRevisionController from '../controllers/GetPublicRestaurantSettingsRevisionController.js';
 import OnboardRestaurantAsaasController from '../controllers/OnboardRestaurantAsaasController.js';
 import GetAsaasWalletBalanceController from '../controllers/GetAsaasWalletBalanceController.js';
 import WithdrawAsaasWalletController from '../controllers/WithdrawAsaasWalletController.js';
@@ -18,6 +19,18 @@ import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
 const router = Router();
+
+router.get('/public/default/revision', publicRestaurantBillingMiddleware, (req, res) =>
+  GetPublicRestaurantSettingsRevisionController.handle(req, res),
+);
+
+router.get('/public/slug/:slug/revision', publicRestaurantBillingMiddleware, (req, res) =>
+  GetPublicRestaurantSettingsRevisionController.handle(req, res),
+);
+
+router.get('/public/:restaurantId/revision', publicRestaurantBillingMiddleware, (req, res) =>
+  GetPublicRestaurantSettingsRevisionController.handle(req, res),
+);
 
 router.get('/public/default', publicRestaurantBillingMiddleware, (req, res) =>
   GetPublicRestaurantSettingsController.handle(req, res),

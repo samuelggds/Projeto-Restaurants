@@ -13,6 +13,11 @@ describe('homeDataAdapter', () => {
       'https://cdn.test/pizza.webp',
     );
   });
+  it('preserva imagens persistidas no formato data URL', () => {
+    const persistedImage = 'data:image/webp;base64,UklGRg==';
+
+    expect(resolveProductImage({ image: persistedImage }, 0)).toBe(persistedImage);
+  });
   it('mantém produtos sem estoque visíveis, mas indisponíveis, e cria categorias únicas', () => {
     const data = buildHomeData(
       [

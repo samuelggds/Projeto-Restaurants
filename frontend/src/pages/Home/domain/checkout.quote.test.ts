@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { buildOrderQuotePayload } from './checkout';
+import type { CartItem } from '../hooks/useCart';
 
-const cart = [
+const cart: CartItem[] = [
   {
-    productId: 10,
+    productId: '10',
+    name: 'Pizza de teste',
+    price: 40,
+    image: '',
     quantity: 1,
     selectedOptionIds: [],
     selectedOptions: [],
     ingredientIds: [],
     observation: '',
   },
-] as any;
+];
 
 const deliveryAddress = {
   address: 'Rua Teste',

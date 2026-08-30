@@ -8,13 +8,32 @@ export function isPersistentImageSource(value: unknown) {
   return /^https?:\/\//i.test(source) || /^data:image\/(jpeg|png|webp);base64,/i.test(source);
 }
 
-function readFileAsDataUrl(file: File) {
+function readBlobAsDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
     reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(blob);
   });
+}
+
+async function encodeCanvasAsWebp(canvas: HTMLCanvasElement, quality: number) {
+  if (typeof canvas.toBlob !== 'function') {
+    return canvas.toDataURL('image/webp', quality);
+  }
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (encoded) => {
+        if (encoded) resolve(encoded);
+        else reject(new Error('Seu navegador não conseguiu compactar a imagem.'));
+      },
+      'image/webp',
+      quality,
+    );
+  });
+
+  return readBlobAsDataUrl(blob);
 }
 
 function loadImage(source: string) {
@@ -49,7 +68,7 @@ export async function createPersistentImageDataUrl(
     throw new Error('A imagem deve ter no máximo 5 MB.');
   }
 
-  const originalDataUrl = await readFileAsDataUrl(file);
+  const originalDataUrl = await readBlobAsDataUrl(file);
   const image = await loadImage(originalDataUrl);
   if (
     (options.minimumWidth && image.naturalWidth < options.minimumWidth) ||
@@ -94,10 +113,10 @@ export async function createPersistentImageDataUrl(
     Math.max(100_000, options.maximumDataUrlLength ?? MAX_OUTPUT_LENGTH),
   );
   let quality = 0.88;
-  let result = canvas.toDataURL('image/webp', quality);
+  let result = await encodeCanvasAsWebp(canvas, quality);
   while (result.length > maximumDataUrlLength && quality > 0.5) {
     quality -= 0.08;
-    result = canvas.toDataURL('image/webp', quality);
+    result = await encodeCanvasAsWebp(canvas, quality);
   }
 
   if (!result.startsWith('data:image/') || result.length > maximumDataUrlLength) {

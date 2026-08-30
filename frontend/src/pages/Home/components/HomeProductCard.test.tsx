@@ -32,6 +32,8 @@ describe('card de produto da Home', () => {
     expect(html).toContain('<strong>R$\u00a040,00</strong>');
     expect(html).toContain('aria-label="Ver detalhes de Prato artesanal"');
     expect(html).toContain('aria-label="Adicionar Prato artesanal"');
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
   });
 
   it('usa uma etiqueta simples no conteúdo quando o produto está em destaque', () => {

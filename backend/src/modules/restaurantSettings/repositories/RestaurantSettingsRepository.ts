@@ -94,6 +94,7 @@ class RestaurantSettingsRepository {
       select: {
         id: true,
         active: true,
+        updatedAt: true,
         name: true,
         email: true,
         phone: true,
@@ -120,6 +121,7 @@ class RestaurantSettingsRepository {
             buttonLabel: true,
             image: true,
             position: true,
+            updatedAt: true,
           },
           orderBy: [{ position: 'asc' }, { id: 'asc' }],
         },
@@ -132,6 +134,32 @@ class RestaurantSettingsRepository {
       where: { active: true },
       select: { id: true },
       orderBy: { id: 'asc' },
+    });
+  }
+
+  async findPublicRevisionByRestaurantId(restaurantId: number | string) {
+    return prisma.restaurant.findUnique({
+      where: {
+        id: Number(restaurantId),
+      },
+      select: {
+        id: true,
+        active: true,
+        updatedAt: true,
+        settings: {
+          select: {
+            updatedAt: true,
+          },
+        },
+        banners: {
+          where: { active: true },
+          select: {
+            id: true,
+            updatedAt: true,
+          },
+          orderBy: { id: 'asc' },
+        },
+      },
     });
   }
 
@@ -181,6 +209,7 @@ class RestaurantSettingsRepository {
           select: {
             name: true,
             active: true,
+            updatedAt: true,
             slug: true,
             logo: true,
             coverImage: true,
@@ -203,6 +232,7 @@ class RestaurantSettingsRepository {
                 buttonLabel: true,
                 image: true,
                 position: true,
+                updatedAt: true,
               },
               orderBy: [{ position: 'asc' }, { id: 'asc' }],
             },

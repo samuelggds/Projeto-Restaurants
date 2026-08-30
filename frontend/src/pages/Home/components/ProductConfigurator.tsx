@@ -116,7 +116,7 @@ export function ProductConfigurator({
 
       <S.Layout>
         <S.ProductSummary>
-          <img src={product.image} alt={product.name} />
+          <img src={product.image} alt={product.name} decoding="async" />
           <div>
             <small>Personalize seu pedido</small>
             <h1>{product.name}</h1>

@@ -3,6 +3,7 @@ import productRepository from '../repositories/ProductRepository.js';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { buildProductOptionGroupsCreate } from '../utils/productOptionGroups.js';
+import { isPublicProductMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 
 type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
@@ -36,14 +37,20 @@ class UpdateProductService {
       saleMode: _saleMode,
       ...productData
     } = payload;
+    const persistedProductData = {
+      ...productData,
+      ...(isPublicProductMediaReference(productData.image, restaurantId, Number(product.id))
+        ? { image: product.image || '' }
+        : {}),
+    };
     if (optionGroups && optionGroups.length === 0) {
       throw new Error('Adicione ao menos um grupo de opções para montar o produto.');
     }
 
     return prisma.$transaction(async (tx) => {
-      if (productData.categoryId !== undefined) {
+      if (persistedProductData.categoryId !== undefined) {
         const category = await tx.category.findFirst({
-          where: { id: productData.categoryId, restaurantId },
+          where: { id: persistedProductData.categoryId, restaurantId },
           select: { id: true },
         });
 
@@ -63,11 +70,9 @@ class UpdateProductService {
       return tx.product.update({
         where: { id: product.id },
         data: {
-          ...productData,
+          ...persistedProductData,
           saleMode: 'BUILDABLE',
-          ...(normalizedGroups
-            ? { optionGroups: { create: normalizedGroups } }
-            : {}),
+          ...(normalizedGroups ? { optionGroups: { create: normalizedGroups } } : {}),
         },
         include: {
           category: true,

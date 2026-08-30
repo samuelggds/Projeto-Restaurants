@@ -13,6 +13,7 @@ export const CartOverlay = styled.button<{ $open: boolean }>`
   transition:
     opacity 0.28s,
     visibility 0.28s;
+  will-change: ${({ $open }) => ($open ? 'opacity' : 'auto')};
   cursor: default;
 `;
 
@@ -32,12 +33,14 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   visibility: ${({ $open }) => ($open ? 'visible' : 'hidden')};
   pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
   opacity: ${({ $open }) => ($open ? 1 : 0)};
-  clip-path: inset(0 0 0 ${({ $open }) => ($open ? '0' : '100%')});
+  transform: translate3d(${({ $open }) => ($open ? '0' : '100%')}, 0, 0);
   transition:
-    clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.2s ease,
     visibility 0s linear ${({ $open }) => ($open ? '0s' : '0.32s')};
   box-shadow: ${({ $open }) => ($open ? '-24px 0 80px rgba(70, 45, 20, 0.22)' : 'none')};
+  will-change: ${({ $open }) => ($open ? 'transform, opacity' : 'auto')};
+  contain: layout paint;
 `;
 
 export const CartHead = styled.div`
@@ -356,7 +359,10 @@ export const OrderTypeBtn = styled.button<{ $active: boolean }>`
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: all 0.18s;
+  transition:
+    background-color 0.18s,
+    color 0.18s,
+    box-shadow 0.18s;
 
   background: ${({ $active }) => ($active ? '#fff' : 'transparent')};
   color: ${({ $active }) => ($active ? '#d64d08' : '#6f6a63')};
@@ -450,7 +456,10 @@ export const DeliveryBtn = styled.button<{ $active: boolean }>`
   align-items: center;
   justify-content: center;
   gap: 7px;
-  transition: all 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
   background: ${({ $active }) => ($active ? '#fff' : 'transparent')};
   color: ${({ $active }) => ($active ? '#d64d08' : '#6f6a63')};
   box-shadow: ${({ $active }) => ($active ? '0 2px 10px rgba(70,45,20,.12)' : 'none')};
@@ -573,7 +582,11 @@ export const PaymentCard = styled.button<{ $active: boolean; $color: string }>`
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: all 0.2s;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
 
   &:hover {
     border-color: ${({ $color }) => $color};

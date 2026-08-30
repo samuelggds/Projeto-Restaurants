@@ -19,7 +19,10 @@ vi.mock('../../../Services/menuService', () => ({
 vi.mock('../../../Services/restaurantSettingsService', () => ({
   default: {
     getDefaultPublicSettings: vi.fn(),
+    getDefaultPublicSettingsRevision: vi.fn(),
     getPublicSettings: vi.fn(),
+    getPublicSettingsRevision: vi.fn(),
+    getPublicSettingsRevisionBySlug: vi.fn(),
   },
 }));
 
@@ -60,6 +63,9 @@ describe('useRestaurantCatalog settings refresh', () => {
 
   it('atualiza o status da Home por polling e remove o timer ao desmontar', async () => {
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    vi.mocked(restaurantSettingsService.getPublicSettingsRevision)
+      .mockResolvedValueOnce({ revision: 'r1' })
+      .mockResolvedValueOnce({ revision: 'r2' });
     vi.mocked(restaurantSettingsService.getPublicSettings)
       .mockResolvedValueOnce({ isOpenForOrders: true })
       .mockResolvedValueOnce({ isOpenForOrders: false });
@@ -72,6 +78,8 @@ describe('useRestaurantCatalog settings refresh', () => {
     });
     expect(container.textContent).toBe('false');
     expect(restaurantSettingsService.getPublicSettings).toHaveBeenCalledTimes(2);
+    expect(restaurantSettingsService.getPublicSettings).toHaveBeenNthCalledWith(1, 7, 'r1');
+    expect(restaurantSettingsService.getPublicSettings).toHaveBeenNthCalledWith(2, 7, 'r2');
 
     await act(async () => root.unmount());
     await vi.advanceTimersByTimeAsync(PUBLIC_SETTINGS_REFRESH_INTERVAL_MS);
@@ -84,6 +92,9 @@ describe('useRestaurantCatalog settings refresh', () => {
   it('não consulta em segundo plano e atualiza imediatamente quando a aba volta a ficar visível', async () => {
     let visibilityState: DocumentVisibilityState = 'visible';
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState);
+    vi.mocked(restaurantSettingsService.getPublicSettingsRevision)
+      .mockResolvedValueOnce({ revision: 'r1' })
+      .mockResolvedValueOnce({ revision: 'r2' });
     vi.mocked(restaurantSettingsService.getPublicSettings)
       .mockResolvedValueOnce({ isOpenForOrders: true })
       .mockResolvedValueOnce({ isOpenForOrders: false });
@@ -104,21 +115,40 @@ describe('useRestaurantCatalog settings refresh', () => {
   });
 
   it('resolve e memoriza o restaurante padrão para uma visita anônima à raiz', async () => {
-    vi.mocked(restaurantSettingsService.getDefaultPublicSettings).mockResolvedValue({
+    vi.mocked(restaurantSettingsService.getDefaultPublicSettingsRevision).mockResolvedValue({
       restaurantId: 3,
+      revision: 'r1',
     });
 
     await act(async () => root.render(<DefaultRestaurantProbe />));
 
     expect(container.textContent).toBe('3');
     expect(localStorage.getItem('menuRestaurantId')).toBe('3');
-    expect(restaurantSettingsService.getDefaultPublicSettings).toHaveBeenCalledOnce();
+    expect(restaurantSettingsService.getDefaultPublicSettingsRevision).toHaveBeenCalledOnce();
+  });
+
+  it('não baixa novamente imagens e configurações quando a revisão permanece igual', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    vi.mocked(restaurantSettingsService.getPublicSettingsRevision).mockResolvedValue({
+      revision: 'r1',
+    });
+    vi.mocked(restaurantSettingsService.getPublicSettings).mockResolvedValue({
+      isOpenForOrders: true,
+    });
+
+    await act(async () => root.render(<Probe />));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PUBLIC_SETTINGS_REFRESH_INTERVAL_MS * 2);
+    });
+
+    expect(restaurantSettingsService.getPublicSettingsRevision).toHaveBeenCalledTimes(3);
+    expect(restaurantSettingsService.getPublicSettings).toHaveBeenCalledOnce();
   });
 
   it('não consulta o padrão quando já existe outro contexto de restaurante', async () => {
     await act(async () => root.render(<DefaultRestaurantProbe enabled={false} />));
 
     expect(container.textContent).toBe('carregando');
-    expect(restaurantSettingsService.getDefaultPublicSettings).not.toHaveBeenCalled();
+    expect(restaurantSettingsService.getDefaultPublicSettingsRevision).not.toHaveBeenCalled();
   });
 });

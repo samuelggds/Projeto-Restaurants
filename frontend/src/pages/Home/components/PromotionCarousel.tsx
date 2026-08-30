@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type TouchEvent } from 'react';
+import { memo, useEffect, useRef, useState, type KeyboardEvent, type TouchEvent } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { HomeBanner } from '../types';
 import {
@@ -13,12 +13,28 @@ type PromotionCarouselProps = {
   onOpenMenu?: () => void;
 };
 
-export function PromotionCarousel({ banners, onOpenMenu }: PromotionCarouselProps) {
+export const PromotionCarousel = memo(function PromotionCarousel({
+  banners,
+  onOpenMenu,
+}: PromotionCarouselProps) {
   const [announcement, setAnnouncement] = useState('');
   const touchStartRef = useRef<{ identifier: number; x: number; y: number } | null>(null);
   const { activeIndex, autoplayPaused, goTo, goNext, goPrevious } = usePromotionCarousel(
     banners.map((banner) => banner.id),
   );
+
+  useEffect(() => {
+    if (banners.length < 2) return;
+    const nextBanner = banners[(activeIndex + 1) % banners.length];
+    if (!nextBanner?.image) return;
+
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = nextBanner.image;
+    if (typeof image.decode === 'function') {
+      void image.decode().catch(() => undefined);
+    }
+  }, [activeIndex, banners]);
 
   if (!banners.length) return null;
 
@@ -177,4 +193,4 @@ export function PromotionCarousel({ banners, onOpenMenu }: PromotionCarouselProp
       </S.ScreenReaderStatus>
     </S.Carousel>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 import {
   ExternalLink,
   HelpCircle,
@@ -41,7 +41,7 @@ import { validateBusinessHours } from './domain/businessHours';
 import { validateBrandSettings } from './domain/brandSettingsValidation';
 import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
 import { validateTableAccountSettings } from './domain/tableAccountSettingsValidation';
-import supportChatService from '../../Services/supportChatService';
+import { useAdminUnreadIssues } from './hooks/useAdminUnreadIssues';
 
 function hasBusinessIdentityInput(settings: typeof adminMockSettings) {
   return [
@@ -130,11 +130,8 @@ export function AdminPage({
   const coupons = initialCoupons;
   const [mobile, setMobile] = useState(false);
   const [settingsSearch, setSettingsSearch] = useState('');
-  const unreadIssuesStorageKey = 'employee-issues-unread';
-  const issuesLastSeenStorageKey = 'employee-issues-last-seen-id';
-  const [unreadEmployeeIssues, setUnreadEmployeeIssues] = useState(() =>
-    Number(sessionStorage.getItem(unreadIssuesStorageKey) || 0),
-  );
+  const { unreadIssues: unreadEmployeeIssues, clearUnreadIssues: clearUnreadEmployeeIssues } =
+    useAdminUnreadIssues(area === 'help');
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
   const [saved, setSaved] = useState(paymentOAuthStatus === 'success');
@@ -155,56 +152,6 @@ export function AdminPage({
     setEmployeesSource(initialEmployees);
     setEmployees(initialEmployees);
   }
-  useEffect(() => {
-    const markUnread = () => {
-      if (area === 'help') return;
-      setUnreadEmployeeIssues((current) => {
-        const next = current + 1;
-        sessionStorage.setItem(unreadIssuesStorageKey, String(next));
-        return next;
-      });
-    };
-    window.addEventListener('employee-issues-unread', markUnread);
-    return () => window.removeEventListener('employee-issues-unread', markUnread);
-  }, [area]);
-  useEffect(() => {
-    let active = true;
-    const refreshUnreadIssues = () => {
-      const lastSeenId = Number(sessionStorage.getItem(issuesLastSeenStorageKey) || 0);
-      void supportChatService
-        .getMessages({ limit: 100, channel: 'internal' })
-        .then((result) => {
-          if (!active) return;
-          const pending = (result?.messages || []).filter(
-            (message: { id?: string; issueStatus?: string | null }) => {
-              const isActive =
-                message.issueStatus === 'OPEN' || message.issueStatus === 'IN_PROGRESS';
-              return isActive && Number(message.id || 0) > lastSeenId;
-            },
-          ).length;
-          sessionStorage.setItem(unreadIssuesStorageKey, String(pending));
-          setUnreadEmployeeIssues(pending);
-        })
-        .catch(() => {});
-    };
-    refreshUnreadIssues();
-    const intervalId = window.setInterval(refreshUnreadIssues, 8_000);
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-    };
-  }, []);
-  const clearUnreadEmployeeIssues = () => {
-    setUnreadEmployeeIssues(0);
-    sessionStorage.setItem(unreadIssuesStorageKey, '0');
-    void supportChatService
-      .getMessages({ limit: 1, channel: 'internal' })
-      .then((result) => {
-        const latestId = Number(result?.messages?.[0]?.id || 0);
-        sessionStorage.setItem(issuesLastSeenStorageKey, String(latestId));
-      })
-      .catch(() => {});
-  };
   const areaTitles: Record<Exclude<AdminSection, 'settings' | 'help'>, string> = {
     overview: 'Visão geral',
     orders: 'Pedidos',

@@ -59,6 +59,7 @@ describe('PromotionCarousel', () => {
     act(() => root.unmount());
     container.remove();
     vi.clearAllTimers();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -74,6 +75,36 @@ describe('PromotionCarousel', () => {
     expect((slides[1] as HTMLElement).hidden).toBe(true);
     expect(slides[0].textContent).toContain('30% OFF');
     expect(slides[0].querySelector('img')?.getAttribute('alt')).toBe('');
+    expect(slides[0].querySelector('img')?.getAttribute('loading')).toBe('eager');
+    expect(slides[1].querySelector('img')?.getAttribute('loading')).toBe('lazy');
+    expect(slides[1].querySelector('img')?.getAttribute('decoding')).toBe('async');
+  });
+
+  it('pré-decodifica o próximo banner para a troca manter-se fluida', () => {
+    const decode = vi.fn().mockResolvedValue(undefined);
+    const loadedSources: string[] = [];
+
+    class PreloadImage {
+      decoding = 'auto';
+      private source = '';
+
+      get src() {
+        return this.source;
+      }
+
+      set src(value: string) {
+        this.source = value;
+        loadedSources.push(value);
+      }
+
+      decode = decode;
+    }
+
+    vi.stubGlobal('Image', PreloadImage);
+    act(() => root.render(<PromotionCarousel banners={banners} />));
+
+    expect(loadedSources).toContain(banners[1].image);
+    expect(decode).toHaveBeenCalledTimes(1);
   });
 
   it('permite navegar, escolher um banner e mantém a rotação após clicar no cardápio', async () => {

@@ -1,7 +1,7 @@
 import { ChevronRight, Search, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import type { HomeProduct } from '../types';
 
 type ProductSearchDialogProps = {
@@ -21,6 +21,22 @@ const normalizeSearchText = (value: string) =>
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const revealBackdrop = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const revealDialog = keyframes`
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+`;
 
 export function ProductSearchDialog({
   open,
@@ -144,7 +160,7 @@ export function ProductSearchDialog({
                     onSelect(product);
                   }}
                 >
-                  <ProductImage src={product.image} alt="" />
+                  <ProductImage src={product.image} alt="" loading="lazy" decoding="async" />
                   <ProductInfo>
                     <h3>{product.name}</h3>
                     <p>{product.description || 'Confira os detalhes e escolha como deseja.'}</p>
@@ -179,6 +195,11 @@ const Backdrop = styled.div<{ $primary: string }>`
   padding: clamp(72px, 11vh, 128px) 20px 28px;
   background: rgba(17, 18, 18, 0.52);
   backdrop-filter: blur(8px);
+  animation: ${revealBackdrop} 180ms ease-out both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const Dialog = styled.section`
@@ -190,6 +211,11 @@ const Dialog = styled.section`
   background: #fffdfb;
   box-shadow: 0 30px 80px rgba(35, 23, 15, 0.28);
   color: #211d1a;
+  animation: ${revealDialog} 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 
   @media (max-width: 620px) {
     max-height: calc(100dvh - 32px);

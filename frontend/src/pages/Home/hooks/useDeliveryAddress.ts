@@ -90,10 +90,13 @@ export function useDeliveryAddress(user: unknown) {
     };
   }, [selectSavedAddress, user]);
 
-  const handleSavedAddressChange = (id: string) => {
-    const selected = savedAddresses.find((item) => String(item.id) === id);
-    if (selected) selectSavedAddress(selected);
-  };
+  const handleSavedAddressChange = useCallback(
+    (id: string) => {
+      const selected = savedAddresses.find((item) => String(item.id) === id);
+      if (selected) selectSavedAddress(selected);
+    },
+    [savedAddresses, selectSavedAddress],
+  );
 
   const handleCepLookup = async (value: string) => {
     const digits = value.replace(/\D/g, '');

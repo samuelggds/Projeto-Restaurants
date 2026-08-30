@@ -1,4 +1,32 @@
 import api from './api';
+import { resolvePublicMediaSource } from './publicMediaSource';
+
+function normalizePublicSettingsMedia(settings, baseUrl) {
+  const restaurant = settings?.restaurant;
+  if (!restaurant || typeof restaurant !== 'object') return settings;
+
+  return {
+    ...settings,
+    restaurant: {
+      ...restaurant,
+      logo: resolvePublicMediaSource(restaurant.logo, baseUrl),
+      coverImage: resolvePublicMediaSource(restaurant.coverImage, baseUrl),
+      banners: Array.isArray(restaurant.banners)
+        ? restaurant.banners.map((banner) => ({
+            ...banner,
+            image: resolvePublicMediaSource(banner?.image, baseUrl),
+          }))
+        : [],
+    },
+  };
+}
+
+function publicSettingsFromResponse(response) {
+  return normalizePublicSettingsMedia(
+    response.data,
+    response.config?.baseURL || api.defaults?.baseURL || '',
+  );
+}
 
 class RestaurantSettingsService {
   async getMySettings() {
@@ -41,10 +69,25 @@ class RestaurantSettingsService {
     return response.data;
   }
 
-  async getPublicSettings(restaurantId) {
+  async getPublicSettings(restaurantId, revision = '') {
     const response = await api.get(`/settings/public/${restaurantId}`, {
-      params: { _t: Date.now() },
+      params: revision ? { revision } : { _t: Date.now() },
     });
+    return publicSettingsFromResponse(response);
+  }
+
+  async getPublicSettingsRevision(restaurantId) {
+    const response = await api.get(`/settings/public/${restaurantId}/revision`);
+    return response.data;
+  }
+
+  async getDefaultPublicSettingsRevision() {
+    const response = await api.get('/settings/public/default/revision');
+    return response.data;
+  }
+
+  async getPublicSettingsRevisionBySlug(slug) {
+    const response = await api.get(`/settings/public/slug/${encodeURIComponent(slug)}/revision`);
     return response.data;
   }
 
@@ -52,14 +95,14 @@ class RestaurantSettingsService {
     const response = await api.get('/settings/public/default', {
       params: { _t: Date.now() },
     });
-    return response.data;
+    return publicSettingsFromResponse(response);
   }
 
   async getPublicSettingsBySlug(slug) {
     const response = await api.get(`/settings/public/slug/${slug}`, {
       params: { _t: Date.now() },
     });
-    return response.data;
+    return publicSettingsFromResponse(response);
   }
 }
 

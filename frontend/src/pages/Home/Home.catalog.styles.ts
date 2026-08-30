@@ -264,6 +264,9 @@ export const ProductCategoryGroup = styled.section`
 export const ProductCard = styled.article`
   min-width: 0;
   cursor: pointer;
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: auto 190px;
   transition:
     transform 220ms ease,
     box-shadow 220ms ease,
@@ -370,6 +373,7 @@ export const ProductCard = styled.article`
     display: grid;
     grid-template-columns: 126px minmax(0, 1fr);
     min-height: 126px;
+    contain-intrinsic-size: auto 126px;
     > div:last-child {
       min-height: 126px;
       padding: 12px 13px;

@@ -1,6 +1,7 @@
 import productRepository from '../repositories/ProductRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { resolveProductBasePricing } from '../utils/productDiscount.js';
+import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 
 type ListProductsPayload = {
   restaurantId?: number | string | null;
@@ -27,10 +28,16 @@ class ListProductsService {
         product?.stock === null || product?.stock === undefined ? null : Number(product.stock);
 
       const pricing = resolveProductBasePricing(product);
+      const publicImage = createPublicMediaReference(
+        product.image,
+        `/public-media/restaurants/${normalizedRestaurantId}/products/${product.id}`,
+        product.updatedAt,
+      );
 
       if (Number.isFinite(stockValue) && stockValue <= 0) {
         return {
           ...product,
+          image: publicImage,
           active: false,
           pricing,
         };
@@ -38,6 +45,7 @@ class ListProductsService {
 
       return {
         ...product,
+        image: publicImage,
         pricing,
       };
     });

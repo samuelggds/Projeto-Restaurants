@@ -25,6 +25,7 @@ import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js'
 import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCallRoutes.js';
 import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoutes.js';
 import superAdminRoutes from '../modules/superAdmin/routes/SuperAdminRoutes.js';
+import publicMediaRoutes from '../modules/publicMedia/routes/PublicMediaRoutes.js';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.use('/favorites', favoriteRoutes);
 router.use('/image-enhancement', imageEnhancementRoutes);
 router.use('/customer-addresses', customerAddressRoutes);
 router.use('/super-admin', superAdminRoutes);
+router.use('/public-media', publicMediaRoutes);
 
 router.get('/profile', authMiddleware, (req, res) => {
   return res.json({

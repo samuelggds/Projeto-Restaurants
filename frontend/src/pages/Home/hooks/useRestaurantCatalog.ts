@@ -13,7 +13,7 @@ export function useDefaultRestaurantId(enabled: boolean) {
     let active = true;
 
     restaurantSettingsService
-      .getDefaultPublicSettings()
+      .getDefaultPublicSettingsRevision()
       .then((settings) => {
         if (!active) return;
         const id = toPositiveInteger(settings?.restaurantId);
@@ -36,7 +36,7 @@ export function useResolvedRestaurantId(slug: string) {
     if (!slug) return;
     let active = true;
     restaurantSettingsService
-      .getPublicSettingsBySlug(slug)
+      .getPublicSettingsRevisionBySlug(slug)
       .then((settings) => {
         if (!active) return;
         const id = toPositiveInteger(settings?.restaurantId);
@@ -65,15 +65,36 @@ export function useRestaurantCatalog({ restaurantId, slug, onError }: CatalogOpt
     if (!restaurantId) return;
     let active = true;
     let loading = false;
+    let initialized = false;
+    let currentRevision = '';
 
-    const refreshSettings = async () => {
+    const loadFullSettings = async (revision = '') => {
+      const data = await restaurantSettingsService.getPublicSettings(restaurantId, revision);
+      if (!active) return;
+      currentRevision = revision;
+      initialized = true;
+      setSettings(data ?? null);
+    };
+
+    const refreshSettings = async (initial = false) => {
       if (loading) return;
       loading = true;
       try {
-        const data = await restaurantSettingsService.getPublicSettings(restaurantId);
-        if (active) setSettings(data ?? null);
+        const revisionData =
+          await restaurantSettingsService.getPublicSettingsRevision(restaurantId);
+        if (!active) return;
+        const revision = String(revisionData?.revision || '').trim();
+        if (!revision) throw new Error('Revisão pública inválida.');
+        if (!initial && initialized && revision === currentRevision) return;
+        await loadFullSettings(revision);
       } catch {
-        // Keep the last valid settings while a transient refresh fails.
+        if (initial && !initialized && active) {
+          try {
+            await loadFullSettings();
+          } catch {
+            // Keep the last valid settings while a transient refresh fails.
+          }
+        }
       } finally {
         loading = false;
       }
@@ -82,7 +103,7 @@ export function useRestaurantCatalog({ restaurantId, slug, onError }: CatalogOpt
       if (document.visibilityState !== 'hidden') void refreshSettings();
     };
 
-    void refreshSettings();
+    void refreshSettings(true);
     const intervalId = window.setInterval(refreshWhileVisible, PUBLIC_SETTINGS_REFRESH_INTERVAL_MS);
     document.addEventListener('visibilitychange', refreshWhileVisible);
 

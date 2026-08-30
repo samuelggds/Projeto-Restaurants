@@ -1,4 +1,5 @@
 import api from './api';
+import { resolvePublicProductImages } from './publicMediaSource';
 
 type ProductPayload = Record<string, unknown>;
 
@@ -36,11 +37,11 @@ class ProductsService {
     });
     const payload = response.data;
 
-    if (Array.isArray(payload)) {
-      return payload;
-    }
-
-    return Array.isArray(payload?.products) ? payload.products : [];
+    const products = Array.isArray(payload) ? payload : payload?.products;
+    return resolvePublicProductImages(
+      products,
+      response.config?.baseURL || api.defaults?.baseURL || '',
+    );
   }
 
   async createProduct(payload: ProductPayload) {

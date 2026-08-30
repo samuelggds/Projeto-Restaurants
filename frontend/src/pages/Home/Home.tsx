@@ -248,7 +248,26 @@ export default function Home() {
     onError: handleCatalogError,
   });
 
-  const homeData = buildHomeData(backendProducts, settings, availabilityClock);
+  const catalogHomeData = useMemo(
+    () => buildHomeData(backendProducts, settings),
+    [backendProducts, settings],
+  );
+  const homeIsOpen = useMemo(
+    () =>
+      getRestaurantAvailability(
+        catalogHomeData.businessHours,
+        catalogHomeData.isOpenForOrders,
+        availabilityClock,
+      ).isOpen,
+    [availabilityClock, catalogHomeData.businessHours, catalogHomeData.isOpenForOrders],
+  );
+  const homeData = useMemo(
+    () =>
+      homeIsOpen === catalogHomeData.isOpen
+        ? catalogHomeData
+        : { ...catalogHomeData, isOpen: homeIsOpen },
+    [catalogHomeData, homeIsOpen],
+  );
 
   useEffect(
     () => applyHomeSeoMetadata(document, homeData.seoTitle, homeData.seoDescription),
@@ -570,6 +589,28 @@ export default function Home() {
     navigate('/profile?view=addresses&newAddress=1');
   }, [location.pathname, location.search, navigate, notify, user]);
 
+  const selectDeliveryAddress = useCallback(
+    (addressId: string) => {
+      handleSavedAddressChange(addressId);
+      notify(
+        'success',
+        'Endereço selecionado',
+        'Este endereço será usado automaticamente no carrinho.',
+      );
+    },
+    [handleSavedAddressChange, notify],
+  );
+  const openHomeCart = useCallback(() => {
+    if (tableClosingRequested) {
+      openTableAccount();
+      return;
+    }
+    setCartOpen(true);
+  }, [openTableAccount, tableClosingRequested]);
+  const openProfile = useCallback(() => navigate('/profile'), [navigate]);
+  const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
+  const handleLogout = useCallback(() => logout(), [logout]);
+
   async function requestTableService(type: 'WAITER' | 'BILL') {
     const sessionToken = String(tableSession?.sessionToken || '').trim();
     if (!sessionToken || tableServiceLoading) {
@@ -653,23 +694,16 @@ export default function Home() {
         isTableMenu={mesaMode}
         orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
-        favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : []}
+        favoriteProductIds={user?.role === 'CLIENTE' ? favoriteProductIds : undefined}
         savedAddresses={savedAddresses}
         selectedAddressId={selectedAddressId}
-        onSelectAddress={(addressId) => {
-          handleSavedAddressChange(addressId);
-          notify(
-            'success',
-            'Endereço selecionado',
-            'Este endereço será usado automaticamente no carrinho.',
-          );
-        }}
+        onSelectAddress={selectDeliveryAddress}
         onManageAddresses={manageDeliveryAddresses}
-        onOpenCart={() => (tableClosingRequested ? openTableAccount() : setCartOpen(true))}
+        onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
         onOpenTableAccount={openTableAccount}
-        onOpenProfile={() => navigate('/profile')}
-        onOpenAdmin={() => navigate('/admin')}
+        onOpenProfile={openProfile}
+        onOpenAdmin={openAdmin}
         onAddProduct={
           tableClosingRequested
             ? () => {
@@ -678,12 +712,7 @@ export default function Home() {
             : addToCart
         }
         onToggleFavorite={toggleFavorite}
-        onLogout={() => {
-          logout();
-        }}
-        onSelectCategory={() => {
-          /* handled inside HomePage */
-        }}
+        onLogout={handleLogout}
       />
 
       <S.CartOverlay

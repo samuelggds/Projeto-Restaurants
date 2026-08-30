@@ -1,4 +1,5 @@
 import { Heart, Plus, Tag } from 'lucide-react';
+import { memo } from 'react';
 import * as S from '../Home.styles';
 import type { HomeProduct } from '../types';
 import * as Promotion from './OfferBadge.styles';
@@ -9,13 +10,13 @@ const brl = (value: number) =>
 type HomeProductCardProps = {
   product: HomeProduct;
   favorite: boolean;
-  onOpen: () => void;
-  onToggleFavorite?: () => void;
+  onOpen: (product: HomeProduct) => void;
+  onToggleFavorite?: (productId: string) => void;
   featured?: boolean;
   orderingLocked?: boolean;
 };
 
-export function HomeProductCard({
+export const HomeProductCard = memo(function HomeProductCard({
   product,
   favorite,
   onOpen,
@@ -35,18 +36,18 @@ export function HomeProductCard({
           : `Ver detalhes de ${product.name}`
       }
       onClick={() => {
-        if (!orderingLocked) onOpen();
+        if (!orderingLocked) onOpen(product);
       }}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          if (!orderingLocked) onOpen();
+          if (!orderingLocked) onOpen(product);
         }
       }}
     >
       <S.ImageWrap data-featured={featured || undefined}>
-        <img src={product.image} alt={product.name} />
+        <img src={product.image} alt={product.name} loading="lazy" decoding="async" />
         {product.promotion?.active && !featured && (
           <Promotion.Badge data-offer-label="overlay">
             <Tag size={14} /> {product.promotion.badgeLabel || 'Oferta'}
@@ -57,7 +58,7 @@ export function HomeProductCard({
           aria-label={`Favoritar ${product.name}`}
           onClick={(event) => {
             event.stopPropagation();
-            onToggleFavorite?.();
+            onToggleFavorite?.(product.id);
           }}
         >
           <Heart size={21} fill={favorite ? 'currentColor' : 'none'} />
@@ -90,7 +91,7 @@ export function HomeProductCard({
             disabled={!product.available || orderingLocked}
             onClick={(event) => {
               event.stopPropagation();
-              if (!orderingLocked) onOpen();
+              if (!orderingLocked) onOpen(product);
             }}
           >
             {product.available && !orderingLocked ? (
@@ -105,4 +106,4 @@ export function HomeProductCard({
       </div>
     </S.ProductCard>
   );
-}
+});

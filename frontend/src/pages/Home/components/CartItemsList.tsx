@@ -16,7 +16,12 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
       {items.length ? (
         items.map((item) => (
           <S.CartItemRow key={item.cartId || item.productId}>
-            <img src={item.image || FALLBACK_IMAGE} alt={item.name} />
+            <img
+              src={item.image || FALLBACK_IMAGE}
+              alt={item.name}
+              loading="lazy"
+              decoding="async"
+            />
             <S.CartItemInfo>
               <strong>{item.name}</strong>
               <div className="item-controls">

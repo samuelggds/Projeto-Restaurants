@@ -1,4 +1,12 @@
 import api from './api';
+import { resolvePublicProductImages } from './publicMediaSource';
+
+function productsFromResponse(response) {
+  return resolvePublicProductImages(
+    response.data?.products,
+    response.config?.baseURL || api.defaults?.baseURL || '',
+  );
+}
 
 class MenuService {
   async listProducts(restaurantId) {
@@ -6,7 +14,7 @@ class MenuService {
       params: { restaurantId },
     });
 
-    return response.data?.products || [];
+    return productsFromResponse(response);
   }
 
   async listProductsBySlug(slug) {
@@ -14,7 +22,7 @@ class MenuService {
       params: { slug },
     });
 
-    return response.data?.products || [];
+    return productsFromResponse(response);
   }
 
   async listProductRatings(restaurantId, clientKey) {

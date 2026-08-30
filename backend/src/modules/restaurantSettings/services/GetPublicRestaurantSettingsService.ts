@@ -1,5 +1,6 @@
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
+import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 
 type RestaurantIdPayload = {
   restaurantId?: number | string;
@@ -46,6 +47,7 @@ type PublicSettingsFallback = {
   soundNotifications: boolean;
   maxConcurrentOrders: number;
   restaurant: {
+    updatedAt?: Date;
     name: string | null;
     slug: string | null;
     logo: string | null;
@@ -66,9 +68,40 @@ type PublicSettingsFallback = {
       buttonLabel: string | null;
       image: string;
       position: number;
+      updatedAt?: Date;
     }>;
   };
 };
+
+function externalizePublicRestaurantImages(
+  restaurantId: number,
+  restaurant: PublicSettingsFallback['restaurant'] | null,
+) {
+  if (!restaurant) return null;
+  const { updatedAt, banners = [], ...publicRestaurant } = restaurant;
+  return {
+    ...publicRestaurant,
+    logo: createPublicMediaReference(
+      restaurant.logo,
+      `/public-media/restaurants/${restaurantId}/logo`,
+      updatedAt,
+    ),
+    coverImage: createPublicMediaReference(
+      restaurant.coverImage,
+      `/public-media/restaurants/${restaurantId}/cover`,
+      updatedAt,
+    ),
+    banners: banners.map(({ updatedAt: bannerUpdatedAt, ...banner }) => ({
+      ...banner,
+      image:
+        createPublicMediaReference(
+          banner.image,
+          `/public-media/restaurants/${restaurantId}/banners/${banner.id}`,
+          bannerUpdatedAt,
+        ) || '',
+    })),
+  };
+}
 
 class GetPublicRestaurantSettingsService {
   async execute({ restaurantId, slug, useDefault }: RestaurantIdPayload) {
@@ -138,6 +171,7 @@ class GetPublicRestaurantSettingsService {
         soundNotifications: true,
         maxConcurrentOrders: 20,
         restaurant: {
+          updatedAt: restaurant?.updatedAt,
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,
           logo: restaurant?.logo || null,
@@ -154,15 +188,22 @@ class GetPublicRestaurantSettingsService {
         },
       };
 
-      return fallback;
+      return {
+        ...fallback,
+        restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, fallback.restaurant),
+      };
     }
 
     if (settings.restaurant?.active === false) {
       throw new Error('Restaurante não encontrado ou indisponível.');
     }
 
+    const restaurant = settings.restaurant as PublicSettingsFallback['restaurant'] | null;
     return {
       ...settings,
+      ...(restaurant
+        ? { restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, restaurant) }
+        : {}),
       whatsapp: String(settings.restaurant?.whatsapp || '').replace(/\D/g, '') || null,
     };
   }

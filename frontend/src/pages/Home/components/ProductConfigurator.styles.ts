@@ -44,6 +44,11 @@ export const Header = styled.header`
   border-bottom: 1px solid #e8e0d8;
   background: rgba(255, 253, 250, 0.94);
   backdrop-filter: blur(18px);
+
+  @media (max-width: 760px) {
+    background: #fffdfa;
+    backdrop-filter: none;
+  }
 `;
 
 export const HeaderInner = styled.div`
@@ -585,6 +590,8 @@ export const BottomBar = styled.div`
     padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
     border-radius: 16px;
     gap: 10px;
+    background: #fffdfa;
+    backdrop-filter: none;
 
     button {
       min-width: 0;

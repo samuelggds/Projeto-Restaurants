@@ -7,7 +7,7 @@ import {
   ShoppingBag,
   UserRound,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { HomeBrand } from '../types';
 import type { CustomerAddress } from '../../../Services/customerAddressService';
@@ -36,7 +36,7 @@ type Props = {
   availabilityDetail?: string;
 };
 
-export function HomeHeader({
+export const HomeHeader = memo(function HomeHeader({
   brand,
   cartCount,
   userName,
@@ -112,7 +112,13 @@ export function HomeHeader({
     <Header $primary={brand.primaryColor ?? '#d64d08'}>
       <Brand href="#inicio" aria-label={brand.name}>
         {brand.logoUrl ? (
-          <Logo src={brand.logoUrl} alt={brand.name} />
+          <Logo
+            src={brand.logoUrl}
+            alt={brand.name}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+          />
         ) : (
           <Monogram>{brand.monogram ?? brand.name.slice(0, 2)}</Monogram>
         )}
@@ -285,7 +291,7 @@ export function HomeHeader({
       </Actions>
     </Header>
   );
-}
+});
 
 const Header = styled.header<{ $primary: string }>`
   --home-primary: ${({ $primary }) => $primary};
@@ -317,6 +323,8 @@ const Header = styled.header<{ $primary: string }>`
     height: 118px;
     padding: 14px 14px 50px;
     align-items: flex-start;
+    background: #fffdf9;
+    backdrop-filter: none;
   }
   @media (max-width: 520px) {
     --home-control-height: 40px;
@@ -779,7 +787,11 @@ const AvatarButton = styled.button<{ $open: boolean }>`
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: all 0.18s;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s,
+    color 0.18s,
+    transform 0.18s;
   font-family: inherit;
   &:hover {
     border-color: var(--home-primary);

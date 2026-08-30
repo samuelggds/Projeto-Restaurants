@@ -110,7 +110,7 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
 }
 
 export function resolveProductImage(product: Record<string, unknown>, index: number): string {
-  if (product.image && String(product.image).startsWith('http')) return String(product.image);
+  if (isPersistentImageSource(product.image)) return String(product.image).trim();
   const terms = [product.name, product.description, (product.category as { name?: string })?.name]
     .filter(Boolean)
     .join(' ')
@@ -155,8 +155,7 @@ export function mapHomeBanners(values: unknown[]): HomeBanner[] {
       const highlight = optionalBannerText(banner.highlight);
       const description = optionalBannerText(banner.description);
       const buttonLabel = optionalBannerText(banner.buttonLabel);
-      const isLegacyMainBanner =
-        storedTitle === 'Banner principal' && !highlight && !description;
+      const isLegacyMainBanner = storedTitle === 'Banner principal' && !highlight && !description;
 
       return {
         id,

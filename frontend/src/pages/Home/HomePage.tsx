@@ -11,7 +11,7 @@ import {
   Music2,
 } from 'lucide-react';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Offers from './components/FeaturedOffers.styles';
 import { HomeHeader } from './components/HomeHeader';
 import { HomeProductCard } from './components/HomeProductCard';
@@ -28,6 +28,8 @@ import { buildSocialProfileUrl, buildWhatsAppUrl } from './domain/publicSettings
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const EMPTY_FAVORITE_PRODUCT_IDS: string[] = [];
+
 export function HomePage({
   data,
   cartCount = 0,
@@ -38,7 +40,7 @@ export function HomePage({
   isTableMenu = false,
   orderingLocked = false,
   tableLabel,
-  favoriteProductIds = [],
+  favoriteProductIds = EMPTY_FAVORITE_PRODUCT_IDS,
   savedAddresses = [],
   selectedAddressId,
   onSelectAddress,
@@ -57,6 +59,11 @@ export function HomePage({
   const [activeCategory, setActiveCategory] = useState(data.categories[0]?.id ?? '');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const toggleFavoriteRef = useRef(onToggleFavorite);
+
+  useEffect(() => {
+    toggleFavoriteRef.current = onToggleFavorite;
+  }, [onToggleFavorite]);
   const selectedCategory = data.categories.some((category) => category.id === activeCategory)
     ? activeCategory
     : (data.categories[0]?.id ?? '');
@@ -84,51 +91,57 @@ export function HomePage({
   const facebookUrl = buildSocialProfileUrl('facebook', data.brand.facebook);
   const tiktokUrl = buildSocialProfileUrl('tiktok', data.brand.tiktok);
   const youtubeUrl = buildSocialProfileUrl('youtube', data.brand.youtube);
-  const availability = getRestaurantAvailability(
-    data.businessHours,
-    data.isOpenForOrders ?? data.isOpen,
+  const availability = useMemo(
+    () => getRestaurantAvailability(data.businessHours, data.isOpenForOrders ?? data.isOpen),
+    [data.businessHours, data.isOpen, data.isOpenForOrders],
   );
-  const promotionBanners = data.banners.length
-    ? data.banners
-    : data.hero.image
-      ? [
-          {
-            id: -1,
-            title: data.hero.title,
-            highlight: data.hero.highlight,
-            description: data.hero.description,
-            buttonLabel: 'Ver cardápio',
-            image: data.hero.image,
-            active: true,
-            position: 0,
-          },
-        ]
-      : [];
-
-  const selectCategory = (id: string) => {
-    setActiveCategory(id);
-    onSelectCategory?.(id);
-  };
-
-  const openProductDetails = (product: HomeProduct) => {
-    if (orderingLocked) {
-      onOpenTableAccount?.();
-      return;
-    }
-    setSelectedProduct(product);
-  };
-
-  const renderProduct = (product: HomeProduct, featured = false) => (
-    <HomeProductCard
-      key={product.id}
-      product={product}
-      featured={featured}
-      orderingLocked={orderingLocked}
-      favorite={favoriteIds.has(product.id)}
-      onOpen={() => openProductDetails(product)}
-      onToggleFavorite={() => onToggleFavorite?.(product.id)}
-    />
+  const promotionBanners = useMemo(
+    () =>
+      data.banners.length
+        ? data.banners
+        : data.hero.image
+          ? [
+              {
+                id: -1,
+                title: data.hero.title,
+                highlight: data.hero.highlight,
+                description: data.hero.description,
+                buttonLabel: 'Ver cardápio',
+                image: data.hero.image,
+                active: true,
+                position: 0,
+              },
+            ]
+          : [],
+    [data.banners, data.hero],
   );
+
+  const selectCategory = useCallback(
+    (id: string) => {
+      setActiveCategory(id);
+      onSelectCategory?.(id);
+    },
+    [onSelectCategory],
+  );
+
+  const openProductDetails = useCallback(
+    (product: HomeProduct) => {
+      if (orderingLocked) {
+        onOpenTableAccount?.();
+        return;
+      }
+      setSelectedProduct(product);
+    },
+    [onOpenTableAccount, orderingLocked],
+  );
+
+  const handleToggleFavorite = useCallback((productId: string) => {
+    toggleFavoriteRef.current?.(productId);
+  }, []);
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    onSearch?.();
+  }, [onSearch]);
 
   return (
     <S.HomeRoot $primary={primary} $fontFamily={data.fontFamily} id="inicio">
@@ -148,10 +161,7 @@ export function HomePage({
         onOpenProfile={onOpenProfile}
         onOpenAdmin={onOpenAdmin}
         onOpenCart={onOpenCart}
-        onSearch={() => {
-          setSearchOpen(true);
-          onSearch?.();
-        }}
+        onSearch={openSearch}
         onLogout={onLogout}
         isRestaurantOpen={availability.isOpen}
         availabilityLabel={availability.label}
@@ -205,7 +215,17 @@ export function HomePage({
               </Offers.Count>
             </Offers.Header>
             <Offers.Grid>
-              {featuredProducts.map((product) => renderProduct(product, true))}
+              {featuredProducts.map((product) => (
+                <HomeProductCard
+                  key={product.id}
+                  product={product}
+                  featured
+                  orderingLocked={orderingLocked}
+                  favorite={favoriteIds.has(product.id)}
+                  onOpen={openProductDetails}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              ))}
             </Offers.Grid>
           </Offers.Section>
         )}
@@ -220,7 +240,9 @@ export function HomePage({
                   $active={selectedCategory === category.id}
                   onClick={() => selectCategory(category.id)}
                 >
-                  {category.image && <img src={category.image} alt={category.name} />}
+                  {category.image && (
+                    <img src={category.image} alt={category.name} loading="lazy" decoding="async" />
+                  )}
                   {!category.image && (
                     <S.CategoryPlaceholder>
                       <LayoutGrid size={30} />
@@ -252,7 +274,16 @@ export function HomePage({
                         <S.ProductCategoryGroup key={category.id}>
                           <h3>{category.name}</h3>
                           <S.ProductGrid>
-                            {categoryProducts.map((product) => renderProduct(product))}
+                            {categoryProducts.map((product) => (
+                              <HomeProductCard
+                                key={product.id}
+                                product={product}
+                                orderingLocked={orderingLocked}
+                                favorite={favoriteIds.has(product.id)}
+                                onOpen={openProductDetails}
+                                onToggleFavorite={handleToggleFavorite}
+                              />
+                            ))}
                           </S.ProductGrid>
                         </S.ProductCategoryGroup>
                       );
@@ -261,7 +292,16 @@ export function HomePage({
               </>
             ) : (
               <S.ProductGrid key={selectedCategory}>
-                {products.map((product) => renderProduct(product))}
+                {products.map((product) => (
+                  <HomeProductCard
+                    key={product.id}
+                    product={product}
+                    orderingLocked={orderingLocked}
+                    favorite={favoriteIds.has(product.id)}
+                    onOpen={openProductDetails}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
+                ))}
               </S.ProductGrid>
             )}
           </>
@@ -272,7 +312,7 @@ export function HomePage({
         <S.FooterContent>
           <S.FooterBrand>
             {data.brand.logoUrl ? (
-              <img src={data.brand.logoUrl} alt={data.brand.name} />
+              <img src={data.brand.logoUrl} alt={data.brand.name} loading="lazy" decoding="async" />
             ) : (
               <span>{data.brand.monogram || 'R'}</span>
             )}

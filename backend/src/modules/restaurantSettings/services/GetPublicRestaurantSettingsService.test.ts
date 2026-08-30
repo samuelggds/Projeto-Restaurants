@@ -81,6 +81,44 @@ test('expõe somente os campos públicos necessários para a Home respeitar a co
   ]);
 });
 
+test('troca imagens base64 por recursos HTTP versionados e mantém URLs externas', async () => {
+  const restaurantUpdatedAt = new Date('2026-08-10T12:00:00.000Z');
+  const bannerUpdatedAt = new Date('2026-08-11T12:00:00.000Z');
+  restaurantSettingsRepository.findPublicByRestaurantId = async () =>
+    ({
+      restaurantId: 7,
+      restaurant: {
+        active: true,
+        updatedAt: restaurantUpdatedAt,
+        logo: 'data:image/webp;base64,UklGRg==',
+        coverImage: 'https://cdn.example.com/cover.webp',
+        banners: [
+          {
+            id: 9,
+            title: 'Oferta',
+            image: 'data:image/webp;base64,UklGRg==',
+            position: 0,
+            updatedAt: bannerUpdatedAt,
+          },
+        ],
+      },
+    }) as never;
+
+  const settings = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+
+  assert.equal(
+    settings.restaurant.logo,
+    `/public-media/restaurants/7/logo?v=${restaurantUpdatedAt.getTime()}`,
+  );
+  assert.equal(settings.restaurant.coverImage, 'https://cdn.example.com/cover.webp');
+  assert.equal(
+    settings.restaurant.banners[0].image,
+    `/public-media/restaurants/7/banners/9?v=${bannerUpdatedAt.getTime()}`,
+  );
+  assert.equal('updatedAt' in settings.restaurant, false);
+  assert.equal('updatedAt' in settings.restaurant.banners[0], false);
+});
+
 test('não publica um restaurante que foi desativado', async () => {
   restaurantSettingsRepository.findPublicByRestaurantId = async () =>
     ({ restaurantId: 7, restaurant: { active: false } }) as never;

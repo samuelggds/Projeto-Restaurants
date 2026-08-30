@@ -17,7 +17,7 @@ export async function resolvePublicRestaurantId(req: Request) {
     return restaurant?.id || null;
   }
 
-  if (req.path.endsWith('/default')) {
+  if (req.path === '/public/default' || req.path === '/public/default/revision') {
     const restaurant = await prisma.restaurant.findFirst({
       select: { id: true },
       orderBy: { id: 'asc' },
