@@ -71,7 +71,14 @@ function getApiBaseUrls() {
   const urls = new Set<string>();
   const isLocalRuntimeHost = LOCAL_HOSTS.includes(runtimeHost);
 
-  // In local development, prefer loopback endpoints first to avoid stale LAN hosts.
+  // Keep browser traffic on the Vite origin in development. Vite owns the
+  // canonical IPv4 proxy target, so localhost/127.0.0.1/IPv6 cannot select
+  // different backend processes merely because of hostname resolution.
+  if (developmentProxyUrl) {
+    urls.add(developmentProxyUrl);
+  }
+
+  // Direct loopback endpoints remain available only as network fallbacks.
   if (isLocalRuntimeHost) {
     // Cookies HttpOnly com SameSite=Lax precisam manter o mesmo hostname.
     // localhost e 127.0.0.1 apontam para a mesma máquina, mas são sites
@@ -87,10 +94,6 @@ function getApiBaseUrls() {
 
   // In production-like hosts, never fall back to host:3000.
   if (!isLocalRuntimeHost) {
-    if (developmentProxyUrl) {
-      urls.add(developmentProxyUrl);
-    }
-
     if (configuredUrl) {
       urls.add(configuredUrl);
     }

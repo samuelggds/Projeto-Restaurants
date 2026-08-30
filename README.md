@@ -155,30 +155,43 @@ Estratégia completa: [TESTING.md](TESTING.md).
 ### Pré-requisitos
 
 - Node.js e npm
-- Docker Engine
-- Docker Compose
+- PostgreSQL com o banco `pizza_ai`
+- Docker Engine e Docker Compose apenas para os serviços opcionais ou para executar a aplicação em containers
 
-Crie `.env.docker` a partir de `.env.docker.example` e preencha os valores do seu ambiente:
+### Modo nativo recomendado
+
+O banco canônico de desenvolvimento é o `pizza_ai` configurado em `backend/.env`. Inicie backend e frontend em terminais separados:
 
 ```bash
-docker compose up --build
+npm --prefix backend run dev
+npm --prefix frontend run dev
 ```
 
-| Serviço | Endereço local |
-| --- | --- |
-| Frontend | http://localhost:5173 |
-| Backend | http://localhost:3000 |
+Não execute ao mesmo tempo o backend nativo e o backend Docker: ambos publicam a porta `3000` e podem fazer `localhost` e `127.0.0.1` chegarem a processos diferentes.
+
+| Serviço     | Endereço local               |
+| ----------- | ---------------------------- |
+| Frontend    | http://localhost:5173        |
+| Backend     | http://localhost:3000        |
 | Healthcheck | http://localhost:3000/health |
-| Readiness | http://localhost:3000/ready |
-| PostgreSQL | localhost:5432 |
+| Readiness   | http://localhost:3000/ready  |
+| PostgreSQL  | localhost:5432               |
 
-Para hot reload:
+### Aplicação em Docker usando o mesmo banco
+
+Crie `.env.docker` a partir de `.env.docker.example`. As duas URLs do Prisma devem apontar para `host.docker.internal:5432/pizza_ai`, usando a mesma credencial de `backend/.env`. Pare o backend e o frontend nativos antes de iniciar:
 
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+docker compose --env-file .env.docker up --build
 ```
 
-Nesse modo, o backend usa Nodemon e o frontend usa Vite/HMR na porta `5174`. Para roteamento próprio, siga [ROUTING_GPS_SETUP.md](ROUTING_GPS_SETUP.md).
+Para hot reload em containers:
+
+```bash
+docker compose --env-file .env.docker -f docker-compose.dev.yml up --build
+```
+
+Os dois arquivos Compose locais usam o PostgreSQL nativo; eles não criam um segundo banco. No modo hot reload, o frontend usa a porta `5174`. Para roteamento próprio, siga [ROUTING_GPS_SETUP.md](ROUTING_GPS_SETUP.md).
 
 ## Produção
 

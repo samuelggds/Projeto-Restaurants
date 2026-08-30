@@ -28,6 +28,10 @@ describe('api auth session', () => {
     Reflect.deleteProperty(navigator, 'locks');
   });
 
+  it('prioriza o proxy same-origin do Vite em desenvolvimento', () => {
+    expect(api.defaults.baseURL).toBe(`${window.location.origin}/api`);
+  });
+
   it('serializa a rotação do cookie de refresh entre abas quando Web Locks está disponível', async () => {
     persistAuthSession({ id: 7 }, 'expired-token');
     const request = vi.fn(async (_name, options, callback) => {

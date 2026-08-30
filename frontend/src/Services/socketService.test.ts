@@ -26,6 +26,21 @@ describe('socketService', () => {
     ioMock.mockReset();
   });
 
+  it('prioriza o proxy same-origin do Vite em desenvolvimento', async () => {
+    const connectingSocket = socketDouble();
+    ioMock.mockReturnValue(connectingSocket);
+    const { connectSocket, disconnectSocket } = await import('./socketService');
+
+    connectSocket('token-restaurante', 'same-origin-proxy');
+
+    expect(ioMock).toHaveBeenCalledWith(
+      window.location.origin,
+      expect.objectContaining({ path: '/socket.io' }),
+    );
+
+    disconnectSocket();
+  });
+
   it('reutiliza o socket do mesmo usuário durante o handshake', async () => {
     const connectingSocket = socketDouble();
     ioMock.mockReturnValue(connectingSocket);

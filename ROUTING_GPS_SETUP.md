@@ -65,18 +65,21 @@ Invoke-RestMethod 'http://127.0.0.1:8080/status?format=json'
 Invoke-RestMethod 'http://127.0.0.1:5000/route/v1/driving/-38.5267,-3.7319;-38.5191,-3.7285?overview=false'
 ```
 
-Conecte o backend Docker aos servicos internos depois que o Nominatim estiver
-saudavel:
+No desenvolvimento nativo, mantenha somente OSRM e Nominatim em containers.
+Configure o backend em `backend/.env` para usar as portas locais:
 
-```powershell
-docker compose --env-file .env.docker --env-file .env.routing.local -f docker-compose.yml -f docker-compose.routing.yml -f docker-compose.routing.local.yml up -d backend
+```dotenv
+ROUTING_REQUIRED=true
+OSRM_BASE_URL=http://127.0.0.1:5000
+GEOCODER_BASE_URL=http://127.0.0.1:8080
 ```
 
-O override configura no backend:
+Depois reinicie `npm --prefix backend run dev`. Não inicie outro backend pelo
+Compose enquanto o backend nativo estiver usando a porta `3000`.
 
-- `ROUTING_REQUIRED=true`;
-- `OSRM_BASE_URL=http://osrm:5000`;
-- `GEOCODER_BASE_URL=http://nominatim:8080`.
+Se optar deliberadamente por executar toda a aplicação em containers, pare os
+processos nativos antes e use `.env.docker`; esse arquivo aponta o backend
+Docker para o mesmo `pizza_ai` por `host.docker.internal`.
 
 ## Producao
 

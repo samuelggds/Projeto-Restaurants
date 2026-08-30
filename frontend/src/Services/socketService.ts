@@ -96,7 +96,13 @@ function getSocketBaseUrls() {
   const urls = new Set<string>();
   const isLocalRuntimeHost = LOCAL_HOSTS.includes(runtimeHost);
 
-  // Keep the socket pinned to the same local backend preference used by axios.
+  // Use the same Vite origin selected by axios in development. Vite proxies
+  // /socket.io to the canonical IPv4 backend and avoids localhost/IPv6 splits.
+  if (developmentProxyUrl) {
+    urls.add(developmentProxyUrl);
+  }
+
+  // Direct loopback endpoints remain available only as connection fallbacks.
   if (isLocalRuntimeHost) {
     urls.add(defaultLoopbackUrl);
     urls.add(defaultLocalUrl);
@@ -104,10 +110,6 @@ function getSocketBaseUrls() {
 
   // In production-like hosts, never fall back to host:3000.
   if (!isLocalRuntimeHost) {
-    if (developmentProxyUrl) {
-      urls.add(developmentProxyUrl);
-    }
-
     if (configuredUrl) {
       urls.add(configuredUrl);
     }

@@ -3,7 +3,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import menuService from '../../../Services/menuService';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
-import { PUBLIC_SETTINGS_REFRESH_INTERVAL_MS, useRestaurantCatalog } from './useRestaurantCatalog';
+import {
+  PUBLIC_SETTINGS_REFRESH_INTERVAL_MS,
+  useDefaultRestaurantId,
+  useRestaurantCatalog,
+} from './useRestaurantCatalog';
 
 vi.mock('../../../Services/menuService', () => ({
   default: {
@@ -14,6 +18,7 @@ vi.mock('../../../Services/menuService', () => ({
 
 vi.mock('../../../Services/restaurantSettingsService', () => ({
   default: {
+    getDefaultPublicSettings: vi.fn(),
     getPublicSettings: vi.fn(),
   },
 }));
@@ -27,6 +32,11 @@ function Probe() {
   return <output>{String(settings?.isOpenForOrders ?? 'carregando')}</output>;
 }
 
+function DefaultRestaurantProbe({ enabled = true }: { enabled?: boolean }) {
+  const restaurantId = useDefaultRestaurantId(enabled);
+  return <output>{String(restaurantId ?? 'carregando')}</output>;
+}
+
 describe('useRestaurantCatalog settings refresh', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -34,6 +44,7 @@ describe('useRestaurantCatalog settings refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    localStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -90,5 +101,24 @@ describe('useRestaurantCatalog settings refresh', () => {
     });
     expect(restaurantSettingsService.getPublicSettings).toHaveBeenCalledTimes(2);
     expect(container.textContent).toBe('false');
+  });
+
+  it('resolve e memoriza o restaurante padrão para uma visita anônima à raiz', async () => {
+    vi.mocked(restaurantSettingsService.getDefaultPublicSettings).mockResolvedValue({
+      restaurantId: 3,
+    });
+
+    await act(async () => root.render(<DefaultRestaurantProbe />));
+
+    expect(container.textContent).toBe('3');
+    expect(localStorage.getItem('menuRestaurantId')).toBe('3');
+    expect(restaurantSettingsService.getDefaultPublicSettings).toHaveBeenCalledOnce();
+  });
+
+  it('não consulta o padrão quando já existe outro contexto de restaurante', async () => {
+    await act(async () => root.render(<DefaultRestaurantProbe enabled={false} />));
+
+    expect(container.textContent).toBe('carregando');
+    expect(restaurantSettingsService.getDefaultPublicSettings).not.toHaveBeenCalled();
   });
 });

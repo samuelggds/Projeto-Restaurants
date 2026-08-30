@@ -1,34 +1,14 @@
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: pizza_db_dev
-    restart: unless-stopped
-    environment: &development-backend-environment
-      POSTGRES_DB: ${POSTGRES_DB:-pizza_ia}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - '5432:5432'
-    volumes:
-      - postgres_data_dev:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pizza_ia}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     image: node:22-alpine
     container_name: pizza_backend_dev
     working_dir: /app
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
+    environment: &development-backend-environment
       NODE_ENV: development
       PORT: ${PORT:-3000}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
       JWT_SECRET: ${JWT_SECRET:-change_me}
       ALLOW_LOCAL_AUTH_CODE_LOGGING: ${ALLOW_LOCAL_AUTH_CODE_LOGGING:-false}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
@@ -67,6 +47,8 @@ services:
       - /app/node_modules
     ports:
       - '3000:3000'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     healthcheck:
       test:
         [
@@ -90,6 +72,8 @@ services:
         condition: service_healthy
     environment: *development-backend-environment
     command: sh -c "npm install && npm run dev:worker"
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -112,6 +96,3 @@ services:
       - /app/node_modules
     ports:
       - '5174:5173'
-
-volumes:
-  postgres_data_dev:

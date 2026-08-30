@@ -1,40 +1,19 @@
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: pizza_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pizza_ia}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - '5432:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build: &backend-build
       context: ./backend
     container_name: pizza_backend
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment: &backend-environment
       NODE_ENV: ${NODE_ENV:-development}
       OPS_DATABASE_ENV: ${OPS_DATABASE_ENV:-development}
       OPS_API_ENV: ${OPS_API_ENV:-development}
       OPS_DATABASE_FINGERPRINT_PRODUCTION: ${OPS_DATABASE_FINGERPRINT_PRODUCTION:-}
       PORT: ${PORT:-3000}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
       CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
-      DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgres@db:5432/pizza_ia}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
       JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
       JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_mfa_secret_min_32_chars}
@@ -102,6 +81,8 @@ services:
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
     ports:
       - '3000:3000'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     healthcheck:
       test:
         [
@@ -124,6 +105,8 @@ services:
         condition: service_healthy
     environment: *backend-environment
     command: ['npm', 'run', 'start:worker']
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   frontend:
     build:
@@ -146,6 +129,3 @@ services:
         condition: service_healthy
     ports:
       - '5173:80'
-
-volumes:
-  postgres_data:

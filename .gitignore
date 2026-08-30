@@ -9,4 +9,5 @@ routing-data/
 playwright-report/
 coverage/
 test-results/
+backups/
 backend/load-test-reports/

@@ -5,6 +5,31 @@ import { toPositiveInteger } from '../domain/productAvailability';
 
 export const PUBLIC_SETTINGS_REFRESH_INTERVAL_MS = 30_000;
 
+export function useDefaultRestaurantId(enabled: boolean) {
+  const [restaurantId, setRestaurantId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+
+    restaurantSettingsService
+      .getDefaultPublicSettings()
+      .then((settings) => {
+        if (!active) return;
+        const id = toPositiveInteger(settings?.restaurantId);
+        setRestaurantId(id);
+        if (id) localStorage.setItem('menuRestaurantId', String(id));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [enabled]);
+
+  return enabled ? restaurantId : null;
+}
+
 export function useResolvedRestaurantId(slug: string) {
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
   useEffect(() => {

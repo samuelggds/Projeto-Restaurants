@@ -5,7 +5,11 @@ import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
 import * as S from './Home.styles';
-import { useResolvedRestaurantId, useRestaurantCatalog } from './hooks/useRestaurantCatalog';
+import {
+  useDefaultRestaurantId,
+  useResolvedRestaurantId,
+  useRestaurantCatalog,
+} from './hooks/useRestaurantCatalog';
 import { useFavorites } from './hooks/useFavorites';
 import { useCart } from './hooks/useCart';
 import { useDeliveryAddress } from './hooks/useDeliveryAddress';
@@ -149,13 +153,24 @@ export default function Home() {
     notify,
   });
 
+  const authenticatedRestaurantId =
+    Number((user as { restaurantId?: number })?.restaurantId) || null;
+  const rememberedRestaurantId = Number(localStorage.getItem('menuRestaurantId')) || null;
+  const defaultRestaurantId = useDefaultRestaurantId(
+    !mesaMode &&
+      !normalizedSlug &&
+      !authenticatedRestaurantId &&
+      !rememberedRestaurantId &&
+      !storedSessionRestaurantId,
+  );
   const restaurantId = mesaMode
     ? routeRestaurantId || storedSessionRestaurantId || resolvedRestaurantId || null
     : normalizedSlug
       ? resolvedRestaurantId
-      : (user as { restaurantId?: number })?.restaurantId ||
-        Number(localStorage.getItem('menuRestaurantId')) ||
+      : authenticatedRestaurantId ||
+        rememberedRestaurantId ||
         storedSessionRestaurantId ||
+        defaultRestaurantId ||
         null;
   const activeTableId =
     routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
