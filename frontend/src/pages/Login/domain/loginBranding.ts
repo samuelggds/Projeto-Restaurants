@@ -1,9 +1,16 @@
 import { isPersistentImageSource } from '../../../utils/persistentImage';
 
-export type LoginBranding = { name: string; logoUrl: string; primaryColor: string };
+export type LoginBranding = {
+  name: string;
+  description: string;
+  logoUrl: string;
+  primaryColor: string;
+};
 
 export const DEFAULT_LOGIN_BRANDING: LoginBranding = {
   name: 'Peça Já Food',
+  description:
+    'Acesse nosso menu interativo global. Faça seus pedidos de forma rápida e gerencie sua experiência gastronômica sem complicações.',
   logoUrl: '',
   primaryColor: '#ef5b00',
 };
@@ -44,8 +51,15 @@ export function mapLoginBranding(settings: Record<string, unknown> | null): Logi
     settings.restaurantCoverImage ||
     restaurant.logo ||
     settings.restaurantLogo;
+  const description = String(
+    restaurant.description ||
+      settings.restaurantDescription ||
+      DEFAULT_LOGIN_BRANDING.description,
+  ).trim();
+
   return {
     name: String(restaurant.name || settings.restaurantName || DEFAULT_LOGIN_BRANDING.name),
+    description: description || DEFAULT_LOGIN_BRANDING.description,
     logoUrl: isPersistentImageSource(logo) ? String(logo) : '',
     primaryColor: String(settings.primaryColor || DEFAULT_LOGIN_BRANDING.primaryColor),
   };
