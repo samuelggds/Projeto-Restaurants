@@ -1,0 +1,46 @@
+name: Full Root CI Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'frontend/e2e/**'
+      - '.github/workflows/readme-screenshots.yml'
+      - '.github/workflows/full-ci-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'frontend/e2e/**'
+      - '.github/workflows/readme-screenshots.yml'
+      - '.github/workflows/full-ci-validation.yml'
+
+concurrency:
+  group: full-root-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-ci:
+    name: npm run ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Run complete root CI
+        run: npm run ci
