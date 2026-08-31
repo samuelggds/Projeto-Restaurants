@@ -174,6 +174,44 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  # Banco limpo + servidor Express/Socket.IO real. Este job não usa o banco
+  # compartilhado de desenvolvimento e falha diante de qualquer vazamento A -> B.
+  multitenant-security-e2e:
+    name: Multi-tenant security E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tenant_e2e
+          POSTGRES_PASSWORD: tenant-e2e-password
+          POSTGRES_DB: tenant_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tenant_e2e -d tenant_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TENANT_E2E_DATABASE_URL: postgresql://tenant_e2e:tenant-e2e-password@127.0.0.1:5432/tenant_e2e?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Apply migrations and run real tenant isolation suite
+        run: npm run test:e2e:tenant
+
   # Somente jornadas que atravessam várias telas permanecem no E2E obrigatório.
   e2e-critical:
     name: Critical E2E journeys
@@ -237,7 +275,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [quality, lint, typecheck, test, e2e-critical, audit]
+    needs: [quality, lint, typecheck, test, multitenant-security-e2e, e2e-critical, audit]
     steps:
       - uses: actions/checkout@v4
 

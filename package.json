@@ -16,6 +16,7 @@
     "test:coverage": "npm --prefix backend test && npm --prefix frontend run test:coverage",
     "test:e2e": "npm --prefix frontend run test:e2e",
     "test:e2e:critical": "npm --prefix frontend run test:e2e:critical",
+    "test:e2e:tenant": "npm --prefix backend run test:e2e:tenant",
     "audit": "npm --prefix backend audit --audit-level=high && npm --prefix frontend audit --audit-level=high",
     "check:bundle": "node scripts/checkBundleBudget.mjs",
     "smoke": "node scripts/smoke.mjs",
