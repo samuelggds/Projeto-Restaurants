@@ -4,408 +4,538 @@
 
 # Pizza IA Delivery
 
-### SaaS multi-tenant para restaurantes, mesas e delivery
+### Plataforma SaaS multi-restaurante para pedidos, mesas, cozinha e delivery em tempo real
 
-Uma plataforma Full Stack que conecta **cliente, administração, cozinha, garçom, entregador e superadministrador** em uma única operação — do cardápio digital ao pagamento, da mesa por QR Code ao rastreamento GPS.
+Do primeiro acesso ao cardápio até a entrega: uma operação integrada para **clientes, administradores, garçons, cozinha, motoqueiros e superadministradores**.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-frontend%20%2B%20backend-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-Vite-61DAFB?style=for-the-badge&logo=react&logoColor=111827)](https://react.dev/)
+[![CI](https://img.shields.io/github/actions/workflow/status/samuelggds/Projeto-Restaurants/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/samuelggds/Projeto-Restaurants/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-full--stack-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React_19-Vite-61DAFB?style=for-the-badge&logo=react&logoColor=111827)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+
+<p>
+  <a href="#visão-do-produto">Produto</a> •
+  <a href="#experiência-por-painel">Painéis</a> •
+  <a href="#arquitetura">Arquitetura</a> •
+  <a href="#segurança">Segurança</a> •
+  <a href="#qualidade-e-testes">Testes</a> •
+  <a href="#executando-localmente">Executar</a>
+</p>
 
 </div>
 
 ---
 
-## Visão rápida 
+## Visão do produto
 
-O objetivo deste repositório é demonstrar mais do que CRUD. O projeto foi evoluído como um **produto real**, com regras de negócio, múltiplos perfis, pagamentos, isolamento multi-tenant, comunicação em tempo real, rastreamento, testes automatizados e infraestrutura reproduzível.
+O **Pizza IA Delivery** foi desenvolvido como um produto operacional completo, não apenas como um CRUD. Cada restaurante possui sua identidade, configurações, catálogo, equipe, pedidos e integrações isolados por tenant. A plataforma conecta o atendimento público às áreas internas e mantém todos os perfis trabalhando sobre a mesma fonte de verdade.
 
-| Desafio de engenharia | Como o projeto aborda |
+| Pilar | O que está implementado |
 | --- | --- |
-| Vários restaurantes na mesma plataforma | Isolamento por `restaurantId`, autorização no backend e separação de contexto por tenant |
-| Diferentes perfis usando o mesmo sistema | Rotas e experiências específicas para cliente, admin, cozinha, garçom, entregador e superadmin |
-| Pedido em canais diferentes | Fluxos próprios para `DELIVERY`, `RETIRADA` e `MESA` |
-| Pagamentos com integrações externas | Providers separados, webhooks, reconciliação, reembolso e estados explícitos |
-| Operação em tempo real | Socket.IO para mudanças de pedido, cozinha, atendimento e localização |
-| Entrega com distância variável | Cotação no servidor, faixas de taxa e abstração de roteamento |
-| QR Code de mesa | Sessão vinculada à mesa, atendimento, pedidos e conta compartilhada |
-| Evolução sem quebrar o produto | Unitários, integração, E2E, lint, typecheck, migrations e build no CI |
-| Código crescendo em várias áreas | Organização por feature e limites arquiteturais verificados automaticamente |
+| **Multi-restaurante** | Contexto por `restaurantId`, slug público, branding e dados isolados por tenant |
+| **Venda omnichannel** | Pedidos de `DELIVERY`, `RETIRADA` e `MESA` com regras próprias |
+| **Operação em tempo real** | Socket.IO para pedidos, cozinha, salão, suporte e localização da entrega |
+| **Cardápio flexível** | Categorias, estoque, imagens, grupos de opções, ingredientes e observações |
+| **Pagamentos** | Pix, cartão, pagamento na entrega, conta da mesa, webhooks e reconciliação |
+| **Entrega inteligente** | Cotação por distância, providers de rota, GPS e acompanhamento do cliente |
+| **Fidelização** | Promoções por produto, cupons, carteira e campanhas de compras recorrentes |
+| **SaaS** | Planos, mensalidades, bloqueios financeiros e administração da plataforma |
+| **Confiabilidade** | Testes automatizados, auditoria, observabilidade, health checks e CI completo |
 
-> **As imagens abaixo não são mockups criados à mão.** Elas são capturas do próprio frontend React executado pelo Playwright com fixtures determinísticas. O workflow `README Screenshots` consegue regenerá-las a partir do código atual.
+### Como os perfis se conectam
 
----
+```mermaid
+flowchart LR
+    C[Cliente] -->|monta e paga| P[Pedido]
+    A[Administrador] -->|configura e acompanha| P
+    G[Garçom] -->|opera mesas e salão| P
+    P -->|entra na fila| K[Cozinha]
+    K -->|marca como pronto| M[Motoqueiro ou Garçom]
+    M -->|status e GPS| T[Tracking do cliente]
+    S[Superadministrador] -->|planos e governança| A
+```
 
-# Interface real do projeto
-
-## 1. Cardápio do cliente
-
-O cardápio público é resolvido pelo restaurante/slug, carrega identidade visual, produtos e disponibilidade e mantém o contexto do restaurante durante toda a jornada.
-
-![Cardápio real do cliente](docs/assets/screenshots/customer-menu.png)
-
-**O que essa tela representa:**
-
-1. resolução do restaurante pelo slug;
-2. carregamento das configurações públicas;
-3. catálogo vindo da API;
-4. categorias, preços e disponibilidade;
-5. carrinho e personalizações;
-6. experiência responsiva para desktop e celular.
+> As capturas deste README vêm do **frontend React real**, executado pelo Playwright com dados determinísticos. Elas não são mockups desenhados separadamente e podem ser regeneradas pelo workflow `README Screenshots`.
 
 ---
 
-## 2. Login responsivo com identidade do restaurante
+# Experiência por painel
 
-A tela de autenticação utiliza branding dinâmico do restaurante e foi validada em diferentes larguras de celular. O layout possui tratamento responsivo, imagem de capa, modo claro/escuro e controle de visibilidade da senha.
+## 1. Home e cardápio do cliente
 
-<p align="center">
-  <img src="docs/assets/screenshots/login-mobile.png" alt="Login mobile real" width="390" />
-</p>
+![Home e cardápio público](docs/assets/screenshots/customer-menu.png)
 
-O fluxo de autenticação também possui proteção de rotas, recuperação/troca de senha e políticas de acesso conforme o perfil autenticado.
+A Home é a vitrine digital de cada restaurante. O slug identifica o tenant, aplica a identidade visual correta e carrega somente produtos e configurações públicas daquele estabelecimento.
 
----
+### O que o cliente encontra
 
-## 3. Administração: descontos e fidelidade
+- cabeçalho com restaurante, endereço de entrega, horário e sacola;
+- categorias com navegação visual;
+- cards de produtos com preço, disponibilidade e favoritos;
+- montagem de itens com grupos obrigatórios ou opcionais;
+- ingredientes, adicionais, observação e quantidade;
+- campanhas, cupons e fidelidade quando habilitados;
+- escolha entre delivery, retirada ou pedido por mesa;
+- checkout com recálculo de preços no servidor.
 
-O painel administrativo concentra configuração e operação do restaurante. A imagem abaixo mostra uma das áreas reais do sistema: **descontos e fidelidade**.
+### O que acontece por trás da interface
 
-![Admin real - promoções e fidelidade](docs/assets/screenshots/admin-promotions-loyalty.png)
-
-Nessa área, o administrador consegue trabalhar com promoções de produto, cupons e benefícios de fidelidade. O backend continua sendo a fonte de verdade para as regras e valores efetivos.
-
----
-
-## 4. Rastreamento da entrega
-
-O cliente acompanha o pedido durante a entrega com dados de rota, entregador, posição mais recente e estimativa de chegada.
-
-![Tracking real da entrega](docs/assets/screenshots/delivery-tracking.png)
-
-O fluxo foi desenhado para que eventos em tempo real acelerem a interface, enquanto o estado persistido no backend continua sendo a referência confiável.
-
----
-
-## 5. Cartões salvos e experiência de pagamento
-
-O projeto também possui suporte à experiência de cartões salvos por cliente/restaurante, sem armazenar dados sensíveis completos do cartão na aplicação.
-
-<p align="center">
-  <img src="artifacts/card-brand-demo.png" alt="Demonstração visual de bandeiras de cartão" width="760" />
-</p>
-
-A modelagem de métodos de pagamento do cliente utiliza identificadores do provider, bandeira normalizada, últimos quatro dígitos, validade e definição de cartão padrão.
+| Etapa | Garantia do sistema |
+| --- | --- |
+| Resolução da loja | O restaurante é localizado pelo slug e o contexto acompanha toda a jornada |
+| Catálogo | Produtos, categorias e imagens são filtrados pelo tenant e disponibilidade |
+| Montagem | Regras de seleção são validadas novamente no backend |
+| Cotação | Subtotal, descontos, cupom e entrega não dependem do valor enviado pelo navegador |
+| Pedido | O canal escolhido determina endereço, mesa, pagamento e fluxo operacional |
 
 ---
 
-# O produto, passo a passo
+## 2. Login responsivo — desktop e mobile
 
-## Jornada A — Delivery
+<table>
+  <tr>
+    <td width="68%" valign="top">
+      <img src="docs/assets/screenshots/login-desktop.png" alt="Login desktop" width="100%" />
+    </td>
+    <td width="32%" valign="top">
+      <img src="docs/assets/screenshots/login-mobile.png" alt="Login mobile" width="100%" />
+    </td>
+  </tr>
+</table>
+
+A autenticação preserva a identidade do restaurante em qualquer tamanho de tela. O layout muda de composição no celular, mas mantém o mesmo formulário, feedback e acessibilidade.
+
+### Recursos da autenticação
+
+- branding dinâmico com nome, descrição, cor e imagem de capa;
+- layout responsivo testado de `320 px` a `1440 px`;
+- login tradicional e integração opcional com Google;
+- controle de visibilidade da senha e opção “lembrar de mim”;
+- recuperação e troca obrigatória de senha;
+- MFA para funções administrativas configuradas;
+- lockout progressivo contra tentativas abusivas;
+- redirecionamento seguro de acordo com o papel autenticado;
+- modo claro/escuro sem duplicar a regra de autenticação.
+
+### Destino após o login
+
+| Papel | Área principal |
+| --- | --- |
+| Cliente | Home ou destino protegido solicitado anteriormente |
+| Administrador | `/admin` |
+| Funcionário da cozinha | `/kitchen` |
+| Garçom | `/waiter` |
+| Motoqueiro | `/courier` |
+| Superadministrador | `/super_admin` |
+
+---
+
+## 3. Painel do administrador
+
+![Visão geral do painel administrativo](docs/assets/screenshots/admin-dashboard.png)
+
+O painel administrativo reúne gestão e operação em uma única experiência. A visão geral apresenta vendas do dia, volume de pedidos, ticket médio, clientes ativos, pedidos recentes e produtos disponíveis.
+
+### Áreas do painel
+
+| Área | Responsabilidade |
+| --- | --- |
+| **Visão geral** | Indicadores do dia, pedidos recentes e disponibilidade do catálogo |
+| **Pedidos** | Busca, filtros, status, pagamento, cancelamento e reembolso |
+| **Cardápio** | Produtos, categorias, preços, estoque, imagens e opções de montagem |
+| **Clientes** | Histórico de consumo, dados públicos e relacionamento |
+| **Funcionários** | Convites, funções, ativação e permissões da equipe |
+| **Cobranças e assinaturas** | Plano contratado, mensalidade, faturas e regularização |
+| **Configurações** | Marca, negócio, endereço, horários, operação e integrações |
+
+### Configurações disponíveis
+
+- marca, logotipo, capa e cor principal;
+- razão social, documento e contatos comerciais;
+- endereço e horários de funcionamento;
+- aceite automático, tempo médio e limite de pedidos simultâneos;
+- delivery, retirada, taxa por distância e frete grátis;
+- mesas, QR Codes, chamadas e conta compartilhada;
+- WhatsApp e notificações de status;
+- provedores de Pix e cartão;
+- redes sociais, aparência e SEO;
+- equipe, permissões e segurança.
+
+### Promoções e fidelidade
+
+<details>
+  <summary><strong>Ver a área completa de descontos e fidelidade</strong></summary>
+  <br />
+  <img src="docs/assets/screenshots/admin-promotions-loyalty.png" alt="Administração de promoções e fidelidade" width="100%" />
+</details>
+
+O administrador pode aplicar descontos percentuais ou fixos em produtos, agendar campanhas e criar benefícios liberados após uma quantidade configurável de pedidos pagos e entregues. O cliente acompanha o progresso e usa o benefício elegível no checkout.
+
+---
+
+## 4. Painel do garçom
+
+![Painel operacional do garçom](docs/assets/screenshots/waiter-dashboard.png)
+
+O painel do garçom prioriza o que precisa de atenção no salão. A interface separa a operação diária das configurações administrativas para que o funcionário execute somente ações compatíveis com sua função.
+
+### Visão geral do salão
+
+- pedidos prontos aguardando entrega à mesa;
+- chamados ainda não assumidos;
+- quantidade de mesas ocupadas;
+- observações importantes, como talheres ou atendimento especial;
+- mesas abertas, horário de abertura e valor atual da conta.
+
+### Fluxos disponíveis
+
+| Seção | Ações principais |
+| --- | --- |
+| **Para entregar** | Filtrar pedidos prontos, conferir mesa e marcar entrega ao cliente |
+| **Mesas e QR Codes** | Abrir/fechar sessão, visualizar QR e consultar estado operacional |
+| **Chamados** | Assumir, acompanhar e concluir solicitações de garçom ou conta |
+| **Conta da mesa** | Consultar itens, pagamentos, saldo e meios presenciais permitidos |
+
+O QR Code só libera pedidos enquanto a sessão da mesa estiver válida. O fechamento respeita pedidos, pagamentos e saldo pendentes, reduzindo divergências entre o salão e o sistema.
+
+---
+
+## 5. Painel da cozinha
+
+![Fila operacional da cozinha](docs/assets/screenshots/kitchen-dashboard.png)
+
+A cozinha recebe uma fila visual pensada para produção. Cada pedido preserva canal, mesa ou entrega, quantidades, montagem, adicionais e observações exatamente como foram confirmados.
+
+### Organização da fila
+
+- colunas simultâneas de **Pendente**, **Preparando** e **Pronto**;
+- filtros por mesa, retirada e delivery;
+- busca por pedido, produto, ingrediente ou mesa;
+- separação entre fila atual, pedidos prontos e histórico;
+- atualização manual, automática e por eventos em tempo real;
+- tempo de espera destacado para priorização operacional.
+
+### Ciclo do pedido na cozinha
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendente
+    Pendente --> Preparando: Iniciar preparo
+    Preparando --> Pronto: Marcar como pronto
+    Pronto --> Entregue: Garçom ou motoqueiro
+    Pendente --> Cancelado
+    Preparando --> Cancelado: regra autorizada
+```
+
+Preços de adicionais não são usados como distração na tela operacional: a cozinha recebe o que deve preparar, enquanto regras financeiras permanecem nas áreas apropriadas.
+
+---
+
+## 6. Painel do motoqueiro
+
+![Painel operacional do motoqueiro](docs/assets/screenshots/courier-dashboard.png)
+
+O painel do motoqueiro acompanha todo o turno: retirada, entrega ativa, rota, histórico e perfil. Somente pedidos de delivery pertencentes ao restaurante correto podem aparecer na fila.
+
+### Recursos da entrega
+
+- lista de pedidos prontos para retirada;
+- endereço, ponto de referência e contato do cliente;
+- itens, montagem e observações do pedido;
+- confirmação de retirada antes de iniciar a rota;
+- geolocalização autorizada somente durante a entrega;
+- mapa com posição atual, destino e trajeto estimado;
+- código de confirmação para concluir a entrega;
+- interrupção do compartilhamento de GPS após a finalização;
+- histórico e resumo financeiro do entregador.
+
+### Privacidade e isolamento
+
+O backend valida conta ativa, papel, entregador atribuído, tenant e estado do pedido antes de aceitar posições. Eventos de localização são enviados apenas às salas autorizadas do pedido, do cliente e da administração daquele restaurante.
+
+---
+
+## 7. Acompanhamento da entrega pelo cliente
+
+![Rastreamento da entrega](docs/assets/screenshots/delivery-tracking.png)
+
+O cliente acompanha o próprio pedido com status, nome do entregador, contato, última posição válida e estimativa de chegada. Socket.IO acelera a atualização da tela, enquanto o estado persistido no backend continua sendo a fonte confiável.
+
+---
+
+## 8. Superadministração da plataforma
+
+O superadministrador trabalha em uma experiência separada da operação dos restaurantes. Essa camada gerencia a própria plataforma SaaS e possui proteções adicionais.
+
+- cadastro e acompanhamento de restaurantes;
+- catálogo de planos e funcionalidades;
+- faturas e situação financeira dos tenants;
+- manutenção e disponibilidade global;
+- suporte de plataforma separado do suporte interno do restaurante;
+- promoção e administração de contas com MFA obrigatório;
+- auditoria de alterações sensíveis e proteção do último `SUPER_ADMIN` ativo.
+
+---
+
+# Jornadas principais
+
+## Delivery
 
 ![Jornada do pedido](docs/assets/order-journey.svg)
 
-1. **Entrada no cardápio** — o cliente acessa a URL do restaurante e o frontend resolve o tenant correto.
-2. **Montagem do pedido** — produtos podem ter opções, ingredientes, observações e quantidades.
-3. **Cotação** — o servidor recalcula valores relevantes, incluindo descontos, cupons e taxa de entrega.
-4. **Identificação/endereço** — delivery valida os dados necessários antes de prosseguir.
-5. **Pagamento** — a aplicação escolhe o fluxo compatível com o método e provider configurado.
-6. **Cozinha** — o pedido aparece para produção com itens, quantidades, observações e customizações.
-7. **Entrega** — o entregador assume o pedido e inicia o compartilhamento autorizado da localização.
-8. **Tracking** — o cliente acompanha a rota e a evolução do status.
-9. **Conclusão** — o pedido finalizado alimenta histórico, fidelidade e demais regras pós-venda.
+1. O cliente acessa o slug do restaurante.
+2. A API entrega identidade, catálogo e capacidades públicas do tenant.
+3. O cliente monta os itens e informa endereço ou retirada.
+4. O servidor recalcula produtos, adicionais, descontos, cupom e entrega.
+5. O pagamento segue o provider configurado ou a regra de pagamento na entrega.
+6. A cozinha recebe o pedido e atualiza seu estado.
+7. O motoqueiro confirma a retirada e compartilha localização autorizada.
+8. O cliente acompanha a rota até a confirmação da entrega.
+9. O pedido concluído alimenta histórico e progresso de fidelidade.
 
-## Jornada B — Mesa por QR Code
+## Mesa por QR Code
 
-1. O administrador cria/configura a mesa e disponibiliza seu QR Code.
-2. O garçom abre a sessão operacional da mesa.
-3. O cliente escaneia o QR e entra diretamente no contexto correto, sem precisar fazer login para pedir na mesa.
-4. O cliente monta o pedido usando o mesmo catálogo e as mesmas regras de customização.
-5. Antes de concluir, pode seguir conforme as capacidades configuradas da mesa: **adicionar à conta** ou **pagar o pedido agora**.
-6. O pedido chega à cozinha identificado como pedido de mesa.
-7. O cliente pode acompanhar o status do pedido da mesa.
-8. A área flutuante permite acessar atendimento, visualizar a conta e solicitar o fechamento.
-9. O fluxo de conta possui regras para evitar concorrência indevida de pagamento dos mesmos itens.
+1. O administrador cadastra a mesa e disponibiliza seu QR Code.
+2. O garçom abre uma sessão operacional.
+3. O cliente entra no contexto da mesa sem precisar criar uma conta para pedir.
+4. Os participantes adicionam itens usando o mesmo catálogo do restaurante.
+5. O pedido chega à cozinha identificado como `MESA`.
+6. Chamados de garçom e conta aparecem em tempo real no salão.
+7. A conta organiza itens e pagamentos por participante.
+8. O fechamento só ocorre quando as regras financeiras e operacionais permitem.
 
-## Jornada C — Operação interna
+## Pagamento e confirmação
 
-### Administrador
-
-Gerencia catálogo, categorias, ingredientes, equipe, mesas, pedidos, configurações, descontos, fidelidade, integrações e áreas financeiras.
-
-### Cozinha
-
-Recebe uma fila operacional voltada à produção, incluindo customizações e observações que precisam chegar exatamente como o cliente selecionou.
-
-### Garçom
-
-Opera mesas e chamadas de atendimento sem receber permissões administrativas que não pertencem ao papel de salão.
-
-### Entregador
-
-Visualiza as entregas atribuíveis, retira o pedido, compartilha GPS durante a entrega, trabalha com ocorrências e conclui o pedido com as proteções previstas pelo fluxo.
-
-### Superadministrador
-
-Possui experiência separada para gerenciamento da própria plataforma e dos restaurantes cadastrados.
-
----
-
-# Principais funcionalidades implementadas
-
-| Área | Funcionalidades |
-| --- | --- |
-| **Cardápio** | catálogo por restaurante, categorias, disponibilidade, imagens, customizações e observações |
-| **Carrinho/checkout** | delivery, retirada, mesa, cotação, endereço e validações |
-| **Mesa/QR** | QR Code, abertura de sessão, pedidos, atendimento e conta da mesa |
-| **Pedidos** | criação, mudanças de status, ocorrências, confirmação e reembolso |
-| **Cliente** | perfil, endereços, favoritos, pedidos e tracking |
-| **Promoções** | descontos de produto, cupons e regras de fidelidade |
-| **Pagamentos** | PIX/cartão conforme provider, webhooks, reconciliação e métodos salvos |
-| **Delivery** | entregador, GPS, rota, estimativa e tracking do cliente |
-| **Administração** | catálogo, equipe, configurações, mesas, promoções e operação |
-| **Tempo real** | Socket.IO aplicado aos fluxos que precisam de atualização imediata |
-| **SaaS** | restaurantes/tenants, planos, faturas e bloqueios operacionais relacionados à plataforma |
-| **Automação** | importação de cardápio, suporte com IA e recursos de melhoria de imagem |
-| **Confiabilidade** | auditoria, rate limiting, health/readiness, observabilidade e shutdown controlado |
+1. O frontend solicita uma cotação ao backend.
+2. O backend valida tenant, valores, método e provider.
+3. A cobrança é criada com idempotência.
+4. Webhook ou reconciliação confirma o estado externo.
+5. Pedido e pagamento avançam por transições explícitas.
+6. Cancelamentos elegíveis acionam o fluxo de reembolso.
 
 ---
 
 # Arquitetura
 
 ```mermaid
-flowchart LR
-    UI["React + Vite\nCliente e equipes"] --> API["Express + TypeScript\nAPI"]
-    API --> DB["PostgreSQL\nPrisma"]
-    API <--> RT["Socket.IO\nTempo real"]
-    API --> PAY["Providers\nPagamentos"]
-    API --> ROUTE["Routing providers\nDistância e rota"]
-    API --> OBS["Observabilidade\nHealth, logs e Sentry"]
-
-    subgraph Tenant["Contexto multi-tenant"]
-      UI
-      API
-      DB
-      RT
+flowchart TB
+    subgraph Frontend[React + Vite]
+      Public[Home e perfil do cliente]
+      Ops[Painéis operacionais]
+      Admin[Painéis administrativos]
     end
+
+    subgraph Backend[Express + TypeScript]
+      HTTP[API REST]
+      Realtime[Socket.IO]
+      Jobs[Worker e jobs duráveis]
+      Domain[Serviços e regras de domínio]
+    end
+
+    DB[(PostgreSQL + Prisma)]
+    Payments[Gateways de pagamento]
+    Routing[Geocoding e rotas]
+    Observability[Logs, Sentry e alertas]
+
+    Public --> HTTP
+    Ops --> HTTP
+    Admin --> HTTP
+    Public <--> Realtime
+    Ops <--> Realtime
+    Admin <--> Realtime
+    HTTP --> Domain
+    Realtime --> Domain
+    Jobs --> Domain
+    Domain --> DB
+    Domain --> Payments
+    Domain --> Routing
+    Backend --> Observability
 ```
 
-O projeto segue organização orientada a funcionalidades. A intenção é manter regra de negócio perto do domínio responsável e evitar arquivos globais acumulando responsabilidades.
-
-### Backend
+## Organização do backend
 
 ```text
 backend/src/modules/<feature>/
-  controllers/        traduz HTTP para o caso de uso
-  services/           coordena regras e fluxo da aplicação
-  repositories/       persistência e consultas
-  providers/          gateways e integrações externas
-  domain/             regras puras, tipos e contratos
-  routes/             definição de endpoints
+├── controllers/        entrada HTTP e respostas
+├── services/           casos de uso e coordenação
+├── repositories/       persistência e consultas
+├── providers/          gateways e integrações externas
+├── domain/             regras puras, contratos e estados
+└── routes/             endpoints e middlewares
 ```
 
-### Frontend
+O backend concentra as regras que não podem depender do navegador: autorização, tenant, preços, pagamentos, transições de pedido, mesa, entrega e auditoria.
+
+## Organização do frontend
 
 ```text
 frontend/src/pages/<feature>/
-  components/         UI específica da funcionalidade
-  hooks/              estado, efeitos e coordenação
-  domain/             regras puras e testáveis
-  adapters/           conversão de contratos para a UI
-  types.ts            tipos da área
+├── components/         interface específica da área
+├── hooks/              estado, efeitos e sincronização
+├── domain/             regras puras testáveis
+├── adapters/           API → modelo de apresentação
+├── styles.ts           estilos isolados por experiência
+└── types.ts            contratos locais
 ```
 
-Essa separação é reforçada pelo documento [ARCHITECTURE.md](ARCHITECTURE.md) e por uma verificação automática de arquitetura executada no CI.
+Mais detalhes estão em [ARCHITECTURE.md](ARCHITECTURE.md).
 
----
+## Multi-tenancy
 
-# Multi-tenancy e autorização
-
-Um dos pontos centrais do projeto é impedir que um usuário autenticado em um restaurante utilize IDs de outro restaurante para acessar dados que não pertencem ao seu contexto.
-
-A proteção não depende apenas de esconder opções no frontend. O backend aplica o contexto de tenant nas operações relevantes, e os testes cobrem cenários de autorização e isolamento.
+O isolamento não depende de esconder botões no frontend. Rotas privadas resolvem o tenant permitido a partir da sessão autenticada, e repositórios aplicam esse contexto nas consultas e alterações.
 
 ```mermaid
 sequenceDiagram
     participant U as Usuário
     participant F as Frontend
     participant A as API
-    participant D as Banco
+    participant D as PostgreSQL
 
-    U->>F: ação em restaurante A
-    F->>A: token + requisição
-    A->>A: autenticação e autorização
-    A->>A: resolve restaurantId permitido
-    A->>D: consulta limitada ao tenant
-    D-->>A: dados do restaurante A
-    A-->>F: resposta autorizada
+    U->>F: executa ação no restaurante A
+    F->>A: token + payload
+    A->>A: autentica papel e resolve restaurantId
+    A->>D: operação limitada ao tenant A
+    D-->>A: dados autorizados
+    A-->>F: resposta segura
 ```
 
----
+## Tempo real
 
-# Pagamentos
+Eventos são usados onde atualização imediata agrega valor:
 
-O projeto possui uma camada de pagamentos que evita acoplar toda a aplicação a um único gateway. Existem fluxos e integrações relacionados a **Mercado Pago, Asaas, PagBank e Stripe**, além de serviços de reembolso e checkout por provider.
+- mudança de status de pedido;
+- fila da cozinha;
+- chamados e mesas do salão;
+- painel administrativo;
+- tracking da entrega;
+- suporte interno e de plataforma.
 
-Entre as preocupações tratadas pelo código estão:
-
-- confirmação assíncrona por webhook;
-- validação/assinatura de eventos conforme o provider;
-- idempotência para não processar o mesmo evento de pagamento repetidamente;
-- reconciliação entre pagamento e pedido;
-- reembolso;
-- pagamento imediato ou conta da mesa;
-- métodos de cartão salvos através de referências seguras do provider.
-
-> Segredos de gateways nunca devem ser versionados. O repositório mantém apenas arquivos `.example` para configuração.
+O realtime não substitui a persistência. Ao reconectar ou receber um evento importante, a interface pode reconciliar o estado com a API.
 
 ---
 
-# Delivery, distância e GPS
+# Pagamentos, rotas e integrações
 
-A taxa de entrega pode ser calculada por regras/faixas de distância. O servidor é responsável pela cotação para que o valor não dependa de dados manipuláveis no navegador.
+## Pagamentos
 
-A camada de roteamento foi abstraída para permitir providers diferentes. O repositório possui configuração para roteamento local/produção e suporte a provider externo quando configurado.
+A camada de providers evita acoplar todo o produto a um único gateway. O projeto contém fluxos para **Mercado Pago, Asaas, PagBank e Stripe**, conforme a finalidade e configuração do restaurante/plataforma.
 
-No acompanhamento da entrega:
+- webhooks validados;
+- idempotência de cobrança e processamento;
+- reconciliação automática;
+- Pix e cartão online;
+- pagamento presencial em dinheiro ou maquininha;
+- conta e divisão de pagamento por mesa;
+- reembolso e estados de falha explícitos;
+- credenciais criptografadas e externas ao repositório;
+- cartões salvos somente por referência segura do provider, bandeira e últimos dígitos.
 
-1. o entregador assume um pedido compatível com seu tenant;
-2. o navegador solicita permissão de geolocalização;
-3. posições autorizadas são enviadas durante a entrega;
-4. o cliente recebe atualização da própria entrega;
-5. a UI combina status, localização e estimativa de rota;
-6. ao concluir, o envio periódico de localização é encerrado.
+## Distância, taxa e GPS
+
+- a cotação de delivery é calculada no servidor;
+- regras podem usar faixas de distância e frete grátis;
+- providers de roteamento são configuráveis;
+- o projeto suporta Geoapify e infraestrutura própria com OSRM/Nominatim;
+- posições são validadas e possuem retenção configurável;
+- o compartilhamento termina quando a entrega deixa de estar ativa.
+
+## Automação e IA
+
+O projeto possui áreas para importação de cardápio, suporte assistido e melhoria controlada de imagens. Recursos de IA permanecem opcionais, possuem limites de uso e não substituem regras determinísticas de segurança ou cobrança.
 
 ---
 
 # Segurança
 
-A segurança é tratada em camadas, com mecanismos e testes distribuídos entre autenticação, autorização e infraestrutura. O projeto inclui áreas relacionadas a:
+A segurança é aplicada em camadas e coberta por testes de comportamento.
 
-- JWT e renovação de sessão;
-- política de senha;
-- recuperação/troca de senha;
-- MFA em fluxos previstos;
-- lockout/proteções contra tentativas abusivas;
-- autorização por papel;
-- isolamento por restaurante;
-- rate limiting;
-- CORS e headers de segurança;
-- auditoria de ações;
-- validações de ambiente;
-- proteção de segredos por configuração externa.
+| Camada | Proteções principais |
+| --- | --- |
+| **Sessão** | Access token curto, refresh rotativo, cookie `HttpOnly` e revogação por versão |
+| **Credenciais** | Política forte, bcrypt, recuperação controlada e troca obrigatória |
+| **MFA** | Obrigatório para papéis configurados, desafios com expiração e limite de tentativas |
+| **Autorização** | Papel, subpapel, conta ativa, tenant e recurso verificados no backend |
+| **Abuso** | Rate limiting, lockout progressivo e limites específicos por fluxo |
+| **HTTP** | Helmet, CORS restrito, proteção cross-site e limites de payload |
+| **Pagamentos** | Assinatura, idempotência, conferência de valor/moeda/provider e reconciliação |
+| **Telemetria** | Redação de tokens, PII, credenciais, query strings e stacks sensíveis |
+| **Produção** | Validação de ambiente, HTTPS, segredos independentes e fingerprint do banco |
+
+Nunca versione `.env`, tokens, senhas, chaves privadas ou credenciais dos gateways. Utilize os arquivos `.example` apenas como contrato de configuração.
 
 ---
 
 # Stack técnica
 
-| Camada | Tecnologias principais |
+| Camada | Tecnologias |
 | --- | --- |
-| **Frontend** | React 19, Vite, TypeScript, React Router, Styled Components, Axios, Lucide e Socket.IO Client |
-| **Backend** | Node.js, Express, TypeScript, Prisma e Socket.IO |
-| **Banco** | PostgreSQL + migrations Prisma |
-| **Qualidade** | Vitest, Node Test Runner, Playwright, ESLint, TypeScript e auditoria npm |
-| **Mapas/rotas** | GPS Web, Leaflet e camada de routing configurável |
-| **Infraestrutura** | Docker, Docker Compose, Caddy/Nginx conforme ambiente |
-| **Observabilidade** | Sentry, health/readiness, request IDs, logs e alertas |
+| Frontend | React 19, Vite, TypeScript, React Router, Styled Components, Axios e Lucide |
+| Backend | Node.js, Express 5, TypeScript, Prisma e Socket.IO |
+| Banco | PostgreSQL + migrations Prisma |
+| Mapas | Leaflet, Geolocation API e providers de routing |
+| Qualidade | Vitest, Node Test Runner, Playwright, ESLint, Prettier e TypeScript |
+| Observabilidade | Sentry, request IDs, logs estruturados, health/readiness e alertas |
+| Infraestrutura | Docker Compose, Caddy/Nginx e configurações por ambiente |
 
 ---
 
-# Estratégia de testes
+# Qualidade e testes
 
-A regra do projeto é testar cada comportamento na **menor camada capaz de detectar o risco real**.
+A estratégia é testar cada comportamento na menor camada capaz de detectar seu risco real.
 
-### 1. Testes unitários
+## Testes unitários
 
-Indicados para cálculo, transformação, regras puras e validações. Exemplos: desconto, checkout, disponibilidade e normalizações.
+Cobrem cálculos, normalizações, validações, regras de domínio, adapters, estados e componentes isolados.
 
-### 2. Testes de integração
+## Testes de integração
 
-Usados onde o risco depende da fronteira entre módulos, banco, autenticação, tenant, pagamento ou eventos.
+Cobrem fronteiras entre autenticação, tenant, repositórios, pagamentos, pedidos, mesas, workers e middlewares.
 
-### 3. Testes E2E
+## Testes E2E
 
-Usados para jornadas que atravessam várias telas/papéis. O comando crítico atual cobre oito specs essenciais:
+Cobrem jornadas completas por papel:
 
-```text
-password-policy.spec.ts
-system-availability.spec.ts
-table-qr-role-flow.spec.ts
-kitchen-order-customizations.spec.ts
-waiter-operations.spec.ts
-courier-operations.spec.ts
-promotions-loyalty.spec.ts
-super-admin-platform.spec.ts
+- autenticação e responsividade;
+- autorização de rotas;
+- QR Code e sessão da mesa;
+- montagem de produtos;
+- cozinha e customizações;
+- salão e chamados do garçom;
+- operação e GPS do motoqueiro;
+- descontos e fidelidade;
+- administração da plataforma.
+
+```bash
+npm run test:e2e:critical
 ```
 
-### 4. Screenshots do README também vêm dos E2E
-
-O workflow `.github/workflows/readme-screenshots.yml` executa o frontend com Playwright e grava as capturas em:
-
-```text
-docs/assets/screenshots/
-  login-mobile.png
-  customer-menu.png
-  admin-promotions-loyalty.png
-  delivery-tracking.png
-```
-
-Assim, a documentação visual pode evoluir junto com a interface.
-
-Mais detalhes: [TESTING.md](TESTING.md).
-
----
-
-# CI e gates de qualidade
-
-O GitHub Actions executa jobs independentes para detectar problemas cedo:
-
-```mermaid
-flowchart LR
-    A[Arquitetura] --> B[Build]
-    L[Lint] --> B
-    T[Typecheck + Prisma] --> B
-    U[Testes] --> E[E2E crítico]
-    E --> B
-    S[Security audit] --> B
-```
-
-A pipeline atual verifica:
-
-- instalação determinística das dependências;
-- limites arquiteturais;
-- catálogo de scripts operacionais;
-- ESLint sem warnings no CI;
-- typecheck backend e frontend;
-- `prisma validate`;
-- aplicação de migrations em um PostgreSQL limpo;
-- testes backend;
-- testes frontend com thresholds de cobertura;
-- E2E críticos em Chromium;
-- `npm audit` para vulnerabilidades de nível alto;
-- build backend e frontend;
-- orçamento de bundle.
-
-Para executar a validação do monorepo localmente:
+## CI local
 
 ```bash
 npm run ci
 ```
 
-Em uma máquina limpa, instale tudo e valide com:
+Esse comando valida:
+
+1. limites arquiteturais;
+2. catálogo de scripts operacionais;
+3. schema Prisma;
+4. lint sem warnings;
+5. typecheck backend e frontend;
+6. testes backend e frontend;
+7. auditoria de vulnerabilidades;
+8. build de produção;
+9. orçamento de bundle.
+
+Em uma instalação limpa:
 
 ```bash
 npm run ci:clean
 ```
 
-E para as jornadas E2E críticas:
-
-```bash
-npm run test:e2e:critical
-```
+Consulte também [TESTING.md](TESTING.md).
 
 ---
 
@@ -413,33 +543,36 @@ npm run test:e2e:critical
 
 ## Pré-requisitos
 
-- Node.js compatível com o projeto;
+- Node.js 22 ou versão compatível com o projeto;
 - npm;
 - PostgreSQL;
-- Docker/Docker Compose se quiser utilizar os ambientes em containers.
+- Docker/Docker Compose para os serviços opcionais em containers.
 
-## 1. Configure o backend
+## 1. Configure o ambiente
 
-Use `backend/.env.example` como referência e mantenha credenciais reais apenas no arquivo local ignorado pelo Git.
-
-O banco de desenvolvimento utilizado pelo projeto é `pizza_ai`.
+Use [backend/.env.example](backend/.env.example) e [frontend/.env.example](frontend/.env.example) como referência. Crie arquivos locais ignorados pelo Git e substitua somente as variáveis necessárias para desenvolvimento.
 
 ## 2. Instale as dependências
 
 ```bash
 npm --prefix backend ci
+npm --prefix backend run db:generate
 npm --prefix frontend ci
 ```
 
-O backend gera o Prisma Client durante a instalação.
-
 ## 3. Prepare o banco
 
-Valide o schema e aplique as migrations adequadas ao seu ambiente. Em ambientes de produção/CI, o projeto utiliza `prisma migrate deploy`.
+```bash
+npm --prefix backend run db:validate
+npm --prefix backend run db:migrate:dev
+npm --prefix backend run db:seed
+```
 
-## 4. Inicie backend e frontend
+> Antes de migrations ou scripts administrativos, confirme que `DATABASE_URL` aponta para o banco de desenvolvimento esperado.
 
-Em terminais separados:
+## 4. Inicie a aplicação
+
+Em dois terminais:
 
 ```bash
 npm --prefix backend run dev
@@ -449,7 +582,7 @@ npm --prefix backend run dev
 npm --prefix frontend run dev
 ```
 
-| Serviço | Endereço padrão |
+| Serviço | URL padrão |
 | --- | --- |
 | Frontend | `http://localhost:5173` |
 | Backend | `http://localhost:3000` |
@@ -457,15 +590,27 @@ npm --prefix frontend run dev
 | Readiness | `http://localhost:3000/ready` |
 | PostgreSQL | `localhost:5432` |
 
-> Evite executar ao mesmo tempo o backend nativo e outro backend Docker publicando a mesma porta `3000`.
+> Não execute ao mesmo tempo dois backends publicando a porta `3000`. No Windows, um processo antigo nessa porta também pode manter o binário do Prisma bloqueado.
+
+## Comandos úteis
+
+| Comando | Finalidade |
+| --- | --- |
+| `npm run ci` | Validação completa sem reinstalar dependências |
+| `npm run ci:clean` | Instalação limpa + validação completa |
+| `npm run lint` | ESLint backend e frontend |
+| `npm run typecheck` | TypeScript backend e frontend |
+| `npm run test` | Todos os testes unitários e de integração |
+| `npm run test:e2e:critical` | Jornadas E2E críticas |
+| `npm run build` | Builds de produção + relatório de tamanho |
+| `npm run check:bundle` | Orçamento máximo dos chunks |
+| `npm --prefix backend run db:studio` | Abre o Prisma Studio |
 
 ---
 
-# Docker e produção
+# Docker, deploy e operação
 
-O repositório possui configurações diferentes para desenvolvimento, roteamento e produção. A documentação operacional cobre deploy, banco gerenciado, roteamento e preparação para escala.
-
-Documentos importantes:
+O repositório separa ambientes locais, roteamento e produção. Antes de publicar, consulte:
 
 - [Arquitetura](ARCHITECTURE.md)
 - [Estratégia de testes](TESTING.md)
@@ -473,7 +618,7 @@ Documentos importantes:
 - [Supabase + Prisma](SUPABASE_SETUP.md)
 - [Routing/GPS local](ROUTING_GPS_SETUP.md)
 - [Routing em produção](ROUTING_PRODUCTION.md)
-- [Checklist de infraestrutura para 100 restaurantes](INFRA_CHECKLIST_100_RESTAURANTS.md)
+- [Checklist para 100 restaurantes](INFRA_CHECKLIST_100_RESTAURANTS.md)
 - [Teste de carga](LOAD_TEST_100_RESTAURANTS.md)
 - [Critérios de go-live](GO_LIVE_CRITERIA_100_RESTAURANTS.md)
 
@@ -484,23 +629,21 @@ Documentos importantes:
 ```text
 .
 ├── backend/
-│   ├── prisma/                     schema e migrations
-│   ├── scripts/                    tarefas operacionais controladas
-│   └── src/modules/                funcionalidades do backend
-│
+│   ├── prisma/                    schema e migrations
+│   ├── scripts/                   rotinas operacionais protegidas
+│   └── src/modules/               domínios e funcionalidades da API
 ├── frontend/
-│   ├── e2e/                        jornadas Playwright
+│   ├── e2e/                       jornadas Playwright e fixtures do README
 │   └── src/
-│       ├── pages/                  experiências por papel/feature
-│       ├── Services/               clientes HTTP
-│       ├── contexts/               sessão e estado global
-│       ├── routes/                 autorização e composição de rotas
-│       └── modules/features/       módulos reutilizáveis
-│
-├── docs/assets/                    diagramas e screenshots reais
-├── scripts/                        gates do monorepo
-├── deploy/                         configuração de proxy/HTTPS
-├── docker-compose*.yml             ambientes containerizados
+│       ├── pages/                 experiências por perfil
+│       ├── Services/              clientes HTTP
+│       ├── contexts/              autenticação e estado global
+│       ├── routes/                composição e autorização de rotas
+│       └── modules/features/      módulos compartilhados
+├── docs/assets/                   diagramas e capturas reais
+├── scripts/                       gates de qualidade do monorepo
+├── deploy/                        proxy, HTTPS e arquivos operacionais
+├── .github/workflows/             CI e atualização das capturas
 ├── ARCHITECTURE.md
 ├── TESTING.md
 └── DEPLOY.md
@@ -508,45 +651,33 @@ Documentos importantes:
 
 ---
 
-# O que eu quis demonstrar com este projeto
+# Capturas reproduzíveis do README
 
-Este projeto foi construído para praticar e demonstrar competências que aparecem em sistemas de produção:
+As imagens dos painéis são geradas a partir dos E2E e ficam em `docs/assets/screenshots/`. Para regenerá-las localmente:
 
-- modelagem de domínio;
-- APIs REST;
-- autenticação e autorização;
-- multi-tenancy;
-- regras de negócio complexas;
-- integrações de pagamentos;
-- comunicação em tempo real;
-- React com componentes e hooks organizados;
-- banco relacional e migrations;
-- testes unitários, integração e E2E;
-- CI e automação;
-- Docker e preocupações de deploy;
-- observabilidade;
-- refatoração incremental sem reescrever toda a aplicação.
+```bash
+cd frontend
+```
 
-O código continua evoluindo, mas a preocupação central é que cada nova funcionalidade seja incorporada sem perder **isolamento, testabilidade e clareza de responsabilidades**.
+PowerShell:
+
+```powershell
+$env:CAPTURE_README_SCREENSHOTS='true'
+npx playwright test e2e/login-mobile-responsive.spec.ts e2e/admin-promotions.spec.ts e2e/waiter-operations.spec.ts e2e/kitchen-order-customizations.spec.ts e2e/courier-operations.spec.ts e2e/readme-real-ui.spec.ts
+```
+
+O workflow [README Screenshots](.github/workflows/readme-screenshots.yml) executa o mesmo processo quando as telas ou fixtures relacionadas mudam.
 
 ---
 
 # Roadmap técnico
 
-- [ ] Redis adapter/sticky sessions para escala horizontal do Socket.IO.
-- [ ] OpenAPI formal para contratos HTTP.
-- [ ] Catálogo versionado de eventos Socket.IO.
-- [ ] Métricas e tracing distribuído mais completos.
-- [ ] Ambientes efêmeros de preview no pipeline.
-- [ ] Aplicativo móvel dedicado para cenários de tracking em background.
-
----
-
-# Segurança de configuração
-
-**Nunca envie `.env`, tokens, senhas, chaves de API ou credenciais de gateways para o Git.**
-
-O repositório disponibiliza arquivos `.example` para documentar as variáveis necessárias sem publicar segredos.
+- [ ] Redis adapter e estratégia de sticky sessions para Socket.IO horizontal;
+- [ ] contrato OpenAPI versionado;
+- [ ] catálogo formal dos eventos realtime;
+- [ ] tracing distribuído e métricas operacionais avançadas;
+- [ ] ambientes efêmeros de preview por pull request;
+- [ ] aplicativo móvel dedicado para tracking em segundo plano.
 
 ---
 
@@ -559,5 +690,5 @@ Desenvolvido por **Samuel Gomes**.
 ---
 
 <div align="center">
-  <strong>Um projeto Full Stack pensado como produto: da primeira visita ao restaurante até o pedido entregue.</strong>
+  <strong>Pizza IA Delivery — tecnologia conectando cardápio, operação e entrega.</strong>
 </div>

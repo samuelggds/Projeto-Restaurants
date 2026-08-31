@@ -1,5 +1,12 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
+
+const LOGIN_COVER_URL = 'https://assets.test/north-cover.jpg';
+const LOGIN_COVER_FILE = new URL(
+  './fixtures/readme/pizza-margherita.jpg',
+  import.meta.url,
+);
 
 const MOBILE_VIEWPORTS = [
   { name: '320x568', width: 320, height: 568 },
@@ -22,30 +29,18 @@ async function mockLoginBranding(page) {
         restaurant: {
           name: 'North Pizza',
           description: 'Sabor que acolhe. Experiência que fica.',
-          coverImage: 'https://assets.test/north-cover.svg',
+          coverImage: LOGIN_COVER_URL,
           logo: null,
         },
       }),
     });
   });
 
-  await page.route('https://assets.test/north-cover.svg', async (route) => {
+  await page.route(LOGIN_COVER_URL, async (route) => {
     await route.fulfill({
       status: 200,
-      contentType: 'image/svg+xml',
-      body: `
-        <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#241a14" />
-              <stop offset="0.48" stop-color="#9c4f33" />
-              <stop offset="1" stop-color="#17110e" />
-            </linearGradient>
-          </defs>
-          <rect width="1600" height="1200" fill="url(#g)" />
-          <circle cx="800" cy="500" r="280" fill="#d9a52f" opacity="0.72" />
-        </svg>
-      `,
+      contentType: 'image/jpeg',
+      body: await readFile(LOGIN_COVER_FILE),
     });
   });
 
@@ -53,14 +48,48 @@ async function mockLoginBranding(page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ clientId: null }),
+      body: JSON.stringify({ clientId: 'readme-client.apps.googleusercontent.com' }),
     });
   });
 
   await page.route('https://accounts.google.com/gsi/client', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'text/javascript', body: '' });
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/javascript',
+      body: `
+        window.google = {
+          accounts: {
+            id: {
+              initialize: function () {},
+              renderButton: function (container) {
+                container.style.width = '100%';
+                container.innerHTML = '<button type="button" aria-label="Continuar com Google" style="width:100%;height:46px;border:1px solid #ded5cc;border-radius:999px;background:#fff;color:#2c241f;font:600 14px Arial,sans-serif;cursor:pointer">Continuar com Google</button>';
+              }
+            }
+          }
+        };
+      `,
+    });
   });
 }
+
+test('login desktop preserva identidade e hierarquia visual', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockLoginBranding(page);
+  await page.goto('/login');
+
+  await expect(page.getByTestId('login-cover')).toBeVisible();
+  await expect(page.getByTestId('login-card')).toBeVisible();
+  await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar no Sistema' })).toBeVisible();
+  await captureReadmeScreenshot(page, 'login-desktop.png', { fullPage: true });
+
+  const layout = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+});
 
 for (const viewport of MOBILE_VIEWPORTS) {
   test(`login mobile responsivo em ${viewport.name}`, async ({ page }) => {

@@ -103,7 +103,34 @@ async function mockAdminApi(page: Page, state: TestState) {
     }
 
     const responses: Record<string, unknown> = {
-      '/orders': { orders: [] },
+      '/orders': {
+        orders: [
+          {
+            id: 1205,
+            status: 'PREPARANDO',
+            total: 89.8,
+            paid: true,
+            createdAt: new Date().toISOString(),
+            user: { id: 301, name: 'Marina Costa', email: 'marina@cliente.test' },
+          },
+          {
+            id: 1204,
+            status: 'PRONTO',
+            total: 62.9,
+            paid: true,
+            createdAt: new Date().toISOString(),
+            user: { id: 302, name: 'João Martins', email: 'joao@cliente.test' },
+          },
+          {
+            id: 1203,
+            status: 'ENTREGUE',
+            total: 104.5,
+            paid: true,
+            createdAt: new Date().toISOString(),
+            user: { id: 303, name: 'Bianca Lima', email: 'bianca@cliente.test' },
+          },
+        ],
+      },
       '/ingredients': { ingredients: [] },
       '/categories': { categories: [{ id: 10, name: 'Principais', active: true }] },
       '/settings': { id: 1, restaurant: { id: 9, name: 'Restaurante Teste' } },
@@ -160,8 +187,12 @@ test('admin cadastra desconto e benefício de fidelidade com confirmação do si
   page,
 }) => {
   const state = initialState();
+  await page.setViewportSize({ width: 1440, height: 960 });
   await mockAdminApi(page, state);
   await page.goto('/admin');
+
+  await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
+  await captureReadmeScreenshot(page, 'admin-dashboard.png', { fullPage: true });
 
   await page.getByRole('button', { name: 'Configurações' }).click();
   await page.getByRole('button', { name: 'Descontos e fidelidade' }).click();

@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const TABLE_TOKEN = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const WAITER_ACCESS_TOKEN = 'e2e-waiter-token';
@@ -536,6 +537,7 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
 }) => {
   const state = initialState();
   state.tableOpen = true;
+  await page.setViewportSize({ width: 1440, height: 960 });
   await mockWaiterAndTableApi(page, state);
   await page.goto('/waiter');
 
@@ -563,6 +565,7 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
   await expect(metric(page, 'Chamados aguardando').getByText('1', { exact: true })).toBeVisible();
   await expect(metric(page, 'Mesas ocupadas').getByText('2', { exact: true })).toBeVisible();
   await expect(page.getByText('Levar talheres')).toBeVisible();
+  await captureReadmeScreenshot(page, 'waiter-dashboard.png', { fullPage: true });
   const readyOrder = page.getByRole('button', { name: 'Abrir pedido #710 em Para entregar' });
   await expect(readyOrder).toBeVisible();
   await readyOrder.click();

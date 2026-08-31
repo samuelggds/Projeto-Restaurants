@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const RESTAURANT_ID = 41;
 const OTHER_RESTAURANT_ID = 99;
@@ -414,6 +415,7 @@ async function expectTenantSafeRequests(state: KitchenE2EState) {
 
 test('pedido completo do tenant chega à fila e avança de pendente até pronto', async ({ page }) => {
   const state = initialState();
+  await page.setViewportSize({ width: 1440, height: 960 });
   await mockKitchenApi(page, state);
   await page.goto('/kitchen');
 
@@ -441,6 +443,7 @@ test('pedido completo do tenant chega à fila e avança de pendente até pronto'
     queuedOrder.getByText('Enviar molho separado e identificar a comanda'),
   ).toBeVisible();
   await expect(queuedOrder).not.toContainText('R$ 7');
+  await captureReadmeScreenshot(page, 'kitchen-dashboard.png', { fullPage: true });
 
   await queuedOrder.getByRole('button', { name: 'Iniciar preparo' }).click();
   await expect.poll(() => state.updates).toEqual([{ id: 71, status: 'PREPARANDO' }]);

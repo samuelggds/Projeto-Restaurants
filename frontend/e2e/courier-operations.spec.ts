@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const RESTAURANT_ID = 42;
 const OTHER_RESTAURANT_ID = 84;
@@ -555,6 +556,7 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   page,
 }) => {
   const state = initialState();
+  await page.setViewportSize({ width: 1440, height: 960 });
   await enableSyntheticLocation(context);
   await mockCourierApi(page, state);
   await page.goto('/courier');
@@ -576,6 +578,7 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   await expect(readyOrder.getByText('Interfone quebrado; chamar pelo telefone')).toBeVisible();
   await expect(readyOrder.getByText('Rua das Flores, 120')).toBeVisible();
   await expect(readyOrder.getByText('Próximo à praça')).toBeVisible();
+  await captureReadmeScreenshot(page, 'courier-dashboard.png', { fullPage: true });
 
   await readyOrder.getByRole('button', { name: 'Retirar e iniciar entrega' }).click();
   await expect.poll(() => state.claims).toHaveLength(1);
