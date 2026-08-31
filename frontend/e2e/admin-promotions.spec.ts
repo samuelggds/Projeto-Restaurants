@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 type TestState = {
   product: Record<string, unknown>;
@@ -190,6 +191,8 @@ test('admin cadastra desconto e benefício de fidelidade com confirmação do si
   await expect(page.getByText('Atinge a meta')).toBeVisible();
   await expect(page.getByText('Resgata o cupom')).toBeVisible();
   await expect(page.getByText('Usa no checkout')).toBeVisible();
+
+  await captureReadmeScreenshot(page, 'admin-promotions-loyalty.png', { fullPage: true });
 
   await page.getByPlaceholder('Ex.: CLIENTE-FIEL').fill('cliente fiel');
   await page.getByPlaceholder('Ex.: Recompensa cliente fiel').fill('Recompensa cliente fiel');
