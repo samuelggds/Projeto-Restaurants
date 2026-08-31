@@ -7,6 +7,7 @@ on:
     paths:
       - 'frontend/e2e/login-mobile-responsive.spec.ts'
       - 'frontend/e2e/admin-promotions.spec.ts'
+      - 'frontend/e2e/readme-real-ui.spec.ts'
       - 'frontend/e2e/helpers/readmeScreenshot.ts'
       - '.github/workflows/readme-screenshots.yml'
 
@@ -48,6 +49,7 @@ jobs:
           npx playwright test
           e2e/login-mobile-responsive.spec.ts
           e2e/admin-promotions.spec.ts
+          e2e/readme-real-ui.spec.ts
 
       - name: Commit refreshed README screenshots
         shell: bash
