@@ -13,7 +13,24 @@
     <title>Peça já</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="app-bootstrap" aria-busy="true" aria-live="polite">
+        <span>Carregando aplicação…</span>
+      </main>
+    </div>
+    <style>
+      .app-bootstrap {
+        align-items: center;
+        background: #f8fafc;
+        color: #475569;
+        display: flex;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        justify-content: center;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 24px;
+      }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -7,26 +7,46 @@ import './config/sentry.js';
 import AppRoutes from './routes/AppRoutes.js';
 import { AuthProvider } from './contexts/authContext.js';
 import { AppDialogProvider } from './components/AppDialog/AppDialogProvider.js';
+import AppRuntimeBoundary from './components/AppRuntimeBoundary/AppRuntimeBoundary.js';
+import {
+  installVitePreloadRecovery,
+  markRuntimeReady,
+} from './components/AppRuntimeBoundary/runtimeRecovery.js';
 
-createRoot(document.getElementById('root')).render(
+const removePreloadRecovery = installVitePreloadRecovery();
+const cancelRuntimeReadyMarker = markRuntimeReady();
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    removePreloadRecovery();
+    cancelRuntimeReadyMarker();
+  });
+}
+
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Elemento principal da aplicação não foi encontrado.');
+
+createRoot(rootElement).render(
   <StrictMode>
-    <AuthProvider>
-      <AppDialogProvider>
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick={false}
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="dark"
-        />
-        <GlobalStyles />
-        <AppRoutes />
-      </AppDialogProvider>
-    </AuthProvider>
+    <AppRuntimeBoundary>
+      <AuthProvider>
+        <AppDialogProvider>
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick={false}
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+          />
+          <GlobalStyles />
+          <AppRoutes />
+        </AppDialogProvider>
+      </AuthProvider>
+    </AppRuntimeBoundary>
   </StrictMode>,
 );
