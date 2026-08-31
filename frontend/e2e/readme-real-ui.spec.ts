@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
@@ -12,24 +13,26 @@ function json(route: Route, body: unknown, status = 200) {
   });
 }
 
-const pizzaImage = `data:image/svg+xml,${encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
-    <defs>
-      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#1b1210" />
-        <stop offset="1" stop-color="#7b321e" />
-      </linearGradient>
-    </defs>
-    <rect width="900" height="600" fill="url(#bg)" />
-    <circle cx="450" cy="310" r="215" fill="#e5ad43" />
-    <circle cx="450" cy="310" r="185" fill="#c94b2a" />
-    <circle cx="390" cy="250" r="34" fill="#7b1f16" />
-    <circle cx="520" cy="240" r="30" fill="#7b1f16" />
-    <circle cx="505" cy="370" r="35" fill="#7b1f16" />
-    <circle cx="350" cy="365" r="28" fill="#7b1f16" />
-    <circle cx="445" cy="310" r="22" fill="#2f7d32" />
-  </svg>
-`)}`;
+const pizzaImages = {
+  margherita: 'http://127.0.0.1:3000/readme-pizza-margherita.jpg',
+  calabresa: 'http://127.0.0.1:3000/readme-pizza-calabresa.jpg',
+  portuguesa: 'http://127.0.0.1:3000/readme-pizza-portuguesa.jpg',
+} as const;
+
+const pizzaImageFiles = new Map([
+  [
+    '/readme-pizza-margherita.jpg',
+    new URL('./fixtures/readme/pizza-margherita.jpg', import.meta.url),
+  ],
+  [
+    '/readme-pizza-calabresa.jpg',
+    new URL('./fixtures/readme/pizza-calabresa.jpg', import.meta.url),
+  ],
+  [
+    '/readme-pizza-portuguesa.jpg',
+    new URL('./fixtures/readme/pizza-portuguesa.jpg', import.meta.url),
+  ],
+]);
 
 async function mockPublicMenu(page: Page) {
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
@@ -37,6 +40,14 @@ async function mockPublicMenu(page: Page) {
     const url = new URL(request.url());
     const pathname = url.pathname;
 
+    const pizzaImageFile = pizzaImageFiles.get(pathname);
+    if (pizzaImageFile) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'image/jpeg',
+        body: await readFile(pizzaImageFile),
+      });
+    }
     if (pathname === '/auth/refresh') return json(route, { error: 'Não autenticado.' }, 401);
     if (pathname === '/settings/public/slug/north-pizza/revision') {
       return json(route, { restaurantId: RESTAURANT_ID, revision: 'readme-v1' });
@@ -60,7 +71,7 @@ async function mockPublicMenu(page: Page) {
           name: 'North Pizza',
           slug: 'north-pizza',
           description: 'Sabor artesanal, tecnologia e uma experiência de pedido completa.',
-          coverImage: pizzaImage,
+          coverImage: pizzaImages.margherita,
           logo: null,
           banners: [],
         },
@@ -74,7 +85,7 @@ async function mockPublicMenu(page: Page) {
             name: 'Pizza Margherita',
             description: 'Molho artesanal, muçarela, tomate e manjericão.',
             price: 55.9,
-            image: pizzaImage,
+            image: pizzaImages.margherita,
             active: true,
             stock: null,
             categoryId: 10,
@@ -86,7 +97,7 @@ async function mockPublicMenu(page: Page) {
             name: 'Pizza Calabresa Especial',
             description: 'Calabresa, cebola roxa, muçarela e toque da casa.',
             price: 62.9,
-            image: pizzaImage,
+            image: pizzaImages.calabresa,
             active: true,
             stock: null,
             categoryId: 10,
@@ -98,7 +109,7 @@ async function mockPublicMenu(page: Page) {
             name: 'Pizza Portuguesa',
             description: 'Presunto, ovos, cebola, azeitona e muçarela.',
             price: 59.9,
-            image: pizzaImage,
+            image: pizzaImages.portuguesa,
             active: true,
             stock: null,
             categoryId: 10,
@@ -201,6 +212,12 @@ test('captura o cardápio público real para o README', async ({ page }) => {
 
   await expect(page.getByText('North Pizza', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Pizza Margherita', { exact: true }).first()).toBeVisible();
+  const loginNudge = page.getByText(
+    'Faça login para acompanhar seus pedidos em tempo real',
+    { exact: false },
+  );
+  await page.getByRole('button', { name: 'Agora não' }).click();
+  await expect(loginNudge).toBeHidden();
   await captureReadmeScreenshot(page, 'customer-menu.png', { fullPage: true });
 });
 
