@@ -35,7 +35,7 @@ const originalFindById = orderRepository.findById;
 const originalFindByIdForCustomer = orderRepository.findByIdForCustomer;
 const originalWorkflowExecute = cancelOrderWorkflowService.execute;
 const originalUserFindFirst = prisma.user.findFirst;
-const originalIssueFindUnique = prisma.orderIssueThread.findUnique;
+const originalIssueFindFirst = prisma.orderIssueThread.findFirst;
 const originalCancelServiceExecute = cancelOrderService.execute;
 const originalAdminRefundExecute = refundOrderByAdminService.execute;
 const originalConsoleError = console.error;
@@ -45,7 +45,7 @@ afterEach(() => {
   orderRepository.findByIdForCustomer = originalFindByIdForCustomer;
   cancelOrderWorkflowService.execute = originalWorkflowExecute;
   prisma.user.findFirst = originalUserFindFirst;
-  prisma.orderIssueThread.findUnique = originalIssueFindUnique;
+  prisma.orderIssueThread.findFirst = originalIssueFindFirst;
   cancelOrderService.execute = originalCancelServiceExecute;
   refundOrderByAdminService.execute = originalAdminRefundExecute;
   console.error = originalConsoleError;
@@ -68,6 +68,23 @@ function makeOrder(overrides = {}) {
     table: null,
     ...overrides,
   };
+}
+
+function mockMissingIssueThread(orderId = 701, restaurantId = 17, expectedCalls = 1) {
+  let calls = 0;
+  prisma.orderIssueThread.findFirst = async (args) => {
+    calls += 1;
+    assert.deepEqual(args, {
+      where: { orderId, restaurantId },
+      include: {
+        messages: {
+          orderBy: { sentAt: 'asc' },
+        },
+      },
+    });
+    return null;
+  };
+  return () => assert.equal(calls, expectedCalls);
 }
 
 test('cancelamento do cliente usa workflow compartilhado com vínculo de usuário e tenant', async () => {
@@ -95,9 +112,27 @@ test('cancelamento do cliente usa workflow compartilhado com vínculo de usuári
   assert.equal(result.refundStatus, OrderRefundStatus.SUCCEEDED);
 });
 
+test('cliente do restaurante A não consulta nem cancela pedido real do restaurante B', async () => {
+  let workflowCalls = 0;
+  orderRepository.findByIdForCustomer = async (orderId, userId, restaurantId) => {
+    assert.equal(Number(orderId), 701);
+    assert.equal(userId, 41);
+    assert.equal(restaurantId, 17);
+    return null;
+  };
+  cancelOrderWorkflowService.execute = async () => {
+    workflowCalls += 1;
+    throw new Error('não deveria executar');
+  };
+
+  await assert.rejects(() => cancelOrderService.execute(701, 41, 17), /Pedido não encontrado/i);
+  assert.equal(workflowCalls, 0);
+});
+
 test('admin atual precisa pertencer ao mesmo restaurante antes de estornar', async () => {
   const order = makeOrder();
   let workflowCalls = 0;
+  const assertIssueThreadQuery = mockMissingIssueThread();
   orderRepository.findById = async (orderId, restaurantId) => {
     assert.equal(Number(orderId), 701);
     assert.equal(restaurantId, 17);
@@ -112,7 +147,6 @@ test('admin atual precisa pertencer ao mesmo restaurante antes de estornar', asy
     });
     return null;
   };
-  prisma.orderIssueThread.findUnique = async () => null;
   cancelOrderWorkflowService.execute = async () => {
     workflowCalls += 1;
     throw new Error('não deveria executar');
@@ -128,14 +162,46 @@ test('admin atual precisa pertencer ao mesmo restaurante antes de estornar', asy
     /admin sem permissão para este restaurante/i,
   );
   assert.equal(workflowCalls, 0);
+  assertIssueThreadQuery();
+});
+
+test('ADMIN do restaurante A não estorna pedido real pertencente ao restaurante B', async () => {
+  let workflowCalls = 0;
+  const assertIssueThreadQuery = mockMissingIssueThread();
+  orderRepository.findById = async (orderId, restaurantId) => {
+    assert.equal(Number(orderId), 701);
+    assert.equal(restaurantId, 17);
+    return null;
+  };
+  prisma.user.findFirst = async ({ where }) => {
+    assert.equal(where.id, 99);
+    assert.equal(where.restaurantId, 17);
+    return { name: 'Admin A' };
+  };
+  cancelOrderWorkflowService.execute = async () => {
+    workflowCalls += 1;
+    throw new Error('não deveria executar');
+  };
+
+  await assert.rejects(
+    () =>
+      refundOrderByAdminService.execute({
+        orderId: 701,
+        restaurantId: 17,
+        adminUserId: 99,
+      }),
+    /Pedido não encontrado para este restaurante/i,
+  );
+  assert.equal(workflowCalls, 0);
+  assertIssueThreadQuery();
 });
 
 test('admin autorizado usa o mesmo workflow idempotente do cancelamento do cliente', async () => {
   const order = makeOrder();
   let workflowCalls = 0;
+  const assertIssueThreadQuery = mockMissingIssueThread(701, 17, 2);
   orderRepository.findById = async () => order;
   prisma.user.findFirst = async () => ({ name: 'Admin autorizado' });
-  prisma.orderIssueThread.findUnique = async () => null;
   cancelOrderWorkflowService.execute = async (receivedOrder) => {
     workflowCalls += 1;
     assert.equal(receivedOrder, order);
@@ -158,14 +224,15 @@ test('admin autorizado usa o mesmo workflow idempotente do cancelamento do clien
   assert.equal(workflowCalls, 1);
   assert.equal(result.refunded, true);
   assert.equal(result.order.refundStatus, OrderRefundStatus.SUCCEEDED);
+  assertIssueThreadQuery();
 });
 
 test('pedido entregue é rejeitado antes de gateway, cancelamento ou estoque', async () => {
   const deliveredOrder = makeOrder({ status: OrderStatus.ENTREGUE });
   let workflowCalls = 0;
+  const assertIssueThreadQuery = mockMissingIssueThread();
   orderRepository.findById = async () => deliveredOrder;
   prisma.user.findFirst = async () => ({ name: 'Admin autorizado' });
-  prisma.orderIssueThread.findUnique = async () => null;
   cancelOrderWorkflowService.execute = async () => {
     workflowCalls += 1;
     throw new Error('não deveria executar');
@@ -181,6 +248,51 @@ test('pedido entregue é rejeitado antes de gateway, cancelamento ou estoque', a
     /pedidos já entregues não podem ser cancelados ou estornados/i,
   );
   assert.equal(workflowCalls, 0);
+  assertIssueThreadQuery();
+});
+
+test('controllers ignoram restaurantId forjado em body, query e params', async () => {
+  const received = [];
+  cancelOrderService.execute = async (...args) => {
+    received.push({ operation: 'cancel', args });
+    return { id: 701 };
+  };
+  refundOrderByAdminService.execute = async (args) => {
+    received.push({ operation: 'refund', args });
+    return { order: { id: 701 } };
+  };
+  const createResponse = () => ({
+    statusCode: 200,
+    payload: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  });
+  const forgedRequest = {
+    params: { id: '701', restaurantId: '88' },
+    query: { restaurantId: '88' },
+    body: { restaurantId: 88, adminUserId: 666 },
+    user: { id: 99, restaurantId: 17 },
+  };
+
+  await CancelOrderController.handle(
+    { ...forgedRequest, user: { id: 41, restaurantId: 17 } },
+    createResponse(),
+  );
+  await RefundOrderByAdminController.handle(forgedRequest, createResponse());
+
+  assert.deepEqual(received, [
+    { operation: 'cancel', args: ['701', 41, 17] },
+    {
+      operation: 'refund',
+      args: { orderId: '701', restaurantId: 17, adminUserId: 99 },
+    },
+  ]);
 });
 
 test('controllers não expõem erro técnico inesperado de banco', async () => {

@@ -68,3 +68,20 @@ test('repository descriptografa credenciais ao buscar configuração privada', a
   const result = await repository.findByRestaurantId(9);
   assert.equal(result.mercadoPagoAccessToken, 'mp-secret');
 });
+
+test('atualização privada usa o restaurantId na própria query e no contexto criptográfico', async () => {
+  installKey();
+  let captured;
+  prisma.restaurantSettings.update = async (args) => {
+    captured = args;
+    return { restaurantId: 7, ...args.data };
+  };
+
+  const result = await repository.update(7, {
+    asaasAccessToken: 'asaas-tenant-7',
+  });
+
+  assert.deepEqual(captured.where, { restaurantId: 7 });
+  assert.equal(isEncryptedCredential(captured.data.asaasAccessToken), true);
+  assert.equal(result.asaasAccessToken, 'asaas-tenant-7');
+});

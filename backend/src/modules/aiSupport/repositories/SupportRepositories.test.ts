@@ -31,8 +31,10 @@ test('fila da plataforma exclui papéis internos antes de ranquear e contar', as
 
 test('históricos PLATFORM e INTERNAL usam filtros independentes', async () => {
   const captured = [];
+  const capturedValues = [];
   prisma.$queryRaw = async (query) => {
     captured.push(queryText(query));
+    capturedValues.push(Array.from(query?.values || []));
     return [];
   };
   const repository = new SupportMessageRepository();
@@ -56,4 +58,6 @@ test('históricos PLATFORM e INTERNAL usam filtros independentes', async () => {
   assert.match(captured[1], /issueStatus" IS NOT NULL/u);
   assert.match(captured[1], /FUNCIONARIO/u);
   assert.match(captured[1], /MOTOQUEIRO/u);
+  assert.equal(capturedValues[0][0], 3);
+  assert.equal(capturedValues[1][0], 3);
 });

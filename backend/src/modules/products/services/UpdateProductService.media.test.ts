@@ -94,3 +94,27 @@ test('aceita uma nova imagem enviada pelo administrador', async () => {
   assert.equal(savedData.image, replacement);
   assert.deepEqual(savedWhere, { id: 70, restaurantId: 3 });
 });
+
+test('ADMIN do Restaurante A não atualiza produto real pertencente ao Restaurante B', async () => {
+  let transactionCalls = 0;
+  productRepository.findById = async (productId, restaurantId) => {
+    assert.equal(Number(productId), 70);
+    assert.equal(restaurantId, 3);
+    return null;
+  };
+  prisma.$transaction = async () => {
+    transactionCalls += 1;
+    throw new Error('não deveria abrir transação');
+  };
+
+  await assert.rejects(
+    () =>
+      service.execute(
+        70,
+        { name: 'Produto do outro restaurante', price: 49.9, categoryId: 9 },
+        3,
+      ),
+    /Produto não encontrado/i,
+  );
+  assert.equal(transactionCalls, 0);
+});

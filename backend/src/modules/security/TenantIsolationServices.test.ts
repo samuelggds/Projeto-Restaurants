@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 
+import prisma from '../../config/prisma.js';
 import bannerRepository from '../banner/repositories/BannerRepository.js';
 import deleteBannerService from '../banner/services/DeleteBannerService.js';
 import updateBannerService from '../banner/services/UpdateBannerService.js';
@@ -19,10 +20,16 @@ const originalCouponMethods = {
   update: couponRepository.update,
   delete: couponRepository.delete,
 };
+const originalPrismaCouponMethods = {
+  updateMany: prisma.coupon.updateMany,
+  deleteMany: prisma.coupon.deleteMany,
+  findFirst: prisma.coupon.findFirst,
+};
 
 afterEach(() => {
   Object.assign(bannerRepository, originalBannerMethods);
   Object.assign(couponRepository, originalCouponMethods);
+  Object.assign(prisma.coupon, originalPrismaCouponMethods);
 });
 
 test('banner update is scoped to the authenticated restaurant', async () => {
@@ -103,4 +110,29 @@ test('coupon delete is scoped to the authenticated restaurant', async () => {
     /Cupom não encontrado/,
   );
   assert.equal(deleteCalled, false);
+});
+
+test('coupon update e delete repetem o tenant na própria escrita do Prisma', async () => {
+  let updateWhere;
+  let lookupWhere;
+  let deleteWhere;
+  prisma.coupon.updateMany = async ({ where }) => {
+    updateWhere = where;
+    return { count: 1 };
+  };
+  prisma.coupon.findFirst = async ({ where }) => {
+    lookupWhere = where;
+    return { id: 15, restaurantId: 3, code: 'TENANT3' };
+  };
+  prisma.coupon.deleteMany = async ({ where }) => {
+    deleteWhere = where;
+    return { count: 1 };
+  };
+
+  await couponRepository.update(15, 3, { active: false });
+  await couponRepository.delete(15, 3);
+
+  assert.deepEqual(updateWhere, { id: 15, restaurantId: 3 });
+  assert.deepEqual(lookupWhere, { id: 15, restaurantId: 3 });
+  assert.deepEqual(deleteWhere, { id: 15, restaurantId: 3 });
 });

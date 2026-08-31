@@ -237,6 +237,7 @@ test('handshake do admin confirma conta ativa e tenant antes de liberar a sala p
 
 test('não vaza nem persiste localização de outro courier, tenant, cliente ou pedido encerrado', async () => {
   let createCalls = 0;
+  const orderQueries = [];
   prisma.deliveryLocation.create = async () => {
     createCalls += 1;
     return { recordedAt: new Date() };
@@ -253,8 +254,10 @@ test('não vaza nem persiste localização de outro courier, tenant, cliente ou 
       assignedCourier: { id: 31, restaurantId: 7, role: 'MOTOQUEIRO', active: false },
     }),
   ]) {
-    prisma.order.findFirst = async ({ where }) =>
-      order.restaurantId === where.restaurantId ? order : null;
+    prisma.order.findFirst = async ({ where }) => {
+      orderQueries.push(where);
+      return order.restaurantId === where.restaurantId ? order : null;
+    };
     const socket = createSocket();
     socketHandler(socket);
     const response = await sendLocation(socket);
@@ -263,6 +266,10 @@ test('não vaza nem persiste localização de outro courier, tenant, cliente ou 
   }
 
   assert.equal(createCalls, 0);
+  assert.equal(orderQueries.length, 4);
+  for (const where of orderQueries) {
+    assert.deepEqual(where, { id: 91, restaurantId: 7 });
+  }
 });
 
 test('revalidação transacional bloqueia GPS quando a entrega encerra após a leitura inicial', async () => {
