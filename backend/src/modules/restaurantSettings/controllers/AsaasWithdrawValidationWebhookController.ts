@@ -64,6 +64,7 @@ class AsaasWithdrawValidationWebhookController {
           value: true,
           expiresAt: true,
           providerTransferId: true,
+          restaurantId: true,
         },
       });
       const decision = validateWithdrawalAgainstRequest(
@@ -87,6 +88,7 @@ class AsaasWithdrawValidationWebhookController {
         const changed = await prisma.asaasWithdrawalRequest.updateMany({
           where: {
             id: request.id,
+            restaurantId: request.restaurantId,
             status: 'REQUESTED',
             expiresAt: { gt: new Date() },
           },

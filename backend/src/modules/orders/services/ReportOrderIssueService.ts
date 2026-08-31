@@ -124,7 +124,7 @@ class ReportOrderIssueService {
           .filter(Boolean)
       : [];
 
-    const existingThread = await getOrderIssueThread(order.id);
+    const existingThread = await getOrderIssueThread(order.id, order.restaurantId);
 
     if (!existingThread && normalizedIssueMessage.length < 10) {
       throw new Error('Descreva o problema com pelo menos 10 caracteres.');
@@ -155,6 +155,7 @@ class ReportOrderIssueService {
 
     const { thread, chatMessage } = await addOrderIssueMessage({
       orderId: order.id,
+      restaurantId: order.restaurantId,
       senderType: 'CLIENT',
       senderName: String(order?.user?.name || 'Cliente'),
       message: normalizedIssueMessage,

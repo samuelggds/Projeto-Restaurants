@@ -438,7 +438,7 @@ class CreateOrderService {
         throw new Error('Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.');
       }
 
-      const session = await tableSessionRepository.findById(tableSessionId);
+      const session = await tableSessionRepository.findById(tableSessionId, resolvedRestaurantId);
 
       if (
         !session ||
@@ -538,7 +538,11 @@ class CreateOrderService {
             resolvedRestaurantId,
             tx,
           );
-          const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
+          const session = await tableSessionRepository.findById(
+            Number(tableSessionId),
+            resolvedRestaurantId,
+            tx,
+          );
           if (
             !session ||
             (session.status !== TableSessionStatus.OPEN &&

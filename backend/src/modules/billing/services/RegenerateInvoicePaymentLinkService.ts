@@ -35,6 +35,7 @@ class RegenerateInvoicePaymentLinkService {
 
     const updatedInvoice = await billingRepository.updateInvoicePaymentDetailsAndResetReconciliation(
       invoice.id,
+      restaurantId,
       {
         paymentLink: payment.ticketUrl,
         paymentExternalId: payment.id,

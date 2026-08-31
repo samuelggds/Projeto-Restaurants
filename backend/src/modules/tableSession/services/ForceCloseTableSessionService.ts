@@ -37,8 +37,8 @@ export class ForceCloseTableSessionService {
     const result = await prisma.$transaction(
       async (tx) => {
         await lockTablePaymentSession(tx, restaurantId, sessionId);
-        const session = await tableSessionRepository.findById(sessionId, tx);
-        if (!session || session.table.restaurantId !== restaurantId) {
+        const session = await tableSessionRepository.findById(sessionId, restaurantId, tx);
+        if (!session) {
           throw new Error('Sessão não encontrada neste restaurante.');
         }
         if (session.status === TableSessionStatus.CLOSED) {
@@ -99,6 +99,7 @@ export class ForceCloseTableSessionService {
         );
         const closedSession = await tableSessionRepository.forceClose(
           sessionId,
+          restaurantId,
           actorUserId,
           reason,
           tx,

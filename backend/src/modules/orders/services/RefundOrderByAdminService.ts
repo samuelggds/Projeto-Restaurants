@@ -56,7 +56,7 @@ class RefundOrderByAdminService {
           name: true,
         },
       }),
-      getOrderIssueThread(normalizedOrderId),
+      getOrderIssueThread(normalizedOrderId, normalizedRestaurantId),
     ]);
 
     if (!order) {
@@ -91,6 +91,7 @@ class RefundOrderByAdminService {
     const resolvedByName = String(adminUser?.name || 'Admin').trim() || 'Admin';
     const resolvedThread = await resolveOrderIssueThread({
       orderId: order.id,
+      restaurantId: normalizedRestaurantId,
       resolvedByName,
     }).catch(() => null);
 

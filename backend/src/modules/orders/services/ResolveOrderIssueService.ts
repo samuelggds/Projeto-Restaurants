@@ -1,3 +1,4 @@
+import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { resolveOrderIssueThread, toOrderIssueThreadPayload } from './orderIssueChatStore.js';
@@ -40,9 +41,12 @@ class ResolveOrderIssueService {
           userId: true,
         },
       }),
-      prisma.user.findUnique({
+      prisma.user.findFirst({
         where: {
           id: normalizedAdminUserId,
+          restaurantId: normalizedRestaurantId,
+          role: UserRole.ADMIN,
+          active: true,
         },
         select: {
           name: true,
@@ -57,6 +61,7 @@ class ResolveOrderIssueService {
     const resolvedByName = String(adminUser?.name || 'Admin').trim() || 'Admin';
     const thread = await resolveOrderIssueThread({
       orderId: order.id,
+      restaurantId: normalizedRestaurantId,
       resolvedByName,
     });
 

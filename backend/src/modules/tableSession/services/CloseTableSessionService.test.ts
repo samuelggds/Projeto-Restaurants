@@ -60,10 +60,10 @@ const openSession = {
 
 test('isola o fechamento pelo restaurantId do token', async () => {
   mockTransaction();
-  tableSessionRepository.findById = async () => ({
-    ...openSession,
-    table: { ...openSession.table, restaurantId: 8 },
-  });
+  tableSessionRepository.findById = async (_id, restaurantId) => {
+    assert.equal(restaurantId, 7);
+    return null;
+  };
   let searchedOrders = false;
   tableSessionRepository.findBlockingOrdersForSession = async () => {
     searchedOrders = true;
@@ -106,7 +106,7 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
   tableSessionRepository.findBlockingOrdersForSession = async () => [];
   tableServiceCallRepository.listActiveBySession = async () => [];
   tableParticipantRepository.revokeActiveBySession = async () => ({ count: 2 });
-  tableSessionRepository.close = async (id, closedById) => ({
+  tableSessionRepository.close = async (id, restaurantId, closedById) => ({
     id: Number(id),
     tableId: 91,
     status: 'CLOSED',

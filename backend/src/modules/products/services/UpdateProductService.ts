@@ -68,7 +68,7 @@ class UpdateProductService {
       }
 
       return tx.product.update({
-        where: { id: product.id },
+        where: { id: product.id, restaurantId },
         data: {
           ...persistedProductData,
           saleMode: 'BUILDABLE',

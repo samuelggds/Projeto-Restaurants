@@ -117,6 +117,26 @@ test('garçom entra apenas na room específica do salão do próprio tenant', ()
   assert.equal(socket.rooms.includes('restaurant:7'), false);
 });
 
+test('admin entra somente nas rooms do próprio tenant e nunca em sala global', () => {
+  const socket = socketStub({
+    id: 47,
+    role: 'ADMIN',
+    subRole: null,
+    restaurantId: 7,
+  });
+
+  socketHandler(socket);
+
+  assert.deepEqual(socket.rooms, [
+    'user:47',
+    'restaurant:7',
+    'restaurant:7:admin',
+  ]);
+  assert.equal(socket.rooms.includes('admin'), false);
+  assert.equal(socket.rooms.includes('restaurant:8'), false);
+  assert.equal(socket.rooms.includes('restaurant:8:admin'), false);
+});
+
 test('sessão de mesa entra apenas nas rooms da mesa e da própria sessão', () => {
   const socket = socketStub(undefined);
   socket.authType = 'table-session';

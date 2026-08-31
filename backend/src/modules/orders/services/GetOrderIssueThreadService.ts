@@ -76,7 +76,7 @@ class GetOrderIssueThreadService {
         throw new Error('Pedido não encontrado para este restaurante.');
       }
 
-      const thread = await getOrderIssueThread(order.id);
+      const thread = await getOrderIssueThread(order.id, normalizedRestaurantId);
 
       if (!thread) {
         return {
@@ -105,6 +105,7 @@ class GetOrderIssueThreadService {
       },
       select: {
         id: true,
+        restaurantId: true,
       },
     });
 
@@ -112,7 +113,7 @@ class GetOrderIssueThreadService {
       throw new Error('Pedido não encontrado para este usuário.');
     }
 
-    const thread = await getOrderIssueThread(order.id);
+    const thread = await getOrderIssueThread(order.id, order.restaurantId);
 
     if (!thread) {
       return {

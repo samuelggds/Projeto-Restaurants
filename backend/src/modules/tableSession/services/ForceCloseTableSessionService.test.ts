@@ -91,7 +91,8 @@ test('fechamento forçado registra motivo e cancela reservas financeiras ativas'
   };
   let forceCloseInput;
   const closedAt = new Date('2026-08-26T13:00:00.000Z');
-  tableSessionRepository.forceClose = async (sessionId, actorId, reason) => {
+  tableSessionRepository.forceClose = async (sessionId, restaurantId, actorId, reason) => {
+    assert.equal(restaurantId, 7);
     forceCloseInput = { sessionId, actorId, reason };
     return {
       id: 55,
@@ -147,10 +148,10 @@ test('fechamento forçado não atravessa o tenant do administrador', async () =>
         },
       },
     });
-  tableSessionRepository.findById = async () => ({
-    ...openSession,
-    table: { ...openSession.table, restaurantId: 8 },
-  });
+  tableSessionRepository.findById = async (_id, restaurantId) => {
+    assert.equal(restaurantId, 7);
+    return null;
+  };
 
   await assert.rejects(
     () =>

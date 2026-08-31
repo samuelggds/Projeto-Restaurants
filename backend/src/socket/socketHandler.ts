@@ -129,12 +129,10 @@ export function socketHandler(socket: AppSocket) {
 
   if (role === 'ADMIN') {
     socket.join(`restaurant:${restaurantId}`);
-    socket.join('admin');
     socket.join(`restaurant:${restaurantId}:admin`);
   }
 
   if (role === 'SUPER_ADMIN') {
-    socket.join('admin');
     socket.join('super_admin');
   }
 
@@ -212,8 +210,8 @@ export function socketHandler(socket: AppSocket) {
         return;
       }
 
-      const order = await prisma.order.findUnique({
-        where: { id: location.orderId },
+      const order = await prisma.order.findFirst({
+        where: { id: location.orderId, restaurantId: Number(restaurantId) },
         select: {
           id: true,
           userId: true,
@@ -234,11 +232,6 @@ export function socketHandler(socket: AppSocket) {
 
       if (!order) {
         reply({ ok: false, error: 'Pedido não encontrado.' });
-        return;
-      }
-
-      if (Number(order.restaurantId || 0) !== Number(restaurantId || 0)) {
-        reply({ ok: false, error: 'Pedido não pertence ao seu restaurante.' });
         return;
       }
 

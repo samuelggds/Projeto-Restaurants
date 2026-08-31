@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import { platformMaintenanceStateService } from '../modules/platform/services/PlatformMaintenanceService.js';
 
 const originals = {
-  findUnique: prisma.order.findUnique,
+  findOrder: prisma.order.findFirst,
   createLocation: prisma.deliveryLocation.create,
   findUserById: prisma.user.findUnique,
   findPlatformSettings: prisma.platformSettings.findUnique,
@@ -46,7 +46,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  prisma.order.findUnique = originals.findUnique;
+  prisma.order.findFirst = originals.findOrder;
   prisma.deliveryLocation.create = originals.createLocation;
   prisma.user.findUnique = originals.findUserById;
   prisma.platformSettings.findUnique = originals.findPlatformSettings;
@@ -124,7 +124,7 @@ async function sendLocation(socket, orderId = 91) {
 
 test('persiste GPS da conta atribuída e emite somente ao cliente e admin do tenant', async () => {
   let persisted;
-  prisma.order.findUnique = async () => trackedOrder();
+  prisma.order.findFirst = async () => trackedOrder();
   prisma.deliveryLocation.create = async ({ data }) => {
     persisted = data;
     return { recordedAt: data.recordedAt };
@@ -253,7 +253,8 @@ test('não vaza nem persiste localização de outro courier, tenant, cliente ou 
       assignedCourier: { id: 31, restaurantId: 7, role: 'MOTOQUEIRO', active: false },
     }),
   ]) {
-    prisma.order.findUnique = async () => order;
+    prisma.order.findFirst = async ({ where }) =>
+      order.restaurantId === where.restaurantId ? order : null;
     const socket = createSocket();
     socketHandler(socket);
     const response = await sendLocation(socket);
@@ -266,7 +267,7 @@ test('não vaza nem persiste localização de outro courier, tenant, cliente ou 
 
 test('revalidação transacional bloqueia GPS quando a entrega encerra após a leitura inicial', async () => {
   let createCalls = 0;
-  prisma.order.findUnique = async () => trackedOrder();
+  prisma.order.findFirst = async () => trackedOrder();
   prisma.deliveryLocation.create = async () => {
     createCalls += 1;
     return { recordedAt: new Date() };
@@ -292,7 +293,10 @@ test('revalidação transacional bloqueia GPS quando a entrega encerra após a l
 
 test('limita cada pedido separadamente sem suprimir uma segunda entrega', async () => {
   let createCalls = 0;
-  prisma.order.findUnique = async ({ where }) => trackedOrder({ id: where.id });
+  prisma.order.findFirst = async ({ where }) => {
+    assert.equal(where.restaurantId, 7);
+    return trackedOrder({ id: where.id });
+  };
   prisma.deliveryLocation.create = async ({ data }) => {
     createCalls += 1;
     return { recordedAt: data.recordedAt };
@@ -307,7 +311,7 @@ test('limita cada pedido separadamente sem suprimir uma segunda entrega', async 
 });
 
 test('falha de persistência retorna ack amigável e não gera rejeição não tratada', async () => {
-  prisma.order.findUnique = async () => trackedOrder();
+  prisma.order.findFirst = async () => trackedOrder();
   prisma.deliveryLocation.create = async () => {
     throw new Error('database secret detail');
   };

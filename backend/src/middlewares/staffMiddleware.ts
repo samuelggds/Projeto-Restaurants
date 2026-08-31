@@ -14,5 +14,12 @@ export function staffMiddleware(req: Request, res: Response, next: NextFunction)
       error: 'Acesso negado',
     });
   }
+
+  const restaurantId = Number(req.user.restaurantId);
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+    return res.status(403).json({
+      error: 'Acesso negado',
+    });
+  }
   return next();
 }

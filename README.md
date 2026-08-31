@@ -386,6 +386,8 @@ Mais detalhes estão em [ARCHITECTURE.md](ARCHITECTURE.md).
 
 O isolamento não depende de esconder botões no frontend. Rotas privadas resolvem o tenant permitido a partir da sessão autenticada, e repositórios aplicam esse contexto nas consultas e alterações.
 
+O modelo de ameaça, as invariantes, as superfícies revisadas e a matriz de testes estão documentados em [SECURITY_MULTI_TENANT_AUDIT.md](docs/SECURITY_MULTI_TENANT_AUDIT.md).
+
 ```mermaid
 sequenceDiagram
     participant U as Usuário

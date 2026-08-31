@@ -69,9 +69,10 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
-      const order = await prisma.order.findUnique({
+      const order = await prisma.order.findFirst({
         where: {
           id: orderId,
+          ...(referencedRestaurantId ? { restaurantId: referencedRestaurantId } : {}),
         },
         select: {
           id: true,
@@ -159,6 +160,7 @@ class AsaasOrderWebhookController {
           await prisma.order.update({
             where: {
               id: order.id,
+              restaurantId: order.restaurantId,
             },
             data: {
               pixPaymentId: `asaas:${asaasPaymentId}`,

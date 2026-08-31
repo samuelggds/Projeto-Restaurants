@@ -363,8 +363,9 @@ test('pedido de mesa convidado vincula participante e cria uma unidade financeir
     },
   };
 
-  tableSessionRepository.findById = async (id, database) => {
+  tableSessionRepository.findById = async (id, restaurantId, database) => {
     assert.equal(Number(id), 55);
+    assert.equal(Number(restaurantId), 7);
     if (database) assert.equal(database, tx);
     return session;
   };
@@ -513,7 +514,8 @@ test('interrompe sem gravar quando a mesa fecha entre a validação inicial e a 
   let sessionReads = 0;
   let orderCreated = false;
 
-  tableSessionRepository.findById = async (_id, database) => {
+  tableSessionRepository.findById = async (_id, restaurantId, database) => {
+    assert.equal(Number(restaurantId), 7);
     sessionReads += 1;
     return database ? closedSession : openSession;
   };

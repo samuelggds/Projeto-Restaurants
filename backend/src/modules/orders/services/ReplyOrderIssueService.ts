@@ -1,3 +1,4 @@
+import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import {
@@ -63,9 +64,12 @@ class ReplyOrderIssueService {
           },
         },
       }),
-      prisma.user.findUnique({
+      prisma.user.findFirst({
         where: {
           id: normalizedAdminUserId,
+          restaurantId: normalizedRestaurantId,
+          role: UserRole.ADMIN,
+          active: true,
         },
         select: {
           name: true,
@@ -77,7 +81,7 @@ class ReplyOrderIssueService {
       throw new Error('Pedido não encontrado para este restaurante.');
     }
 
-    const existingThread = await getOrderIssueThread(order.id);
+    const existingThread = await getOrderIssueThread(order.id, normalizedRestaurantId);
     if (!existingThread) {
       throw new Error('Cliente ainda não iniciou conversa neste pedido.');
     }
@@ -104,6 +108,7 @@ class ReplyOrderIssueService {
     const adminName = String(adminUser?.name || 'Admin').trim() || 'Admin';
     const { thread, chatMessage } = await addOrderIssueMessage({
       orderId: order.id,
+      restaurantId: normalizedRestaurantId,
       senderType: 'ADMIN',
       senderName: adminName,
       message: normalizedReplyMessage,

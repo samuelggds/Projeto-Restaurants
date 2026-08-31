@@ -72,6 +72,10 @@ class EmployeeRepository {
     return db.user.update({
       where: {
         id: Number(id),
+        restaurantId,
+        role: {
+          in: [UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO],
+        },
       },
       data,
       select: employeePublicSelect,
@@ -88,6 +92,10 @@ class EmployeeRepository {
     return db.user.update({
       where: {
         id: Number(id),
+        restaurantId,
+        role: {
+          in: [UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO],
+        },
       },
       data: {
         active: false,
@@ -107,6 +115,10 @@ class EmployeeRepository {
     return db.user.update({
       where: {
         id: Number(id),
+        restaurantId,
+        role: {
+          in: [UserRole.FUNCIONARIO, UserRole.MOTOQUEIRO],
+        },
       },
       data: {
         active: true,

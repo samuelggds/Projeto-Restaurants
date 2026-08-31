@@ -176,9 +176,10 @@ test('repositório busca somente a sessão OPEN não expirada mais recente', asy
     },
   };
 
-  await tableSessionRepository.findOpenedByTable(91, fakeDb);
+  await tableSessionRepository.findOpenedByTable(91, 7, fakeDb);
 
   assert.equal(query.where.tableId, 91);
+  assert.equal(query.where.restaurantId, 7);
   assert.equal(query.where.status, 'OPEN');
   assert.equal(query.where.OR[0].expiresAt, null);
   assert.ok(query.where.OR[1].expiresAt.gt instanceof Date);

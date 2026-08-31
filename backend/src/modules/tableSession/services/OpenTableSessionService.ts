@@ -59,12 +59,18 @@ class OpenTableSessionService {
       throw new Error('Os pedidos pelo cardápio de mesa estão desativados neste restaurante.');
     }
 
-    const activeSession = await tableSessionRepository.findActiveByTable(normalizedTableId);
+    const activeSession = await tableSessionRepository.findActiveByTable(
+      normalizedTableId,
+      normalizedRestaurantId,
+    );
     if (activeSession) {
       throw new Error('Essa mesa já está aberta!');
     }
 
-    const expiredSessions = await tableSessionRepository.listExpiredOpenByTable(normalizedTableId);
+    const expiredSessions = await tableSessionRepository.listExpiredOpenByTable(
+      normalizedTableId,
+      normalizedRestaurantId,
+    );
     for (const expiredSession of expiredSessions) {
       const activeCalls = await tableServiceCallRepository.listActiveBySession(
         expiredSession.id,
@@ -72,6 +78,7 @@ class OpenTableSessionService {
       );
       const closedSession = await tableSessionRepository.close(
         expiredSession.id,
+        normalizedRestaurantId,
         normalizedOpenedById,
       );
       await tableParticipantRepository.revokeActiveBySession(

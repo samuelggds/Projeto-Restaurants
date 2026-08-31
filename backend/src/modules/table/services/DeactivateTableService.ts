@@ -23,12 +23,15 @@ class DeactivateTableService {
       throw new Error('Mesa não encontrada!');
     }
 
-    const openSession = await tableSessionRepository.findActiveByTable(normalizedId);
+    const openSession = await tableSessionRepository.findActiveByTable(
+      normalizedId,
+      normalizedRestaurantId,
+    );
     if (openSession) {
       throw new Error('Feche o atendimento da mesa antes de desativá-la.');
     }
 
-    return await tableRepository.deactivate(normalizedId);
+    return await tableRepository.deactivate(normalizedId, normalizedRestaurantId);
   }
 }
 

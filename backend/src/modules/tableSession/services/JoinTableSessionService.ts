@@ -48,7 +48,10 @@ class JoinTableSessionService {
       throw new Error('Os pedidos pelo cardápio de mesa estão desativados neste restaurante.');
     }
 
-    const session = await tableSessionRepository.findActiveByTable(resolvedTable.id);
+    const session = await tableSessionRepository.findActiveByTable(
+      resolvedTable.id,
+      resolvedTable.restaurantId,
+    );
     if (!session) {
       throw new TableSessionJoinError(
         'Esta mesa ainda não foi aberta pelo garçom. Aguarde o atendimento e tente novamente.',

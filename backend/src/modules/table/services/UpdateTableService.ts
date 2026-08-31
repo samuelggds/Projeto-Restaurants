@@ -59,7 +59,7 @@ class UpdateTableService {
       updateData.active = Boolean(active);
     }
 
-    return await tableRepository.update(normalizedId, {
+    return await tableRepository.update(normalizedId, normalizedRestaurantId, {
       ...updateData,
     });
   }

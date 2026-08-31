@@ -33,7 +33,7 @@ class UpsertProductDiscountService {
     }
 
     return prisma.productDiscount.upsert({
-      where: { productId: normalizedProductId },
+      where: { productId: normalizedProductId, restaurantId: normalizedRestaurantId },
       update: {
         kind: data.kind,
         value: data.value,

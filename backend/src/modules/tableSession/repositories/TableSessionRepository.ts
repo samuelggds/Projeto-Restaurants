@@ -27,10 +27,15 @@ class TableSessionRepository {
     });
   }
 
-  async findOpenedByTable(tableId: number | string, db: PrismaClientLike = prisma) {
+  async findOpenedByTable(
+    tableId: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findFirst({
       where: {
         tableId: Number(tableId),
+        restaurantId: Number(restaurantId),
         status: TableSessionStatus.OPEN,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
@@ -41,10 +46,15 @@ class TableSessionRepository {
     });
   }
 
-  async findActiveByTable(tableId: number | string, db: PrismaClientLike = prisma) {
+  async findActiveByTable(
+    tableId: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findFirst({
       where: {
         tableId: Number(tableId),
+        restaurantId: Number(restaurantId),
         status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
@@ -55,10 +65,15 @@ class TableSessionRepository {
     });
   }
 
-  async findLatestOpenByTable(tableId: number | string, db: PrismaClientLike = prisma) {
+  async findLatestOpenByTable(
+    tableId: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findFirst({
       where: {
         tableId: Number(tableId),
+        restaurantId: Number(restaurantId),
         status: TableSessionStatus.OPEN,
       },
       include: { table: { select: operationalTableSelect } },
@@ -66,10 +81,15 @@ class TableSessionRepository {
     });
   }
 
-  async listExpiredOpenByTable(tableId: number | string, db: PrismaClientLike = prisma) {
+  async listExpiredOpenByTable(
+    tableId: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.findMany({
       where: {
         tableId: Number(tableId),
+        restaurantId: Number(restaurantId),
         status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
         expiresAt: { lte: new Date() },
       },
@@ -78,10 +98,15 @@ class TableSessionRepository {
     });
   }
 
-  async findById(id: number | string, db: PrismaClientLike = prisma) {
-    return db.tableSession.findUnique({
+  async findById(
+    id: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.tableSession.findFirst({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
       include: {
         table: { select: operationalTableSelect },
@@ -103,10 +128,16 @@ class TableSessionRepository {
       },
     });
   }
-  async close(id: number | string, closedById: number | null, db: PrismaClientLike = prisma) {
+  async close(
+    id: number | string,
+    restaurantId: number | string,
+    closedById: number | null,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.tableSession.update({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
       data: {
         status: TableSessionStatus.CLOSED,
@@ -118,12 +149,13 @@ class TableSessionRepository {
 
   async forceClose(
     id: number | string,
+    restaurantId: number | string,
     closedById: number,
     reason: string,
     db: PrismaClientLike = prisma,
   ) {
     return db.tableSession.update({
-      where: { id: Number(id) },
+      where: { id: Number(id), restaurantId: Number(restaurantId) },
       data: {
         status: TableSessionStatus.CLOSED,
         closedById,
@@ -137,11 +169,9 @@ class TableSessionRepository {
   async listOpenByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
     return db.tableSession.findMany({
       where: {
+        restaurantId,
         status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        table: {
-          restaurantId,
-        },
       },
       select: {
         id: true,

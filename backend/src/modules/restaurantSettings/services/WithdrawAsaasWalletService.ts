@@ -121,7 +121,11 @@ class WithdrawAsaasWalletService {
       }
     } catch (error) {
       await prisma.asaasWithdrawalRequest.updateMany({
-        where: { id: withdrawalRequest.id, status: 'REQUESTED' },
+        where: {
+          id: withdrawalRequest.id,
+          restaurantId: normalizedRestaurantId,
+          status: 'REQUESTED',
+        },
         data: { status: 'FAILED' },
       });
 
@@ -143,7 +147,11 @@ class WithdrawAsaasWalletService {
     );
 
     await prisma.asaasWithdrawalRequest.updateMany({
-      where: { id: withdrawalRequest.id, status: 'REQUESTED' },
+      where: {
+        id: withdrawalRequest.id,
+        restaurantId: normalizedRestaurantId,
+        status: 'REQUESTED',
+      },
       data: {
         providerTransferId: safeTransferId.trim() || null,
         providerStatus: safeProviderStatus,

@@ -145,11 +145,16 @@ class BillingRepository {
 
   async updateInvoicePaymentDetailsAndResetReconciliation(
     id: number | string,
+    restaurantId: number | string,
     data: Prisma.InvoiceUpdateInput,
   ) {
     const invoiceId = Number(id);
+    const normalizedRestaurantId = Number(restaurantId);
     return prisma.$transaction(async (transaction) => {
-      const invoice = await this.updateInvoice(invoiceId, data, transaction);
+      const invoice = await transaction.invoice.update({
+        where: { id: invoiceId, restaurantId: normalizedRestaurantId },
+        data,
+      });
       await transaction.$executeRaw(Prisma.sql`
         UPDATE "Invoice"
         SET
@@ -157,6 +162,7 @@ class BillingRepository {
           "lastReconciledAt" = NULL,
           "nextReconciliationAt" = clock_timestamp()
         WHERE "id" = ${invoiceId}
+          AND "restaurantId" = ${normalizedRestaurantId}
       `);
       return invoice;
     });

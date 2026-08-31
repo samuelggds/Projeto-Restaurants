@@ -16,10 +16,11 @@ type EnsureThreadInput = {
   itemsSummary: string[];
 };
 
-async function loadThread(orderId: number) {
-  return prisma.orderIssueThread.findUnique({
+async function loadThread(orderId: number, restaurantId: number) {
+  return prisma.orderIssueThread.findFirst({
     where: {
       orderId,
+      restaurantId,
     },
     include: {
       messages: {
@@ -35,6 +36,7 @@ export async function ensureOrderIssueThread(input: EnsureThreadInput) {
   await prisma.orderIssueThread.upsert({
     where: {
       orderId: input.orderId,
+      restaurantId: input.restaurantId,
     },
     create: {
       orderId: input.orderId,
@@ -63,7 +65,7 @@ export async function ensureOrderIssueThread(input: EnsureThreadInput) {
     },
   });
 
-  const thread = await loadThread(input.orderId);
+  const thread = await loadThread(input.orderId, input.restaurantId);
   if (!thread) {
     throw new Error('Não foi possível preparar o chat do pedido.');
   }
@@ -71,24 +73,27 @@ export async function ensureOrderIssueThread(input: EnsureThreadInput) {
   return thread;
 }
 
-export async function getOrderIssueThread(orderId: number) {
-  return loadThread(orderId);
+export async function getOrderIssueThread(orderId: number, restaurantId: number) {
+  return loadThread(orderId, restaurantId);
 }
 
 export async function addOrderIssueMessage({
   orderId,
+  restaurantId,
   senderType,
   senderName,
   message,
 }: {
   orderId: number;
+  restaurantId: number;
   senderType: OrderIssueSenderType;
   senderName: string;
   message: string;
 }) {
-  const thread = await prisma.orderIssueThread.findUnique({
+  const thread = await prisma.orderIssueThread.findFirst({
     where: {
       orderId,
+      restaurantId,
     },
     select: {
       id: true,
@@ -113,7 +118,7 @@ export async function addOrderIssueMessage({
     },
   });
 
-  const fullThread = await loadThread(orderId);
+  const fullThread = await loadThread(orderId, restaurantId);
   if (!fullThread) {
     throw new Error('Não foi possível atualizar a conversa do pedido.');
   }
@@ -126,14 +131,17 @@ export async function addOrderIssueMessage({
 
 export async function resolveOrderIssueThread({
   orderId,
+  restaurantId,
   resolvedByName,
 }: {
   orderId: number;
+  restaurantId: number;
   resolvedByName: string;
 }) {
-  const thread = await prisma.orderIssueThread.findUnique({
+  const thread = await prisma.orderIssueThread.findFirst({
     where: {
       orderId,
+      restaurantId,
     },
     select: {
       id: true,
@@ -146,7 +154,7 @@ export async function resolveOrderIssueThread({
   }
 
   if (thread.isResolved) {
-    const existing = await loadThread(orderId);
+    const existing = await loadThread(orderId, restaurantId);
     if (!existing) {
       throw new Error('Conversa não encontrada para este pedido.');
     }
@@ -156,6 +164,7 @@ export async function resolveOrderIssueThread({
   await prisma.orderIssueThread.update({
     where: {
       id: thread.id,
+      restaurantId,
     },
     data: {
       isResolved: true,
@@ -164,7 +173,7 @@ export async function resolveOrderIssueThread({
     },
   });
 
-  const resolved = await loadThread(orderId);
+  const resolved = await loadThread(orderId, restaurantId);
   if (!resolved) {
     throw new Error('Conversa não encontrada para este pedido.');
   }

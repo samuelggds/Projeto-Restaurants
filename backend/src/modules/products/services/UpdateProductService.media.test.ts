@@ -25,12 +25,14 @@ test('preserva os bytes da imagem ao salvar um produto carregado por URL públic
   });
 
   let savedData;
+  let savedWhere;
   const transaction = {
     category: {
       findFirst: async () => ({ id: 9 }),
     },
     product: {
-      update: async ({ data }) => {
+      update: async ({ where, data }) => {
+        savedWhere = where;
         savedData = data;
         return { id: 70, ...data };
       },
@@ -53,6 +55,7 @@ test('preserva os bytes da imagem ao salvar um produto carregado por URL públic
   );
 
   assert.equal(savedData.image, originalImage);
+  assert.deepEqual(savedWhere, { id: 70, restaurantId: 3 });
 });
 
 test('aceita uma nova imagem enviada pelo administrador', async () => {
@@ -63,12 +66,14 @@ test('aceita uma nova imagem enviada pelo administrador', async () => {
   });
 
   let savedData;
+  let savedWhere;
   const transaction = {
     category: {
       findFirst: async () => ({ id: 9 }),
     },
     product: {
-      update: async ({ data }) => {
+      update: async ({ where, data }) => {
+        savedWhere = where;
         savedData = data;
         return { id: 70, ...data };
       },
@@ -87,4 +92,5 @@ test('aceita uma nova imagem enviada pelo administrador', async () => {
   );
 
   assert.equal(savedData.image, replacement);
+  assert.deepEqual(savedWhere, { id: 70, restaurantId: 3 });
 });

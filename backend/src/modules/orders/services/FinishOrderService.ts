@@ -221,7 +221,7 @@ class CreateOrderService {
         throw new Error('Sessão da mesa não informada. Acesse novamente pelo QR Code oficial.');
       }
 
-      const session = await tableSessionRepository.findById(tableSessionId);
+      const session = await tableSessionRepository.findById(tableSessionId, resolvedRestaurantId);
 
       if (
         !session ||
@@ -269,7 +269,11 @@ class CreateOrderService {
     const createdOrder = await prisma.$transaction(
       async (tx) => {
         if (type === OrderType.MESA) {
-          const session = await tableSessionRepository.findById(Number(tableSessionId), tx);
+          const session = await tableSessionRepository.findById(
+            Number(tableSessionId),
+            resolvedRestaurantId,
+            tx,
+          );
           if (
             !session ||
             session.status !== TableSessionStatus.OPEN ||
@@ -390,6 +394,7 @@ class CreateOrderService {
             await tx.product.update({
               where: {
                 id: Number(product.id),
+                restaurantId: resolvedRestaurantId,
               },
               data: {
                 stock: nextStock,

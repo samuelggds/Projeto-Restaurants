@@ -16,14 +16,6 @@ class TableRepository {
     });
   }
 
-  async findById(id: number | string, db: PrismaClientLike = prisma) {
-    return db.table.findUnique({
-      where: {
-        id: Number(id),
-      },
-    });
-  }
-
   async findByIdForRestaurant(
     id: number | string,
     restaurantId: number | string,
@@ -156,19 +148,30 @@ class TableRepository {
     });
   }
 
-  async update(id: number | string, data: Prisma.TableUpdateInput) {
-    return prisma.table.update({
+  async update(
+    id: number | string,
+    restaurantId: number | string,
+    data: Prisma.TableUpdateInput,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.table.update({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
       data,
     });
   }
 
-  async deactivate(id: number | string, db: PrismaClientLike = prisma) {
+  async deactivate(
+    id: number | string,
+    restaurantId: number | string,
+    db: PrismaClientLike = prisma,
+  ) {
     return db.table.update({
       where: {
         id: Number(id),
+        restaurantId: Number(restaurantId),
       },
       data: {
         active: false,

@@ -112,7 +112,7 @@ export async function projectTableSessionFinancialState(
   for (const item of items) {
     if (item.currentProjectedStatus !== item.projectedStatus) {
       await tx.tableBillItem.update({
-        where: { id: item.id },
+        where: { id: item.id, restaurantId, tableSessionId },
         data: {
           financialStatus: item.projectedStatus,
           paidAt: item.projectedStatus === 'PAID' ? now : undefined,
@@ -166,7 +166,7 @@ export async function projectTableSessionFinancialState(
       (allPaid && !order.paidAt)
     ) {
       await tx.order.update({
-        where: { id: order.id },
+        where: { id: order.id, restaurantId, tableSessionId },
         data: {
           paid: allPaid,
           tableFinancialStatus: financialStatus,
