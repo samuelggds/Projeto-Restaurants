@@ -1,0 +1,42 @@
+[2m10:29:43[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:44[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:44[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:45[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /auth/refresh[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /settings/public/3?_t=1788182986165[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /settings/public/3?_t=1788182986166[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:29:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:30:01[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:30:16[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:30:31[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:30:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:31:01[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m10:31:16[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /platform/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)

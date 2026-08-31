@@ -1,7 +1,13 @@
-import { AtSign, ExternalLink, Globe2, Play, Share2 } from 'lucide-react';
+import { ExternalLink, Share2 } from 'lucide-react';
 import styled from 'styled-components';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
+import {
+  FacebookBrandIcon,
+  InstagramBrandIcon,
+  TikTokBrandIcon,
+  YouTubeBrandIcon,
+} from './SocialNetworkIcons';
 
 type Settings = typeof adminMockSettings;
 type SocialKey = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
@@ -88,6 +94,13 @@ const Panel = styled(S.SettingSection)`
     color: var(--muted);
   }
 
+  .network-brand-icon {
+    width: 21px;
+    height: 21px;
+    flex: 0 0 21px;
+    display: block;
+  }
+
   .network-item strong {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -113,35 +126,35 @@ const NETWORKS: Array<{
   label: string;
   placeholder: string;
   help: string;
-  Icon: typeof Share2;
+  Icon: typeof InstagramBrandIcon;
 }> = [
   {
     key: 'instagram',
     label: 'Instagram',
     placeholder: '@seurestaurante ou instagram.com/seurestaurante',
     help: 'Informe o @usuário ou o endereço completo do perfil.',
-    Icon: AtSign,
+    Icon: InstagramBrandIcon,
   },
   {
     key: 'facebook',
     label: 'Facebook',
     placeholder: 'facebook.com/seurestaurante',
     help: 'Informe o nome da página ou o endereço completo.',
-    Icon: Globe2,
+    Icon: FacebookBrandIcon,
   },
   {
     key: 'tiktok',
     label: 'TikTok',
     placeholder: '@seurestaurante ou tiktok.com/@seurestaurante',
     help: 'Informe o @usuário ou o endereço completo do perfil.',
-    Icon: Share2,
+    Icon: TikTokBrandIcon,
   },
   {
     key: 'youtube',
     label: 'YouTube',
     placeholder: 'youtube.com/@seurestaurante',
     help: 'Informe o identificador ou o endereço completo do canal.',
-    Icon: Play,
+    Icon: YouTubeBrandIcon,
   },
 ];
 
@@ -236,7 +249,7 @@ export function SocialMediaSettings({ settings, update }: Props) {
                 }}
               >
                 <span>
-                  <Icon size={17} aria-hidden="true" />
+                  <Icon className="network-brand-icon" />
                   {connected && <ExternalLink size={13} aria-hidden="true" />}
                 </span>
                 <strong>{connected ? label : `${label} não conectado`}</strong>

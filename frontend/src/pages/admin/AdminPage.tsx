@@ -6,7 +6,6 @@ import {
   LogOut,
   Menu,
   ReceiptText,
-  Save,
   Search as SearchIcon,
   Settings2,
   ShoppingBag,
@@ -42,6 +41,22 @@ import { validateBrandSettings } from './domain/brandSettingsValidation';
 import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
 import { validateTableAccountSettings } from './domain/tableAccountSettingsValidation';
 import { useAdminUnreadIssues } from './hooks/useAdminUnreadIssues';
+import {
+  UnsavedSettingsDialog,
+  type UnsavedSettingsDialogPhase,
+} from './components/UnsavedSettingsDialog';
+
+const DECISION_PROGRESS_MS = 1200;
+const RESULT_MODAL_MS = 1400;
+
+type PendingNavigation =
+  { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
 
 function hasBusinessIdentityInput(settings: typeof adminMockSettings) {
   return [
@@ -121,6 +136,7 @@ export function AdminPage({
   );
   const [settings, setSettings] = useState(initialSettings);
   const [settingsSource, setSettingsSource] = useState(initialSettings);
+  const [lastSavedSettings, setLastSavedSettings] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
   const [employeesSource, setEmployeesSource] = useState(initialEmployees);
   const orders = initialOrders;
@@ -134,7 +150,10 @@ export function AdminPage({
     useAdminUnreadIssues(area === 'help');
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
-  const [saved, setSaved] = useState(paymentOAuthStatus === 'success');
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
+  const [unsavedDialogPhase, setUnsavedDialogPhase] =
+    useState<UnsavedSettingsDialogPhase>('choice');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isEnhancingCover, setIsEnhancingCover] = useState(false);
   const [enhancingBannerLocalId, setEnhancingBannerLocalId] = useState<string | null>(null);
@@ -144,9 +163,16 @@ export function AdminPage({
       : '',
   );
   const logoInput = useRef<HTMLInputElement>(null);
+
+  const markSettingsChanged = () => {
+    setSettingsDirty(true);
+  };
+
   if (settingsSource !== initialSettings) {
     setSettingsSource(initialSettings);
     setSettings(initialSettings);
+    setLastSavedSettings(initialSettings);
+    setSettingsDirty(false);
   }
   if (employeesSource !== initialEmployees) {
     setEmployeesSource(initialEmployees);
@@ -175,7 +201,7 @@ export function AdminPage({
     }))
     .filter((group) => group.items.length > 0);
   const update = <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
-    setSaved(false);
+    markSettingsChanged();
     setSettings((current) => ({ ...current, [key]: value }));
   };
   const logo = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -232,8 +258,8 @@ export function AdminPage({
       const updatedSettings = { ...settings, coverImageUrl: processedImage };
       setSettings(updatedSettings);
       await onSaveSettings?.(updatedSettings);
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 1800);
+      setLastSavedSettings(updatedSettings);
+      setSettingsDirty(false);
     } catch (error: unknown) {
       const apiError = error as { response?: { data?: { error?: string } } };
       setFeedbackError(
@@ -253,7 +279,7 @@ export function AdminPage({
     });
 
   const updateBannerImage = (localId: string, image: string) => {
-    setSaved(false);
+    markSettingsChanged();
     setSettings((current) => ({
       ...current,
       promotionalBanners: current.promotionalBanners.map((banner) =>
@@ -303,14 +329,14 @@ export function AdminPage({
       setEnhancingBannerLocalId(null);
     }
   };
-  const save = async () => {
-    if (isSavingSettings) return;
+  const save = async (): Promise<boolean> => {
+    if (isSavingSettings) return false;
     setFeedbackError('');
     if (Object.keys(validateBrandSettings(settings)).length > 0) {
       setArea('settings');
       setSection('brand');
       setFeedbackError('Revise os dados de marca e identidade destacados antes de salvar.');
-      return;
+      return false;
     }
     if (
       hasBusinessIdentityInput(settings) &&
@@ -319,7 +345,7 @@ export function AdminPage({
       setArea('settings');
       setSection('business');
       setFeedbackError('Revise os dados do negócio destacados antes de salvar.');
-      return;
+      return false;
     }
     if (
       hasEstablishmentAddressInput(settings) &&
@@ -328,7 +354,7 @@ export function AdminPage({
       setArea('settings');
       setSection('address');
       setFeedbackError('Revise os dados do endereço destacados antes de salvar.');
-      return;
+      return false;
     }
     if (
       settings.businessHoursConfigured &&
@@ -337,52 +363,54 @@ export function AdminPage({
       setArea('settings');
       setSection('hours');
       setFeedbackError('Revise os horários destacados antes de salvar.');
-      return;
+      return false;
     }
     if (Object.keys(validateOrderFlowSettings(settings)).length > 0) {
       setArea('settings');
       setSection('orders');
       setFeedbackError('Revise os prazos e limites de pedidos destacados antes de salvar.');
-      return;
+      return false;
     }
     if (Object.keys(validateTableAccountSettings(settings.tableAccount)).length > 0) {
       setArea('settings');
       setSection('table-account');
       setFeedbackError('Revise as regras da conta e pagamento da mesa antes de salvar.');
-      return;
+      return false;
     }
     setIsSavingSettings(true);
     try {
       if (!onSaveSettings) throw new Error('O salvamento das configurações não está disponível.');
       await onSaveSettings(settings);
-      setSettings((current) => ({
-        ...current,
+      const persistedSettings = {
+        ...settings,
         stripeSecretKey: '',
         stripeSecretKeyConfigured:
-          current.stripeSecretKeyConfigured || Boolean(current.stripeSecretKey),
+          settings.stripeSecretKeyConfigured || Boolean(settings.stripeSecretKey),
         stripeWebhookSecret: '',
         stripeWebhookSecretConfigured:
-          current.stripeWebhookSecretConfigured || Boolean(current.stripeWebhookSecret),
+          settings.stripeWebhookSecretConfigured || Boolean(settings.stripeWebhookSecret),
         mercadoPagoAccessToken: '',
         mercadoPagoAccessTokenConfigured:
-          current.mercadoPagoAccessTokenConfigured || Boolean(current.mercadoPagoAccessToken),
+          settings.mercadoPagoAccessTokenConfigured || Boolean(settings.mercadoPagoAccessToken),
         asaasAccessToken: '',
         asaasAccessTokenConfigured:
-          current.asaasAccessTokenConfigured || Boolean(current.asaasAccessToken),
+          settings.asaasAccessTokenConfigured || Boolean(settings.asaasAccessToken),
         pagbankToken: '',
-        pagbankTokenConfigured: current.pagbankTokenConfigured || Boolean(current.pagbankToken),
-      }));
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 1800);
+        pagbankTokenConfigured: settings.pagbankTokenConfigured || Boolean(settings.pagbankToken),
+      };
+      setLastSavedSettings(persistedSettings);
+      setSettings(persistedSettings);
+      setSettingsDirty(false);
+      return true;
     } catch (error: unknown) {
       const apiError = error as { response?: { data?: { error?: string; message?: string } } };
-      setSaved(false);
       setFeedbackError(
         apiError.response?.data?.error ||
           apiError.response?.data?.message ||
           (error instanceof Error ? error.message : '') ||
           'Não foi possível salvar. Confira sua conexão e tente novamente.',
       );
+      return false;
     } finally {
       setIsSavingSettings(false);
     }
@@ -410,6 +438,73 @@ export function AdminPage({
           'Não foi possível salvar o funcionário. Tente novamente.',
       );
     }
+  };
+
+  const applyPendingNavigation = (navigation: PendingNavigation) => {
+    if (navigation.kind === 'section') {
+      setSection(navigation.section);
+      return;
+    }
+    if (navigation.area === 'settings' && onOpenSettings) onOpenSettings();
+    else setArea(navigation.area);
+    if (navigation.area === 'help') clearUnreadEmployeeIssues();
+    setMobile(false);
+  };
+
+  const changeArea = (nextArea: AdminSection) => {
+    if (nextArea === area) {
+      setMobile(false);
+      return;
+    }
+    const navigation: PendingNavigation = { kind: 'area', area: nextArea };
+    if (!settingsDirty) {
+      applyPendingNavigation(navigation);
+      return;
+    }
+    setUnsavedDialogPhase('choice');
+    setPendingNavigation(navigation);
+  };
+
+  const changeSettingsSection = (nextSection: SettingsSection) => {
+    if (nextSection === section) return;
+    const navigation: PendingNavigation = { kind: 'section', section: nextSection };
+    if (!settingsDirty) {
+      applyPendingNavigation(navigation);
+      return;
+    }
+    setUnsavedDialogPhase('choice');
+    setPendingNavigation(navigation);
+  };
+
+  const finishPendingNavigation = async (result: 'saved' | 'discarded') => {
+    const navigation = pendingNavigation;
+    if (!navigation) return;
+    setUnsavedDialogPhase(result);
+    await wait(RESULT_MODAL_MS);
+    applyPendingNavigation(navigation);
+    setPendingNavigation(null);
+    setUnsavedDialogPhase('choice');
+  };
+
+  const saveBeforeNavigation = async () => {
+    if (!pendingNavigation || unsavedDialogPhase !== 'choice') return;
+    setUnsavedDialogPhase('saving');
+    const [savedSuccessfully] = await Promise.all([save(), wait(DECISION_PROGRESS_MS)]);
+    if (!savedSuccessfully) {
+      setPendingNavigation(null);
+      setUnsavedDialogPhase('choice');
+      return;
+    }
+    await finishPendingNavigation('saved');
+  };
+
+  const discardBeforeNavigation = async () => {
+    if (!pendingNavigation || unsavedDialogPhase !== 'choice') return;
+    setUnsavedDialogPhase('discarding');
+    await wait(DECISION_PROGRESS_MS);
+    setSettings(lastSavedSettings);
+    setSettingsDirty(false);
+    await finishPendingNavigation('discarded');
   };
   return (
     <S.Root $primary={settings.primaryColor} $settings={area === 'settings'}>
@@ -441,71 +536,49 @@ export function AdminPage({
         <S.MainNav>
           <button
             className={area === 'overview' ? 'active' : ''}
-            onClick={() => {
-              setArea('overview');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('overview')}
           >
             <LayoutGrid />
             Visão geral
           </button>
           <button
             className={area === 'orders' ? 'active' : ''}
-            onClick={() => {
-              setArea('orders');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('orders')}
           >
             <ShoppingBag />
             Pedidos
           </button>
           <button
             className={area === 'catalog' ? 'active' : ''}
-            onClick={() => {
-              setArea('catalog');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('catalog')}
           >
             <Menu />
             Cardápio
           </button>
           <button
             className={area === 'customers' ? 'active' : ''}
-            onClick={() => {
-              setArea('customers');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('customers')}
           >
             <Users />
             Clientes
           </button>
           <button
             className={area === 'employees' ? 'active employees' : 'employees'}
-            onClick={() => {
-              setArea('employees');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('employees')}
           >
             <Users />
             Funcionários
           </button>
           <button
             className={area === 'subscriptions' ? 'active' : ''}
-            onClick={() => {
-              setArea('subscriptions');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('subscriptions')}
           >
             <ReceiptText />
             Cobranças e assinaturas
           </button>
           <button
             className={area === 'settings' ? 'active' : ''}
-            onClick={() => {
-              if (onOpenSettings) onOpenSettings();
-              else setArea('settings');
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('settings')}
           >
             <Settings2 />
             Configurações
@@ -514,11 +587,7 @@ export function AdminPage({
         <S.SideFooter>
           <button
             className={area === 'help' ? 'active' : ''}
-            onClick={() => {
-              setArea('help');
-              clearUnreadEmployeeIssues();
-              setMobile(false);
-            }}
+            onClick={() => void changeArea('help')}
           >
             <HelpCircle />
             Central de ajuda
@@ -552,7 +621,7 @@ export function AdminPage({
                 <button
                   key={id}
                   className={section === id ? 'active' : ''}
-                  onClick={() => setSection(id)}
+                  onClick={() => void changeSettingsSection(id)}
                 >
                   <Icon />
                   {label}
@@ -585,22 +654,10 @@ export function AdminPage({
           </div>
           <S.TopActions>
             {area === 'settings' && section !== 'promotions' && (
-              <>
-                <button className="preview" onClick={onViewStore}>
-                  <ExternalLink />
-                  Ver loja
-                </button>
-                <button
-                  className="save"
-                  type="button"
-                  disabled={isSavingSettings}
-                  aria-live="polite"
-                  onClick={save}
-                >
-                  <Save />
-                  {isSavingSettings ? 'Salvando...' : saved ? 'Salvo' : 'Salvar alterações'}
-                </button>
-              </>
+              <button className="preview" onClick={onViewStore}>
+                <ExternalLink />
+                Ver loja
+              </button>
             )}
           </S.TopActions>
         </S.Top>
@@ -612,7 +669,7 @@ export function AdminPage({
                 className={section === id ? 'active' : ''}
                 type="button"
                 aria-current={section === id ? 'page' : undefined}
-                onClick={() => setSection(id)}
+                onClick={() => void changeSettingsSection(id)}
               >
                 <Icon />
                 {label}
@@ -696,7 +753,7 @@ export function AdminPage({
                 onUpdateCoupon={onUpdateCoupon}
                 onDeleteCoupon={onDeleteCoupon}
                 onReloadPromotions={onReloadPromotions}
-                openEmployees={() => setArea('employees')}
+                openEmployees={() => void changeArea('employees')}
                 onConnectMercadoPago={onConnectMercadoPago}
                 onConnectPagBank={onConnectPagBank}
                 onOnboardAsaas={onOnboardAsaas}
@@ -745,6 +802,13 @@ export function AdminPage({
           )}
         </S.Content>
       </S.Main>
+      {pendingNavigation && (
+        <UnsavedSettingsDialog
+          phase={unsavedDialogPhase}
+          onSave={() => void saveBeforeNavigation()}
+          onDiscard={() => void discardBeforeNavigation()}
+        />
+      )}
       {editing !== undefined && (
         <EmployeeDrawer
           employee={editing}

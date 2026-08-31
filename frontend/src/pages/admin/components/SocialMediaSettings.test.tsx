@@ -25,6 +25,11 @@ describe('SocialMediaSettings', () => {
     expect(markup).toContain('name="youtube"');
     expect(markup).toContain('value="https://youtube.com/@restaurante"');
     expect(markup.match(/data-connected="true"/g)).toHaveLength(4);
+    expect(markup.match(/data-brand=/g)).toHaveLength(4);
+    expect(markup).toContain('data-brand="instagram"');
+    expect(markup).toContain('data-brand="facebook"');
+    expect(markup).toContain('data-brand="tiktok"');
+    expect(markup).toContain('data-brand="youtube"');
     expect(markup).toContain('href="https://instagram.com/restaurante"');
     expect(markup).toContain('href="https://tiktok.com/@restaurantevideos"');
   });
