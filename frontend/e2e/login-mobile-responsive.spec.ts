@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const MOBILE_VIEWPORTS = [
   { name: '320x568', width: 320, height: 568 },
@@ -78,6 +79,10 @@ for (const viewport of MOBILE_VIEWPORTS) {
     await expect(card).toBeVisible();
     await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
     await expect(page.getByText('Sabor que acolhe. Experiência que fica.')).toBeVisible();
+
+    if (viewport.name === '390x844') {
+      await captureReadmeScreenshot(page, 'login-mobile.png', { fullPage: true });
+    }
 
     const [coverBox, imageBox, cardBox] = await Promise.all([
       cover.boundingBox(),
