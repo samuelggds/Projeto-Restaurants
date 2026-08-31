@@ -1,0 +1,275 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  assertSecureRuntimeDatabaseRole,
+  withTenantDbContext,
+} from '../../database/tenantDbContext.js';
+import {
+  prisma,
+  resetTenantE2EDatabase,
+  runtimePrisma,
+  seedTenantE2EFixture,
+} from './tenantE2EHarness.js';
+
+function assertRlsRejection(error: unknown) {
+  assert.match(
+    String(error),
+    /row-level security|violates.*policy|operation failed/iu,
+    'A escrita adulterada deve ser rejeitada pelo PostgreSQL/RLS.',
+  );
+  return true;
+}
+
+test(
+  'RLS piloto bloqueia acesso cross-tenant mesmo sem filtro na aplicação',
+  { timeout: 90_000 },
+  async (t) => {
+    await resetTenantE2EDatabase();
+    const fixture = await seedTenantE2EFixture();
+
+    const issueThreadA = await prisma.orderIssueThread.create({
+      data: {
+        orderId: fixture.orders.a.id,
+        userId: fixture.users.customerA.id,
+        restaurantId: fixture.restaurants.a.id,
+        customerName: fixture.users.customerA.name,
+        customerPhone: fixture.users.customerA.phone,
+        orderStatus: fixture.orders.a.status,
+        orderType: fixture.orders.a.type,
+        paymentMethod: fixture.orders.a.paymentMethod,
+        total: fixture.orders.a.total,
+        orderCreatedAt: fixture.orders.a.createdAt,
+        itemsSummary: ['Produto A'],
+      },
+    });
+    const paymentMethodA = await prisma.customerPaymentMethod.create({
+      data: {
+        userId: fixture.users.customerA.id,
+        restaurantId: fixture.restaurants.a.id,
+        provider: 'PAGBANK',
+        providerPaymentMethodId: 'rls-card-a',
+        brand: 'visa',
+        last4: '1001',
+        expMonth: 12,
+        expYear: 2099,
+      },
+    });
+    const paymentMethodB = await prisma.customerPaymentMethod.create({
+      data: {
+        userId: fixture.users.customerB.id,
+        restaurantId: fixture.restaurants.b.id,
+        provider: 'PAGBANK',
+        providerPaymentMethodId: 'rls-card-b',
+        brand: 'mastercard',
+        last4: '2002',
+        expMonth: 12,
+        expYear: 2099,
+      },
+    });
+
+    try {
+      await t.test(
+        'a role runtime não pode ignorar RLS e não possui as tabelas piloto',
+        async () => {
+          const role = await assertSecureRuntimeDatabaseRole();
+          assert.equal(role.roleName, 'tenant_e2e_runtime');
+          assert.equal(role.isSuperuser, false);
+          assert.equal(role.bypassesRls, false);
+          assert.equal(role.ownsPilotTables, false);
+        },
+      );
+
+      await t.test('catálogo confirma ENABLE, FORCE e policies completas', async () => {
+        const tables = await runtimePrisma.$queryRaw<
+          Array<{ table_name: string; rls_enabled: boolean; rls_forced: boolean }>
+        >`
+        SELECT
+          relations.relname AS table_name,
+          relations.relrowsecurity AS rls_enabled,
+          relations.relforcerowsecurity AS rls_forced
+        FROM pg_catalog.pg_class AS relations
+        JOIN pg_catalog.pg_namespace AS namespaces
+          ON namespaces.oid = relations.relnamespace
+        WHERE namespaces.nspname = 'public'
+          AND relations.relname IN ('CustomerPaymentMethod', 'OrderIssueThread')
+        ORDER BY relations.relname
+      `;
+        assert.deepEqual(tables, [
+          { table_name: 'CustomerPaymentMethod', rls_enabled: true, rls_forced: true },
+          { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
+        ]);
+
+        const policies = await runtimePrisma.$queryRaw<
+          Array<{
+            table_name: string;
+            policy_name: string;
+            is_permissive: boolean;
+            command: string;
+            has_using: boolean;
+            has_with_check: boolean;
+          }>
+        >`
+        SELECT
+          relations.relname AS table_name,
+          policies.polname AS policy_name,
+          policies.polpermissive AS is_permissive,
+          policies.polcmd::text AS command,
+          policies.polqual IS NOT NULL AS has_using,
+          policies.polwithcheck IS NOT NULL AS has_with_check
+        FROM pg_catalog.pg_policy AS policies
+        JOIN pg_catalog.pg_class AS relations ON relations.oid = policies.polrelid
+        JOIN pg_catalog.pg_namespace AS namespaces ON namespaces.oid = relations.relnamespace
+        WHERE namespaces.nspname = 'public'
+          AND relations.relname IN ('CustomerPaymentMethod', 'OrderIssueThread')
+        ORDER BY relations.relname
+      `;
+        assert.equal(policies.length, 2);
+        for (const policy of policies) {
+          assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
+          assert.equal(policy.is_permissive, true);
+          assert.equal(policy.command, '*');
+          assert.equal(policy.has_using, true);
+          assert.equal(policy.has_with_check, true);
+        }
+      });
+
+      await t.test(
+        'OrderIssueThread permite B e bloqueia A usando query sem restaurantId',
+        async () => {
+          const own = await withTenantDbContext(fixture.restaurants.b.id, (db) =>
+            db.orderIssueThread.findUnique({ where: { id: fixture.issueThreadB.id } }),
+          );
+          assert.equal(own?.id, fixture.issueThreadB.id);
+
+          const attack = await withTenantDbContext(fixture.restaurants.a.id, (db) =>
+            db.orderIssueThread.findUnique({ where: { id: fixture.issueThreadB.id } }),
+          );
+          assert.equal(attack, null);
+        },
+      );
+
+      await t.test(
+        'CustomerPaymentMethod permite B e bloqueia A usando query sem restaurantId',
+        async () => {
+          const own = await withTenantDbContext(fixture.restaurants.b.id, (db) =>
+            db.customerPaymentMethod.findUnique({ where: { id: paymentMethodB.id } }),
+          );
+          assert.equal(own?.id, paymentMethodB.id);
+
+          const attack = await withTenantDbContext(fixture.restaurants.a.id, (db) =>
+            db.customerPaymentMethod.findUnique({ where: { id: paymentMethodB.id } }),
+          );
+          assert.equal(attack, null);
+        },
+      );
+
+      await t.test('sem contexto nenhuma tabela piloto revela linhas', async () => {
+        assert.equal(await runtimePrisma.orderIssueThread.count(), 0);
+        assert.equal(await runtimePrisma.customerPaymentMethod.count(), 0);
+      });
+
+      await t.test('OrderIssueThread rejeita INSERT adulterado via WITH CHECK', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.orderIssueThread.create({
+                data: {
+                  orderId: fixture.orders.realtimeB.id,
+                  userId: fixture.users.customerB.id,
+                  restaurantId: fixture.restaurants.b.id,
+                  customerName: fixture.users.customerB.name,
+                  orderStatus: fixture.orders.realtimeB.status,
+                  orderType: fixture.orders.realtimeB.type,
+                  paymentMethod: fixture.orders.realtimeB.paymentMethod,
+                  total: fixture.orders.realtimeB.total,
+                  orderCreatedAt: fixture.orders.realtimeB.createdAt,
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      await t.test('CustomerPaymentMethod rejeita INSERT adulterado via WITH CHECK', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.customerPaymentMethod.create({
+                data: {
+                  userId: fixture.users.customerB.id,
+                  restaurantId: fixture.restaurants.b.id,
+                  provider: 'PAGBANK',
+                  providerPaymentMethodId: 'rls-card-insert-attack',
+                  brand: 'visa',
+                  last4: '9999',
+                  expMonth: 12,
+                  expYear: 2099,
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      await t.test('OrderIssueThread rejeita UPDATE A para restaurantId B', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.orderIssueThread.update({
+                where: { id: issueThreadA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      await t.test('CustomerPaymentMethod rejeita UPDATE A para restaurantId B', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.customerPaymentMethod.update({
+                where: { id: paymentMethodA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      await t.test('DELETE do tenant A não afeta linhas B nas duas tabelas', async () => {
+        const deleted = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
+          threads: await db.orderIssueThread.deleteMany({ where: { id: fixture.issueThreadB.id } }),
+          methods: await db.customerPaymentMethod.deleteMany({ where: { id: paymentMethodB.id } }),
+        }));
+        assert.equal(deleted.threads.count, 0);
+        assert.equal(deleted.methods.count, 0);
+        assert.ok(
+          await prisma.orderIssueThread.findUnique({ where: { id: fixture.issueThreadB.id } }),
+        );
+        assert.ok(
+          await prisma.customerPaymentMethod.findUnique({ where: { id: paymentMethodB.id } }),
+        );
+      });
+
+      await t.test('contextos A e B concorrentes permanecem isolados no pool', async () => {
+        const [visibleToA, visibleToB] = await Promise.all([
+          withTenantDbContext(fixture.restaurants.a.id, (db) =>
+            db.customerPaymentMethod.findMany({ select: { restaurantId: true } }),
+          ),
+          withTenantDbContext(fixture.restaurants.b.id, (db) =>
+            db.customerPaymentMethod.findMany({ select: { restaurantId: true } }),
+          ),
+        ]);
+        assert.ok(visibleToA.length > 0);
+        assert.ok(visibleToB.length > 0);
+        assert.ok(visibleToA.every((row) => row.restaurantId === fixture.restaurants.a.id));
+        assert.ok(visibleToB.every((row) => row.restaurantId === fixture.restaurants.b.id));
+      });
+    } finally {
+      await resetTenantE2EDatabase();
+      await Promise.all([prisma.$disconnect(), runtimePrisma.$disconnect()]);
+    }
+  },
+);

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 
 import prisma from '../../../config/prisma.js';
 import {
@@ -13,12 +13,21 @@ const originals = {
   findFirst: prisma.orderIssueThread.findFirst,
   update: prisma.orderIssueThread.update,
   createMessage: prisma.orderIssueMessage.create,
+  transaction: prisma.$transaction,
+  queryRaw: prisma.$queryRaw,
 };
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback(prisma);
+  prisma.$queryRaw = async () => [{ set_config: '17' }];
+});
 
 afterEach(() => {
   prisma.orderIssueThread.findFirst = originals.findFirst;
   prisma.orderIssueThread.update = originals.update;
   prisma.orderIssueMessage.create = originals.createMessage;
+  prisma.$transaction = originals.transaction;
+  prisma.$queryRaw = originals.queryRaw;
 });
 
 test('Restaurante A não carrega o chat de um pedido real do Restaurante B', async () => {

@@ -366,12 +366,14 @@ export default function Profile() {
         onEditPayment={() => setPaymentModalOpen(true)}
         onAddPaymentMethod={() => setPaymentModalOpen(true)}
         onSelectPaymentMethod={async (publicId) => {
-          await customerPaymentMethodService.makeDefault(publicId);
+          if (!restaurantId) return;
+          await customerPaymentMethodService.makeDefault(publicId, restaurantId);
           await loadPaymentMethods();
           toast.success('Cartão principal atualizado.');
         }}
         onRemovePaymentMethod={async (publicId) => {
-          await customerPaymentMethodService.remove(publicId);
+          if (!restaurantId) return;
+          await customerPaymentMethodService.remove(publicId, restaurantId);
           await loadPaymentMethods();
           toast.success('Cartão removido.');
         }}

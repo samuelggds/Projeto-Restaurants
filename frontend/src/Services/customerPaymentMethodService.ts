@@ -47,12 +47,12 @@ class CustomerPaymentMethodService {
     const response = await api.post('/customer-payment-methods', payload);
     return response.data.paymentMethod as CustomerPaymentMethod;
   }
-  async makeDefault(publicId: string) {
-    const response = await api.put(`/customer-payment-methods/${encodeURIComponent(publicId)}/default`);
+  async makeDefault(publicId: string, restaurantId: number) {
+    const response = await api.put(`/customer-payment-methods/${encodeURIComponent(publicId)}/default`, undefined, { params: { restaurantId } });
     return response.data.paymentMethod as CustomerPaymentMethod;
   }
-  async remove(publicId: string) {
-    await api.delete(`/customer-payment-methods/${encodeURIComponent(publicId)}`);
+  async remove(publicId: string, restaurantId: number) {
+    await api.delete(`/customer-payment-methods/${encodeURIComponent(publicId)}`, { params: { restaurantId } });
   }
 }
 

@@ -184,18 +184,18 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: tenant_e2e
-          POSTGRES_PASSWORD: tenant-e2e-password
+          POSTGRES_USER: tenant_e2e_owner
+          POSTGRES_PASSWORD: tenant-e2e-owner-password
           POSTGRES_DB: tenant_e2e
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U tenant_e2e -d tenant_e2e"
+          --health-cmd "pg_isready -U tenant_e2e_owner -d tenant_e2e"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      TENANT_E2E_DATABASE_URL: postgresql://tenant_e2e:tenant-e2e-password@127.0.0.1:5432/tenant_e2e?schema=public
+      TENANT_E2E_OWNER_DATABASE_URL: postgresql://tenant_e2e_owner:tenant-e2e-owner-password@127.0.0.1:5432/tenant_e2e?schema=public
     steps:
       - uses: actions/checkout@v4
 

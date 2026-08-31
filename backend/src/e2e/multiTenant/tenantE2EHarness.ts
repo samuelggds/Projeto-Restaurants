@@ -8,6 +8,7 @@ import {
   OrderType,
   PaymentMethod,
   PlanType,
+  PrismaClient,
   SubscriptionStatus,
   TableOrderFinancialStatus,
   TableOrderSettlementMode,
@@ -17,7 +18,7 @@ import { Server as SocketIoServer } from 'socket.io';
 import { io as createSocketClient, type Socket as SocketClient } from 'socket.io-client';
 
 import app from '../../app.js';
-import prisma from '../../config/prisma.js';
+import runtimePrisma from '../../config/prisma.js';
 import authTokenService from '../../modules/auth/services/AuthTokenService.js';
 import { registerRealtimeTransport } from '../../realtime/realtimePublisher.js';
 import { createSocketIoRealtimeTransport } from '../../realtime/socketIoRealtimeTransport.js';
@@ -26,22 +27,33 @@ import { socketHandler } from '../../socket/socketHandler.js';
 
 const SAFE_DATABASE_NAME = /(?:^|[_-])(ci|e2e|test)(?:[_-]|$)/iu;
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+const ownerDatabaseUrl = String(process.env.TENANT_E2E_OWNER_DATABASE_URL || '').trim();
+const prisma = new PrismaClient({ datasources: { db: { url: ownerDatabaseUrl } } });
 
-export function assertDisposableTenantDatabase() {
-  const configured = String(process.env.TENANT_E2E_DATABASE_URL || '').trim();
-  const active = String(process.env.DATABASE_URL || '').trim();
-  assert.ok(configured, 'TENANT_E2E_DATABASE_URL é obrigatória para a suíte E2E.');
-  assert.equal(
-    active,
-    configured,
-    'DATABASE_URL deve apontar exatamente para o banco E2E aprovado.',
-  );
-
-  const url = new URL(active);
+function assertSafeLoopbackPostgresUrl(value: string, label: string) {
+  assert.ok(value, `${label} é obrigatória para a suíte E2E.`);
+  const url = new URL(value);
   assert.ok(['postgres:', 'postgresql:'].includes(url.protocol), 'Somente PostgreSQL é permitido.');
   assert.ok(LOOPBACK_HOSTS.has(url.hostname.toLowerCase()), 'O banco E2E deve ser loopback.');
   const databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
   assert.match(databaseName, SAFE_DATABASE_NAME, 'O banco não possui marcador ci/e2e/test.');
+}
+
+export function assertDisposableTenantDatabase() {
+  const configured = String(process.env.TENANT_E2E_RUNTIME_DATABASE_URL || '').trim();
+  const active = String(process.env.DATABASE_URL || '').trim();
+  assertSafeLoopbackPostgresUrl(configured, 'TENANT_E2E_RUNTIME_DATABASE_URL');
+  assertSafeLoopbackPostgresUrl(ownerDatabaseUrl, 'TENANT_E2E_OWNER_DATABASE_URL');
+  assert.equal(
+    active,
+    configured,
+    'DATABASE_URL deve apontar exatamente para a role runtime E2E aprovada.',
+  );
+  assert.notEqual(
+    active,
+    ownerDatabaseUrl,
+    'As conexões owner e runtime devem usar roles distintas.',
+  );
 }
 
 export async function resetTenantE2EDatabase() {
@@ -603,4 +615,4 @@ export async function emitWithAck<T>(
   });
 }
 
-export { prisma };
+export { prisma, runtimePrisma };

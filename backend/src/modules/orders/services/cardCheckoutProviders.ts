@@ -6,6 +6,7 @@ import { getMercadoPagoPreferenceApi } from '../../payments/providers/mercadoPag
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 
 type CheckoutOrder = {
   id: number;
@@ -332,15 +333,17 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
     if (savedMethodId) {
       const userId = Number(payload.userId || 0);
       if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
-      const savedMethod = await prisma.customerPaymentMethod.findFirst({
-        where: {
-          publicId: savedMethodId,
-          userId,
-          restaurantId: order.restaurantId,
-          provider: 'MERCADO_PAGO',
-          active: true,
-        },
-      });
+      const savedMethod = await withTenantDbContext(order.restaurantId, (db) =>
+        db.customerPaymentMethod.findFirst({
+          where: {
+            publicId: savedMethodId,
+            userId,
+            restaurantId: order.restaurantId,
+            provider: 'MERCADO_PAGO',
+            active: true,
+          },
+        }),
+      );
       if (!savedMethod?.providerCustomerId) {
         throw new Error('O cartão selecionado não foi encontrado no Mercado Pago.');
       }
@@ -443,15 +446,17 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
     if (savedMethodId) {
       const userId = Number(payload.userId || 0);
       if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
-      const savedMethod = await prisma.customerPaymentMethod.findFirst({
-        where: {
-          publicId: savedMethodId,
-          userId,
-          restaurantId: order.restaurantId,
-          provider: 'PAGBANK',
-          active: true,
-        },
-      });
+      const savedMethod = await withTenantDbContext(order.restaurantId, (db) =>
+        db.customerPaymentMethod.findFirst({
+          where: {
+            publicId: savedMethodId,
+            userId,
+            restaurantId: order.restaurantId,
+            provider: 'PAGBANK',
+            active: true,
+          },
+        }),
+      );
       if (!savedMethod) throw new Error('O cartão selecionado não foi encontrado.');
       const cpf = String(payload.customerCpf || '').replace(/\D/g, '');
       if (![11, 14].includes(cpf.length)) {
@@ -584,15 +589,17 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
     if (savedMethodId) {
       const userId = Number(payload.userId || 0);
       if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
-      const savedMethod = await prisma.customerPaymentMethod.findFirst({
-        where: {
-          publicId: savedMethodId,
-          userId,
-          restaurantId: order.restaurantId,
-          provider: 'ASAAS',
-          active: true,
-        },
-      });
+      const savedMethod = await withTenantDbContext(order.restaurantId, (db) =>
+        db.customerPaymentMethod.findFirst({
+          where: {
+            publicId: savedMethodId,
+            userId,
+            restaurantId: order.restaurantId,
+            provider: 'ASAAS',
+            active: true,
+          },
+        }),
+      );
       if (!savedMethod?.providerCustomerId) {
         throw new Error('O cartão selecionado não foi encontrado no Asaas.');
       }
