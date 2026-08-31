@@ -1,5 +1,6 @@
-import prisma from '../../../config/prisma.js';
 import type { OrderIssueSenderType } from '@prisma/client';
+
+import { withTenantDbContext, type TenantDbClient } from '../../../database/tenantDbContext.js';
 
 type EnsureThreadInput = {
   orderId: number;
@@ -16,8 +17,8 @@ type EnsureThreadInput = {
   itemsSummary: string[];
 };
 
-async function loadThread(orderId: number, restaurantId: number) {
-  return prisma.orderIssueThread.findFirst({
+async function loadThread(db: TenantDbClient, orderId: number, restaurantId: number) {
+  return db.orderIssueThread.findFirst({
     where: {
       orderId,
       restaurantId,
@@ -33,48 +34,50 @@ async function loadThread(orderId: number, restaurantId: number) {
 }
 
 export async function ensureOrderIssueThread(input: EnsureThreadInput) {
-  await prisma.orderIssueThread.upsert({
-    where: {
-      orderId: input.orderId,
-      restaurantId: input.restaurantId,
-    },
-    create: {
-      orderId: input.orderId,
-      userId: input.userId,
-      restaurantId: input.restaurantId,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone || null,
-      orderStatus: input.orderStatus,
-      orderType: input.orderType,
-      paymentMethod: input.paymentMethod || null,
-      total: input.total,
-      orderCreatedAt: new Date(input.createdAt),
-      addressLabel: input.addressLabel || null,
-      itemsSummary: input.itemsSummary,
-    },
-    update: {
-      customerName: input.customerName,
-      customerPhone: input.customerPhone || null,
-      orderStatus: input.orderStatus,
-      orderType: input.orderType,
-      paymentMethod: input.paymentMethod || null,
-      total: input.total,
-      orderCreatedAt: new Date(input.createdAt),
-      addressLabel: input.addressLabel || null,
-      itemsSummary: input.itemsSummary,
-    },
+  return withTenantDbContext(input.restaurantId, async (db) => {
+    await db.orderIssueThread.upsert({
+      where: {
+        orderId: input.orderId,
+        restaurantId: input.restaurantId,
+      },
+      create: {
+        orderId: input.orderId,
+        userId: input.userId,
+        restaurantId: input.restaurantId,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone || null,
+        orderStatus: input.orderStatus,
+        orderType: input.orderType,
+        paymentMethod: input.paymentMethod || null,
+        total: input.total,
+        orderCreatedAt: new Date(input.createdAt),
+        addressLabel: input.addressLabel || null,
+        itemsSummary: input.itemsSummary,
+      },
+      update: {
+        customerName: input.customerName,
+        customerPhone: input.customerPhone || null,
+        orderStatus: input.orderStatus,
+        orderType: input.orderType,
+        paymentMethod: input.paymentMethod || null,
+        total: input.total,
+        orderCreatedAt: new Date(input.createdAt),
+        addressLabel: input.addressLabel || null,
+        itemsSummary: input.itemsSummary,
+      },
+    });
+
+    const thread = await loadThread(db, input.orderId, input.restaurantId);
+    if (!thread) {
+      throw new Error('Não foi possível preparar o chat do pedido.');
+    }
+
+    return thread;
   });
-
-  const thread = await loadThread(input.orderId, input.restaurantId);
-  if (!thread) {
-    throw new Error('Não foi possível preparar o chat do pedido.');
-  }
-
-  return thread;
 }
 
 export async function getOrderIssueThread(orderId: number, restaurantId: number) {
-  return loadThread(orderId, restaurantId);
+  return withTenantDbContext(restaurantId, (db) => loadThread(db, orderId, restaurantId));
 }
 
 export async function addOrderIssueMessage({
@@ -90,43 +93,45 @@ export async function addOrderIssueMessage({
   senderName: string;
   message: string;
 }) {
-  const thread = await prisma.orderIssueThread.findFirst({
-    where: {
-      orderId,
-      restaurantId,
-    },
-    select: {
-      id: true,
-      isResolved: true,
-    },
+  return withTenantDbContext(restaurantId, async (db) => {
+    const thread = await db.orderIssueThread.findFirst({
+      where: {
+        orderId,
+        restaurantId,
+      },
+      select: {
+        id: true,
+        isResolved: true,
+      },
+    });
+
+    if (!thread) {
+      throw new Error('Conversa não encontrada para este pedido.');
+    }
+
+    if (thread.isResolved) {
+      throw new Error('Este problema já foi resolvido e o chat foi encerrado.');
+    }
+
+    const chatMessage = await db.orderIssueMessage.create({
+      data: {
+        threadId: thread.id,
+        senderType,
+        senderName: String(senderName || senderType).trim() || senderType,
+        message,
+      },
+    });
+
+    const fullThread = await loadThread(db, orderId, restaurantId);
+    if (!fullThread) {
+      throw new Error('Não foi possível atualizar a conversa do pedido.');
+    }
+
+    return {
+      thread: fullThread,
+      chatMessage,
+    };
   });
-
-  if (!thread) {
-    throw new Error('Conversa não encontrada para este pedido.');
-  }
-
-  if (thread.isResolved) {
-    throw new Error('Este problema já foi resolvido e o chat foi encerrado.');
-  }
-
-  const chatMessage = await prisma.orderIssueMessage.create({
-    data: {
-      threadId: thread.id,
-      senderType,
-      senderName: String(senderName || senderType).trim() || senderType,
-      message,
-    },
-  });
-
-  const fullThread = await loadThread(orderId, restaurantId);
-  if (!fullThread) {
-    throw new Error('Não foi possível atualizar a conversa do pedido.');
-  }
-
-  return {
-    thread: fullThread,
-    chatMessage,
-  };
 }
 
 export async function resolveOrderIssueThread({
@@ -138,47 +143,49 @@ export async function resolveOrderIssueThread({
   restaurantId: number;
   resolvedByName: string;
 }) {
-  const thread = await prisma.orderIssueThread.findFirst({
-    where: {
-      orderId,
-      restaurantId,
-    },
-    select: {
-      id: true,
-      isResolved: true,
-    },
-  });
+  return withTenantDbContext(restaurantId, async (db) => {
+    const thread = await db.orderIssueThread.findFirst({
+      where: {
+        orderId,
+        restaurantId,
+      },
+      select: {
+        id: true,
+        isResolved: true,
+      },
+    });
 
-  if (!thread) {
-    throw new Error('Conversa não encontrada para este pedido.');
-  }
-
-  if (thread.isResolved) {
-    const existing = await loadThread(orderId, restaurantId);
-    if (!existing) {
+    if (!thread) {
       throw new Error('Conversa não encontrada para este pedido.');
     }
-    return existing;
-  }
 
-  await prisma.orderIssueThread.update({
-    where: {
-      id: thread.id,
-      restaurantId,
-    },
-    data: {
-      isResolved: true,
-      resolvedAt: new Date(),
-      resolvedByName: String(resolvedByName || 'Admin').trim() || 'Admin',
-    },
+    if (thread.isResolved) {
+      const existing = await loadThread(db, orderId, restaurantId);
+      if (!existing) {
+        throw new Error('Conversa não encontrada para este pedido.');
+      }
+      return existing;
+    }
+
+    await db.orderIssueThread.update({
+      where: {
+        id: thread.id,
+        restaurantId,
+      },
+      data: {
+        isResolved: true,
+        resolvedAt: new Date(),
+        resolvedByName: String(resolvedByName || 'Admin').trim() || 'Admin',
+      },
+    });
+
+    const resolved = await loadThread(db, orderId, restaurantId);
+    if (!resolved) {
+      throw new Error('Conversa não encontrada para este pedido.');
+    }
+
+    return resolved;
   });
-
-  const resolved = await loadThread(orderId, restaurantId);
-  if (!resolved) {
-    throw new Error('Conversa não encontrada para este pedido.');
-  }
-
-  return resolved;
 }
 
 export function toOrderIssueThreadPayload(thread: Awaited<ReturnType<typeof loadThread>>) {

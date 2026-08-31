@@ -5,6 +5,7 @@ import prisma from './config/prisma.js';
 import { Sentry } from './config/sentry.js';
 import { createJobScheduler } from './jobs/runtime.js';
 import { notifyCriticalError } from './services/alertNotifier.js';
+import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
 
 const scheduler = createJobScheduler('worker');
 let shuttingDown = false;
@@ -59,11 +60,17 @@ process.on('uncaughtException', (error) => {
   void shutdown('SIGTERM', 1);
 });
 
-try {
+async function startWorker() {
+  if (process.env.NODE_ENV === 'production' || process.env.RLS_VERIFY_RUNTIME_ROLE === 'true') {
+    await assertSecureRuntimeDatabaseRole();
+    console.info('[RLS_RUNTIME_ROLE_VERIFIED]');
+  }
   scheduler.start();
   console.info('[WORKER_STARTED]');
-} catch (error) {
+}
+
+void startWorker().catch((error) => {
   console.error('[WORKER_START_FAILED]', error instanceof Error ? error.name : 'UNKNOWN_ERROR');
   Sentry.captureException(error);
   void shutdown('SIGTERM', 1);
-}
+});

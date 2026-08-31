@@ -1,5 +1,5 @@
 // @ts-nocheck
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 
@@ -32,7 +32,14 @@ const originalCreateOrderExecute = createOrderService.execute;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalDeleteById = orderRepository.deleteById;
 const originalFindCustomerPaymentMethod = prisma.customerPaymentMethod.findFirst;
+const originalTransaction = prisma.$transaction;
+const originalQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback(prisma);
+  prisma.$queryRaw = async () => [{ set_config: '9' }];
+});
 
 afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRepositoryMethods.findByRestaurantId;
@@ -40,6 +47,8 @@ afterEach(() => {
   orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
   orderRepository.deleteById = originalDeleteById;
   prisma.customerPaymentMethod.findFirst = originalFindCustomerPaymentMethod;
+  prisma.$transaction = originalTransaction;
+  prisma.$queryRaw = originalQueryRaw;
   globalThis.fetch = originalFetch;
   delete process.env.BACKEND_URL;
   delete process.env.PAGBANK_EMAIL;

@@ -8,9 +8,11 @@ import { parseSafeTenantE2EDatabaseUrl, redactDatabaseUrl } from './tenantE2eDat
 const backendRoot = process.cwd();
 const dockerImage = process.env.TENANT_E2E_POSTGRES_IMAGE || 'postgres:16-alpine';
 const dockerContainerName = `pizza-tenant-e2e-${process.pid}-${Date.now()}`;
-const postgresUser = 'tenant_e2e';
-const postgresPassword = 'tenant-e2e-password';
+const postgresUser = 'tenant_e2e_owner';
+const postgresPassword = 'tenant-e2e-owner-password';
 const postgresDatabase = 'tenant_e2e';
+const runtimeUser = 'tenant_e2e_runtime';
+const runtimePassword = 'tenant-e2e-runtime-password';
 let ownsDockerContainer = false;
 
 function run(command, args, options = {}) {
@@ -94,11 +96,23 @@ async function createDisposablePostgres() {
   return `postgresql://${postgresUser}:${postgresPassword}@127.0.0.1:${match[1]}/${postgresDatabase}?schema=public`;
 }
 
-async function collectE2ETests() {
+function buildRuntimeDatabaseUrl(ownerUrl) {
+  const runtimeUrl = new URL(ownerUrl);
+  runtimeUrl.username = runtimeUser;
+  runtimeUrl.password = runtimePassword;
+  return runtimeUrl.toString();
+}
+
+async function collectE2ETests({ rlsOnly = false } = {}) {
   const directory = path.resolve(backendRoot, 'src/e2e/multiTenant');
   const entries = await readdir(directory, { withFileTypes: true });
   return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.e2e.ts'))
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.endsWith('.e2e.ts') &&
+        (!rlsOnly || entry.name.endsWith('.rls.e2e.ts')),
+    )
     .map((entry) => path.relative(backendRoot, path.join(directory, entry.name)))
     .sort();
 }
@@ -133,16 +147,23 @@ async function cleanup() {
 }
 
 async function main() {
-  const suppliedUrl = String(process.env.TENANT_E2E_DATABASE_URL || '').trim();
-  const databaseUrl = suppliedUrl || (await createDisposablePostgres());
-  const safeDatabase = parseSafeTenantE2EDatabaseUrl(databaseUrl);
-  const testFiles = await collectE2ETests();
+  const suppliedOwnerUrl = String(process.env.TENANT_E2E_OWNER_DATABASE_URL || '').trim();
+  const ownerDatabaseUrl = suppliedOwnerUrl || (await createDisposablePostgres());
+  const safeOwnerDatabase = parseSafeTenantE2EDatabaseUrl(ownerDatabaseUrl);
+  const safeRuntimeDatabase = parseSafeTenantE2EDatabaseUrl(
+    buildRuntimeDatabaseUrl(safeOwnerDatabase.url),
+  );
+  const rlsOnly = process.argv.includes('--rls-only');
+  const testFiles = await collectE2ETests({ rlsOnly });
   if (!testFiles.length) throw new Error('Nenhum arquivo .e2e.ts multi-tenant foi encontrado.');
 
   const testEnv = {
     ...process.env,
-    DATABASE_URL: safeDatabase.url,
-    TENANT_E2E_DATABASE_URL: safeDatabase.url,
+    DATABASE_URL: safeRuntimeDatabase.url,
+    DIRECT_URL: safeOwnerDatabase.url,
+    TENANT_E2E_DATABASE_URL: safeRuntimeDatabase.url,
+    TENANT_E2E_OWNER_DATABASE_URL: safeOwnerDatabase.url,
+    TENANT_E2E_RUNTIME_DATABASE_URL: safeRuntimeDatabase.url,
     NODE_ENV: 'test',
     JWT_SECRET: process.env.JWT_SECRET || 'tenant-e2e-access-secret-32-characters-minimum',
     JWT_REFRESH_SECRET:
@@ -159,10 +180,27 @@ async function main() {
     SOCKET_AUTH_REVALIDATE_MS: '5000',
   };
 
-  console.log(`Banco E2E validado: ${redactDatabaseUrl(safeDatabase.url)}`);
-  console.log('Aplicando migrações Prisma no banco descartável.');
+  console.log(`Banco E2E owner validado: ${redactDatabaseUrl(safeOwnerDatabase.url)}`);
+  console.log(`Banco E2E runtime validado: ${redactDatabaseUrl(safeRuntimeDatabase.url)}`);
+  console.log('Aplicando migrações Prisma com a conexão owner.');
   const prismaCli = path.resolve(backendRoot, 'node_modules/prisma/build/index.js');
-  await deployMigrationsWithStartupRetry(prismaCli, testEnv);
+  const ownerEnv = { ...testEnv, DATABASE_URL: safeOwnerDatabase.url };
+  await deployMigrationsWithStartupRetry(prismaCli, ownerEnv);
+
+  console.log('Provisionando a role runtime NOSUPERUSER/NOBYPASSRLS sem ownership.');
+  await run(
+    process.execPath,
+    [
+      prismaCli,
+      'db',
+      'execute',
+      '--file',
+      path.resolve(backendRoot, 'prisma/rls/setup-e2e-runtime-role.sql'),
+      '--schema',
+      path.resolve(backendRoot, 'prisma/schema.prisma'),
+    ],
+    { env: ownerEnv },
+  );
 
   console.log(`Executando ${testFiles.length} arquivo(s) E2E multi-tenant.`);
   const runner = path.resolve(backendRoot, 'scripts/runTsxWithOsUserInfoFallback.cjs');

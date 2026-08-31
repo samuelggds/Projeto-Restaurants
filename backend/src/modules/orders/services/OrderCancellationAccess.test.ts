@@ -1,6 +1,6 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import http from 'node:http';
 import { OrderRefundStatus, OrderStatus, UserRole } from '@prisma/client';
 
@@ -36,9 +36,16 @@ const originalFindByIdForCustomer = orderRepository.findByIdForCustomer;
 const originalWorkflowExecute = cancelOrderWorkflowService.execute;
 const originalUserFindFirst = prisma.user.findFirst;
 const originalIssueFindFirst = prisma.orderIssueThread.findFirst;
+const originalTransaction = prisma.$transaction;
+const originalQueryRaw = prisma.$queryRaw;
 const originalCancelServiceExecute = cancelOrderService.execute;
 const originalAdminRefundExecute = refundOrderByAdminService.execute;
 const originalConsoleError = console.error;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback(prisma);
+  prisma.$queryRaw = async () => [{ set_config: '17' }];
+});
 
 afterEach(() => {
   orderRepository.findById = originalFindById;
@@ -46,6 +53,8 @@ afterEach(() => {
   cancelOrderWorkflowService.execute = originalWorkflowExecute;
   prisma.user.findFirst = originalUserFindFirst;
   prisma.orderIssueThread.findFirst = originalIssueFindFirst;
+  prisma.$transaction = originalTransaction;
+  prisma.$queryRaw = originalQueryRaw;
   cancelOrderService.execute = originalCancelServiceExecute;
   refundOrderByAdminService.execute = originalAdminRefundExecute;
   console.error = originalConsoleError;

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { normalizeStoredCardBrand } from '../domain/cardBrand.js';
@@ -29,6 +30,16 @@ function customerId(req: Request, res: Response) {
     return null;
   }
   return Number(req.user.id);
+}
+
+async function validateActiveRestaurant(rawRestaurantId: unknown) {
+  const parsed = restaurantSchema.safeParse(rawRestaurantId);
+  if (!parsed.success) return null;
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { id: parsed.data, active: true },
+    select: { id: true },
+  });
+  return restaurant?.id || null;
 }
 
 function safeProviderError(body: Record<string, unknown>, fallback: string) {
@@ -120,9 +131,9 @@ router.get('/config', async (req, res): Promise<void> => {
 
 router.get('/', async (req, res): Promise<void> => {
   const userId = customerId(req, res); if (!userId) return;
-  const parsed = restaurantSchema.safeParse(req.query.restaurantId);
-  if (!parsed.success) { res.status(400).json({ error: 'Restaurante inválido.' }); return; }
-  const methods = await prisma.customerPaymentMethod.findMany({ where: { userId, restaurantId: parsed.data, active: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] });
+  const restaurantId = await validateActiveRestaurant(req.query.restaurantId);
+  if (!restaurantId) { res.status(400).json({ error: 'Restaurante inválido.' }); return; }
+  const methods = await withTenantDbContext(restaurantId, (db) => db.customerPaymentMethod.findMany({ where: { userId, restaurantId, active: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] }));
   res.json({ paymentMethods: methods.map(toPublicPaymentMethod) });
 });
 
@@ -131,7 +142,9 @@ router.post('/', async (req, res): Promise<void> => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Confira os dados do cartão e tente novamente.' }); return; }
   try {
-    const context = await gatewayContext(parsed.data.restaurantId);
+    const restaurantId = await validateActiveRestaurant(parsed.data.restaurantId);
+    if (!restaurantId) throw new Error('Restaurante inválido.');
+    const context = await gatewayContext(restaurantId);
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, cpf: true, phone: true, addresses: { where: { isDefault: true }, take: 1 } } });
     if (!user) throw new Error('Cliente não encontrado.');
     let providerId = '';
@@ -168,11 +181,11 @@ router.post('/', async (req, res): Promise<void> => {
       providerBrand = String(saved.creditCardBrand || saved.brand || '').trim();
     }
     if (!providerId) throw new Error(`${context.provider} não retornou o token seguro do cartão.`);
-    const count = await prisma.customerPaymentMethod.count({ where: { userId, restaurantId: parsed.data.restaurantId, active: true } });
-    const makeDefault = parsed.data.isDefault || count === 0;
-    const method = await prisma.$transaction(async (tx) => {
-      if (makeDefault) await tx.customerPaymentMethod.updateMany({ where: { userId, restaurantId: parsed.data.restaurantId }, data: { isDefault: false } });
-      return tx.customerPaymentMethod.create({ data: { userId, restaurantId: parsed.data.restaurantId, provider: context.provider, providerPaymentMethodId: providerId, providerCustomerId, brand: normalizeStoredCardBrand(providerBrand || parsed.data.brand), last4: parsed.data.last4, expMonth: parsed.data.expMonth, expYear: parsed.data.expYear, holderName: parsed.data.holderName, isDefault: makeDefault } });
+    const method = await withTenantDbContext(restaurantId, async (db) => {
+      const count = await db.customerPaymentMethod.count({ where: { userId, restaurantId, active: true } });
+      const makeDefault = parsed.data.isDefault || count === 0;
+      if (makeDefault) await db.customerPaymentMethod.updateMany({ where: { userId, restaurantId }, data: { isDefault: false } });
+      return db.customerPaymentMethod.create({ data: { userId, restaurantId, provider: context.provider, providerPaymentMethodId: providerId, providerCustomerId, brand: normalizeStoredCardBrand(providerBrand || parsed.data.brand), last4: parsed.data.last4, expMonth: parsed.data.expMonth, expYear: parsed.data.expYear, holderName: parsed.data.holderName, isDefault: makeDefault } });
     });
     res.status(201).json({ paymentMethod: toPublicPaymentMethod(method) });
   } catch (error) {
@@ -182,19 +195,31 @@ router.post('/', async (req, res): Promise<void> => {
 
 router.put('/:publicId/default', async (req, res): Promise<void> => {
   const userId = customerId(req, res); if (!userId) return;
-  const method = await prisma.customerPaymentMethod.findFirst({ where: { publicId: req.params.publicId, userId, active: true } });
-  if (!method) { res.status(404).json({ error: 'Cartão não encontrado.' }); return; }
-  const updated = await prisma.$transaction(async (tx) => { await tx.customerPaymentMethod.updateMany({ where: { userId, restaurantId: method.restaurantId }, data: { isDefault: false } }); return tx.customerPaymentMethod.update({ where: { id: method.id }, data: { isDefault: true } }); });
+  const restaurantId = await validateActiveRestaurant(req.query.restaurantId);
+  if (!restaurantId) { res.status(400).json({ error: 'Restaurante inválido.' }); return; }
+  const updated = await withTenantDbContext(restaurantId, async (db) => {
+    const method = await db.customerPaymentMethod.findFirst({ where: { publicId: req.params.publicId, userId, restaurantId, active: true } });
+    if (!method) return null;
+    await db.customerPaymentMethod.updateMany({ where: { userId, restaurantId }, data: { isDefault: false } });
+    return db.customerPaymentMethod.update({ where: { id: method.id, restaurantId }, data: { isDefault: true } });
+  });
+  if (!updated) { res.status(404).json({ error: 'Cartão não encontrado.' }); return; }
   res.json({ paymentMethod: toPublicPaymentMethod(updated) });
 });
 
 router.delete('/:publicId', async (req, res): Promise<void> => {
   const userId = customerId(req, res); if (!userId) return;
-  const method = await prisma.customerPaymentMethod.findFirst({ where: { publicId: req.params.publicId, userId, active: true } });
-  if (!method) { res.status(404).json({ error: 'Cartão não encontrado.' }); return; }
-  await prisma.customerPaymentMethod.update({ where: { id: method.id }, data: { active: false, isDefault: false } });
-  const fallback = await prisma.customerPaymentMethod.findFirst({ where: { userId, restaurantId: method.restaurantId, active: true }, orderBy: { createdAt: 'desc' } });
-  if (fallback) await prisma.customerPaymentMethod.update({ where: { id: fallback.id }, data: { isDefault: true } });
+  const restaurantId = await validateActiveRestaurant(req.query.restaurantId);
+  if (!restaurantId) { res.status(400).json({ error: 'Restaurante inválido.' }); return; }
+  const removed = await withTenantDbContext(restaurantId, async (db) => {
+    const method = await db.customerPaymentMethod.findFirst({ where: { publicId: req.params.publicId, userId, restaurantId, active: true } });
+    if (!method) return false;
+    await db.customerPaymentMethod.update({ where: { id: method.id, restaurantId }, data: { active: false, isDefault: false } });
+    const fallback = await db.customerPaymentMethod.findFirst({ where: { userId, restaurantId, active: true }, orderBy: { createdAt: 'desc' } });
+    if (fallback) await db.customerPaymentMethod.update({ where: { id: fallback.id, restaurantId }, data: { isDefault: true } });
+    return true;
+  });
+  if (!removed) { res.status(404).json({ error: 'Cartão não encontrado.' }); return; }
   res.status(204).send();
 });
 

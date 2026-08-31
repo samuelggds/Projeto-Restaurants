@@ -13,6 +13,7 @@ import { registerRealtimeTransport } from './realtime/realtimePublisher.js';
 import { createSocketIoRealtimeTransport } from './realtime/socketIoRealtimeTransport.js';
 import { createJobScheduler } from './jobs/runtime.js';
 import { safeErrorName, safeErrorSummary } from './services/telemetrySanitizer.js';
+import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
 
 const server = http.createServer(app);
 const apiJobScheduler = createJobScheduler('api');
@@ -41,11 +42,6 @@ const unregisterRealtimeTransport = registerRealtimeTransport(createSocketIoReal
 
 io.use(socketAuth);
 io.on('connection', socketHandler);
-
-server.listen(port, '0.0.0.0', () => {
-  console.log(`Servidor rodando na porta ${port}`);
-  apiJobScheduler.start();
-});
 
 let shuttingDown = false;
 
@@ -100,4 +96,23 @@ process.on('uncaughtException', (error) => {
   Sentry.captureException(error);
   void notifyCriticalError('[UNCAUGHT_EXCEPTION]', { errorType, errorSummary });
   void shutdown('SIGTERM', 1);
+});
+
+async function startServer() {
+  if (isProduction || process.env.RLS_VERIFY_RUNTIME_ROLE === 'true') {
+    await assertSecureRuntimeDatabaseRole();
+    console.info('[RLS_RUNTIME_ROLE_VERIFIED]');
+  }
+
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`Servidor rodando na porta ${port}`);
+    apiJobScheduler.start();
+  });
+}
+
+void startServer().catch(async (error) => {
+  console.error('[SERVER_START_FAILED]', { errorType: safeErrorName(error) });
+  Sentry.captureException(error);
+  await prisma.$disconnect().catch(() => undefined);
+  process.exitCode = 1;
 });
