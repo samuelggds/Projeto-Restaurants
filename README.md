@@ -1,6 +1,6 @@
 <div align="center">
 
-![Pizza IA Delivery](docs/assets/readme-hero.svg)
+![Pizza IA Delivery](docs/assets/readme-hero.png)
 
 # Pizza IA Delivery
 
