@@ -19,7 +19,7 @@ Uma plataforma Full Stack que conecta **cliente, administração, cozinha, garç
 
 ---
 
-## Visão rápida para recrutadores
+## Visão rápida 
 
 O objetivo deste repositório é demonstrar mais do que CRUD. O projeto foi evoluído como um **produto real**, com regras de negócio, múltiplos perfis, pagamentos, isolamento multi-tenant, comunicação em tempo real, rastreamento, testes automatizados e infraestrutura reproduzível.
 
