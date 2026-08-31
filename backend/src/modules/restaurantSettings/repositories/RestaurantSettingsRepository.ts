@@ -7,7 +7,7 @@ import {
   RESTAURANT_CREDENTIAL_FIELDS,
 } from '../security/credentialEncryption.js';
 
-function encryptCredentialData<T extends Record<string, any>>(
+export function encryptCredentialData<T extends Record<string, any>>(
   data: T,
   restaurantId: number | string,
 ) {
@@ -15,6 +15,11 @@ function encryptCredentialData<T extends Record<string, any>>(
   for (const field of RESTAURANT_CREDENTIAL_FIELDS) {
     if (!(field in result)) continue;
     const value = result[field];
+    // Em updates parciais o Prisma ignora `undefined`. Converter esse valor em
+    // `null` apagava todas as outras credenciais sempre que o admin alterava
+    // apenas uma configuração não sensível.
+    if (value === undefined) continue;
+    if (value && typeof value === 'object' && 'set' in value && value.set === undefined) continue;
     result[field] =
       value && typeof value === 'object' && 'set' in value
         ? {

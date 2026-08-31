@@ -1,5 +1,12 @@
 {
-  "runtime": ["nodeOsUserInfoFallback.cjs", "runAllTests.mjs", "runTsxWithOsUserInfoFallback.cjs"],
+  "runtime": [
+    "nodeOsUserInfoFallback.cjs",
+    "runAllTests.mjs",
+    "runTenantE2E.mjs",
+    "runTsxWithOsUserInfoFallback.cjs",
+    "tenantE2eDatabaseSafety.mjs",
+    "tenantE2eDatabaseSafety.test.mjs"
+  ],
   "readOnly": [
     "checkDatabaseConnection.mjs",
     "checkDatabaseConnection.ts",
