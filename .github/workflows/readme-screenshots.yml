@@ -1,0 +1,63 @@
+name: README Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/e2e/login-mobile-responsive.spec.ts'
+      - 'frontend/e2e/admin-promotions.spec.ts'
+      - 'frontend/e2e/helpers/readmeScreenshot.ts'
+      - '.github/workflows/readme-screenshots.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: readme-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture real project UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture screenshots from real E2E flows
+        working-directory: frontend
+        env:
+          CAPTURE_README_SCREENSHOTS: 'true'
+        run: >-
+          npx playwright test
+          e2e/login-mobile-responsive.spec.ts
+          e2e/admin-promotions.spec.ts
+
+      - name: Commit refreshed README screenshots
+        shell: bash
+        run: |
+          if [ -z "$(git status --porcelain docs/assets/screenshots)" ]; then
+            echo "README screenshots are already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/screenshots
+          git commit -m "docs(readme): refresh real UI screenshots"
+          git push
