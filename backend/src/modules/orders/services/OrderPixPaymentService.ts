@@ -68,6 +68,9 @@ type PaymentApprovalPayload = PaymentStatusPayload & {
 type PixPaymentPayload = {
   id?: string | number;
   status?: string;
+  external_reference?: string;
+  transaction_amount?: number;
+  currency_id?: string;
   point_of_interaction?: {
     transaction_data?: {
       qr_code?: string;
@@ -106,11 +109,18 @@ type AsaasPixQrCodePayload = {
 
 type PagBankOrderPayload = {
   id?: string;
+  reference_id?: string;
   qr_codes?: Array<{
     text?: string;
     links?: Array<{ rel?: string; href?: string }>;
   }>;
-  charges?: Array<{ status?: string }>;
+  charges?: Array<{
+    status?: string;
+    amount?: {
+      value?: number;
+      currency?: string;
+    };
+  }>;
   error_messages?: Array<{ description?: string }>;
 };
 
@@ -899,12 +909,21 @@ class OrderPixPaymentService {
         String(charge.status || '').toUpperCase(),
       );
       const isApproved = statuses.includes('PAID');
+      const approvedCharge = (result.body?.charges || []).find(
+        (charge) => String(charge.status || '').toUpperCase() === 'PAID',
+      );
+      const amountInCents = Number(approvedCharge?.amount?.value);
       return {
         paymentId: normalizedPaymentId,
         status: isApproved ? 'paid' : statuses[0] || 'waiting',
         provider: PIX_PROVIDERS.PAGBANK,
         isApproved,
         sameRestaurant: true,
+        externalReference: String(result.body?.reference_id || '').trim(),
+        amount: Number.isFinite(amountInCents) ? amountInCents / 100 : null,
+        currency: String(approvedCharge?.amount?.currency || '')
+          .trim()
+          .toUpperCase(),
         requiresStatusCheck: true,
       };
     }
@@ -924,6 +943,7 @@ class OrderPixPaymentService {
         : {};
     const paymentData = payment as PixPaymentPayload;
     const status = this.normalizePaymentStatus(paymentData?.status);
+    const amount = Number(paymentData?.transaction_amount);
     const metadataRestaurantId = String(paymentData?.metadata?.restaurant_id || '').trim();
     const normalizedRestaurantId = String(restaurantId || '').trim();
 
@@ -938,6 +958,11 @@ class OrderPixPaymentService {
       provider: PIX_PROVIDERS.MERCADO_PAGO,
       isApproved: APPROVED_PAYMENT_STATUSES.has(status),
       sameRestaurant,
+      externalReference: String(paymentData?.external_reference || '').trim(),
+      amount: Number.isFinite(amount) ? amount : null,
+      currency: String(paymentData?.currency_id || '')
+        .trim()
+        .toUpperCase(),
       requiresStatusCheck: true,
     };
   }
@@ -962,38 +987,36 @@ class OrderPixPaymentService {
       throw new Error('Pagamento PIX ainda não foi aprovado.');
     }
 
-    if (statusResult.provider === PIX_PROVIDERS.ASAAS) {
-      const normalizedRestaurantId = Number(restaurantId || 0);
-      const normalizedOrderId = Number(expectedOrderId || 0);
-      const expectedAmountInCents = toCurrencyCents(expectedAmount);
-      const actualAmountInCents = toCurrencyCents(statusResult.amount);
-      const normalizedExpectedCurrency = String(expectedCurrency || '')
-        .trim()
-        .toUpperCase();
+    const normalizedRestaurantId = Number(restaurantId || 0);
+    const normalizedOrderId = Number(expectedOrderId || 0);
+    const expectedAmountInCents = toCurrencyCents(expectedAmount);
+    const actualAmountInCents = toCurrencyCents(statusResult.amount);
+    const normalizedExpectedCurrency = String(expectedCurrency || '')
+      .trim()
+      .toUpperCase();
 
-      if (
-        !Number.isInteger(normalizedRestaurantId) ||
-        normalizedRestaurantId <= 0 ||
-        !Number.isInteger(normalizedOrderId) ||
-        normalizedOrderId <= 0 ||
-        expectedAmountInCents === null ||
-        !normalizedExpectedCurrency
-      ) {
-        throw new Error('Não foi possível validar o vínculo do pagamento PIX com o pedido.');
-      }
+    if (
+      !Number.isInteger(normalizedRestaurantId) ||
+      normalizedRestaurantId <= 0 ||
+      !Number.isInteger(normalizedOrderId) ||
+      normalizedOrderId <= 0 ||
+      expectedAmountInCents === null ||
+      !normalizedExpectedCurrency
+    ) {
+      throw new Error('Não foi possível validar o vínculo do pagamento PIX com o pedido.');
+    }
 
-      const expectedReference = `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
-      if (statusResult.externalReference !== expectedReference) {
-        throw new Error('Pagamento PIX não corresponde ao pedido informado.');
-      }
+    const expectedReference = `orderpix:${normalizedRestaurantId}:${normalizedOrderId}`;
+    if (statusResult.externalReference !== expectedReference) {
+      throw new Error('Pagamento PIX não corresponde ao pedido informado.');
+    }
 
-      if (actualAmountInCents === null || actualAmountInCents !== expectedAmountInCents) {
-        throw new Error('O valor do pagamento PIX não corresponde ao total do pedido.');
-      }
+    if (actualAmountInCents === null || actualAmountInCents !== expectedAmountInCents) {
+      throw new Error('O valor do pagamento PIX não corresponde ao total do pedido.');
+    }
 
-      if (statusResult.currency !== normalizedExpectedCurrency) {
-        throw new Error('A moeda do pagamento PIX não corresponde à moeda do pedido.');
-      }
+    if (statusResult.currency !== normalizedExpectedCurrency) {
+      throw new Error('A moeda do pagamento PIX não corresponde à moeda do pedido.');
     }
 
     return statusResult;
