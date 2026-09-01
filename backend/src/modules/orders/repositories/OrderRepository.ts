@@ -578,6 +578,28 @@ class OrderRepository {
     });
   }
 
+  async findCardPaymentStatusByPublicId(
+    publicId: string,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findFirst({
+      where: { publicId, restaurantId },
+      select: {
+        publicId: true,
+        restaurantId: true,
+        userId: true,
+        type: true,
+        tableSessionId: true,
+        participantId: true,
+        paymentMethod: true,
+        payOnDelivery: true,
+        paid: true,
+        status: true,
+      },
+    });
+  }
+
   async findByPublicIdForTableParticipant(
     publicId: string,
     tableSessionId: number,

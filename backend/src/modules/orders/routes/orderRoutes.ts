@@ -16,6 +16,7 @@ import GenerateOrderPaymentConfirmationPinController from '../controllers/Genera
 import RequestOrderPaymentConfirmationPinController from '../controllers/RequestOrderPaymentConfirmationPinController.js';
 import CreateOrderPixPaymentController from '../controllers/CreateOrderPixPaymentController.js';
 import CreateOrderCardCheckoutController from '../controllers/CreateOrderCardCheckoutController.js';
+import GetOrderCardPaymentStatusController from '../controllers/GetOrderCardPaymentStatusController.js';
 import GetOrderPixPaymentStatusController from '../controllers/GetOrderPixPaymentStatusController.js';
 import ConfirmOrderPixPaymentController from '../controllers/ConfirmOrderPixPaymentController.js';
 import ReportOrderIssueController from '../controllers/ReportOrderIssueController.js';
@@ -62,6 +63,10 @@ router.post('/pix/payment', orderAccessMiddleware, billingMiddleware, (req, res)
 
 router.post('/card/checkout', orderAccessMiddleware, billingMiddleware, (req, res) => {
   CreateOrderCardCheckoutController.handle(req, res);
+});
+
+router.post('/card/checkout/status', orderAccessMiddleware, billingMiddleware, (req, res) => {
+  GetOrderCardPaymentStatusController.handle(req, res);
 });
 
 router.post('/pix/payment/status', orderAccessMiddleware, billingMiddleware, (req, res) => {

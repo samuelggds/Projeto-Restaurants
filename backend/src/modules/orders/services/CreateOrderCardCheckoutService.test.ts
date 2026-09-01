@@ -198,6 +198,7 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
 
   createOrderService.execute = async () => ({
     id: 654,
+    publicId: '123e4567-e89b-42d3-a456-426614174001',
     restaurantId: 9,
     total: 112.5,
     systemFee: 4.5,
@@ -267,6 +268,7 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
     customerName: 'Ana Souza',
     customerCpf: '12345678901',
     customerPhone: '11999888777',
+    successUrl: 'https://pedido.local/card-return',
   });
 
   assert.equal(result.orderId, 654);
@@ -280,6 +282,11 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
   assert.equal(paymentBodies[1].split, undefined);
   assert.equal(paymentBodies[0].externalReference, 'ordercard:654:9');
   assert.equal(paymentBodies[1].externalReference, 'ordercard:654:9');
+  assert.deepEqual(paymentBodies[1].callback, {
+    successUrl:
+      'https://pedido.local/card-return?cardCheckoutStatus=success&orderPublicId=123e4567-e89b-42d3-a456-426614174001',
+    autoRedirect: true,
+  });
 });
 
 test('deve reutilizar token Asaas sem expor os dados completos do cartão', async () => {

@@ -11,6 +11,7 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 type CheckoutOrder = {
   id: number;
+  publicId: string;
   restaurantId: number;
   total: number | string | { toString(): string } | null;
   systemFee?: number | string | { toString(): string } | null;
@@ -311,11 +312,11 @@ const stripeCardCheckoutProvider: CardCheckoutProviderHandler = {
       },
       success_url: withQueryParam(successUrlBase, {
         cardCheckoutStatus: 'success',
-        orderId: String(order.id),
+        orderPublicId: order.publicId,
       }),
       cancel_url: withQueryParam(cancelUrlBase, {
         cardCheckoutStatus: 'cancel',
-        orderId: String(order.id),
+        orderPublicId: order.publicId,
       }),
     });
 
@@ -381,15 +382,15 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
       back_urls: {
         success: withQueryParam(successUrlBase, {
           cardCheckoutStatus: 'success',
-          orderId: String(order.id),
+          orderPublicId: order.publicId,
         }),
         failure: withQueryParam(cancelUrlBase, {
           cardCheckoutStatus: 'cancel',
-          orderId: String(order.id),
+          orderPublicId: order.publicId,
         }),
         pending: withQueryParam(successUrlBase, {
           cardCheckoutStatus: 'pending',
-          orderId: String(order.id),
+          orderPublicId: order.publicId,
         }),
       },
     });
@@ -559,7 +560,7 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
         persistenceSessionId: `pagbank_tx:${transactionId}`,
         checkoutUrl: withQueryParam(successUrlBase, {
           cardCheckoutStatus: paymentApproved ? 'success' : 'pending',
-          orderId: String(order.id),
+          orderPublicId: order.publicId,
         }),
         paymentApproved,
       };
@@ -578,7 +579,7 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
       'redirectURL',
       withQueryParam(successUrlBase, {
         cardCheckoutStatus: 'success',
-        orderId: String(order.id),
+        orderPublicId: order.publicId,
       }),
     );
 
@@ -693,7 +694,7 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
         persistenceSessionId: `asaas_pay:${sessionId}`,
         checkoutUrl: withQueryParam(successUrlBase, {
           cardCheckoutStatus: paymentApproved ? 'success' : 'pending',
-          orderId: String(order.id),
+          orderPublicId: order.publicId,
         }),
         paymentApproved,
       };
@@ -747,6 +748,13 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
       dueDate: new Date().toISOString().slice(0, 10),
       description: `Pedido #${order.id}`,
       externalReference: `ordercard:${order.id}:${order.restaurantId}`,
+      callback: {
+        successUrl: withQueryParam(successUrlBase, {
+          cardCheckoutStatus: 'success',
+          orderPublicId: order.publicId,
+        }),
+        autoRedirect: true,
+      },
       ...(includeSplit && systemFee > 0 && platformWalletId
         ? {
             split: [

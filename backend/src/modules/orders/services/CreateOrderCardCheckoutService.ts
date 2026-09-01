@@ -72,6 +72,7 @@ class CreateOrderCardCheckoutService {
         payload,
         order: {
           id: createdOrder.id,
+          publicId: createdOrder.publicId,
           restaurantId: createdOrder.restaurantId,
           total: createdOrder.total,
           systemFee: createdOrder.systemFee,
@@ -124,6 +125,7 @@ class CreateOrderCardCheckoutService {
 
     return {
       orderId: createdOrder.id,
+      orderPublicId: createdOrder.publicId,
       provider: checkout.provider,
       sessionId: checkout.sessionId,
       checkoutUrl: checkout.checkoutUrl,
