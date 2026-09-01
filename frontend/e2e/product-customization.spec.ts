@@ -252,7 +252,9 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await page.getByText('Queijo especial').click();
   await page.getByPlaceholder(/Adicione aqui uma observação/).fill('Embalagem separada');
   await expect(page.getByText('R$ 38,00').last()).toBeVisible();
-  await dialog.getByRole('button', { name: /Adicionar/ }).click();
+  const addButton = dialog.getByRole('button', { name: 'Adicionar à sacola' });
+  await expect(addButton).toHaveAccessibleDescription('R$ 38,00');
+  await addButton.click();
 
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await expect(page.getByText('Base grossa')).toBeVisible();
