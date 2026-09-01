@@ -27,6 +27,7 @@ import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoute
 import superAdminRoutes from '../modules/superAdmin/routes/SuperAdminRoutes.js';
 import publicMediaRoutes from '../modules/publicMedia/routes/PublicMediaRoutes.js';
 import customerPaymentMethodRoutes from '../modules/customerPaymentMethods/routes/CustomerPaymentMethodRoutes.js';
+import kitchenPrintingRoutes from '../modules/kitchenPrinting/routes/KitchenPrintingRoutes.js';
 
 const router = Router();
 
@@ -60,6 +61,7 @@ router.use('/favorites', favoriteRoutes);
 router.use('/image-enhancement', imageEnhancementRoutes);
 router.use('/customer-addresses', customerAddressRoutes);
 router.use('/customer-payment-methods', customerPaymentMethodRoutes);
+router.use('/kitchen-printing', kitchenPrintingRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/public-media', publicMediaRoutes);
 

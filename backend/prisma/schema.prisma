@@ -60,6 +60,7 @@ model User {
   requestedAsaasWithdrawals     AsaasWithdrawalRequest[]
   oauthAuthorizationStates      OAuthAuthorizationState[]
   paymentMethods                CustomerPaymentMethod[]
+  requestedKitchenPrintJobs     KitchenPrintJob[]         @relation("KitchenPrintJobRequester")
 }
 
 /// Configuracao publica e operacional da plataforma. Segredos e politicas que
@@ -174,6 +175,80 @@ model Restaurant {
   tableAccountSettings     TableAccountSettings?
   deliveryFeeRanges        DeliveryFeeRange[]
   customerPaymentMethods   CustomerPaymentMethod[]
+  printerSettings          RestaurantPrinterSettings?
+  printerAgentDevices      PrinterAgentDevice[]
+  kitchenPrintJobs         KitchenPrintJob[]
+}
+
+model RestaurantPrinterSettings {
+  id               Int                     @id @default(autoincrement())
+  restaurantId     Int                     @unique
+  enabled          Boolean                 @default(false)
+  autoPrintEnabled Boolean                 @default(false)
+  autoPrintTrigger PrinterAutoPrintTrigger @default(NEW_ORDER)
+  paperWidth       PrinterPaperWidth       @default(MM80)
+  copies           Int                     @default(1)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  restaurant       Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, enabled, autoPrintEnabled])
+}
+
+/// Credencial de bootstrap do agente local. Esta tabela fica deliberadamente
+/// fora do RLS porque o tenant ainda precisa ser descoberto a partir do
+/// publicId + segredo antes de abrir o contexto tenant. Somente hash é salvo.
+model PrinterAgentDevice {
+  id           Int               @id @default(autoincrement())
+  publicId     String            @unique @default(uuid())
+  restaurantId Int
+  name         String
+  active       Boolean           @default(true)
+  tokenHash    String
+  printerName  String?
+  lastSeenAt   DateTime?
+  appVersion   String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  claimedJobs  KitchenPrintJob[]
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, active, lastSeenAt])
+}
+
+model KitchenPrintJob {
+  id                Int                      @id @default(autoincrement())
+  publicId          String                   @unique @default(uuid())
+  restaurantId      Int
+  orderId           Int?
+  type              KitchenPrintJobType
+  source            KitchenPrintJobSource
+  trigger           PrinterAutoPrintTrigger?
+  status            KitchenPrintJobStatus    @default(PENDING)
+  payloadVersion    Int                      @default(1)
+  payload           Json
+  paperWidth        PrinterPaperWidth
+  copies            Int                      @default(1)
+  attempts          Int                      @default(0)
+  availableAt       DateTime                 @default(now())
+  claimedAt         DateTime?
+  leaseExpiresAt    DateTime?
+  claimedByDeviceId Int?
+  printedAt         DateTime?
+  lastError         String?                  @db.VarChar(1000)
+  deduplicationKey  String                   @unique @db.VarChar(191)
+  requestedByUserId Int?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  restaurant        Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order             Order?                   @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  claimedByDevice   PrinterAgentDevice?      @relation(fields: [claimedByDeviceId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  requestedByUser   User?                    @relation("KitchenPrintJobRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status, availableAt, createdAt])
+  @@index([restaurantId, orderId, createdAt])
+  @@index([claimedByDeviceId, leaseExpiresAt])
 }
 
 model CustomerPaymentMethod {
@@ -575,6 +650,7 @@ model Order {
   coupon                          Coupon?                    @relation(fields: [couponId], references: [id], onDelete: SetNull)
   couponRedemption                CouponRedemption?          @relation(fields: [couponRedemptionId], references: [id], onDelete: SetNull)
   billItems                       TableBillItem[]
+  kitchenPrintJobs                KitchenPrintJob[]
 
   @@unique([id, restaurantId])
   @@unique([id, restaurantId, tableSessionId, participantId])
@@ -1181,6 +1257,35 @@ enum PaymentMethod {
   PIX
   CARTAO
   DINHEIRO
+}
+
+enum PrinterAutoPrintTrigger {
+  NEW_ORDER
+  PAYMENT_CONFIRMED
+}
+
+enum PrinterPaperWidth {
+  MM58
+  MM80
+}
+
+enum KitchenPrintJobType {
+  ORDER
+  TEST
+}
+
+enum KitchenPrintJobSource {
+  AUTOMATIC
+  MANUAL
+  TEST
+}
+
+enum KitchenPrintJobStatus {
+  PENDING
+  PROCESSING
+  PRINTED
+  FAILED
+  CANCELLED
 }
 
 enum OrderRefundStatus {

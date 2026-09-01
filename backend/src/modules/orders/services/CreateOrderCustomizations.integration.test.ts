@@ -97,6 +97,12 @@ test('persiste opções agrupadas e observação do item ao criar o pedido', asy
   const persistedItems = [];
   const tx = {
     $queryRaw: async () => [],
+    restaurantPrinterSettings: {
+      findFirst: async ({ where }) => {
+        assert.deepEqual(where, { restaurantId: 7, enabled: true });
+        return null;
+      },
+    },
     restaurantSettings: {
       findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0 }),
     },
@@ -318,6 +324,12 @@ test('pedido de mesa convidado vincula participante e cria uma unidade financeir
   };
   const tx = {
     $queryRaw: async () => [],
+    restaurantPrinterSettings: {
+      findFirst: async ({ where }) => {
+        assert.deepEqual(where, { restaurantId: 7, enabled: true });
+        return null;
+      },
+    },
     restaurantSettings: {
       findUnique: async () => ({
         deliveryFee: 0,

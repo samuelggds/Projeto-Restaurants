@@ -24,8 +24,10 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
       - run: npm --prefix backend ci
       - run: npm --prefix frontend ci
+      - run: npm --prefix print-agent ci
       - name: Check architecture constraints
         run: npm run check:architecture
 
@@ -49,12 +51,16 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
 
       - name: Install backend dependencies
         run: npm --prefix backend ci
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
+
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
 
       - name: ESLint backend and frontend (fail on warnings)
         run: npm run lint
@@ -90,12 +96,16 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
 
       - name: Install backend dependencies
         run: npm --prefix backend ci
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
+
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
 
       - name: Typecheck backend
         run: npm --prefix backend run typecheck
@@ -114,6 +124,9 @@ jobs:
 
       - name: Typecheck frontend
         run: npm --prefix frontend run typecheck
+
+      - name: Typecheck Print Agent
+        run: npm --prefix print-agent run typecheck
 
   # ─────────────────────────────────────────────
   # 3. TESTS — regras e contratos na camada mais baixa possível
@@ -137,12 +150,16 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
 
       - name: Install backend dependencies
         run: npm --prefix backend ci
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
+
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
 
       - name: Run all discovered backend tests
         shell: bash
@@ -173,6 +190,9 @@ jobs:
           path: frontend-test.log
           if-no-files-found: error
           retention-days: 3
+
+      - name: Run Print Agent tests without hardware
+        run: npm --prefix print-agent test
 
   # Banco limpo + servidor Express/Socket.IO real. Este job não usa o banco
   # compartilhado de desenvolvimento e falha diante de qualquer vazamento A -> B.
@@ -254,12 +274,16 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
 
       - name: Install backend dependencies
         run: npm --prefix backend ci
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
+
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
 
       - name: Audit backend packages
         # react-router GHSA-qwww-vcr4-c8h2 is RSC-only; this is a Vite SPA — not affected
@@ -268,6 +292,9 @@ jobs:
       - name: Audit frontend packages
         # react-router GHSA-qwww-vcr4-c8h2 is RSC-only; this is a Vite SPA — not affected
         run: npm --prefix frontend audit --audit-level=high
+
+      - name: Audit Print Agent packages
+        run: npm --prefix print-agent audit --audit-level=high
 
   # ─────────────────────────────────────────────
   # 5. BUILD — vite build + tsup (only after all checks pass)
@@ -287,6 +314,7 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
 
       - name: Install backend dependencies
         run: npm --prefix backend ci
@@ -294,11 +322,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
 
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
+
       - name: Build backend (tsup)
         run: npm --prefix backend run build
 
       - name: Build frontend (Vite)
         run: npm --prefix frontend run build
+
+      - name: Lint and build Print Agent
+        run: npm --prefix print-agent run lint && npm --prefix print-agent run build
 
       - name: Enforce frontend bundle budget
         run: npm run check:bundle

@@ -32,17 +32,18 @@ Do primeiro acesso ao cardápio até a entrega: uma operação integrada para **
 
 O **Pizza IA Delivery** foi desenvolvido como um produto operacional completo, não apenas como um CRUD. Cada restaurante possui sua identidade, configurações, catálogo, equipe, pedidos e integrações isolados por tenant. A plataforma conecta o atendimento público às áreas internas e mantém todos os perfis trabalhando sobre a mesma fonte de verdade.
 
-| Pilar | O que está implementado |
-| --- | --- |
-| **Multi-restaurante** | Contexto por `restaurantId`, slug público, branding e dados isolados por tenant |
-| **Venda omnichannel** | Pedidos de `DELIVERY`, `RETIRADA` e `MESA` com regras próprias |
-| **Operação em tempo real** | Socket.IO para pedidos, cozinha, salão, suporte e localização da entrega |
-| **Cardápio flexível** | Categorias, estoque, imagens, grupos de opções, ingredientes e observações |
-| **Pagamentos** | Pix, cartão, pagamento na entrega, conta da mesa, webhooks e reconciliação |
-| **Entrega inteligente** | Cotação por distância, providers de rota, GPS e acompanhamento do cliente |
-| **Fidelização** | Promoções por produto, cupons, carteira e campanhas de compras recorrentes |
-| **SaaS** | Planos, mensalidades, bloqueios financeiros e administração da plataforma |
-| **Confiabilidade** | Testes automatizados, auditoria, observabilidade, health checks e CI completo |
+| Pilar                      | O que está implementado                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| **Multi-restaurante**      | Contexto por `restaurantId`, slug público, branding e dados isolados por tenant          |
+| **Venda omnichannel**      | Pedidos de `DELIVERY`, `RETIRADA` e `MESA` com regras próprias                           |
+| **Operação em tempo real** | Socket.IO para pedidos, cozinha, salão, suporte e localização da entrega                 |
+| **Cardápio flexível**      | Categorias, estoque, imagens, grupos de opções, ingredientes e observações               |
+| **Pagamentos**             | Pix, cartão, pagamento na entrega, conta da mesa, webhooks e reconciliação               |
+| **Entrega inteligente**    | Cotação por distância, providers de rota, GPS e acompanhamento do cliente                |
+| **Fidelização**            | Promoções por produto, cupons, carteira e campanhas de compras recorrentes               |
+| **SaaS**                   | Planos, mensalidades, bloqueios financeiros e administração da plataforma                |
+| **Confiabilidade**         | Testes automatizados, auditoria, observabilidade, health checks e CI completo            |
+| **Impressão de cozinha**   | Fila PostgreSQL durável, Print Agent local, 58/80 mm, retry e isolamento por restaurante |
 
 ### Como os perfis se conectam
 
@@ -82,13 +83,13 @@ A Home é a vitrine digital de cada restaurante. O slug identifica o tenant, apl
 
 ### O que acontece por trás da interface
 
-| Etapa | Garantia do sistema |
-| --- | --- |
-| Resolução da loja | O restaurante é localizado pelo slug e o contexto acompanha toda a jornada |
-| Catálogo | Produtos, categorias e imagens são filtrados pelo tenant e disponibilidade |
-| Montagem | Regras de seleção são validadas novamente no backend |
-| Cotação | Subtotal, descontos, cupom e entrega não dependem do valor enviado pelo navegador |
-| Pedido | O canal escolhido determina endereço, mesa, pagamento e fluxo operacional |
+| Etapa             | Garantia do sistema                                                               |
+| ----------------- | --------------------------------------------------------------------------------- |
+| Resolução da loja | O restaurante é localizado pelo slug e o contexto acompanha toda a jornada        |
+| Catálogo          | Produtos, categorias e imagens são filtrados pelo tenant e disponibilidade        |
+| Montagem          | Regras de seleção são validadas novamente no backend                              |
+| Cotação           | Subtotal, descontos, cupom e entrega não dependem do valor enviado pelo navegador |
+| Pedido            | O canal escolhido determina endereço, mesa, pagamento e fluxo operacional         |
 
 ---
 
@@ -121,14 +122,14 @@ A autenticação preserva a identidade do restaurante em qualquer tamanho de tel
 
 ### Destino após o login
 
-| Papel | Área principal |
-| --- | --- |
-| Cliente | Home ou destino protegido solicitado anteriormente |
-| Administrador | `/admin` |
-| Funcionário da cozinha | `/kitchen` |
-| Garçom | `/waiter` |
-| Motoqueiro | `/courier` |
-| Superadministrador | `/super_admin` |
+| Papel                  | Área principal                                     |
+| ---------------------- | -------------------------------------------------- |
+| Cliente                | Home ou destino protegido solicitado anteriormente |
+| Administrador          | `/admin`                                           |
+| Funcionário da cozinha | `/kitchen`                                         |
+| Garçom                 | `/waiter`                                          |
+| Motoqueiro             | `/courier`                                         |
+| Superadministrador     | `/super_admin`                                     |
 
 ---
 
@@ -140,15 +141,15 @@ O painel administrativo reúne gestão e operação em uma única experiência. 
 
 ### Áreas do painel
 
-| Área | Responsabilidade |
-| --- | --- |
-| **Visão geral** | Indicadores do dia, pedidos recentes e disponibilidade do catálogo |
-| **Pedidos** | Busca, filtros, status, pagamento, cancelamento e reembolso |
-| **Cardápio** | Produtos, categorias, preços, estoque, imagens e opções de montagem |
-| **Clientes** | Histórico de consumo, dados públicos e relacionamento |
-| **Funcionários** | Convites, funções, ativação e permissões da equipe |
-| **Cobranças e assinaturas** | Plano contratado, mensalidade, faturas e regularização |
-| **Configurações** | Marca, negócio, endereço, horários, operação e integrações |
+| Área                        | Responsabilidade                                                    |
+| --------------------------- | ------------------------------------------------------------------- |
+| **Visão geral**             | Indicadores do dia, pedidos recentes e disponibilidade do catálogo  |
+| **Pedidos**                 | Busca, filtros, status, pagamento, cancelamento e reembolso         |
+| **Cardápio**                | Produtos, categorias, preços, estoque, imagens e opções de montagem |
+| **Clientes**                | Histórico de consumo, dados públicos e relacionamento               |
+| **Funcionários**            | Convites, funções, ativação e permissões da equipe                  |
+| **Cobranças e assinaturas** | Plano contratado, mensalidade, faturas e regularização              |
+| **Configurações**           | Marca, negócio, endereço, horários, operação e integrações          |
 
 ### Configurações disponíveis
 
@@ -191,12 +192,12 @@ O painel do garçom prioriza o que precisa de atenção no salão. A interface s
 
 ### Fluxos disponíveis
 
-| Seção | Ações principais |
-| --- | --- |
-| **Para entregar** | Filtrar pedidos prontos, conferir mesa e marcar entrega ao cliente |
-| **Mesas e QR Codes** | Abrir/fechar sessão, visualizar QR e consultar estado operacional |
-| **Chamados** | Assumir, acompanhar e concluir solicitações de garçom ou conta |
-| **Conta da mesa** | Consultar itens, pagamentos, saldo e meios presenciais permitidos |
+| Seção                | Ações principais                                                   |
+| -------------------- | ------------------------------------------------------------------ |
+| **Para entregar**    | Filtrar pedidos prontos, conferir mesa e marcar entrega ao cliente |
+| **Mesas e QR Codes** | Abrir/fechar sessão, visualizar QR e consultar estado operacional  |
+| **Chamados**         | Assumir, acompanhar e concluir solicitações de garçom ou conta     |
+| **Conta da mesa**    | Consultar itens, pagamentos, saldo e meios presenciais permitidos  |
 
 O QR Code só libera pedidos enquanto a sessão da mesa estiver válida. O fechamento respeita pedidos, pagamentos e saldo pendentes, reduzindo divergências entre o salão e o sistema.
 
@@ -453,17 +454,17 @@ O projeto possui áreas para importação de cardápio, suporte assistido e melh
 
 A segurança é aplicada em camadas e coberta por testes de comportamento.
 
-| Camada | Proteções principais |
-| --- | --- |
-| **Sessão** | Access token curto, refresh rotativo, cookie `HttpOnly` e revogação por versão |
-| **Credenciais** | Política forte, bcrypt, recuperação controlada e troca obrigatória |
-| **MFA** | Obrigatório para papéis configurados, desafios com expiração e limite de tentativas |
-| **Autorização** | Papel, subpapel, conta ativa, tenant e recurso verificados no backend |
-| **Abuso** | Rate limiting, lockout progressivo e limites específicos por fluxo |
-| **HTTP** | Helmet, CORS restrito, proteção cross-site e limites de payload |
-| **Pagamentos** | Assinatura, idempotência, conferência de valor/moeda/provider e reconciliação |
-| **Telemetria** | Redação de tokens, PII, credenciais, query strings e stacks sensíveis |
-| **Produção** | Validação de ambiente, HTTPS, segredos independentes e fingerprint do banco |
+| Camada          | Proteções principais                                                                |
+| --------------- | ----------------------------------------------------------------------------------- |
+| **Sessão**      | Access token curto, refresh rotativo, cookie `HttpOnly` e revogação por versão      |
+| **Credenciais** | Política forte, bcrypt, recuperação controlada e troca obrigatória                  |
+| **MFA**         | Obrigatório para papéis configurados, desafios com expiração e limite de tentativas |
+| **Autorização** | Papel, subpapel, conta ativa, tenant e recurso verificados no backend               |
+| **Abuso**       | Rate limiting, lockout progressivo e limites específicos por fluxo                  |
+| **HTTP**        | Helmet, CORS restrito, proteção cross-site e limites de payload                     |
+| **Pagamentos**  | Assinatura, idempotência, conferência de valor/moeda/provider e reconciliação       |
+| **Telemetria**  | Redação de tokens, PII, credenciais, query strings e stacks sensíveis               |
+| **Produção**    | Validação de ambiente, HTTPS, segredos independentes e fingerprint do banco         |
 
 Nunca versione `.env`, tokens, senhas, chaves privadas ou credenciais dos gateways. Utilize os arquivos `.example` apenas como contrato de configuração.
 
@@ -471,15 +472,15 @@ Nunca versione `.env`, tokens, senhas, chaves privadas ou credenciais dos gatewa
 
 # Stack técnica
 
-| Camada | Tecnologias |
-| --- | --- |
-| Frontend | React 19, Vite, TypeScript, React Router, Styled Components, Axios e Lucide |
-| Backend | Node.js, Express 5, TypeScript, Prisma e Socket.IO |
-| Banco | PostgreSQL + migrations Prisma |
-| Mapas | Leaflet, Geolocation API e providers de routing |
-| Qualidade | Vitest, Node Test Runner, Playwright, ESLint, Prettier e TypeScript |
-| Observabilidade | Sentry, request IDs, logs estruturados, health/readiness e alertas |
-| Infraestrutura | Docker Compose, Caddy/Nginx e configurações por ambiente |
+| Camada          | Tecnologias                                                                 |
+| --------------- | --------------------------------------------------------------------------- |
+| Frontend        | React 19, Vite, TypeScript, React Router, Styled Components, Axios e Lucide |
+| Backend         | Node.js, Express 5, TypeScript, Prisma e Socket.IO                          |
+| Banco           | PostgreSQL + migrations Prisma                                              |
+| Mapas           | Leaflet, Geolocation API e providers de routing                             |
+| Qualidade       | Vitest, Node Test Runner, Playwright, ESLint, Prettier e TypeScript         |
+| Observabilidade | Sentry, request IDs, logs estruturados, health/readiness e alertas          |
+| Infraestrutura  | Docker Compose, Caddy/Nginx e configurações por ambiente                    |
 
 ---
 
@@ -584,29 +585,29 @@ npm --prefix backend run dev
 npm --prefix frontend run dev
 ```
 
-| Serviço | URL padrão |
-| --- | --- |
-| Frontend | `http://localhost:5173` |
-| Backend | `http://localhost:3000` |
-| Health | `http://localhost:3000/health` |
-| Readiness | `http://localhost:3000/ready` |
-| PostgreSQL | `localhost:5432` |
+| Serviço    | URL padrão                     |
+| ---------- | ------------------------------ |
+| Frontend   | `http://localhost:5173`        |
+| Backend    | `http://localhost:3000`        |
+| Health     | `http://localhost:3000/health` |
+| Readiness  | `http://localhost:3000/ready`  |
+| PostgreSQL | `localhost:5432`               |
 
 > Não execute ao mesmo tempo dois backends publicando a porta `3000`. No Windows, um processo antigo nessa porta também pode manter o binário do Prisma bloqueado.
 
 ## Comandos úteis
 
-| Comando | Finalidade |
-| --- | --- |
-| `npm run ci` | Validação completa sem reinstalar dependências |
-| `npm run ci:clean` | Instalação limpa + validação completa |
-| `npm run lint` | ESLint backend e frontend |
-| `npm run typecheck` | TypeScript backend e frontend |
-| `npm run test` | Todos os testes unitários e de integração |
-| `npm run test:e2e:critical` | Jornadas E2E críticas |
-| `npm run build` | Builds de produção + relatório de tamanho |
-| `npm run check:bundle` | Orçamento máximo dos chunks |
-| `npm --prefix backend run db:studio` | Abre o Prisma Studio |
+| Comando                              | Finalidade                                     |
+| ------------------------------------ | ---------------------------------------------- |
+| `npm run ci`                         | Validação completa sem reinstalar dependências |
+| `npm run ci:clean`                   | Instalação limpa + validação completa          |
+| `npm run lint`                       | ESLint backend e frontend                      |
+| `npm run typecheck`                  | TypeScript backend e frontend                  |
+| `npm run test`                       | Todos os testes unitários e de integração      |
+| `npm run test:e2e:critical`          | Jornadas E2E críticas                          |
+| `npm run build`                      | Builds de produção + relatório de tamanho      |
+| `npm run check:bundle`               | Orçamento máximo dos chunks                    |
+| `npm --prefix backend run db:studio` | Abre o Prisma Studio                           |
 
 ---
 
@@ -623,6 +624,7 @@ O repositório separa ambientes locais, roteamento e produção. Antes de public
 - [Checklist para 100 restaurantes](INFRA_CHECKLIST_100_RESTAURANTS.md)
 - [Teste de carga](LOAD_TEST_100_RESTAURANTS.md)
 - [Critérios de go-live](GO_LIVE_CRITERIA_100_RESTAURANTS.md)
+- [Impressão operacional da cozinha](docs/kitchen-printing.md)
 
 ---
 
@@ -642,6 +644,7 @@ O repositório separa ambientes locais, roteamento e produção. Antes de public
 │       ├── contexts/              autenticação e estado global
 │       ├── routes/                composição e autorização de rotas
 │       └── modules/features/      módulos compartilhados
+├── print-agent/                   agente local e transporte do spooler Windows
 ├── docs/assets/                   diagramas e capturas reais
 ├── scripts/                       gates de qualidade do monorepo
 ├── deploy/                        proxy, HTTPS e arquivos operacionais

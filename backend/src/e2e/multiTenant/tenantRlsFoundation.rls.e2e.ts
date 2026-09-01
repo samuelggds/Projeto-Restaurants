@@ -67,6 +67,36 @@ test(
         expYear: 2099,
       },
     });
+    const printerSettingsA = await prisma.restaurantPrinterSettings.create({
+      data: { restaurantId: fixture.restaurants.a.id, enabled: true },
+    });
+    const printerSettingsB = await prisma.restaurantPrinterSettings.create({
+      data: { restaurantId: fixture.restaurants.b.id, enabled: true },
+    });
+    const printJobA = await prisma.kitchenPrintJob.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        orderId: fixture.orders.a.id,
+        type: 'ORDER',
+        source: 'AUTOMATIC',
+        trigger: 'NEW_ORDER',
+        payload: { version: 1, kind: 'ORDER', tenant: 'A' },
+        paperWidth: 'MM80',
+        deduplicationKey: `AUTO:KITCHEN:ORDER:${fixture.orders.a.id}`,
+      },
+    });
+    const printJobB = await prisma.kitchenPrintJob.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        orderId: fixture.orders.b.id,
+        type: 'ORDER',
+        source: 'AUTOMATIC',
+        trigger: 'NEW_ORDER',
+        payload: { version: 1, kind: 'ORDER', tenant: 'B' },
+        paperWidth: 'MM58',
+        deduplicationKey: `AUTO:KITCHEN:ORDER:${fixture.orders.b.id}`,
+      },
+    });
 
     try {
       await t.test(
@@ -92,12 +122,19 @@ test(
         JOIN pg_catalog.pg_namespace AS namespaces
           ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'public'
-          AND relations.relname IN ('CustomerPaymentMethod', 'OrderIssueThread')
+          AND relations.relname IN (
+            'CustomerPaymentMethod',
+            'KitchenPrintJob',
+            'OrderIssueThread',
+            'RestaurantPrinterSettings'
+          )
         ORDER BY relations.relname
       `;
         assert.deepEqual(tables, [
           { table_name: 'CustomerPaymentMethod', rls_enabled: true, rls_forced: true },
+          { table_name: 'KitchenPrintJob', rls_enabled: true, rls_forced: true },
           { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
+          { table_name: 'RestaurantPrinterSettings', rls_enabled: true, rls_forced: true },
         ]);
 
         const policies = await runtimePrisma.$queryRaw<
@@ -121,10 +158,15 @@ test(
         JOIN pg_catalog.pg_class AS relations ON relations.oid = policies.polrelid
         JOIN pg_catalog.pg_namespace AS namespaces ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'public'
-          AND relations.relname IN ('CustomerPaymentMethod', 'OrderIssueThread')
+          AND relations.relname IN (
+            'CustomerPaymentMethod',
+            'KitchenPrintJob',
+            'OrderIssueThread',
+            'RestaurantPrinterSettings'
+          )
         ORDER BY relations.relname
       `;
-        assert.equal(policies.length, 2);
+        assert.equal(policies.length, 4);
         for (const policy of policies) {
           assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
           assert.equal(policy.is_permissive, true);
@@ -167,6 +209,74 @@ test(
       await t.test('sem contexto nenhuma tabela piloto revela linhas', async () => {
         assert.equal(await runtimePrisma.orderIssueThread.count(), 0);
         assert.equal(await runtimePrisma.customerPaymentMethod.count(), 0);
+        assert.equal(await runtimePrisma.restaurantPrinterSettings.count(), 0);
+        assert.equal(await runtimePrisma.kitchenPrintJob.count(), 0);
+      });
+
+      await t.test(
+        'fila e configuração permitem B e bloqueiam A sem filtro de aplicação',
+        async () => {
+          const own = await withTenantDbContext(fixture.restaurants.b.id, async (db) => ({
+            settings: await db.restaurantPrinterSettings.findUnique({
+              where: { id: printerSettingsB.id },
+            }),
+            job: await db.kitchenPrintJob.findUnique({ where: { id: printJobB.id } }),
+          }));
+          assert.equal(own.settings?.restaurantId, fixture.restaurants.b.id);
+          assert.equal(own.job?.restaurantId, fixture.restaurants.b.id);
+
+          const attack = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
+            settings: await db.restaurantPrinterSettings.findUnique({
+              where: { id: printerSettingsB.id },
+            }),
+            job: await db.kitchenPrintJob.findUnique({ where: { id: printJobB.id } }),
+          }));
+          assert.equal(attack.settings, null);
+          assert.equal(attack.job, null);
+        },
+      );
+
+      await t.test('RLS rejeita INSERT adulterado nas novas tabelas privadas', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.kitchenPrintJob.create({
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  orderId: fixture.orders.b.id,
+                  type: 'ORDER',
+                  source: 'MANUAL',
+                  payload: { version: 1, kind: 'ORDER' },
+                  paperWidth: 'MM80',
+                  deduplicationKey: 'RLS:ATTACK:JOB',
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      await t.test('RLS rejeita UPDATE A para restaurantId B na fila e configuração', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.kitchenPrintJob.update({
+                where: { id: printJobA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          assertRlsRejection,
+        );
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.restaurantPrinterSettings.update({
+                where: { id: printerSettingsA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          assertRlsRejection,
+        );
       });
 
       await t.test('OrderIssueThread rejeita INSERT adulterado via WITH CHECK', async () => {

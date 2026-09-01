@@ -218,6 +218,11 @@ class OrdersService {
     const response = await api.patch(`/orders/${orderId}/refund`);
     return response.data;
   }
+
+  async reprintKitchenOrder(orderId: string | number) {
+    const response = await api.post(`/kitchen-printing/orders/${orderId}/reprint`);
+    return response.data;
+  }
 }
 
 export default new OrdersService();

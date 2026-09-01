@@ -5,6 +5,7 @@ import {
   Clock3,
   History,
   LayoutGrid,
+  Printer,
   ShoppingBag,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ import {
   statusLabel,
 } from '../components/Shared';
 import * as S from '../Kitchen.styles';
+import { KitchenCardActions } from '../KitchenCardActions.styles';
 
 const activeStatuses: OrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
 const INITIAL_KITCHEN_TIME = Date.now();
@@ -296,15 +298,26 @@ function KitchenCard({
   highlighted?: boolean;
   now: number;
 }) {
-  const { role, updateOrderStatus, updatingOrderIds, orderUpdateError, onRefresh } = useWorkspace();
+  const {
+    role,
+    updateOrderStatus,
+    reprintOrder,
+    updatingOrderIds,
+    reprintingOrderIds,
+    orderUpdateError,
+    reprintError,
+    onRefresh,
+  } = useWorkspace();
   const next =
     order.status === 'PENDENTE' ? 'PREPARANDO' : order.status === 'PREPARANDO' ? 'PRONTO' : null;
   const updating = updatingOrderIds.has(order.id);
   const actionError = orderUpdateError?.orderId === order.id ? orderUpdateError.message : null;
+  const currentReprintError = reprintError?.orderId === order.id ? reprintError.message : null;
+  const reprinting = reprintingOrderIds.has(order.id);
   const hasItems = Boolean(order.itemDetails?.length || order.items.some((item) => item.trim()));
   const visibleActionError = !hasItems
     ? 'Este pedido chegou sem itens. Atualize a fila antes de iniciar o preparo.'
-    : actionError;
+    : actionError || currentReprintError;
   return (
     <S.KitchenOrder
       id={`kitchen-order-${encodeURIComponent(order.id.replace(/^#/, ''))}`}
@@ -331,22 +344,35 @@ function KitchenCard({
           {orderElapsed(order, now)}
         </span>
       )}
-      {next && role === 'KITCHEN' && (
-        <button
-          type="button"
-          className={`action ${order.status === 'PENDENTE' ? 'pending' : 'preparing'}`}
-          disabled={updating || !hasItems}
-          aria-busy={updating}
-          onClick={() => void updateOrderStatus(order.id, next)}
-        >
-          {!hasItems
-            ? 'Itens indisponíveis'
-            : updating
-              ? 'Atualizando...'
-              : order.status === 'PENDENTE'
-                ? 'Iniciar preparo'
-                : 'Marcar como pronto'}
-        </button>
+      {role === 'KITCHEN' && (
+        <KitchenCardActions>
+          {next && (
+            <button
+              type="button"
+              className={`action ${order.status === 'PENDENTE' ? 'pending' : 'preparing'}`}
+              disabled={updating || !hasItems}
+              aria-busy={updating}
+              onClick={() => void updateOrderStatus(order.id, next)}
+            >
+              {!hasItems
+                ? 'Itens indisponíveis'
+                : updating
+                  ? 'Atualizando...'
+                  : order.status === 'PENDENTE'
+                    ? 'Iniciar preparo'
+                    : 'Marcar como pronto'}
+            </button>
+          )}
+          <button
+            type="button"
+            className="reprint"
+            disabled={reprinting}
+            aria-busy={reprinting}
+            onClick={() => void reprintOrder(order.id)}
+          >
+            <Printer size={14} /> {reprinting ? 'Solicitando…' : 'Reimprimir comanda'}
+          </button>
+        </KitchenCardActions>
       )}
       {visibleActionError && (
         <div className="action-error" role="alert">

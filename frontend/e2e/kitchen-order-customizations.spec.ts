@@ -21,6 +21,7 @@ type KitchenE2EState = {
   orderRequests: number;
   orderRequestTokens: string[];
   updates: Array<{ id: number; status: KitchenOrderStatus }>;
+  reprints: number[];
   rejectedTenantRequests: number;
   unexpectedRequests: string[];
   orderFailuresRemaining: number;
@@ -268,6 +269,7 @@ function initialState(overrides: Partial<KitchenE2EState> = {}): KitchenE2EState
     orderRequests: 0,
     orderRequestTokens: [],
     updates: [],
+    reprints: [],
     rejectedTenantRequests: 0,
     unexpectedRequests: [],
     orderFailuresRemaining: 0,
@@ -354,6 +356,22 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
       return json(route, {
         orders: state.orders.filter((order) => order.restaurantId === RESTAURANT_ID),
       });
+    }
+
+    const reprintRequest = pathname.match(/^\/kitchen-printing\/orders\/(\d+)\/reprint$/);
+    if (reprintRequest && method === 'POST') {
+      const id = Number(reprintRequest[1]);
+      const order = state.orders.find(
+        (candidate) => candidate.id === id && candidate.restaurantId === RESTAURANT_ID,
+      );
+
+      if (!order) {
+        state.rejectedTenantRequests += 1;
+        return json(route, { error: 'Pedido não pertence ao restaurante autenticado.' }, 404);
+      }
+
+      state.reprints.push(id);
+      return json(route, { status: 'PENDING' }, 201);
     }
 
     const statusUpdate = pathname.match(/^\/orders\/(\d+)\/status$/);
@@ -458,7 +476,10 @@ test('pedido completo do tenant chega à fila e avança de pendente até pronto'
       { id: 71, status: 'PRONTO' },
     ]);
   await expect(queuedOrder.getByText('Pronto', { exact: true })).toBeVisible();
-  await expect(queuedOrder.getByRole('button')).toHaveCount(0);
+  const reprintButton = queuedOrder.getByRole('button', { name: 'Reimprimir comanda' });
+  await expect(reprintButton).toBeVisible();
+  await reprintButton.click();
+  await expect.poll(() => state.reprints).toEqual([71]);
 
   await openKitchenView(page, 'Prontos');
   const readyOrder = page

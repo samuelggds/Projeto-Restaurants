@@ -48,6 +48,7 @@ import {
 } from '../../tableAccount/services/tablePaymentLedger.js';
 import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
+import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -428,6 +429,18 @@ class CreateOrderService {
         pixPaymentId,
         restaurantId: resolvedRestaurantId,
       });
+
+    // Esta é a mesma fronteira semântica usada pelo realtime: pedidos digitais
+    // não pagos permanecem retidos; entrega/mesa operacionais entram de imediato.
+    const isUnpaidDelivery =
+      type === OrderType.DELIVERY && shouldPayOnDelivery !== true && shouldMarkAsPaid !== true;
+    const isUnpaidDigitalPayment =
+      shouldMarkAsPaid !== true &&
+      shouldPayOnDelivery !== true &&
+      (normalizedPaymentMethod === PaymentMethod.PIX ||
+        normalizedPaymentMethod === PaymentMethod.CARTAO);
+    const shouldDeferRealtimeUntilPaid =
+      deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
 
     const initialStatus = restaurantSettings?.autoAcceptOrders
       ? OrderStatus.PREPARANDO
@@ -850,22 +863,19 @@ class CreateOrderService {
           });
         }
 
+        if (!shouldDeferRealtimeUntilPaid) {
+          await kitchenPrintingService.enqueueAutomatic({
+            restaurantId: resolvedRestaurantId,
+            orderId: order.id,
+            event: 'OPERATIONAL_NEW_ORDER',
+            db: tx,
+          });
+        }
+
         return orderRepository.findById(order.id, resolvedRestaurantId, tx);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
-
-    // Pedidos pagos na entrega precisam aparecer imediatamente na operação.
-    // Somente cobranças digitais online aguardam a confirmação do provedor.
-    const isUnpaidDelivery =
-      type === OrderType.DELIVERY && shouldPayOnDelivery !== true && shouldMarkAsPaid !== true;
-    const isUnpaidDigitalPayment =
-      shouldMarkAsPaid !== true &&
-      shouldPayOnDelivery !== true &&
-      (normalizedPaymentMethod === PaymentMethod.PIX ||
-        normalizedPaymentMethod === PaymentMethod.CARTAO);
-    const shouldDeferRealtimeUntilPaid =
-      deferRealtimeUntilPaid === true || isUnpaidDelivery || isUnpaidDigitalPayment;
 
     if (!shouldDeferRealtimeUntilPaid) {
       io.to(`restaurant:${createdOrder.restaurantId}`).emit('new-order', createdOrder);

@@ -51,12 +51,16 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+            print-agent/package-lock.json
 
       - name: Install backend dependencies
         run: npm --prefix backend ci
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
+
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
 
       - name: Run complete root CI
         run: npm run ci

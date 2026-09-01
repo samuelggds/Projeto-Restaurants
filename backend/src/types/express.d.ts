@@ -30,6 +30,12 @@ declare global {
         authenticated: boolean;
       };
       subscription?: unknown;
+      printerAgent?: {
+        id: number;
+        publicId: string;
+        restaurantId: number;
+        name: string;
+      };
     }
   }
 }
