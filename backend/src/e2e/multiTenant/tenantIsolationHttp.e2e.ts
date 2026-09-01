@@ -185,6 +185,10 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         },
       });
       assertTenantDenied(createAttempt.response.status, 'criação com categoria de outro tenant');
+      assert.equal(
+        await prisma.product.count({ where: { name: 'Produto criado no tenant errado' } }),
+        0,
+      );
 
       const ingredientAssociationAttempt = await apiRequest(
         baseUrl,
@@ -196,7 +200,7 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
             name: 'Produto com ingrediente estrangeiro',
             price: 20,
             categoryId: fixture.categories.a.id,
-            restaurantId: fixture.restaurants.b.id,
+            restaurantId: fixture.restaurants.a.id,
             saleMode: 'BUILDABLE',
             optionGroups: [
               {
@@ -214,6 +218,10 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assertTenantDenied(
         ingredientAssociationAttempt.response.status,
         'associação de ingrediente de outro tenant',
+      );
+      assert.equal(
+        await prisma.product.count({ where: { name: 'Produto com ingrediente estrangeiro' } }),
+        0,
       );
 
       const discountAttempt = await apiRequest(
@@ -264,14 +272,6 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(stored.name, 'Produto B confirmado');
       assert.equal(Number(stored.price), 35);
       assert.equal(stored.image, 'https://tenant-e2e.test/produto-b-original.webp');
-      assert.equal(
-        await prisma.product.count({ where: { name: 'Produto criado no tenant errado' } }),
-        0,
-      );
-      assert.equal(
-        await prisma.product.count({ where: { name: 'Produto com ingrediente estrangeiro' } }),
-        0,
-      );
       assert.equal(discount.restaurantId, fixture.restaurants.b.id);
       assert.equal(Number(discount.value), 10);
     });
@@ -320,12 +320,16 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
           name: 'Produto com template estrangeiro',
           price: 20,
           categoryId: fixture.categories.a.id,
-          restaurantId: fixture.restaurants.b.id,
+          restaurantId: fixture.restaurants.a.id,
           saleMode: 'BUILDABLE',
           templateId: templateB.id,
         },
       });
       assertTenantDenied(applyAttempt.response.status, 'uso de template estrangeiro');
+      assert.equal(
+        await prisma.product.count({ where: { name: 'Produto com template estrangeiro' } }),
+        0,
+      );
 
       const storedTemplate = await prisma.productConfigurationTemplate.findUniqueOrThrow({
         where: { id: templateB.id },
@@ -333,10 +337,6 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(storedTemplate.restaurantId, fixture.restaurants.b.id);
       assert.equal(storedTemplate.name, 'Modelo privado HTTP B');
       assert.equal(storedTemplate.active, true);
-      assert.equal(
-        await prisma.product.count({ where: { name: 'Produto com template estrangeiro' } }),
-        0,
-      );
     });
 
     await t.test(
