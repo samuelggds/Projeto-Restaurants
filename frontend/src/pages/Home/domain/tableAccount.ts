@@ -41,6 +41,7 @@ export type TableAccountSnapshot = {
     joinedAt: string;
     leftAt: string | null;
   }>;
+  activePayment: TablePaymentIntent | null;
   items: Array<{
     publicId: string;
     orderPublicId: string;
@@ -88,6 +89,7 @@ export type TablePaymentIntent = {
   provider: string | null;
   externalId: string | null;
   checkoutUrl: string | null;
+  paymentCode: string | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;

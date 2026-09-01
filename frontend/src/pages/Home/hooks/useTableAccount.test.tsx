@@ -51,6 +51,7 @@ function snapshotFor(sessionPublicId: string): TableAccountSnapshot {
       participantsCount: 1,
     },
     participants: [],
+    activePayment: null,
     items: [],
     payments: [],
   };
@@ -153,6 +154,7 @@ describe('useTableAccount isolamento entre sessões', () => {
           provider: 'FAKE_TABLE',
           externalId: null,
           checkoutUrl: null,
+          paymentCode: null,
           expiresAt: '2026-08-26T15:00:00.000Z',
           createdAt: '2026-08-26T14:50:00.000Z',
           updatedAt: '2026-08-26T14:50:00.000Z',

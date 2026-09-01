@@ -94,6 +94,27 @@ export const Body = styled.div`
   }
 `;
 
+export const BackButton = styled.button`
+  width: fit-content;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: #5e554e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+`;
+
 export const Choice = styled.article<{ $featured?: boolean; $disabled?: boolean }>`
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
@@ -152,27 +173,48 @@ export const Choice = styled.article<{ $featured?: boolean; $disabled?: boolean 
 `;
 
 export const PaymentMethods = styled.div`
-  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding-top: 3px;
+  gap: 10px;
 
   button {
-    min-height: 42px;
-    display: flex;
+    min-width: 0;
+    min-height: 116px;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-content: center;
     align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 8px 10px;
+    gap: 3px 9px;
+    padding: 13px;
     border: 1px solid #dfd4ca;
-    border-radius: 11px;
+    border-radius: 12px;
     background: #fff;
     color: #433b35;
     cursor: pointer;
     font: inherit;
-    font-size: 12px;
-    font-weight: 750;
+    text-align: left;
+  }
+
+  button > span {
+    grid-row: 1 / 3;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #f4eee8;
+  }
+
+  b {
+    align-self: end;
+    font-size: 13px;
+  }
+
+  small {
+    align-self: start;
+    color: #766c64;
+    font-size: 10px;
+    line-height: 1.35;
   }
 
   button[aria-pressed='true'] {
@@ -180,6 +222,61 @@ export const PaymentMethods = styled.div`
     background: color-mix(in srgb, var(--home-primary) 8%, white);
     color: var(--home-primary);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--home-primary) 11%, transparent);
+  }
+
+  button[aria-pressed='true'] > span {
+    background: var(--home-primary);
+    color: #fff;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 430px) {
+    grid-template-columns: 1fr;
+
+    button {
+      min-height: 78px;
+    }
+  }
+`;
+
+export const MethodPanel = styled.section`
+  display: grid;
+  gap: 13px;
+`;
+
+export const PaymentNotice = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid #eadab5;
+  border-radius: 11px;
+  background: #fff8e8;
+  color: #6d5319;
+
+  svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  b,
+  small {
+    display: block;
+  }
+
+  b {
+    font-size: 11px;
+  }
+
+  small {
+    margin-top: 3px;
+    color: #806b3d;
+    font-size: 10px;
+    line-height: 1.4;
   }
 `;
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
 import type { CheckoutPaymentMethod } from '../domain/checkout';
 import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
@@ -13,6 +13,8 @@ export type PixPaymentData = {
   requiresStatusCheck?: boolean;
   paid?: boolean;
 };
+
+export type PixPaymentStatus = 'WAITING' | 'VERIFYING' | 'PENDING' | 'PAID' | 'ERROR';
 
 type Notify = (
   type: 'success' | 'error',
@@ -70,6 +72,73 @@ export function useCheckoutPayments(options: Options) {
   } = options;
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState<PixPaymentData | null>(null);
+  const [pixPaymentStatus, setPixPaymentStatus] = useState<PixPaymentStatus>('WAITING');
+  const [pixPaymentError, setPixPaymentError] = useState<string | null>(null);
+  const pixCheckInFlightRef = useRef(false);
+  const pixConfirmedRef = useRef(false);
+  const onPaymentConfirmedRef = useRef(onPaymentConfirmed);
+
+  useEffect(() => {
+    onPaymentConfirmedRef.current = onPaymentConfirmed;
+  }, [onPaymentConfirmed]);
+
+  const verifyPixPayment = useCallback(async (): Promise<PixPaymentStatus> => {
+    if (pixCheckInFlightRef.current) return 'VERIFYING';
+    if (
+      !pixPaymentData?.paymentId ||
+      !pixPaymentData.orderId ||
+      !restaurantId ||
+      pixConfirmedRef.current
+    ) {
+      return pixConfirmedRef.current ? 'PAID' : 'ERROR';
+    }
+
+    pixCheckInFlightRef.current = true;
+    setPixPaymentStatus('VERIFYING');
+    setPixPaymentError(null);
+    try {
+      const providerStatus = await ordersService.getPixPaymentStatus({
+        paymentId: pixPaymentData.paymentId,
+        restaurantId,
+      });
+      if (providerStatus?.isApproved !== true) {
+        setPixPaymentStatus('PENDING');
+        return 'PENDING';
+      }
+
+      const confirmedOrder = await ordersService.confirmPixPayment({
+        orderId: pixPaymentData.orderId,
+        paymentId: pixPaymentData.paymentId,
+        restaurantId,
+      });
+      if (confirmedOrder?.paid !== true) {
+        setPixPaymentStatus('ERROR');
+        setPixPaymentError(
+          'O provedor respondeu, mas o pedido ainda não foi confirmado. Verifique novamente.',
+        );
+        return 'ERROR';
+      }
+
+      pixConfirmedRef.current = true;
+      setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
+      setPixPaymentStatus('PAID');
+      try {
+        await onPaymentConfirmedRef.current();
+      } catch {
+        // Atualizações auxiliares não alteram a confirmação canônica já recebida.
+      }
+      return 'PAID';
+    } catch (error: unknown) {
+      setPixPaymentStatus('ERROR');
+      setPixPaymentError(
+        getCheckoutErrorMessage(error) ||
+          'Não foi possível consultar o pagamento agora. O pedido continua sem confirmação.',
+      );
+      return 'ERROR';
+    } finally {
+      pixCheckInFlightRef.current = false;
+    }
+  }, [pixPaymentData, restaurantId]);
 
   useEffect(() => {
     if (
@@ -81,41 +150,21 @@ export function useCheckoutPayments(options: Options) {
     )
       return;
 
-    let active = true;
-    let checking = false;
-    const checkPayment = async () => {
-      if (!active || checking) return;
-      checking = true;
-      try {
-        const status = await ordersService.getPixPaymentStatus({
-          paymentId: pixPaymentData.paymentId,
-          restaurantId,
-        });
-        if (status?.isApproved && active) {
-          await ordersService.confirmPixPayment({
-            orderId: pixPaymentData.orderId,
-            paymentId: pixPaymentData.paymentId,
-            restaurantId,
-          });
-          if (active) {
-            setPixPaymentData((current) => (current ? { ...current, paid: true } : current));
-            await onPaymentConfirmed();
-          }
-        }
-      } catch {
-        // A próxima consulta repete a verificação enquanto o QR estiver aberto.
-      } finally {
-        checking = false;
-      }
-    };
-
-    void checkPayment();
-    const intervalId = window.setInterval(checkPayment, 5000);
+    const initialCheckId = window.setTimeout(() => void verifyPixPayment(), 0);
+    const intervalId = window.setInterval(() => void verifyPixPayment(), 5000);
     return () => {
-      active = false;
+      window.clearTimeout(initialCheckId);
       window.clearInterval(intervalId);
     };
-  }, [onPaymentConfirmed, pixPaymentData, restaurantId]);
+  }, [pixPaymentData, restaurantId, verifyPixPayment]);
+
+  const clearPixPayment = useCallback(() => {
+    pixCheckInFlightRef.current = false;
+    pixConfirmedRef.current = false;
+    setPixPaymentData(null);
+    setPixPaymentStatus('WAITING');
+    setPixPaymentError(null);
+  }, []);
 
   const executePayment = async (
     payload: Record<string, unknown>,
@@ -154,6 +203,9 @@ export function useCheckoutPayments(options: Options) {
           qrCodeBase64: result.qrCodeBase64 ? String(result.qrCodeBase64) : null,
           requiresStatusCheck: Boolean(result.requiresStatusCheck),
         });
+        pixConfirmedRef.current = false;
+        setPixPaymentStatus('WAITING');
+        setPixPaymentError(null);
         onPurchased();
         onClearCart();
         onCloseCart();
@@ -163,8 +215,13 @@ export function useCheckoutPayments(options: Options) {
       const savedMethods = restaurantId
         ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
         : [];
-      const storedMethodId = restaurantId ? localStorage.getItem(`selectedCustomerPaymentMethodId:${restaurantId}`) : '';
-      const selectedSavedMethod = savedMethods.find((method) => method.publicId === storedMethodId) || savedMethods.find((method) => method.isDefault) || savedMethods[0];
+      const storedMethodId = restaurantId
+        ? localStorage.getItem(`selectedCustomerPaymentMethodId:${restaurantId}`)
+        : '';
+      const selectedSavedMethod =
+        savedMethods.find((method) => method.publicId === storedMethodId) ||
+        savedMethods.find((method) => method.isDefault) ||
+        savedMethods[0];
       const result = await ordersService.createCardCheckout({
         ...payload,
         ...(selectedSavedMethod ? { paymentMethodId: selectedSavedMethod.publicId } : {}),
@@ -180,7 +237,12 @@ export function useCheckoutPayments(options: Options) {
       if (result.paid) {
         onCloseCart();
         await onPaymentConfirmed();
-        notify('success', 'Pagamento aprovado', `Pedido #${String(result.orderId || '')} confirmado automaticamente.`, 5000);
+        notify(
+          'success',
+          'Pagamento aprovado',
+          `Pedido #${String(result.orderId || '')} confirmado automaticamente.`,
+          5000,
+        );
       } else {
         window.location.assign(checkoutUrl);
       }
@@ -201,6 +263,10 @@ export function useCheckoutPayments(options: Options) {
     checkoutLoading,
     pixPaymentData,
     setPixPaymentData,
+    pixPaymentStatus,
+    pixPaymentError,
+    verifyPixPayment,
+    clearPixPayment,
     executePayment,
   };
 }

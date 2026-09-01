@@ -109,6 +109,11 @@ class OrdersService {
     return response.data;
   }
 
+  async getCardPaymentStatus(payload: PixPaymentStatusPayload) {
+    const response = await api.post('/orders/card/checkout/status', payload);
+    return response.data;
+  }
+
   async getPixPaymentStatus(payload: PixPaymentStatusPayload) {
     const response = await api.post('/orders/pix/payment/status', payload);
     return response.data;

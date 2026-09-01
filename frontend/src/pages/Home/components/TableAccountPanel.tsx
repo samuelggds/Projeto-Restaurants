@@ -1,15 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   ArrowRight,
   Banknote,
   CheckCircle2,
   Clock3,
   CreditCard,
   Info,
+  ListChecks,
+  Minus,
+  Plus,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
   Smartphone,
+  Split,
+  UserRound,
   Users,
   WalletCards,
   X,
@@ -20,11 +26,13 @@ import {
   type CreateTablePaymentResult,
   type TableAccountSnapshot,
   type TablePaymentDraft,
+  type TablePaymentIntent,
   type TablePaymentMethod,
   type TablePaymentSelectionMode,
   type TablePaymentStatus,
 } from '../domain/tableAccount';
 import * as S from './TableAccountPanel.styles';
+import { TablePaymentStatusView } from './TablePaymentStatusView';
 
 type Props = {
   open: boolean;
@@ -36,8 +44,11 @@ type Props = {
   onRefresh: () => void;
   onCreatePayment: (draft: TablePaymentDraft) => Promise<CreateTablePaymentResult | null>;
   onCancelPayment: (paymentPublicId: string) => Promise<boolean>;
+  onReconcilePayment: (paymentPublicId: string) => Promise<TablePaymentIntent | null>;
   onClose: () => void;
 };
+
+type PaymentStep = 'SELECTION' | 'METHOD' | 'STATUS';
 
 const statusLabels = {
   RESERVED: 'Reservado',
@@ -79,12 +90,6 @@ const modeLabels: Array<{
     description: 'Quite todo o saldo disponível',
     explanation: 'Inclui todo o valor que ainda não foi pago ou reservado.',
   },
-  {
-    value: 'WAITER',
-    title: 'Pagar com o garçom',
-    description: 'Dinheiro ou maquininha',
-    explanation: 'A equipe recebe presencialmente e confirma o pagamento no painel.',
-  },
 ];
 
 const statusDescriptions: Record<TablePaymentStatus, string> = {
@@ -122,6 +127,13 @@ function MethodIcon({ method }: { method: TablePaymentMethod }) {
   if (method === 'CARD') return <CreditCard size={18} />;
   if (method === 'CASH') return <Banknote size={18} />;
   return <WalletCards size={18} />;
+}
+
+function SelectionModeIcon({ mode }: { mode: TablePaymentSelectionMode }) {
+  if (mode === 'MY_ITEMS') return <UserRound size={20} />;
+  if (mode === 'SELECTED_ITEMS') return <ListChecks size={20} />;
+  if (mode === 'EQUAL_SPLIT') return <Split size={20} />;
+  return <ReceiptText size={20} />;
 }
 
 function formatPaymentTime(value: string) {
@@ -165,15 +177,21 @@ function TableAccountPanelContent({
   onRefresh,
   onCreatePayment,
   onCancelPayment,
+  onReconcilePayment,
   onClose,
 }: Props) {
+  const [step, setStep] = useState<PaymentStep>(snapshot?.activePayment ? 'STATUS' : 'SELECTION');
   const [selectionMode, setSelectionMode] = useState<TablePaymentSelectionMode>('MY_ITEMS');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [splitCount, setSplitCount] = useState(2);
   const [method, setMethod] = useState<TablePaymentMethod>('PIX');
   const [includeOptionalServiceFee, setIncludeOptionalServiceFee] = useState(true);
-  const [resultMessage, setResultMessage] = useState('');
+  const [showDetails, setShowDetails] = useState(false);
+  const [activePayment, setActivePayment] = useState<TablePaymentIntent | null>(
+    snapshot?.activePayment || null,
+  );
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const stepHeadingRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const items = useMemo(
@@ -185,12 +203,15 @@ function TableAccountPanelContent({
     [snapshot],
   );
   const payableItems = items.filter((item) => item.availableCents > 0);
+  const selectableItems = payableItems.filter(
+    (item) => item.availableCents === item.unitPriceCents - item.paidCents,
+  );
   const currentParticipantId = snapshot?.currentParticipantPublicId || '';
   const myPayableItems = payableItems.filter(
     (item) => item.orderedByParticipantPublicId === currentParticipantId,
   );
   const selectedPayableIds = selectedItemIds.filter((id) =>
-    payableItems.some((item) => item.publicId === id),
+    selectableItems.some((item) => item.publicId === id),
   );
   const capabilities = snapshot?.capabilities;
   const onlineMethods: TablePaymentMethod[] = capabilities?.allowOnlinePayment
@@ -200,18 +221,51 @@ function TableAccountPanelContent({
     ...(capabilities?.allowCash ? (['CASH'] as const) : []),
     ...(capabilities?.allowCardMachine ? (['CARD_MACHINE'] as const) : []),
   ];
-  const availableMethods = selectionMode === 'WAITER' ? waiterMethods : onlineMethods;
+  const availableMethods: TablePaymentMethod[] = [...onlineMethods, ...waiterMethods];
   const resolvedMethod = availableMethods.includes(method) ? method : availableMethods[0];
+  const manualMethod = resolvedMethod === 'CASH' || resolvedMethod === 'CARD_MACHINE';
   const selectedMode =
     modeLabels.find((candidate) => candidate.value === selectionMode) || modeLabels[0];
+  const tableHasPaymentInProgress = Boolean(
+    snapshot && (snapshot.summary.reservedCents > 0 || snapshot.summary.processingCents > 0),
+  );
+  const myItemsHavePaymentInProgress = myPayableItems.some(
+    (item) => item.reservedCents > 0 || item.processingCents > 0,
+  );
+  const availableSubtotalCents = payableItems.reduce(
+    (total, item) => total + item.availableCents,
+    0,
+  );
+  const estimatedSubtotalCents =
+    selectionMode === 'MY_ITEMS'
+      ? myPayableItems.reduce((total, item) => total + item.availableCents, 0)
+      : selectionMode === 'SELECTED_ITEMS'
+        ? selectableItems
+            .filter((item) => selectedPayableIds.includes(item.publicId))
+            .reduce((total, item) => total + item.availableCents, 0)
+        : selectionMode === 'EQUAL_SPLIT'
+          ? Math.ceil(availableSubtotalCents / splitCount)
+          : availableSubtotalCents;
+  const includeEstimatedFee = Boolean(
+    capabilities &&
+    capabilities.serviceFeeMode !== 'DISABLED' &&
+    (capabilities.serviceFeeMode === 'MANDATORY' || includeOptionalServiceFee),
+  );
+  const estimatedServiceFeeCents = includeEstimatedFee
+    ? Math.floor(
+        (estimatedSubtotalCents * Number(capabilities?.serviceFeeBasisPoints || 0) + 5_000) /
+          10_000,
+      )
+    : 0;
+  const estimatedTotalCents = estimatedSubtotalCents + estimatedServiceFeeCents;
   const canPaySelection =
     selectionMode === 'MY_ITEMS'
-      ? myPayableItems.length > 0
+      ? myPayableItems.length > 0 && !myItemsHavePaymentInProgress
       : selectionMode === 'SELECTED_ITEMS'
         ? selectedPayableIds.length > 0
-        : snapshot
-          ? snapshot.summary.remainingCents > 0
-          : false;
+        : selectionMode === 'EQUAL_SPLIT'
+          ? availableSubtotalCents >= splitCount && !tableHasPaymentInProgress
+          : availableSubtotalCents > 0 && !tableHasPaymentInProgress;
   const canSubmit = Boolean(
     snapshot &&
     capabilities?.enabled &&
@@ -220,12 +274,25 @@ function TableAccountPanelContent({
     canPaySelection &&
     !actionLoading,
   );
+  const canContinue = Boolean(
+    snapshot &&
+    capabilities?.enabled &&
+    snapshot.summary.status !== 'CLOSED' &&
+    canPaySelection &&
+    !actionLoading,
+  );
   const submitLabel =
-    selectionMode === 'WAITER'
-      ? 'Solicitar pagamento ao garçom'
-      : resolvedMethod === 'PIX'
-        ? 'Gerar pagamento Pix'
-        : 'Ir para pagamento com cartão';
+    resolvedMethod === 'CASH'
+      ? 'Solicitar cobrança em dinheiro'
+      : resolvedMethod === 'CARD_MACHINE'
+        ? 'Solicitar maquininha'
+        : resolvedMethod === 'PIX'
+          ? 'Gerar pagamento Pix'
+          : 'Ir para pagamento com cartão';
+  const canonicalPaymentStatus = activePayment
+    ? snapshot?.payments.find((payment) => payment.publicId === activePayment.publicId)?.status ||
+      activePayment.status
+    : null;
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
@@ -244,14 +311,16 @@ function TableAccountPanelContent({
     };
   }, [onClose, open]);
 
+  useEffect(() => {
+    const focusFrame = window.requestAnimationFrame(() => stepHeadingRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [step]);
+
   const chooseMode = (nextMode: TablePaymentSelectionMode) => {
     setSelectionMode(nextMode);
-    setResultMessage('');
-    if (nextMode === 'WAITER') {
-      setMethod(waiterMethods[0] || 'CASH');
-    } else {
-      setMethod(onlineMethods[0] || 'PIX');
-    }
+    setMethod((current) =>
+      availableMethods.includes(current) ? current : availableMethods[0] || 'PIX',
+    );
   };
 
   const toggleItem = (publicId: string) => {
@@ -264,7 +333,6 @@ function TableAccountPanelContent({
 
   const submit = async () => {
     if (!canSubmit || !resolvedMethod) return;
-    setResultMessage('');
     const result = await onCreatePayment({
       selectionMode,
       method: resolvedMethod,
@@ -277,21 +345,31 @@ function TableAccountPanelContent({
     // Evita que uma seleção antiga reapareça automaticamente se esta reserva
     // for cancelada ou expirar. Cada nova tentativa exige uma escolha consciente.
     setSelectedItemIds([]);
+    setActivePayment(result.payment);
+    setStep('STATUS');
+  };
 
-    const checkoutUrl = String(result.payment.checkoutUrl || '');
-    if (/^https:\/\//i.test(checkoutUrl)) {
-      window.location.assign(checkoutUrl);
-      return;
+  const reconcileActivePayment = async () => {
+    if (!activePayment) return null;
+    const reconciled = await onReconcilePayment(activePayment.publicId);
+    if (reconciled) setActivePayment(reconciled);
+    return reconciled;
+  };
+
+  const cancelActivePayment = async () => {
+    if (!activePayment) return false;
+    const canceled = await onCancelPayment(activePayment.publicId);
+    if (canceled) {
+      setActivePayment((current) => (current ? { ...current, status: 'CANCELED' } : current));
     }
-    if (selectionMode === 'WAITER') {
-      setResultMessage('Solicitação registrada. O garçom confirmará o pagamento no atendimento.');
-    } else {
-      setResultMessage(
-        result.payment.provider === 'FAKE_TABLE'
-          ? 'Pagamento criado no ambiente de testes. Aguarde a confirmação simulada.'
-          : 'Pagamento iniciado. Acompanhe o status nesta conta.',
-      );
-    }
+    return canceled;
+  };
+
+  const startOver = () => {
+    setActivePayment(null);
+    setSelectedItemIds([]);
+    setShowDetails(false);
+    setStep('SELECTION');
   };
 
   return (
@@ -340,204 +418,102 @@ function TableAccountPanelContent({
                   </button>
                 </S.Alert>
               )}
-              {resultMessage && (
-                <S.Alert $info role="status" aria-live="polite">
-                  <span>{resultMessage}</span>
-                </S.Alert>
+              <S.StepHeader ref={stepHeadingRef} tabIndex={-1} aria-live="polite">
+                <span>
+                  {step === 'SELECTION' ? '1 de 3' : step === 'METHOD' ? '2 de 3' : '3 de 3'}
+                </span>
+                <div aria-hidden="true">
+                  <i className="active" />
+                  <i className={step === 'METHOD' || step === 'STATUS' ? 'active' : ''} />
+                  <i className={step === 'STATUS' ? 'active' : ''} />
+                </div>
+              </S.StepHeader>
+
+              {step !== 'STATUS' && (
+                <S.BalanceHero aria-label="Valor que falta pagar">
+                  <small>Mesa {String(tableNumber)}</small>
+                  <span>Falta pagar</span>
+                  <strong>{formatTableMoney(snapshot.summary.remainingCents)}</strong>
+                </S.BalanceHero>
               )}
 
-              <S.Guide aria-label="Como funciona o pagamento da mesa">
-                <header>
-                  <span className="guide-icon">
-                    <ShieldCheck size={19} />
-                  </span>
-                  <div>
-                    <h3>Pagamento seguro, sem cobranças duplicadas</h3>
-                    <p>O valor escolhido fica reservado enquanto a confirmação é processada.</p>
-                  </div>
-                </header>
-                <ol>
-                  <li>
-                    <b>1</b>
+              {step === 'SELECTION' && showDetails && (
+                <S.DetailsRegion id="table-account-details">
+                  <S.Summary aria-label="Resumo detalhado da conta">
+                    <article>
+                      <small>Consumido</small>
+                      <strong>{formatTableMoney(snapshot.summary.consumedCents)}</strong>
+                    </article>
+                    <article>
+                      <small>Pago</small>
+                      <strong>{formatTableMoney(snapshot.summary.netPaidCents)}</strong>
+                    </article>
+                    <article>
+                      <small>Em confirmação</small>
+                      <strong>{formatTableMoney(snapshot.summary.processingCents)}</strong>
+                    </article>
+                  </S.Summary>
+                  <S.SummaryNote>
+                    <Info size={14} />
                     <span>
-                      <strong>Escolha o valor</strong>
-                      <small>Seus itens, itens específicos, uma divisão ou a conta completa.</small>
+                      Valores em confirmação ficam reservados e não serão cobrados novamente.
                     </span>
-                  </li>
-                  <li>
-                    <b>2</b>
-                    <span>
-                      <strong>Escolha como pagar</strong>
-                      <small>Online pelo banco ou presencialmente com o garçom.</small>
-                    </span>
-                  </li>
-                  <li>
-                    <b>3</b>
-                    <span>
-                      <strong>Acompanhe a confirmação</strong>
-                      <small>A conta é atualizada automaticamente em todos os aparelhos.</small>
-                    </span>
-                  </li>
-                </ol>
-              </S.Guide>
+                  </S.SummaryNote>
 
-              <S.Summary aria-label="Resumo da conta">
-                <article>
-                  <small>Falta pagar</small>
-                  <strong>{formatTableMoney(snapshot.summary.remainingCents)}</strong>
-                </article>
-                <article>
-                  <small>Consumido</small>
-                  <strong>{formatTableMoney(snapshot.summary.consumedCents)}</strong>
-                </article>
-                <article>
-                  <small>Pago</small>
-                  <strong>{formatTableMoney(snapshot.summary.netPaidCents)}</strong>
-                </article>
-                <article>
-                  <small>Em confirmação</small>
-                  <strong>{formatTableMoney(snapshot.summary.processingCents)}</strong>
-                </article>
-              </S.Summary>
-              <S.SummaryNote>
-                <Info size={14} />
-                <span>
-                  “Falta pagar” inclui valores que ainda estão em confirmação, mas esses valores
-                  ficam reservados e não podem ser cobrados novamente.
-                </span>
-              </S.SummaryNote>
-
-              <S.Card>
-                <header>
-                  <div>
-                    <h3>Acessos identificados nesta mesa</h3>
-                    <p>
-                      Cada celular ou navegador recebe uma identificação segura. Reabrir em outro
-                      aparelho pode criar um novo acesso, mesmo sendo a mesma pessoa.
-                    </p>
-                  </div>
-                  <span>{snapshot.summary.participantsCount} acessos</span>
-                </header>
-                <S.ContextNote>
-                  <Users size={16} />
-                  <span>Essas identificações são encerradas quando o garçom finaliza a mesa.</span>
-                </S.ContextNote>
-                <S.Participants>
-                  {activeParticipants.map((participant) => (
-                    <span
-                      key={participant.publicId}
-                      className={participant.publicId === currentParticipantId ? 'current' : ''}
-                    >
-                      {participant.displayName || 'Cliente da mesa'}
-                      {participant.publicId === currentParticipantId ? ' • você' : ''}
-                    </span>
-                  ))}
-                </S.Participants>
-              </S.Card>
-
-              <S.Card>
-                <header>
-                  <div>
-                    <h3>Itens lançados</h3>
-                    <p>Valores reservados por outro pagamento não podem ser cobrados novamente.</p>
-                  </div>
-                  <span>{items.length} itens</span>
-                </header>
-                {items.length ? (
-                  <S.Items>
-                    {items.map((item) => {
-                      return (
-                        <S.Item as="div" key={item.publicId}>
-                          <span>
-                            <b>{item.productName}</b>
-                            <small>
-                              {item.orderedByDisplayName} •{' '}
-                              {item.financialStatus === 'PAID'
-                                ? 'pago'
-                                : item.availableCents > 0
-                                  ? 'disponível'
-                                  : 'em pagamento'}
-                            </small>
-                          </span>
-                          <strong>{formatTableMoney(item.unitPriceCents)}</strong>
-                        </S.Item>
-                      );
-                    })}
-                  </S.Items>
-                ) : (
-                  <S.Empty>Nenhum item foi lançado nesta conta ainda.</S.Empty>
-                )}
-              </S.Card>
-
-              <S.Card>
-                <header>
-                  <div>
-                    <h3>1. O que você deseja pagar?</h3>
-                    <p>Escolha uma opção. O sistema calcula o valor exato no servidor.</p>
-                  </div>
-                  <span>Seguro</span>
-                </header>
-                <S.Modes>
-                  {modeLabels.map((mode) => {
-                    const unavailable =
-                      actionLoading ||
-                      (mode.value === 'EQUAL_SPLIT' && !capabilities.allowSplit) ||
-                      (mode.value === 'WAITER'
-                        ? waiterMethods.length === 0
-                        : onlineMethods.length === 0);
-                    return (
-                      <button
-                        key={mode.value}
-                        type="button"
-                        aria-pressed={selectionMode === mode.value}
-                        disabled={unavailable}
-                        onClick={() => chooseMode(mode.value)}
-                      >
-                        <span className="mode-copy">
-                          <b>{mode.title}</b>
-                          <small>{mode.description}</small>
-                        </span>
-                        {selectionMode === mode.value && <CheckCircle2 size={17} />}
-                      </button>
-                    );
-                  })}
-                </S.Modes>
-
-                <S.SelectionHelp>
-                  <Info size={17} />
-                  <span>
-                    <b>{selectedMode.title}</b>
-                    <small>{selectedMode.explanation}</small>
-                  </span>
-                </S.SelectionHelp>
-
-                {selectionMode === 'SELECTED_ITEMS' && (
-                  <S.SelectionBox>
+                  <S.Card>
                     <header>
                       <div>
-                        <h4>Marque os itens que deseja pagar</h4>
-                        <p>Somente itens disponíveis podem ser selecionados.</p>
+                        <h3>Acessos identificados nesta mesa</h3>
+                        <p>
+                          Cada celular ou navegador recebe uma identificação segura. Reabrir em
+                          outro aparelho pode criar um novo acesso, mesmo sendo a mesma pessoa.
+                        </p>
                       </div>
-                      <span>{selectedPayableIds.length} selecionados</span>
+                      <span>{snapshot.summary.participantsCount} acessos</span>
                     </header>
-                    {payableItems.length ? (
+                    <S.ContextNote>
+                      <Users size={16} />
+                      <span>
+                        Essas identificações são encerradas quando o garçom finaliza a mesa.
+                      </span>
+                    </S.ContextNote>
+                    <S.Participants>
+                      {activeParticipants.map((participant) => (
+                        <span
+                          key={participant.publicId}
+                          className={participant.publicId === currentParticipantId ? 'current' : ''}
+                        >
+                          {participant.displayName || 'Cliente da mesa'}
+                          {participant.publicId === currentParticipantId ? ' • você' : ''}
+                        </span>
+                      ))}
+                    </S.Participants>
+                  </S.Card>
+
+                  <S.Card>
+                    <header>
+                      <div>
+                        <h3>Itens lançados</h3>
+                        <p>
+                          Valores reservados por outro pagamento não podem ser cobrados novamente.
+                        </p>
+                      </div>
+                      <span>{items.length} itens</span>
+                    </header>
+                    {items.length ? (
                       <S.Items>
-                        {payableItems.map((item) => {
-                          const selected = selectedPayableIds.includes(item.publicId);
+                        {items.map((item) => {
                           return (
-                            <S.Item key={item.publicId} $selectable $selected={selected}>
-                              <input
-                                type="checkbox"
-                                checked={selected}
-                                disabled={actionLoading}
-                                onChange={() => toggleItem(item.publicId)}
-                                aria-label={`Selecionar ${item.productName}`}
-                              />
+                            <S.Item as="div" key={item.publicId}>
                               <span>
                                 <b>{item.productName}</b>
                                 <small>
-                                  Pedido por {item.orderedByDisplayName} •{' '}
-                                  {formatTableMoney(item.availableCents)} disponível
+                                  {item.orderedByDisplayName} •{' '}
+                                  {item.financialStatus === 'PAID'
+                                    ? 'pago'
+                                    : item.availableCents > 0
+                                      ? 'disponível'
+                                      : 'em pagamento'}
                                 </small>
                               </span>
                               <strong>{formatTableMoney(item.unitPriceCents)}</strong>
@@ -546,180 +522,375 @@ function TableAccountPanelContent({
                         })}
                       </S.Items>
                     ) : (
-                      <S.Empty>Não há itens disponíveis para selecionar.</S.Empty>
+                      <S.Empty>Nenhum item foi lançado nesta conta ainda.</S.Empty>
                     )}
-                  </S.SelectionBox>
-                )}
+                  </S.Card>
+                </S.DetailsRegion>
+              )}
 
-                {selectionMode === 'EQUAL_SPLIT' && (
-                  <S.FormGrid>
-                    <label>
-                      Dividir entre quantas pessoas?
-                      <input
-                        type="number"
-                        min={2}
-                        max={100}
-                        value={splitCount}
-                        disabled={actionLoading}
-                        onChange={(event) =>
-                          setSplitCount(Math.min(100, Math.max(2, Number(event.target.value) || 2)))
-                        }
-                      />
-                    </label>
-                  </S.FormGrid>
-                )}
-
-                <S.MethodHeading>
-                  <div>
-                    <h4>2. Como você deseja pagar?</h4>
-                    <p>
-                      {selectionMode === 'WAITER'
-                        ? 'A equipe precisa confirmar depois de receber o valor.'
-                        : 'A confirmação chega automaticamente após a aprovação do banco.'}
-                    </p>
-                  </div>
-                  {selectionMode === 'WAITER' ? <Users size={18} /> : <ShieldCheck size={18} />}
-                </S.MethodHeading>
-
-                {availableMethods.length ? (
-                  <S.Methods role="group" aria-label="Forma de pagamento">
-                    {availableMethods.map((availableMethod) => (
-                      <button
-                        key={availableMethod}
-                        type="button"
-                        aria-pressed={resolvedMethod === availableMethod}
-                        disabled={actionLoading}
-                        onClick={() => setMethod(availableMethod)}
-                      >
-                        <span className="method-icon">
-                          <MethodIcon method={availableMethod} />
-                        </span>
-                        <span>
-                          <b>{methodLabel(availableMethod)}</b>
-                          <small>{methodDescription(availableMethod)}</small>
-                        </span>
-                        {resolvedMethod === availableMethod && <CheckCircle2 size={18} />}
-                      </button>
-                    ))}
-                  </S.Methods>
-                ) : (
-                  <S.Empty>Nenhuma forma de pagamento está habilitada para esta opção.</S.Empty>
-                )}
-
-                <S.ConfirmationInfo $manual={selectionMode === 'WAITER'}>
-                  {selectionMode === 'WAITER' ? <Users size={18} /> : <Clock3 size={18} />}
-                  <span>
-                    <b>
-                      {selectionMode === 'WAITER'
-                        ? 'Confirmação feita pela equipe'
-                        : 'Confirmação automática em tempo real'}
-                    </b>
-                    <small>
-                      {selectionMode === 'WAITER'
-                        ? 'Dinheiro e maquininha só aparecem como pagos depois que o garçom recebe e confirma no painel. Isso evita baixas incorretas.'
-                        : 'Depois de concluir o Pix ou o cartão, o status fica Processando até o provedor confirmar. Em seguida a conta muda para Pago automaticamente.'}
-                    </small>
-                  </span>
-                </S.ConfirmationInfo>
-
-                {capabilities.serviceFeeMode === 'OPTIONAL' && (
-                  <S.Fee>
-                    <input
-                      type="checkbox"
-                      checked={includeOptionalServiceFee}
-                      disabled={actionLoading}
-                      onChange={(event) => setIncludeOptionalServiceFee(event.target.checked)}
-                    />
-                    <span>
-                      Incluir taxa de serviço de {capabilities.serviceFeeBasisPoints / 100}% neste
-                      pagamento.
-                    </span>
-                  </S.Fee>
-                )}
-                {capabilities.serviceFeeMode === 'MANDATORY' && (
-                  <S.Fee as="div">
-                    <span>
-                      A taxa de serviço de {capabilities.serviceFeeBasisPoints / 100}% será
-                      calculada automaticamente.
-                    </span>
-                  </S.Fee>
-                )}
-
-                {!capabilities.enabled && (
-                  <S.Alert $error>
-                    <span>A conta por mesa está desativada neste restaurante.</span>
-                  </S.Alert>
-                )}
-                {!canPaySelection && (
-                  <S.Empty>
-                    {selectionMode === 'SELECTED_ITEMS'
-                      ? 'Selecione ao menos um item disponível.'
-                      : selectionMode === 'MY_ITEMS'
-                        ? 'Você não possui itens disponíveis para este pagamento.'
-                        : 'Não há saldo disponível para esta escolha.'}
-                  </S.Empty>
-                )}
-                <S.Submit type="button" disabled={!canSubmit} onClick={() => void submit()}>
-                  {actionLoading ? 'Reservando valor com segurança...' : submitLabel}
-                  <ArrowRight size={16} />
-                </S.Submit>
-              </S.Card>
+              {step === 'SELECTION' && (
+                <S.DetailsToggle
+                  type="button"
+                  aria-expanded={showDetails}
+                  aria-controls="table-account-details"
+                  onClick={() => setShowDetails((current) => !current)}
+                >
+                  <Info size={16} />
+                  {showDetails ? 'Ocultar detalhes da conta' : 'Ver detalhes da conta'}
+                </S.DetailsToggle>
+              )}
 
               <S.Card>
-                <header>
-                  <div>
-                    <h3>3. Acompanhe os pagamentos</h3>
-                    <p>Veja quando o valor está em confirmação, pago, liberado ou estornado.</p>
-                  </div>
-                  <S.IconButton type="button" aria-label="Atualizar pagamentos" onClick={onRefresh}>
-                    <RefreshCw size={15} />
-                  </S.IconButton>
-                </header>
-                {snapshot.payments.length ? (
-                  <S.PaymentList>
-                    {snapshot.payments.map((payment) => (
-                      <article key={payment.publicId} data-status={payment.status}>
+                {step === 'SELECTION' ? (
+                  <>
+                    <header>
+                      <div>
+                        <h3>O que você quer pagar?</h3>
+                        <p>Escolha uma opção para continuar.</p>
+                      </div>
+                    </header>
+                    <S.Modes>
+                      {modeLabels.map((mode) => {
+                        const unavailable =
+                          actionLoading ||
+                          (mode.value === 'EQUAL_SPLIT' && !capabilities.allowSplit) ||
+                          availableMethods.length === 0 ||
+                          ((mode.value === 'EQUAL_SPLIT' || mode.value === 'FULL_ACCOUNT') &&
+                            tableHasPaymentInProgress);
+                        return (
+                          <button
+                            key={mode.value}
+                            type="button"
+                            aria-pressed={selectionMode === mode.value}
+                            disabled={unavailable}
+                            onClick={() => chooseMode(mode.value)}
+                          >
+                            <span className="mode-icon">
+                              <SelectionModeIcon mode={mode.value} />
+                            </span>
+                            <span className="mode-copy">
+                              <b>{mode.title}</b>
+                              <small>{mode.description}</small>
+                            </span>
+                            {selectionMode === mode.value && <CheckCircle2 size={18} />}
+                          </button>
+                        );
+                      })}
+                    </S.Modes>
+
+                    <S.SelectionHelp>
+                      <Info size={17} />
+                      <span>
+                        <b>{selectedMode.title}</b>
+                        <small>{selectedMode.explanation}</small>
+                      </span>
+                    </S.SelectionHelp>
+
+                    {selectionMode === 'SELECTED_ITEMS' && (
+                      <S.SelectionBox>
+                        <header>
+                          <div>
+                            <h4>Marque os itens que deseja pagar</h4>
+                            <p>Somente itens disponíveis podem ser selecionados.</p>
+                          </div>
+                          <span>{selectedPayableIds.length} selecionados</span>
+                        </header>
+                        {items.length ? (
+                          <S.Items>
+                            {items.map((item) => {
+                              const selected = selectedPayableIds.includes(item.publicId);
+                              const selectable = selectableItems.some(
+                                (candidate) => candidate.publicId === item.publicId,
+                              );
+                              return (
+                                <S.Item
+                                  key={item.publicId}
+                                  $selectable={selectable}
+                                  $selected={selected}
+                                  $unavailable={!selectable}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    disabled={actionLoading || !selectable}
+                                    onChange={() => toggleItem(item.publicId)}
+                                    aria-label={`Selecionar ${item.productName}`}
+                                  />
+                                  <span>
+                                    <b>{item.productName}</b>
+                                    <small>Pedido por {item.orderedByDisplayName}</small>
+                                  </span>
+                                  <span className="item-state">
+                                    <strong>{formatTableMoney(item.unitPriceCents)}</strong>
+                                    <em>
+                                      {item.financialStatus === 'PAID'
+                                        ? 'Pago'
+                                        : item.availableCents <= 0
+                                          ? 'Em confirmação'
+                                          : 'Disponível'}
+                                    </em>
+                                  </span>
+                                </S.Item>
+                              );
+                            })}
+                          </S.Items>
+                        ) : (
+                          <S.Empty>Não há itens disponíveis para selecionar.</S.Empty>
+                        )}
+                      </S.SelectionBox>
+                    )}
+
+                    {selectionMode === 'EQUAL_SPLIT' && (
+                      <S.SplitControl>
                         <span>
-                          <b className="status-label">{paymentStatusLabel(payment)}</b>
-                          <small>
-                            {payment.payerParticipantPublicId === currentParticipantId
-                              ? 'Seu pagamento'
-                              : 'Outro participante'}{' '}
-                            • {paymentStatusDescription(payment)}
-                          </small>
-                          {formatPaymentTime(payment.createdAt) && (
-                            <time dateTime={payment.createdAt}>
-                              Iniciado em {formatPaymentTime(payment.createdAt)}
-                            </time>
-                          )}
+                          <b>Dividir entre</b>
+                          <small>Cada pessoa paga uma parte igual do saldo disponível.</small>
                         </span>
-                        <strong>{formatTableMoney(payment.totalCents)}</strong>
-                        {isCancelableOwnTablePayment(payment, currentParticipantId) && (
+                        <div>
                           <button
                             type="button"
-                            disabled={actionLoading}
-                            onClick={() => void onCancelPayment(payment.publicId)}
+                            aria-label="Diminuir número de pessoas"
+                            disabled={actionLoading || splitCount <= 2}
+                            onClick={() => setSplitCount((current) => Math.max(2, current - 1))}
                           >
-                            Cancelar reserva
+                            <Minus size={16} />
                           </button>
-                        )}
-                      </article>
-                    ))}
-                  </S.PaymentList>
+                          <output aria-live="polite">{splitCount} pessoas</output>
+                          <button
+                            type="button"
+                            aria-label="Aumentar número de pessoas"
+                            disabled={
+                              actionLoading ||
+                              splitCount >= Math.min(100, Math.max(2, availableSubtotalCents))
+                            }
+                            onClick={() => setSplitCount((current) => Math.min(100, current + 1))}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </S.SplitControl>
+                    )}
+
+                    {!canPaySelection && (
+                      <S.Empty>
+                        {selectionMode === 'SELECTED_ITEMS'
+                          ? 'Selecione ao menos um item disponível.'
+                          : selectionMode === 'MY_ITEMS'
+                            ? 'Você não possui itens disponíveis para este pagamento.'
+                            : 'Não há saldo disponível para esta escolha.'}
+                      </S.Empty>
+                    )}
+                    <S.Submit
+                      type="button"
+                      disabled={!canContinue}
+                      onClick={() => setStep('METHOD')}
+                    >
+                      Continuar
+                      <ArrowRight size={16} />
+                    </S.Submit>
+                  </>
+                ) : step === 'METHOD' ? (
+                  <>
+                    <S.BackButton type="button" onClick={() => setStep('SELECTION')}>
+                      <ArrowLeft size={16} />
+                      Voltar
+                    </S.BackButton>
+                    <S.ReviewSummary>
+                      <header>
+                        <span>
+                          <small>Sua escolha</small>
+                          <b>{selectedMode.title}</b>
+                        </span>
+                        {selectionMode === 'EQUAL_SPLIT' && <em>{splitCount} pessoas</em>}
+                      </header>
+                      <div>
+                        <span>
+                          Subtotal estimado
+                          <b>{formatTableMoney(estimatedSubtotalCents)}</b>
+                        </span>
+                        <span>
+                          Taxa de serviço
+                          <b>{formatTableMoney(estimatedServiceFeeCents)}</b>
+                        </span>
+                        <span>
+                          Total estimado
+                          <b>{formatTableMoney(estimatedTotalCents)}</b>
+                        </span>
+                      </div>
+                      {selectionMode === 'FULL_ACCOUNT' && (
+                        <S.ContextNote>
+                          <Clock3 size={16} />
+                          <span>
+                            A conta completa fica reservada até a confirmação. Outros pagamentos
+                            devem aguardar a conclusão desta tentativa.
+                          </span>
+                        </S.ContextNote>
+                      )}
+                    </S.ReviewSummary>
+                    <S.MethodHeading>
+                      <div>
+                        <h3>Como deseja pagar?</h3>
+                        <p>A confirmação acontece somente depois da aprovação do pagamento.</p>
+                      </div>
+                      <ShieldCheck size={18} />
+                    </S.MethodHeading>
+
+                    {availableMethods.length ? (
+                      <S.Methods role="group" aria-label="Forma de pagamento">
+                        {availableMethods.map((availableMethod) => (
+                          <button
+                            key={availableMethod}
+                            type="button"
+                            aria-pressed={resolvedMethod === availableMethod}
+                            disabled={actionLoading}
+                            onClick={() => setMethod(availableMethod)}
+                          >
+                            <span className="method-icon">
+                              <MethodIcon method={availableMethod} />
+                            </span>
+                            <span>
+                              <b>{methodLabel(availableMethod)}</b>
+                              <small>{methodDescription(availableMethod)}</small>
+                            </span>
+                            {resolvedMethod === availableMethod && <CheckCircle2 size={18} />}
+                          </button>
+                        ))}
+                      </S.Methods>
+                    ) : (
+                      <S.Empty>Nenhuma forma de pagamento está habilitada para esta opção.</S.Empty>
+                    )}
+
+                    <S.ConfirmationInfo $manual={manualMethod}>
+                      {manualMethod ? <Users size={18} /> : <Clock3 size={18} />}
+                      <span>
+                        <b>
+                          {manualMethod
+                            ? 'Confirmação feita pela equipe'
+                            : 'Confirmação automática em tempo real'}
+                        </b>
+                        <small>
+                          {manualMethod
+                            ? 'Dinheiro e maquininha só aparecem como pagos depois que o garçom recebe e confirma no painel. Isso evita baixas incorretas.'
+                            : 'Depois de concluir o Pix ou o cartão, o status fica Processando até o provedor confirmar. Em seguida a conta muda para Pago automaticamente.'}
+                        </small>
+                      </span>
+                    </S.ConfirmationInfo>
+
+                    {capabilities.serviceFeeMode === 'OPTIONAL' && (
+                      <S.Fee>
+                        <input
+                          type="checkbox"
+                          checked={includeOptionalServiceFee}
+                          disabled={actionLoading}
+                          onChange={(event) => setIncludeOptionalServiceFee(event.target.checked)}
+                        />
+                        <span>
+                          Incluir taxa de serviço de {capabilities.serviceFeeBasisPoints / 100}%
+                          neste pagamento.
+                        </span>
+                      </S.Fee>
+                    )}
+                    {capabilities.serviceFeeMode === 'MANDATORY' && (
+                      <S.Fee as="div">
+                        <span>
+                          A taxa de serviço de {capabilities.serviceFeeBasisPoints / 100}% será
+                          calculada automaticamente.
+                        </span>
+                      </S.Fee>
+                    )}
+
+                    {!capabilities.enabled && (
+                      <S.Alert $error>
+                        <span>A conta por mesa está desativada neste restaurante.</span>
+                      </S.Alert>
+                    )}
+                    <S.ActionSummary>
+                      <span>
+                        <small>Total estimado</small>
+                        <strong>{formatTableMoney(estimatedTotalCents)}</strong>
+                      </span>
+                      <S.Submit type="button" disabled={!canSubmit} onClick={() => void submit()}>
+                        {actionLoading ? 'Reservando...' : submitLabel}
+                        <ArrowRight size={16} />
+                      </S.Submit>
+                    </S.ActionSummary>
+                  </>
+                ) : activePayment && canonicalPaymentStatus ? (
+                  <TablePaymentStatusView
+                    payment={activePayment}
+                    status={canonicalPaymentStatus}
+                    actionLoading={actionLoading}
+                    onVerify={reconcileActivePayment}
+                    onCancel={cancelActivePayment}
+                    onStartOver={startOver}
+                    onClose={onClose}
+                  />
                 ) : (
-                  <S.Empty>Nenhum pagamento foi iniciado nesta mesa.</S.Empty>
+                  <S.Empty>Não foi possível recuperar este pagamento. Atualize a conta.</S.Empty>
                 )}
-                <S.StatusLegend>
-                  <span>
-                    <Clock3 size={14} />
-                    <b>Processando</b> ainda não significa pago.
-                  </span>
-                  <span>
-                    <CheckCircle2 size={14} />
-                    <b>Pago</b> significa confirmação concluída.
-                  </span>
-                </S.StatusLegend>
               </S.Card>
+
+              {step === 'SELECTION' && showDetails && (
+                <S.Card>
+                  <header>
+                    <div>
+                      <h3>3. Acompanhe os pagamentos</h3>
+                      <p>Veja quando o valor está em confirmação, pago, liberado ou estornado.</p>
+                    </div>
+                    <S.IconButton
+                      type="button"
+                      aria-label="Atualizar pagamentos"
+                      onClick={onRefresh}
+                    >
+                      <RefreshCw size={15} />
+                    </S.IconButton>
+                  </header>
+                  {snapshot.payments.length ? (
+                    <S.PaymentList>
+                      {snapshot.payments.map((payment) => (
+                        <article key={payment.publicId} data-status={payment.status}>
+                          <span>
+                            <b className="status-label">{paymentStatusLabel(payment)}</b>
+                            <small>
+                              {payment.payerParticipantPublicId === currentParticipantId
+                                ? 'Seu pagamento'
+                                : 'Outro participante'}{' '}
+                              • {paymentStatusDescription(payment)}
+                            </small>
+                            {formatPaymentTime(payment.createdAt) && (
+                              <time dateTime={payment.createdAt}>
+                                Iniciado em {formatPaymentTime(payment.createdAt)}
+                              </time>
+                            )}
+                          </span>
+                          <strong>{formatTableMoney(payment.totalCents)}</strong>
+                          {isCancelableOwnTablePayment(payment, currentParticipantId) && (
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => void onCancelPayment(payment.publicId)}
+                            >
+                              Cancelar reserva
+                            </button>
+                          )}
+                        </article>
+                      ))}
+                    </S.PaymentList>
+                  ) : (
+                    <S.Empty>Nenhum pagamento foi iniciado nesta mesa.</S.Empty>
+                  )}
+                  <S.StatusLegend>
+                    <span>
+                      <Clock3 size={14} />
+                      <b>Processando</b> ainda não significa pago.
+                    </span>
+                    <span>
+                      <CheckCircle2 size={14} />
+                      <b>Pago</b> significa confirmação concluída.
+                    </span>
+                  </S.StatusLegend>
+                </S.Card>
+              )}
             </>
           )}
         </S.Scroll>

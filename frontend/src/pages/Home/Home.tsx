@@ -23,10 +23,7 @@ import { TableAccessGate } from './components/TableAccessGate';
 import { CartItemsList } from '../Home/components/CartItemsList';
 import { DeliveryAddressForm } from '../Home/components/DeliveryAddressForm';
 import { PaymentOptions } from '../Home/components/PaymentOptions';
-import {
-  GuestCheckoutForm,
-  type GuestCheckoutDetails,
-} from '../Home/components/GuestCheckoutForm';
+import { GuestCheckoutForm, type GuestCheckoutDetails } from '../Home/components/GuestCheckoutForm';
 import { DeliveryMethodSelector } from '../Home/components/DeliveryMethodSelector';
 import { CartCheckoutSummary } from '../Home/components/CartCheckoutSummary';
 import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
@@ -58,6 +55,8 @@ import {
 import { TableServiceActions } from './components/TableServiceActions';
 import { TableOrderContinuationModal } from './components/TableOrderContinuationModal';
 import { TableAccountPanel } from './components/TableAccountPanel';
+import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
+import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -331,6 +330,12 @@ export default function Home() {
       ? selectedRedemptionId
       : null;
   const checkoutOrderType = resolveOrderType(mesaMode, availableOrderType);
+  const rawCardReturnStatus = String(searchParams.get('cardCheckoutStatus') || '').toLowerCase();
+  const cardProviderReturnStatus = ['success', 'pending', 'cancel'].includes(rawCardReturnStatus)
+    ? rawCardReturnStatus
+    : '';
+  const cardReturnOrderPublicId = String(searchParams.get('orderPublicId') || '').trim();
+  const hasCardPaymentReturn = Boolean(cardProviderReturnStatus && cardReturnOrderPublicId);
   const allowPayOnDelivery = !mesaMode && availableOrderType === 'delivery';
   const availablePaymentMethods = useMemo(
     () =>
@@ -379,25 +384,62 @@ export default function Home() {
     );
   }
 
-  const { checkoutLoading, pixPaymentData, setPixPaymentData, executePayment } =
-    useCheckoutPayments({
-      restaurantId,
-      pixProvider: settings?.pixProvider,
-      cartTotal: checkoutTotal,
-      notify,
-      onPurchased: () => {
-        applyPurchasedStockToHome();
-        setSelectedRedemptionId(null);
-        void loyalty.refresh();
-        if (mesaMode) void tableAccount.refresh({ silent: true });
+  const {
+    checkoutLoading,
+    pixPaymentData,
+    pixPaymentStatus,
+    pixPaymentError,
+    verifyPixPayment,
+    clearPixPayment,
+    executePayment,
+  } = useCheckoutPayments({
+    restaurantId,
+    pixProvider: settings?.pixProvider,
+    cartTotal: checkoutTotal,
+    notify,
+    onPurchased: () => {
+      applyPurchasedStockToHome();
+      setSelectedRedemptionId(null);
+      void loyalty.refresh();
+      if (mesaMode) void tableAccount.refresh({ silent: true });
+    },
+    onPaymentConfirmed: async () => {
+      await loyalty.refresh();
+      if (mesaMode) await tableAccount.refresh({ silent: true });
+    },
+    onClearCart: () => setCart([]),
+    onCloseCart: () => setCartOpen(false),
+  });
+
+  const cardPaymentReturn = useCardPaymentReturn({
+    restaurantId,
+    orderPublicId: hasCardPaymentReturn ? cardReturnOrderPublicId : '',
+    orderType: checkoutOrderType,
+    providerReturnStatus: cardProviderReturnStatus,
+    onPaymentConfirmed: async () => {
+      await loyalty.refresh();
+      if (mesaMode) {
+        await tableAccount.refresh({ silent: true });
+        await refreshTableOrder();
+      } else {
+        await refreshActiveOrder();
+      }
+    },
+  });
+
+  const closeCardPaymentReturn = useCallback(() => {
+    const nextSearch = new URLSearchParams(searchParams);
+    nextSearch.delete('cardCheckoutStatus');
+    nextSearch.delete('orderPublicId');
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch.toString() ? `?${nextSearch.toString()}` : '',
+        hash: location.hash,
       },
-      onPaymentConfirmed: async () => {
-        await loyalty.refresh();
-        if (mesaMode) await tableAccount.refresh({ silent: true });
-      },
-      onClearCart: () => setCart([]),
-      onCloseCart: () => setCartOpen(false),
-    });
+      { replace: true },
+    );
+  }, [location.hash, location.pathname, navigate, searchParams]);
 
   async function handleCheckout() {
     if (tableClosingRequested) {
@@ -670,15 +712,32 @@ export default function Home() {
     }
   }
 
+  if (hasCardPaymentReturn) {
+    return (
+      <CardPaymentReturnPanel
+        status={cardPaymentReturn.status}
+        error={cardPaymentReturn.error}
+        providerReturnStatus={cardPaymentReturn.providerReturnStatus}
+        primaryColor={primary}
+        onVerify={cardPaymentReturn.verify}
+        onClose={closeCardPaymentReturn}
+      />
+    );
+  }
+
   if (pixPaymentData) {
     return (
       <PixPaymentPanel
         pixPaymentData={pixPaymentData}
+        paymentStatus={pixPaymentStatus}
+        paymentError={pixPaymentError}
+        primaryColor={primary}
         formatCurrency={(value) =>
           value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
         }
         onCopyPixKey={() => navigator.clipboard.writeText(pixPaymentData.pixCode)}
-        onBackToCart={() => setPixPaymentData(null)}
+        onVerify={verifyPixPayment}
+        onBackToCart={clearPixPayment}
       />
     );
   }
@@ -769,10 +828,7 @@ export default function Home() {
             )}
 
             {cart.length > 0 && !mesaMode && !user && (
-              <GuestCheckoutForm
-                value={guestCheckoutDetails}
-                onChange={setGuestCheckoutDetails}
-              />
+              <GuestCheckoutForm value={guestCheckoutDetails} onChange={setGuestCheckoutDetails} />
             )}
 
             {cart.length > 0 && !mesaMode && availableOrderType === 'delivery' && (
@@ -867,6 +923,7 @@ export default function Home() {
         onRefresh={() => void tableAccount.refresh()}
         onCreatePayment={tableAccount.createPayment}
         onCancelPayment={tableAccount.cancelPayment}
+        onReconcilePayment={tableAccount.reconcilePayment}
         onClose={() => setTableAccountOpen(false)}
       />
 

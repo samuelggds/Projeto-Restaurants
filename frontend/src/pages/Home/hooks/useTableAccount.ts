@@ -7,6 +7,7 @@ import {
   type CreateTablePaymentResult,
   type TableAccountSnapshot,
   type TablePaymentDraft,
+  type TablePaymentIntent,
 } from '../domain/tableAccount';
 
 type Notify = (type: 'success' | 'error', title: string, message?: string) => void;
@@ -207,6 +208,26 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
     [notify, refresh, scopeKey],
   );
 
+  const reconcilePayment = useCallback(
+    async (paymentPublicId: string): Promise<TablePaymentIntent | null> => {
+      if (!scopeKey || actionInFlightRef.current) return null;
+      actionInFlightRef.current = true;
+      setActionLoading(true);
+      try {
+        const result = await tableAccountService.reconcilePayment(scopeKey, paymentPublicId);
+        await refresh({ silent: true });
+        return result.payment;
+      } catch (requestError: unknown) {
+        notify('error', 'Não foi possível verificar', errorMessage(requestError));
+        return null;
+      } finally {
+        actionInFlightRef.current = false;
+        if (activeRef.current) setActionLoading(false);
+      }
+    },
+    [notify, refresh, scopeKey],
+  );
+
   return {
     snapshot: scopedQueryState.snapshot,
     loading: scopedQueryState.loading,
@@ -215,5 +236,6 @@ export function useTableAccount({ enabled, sessionPublicId, sessionToken, notify
     refresh,
     createPayment,
     cancelPayment,
+    reconcilePayment,
   };
 }

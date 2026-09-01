@@ -4,6 +4,7 @@ import type {
   CreateTablePaymentResult,
   TableAccountSnapshot,
   TablePaymentDraft,
+  TablePaymentIntent,
 } from '../pages/Home/domain/tableAccount';
 import { buildTablePaymentPayload } from '../pages/Home/domain/tableAccount';
 
@@ -29,6 +30,16 @@ class TableAccountService {
   async cancelPayment(sessionPublicId: string, paymentPublicId: string) {
     const response = await api.patch(
       `/table-accounts/sessions/${sessionPublicId}/payments/${paymentPublicId}/cancel`,
+    );
+    return response.data;
+  }
+
+  async reconcilePayment(
+    sessionPublicId: string,
+    paymentPublicId: string,
+  ): Promise<{ payment: TablePaymentIntent }> {
+    const response = await api.post(
+      `/table-accounts/sessions/${sessionPublicId}/payments/${paymentPublicId}/reconcile`,
     );
     return response.data;
   }
