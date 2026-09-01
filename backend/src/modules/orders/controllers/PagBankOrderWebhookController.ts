@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { load } from 'cheerio';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
@@ -6,6 +7,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from '../services/OrderPixPaymentService.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
+import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 const APPROVED_TRANSACTION_STATUSES = new Set(['3', '4']);
 const TERMINAL_TRANSACTION_STATUSES = new Set(['6', '7', '8']);
@@ -15,6 +17,8 @@ type PagBankTransactionDetails = {
   code: string;
   status: string;
   reference: string;
+  grossAmount: string;
+  paymentMethodType: string;
 };
 
 type PagBankCredentials = {
@@ -79,6 +83,24 @@ function extractXmlTagValue(xml: string, tag: string) {
   return String(match?.[1] || '').trim();
 }
 
+function parsePagBankTransactionDetails(xml: string): PagBankTransactionDetails {
+  const parsedXml = load(String(xml || ''), { xmlMode: true });
+  const transaction = parsedXml('transaction').first();
+
+  return {
+    code: transaction.children('code').first().text().trim(),
+    status: transaction.children('status').first().text().trim(),
+    reference: transaction.children('reference').first().text().trim(),
+    grossAmount: transaction.children('grossAmount').first().text().trim(),
+    paymentMethodType: transaction
+      .children('paymentMethod')
+      .children('type')
+      .first()
+      .text()
+      .trim(),
+  };
+}
+
 async function fetchPagBankTransactionByNotificationCode(
   notificationCode: string,
   restaurantId?: number,
@@ -99,11 +121,7 @@ async function fetchPagBankTransactionByNotificationCode(
     throw new PagBankWebhookError(`PagBank webhook: ${providerMessage}`, 502);
   }
 
-  return {
-    code: extractXmlTagValue(responseText, 'code'),
-    status: extractXmlTagValue(responseText, 'status'),
-    reference: extractXmlTagValue(responseText, 'reference'),
-  } as PagBankTransactionDetails;
+  return parsePagBankTransactionDetails(responseText);
 }
 
 async function fetchPagBankTransactionByCode(transactionCode: string, restaurantId?: number) {
@@ -123,11 +141,7 @@ async function fetchPagBankTransactionByCode(transactionCode: string, restaurant
     throw new PagBankWebhookError(`PagBank webhook: ${providerMessage}`, 502);
   }
 
-  return {
-    code: extractXmlTagValue(responseText, 'code'),
-    status: extractXmlTagValue(responseText, 'status'),
-    reference: extractXmlTagValue(responseText, 'reference'),
-  } as PagBankTransactionDetails;
+  return parsePagBankTransactionDetails(responseText);
 }
 
 class PagBankOrderWebhookController {
@@ -240,6 +254,24 @@ class PagBankOrderWebhookController {
         }
 
         if (orderId) {
+          const order = await orderRepository.findById(orderId, referenceRestaurantId);
+          if (!order) {
+            return res.sendStatus(200);
+          }
+          if (
+            String(order.paymentMethod || '').toUpperCase() !== 'CARTAO' ||
+            details.paymentMethodType !== '3' ||
+            !matchesOrderPaymentEvidence({
+              expectedAmount: order.total,
+              providerAmount: details.grossAmount,
+              providerCurrency: 'BRL',
+            })
+          ) {
+            return res.status(400).json({
+              error: 'Webhook PagBank rejeitado: dados financeiros da transação não conferem.',
+            });
+          }
+
           if (details.code) {
             await orderRepository.setCardCheckoutSessionId(
               orderId,

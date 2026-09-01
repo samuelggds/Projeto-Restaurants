@@ -5,6 +5,7 @@ import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymen
 import { getMercadoPagoPaymentApi } from '../../payments/providers/mercadoPagoClient.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
+import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
@@ -62,6 +63,8 @@ class MercadoPagoOrderWebhookController {
           : {};
 
       const status = String((payment as { status?: unknown }).status || '').toLowerCase();
+      const transactionAmount = (payment as { transaction_amount?: unknown }).transaction_amount;
+      const currency = (payment as { currency_id?: unknown }).currency_id;
       const externalReference = String(
         (payment as { external_reference?: unknown }).external_reference || '',
       ).trim();
@@ -120,6 +123,23 @@ class MercadoPagoOrderWebhookController {
         ) {
           return res.status(400).json({
             error: 'Webhook Mercado Pago rejeitado: restaurante da transação não confere.',
+          });
+        }
+
+        const order = await orderRepository.findById(orderId, referenceRestaurantId);
+        if (!order) {
+          return res.sendStatus(200);
+        }
+        if (
+          String(order.paymentMethod || '').toUpperCase() !== 'CARTAO' ||
+          !matchesOrderPaymentEvidence({
+            expectedAmount: order.total,
+            providerAmount: transactionAmount,
+            providerCurrency: currency,
+          })
+        ) {
+          return res.status(400).json({
+            error: 'Webhook Mercado Pago rejeitado: dados financeiros da transação não conferem.',
           });
         }
 

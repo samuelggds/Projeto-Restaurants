@@ -4,6 +4,8 @@ import Stripe from 'stripe';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import failPendingOrderPaymentService from '../services/FailPendingOrderPaymentService.js';
+import orderRepository from '../repositories/OrderRepository.js';
+import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 class StripeOrderWebhookController {
   async handle(req: Request, res: Response) {
@@ -94,6 +96,27 @@ class StripeOrderWebhookController {
 
       if (paymentStatus !== 'paid') {
         return res.sendStatus(200);
+      }
+
+      const order = await orderRepository.findById(metadataOrderId, metadataRestaurantId);
+      if (!order) {
+        return res.sendStatus(200);
+      }
+
+      const linkedCheckoutSessionId = String(order.cardCheckoutSessionId || '').trim();
+      const hasValidPaymentEvidence =
+        String(order.paymentMethod || '').toUpperCase() === 'CARTAO' &&
+        (!linkedCheckoutSessionId || linkedCheckoutSessionId === sessionId) &&
+        matchesOrderPaymentEvidence({
+          expectedAmount: order.total,
+          providerAmount: session?.amount_total,
+          providerAmountUnit: 'MINOR',
+          providerCurrency: session?.currency,
+        });
+      if (!hasValidPaymentEvidence) {
+        return res.status(400).json({
+          error: 'Webhook Stripe rejeitado: dados financeiros da transação não conferem.',
+        });
       }
 
       await finalizeOrderCardPaymentService.execute({

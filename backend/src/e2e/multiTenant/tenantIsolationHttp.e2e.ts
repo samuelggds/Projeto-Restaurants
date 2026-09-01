@@ -796,18 +796,19 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         assert.equal(pagBank.response.status, 400);
 
         const originalFetch = globalThis.fetch;
+        let mercadoPagoPayment: Record<string, unknown> = {
+          id: 'mp-cross-tenant',
+          status: 'approved',
+          external_reference: `ordercard:${fixture.orders.webhookB.id}:${fixture.restaurants.a.id}`,
+          metadata: { restaurant_id: fixture.restaurants.a.id },
+        };
         globalThis.fetch = async (input, init) => {
           const url = String(input);
           if (url.startsWith('https://api.mercadopago.com/v1/payments/')) {
-            return new Response(
-              JSON.stringify({
-                id: 'mp-cross-tenant',
-                status: 'approved',
-                external_reference: `ordercard:${fixture.orders.webhookB.id}:${fixture.restaurants.a.id}`,
-                metadata: { restaurant_id: fixture.restaurants.a.id },
-              }),
-              { status: 200, headers: { 'content-type': 'application/json' } },
-            );
+            return new Response(JSON.stringify(mercadoPagoPayment), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            });
           }
           return originalFetch(input, init);
         };
@@ -822,15 +823,47 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
             },
           );
           assert.equal(mercadoPago.response.status, 200);
+
+          await prisma.order.update({
+            where: { id: fixture.orders.a.id },
+            data: {
+              paid: false,
+              paidAt: null,
+              status: 'PENDENTE',
+              paymentMethod: 'CARTAO',
+              cardCheckoutSessionId: 'mp_pref:original',
+            },
+          });
+          mercadoPagoPayment = {
+            id: 'mp-wrong-amount',
+            status: 'approved',
+            external_reference: `ordercard:${fixture.orders.a.id}:${fixture.restaurants.a.id}`,
+            metadata: { restaurant_id: fixture.restaurants.a.id },
+            transaction_amount: 0.01,
+            currency_id: 'BRL',
+          };
+          const wrongAmount = await apiRequest(
+            baseUrl,
+            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}`,
+            undefined,
+            {
+              method: 'POST',
+              json: { data: { id: 'mp-wrong-amount' } },
+            },
+          );
+          assert.equal(wrongAmount.response.status, 400);
         } finally {
           globalThis.fetch = originalFetch;
         }
 
-        const stored = await prisma.order.findUniqueOrThrow({
-          where: { id: fixture.orders.webhookB.id },
-        });
-        assert.equal(stored.paid, false);
-        assert.equal(stored.restaurantId, fixture.restaurants.b.id);
+        const [foreignOrder, amountMismatchOrder] = await Promise.all([
+          prisma.order.findUniqueOrThrow({ where: { id: fixture.orders.webhookB.id } }),
+          prisma.order.findUniqueOrThrow({ where: { id: fixture.orders.a.id } }),
+        ]);
+        assert.equal(foreignOrder.paid, false);
+        assert.equal(foreignOrder.restaurantId, fixture.restaurants.b.id);
+        assert.equal(amountMismatchOrder.paid, false);
+        assert.equal(amountMismatchOrder.cardCheckoutSessionId, 'mp_pref:original');
       },
     );
 

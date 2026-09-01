@@ -2,6 +2,7 @@ import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import orderRepository from '../repositories/OrderRepository.js';
 
 const originalHttpCreateServer = http.createServer;
 
@@ -35,6 +36,9 @@ type MockResponse = {
 
 const originalFinalizeExecute = finalizeOrderCardPaymentService.execute;
 const originalFindRestaurantSettings = restaurantSettingsRepository.findByRestaurantId;
+const originalFindOrder = orderRepository.findById;
+const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
+const originalFetch = globalThis.fetch;
 const originalEnv = {
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
@@ -69,6 +73,9 @@ beforeEach(() => {
 afterEach(() => {
   finalizeOrderCardPaymentService.execute = originalFinalizeExecute;
   restaurantSettingsRepository.findByRestaurantId = originalFindRestaurantSettings;
+  orderRepository.findById = originalFindOrder;
+  orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
+  globalThis.fetch = originalFetch;
 
   process.env.STRIPE_WEBHOOK_SECRET = originalEnv.STRIPE_WEBHOOK_SECRET;
   process.env.STRIPE_SECRET_KEY = originalEnv.STRIPE_SECRET_KEY;
@@ -180,6 +187,13 @@ test('deve finalizar pedido no webhook Stripe quando payload valido', async () =
     receivedPayloads.push(payload);
     return null;
   };
+  orderRepository.findById = (async () => ({
+    id: 321,
+    restaurantId: 7,
+    paymentMethod: 'CARTAO',
+    total: 79.9,
+    cardCheckoutSessionId: 'cs_test_ok',
+  })) as unknown as typeof orderRepository.findById;
 
   const req = {
     body: {
@@ -188,6 +202,8 @@ test('deve finalizar pedido no webhook Stripe quando payload valido', async () =
         object: {
           id: 'cs_test_ok',
           payment_status: 'paid',
+          amount_total: 7_990,
+          currency: 'brl',
           metadata: {
             orderId: '321',
             restaurantId: '7',
@@ -210,6 +226,51 @@ test('deve finalizar pedido no webhook Stripe quando payload valido', async () =
     allowMissingOrder: true,
   });
 });
+
+for (const scenario of [
+  { label: 'valor divergente', amountTotal: 1_000, currency: 'brl', sessionId: 'cs_test_ok' },
+  { label: 'moeda divergente', amountTotal: 7_990, currency: 'usd', sessionId: 'cs_test_ok' },
+  { label: 'sessão divergente', amountTotal: 7_990, currency: 'brl', sessionId: 'cs_other' },
+]) {
+  test(`não finaliza webhook Stripe pago com ${scenario.label}`, async () => {
+    process.env.STRIPE_WEBHOOK_SECRET = '';
+    process.env.NODE_ENV = 'test';
+    let finalizeCalls = 0;
+    finalizeOrderCardPaymentService.execute = async () => {
+      finalizeCalls += 1;
+      return null;
+    };
+    orderRepository.findById = (async () => ({
+      id: 321,
+      restaurantId: 7,
+      paymentMethod: 'CARTAO',
+      total: 79.9,
+      cardCheckoutSessionId: 'cs_test_ok',
+    })) as unknown as typeof orderRepository.findById;
+
+    const req = {
+      body: {
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: scenario.sessionId,
+            payment_status: 'paid',
+            amount_total: scenario.amountTotal,
+            currency: scenario.currency,
+            metadata: { orderId: '321', restaurantId: '7' },
+          },
+        },
+      },
+      headers: {},
+    } as any;
+    const res = createMockResponse();
+
+    await StripeOrderWebhookController.handle(req, res as any);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(finalizeCalls, 0);
+  });
+}
 
 test('deve exigir restaurantId no webhook Mercado Pago quando fallback global estiver desativado', async () => {
   process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'false';
@@ -263,3 +324,56 @@ test('deve exigir restaurantId no webhook PagBank quando fallback global estiver
     error: 'restaurantId obrigatorio no webhook PagBank para ambiente multi-tenant.',
   });
 });
+
+for (const scenario of [
+  {
+    label: 'valor divergente',
+    financialEvidence: '<grossAmount>0.01</grossAmount>',
+  },
+  {
+    label: 'valor ausente',
+    financialEvidence: '',
+  },
+]) {
+  test(`não finaliza webhook PagBank pago com ${scenario.label}`, async () => {
+    restaurantSettingsRepository.findByRestaurantId = (async () => ({
+      pagbankEmail: 'restaurant@example.com',
+      pagbankToken: 'tenant-token',
+    })) as unknown as typeof restaurantSettingsRepository.findByRestaurantId;
+    orderRepository.findById = (async () => ({
+      id: 321,
+      restaurantId: 7,
+      paymentMethod: 'CARTAO',
+      total: 79.9,
+      cardCheckoutSessionId: 'pagbank_chk:CHK-ABC-123',
+    })) as unknown as typeof orderRepository.findById;
+
+    let sessionWrites = 0;
+    let finalizeCalls = 0;
+    orderRepository.setCardCheckoutSessionId = async () => {
+      sessionWrites += 1;
+      return null;
+    };
+    finalizeOrderCardPaymentService.execute = async () => {
+      finalizeCalls += 1;
+      return null;
+    };
+    globalThis.fetch = async () =>
+      new Response(
+        `<transaction><code>TRX-777</code><status>3</status><reference>ordercard:321:7</reference><paymentMethod><type>3</type></paymentMethod>${scenario.financialEvidence}</transaction>`,
+        { status: 200, headers: { 'content-type': 'application/xml' } },
+      );
+
+    const req = {
+      body: { notificationCode: 'NTF-123', restaurantId: 7 },
+      query: {},
+    } as any;
+    const res = createMockResponse();
+
+    await PagBankOrderWebhookController.handle(req, res as any);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(sessionWrites, 0);
+    assert.equal(finalizeCalls, 0);
+  });
+}

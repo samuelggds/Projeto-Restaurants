@@ -223,7 +223,7 @@ test('deve cadastrar o restaurante, abrir checkout de cartao e marcar o pedido c
 
     if (normalizedUrl.includes('/v3/transactions/notifications/NTF-123')) {
       return new Response(
-        `<transaction><code>TRX-777</code><status>3</status><reference>ordercard:${storedOrder.id}:${storedOrder.restaurantId}</reference></transaction>`,
+        `<transaction><code>TRX-777</code><status>3</status><reference>ordercard:${storedOrder.id}:${storedOrder.restaurantId}</reference><paymentMethod><type>3</type></paymentMethod><grossAmount>79.90</grossAmount></transaction>`,
         {
           status: 200,
           headers: {
