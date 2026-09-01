@@ -12,7 +12,7 @@ import {
   sumMoneyCents,
 } from '../domain/tableAccountRules.js';
 import { buildTablePaymentPlan, TablePaymentPlanError } from '../domain/tablePaymentPlan.js';
-import fakePaymentProvider, { FakePaymentProvider } from '../providers/FakePaymentProvider.js';
+import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
@@ -32,28 +32,12 @@ import {
   TablePaymentError,
 } from './tablePaymentSupport.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
-import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 
 interface CreateTablePaymentIntentContext {
   tableSessionId: number;
   sessionPublicId: string;
   restaurantId: number;
   participantId: number;
-}
-
-interface FakeTablePaymentEnvironment {
-  NODE_ENV?: string;
-  FAKE_TABLE_PAYMENT_AUTO_APPROVE?: string;
-}
-
-export function shouldAutoApproveFakeTablePayment(
-  environment: FakeTablePaymentEnvironment = process.env,
-) {
-  return (
-    environment.NODE_ENV !== 'production' &&
-    environment.NODE_ENV !== 'test' &&
-    environment.FAKE_TABLE_PAYMENT_AUTO_APPROVE === 'true'
-  );
 }
 
 export class CreateTablePaymentIntentService {
@@ -66,20 +50,12 @@ export class CreateTablePaymentIntentService {
     const input = createTablePaymentIntentInputSchema.parse(rawInput);
     const now = this.now();
     const idempotencyKeyHash = sha256(input.idempotencyKey);
-    const requestFingerprint = buildTablePaymentRequestFingerprint(
-      context.participantId,
-      input,
-    );
+    const requestFingerprint = buildTablePaymentRequestFingerprint(context.participantId, input);
 
     const reservation = await prisma.$transaction(
       async (tx) => {
         await lockTablePaymentSession(tx, context.restaurantId, context.tableSessionId);
-        await expireTablePaymentReservations(
-          tx,
-          context.restaurantId,
-          context.tableSessionId,
-          now,
-        );
+        await expireTablePaymentReservations(tx, context.restaurantId, context.tableSessionId, now);
 
         const session = await tablePaymentRepository.findSessionParticipantForPayment(
           context.tableSessionId,
@@ -349,7 +325,6 @@ export class CreateTablePaymentIntentService {
         paymentPublicId: updated.publicId,
         paymentStatus: updated.status,
       });
-      this.scheduleFakeConfirmation(updated);
 
       return {
         payment: serializeTablePaymentIntent(updated, context.sessionPublicId),
@@ -363,36 +338,6 @@ export class CreateTablePaymentIntentService {
         'PAYMENT_PROVIDER_UNAVAILABLE',
       );
     }
-  }
-
-  private scheduleFakeConfirmation(intent: TablePaymentIntentRecord) {
-    const provider = this.provider;
-    if (
-      !(provider instanceof FakePaymentProvider) ||
-      !shouldAutoApproveFakeTablePayment() ||
-      intent.status !== TablePaymentIntentStatus.PROCESSING ||
-      !intent.providerExternalId
-    ) {
-      return;
-    }
-
-    const configuredDelay = Number(process.env.FAKE_TABLE_PAYMENT_APPROVAL_DELAY_MS || 1_500);
-    const delayMs =
-      Number.isSafeInteger(configuredDelay) && configuredDelay >= 250
-        ? configuredDelay
-        : 1_500;
-    const timer = setTimeout(() => {
-      void provider
-        .simulatePaidWebhook(intent.providerExternalId as string)
-        .then((event) => new ProcessTablePaymentWebhookService(provider).executeValidated(event))
-        .catch((error) => {
-          console.error(
-            '[FAKE_TABLE_PAYMENT_AUTO_APPROVE_ERROR]',
-            error instanceof Error ? error.name : 'UNKNOWN_ERROR',
-          );
-        });
-    }, delayMs);
-    timer.unref();
   }
 
   private async failProviderCreation(

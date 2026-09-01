@@ -833,6 +833,69 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         assert.equal(stored.restaurantId, fixture.restaurants.b.id);
       },
     );
+
+    await t.test('clicar em pagar mantém a conta em processamento sem autoaprovação', async () => {
+      const previousNodeEnv = process.env.NODE_ENV;
+      const previousAutoApprove = process.env.FAKE_TABLE_PAYMENT_AUTO_APPROVE;
+      try {
+        process.env.NODE_ENV = 'development';
+        process.env.FAKE_TABLE_PAYMENT_AUTO_APPROVE = 'true';
+
+        const created = await apiRequest(
+          baseUrl,
+          `/table-accounts/sessions/${fixture.tableSessionB.publicId}/payments`,
+          fixture.tokens.customerB,
+          {
+            method: 'POST',
+            headers: { 'idempotency-key': 'table-payment-no-auto-approval' },
+            json: {
+              selectionMode: 'FULL_ACCOUNT',
+              method: 'PIX',
+              includeOptionalServiceFee: false,
+            },
+          },
+        );
+
+        assert.equal(created.response.status, 201);
+        assert.equal(created.data.payment.status, 'PROCESSING');
+
+        await new Promise((resolve) => setTimeout(resolve, 2_100));
+
+        const [payment, order, billItem] = await Promise.all([
+          prisma.tablePaymentIntent.findUniqueOrThrow({
+            where: { publicId: created.data.payment.publicId },
+          }),
+          prisma.order.findUniqueOrThrow({ where: { id: fixture.tableOrderB.id } }),
+          prisma.tableBillItem.findUniqueOrThrow({ where: { id: fixture.tableBillItemB.id } }),
+        ]);
+        assert.equal(payment.status, 'PROCESSING');
+        assert.equal(payment.paidAt, null);
+        assert.equal(order.paid, false);
+        assert.equal(order.paidAt, null);
+        assert.equal(order.tableFinancialStatus, 'PROCESSING');
+        assert.equal(billItem.financialStatus, 'PROCESSING');
+
+        const account = await apiRequest(
+          baseUrl,
+          `/table-accounts/sessions/${fixture.tableSessionB.publicId}`,
+          fixture.tokens.customerB,
+        );
+        assert.equal(account.response.status, 200);
+        assert.equal(account.data.summary.netPaidCents, 0);
+        assert.equal(account.data.summary.processingCents, 3_500);
+        assert.equal(
+          account.data.payments.find(
+            (candidate: { publicId: string }) => candidate.publicId === payment.publicId,
+          )?.status,
+          'PROCESSING',
+        );
+      } finally {
+        if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = previousNodeEnv;
+        if (previousAutoApprove === undefined) delete process.env.FAKE_TABLE_PAYMENT_AUTO_APPROVE;
+        else process.env.FAKE_TABLE_PAYMENT_AUTO_APPROVE = previousAutoApprove;
+      }
+    });
   } finally {
     await runtime.close();
     await resetTenantE2EDatabase();
