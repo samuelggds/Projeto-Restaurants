@@ -182,6 +182,22 @@ test(
         name: 'Etapa RLS B',
       },
     });
+    const optionA = await prisma.productOption.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        groupId: optionGroupA.id,
+        ingredientId: ingredientA.id,
+        additionalPrice: 2,
+      },
+    });
+    const optionB = await prisma.productOption.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        groupId: optionGroupB.id,
+        ingredientId: fixture.ingredients.b.id,
+        additionalPrice: 3,
+      },
+    });
     const compositionA = await prisma.productCompositionItem.create({
       data: {
         restaurantId: fixture.restaurants.a.id,
@@ -261,6 +277,8 @@ test(
             'OrderIssueThread',
             'ProductCompositionItem',
             'ProductConfigurationTemplate',
+            'ProductOption',
+            'ProductOptionGroup',
             'ProductPortionConfiguration',
             'RestaurantPrinterSettings'
           )
@@ -276,6 +294,8 @@ test(
           { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
           { table_name: 'ProductCompositionItem', rls_enabled: true, rls_forced: true },
           { table_name: 'ProductConfigurationTemplate', rls_enabled: true, rls_forced: true },
+          { table_name: 'ProductOption', rls_enabled: true, rls_forced: true },
+          { table_name: 'ProductOptionGroup', rls_enabled: true, rls_forced: true },
           { table_name: 'ProductPortionConfiguration', rls_enabled: true, rls_forced: true },
           { table_name: 'RestaurantPrinterSettings', rls_enabled: true, rls_forced: true },
         ]);
@@ -311,12 +331,14 @@ test(
             'OrderIssueThread',
             'ProductCompositionItem',
             'ProductConfigurationTemplate',
+            'ProductOption',
+            'ProductOptionGroup',
             'ProductPortionConfiguration',
             'RestaurantPrinterSettings'
           )
         ORDER BY relations.relname
       `;
-        assert.equal(policies.length, 11);
+        assert.equal(policies.length, 13);
         for (const policy of policies) {
           assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
           assert.equal(policy.is_permissive, true);
@@ -366,12 +388,16 @@ test(
         assert.equal(await runtimePrisma.courierSettlement.count(), 0);
         assert.equal(await runtimePrisma.courierSettlementItem.count(), 0);
         assert.equal(await runtimePrisma.productCompositionItem.count(), 0);
+        assert.equal(await runtimePrisma.productOptionGroup.count(), 0);
+        assert.equal(await runtimePrisma.productOption.count(), 0);
         assert.equal(await runtimePrisma.productPortionConfiguration.count(), 0);
         assert.equal(await runtimePrisma.productConfigurationTemplate.count(), 0);
       });
 
       await t.test('configuração genérica permite B e oculta suas linhas de A', async () => {
         const own = await withTenantDbContext(fixture.restaurants.b.id, async (db) => ({
+          group: await db.productOptionGroup.findUnique({ where: { id: optionGroupB.id } }),
+          option: await db.productOption.findUnique({ where: { id: optionB.id } }),
           composition: await db.productCompositionItem.findUnique({
             where: { id: compositionB.id },
           }),
@@ -382,11 +408,15 @@ test(
             where: { id: templateB.id },
           }),
         }));
+        assert.equal(own.group?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.option?.restaurantId, fixture.restaurants.b.id);
         assert.equal(own.composition?.restaurantId, fixture.restaurants.b.id);
         assert.equal(own.portions?.restaurantId, fixture.restaurants.b.id);
         assert.equal(own.template?.restaurantId, fixture.restaurants.b.id);
 
         const attack = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
+          group: await db.productOptionGroup.findUnique({ where: { id: optionGroupB.id } }),
+          option: await db.productOption.findUnique({ where: { id: optionB.id } }),
           composition: await db.productCompositionItem.findUnique({
             where: { id: compositionB.id },
           }),
@@ -397,6 +427,8 @@ test(
             where: { id: templateB.id },
           }),
         }));
+        assert.equal(attack.group, null);
+        assert.equal(attack.option, null);
         assert.equal(attack.composition, null);
         assert.equal(attack.portions, null);
         assert.equal(attack.template, null);
@@ -418,7 +450,38 @@ test(
         );
       });
 
+      await t.test('RLS rejeita grupos e opções adulterados de outro tenant', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.productOptionGroup.create({
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  productId: fixture.products.b.id,
+                  name: 'Grupo cross-tenant',
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.productOption.create({
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  groupId: optionGroupB.id,
+                  ingredientId: fixture.ingredients.b.id,
+                  additionalPrice: 3,
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
       assert.equal(compositionA.restaurantId, fixture.restaurants.a.id);
+      assert.equal(optionA.restaurantId, fixture.restaurants.a.id);
       assert.equal(portionsA.restaurantId, fixture.restaurants.a.id);
       assert.equal(templateA.restaurantId, fixture.restaurants.a.id);
 

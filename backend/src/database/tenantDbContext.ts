@@ -85,6 +85,8 @@ export async function assertSecureRuntimeDatabaseRole(): Promise<RuntimeDatabase
             'CourierSettlement',
             'CourierSettlementItem',
             'ProductCompositionItem',
+            'ProductOption',
+            'ProductOptionGroup',
             'ProductPortionConfiguration',
             'ProductConfigurationTemplate'
           )
