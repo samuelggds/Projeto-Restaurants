@@ -291,10 +291,9 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         fixture.tokens.adminA,
       );
       assert.equal(listAttempt.response.status, 200);
+      assert.ok(Array.isArray(listAttempt.data.templates));
       assert.equal(
-        Array.isArray(listAttempt.data.templates)
-          ? listAttempt.data.templates.some((template) => template.id === templateB.id)
-          : false,
+        listAttempt.data.templates.some((template) => template.id === templateB.id),
         false,
       );
 
