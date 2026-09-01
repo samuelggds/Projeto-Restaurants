@@ -54,6 +54,7 @@ import {
 const OrderCard = lazy(() => import('./components/OrderCard'));
 const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
 const DeliveryMap = lazy(() => import('./components/DeliveryMap'));
+const CourierSettlementsPanel = lazy(() => import('./components/CourierSettlementsPanel'));
 
 type CourierView = 'overview' | 'ready' | 'route' | 'map' | 'history' | 'profile' | 'help';
 type GeoStatus = 'idle' | 'checking' | 'enabled' | 'blocked' | 'timeout' | 'error' | 'unsupported';
@@ -69,7 +70,11 @@ type FinanceData = {
     deliveredAt?: string | null;
     district?: string | null;
     city?: string | null;
+    financeStatus?: string;
+    settlement?: { publicId: string; status: string } | null;
   }>;
+  pendingSettlements?: number;
+  timezone?: string;
 };
 type TrackingDestination = CourierRoutePoint & { label?: string };
 type WakeLockSentinelLike = { released?: boolean; release: () => Promise<void> };
@@ -1001,6 +1006,20 @@ export default function CourierWorkspace() {
                           <PackageCheck />
                           <b>Pedido #{order.id}</b>
                           <small>Pronto para retirada</small>
+                          <small>
+                            Ganho:{' '}
+                            {(
+                              order.courierEarningPreview as
+                                { available?: boolean; amount?: number } | undefined
+                            )?.available
+                              ? Number(
+                                  (order.courierEarningPreview as { amount?: number }).amount || 0,
+                                ).toLocaleString('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                })
+                              : 'aguardando cálculo'}
+                          </small>
                         </span>
                         <ChevronRight />
                       </S.CompactOrderButton>
@@ -1016,6 +1035,47 @@ export default function CourierWorkspace() {
                   </S.CompactEmpty>
                 )}
               </S.PickupPanel>
+              <Suspense fallback={null}>
+                <CourierSettlementsPanel />
+              </Suspense>
+              {finance?.deliveries.length ? (
+                <S.PickupPanel>
+                  <S.EarningsHeading>
+                    <div>
+                      <History />
+                      <span>
+                        <small>EXTRATO RECENTE</small>
+                        <h2>Ganhos por entrega</h2>
+                      </span>
+                    </div>
+                  </S.EarningsHeading>
+                  <S.CompactOrders>
+                    {finance.deliveries.slice(0, 8).map((delivery) => (
+                      <S.CompactOrderButton key={delivery.id} as="div">
+                        <span>
+                          <DollarSign />
+                          <b>Pedido #{delivery.id}</b>
+                          <small>
+                            {delivery.financeStatus === 'PAID'
+                              ? 'Pago'
+                              : delivery.financeStatus === 'DISPUTED'
+                                ? 'Em divergência'
+                                : delivery.financeStatus === 'AWAITING_COURIER_CONFIRMATION'
+                                  ? 'Aguardando sua confirmação'
+                                  : 'A receber'}
+                          </small>
+                        </span>
+                        <strong>
+                          {delivery.courierEarning.toLocaleString('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          })}
+                        </strong>
+                      </S.CompactOrderButton>
+                    ))}
+                  </S.CompactOrders>
+                </S.PickupPanel>
+              ) : null}
             </>
           )}
 

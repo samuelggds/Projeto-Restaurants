@@ -9,7 +9,9 @@ describe('navegação agrupada das configurações', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(operation?.items.some(([id]) => id === 'promotions')).toBe(true);
     expect(operation?.items.some(([id]) => id === 'table-account')).toBe(true);
+    expect(operation?.items.some(([id]) => id === 'courier-payments')).toBe(true);
     expect(sectionTitle.promotions).toBe('Descontos e fidelidade');
     expect(sectionTitle['table-account']).toBe('Conta e pagamento da mesa');
+    expect(sectionTitle['courier-payments']).toBe('Pagamento dos motoqueiros');
   });
 });

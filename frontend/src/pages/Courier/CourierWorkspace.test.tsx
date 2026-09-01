@@ -61,6 +61,9 @@ vi.mock('../../features/employee-help/EmployeeHelpCenter', () => ({
   EmployeeHelpCenter: () => <div>Ajuda</div>,
 }));
 vi.mock('./components/DeliveryMap', () => ({ default: () => <div>Mapa</div> }));
+vi.mock('./components/CourierSettlementsPanel', () => ({
+  default: () => <div>Acertos para conferir</div>,
+}));
 
 import CourierWorkspace from './CourierWorkspace';
 import { clearAuthSession, persistAuthSession } from '../../modules/auth/session/authSession';
@@ -110,6 +113,8 @@ function deliveryOrder(status = 'PRONTO') {
       },
     ],
     observation: 'Tocar interfone',
+    deliveryDistanceMeters: 3200,
+    courierEarningPreview: { available: true, amount: 8.5 },
   };
 }
 
@@ -214,6 +219,8 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).toContain('Itens escolhidos: Bacon');
     expect(container.textContent).toContain('Observação do item: Sem cebola');
     expect(container.textContent).toContain('Tocar interfone');
+    expect(container.textContent?.replaceAll('\u00a0', ' ')).toContain('Ganho: R$ 8,50');
+    expect(container.textContent).toContain('Rota calculada: 3.2 km');
 
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
     await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);

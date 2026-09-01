@@ -19,6 +19,7 @@ export type SettingsSection =
   | 'table-account'
   | 'whatsapp'
   | 'printing'
+  | 'courier-payments'
   | 'payments'
   | 'social'
   | 'appearance'

@@ -46,6 +46,12 @@ type Order = {
   city?: string;
   state?: string;
   pointReference?: string;
+  deliveryDistanceMeters?: number | null;
+  courierEarningPreview?: {
+    available: boolean;
+    amount: number | null;
+    reason?: string;
+  };
 };
 
 type OrderCardProps = {
@@ -227,6 +233,22 @@ export default function OrderCard({
       </S.OrderCardHeader>
 
       <S.OrderSummaryRow>
+        {canClaim ? (
+          <S.InfoChip
+            style={{
+              color: order.courierEarningPreview?.available ? '#166534' : '#92400e',
+              background: order.courierEarningPreview?.available ? '#dcfce7' : '#fef3c7',
+              border: '1px solid currentColor',
+              fontWeight: 850,
+            }}
+            title={order.courierEarningPreview?.reason || 'Valor calculado pelo servidor'}
+          >
+            Ganho:{' '}
+            {order.courierEarningPreview?.available
+              ? formatCurrency(Number(order.courierEarningPreview.amount || 0))
+              : 'indisponível'}
+          </S.InfoChip>
+        ) : null}
         <S.InfoChip>
           <User size={13} />
           {order.user?.name || 'Cliente'}
@@ -258,6 +280,13 @@ export default function OrderCard({
         <MapPin size={14} />
         <span>{getDeliveryAddress(order)}</span>
       </S.AddressRow>
+
+      {canClaim && Number.isFinite(order.deliveryDistanceMeters) ? (
+        <S.DetailRow>
+          <MapPin size={14} />
+          <span>Rota calculada: {(Number(order.deliveryDistanceMeters) / 1000).toFixed(1)} km</span>
+        </S.DetailRow>
+      ) : null}
 
       {orderReferencePoint ? (
         <S.DetailRow>

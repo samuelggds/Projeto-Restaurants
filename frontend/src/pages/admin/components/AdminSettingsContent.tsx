@@ -1,3 +1,5 @@
+import { lazy, Suspense } from 'react';
+
 import { adminMockSettings } from '../data';
 import type {
   AdminCoupon,
@@ -20,6 +22,12 @@ import { SecuritySettings } from './SecuritySettings';
 import { PromotionsSettings } from './PromotionsSettings';
 import { TableAccountSettings } from './TableAccountSettings';
 import { KitchenPrintingSettings } from './KitchenPrintingSettings';
+
+const CourierCompensationSettings = lazy(() =>
+  import('./CourierCompensationSettings').then((module) => ({
+    default: module.CourierCompensationSettings,
+  })),
+);
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -78,6 +86,12 @@ export function AdminSettingsContent(props: Props) {
     return <TableAccountSettings settings={settings} update={update} />;
   if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
   if (section === 'printing') return <KitchenPrintingSettings />;
+  if (section === 'courier-payments')
+    return (
+      <Suspense fallback={<div role="status">Carregando pagamentos dos motoqueiros...</div>}>
+        <CourierCompensationSettings />
+      </Suspense>
+    );
   if (section === 'payments')
     return (
       <PaymentSettings

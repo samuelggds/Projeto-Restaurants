@@ -51,6 +51,9 @@ type CourierE2EState = {
   sendSocketEvent?: (event: string, payload: unknown) => void;
   profileUpdates: Array<Record<string, unknown>>;
   trackingPoints: LocationFrame[];
+  settlements: Array<Record<string, unknown>>;
+  settlementConfirmations: string[];
+  settlementDisputes: Array<{ publicId: string; reason: string }>;
 };
 
 const courierUser = {
@@ -74,6 +77,7 @@ const customerUser = {
 const departure = { latitude: -3.73191, longitude: -38.52667 };
 const midpoint = { latitude: -3.7302, longitude: -38.5224 };
 const destination = { latitude: -3.72847, longitude: -38.51908 };
+const SETTLEMENT_PUBLIC_ID = '11111111-1111-4111-8111-111111111111';
 
 function isoMinutesAgo(minutes: number) {
   return new Date(Date.now() - minutes * 60_000).toISOString();
@@ -93,6 +97,13 @@ function orderFixtures(): CourierOrder[] {
     city: 'Fortaleza',
     state: 'CE',
     pointReference: 'Próximo à praça',
+    deliveryDistanceMeters: 4200,
+    courierEarningPreview: {
+      available: true,
+      amount: 8,
+      model: 'DISTANCE_RANGES',
+      source: 'RESTAURANT_DEFAULT',
+    },
     user: { id: 501, name: 'Cliente Correto', phone: '(85) 99999-6789' },
     createdAt: isoMinutesAgo(18),
   };
@@ -195,6 +206,22 @@ function initialState(overrides: Partial<CourierE2EState> = {}): CourierE2EState
     holdNextOrdersRequest: false,
     profileUpdates: [],
     trackingPoints: [],
+    settlements: [
+      {
+        publicId: SETTLEMENT_PUBLIC_ID,
+        status: 'AWAITING_COURIER_CONFIRMATION',
+        grossCourierEarnings: 65,
+        cashCollectedAmount: 20,
+        netAmount: 45,
+        direction: 'RESTAURANT_PAYS_COURIER',
+        paymentMethod: 'PIX',
+        createdAt: new Date().toISOString(),
+        courier: { id: COURIER_ID, name: courierUser.name, email: courierUser.email },
+        items: [{ orderId: 604 }],
+      },
+    ],
+    settlementConfirmations: [],
+    settlementDisputes: [],
     ...overrides,
   };
 }
@@ -350,6 +377,35 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
         pending: { amount: 25, deliveries: 2 },
         deliveries: [],
       });
+    }
+
+    if (pathname === '/courier-compensation/courier/settlements' && method === 'GET') {
+      return json(route, state.settlements);
+    }
+
+    const confirmSettlement = pathname.match(
+      /^\/courier-compensation\/courier\/settlements\/([^/]+)\/confirm$/,
+    );
+    if (confirmSettlement && method === 'POST') {
+      const publicId = confirmSettlement[1];
+      const settlement = state.settlements.find((entry) => entry.publicId === publicId);
+      if (!settlement) return json(route, { error: 'Acerto não encontrado.' }, 404);
+      settlement.status = 'CONFIRMED';
+      state.settlementConfirmations.push(publicId);
+      return json(route, settlement);
+    }
+
+    const disputeSettlement = pathname.match(
+      /^\/courier-compensation\/courier\/settlements\/([^/]+)\/dispute$/,
+    );
+    if (disputeSettlement && method === 'POST') {
+      const publicId = disputeSettlement[1];
+      const payload = request.postDataJSON() as { reason: string };
+      const settlement = state.settlements.find((entry) => entry.publicId === publicId);
+      if (!settlement) return json(route, { error: 'Acerto não encontrado.' }, 404);
+      settlement.status = 'DISPUTED';
+      state.settlementDisputes.push({ publicId, reason: payload.reason });
+      return json(route, settlement);
     }
 
     const claim = pathname.match(/^\/orders\/(\d+)\/claim-delivery$/);
@@ -563,6 +619,13 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
 
   await expect(page.getByText('Restaurante Rota 42')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
+  await expect(page.getByText('R$ 12,50')).toBeVisible();
+  await expect(page.getByText('R$ 25,00')).toBeVisible();
+  await expect(page.getByText('AGUARDANDO SUA CONFIRMAÇÃO')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Confirmar recebimento do acerto?');
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await expect.poll(() => state.settlementConfirmations).toEqual([SETTLEMENT_PUBLIC_ID]);
   await expect(page.getByText('PEDIDO VAZADO DE OUTRO TENANT')).toHaveCount(0);
   await expect(page.getByText('PEDIDO DE OUTRO MOTOQUEIRO')).toHaveCount(0);
   await expect(page.getByText('PEDIDO DE MESA')).toHaveCount(0);
@@ -578,6 +641,8 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   await expect(readyOrder.getByText('Interfone quebrado; chamar pelo telefone')).toBeVisible();
   await expect(readyOrder.getByText('Rua das Flores, 120')).toBeVisible();
   await expect(readyOrder.getByText('Próximo à praça')).toBeVisible();
+  await expect(readyOrder.getByText(/Ganho: R\$\s*8,00/)).toBeVisible();
+  await expect(readyOrder.getByText('Rota calculada: 4.2 km')).toBeVisible();
   await captureReadmeScreenshot(page, 'courier-dashboard.png', { fullPage: true });
 
   await readyOrder.getByRole('button', { name: 'Retirar e iniciar entrega' }).click();
