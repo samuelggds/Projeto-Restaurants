@@ -8,12 +8,14 @@ import controller from './AsaasOrderWebhookController.js';
 const originals = {
   findOrder: prisma.order.findFirst,
   updateOrder: prisma.order.update,
+  transaction: prisma.$transaction,
   webhookToken: process.env.ASAAS_WEBHOOK_TOKEN,
 };
 
 afterEach(() => {
   prisma.order.findFirst = originals.findOrder;
   prisma.order.update = originals.updateOrder;
+  prisma.$transaction = originals.transaction;
   if (originals.webhookToken === undefined) delete process.env.ASAAS_WEBHOOK_TOKEN;
   else process.env.ASAAS_WEBHOOK_TOKEN = originals.webhookToken;
 });
@@ -40,7 +42,8 @@ test('webhook Asaas não combina orderId real do Restaurante B com restaurantId 
   let updateCalls = 0;
   prisma.order.findFirst = async (args) => {
     capturedQuery = args;
-    return args.where.id === foreignOrder.id && args.where.restaurantId === foreignOrder.restaurantId
+    return args.where.id === foreignOrder.id &&
+      args.where.restaurantId === foreignOrder.restaurantId
       ? foreignOrder
       : null;
   };
@@ -71,3 +74,60 @@ test('webhook Asaas não combina orderId real do Restaurante B com restaurantId 
   assert.deepEqual(capturedQuery.where, { id: 91, restaurantId: 7 });
   assert.equal(updateCalls, 0);
 });
+
+for (const scenario of [
+  {
+    label: 'PIX',
+    paymentMethod: 'PIX',
+    pixPaymentId: 'asaas:pay_expected',
+    cardCheckoutSessionId: null,
+    externalReference: 'orderpix:7:91',
+  },
+  {
+    label: 'cartão',
+    paymentMethod: 'CARTAO',
+    pixPaymentId: null,
+    cardCheckoutSessionId: 'asaas_pay:pay_expected',
+    externalReference: 'ordercard:91:7',
+  },
+]) {
+  test(`webhook Asaas de ${scenario.label} não confirma id externo diferente do vinculado`, async () => {
+    process.env.ASAAS_WEBHOOK_TOKEN = 'webhook-test-token';
+    let transactionCalls = 0;
+    prisma.order.findFirst = async () => ({
+      id: 91,
+      restaurantId: 7,
+      userId: null,
+      paid: false,
+      status: 'PENDENTE',
+      total: 59.9,
+      ...scenario,
+    });
+    prisma.$transaction = async () => {
+      transactionCalls += 1;
+      throw new Error('não deveria confirmar pedido');
+    };
+
+    const request = {
+      header(name) {
+        return name === 'asaas-access-token' ? 'webhook-test-token' : undefined;
+      },
+      body: {
+        event: 'PAYMENT_RECEIVED',
+        payment: {
+          id: 'pay_other',
+          externalReference: scenario.externalReference,
+          value: 59.9,
+          walletId: 'wallet-tenant-a',
+        },
+      },
+    };
+    const response = createResponse();
+
+    await controller.handle(request, response);
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.payload, { received: true, ignored: true });
+    assert.equal(transactionCalls, 0);
+  });
+}

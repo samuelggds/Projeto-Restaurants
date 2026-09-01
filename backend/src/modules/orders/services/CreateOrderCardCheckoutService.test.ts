@@ -272,6 +272,8 @@ test('deve abrir checkout de cartao com Asaas e fazer fallback sem split quando 
   assert.equal(paymentBodies.length, 2);
   assert.ok(Array.isArray(paymentBodies[0].split));
   assert.equal(paymentBodies[1].split, undefined);
+  assert.equal(paymentBodies[0].externalReference, 'ordercard:654:9');
+  assert.equal(paymentBodies[1].externalReference, 'ordercard:654:9');
 });
 
 test('deve reutilizar token Asaas sem expor os dados completos do cartão', async () => {

@@ -63,8 +63,13 @@ class AsaasOrderWebhookController {
       }
 
       const pixReference = /^orderpix:(\d+):(\d+)$/i.exec(externalReference);
-      const referencedRestaurantId = pixReference ? Number(pixReference[1]) : null;
-      const orderId = Number(pixReference?.[2] || externalReference);
+      const cardReference = /^ordercard:(\d+):(\d+)$/i.exec(externalReference);
+      const referencedRestaurantId = pixReference
+        ? Number(pixReference[1])
+        : cardReference
+          ? Number(cardReference[2])
+          : null;
+      const orderId = Number(pixReference?.[2] || cardReference?.[1] || externalReference);
       if (!Number.isInteger(orderId) || orderId <= 0) {
         return res.status(200).json({ received: true, ignored: true });
       }
@@ -82,6 +87,7 @@ class AsaasOrderWebhookController {
           status: true,
           paymentMethod: true,
           pixPaymentId: true,
+          cardCheckoutSessionId: true,
           total: true,
         },
       });
@@ -117,15 +123,30 @@ class AsaasOrderWebhookController {
         return res.status(200).json({ received: true, ignored: true });
       }
 
+      if (
+        (pixReference && normalizedPaymentMethod !== 'PIX') ||
+        (cardReference && normalizedPaymentMethod !== 'CARTAO')
+      ) {
+        return res.status(200).json({ received: true, ignored: true });
+      }
+
+      const providerPaymentId =
+        normalizedPaymentMethod === 'PIX'
+          ? `asaas:${asaasPaymentId}`
+          : `asaas_pay:${asaasPaymentId}`;
+      const linkedPaymentId = String(
+        normalizedPaymentMethod === 'PIX' ? order.pixPaymentId : order.cardCheckoutSessionId,
+      ).trim();
+      if (linkedPaymentId && linkedPaymentId !== providerPaymentId) {
+        return res.status(200).json({ received: true, ignored: true });
+      }
+
       if (String(order.status) === 'CANCELADO' && order.paid !== true) {
         await reconcileLateCancelledPaymentService.execute({
           orderId: order.id,
           restaurantId: order.restaurantId,
           paymentMethod: normalizedPaymentMethod,
-          paymentReference:
-            normalizedPaymentMethod === 'PIX'
-              ? `asaas:${asaasPaymentId}`
-              : `asaas_pay:${asaasPaymentId}`,
+          paymentReference: providerPaymentId,
         });
         return res.status(200).json({ received: true, processed: true, refunded: true });
       }
@@ -163,7 +184,7 @@ class AsaasOrderWebhookController {
               restaurantId: order.restaurantId,
             },
             data: {
-              pixPaymentId: `asaas:${asaasPaymentId}`,
+              pixPaymentId: providerPaymentId,
             },
           });
         }

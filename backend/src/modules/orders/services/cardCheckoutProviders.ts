@@ -347,7 +347,10 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
       if (!savedMethod?.providerCustomerId) {
         throw new Error('O cartão selecionado não foi encontrado no Mercado Pago.');
       }
-      const payer = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      const payer = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
       payerEmail = String(payer?.email || '').trim();
     }
 
@@ -460,7 +463,9 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
       if (!savedMethod) throw new Error('O cartão selecionado não foi encontrado.');
       const cpf = String(payload.customerCpf || '').replace(/\D/g, '');
       if (![11, 14].includes(cpf.length)) {
-        throw new Error('Cadastre um CPF válido nos seus dados pessoais para pagar com cartão salvo.');
+        throw new Error(
+          'Cadastre um CPF válido nos seus dados pessoais para pagar com cartão salvo.',
+        );
       }
       const apiBaseUrl = String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
         .trim()
@@ -479,24 +484,31 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
             name: String(payload.customerName || 'Cliente').trim(),
             tax_id: cpf,
           },
-          items: [{
-            reference_id: String(order.id),
-            name: `Pedido #${order.id}`,
-            quantity: 1,
-            unit_amount: Math.round(Number(order.total || 0) * 100),
-          }],
-          charges: [{
-            reference_id: `ordercard:${order.id}:${order.restaurantId}`,
-            description: `Pedido #${order.id}`,
-            amount: { value: Math.round(Number(order.total || 0) * 100), currency: 'BRL' },
-            payment_method: {
-              type: 'CREDIT_CARD',
-              installments: 1,
-              capture: true,
-              card: { id: savedMethod.providerPaymentMethodId },
-              holder: { name: savedMethod.holderName || String(payload.customerName || 'Cliente'), tax_id: cpf },
+          items: [
+            {
+              reference_id: String(order.id),
+              name: `Pedido #${order.id}`,
+              quantity: 1,
+              unit_amount: Math.round(Number(order.total || 0) * 100),
             },
-          }],
+          ],
+          charges: [
+            {
+              reference_id: `ordercard:${order.id}:${order.restaurantId}`,
+              description: `Pedido #${order.id}`,
+              amount: { value: Math.round(Number(order.total || 0) * 100), currency: 'BRL' },
+              payment_method: {
+                type: 'CREDIT_CARD',
+                installments: 1,
+                capture: true,
+                card: { id: savedMethod.providerPaymentMethodId },
+                holder: {
+                  name: savedMethod.holderName || String(payload.customerName || 'Cliente'),
+                  tax_id: cpf,
+                },
+              },
+            },
+          ],
           ...(resolvePagBankNotificationUrl(order.restaurantId)
             ? { notification_urls: [resolvePagBankNotificationUrl(order.restaurantId)] }
             : {}),
@@ -506,9 +518,13 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
       const charges = Array.isArray(responseBody.charges) ? responseBody.charges : [];
       const charge = (charges[0] || {}) as Record<string, unknown>;
       if (!response.ok) {
-        const errors = Array.isArray(responseBody.error_messages) ? responseBody.error_messages : [];
+        const errors = Array.isArray(responseBody.error_messages)
+          ? responseBody.error_messages
+          : [];
         const first = errors[0] as { description?: unknown } | undefined;
-        throw new Error(String(first?.description || responseBody.message || 'O PagBank recusou o pagamento.'));
+        throw new Error(
+          String(first?.description || responseBody.message || 'O PagBank recusou o pagamento.'),
+        );
       }
       const status = String(charge.status || '').toUpperCase();
       const transactionId = String(charge.id || responseBody.id || '').trim();
@@ -624,12 +640,17 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
 
       if (!paymentResult.ok) {
         throw new Error(
-          getAsaasError(paymentResult.responseBody, 'O Asaas recusou o pagamento com o cartão salvo.'),
+          getAsaasError(
+            paymentResult.responseBody,
+            'O Asaas recusou o pagamento com o cartão salvo.',
+          ),
         );
       }
 
       const sessionId = String(paymentResult.responseBody?.id || '').trim();
-      const status = String(paymentResult.responseBody?.status || '').trim().toUpperCase();
+      const status = String(paymentResult.responseBody?.status || '')
+        .trim()
+        .toUpperCase();
       if (!sessionId) throw new Error('O Asaas não retornou a identificação do pagamento.');
       const paymentApproved = ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].includes(status);
 
@@ -692,7 +713,7 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
       value: Number(order.total || 0),
       dueDate: new Date().toISOString().slice(0, 10),
       description: `Pedido #${order.id}`,
-      externalReference: String(order.id),
+      externalReference: `ordercard:${order.id}:${order.restaurantId}`,
       ...(includeSplit && systemFee > 0 && platformWalletId
         ? {
             split: [
