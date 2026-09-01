@@ -54,6 +54,25 @@ const PAYMENT_LABEL = {
   DINHEIRO: 'DINHEIRO',
 } as const;
 
+function renderDeliveryAddress(order: KitchenOrderPrintPayloadV1['order'], width: number) {
+  if (order.type !== 'DELIVERY' || !order.deliveryAddress) return [];
+
+  const value = order.deliveryAddress;
+  const street = [clean(value.address), clean(value.number)].filter(Boolean).join(', ');
+  const cityState = [clean(value.city), clean(value.state)].filter(Boolean).join(' - ');
+  const addressLines = [
+    street,
+    clean(value.complement),
+    clean(value.district) ? `Bairro ${clean(value.district)}` : '',
+    cityState,
+    clean(value.zipCode) ? `CEP: ${clean(value.zipCode)}` : '',
+  ].filter(Boolean);
+
+  return addressLines.length
+    ? ['ENTREGA:', ...addressLines.flatMap((line) => wrap(line, width))]
+    : [];
+}
+
 function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
   const line = '='.repeat(width);
   const divider = '-'.repeat(width);
@@ -86,6 +105,7 @@ function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
     ),
   );
   if (order.customerName) lines.push(...wrap(`CLIENTE: ${order.customerName}`, width));
+  if (order.type === 'RETIRADA') lines.push(...wrap('RETIRADA NO LOCAL', width));
   lines.push(divider);
 
   for (const item of order.items) {
@@ -101,6 +121,8 @@ function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
   if (order.observation) {
     lines.push(divider, 'OBSERVAÇÃO:', ...wrap(order.observation, width));
   }
+  const deliveryAddress = renderDeliveryAddress(order, width);
+  if (deliveryAddress.length) lines.push(divider, ...deliveryAddress);
   lines.push(divider, ...wrap(`TOTAL: ${money(order.total)}`, width, '# '), line, '', '', '');
   return lines;
 }

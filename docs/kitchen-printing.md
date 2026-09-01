@@ -88,8 +88,10 @@ LEVEL SECURITY`, `USING` e `WITH CHECK`;
 - o contexto RLS é definido com `set_config('app.restaurant_id', ..., true)` dentro da transação;
 - a role runtime deve permanecer sem `SUPERUSER` e sem `BYPASSRLS`;
 - o protocolo do agente nunca aceita `restaurantId` do body, query ou URL como autoridade;
-- o payload não contém endereço de entrega, CPF, token, segredo, hash, credencial de gateway ou
-  dados de cartão;
+- somente comandas `DELIVERY` incluem o endereço de entrega persistido no próprio pedido; o
+  endereço atual do cadastro do cliente nunca é consultado para reconstruir o snapshot;
+- comandas `MESA` e `RETIRADA` não carregam endereço; CPF, token, segredo, hash, credencial de
+  gateway e dados de cartão também são sempre excluídos;
 - logs estruturados registram IDs operacionais e estados, nunca o payload completo ou o token.
 
 ### Exceção consciente de bootstrap
@@ -101,6 +103,17 @@ registro indicado pelo `publicId`, compara o SHA-256 do segredo com segurança e
 
 O segredo possui 32 bytes aleatórios, é exibido uma única vez e somente o hash fica no banco. Uma
 rotação invalida a chave anterior; revogar o dispositivo bloqueia heartbeat, claim e ACK.
+
+### Endereço em comandas DELIVERY
+
+O backend copia para `KitchenPrintPayloadV1` exclusivamente os campos `address`, `number`,
+`complement`, `district`, `city`, `state` e `zipCode` persistidos no `Order` no momento da compra.
+Ele não consulta o endereço atual do usuário. Campos vazios são omitidos, e o agente só renderiza
+esse bloco quando `order.type` é `DELIVERY`.
+
+O cabeçalho contém somente `Restaurant.name`. Endereço do restaurante, razão social, CNPJ,
+telefone, WhatsApp, e-mail, slogan, logo e nome da plataforma não fazem parte do snapshot. Para
+`MESA`, a comanda destaca a mesa; para `RETIRADA`, mostra **RETIRADA NO LOCAL**.
 
 ## Claim, lease, ACK e retry
 

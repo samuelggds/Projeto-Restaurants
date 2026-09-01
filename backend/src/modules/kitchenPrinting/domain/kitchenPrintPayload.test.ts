@@ -21,6 +21,13 @@ test('payload V1 preserva customizações da cozinha e remove CPF da observaçã
     payOnDeliveryMethod: null,
     total: 87.5,
     observation: 'Cliente: Maria | CPF: 123.456.789-00 | Hambúrguer bem passado',
+    address: 'Rua das Flores',
+    number: '125',
+    complement: 'Apto 302 - Bloco B',
+    district: 'Aldeota',
+    city: 'Fortaleza',
+    state: 'CE',
+    zipCode: '60150-000',
     restaurant: { name: 'North Pizza' },
     table: null,
     user: { name: 'Maria' },
@@ -43,8 +50,57 @@ test('payload V1 preserva customizações da cozinha e remove CPF da observaçã
   assert.deepEqual(payload.order.items[0].customizations[0].options, ['Bacon', 'Cheddar']);
   assert.equal(payload.order.observation, 'Hambúrguer bem passado');
   assert.equal(payload.order.items[0].observation, 'SEM cebola');
+  assert.deepEqual(payload.order.deliveryAddress, {
+    address: 'Rua das Flores',
+    number: '125',
+    complement: 'Apto 302 - Bloco B',
+    district: 'Aldeota',
+    city: 'Fortaleza',
+    state: 'CE',
+    zipCode: '60150-000',
+  });
   const serialized = JSON.stringify(payload);
   assert.doesNotMatch(serialized, /CPF|123[.]456[.]789|password|token|secret/iu);
+});
+
+test('payload usa endereço persistido somente em DELIVERY', () => {
+  const baseOrder = {
+    id: 185,
+    publicId: 'c22d86bf-b9f8-4e72-9461-f8db63a1fa08',
+    createdAt: new Date('2026-08-31T22:42:00.000Z'),
+    paid: false,
+    paymentMethod: PaymentMethod.DINHEIRO,
+    payOnDeliveryMethod: null,
+    total: 42,
+    observation: null,
+    address: 'Rua exclusiva da entrega',
+    number: '98',
+    complement: '',
+    district: 'Centro',
+    city: 'Fortaleza',
+    state: 'CE',
+    zipCode: null,
+    restaurant: { name: 'Nome comercial' },
+    table: null,
+    user: { name: 'Cliente' },
+    participant: null,
+    items: [],
+  };
+
+  const delivery = buildKitchenOrderPayload({ ...baseOrder, type: OrderType.DELIVERY });
+  assert.deepEqual(delivery.order.deliveryAddress, {
+    address: 'Rua exclusiva da entrega',
+    number: '98',
+    district: 'Centro',
+    city: 'Fortaleza',
+    state: 'CE',
+  });
+
+  for (const type of [OrderType.MESA, OrderType.RETIRADA]) {
+    const payload = buildKitchenOrderPayload({ ...baseOrder, type });
+    assert.equal(payload.order.deliveryAddress, undefined);
+    assert.doesNotMatch(JSON.stringify(payload), /Rua exclusiva da entrega/u);
+  }
 });
 
 test('customização legada de ingredients mantém o mesmo fallback da cozinha', () => {

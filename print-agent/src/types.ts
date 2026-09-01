@@ -5,6 +5,16 @@ export type KitchenPrintCustomizationV1 = {
   options: string[];
 };
 
+export type KitchenDeliveryAddressV1 = {
+  address?: string;
+  number?: string;
+  complement?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+};
+
 export type KitchenOrderPrintPayloadV1 = {
   version: 1;
   kind: 'ORDER';
@@ -16,6 +26,7 @@ export type KitchenOrderPrintPayloadV1 = {
     type: 'DELIVERY' | 'MESA' | 'RETIRADA';
     tableNumber?: number;
     customerName?: string;
+    deliveryAddress?: KitchenDeliveryAddressV1;
     paid: boolean;
     paymentMethod?: 'PIX' | 'CARTAO' | 'DINHEIRO';
     items: Array<{

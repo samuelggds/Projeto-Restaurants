@@ -27,23 +27,43 @@ test(
       apiRequest(application.baseUrl, path, token, { method, ...(json ? { json } : {}) });
 
     try {
-      await prisma.order.update({
-        where: { id: fixture.orders.a.id },
-        data: {
-          observation: 'Cliente: Cliente A | CPF: 123.456.789-00 | Bem passado',
-          items: {
-            create: {
-              quantity: 2,
-              price: 25,
-              productId: fixture.products.a.id,
-              observation: 'Sem cebola',
-              customizations: [
-                { groupName: 'Adicionais', options: [{ name: 'Bacon' }, { name: 'Cheddar' }] },
-              ],
+      await Promise.all([
+        prisma.order.update({
+          where: { id: fixture.orders.a.id },
+          data: {
+            observation: 'Cliente: Cliente A | CPF: 123.456.789-00 | Bem passado',
+            address: 'Rua segura do Cliente A',
+            number: '125',
+            complement: 'Apto 302',
+            district: 'Aldeota',
+            city: 'Fortaleza',
+            state: 'CE',
+            zipCode: '60150-000',
+            items: {
+              create: {
+                quantity: 2,
+                price: 25,
+                productId: fixture.products.a.id,
+                observation: 'Sem cebola',
+                customizations: [
+                  { groupName: 'Adicionais', options: [{ name: 'Bacon' }, { name: 'Cheddar' }] },
+                ],
+              },
             },
           },
-        },
-      });
+        }),
+        prisma.order.update({
+          where: { id: fixture.orders.b.id },
+          data: {
+            address: 'Rua confidencial do Cliente B',
+            number: '999',
+            district: 'Outro tenant',
+            city: 'Recife',
+            state: 'PE',
+            zipCode: '50000-000',
+          },
+        }),
+      ]);
 
       await t.test('default seguro não cria job e configuração A não altera B', async () => {
         await withTenantDbContext(fixture.restaurants.a.id, (db) =>
@@ -130,6 +150,12 @@ test(
         assert.match(serialized, /Cheddar/);
         assert.match(serialized, /Sem cebola/);
         assert.match(serialized, /Bem passado/);
+        assert.match(serialized, /Rua segura do Cliente A/);
+        assert.match(serialized, /Apto 302/);
+        assert.match(serialized, /Aldeota/);
+        assert.match(serialized, /Fortaleza/);
+        assert.match(serialized, /60150-000/);
+        assert.doesNotMatch(serialized, /Rua confidencial do Cliente B|Outro tenant|50000-000/u);
         assert.doesNotMatch(serialized, /123[.]456[.]789|CPF|password|token|secret/iu);
         assert.equal(
           await prisma.kitchenPrintJob.count({

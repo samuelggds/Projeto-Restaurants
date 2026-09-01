@@ -14,6 +14,15 @@ const payload: KitchenOrderPrintPayloadV1 = {
     createdAt: '2026-08-31T22:42:00.000Z',
     type: 'DELIVERY',
     customerName: 'Maria de Souza',
+    deliveryAddress: {
+      address: 'Rua das Flores',
+      number: '125',
+      complement: 'Apto 302 - Bloco B',
+      district: 'Aldeota',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60150-000',
+    },
     paid: true,
     paymentMethod: 'PIX',
     items: [
@@ -40,6 +49,12 @@ for (const paperWidth of ['MM58', 'MM80'] as const) {
     assert.match(rendered, /Bacon crocante/u);
     assert.match(rendered, /Cheddar cremoso/u);
     assert.match(rendered, /SEM cebola/u);
+    assert.match(rendered, /ENTREGA:/u);
+    assert.match(rendered, /Rua das Flores, 125/u);
+    assert.match(rendered, /Apto 302 - Bloco B/u);
+    assert.match(rendered, /Bairro Aldeota/u);
+    assert.match(rendered, /Fortaleza - CE/u);
+    assert.match(rendered, /CEP: 60150-000/u);
     assert.match(rendered, /R\$ 87,50/u);
   });
 }
@@ -53,7 +68,47 @@ test('render de mesa destaca mesa e não depende de imagem ou fonte externa', ()
     'MM80',
   );
   assert.match(rendered, /MESA 12/u);
+  assert.doesNotMatch(rendered, /Rua das Flores|ENTREGA:/u);
   assert.doesNotMatch(rendered, /https?:|<img|font-family/iu);
+});
+
+test('render de retirada destaca retirada local e nunca imprime endereço', () => {
+  const rendered = renderKitchenCommand(
+    {
+      ...payload,
+      order: { ...payload.order, type: 'RETIRADA' },
+    },
+    'MM80',
+  );
+  assert.match(rendered, /TIPO: RETIRADA/u);
+  assert.match(rendered, /RETIRADA NO LOCAL/u);
+  assert.doesNotMatch(rendered, /Rua das Flores|ENTREGA:/u);
+});
+
+test('render de DELIVERY omite linhas vazias do endereço', () => {
+  const rendered = renderKitchenCommand(
+    {
+      ...payload,
+      order: {
+        ...payload.order,
+        deliveryAddress: {
+          address: 'Rua das Flores',
+          number: '125',
+          complement: '   ',
+          district: 'Aldeota',
+          city: 'Fortaleza',
+          state: 'CE',
+        },
+      },
+    },
+    'MM80',
+  );
+  const addressBlock = rendered.slice(rendered.indexOf('ENTREGA:'), rendered.indexOf('# TOTAL:'));
+  assert.match(addressBlock, /Rua das Flores, 125/u);
+  assert.match(addressBlock, /Bairro Aldeota/u);
+  assert.match(addressBlock, /Fortaleza - CE/u);
+  assert.doesNotMatch(addressBlock, /CEP:/u);
+  assert.doesNotMatch(addressBlock, /\n\s*\n/u);
 });
 
 test('render TEST contém identificação e confirmação de conexão', () => {

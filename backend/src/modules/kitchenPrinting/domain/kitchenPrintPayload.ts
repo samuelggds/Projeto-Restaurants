@@ -7,6 +7,16 @@ export type KitchenPrintCustomizationV1 = {
   options: string[];
 };
 
+export type KitchenDeliveryAddressV1 = {
+  address?: string;
+  number?: string;
+  complement?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+};
+
 export type KitchenPrintPayloadV1 = {
   version: 1;
   kind: 'ORDER';
@@ -18,6 +28,7 @@ export type KitchenPrintPayloadV1 = {
     type: OrderType;
     tableNumber?: number;
     customerName?: string;
+    deliveryAddress?: KitchenDeliveryAddressV1;
     paid: boolean;
     paymentMethod?: PaymentMethod;
     items: Array<{
@@ -118,6 +129,13 @@ type PrintableOrder = {
   payOnDeliveryMethod: PaymentMethod | null;
   total: { toString(): string } | number | string;
   observation: string | null;
+  address?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  district?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
   restaurant: { name: string };
   table: { number: number } | null;
   user: { name: string } | null;
@@ -131,10 +149,27 @@ type PrintableOrder = {
   }>;
 };
 
+function buildDeliveryAddress(order: PrintableOrder): KitchenDeliveryAddressV1 | undefined {
+  if (order.type !== 'DELIVERY') return undefined;
+
+  const fields: KitchenDeliveryAddressV1 = {
+    ...(text(order.address) ? { address: text(order.address) } : {}),
+    ...(text(order.number) ? { number: text(order.number) } : {}),
+    ...(text(order.complement) ? { complement: text(order.complement) } : {}),
+    ...(text(order.district) ? { district: text(order.district) } : {}),
+    ...(text(order.city) ? { city: text(order.city) } : {}),
+    ...(text(order.state) ? { state: text(order.state) } : {}),
+    ...(text(order.zipCode) ? { zipCode: text(order.zipCode) } : {}),
+  };
+
+  return Object.keys(fields).length ? fields : undefined;
+}
+
 export function buildKitchenOrderPayload(order: PrintableOrder): KitchenPrintPayloadV1 {
   const observation = sanitizeKitchenObservation(order.observation);
   const customerName = text(order.user?.name || order.participant?.displayName);
   const paymentMethod = order.paymentMethod || order.payOnDeliveryMethod || undefined;
+  const deliveryAddress = buildDeliveryAddress(order);
 
   return {
     version: 1,
@@ -147,6 +182,7 @@ export function buildKitchenOrderPayload(order: PrintableOrder): KitchenPrintPay
       type: order.type,
       ...(order.table ? { tableNumber: order.table.number } : {}),
       ...(customerName ? { customerName } : {}),
+      ...(deliveryAddress ? { deliveryAddress } : {}),
       paid: order.paid,
       ...(paymentMethod ? { paymentMethod } : {}),
       items: order.items.map((item) => {
