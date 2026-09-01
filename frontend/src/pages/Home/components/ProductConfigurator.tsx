@@ -255,7 +255,7 @@ export function ProductConfigurator({
               value={observation}
               maxLength={500}
               onChange={(event) => setObservation(event.target.value)}
-              placeholder="Ex.: cortar ao meio, molho à parte, ponto da carne..."
+              placeholder="Ex.: Adicione aqui uma observação do produto..."
             />
             <small>{observation.length}/500 caracteres</small>
           </S.Observation>
