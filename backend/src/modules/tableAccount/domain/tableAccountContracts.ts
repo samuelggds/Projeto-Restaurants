@@ -199,6 +199,7 @@ export interface TablePaymentIntentDto {
   provider: string | null;
   externalId: string | null;
   checkoutUrl: string | null;
+  paymentCode: string | null;
   expiresAt: IsoDateTimeString;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
@@ -242,6 +243,7 @@ export interface TableAccountBaseSnapshotDto {
 export interface TableAccountSnapshotDto extends TableAccountBaseSnapshotDto {
   currentParticipantPublicId: string;
   capabilities: TableAccountCapabilitiesDto;
+  activePayment: TablePaymentIntentDto | null;
   payments: TablePaymentSummaryDto[];
 }
 

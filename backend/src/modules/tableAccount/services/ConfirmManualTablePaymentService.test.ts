@@ -45,6 +45,7 @@ function payment(overrides = {}) {
     provider: null,
     providerExternalId: null,
     providerCheckoutUrl: null,
+    providerPaymentCode: null,
     expiresAt: new Date('2026-08-26T18:10:00.000Z'),
     processingAt: null,
     paidAt: null,

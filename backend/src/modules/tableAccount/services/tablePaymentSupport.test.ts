@@ -59,6 +59,7 @@ test('histórico administrativo expõe auditoria útil sem devolver metadados ar
       provider: 'FAKE_TABLE',
       providerExternalId: 'fake-table:payment',
       providerCheckoutUrl: null,
+      providerPaymentCode: '000201FAKE',
       expiresAt: now,
       processingAt: now,
       paidAt: now,
@@ -93,5 +94,6 @@ test('histórico administrativo expõe auditoria útil sem devolver metadados ar
 
   assert.equal(result.events[0]?.reason, 'Cliente solicitou o estorno.');
   assert.equal(result.events[0]?.actorName, 'Administrador');
+  assert.equal(result.paymentCode, '000201FAKE');
   assert.doesNotMatch(JSON.stringify(result), /providerSecret|não-vazar/);
 });

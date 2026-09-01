@@ -63,6 +63,7 @@ export function serializeTablePaymentIntent(
     provider: record.provider,
     externalId: record.providerExternalId,
     checkoutUrl: record.providerCheckoutUrl,
+    paymentCode: record.providerPaymentCode,
     expiresAt: record.expiresAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

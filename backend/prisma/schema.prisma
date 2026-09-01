@@ -883,6 +883,7 @@ model TablePaymentIntent {
   provider            String?
   providerExternalId  String?
   providerCheckoutUrl String?
+  providerPaymentCode String?
   expiresAt           DateTime
   processingAt        DateTime?
   paidAt              DateTime?

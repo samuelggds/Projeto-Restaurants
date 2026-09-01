@@ -42,6 +42,7 @@ test('valida assinatura, valor e evento do webhook simulado', async () => {
   });
 
   assert.equal(event.status, 'PAID');
+  assert.match(payment.paymentCode || '', /^000201/);
   assert.equal((await provider.getPayment(payment.externalId)).status, 'PAID');
   await assert.rejects(
     () =>

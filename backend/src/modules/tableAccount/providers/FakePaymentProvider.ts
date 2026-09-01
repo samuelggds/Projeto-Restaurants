@@ -78,6 +78,10 @@ export class FakePaymentProvider implements PaymentProvider {
       status: 'PENDING',
       amountCents,
       checkoutUrl: `/pagamentos/mesa/simulado/${encodeURIComponent(externalId)}`,
+      paymentCode:
+        input.method === 'PIX'
+          ? `000201FAKE-TABLE-${input.intentPublicId}-${String(amountCents)}`
+          : null,
       expiresAt: new Date(input.expiresAt),
     };
     this.payments.set(externalId, payment);

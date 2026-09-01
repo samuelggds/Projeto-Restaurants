@@ -145,14 +145,6 @@ export const createTablePaymentIntentInputSchema = z
         message: 'O pagamento com o garçom deve ser em dinheiro ou maquininha.',
       });
     }
-
-    if (!isWaiterPayment && isManualMethod) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['method'],
-        message: 'Dinheiro e maquininha só podem ser escolhidos no pagamento com o garçom.',
-      });
-    }
   });
 
 export const forceCloseTableAccountInputSchema = z.object({ reason: reasonSchema }).strict();

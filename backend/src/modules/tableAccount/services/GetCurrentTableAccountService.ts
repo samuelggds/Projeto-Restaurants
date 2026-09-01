@@ -16,6 +16,7 @@ import tableAccountRepository, {
 } from '../repositories/TableAccountRepository.js';
 import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
+import { serializeTablePaymentIntent } from './tablePaymentSupport.js';
 
 const operationalStatusMap: Record<OrderStatus, TableOrderOperationalStatus> = {
   [OrderStatus.PENDENTE]: 'PENDING',
@@ -216,6 +217,12 @@ export class GetCurrentTableAccountService {
     }
     const now = new Date();
     const paymentIntents = data.paymentIntents || [];
+    const activePayment = paymentIntents.find(
+      (payment) =>
+        payment.payerParticipantId === participantId &&
+        ['RESERVED', 'PROCESSING'].includes(payment.status) &&
+        payment.expiresAt > now,
+    );
     // Nesta etapa o único adapter disponível é o simulador local, que se
     // desativa em produção. Não ofereça Pix/cartão online ao cliente quando
     // não existe um provedor real capaz de criar e confirmar a cobrança.
@@ -234,6 +241,9 @@ export class GetCurrentTableAccountService {
         serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
         reservationTimeoutMinutes: settings.reservationTimeoutMinutes,
       },
+      activePayment: activePayment
+        ? serializeTablePaymentIntent(activePayment, data.publicId)
+        : null,
       payments: paymentIntents.map((payment) => ({
         publicId: payment.publicId,
         payerParticipantPublicId: payment.payerParticipant.publicId,

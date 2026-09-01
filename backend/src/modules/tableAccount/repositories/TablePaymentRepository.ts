@@ -21,6 +21,7 @@ export const tablePaymentIntentDtoSelect = {
   provider: true,
   providerExternalId: true,
   providerCheckoutUrl: true,
+  providerPaymentCode: true,
   expiresAt: true,
   processingAt: true,
   paidAt: true,

@@ -247,7 +247,6 @@ export function isManualTablePaymentIntent(input: {
   providerExternalId: string | null;
 }) {
   return (
-    input.selectionMode === 'WAITER' &&
     (input.method === 'CASH' || input.method === 'CARD_MACHINE') &&
     !input.provider &&
     !input.providerExternalId

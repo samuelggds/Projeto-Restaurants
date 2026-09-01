@@ -253,7 +253,7 @@ test('aceita seleção de itens segura e rejeita totais ou restaurantId do clien
   );
 });
 
-test('separa divisão igual e pagamento presencial das outras escolhas', () => {
+test('separa divisão igual e permite pagamento presencial para a seleção escolhida', () => {
   const base = { idempotencyKey: 'table-payment:request-0002' };
 
   assert.equal(
@@ -287,7 +287,7 @@ test('separa divisão igual e pagamento presencial das outras escolhas', () => {
       selectionMode: 'MY_ITEMS',
       method: 'CASH',
     }).success,
-    false,
+    true,
   );
 });
 
@@ -434,7 +434,7 @@ test('confirma manualmente somente solicitações presenciais sem provedor onlin
       provider: null,
       providerExternalId: null,
     }),
-    false,
+    true,
   );
   assert.equal(
     isManualTablePaymentIntent({

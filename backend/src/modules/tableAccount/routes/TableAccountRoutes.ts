@@ -16,6 +16,7 @@ import GetTableAccountAdminSnapshotController from '../controllers/GetTableAccou
 import GetTableAccountSettingsController from '../controllers/GetTableAccountSettingsController.js';
 import UpdateTableAccountSettingsController from '../controllers/UpdateTableAccountSettingsController.js';
 import ListTableAccountAdminSessionsController from '../controllers/ListTableAccountAdminSessionsController.js';
+import ReconcileTablePaymentController from '../controllers/ReconcileTablePaymentController.js';
 
 const router = Router();
 
@@ -61,6 +62,15 @@ router.patch(
   tableParticipantMiddleware,
   tablePaymentActionRateLimitMiddleware,
   (req, res) => CancelTablePaymentIntentController.handle(req, res),
+);
+
+router.post(
+  '/sessions/:sessionPublicId/payments/:publicId/reconcile',
+  optionalAuthMiddleware,
+  tableAccountSessionMiddleware,
+  tableParticipantMiddleware,
+  tablePaymentActionRateLimitMiddleware,
+  (req, res) => ReconcileTablePaymentController.handle(req, res),
 );
 
 router.post('/payments/:publicId/confirm-manual', authMiddleware, waiterMiddleware, (req, res) =>

@@ -283,6 +283,7 @@ export class CreateTablePaymentIntentService {
               provider: this.provider.code,
               providerExternalId: payment.externalId,
               providerCheckoutUrl: payment.checkoutUrl,
+              providerPaymentCode: payment.paymentCode,
               processingAt: this.now(),
             },
           });

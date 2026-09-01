@@ -8,6 +8,7 @@ export interface ProviderPayment {
   status: ProviderPaymentStatus;
   amountCents: number;
   checkoutUrl: string | null;
+  paymentCode: string | null;
   expiresAt: Date;
 }
 
