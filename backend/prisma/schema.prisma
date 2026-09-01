@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                            Int                       @id @default(autoincrement())
+  id                            Int                         @id @default(autoincrement())
   name                          String
-  email                         String                    @unique
+  email                         String                      @unique
   password                      String
   address                       String?
   city                          String?
@@ -19,48 +19,50 @@ model User {
   number                        String?
   state                         String?
   zipCode                       String?
-  active                        Boolean                   @default(true)
-  authVersion                   Int                       @default(0)
-  createdAt                     DateTime                  @default(now())
+  active                        Boolean                     @default(true)
+  authVersion                   Int                         @default(0)
+  createdAt                     DateTime                    @default(now())
   phone                         String?
   restaurantId                  Int?
-  updatedAt                     DateTime                  @updatedAt
+  updatedAt                     DateTime                    @updatedAt
   lastLoginAt                   DateTime?
   /// O índice único parcial `User_single_super_admin_idx` (migration SQL) limita a plataforma a um SUPER_ADMIN.
-  role                          UserRole                  @default(CLIENTE)
+  role                          UserRole                    @default(CLIENTE)
   subRole                       FuncionarioSubRole?
   cpf                           String?
   resetPasswordCodeExpiresAt    DateTime?
   resetPasswordCodeHash         String?
-  resetPasswordFailedAttempts   Int                       @default(0)
+  resetPasswordFailedAttempts   Int                         @default(0)
   resetPasswordLockedUntil      DateTime?
-  mustChangePassword            Boolean                   @default(false)
-  mfaEnabled                    Boolean                   @default(false)
+  mustChangePassword            Boolean                     @default(false)
+  mfaEnabled                    Boolean                     @default(false)
   avatar                        String?
   authMfaChallenge              AuthMfaChallenge?
   authRefreshSession            AuthRefreshSession?
   orders                        Order[]
-  assignedDeliveries            Order[]                   @relation("CourierDeliveries")
+  assignedDeliveries            Order[]                     @relation("CourierDeliveries")
   deliveryLocations             DeliveryLocation[]
   orderIssueThreads             OrderIssueThread[]
-  closedTableSessions           TableSession[]            @relation("ClosedTableSessions")
-  openedTableSessions           TableSession[]            @relation("OpenedTableSessions")
-  closingRequestedTableSessions TableSession[]            @relation("ClosingRequestedTableSessions")
-  forceClosedTableSessions      TableSession[]            @relation("ForceClosedTableSessions")
+  closedTableSessions           TableSession[]              @relation("ClosedTableSessions")
+  openedTableSessions           TableSession[]              @relation("OpenedTableSessions")
+  closingRequestedTableSessions TableSession[]              @relation("ClosingRequestedTableSessions")
+  forceClosedTableSessions      TableSession[]              @relation("ForceClosedTableSessions")
   tableParticipants             TableParticipant[]
-  restaurant                    Restaurant?               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant                    Restaurant?                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages           SupportChatMessage[]
   productFavorites              ProductFavorite[]
   addresses                     UserAddress[]
   couponRedemptions             CouponRedemption[]
-  assignedTableServiceCalls     TableServiceCall[]        @relation("AssignedTableServiceCalls")
-  resolvedTableServiceCalls     TableServiceCall[]        @relation("ResolvedTableServiceCalls")
-  confirmedTablePayments        TablePaymentIntent[]      @relation("ManualTablePaymentConfirmations")
-  tablePaymentEvents            TablePaymentEvent[]       @relation("TablePaymentEventActor")
+  assignedTableServiceCalls     TableServiceCall[]          @relation("AssignedTableServiceCalls")
+  resolvedTableServiceCalls     TableServiceCall[]          @relation("ResolvedTableServiceCalls")
+  confirmedTablePayments        TablePaymentIntent[]        @relation("ManualTablePaymentConfirmations")
+  tablePaymentEvents            TablePaymentEvent[]         @relation("TablePaymentEventActor")
   requestedAsaasWithdrawals     AsaasWithdrawalRequest[]
   oauthAuthorizationStates      OAuthAuthorizationState[]
   paymentMethods                CustomerPaymentMethod[]
-  requestedKitchenPrintJobs     KitchenPrintJob[]         @relation("KitchenPrintJobRequester")
+  requestedKitchenPrintJobs     KitchenPrintJob[]           @relation("KitchenPrintJobRequester")
+  courierCompensationPolicies   CourierCompensationPolicy[] @relation("CourierCompensationPolicyCourier")
+  courierSettlements            CourierSettlement[]         @relation("CourierSettlementCourier")
 }
 
 /// Configuracao publica e operacional da plataforma. Segredos e politicas que
@@ -125,59 +127,63 @@ model UserAddress {
 }
 
 model Restaurant {
-  id                       Int                         @id @default(autoincrement())
-  name                     String
-  slug                     String                      @unique
-  email                    String                      @unique
-  phone                    String?
-  whatsapp                 String?
-  cnpj                     String?                     @unique
-  logo                     String?
-  coverImage               String?
-  description              String?
-  address                  String?
-  addressNumber            String?
-  addressComplement        String?
-  addressDistrict          String?
-  city                     String?
-  state                    String?
-  zipCode                  String?
-  openingHours             String?
-  active                   Boolean                     @default(true)
-  accessBlockReason        RestaurantAccessBlockReason @default(NONE)
-  createdAt                DateTime                    @default(now())
-  updatedAt                DateTime                    @updatedAt
-  banners                  Banner[]
-  categories               Category[]
-  coupons                  Coupon[]
-  invoices                 Invoice[]
-  orders                   Order[]
-  products                 Product[]
-  productDiscounts         ProductDiscount[]
-  ingredients              Ingredient[]
-  productOptionGroups      ProductOptionGroup[]
-  ratings                  ProductRating[]
-  settings                 RestaurantSettings?
-  supportChatMessages      SupportChatMessage[]
-  subscription             Subscription?
-  tables                   Table[]
-  users                    User[]
-  orderIssueThreads        OrderIssueThread[]
-  couponRedemptions        CouponRedemption[]
-  tableServiceCalls        TableServiceCall[]
-  tableSessions            TableSession[]
-  tableParticipants        TableParticipant[]
-  tableBillItems           TableBillItem[]
-  tablePaymentIntents      TablePaymentIntent[]
-  tablePaymentEvents       TablePaymentEvent[]
-  asaasWithdrawals         AsaasWithdrawalRequest[]
-  oauthAuthorizationStates OAuthAuthorizationState[]
-  tableAccountSettings     TableAccountSettings?
-  deliveryFeeRanges        DeliveryFeeRange[]
-  customerPaymentMethods   CustomerPaymentMethod[]
-  printerSettings          RestaurantPrinterSettings?
-  printerAgentDevices      PrinterAgentDevice[]
-  kitchenPrintJobs         KitchenPrintJob[]
+  id                          Int                         @id @default(autoincrement())
+  name                        String
+  slug                        String                      @unique
+  email                       String                      @unique
+  phone                       String?
+  whatsapp                    String?
+  cnpj                        String?                     @unique
+  logo                        String?
+  coverImage                  String?
+  description                 String?
+  address                     String?
+  addressNumber               String?
+  addressComplement           String?
+  addressDistrict             String?
+  city                        String?
+  state                       String?
+  zipCode                     String?
+  openingHours                String?
+  active                      Boolean                     @default(true)
+  accessBlockReason           RestaurantAccessBlockReason @default(NONE)
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  banners                     Banner[]
+  categories                  Category[]
+  coupons                     Coupon[]
+  invoices                    Invoice[]
+  orders                      Order[]
+  products                    Product[]
+  productDiscounts            ProductDiscount[]
+  ingredients                 Ingredient[]
+  productOptionGroups         ProductOptionGroup[]
+  ratings                     ProductRating[]
+  settings                    RestaurantSettings?
+  supportChatMessages         SupportChatMessage[]
+  subscription                Subscription?
+  tables                      Table[]
+  users                       User[]
+  orderIssueThreads           OrderIssueThread[]
+  couponRedemptions           CouponRedemption[]
+  tableServiceCalls           TableServiceCall[]
+  tableSessions               TableSession[]
+  tableParticipants           TableParticipant[]
+  tableBillItems              TableBillItem[]
+  tablePaymentIntents         TablePaymentIntent[]
+  tablePaymentEvents          TablePaymentEvent[]
+  asaasWithdrawals            AsaasWithdrawalRequest[]
+  oauthAuthorizationStates    OAuthAuthorizationState[]
+  tableAccountSettings        TableAccountSettings?
+  deliveryFeeRanges           DeliveryFeeRange[]
+  customerPaymentMethods      CustomerPaymentMethod[]
+  printerSettings             RestaurantPrinterSettings?
+  printerAgentDevices         PrinterAgentDevice[]
+  kitchenPrintJobs            KitchenPrintJob[]
+  courierCompensationPolicies CourierCompensationPolicy[]
+  courierCompensationRanges   CourierCompensationRange[]
+  courierSettlements          CourierSettlement[]
+  courierSettlementItems      CourierSettlementItem[]
 }
 
 model RestaurantPrinterSettings {
@@ -630,6 +636,9 @@ model Order {
   preparationStartedAt            DateTime?
   readyAt                         DateTime?
   courierEarning                  Decimal                    @default(0) @db.Decimal(10, 2)
+  courierEarningCalculatedAt      DateTime?
+  courierCompensationModel        CourierCompensationModel?
+  deliveryDistanceMeters          Int?
   courierPaidAt                   DateTime?
   restaurant                      Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table                           Table?                     @relation(fields: [tableId], references: [id])
@@ -651,6 +660,7 @@ model Order {
   couponRedemption                CouponRedemption?          @relation(fields: [couponRedemptionId], references: [id], onDelete: SetNull)
   billItems                       TableBillItem[]
   kitchenPrintJobs                KitchenPrintJob[]
+  courierSettlementItems          CourierSettlementItem[]
 
   @@unique([id, restaurantId])
   @@unique([id, restaurantId, tableSessionId, participantId])
@@ -873,6 +883,7 @@ model RestaurantSettings {
   deliveryFeeMode       DeliveryFeeMode @default(FIXED)
   deliveryFee           Decimal         @default(0) @db.Decimal(10, 2)
   courierFeePerDelivery Decimal         @default(0) @db.Decimal(10, 2)
+  timezone              String          @default("America/Sao_Paulo")
   minimumOrder          Decimal         @default(0) @db.Decimal(10, 2)
   freeShippingMinimum   Decimal?        @db.Decimal(10, 2)
   acceptsDelivery       Boolean         @default(true)
@@ -955,6 +966,94 @@ model RestaurantSettings {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model CourierCompensationPolicy {
+  id                     Int                        @id @default(autoincrement())
+  publicId               String                     @unique @default(uuid())
+  restaurantId           Int
+  courierId              Int?
+  model                  CourierCompensationModel   @default(FIXED_PER_DELIVERY)
+  fixedAmount            Decimal                    @default(0) @db.Decimal(10, 2)
+  baseAmount             Decimal                    @default(0) @db.Decimal(10, 2)
+  includedDistanceMeters Int                        @default(0)
+  extraPerKmAmount       Decimal                    @default(0) @db.Decimal(10, 2)
+  version                Int                        @default(1)
+  createdByUserId        Int?
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  restaurant             Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  courier                User?                      @relation("CourierCompensationPolicyCourier", fields: [courierId], references: [id], onDelete: Cascade)
+  ranges                 CourierCompensationRange[]
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, courierId])
+  @@index([restaurantId, updatedAt])
+}
+
+model CourierCompensationRange {
+  id                Int                       @id @default(autoincrement())
+  publicId          String                    @unique @default(uuid())
+  restaurantId      Int
+  policyId          Int
+  maxDistanceMeters Int
+  amount            Decimal                   @db.Decimal(10, 2)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  restaurant        Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  policy            CourierCompensationPolicy @relation(fields: [policyId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+
+  @@unique([policyId, maxDistanceMeters])
+  @@index([restaurantId, policyId, maxDistanceMeters])
+}
+
+model CourierSettlement {
+  id                   Int                             @id @default(autoincrement())
+  publicId             String                          @unique @default(uuid())
+  restaurantId         Int
+  courierId            Int
+  status               CourierSettlementStatus         @default(AWAITING_COURIER_CONFIRMATION)
+  grossCourierEarnings Decimal                         @db.Decimal(10, 2)
+  cashCollectedAmount  Decimal                         @db.Decimal(10, 2)
+  netAmount            Decimal                         @db.Decimal(10, 2)
+  paymentMethod        CourierSettlementPaymentMethod?
+  adminNote            String?                         @db.VarChar(500)
+  evidenceUrl          String?                         @db.VarChar(1000)
+  disputeReason        String?                         @db.VarChar(500)
+  adminDeclaredPaidAt  DateTime
+  courierConfirmedAt   DateTime?
+  disputedAt           DateTime?
+  canceledAt           DateTime?
+  createdByUserId      Int
+  canceledByUserId     Int?
+  version              Int                             @default(1)
+  createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
+  restaurant           Restaurant                      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  courier              User                            @relation("CourierSettlementCourier", fields: [courierId], references: [id], onDelete: Restrict)
+  items                CourierSettlementItem[]
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, courierId, status, createdAt])
+}
+
+model CourierSettlementItem {
+  id                     Int               @id @default(autoincrement())
+  publicId               String            @unique @default(uuid())
+  settlementId           Int
+  restaurantId           Int
+  orderId                Int
+  courierEarningSnapshot Decimal           @db.Decimal(10, 2)
+  cashCollectedSnapshot  Decimal           @db.Decimal(10, 2)
+  active                 Boolean           @default(true)
+  releasedAt             DateTime?
+  createdAt              DateTime          @default(now())
+  settlement             CourierSettlement @relation(fields: [settlementId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  restaurant             Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order                  Order             @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@index([restaurantId, orderId, active])
+  @@index([settlementId, restaurantId])
 }
 
 model DeliveryFeeRange {
@@ -1257,6 +1356,26 @@ enum PaymentMethod {
   PIX
   CARTAO
   DINHEIRO
+}
+
+enum CourierCompensationModel {
+  FIXED_PER_DELIVERY
+  DISTANCE_RANGES
+  BASE_PLUS_DISTANCE
+}
+
+enum CourierSettlementStatus {
+  AWAITING_COURIER_CONFIRMATION
+  CONFIRMED
+  DISPUTED
+  CANCELED
+}
+
+enum CourierSettlementPaymentMethod {
+  PIX
+  CASH
+  BANK_TRANSFER
+  OTHER
 }
 
 enum PrinterAutoPrintTrigger {

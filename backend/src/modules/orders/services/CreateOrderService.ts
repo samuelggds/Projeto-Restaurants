@@ -15,6 +15,7 @@ import {
   TableSessionStatus,
   OrderType,
   OrderStatus,
+  CourierCompensationModel,
 } from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { z } from 'zod';
@@ -24,6 +25,7 @@ import { assertOrderCapacity } from '../utils/orderCapacity.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderPricingService from './OrderPricingService.js';
 import resolveDeliveryDistanceService from './ResolveDeliveryDistanceService.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import {
   markCouponRedemptionUsedForOrder,
   reserveCouponRedemption,
@@ -517,8 +519,29 @@ class CreateOrderService {
       }
     }
 
+    const restaurantUsesDistanceCompensation =
+      type === OrderType.DELIVERY
+        ? await withTenantDbContext(resolvedRestaurantId, async (db) =>
+            Boolean(
+              await db.courierCompensationPolicy.findFirst({
+                where: {
+                  restaurantId: resolvedRestaurantId,
+                  model: {
+                    in: [
+                      CourierCompensationModel.DISTANCE_RANGES,
+                      CourierCompensationModel.BASE_PLUS_DISTANCE,
+                    ],
+                  },
+                },
+                select: { id: true },
+              }),
+            ),
+          )
+        : false;
+
     const deliveryDistanceMeters =
-      type === OrderType.DELIVERY && restaurantSettings?.deliveryFeeMode === 'DISTANCE'
+      type === OrderType.DELIVERY &&
+      (restaurantSettings?.deliveryFeeMode === 'DISTANCE' || restaurantUsesDistanceCompensation)
         ? await resolveDeliveryDistanceService.execute({
             restaurantId: resolvedRestaurantId,
             destination: {
@@ -705,6 +728,7 @@ class CreateOrderService {
             productDiscountTotal: pricing.productDiscountTotal,
             couponDiscount: pricing.couponDiscount,
             deliveryFeeAmount: pricing.deliveryFeeAmount,
+            deliveryDistanceMeters,
             couponId: pricing.couponId,
             couponRedemptionId: pricing.couponRedemptionId,
             couponCode: pricing.couponCode,

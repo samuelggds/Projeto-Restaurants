@@ -1,6 +1,9 @@
 import { FuncionarioSubRole, OrderStatus, UserRole } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
+import { findEffectiveCompensationPolicy } from '../../courierCompensation/repositories/CourierCompensationRepository.js';
 
 class ListOrdersService {
   async execute(
@@ -21,7 +24,38 @@ class ListOrdersService {
         throw new Error('Motoqueiro inválido.');
       }
       await courierAccessService.assertActiveCourier(courierId, normalizedRestaurantId);
-      return orderRepository.findCourierOrders(normalizedRestaurantId, courierId, status);
+      const orders = await orderRepository.findCourierOrders(
+        normalizedRestaurantId,
+        courierId,
+        status,
+      );
+      const policy = await withTenantDbContext(normalizedRestaurantId, (db) =>
+        findEffectiveCompensationPolicy(db, normalizedRestaurantId, courierId),
+      );
+      return orders.map((order) => {
+        try {
+          return {
+            ...order,
+            courierEarningPreview: {
+              available: true,
+              amount: Number(calculateCourierCompensation(policy, order.deliveryDistanceMeters)),
+              model: policy.model,
+              source: policy.source,
+            },
+          };
+        } catch (error) {
+          return {
+            ...order,
+            courierEarningPreview: {
+              available: false,
+              amount: null,
+              model: policy.model,
+              source: policy.source,
+              reason: error instanceof Error ? error.message : 'Valor indisponível.',
+            },
+          };
+        }
+      });
     }
 
     if (String(role || '').toUpperCase() === UserRole.FUNCIONARIO) {

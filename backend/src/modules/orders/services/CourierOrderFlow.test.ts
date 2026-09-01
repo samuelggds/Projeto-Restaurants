@@ -56,6 +56,7 @@ test('retirada valida conta e persiste o primeiro GPS na mesma transação', asy
   const emissions = [];
   const order = deliveryOrder();
   const tx = {
+    $queryRaw: async () => [{ set_config: '7' }],
     user: {
       findFirst: async ({ where }) => {
         assert.deepEqual(where, {
@@ -67,8 +68,21 @@ test('retirada valida conta e persiste o primeiro GPS na mesma transação', asy
         return { id: 31, restaurantId: 7 };
       },
     },
-    restaurantSettings: {
-      findUnique: async () => ({ courierFeePerDelivery: 8 }),
+    courierCompensationPolicy: {
+      findFirst: async ({ where }) => {
+        assert.equal(where.restaurantId, 7);
+        return {
+          id: 1,
+          restaurantId: 7,
+          courierId: 31,
+          model: 'FIXED_PER_DELIVERY',
+          fixedAmount: 8,
+          baseAmount: 0,
+          includedDistanceMeters: 0,
+          extraPerKmAmount: 0,
+          ranges: [],
+        };
+      },
     },
     order: {
       updateMany: async ({ where, data }) => {
@@ -77,6 +91,9 @@ test('retirada valida conta e persiste o primeiro GPS na mesma transação', asy
         assert.equal(where.assignedCourierId, null);
         assert.equal(data.assignedCourierId, 31);
         assert.equal(data.status, OrderStatus.SAIU_PARA_ENTREGA);
+        assert.equal(data.courierEarning, '8.00');
+        assert.equal(data.courierCompensationModel, 'FIXED_PER_DELIVERY');
+        assert.ok(data.courierEarningCalculatedAt instanceof Date);
         return { count: 1 };
       },
       findFirst: async () => order,

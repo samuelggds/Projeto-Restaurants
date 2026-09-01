@@ -97,6 +97,69 @@ test(
         deduplicationKey: `AUTO:KITCHEN:ORDER:${fixture.orders.b.id}`,
       },
     });
+    const compensationPolicyA = await prisma.courierCompensationPolicy.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        courierId: fixture.users.courierA.id,
+        model: 'DISTANCE_RANGES',
+      },
+    });
+    const compensationRangeA = await prisma.courierCompensationRange.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        policyId: compensationPolicyA.id,
+        maxDistanceMeters: 5000,
+        amount: 9,
+      },
+    });
+    const compensationPolicyB = await prisma.courierCompensationPolicy.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        courierId: fixture.users.courierB.id,
+        model: 'FIXED_PER_DELIVERY',
+        fixedAmount: 12,
+      },
+    });
+    const settlementA = await prisma.courierSettlement.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        courierId: fixture.users.courierA.id,
+        grossCourierEarnings: 5,
+        cashCollectedAmount: 0,
+        netAmount: 5,
+        adminDeclaredPaidAt: new Date(),
+        createdByUserId: fixture.users.adminA.id,
+      },
+    });
+    const settlementItemA = await prisma.courierSettlementItem.create({
+      data: {
+        settlementId: settlementA.id,
+        restaurantId: fixture.restaurants.a.id,
+        orderId: fixture.orders.a.id,
+        courierEarningSnapshot: 5,
+        cashCollectedSnapshot: 0,
+      },
+    });
+    const settlementB = await prisma.courierSettlement.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        courierId: fixture.users.courierB.id,
+        grossCourierEarnings: 12,
+        cashCollectedAmount: 0,
+        netAmount: 12,
+        adminDeclaredPaidAt: new Date(),
+        createdByUserId: fixture.users.adminB.id,
+      },
+    });
+    const settlementItemB = await prisma.courierSettlementItem.create({
+      data: {
+        settlementId: settlementB.id,
+        restaurantId: fixture.restaurants.b.id,
+        orderId: fixture.orders.b.id,
+        courierEarningSnapshot: 12,
+        cashCollectedSnapshot: 0,
+      },
+    });
 
     try {
       await t.test(
@@ -124,6 +187,10 @@ test(
         WHERE namespaces.nspname = 'public'
           AND relations.relname IN (
             'CustomerPaymentMethod',
+            'CourierCompensationPolicy',
+            'CourierCompensationRange',
+            'CourierSettlement',
+            'CourierSettlementItem',
             'KitchenPrintJob',
             'OrderIssueThread',
             'RestaurantPrinterSettings'
@@ -131,6 +198,10 @@ test(
         ORDER BY relations.relname
       `;
         assert.deepEqual(tables, [
+          { table_name: 'CourierCompensationPolicy', rls_enabled: true, rls_forced: true },
+          { table_name: 'CourierCompensationRange', rls_enabled: true, rls_forced: true },
+          { table_name: 'CourierSettlement', rls_enabled: true, rls_forced: true },
+          { table_name: 'CourierSettlementItem', rls_enabled: true, rls_forced: true },
           { table_name: 'CustomerPaymentMethod', rls_enabled: true, rls_forced: true },
           { table_name: 'KitchenPrintJob', rls_enabled: true, rls_forced: true },
           { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
@@ -160,13 +231,17 @@ test(
         WHERE namespaces.nspname = 'public'
           AND relations.relname IN (
             'CustomerPaymentMethod',
+            'CourierCompensationPolicy',
+            'CourierCompensationRange',
+            'CourierSettlement',
+            'CourierSettlementItem',
             'KitchenPrintJob',
             'OrderIssueThread',
             'RestaurantPrinterSettings'
           )
         ORDER BY relations.relname
       `;
-        assert.equal(policies.length, 4);
+        assert.equal(policies.length, 8);
         for (const policy of policies) {
           assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
           assert.equal(policy.is_permissive, true);
@@ -211,6 +286,88 @@ test(
         assert.equal(await runtimePrisma.customerPaymentMethod.count(), 0);
         assert.equal(await runtimePrisma.restaurantPrinterSettings.count(), 0);
         assert.equal(await runtimePrisma.kitchenPrintJob.count(), 0);
+        assert.equal(await runtimePrisma.courierCompensationPolicy.count(), 0);
+        assert.equal(await runtimePrisma.courierCompensationRange.count(), 0);
+        assert.equal(await runtimePrisma.courierSettlement.count(), 0);
+        assert.equal(await runtimePrisma.courierSettlementItem.count(), 0);
+      });
+
+      await t.test('RLS financeiro permite B e oculta políticas e acertos B de A', async () => {
+        const own = await withTenantDbContext(fixture.restaurants.b.id, async (db) => ({
+          policy: await db.courierCompensationPolicy.findUnique({
+            where: { id: compensationPolicyB.id },
+          }),
+          settlement: await db.courierSettlement.findUnique({ where: { id: settlementB.id } }),
+          item: await db.courierSettlementItem.findUnique({
+            where: { id: settlementItemB.id },
+          }),
+        }));
+        assert.equal(own.policy?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.settlement?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.item?.restaurantId, fixture.restaurants.b.id);
+
+        const attack = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
+          policy: await db.courierCompensationPolicy.findUnique({
+            where: { id: compensationPolicyB.id },
+          }),
+          settlement: await db.courierSettlement.findUnique({ where: { id: settlementB.id } }),
+          item: await db.courierSettlementItem.findUnique({
+            where: { id: settlementItemB.id },
+          }),
+        }));
+        assert.equal(attack.policy, null);
+        assert.equal(attack.settlement, null);
+        assert.equal(attack.item, null);
+      });
+
+      await t.test('RLS rejeita política financeira adulterada no INSERT', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.courierCompensationPolicy.create({
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  model: 'FIXED_PER_DELIVERY',
+                  fixedAmount: 999,
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      await t.test('RLS rejeita troca de tenant em política, faixa, acerto e item', async () => {
+        const operations = [
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.courierCompensationPolicy.update({
+                where: { id: compensationPolicyA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.courierCompensationRange.update({
+                where: { id: compensationRangeA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.courierSettlement.update({
+                where: { id: settlementA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.courierSettlementItem.update({
+                where: { id: settlementItemA.id },
+                data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+        ];
+        for (const operation of operations) await assert.rejects(operation, assertRlsRejection);
       });
 
       await t.test(

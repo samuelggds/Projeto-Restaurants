@@ -79,7 +79,11 @@ export async function assertSecureRuntimeDatabaseRole(): Promise<RuntimeDatabase
             'CustomerPaymentMethod',
             'OrderIssueThread',
             'RestaurantPrinterSettings',
-            'KitchenPrintJob'
+            'KitchenPrintJob',
+            'CourierCompensationPolicy',
+            'CourierCompensationRange',
+            'CourierSettlement',
+            'CourierSettlementItem'
           )
           AND relations.relowner = roles.oid
       ) AS owns_pilot_tables

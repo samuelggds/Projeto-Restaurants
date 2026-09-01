@@ -5,6 +5,9 @@ import { notifyCustomerOrderStatusChanged } from '../../../services/customerNoti
 import orderRepository from '../repositories/OrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
 import { validateDeliveryLocationPayload } from '../../../socket/deliveryLocationPayload.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
+import { findEffectiveCompensationPolicy } from '../../courierCompensation/repositories/CourierCompensationRepository.js';
 
 class ClaimOrderForDeliveryService {
   async execute({
@@ -41,13 +44,26 @@ class ClaimOrderForDeliveryService {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await setTenantDbContext(tx, restaurantId);
       await courierAccessService.assertActiveCourier(courierId, restaurantId, tx);
 
-      const settings = await tx.restaurantSettings.findUnique({
-        where: { restaurantId },
-        select: { courierFeePerDelivery: true },
+      const orderForCompensation = await tx.order.findFirst({
+        where: {
+          id: normalizedOrderId,
+          restaurantId,
+          type: OrderType.DELIVERY,
+          status: OrderStatus.PRONTO,
+          assignedCourierId: null,
+        },
+        select: { deliveryDistanceMeters: true },
       });
-      const courierEarning = settings?.courierFeePerDelivery || 0;
+      if (!orderForCompensation) throw new Error('O pedido não está disponível para retirada.');
+      const compensationPolicy = await findEffectiveCompensationPolicy(tx, restaurantId, courierId);
+      const courierEarning = calculateCourierCompensation(
+        compensationPolicy,
+        orderForCompensation.deliveryDistanceMeters,
+      );
+      const compensationCalculatedAt = new Date();
 
       const claimed = await tx.order.updateMany({
         where: {
@@ -66,6 +82,8 @@ class ClaimOrderForDeliveryService {
           assignedCourierId: courierId,
           deliveryStartedAt: new Date(),
           courierEarning,
+          courierEarningCalculatedAt: compensationCalculatedAt,
+          courierCompensationModel: compensationPolicy.model,
           status: OrderStatus.SAIU_PARA_ENTREGA,
         },
       });

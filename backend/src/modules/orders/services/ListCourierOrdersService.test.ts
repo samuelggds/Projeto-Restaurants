@@ -5,15 +5,18 @@ import { FuncionarioSubRole, OrderStatus, UserRole } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
 import listOrdersService from './ListOrdersService.js';
 import courierAccessService from './CourierAccessService.js';
+import prisma from '../../../config/prisma.js';
 
 const originalFindAll = orderRepository.findAll;
 const originalFindCourierOrders = orderRepository.findCourierOrders;
 const originalAssertActiveCourier = courierAccessService.assertActiveCourier;
+const originalTransaction = prisma.$transaction;
 
 afterEach(() => {
   orderRepository.findAll = originalFindAll;
   orderRepository.findCourierOrders = originalFindCourierOrders;
   courierAccessService.assertActiveCourier = originalAssertActiveCourier;
+  prisma.$transaction = originalTransaction;
 });
 
 test('motoqueiro usa consulta exclusiva e vinculada ao proprio usuario', async () => {
@@ -31,8 +34,22 @@ test('motoqueiro usa consulta exclusiva e vinculada ao proprio usuario', async (
     assert.equal(restaurantId, 7);
     assert.equal(courierId, 31);
     assert.equal(status, OrderStatus.SAIU_PARA_ENTREGA);
-    return [{ id: 99, assignedCourierId: courierId }];
+    return [{ id: 99, assignedCourierId: courierId, deliveryDistanceMeters: null }];
   };
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async () => [{ set_config: '7' }],
+      courierCompensationPolicy: {
+        findFirst: async () => ({
+          model: 'FIXED_PER_DELIVERY',
+          fixedAmount: 6,
+          baseAmount: 0,
+          includedDistanceMeters: 0,
+          extraPerKmAmount: 0,
+          ranges: [],
+        }),
+      },
+    });
 
   const result = await listOrdersService.execute(
     7,
@@ -42,7 +59,14 @@ test('motoqueiro usa consulta exclusiva e vinculada ao proprio usuario', async (
   );
 
   assert.equal(genericQueryCalled, false);
-  assert.deepEqual(result, [{ id: 99, assignedCourierId: 31 }]);
+  assert.equal(result[0].id, 99);
+  assert.equal(result[0].assignedCourierId, 31);
+  assert.deepEqual(result[0].courierEarningPreview, {
+    available: true,
+    amount: 6,
+    model: 'FIXED_PER_DELIVERY',
+    source: 'COURIER_OVERRIDE',
+  });
 });
 
 test('motoqueiro sem id autenticado nao acessa entregas', async () => {
