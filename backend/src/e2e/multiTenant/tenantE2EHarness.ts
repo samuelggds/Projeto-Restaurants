@@ -9,6 +9,7 @@ import {
   PaymentMethod,
   PlanType,
   PrismaClient,
+  ProductSaleMode,
   SubscriptionStatus,
   TableOrderFinancialStatus,
   TableOrderSettlementMode,
@@ -212,7 +213,13 @@ export async function seedTenantE2EFixture() {
     data: { name: 'Categoria B', restaurantId: restaurantB.id },
   });
   const productA = await prisma.product.create({
-    data: { name: 'Produto A', price: 25, categoryId: categoryA.id, restaurantId: restaurantA.id },
+    data: {
+      name: 'Produto A',
+      price: 25,
+      categoryId: categoryA.id,
+      restaurantId: restaurantA.id,
+      saleMode: ProductSaleMode.COMPLETE,
+    },
   });
   const productB = await prisma.product.create({
     data: {
@@ -221,6 +228,7 @@ export async function seedTenantE2EFixture() {
       image: 'https://tenant-e2e.test/produto-b-original.webp',
       categoryId: categoryB.id,
       restaurantId: restaurantB.id,
+      saleMode: ProductSaleMode.COMPLETE,
     },
   });
   const ingredientB = await prisma.ingredient.create({

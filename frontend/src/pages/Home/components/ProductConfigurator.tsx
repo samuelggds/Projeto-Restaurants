@@ -525,7 +525,7 @@ export function ProductConfigurator({
               <small>Total deste item</small>
               <strong>{brl(total)}</strong>
             </div>
-            <button type="submit" disabled={!configurable}>
+            <button type="submit" disabled={!configurable} aria-label="Adicionar à sacola">
               Adicionar — {brl(total)}
             </button>
           </S.BottomBar>
