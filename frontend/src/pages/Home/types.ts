@@ -45,8 +45,25 @@ export type HomeProduct = {
   rating: number;
   stock?: number | null;
   available: boolean;
+  saleMode?: 'COMPLETE' | 'BUILDABLE';
+  configurationVersion?: number;
   ingredients?: Array<{ id: string; name: string; price: number; required: boolean }>;
   optionGroups?: ProductOptionGroup[];
+  compositionItems?: Array<{
+    id: string;
+    ingredientId: string;
+    name: string;
+    removable: boolean;
+    active: boolean;
+  }>;
+  portionConfiguration?: {
+    enabled: boolean;
+    optionGroupId: string;
+    minPortions: number;
+    maxPortions: number;
+    pricingStrategy: 'ADD' | 'HIGHEST' | 'AVERAGE' | 'PROPORTIONAL' | 'FIXED';
+    allowPortionObservations: boolean;
+  } | null;
 };
 
 export type LoyaltyCoupon = {

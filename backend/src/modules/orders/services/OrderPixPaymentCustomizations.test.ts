@@ -1,6 +1,7 @@
 // @ts-nocheck
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import prisma from '../../../config/prisma.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
@@ -8,8 +9,14 @@ import orderPixPaymentService from './OrderPixPaymentService.js';
 
 const originalFindById = productRepository.findById;
 const originalFindPublicSettings = restaurantSettingsRepository.findPublicByRestaurantId;
+const originalTransaction = prisma.$transaction;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+});
 
 afterEach(() => {
+  prisma.$transaction = originalTransaction;
   productRepository.findById = originalFindById;
   restaurantSettingsRepository.findPublicByRestaurantId = originalFindPublicSettings;
 });

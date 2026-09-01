@@ -25,7 +25,7 @@ import { assertOrderCapacity } from '../utils/orderCapacity.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import orderPricingService from './OrderPricingService.js';
 import resolveDeliveryDistanceService from './ResolveDeliveryDistanceService.js';
-import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import {
   markCouponRedemptionUsedForOrder,
   reserveCouponRedemption,
@@ -561,6 +561,7 @@ class CreateOrderService {
 
     const createdOrder = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, resolvedRestaurantId);
         let tableParticipant: {
           id: number;
           userId: number | null;

@@ -53,10 +53,27 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
                 <div className="item-options">
                   {item.options.map((option) => (
                     <small key={`${option.groupId}-${option.id}`}>
-                      <b>{option.groupName}:</b> {option.name}
+                      <b>{option.groupName}:</b>{' '}
+                      {option.quantity && option.quantity > 1 ? `${option.quantity}x ` : ''}
+                      {option.name}
                     </small>
                   ))}
                 </div>
+              )}
+              {!!item.portions?.length && (
+                <div className="item-options">
+                  {item.portions.map((portion, index) => (
+                    <small key={`portion-${index}-${portion.optionId}`}>
+                      <b>Porção {index + 1}:</b> {portion.name || 'Opção selecionada'}
+                      {portion.observation ? ` · ${portion.observation}` : ''}
+                    </small>
+                  ))}
+                </div>
+              )}
+              {!!item.removedCompositionItems?.length && (
+                <small className="item-observation">
+                  Retirar: {item.removedCompositionItems.map((entry) => entry.name).join(', ')}
+                </small>
               )}
               {item.observation && (
                 <small className="item-observation">Obs.: {item.observation}</small>

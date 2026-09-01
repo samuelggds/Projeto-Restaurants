@@ -4,6 +4,7 @@ import { readJsonStorage } from '../../../shared/storage/jsonStorage';
 import {
   normalizeProductOptionGroups,
   productConfigurationSignature,
+  productConfigurationTotal,
   type ProductConfiguration,
   type ProductGroupSelection,
 } from '../domain/productCustomization';
@@ -19,7 +20,19 @@ export type CartItem = {
   stock?: number | null;
   selectedOptionIds?: string[];
   selectedOptions?: ProductGroupSelection[];
-  options?: Array<{ id: string; groupId: string; groupName: string; name: string; price: number }>;
+  optionQuantities?: Array<{ optionId: string; quantity: number }>;
+  options?: Array<{
+    id: string;
+    groupId: string;
+    groupName: string;
+    name: string;
+    price: number;
+    quantity?: number;
+  }>;
+  removedCompositionItemIds?: string[];
+  removedCompositionItems?: Array<{ id: string; name: string }>;
+  portions?: Array<{ optionId: string; name?: string; observation?: string }>;
+  configurationVersion?: number;
   observation?: string;
   /** Compatibilidade com sacolas criadas antes dos grupos de opções. */
   ingredientIds?: string[];
@@ -45,6 +58,10 @@ function normalizeStoredCart(items: CartItem[]) {
       selectedOptions,
       selectedOptionIds: legacyOptionIds,
       observation: item.observation || '',
+      optionQuantities: item.optionQuantities || [],
+      removedCompositionItemIds: item.removedCompositionItemIds || [],
+      portions: item.portions || [],
+      configurationVersion: item.configurationVersion,
     };
     return {
       ...item,
@@ -135,6 +152,9 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
             return [];
           }
           const optionIds = new Set(item.selectedOptionIds || item.ingredientIds || []);
+          const optionQuantities = new Map(
+            (item.optionQuantities || []).map((entry) => [entry.optionId, entry.quantity]),
+          );
           const currentOptions = normalizeProductOptionGroups(product).flatMap((group) =>
             group.options
               .filter((option) => optionIds.has(option.id))
@@ -143,13 +163,37 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
                 groupId: group.id,
                 groupName: group.name,
                 name: option.name,
-                price: Number(option.price || 0),
+                price: Number(option.absolutePrice ?? option.price ?? 0),
+                quantity: optionQuantities.get(option.id) ?? option.defaultQuantity ?? 1,
               })),
           );
-          const nextPrice = currentOptions.reduce(
-            (total, option) => total + option.price,
-            product.price,
+          const selections = Object.fromEntries(
+            (item.selectedOptions || []).map((selection) => [
+              selection.groupId,
+              selection.optionIds,
+            ]),
           );
+          const nextPrice = productConfigurationTotal(
+            product.price,
+            normalizeProductOptionGroups(product),
+            selections,
+            {
+              optionQuantities: Object.fromEntries(optionQuantities),
+              portionConfiguration: product.portionConfiguration,
+              portions: item.portions,
+            },
+          );
+          const currentPortions = (item.portions || []).map((portion) => ({
+            ...portion,
+            name: normalizeProductOptionGroups(product)
+              .flatMap((group) => group.options)
+              .find((option) => option.id === portion.optionId)?.name,
+          }));
+          const removedCompositionItems = (product.compositionItems || [])
+            .filter((compositionItem) =>
+              (item.removedCompositionItemIds || []).includes(compositionItem.id),
+            )
+            .map((compositionItem) => ({ id: compositionItem.id, name: compositionItem.name }));
           const nextQuantity =
             product.stock == null
               ? item.quantity
@@ -170,6 +214,8 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
                   stock: product.stock,
                   quantity: nextQuantity,
                   options: currentOptions,
+                  portions: currentPortions,
+                  removedCompositionItems,
                 },
               ]
             : [];
@@ -203,6 +249,9 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
         );
       const groups = normalizeProductOptionGroups(product);
       const selectedIds = new Set(configuration.selectedOptionIds);
+      const quantityByOption = new Map(
+        (configuration.optionQuantities || []).map((entry) => [entry.optionId, entry.quantity]),
+      );
       const options = groups.flatMap((group) =>
         group.options
           .filter((option) => selectedIds.has(option.id))
@@ -211,10 +260,27 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
             groupId: group.id,
             groupName: group.name,
             name: option.name,
-            price: Number(option.price || 0),
+            price: Number(option.absolutePrice ?? option.price ?? 0),
+            quantity: quantityByOption.get(option.id) ?? option.defaultQuantity ?? 1,
           })),
       );
-      const unitPrice = options.reduce((total, option) => total + option.price, product.price);
+      const selections = Object.fromEntries(
+        configuration.selectedOptions.map((selection) => [selection.groupId, selection.optionIds]),
+      );
+      const unitPrice = productConfigurationTotal(product.price, groups, selections, {
+        optionQuantities: Object.fromEntries(quantityByOption),
+        portionConfiguration: product.portionConfiguration,
+        portions: configuration.portions,
+      });
+      const portions = (configuration.portions || []).map((portion) => ({
+        ...portion,
+        name: groups
+          .flatMap((group) => group.options)
+          .find((option) => option.id === portion.optionId)?.name,
+      }));
+      const removedCompositionItems = (product.compositionItems || [])
+        .filter((item) => (configuration.removedCompositionItemIds || []).includes(item.id))
+        .map((item) => ({ id: item.id, name: item.name }));
       return [
         ...current,
         {
@@ -228,7 +294,12 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
           stock: product.stock,
           selectedOptionIds: configuration.selectedOptionIds,
           selectedOptions: configuration.selectedOptions,
+          optionQuantities: configuration.optionQuantities,
           options,
+          removedCompositionItemIds: configuration.removedCompositionItemIds,
+          removedCompositionItems,
+          portions,
+          configurationVersion: configuration.configurationVersion,
           observation: configuration.observation,
         },
       ];

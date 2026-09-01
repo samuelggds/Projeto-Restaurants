@@ -4,6 +4,7 @@ import { z } from 'zod';
 import orderPricingService from '../services/OrderPricingService.js';
 import resolveDeliveryDistanceService from '../services/ResolveDeliveryDistanceService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 
 class QuoteOrderController {
   async handle(req: Request, res: Response) {
@@ -49,6 +50,26 @@ class QuoteOrderController {
                   )
                   .max(20)
                   .optional(),
+                optionQuantities: z
+                  .array(
+                    z.object({
+                      optionId: z.number().int().positive(),
+                      quantity: z.number().int().positive().max(99),
+                    }),
+                  )
+                  .max(100)
+                  .optional(),
+                removedCompositionItemIds: z.array(z.number().int().positive()).max(80).optional(),
+                portions: z
+                  .array(
+                    z.object({
+                      optionId: z.number().int().positive(),
+                      observation: z.string().trim().max(300).optional(),
+                    }),
+                  )
+                  .max(8)
+                  .optional(),
+                configurationVersion: z.number().int().positive().optional(),
               }),
             )
             .min(1),
@@ -78,14 +99,17 @@ class QuoteOrderController {
             })
           : null;
 
-      const quote = await orderPricingService.quote({
-        restaurantId: resolvedRestaurantId,
-        userId: req.user?.id,
-        type: parsed.type,
-        items: parsed.items,
-        couponRedemptionId: parsed.couponRedemptionId,
-        deliveryDistanceMeters,
-      });
+      const quote = await withTenantDbContext(resolvedRestaurantId, (db) =>
+        orderPricingService.quote({
+          restaurantId: resolvedRestaurantId,
+          userId: req.user?.id,
+          type: parsed.type,
+          items: parsed.items,
+          couponRedemptionId: parsed.couponRedemptionId,
+          deliveryDistanceMeters,
+          db,
+        }),
+      );
 
       return res.status(200).json({
         itemsSubtotal: quote.itemsSubtotal,

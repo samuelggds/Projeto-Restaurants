@@ -46,14 +46,18 @@ class IngredientRepository {
     const usedByProduct = await db.productOption.findFirst({
       where: {
         ingredientId: id,
-        group: { restaurantId },
+        restaurantId,
       },
       select: { id: true },
     });
+    const usedInComposition = await db.productCompositionItem.findFirst({
+      where: { ingredientId: id, restaurantId },
+      select: { id: true },
+    });
 
-    if (usedByProduct) {
+    if (usedByProduct || usedInComposition) {
       throw new Error(
-        'Este ingrediente está vinculado a um produto. Remova-o dos grupos ou desative-o.',
+        'Este ingrediente está vinculado a um produto. Remova-o da configuração ou desative-o.',
       );
     }
 

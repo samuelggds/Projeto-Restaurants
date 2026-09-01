@@ -5,6 +5,12 @@ export type KitchenPrintCustomizationV1 = {
   options: string[];
 };
 
+export type KitchenPrintPortionV1 = {
+  fraction: string;
+  optionName: string;
+  observation?: string;
+};
+
 export type KitchenDeliveryAddressV1 = {
   address?: string;
   number?: string;
@@ -34,6 +40,8 @@ export type KitchenOrderPrintPayloadV1 = {
       name: string;
       observation?: string;
       customizations: KitchenPrintCustomizationV1[];
+      removedItems?: string[];
+      portions?: KitchenPrintPortionV1[];
     }>;
     observation?: string;
     total: number;

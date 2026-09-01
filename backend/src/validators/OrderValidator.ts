@@ -60,11 +60,7 @@ export const createOrderSchema = z
       .array(
         z.object({
           productId: z.number().int().positive(),
-          quantity: z
-            .number()
-            .int()
-            .positive()
-            .max(100, 'A quantidade máxima por item é 100.'),
+          quantity: z.number().int().positive().max(100, 'A quantidade máxima por item é 100.'),
           observation: z
             .string()
             .trim()
@@ -81,6 +77,26 @@ export const createOrderSchema = z
             )
             .max(20)
             .optional(),
+          optionQuantities: z
+            .array(
+              z.object({
+                optionId: z.number().int().positive(),
+                quantity: z.number().int().positive().max(99),
+              }),
+            )
+            .max(100)
+            .optional(),
+          removedCompositionItemIds: z.array(z.number().int().positive()).max(80).optional(),
+          portions: z
+            .array(
+              z.object({
+                optionId: z.number().int().positive(),
+                observation: z.string().trim().max(300).optional(),
+              }),
+            )
+            .max(8)
+            .optional(),
+          configurationVersion: z.number().int().positive().optional(),
         }),
       )
       .min(1, 'O pedido deve conter pelo menos um item.')

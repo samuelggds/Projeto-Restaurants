@@ -86,6 +86,8 @@ function orderSearchContent(order: Order) {
     item.name,
     item.observation ?? '',
     ...item.customizations.flatMap((group) => [group.groupName, ...group.options]),
+    ...(item.removedComposition || []),
+    ...(item.portions || []).flatMap((portion) => [portion.label, portion.observation ?? '']),
   ]);
 
   return normalizeSearch(

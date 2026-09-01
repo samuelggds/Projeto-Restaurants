@@ -117,6 +117,39 @@ describe('operational order adapter', () => {
       { groupName: 'Itens escolhidos', options: ['Molho branco', 'Queijo'] },
     ]);
   });
+  it('preserva quantidades, porções e retiradas do snapshot imutável', () => {
+    const [order] = mapOperationalOrders([
+      {
+        id: 12,
+        items: [
+          {
+            quantity: 1,
+            productName: 'Produto dividido',
+            customizations: [
+              {
+                groupName: 'Adicionais',
+                options: [{ name: 'Bacon', quantity: 2 }],
+              },
+            ],
+            configurationSnapshot: {
+              version: 2,
+              removedComposition: [{ name: 'Cebola' }],
+              portions: [
+                { fraction: '1/2', optionName: 'Calabresa', observation: 'Bem assada' },
+                { fraction: '1/2', optionName: 'Queijo' },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(order.itemDetails?.[0]).toMatchObject({
+      customizations: [{ groupName: 'Adicionais', options: ['2x Bacon'] }],
+      removedComposition: ['Cebola'],
+      portions: [{ label: '1/2 Calabresa', observation: 'Bem assada' }, { label: '1/2 Queijo' }],
+    });
+  });
   it('descarta entradas sem pedido e normaliza datas, total e status inválidos', () => {
     const orders = mapOperationalOrders([
       null,

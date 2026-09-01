@@ -131,9 +131,19 @@ export function HomePage({
         onOpenTableAccount?.();
         return;
       }
+      if (product.saleMode === 'COMPLETE') {
+        onAddProduct?.(product.id, {
+          selectedOptions: [],
+          selectedOptionIds: [],
+          observation: '',
+          configurationVersion: product.configurationVersion,
+        });
+        onOpenCart?.();
+        return;
+      }
       setSelectedProduct(product);
     },
-    [onOpenTableAccount, orderingLocked],
+    [onAddProduct, onOpenCart, onOpenTableAccount, orderingLocked],
   );
 
   const handleToggleFavorite = useCallback((productId: string) => {

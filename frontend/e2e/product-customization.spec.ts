@@ -8,6 +8,7 @@ const product = {
   active: true,
   stock: null,
   category: { name: 'Principais' },
+  saleMode: 'BUILDABLE',
   optionGroups: [
     {
       id: 10,
@@ -51,6 +52,83 @@ const product = {
   ],
 };
 
+const advancedProduct = {
+  id: 202,
+  name: 'Pizza em porções',
+  description: 'Divida sabores e ajuste a receita.',
+  price: 30,
+  active: true,
+  stock: null,
+  saleMode: 'BUILDABLE',
+  configurationVersion: 7,
+  category: { name: 'Principais' },
+  compositionItems: [
+    {
+      id: 301,
+      ingredientId: 4,
+      removable: true,
+      active: true,
+      ingredient: { id: 4, name: 'Cebola', active: true },
+    },
+  ],
+  optionGroups: [
+    {
+      id: 30,
+      name: 'Adicionais',
+      required: false,
+      selectionType: 'MULTIPLE',
+      minSelections: 0,
+      maxSelections: 1,
+      options: [
+        {
+          id: 3001,
+          ingredientId: 3,
+          additionalPrice: 5,
+          pricingMode: 'ADDITIVE',
+          allowQuantity: true,
+          minQuantity: 1,
+          maxQuantity: 3,
+          defaultQuantity: 1,
+          active: true,
+          ingredient: { id: 3, name: 'Bacon', price: 5, active: true },
+        },
+      ],
+    },
+    {
+      id: 40,
+      name: 'Sabores',
+      required: true,
+      selectionType: 'MULTIPLE',
+      minSelections: 1,
+      maxSelections: 2,
+      options: [
+        {
+          id: 4001,
+          ingredientId: 5,
+          additionalPrice: 6,
+          active: true,
+          ingredient: { id: 5, name: 'Calabresa', price: 6, active: true },
+        },
+        {
+          id: 4002,
+          ingredientId: 6,
+          additionalPrice: 10,
+          active: true,
+          ingredient: { id: 6, name: 'Especial', price: 10, active: true },
+        },
+      ],
+    },
+  ],
+  portionConfiguration: {
+    enabled: true,
+    optionGroupId: 40,
+    minPortions: 2,
+    maxPortions: 2,
+    pricingStrategy: 'HIGHEST',
+    allowPortionObservations: true,
+  },
+};
+
 async function mockStorefront(page: Page) {
   await page.route('http://127.0.0.1:3000/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -86,7 +164,7 @@ async function mockStorefront(page: Page) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ products: [product] }),
+        body: JSON.stringify({ products: [product, advancedProduct] }),
       });
       return;
     }
@@ -106,14 +184,15 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
 test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page }) => {
   await mockStorefront(page);
   await openConfigurator(page);
+  const dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
 
-  await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await dialog.getByRole('button', { name: /Adicionar/ }).click();
   await expect(page.getByText(/Escolha 1 opção/).last()).toBeVisible();
   await page.getByText('Base grossa').click();
   await page.getByText('Queijo especial').click();
-  await page.getByPlaceholder(/cortar ao meio/).fill('Embalagem separada');
+  await page.getByPlaceholder(/Adicione aqui uma observação/).fill('Embalagem separada');
   await expect(page.getByText('R$ 38,00').last()).toBeVisible();
-  await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await dialog.getByRole('button', { name: /Adicionar/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await expect(page.getByText('Base grossa')).toBeVisible();
@@ -195,4 +274,27 @@ test('configurador mantém observação e CTA no fluxo em telas menores', async 
     ).toBeLessThanOrEqual(1);
     expect(responsiveState.footerPosition, `${viewport.label}: CTA no fluxo`).toBe('static');
   }
+});
+
+test('cliente define quantidade, retirada e opções por porção', async ({ page }) => {
+  await mockStorefront(page);
+  await page.goto('/restaurante-teste');
+  await page.getByRole('button', { name: 'Ver detalhes de Pizza em porções' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Montar Pizza em porções' });
+  await dialog.getByRole('checkbox', { name: /Cebola/ }).check();
+  await dialog.getByText('Bacon', { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Aumentar quantidade de Bacon' }).click();
+  await dialog.getByLabel('Opção').nth(0).selectOption('4001');
+  await dialog.getByLabel('Opção').nth(1).selectOption('4002');
+  await dialog.getByLabel('Observação da porção').nth(1).fill('Bem assada');
+
+  await expect(dialog.getByText('R$ 50,00').last()).toBeVisible();
+  await dialog.getByRole('button', { name: /Adicionar/ }).click();
+
+  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await expect(page.getByText('2x Bacon')).toBeVisible();
+  await expect(page.getByText(/Porção 1:.*Calabresa/)).toBeVisible();
+  await expect(page.getByText(/Porção 2:.*Especial.*Bem assada/)).toBeVisible();
+  await expect(page.getByText('Retirar: Cebola')).toBeVisible();
 });

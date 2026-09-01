@@ -2,6 +2,7 @@ import productRepository from '../repositories/ProductRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { resolveProductBasePricing } from '../utils/productDiscount.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 
 type ListProductsPayload = {
   restaurantId?: number | string | null;
@@ -21,7 +22,9 @@ class ListProductsService {
       throw new Error('Restaurante não encontrado');
     }
 
-    const products = await productRepository.findAll(normalizedRestaurantId);
+    const products = await withTenantDbContext(normalizedRestaurantId, (db) =>
+      productRepository.findAll(normalizedRestaurantId, db),
+    );
 
     const normalizedProducts = products.map((product) => {
       const stockValue =

@@ -15,6 +15,10 @@ export type PricingItemInput = {
   ingredientIds?: number[];
   optionIds?: number[];
   selectedOptions?: Array<{ groupId?: number; optionIds?: number[] }>;
+  optionQuantities?: Array<{ optionId?: number; quantity?: number }>;
+  removedCompositionItemIds?: number[];
+  portions?: Array<{ optionId?: number; observation?: string | null }>;
+  configurationVersion?: number;
 };
 
 type QuotePayload = {
@@ -188,9 +192,7 @@ class OrderPricingService {
         ? Math.min(rawDiscount, Number(coupon.maxDiscount))
         : rawDiscount;
       const maximumCouponDiscount = Math.max(itemsSubtotal - 0.01, 0);
-      couponDiscount = roundMoney(
-        Math.min(Math.max(limitedDiscount, 0), maximumCouponDiscount),
-      );
+      couponDiscount = roundMoney(Math.min(Math.max(limitedDiscount, 0), maximumCouponDiscount));
       if (couponDiscount <= 0) {
         throw new Error(
           'Este cupom não gera desconto neste pedido. Escolha outro benefício ou aumente o subtotal.',

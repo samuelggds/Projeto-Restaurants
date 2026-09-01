@@ -7,7 +7,11 @@ class UpdateProductController {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const data = req.body;
 
-      const updatedProduct = await updateProductService.execute(id, data, req.user.restaurantId);
+      const updatedProduct = await updateProductService.execute(id, data, req.user.restaurantId, {
+        userId: Number(req.user.id || 0) || undefined,
+        userName: req.user.email,
+        userRole: req.user.role,
+      });
 
       return res.status(200).json(updatedProduct);
     } catch (error: unknown) {

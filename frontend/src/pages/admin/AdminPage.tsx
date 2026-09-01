@@ -1,4 +1,4 @@
-import { ChangeEvent, useRef, useState } from 'react';
+import { ChangeEvent, lazy, Suspense, useRef, useState } from 'react';
 import {
   ExternalLink,
   HelpCircle,
@@ -18,7 +18,6 @@ import imageEnhancementService from '../../Services/imageEnhancementService';
 import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeDrawer } from './components/EmployeeDrawer';
 import { EmployeeList } from './components/EmployeeList';
-import { ProductDrawer } from './components/ProductDrawer';
 import { BrandSettings } from './components/BrandSettings';
 import { AdminSettingsContent } from './components/AdminSettingsContent';
 import { AdminManagement } from './components/AdminManagement';
@@ -48,6 +47,9 @@ import {
 
 const DECISION_PROGRESS_MS = 1200;
 const RESULT_MODAL_MS = 1400;
+const ProductDrawer = lazy(() =>
+  import('./components/ProductDrawer').then((module) => ({ default: module.ProductDrawer })),
+);
 
 type PendingNavigation =
   { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
@@ -817,16 +819,29 @@ export function AdminPage({
         />
       )}{' '}
       {editingProduct !== undefined && (
-        <ProductDrawer
-          product={editingProduct}
-          categories={categories}
-          ingredients={ingredients}
-          close={() => setEditingProduct(undefined)}
-          save={async (product) => {
-            await onSaveProduct?.(product);
-            setEditingProduct(undefined);
-          }}
-        />
+        <Suspense
+          fallback={
+            <S.Overlay>
+              <S.Drawer as="div" role="status" aria-live="polite">
+                <header>
+                  <strong>Carregando editor de produto...</strong>
+                </header>
+              </S.Drawer>
+            </S.Overlay>
+          }
+        >
+          <ProductDrawer
+            product={editingProduct}
+            categories={categories}
+            ingredients={ingredients}
+            createIngredient={async (ingredient) => onCreateIngredient?.(ingredient)}
+            close={() => setEditingProduct(undefined)}
+            save={async (product) => {
+              await onSaveProduct?.(product);
+              setEditingProduct(undefined);
+            }}
+          />
+        </Suspense>
       )}
       {mobile && (
         <div

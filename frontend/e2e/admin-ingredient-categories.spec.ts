@@ -167,20 +167,20 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
   await expect(dialog).toBeVisible();
   await expect(drawer.getByRole('heading', { name: 'Apresente o produto' })).toBeVisible();
   await expect(
-    drawer.getByRole('heading', { name: 'Organize a montagem do cliente' }),
+    drawer.getByRole('heading', { name: 'Este produto pode ser personalizado?' }),
   ).toBeVisible();
   await expect(drawer.getByText('Resumo da experiência do cliente')).toBeVisible();
   const sourceCategories = drawer.getByLabel('Categoria-fonte dos ingredientes');
   await expect(sourceCategories.nth(0)).toHaveValue('Massas');
   await expect(sourceCategories.nth(1)).toHaveValue('Adicionais');
 
-  const groupCards = drawer.locator('article');
-  await expect(groupCards.nth(0).getByText('Massa fina', { exact: true })).toBeVisible();
-  await expect(groupCards.nth(0).getByText('Bacon', { exact: true })).toHaveCount(0);
-  await expect(groupCards.nth(1).getByText('Bacon', { exact: true })).toBeVisible();
-  await expect(groupCards.nth(1).getByText('Massa fina', { exact: true })).toHaveCount(0);
+  const groupCards = drawer.getByTestId('product-option-group');
+  await expect(groupCards.nth(0).getByRole('checkbox', { name: /^Massa fina/ })).toBeVisible();
+  await expect(groupCards.nth(0).getByRole('checkbox', { name: /^Bacon/ })).toHaveCount(0);
+  await expect(groupCards.nth(1).getByRole('checkbox', { name: /^Bacon/ })).toBeVisible();
+  await expect(groupCards.nth(1).getByRole('checkbox', { name: /^Massa fina/ })).toHaveCount(0);
 
-  await drawer.getByRole('button', { name: 'Adicionar categoria' }).click();
+  await drawer.getByRole('button', { name: 'Adicionar etapa' }).click();
   await expect(sourceCategories.nth(2)).toHaveValue('');
   await sourceCategories.nth(2).selectOption('Molhos');
   await drawer.getByLabel('Nome do grupo').nth(2).fill('Escolha o molho');
@@ -255,18 +255,24 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
   await page.getByRole('button', { name: 'Opções de Produto artesanal' }).click();
   await page.getByRole('button', { name: 'Editar produto' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(350);
 
   const dialog = page.getByRole('dialog', { name: 'Editar produto' });
   await expect(dialog).toBeVisible();
+  await dialog.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
   await expect(dialog.getByRole('button', { name: 'Salvar alterações' })).toBeVisible();
   await expect(
     dialog.getByRole('navigation', { name: 'Etapas do cadastro do produto' }),
   ).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Apresente o produto' })).toHaveCount(1);
-  await expect(dialog.getByRole('heading', { name: 'Organize a montagem do cliente' })).toHaveCount(
-    1,
-  );
+  await expect(
+    dialog.getByRole('heading', { name: 'Este produto pode ser personalizado?' }),
+  ).toHaveCount(1);
   await expect(dialog.getByRole('heading', { name: 'Disponibilidade e revisão' })).toHaveCount(1);
 
   const overflowReport = await dialog.evaluate((element) => {

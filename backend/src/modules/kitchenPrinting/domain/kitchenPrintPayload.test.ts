@@ -113,6 +113,48 @@ test('customização legada de ingredients mantém o mesmo fallback da cozinha',
   );
 });
 
+test('payload apresenta quantidade, remoções e porções do snapshot versionado', () => {
+  const payload = buildKitchenOrderPayload({
+    id: 186,
+    publicId: 'd22d86bf-b9f8-4e72-9461-f8db63a1fa09',
+    createdAt: new Date('2026-09-01T12:00:00.000Z'),
+    type: OrderType.MESA,
+    paid: false,
+    paymentMethod: PaymentMethod.DINHEIRO,
+    payOnDeliveryMethod: null,
+    total: 48,
+    observation: null,
+    restaurant: { name: 'Restaurante' },
+    table: { number: 4 },
+    user: null,
+    participant: { displayName: 'Mesa 4' },
+    items: [
+      {
+        quantity: 1,
+        observation: 'Massa bem passada',
+        ingredients: [],
+        customizations: [{ groupName: 'Adicionais', options: [{ name: 'Bacon', quantity: 2 }] }],
+        configurationSnapshot: {
+          version: 2,
+          removedComposition: [{ name: 'Cebola' }],
+          portions: [
+            { fraction: '1/2', optionName: 'Calabresa', observation: 'Sem cebola' },
+            { fraction: '1/2', optionName: 'Portuguesa' },
+          ],
+        },
+        product: { name: 'Produto dividido' },
+      },
+    ],
+  });
+
+  assert.deepEqual(payload.order.items[0].customizations[0].options, ['2x Bacon']);
+  assert.deepEqual(payload.order.items[0].removedItems, ['Cebola']);
+  assert.deepEqual(payload.order.items[0].portions, [
+    { fraction: '1/2', optionName: 'Calabresa', observation: 'Sem cebola' },
+    { fraction: '1/2', optionName: 'Portuguesa' },
+  ]);
+});
+
 test('sanitização e payload TEST não carregam dados de pedido', () => {
   assert.equal(sanitizeKitchenObservation('CPF: 12345678900 | Sem gelo'), 'Sem gelo');
   const payload = buildKitchenTestPayload('North Pizza', new Date('2026-08-31T22:30:00Z'));

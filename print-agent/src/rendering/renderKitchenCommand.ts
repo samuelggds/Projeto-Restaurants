@@ -110,9 +110,24 @@ function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
 
   for (const item of order.items) {
     lines.push(...wrap(`${item.quantity}x ${item.name.toUpperCase()}`, width));
+    if (item.portions?.length) {
+      lines.push(...wrap('PORÇÕES', width, '> '));
+      for (const portion of item.portions) {
+        lines.push(...wrap(`${portion.fraction} ${portion.optionName}`, width, '  * '));
+        if (portion.observation) {
+          lines.push(...wrap(`OBS: ${portion.observation}`, width, '    '));
+        }
+      }
+    }
     for (const group of item.customizations) {
       lines.push(...wrap(group.groupName, width, '> '));
       for (const option of group.options) lines.push(...wrap(option, width, '  * '));
+    }
+    if (item.removedItems?.length) {
+      lines.push(...wrap('RETIRAR', width, '> '));
+      for (const removedItem of item.removedItems) {
+        lines.push(...wrap(removedItem, width, '  - '));
+      }
     }
     if (item.observation) lines.push(...wrap(`OBS: ${item.observation}`, width, '  '));
     lines.push('');

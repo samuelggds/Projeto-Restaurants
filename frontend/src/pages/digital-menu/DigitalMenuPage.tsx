@@ -61,11 +61,23 @@ export function DigitalMenuPage({
   const total = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const add = (product = featured) => {
     if (!product) return;
+    if (product.saleMode === 'COMPLETE') {
+      confirmConfiguration(product, {
+        selectedOptions: [],
+        selectedOptionIds: [],
+        observation: '',
+        configurationVersion: product.configurationVersion,
+      });
+      return;
+    }
     setBuilding(product);
   };
   const confirmConfiguration = (product: MenuProduct, configuration: ProductConfiguration) => {
     const groups = normalizeProductOptionGroups(product);
     const selectedIds = new Set(configuration.selectedOptionIds);
+    const quantityByOption = new Map(
+      (configuration.optionQuantities || []).map((entry) => [entry.optionId, entry.quantity]),
+    );
     const options = groups.flatMap((group) =>
       group.options
         .filter((option) => selectedIds.has(option.id))
@@ -73,7 +85,8 @@ export function DigitalMenuPage({
           id: option.id,
           groupName: group.name,
           name: option.name,
-          price: option.price,
+          price: Number(option.absolutePrice ?? option.price ?? 0),
+          quantity: quantityByOption.get(option.id) ?? option.defaultQuantity ?? 1,
         })),
     );
     const cartId = `${product.id}::${productConfigurationSignature(configuration)}`;
@@ -83,7 +96,21 @@ export function DigitalMenuPage({
       Object.fromEntries(
         configuration.selectedOptions.map((selection) => [selection.groupId, selection.optionIds]),
       ),
+      {
+        optionQuantities: Object.fromEntries(quantityByOption),
+        portionConfiguration: product.portionConfiguration,
+        portions: configuration.portions,
+      },
     );
+    const portions = (configuration.portions || []).map((portion) => ({
+      ...portion,
+      name: groups
+        .flatMap((group) => group.options)
+        .find((option) => option.id === portion.optionId)?.name,
+    }));
+    const removedCompositionItems = (product.compositionItems || [])
+      .filter((item) => (configuration.removedCompositionItemIds || []).includes(item.id))
+      .map((item) => ({ id: item.id, name: item.name }));
     setCart((items) => {
       const found = items.find((item) => item.cartId === cartId);
       return found
@@ -99,6 +126,11 @@ export function DigitalMenuPage({
               unitPrice,
               selectedOptionIds: configuration.selectedOptionIds,
               selectedOptions: configuration.selectedOptions,
+              optionQuantities: configuration.optionQuantities,
+              removedCompositionItemIds: configuration.removedCompositionItemIds,
+              removedCompositionItems,
+              portions,
+              configurationVersion: configuration.configurationVersion,
               observation: configuration.observation,
               options,
             },
@@ -238,7 +270,9 @@ export function DigitalMenuPage({
                   </span>
                 </S.Meta>
                 <p>{featured.description}</p>
-                <S.Tag>⚙ Monte do seu jeito</S.Tag>
+                <S.Tag>
+                  {featured.saleMode === 'COMPLETE' ? 'Pronto para pedir' : 'Monte do seu jeito'}
+                </S.Tag>
                 <footer>
                   <strong>{brl(featured.price)}</strong>
                   <button onClick={() => add()}>
@@ -413,10 +447,27 @@ function CartDrawer({
                   <ul className="cart-options">
                     {item.options.map((option) => (
                       <li key={option.id}>
-                        <b>{option.groupName}:</b> {option.name}
+                        <b>{option.groupName}:</b>{' '}
+                        {option.quantity && option.quantity > 1 ? `${option.quantity}x ` : ''}
+                        {option.name}
                       </li>
                     ))}
                   </ul>
+                )}
+                {!!item.portions?.length && (
+                  <ul className="cart-options">
+                    {item.portions.map((portion, index) => (
+                      <li key={`portion-${index}-${portion.optionId}`}>
+                        <b>Porção {index + 1}:</b> {portion.name || 'Opção selecionada'}
+                        {portion.observation ? ` · ${portion.observation}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!!item.removedCompositionItems?.length && (
+                  <small className="cart-observation">
+                    Retirar: {item.removedCompositionItems.map((item) => item.name).join(', ')}
+                  </small>
                 )}
                 {item.observation && (
                   <small className="cart-observation">Obs.: {item.observation}</small>

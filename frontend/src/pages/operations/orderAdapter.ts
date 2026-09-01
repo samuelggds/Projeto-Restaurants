@@ -53,7 +53,9 @@ function optionName(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   const option = asRecord(value);
   const ingredient = asRecord(option?.ingredient);
-  return text(option?.name || option?.label || ingredient?.name);
+  const name = text(option?.name || option?.label || ingredient?.name);
+  const quantity = Number(option?.quantity ?? 1);
+  return name && Number.isInteger(quantity) && quantity > 1 ? `${quantity}x ${name}` : name;
 }
 
 function unique(values: string[]): string[] {
@@ -81,6 +83,30 @@ function itemCustomizations(item: GenericRecord): OrderItemCustomization[] {
   return legacyIngredients.length
     ? [{ groupName: 'Itens escolhidos', options: legacyIngredients }]
     : [];
+}
+
+function configurationDetails(item: GenericRecord) {
+  const snapshot = asRecord(item.configurationSnapshot);
+  const removedComposition = unique(
+    asArray(snapshot?.removedComposition ?? item.removedComposition).map((value) => {
+      const entry = asRecord(value);
+      return text(entry?.name || entry?.ingredientName || value);
+    }),
+  );
+  const portions = asArray(snapshot?.portions ?? item.portions).flatMap((value, index) => {
+    const portion = asRecord(value);
+    if (!portion) return [];
+    const name = text(portion.optionName || portion.name || portion.ingredientName);
+    if (!name) return [];
+    const fraction = text(portion.fraction) || `Porção ${index + 1}`;
+    return [
+      {
+        label: `${fraction} ${name}`,
+        observation: text(portion.observation) || undefined,
+      },
+    ];
+  });
+  return { removedComposition, portions };
 }
 
 export function formatElapsed(createdAt: string, now = Date.now()): string {
@@ -123,12 +149,15 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
       const name = text(product?.name || item.productName || item.name || item.title);
       const parsedQuantity = Number(item.quantity);
       const quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+      const configuration = configurationDetails(item);
 
       return [
         {
           name: name || 'Produto',
           quantity,
           customizations: itemCustomizations(item),
+          removedComposition: configuration.removedComposition,
+          portions: configuration.portions,
           observation: text(item.observation || item.notes) || undefined,
         },
       ];

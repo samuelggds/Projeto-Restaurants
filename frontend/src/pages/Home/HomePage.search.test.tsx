@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { homeMockData } from './data';
 import { HomePage } from './HomePage';
 
@@ -76,5 +76,50 @@ describe('busca de produtos na Home', () => {
     expect(
       document.querySelector('[role="dialog"][aria-label="Montar Pizza Margherita"]'),
     ).toBeTruthy();
+  });
+
+  it('adiciona produto COMPLETE diretamente sem abrir o configurador', () => {
+    const onAddProduct = vi.fn();
+    const onOpenCart = vi.fn();
+    act(() =>
+      root.render(
+        <HomePage
+          data={{
+            ...homeMockData,
+            products: [
+              {
+                id: 'refrigerante',
+                categoryId: 'bebidas',
+                name: 'Refrigerante',
+                description: 'Lata gelada',
+                price: 7,
+                originalPrice: 7,
+                image: '/refrigerante.webp',
+                rating: 0,
+                available: true,
+                saleMode: 'COMPLETE',
+                configurationVersion: 4,
+              },
+            ],
+          }}
+          onAddProduct={onAddProduct}
+          onOpenCart={onOpenCart}
+        />,
+      ),
+    );
+
+    const addButton = container.querySelector(
+      'button[aria-label="Adicionar Refrigerante"]',
+    ) as HTMLButtonElement;
+    act(() => addButton.click());
+
+    expect(onAddProduct).toHaveBeenCalledWith('refrigerante', {
+      selectedOptions: [],
+      selectedOptionIds: [],
+      observation: '',
+      configurationVersion: 4,
+    });
+    expect(onOpenCart).toHaveBeenCalledOnce();
+    expect(document.querySelector('[role="dialog"][aria-label="Montar Refrigerante"]')).toBeNull();
   });
 });

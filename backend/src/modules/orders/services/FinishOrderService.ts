@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -268,6 +269,7 @@ class CreateOrderService {
 
     const createdOrder = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, resolvedRestaurantId);
         if (type === OrderType.MESA) {
           const session = await tableSessionRepository.findById(
             Number(tableSessionId),

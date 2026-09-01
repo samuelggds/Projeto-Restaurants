@@ -5,6 +5,12 @@ export type ProductOption = {
   ingredientId?: string;
   name: string;
   price: number;
+  pricingMode?: 'ADDITIVE' | 'ABSOLUTE';
+  absolutePrice?: number | null;
+  allowQuantity?: boolean;
+  minQuantity?: number;
+  maxQuantity?: number;
+  defaultQuantity?: number;
   active: boolean;
   locked?: boolean;
   defaultSelected?: boolean;
@@ -30,6 +36,10 @@ export type ProductConfiguration = {
   selectedOptions: ProductGroupSelection[];
   selectedOptionIds: string[];
   observation: string;
+  optionQuantities?: Array<{ optionId: string; quantity: number }>;
+  removedCompositionItemIds?: string[];
+  portions?: Array<{ optionId: string; observation?: string }>;
+  configurationVersion?: number;
 };
 
 export type ConfigurableProduct = {
@@ -41,10 +51,34 @@ export type ConfigurableProduct = {
     required?: boolean;
     active?: boolean;
   }>;
+  configurationVersion?: number;
+  compositionItems?: Array<{
+    id: string;
+    ingredientId: string;
+    name: string;
+    removable: boolean;
+    active: boolean;
+  }>;
+  portionConfiguration?: {
+    enabled: boolean;
+    optionGroupId: string;
+    minPortions: number;
+    maxPortions: number;
+    pricingStrategy: 'ADD' | 'HIGHEST' | 'AVERAGE' | 'PROPORTIONAL' | 'FIXED';
+    allowPortionObservations: boolean;
+  } | null;
 };
 
 export type SelectionState = Record<string, string[]>;
 export type SelectionErrors = Record<string, string>;
+export type OptionQuantityState = Record<string, number>;
+export type PortionSelection = { optionId: string; observation?: string };
+
+type ConfigurationPriceDetails = {
+  optionQuantities?: OptionQuantityState;
+  portionConfiguration?: ConfigurableProduct['portionConfiguration'];
+  portions?: PortionSelection[];
+};
 
 function positiveInteger(value: unknown, fallback: number) {
   const parsed = Number(value);
@@ -89,6 +123,13 @@ export function normalizeProductOptionGroups(product: ConfigurableProduct): Prod
             id: String(option.id),
             ingredientId: option.ingredientId ? String(option.ingredientId) : undefined,
             price: Number(option.price || 0),
+            absolutePrice:
+              option.absolutePrice === null || option.absolutePrice === undefined
+                ? null
+                : Number(option.absolutePrice),
+            minQuantity: Math.max(1, positiveInteger(option.minQuantity, 1)),
+            maxQuantity: Math.max(1, positiveInteger(option.maxQuantity, 1)),
+            defaultQuantity: Math.max(1, positiveInteger(option.defaultQuantity, 1)),
             active: option.active !== false,
           })),
         };
@@ -191,17 +232,72 @@ export function productConfigurationTotal(
   basePrice: number,
   groups: ProductOptionGroup[],
   selections: SelectionState,
+  details: ConfigurationPriceDetails = {},
 ) {
-  return selectedProductOptions(groups, selections).reduce(
-    (total, option) => total + Number(option.price || 0),
-    Number(basePrice || 0),
+  const portionGroupId = details.portionConfiguration?.enabled
+    ? details.portionConfiguration.optionGroupId
+    : null;
+  const regularGroups = groups.filter((group) => group.id !== portionGroupId);
+  const regularOptions = selectedProductOptions(regularGroups, selections);
+  const absolute = regularOptions.find((option) => option.pricingMode === 'ABSOLUTE');
+  const additiveCents = regularOptions
+    .filter((option) => option.pricingMode !== 'ABSOLUTE')
+    .reduce(
+      (total, option) =>
+        total +
+        Math.round(Number(option.price || 0) * 100) *
+          Math.max(1, details.optionQuantities?.[option.id] ?? option.defaultQuantity ?? 1),
+      0,
+    );
+
+  let resolvedBaseCents = Math.round(
+    Number(absolute?.absolutePrice ?? absolute?.price ?? basePrice ?? 0) * 100,
   );
+  let portionCents = 0;
+  const portionConfiguration = details.portionConfiguration;
+  if (portionConfiguration?.enabled && details.portions?.length) {
+    const portionGroup = groups.find((group) => group.id === portionConfiguration.optionGroupId);
+    const prices = details.portions.map((portion) => {
+      const option = portionGroup?.options.find((candidate) => candidate.id === portion.optionId);
+      return {
+        cents: Math.round(Number(option?.absolutePrice ?? option?.price ?? 0) * 100),
+        absolute: option?.pricingMode === 'ABSOLUTE',
+      };
+    });
+    const values = prices.map((entry) => entry.cents);
+    let calculated = 0;
+    if (portionConfiguration.pricingStrategy === 'ADD') {
+      calculated = values.reduce((sum, value) => sum + value, 0);
+    } else if (portionConfiguration.pricingStrategy === 'HIGHEST') {
+      calculated = Math.max(0, ...values);
+    } else if (
+      portionConfiguration.pricingStrategy === 'AVERAGE' ||
+      portionConfiguration.pricingStrategy === 'PROPORTIONAL'
+    ) {
+      calculated = values.length
+        ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+        : 0;
+    }
+    if (prices[0]?.absolute && portionConfiguration.pricingStrategy !== 'FIXED') {
+      resolvedBaseCents = calculated;
+    } else {
+      portionCents = calculated;
+    }
+  }
+
+  return (resolvedBaseCents + additiveCents + portionCents) / 100;
 }
 
 export function buildProductConfiguration(
   groups: ProductOptionGroup[],
   selections: SelectionState,
   observation: string,
+  details: {
+    optionQuantities?: OptionQuantityState;
+    removedCompositionItemIds?: string[];
+    portions?: PortionSelection[];
+    configurationVersion?: number;
+  } = {},
 ): ProductConfiguration {
   const selectedOptions = groups
     .map((group) => ({
@@ -214,6 +310,19 @@ export function buildProductConfiguration(
     selectedOptions,
     selectedOptionIds: selectedOptions.flatMap((selection) => selection.optionIds),
     observation: observation.trim(),
+    optionQuantities: Object.entries(details.optionQuantities || {})
+      .filter(
+        ([optionId, quantity]) =>
+          selectedOptions.some((selection) => selection.optionIds.includes(optionId)) &&
+          quantity > 0,
+      )
+      .map(([optionId, quantity]) => ({ optionId, quantity })),
+    removedCompositionItemIds: [...(details.removedCompositionItemIds || [])],
+    portions: (details.portions || []).map((portion) => ({
+      optionId: portion.optionId,
+      ...(portion.observation?.trim() ? { observation: portion.observation.trim() } : {}),
+    })),
+    configurationVersion: details.configurationVersion,
   };
 }
 
@@ -222,5 +331,25 @@ export function productConfigurationSignature(configuration: ProductConfiguratio
     .map((selection) => `${selection.groupId}:${selection.optionIds.slice().sort().join(',')}`)
     .sort()
     .join('|');
-  return `${groups}::${configuration.observation.trim().toLocaleLowerCase('pt-BR')}`;
+  const quantities = (configuration.optionQuantities || [])
+    .map((entry) => `${entry.optionId}:${entry.quantity}`)
+    .sort()
+    .join('|');
+  const removals = [...(configuration.removedCompositionItemIds || [])].sort().join(',');
+  const portions = (configuration.portions || [])
+    .map(
+      (portion, index) =>
+        `${index}:${portion.optionId}:${String(portion.observation || '')
+          .trim()
+          .toLocaleLowerCase('pt-BR')}`,
+    )
+    .join('|');
+  return [
+    groups,
+    quantities,
+    removals,
+    portions,
+    configuration.observation.trim().toLocaleLowerCase('pt-BR'),
+    configuration.configurationVersion ?? '',
+  ].join('::');
 }

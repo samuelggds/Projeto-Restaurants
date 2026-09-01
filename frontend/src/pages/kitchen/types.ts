@@ -26,6 +26,11 @@ export interface OrderItemDetail {
   name: string;
   quantity: number;
   customizations: OrderItemCustomization[];
+  removedComposition?: string[];
+  portions?: Array<{
+    label: string;
+    observation?: string;
+  }>;
   observation?: string;
 }
 export interface Order {

@@ -62,7 +62,10 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
       return { title: 'CPF inválido', message: 'Informe um CPF válido com 11 dígitos.' };
     const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
     if (phoneDigits.length < 10 || phoneDigits.length > 13)
-      return { title: 'Celular inválido', message: 'Informe um celular com DDD para acompanhar o pedido.' };
+      return {
+        title: 'Celular inválido',
+        message: 'Informe um celular com DDD para acompanhar o pedido.',
+      };
   }
   if (type === 'DELIVERY') {
     const addressErrors = validateDeliveryAddress(deliveryAddress);
@@ -121,12 +124,36 @@ export function buildOrderItems(cart: CartItem[]) {
       .map(Number)
       .filter((id) => Number.isInteger(id) && id > 0);
     const observation = String(item.observation || '').trim();
+    const optionQuantities = (item.optionQuantities || [])
+      .map((entry) => ({ optionId: Number(entry.optionId), quantity: Number(entry.quantity) }))
+      .filter(
+        (entry) =>
+          Number.isInteger(entry.optionId) &&
+          entry.optionId > 0 &&
+          Number.isInteger(entry.quantity) &&
+          entry.quantity > 0,
+      );
+    const removedCompositionItemIds = (item.removedCompositionItemIds || [])
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0);
+    const portions = (item.portions || [])
+      .map((portion) => ({
+        optionId: Number(portion.optionId),
+        ...(String(portion.observation || '').trim()
+          ? { observation: String(portion.observation).trim() }
+          : {}),
+      }))
+      .filter((portion) => Number.isInteger(portion.optionId) && portion.optionId > 0);
     return {
       productId: Number(item.productId),
       quantity: item.quantity,
       ...(optionIds.length ? { optionIds } : {}),
       ...(selectedOptions.length ? { selectedOptions } : {}),
       ...(ingredientIds.length && !optionIds.length ? { ingredientIds } : {}),
+      ...(optionQuantities.length ? { optionQuantities } : {}),
+      ...(removedCompositionItemIds.length ? { removedCompositionItemIds } : {}),
+      ...(portions.length ? { portions } : {}),
+      ...(item.configurationVersion ? { configurationVersion: item.configurationVersion } : {}),
       ...(observation ? { observation } : {}),
     };
   });

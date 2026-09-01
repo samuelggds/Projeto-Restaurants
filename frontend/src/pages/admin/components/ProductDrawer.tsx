@@ -1,9 +1,9 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
+  Copy,
   ChevronRight,
   Boxes,
-  Eye,
   ImagePlus,
   Layers3,
   PackageOpen,
@@ -14,12 +14,20 @@ import {
   X,
 } from 'lucide-react';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
+import productConfigurationTemplatesService from '../../../Services/productConfigurationTemplatesService';
 import * as S from '../Admin.styles';
+import {
+  ProductConfigurationWorkspace,
+  type PendingCategoryChange,
+} from './ProductConfigurationWorkspace';
 import type {
   AdminCategory,
   AdminIngredient,
   AdminProduct,
+  AdminProductCompositionItem,
+  AdminProductConfigurationTemplate,
   AdminProductOptionGroup,
+  AdminProductPortionConfiguration,
 } from '../types';
 import {
   normalizeOptionGroup,
@@ -43,15 +51,11 @@ type ProductDrawerProps = {
   product: AdminProduct | null;
   categories: AdminCategory[];
   ingredients: AdminIngredient[];
+  createIngredient?: (
+    ingredient: Omit<AdminIngredient, 'id'>,
+  ) => AdminIngredient | void | Promise<AdminIngredient | void>;
   close: () => void;
   save: (product: AdminProduct) => Promise<void>;
-};
-
-type PendingCategoryChange = {
-  groupIndex: number;
-  nextCategory: string;
-  incompatibleIds: number[];
-  incompatibleNames: string[];
 };
 
 const emptyGroup = (): AdminProductOptionGroup => ({
@@ -64,6 +68,30 @@ const emptyGroup = (): AdminProductOptionGroup => ({
   options: [],
 });
 
+const groupPreset = (preset: 'SINGLE' | 'EXTRAS' | 'PORTIONS'): AdminProductOptionGroup => {
+  if (preset === 'SINGLE') {
+    return { ...emptyGroup(), name: 'Escolha uma opção' };
+  }
+  if (preset === 'PORTIONS') {
+    return {
+      ...emptyGroup(),
+      name: 'Opções por porção',
+      required: false,
+      selectionType: 'MULTIPLE',
+      minSelections: 0,
+      maxSelections: 1,
+    };
+  }
+  return {
+    ...emptyGroup(),
+    name: 'Adicionais',
+    required: false,
+    selectionType: 'MULTIPLE',
+    minSelections: 0,
+    maxSelections: 5,
+  };
+};
+
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -71,6 +99,7 @@ export function ProductDrawer({
   product,
   categories,
   ingredients,
+  createIngredient,
   close,
   save,
 }: ProductDrawerProps) {
@@ -81,11 +110,29 @@ export function ProductDrawer({
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? 0);
   const [stock, setStock] = useState(String(product?.stock ?? ''));
   const [unlimitedStock, setUnlimitedStock] = useState(isUnlimitedStock(product?.stock));
+  const [saleMode, setSaleMode] = useState<'COMPLETE' | 'BUILDABLE'>(
+    product?.saleMode ?? 'COMPLETE',
+  );
+  const [confirmDiscardConfiguration, setConfirmDiscardConfiguration] = useState(false);
+  const [templates, setTemplates] = useState<AdminProductConfigurationTemplate[]>([]);
+  const [templateName, setTemplateName] = useState('');
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [inlineIngredientGroup, setInlineIngredientGroup] = useState<number | null>(null);
+  const [inlineIngredientName, setInlineIngredientName] = useState('');
+  const [inlineIngredientPrice, setInlineIngredientPrice] = useState('0');
+  const [inlineIngredientBusy, setInlineIngredientBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [optionGroups, setOptionGroups] = useState<AdminProductOptionGroup[]>(
     () => product?.optionGroups?.map((group) => ({ ...group, options: [...group.options] })) ?? [],
   );
+  const [compositionItems, setCompositionItems] = useState<AdminProductCompositionItem[]>(
+    () => product?.compositionItems?.map((item) => ({ ...item })) ?? [],
+  );
+  const [portionConfiguration, setPortionConfiguration] =
+    useState<AdminProductPortionConfiguration | null>(() =>
+      product?.portionConfiguration ? { ...product.portionConfiguration } : null,
+    );
   const [groupCategories, setGroupCategories] = useState<string[]>(() =>
     (product?.optionGroups || []).map(
       (group) => inferGroupIngredientCategory(group, ingredients).value,
@@ -99,6 +146,17 @@ export function ProductDrawer({
     [ingredients],
   );
   const ingredientCategories = useMemo(() => listIngredientCategories(ingredients), [ingredients]);
+  const inlineDuplicate = useMemo(() => {
+    const normalizedName = inlineIngredientName.trim().toLocaleLowerCase('pt-BR');
+    if (!normalizedName) return undefined;
+    return ingredients.find(
+      (ingredient) => ingredient.name.trim().toLocaleLowerCase('pt-BR') === normalizedName,
+    );
+  }, [ingredients, inlineIngredientName]);
+  const activeIngredientSections = useMemo(
+    () => groupIngredientsByCategory(activeIngredients),
+    [activeIngredients],
+  );
   const selectedProductCategory = categories.find((item) => item.id === categoryId)?.name ?? '';
   const linkedOptionCount = optionGroups.reduce((total, group) => total + group.options.length, 0);
   const readyGroupCount = optionGroups.filter(
@@ -108,7 +166,28 @@ export function ProductDrawer({
       groupCategories[index] &&
       groupCategories[index] !== MIXED_INGREDIENT_CATEGORY,
   ).length;
-  const basicInformationReady = Boolean(name.trim() && Number(price) > 0 && categoryId);
+  const basicInformationReady = Boolean(name.trim() && Number(price) >= 0 && categoryId);
+  const hasPersistedConfiguration = Boolean(
+    product?.saleMode === 'BUILDABLE' &&
+    (product.optionGroups?.length ||
+      product.compositionItems?.length ||
+      product.portionConfiguration),
+  );
+
+  useEffect(() => {
+    let active = true;
+    productConfigurationTemplatesService
+      .list()
+      .then((values) => {
+        if (active) setTemplates(values);
+      })
+      .catch(() => {
+        if (active) setTemplates([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const updateGroup = (
     groupIndex: number,
@@ -135,8 +214,36 @@ export function ProductDrawer({
       options: selected
         ? group.options.some((option) => option.ingredientId === ingredientId)
           ? group.options
-          : [...group.options, { ingredientId, active: true }]
+          : [
+              ...group.options,
+              {
+                ingredientId,
+                additionalPrice: Number(ingredient?.price ?? 0),
+                pricingMode: 'ADDITIVE',
+                absolutePrice: null,
+                allowQuantity: false,
+                minQuantity: 1,
+                maxQuantity: 1,
+                defaultQuantity: 1,
+                defaultSelected: false,
+                locked: false,
+                active: true,
+              },
+            ]
         : group.options.filter((option) => option.ingredientId !== ingredientId),
+    }));
+  };
+
+  const updateGroupOption = (
+    groupIndex: number,
+    ingredientId: number,
+    patch: Partial<AdminProductOptionGroup['options'][number]>,
+  ) => {
+    updateGroup(groupIndex, (group) => ({
+      ...group,
+      options: group.options.map((option) =>
+        option.ingredientId === ingredientId ? { ...option, ...patch } : option,
+      ),
     }));
   };
 
@@ -144,6 +251,202 @@ export function ProductDrawer({
     setOptionGroups((current) => [...current, emptyGroup()]);
     setGroupCategories((current) => [...current, '']);
     setPendingCategoryChange(null);
+  };
+
+  const addPreset = (preset: 'SINGLE' | 'EXTRAS' | 'PORTIONS') => {
+    const group = groupPreset(preset);
+    setOptionGroups((current) => [...current, group]);
+    setGroupCategories((current) => [...current, '']);
+    if (preset === 'PORTIONS') {
+      setPortionConfiguration({
+        enabled: true,
+        optionGroupName: group.name,
+        minPortions: 2,
+        maxPortions: 2,
+        pricingStrategy: 'HIGHEST',
+        allowPortionObservations: true,
+      });
+    }
+    setPendingCategoryChange(null);
+  };
+
+  const moveGroup = (groupIndex: number, direction: -1 | 1) => {
+    const targetIndex = groupIndex + direction;
+    if (targetIndex < 0 || targetIndex >= optionGroups.length) return;
+    setOptionGroups((current) => {
+      const next = [...current];
+      [next[groupIndex], next[targetIndex]] = [next[targetIndex], next[groupIndex]];
+      return next;
+    });
+    setGroupCategories((current) => {
+      const next = [...current];
+      [next[groupIndex], next[targetIndex]] = [next[targetIndex], next[groupIndex]];
+      return next;
+    });
+    setPendingCategoryChange(null);
+  };
+
+  const toggleCompositionIngredient = (ingredientId: number, selected: boolean) => {
+    setCompositionItems((current) =>
+      selected
+        ? current.some((item) => item.ingredientId === ingredientId)
+          ? current
+          : [...current, { ingredientId, removable: false, active: true }]
+        : current.filter((item) => item.ingredientId !== ingredientId),
+    );
+  };
+
+  const applyTemplate = (template: AdminProductConfigurationTemplate) => {
+    const groups = template.configuration.optionGroups.map((group) => ({
+      ...group,
+      id: undefined,
+      options: group.options.map((option) => ({ ...option, id: undefined })),
+    }));
+    setOptionGroups(groups);
+    setGroupCategories(
+      groups.map((group) => inferGroupIngredientCategory(group, ingredients).value),
+    );
+    setCompositionItems(
+      template.configuration.compositionItems.map((item) => ({ ...item, id: undefined })),
+    );
+    setPortionConfiguration(
+      template.configuration.portionConfiguration
+        ? { ...template.configuration.portionConfiguration }
+        : null,
+    );
+    setSaleMode('BUILDABLE');
+    setPendingCategoryChange(null);
+    setError('');
+  };
+
+  const saveTemplate = async () => {
+    const normalizedName = templateName.trim();
+    if (!normalizedName) {
+      setError('Informe um nome para salvar este modelo.');
+      return;
+    }
+    const normalizedGroups = optionGroups.map(normalizeOptionGroup);
+    const templateErrors = validateOptionGroups(normalizedGroups, ingredients);
+    if (templateErrors.length) {
+      setError(templateErrors[0]);
+      return;
+    }
+    setTemplateBusy(true);
+    setError('');
+    try {
+      const created = await productConfigurationTemplatesService.create({
+        name: normalizedName,
+        configuration: {
+          optionGroups: normalizedGroups,
+          compositionItems,
+          portionConfiguration,
+        },
+      });
+      setTemplates((current) =>
+        [...current, created].sort((left, right) => left.name.localeCompare(right.name)),
+      );
+      setTemplateName('');
+    } catch (templateError) {
+      const apiError = templateError as {
+        response?: { data?: { error?: string; message?: string } };
+      };
+      setError(
+        apiError.response?.data?.error ||
+          apiError.response?.data?.message ||
+          'Não foi possível salvar o modelo.',
+      );
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
+  const deactivateTemplate = async (templateId: number) => {
+    setTemplateBusy(true);
+    setError('');
+    try {
+      await productConfigurationTemplatesService.deactivate(templateId);
+      setTemplates((current) => current.filter((template) => template.id !== templateId));
+    } catch {
+      setError('Não foi possível remover o modelo.');
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
+  const selectInlineIngredient = (groupIndex: number, ingredient: AdminIngredient) => {
+    updateGroup(groupIndex, (group) => ({
+      ...group,
+      options: group.options.some((option) => option.ingredientId === ingredient.id)
+        ? group.options
+        : [
+            ...group.options,
+            {
+              ingredientId: ingredient.id,
+              additionalPrice: ingredient.price,
+              pricingMode: 'ADDITIVE',
+              absolutePrice: null,
+              allowQuantity: false,
+              minQuantity: 1,
+              maxQuantity: 1,
+              defaultQuantity: 1,
+              defaultSelected: false,
+              locked: false,
+              active: true,
+            },
+          ],
+    }));
+    setInlineIngredientGroup(null);
+    setInlineIngredientName('');
+    setInlineIngredientPrice('0');
+  };
+
+  const createInlineIngredient = async (groupIndex: number) => {
+    const sourceCategory = groupCategories[groupIndex];
+    const normalizedName = inlineIngredientName.trim();
+    const numericPrice = Number(inlineIngredientPrice);
+    if (!sourceCategory || sourceCategory === MIXED_INGREDIENT_CATEGORY) {
+      setError('Escolha a categoria-fonte da etapa antes de criar uma opção.');
+      return;
+    }
+    if (!normalizedName || !Number.isFinite(numericPrice) || numericPrice < 0) {
+      setError('Informe nome e valor igual ou maior que zero para a nova opção.');
+      return;
+    }
+    if (inlineDuplicate) {
+      if (!inlineDuplicate.active) {
+        setError('Já existe um ingrediente inativo com este nome. Reative-o na aba Ingredientes.');
+        return;
+      }
+      if (!ingredientBelongsToCategory(inlineDuplicate, sourceCategory)) {
+        setError(`“${inlineDuplicate.name}” já existe na categoria ${inlineDuplicate.category}.`);
+        return;
+      }
+      selectInlineIngredient(groupIndex, inlineDuplicate);
+      return;
+    }
+    if (!createIngredient) return;
+    setInlineIngredientBusy(true);
+    setError('');
+    try {
+      const created = await createIngredient({
+        name: normalizedName,
+        price: numericPrice,
+        category: sourceCategory,
+        active: true,
+      });
+      if (created) selectInlineIngredient(groupIndex, created);
+    } catch (createError) {
+      const apiError = createError as {
+        response?: { data?: { error?: string; message?: string } };
+      };
+      setError(
+        apiError.response?.data?.error ||
+          apiError.response?.data?.message ||
+          'Não foi possível criar a opção.',
+      );
+    } finally {
+      setInlineIngredientBusy(false);
+    }
   };
 
   const removeGroup = (groupIndex: number) => {
@@ -216,25 +519,46 @@ export function ProductDrawer({
     setError('');
 
     const numericPrice = Number(price);
-    if (!name.trim() || !Number.isFinite(numericPrice) || numericPrice <= 0 || !categoryId) {
-      setError('Preencha nome, preço base maior que zero e categoria.');
+    if (!name.trim() || !Number.isFinite(numericPrice) || numericPrice < 0 || !categoryId) {
+      setError('Preencha nome, preço base igual ou maior que zero e categoria.');
       return;
     }
 
-    const unresolvedCategoryIndex = optionGroups.findIndex(
-      (_, index) => !groupCategories[index] || groupCategories[index] === MIXED_INGREDIENT_CATEGORY,
-    );
-    if (unresolvedCategoryIndex >= 0) {
-      setError(
-        `Escolha uma categoria de ingredientes no grupo ${unresolvedCategoryIndex + 1} antes de salvar.`,
+    let normalizedGroups: AdminProductOptionGroup[] = [];
+    if (saleMode === 'BUILDABLE') {
+      const unresolvedCategoryIndex = optionGroups.findIndex(
+        (_, index) =>
+          !groupCategories[index] || groupCategories[index] === MIXED_INGREDIENT_CATEGORY,
       );
-      return;
-    }
+      if (unresolvedCategoryIndex >= 0) {
+        setError(
+          `Escolha uma categoria de ingredientes no grupo ${unresolvedCategoryIndex + 1} antes de salvar.`,
+        );
+        return;
+      }
 
-    const normalizedGroups = optionGroups.map(normalizeOptionGroup);
-    const customizationErrors = validateOptionGroups(normalizedGroups, ingredients);
-    if (customizationErrors.length) {
-      setError(customizationErrors[0]);
+      normalizedGroups = optionGroups.map(normalizeOptionGroup);
+      const customizationErrors = validateOptionGroups(normalizedGroups, ingredients);
+      if (customizationErrors.length) {
+        setError(customizationErrors[0]);
+        return;
+      }
+      if (
+        portionConfiguration?.enabled &&
+        !normalizedGroups.some((group) => group.name === portionConfiguration.optionGroupName)
+      ) {
+        setError('Escolha uma etapa existente para definir as opções de cada porção.');
+        return;
+      }
+      if (
+        portionConfiguration?.enabled &&
+        portionConfiguration.minPortions > portionConfiguration.maxPortions
+      ) {
+        setError('O mínimo de porções não pode ser maior que o máximo.');
+        return;
+      }
+    } else if (hasPersistedConfiguration && !confirmDiscardConfiguration) {
+      setError('Confirme a remoção da personalização antes de salvar como produto simples.');
       return;
     }
 
@@ -251,8 +575,15 @@ export function ProductDrawer({
         category: categories.find((item) => item.id === categoryId)?.name ?? '',
         stock: normalizedStock,
         active: isProductActiveFromStock(normalizedStock),
-        saleMode: 'BUILDABLE',
-        optionGroups: normalizedGroups,
+        saleMode,
+        configurationVersion: product?.configurationVersion,
+        confirmDiscardConfiguration:
+          saleMode === 'COMPLETE' && hasPersistedConfiguration
+            ? confirmDiscardConfiguration
+            : undefined,
+        optionGroups: saleMode === 'BUILDABLE' ? normalizedGroups : [],
+        compositionItems: saleMode === 'BUILDABLE' ? compositionItems : [],
+        portionConfiguration: saleMode === 'BUILDABLE' ? portionConfiguration : null,
       });
     } catch (saveError) {
       const apiError = saveError as {
@@ -278,10 +609,14 @@ export function ProductDrawer({
         <header className="drawer-header">
           <div className="drawer-title">
             <span>
-              <Sparkles /> PRODUTO PERSONALIZÁVEL
+              <Sparkles /> {saleMode === 'BUILDABLE' ? 'PRODUTO PERSONALIZÁVEL' : 'PRODUTO PRONTO'}
             </span>
             <h2 id="product-form-title">{product ? 'Editar produto' : 'Novo produto'}</h2>
-            <p>Cadastre o produto-base e organize as escolhas que o cliente fará.</p>
+            <p>
+              {saleMode === 'BUILDABLE'
+                ? 'Cadastre o produto-base e organize as escolhas que o cliente fará.'
+                : 'Cadastre um item vendido pronto, sem etapas de montagem.'}
+            </p>
           </div>
           <button aria-label="Fechar cadastro" type="button" onClick={close}>
             <X />
@@ -299,21 +634,23 @@ export function ProductDrawer({
           <ChevronRight />
           <div
             className={
-              readyGroupCount === optionGroups.length && optionGroups.length
+              saleMode === 'COMPLETE' ||
+              (readyGroupCount === optionGroups.length && optionGroups.length)
                 ? 'complete'
                 : 'current'
             }
           >
             <i>
-              {readyGroupCount === optionGroups.length && optionGroups.length ? (
+              {saleMode === 'COMPLETE' ||
+              (readyGroupCount === optionGroups.length && optionGroups.length) ? (
                 <CheckCircle2 />
               ) : (
                 '2'
               )}
             </i>
             <span>
-              <b>Montagem</b>
-              <small>Escolhas do cliente</small>
+              <b>{saleMode === 'BUILDABLE' ? 'Personalização' : 'Venda simples'}</b>
+              <small>{saleMode === 'BUILDABLE' ? 'Escolhas do cliente' : 'Sem montagem'}</small>
             </span>
           </div>
           <ChevronRight />
@@ -354,14 +691,18 @@ export function ProductDrawer({
                 <input
                   required
                   type="number"
-                  min="0.01"
+                  min="0"
                   max="999999"
                   step="0.01"
                   value={price}
                   onChange={(event) => setPrice(event.target.value)}
                   placeholder="0,00"
                 />
-                <small>Os adicionais serão somados a este valor.</small>
+                <small>
+                  {saleMode === 'BUILDABLE'
+                    ? 'Este é o valor inicial; cada opção pode ter seu próprio preço.'
+                    : 'Este será o valor final do produto.'}
+                </small>
               </S.Field>
               <S.Field>
                 Categoria no cardápio
@@ -437,430 +778,232 @@ export function ProductDrawer({
             <span>2</span>
             <div>
               <small>SEGUNDO PASSO</small>
-              <h3>Organize a montagem do cliente</h3>
-              <p>Cada categoria de escolha vira uma etapa separada na tela do produto.</p>
+              <h3>Este produto pode ser personalizado?</h3>
+              <p>Escolha o comportamento que o cliente encontrará no cardápio.</p>
             </div>
+          </div>
+
+          <S.ProductSaleModeSelector role="group" aria-label="Personalização do produto">
             <button
-              className="add-group"
-              disabled={!activeIngredients.length}
+              className={saleMode === 'COMPLETE' ? 'active' : ''}
               type="button"
-              onClick={addGroup}
+              onClick={() => {
+                setSaleMode('COMPLETE');
+                setError('');
+              }}
             >
-              <Plus /> Adicionar categoria
+              <PackageOpen />
+              <span>
+                <b>Não, é um produto pronto</b>
+                <small>O cliente adiciona direto à sacola, sem escolher etapas.</small>
+              </span>
+              {saleMode === 'COMPLETE' && <CheckCircle2 />}
             </button>
-          </div>
-
-          <div className="group-guidance">
-            <div>
-              <i>1</i>
-              <span>
-                <b>Separe por assunto</b>
-                <small>Ex.: Massa, Borda e Adicionais.</small>
-              </span>
-            </div>
-            <ChevronRight />
-            <div>
-              <i>2</i>
-              <span>
-                <b>Defina a regra</b>
-                <small>Uma ou várias escolhas, obrigatórias ou não.</small>
-              </span>
-            </div>
-            <ChevronRight />
-            <div>
-              <i>3</i>
-              <span>
-                <b>Vincule as opções</b>
-                <small>Marque os itens que o cliente verá.</small>
-              </span>
-            </div>
-          </div>
-
-          <S.ProductCustomerPreview>
-            <header>
-              <Eye />
-              <div>
-                <b>Resumo da experiência do cliente</b>
-                <span>Prévia das etapas configuradas</span>
-              </div>
-            </header>
-            <div className="customer-preview-product">
-              <span>
-                <PackageOpen />
-              </span>
-              <div>
-                <b>{name || 'Seu produto'}</b>
-                <small>A partir de {Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</small>
-              </div>
-            </div>
-            <div className="customer-preview-steps">
-              {optionGroups.length ? (
-                optionGroups.map((group, index) => (
-                  <div
-                    className={group.name.trim() && group.options.length ? 'ready' : ''}
-                    key={group.id ?? `preview-${index}`}
-                  >
-                    <i>{index + 1}</i>
-                    <span>
-                      <b>{group.name || `Etapa ${index + 1}`}</b>
-                      <small>
-                        {group.options.length} opção(ões) ·{' '}
-                        {group.required ? 'Obrigatória' : 'Opcional'}
-                      </small>
-                    </span>
-                    {group.name.trim() && group.options.length ? (
-                      <CheckCircle2 />
-                    ) : (
-                      <span className="pending">Configurar</span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p>Adicione a primeira categoria para visualizar a sequência de montagem.</p>
-              )}
-            </div>
-          </S.ProductCustomerPreview>
-
-          {!activeIngredients.length ? (
-            <S.ProductCustomizationEmpty>
+            <button
+              className={saleMode === 'BUILDABLE' ? 'active' : ''}
+              type="button"
+              onClick={() => {
+                setSaleMode('BUILDABLE');
+                setConfirmDiscardConfiguration(false);
+                setError('');
+              }}
+            >
               <Layers3 />
+              <span>
+                <b>Sim, o cliente pode personalizar</b>
+                <small>Crie escolhas, quantidades, itens removíveis ou porções.</small>
+              </span>
+              {saleMode === 'BUILDABLE' && <CheckCircle2 />}
+            </button>
+          </S.ProductSaleModeSelector>
+
+          {saleMode === 'COMPLETE' && (
+            <S.ProductSimpleMode>
+              <CheckCircle2 />
               <div>
-                <b>Cadastre ingredientes antes de montar o produto</b>
+                <b>Este produto será vendido sem etapas de montagem.</b>
                 <p>
-                  Feche este formulário, abra a aba Ingredientes e registre as opções com seus
-                  valores.
+                  No cardápio, o cliente toca em adicionar e o item vai direto para a sacola pelo
+                  preço informado acima.
                 </p>
+                {hasPersistedConfiguration && (
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={confirmDiscardConfiguration}
+                      onChange={(event) => setConfirmDiscardConfiguration(event.target.checked)}
+                    />
+                    Confirmo que grupos, composição e porções atuais serão removidos ao salvar.
+                  </label>
+                )}
               </div>
-            </S.ProductCustomizationEmpty>
-          ) : !optionGroups.length ? (
-            <S.ProductCustomizationEmpty>
-              <Layers3 />
-              <div>
-                <b>Este produto ainda não possui categorias de escolha</b>
-                <p>Use “Adicionar categoria” e vincule apenas opções do mesmo tipo em cada uma.</p>
+            </S.ProductSimpleMode>
+          )}
+
+          {saleMode === 'BUILDABLE' && (
+            <>
+              <div className="customization-actions">
+                <div>
+                  <b>Oficina de personalização</b>
+                  <span>Monte etapas genéricas para qualquer tipo de produto.</span>
+                </div>
+                <button
+                  className="add-group"
+                  disabled={!activeIngredients.length}
+                  type="button"
+                  onClick={addGroup}
+                >
+                  <Plus /> Adicionar etapa
+                </button>
               </div>
-            </S.ProductCustomizationEmpty>
-          ) : (
-            <S.ProductOptionGroupList>
-              {optionGroups.map((group, groupIndex) => {
-                const selectedIds = new Set(group.options.map((option) => option.ingredientId));
-                const sourceCategory = groupCategories[groupIndex] || '';
-                const legacyCategory = inferGroupIngredientCategory(group, ingredients);
-                const isLegacyMixed = sourceCategory === MIXED_INGREDIENT_CATEGORY;
-                const visibleIngredients = isLegacyMixed
-                  ? ingredients.filter((ingredient) => selectedIds.has(ingredient.id))
-                  : sourceCategory
-                    ? ingredients.filter((ingredient) =>
-                        ingredientBelongsToCategory(ingredient, sourceCategory),
-                      )
-                    : [];
-                const visibleSections = groupIngredientsByCategory(visibleIngredients);
-                const categoryChange =
-                  pendingCategoryChange?.groupIndex === groupIndex ? pendingCategoryChange : null;
-                return (
-                  <article
-                    className={
-                      group.name.trim() && sourceCategory && group.options.length
-                        ? 'group-complete'
-                        : ''
-                    }
-                    key={group.id ?? `new-${groupIndex}`}
-                  >
-                    <header>
-                      <div className="group-number">{groupIndex + 1}</div>
-                      <div>
-                        <small className="group-kicker">
-                          ETAPA {groupIndex + 1} PARA O CLIENTE
-                        </small>
-                        <b>{group.name || `Grupo ${groupIndex + 1}`}</b>
+
+              <S.ProductPresetGrid>
+                <button type="button" onClick={() => addPreset('SINGLE')}>
+                  <i>1</i>
+                  <span>
+                    <b>Escolha única</b>
+                    <small>Uma opção obrigatória, como tamanho ou tipo.</small>
+                  </span>
+                  <Plus />
+                </button>
+                <button type="button" onClick={() => addPreset('EXTRAS')}>
+                  <i>+</i>
+                  <span>
+                    <b>Adicionais</b>
+                    <small>Várias opções opcionais com preço e quantidade.</small>
+                  </span>
+                  <Plus />
+                </button>
+                <button type="button" onClick={() => addPreset('PORTIONS')}>
+                  <i>½</i>
+                  <span>
+                    <b>Divisão em porções</b>
+                    <small>Cria a etapa usada para escolher cada parte.</small>
+                  </span>
+                  <Plus />
+                </button>
+              </S.ProductPresetGrid>
+
+              <S.ProductTemplateLibrary>
+                <header>
+                  <div>
+                    <Copy />
+                    <span>
+                      <b>Modelos reutilizáveis</b>
+                      <small>Aplicar um modelo cria uma cópia independente neste produto.</small>
+                    </span>
+                  </div>
+                  <span>{templates.length} salvo(s)</span>
+                </header>
+                {!!templates.length && (
+                  <div className="template-list">
+                    {templates.map((template) => (
+                      <article key={template.id}>
                         <span>
-                          {group.selectionType === 'SINGLE' ? 'Somente 1 opção' : 'Várias opções'}
-                          {' · '}
-                          {group.required ? 'Obrigatório' : 'Opcional'}
+                          <b>{template.name}</b>
+                          <small>
+                            {template.configuration.optionGroups.length} etapa(s) ·{' '}
+                            {template.configuration.compositionItems.length} item(ns) na composição
+                          </small>
                         </span>
-                        <small className="group-summary">
-                          {group.options.length
-                            ? `Cliente escolhe de ${group.minSelections} a ${
-                                group.selectionType === 'SINGLE' ? 1 : group.maxSelections
-                              } entre ${group.options.length} opção(ões)`
-                            : 'Nenhuma opção vinculada nesta categoria'}
-                        </small>
-                      </div>
-                      <div className="group-state">
-                        {group.name.trim() && sourceCategory && group.options.length ? (
-                          <>
-                            <CheckCircle2 /> Pronta
-                          </>
-                        ) : (
-                          'Incompleta'
-                        )}
-                      </div>
-                      <button
-                        aria-label={`Remover grupo ${groupIndex + 1}`}
-                        className="remove-group"
-                        type="button"
-                        onClick={() => removeGroup(groupIndex)}
-                      >
-                        <Trash2 />
-                      </button>
-                    </header>
-
-                    <div className="group-fields">
-                      <S.Field>
-                        Nome do grupo
-                        <input
-                          maxLength={60}
-                          value={group.name}
-                          onChange={(event) =>
-                            updateGroup(groupIndex, (current) => ({
-                              ...current,
-                              name: event.target.value,
-                            }))
-                          }
-                          placeholder="Ex.: Escolha o tipo ou Adicione complementos"
-                        />
-                      </S.Field>
-                      <S.Field>
-                        Categoria-fonte dos ingredientes
-                        <select
-                          value={sourceCategory}
-                          onChange={(event) => selectGroupCategory(groupIndex, event.target.value)}
-                        >
-                          <option value="">Selecione uma categoria</option>
-                          {isLegacyMixed && (
-                            <option disabled value={MIXED_INGREDIENT_CATEGORY}>
-                              Grupo antigo com categorias misturadas
-                            </option>
-                          )}
-                          {ingredientCategories.map((ingredientCategory) => (
-                            <option key={ingredientCategory} value={ingredientCategory}>
-                              {ingredientCategory}
-                            </option>
-                          ))}
-                        </select>
-                        <small>Somente ingredientes desta categoria poderão ser vinculados.</small>
-                      </S.Field>
-                      <div className="choice-mode-field">
-                        <b>Quantas opções o cliente pode escolher?</b>
-                        <div role="group" aria-label="Quantidade de opções permitidas">
-                          {(['SINGLE', 'MULTIPLE'] as const).map((selectionType) => (
-                            <button
-                              className={group.selectionType === selectionType ? 'active' : ''}
-                              key={selectionType}
-                              type="button"
-                              onClick={() =>
-                                updateGroup(groupIndex, (current) => ({
-                                  ...current,
-                                  selectionType,
-                                  maxSelections:
-                                    selectionType === 'SINGLE'
-                                      ? 1
-                                      : Math.max(1, current.maxSelections),
-                                }))
-                              }
-                            >
-                              <i>{selectionType === 'SINGLE' ? '1' : '+'}</i>
-                              <span>
-                                <b>
-                                  {selectionType === 'SINGLE' ? 'Somente uma' : 'Várias opções'}
-                                </b>
-                                <small>
-                                  {selectionType === 'SINGLE'
-                                    ? 'Ex.: tipo de massa'
-                                    : 'Ex.: adicionais'}
-                                </small>
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <S.Field $full>
-                        Instrução para o cliente (opcional)
-                        <input
-                          maxLength={180}
-                          value={group.description ?? ''}
-                          onChange={(event) =>
-                            updateGroup(groupIndex, (current) => ({
-                              ...current,
-                              description: event.target.value,
-                            }))
-                          }
-                          placeholder="Ex.: Selecione uma opção para continuar"
-                        />
-                      </S.Field>
-                    </div>
-
-                    {isLegacyMixed && (
-                      <div className="legacy-category-warning" role="status">
-                        <b>Este grupo antigo mistura categorias</b>
-                        <span>
-                          {legacyCategory.categories.length
-                            ? `Encontradas: ${legacyCategory.categories.join(', ')}.`
-                            : 'As opções vinculadas não estão mais disponíveis no catálogo.'}{' '}
-                          Escolha uma categoria-fonte para organizar o grupo. Nada será removido sem
-                          sua confirmação.
-                        </span>
-                      </div>
-                    )}
-
-                    {categoryChange && (
-                      <div className="category-change-confirm" role="alert">
-                        <div>
-                          <b>Trocar para “{categoryChange.nextCategory}”?</b>
-                          <span>
-                            {categoryChange.incompatibleIds.length}{' '}
-                            {categoryChange.incompatibleIds.length === 1
-                              ? 'opção incompatível será removida'
-                              : 'opções incompatíveis serão removidas'}
-                            : {categoryChange.incompatibleNames.slice(0, 3).join(', ')}
-                            {categoryChange.incompatibleNames.length > 3 ? '…' : ''}.
-                          </span>
-                        </div>
-                        <button type="button" onClick={() => setPendingCategoryChange(null)}>
-                          Manter atual
+                        <button type="button" onClick={() => applyTemplate(template)}>
+                          Aplicar
                         </button>
                         <button
-                          className="confirm-category-change"
+                          aria-label={`Remover modelo ${template.name}`}
+                          className="delete-template"
+                          disabled={templateBusy}
                           type="button"
-                          onClick={confirmGroupCategoryChange}
+                          onClick={() => void deactivateTemplate(template.id)}
                         >
-                          Trocar e remover
+                          <Trash2 />
                         </button>
-                      </div>
-                    )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+                <div className="save-template">
+                  <label>
+                    Nome do novo modelo
+                    <input
+                      maxLength={80}
+                      value={templateName}
+                      onChange={(event) => setTemplateName(event.target.value)}
+                      placeholder="Ex.: Montagem padrão da casa"
+                    />
+                  </label>
+                  <button
+                    disabled={templateBusy || !templateName.trim() || !optionGroups.length}
+                    type="button"
+                    onClick={() => void saveTemplate()}
+                  >
+                    {templateBusy ? 'Salvando...' : 'Salvar configuração atual'}
+                  </button>
+                </div>
+              </S.ProductTemplateLibrary>
 
-                    <div className="group-rules">
-                      <div className="rule-heading">
-                        <b>Regra para avançar</b>
-                        <span>Controle quantas opções precisam ser marcadas.</span>
-                      </div>
-                      <label className="required-toggle" data-required={group.required}>
-                        <input
-                          type="checkbox"
-                          checked={group.required}
-                          onChange={(event) =>
-                            updateGroup(groupIndex, (current) => ({
-                              ...current,
-                              required: event.target.checked,
-                              minSelections: event.target.checked
-                                ? Math.max(1, current.minSelections)
-                                : 0,
-                            }))
-                          }
-                        />
-                        <span>
-                          {group.required ? 'Categoria obrigatória' : 'Categoria opcional'}
-                        </span>
-                      </label>
-                      <label>
-                        Mínimo por cliente
-                        <input
-                          type="number"
-                          min={group.required ? 1 : 0}
-                          max={Math.max(1, group.options.length)}
-                          value={group.minSelections}
-                          onChange={(event) =>
-                            updateGroup(groupIndex, (current) => ({
-                              ...current,
-                              minSelections: Number(event.target.value),
-                              required: Number(event.target.value) > 0,
-                            }))
-                          }
-                        />
-                      </label>
-                      <label>
-                        Limite por cliente
-                        <input
-                          type="number"
-                          min="1"
-                          max={Math.max(1, group.options.length)}
-                          disabled={group.selectionType === 'SINGLE'}
-                          value={group.selectionType === 'SINGLE' ? 1 : group.maxSelections}
-                          onChange={(event) =>
-                            updateGroup(groupIndex, (current) => ({
-                              ...current,
-                              maxSelections: Number(event.target.value),
-                            }))
-                          }
-                        />
-                      </label>
-                    </div>
+              <div className="group-guidance">
+                <div>
+                  <i>1</i>
+                  <span>
+                    <b>Separe por assunto</b>
+                    <small>Ex.: Massa, Borda e Adicionais.</small>
+                  </span>
+                </div>
+                <ChevronRight />
+                <div>
+                  <i>2</i>
+                  <span>
+                    <b>Defina a regra</b>
+                    <small>Uma ou várias escolhas, obrigatórias ou não.</small>
+                  </span>
+                </div>
+                <ChevronRight />
+                <div>
+                  <i>3</i>
+                  <span>
+                    <b>Vincule as opções</b>
+                    <small>Marque os itens que o cliente verá.</small>
+                  </span>
+                </div>
+              </div>
 
-                    <div className="customer-rule-summary">
-                      <Eye />
-                      <span>
-                        O cliente verá <b>“{group.name || `Etapa ${groupIndex + 1}`}”</b> e poderá
-                        escolher{' '}
-                        <b>
-                          {group.selectionType === 'SINGLE'
-                            ? '1 opção'
-                            : `de ${group.minSelections} a ${group.maxSelections} opções`}
-                        </b>{' '}
-                        entre <b>{group.options.length} vinculada(s)</b>.
-                      </span>
-                    </div>
-
-                    <fieldset className="group-options">
-                      <legend>Opções do grupo — {group.options.length} vinculada(s)</legend>
-                      <p className="group-options-hint">
-                        {isLegacyMixed
-                          ? 'Por segurança, abaixo aparecem somente as opções antigas já vinculadas, separadas por categoria.'
-                          : sourceCategory
-                            ? `Exibindo o catálogo “${sourceCategory}”. O nome do grupo continua independente.`
-                            : 'Escolha uma categoria-fonte acima para visualizar as opções disponíveis.'}
-                      </p>
-                      {visibleSections.map((section) => (
-                        <section className="source-category-section" key={section.key}>
-                          <header>
-                            <b>{section.category}</b>
-                            <span>{section.ingredients.length} opção(ões)</span>
-                          </header>
-                          <div>
-                            {section.ingredients.map((ingredient) => {
-                              const selected = selectedIds.has(ingredient.id);
-                              return (
-                                <label
-                                  className={`${selected ? 'selected' : ''} ${ingredient.active ? '' : 'inactive'}`}
-                                  key={ingredient.id}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={selected}
-                                    disabled={!ingredient.active && !selected}
-                                    onChange={(event) =>
-                                      toggleGroupIngredient(
-                                        groupIndex,
-                                        ingredient.id,
-                                        event.target.checked,
-                                      )
-                                    }
-                                  />
-                                  <span>
-                                    <b>{ingredient.name}</b>
-                                    <small>
-                                      {!ingredient.active
-                                        ? 'Inativo'
-                                        : ingredient.price > 0
-                                          ? `+ ${money(ingredient.price)}`
-                                          : 'Sem acréscimo'}
-                                    </small>
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      ))}
-                      {!visibleSections.length && (
-                        <div className="source-category-empty">
-                          Nenhum ingrediente disponível nesta categoria.
-                        </div>
-                      )}
-                    </fieldset>
-                  </article>
-                );
-              })}
-            </S.ProductOptionGroupList>
+              <ProductConfigurationWorkspace
+                name={name}
+                price={price}
+                ingredients={ingredients}
+                activeIngredients={activeIngredients}
+                activeIngredientSections={activeIngredientSections}
+                ingredientCategories={ingredientCategories}
+                optionGroups={optionGroups}
+                groupCategories={groupCategories}
+                compositionItems={compositionItems}
+                portionConfiguration={portionConfiguration}
+                pendingCategoryChange={pendingCategoryChange}
+                canCreateIngredient={Boolean(createIngredient)}
+                inlineIngredientGroup={inlineIngredientGroup}
+                inlineIngredientName={inlineIngredientName}
+                inlineIngredientPrice={inlineIngredientPrice}
+                inlineIngredientBusy={inlineIngredientBusy}
+                inlineDuplicate={inlineDuplicate}
+                updateGroup={updateGroup}
+                updateGroupOption={updateGroupOption}
+                moveGroup={moveGroup}
+                removeGroup={removeGroup}
+                selectGroupCategory={selectGroupCategory}
+                confirmGroupCategoryChange={confirmGroupCategoryChange}
+                toggleGroupIngredient={toggleGroupIngredient}
+                toggleCompositionIngredient={toggleCompositionIngredient}
+                createInlineIngredient={createInlineIngredient}
+                setError={setError}
+                setPendingCategoryChange={setPendingCategoryChange}
+                setInlineIngredientGroup={setInlineIngredientGroup}
+                setInlineIngredientName={setInlineIngredientName}
+                setInlineIngredientPrice={setInlineIngredientPrice}
+                setCompositionItems={setCompositionItems}
+                setPortionConfiguration={setPortionConfiguration}
+              />
+            </>
           )}
         </S.ProductFormSection>
 
@@ -936,20 +1079,26 @@ export function ProductDrawer({
                 </li>
                 <li
                   className={
-                    readyGroupCount === optionGroups.length && optionGroups.length ? 'complete' : ''
+                    saleMode === 'COMPLETE' ||
+                    (readyGroupCount === optionGroups.length && optionGroups.length)
+                      ? 'complete'
+                      : ''
                   }
                 >
                   <i>
-                    {readyGroupCount === optionGroups.length && optionGroups.length ? (
+                    {saleMode === 'COMPLETE' ||
+                    (readyGroupCount === optionGroups.length && optionGroups.length) ? (
                       <CheckCircle2 />
                     ) : (
                       '2'
                     )}
                   </i>
                   <span>
-                    <b>Montagem</b>
+                    <b>{saleMode === 'BUILDABLE' ? 'Personalização' : 'Venda simples'}</b>
                     <small>
-                      {readyGroupCount} de {optionGroups.length} etapa(s) pronta(s)
+                      {saleMode === 'BUILDABLE'
+                        ? `${readyGroupCount} de ${optionGroups.length} etapa(s) pronta(s)`
+                        : 'Cliente adiciona direto à sacola'}
                     </small>
                   </span>
                 </li>
@@ -977,7 +1126,9 @@ export function ProductDrawer({
             <span>
               <b>{name || (product ? 'Produto em edição' : 'Novo produto')}</b>
               <small>
-                {optionGroups.length} etapa(s) · {linkedOptionCount} opção(ões) vinculada(s)
+                {saleMode === 'BUILDABLE'
+                  ? `${optionGroups.length} etapa(s) · ${linkedOptionCount} opção(ões) vinculada(s)`
+                  : 'Produto pronto · sem etapas de montagem'}
               </small>
             </span>
           </div>

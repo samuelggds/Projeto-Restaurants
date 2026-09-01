@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, CircleAlert } from 'lucide-react';
+import { ArrowLeft, Check, CircleAlert, Minus, Plus, UtensilsCrossed } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -10,6 +10,8 @@ import {
   validateProductSelections,
   type ConfigurableProduct,
   type ProductConfiguration,
+  type OptionQuantityState,
+  type PortionSelection,
   type SelectionErrors,
 } from '../domain/productCustomization';
 import * as S from './ProductConfigurator.styles';
@@ -54,7 +56,30 @@ export function ProductConfigurator({
   onConfirm,
 }: ProductConfiguratorProps) {
   const groups = useMemo(() => normalizeProductOptionGroups(product), [product]);
-  const [selections, setSelections] = useState(() => createInitialSelections(groups));
+  const portionConfiguration = product.portionConfiguration?.enabled
+    ? product.portionConfiguration
+    : null;
+  const portionGroup = portionConfiguration
+    ? groups.find((group) => group.id === portionConfiguration.optionGroupId)
+    : undefined;
+  const regularGroups = useMemo(
+    () => groups.filter((group) => group.id !== portionConfiguration?.optionGroupId),
+    [groups, portionConfiguration?.optionGroupId],
+  );
+  const [selections, setSelections] = useState(() => createInitialSelections(regularGroups));
+  const [optionQuantities, setOptionQuantities] = useState<OptionQuantityState>(() =>
+    Object.fromEntries(
+      regularGroups.flatMap((group) =>
+        group.options
+          .filter((option) => option.defaultSelected || option.locked)
+          .map((option) => [option.id, option.defaultQuantity ?? option.minQuantity ?? 1]),
+      ),
+    ),
+  );
+  const [removedCompositionItemIds, setRemovedCompositionItemIds] = useState<string[]>([]);
+  const [portions, setPortions] = useState<PortionSelection[]>(() =>
+    Array.from({ length: portionConfiguration?.minPortions ?? 0 }, () => ({ optionId: '' })),
+  );
   const [observation, setObservation] = useState('');
   const [errors, setErrors] = useState<SelectionErrors>({});
 
@@ -71,20 +96,36 @@ export function ProductConfigurator({
     };
   }, [onClose]);
 
-  const requiredGroups = groups.filter((group) => group.minSelections > 0);
+  const requiredGroups = regularGroups.filter((group) => group.minSelections > 0);
   const completedRequiredGroups = requiredGroups.filter(
     (group) => (selections[group.id] || []).length >= group.minSelections,
   ).length;
-  const progress = requiredGroups.length
-    ? Math.round((completedRequiredGroups / requiredGroups.length) * 100)
+  const portionsReady = !portionConfiguration || portions.every((portion) => portion.optionId);
+  const requiredStepCount = requiredGroups.length + (portionConfiguration ? 1 : 0);
+  const completedStepCount =
+    completedRequiredGroups + (portionConfiguration && portionsReady ? 1 : 0);
+  const progress = requiredStepCount
+    ? Math.round((completedStepCount / requiredStepCount) * 100)
     : 100;
-  const total = productConfigurationTotal(product.price, groups, selections);
+  const total = productConfigurationTotal(product.price, groups, selections, {
+    optionQuantities,
+    portionConfiguration,
+    portions,
+  });
+  const configurable = Boolean(
+    regularGroups.length ||
+    product.compositionItems?.some((item) => item.active && item.removable) ||
+    (portionConfiguration && portionGroup?.options.length),
+  );
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const nextErrors = validateProductSelections(groups, selections);
+    const nextErrors = validateProductSelections(regularGroups, selections);
+    if (portionConfiguration && (!portionGroup || !portionsReady)) {
+      nextErrors.portions = 'Escolha uma opção para cada porção.';
+    }
     setErrors(nextErrors);
-    if (!groups.length || Object.keys(nextErrors).length) {
+    if (!configurable || Object.keys(nextErrors).length) {
       const firstInvalidGroup = Object.keys(nextErrors)[0];
       if (firstInvalidGroup) {
         document.getElementById(`product-group-${firstInvalidGroup}`)?.scrollIntoView({
@@ -94,7 +135,14 @@ export function ProductConfigurator({
       }
       return;
     }
-    onConfirm(buildProductConfiguration(groups, selections, observation));
+    onConfirm(
+      buildProductConfiguration(regularGroups, selections, observation, {
+        optionQuantities,
+        removedCompositionItemIds,
+        portions,
+        configurationVersion: product.configurationVersion,
+      }),
+    );
   };
 
   return createPortal(
@@ -151,14 +199,14 @@ export function ProductConfigurator({
             >
               <div />
               <small>
-                {requiredGroups.length
-                  ? `${completedRequiredGroups} de ${requiredGroups.length} obrigatórios`
+                {requiredStepCount
+                  ? `${completedStepCount} de ${requiredStepCount} etapas concluídas`
                   : 'Sem escolhas obrigatórias'}
               </small>
             </S.Progress>
           </S.Intro>
 
-          {!groups.length && (
+          {!configurable && (
             <S.Empty role="alert">
               <CircleAlert size={21} />
               <div>
@@ -168,7 +216,52 @@ export function ProductConfigurator({
             </S.Empty>
           )}
 
-          {groups.map((group) => {
+          {!!product.compositionItems?.length && (
+            <S.Composition>
+              <S.GroupHeader>
+                <div>
+                  <h3>O que já acompanha</h3>
+                  <p>Itens da receita. Você pode retirar somente os marcados como removíveis.</p>
+                </div>
+                <S.Badge $required={false}>Incluído</S.Badge>
+              </S.GroupHeader>
+              <div className="composition-list">
+                {product.compositionItems
+                  .filter((item) => item.active)
+                  .map((item) => {
+                    const removed = removedCompositionItemIds.includes(item.id);
+                    return (
+                      <label className={removed ? 'removed' : ''} key={item.id}>
+                        <span>
+                          <b>{item.name}</b>
+                          <small>{item.removable ? 'Pode retirar' : 'Faz parte da receita'}</small>
+                        </span>
+                        {item.removable ? (
+                          <span className="remove-control">
+                            <input
+                              type="checkbox"
+                              checked={removed}
+                              onChange={(event) =>
+                                setRemovedCompositionItemIds((current) =>
+                                  event.target.checked
+                                    ? [...current, item.id]
+                                    : current.filter((id) => id !== item.id),
+                                )
+                              }
+                            />
+                            {removed ? 'Retirar' : 'Manter'}
+                          </span>
+                        ) : (
+                          <span className="fixed-control">Fixo</span>
+                        )}
+                      </label>
+                    );
+                  })}
+              </div>
+            </S.Composition>
+          )}
+
+          {regularGroups.map((group) => {
             const selected = selections[group.id] || [];
             const atLimit = group.maxSelections != null && selected.length >= group.maxSelections;
             return (
@@ -201,34 +294,92 @@ export function ProductConfigurator({
                         $selected={isSelected}
                         $disabled={disabled && !option.locked}
                       >
-                        <input
-                          type={
-                            group.selectionType === 'SINGLE' && group.minSelections > 0
-                              ? 'radio'
-                              : 'checkbox'
-                          }
-                          name={`product-group-${group.id}`}
-                          value={option.id}
-                          checked={isSelected}
-                          disabled={disabled}
-                          onChange={() => {
-                            setSelections((current) =>
-                              toggleProductOption(groups, current, group.id, option.id),
-                            );
-                            setErrors((current) => {
-                              if (!current[group.id]) return current;
-                              const next = { ...current };
-                              delete next[group.id];
-                              return next;
-                            });
-                          }}
-                        />
-                        <i>{isSelected && <Check size={15} strokeWidth={3} />}</i>
-                        <span>
-                          <b>{option.name}</b>
-                          {option.locked && <small>Já acompanha o produto</small>}
-                        </span>
-                        <strong>{option.price > 0 ? `+ ${brl(option.price)}` : 'Incluso'}</strong>
+                        <label>
+                          <input
+                            type={
+                              group.selectionType === 'SINGLE' && group.minSelections > 0
+                                ? 'radio'
+                                : 'checkbox'
+                            }
+                            name={`product-group-${group.id}`}
+                            value={option.id}
+                            checked={isSelected}
+                            disabled={disabled}
+                            onChange={() => {
+                              setSelections((current) =>
+                                toggleProductOption(regularGroups, current, group.id, option.id),
+                              );
+                              if (!isSelected) {
+                                setOptionQuantities((current) => ({
+                                  ...current,
+                                  [option.id]: option.defaultQuantity ?? option.minQuantity ?? 1,
+                                }));
+                              }
+                              setErrors((current) => {
+                                if (!current[group.id]) return current;
+                                const next = { ...current };
+                                delete next[group.id];
+                                return next;
+                              });
+                            }}
+                          />
+                          <i>{isSelected && <Check size={15} strokeWidth={3} />}</i>
+                          <span>
+                            <b>{option.name}</b>
+                            {option.locked && <small>Já acompanha o produto</small>}
+                          </span>
+                          <strong>
+                            {option.pricingMode === 'ABSOLUTE'
+                              ? `Preço final ${brl(Number(option.absolutePrice ?? option.price))}`
+                              : option.price > 0
+                                ? `+ ${brl(option.price)}`
+                                : 'Incluso'}
+                          </strong>
+                        </label>
+                        {isSelected && option.allowQuantity && (
+                          <S.QuantityStepper aria-label={`Quantidade de ${option.name}`}>
+                            <span>Quantidade</span>
+                            <button
+                              type="button"
+                              aria-label={`Diminuir quantidade de ${option.name}`}
+                              disabled={
+                                (optionQuantities[option.id] ?? option.defaultQuantity ?? 1) <=
+                                (option.minQuantity ?? 1)
+                              }
+                              onClick={() =>
+                                setOptionQuantities((current) => ({
+                                  ...current,
+                                  [option.id]: Math.max(
+                                    option.minQuantity ?? 1,
+                                    (current[option.id] ?? option.defaultQuantity ?? 1) - 1,
+                                  ),
+                                }))
+                              }
+                            >
+                              <Minus />
+                            </button>
+                            <b>{optionQuantities[option.id] ?? option.defaultQuantity ?? 1}</b>
+                            <button
+                              type="button"
+                              aria-label={`Aumentar quantidade de ${option.name}`}
+                              disabled={
+                                (optionQuantities[option.id] ?? option.defaultQuantity ?? 1) >=
+                                (option.maxQuantity ?? 1)
+                              }
+                              onClick={() =>
+                                setOptionQuantities((current) => ({
+                                  ...current,
+                                  [option.id]: Math.min(
+                                    option.maxQuantity ?? 1,
+                                    (current[option.id] ?? option.defaultQuantity ?? 1) + 1,
+                                  ),
+                                }))
+                              }
+                            >
+                              <Plus />
+                            </button>
+                          </S.QuantityStepper>
+                        )}
                       </S.Option>
                     );
                   })}
@@ -245,6 +396,115 @@ export function ProductConfigurator({
               </S.Group>
             );
           })}
+
+          {portionConfiguration && portionGroup && (
+            <S.PortionBuilder $error={Boolean(errors.portions)}>
+              <S.GroupHeader>
+                <div>
+                  <h3>Divida em porções</h3>
+                  <p>Escolha quantas porções deseja e defina uma opção para cada parte.</p>
+                </div>
+                <S.Badge $required>Obrigatório</S.Badge>
+              </S.GroupHeader>
+              <div className="portion-count" role="group" aria-label="Quantidade de porções">
+                {Array.from(
+                  {
+                    length: portionConfiguration.maxPortions - portionConfiguration.minPortions + 1,
+                  },
+                  (_, index) => portionConfiguration.minPortions + index,
+                ).map((count) => (
+                  <button
+                    className={portions.length === count ? 'active' : ''}
+                    key={count}
+                    type="button"
+                    onClick={() => {
+                      setPortions((current) =>
+                        Array.from({ length: count }, (_, index) =>
+                          current[index] ? current[index] : { optionId: '' },
+                        ),
+                      );
+                      setErrors((current) => {
+                        const next = { ...current };
+                        delete next.portions;
+                        return next;
+                      });
+                    }}
+                  >
+                    {count} {count === 1 ? 'porção' : 'porções'}
+                  </button>
+                ))}
+              </div>
+              <div className="portion-list">
+                {portions.map((portion, index) => (
+                  <div className="portion-row" key={`portion-${index}`}>
+                    <span className="portion-number">
+                      <UtensilsCrossed />
+                      <b>Porção {index + 1}</b>
+                      <small>1/{portions.length}</small>
+                    </span>
+                    <label>
+                      Opção
+                      <select
+                        value={portion.optionId}
+                        onChange={(event) => {
+                          setPortions((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index
+                                ? { ...entry, optionId: event.target.value }
+                                : entry,
+                            ),
+                          );
+                          setErrors((current) => {
+                            const next = { ...current };
+                            delete next.portions;
+                            return next;
+                          });
+                        }}
+                      >
+                        <option value="">Escolha uma opção</option>
+                        {portionGroup.options.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.name}
+                            {option.pricingMode === 'ABSOLUTE'
+                              ? ` · ${brl(Number(option.absolutePrice ?? option.price))}`
+                              : option.price > 0
+                                ? ` · + ${brl(option.price)}`
+                                : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {portionConfiguration.allowPortionObservations && (
+                      <label>
+                        Observação da porção
+                        <input
+                          maxLength={300}
+                          value={portion.observation ?? ''}
+                          onChange={(event) =>
+                            setPortions((current) =>
+                              current.map((entry, entryIndex) =>
+                                entryIndex === index
+                                  ? { ...entry, observation: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          placeholder="Opcional"
+                        />
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {errors.portions && (
+                <S.GroupFooter>
+                  <span className="error" role="alert">
+                    <CircleAlert size={13} /> {errors.portions}
+                  </span>
+                </S.GroupFooter>
+              )}
+            </S.PortionBuilder>
+          )}
 
           <S.Observation data-testid="product-configurator-observation">
             <div>
@@ -265,8 +525,8 @@ export function ProductConfigurator({
               <small>Total deste item</small>
               <strong>{brl(total)}</strong>
             </div>
-            <button type="submit" disabled={!groups.length}>
-              Adicionar à sacola
+            <button type="submit" disabled={!configurable}>
+              Adicionar — {brl(total)}
             </button>
           </S.BottomBar>
         </S.Form>

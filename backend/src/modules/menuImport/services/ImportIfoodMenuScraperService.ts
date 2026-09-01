@@ -4,11 +4,14 @@ import prisma from '../../../config/prisma.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
 import { fetchIfoodHtml } from '../security/ifoodScraperHttp.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 type ScrapeIfoodMenuInput = {
   url: string;
   restaurantId: number | string;
 };
+
+type Actor = { userId?: number; userName?: string; userRole?: string };
 
 type ParsedMenuItem = {
   categoryName: string;
@@ -254,7 +257,7 @@ function extractMenuFromCheerio($: cheerio.CheerioAPI): ParsedMenu {
 }
 
 class ImportIfoodMenuScraperService {
-  async execute(input: ScrapeIfoodMenuInput) {
+  async execute(input: ScrapeIfoodMenuInput, actor: Actor = {}) {
     const parsedInput = scrapeInputSchema.parse(input);
     const restaurantId = Number(parsedInput.restaurantId);
 
@@ -274,6 +277,7 @@ class ImportIfoodMenuScraperService {
     }
 
     const summary = await prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
       const createdCategories: Array<{ id: number; name: string }> = [];
       const createdProducts: Array<{ id: number; name: string }> = [];
 
@@ -317,6 +321,7 @@ class ImportIfoodMenuScraperService {
             active: true,
             stock: undefined,
             preparationTime: undefined,
+            saleMode: 'COMPLETE',
           },
           restaurantId,
           db,
@@ -325,6 +330,24 @@ class ImportIfoodMenuScraperService {
         createdProducts.push({
           id: Number(createdProduct.id),
           name: createdProduct.name,
+        });
+      }
+
+      if (actor.userId || actor.userName) {
+        await db.auditLog.create({
+          data: {
+            restaurantId,
+            userId: actor.userId,
+            userName: actor.userName,
+            userRole: actor.userRole,
+            action: 'MENU_IMPORTED_FROM_IFOOD',
+            resource: 'Product',
+            metadata: {
+              categoriesCreated: createdCategories.length,
+              productsCreated: createdProducts.length,
+              importedProductMode: 'COMPLETE',
+            },
+          },
         });
       }
 

@@ -160,6 +160,72 @@ test(
         cashCollectedSnapshot: 0,
       },
     });
+    const ingredientA = await prisma.ingredient.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        name: 'Ingrediente genérico A',
+        category: 'Teste RLS',
+        price: 2,
+      },
+    });
+    const optionGroupA = await prisma.productOptionGroup.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        productId: fixture.products.a.id,
+        name: 'Etapa RLS A',
+      },
+    });
+    const optionGroupB = await prisma.productOptionGroup.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        productId: fixture.products.b.id,
+        name: 'Etapa RLS B',
+      },
+    });
+    const compositionA = await prisma.productCompositionItem.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        productId: fixture.products.a.id,
+        ingredientId: ingredientA.id,
+        removable: true,
+      },
+    });
+    const compositionB = await prisma.productCompositionItem.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        productId: fixture.products.b.id,
+        ingredientId: fixture.ingredients.b.id,
+        removable: true,
+      },
+    });
+    const portionsA = await prisma.productPortionConfiguration.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        productId: fixture.products.a.id,
+        optionGroupId: optionGroupA.id,
+      },
+    });
+    const portionsB = await prisma.productPortionConfiguration.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        productId: fixture.products.b.id,
+        optionGroupId: optionGroupB.id,
+      },
+    });
+    const templateA = await prisma.productConfigurationTemplate.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        name: 'Modelo privado A',
+        configuration: { optionGroups: [], compositionItems: [] },
+      },
+    });
+    const templateB = await prisma.productConfigurationTemplate.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        name: 'Modelo privado B',
+        configuration: { optionGroups: [], compositionItems: [] },
+      },
+    });
 
     try {
       await t.test(
@@ -193,6 +259,9 @@ test(
             'CourierSettlementItem',
             'KitchenPrintJob',
             'OrderIssueThread',
+            'ProductCompositionItem',
+            'ProductConfigurationTemplate',
+            'ProductPortionConfiguration',
             'RestaurantPrinterSettings'
           )
         ORDER BY relations.relname
@@ -205,6 +274,9 @@ test(
           { table_name: 'CustomerPaymentMethod', rls_enabled: true, rls_forced: true },
           { table_name: 'KitchenPrintJob', rls_enabled: true, rls_forced: true },
           { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
+          { table_name: 'ProductCompositionItem', rls_enabled: true, rls_forced: true },
+          { table_name: 'ProductConfigurationTemplate', rls_enabled: true, rls_forced: true },
+          { table_name: 'ProductPortionConfiguration', rls_enabled: true, rls_forced: true },
           { table_name: 'RestaurantPrinterSettings', rls_enabled: true, rls_forced: true },
         ]);
 
@@ -237,11 +309,14 @@ test(
             'CourierSettlementItem',
             'KitchenPrintJob',
             'OrderIssueThread',
+            'ProductCompositionItem',
+            'ProductConfigurationTemplate',
+            'ProductPortionConfiguration',
             'RestaurantPrinterSettings'
           )
         ORDER BY relations.relname
       `;
-        assert.equal(policies.length, 8);
+        assert.equal(policies.length, 11);
         for (const policy of policies) {
           assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
           assert.equal(policy.is_permissive, true);
@@ -290,7 +365,62 @@ test(
         assert.equal(await runtimePrisma.courierCompensationRange.count(), 0);
         assert.equal(await runtimePrisma.courierSettlement.count(), 0);
         assert.equal(await runtimePrisma.courierSettlementItem.count(), 0);
+        assert.equal(await runtimePrisma.productCompositionItem.count(), 0);
+        assert.equal(await runtimePrisma.productPortionConfiguration.count(), 0);
+        assert.equal(await runtimePrisma.productConfigurationTemplate.count(), 0);
       });
+
+      await t.test('configuração genérica permite B e oculta suas linhas de A', async () => {
+        const own = await withTenantDbContext(fixture.restaurants.b.id, async (db) => ({
+          composition: await db.productCompositionItem.findUnique({
+            where: { id: compositionB.id },
+          }),
+          portions: await db.productPortionConfiguration.findUnique({
+            where: { id: portionsB.id },
+          }),
+          template: await db.productConfigurationTemplate.findUnique({
+            where: { id: templateB.id },
+          }),
+        }));
+        assert.equal(own.composition?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.portions?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.template?.restaurantId, fixture.restaurants.b.id);
+
+        const attack = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
+          composition: await db.productCompositionItem.findUnique({
+            where: { id: compositionB.id },
+          }),
+          portions: await db.productPortionConfiguration.findUnique({
+            where: { id: portionsB.id },
+          }),
+          template: await db.productConfigurationTemplate.findUnique({
+            where: { id: templateB.id },
+          }),
+        }));
+        assert.equal(attack.composition, null);
+        assert.equal(attack.portions, null);
+        assert.equal(attack.template, null);
+      });
+
+      await t.test('RLS rejeita tenant adulterado em modelo de configuração', async () => {
+        await assert.rejects(
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.productConfigurationTemplate.create({
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  name: 'Tentativa cross-tenant',
+                  configuration: { optionGroups: [], compositionItems: [] },
+                },
+              }),
+            ),
+          assertRlsRejection,
+        );
+      });
+
+      assert.equal(compositionA.restaurantId, fixture.restaurants.a.id);
+      assert.equal(portionsA.restaurantId, fixture.restaurants.a.id);
+      assert.equal(templateA.restaurantId, fixture.restaurants.a.id);
 
       await t.test('RLS financeiro permite B e oculta políticas e acertos B de A', async () => {
         const own = await withTenantDbContext(fixture.restaurants.b.id, async (db) => ({

@@ -14,7 +14,11 @@ class CreateProductController {
         featured,
         preparationTime,
         stock,
+        saleMode,
         optionGroups,
+        compositionItems,
+        portionConfiguration,
+        templateId,
       } = req.body;
 
       const product = await createProductService.execute(
@@ -28,9 +32,18 @@ class CreateProductController {
           featured,
           preparationTime,
           stock,
+          saleMode,
           optionGroups,
+          compositionItems,
+          portionConfiguration,
+          templateId,
         },
         req.user.restaurantId,
+        {
+          userId: Number(req.user.id || 0) || undefined,
+          userName: req.user.email,
+          userRole: req.user.role,
+        },
       );
 
       return res.status(201).json(product);

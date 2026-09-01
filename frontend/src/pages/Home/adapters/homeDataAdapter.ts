@@ -85,7 +85,19 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
                 id: String(option.id ?? ''),
                 ingredientId: String(option.ingredientId ?? ingredient.id ?? ''),
                 name: String(ingredient.name || option.name || ''),
-                price: Number(ingredient.price ?? option.price ?? 0),
+                price: Number(option.additionalPrice ?? ingredient.price ?? option.price ?? 0),
+                pricingMode:
+                  option.pricingMode === 'ABSOLUTE' ? ('ABSOLUTE' as const) : ('ADDITIVE' as const),
+                absolutePrice:
+                  option.absolutePrice === null || option.absolutePrice === undefined
+                    ? null
+                    : Number(option.absolutePrice),
+                allowQuantity: option.allowQuantity === true,
+                minQuantity: Math.max(1, Number(option.minQuantity ?? 1)),
+                maxQuantity: Math.max(1, Number(option.maxQuantity ?? 1)),
+                defaultQuantity: Math.max(1, Number(option.defaultQuantity ?? 1)),
+                defaultSelected: option.defaultSelected === true,
+                locked: option.locked === true,
                 active: option.active !== false && ingredient.active !== false,
               };
             })
@@ -270,6 +282,8 @@ export function buildHomeData(
       rating: Number(product.averageRating || 0),
       stock: product.stock === null || product.stock === undefined ? null : Number(product.stock),
       available: !isProductUnavailable(product),
+      saleMode: product.saleMode === 'COMPLETE' ? 'COMPLETE' : 'BUILDABLE',
+      configurationVersion: Math.max(1, Number(product.configurationVersion ?? 1)),
       ingredients: Array.isArray(product.ingredients)
         ? product.ingredients
             .filter((item) => (item as { active?: boolean }).active !== false)
@@ -281,6 +295,44 @@ export function buildHomeData(
             }))
         : [],
       optionGroups: mapProductOptionGroupsFromApi(product),
+      compositionItems: Array.isArray(product.compositionItems)
+        ? product.compositionItems
+            .map((value) => {
+              const item = value as Record<string, unknown>;
+              const ingredient = (item.ingredient as Record<string, unknown> | null) ?? {};
+              return {
+                id: String(item.id ?? ''),
+                ingredientId: String(item.ingredientId ?? ingredient.id ?? ''),
+                name: String(ingredient.name ?? ''),
+                removable: item.removable === true,
+                active: item.active !== false && ingredient.active !== false,
+              };
+            })
+            .filter((item) => item.id && item.name && item.active)
+        : [],
+      portionConfiguration: product.portionConfiguration
+        ? {
+            enabled: (product.portionConfiguration as Record<string, unknown>).enabled !== false,
+            optionGroupId: String(
+              (product.portionConfiguration as Record<string, unknown>).optionGroupId ?? '',
+            ),
+            minPortions: Math.max(
+              1,
+              Number((product.portionConfiguration as Record<string, unknown>).minPortions ?? 1),
+            ),
+            maxPortions: Math.max(
+              1,
+              Number((product.portionConfiguration as Record<string, unknown>).maxPortions ?? 2),
+            ),
+            pricingStrategy: String(
+              (product.portionConfiguration as Record<string, unknown>).pricingStrategy ??
+                'HIGHEST',
+            ) as 'ADD' | 'HIGHEST' | 'AVERAGE' | 'PROPORTIONAL' | 'FIXED',
+            allowPortionObservations:
+              (product.portionConfiguration as Record<string, unknown>).allowPortionObservations !==
+              false,
+          }
+        : null,
     };
   });
   const seen = new Set<string>();

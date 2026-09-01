@@ -95,6 +95,8 @@ export type AdminProduct = {
   stock?: number | null;
   active?: boolean;
   saleMode?: 'COMPLETE' | 'BUILDABLE';
+  configurationVersion?: number;
+  confirmDiscardConfiguration?: boolean;
   ingredients?: Array<{
     id?: number;
     name: string;
@@ -103,6 +105,8 @@ export type AdminProduct = {
     active?: boolean;
   }>;
   optionGroups?: AdminProductOptionGroup[];
+  compositionItems?: AdminProductCompositionItem[];
+  portionConfiguration?: AdminProductPortionConfiguration | null;
   discount?: AdminProductDiscount | null;
   pricing?: AdminProductPricing | null;
 };
@@ -168,7 +172,43 @@ export type AdminIngredient = {
 export type AdminProductOption = {
   id?: number;
   ingredientId: number;
+  additionalPrice?: number;
+  pricingMode?: 'ADDITIVE' | 'ABSOLUTE';
+  absolutePrice?: number | null;
+  allowQuantity?: boolean;
+  minQuantity?: number;
+  maxQuantity?: number;
+  defaultQuantity?: number;
+  defaultSelected?: boolean;
+  locked?: boolean;
   active?: boolean;
+};
+
+export type AdminProductCompositionItem = {
+  id?: number;
+  ingredientId: number;
+  removable: boolean;
+  active?: boolean;
+};
+
+export type AdminProductPortionConfiguration = {
+  enabled: boolean;
+  optionGroupName: string;
+  minPortions: number;
+  maxPortions: number;
+  pricingStrategy: 'ADD' | 'HIGHEST' | 'AVERAGE' | 'PROPORTIONAL' | 'FIXED';
+  allowPortionObservations: boolean;
+};
+
+export type AdminProductConfigurationTemplate = {
+  id: number;
+  name: string;
+  description?: string | null;
+  configuration: {
+    optionGroups: AdminProductOptionGroup[];
+    compositionItems: AdminProductCompositionItem[];
+    portionConfiguration?: AdminProductPortionConfiguration | null;
+  };
 };
 
 export type AdminProductOptionGroup = {
@@ -302,7 +342,9 @@ export type AdminPageProps = {
   onCreateCategory?: (name: string) => void | Promise<void>;
   onUpdateCategory?: (id: number, name: string) => void | Promise<void>;
   onDeleteCategory?: (id: number) => void | Promise<void>;
-  onCreateIngredient?: (ingredient: Omit<AdminIngredient, 'id'>) => void | Promise<void>;
+  onCreateIngredient?: (
+    ingredient: Omit<AdminIngredient, 'id'>,
+  ) => AdminIngredient | void | Promise<AdminIngredient | void>;
   onUpdateIngredient?: (ingredient: AdminIngredient) => void | Promise<void>;
   onDeleteIngredient?: (id: number) => void | Promise<void>;
   onApplyProductDiscount?: (

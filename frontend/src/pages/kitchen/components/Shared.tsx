@@ -57,7 +57,11 @@ export function hasOrderPreparationDetails(order: Order) {
   return Boolean(
     order.observation ||
     order.itemDetails?.some(
-      (item) => item.observation || item.customizations.some((group) => group.options.length),
+      (item) =>
+        item.observation ||
+        item.removedComposition?.length ||
+        item.portions?.length ||
+        item.customizations.some((group) => group.options.length),
     ),
   );
 }
@@ -81,6 +85,29 @@ export function OrderItems({ order }: { order: Order }) {
                 <span>{group.options.join(', ')}</span>
               </div>
             ))}
+            {!!item.portions?.length && (
+              <div className="choice-group portion-group">
+                <b>Porções</b>
+                <span>{item.portions.map((portion) => portion.label).join(', ')}</span>
+              </div>
+            )}
+            {!!item.removedComposition?.length && (
+              <div className="choice-group removal-group">
+                <b>Retirar</b>
+                <span>{item.removedComposition.join(', ')}</span>
+              </div>
+            )}
+            {(item.portions || [])
+              .filter((portion) => portion.observation)
+              .map((portion, portionIndex) => (
+                <p
+                  className="item-observation portion-observation"
+                  key={`${portion.label}-${portionIndex}`}
+                >
+                  <b>Observação · {portion.label}</b>
+                  <span>{portion.observation}</span>
+                </p>
+              ))}
             {item.observation && (
               <p className="item-observation">
                 <b>Observação deste item</b>

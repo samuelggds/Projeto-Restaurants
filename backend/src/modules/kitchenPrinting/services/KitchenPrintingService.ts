@@ -29,6 +29,7 @@ const printableOrderInclude = {
       observation: true,
       ingredients: true,
       customizations: true,
+      configurationSnapshot: true,
       product: { select: { name: true } },
     },
   },

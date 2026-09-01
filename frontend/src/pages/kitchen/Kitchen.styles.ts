@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import type { OrderStatus } from './types';
-
+import { kitchenItemConfigurationStyles } from './KitchenItemConfiguration.styles';
 export const Root = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   --brand: ${(p) => p.$primary};
   --ink: #17191b;
@@ -680,6 +680,7 @@ export const PriorityOrder = styled.article`
   }
 `;
 export const ItemList = styled.div`
+  ${kitchenItemConfigurationStyles}
   display: grid;
   min-width: 0;
   gap: 8px;
@@ -1290,7 +1291,6 @@ export const HistoryPagination = styled.nav`
   margin-top: 14px;
   color: var(--muted);
   font-size: 12px;
-
   > div {
     display: flex;
     align-items: center;

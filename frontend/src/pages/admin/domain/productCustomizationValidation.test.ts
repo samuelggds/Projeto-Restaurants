@@ -30,10 +30,7 @@ describe('validação do catálogo de ingredientes', () => {
       validateIngredientDraft({ name: 'Molho', price: 0, category: 'Molhos' }, ingredients),
     ).toEqual([]);
     expect(
-      validateIngredientDraft(
-        { name: ' massa FINA ', price: -1, category: 'Massas' },
-        ingredients,
-      ),
+      validateIngredientDraft({ name: ' massa FINA ', price: -1, category: 'Massas' }, ingredients),
     ).toEqual([
       'Informe um valor adicional igual ou maior que zero.',
       'Já existe um ingrediente com esse nome.',
@@ -50,9 +47,9 @@ describe('validação do catálogo de ingredientes', () => {
   });
 
   it('exige uma categoria válida', () => {
-    expect(validateIngredientDraft({ name: 'Cheddar', price: 4, category: ' ' }, ingredients)).toEqual([
-      'Informe a categoria do ingrediente.',
-    ]);
+    expect(
+      validateIngredientDraft({ name: 'Cheddar', price: 4, category: ' ' }, ingredients),
+    ).toEqual(['Informe a categoria do ingrediente.']);
   });
 });
 
@@ -98,6 +95,40 @@ describe('validação dos grupos de montagem', () => {
 
   it('mantém mínimo obrigatório e zera o mínimo de categoria opcional', () => {
     expect(normalizeOptionGroup(group({ required: true, minSelections: 0 })).minSelections).toBe(1);
-    expect(normalizeOptionGroup(group({ required: false, minSelections: 2 })).minSelections).toBe(0);
+    expect(normalizeOptionGroup(group({ required: false, minSelections: 2 })).minSelections).toBe(
+      0,
+    );
+  });
+
+  it('rejeita preço final vazio, quantidade fora do intervalo e seleção fixa sem padrão', () => {
+    const errors = validateOptionGroups(
+      [
+        group({
+          options: [
+            {
+              ingredientId: 1,
+              pricingMode: 'ABSOLUTE',
+              absolutePrice: null,
+              allowQuantity: true,
+              minQuantity: 2,
+              defaultQuantity: 1,
+              maxQuantity: 4,
+              locked: true,
+              defaultSelected: false,
+            },
+            { ingredientId: 2 },
+          ],
+        }),
+      ],
+      ingredients,
+    );
+
+    expect(errors).toContain('Escolha a massa · Massa fina: informe o preço final desta escolha.');
+    expect(errors).toContain(
+      'Escolha a massa · Massa fina: revise as quantidades mínima, inicial e máxima.',
+    );
+    expect(errors).toContain(
+      'Escolha a massa · Massa fina: uma seleção fixa precisa vir pré-selecionada.',
+    );
   });
 });

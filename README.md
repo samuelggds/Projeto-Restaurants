@@ -625,6 +625,7 @@ O repositório separa ambientes locais, roteamento e produção. Antes de public
 - [Teste de carga](LOAD_TEST_100_RESTAURANTS.md)
 - [Critérios de go-live](GO_LIVE_CRITERIA_100_RESTAURANTS.md)
 - [Impressão operacional da cozinha](docs/kitchen-printing.md)
+- [Motor genérico de configuração de produtos](docs/generic-product-builder.md)
 
 ---
 

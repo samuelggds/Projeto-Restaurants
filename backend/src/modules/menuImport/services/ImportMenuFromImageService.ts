@@ -3,11 +3,14 @@ import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 type ImportMenuFromImageInput = {
   imageUrl: string;
   restaurantId: number | string;
 };
+
+type Actor = { userId?: number; userName?: string; userRole?: string };
 
 type ImportedMenuItem = {
   name: string;
@@ -181,7 +184,7 @@ function parseImportedMenuContent(rawContent: string): ImportedMenuResult {
 }
 
 class ImportMenuFromImageService {
-  async execute(input: ImportMenuFromImageInput) {
+  async execute(input: ImportMenuFromImageInput, actor: Actor = {}) {
     const parsedInput = importInputSchema.parse(input);
     const restaurantId = Number(parsedInput.restaurantId);
 
@@ -230,6 +233,7 @@ class ImportMenuFromImageService {
     }
 
     const summary = await prisma.$transaction(async (db) => {
+      await setTenantDbContext(db, restaurantId);
       const createdCategories: Array<{ id: number; name: string }> = [];
       const createdProducts: Array<{ id: number; name: string }> = [];
 
@@ -288,6 +292,7 @@ class ImportMenuFromImageService {
               active: true,
               stock: undefined,
               preparationTime: undefined,
+              saleMode: 'COMPLETE',
             },
             restaurantId,
             db,
@@ -298,6 +303,24 @@ class ImportMenuFromImageService {
             name: createdProduct.name,
           });
         }
+      }
+
+      if (actor.userId || actor.userName) {
+        await db.auditLog.create({
+          data: {
+            restaurantId,
+            userId: actor.userId,
+            userName: actor.userName,
+            userRole: actor.userRole,
+            action: 'MENU_IMPORTED_FROM_IMAGE',
+            resource: 'Product',
+            metadata: {
+              categoriesCreated: createdCategories.length,
+              productsCreated: createdProducts.length,
+              importedProductMode: 'COMPLETE',
+            },
+          },
+        });
       }
 
       return {

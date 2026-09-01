@@ -7,10 +7,17 @@ class ImportIfoodMenuController {
       const { url, restaurantId: bodyRestaurantId } = req.body;
       const resolvedRestaurantId = Number(req.user?.restaurantId || bodyRestaurantId || 0);
 
-      const summary = await importIfoodMenuScraperService.execute({
-        url,
-        restaurantId: resolvedRestaurantId,
-      });
+      const summary = await importIfoodMenuScraperService.execute(
+        {
+          url,
+          restaurantId: resolvedRestaurantId,
+        },
+        {
+          userId: Number(req.user?.id || 0) || undefined,
+          userName: req.user?.email,
+          userRole: req.user?.role,
+        },
+      );
 
       return res.status(201).json(summary);
     } catch (error: unknown) {

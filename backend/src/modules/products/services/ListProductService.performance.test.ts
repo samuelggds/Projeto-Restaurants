@@ -1,13 +1,20 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 
+import prisma from '../../../config/prisma.js';
 import productRepository from '../repositories/ProductRepository.js';
 import service from './ListProductService.js';
 
 const originalFindAll = productRepository.findAll;
+const originalTransaction = prisma.$transaction;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+});
 
 afterEach(() => {
+  prisma.$transaction = originalTransaction;
   productRepository.findAll = originalFindAll;
 });
 

@@ -104,7 +104,11 @@ test('resolve grupos, adicionais e snapshot completo', () => {
     optionId: 1002,
     ingredientId: 12,
     name: 'Massa grossa',
+    pricingMode: 'ADDITIVE',
+    unitPrice: 3,
+    quantity: 1,
     price: 3,
+    totalPrice: 3,
   });
 });
 

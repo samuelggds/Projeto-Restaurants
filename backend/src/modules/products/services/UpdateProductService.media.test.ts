@@ -27,6 +27,7 @@ test('preserva os bytes da imagem ao salvar um produto carregado por URL públic
   let savedData;
   let savedWhere;
   const transaction = {
+    $queryRaw: async () => [{ set_config: '3' }],
     category: {
       findFirst: async () => ({ id: 9 }),
     },
@@ -36,10 +37,13 @@ test('preserva os bytes da imagem ao salvar um produto carregado por URL públic
         savedData = data;
         return { id: 70, ...data };
       },
+      findUniqueOrThrow: async () => ({ id: 70, ...savedData }),
     },
     productOptionGroup: {
       deleteMany: async () => ({ count: 0 }),
     },
+    productCompositionItem: { deleteMany: async () => ({ count: 0 }) },
+    productPortionConfiguration: { deleteMany: async () => ({ count: 0 }) },
   };
   prisma.$transaction = async (callback) => callback(transaction);
 
@@ -68,6 +72,7 @@ test('aceita uma nova imagem enviada pelo administrador', async () => {
   let savedData;
   let savedWhere;
   const transaction = {
+    $queryRaw: async () => [{ set_config: '3' }],
     category: {
       findFirst: async () => ({ id: 9 }),
     },
@@ -77,10 +82,13 @@ test('aceita uma nova imagem enviada pelo administrador', async () => {
         savedData = data;
         return { id: 70, ...data };
       },
+      findUniqueOrThrow: async () => ({ id: 70, ...savedData }),
     },
     productOptionGroup: {
       deleteMany: async () => ({ count: 0 }),
     },
+    productCompositionItem: { deleteMany: async () => ({ count: 0 }) },
+    productPortionConfiguration: { deleteMany: async () => ({ count: 0 }) },
   };
   prisma.$transaction = async (callback) => callback(transaction);
 
@@ -97,24 +105,22 @@ test('aceita uma nova imagem enviada pelo administrador', async () => {
 
 test('ADMIN do Restaurante A não atualiza produto real pertencente ao Restaurante B', async () => {
   let transactionCalls = 0;
-  productRepository.findById = async (productId, restaurantId) => {
+  productRepository.findById = async (productId, restaurantId, db) => {
     assert.equal(Number(productId), 70);
     assert.equal(restaurantId, 3);
+    assert.ok(db);
     return null;
   };
-  prisma.$transaction = async () => {
+  prisma.$transaction = async (callback) => {
     transactionCalls += 1;
-    throw new Error('não deveria abrir transação');
+    assert.equal(transactionCalls, 1, 'não deveria abrir uma transação de escrita');
+    return callback({ $queryRaw: async () => [{ set_config: '3' }] });
   };
 
   await assert.rejects(
     () =>
-      service.execute(
-        70,
-        { name: 'Produto do outro restaurante', price: 49.9, categoryId: 9 },
-        3,
-      ),
+      service.execute(70, { name: 'Produto do outro restaurante', price: 49.9, categoryId: 9 }, 3),
     /Produto não encontrado/i,
   );
-  assert.equal(transactionCalls, 0);
+  assert.equal(transactionCalls, 1);
 });

@@ -14,6 +14,11 @@ const productConfigurationInclude = {
   category: true,
   discount: true,
   ingredients: { orderBy: { id: 'asc' as const } },
+  compositionItems: {
+    orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
+    include: { ingredient: true },
+  },
+  portionConfiguration: true,
   optionGroups: {
     orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }],
     include: {

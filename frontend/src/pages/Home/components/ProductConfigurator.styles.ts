@@ -384,13 +384,8 @@ export const OptionList = styled.div`
   gap: 9px;
 `;
 
-export const Option = styled.label<{ $selected: boolean; $disabled: boolean }>`
+export const Option = styled.div<{ $selected: boolean; $disabled: boolean }>`
   min-height: 58px;
-  padding: 12px 14px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
   border: 1px solid ${({ $selected }) => ($selected ? 'var(--config-primary)' : '#e9e1da')};
   border-radius: 13px;
   background: ${({ $selected }) =>
@@ -407,7 +402,17 @@ export const Option = styled.label<{ $selected: boolean; $disabled: boolean }>`
     border-color: ${({ $disabled }) => ($disabled ? '#e9e1da' : 'var(--config-primary)')};
   }
 
-  input {
+  > label {
+    min-height: 58px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    cursor: inherit;
+  }
+
+  > label > input {
     position: absolute;
     opacity: 0;
     pointer-events: none;
@@ -425,7 +430,7 @@ export const Option = styled.label<{ $selected: boolean; $disabled: boolean }>`
     font-style: normal;
   }
 
-  input[type='radio'] + i {
+  > label > input[type='radio'] + i {
     border-radius: 50%;
   }
 
@@ -443,6 +448,227 @@ export const Option = styled.label<{ $selected: boolean; $disabled: boolean }>`
     color: ${({ $selected }) => ($selected ? 'var(--config-primary)' : '#443c35')};
     font-size: 13px;
     white-space: nowrap;
+  }
+`;
+
+export const QuantityStepper = styled.div`
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #eadfd7;
+  background: color-mix(in srgb, var(--config-primary) 3%, #fff);
+
+  > span {
+    color: #6f665e;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  button {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #d8cec6;
+    border-radius: 9px;
+    color: var(--config-primary);
+    background: #fff;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+
+  button svg {
+    width: 14px;
+  }
+
+  > b {
+    min-width: 24px;
+    text-align: center;
+    font-size: 13px;
+  }
+`;
+
+export const Composition = styled.section`
+  padding: 20px;
+  border: 1px solid #e6ddd5;
+  border-radius: 19px;
+  background: #fff;
+  box-shadow: 0 8px 25px rgba(71, 46, 26, 0.045);
+
+  .composition-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .composition-list > label {
+    min-width: 0;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 12px;
+    border: 1px solid #e8e0d9;
+    border-radius: 12px;
+    background: #fcfbfa;
+  }
+
+  .composition-list > label.removed {
+    border-color: #efc3bd;
+    background: #fff7f6;
+  }
+
+  .composition-list > label > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .composition-list b {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .composition-list small {
+    color: #81786f;
+    font-size: 10px;
+  }
+
+  .remove-control,
+  .fixed-control {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--config-primary);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .fixed-control {
+    color: #746b63;
+  }
+
+  @media (max-width: 620px) {
+    padding: 17px 14px;
+    border-radius: 16px;
+    .composition-list {
+      grid-template-columns: 1fr;
+    }
+  }
+`;
+
+export const PortionBuilder = styled.fieldset<{ $error?: boolean }>`
+  min-width: 0;
+  margin: 0;
+  padding: 20px;
+  border: 1px solid ${({ $error }) => ($error ? '#dc6860' : '#e6ddd5')};
+  border-radius: 19px;
+  background: #fff;
+  box-shadow: 0 8px 25px rgba(71, 46, 26, 0.045);
+
+  .portion-count {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 13px;
+  }
+
+  .portion-count button {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid #ded5cc;
+    border-radius: 9px;
+    color: #544b44;
+    background: #fff;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .portion-count button.active {
+    border-color: var(--config-primary);
+    color: var(--config-primary);
+    background: color-mix(in srgb, var(--config-primary) 7%, #fff);
+  }
+
+  .portion-list {
+    display: grid;
+    gap: 9px;
+  }
+
+  .portion-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 120px minmax(150px, 1fr) minmax(150px, 1fr);
+    align-items: end;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid #e9e1da;
+    border-radius: 13px;
+    background: #fcfbfa;
+  }
+
+  .portion-number {
+    min-width: 0;
+    min-height: 42px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: center;
+    gap: 1px 7px;
+  }
+
+  .portion-number svg {
+    grid-row: 1 / 3;
+    width: 18px;
+    color: var(--config-primary);
+  }
+
+  .portion-number b,
+  .portion-number small {
+    font-size: 11px;
+  }
+
+  .portion-number small {
+    color: #81786f;
+  }
+
+  .portion-row label {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+    color: #615850;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .portion-row select,
+  .portion-row input {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #dcd2ca;
+    border-radius: 9px;
+    padding: 0 10px;
+    color: #302a25;
+    background: #fff;
+  }
+
+  @media (max-width: 700px) {
+    padding: 17px 14px;
+    border-radius: 16px;
+    .portion-row {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
   }
 `;
 
@@ -531,8 +757,7 @@ export const Observation = styled.label`
 `;
 
 export const BottomBar = styled.div`
-  position: sticky;
-  bottom: 14px;
+  position: static;
   z-index: 4;
   margin-top: 3px;
   padding: 13px 14px 13px 17px;
@@ -579,7 +804,6 @@ export const BottomBar = styled.div`
   }
 
   @media (max-width: 900px) {
-    position: static;
     bottom: auto;
   }
 

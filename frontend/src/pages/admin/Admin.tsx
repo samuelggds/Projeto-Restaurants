@@ -89,6 +89,21 @@ function mapProduct(value: unknown): AdminProduct {
           return {
             id: Number(option.id ?? 0) || undefined,
             ingredientId: Number(option.ingredientId ?? asRecord(option.ingredient).id ?? 0),
+            additionalPrice: Number(
+              option.additionalPrice ?? asRecord(option.ingredient).price ?? 0,
+            ),
+            pricingMode:
+              option.pricingMode === 'ABSOLUTE' ? ('ABSOLUTE' as const) : ('ADDITIVE' as const),
+            absolutePrice:
+              option.absolutePrice === null || option.absolutePrice === undefined
+                ? null
+                : Number(option.absolutePrice),
+            allowQuantity: option.allowQuantity === true,
+            minQuantity: Math.max(1, Number(option.minQuantity ?? 1)),
+            maxQuantity: Math.max(1, Number(option.maxQuantity ?? 1)),
+            defaultQuantity: Math.max(1, Number(option.defaultQuantity ?? 1)),
+            defaultSelected: option.defaultSelected === true,
+            locked: option.locked === true,
             active: option.active !== false,
           };
         })
@@ -119,6 +134,21 @@ function mapProduct(value: unknown): AdminProduct {
   );
   const hasDiscountRecord = Object.keys(discount).length > 0;
   const hasPricingRecord = Object.keys(pricing).length > 0;
+  const compositionItems = (Array.isArray(raw.compositionItems) ? raw.compositionItems : [])
+    .map((value) => {
+      const item = asRecord(value);
+      return {
+        id: Number(item.id ?? 0) || undefined,
+        ingredientId: Number(item.ingredientId ?? asRecord(item.ingredient).id ?? 0),
+        removable: item.removable === true,
+        active: item.active !== false,
+      };
+    })
+    .filter((item) => item.ingredientId > 0);
+  const rawPortion = asRecord(raw.portionConfiguration);
+  const portionGroup = optionGroups.find(
+    (group) => Number(group.id) === Number(rawPortion.optionGroupId ?? 0),
+  );
   return {
     id: String(raw.id ?? ''),
     categoryId: Number(raw.categoryId ?? category.id ?? 0),
@@ -129,8 +159,24 @@ function mapProduct(value: unknown): AdminProduct {
     description: String(raw.description ?? ''),
     stock: raw.stock === null || raw.stock === undefined ? null : Number(raw.stock),
     active: raw.active !== false,
-    saleMode: 'BUILDABLE',
+    saleMode: raw.saleMode === 'COMPLETE' ? 'COMPLETE' : 'BUILDABLE',
+    configurationVersion: Math.max(1, Number(raw.configurationVersion ?? 1)),
     optionGroups,
+    compositionItems,
+    portionConfiguration: Object.keys(rawPortion).length
+      ? {
+          enabled: rawPortion.enabled !== false,
+          optionGroupName: portionGroup?.name ?? '',
+          minPortions: Math.max(1, Number(rawPortion.minPortions ?? 1)),
+          maxPortions: Math.max(1, Number(rawPortion.maxPortions ?? 2)),
+          pricingStrategy: ['ADD', 'AVERAGE', 'PROPORTIONAL', 'FIXED'].includes(
+            String(rawPortion.pricingStrategy),
+          )
+            ? (String(rawPortion.pricingStrategy) as 'ADD' | 'AVERAGE' | 'PROPORTIONAL' | 'FIXED')
+            : 'HIGHEST',
+          allowPortionObservations: rawPortion.allowPortionObservations !== false,
+        }
+      : null,
     discount: hasDiscountRecord
       ? {
           type: discount.type === 'FIXED' || discount.kind === 'FIXED' ? 'FIXED' : 'PERCENTAGE',
@@ -804,8 +850,12 @@ export default function Admin() {
           featured: false,
           preparationTime: 20,
           stock: product.stock ?? null,
-          saleMode: 'BUILDABLE',
+          saleMode: product.saleMode ?? 'COMPLETE',
           optionGroups: product.optionGroups || [],
+          compositionItems: product.compositionItems || [],
+          portionConfiguration: product.portionConfiguration ?? null,
+          expectedConfigurationVersion: product.configurationVersion,
+          confirmDiscardConfiguration: product.confirmDiscardConfiguration,
         };
         if (product.id) await productsService.updateProduct(product.id, payload);
         else await productsService.createProduct(payload);
@@ -828,8 +878,9 @@ export default function Admin() {
         await Promise.all([loadCategories(), loadProducts()]);
       }}
       onCreateIngredient={async (ingredient) => {
-        await ingredientsService.createIngredient(ingredient);
+        const created = await ingredientsService.createIngredient(ingredient);
         await loadIngredients();
+        return mapIngredient(created);
       }}
       onUpdateIngredient={async (ingredient) => {
         await ingredientsService.updateIngredient(ingredient.id, {

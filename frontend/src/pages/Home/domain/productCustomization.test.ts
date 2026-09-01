@@ -104,4 +104,57 @@ describe('montagem genérica de produto', () => {
     expect(productConfigurationSignature(first)).not.toBe(productConfigurationSignature(second));
     expect(first.selectedOptionIds).toEqual(['fina']);
   });
+
+  it('calcula quantidade, preço absoluto e porções sem confiar esse total ao pedido', () => {
+    const configuredGroups: ProductOptionGroup[] = [
+      ...groups,
+      {
+        id: 'sabores',
+        name: 'Sabores',
+        required: true,
+        selectionType: 'MULTIPLE',
+        minSelections: 1,
+        maxSelections: 2,
+        options: [
+          { id: 'calabresa', name: 'Calabresa', price: 6, active: true },
+          { id: 'especial', name: 'Especial', price: 10, active: true },
+        ],
+      },
+    ];
+    const total = productConfigurationTotal(
+      30,
+      configuredGroups,
+      { massa: ['fina'], extras: ['bacon'], sabores: [] },
+      {
+        optionQuantities: { bacon: 2 },
+        portionConfiguration: {
+          enabled: true,
+          optionGroupId: 'sabores',
+          minPortions: 2,
+          maxPortions: 2,
+          pricingStrategy: 'HIGHEST',
+          allowPortionObservations: true,
+        },
+        portions: [{ optionId: 'calabresa' }, { optionId: 'especial' }],
+      },
+    );
+
+    expect(total).toBe(50);
+  });
+
+  it('inclui quantidades, retiradas, porções e versão na assinatura', () => {
+    const base = buildProductConfiguration(groups, { massa: ['fina'], extras: ['bacon'] }, '', {
+      optionQuantities: { bacon: 1 },
+      removedCompositionItemIds: ['receita-1'],
+      portions: [{ optionId: 'fina', observation: 'bem assada' }],
+      configurationVersion: 3,
+    });
+    const changed = {
+      ...base,
+      optionQuantities: [{ optionId: 'bacon', quantity: 2 }],
+    };
+
+    expect(productConfigurationSignature(base)).not.toBe(productConfigurationSignature(changed));
+    expect(base.configurationVersion).toBe(3);
+  });
 });

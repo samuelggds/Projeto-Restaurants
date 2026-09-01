@@ -15,6 +15,7 @@ import {
 } from '../../payments/providers/providerCatalog.js';
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
@@ -370,8 +371,10 @@ class OrderPixPaymentService {
     restaurantId: number;
     items: OrderItemInput[];
   }) {
-    const products = await Promise.all(
-      items.map((item) => productRepository.findById(item.productId, restaurantId)),
+    const products = await withTenantDbContext(restaurantId, (db) =>
+      Promise.all(
+        items.map((item) => productRepository.findById(item.productId, restaurantId, db)),
+      ),
     );
 
     products.forEach((product, index) => {

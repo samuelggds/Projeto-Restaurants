@@ -4,6 +4,7 @@ import {
   updateIngredientSchema,
 } from '../../../validators/IngredientValidator.js';
 import ingredientRepository from '../repositories/IngredientRepository.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 
 type CreateIngredientInput = z.infer<typeof createIngredientSchema>;
 type UpdateIngredientInput = z.infer<typeof updateIngredientSchema>;
@@ -80,7 +81,9 @@ export class DeleteIngredientService {
       throw new Error('Ingrediente não encontrado neste restaurante.');
     }
 
-    await ingredientRepository.delete(ingredientId, tenantId);
+    await withTenantDbContext(tenantId, (db) =>
+      ingredientRepository.delete(ingredientId, tenantId, db),
+    );
     return { message: 'Ingrediente excluído com sucesso.' };
   }
 }

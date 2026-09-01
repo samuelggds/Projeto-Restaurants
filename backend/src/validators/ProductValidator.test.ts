@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { productOptionGroupSchema } from './ProductValidator.js';
+import { productOptionGroupSchema, productOptionSchema } from './ProductValidator.js';
 
 const category = {
   name: 'Massas',
@@ -43,4 +43,17 @@ test('aceita categoria opcional somente com mínimo zero', () => {
     invalid.error.issues[0]?.message || '',
     /categoria opcional deve permitir continuar sem nenhuma escolha/i,
   );
+});
+
+test('exige um preço final numérico no modo ABSOLUTE', () => {
+  const invalid = productOptionSchema.safeParse({
+    ingredientId: 1,
+    pricingMode: 'ABSOLUTE',
+    absolutePrice: null,
+  });
+
+  assert.equal(invalid.success, false);
+  if (!invalid.success) {
+    assert.match(invalid.error.issues[0]?.message || '', /informe o preço final/i);
+  }
 });

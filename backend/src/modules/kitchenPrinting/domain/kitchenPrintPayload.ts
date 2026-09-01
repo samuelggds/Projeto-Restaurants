@@ -7,6 +7,12 @@ export type KitchenPrintCustomizationV1 = {
   options: string[];
 };
 
+export type KitchenPrintPortionV1 = {
+  fraction: string;
+  optionName: string;
+  observation?: string;
+};
+
 export type KitchenDeliveryAddressV1 = {
   address?: string;
   number?: string;
@@ -36,6 +42,8 @@ export type KitchenPrintPayloadV1 = {
       name: string;
       observation?: string;
       customizations: KitchenPrintCustomizationV1[];
+      removedItems?: string[];
+      portions?: KitchenPrintPortionV1[];
     }>;
     observation?: string;
     total: number;
@@ -70,7 +78,9 @@ function optionName(value: unknown) {
   if (typeof value === 'string') return value.trim();
   const option = asRecord(value);
   const ingredient = asRecord(option?.ingredient);
-  return text(option?.name || option?.label || ingredient?.name);
+  const name = text(option?.name || option?.label || ingredient?.name);
+  const quantity = Number(option?.quantity || 1);
+  return name && Number.isInteger(quantity) && quantity > 1 ? `${quantity}x ${name}` : name;
 }
 
 function unique(values: string[]) {
@@ -100,6 +110,29 @@ export function normalizeKitchenItemCustomizations(input: {
   return legacyIngredients.length
     ? [{ groupName: 'Itens escolhidos', options: legacyIngredients }]
     : [];
+}
+
+export function normalizeKitchenConfigurationSnapshot(value: unknown) {
+  const snapshot = asRecord(value);
+  const removedItems = unique(
+    asArray(snapshot?.removedComposition).map((item) => optionName(item)),
+  );
+  const portions = asArray(snapshot?.portions).flatMap((value) => {
+    const portion = asRecord(value);
+    if (!portion) return [];
+    const fraction = text(portion.fraction);
+    const name = text(portion.optionName || portion.name);
+    if (!fraction || !name) return [];
+    const observation = sanitizeKitchenObservation(portion.observation);
+    return [
+      {
+        fraction,
+        optionName: name,
+        ...(observation ? { observation } : {}),
+      },
+    ];
+  });
+  return { removedItems, portions };
 }
 
 const CPF_WITH_LABEL = /(?:\s*\|\s*)?CPF\s*:\s*\d{3}\.?\d{3}\.?\d{3}-?\d{2}/giu;
@@ -145,6 +178,7 @@ type PrintableOrder = {
     observation: string | null;
     ingredients: unknown;
     customizations: unknown;
+    configurationSnapshot?: unknown;
     product: { name: string };
   }>;
 };
@@ -187,11 +221,16 @@ export function buildKitchenOrderPayload(order: PrintableOrder): KitchenPrintPay
       ...(paymentMethod ? { paymentMethod } : {}),
       items: order.items.map((item) => {
         const itemObservation = sanitizeKitchenObservation(item.observation);
+        const configuration = normalizeKitchenConfigurationSnapshot(item.configurationSnapshot);
         return {
           quantity: item.quantity,
           name: item.product.name,
           ...(itemObservation ? { observation: itemObservation } : {}),
           customizations: normalizeKitchenItemCustomizations(item),
+          ...(configuration.removedItems.length
+            ? { removedItems: configuration.removedItems }
+            : {}),
+          ...(configuration.portions.length ? { portions: configuration.portions } : {}),
         };
       }),
       ...(observation ? { observation } : {}),

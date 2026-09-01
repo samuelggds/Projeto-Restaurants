@@ -1,16 +1,10 @@
-import type {
-  AdminIngredient,
-  AdminProductOptionGroup,
-} from '../types';
+import type { AdminIngredient, AdminProductOptionGroup } from '../types';
 
 export type IngredientDraft = Pick<AdminIngredient, 'name' | 'price' | 'category'> & {
   id?: number;
 };
 
-export function validateIngredientDraft(
-  draft: IngredientDraft,
-  ingredients: AdminIngredient[],
-) {
+export function validateIngredientDraft(draft: IngredientDraft, ingredients: AdminIngredient[]) {
   const errors: string[] = [];
   const normalizedName = draft.name.trim().toLocaleLowerCase('pt-BR');
   const normalizedCategory = draft.category.trim();
@@ -105,6 +99,52 @@ export function validateOptionGroups(
     if (group.maxSelections > group.options.length) {
       errors.push(`${label}: o máximo não pode superar as opções disponíveis.`);
     }
+    const activeOptions = group.options.filter((option) => option.active !== false);
+    if (group.maxSelections > activeOptions.length) {
+      errors.push(`${label}: o máximo não pode superar as opções ativas.`);
+    }
+    if (activeOptions.filter((option) => option.locked).length > group.maxSelections) {
+      errors.push(`${label}: as opções fixas não podem superar o limite de escolhas.`);
+    }
+    group.options.forEach((option) => {
+      const optionName =
+        ingredients.find((ingredient) => ingredient.id === option.ingredientId)?.name ||
+        `Opção #${option.ingredientId}`;
+      const additionalPrice = Number(option.additionalPrice ?? 0);
+      if (!Number.isFinite(additionalPrice) || additionalPrice < 0 || additionalPrice > 9999) {
+        errors.push(`${label} · ${optionName}: informe um acréscimo válido.`);
+      }
+      if (
+        option.pricingMode === 'ABSOLUTE' &&
+        (option.absolutePrice === null ||
+          option.absolutePrice === undefined ||
+          !Number.isFinite(Number(option.absolutePrice)) ||
+          Number(option.absolutePrice) < 0)
+      ) {
+        errors.push(`${label} · ${optionName}: informe o preço final desta escolha.`);
+      }
+      const minimum = Number(option.minQuantity ?? 1);
+      const maximum = Number(option.maxQuantity ?? 1);
+      const initial = Number(option.defaultQuantity ?? 1);
+      if (
+        !Number.isInteger(minimum) ||
+        !Number.isInteger(maximum) ||
+        !Number.isInteger(initial) ||
+        minimum < 1 ||
+        maximum > 99 ||
+        minimum > maximum ||
+        initial < minimum ||
+        initial > maximum
+      ) {
+        errors.push(`${label} · ${optionName}: revise as quantidades mínima, inicial e máxima.`);
+      }
+      if (!option.allowQuantity && (minimum !== 1 || maximum !== 1 || initial !== 1)) {
+        errors.push(`${label} · ${optionName}: ative quantidade para usar valores maiores que 1.`);
+      }
+      if (option.locked && !option.defaultSelected) {
+        errors.push(`${label} · ${optionName}: uma seleção fixa precisa vir pré-selecionada.`);
+      }
+    });
   });
 
   return errors;

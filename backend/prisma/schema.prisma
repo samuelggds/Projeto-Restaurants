@@ -127,63 +127,67 @@ model UserAddress {
 }
 
 model Restaurant {
-  id                          Int                         @id @default(autoincrement())
-  name                        String
-  slug                        String                      @unique
-  email                       String                      @unique
-  phone                       String?
-  whatsapp                    String?
-  cnpj                        String?                     @unique
-  logo                        String?
-  coverImage                  String?
-  description                 String?
-  address                     String?
-  addressNumber               String?
-  addressComplement           String?
-  addressDistrict             String?
-  city                        String?
-  state                       String?
-  zipCode                     String?
-  openingHours                String?
-  active                      Boolean                     @default(true)
-  accessBlockReason           RestaurantAccessBlockReason @default(NONE)
-  createdAt                   DateTime                    @default(now())
-  updatedAt                   DateTime                    @updatedAt
-  banners                     Banner[]
-  categories                  Category[]
-  coupons                     Coupon[]
-  invoices                    Invoice[]
-  orders                      Order[]
-  products                    Product[]
-  productDiscounts            ProductDiscount[]
-  ingredients                 Ingredient[]
-  productOptionGroups         ProductOptionGroup[]
-  ratings                     ProductRating[]
-  settings                    RestaurantSettings?
-  supportChatMessages         SupportChatMessage[]
-  subscription                Subscription?
-  tables                      Table[]
-  users                       User[]
-  orderIssueThreads           OrderIssueThread[]
-  couponRedemptions           CouponRedemption[]
-  tableServiceCalls           TableServiceCall[]
-  tableSessions               TableSession[]
-  tableParticipants           TableParticipant[]
-  tableBillItems              TableBillItem[]
-  tablePaymentIntents         TablePaymentIntent[]
-  tablePaymentEvents          TablePaymentEvent[]
-  asaasWithdrawals            AsaasWithdrawalRequest[]
-  oauthAuthorizationStates    OAuthAuthorizationState[]
-  tableAccountSettings        TableAccountSettings?
-  deliveryFeeRanges           DeliveryFeeRange[]
-  customerPaymentMethods      CustomerPaymentMethod[]
-  printerSettings             RestaurantPrinterSettings?
-  printerAgentDevices         PrinterAgentDevice[]
-  kitchenPrintJobs            KitchenPrintJob[]
-  courierCompensationPolicies CourierCompensationPolicy[]
-  courierCompensationRanges   CourierCompensationRange[]
-  courierSettlements          CourierSettlement[]
-  courierSettlementItems      CourierSettlementItem[]
+  id                            Int                            @id @default(autoincrement())
+  name                          String
+  slug                          String                         @unique
+  email                         String                         @unique
+  phone                         String?
+  whatsapp                      String?
+  cnpj                          String?                        @unique
+  logo                          String?
+  coverImage                    String?
+  description                   String?
+  address                       String?
+  addressNumber                 String?
+  addressComplement             String?
+  addressDistrict               String?
+  city                          String?
+  state                         String?
+  zipCode                       String?
+  openingHours                  String?
+  active                        Boolean                        @default(true)
+  accessBlockReason             RestaurantAccessBlockReason    @default(NONE)
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  banners                       Banner[]
+  categories                    Category[]
+  coupons                       Coupon[]
+  invoices                      Invoice[]
+  orders                        Order[]
+  products                      Product[]
+  productDiscounts              ProductDiscount[]
+  ingredients                   Ingredient[]
+  productOptionGroups           ProductOptionGroup[]
+  productOptions                ProductOption[]
+  productCompositionItems       ProductCompositionItem[]
+  productPortionConfigurations  ProductPortionConfiguration[]
+  productConfigurationTemplates ProductConfigurationTemplate[]
+  ratings                       ProductRating[]
+  settings                      RestaurantSettings?
+  supportChatMessages           SupportChatMessage[]
+  subscription                  Subscription?
+  tables                        Table[]
+  users                         User[]
+  orderIssueThreads             OrderIssueThread[]
+  couponRedemptions             CouponRedemption[]
+  tableServiceCalls             TableServiceCall[]
+  tableSessions                 TableSession[]
+  tableParticipants             TableParticipant[]
+  tableBillItems                TableBillItem[]
+  tablePaymentIntents           TablePaymentIntent[]
+  tablePaymentEvents            TablePaymentEvent[]
+  asaasWithdrawals              AsaasWithdrawalRequest[]
+  oauthAuthorizationStates      OAuthAuthorizationState[]
+  tableAccountSettings          TableAccountSettings?
+  deliveryFeeRanges             DeliveryFeeRange[]
+  customerPaymentMethods        CustomerPaymentMethod[]
+  printerSettings               RestaurantPrinterSettings?
+  printerAgentDevices           PrinterAgentDevice[]
+  kitchenPrintJobs              KitchenPrintJob[]
+  courierCompensationPolicies   CourierCompensationPolicy[]
+  courierCompensationRanges     CourierCompensationRange[]
+  courierSettlements            CourierSettlement[]
+  courierSettlementItems        CourierSettlementItem[]
 }
 
 model RestaurantPrinterSettings {
@@ -317,28 +321,33 @@ model Category {
 }
 
 model Product {
-  id              Int                  @id @default(autoincrement())
-  name            String
-  description     String?
-  image           String?
-  price           Decimal              @db.Decimal(10, 2)
-  active          Boolean              @default(true)
-  featured        Boolean              @default(false)
-  preparationTime Int?
-  stock           Int?
-  restaurantId    Int
-  categoryId      Int
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  items           OrderItem[]
-  category        Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  restaurant      Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  ratings         ProductRating[]
-  favorites       ProductFavorite[]
-  saleMode        ProductSaleMode      @default(BUILDABLE)
-  ingredients     ProductIngredient[]
-  optionGroups    ProductOptionGroup[]
-  discount        ProductDiscount?
+  id                   Int                          @id @default(autoincrement())
+  name                 String
+  description          String?
+  image                String?
+  price                Decimal                      @db.Decimal(10, 2)
+  active               Boolean                      @default(true)
+  featured             Boolean                      @default(false)
+  preparationTime      Int?
+  stock                Int?
+  restaurantId         Int
+  categoryId           Int
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  configurationVersion Int                          @default(1)
+  items                OrderItem[]
+  category             Category                     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant           Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  ratings              ProductRating[]
+  favorites            ProductFavorite[]
+  saleMode             ProductSaleMode              @default(BUILDABLE)
+  ingredients          ProductIngredient[]
+  optionGroups         ProductOptionGroup[]
+  compositionItems     ProductCompositionItem[]
+  portionConfiguration ProductPortionConfiguration?
+  discount             ProductDiscount?
+
+  @@unique([id, restaurantId])
 }
 
 model ProductDiscount {
@@ -387,18 +396,20 @@ model ProductIngredient {
 // Ingredient catalogue is isolated by restaurant. ProductIngredient stores the
 // selection available for each product and can later reference this catalogue.
 model Ingredient {
-  id             Int             @id @default(autoincrement())
-  restaurantId   Int
-  name           String
-  category       String          @default("Geral")
-  price          Decimal         @default(0) @db.Decimal(10, 2)
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  productOptions ProductOption[]
+  id               Int                      @id @default(autoincrement())
+  restaurantId     Int
+  name             String
+  category         String                   @default("Geral")
+  price            Decimal                  @default(0) @db.Decimal(10, 2)
+  active           Boolean                  @default(true)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  restaurant       Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  productOptions   ProductOption[]
+  compositionItems ProductCompositionItem[]
 
   @@unique([restaurantId, name])
+  @@unique([id, restaurantId])
   @@index([restaurantId, active])
   @@index([restaurantId, category, active])
 }
@@ -408,43 +419,129 @@ enum ProductOptionSelectionType {
   MULTIPLE
 }
 
+enum ProductOptionPricingMode {
+  ADDITIVE
+  ABSOLUTE
+}
+
+enum ProductPortionPricingStrategy {
+  ADD
+  HIGHEST
+  AVERAGE
+  PROPORTIONAL
+  FIXED
+}
+
 model ProductOptionGroup {
-  id            Int                        @id @default(autoincrement())
-  restaurantId  Int
-  productId     Int
-  name          String
-  description   String?
-  required      Boolean                    @default(false)
-  selectionType ProductOptionSelectionType @default(SINGLE)
-  minSelections Int                        @default(0)
-  maxSelections Int                        @default(1)
-  position      Int                        @default(0)
-  active        Boolean                    @default(true)
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
-  restaurant    Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  product       Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  options       ProductOption[]
+  id                    Int                           @id @default(autoincrement())
+  restaurantId          Int
+  productId             Int
+  name                  String
+  description           String?
+  required              Boolean                       @default(false)
+  selectionType         ProductOptionSelectionType    @default(SINGLE)
+  minSelections         Int                           @default(0)
+  maxSelections         Int                           @default(1)
+  position              Int                           @default(0)
+  active                Boolean                       @default(true)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  restaurant            Restaurant                    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product               Product                       @relation(fields: [productId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  options               ProductOption[]
+  portionConfigurations ProductPortionConfiguration[]
 
   @@unique([productId, name])
+  @@unique([id, restaurantId])
   @@index([restaurantId, active])
   @@index([productId, position])
 }
 
 model ProductOption {
-  id           Int                @id @default(autoincrement())
-  groupId      Int
-  ingredientId Int
-  active       Boolean            @default(true)
-  position     Int                @default(0)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  group        ProductOptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  ingredient   Ingredient         @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  id              Int                      @id @default(autoincrement())
+  restaurantId    Int
+  groupId         Int
+  ingredientId    Int
+  additionalPrice Decimal                  @default(0) @db.Decimal(10, 2)
+  pricingMode     ProductOptionPricingMode @default(ADDITIVE)
+  absolutePrice   Decimal?                 @db.Decimal(10, 2)
+  allowQuantity   Boolean                  @default(false)
+  minQuantity     Int                      @default(1)
+  maxQuantity     Int                      @default(1)
+  defaultQuantity Int                      @default(1)
+  defaultSelected Boolean                  @default(false)
+  locked          Boolean                  @default(false)
+  active          Boolean                  @default(true)
+  position        Int                      @default(0)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  restaurant      Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  group           ProductOptionGroup       @relation(fields: [groupId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  ingredient      Ingredient               @relation(fields: [ingredientId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
   @@unique([groupId, ingredientId])
+  @@unique([id, restaurantId])
+  @@index([restaurantId, active])
   @@index([groupId, active, position])
   @@index([ingredientId])
+}
+
+model ProductCompositionItem {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  productId    Int
+  ingredientId Int
+  removable    Boolean    @default(false)
+  active       Boolean    @default(true)
+  position     Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([productId, ingredientId])
+  @@unique([id, restaurantId])
+  @@index([restaurantId, active])
+  @@index([productId, position])
+}
+
+model ProductPortionConfiguration {
+  id                       Int                           @id @default(autoincrement())
+  restaurantId             Int
+  productId                Int
+  optionGroupId            Int?
+  enabled                  Boolean                       @default(true)
+  minPortions              Int                           @default(1)
+  maxPortions              Int                           @default(2)
+  pricingStrategy          ProductPortionPricingStrategy @default(HIGHEST)
+  allowPortionObservations Boolean                       @default(true)
+  createdAt                DateTime                      @default(now())
+  updatedAt                DateTime                      @updatedAt
+  restaurant               Restaurant                    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product                  Product                       @relation(fields: [productId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  optionGroup              ProductOptionGroup?           @relation(fields: [optionGroupId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+
+  @@unique([productId, restaurantId])
+  @@unique([id, restaurantId])
+  @@index([restaurantId, enabled])
+  @@index([optionGroupId])
+}
+
+model ProductConfigurationTemplate {
+  id            Int        @id @default(autoincrement())
+  restaurantId  Int
+  name          String
+  description   String?
+  configuration Json
+  active        Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, name])
+  @@unique([id, restaurantId])
+  @@index([restaurantId, active, createdAt])
 }
 
 model ProductFavorite {
@@ -712,23 +809,24 @@ model OrderIssueMessage {
 }
 
 model OrderItem {
-  id                Int               @id @default(autoincrement())
-  quantity          Int
-  orderId           Int
-  observation       String?
-  price             Decimal           @db.Decimal(10, 2)
-  productId         Int
-  restaurantId      Int?
-  tableSessionId    Int?
-  participantId     Int?
-  ingredients       Json?
-  customizations    Json?
-  originalUnitPrice Decimal?          @db.Decimal(10, 2)
-  unitDiscount      Decimal           @default(0) @db.Decimal(10, 2)
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product           Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  participant       TableParticipant? @relation(fields: [participantId, tableSessionId, restaurantId], references: [id, tableSessionId, restaurantId], onDelete: Restrict)
-  billItems         TableBillItem[]
+  id                    Int               @id @default(autoincrement())
+  quantity              Int
+  orderId               Int
+  observation           String?
+  price                 Decimal           @db.Decimal(10, 2)
+  productId             Int
+  restaurantId          Int?
+  tableSessionId        Int?
+  participantId         Int?
+  ingredients           Json?
+  customizations        Json?
+  configurationSnapshot Json?
+  originalUnitPrice     Decimal?          @db.Decimal(10, 2)
+  unitDiscount          Decimal           @default(0) @db.Decimal(10, 2)
+  order                 Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product               Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  participant           TableParticipant? @relation(fields: [participantId, tableSessionId, restaurantId], references: [id, tableSessionId, restaurantId], onDelete: Restrict)
+  billItems             TableBillItem[]
 
   @@unique([id, orderId])
   @@unique([id, orderId, restaurantId, tableSessionId, participantId])

@@ -111,6 +111,42 @@ test('render de DELIVERY omite linhas vazias do endereço', () => {
   assert.doesNotMatch(addressBlock, /\n\s*\n/u);
 });
 
+for (const paperWidth of ['MM58', 'MM80'] as const) {
+  test(`render ${paperWidth} apresenta quantidades, remoções e porções sem estourar a bobina`, () => {
+    const rendered = renderKitchenCommand(
+      {
+        ...payload,
+        order: {
+          ...payload.order,
+          items: [
+            {
+              quantity: 1,
+              name: 'Produto dividido',
+              customizations: [{ groupName: 'Adicionais', options: ['2x Bacon crocante'] }],
+              removedItems: ['Cebola roxa'],
+              portions: [
+                { fraction: '1/2', optionName: 'Calabresa', observation: 'Sem cebola' },
+                { fraction: '1/2', optionName: 'Portuguesa' },
+              ],
+              observation: 'Massa bem passada',
+            },
+          ],
+        },
+      },
+      paperWidth,
+    );
+
+    assert.ok(rendered.split('\n').every((line) => line.length <= CHARACTER_WIDTH[paperWidth]));
+    assert.match(rendered, /PORÇÕES/u);
+    assert.match(rendered, /1\/2 Calabresa/u);
+    assert.match(rendered, /OBS: Sem cebola/u);
+    assert.match(rendered, /2x Bacon crocante/u);
+    assert.match(rendered, /RETIRAR/u);
+    assert.match(rendered, /Cebola roxa/u);
+    assert.match(rendered, /Massa bem passada/u);
+  });
+}
+
 test('render TEST contém identificação e confirmação de conexão', () => {
   const rendered = renderKitchenCommand(
     {
