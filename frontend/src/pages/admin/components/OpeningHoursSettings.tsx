@@ -27,7 +27,7 @@ const WEEKDAY_IDS = new Set(['monday', 'tuesday', 'wednesday', 'thursday', 'frid
 
 const StatusOverview = styled.section<{ $open: boolean }>`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 286px), 1fr));
   align-items: center;
   gap: 22px;
   margin: 24px 0;
@@ -106,7 +106,7 @@ const StatusBadge = styled.span<{ $open: boolean }>`
 `;
 
 const PauseControl = styled.div`
-  min-width: 286px;
+  min-width: 0;
   display: grid;
   gap: 8px;
 

@@ -129,6 +129,64 @@ const advancedProduct = {
   },
 };
 
+const completeProduct = {
+  id: 303,
+  name: 'Refrigerante pronto',
+  description: 'Produto simples sem etapas de montagem.',
+  price: 8,
+  active: true,
+  stock: null,
+  saleMode: 'COMPLETE',
+  configurationVersion: 2,
+  category: { name: 'Principais' },
+  optionGroups: [],
+};
+
+const defaultedProduct = {
+  id: 404,
+  name: 'Produto com escolhas iniciais',
+  description: 'Confirme as escolhas sugeridas.',
+  price: 20,
+  active: true,
+  stock: null,
+  saleMode: 'BUILDABLE',
+  configurationVersion: 4,
+  category: { name: 'Principais' },
+  optionGroups: [
+    {
+      id: 50,
+      name: 'Escolhas iniciais',
+      required: true,
+      selectionType: 'MULTIPLE',
+      minSelections: 1,
+      maxSelections: 3,
+      options: [
+        {
+          id: 5001,
+          ingredientId: 7,
+          active: true,
+          defaultSelected: true,
+          ingredient: { id: 7, name: 'Molho padrão', price: 0, active: true },
+        },
+        {
+          id: 5002,
+          ingredientId: 8,
+          active: true,
+          defaultSelected: true,
+          locked: true,
+          ingredient: { id: 8, name: 'Embalagem fixa', price: 0, active: true },
+        },
+        {
+          id: 5003,
+          ingredientId: 9,
+          active: true,
+          ingredient: { id: 9, name: 'Talheres', price: 0, active: true },
+        },
+      ],
+    },
+  ],
+};
+
 async function mockStorefront(page: Page) {
   await page.route('http://127.0.0.1:3000/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -164,7 +222,9 @@ async function mockStorefront(page: Page) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ products: [product, advancedProduct] }),
+        body: JSON.stringify({
+          products: [product, advancedProduct, completeProduct, defaultedProduct],
+        }),
       });
       return;
     }
@@ -192,12 +252,68 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await page.getByText('Queijo especial').click();
   await page.getByPlaceholder(/Adicione aqui uma observação/).fill('Embalagem separada');
   await expect(page.getByText('R$ 38,00').last()).toBeVisible();
-  await dialog.getByRole('button', { name: /Adicionar/ }).click();
+  const addButton = dialog.getByRole('button', { name: 'Adicionar à sacola' });
+  await expect(addButton).toHaveAccessibleDescription('R$ 38,00');
+  await addButton.click();
 
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await expect(page.getByText('Base grossa')).toBeVisible();
   await expect(page.getByText('Queijo especial')).toBeVisible();
   await expect(page.getByText('Embalagem separada')).toBeVisible();
+});
+
+test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ page }) => {
+  await mockStorefront(page);
+  await page.goto('/restaurante-teste');
+
+  await page.getByRole('button', { name: 'Ver detalhes de Refrigerante pronto' }).click();
+
+  await expect(page.getByRole('dialog', { name: 'Montar Refrigerante pronto' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await expect(
+    page.getByRole('complementary').getByText('Refrigerante pronto', { exact: true }),
+  ).toBeVisible();
+});
+
+test('aplica defaultSelected e impede remover opção locked', async ({ page }) => {
+  await mockStorefront(page);
+  await page.goto('/restaurante-teste');
+  await page.getByRole('button', { name: 'Ver detalhes de Produto com escolhas iniciais' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Montar Produto com escolhas iniciais' });
+  const defaultOption = dialog.getByRole('checkbox', { name: /Molho padrão/ });
+  const lockedOption = dialog.getByRole('checkbox', { name: /Embalagem fixa/ });
+  await expect(defaultOption).toBeChecked();
+  await expect(lockedOption).toBeChecked();
+  await expect(lockedOption).toBeDisabled();
+
+  await dialog.getByText('Molho padrão', { exact: true }).click();
+  await expect(defaultOption).not.toBeChecked();
+  await expect(lockedOption).toBeChecked();
+  await dialog.getByRole('button', { name: 'Adicionar à sacola' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await expect(page.getByText('Embalagem fixa')).toBeVisible();
+});
+
+test('trocar de produto limpa seleção, quantidade e observação anteriores', async ({ page }) => {
+  await mockStorefront(page);
+  await openConfigurator(page);
+  let dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
+  await dialog.getByText('Base grossa').click();
+  await dialog.getByPlaceholder(/Adicione aqui uma observação/).fill('Não reutilizar');
+  await dialog.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+
+  await page.getByRole('button', { name: 'Ver detalhes de Pizza em porções' }).click();
+  dialog = page.getByRole('dialog', { name: 'Montar Pizza em porções' });
+  await expect(dialog.getByRole('checkbox', { name: /Bacon/ })).not.toBeChecked();
+  await expect(dialog.getByPlaceholder(/Adicione aqui uma observação/)).toHaveValue('');
+  await dialog.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+
+  await page.getByRole('button', { name: 'Ver detalhes de Produto artesanal' }).click();
+  dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
+  await expect(dialog.getByRole('radio', { name: /Base grossa/ })).not.toBeChecked();
+  await expect(dialog.getByPlaceholder(/Adicione aqui uma observação/)).toHaveValue('');
 });
 
 test('configurador mantém observação e CTA no fluxo em telas menores', async ({ page }) => {
@@ -284,7 +400,13 @@ test('cliente define quantidade, retirada e opções por porção', async ({ pag
   const dialog = page.getByRole('dialog', { name: 'Montar Pizza em porções' });
   await dialog.getByRole('checkbox', { name: /Cebola/ }).check();
   await dialog.getByText('Bacon', { exact: true }).click();
-  await dialog.getByRole('button', { name: 'Aumentar quantidade de Bacon' }).click();
+  const increaseBacon = dialog.getByRole('button', { name: 'Aumentar quantidade de Bacon' });
+  const decreaseBacon = dialog.getByRole('button', { name: 'Diminuir quantidade de Bacon' });
+  await expect(decreaseBacon).toBeDisabled();
+  await increaseBacon.click();
+  await increaseBacon.click();
+  await expect(increaseBacon).toBeDisabled();
+  await decreaseBacon.click();
   await dialog.getByLabel('Opção').nth(0).selectOption('4001');
   await dialog.getByLabel('Opção').nth(1).selectOption('4002');
   await dialog.getByLabel('Observação da porção').nth(1).fill('Bem assada');

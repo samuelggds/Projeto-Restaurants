@@ -185,6 +185,44 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         },
       });
       assertTenantDenied(createAttempt.response.status, 'criação com categoria de outro tenant');
+      assert.equal(
+        await prisma.product.count({ where: { name: 'Produto criado no tenant errado' } }),
+        0,
+      );
+
+      const ingredientAssociationAttempt = await apiRequest(
+        baseUrl,
+        '/products',
+        fixture.tokens.adminA,
+        {
+          method: 'POST',
+          json: {
+            name: 'Produto com ingrediente estrangeiro',
+            price: 20,
+            categoryId: fixture.categories.a.id,
+            restaurantId: fixture.restaurants.a.id,
+            saleMode: 'BUILDABLE',
+            optionGroups: [
+              {
+                name: 'Ingrediente protegido',
+                required: true,
+                selectionType: 'SINGLE',
+                minSelections: 1,
+                maxSelections: 1,
+                options: [{ ingredientId: fixture.ingredients.b.id }],
+              },
+            ],
+          },
+        },
+      );
+      assertTenantDenied(
+        ingredientAssociationAttempt.response.status,
+        'associação de ingrediente de outro tenant',
+      );
+      assert.equal(
+        await prisma.product.count({ where: { name: 'Produto com ingrediente estrangeiro' } }),
+        0,
+      );
 
       const discountAttempt = await apiRequest(
         baseUrl,
@@ -234,12 +272,70 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(stored.name, 'Produto B confirmado');
       assert.equal(Number(stored.price), 35);
       assert.equal(stored.image, 'https://tenant-e2e.test/produto-b-original.webp');
-      assert.equal(
-        await prisma.product.count({ where: { name: 'Produto criado no tenant errado' } }),
-        0,
-      );
       assert.equal(discount.restaurantId, fixture.restaurants.b.id);
       assert.equal(Number(discount.value), 10);
+    });
+
+    await t.test('template de produto permanece privado ao tenant proprietário', async () => {
+      const templateB = await prisma.productConfigurationTemplate.create({
+        data: {
+          restaurantId: fixture.restaurants.b.id,
+          name: 'Modelo privado HTTP B',
+          configuration: { optionGroups: [], compositionItems: [] },
+        },
+      });
+
+      const listAttempt = await apiRequest(
+        baseUrl,
+        '/product-configuration-templates',
+        fixture.tokens.adminA,
+      );
+      assert.equal(listAttempt.response.status, 200);
+      assert.ok(Array.isArray(listAttempt.data.templates));
+      assert.equal(
+        listAttempt.data.templates.some((template) => template.id === templateB.id),
+        false,
+      );
+
+      const updateAttempt = await apiRequest(
+        baseUrl,
+        `/product-configuration-templates/${templateB.id}`,
+        fixture.tokens.adminA,
+        { method: 'PUT', json: { name: 'Modelo sequestrado' } },
+      );
+      assertTenantDenied(updateAttempt.response.status, 'alteração de template estrangeiro');
+
+      const deleteAttempt = await apiRequest(
+        baseUrl,
+        `/product-configuration-templates/${templateB.id}`,
+        fixture.tokens.adminA,
+        { method: 'DELETE' },
+      );
+      assertTenantDenied(deleteAttempt.response.status, 'exclusão de template estrangeiro');
+
+      const applyAttempt = await apiRequest(baseUrl, '/products', fixture.tokens.adminA, {
+        method: 'POST',
+        json: {
+          name: 'Produto com template estrangeiro',
+          price: 20,
+          categoryId: fixture.categories.a.id,
+          restaurantId: fixture.restaurants.a.id,
+          saleMode: 'BUILDABLE',
+          templateId: templateB.id,
+        },
+      });
+      assertTenantDenied(applyAttempt.response.status, 'uso de template estrangeiro');
+      assert.equal(
+        await prisma.product.count({ where: { name: 'Produto com template estrangeiro' } }),
+        0,
+      );
+
+      const storedTemplate = await prisma.productConfigurationTemplate.findUniqueOrThrow({
+        where: { id: templateB.id },
+      });
+      assert.equal(storedTemplate.restaurantId, fixture.restaurants.b.id);
+      assert.equal(storedTemplate.name, 'Modelo privado HTTP B');
+      assert.equal(storedTemplate.active, true);
     });
 
     await t.test(

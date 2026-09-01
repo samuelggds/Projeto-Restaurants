@@ -20,6 +20,10 @@ const socketLeases = new Set<symbol>();
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 const SOCKET_DISCONNECT_GRACE_MS = 75;
+const E2E_DIRECT_API =
+  String(import.meta.env.VITE_E2E_DIRECT_API || '')
+    .trim()
+    .toLowerCase() === 'true';
 const SOCKET_DEBUG_ENABLED =
   import.meta.env.DEV ||
   (typeof window !== 'undefined' && localStorage.getItem('@PecaJaFood:socketDebug') === 'true');
@@ -104,7 +108,7 @@ function getSocketBaseUrls() {
 
   // Use the same Vite origin selected by axios in development. Vite proxies
   // /socket.io to the canonical IPv4 backend and avoids localhost/IPv6 splits.
-  if (developmentProxyUrl) {
+  if (developmentProxyUrl && !E2E_DIRECT_API) {
     urls.add(developmentProxyUrl);
   }
 
@@ -514,7 +518,17 @@ export function disconnectTableSessionSocket({ immediate = false } = {}) {
 }
 
 export function connectTableWaitingSocket(
-  { tableToken, tableNumber, restaurantId, restaurantSlug },
+  {
+    tableToken,
+    tableNumber,
+    restaurantId,
+    restaurantSlug,
+  }: {
+    tableToken: string;
+    tableNumber: number;
+    restaurantId?: number | null;
+    restaurantSlug?: string | null;
+  },
   contextName = 'unknown',
 ) {
   const baseUrl = getSocketBaseUrl();

@@ -28,6 +28,7 @@ describe('socketService', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it('prioriza o proxy same-origin do Vite em desenvolvimento', async () => {
@@ -39,6 +40,22 @@ describe('socketService', () => {
 
     expect(ioMock).toHaveBeenCalledWith(
       window.location.origin,
+      expect.objectContaining({ path: '/socket.io' }),
+    );
+
+    disconnectSocket({ immediate: true });
+  });
+
+  it('usa endpoint direto sem desativar realtime no modo E2E de API direta', async () => {
+    vi.stubEnv('VITE_E2E_DIRECT_API', 'true');
+    const connectingSocket = socketDouble();
+    ioMock.mockReturnValue(connectingSocket);
+    const { connectSocket, disconnectSocket } = await import('./socketService');
+
+    connectSocket('token-restaurante', 'e2e-user');
+
+    expect(ioMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:3000',
       expect.objectContaining({ path: '/socket.io' }),
     );
 

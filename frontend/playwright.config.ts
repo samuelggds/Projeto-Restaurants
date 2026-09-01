@@ -1,10 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const localChromeExecutable = (
-  globalThis as typeof globalThis & {
-    process?: { env?: Record<string, string | undefined> };
-  }
-).process?.env?.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
+const processEnvironment =
+  (
+    globalThis as typeof globalThis & {
+      process?: { env?: Record<string, string | undefined> };
+    }
+  ).process?.env ?? {};
+const webServerEnvironment = Object.fromEntries(
+  Object.entries(processEnvironment).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
+  ),
+);
+const localChromeExecutable = processEnvironment.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
 
 export default defineConfig({
   testDir: './e2e',
@@ -29,8 +36,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      'VITE_E2E_DIRECT_API=true node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173',
+    command: 'node ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173',
+    env: { ...webServerEnvironment, VITE_E2E_DIRECT_API: 'true' },
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
     timeout: 120_000,

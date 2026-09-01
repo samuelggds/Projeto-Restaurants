@@ -1,5 +1,5 @@
 import { ArrowLeft, Check, CircleAlert, Minus, Plus, UtensilsCrossed } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   buildProductConfiguration,
@@ -55,6 +55,7 @@ export function ProductConfigurator({
   onClose,
   onConfirm,
 }: ProductConfiguratorProps) {
+  const totalDescriptionId = useId();
   const groups = useMemo(() => normalizeProductOptionGroups(product), [product]);
   const portionConfiguration = product.portionConfiguration?.enabled
     ? product.portionConfiguration
@@ -523,9 +524,14 @@ export function ProductConfigurator({
           <S.BottomBar data-testid="product-configurator-footer">
             <div>
               <small>Total deste item</small>
-              <strong>{brl(total)}</strong>
+              <strong id={totalDescriptionId}>{brl(total)}</strong>
             </div>
-            <button type="submit" disabled={!configurable}>
+            <button
+              type="submit"
+              disabled={!configurable}
+              aria-label="Adicionar à sacola"
+              aria-describedby={totalDescriptionId}
+            >
               Adicionar — {brl(total)}
             </button>
           </S.BottomBar>

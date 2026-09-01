@@ -188,7 +188,10 @@ test('admin configura os sete dias e alterna entre pausa manual e agenda', async
   await followScheduleButton.click();
   await expect(followScheduleButton).toHaveAttribute('aria-pressed', 'true');
 
-  await page.getByRole('button', { name: 'Salvar alterações' }).click();
+  await page.getByRole('button', { name: 'Dados do negócio' }).click();
+  const unsavedDialog = page.getByRole('dialog');
+  await expect(unsavedDialog).toContainText('Você tem alterações pendentes');
+  await unsavedDialog.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect.poll(() => state.savedPayload).not.toBeNull();
 
   const savedPayload = state.savedPayload;
