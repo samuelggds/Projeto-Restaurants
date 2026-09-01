@@ -232,6 +232,44 @@ jobs:
       - name: Apply migrations and run real tenant isolation suite
         run: npm run test:e2e:tenant
 
+  # Gate dedicado às policies do PostgreSQL. Mantê-lo separado impede que
+  # regressões de RLS fiquem escondidas por uma suíte multi-tenant mais ampla.
+  rls-security-e2e:
+    name: PostgreSQL RLS security E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tenant_e2e_owner
+          POSTGRES_PASSWORD: tenant-e2e-owner-password
+          POSTGRES_DB: tenant_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tenant_e2e_owner -d tenant_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TENANT_E2E_OWNER_DATABASE_URL: postgresql://tenant_e2e_owner:tenant-e2e-owner-password@127.0.0.1:5432/tenant_e2e?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Apply migrations and run PostgreSQL RLS suite
+        run: npm run test:e2e:rls
+
   # Somente jornadas que atravessam várias telas permanecem no E2E obrigatório.
   e2e-critical:
     name: Critical E2E journeys
@@ -302,7 +340,17 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [quality, lint, typecheck, test, multitenant-security-e2e, e2e-critical, audit]
+    needs:
+      [
+        quality,
+        lint,
+        typecheck,
+        test,
+        multitenant-security-e2e,
+        rls-security-e2e,
+        e2e-critical,
+        audit,
+      ]
     steps:
       - uses: actions/checkout@v4
 
@@ -336,3 +384,36 @@ jobs:
 
       - name: Enforce frontend bundle budget
         run: npm run check:bundle
+
+  full-root-ci-validation:
+    name: Full Root CI Validation
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    needs:
+      - quality
+      - lint
+      - typecheck
+      - test
+      - multitenant-security-e2e
+      - rls-security-e2e
+      - e2e-critical
+      - audit
+      - build
+    steps:
+      - name: Require every CI gate to pass
+        env:
+          JOB_RESULTS: ${{ toJson(needs) }}
+        run: |
+          node <<'NODE'
+          const jobs = JSON.parse(process.env.JOB_RESULTS);
+          const unsuccessful = Object.entries(jobs)
+            .filter(([, job]) => job.result !== 'success')
+            .map(([name, job]) => `${name}: ${job.result}`);
+
+          if (unsuccessful.length > 0) {
+            console.error(`Required CI gates did not pass:\n${unsuccessful.join('\n')}`);
+            process.exit(1);
+          }
+
+          console.log('All required CI gates passed.');
+          NODE

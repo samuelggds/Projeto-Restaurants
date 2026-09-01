@@ -111,7 +111,7 @@ async function collectE2ETests({ rlsOnly = false } = {}) {
       (entry) =>
         entry.isFile() &&
         entry.name.endsWith('.e2e.ts') &&
-        (!rlsOnly || entry.name.endsWith('.rls.e2e.ts')),
+        (rlsOnly ? entry.name.endsWith('.rls.e2e.ts') : !entry.name.endsWith('.rls.e2e.ts')),
     )
     .map((entry) => path.relative(backendRoot, path.join(directory, entry.name)))
     .sort();
