@@ -130,6 +130,17 @@ class MercadoPagoOrderWebhookController {
         if (!order) {
           return res.sendStatus(200);
         }
+        const providerPaymentId = `mp_pay:${normalizedPaymentId}`;
+        const linkedPaymentId = String(order.cardCheckoutSessionId || '').trim();
+        const canBindPaymentId =
+          !linkedPaymentId ||
+          linkedPaymentId.startsWith('mp_pref:') ||
+          linkedPaymentId === providerPaymentId;
+        if (!canBindPaymentId) {
+          return res.status(400).json({
+            error: 'Webhook Mercado Pago rejeitado: identificação da transação não confere.',
+          });
+        }
         if (
           String(order.paymentMethod || '').toUpperCase() !== 'CARTAO' ||
           !matchesOrderPaymentEvidence({
@@ -147,12 +158,13 @@ class MercadoPagoOrderWebhookController {
           await orderRepository.setCardCheckoutSessionId(
             orderId,
             referenceRestaurantId,
-            `mp_pay:${normalizedPaymentId}`,
+            providerPaymentId,
           );
         }
 
         await finalizeOrderCardPaymentService.execute({
           orderId,
+          checkoutSessionId: providerPaymentId,
           restaurantId: referenceRestaurantId,
           allowMissingOrder: true,
         });

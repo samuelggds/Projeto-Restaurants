@@ -8,6 +8,7 @@ import controller from './AsaasOrderWebhookController.js';
 const originals = {
   findOrder: prisma.order.findFirst,
   updateOrder: prisma.order.update,
+  updateRestaurantSettings: prisma.restaurantSettings.updateMany,
   transaction: prisma.$transaction,
   webhookToken: process.env.ASAAS_WEBHOOK_TOKEN,
 };
@@ -15,6 +16,7 @@ const originals = {
 afterEach(() => {
   prisma.order.findFirst = originals.findOrder;
   prisma.order.update = originals.updateOrder;
+  prisma.restaurantSettings.updateMany = originals.updateRestaurantSettings;
   prisma.$transaction = originals.transaction;
   if (originals.webhookToken === undefined) delete process.env.ASAAS_WEBHOOK_TOKEN;
   else process.env.ASAAS_WEBHOOK_TOKEN = originals.webhookToken;
@@ -131,3 +133,53 @@ for (const scenario of [
     assert.equal(transactionCalls, 0);
   });
 }
+
+test('webhook Asaas confirma cartão quando o id externo corresponde ao vinculado', async () => {
+  process.env.ASAAS_WEBHOOK_TOKEN = 'webhook-test-token';
+  let transactionCalls = 0;
+  prisma.order.findFirst = async () => ({
+    id: 91,
+    restaurantId: 7,
+    userId: null,
+    paid: false,
+    status: 'PENDENTE',
+    total: 59.9,
+    paymentMethod: 'CARTAO',
+    pixPaymentId: null,
+    cardCheckoutSessionId: 'asaas_pay:pay_expected',
+  });
+  prisma.restaurantSettings.updateMany = async () => ({ count: 0 });
+  prisma.$transaction = async () => {
+    transactionCalls += 1;
+    return {
+      id: 91,
+      restaurantId: 7,
+      userId: null,
+      paid: true,
+      status: 'PENDENTE',
+      paymentMethod: 'CARTAO',
+    };
+  };
+
+  const request = {
+    header(name) {
+      return name === 'asaas-access-token' ? 'webhook-test-token' : undefined;
+    },
+    body: {
+      event: 'PAYMENT_RECEIVED',
+      payment: {
+        id: 'pay_expected',
+        externalReference: 'ordercard:91:7',
+        value: 59.9,
+        walletId: 'wallet-tenant-a',
+      },
+    },
+  };
+  const response = createResponse();
+
+  await controller.handle(request, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.payload, { received: true, processed: true });
+  assert.equal(transactionCalls, 1);
+});

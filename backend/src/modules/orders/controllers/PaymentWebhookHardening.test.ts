@@ -272,6 +272,81 @@ for (const scenario of [
   });
 }
 
+for (const scenario of [
+  { label: 'evidência válida', amountValue: 7_990, expectedStatus: 200, shouldFinalize: true },
+  { label: 'valor divergente', amountValue: 1, expectedStatus: 400, shouldFinalize: false },
+]) {
+  test(`reconcilia webhook PagBank Orders de cartão com ${scenario.label}`, async () => {
+    restaurantSettingsRepository.findByRestaurantId = (async () => ({
+      pagbankEmail: 'restaurant@example.com',
+      pagbankToken: 'tenant-token',
+    })) as unknown as typeof restaurantSettingsRepository.findByRestaurantId;
+    orderRepository.findById = (async () => ({
+      id: 321,
+      restaurantId: 7,
+      paymentMethod: 'CARTAO',
+      total: 79.9,
+      cardCheckoutSessionId: 'pagbank_tx:CHAR-001',
+    })) as unknown as typeof orderRepository.findById;
+
+    let sessionWrites = 0;
+    orderRepository.setCardCheckoutSessionId = async () => {
+      sessionWrites += 1;
+      return null;
+    };
+    const finalizePayloads: Array<Record<string, unknown>> = [];
+    finalizeOrderCardPaymentService.execute = async (payload: any) => {
+      finalizePayloads.push(payload);
+      return null;
+    };
+    globalThis.fetch = async (input, init) => {
+      assert.equal(String(input), 'https://api.pagseguro.com/orders/ORDE-001');
+      assert.equal((init?.headers as Record<string, string>).Authorization, 'Bearer tenant-token');
+      return new Response(
+        JSON.stringify({
+          id: 'ORDE-001',
+          reference_id: 'ordercard:321:7',
+          charges: [
+            {
+              id: 'CHAR-001',
+              reference_id: 'ordercard:321:7',
+              status: 'PAID',
+              amount: { value: scenario.amountValue, currency: 'BRL' },
+              payment_method: { type: 'CREDIT_CARD' },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+
+    const req = {
+      body: {
+        id: 'ORDE-001',
+        reference_id: 'ordercard:321:7',
+        charges: [{ id: 'CHAR-001', status: 'PAID' }],
+        restaurantId: 7,
+      },
+      query: {},
+    } as any;
+    const res = createMockResponse();
+
+    await PagBankOrderWebhookController.handle(req, res as any);
+
+    assert.equal(res.statusCode, scenario.expectedStatus);
+    assert.equal(sessionWrites, scenario.shouldFinalize ? 1 : 0);
+    assert.equal(finalizePayloads.length, scenario.shouldFinalize ? 1 : 0);
+    if (scenario.shouldFinalize) {
+      assert.deepEqual(finalizePayloads[0], {
+        orderId: 321,
+        checkoutSessionId: 'pagbank_tx:CHAR-001',
+        restaurantId: 7,
+        allowMissingOrder: true,
+      });
+    }
+  });
+}
+
 test('deve exigir restaurantId no webhook Mercado Pago quando fallback global estiver desativado', async () => {
   process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK = 'false';
 

@@ -852,6 +852,29 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
             },
           );
           assert.equal(wrongAmount.response.status, 400);
+
+          await prisma.order.update({
+            where: { id: fixture.orders.a.id },
+            data: { cardCheckoutSessionId: 'mp_pay:mp-expected' },
+          });
+          mercadoPagoPayment = {
+            id: 'mp-other',
+            status: 'approved',
+            external_reference: `ordercard:${fixture.orders.a.id}:${fixture.restaurants.a.id}`,
+            metadata: { restaurant_id: fixture.restaurants.a.id },
+            transaction_amount: 25,
+            currency_id: 'BRL',
+          };
+          const wrongPaymentId = await apiRequest(
+            baseUrl,
+            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}`,
+            undefined,
+            {
+              method: 'POST',
+              json: { data: { id: 'mp-other' } },
+            },
+          );
+          assert.equal(wrongPaymentId.response.status, 400);
         } finally {
           globalThis.fetch = originalFetch;
         }
@@ -863,7 +886,7 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         assert.equal(foreignOrder.paid, false);
         assert.equal(foreignOrder.restaurantId, fixture.restaurants.b.id);
         assert.equal(amountMismatchOrder.paid, false);
-        assert.equal(amountMismatchOrder.cardCheckoutSessionId, 'mp_pref:original');
+        assert.equal(amountMismatchOrder.cardCheckoutSessionId, 'mp_pay:mp-expected');
       },
     );
 

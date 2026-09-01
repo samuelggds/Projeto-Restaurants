@@ -27,6 +27,21 @@ type PagBankCredentials = {
   environment: 'production';
 };
 
+type PagBankOrderChargeDetails = {
+  id: string;
+  status: string;
+  reference: string;
+  amount: unknown;
+  currency: unknown;
+  paymentMethodType: string;
+};
+
+type PagBankOrderDetails = {
+  id: string;
+  reference: string;
+  charges: PagBankOrderChargeDetails[];
+};
+
 class PagBankWebhookError extends Error {
   statusCode: number;
 
@@ -76,6 +91,65 @@ function resolvePagBankApiBaseUrl(environment: 'production') {
   return 'https://ws.pagseguro.uol.com.br';
 }
 
+function resolvePagBankOrdersApiBaseUrl() {
+  return String(process.env.PAGBANK_API_BASE_URL || 'https://api.pagseguro.com')
+    .trim()
+    .replace(/\/+$/, '');
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function parsePagBankOrderDetails(value: unknown): PagBankOrderDetails {
+  const order = asRecord(value);
+  const charges = Array.isArray(order.charges) ? order.charges : [];
+
+  return {
+    id: String(order.id || '').trim(),
+    reference: String(order.reference_id || '').trim(),
+    charges: charges.map((rawCharge) => {
+      const charge = asRecord(rawCharge);
+      const amount = asRecord(charge.amount);
+      const paymentMethod = asRecord(charge.payment_method);
+
+      return {
+        id: String(charge.id || '').trim(),
+        status: String(charge.status || '')
+          .trim()
+          .toUpperCase(),
+        reference: String(charge.reference_id || '').trim(),
+        amount: amount.value,
+        currency: amount.currency,
+        paymentMethodType: String(paymentMethod.type || '')
+          .trim()
+          .toUpperCase(),
+      };
+    }),
+  };
+}
+
+async function fetchPagBankOrderById(pagBankOrderId: string, restaurantId: number) {
+  const { token } = await getPagBankCredentials(restaurantId);
+  const response = await fetch(
+    `${resolvePagBankOrdersApiBaseUrl()}/orders/${encodeURIComponent(pagBankOrderId)}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    },
+  );
+  const responseBody = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new PagBankWebhookError('PagBank webhook: falha ao consultar pedido.', 502);
+  }
+
+  return parsePagBankOrderDetails(responseBody);
+}
+
 function extractXmlTagValue(xml: string, tag: string) {
   const regex = new RegExp(`<${tag}>([^<]+)</${tag}>`, 'i');
   const match = regex.exec(String(xml || ''));
@@ -92,12 +166,7 @@ function parsePagBankTransactionDetails(xml: string): PagBankTransactionDetails 
     status: transaction.children('status').first().text().trim(),
     reference: transaction.children('reference').first().text().trim(),
     grossAmount: transaction.children('grossAmount').first().text().trim(),
-    paymentMethodType: transaction
-      .children('paymentMethod')
-      .children('type')
-      .first()
-      .text()
-      .trim(),
+    paymentMethodType: transaction.children('paymentMethod').children('type').first().text().trim(),
   };
 }
 
@@ -204,6 +273,89 @@ class PagBankOrderWebhookController {
         return res.sendStatus(200);
       }
 
+      const cardOrderReference = /^ordercard:(\d+):(\d+)$/i.exec(referenceId);
+      if (pagBankOrderId && cardOrderReference) {
+        const referenceOrderId = Number(cardOrderReference[1]);
+        const referenceRestaurantId = Number(cardOrderReference[2]);
+        if (
+          !Number.isInteger(referenceOrderId) ||
+          referenceOrderId <= 0 ||
+          !Number.isInteger(referenceRestaurantId) ||
+          referenceRestaurantId <= 0 ||
+          (restaurantIdHint && restaurantIdHint !== referenceRestaurantId)
+        ) {
+          return res.status(400).json({
+            error: 'Webhook PagBank rejeitado: restaurante da transação não confere.',
+          });
+        }
+
+        const order = await orderRepository.findById(referenceOrderId, referenceRestaurantId);
+        if (!order) {
+          return res.sendStatus(200);
+        }
+
+        const expectedReference = `ordercard:${referenceOrderId}:${referenceRestaurantId}`;
+        const providerOrder = await fetchPagBankOrderById(pagBankOrderId, referenceRestaurantId);
+        const linkedPaymentId = String(order.cardCheckoutSessionId || '').trim();
+        const providerCharge = providerOrder.charges.find((charge) =>
+          linkedPaymentId
+            ? `pagbank_tx:${charge.id}` === linkedPaymentId
+            : charge.reference === expectedReference,
+        );
+
+        if (
+          providerOrder.id !== pagBankOrderId ||
+          providerOrder.reference !== expectedReference ||
+          String(order.paymentMethod || '').toUpperCase() !== 'CARTAO' ||
+          !providerCharge ||
+          providerCharge.reference !== expectedReference
+        ) {
+          return res.status(400).json({
+            error: 'Webhook PagBank rejeitado: identificação da transação não confere.',
+          });
+        }
+
+        if (TERMINAL_ORDER_STATUSES.has(providerCharge.status)) {
+          await failPendingOrderPaymentService.execute({
+            orderId: referenceOrderId,
+            restaurantId: referenceRestaurantId,
+          });
+          return res.sendStatus(200);
+        }
+
+        if (providerCharge.status !== 'PAID') {
+          return res.sendStatus(200);
+        }
+
+        if (
+          providerCharge.paymentMethodType !== 'CREDIT_CARD' ||
+          !matchesOrderPaymentEvidence({
+            expectedAmount: order.total,
+            providerAmount: providerCharge.amount,
+            providerAmountUnit: 'MINOR',
+            providerCurrency: providerCharge.currency,
+          })
+        ) {
+          return res.status(400).json({
+            error: 'Webhook PagBank rejeitado: dados financeiros da transação não conferem.',
+          });
+        }
+
+        const providerPaymentId = `pagbank_tx:${providerCharge.id}`;
+        await orderRepository.setCardCheckoutSessionId(
+          referenceOrderId,
+          referenceRestaurantId,
+          providerPaymentId,
+        );
+        await finalizeOrderCardPaymentService.execute({
+          orderId: referenceOrderId,
+          checkoutSessionId: providerPaymentId,
+          restaurantId: referenceRestaurantId,
+          allowMissingOrder: true,
+        });
+        return res.sendStatus(200);
+      }
+
       if (!restaurantIdHint && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK !== 'true') {
         return res.status(400).json({
           error: 'restaurantId obrigatorio no webhook PagBank para ambiente multi-tenant.',
@@ -292,9 +444,7 @@ class PagBankOrderWebhookController {
     } catch (error: unknown) {
       const statusCode = error instanceof PagBankWebhookError ? error.statusCode : 500;
       const message =
-        error instanceof PagBankWebhookError
-          ? error.message
-          : 'Erro interno no webhook PagBank.';
+        error instanceof PagBankWebhookError ? error.message : 'Erro interno no webhook PagBank.';
 
       console.error('[ORDER_CARD_PAGBANK_WEBHOOK_ERROR]', {
         statusCode,
