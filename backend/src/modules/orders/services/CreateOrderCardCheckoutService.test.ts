@@ -16,11 +16,15 @@ http.createServer = ((...args) => {
   return server;
 }) as typeof http.createServer;
 
-const [{ default: createOrderService }, { default: createOrderCardCheckoutService }] =
-  await Promise.all([
-    import('./CreateOrderService.js'),
-    import('./CreateOrderCardCheckoutService.js'),
-  ]);
+const [
+  { default: createOrderService },
+  { default: createOrderCardCheckoutService },
+  { default: finalizeOrderCardPaymentService },
+] = await Promise.all([
+  import('./CreateOrderService.js'),
+  import('./CreateOrderCardCheckoutService.js'),
+  import('./FinalizeOrderCardPaymentService.js'),
+]);
 
 http.createServer = originalHttpCreateServer;
 
@@ -29,6 +33,7 @@ const originalRepositoryMethods = {
 };
 
 const originalCreateOrderExecute = createOrderService.execute;
+const originalFinalizeOrderCardPaymentExecute = finalizeOrderCardPaymentService.execute;
 const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionId;
 const originalDeleteById = orderRepository.deleteById;
 const originalFindCustomerPaymentMethod = prisma.customerPaymentMethod.findFirst;
@@ -44,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   restaurantSettingsRepository.findByRestaurantId = originalRepositoryMethods.findByRestaurantId;
   createOrderService.execute = originalCreateOrderExecute;
+  finalizeOrderCardPaymentService.execute = originalFinalizeOrderCardPaymentExecute;
   orderRepository.setCardCheckoutSessionId = originalSetCardCheckoutSessionId;
   orderRepository.deleteById = originalDeleteById;
   prisma.customerPaymentMethod.findFirst = originalFindCustomerPaymentMethod;
@@ -335,4 +341,172 @@ test('deve reutilizar token Asaas sem expor os dados completos do cartão', asyn
     creditCardToken: 'tok_saved_001',
     remoteIp: '203.0.113.42',
   });
+});
+
+test('não confirma cartão salvo Asaas com valor divergente na resposta aprovada', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    cardGateway: 'ASAAS',
+    asaasAccessToken: 'asaas-token-restaurante',
+  });
+  createOrderService.execute = async () => ({
+    id: 656,
+    restaurantId: 9,
+    total: 89.9,
+    systemFee: 0,
+    restaurant: { name: 'Pizzaria da Ana' },
+  });
+  prisma.customerPaymentMethod.findFirst = async () => ({
+    publicId: 'saved-card-public-id',
+    providerCustomerId: 'cus_saved_001',
+    providerPaymentMethodId: 'tok_saved_001',
+    active: true,
+  });
+  orderRepository.setCardCheckoutSessionId = async () => null;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: 'pay_saved_002',
+        status: 'CONFIRMED',
+        value: 0.01,
+        billingType: 'CREDIT_CARD',
+        externalReference: 'ordercard:656:9',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+
+  let finalizeCalls = 0;
+  finalizeOrderCardPaymentService.execute = async () => {
+    finalizeCalls += 1;
+    return null;
+  };
+
+  const result = await createOrderCardCheckoutService.execute({
+    userId: 33,
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: 'DELIVERY',
+    paymentMethod: 'CARTAO',
+    paymentMethodId: 'saved-card-public-id',
+    items: [{ productId: 1, quantity: 1 }],
+    successUrl: 'https://pedido.local/sucesso',
+  });
+
+  assert.equal(result.paid, false);
+  assert.equal(finalizeCalls, 0);
+});
+
+test('não confirma cartão salvo PagBank com valor divergente na resposta paga', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    cardGateway: 'PAGBANK',
+    pagbankEmail: 'restaurant@example.com',
+    pagbankToken: 'tenant-token',
+  });
+  createOrderService.execute = async () => ({
+    id: 657,
+    restaurantId: 9,
+    total: 89.9,
+    systemFee: 0,
+    restaurant: { name: 'Pizzaria da Ana' },
+  });
+  prisma.customerPaymentMethod.findFirst = async () => ({
+    publicId: 'saved-card-public-id',
+    providerPaymentMethodId: 'CARD-TOKEN-001',
+    active: true,
+  });
+  orderRepository.setCardCheckoutSessionId = async () => null;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: 'ORDE-001',
+        reference_id: 'ordercard:657:9',
+        charges: [
+          {
+            id: 'CHAR-001',
+            reference_id: 'ordercard:657:9',
+            status: 'PAID',
+            amount: { value: 1, currency: 'BRL' },
+            payment_method: { type: 'CREDIT_CARD' },
+          },
+        ],
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+
+  let finalizeCalls = 0;
+  finalizeOrderCardPaymentService.execute = async () => {
+    finalizeCalls += 1;
+    return null;
+  };
+
+  const result = await createOrderCardCheckoutService.execute({
+    userId: 33,
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: 'DELIVERY',
+    paymentMethod: 'CARTAO',
+    paymentMethodId: 'saved-card-public-id',
+    customerCpf: '12345678901',
+    items: [{ productId: 1, quantity: 1 }],
+    successUrl: 'https://pedido.local/sucesso',
+  });
+
+  assert.equal(result.paid, false);
+  assert.equal(finalizeCalls, 0);
+});
+
+test('retorna paid somente quando a finalização canônica confirma o cartão', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    cardGateway: 'ASAAS',
+    asaasAccessToken: 'asaas-token-restaurante',
+  });
+  createOrderService.execute = async () => ({
+    id: 658,
+    restaurantId: 9,
+    total: 89.9,
+    systemFee: 0,
+    restaurant: { name: 'Pizzaria da Ana' },
+  });
+  prisma.customerPaymentMethod.findFirst = async () => ({
+    publicId: 'saved-card-public-id',
+    providerCustomerId: 'cus_saved_001',
+    providerPaymentMethodId: 'tok_saved_001',
+    active: true,
+  });
+  orderRepository.setCardCheckoutSessionId = async () => null;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: 'pay_saved_003',
+        status: 'CONFIRMED',
+        value: 89.9,
+        billingType: 'CREDIT_CARD',
+        externalReference: 'ordercard:658:9',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+
+  let canonicalPaid = false;
+  let finalizeCalls = 0;
+  finalizeOrderCardPaymentService.execute = async () => {
+    finalizeCalls += 1;
+    return { paid: canonicalPaid };
+  };
+  const payload = {
+    userId: 33,
+    restaurantId: 9,
+    userRestaurantId: 9,
+    type: 'DELIVERY',
+    paymentMethod: 'CARTAO',
+    paymentMethodId: 'saved-card-public-id',
+    items: [{ productId: 1, quantity: 1 }],
+    successUrl: 'https://pedido.local/sucesso',
+  };
+
+  const unresolvedResult = await createOrderCardCheckoutService.execute(payload);
+  assert.equal(unresolvedResult.paid, false);
+
+  canonicalPaid = true;
+  const paidResult = await createOrderCardCheckoutService.execute(payload);
+  assert.equal(paidResult.paid, true);
+  assert.equal(finalizeCalls, 2);
 });

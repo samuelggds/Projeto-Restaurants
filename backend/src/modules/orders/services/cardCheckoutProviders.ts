@@ -7,6 +7,7 @@ import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mer
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 
 type CheckoutOrder = {
   id: number;
@@ -125,6 +126,9 @@ type AsaasCardPaymentPayload = {
   id?: string;
   invoiceUrl?: string;
   status?: string;
+  value?: number;
+  billingType?: string;
+  externalReference?: string;
   errors?: AsaasErrorItem[];
 };
 
@@ -527,17 +531,37 @@ const pagBankCardCheckoutProvider: CardCheckoutProviderHandler = {
         );
       }
       const status = String(charge.status || '').toUpperCase();
-      const transactionId = String(charge.id || responseBody.id || '').trim();
+      const transactionId = String(charge.id || '').trim();
       if (!transactionId) throw new Error('O PagBank não retornou a identificação do pagamento.');
+      const expectedReference = `ordercard:${order.id}:${order.restaurantId}`;
+      const chargeAmount =
+        typeof charge.amount === 'object' && charge.amount !== null
+          ? (charge.amount as Record<string, unknown>)
+          : {};
+      const paymentMethod =
+        typeof charge.payment_method === 'object' && charge.payment_method !== null
+          ? (charge.payment_method as Record<string, unknown>)
+          : {};
+      const paymentApproved =
+        status === 'PAID' &&
+        String(responseBody.reference_id || '').trim() === expectedReference &&
+        String(charge.reference_id || '').trim() === expectedReference &&
+        String(paymentMethod.type || '').toUpperCase() === 'CREDIT_CARD' &&
+        matchesOrderPaymentEvidence({
+          expectedAmount: order.total,
+          providerAmount: chargeAmount.value,
+          providerAmountUnit: 'MINOR',
+          providerCurrency: chargeAmount.currency,
+        });
       return {
         provider: CARD_PROVIDERS.PAGBANK,
         sessionId: transactionId,
         persistenceSessionId: `pagbank_tx:${transactionId}`,
         checkoutUrl: withQueryParam(successUrlBase, {
-          cardCheckoutStatus: status === 'PAID' ? 'success' : 'pending',
+          cardCheckoutStatus: paymentApproved ? 'success' : 'pending',
           orderId: String(order.id),
         }),
-        paymentApproved: status === 'PAID',
+        paymentApproved,
       };
     }
 
@@ -652,7 +676,16 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
         .trim()
         .toUpperCase();
       if (!sessionId) throw new Error('O Asaas não retornou a identificação do pagamento.');
-      const paymentApproved = ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].includes(status);
+      const paymentApproved =
+        ['CONFIRMED', 'RECEIVED'].includes(status) &&
+        String(paymentResult.responseBody?.billingType || '').toUpperCase() === 'CREDIT_CARD' &&
+        String(paymentResult.responseBody?.externalReference || '').trim() ===
+          `ordercard:${order.id}:${order.restaurantId}` &&
+        matchesOrderPaymentEvidence({
+          expectedAmount: order.total,
+          providerAmount: paymentResult.responseBody?.value,
+          providerCurrency: 'BRL',
+        });
 
       return {
         provider: CARD_PROVIDERS.ASAAS,

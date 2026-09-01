@@ -80,7 +80,6 @@ class CreateOrderCardCheckoutService {
         successUrlBase,
         cancelUrlBase,
       });
-
     } catch (error) {
       await prisma.$transaction(async (tx) => {
         const pendingOrder = await orderRepository.findById(
@@ -113,12 +112,14 @@ class CreateOrderCardCheckoutService {
       );
     }
 
+    let paymentConfirmed = false;
     if (checkout.paymentApproved) {
-      await finalizeOrderCardPaymentService.execute({
+      const finalizedOrder = await finalizeOrderCardPaymentService.execute({
         orderId: createdOrder.id,
         restaurantId: createdOrder.restaurantId,
         checkoutSessionId: String(checkout.persistenceSessionId || checkout.sessionId),
       });
+      paymentConfirmed = finalizedOrder?.paid === true;
     }
 
     return {
@@ -126,7 +127,7 @@ class CreateOrderCardCheckoutService {
       provider: checkout.provider,
       sessionId: checkout.sessionId,
       checkoutUrl: checkout.checkoutUrl,
-      paid: Boolean(checkout.paymentApproved),
+      paid: paymentConfirmed,
     };
   }
 }
