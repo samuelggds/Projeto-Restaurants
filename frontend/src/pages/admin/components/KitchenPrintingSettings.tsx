@@ -14,7 +14,7 @@ import kitchenPrintingService, {
   type KitchenPrintJobSummary,
   type KitchenPrintingConfiguration,
 } from '../../../Services/kitchenPrintingService';
-import * as S from './KitchenPrintingSettings.styles';
+import * as S from './KitchenPrintingSettingsGuide.styles';
 
 const STATUS_REFRESH_MS = 30_000;
 
@@ -260,30 +260,55 @@ export function KitchenPrintingSettings() {
 
   const { agent, queue } = configuration;
   const pendingJobs = (queue.PENDING || 0) + (queue.PROCESSING || 0);
+  const canConfigureAgent = draft.enabled && !dirty;
+  const setupComplete = Boolean(draft.enabled && !dirty && agent?.online && agent.printerName);
+  const nextAction = !draft.enabled
+    ? 'Ative a impressão no passo 1 para começar.'
+    : dirty
+      ? 'Salve suas escolhas para continuar a configuração.'
+      : !agent
+        ? 'Gere uma chave no passo 3 e conecte o computador da cozinha.'
+        : !agent.online
+          ? 'Abra o Print Agent no computador da cozinha para ele ficar online.'
+          : !agent.printerName
+            ? 'Escolha a impressora térmica dentro do Print Agent.'
+            : 'Tudo pronto. Faça uma impressão de teste para conferir a comanda.';
 
   return (
     <S.Root>
-      <div className="hero">
-        <div className="hero-copy">
-          <span className="eyebrow">
-            <Printer size={15} /> Integração local e opcional
-          </span>
-          <h2>Comandas chegando direto na cozinha</h2>
+      <header className="setup-intro">
+        <span className="intro-icon" aria-hidden="true">
+          <Printer />
+        </span>
+        <div>
+          <span className="eyebrow">Configuração guiada</span>
+          <h2>Configure a impressora em 3 passos</h2>
           <p>
-            O pedido é guardado em uma fila segura e o agente local envia a comanda para a
-            impressora escolhida. Se o computador estiver offline, nada é perdido.
+            Ative o recurso, escolha como a comanda será impressa e conecte o computador da cozinha.
+            Os pedidos ficam em uma fila segura, mesmo se o computador estiver offline.
           </p>
         </div>
-        <div className="hero-status" aria-label="Resumo da impressão">
-          <span className={`status-pill ${draft.enabled ? 'online' : ''}`}>
-            <span className="dot" /> {draft.enabled ? 'Impressão ativada' : 'Impressão desativada'}
-          </span>
-          <span className={`status-pill ${agent?.online ? 'online' : ''}`}>
-            <span className="dot" /> {agent?.online ? 'Agente conectado' : 'Agente offline'}
-          </span>
-          <span className="status-pill">
-            {pendingJobs} {pendingJobs === 1 ? 'job aguardando' : 'jobs aguardando'}
-          </span>
+      </header>
+
+      <div className="status-summary" aria-label="Resumo da impressão">
+        <span className={`status-item ${draft.enabled ? 'success' : ''}`}>
+          <span className="status-dot" />
+          {draft.enabled ? 'Impressão ativada' : 'Impressão desativada'}
+        </span>
+        <span className={`status-item ${agent?.online ? 'success' : ''}`}>
+          <span className="status-dot" />
+          {agent?.online ? 'Computador conectado' : 'Computador desconectado'}
+        </span>
+        <span className={`status-item ${pendingJobs > 0 ? 'attention' : ''}`}>
+          {pendingJobs} {pendingJobs === 1 ? 'comanda aguardando' : 'comandas aguardando'}
+        </span>
+      </div>
+
+      <div className={`next-action ${setupComplete ? 'complete' : ''}`} role="status">
+        <span>{setupComplete ? <CheckCircle2 /> : <span className="next-number">→</span>}</span>
+        <div>
+          <b>{setupComplete ? 'Configuração concluída' : 'Próximo passo'}</b>
+          <p>{nextAction}</p>
         </div>
       </div>
 
@@ -296,34 +321,13 @@ export function KitchenPrintingSettings() {
         </div>
       )}
 
-      {credential && (
-        <div className="credential" role="region" aria-label="Credencial do agente">
-          <div className="credential-head">
-            <KeyRound />
+      <div className="setup-flow">
+        <section className="step-card">
+          <div className="step-header">
+            <span className="step-number">1</span>
             <div>
-              <h3>Credencial exibida uma única vez</h3>
-              <p>Copie e use no comando de pareamento do Print Agent neste computador.</p>
-            </div>
-          </div>
-          <div className="credential-row">
-            <input aria-label="Credencial do Print Agent" readOnly value={credential} />
-            <button className="copy" type="button" onClick={() => void copyCredential()}>
-              <Copy size={15} /> {copied ? 'Copiado' : 'Copiar'}
-            </button>
-          </div>
-          <small className="credential-note">
-            Por segurança, o servidor armazena somente o hash e não poderá mostrar esta chave
-            novamente. Uma rotação invalida imediatamente a chave anterior.
-          </small>
-        </div>
-      )}
-
-      <div className="grid">
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h3>Automação da cozinha</h3>
-              <p>Ative apenas se este restaurante utiliza uma impressora térmica.</p>
+              <h3>Ative a impressora da cozinha</h3>
+              <p>Use esta opção somente se o restaurante possui uma impressora térmica.</p>
             </div>
             <label className="switch" aria-label="Usar impressora da cozinha">
               <input
@@ -334,228 +338,349 @@ export function KitchenPrintingSettings() {
               <span />
             </label>
           </div>
+          <div className={`activation-note ${draft.enabled ? 'active' : ''}`}>
+            <b>{draft.enabled ? 'Recurso ativado' : 'Recurso desativado'}</b>
+            <span>
+              {draft.enabled
+                ? 'Continue no passo 2 para definir como as comandas serão impressas.'
+                : 'Nenhuma comanda será criada ou enviada para a impressora.'}
+            </span>
+          </div>
+        </section>
 
-          <div className={`configuration ${draft.enabled ? '' : 'disabled'}`}>
-            <div className="toggle-line">
-              <div>
-                <b>Impressão automática</b>
-                <small>Novas comandas entram na fila sem ação manual da equipe.</small>
-              </div>
-              <label className="switch" aria-label="Ativar impressão automática">
-                <input
-                  type="checkbox"
-                  disabled={!draft.enabled}
-                  checked={draft.autoPrintEnabled}
-                  onChange={(event) => updateDraft('autoPrintEnabled', event.target.checked)}
-                />
-                <span />
-              </label>
+        <section className={`step-card ${draft.enabled ? '' : 'locked'}`}>
+          <div className="step-header">
+            <span className="step-number">2</span>
+            <div>
+              <h3>Escolha como imprimir</h3>
+              <p>Defina o momento, o tamanho do papel e a quantidade de cópias.</p>
             </div>
+          </div>
 
-            <fieldset disabled={!draft.enabled}>
-              <legend className="field-title">Quando imprimir automaticamente?</legend>
-              <span className="field-help">Escolha o momento que corresponde ao seu fluxo.</span>
-              <div className="choice-grid">
-                <label
-                  className={`choice ${draft.autoPrintTrigger === 'NEW_ORDER' ? 'selected' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="printer-trigger"
-                    value="NEW_ORDER"
-                    checked={draft.autoPrintTrigger === 'NEW_ORDER'}
-                    onChange={() => updateDraft('autoPrintTrigger', 'NEW_ORDER')}
-                  />
-                  <b>Ao entrar na cozinha</b>
+          {draft.enabled ? (
+            <div className="configuration">
+              <div className="toggle-line">
+                <div>
+                  <b>Imprimir novos pedidos automaticamente</b>
                   <small>
-                    Ideal para pedidos na entrega e para começar o preparo imediatamente.
+                    Quando desligado, a equipe ainda poderá solicitar impressões manualmente.
                   </small>
-                </label>
-                <label
-                  className={`choice ${draft.autoPrintTrigger === 'PAYMENT_CONFIRMED' ? 'selected' : ''}`}
-                >
+                </div>
+                <label className="switch" aria-label="Ativar impressão automática">
                   <input
-                    type="radio"
-                    name="printer-trigger"
-                    value="PAYMENT_CONFIRMED"
-                    checked={draft.autoPrintTrigger === 'PAYMENT_CONFIRMED'}
-                    onChange={() => updateDraft('autoPrintTrigger', 'PAYMENT_CONFIRMED')}
+                    type="checkbox"
+                    checked={draft.autoPrintEnabled}
+                    onChange={(event) => updateDraft('autoPrintEnabled', event.target.checked)}
                   />
-                  <b>Após pagamento confirmado</b>
-                  <small>Espera a transição segura do pedido para pago.</small>
+                  <span />
                 </label>
               </div>
-            </fieldset>
 
-            {draft.autoPrintTrigger === 'PAYMENT_CONFIRMED' && (
-              <div className="warning">
-                <AlertTriangle />
-                <span>
-                  Pedidos com pagamento na entrega e contas de mesa podem demorar a imprimir até a
-                  confirmação. Se a cozinha precisa recebê-los imediatamente, use “Ao entrar na
-                  cozinha”.
-                </span>
-              </div>
-            )}
-
-            <div className="compact-grid">
-              <fieldset disabled={!draft.enabled}>
-                <legend className="field-title">Largura do papel</legend>
-                <div className="choice-grid">
-                  {(['MM58', 'MM80'] as const).map((width) => (
+              {draft.autoPrintEnabled && (
+                <fieldset>
+                  <legend className="field-title">Quando a comanda deve ser impressa?</legend>
+                  <span className="field-help">Escolha a opção que combina com sua operação.</span>
+                  <div className="choice-grid">
                     <label
-                      key={width}
-                      className={`choice ${draft.paperWidth === width ? 'selected' : ''}`}
+                      className={`choice ${draft.autoPrintTrigger === 'NEW_ORDER' ? 'selected' : ''}`}
                     >
                       <input
                         type="radio"
-                        name="paper-width"
-                        value={width}
-                        checked={draft.paperWidth === width}
-                        onChange={() => updateDraft('paperWidth', width)}
+                        name="printer-trigger"
+                        value="NEW_ORDER"
+                        checked={draft.autoPrintTrigger === 'NEW_ORDER'}
+                        onChange={() => updateDraft('autoPrintTrigger', 'NEW_ORDER')}
                       />
-                      <b>{width === 'MM58' ? '58 mm' : '80 mm'}</b>
+                      <span className="recommended">Recomendado</span>
+                      <b>Quando o pedido entrar na cozinha</b>
                       <small>
-                        {width === 'MM58' ? 'Comanda compacta' : 'Mais espaço e leitura'}
+                        A equipe recebe a comanda e pode iniciar o preparo imediatamente.
                       </small>
                     </label>
-                  ))}
-                </div>
-              </fieldset>
-              <label className="copies">
-                <span className="field-title">Número de cópias</span>
-                <input
-                  aria-label="Número de cópias"
-                  type="number"
-                  min="1"
-                  max="5"
-                  disabled={!draft.enabled}
-                  value={draft.copies}
-                  onChange={(event) =>
-                    updateDraft(
-                      'copies',
-                      Math.max(1, Math.min(5, Math.round(Number(event.target.value) || 1))),
-                    )
-                  }
-                />
-              </label>
-            </div>
+                    <label
+                      className={`choice ${draft.autoPrintTrigger === 'PAYMENT_CONFIRMED' ? 'selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="printer-trigger"
+                        value="PAYMENT_CONFIRMED"
+                        checked={draft.autoPrintTrigger === 'PAYMENT_CONFIRMED'}
+                        onChange={() => updateDraft('autoPrintTrigger', 'PAYMENT_CONFIRMED')}
+                      />
+                      <b>Depois de confirmar o pagamento</b>
+                      <small>A comanda espera o pedido ficar com o status de pago.</small>
+                    </label>
+                  </div>
+                </fieldset>
+              )}
 
-            <div className="footer">
-              {dirty && <span className="dirty">Alterações ainda não aplicadas</span>}
+              {draft.autoPrintEnabled && draft.autoPrintTrigger === 'PAYMENT_CONFIRMED' && (
+                <div className="warning">
+                  <AlertTriangle />
+                  <span>
+                    Pedidos com pagamento na entrega e contas de mesa podem demorar a imprimir. Se a
+                    cozinha precisa receber tudo imediatamente, escolha a opção recomendada.
+                  </span>
+                </div>
+              )}
+
+              <div className="print-format">
+                <fieldset>
+                  <legend className="field-title">Qual é a largura do papel?</legend>
+                  <div className="choice-grid paper-options">
+                    {(['MM58', 'MM80'] as const).map((width) => (
+                      <label
+                        key={width}
+                        className={`choice compact ${draft.paperWidth === width ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="paper-width"
+                          value={width}
+                          checked={draft.paperWidth === width}
+                          onChange={() => updateDraft('paperWidth', width)}
+                        />
+                        <b>{width === 'MM58' ? '58 mm' : '80 mm'}</b>
+                        <small>
+                          {width === 'MM58' ? 'Bobina estreita' : 'Bobina larga e mais legível'}
+                        </small>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <label className="copies">
+                  <span className="field-title">Quantas cópias?</span>
+                  <small>De 1 a 5 por pedido.</small>
+                  <input
+                    aria-label="Número de cópias"
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={draft.copies}
+                    onChange={(event) =>
+                      updateDraft(
+                        'copies',
+                        Math.max(1, Math.min(5, Math.round(Number(event.target.value) || 1))),
+                      )
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+          ) : (
+            <div className="locked-message">
+              <b>Este passo será liberado depois da ativação</b>
+              <span>Ligue a opção do passo 1 para visualizar as escolhas de impressão.</span>
+            </div>
+          )}
+
+          <div className={`save-strip ${dirty ? 'pending' : ''}`}>
+            <div>
+              <b>
+                {dirty ? 'Existem alterações que ainda não foram salvas' : 'Configuração salva'}
+              </b>
+              <span>
+                {dirty
+                  ? 'Salve agora para aplicar as escolhas e liberar o próximo passo.'
+                  : draft.enabled
+                    ? 'As escolhas acima já estão valendo para este restaurante.'
+                    : 'A impressão da cozinha permanece desativada.'}
+              </span>
+            </div>
+            {dirty && (
               <button
                 className="primary"
                 type="button"
-                disabled={!dirty || busy !== null}
+                disabled={busy !== null}
                 onClick={() => void save()}
               >
                 {busy === 'save' ? 'Salvando…' : 'Salvar configuração'}
               </button>
-            </div>
+            )}
           </div>
-        </div>
+        </section>
 
-        <aside className="card agent-card">
-          <div className="card-header">
+        <section className={`step-card ${canConfigureAgent ? '' : 'locked'}`}>
+          <div className="step-header">
+            <span className="step-number">3</span>
             <div>
-              <h3>Print Agent</h3>
-              <p>Conecta este restaurante à impressora instalada no Windows.</p>
+              <h3>Conecte o computador da cozinha</h3>
+              <p>O Print Agent faz a ponte segura entre o sistema e a impressora do Windows.</p>
             </div>
-            <button
-              className="secondary"
-              type="button"
-              aria-label="Atualizar status do agente"
-              disabled={loading}
-              onClick={() => void loadConfiguration(true)}
-            >
-              <RefreshCw size={15} />
-            </button>
-          </div>
-
-          <div className={`agent-state ${agent?.online ? 'online' : ''}`}>
-            <span className="agent-icon">{agent?.online ? <CheckCircle2 /> : <Unplug />}</span>
-            <div>
-              <b>{agent?.online ? 'Agente conectado' : agent ? 'Agente offline' : 'Não pareado'}</b>
-              <small>
-                {agent?.online
-                  ? 'Heartbeat recebido recentemente'
-                  : agent
-                    ? 'Abra o agente no computador da cozinha'
-                    : 'Gere uma credencial para começar'}
-              </small>
-            </div>
+            {canConfigureAgent && (
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Atualizar status do agente"
+                disabled={loading}
+                onClick={() => void loadConfiguration(true)}
+              >
+                <RefreshCw size={16} />
+              </button>
+            )}
           </div>
 
-          <dl className="facts">
-            <div>
-              <dt>Impressora</dt>
-              <dd title={agent?.printerName || undefined}>
-                {agent?.printerName || 'Não informada'}
-              </dd>
+          {!canConfigureAgent ? (
+            <div className="locked-message">
+              <b>{draft.enabled ? 'Salve antes de conectar' : 'Conclua os passos anteriores'}</b>
+              <span>
+                {draft.enabled
+                  ? 'A conexão será liberada assim que as alterações forem salvas.'
+                  : 'Ative e salve a configuração da impressora para continuar.'}
+              </span>
             </div>
-            <div>
-              <dt>Dispositivo</dt>
-              <dd>{agent?.name || 'Não configurado'}</dd>
+          ) : (
+            <div className="agent-content">
+              <div className={`agent-state ${agent?.online ? 'online' : ''}`}>
+                <span className="agent-icon">{agent?.online ? <CheckCircle2 /> : <Unplug />}</span>
+                <div>
+                  <b>
+                    {agent?.online
+                      ? 'Computador conectado'
+                      : agent
+                        ? 'Computador desconectado'
+                        : 'Nenhum computador conectado'}
+                  </b>
+                  <small>
+                    {agent?.online
+                      ? 'O Print Agent está pronto para receber comandas.'
+                      : agent
+                        ? 'Abra o Print Agent no computador da cozinha.'
+                        : 'Siga as instruções abaixo para fazer o primeiro acesso.'}
+                  </small>
+                </div>
+              </div>
+
+              {!agent && (
+                <ol className="pairing-guide">
+                  <li>
+                    <span>1</span>
+                    <div>
+                      <b>Dê um nome ao computador</b>
+                      <small>Use um nome fácil, como “Computador da cozinha”.</small>
+                    </div>
+                  </li>
+                  <li>
+                    <span>2</span>
+                    <div>
+                      <b>Gere uma chave de conexão</b>
+                      <small>A chave identifica este restaurante com segurança.</small>
+                    </div>
+                  </li>
+                  <li>
+                    <span>3</span>
+                    <div>
+                      <b>Abra o Print Agent e informe a chave</b>
+                      <small>Depois, escolha a impressora térmica instalada no Windows.</small>
+                    </div>
+                  </li>
+                </ol>
+              )}
+
+              <div className="agent-setup">
+                <label className="device-name">
+                  <span>Nome deste computador</span>
+                  <small>Este nome aparecerá somente para a equipe administrativa.</small>
+                  <input
+                    aria-label="Nome do computador do Print Agent"
+                    maxLength={80}
+                    value={deviceName}
+                    onChange={(event) => setDeviceName(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void issueCredential()}
+                >
+                  <RotateCw size={15} />
+                  {busy === 'credential'
+                    ? 'Gerando…'
+                    : agent
+                      ? 'Gerar uma nova chave'
+                      : 'Gerar chave de conexão'}
+                </button>
+              </div>
+
+              {credential && (
+                <div className="credential" role="region" aria-label="Credencial do agente">
+                  <div className="credential-head">
+                    <KeyRound />
+                    <div>
+                      <h4>Copie esta chave agora</h4>
+                      <p>Ela será exibida apenas uma vez e deve ser informada no Print Agent.</p>
+                    </div>
+                  </div>
+                  <div className="credential-row">
+                    <input aria-label="Credencial do Print Agent" readOnly value={credential} />
+                    <button className="copy" type="button" onClick={() => void copyCredential()}>
+                      <Copy size={15} /> {copied ? 'Copiado' : 'Copiar chave'}
+                    </button>
+                  </div>
+                  <small className="credential-note">
+                    Por segurança, o servidor armazena somente o hash e não poderá mostrar esta
+                    chave novamente. Uma nova chave invalida imediatamente a anterior.
+                  </small>
+                </div>
+              )}
+
+              {agent && (
+                <div className="agent-details">
+                  <dl className="facts">
+                    <div>
+                      <dt>Impressora escolhida</dt>
+                      <dd title={agent.printerName || undefined}>
+                        {agent.printerName || 'Ainda não escolhida'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Nome do computador</dt>
+                      <dd>{agent.name}</dd>
+                    </div>
+                    <div>
+                      <dt>Último contato</dt>
+                      <dd>
+                        {agent.lastSeenAt
+                          ? new Date(agent.lastSeenAt).toLocaleString('pt-BR')
+                          : 'Nunca'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="agent-actions">
+                    <button
+                      className="secondary"
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void printTest()}
+                    >
+                      <Printer size={15} />
+                      {busy === 'test' ? 'Enviando teste…' : 'Imprimir página de teste'}
+                    </button>
+                    <button
+                      className="danger"
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void revokeCredential()}
+                    >
+                      {busy === 'revoke' ? 'Desconectando…' : 'Desconectar computador'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div>
-              <dt>Último contato</dt>
-              <dd>
-                {agent?.lastSeenAt ? new Date(agent.lastSeenAt).toLocaleString('pt-BR') : 'Nunca'}
-              </dd>
-            </div>
-          </dl>
-
-          <label className="device-name">
-            <span>Nome deste computador</span>
-            <input
-              aria-label="Nome do computador do Print Agent"
-              maxLength={80}
-              value={deviceName}
-              onChange={(event) => setDeviceName(event.target.value)}
-            />
-          </label>
-
-          <div className="agent-actions">
-            <button
-              className="secondary"
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void issueCredential()}
-            >
-              <RotateCw size={15} />
-              {busy === 'credential' ? 'Gerando…' : agent ? 'Rotacionar chave' : 'Gerar chave'}
-            </button>
-            <button
-              className="secondary"
-              type="button"
-              disabled={!draft.enabled || dirty || busy !== null}
-              title={dirty ? 'Salve a configuração antes do teste.' : undefined}
-              onClick={() => void printTest()}
-            >
-              <Printer size={15} /> {busy === 'test' ? 'Enfileirando…' : 'Imprimir teste'}
-            </button>
-          </div>
-
-          {agent && (
-            <button
-              className="danger"
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void revokeCredential()}
-            >
-              {busy === 'revoke' ? 'Revogando…' : 'Revogar acesso do agente'}
-            </button>
           )}
-        </aside>
+        </section>
       </div>
 
-      <div className="card jobs-card">
-        <div className="card-header">
+      <details className="history" open={jobs.length > 0}>
+        <summary>
           <div>
-            <h3>Atividade recente</h3>
-            <p>A fila continua persistida mesmo quando o agente ou a impressora estão offline.</p>
+            <h3>Histórico de impressão</h3>
+            <p>Consulte testes, comandas impressas e tentativas que precisam de atenção.</p>
           </div>
-        </div>
+          <span>{jobs.length ? `${jobs.length} registro(s)` : 'Nenhuma impressão ainda'}</span>
+        </summary>
         {jobs.length ? (
           <div className="jobs-list">
             {jobs.map((job) => (
@@ -597,9 +722,9 @@ export function KitchenPrintingSettings() {
             ))}
           </div>
         ) : (
-          <div className="jobs-empty">Nenhuma impressão foi solicitada ainda.</div>
+          <div className="jobs-empty">O histórico aparecerá depois da primeira impressão.</div>
         )}
-      </div>
+      </details>
     </S.Root>
   );
 }

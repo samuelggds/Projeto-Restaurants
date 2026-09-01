@@ -47,7 +47,10 @@ describe('configuração da impressora da cozinha', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getConfiguration.mockResolvedValue(initialConfiguration);
-    mocks.updateSettings.mockImplementation(async (settings) => settings);
+    mocks.updateSettings.mockImplementation(async (settings) => {
+      mocks.getConfiguration.mockResolvedValue({ ...initialConfiguration, settings });
+      return settings;
+    });
     mocks.issueCredential.mockResolvedValue({
       device: { publicId: '735ba097-8f74-450c-b836-e52a14f60df5', name: 'Cozinha' },
       credential: 'pa_735ba097-8f74-450c-b836-e52a14f60df5.segredo-unico',
@@ -73,17 +76,18 @@ describe('configuração da impressora da cozinha', () => {
       '[aria-label="Usar impressora da cozinha"] input',
     ) as HTMLInputElement;
     act(() => enabled.click());
+    await flush();
 
     const automatic = container.querySelector(
       '[aria-label="Ativar impressão automática"] input',
     ) as HTMLInputElement;
+    act(() => automatic.click());
+    await flush();
+
     const paymentTrigger = container.querySelector(
       'input[value="PAYMENT_CONFIRMED"]',
     ) as HTMLInputElement;
-    act(() => {
-      automatic.click();
-      paymentTrigger.click();
-    });
+    act(() => paymentTrigger.click());
 
     const save = [...container.querySelectorAll('button')].find((button) =>
       button.textContent?.includes('Salvar configuração'),
@@ -106,6 +110,20 @@ describe('configuração da impressora da cozinha', () => {
     await flush();
 
     expect(container.querySelector('[aria-label="Credencial do Print Agent"]')).toBeNull();
+    expect(container.textContent).toContain('Conclua os passos anteriores');
+
+    const enabled = container.querySelector(
+      '[aria-label="Usar impressora da cozinha"] input',
+    ) as HTMLInputElement;
+    act(() => enabled.click());
+    await flush();
+
+    const save = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Salvar configuração'),
+    ) as HTMLButtonElement;
+    await act(async () => save.click());
+    await flush();
+
     const issue = [...container.querySelectorAll('button')].find((button) =>
       button.textContent?.includes('Gerar chave'),
     ) as HTMLButtonElement;
