@@ -19,11 +19,25 @@ const originalOrderRepositoryMethods = {
   deleteById: orderRepository.deleteById,
 };
 const originalPrismaRestaurantUpdate = prisma.restaurant.update;
+const originalPrismaRestaurantSettingsFindUnique = prisma.restaurantSettings.findUnique;
 const originalPrismaOrderUpdateMany = prisma.order.updateMany;
 const originalPrismaOrderFindFirst = prisma.order.findFirst;
 const originalPrismaTableBillItemUpdateMany = prisma.tableBillItem.updateMany;
+const originalPrismaPrinterSettingsFindFirst = prisma.restaurantPrinterSettings.findFirst;
 const originalPrismaTransaction = prisma.$transaction;
+const originalPrismaQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
+
+prisma.$transaction = async (callback) => callback(prisma);
+prisma.$queryRaw = async () => [{ set_config: '7' }];
+prisma.restaurantPrinterSettings.findFirst = async ({ where }) => {
+  assert.deepEqual(where, { restaurantId: 7, enabled: true });
+  return null;
+};
+prisma.restaurantSettings.findUnique = async () => ({
+  whatsappEnabled: false,
+  receiveStatusNotifications: false,
+});
 
 http.createServer = ((...args) => {
   const server = originalHttpCreateServer(...args);
@@ -54,10 +68,13 @@ afterEach(() => {
     originalOrderRepositoryMethods.setCardCheckoutSessionId;
   orderRepository.deleteById = originalOrderRepositoryMethods.deleteById;
   prisma.restaurant.update = originalPrismaRestaurantUpdate;
+  prisma.restaurantSettings.findUnique = originalPrismaRestaurantSettingsFindUnique;
   prisma.order.updateMany = originalPrismaOrderUpdateMany;
   prisma.order.findFirst = originalPrismaOrderFindFirst;
   prisma.tableBillItem.updateMany = originalPrismaTableBillItemUpdateMany;
+  prisma.restaurantPrinterSettings.findFirst = originalPrismaPrinterSettingsFindFirst;
   prisma.$transaction = originalPrismaTransaction;
+  prisma.$queryRaw = originalPrismaQueryRaw;
   globalThis.fetch = originalFetch;
 });
 
@@ -116,6 +133,16 @@ async function requestEmpty(serverPort: number, path: string, body: unknown) {
 }
 
 test('deve cadastrar o restaurante, abrir checkout de cartao e marcar o pedido como pago no webhook', async () => {
+  prisma.$transaction = async (callback) => callback(prisma);
+  prisma.$queryRaw = async () => [{ set_config: '7' }];
+  prisma.restaurantPrinterSettings.findFirst = async ({ where }) => {
+    assert.deepEqual(where, { restaurantId: 7, enabled: true });
+    return null;
+  };
+  prisma.restaurantSettings.findUnique = async () => ({
+    whatsappEnabled: false,
+    receiveStatusNotifications: false,
+  });
   let storedOrder = {
     id: 321,
     restaurantId: 7,
@@ -306,6 +333,16 @@ afterEach(() => {
 });
 
 test('deve marcar o pedido como pago apos a confirmacao', async () => {
+  prisma.$transaction = async (callback) => callback(prisma);
+  prisma.$queryRaw = async () => [{ set_config: '7' }];
+  prisma.restaurantPrinterSettings.findFirst = async ({ where }) => {
+    assert.deepEqual(where, { restaurantId: 7, enabled: true });
+    return null;
+  };
+  prisma.restaurantSettings.findUnique = async () => ({
+    whatsappEnabled: false,
+    receiveStatusNotifications: false,
+  });
   let storedOrder = {
     id: 321,
     restaurantId: 7,

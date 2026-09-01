@@ -9,6 +9,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { TablePaymentIntentStatus as ContractPaymentStatus } from '../domain/tableAccountContracts.js';
 import { assertMoneyCents } from '../domain/tableAccountRules.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
+import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 
 export type TablePaymentTransaction = Prisma.TransactionClient;
 type PrismaClientLike = PrismaClient | Prisma.TransactionClient;
@@ -173,6 +174,15 @@ export async function projectTableSessionFinancialState(
           paidAt: allPaid ? order.paidAt || now : order.paidAt,
         },
       });
+
+      if (allPaid && !order.paid) {
+        await kitchenPrintingService.enqueueAutomatic({
+          restaurantId,
+          orderId: order.id,
+          event: 'PAYMENT_CONFIRMED',
+          db: tx,
+        });
+      }
     }
   }
 

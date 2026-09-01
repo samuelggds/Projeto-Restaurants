@@ -10,6 +10,8 @@ import {
   TableSessionStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -382,7 +384,15 @@ class OrderRepository {
     return this.findById(id, restaurantId, db);
   }
 
-  async confirmPayment(id: number | string, restaurantId: number, db: PrismaClientLike = prisma) {
+  async confirmPayment(
+    id: number | string,
+    restaurantId: number,
+    db?: Prisma.TransactionClient,
+  ): Promise<Prisma.OrderGetPayload<{ include: typeof statusUpdateOrderInclude }>> {
+    if (!db) {
+      return withTenantDbContext(restaurantId, (tx) => this.confirmPayment(id, restaurantId, tx));
+    }
+
     const paidAt = new Date();
     const result = await db.order.updateMany({
       where: {
@@ -407,6 +417,12 @@ class OrderRepository {
       await db.tableBillItem.updateMany({
         where: { orderId: Number(id), restaurantId, canceledAt: null },
         data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
+      });
+      await kitchenPrintingService.enqueueAutomatic({
+        restaurantId,
+        orderId: Number(id),
+        event: 'PAYMENT_CONFIRMED',
+        db,
       });
     }
 
@@ -436,8 +452,14 @@ class OrderRepository {
       paymentProof?: string | null;
       paymentProofImage?: string | null;
     } = {},
-    db: PrismaClientLike = prisma,
-  ) {
+    db?: Prisma.TransactionClient,
+  ): Promise<Prisma.OrderGetPayload<{ include: typeof statusUpdateOrderInclude }>> {
+    if (!db) {
+      return withTenantDbContext(restaurantId, (tx) =>
+        this.confirmPixPayment(id, restaurantId, { paymentProof, paymentProofImage }, tx),
+      );
+    }
+
     const paidAt = new Date();
     const result = await db.order.updateMany({
       where: {
@@ -464,6 +486,12 @@ class OrderRepository {
       await db.tableBillItem.updateMany({
         where: { orderId: Number(id), restaurantId, canceledAt: null },
         data: { financialStatus: TableBillItemFinancialStatus.PAID, paidAt },
+      });
+      await kitchenPrintingService.enqueueAutomatic({
+        restaurantId,
+        orderId: Number(id),
+        event: 'PAYMENT_CONFIRMED',
+        db,
       });
     }
 

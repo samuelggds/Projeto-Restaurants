@@ -76,6 +76,16 @@ function changeInput(element: HTMLInputElement, value: string) {
   element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('páginas operacionais da cozinha', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -96,6 +106,7 @@ describe('páginas operacionais da cozinha', () => {
     options: {
       currentData?: EmployeeWorkspaceData;
       onUpdateOrderStatus?: (id: string, status: Order['status']) => void | Promise<void>;
+      onReprintOrder?: (id: string) => void | Promise<void>;
       onRefresh?: () => void | Promise<void>;
     } = {},
   ) {
@@ -106,6 +117,7 @@ describe('páginas operacionais da cozinha', () => {
           restaurant={restaurant}
           data={options.currentData ?? data}
           onUpdateOrderStatus={options.onUpdateOrderStatus}
+          onReprintOrder={options.onReprintOrder}
           onRefresh={options.onRefresh}
         >
           {page}
@@ -181,6 +193,31 @@ describe('páginas operacionais da cozinha', () => {
     expect((card.querySelector('.action') as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('solicita uma única reimpressão manual e mostra falhas do backend', async () => {
+    const request = deferred<void>();
+    const onReprintOrder = vi.fn(() => request.promise);
+    renderPage(<KitchenQueuePage />, { onReprintOrder });
+
+    const card = container.querySelector('[data-order-id="#1"]') as HTMLElement;
+    const reprint = [...card.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Reimprimir comanda'),
+    ) as HTMLButtonElement;
+    act(() => {
+      reprint.click();
+      reprint.click();
+    });
+
+    expect(onReprintOrder).toHaveBeenCalledTimes(1);
+    expect(onReprintOrder).toHaveBeenCalledWith('#1');
+    expect(reprint.disabled).toBe(true);
+
+    await act(async () => {
+      request.reject(new Error('Ative a impressão da cozinha antes de solicitar uma reimpressão.'));
+      await request.promise.catch(() => undefined);
+    });
+    expect(card.textContent).toContain('Ative a impressão da cozinha');
+  });
+
   it('calcula o histórico com timestamps reais e mantém itens básicos consultáveis', () => {
     const now = new Date();
     const startedAt = new Date(now.getTime() - 20 * 60_000).toISOString();
@@ -228,7 +265,9 @@ describe('páginas operacionais da cozinha', () => {
     });
 
     const visibleIds = () =>
-      [...container.querySelectorAll('.history-order .row b')].map((element) => element.textContent);
+      [...container.querySelectorAll('.history-order .row b')].map(
+        (element) => element.textContent,
+      );
 
     expect(container.textContent).toContain('Mostrando 1–10 de 12 pedidos');
     expect(visibleIds()).toEqual(['#12', '#11', '#10', '#9', '#8', '#7', '#6', '#5', '#4', '#3']);

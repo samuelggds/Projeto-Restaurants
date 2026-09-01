@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   latestProps: null as KitchenModuleProps | null,
   listOrders: vi.fn(),
   updateStatus: vi.fn(),
+  reprintKitchenOrder: vi.fn(),
   getSettings: vi.fn(),
   navigate: vi.fn(),
   logout: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock('../../Services/ordersService', () => ({
   default: {
     listRestaurantOrders: mocks.listOrders,
     updateStatus: mocks.updateStatus,
+    reprintKitchenOrder: mocks.reprintKitchenOrder,
   },
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
@@ -157,5 +159,16 @@ describe('KitchenPage data integration', () => {
     expect(mocks.latestProps?.data?.orders[0].status).toBe('PREPARANDO');
     expect(mocks.latestProps?.data?.orders[0].preparationStartedAt).toBeTruthy();
     expect(mocks.latestProps?.workspaceState?.error).toContain('Não foi possível carregar');
+  });
+
+  it('encaminha reimpressão usando apenas o id normalizado do pedido', async () => {
+    mocks.listOrders.mockResolvedValue([rawOrder(8)]);
+    mocks.reprintKitchenOrder.mockResolvedValue({ status: 'PENDING' });
+
+    await act(async () => root.render(<KitchenPage />));
+    await flushUntil(() => Boolean(mocks.latestProps?.onReprintOrder));
+    await act(async () => mocks.latestProps?.onReprintOrder?.('#8'));
+
+    expect(mocks.reprintKitchenOrder).toHaveBeenCalledWith('8');
   });
 });

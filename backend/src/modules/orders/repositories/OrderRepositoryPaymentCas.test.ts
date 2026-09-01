@@ -18,6 +18,7 @@ function makeOrder(overrides = {}) {
 test('confirmPayment bloqueia confirmação tardia de pedido cancelado', async () => {
   const cancelledOrder = makeOrder({ status: OrderStatus.CANCELADO });
   const db = {
+    $queryRaw: async () => [],
     order: {
       updateMany: async ({ where }) => {
         assert.equal(where.restaurantId, 7);
@@ -48,10 +49,7 @@ test('confirmPayment permanece idempotente quando outra confirmação venceu a c
   assert.equal(result, paidOrder);
 });
 
-async function assertTablePaymentSynchronization({
-  confirm,
-  expectedProof = undefined,
-}) {
+async function assertTablePaymentSynchronization({ confirm, expectedProof = undefined }) {
   const paidOrder = makeOrder({
     tableSessionId: 55,
     participantId: 80,
@@ -61,6 +59,7 @@ async function assertTablePaymentSynchronization({
   const orderUpdates = [];
   const billItemUpdates = [];
   const db = {
+    $queryRaw: async () => [],
     order: {
       updateMany: async (args) => {
         orderUpdates.push(args);
@@ -72,6 +71,13 @@ async function assertTablePaymentSynchronization({
       updateMany: async (args) => {
         billItemUpdates.push(args);
         return { count: 2 };
+      },
+    },
+    restaurantPrinterSettings: {
+      findFirst: async ({ where }) => {
+        assert.equal(where.restaurantId, 7);
+        assert.equal(where.enabled, true);
+        return null;
       },
     },
   };

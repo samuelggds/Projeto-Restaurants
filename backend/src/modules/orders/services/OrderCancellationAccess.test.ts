@@ -35,6 +35,7 @@ const originalFindById = orderRepository.findById;
 const originalFindByIdForCustomer = orderRepository.findByIdForCustomer;
 const originalWorkflowExecute = cancelOrderWorkflowService.execute;
 const originalUserFindFirst = prisma.user.findFirst;
+const originalRestaurantSettingsFindUnique = prisma.restaurantSettings.findUnique;
 const originalIssueFindFirst = prisma.orderIssueThread.findFirst;
 const originalTransaction = prisma.$transaction;
 const originalQueryRaw = prisma.$queryRaw;
@@ -45,6 +46,10 @@ const originalConsoleError = console.error;
 beforeEach(() => {
   prisma.$transaction = async (callback) => callback(prisma);
   prisma.$queryRaw = async () => [{ set_config: '17' }];
+  prisma.restaurantSettings.findUnique = async () => ({
+    whatsappEnabled: false,
+    receiveStatusNotifications: false,
+  });
 });
 
 afterEach(() => {
@@ -52,6 +57,7 @@ afterEach(() => {
   orderRepository.findByIdForCustomer = originalFindByIdForCustomer;
   cancelOrderWorkflowService.execute = originalWorkflowExecute;
   prisma.user.findFirst = originalUserFindFirst;
+  prisma.restaurantSettings.findUnique = originalRestaurantSettingsFindUnique;
   prisma.orderIssueThread.findFirst = originalIssueFindFirst;
   prisma.$transaction = originalTransaction;
   prisma.$queryRaw = originalQueryRaw;

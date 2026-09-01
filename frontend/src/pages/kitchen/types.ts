@@ -83,6 +83,7 @@ export interface EmployeeWorkspaceProps {
   restaurant: RestaurantBrand;
   data?: EmployeeWorkspaceData;
   onUpdateOrderStatus?: (orderId: string, status: OrderStatus) => void | Promise<void>;
+  onReprintOrder?: (orderId: string) => void | Promise<void>;
   onGenerateAccessCode?: (tableId: string) => string | Promise<string>;
   onUpdateCall?: (callId: string, status: CallStatus) => void | Promise<void>;
   workspaceState?: KitchenWorkspaceState;

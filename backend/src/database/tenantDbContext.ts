@@ -15,6 +15,18 @@ function normalizeRestaurantId(restaurantId: number) {
 }
 
 /**
+ * Aplica o tenant em uma transação que já existe. Isso permite que escritas
+ * RLS da fila participem do mesmo commit do pedido/pagamento.
+ */
+export async function setTenantDbContext(db: TenantDbClient, restaurantId: number) {
+  const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+  await db.$queryRaw<Array<{ set_config: string }>>`
+    SELECT set_config('app.restaurant_id', ${String(normalizedRestaurantId)}, true)
+  `;
+  return normalizedRestaurantId;
+}
+
+/**
  * Executa somente o trecho de banco informado dentro de um contexto tenant.
  *
  * `set_config(..., true)` torna o valor transaction-local. Assim, o contexto é
@@ -28,9 +40,7 @@ export async function withTenantDbContext<T>(
   const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
 
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw<Array<{ set_config: string }>>`
-      SELECT set_config('app.restaurant_id', ${String(normalizedRestaurantId)}, true)
-    `;
+    await setTenantDbContext(tx, normalizedRestaurantId);
     return callback(tx);
   });
 }
@@ -65,7 +75,12 @@ export async function assertSecureRuntimeDatabaseRole(): Promise<RuntimeDatabase
         JOIN pg_catalog.pg_namespace AS namespaces
           ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'public'
-          AND relations.relname IN ('CustomerPaymentMethod', 'OrderIssueThread')
+          AND relations.relname IN (
+            'CustomerPaymentMethod',
+            'OrderIssueThread',
+            'RestaurantPrinterSettings',
+            'KitchenPrintJob'
+          )
           AND relations.relowner = roles.oid
       ) AS owns_pilot_tables
     FROM pg_catalog.pg_roles AS roles

@@ -19,6 +19,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { PromotionsSettings } from './PromotionsSettings';
 import { TableAccountSettings } from './TableAccountSettings';
+import { KitchenPrintingSettings } from './KitchenPrintingSettings';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -76,6 +77,7 @@ export function AdminSettingsContent(props: Props) {
   if (section === 'table-account')
     return <TableAccountSettings settings={settings} update={update} />;
   if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
+  if (section === 'printing') return <KitchenPrintingSettings />;
   if (section === 'payments')
     return (
       <PaymentSettings

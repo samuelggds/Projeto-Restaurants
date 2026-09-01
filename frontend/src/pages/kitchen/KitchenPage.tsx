@@ -190,6 +190,13 @@ export default function KitchenPage() {
             }
           : undefined
       }
+      onReprintOrder={
+        restaurantId
+          ? async (orderId) => {
+              await ordersService.reprintKitchenOrder(orderId.replace(/^#/, ''));
+            }
+          : undefined
+      }
       onLogout={() => {
         logout();
         navigate('/login');
