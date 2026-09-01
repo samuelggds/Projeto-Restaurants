@@ -366,12 +366,12 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
     .toBe(true);
 
   await page.getByRole('button', { name: /Gerar código Pix/ }).click();
-  await expect(page.getByRole('heading', { name: 'Pagamento via Pix' })).toBeVisible();
+  await expect(page.getByText('Pagamento via Pix', { exact: true })).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
-  await expect(
-    page.getByText('Pagamento confirmado! Seu pedido já foi enviado ao restaurante.'),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar para o cardápio' }).click();
+  await expect(page.getByRole('heading', { name: 'Tudo certo com seu pedido' })).toBeVisible();
+  await expect(page.getByText('Pagamento confirmado', { exact: true })).toBeVisible();
+  await expect(page.getByText('O backend confirmou o recebimento')).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
   await expect(
     page.getByRole('button', { name: /Faltam 5 pedidos.*próxima recompensa/i }),
   ).toBeVisible();

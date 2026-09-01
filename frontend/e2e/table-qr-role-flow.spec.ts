@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route, type TestInfo } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 1;
@@ -6,6 +6,10 @@ const TABLE_ID = 101;
 const TABLE_NUMBER = 1;
 const TABLE_TOKEN = '11112222333344445555666677778888';
 const TABLE_SESSION_ID = 701;
+const TABLE_SESSION_PUBLIC_ID = '323e4567-e89b-42d3-a456-426614174701';
+const TABLE_PARTICIPANT_PUBLIC_ID = '323e4567-e89b-42d3-a456-426614174702';
+const TABLE_PAYMENT_PUBLIC_ID = '323e4567-e89b-42d3-a456-426614174703';
+const CARD_ORDER_PUBLIC_ID = '323e4567-e89b-42d3-a456-426614174704';
 
 const ACCESS_TOKENS = {
   admin: 'e2e-admin-token',
@@ -23,6 +27,11 @@ type FlowState = {
   orderStatus: 'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'ENTREGUE';
   adminTableReads: number;
   waiterTableReads: number;
+  tablePaymentPayload?: Record<string, unknown> | null;
+  tablePaymentStatus?: 'PROCESSING' | 'PAID' | null;
+  tablePaymentIdempotencyKey?: string | null;
+  cardPaymentStatus?: 'PENDING' | 'PAID';
+  cardPaymentStatusReads?: number;
 };
 
 const users = {
@@ -172,6 +181,127 @@ function createdKitchenOrder(state: FlowState) {
   ];
 }
 
+function tablePayment(state: FlowState) {
+  const status = state.tablePaymentStatus || 'PROCESSING';
+  return {
+    publicId: TABLE_PAYMENT_PUBLIC_ID,
+    sessionPublicId: TABLE_SESSION_PUBLIC_ID,
+    payerParticipantPublicId: TABLE_PARTICIPANT_PUBLIC_ID,
+    selectionMode: 'SELECTED_ITEMS',
+    method: 'PIX',
+    status,
+    billItemPublicIds: ['bill-item-1'],
+    subtotalCents: 2_800,
+    serviceFeeCents: 280,
+    totalCents: 3_080,
+    provider: 'FAKE_TABLE',
+    externalId: 'table-pix-e2e',
+    checkoutUrl: null,
+    paymentCode: '00020101021226890014br.gov.bcb.pix.e2e',
+    expiresAt: '2030-01-01T12:10:00.000Z',
+    createdAt: '2030-01-01T12:00:00.000Z',
+    updatedAt: '2030-01-01T12:00:00.000Z',
+  };
+}
+
+function tableAccountSnapshot(state: FlowState) {
+  const hasItem = Boolean(state.orderPayload);
+  const payment = state.tablePaymentStatus ? tablePayment(state) : null;
+  const processing = state.tablePaymentStatus === 'PROCESSING';
+  const paid = state.tablePaymentStatus === 'PAID';
+  return {
+    contractVersion: 1,
+    currentParticipantPublicId: TABLE_PARTICIPANT_PUBLIC_ID,
+    capabilities: {
+      enabled: true,
+      allowCash: true,
+      allowCardMachine: true,
+      allowOnlinePayment: true,
+      allowSplit: true,
+      serviceFeeMode: 'OPTIONAL',
+      serviceFeeBasisPoints: 1_000,
+      reservationTimeoutMinutes: 10,
+    },
+    summary: {
+      sessionPublicId: TABLE_SESSION_PUBLIC_ID,
+      tableNumber: TABLE_NUMBER,
+      status: 'OPEN',
+      consumedCents: hasItem ? 2_800 : 0,
+      serviceFeeCents: paid ? 280 : 0,
+      grossPaidCents: paid ? 3_080 : 0,
+      refundedCents: 0,
+      netPaidCents: paid ? 3_080 : 0,
+      reservedCents: 0,
+      processingCents: processing ? 3_080 : 0,
+      remainingCents: hasItem && !processing && !paid ? 2_800 : 0,
+      overpaidCents: 0,
+      participantsCount: 1,
+    },
+    participants: [
+      {
+        publicId: TABLE_PARTICIPANT_PUBLIC_ID,
+        displayName: 'Cliente da mesa',
+        status: 'ACTIVE',
+        joinedAt: '2030-01-01T11:30:00.000Z',
+        leftAt: null,
+      },
+    ],
+    activePayment: processing ? payment : null,
+    items: hasItem
+      ? [
+          {
+            publicId: 'bill-item-1',
+            orderPublicId: 'table-order-public-id',
+            productName: product.name,
+            unitIndex: 0,
+            unitPriceCents: 2_800,
+            paidCents: paid ? 2_800 : 0,
+            reservedCents: 0,
+            processingCents: processing ? 2_800 : 0,
+            availableCents: processing || paid ? 0 : 2_800,
+            financialStatus: paid ? 'PAID' : processing ? 'PROCESSING' : 'UNPAID',
+            orderStatus: 'PENDING',
+            orderedByParticipantPublicId: TABLE_PARTICIPANT_PUBLIC_ID,
+            orderedByDisplayName: 'Cliente da mesa',
+          },
+        ]
+      : [],
+    payments: payment
+      ? [
+          {
+            publicId: payment.publicId,
+            payerParticipantPublicId: payment.payerParticipantPublicId,
+            selectionMode: payment.selectionMode,
+            status: payment.status,
+            totalCents: payment.totalCents,
+            createdAt: payment.createdAt,
+          },
+        ]
+      : [],
+  };
+}
+
+async function captureResponsiveAccount(page: Page, testInfo: TestInfo, width: number) {
+  await page.setViewportSize({ width, height: 844 });
+  const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
+  await expect(accountDialog).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+  const helpBox = await accountDialog
+    .getByText('Seleciona automaticamente os itens vinculados a este aparelho.')
+    .boundingBox();
+  const continueBox = await accountDialog
+    .getByRole('button', { name: 'Continuar', exact: true })
+    .boundingBox();
+  expect(helpBox).not.toBeNull();
+  expect(continueBox).not.toBeNull();
+  expect((helpBox?.y || 0) + (helpBox?.height || 0)).toBeLessThanOrEqual(continueBox?.y || 0);
+  await page.screenshot({
+    path: testInfo.outputPath(`table-account-${width}px.png`),
+  });
+}
+
 async function mockRoleFlowApi(page: Page, state: FlowState) {
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
@@ -277,6 +407,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
       return json(route, {
         sessionToken: 'session-token-mesa-1',
         sessionId: TABLE_SESSION_ID,
+        sessionPublicId: TABLE_SESSION_PUBLIC_ID,
         tableId: TABLE_ID,
         tableNumber: TABLE_NUMBER,
         restaurantId: RESTAURANT_ID,
@@ -291,6 +422,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         ? json(route, {
             id: TABLE_SESSION_ID,
             sessionId: TABLE_SESSION_ID,
+            sessionPublicId: TABLE_SESSION_PUBLIC_ID,
             tableId: TABLE_ID,
             tableNumber: TABLE_NUMBER,
             restaurantId: RESTAURANT_ID,
@@ -299,8 +431,47 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         : json(route, { error: 'Sessão de mesa não encontrada.' }, 404);
     }
 
+    if (pathname === '/orders' && method === 'POST') {
+      state.orderPayload = request.postDataJSON() as Record<string, unknown>;
+      return json(
+        route,
+        {
+          id: 1001,
+          publicId: 'table-order-public-id',
+          type: 'MESA',
+          status: 'PENDENTE',
+          paid: false,
+          total: 28,
+        },
+        201,
+      );
+    }
+
     if (pathname === '/orders' && method === 'GET') {
       return json(route, { orders: createdKitchenOrder(state) });
+    }
+
+    if (pathname === `/table-accounts/sessions/${TABLE_SESSION_PUBLIC_ID}` && method === 'GET') {
+      return json(route, tableAccountSnapshot(state));
+    }
+
+    if (
+      pathname === `/table-accounts/sessions/${TABLE_SESSION_PUBLIC_ID}/payments` &&
+      method === 'POST'
+    ) {
+      state.tablePaymentPayload = request.postDataJSON() as Record<string, unknown>;
+      state.tablePaymentIdempotencyKey = request.headers()['idempotency-key'] || null;
+      state.tablePaymentStatus = 'PROCESSING';
+      return json(route, { payment: tablePayment(state), idempotentReplay: false }, 201);
+    }
+
+    if (
+      pathname ===
+        `/table-accounts/sessions/${TABLE_SESSION_PUBLIC_ID}/payments/${TABLE_PAYMENT_PUBLIC_ID}/reconcile` &&
+      method === 'POST'
+    ) {
+      state.tablePaymentStatus = 'PAID';
+      return json(route, { payment: tablePayment(state) });
     }
 
     if (pathname === '/orders/quote' && method === 'POST') {
@@ -329,6 +500,24 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         qrCode: '00020101021226890014br.gov.bcb.pix',
         qrCodeBase64: null,
         requiresStatusCheck: false,
+      });
+    }
+
+    if (pathname === '/orders/card/checkout/status' && method === 'POST') {
+      const payload = request.postDataJSON() as Record<string, unknown>;
+      if (
+        payload.orderPublicId !== CARD_ORDER_PUBLIC_ID ||
+        Number(payload.restaurantId) !== RESTAURANT_ID ||
+        payload.type !== 'MESA'
+      ) {
+        return json(route, { error: 'Pagamento com cartão não encontrado.' }, 404);
+      }
+      state.cardPaymentStatusReads = Number(state.cardPaymentStatusReads || 0) + 1;
+      const status = state.cardPaymentStatus || 'PENDING';
+      return json(route, {
+        orderPublicId: CARD_ORDER_PUBLIC_ID,
+        status,
+        paid: status === 'PAID',
       });
     }
 
@@ -494,9 +683,19 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await page.getByRole('button', { name: /Revisar e continuar/ }).click();
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
+  const continuationDialog = page.getByRole('dialog');
+  await expect(
+    continuationDialog.getByRole('heading', { name: 'Como deseja continuar?' }),
+  ).toBeVisible();
+  await continuationDialog.getByRole('button', { name: 'Escolher forma de pagamento' }).click();
+  await expect(
+    continuationDialog.getByRole('heading', { name: 'Como deseja pagar este pedido?' }),
+  ).toBeVisible();
+  await expect(
+    continuationDialog.getByText('Clicar em pagar não significa pagamento confirmado.'),
+  ).toBeVisible();
   await continuationDialog.getByRole('button', { name: 'Pix' }).click();
-  await continuationDialog.getByRole('button', { name: /Pagar agora/ }).click();
+  await continuationDialog.getByRole('button', { name: 'Continuar para pagar' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
@@ -505,7 +704,9 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     paymentMethod: 'PIX',
   });
 
-  await page.getByRole('button', { name: 'Voltar para o cardápio' }).click();
+  await expect(page.getByText('Aguardando pagamento', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Clicar em pagar não significa pagamento confirmado/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await page.getByRole('button', { name: /Status do pedido da mesa/i }).click();
   const tableOrderDialog = page.getByRole('dialog', { name: 'Pedido da mesa 1' });
@@ -546,6 +747,122 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(kitchenOrder).toBeVisible();
   await expect(kitchenOrder.getByText('Mesa 1', { exact: true })).toBeVisible();
   await expect(kitchenOrder.getByText(product.name)).toBeVisible();
+});
+
+test('cliente separa escopo e método e só vê pago após reconciliação canônica', async ({
+  page,
+}, testInfo) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: null,
+    orderStatus: 'PENDENTE',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+    tablePaymentPayload: null,
+    tablePaymentStatus: null,
+    tablePaymentIdempotencyKey: null,
+  };
+  await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`);
+
+  await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
+  await page.getByText('Arroz', { exact: true }).click();
+  await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
+
+  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
+  await expect(continuationDialog.getByRole('button', { name: 'Pix' })).toHaveCount(0);
+  await continuationDialog.getByRole('button', { name: 'Adicionar à conta' }).click();
+  await expect.poll(() => state.orderPayload).not.toBeNull();
+  expect(state.orderPayload).toMatchObject({
+    restaurantId: RESTAURANT_ID,
+    type: 'MESA',
+    tableId: TABLE_ID,
+    settlementMode: 'TABLE_ACCOUNT',
+  });
+  expect(state.orderPayload).not.toHaveProperty('paymentMethod');
+
+  await page.getByRole('button', { name: 'Ver conta' }).click();
+  const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
+  const notificationCloseButtons = page.getByRole('button', { name: 'Fechar notificação' });
+  for (const closeButton of await notificationCloseButtons.all()) {
+    await closeButton.click();
+  }
+  await expect(notificationCloseButtons).toHaveCount(0);
+  await expect(accountDialog.getByText('1 de 3')).toBeVisible();
+  await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();
+  await expect(accountDialog.getByText('Pix online')).toHaveCount(0);
+  await expect(accountDialog.getByText('Dinheiro', { exact: true })).toHaveCount(0);
+
+  for (const width of [360, 390, 430]) {
+    await captureResponsiveAccount(page, testInfo, width);
+  }
+
+  await accountDialog.getByRole('button', { name: /Escolher itens/ }).click();
+  await accountDialog.getByRole('checkbox', { name: `Selecionar ${product.name}` }).check();
+  await accountDialog.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(accountDialog.getByText('2 de 3')).toBeVisible();
+  await expect(accountDialog.getByText('Como deseja pagar?')).toBeVisible();
+  await expect(accountDialog.getByRole('button', { name: /Pix online/ })).toBeVisible();
+  await expect(accountDialog.getByRole('button', { name: /Dinheiro/ })).toBeVisible();
+  await expect(accountDialog.getByText(/30,80/).last()).toBeVisible();
+
+  await accountDialog.getByRole('button', { name: /Pix online/ }).click();
+  await accountDialog.getByRole('button', { name: 'Gerar pagamento Pix' }).click();
+  await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
+  expect(state.tablePaymentPayload).toEqual({
+    selectionMode: 'SELECTED_ITEMS',
+    method: 'PIX',
+    billItemPublicIds: ['bill-item-1'],
+    includeOptionalServiceFee: true,
+  });
+  expect(state.tablePaymentIdempotencyKey).toMatch(/^table-payment:/);
+
+  await expect(accountDialog.getByText('3 de 3')).toBeVisible();
+  await expect(accountDialog.getByRole('heading', { name: 'Pague com Pix' })).toBeVisible();
+  await expect(accountDialog.getByText('Pagamento confirmado')).toHaveCount(0);
+  await accountDialog.getByRole('button', { name: 'Verificar pagamento' }).click();
+  await expect(accountDialog.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible();
+  await expect(accountDialog.getByText('O backend confirmou o recebimento')).toBeVisible();
+});
+
+test('retorno success do cartão permanece pendente até o backend confirmar', async ({ page }) => {
+  const state: FlowState = {
+    tableCreated: true,
+    tableOpen: true,
+    createTablePayload: null,
+    orderPayload: null,
+    orderStatus: 'PENDENTE',
+    adminTableReads: 0,
+    waiterTableReads: 0,
+    cardPaymentStatus: 'PENDING',
+    cardPaymentStatusReads: 0,
+  };
+  await mockRoleFlowApi(page, state);
+  await page.goto('/');
+  await selectPersona(page, 'customer');
+  await page.goto(
+    `/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}&cardCheckoutStatus=success&orderPublicId=${CARD_ORDER_PUBLIC_ID}`,
+  );
+
+  await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(0);
+  await expect(page.getByRole('heading', { name: 'Pagamento ainda pendente' })).toBeVisible();
+  await expect(page.getByText('Pagamento confirmado')).toHaveCount(0);
+  await expect(
+    page.getByText('Esse retorno não é usado como confirmação financeira.'),
+  ).toBeVisible();
+
+  const pendingReads = Number(state.cardPaymentStatusReads || 0);
+  state.cardPaymentStatus = 'PAID';
+  await page.getByRole('button', { name: 'Verificar pagamento' }).click();
+  await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(pendingReads);
+  await expect(page.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible();
+  await expect(page.getByText('O backend confirmou a aprovação do cartão')).toBeVisible();
 });
 
 test('impressão individual ocupa uma única folha A4 com QR Code grande', async ({ page }) => {
