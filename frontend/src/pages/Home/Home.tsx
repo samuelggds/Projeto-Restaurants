@@ -57,6 +57,7 @@ import { TableOrderContinuationModal } from './components/TableOrderContinuation
 import { TableAccountPanel } from './components/TableAccountPanel';
 import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
+import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
@@ -71,6 +72,17 @@ export default function Home() {
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
+  const navigateToLogin = useCallback(
+    () =>
+      navigate(
+        buildLoginUrl({
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+        }),
+      ),
+    [location.hash, location.pathname, location.search, navigate],
+  );
 
   useEffect(() => {
     const refreshAvailability = () => setAvailabilityClock(new Date());
@@ -231,9 +243,7 @@ export default function Home() {
     return () => window.cancelAnimationFrame(frame);
   }, [openTableAccount, tableClosingRequested, tableSession?.sessionPublicId]);
 
-  const requireFavoriteLogin = useCallback(() => {
-    navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
-  }, [navigate]);
+  const requireFavoriteLogin = navigateToLogin;
   const { favoriteProductIds, toggleFavorite } = useFavorites({
     user,
     restaurantId,
@@ -620,7 +630,7 @@ export default function Home() {
           summary: loyalty.summary,
           loggedIn: isLoyaltyCustomer,
           redeemingCouponId: loyalty.redeemingCouponId,
-          onLogin: () => navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`),
+          onLogin: navigateToLogin,
           onRetry: () => void loyalty.refresh(),
           onRedeem: (couponId: number) => void loyalty.redeem(couponId),
         };
@@ -633,8 +643,7 @@ export default function Home() {
 
   const manageDeliveryAddresses = useCallback(() => {
     if (!user) {
-      const next = encodeURIComponent(`${location.pathname}${location.search}`);
-      navigate(`/login?next=${next}`);
+      navigateToLogin();
       return;
     }
 
@@ -648,7 +657,7 @@ export default function Home() {
     }
 
     navigate('/profile?view=addresses&newAddress=1');
-  }, [location.pathname, location.search, navigate, notify, user]);
+  }, [navigate, navigateToLogin, notify, user]);
 
   const selectDeliveryAddress = useCallback(
     (addressId: string) => {
@@ -668,7 +677,13 @@ export default function Home() {
     }
     setCartOpen(true);
   }, [openTableAccount, tableClosingRequested]);
-  const openProfile = useCallback(() => navigate('/profile'), [navigate]);
+  const openProfile = useCallback(() => {
+    if (user) {
+      navigate('/profile');
+      return;
+    }
+    navigateToLogin();
+  }, [navigate, navigateToLogin, user]);
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
@@ -851,9 +866,7 @@ export default function Home() {
                 selectedRedemptionId={appliedRedemptionId}
                 redeemingCouponId={loyalty.redeemingCouponId}
                 onSelect={setSelectedRedemptionId}
-                onLogin={() =>
-                  navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`)
-                }
+                onLogin={navigateToLogin}
                 onRetry={() => void loyalty.refresh()}
                 onRedeem={(couponId) => void loyalty.redeem(couponId)}
               />
@@ -930,7 +943,7 @@ export default function Home() {
       <HomeFeedback
         showLoginNudge={showLoginNudge}
         notifications={notifs}
-        onLogin={() => navigate('/login')}
+        onLogin={navigateToLogin}
         onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
       />

@@ -1,21 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import {
-  CheckCircle2,
-  AlertCircle,
-  Utensils,
-  Sun,
-  Moon,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { CheckCircle2, AlertCircle, Utensils, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import authService from '../../Services/authService';
 import { useAuth } from '../../contexts/authContext.js';
 import * as S from './styles';
 import { useAppDialog } from '../../components/AppDialog/context';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
+import { getSafeNextPath } from '../../shared/navigation/authNavigation';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,6 +17,7 @@ export default function Login() {
   const isTechnicalAccess = location.pathname === '/super_admin/login';
   const branding = useRestaurantLoginBranding(searchParams);
   const restaurantQuery = searchParams.toString();
+  const safeNextPath = getSafeNextPath(searchParams.get('next'));
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -101,23 +95,6 @@ export default function Login() {
     return authService.getGoogleClientId();
   }, []);
 
-  const getSafeNextPath = useCallback(() => {
-    const rawNext = String(searchParams.get('next') || '').trim();
-
-    if (!rawNext || !rawNext.startsWith('/') || rawNext.startsWith('//')) {
-      return '';
-    }
-
-    const blockedPaths = new Set(['/login', '/register', '/recover-password']);
-    const normalizedPath = rawNext.toLowerCase();
-
-    if (blockedPaths.has(normalizedPath)) {
-      return '';
-    }
-
-    return rawNext;
-  }, [searchParams]);
-
   const redirectByRole = useCallback(
     (user) => {
       if (user?.mustChangePassword === true) {
@@ -130,9 +107,8 @@ export default function Login() {
         return;
       }
 
-      const nextPath = getSafeNextPath();
-      if (nextPath) {
-        navigate(nextPath);
+      if (safeNextPath) {
+        navigate(safeNextPath);
         return;
       }
 
@@ -154,7 +130,7 @@ export default function Login() {
 
       navigate('/');
     },
-    [getSafeNextPath, navigate],
+    [navigate, safeNextPath],
   );
 
   const completeLoginWithMfaIfNeeded = useCallback(

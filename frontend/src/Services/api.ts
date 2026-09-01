@@ -9,6 +9,7 @@ import {
 } from '../modules/auth/session/authSession';
 import { setSystemBlockState } from './systemBlock';
 import { setPlatformMaintenanceState } from './platformMaintenance';
+import { buildLoginUrl } from '../shared/navigation/authNavigation';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 
@@ -291,12 +292,12 @@ api.interceptors.response.use(
             // acao da conta antiga usando o token renovado da conta nova.
             invalidateAuthSessionMemory();
             if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-              window.location.assign('/login');
+              window.location.assign(buildLoginUrl(window.location));
             }
           } else if (!(refreshError instanceof AuthSessionChangedError)) {
             clearAuthSession();
             if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-              window.location.assign('/login');
+              window.location.assign(buildLoginUrl(window.location));
             }
           }
           return Promise.reject(refreshError);

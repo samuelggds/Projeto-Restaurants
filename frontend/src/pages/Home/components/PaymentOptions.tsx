@@ -1,10 +1,22 @@
-import { ChevronRight, CreditCard, LogIn, QrCode, ShieldCheck, UserPlus, WalletCards, X } from 'lucide-react';
+import {
+  ChevronRight,
+  CreditCard,
+  LogIn,
+  QrCode,
+  ShieldCheck,
+  UserPlus,
+  WalletCards,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
-import customerPaymentMethodService, { type CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
+import customerPaymentMethodService, {
+  type CustomerPaymentMethod,
+} from '../../../Services/customerPaymentMethodService';
 import type { CheckoutPaymentMethod } from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
 import * as S from '../../Home/Home.styles';
+import { buildLoginUrl } from '../../../shared/navigation/authNavigation';
 
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
@@ -131,14 +143,25 @@ export function PaymentOptions({
   useEffect(() => {
     if (!loggedIn || !restaurantId || paymentMethod !== 'card') return;
     let active = true;
-    customerPaymentMethodService.list(restaurantId).then((cards) => {
-      if (!active) return;
-      setSavedCards(cards);
-      const key = `selectedCustomerPaymentMethodId:${restaurantId}`;
-      const preferred = cards.find((card) => card.publicId === localStorage.getItem(key)) || cards.find((card) => card.isDefault) || cards[0];
-      if (preferred) { setSelectedCardId(preferred.publicId); localStorage.setItem(key, preferred.publicId); }
-    }).catch(() => setSavedCards([]));
-    return () => { active = false; };
+    customerPaymentMethodService
+      .list(restaurantId)
+      .then((cards) => {
+        if (!active) return;
+        setSavedCards(cards);
+        const key = `selectedCustomerPaymentMethodId:${restaurantId}`;
+        const preferred =
+          cards.find((card) => card.publicId === localStorage.getItem(key)) ||
+          cards.find((card) => card.isDefault) ||
+          cards[0];
+        if (preferred) {
+          setSelectedCardId(preferred.publicId);
+          localStorage.setItem(key, preferred.publicId);
+        }
+      })
+      .catch(() => setSavedCards([]));
+    return () => {
+      active = false;
+    };
   }, [loggedIn, paymentMethod, restaurantId]);
   const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard);
   const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
@@ -160,34 +183,88 @@ export function PaymentOptions({
   return (
     <>
       <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
-      <OptionsGrid options={onlineOptions} selected={paymentMethod} onChange={handlePaymentChange} />
+      <OptionsGrid
+        options={onlineOptions}
+        selected={paymentMethod}
+        onChange={handlePaymentChange}
+      />
       {showCardAccountNotice && (
         <S.CardAccountNotice role="status" aria-live="polite">
-          <div className="notice-icon"><ShieldCheck size={21} /></div>
+          <div className="notice-icon">
+            <ShieldCheck size={21} />
+          </div>
           <div className="notice-copy">
             <b>Você pode pagar sem criar conta</b>
-            <span>Como visitante, informe o cartão no ambiente seguro do provedor a cada compra. Crie uma conta somente se quiser salvar e reutilizar o cartão.</span>
+            <span>
+              Como visitante, informe o cartão no ambiente seguro do provedor a cada compra. Crie
+              uma conta somente se quiser salvar e reutilizar o cartão.
+            </span>
           </div>
           <div className="notice-actions">
-            <button type="button" className="guest" onClick={() => setShowCardAccountNotice(false)}><X size={16} /> Continuar como visitante</button>
-            <button type="button" className="primary" onClick={() => window.location.assign(`/register?next=${encodeURIComponent(window.location.pathname)}`)}><UserPlus size={16} /> Criar conta para salvar</button>
-            <button type="button" onClick={() => window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`)}><LogIn size={16} /> Já tenho conta</button>
+            <button type="button" className="guest" onClick={() => setShowCardAccountNotice(false)}>
+              <X size={16} /> Continuar como visitante
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() =>
+                window.location.assign(
+                  `/register?next=${encodeURIComponent(window.location.pathname)}`,
+                )
+              }
+            >
+              <UserPlus size={16} /> Criar conta para salvar
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.assign(buildLoginUrl(window.location))}
+            >
+              <LogIn size={16} /> Já tenho conta
+            </button>
           </div>
         </S.CardAccountNotice>
       )}
       {loggedIn && paymentMethod === 'card' && restaurantId && (
         <S.SavedPaymentChooser>
           {savedCards.map((card) => (
-            <button key={card.publicId} type="button" className={selectedCardId === card.publicId ? 'active' : ''} onClick={() => {
-              setSelectedCardId(card.publicId);
-              localStorage.setItem(`selectedCustomerPaymentMethodId:${restaurantId}`, card.publicId);
-            }}>
-              <CreditCard size={18} /><span><b>{card.brand.toUpperCase()} •••• {card.last4}</b><small>Validade {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}</small>{card.provider === 'MERCADO_PAGO' && <small>O Mercado Pago confirmará o CVV no ambiente seguro.</small>}</span>
+            <button
+              key={card.publicId}
+              type="button"
+              className={selectedCardId === card.publicId ? 'active' : ''}
+              onClick={() => {
+                setSelectedCardId(card.publicId);
+                localStorage.setItem(
+                  `selectedCustomerPaymentMethodId:${restaurantId}`,
+                  card.publicId,
+                );
+              }}
+            >
+              <CreditCard size={18} />
+              <span>
+                <b>
+                  {card.brand.toUpperCase()} •••• {card.last4}
+                </b>
+                <small>
+                  Validade {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}
+                </small>
+                {card.provider === 'MERCADO_PAGO' && (
+                  <small>O Mercado Pago confirmará o CVV no ambiente seguro.</small>
+                )}
+              </span>
             </button>
           ))}
-          <a className="add" href="/profile?view=paymentMethods" aria-label="Cadastrar cartão em Meus cartões">
-            <span className="add-icon"><WalletCards size={19} /></span>
-            <span className="add-copy"><b>Cadastrar novo cartão</b><small>Abra “Meus cartões” no seu perfil</small></span>
+          <a
+            className="add"
+            href="/profile?view=paymentMethods"
+            aria-label="Cadastrar cartão em Meus cartões"
+          >
+            <span className="add-icon">
+              <WalletCards size={19} />
+            </span>
+            <span className="add-copy">
+              <b>Cadastrar novo cartão</b>
+              <small>Abra “Meus cartões” no seu perfil</small>
+            </span>
             <ChevronRight className="add-arrow" size={18} />
           </a>
         </S.SavedPaymentChooser>
@@ -195,7 +272,11 @@ export function PaymentOptions({
       {allowPayOnDelivery && deliveryOptions.length > 0 && (
         <>
           <S.CartSectionLabel>Pagar na entrega</S.CartSectionLabel>
-          <OptionsGrid options={deliveryOptions} selected={paymentMethod} onChange={handlePaymentChange} />
+          <OptionsGrid
+            options={deliveryOptions}
+            selected={paymentMethod}
+            onChange={handlePaymentChange}
+          />
         </>
       )}
     </>

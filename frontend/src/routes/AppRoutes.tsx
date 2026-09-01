@@ -37,6 +37,7 @@ import {
 import { authorizeRoute } from './routeAuthorization';
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
+import { buildLoginUrl, getSafeNextPath } from '../shared/navigation/authNavigation';
 
 function RouteLoading() {
   return (
@@ -57,9 +58,7 @@ function RestaurantLoginRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  const next = encodeURIComponent(`/${normalizedSlug}`);
-
-  return <Navigate to={`/login?next=${next}`} replace />;
+  return <Navigate to={buildLoginUrl({ pathname: `/${normalizedSlug}` })} replace />;
 }
 
 function RestaurantMenuGate() {
@@ -76,15 +75,16 @@ function RestaurantMenuGate() {
   return <Home />;
 }
 
-function RequireAuth() {
+export function RequireAuth() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <RouteLoading />;
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={buildLoginUrl(location)} replace />;
   }
 
   return <Outlet />;
@@ -100,7 +100,7 @@ function PageTransition() {
   );
 }
 
-function RouteAuthorizationGuard() {
+export function RouteAuthorizationGuard() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -108,7 +108,16 @@ function RouteAuthorizationGuard() {
 
   const decision = authorizeRoute(location.pathname, user);
   if ('redirectTo' in decision) {
-    return <Navigate to={decision.redirectTo} replace />;
+    const customerNextPath =
+      user?.role === 'CLIENTE' && user.mustChangePassword !== true && location.pathname === '/login'
+        ? getSafeNextPath(new URLSearchParams(location.search).get('next'))
+        : '';
+    const redirectTo = customerNextPath
+      ? customerNextPath
+      : !user && decision.redirectTo === '/login'
+        ? buildLoginUrl(location)
+        : decision.redirectTo;
+    return <Navigate to={redirectTo} replace />;
   }
   return <Outlet />;
 }
