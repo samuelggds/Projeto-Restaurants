@@ -41,6 +41,21 @@ interface CreateTablePaymentIntentContext {
   participantId: number;
 }
 
+interface FakeTablePaymentEnvironment {
+  NODE_ENV?: string;
+  FAKE_TABLE_PAYMENT_AUTO_APPROVE?: string;
+}
+
+export function shouldAutoApproveFakeTablePayment(
+  environment: FakeTablePaymentEnvironment = process.env,
+) {
+  return (
+    environment.NODE_ENV !== 'production' &&
+    environment.NODE_ENV !== 'test' &&
+    environment.FAKE_TABLE_PAYMENT_AUTO_APPROVE === 'true'
+  );
+}
+
 export class CreateTablePaymentIntentService {
   constructor(
     private readonly provider: PaymentProvider = fakePaymentProvider,
@@ -354,9 +369,7 @@ export class CreateTablePaymentIntentService {
     const provider = this.provider;
     if (
       !(provider instanceof FakePaymentProvider) ||
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'test' ||
-      process.env.FAKE_TABLE_PAYMENT_AUTO_APPROVE === 'false' ||
+      !shouldAutoApproveFakeTablePayment() ||
       intent.status !== TablePaymentIntentStatus.PROCESSING ||
       !intent.providerExternalId
     ) {
