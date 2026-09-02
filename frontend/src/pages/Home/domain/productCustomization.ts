@@ -4,6 +4,7 @@ export type ProductOption = {
   id: string;
   ingredientId?: string;
   name: string;
+  image?: string | null;
   price: number;
   pricingMode?: 'ADDITIVE' | 'ABSOLUTE';
   absolutePrice?: number | null;

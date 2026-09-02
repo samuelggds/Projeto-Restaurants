@@ -31,6 +31,24 @@ test('publica imagens persistidas como recursos cacheáveis sem carregar base64 
       active: true,
       updatedAt,
       discount: null,
+      ingredients: [],
+      compositionItems: [],
+      optionGroups: [
+        {
+          id: 100,
+          options: [
+            {
+              id: 1001,
+              ingredient: {
+                id: 8,
+                image: 'data:image/webp;base64,SU5HUkVESUVOVEU=',
+                updatedAt,
+              },
+            },
+            { id: 1002, ingredient: { id: 9, image: null, updatedAt } },
+          ],
+        },
+      ],
     },
     {
       id: 71,
@@ -42,6 +60,9 @@ test('publica imagens persistidas como recursos cacheáveis sem carregar base64 
       active: true,
       updatedAt,
       discount: null,
+      ingredients: [],
+      compositionItems: [],
+      optionGroups: [],
     },
   ];
 
@@ -52,4 +73,10 @@ test('publica imagens persistidas como recursos cacheáveis sem carregar base64 
     `/public-media/restaurants/3/products/70?v=${updatedAt.getTime()}`,
   );
   assert.equal(result.products[1].image, 'https://cdn.example.com/massa.webp');
+  assert.equal(
+    result.products[0].optionGroups[0].options[0].ingredient.image,
+    `/public-media/restaurants/3/ingredients/8?v=${updatedAt.getTime()}`,
+  );
+  assert.equal(result.products[0].optionGroups[0].options[1].ingredient.image, null);
+  assert.doesNotMatch(JSON.stringify(result), /SU5HUkVESUVOVEU=/u);
 });

@@ -9,6 +9,19 @@ type ListProductsPayload = {
   slug?: string;
 };
 
+function presentIngredientImage<
+  T extends { id: number; image?: string | null; updatedAt?: Date | null },
+>(ingredient: T, restaurantId: number) {
+  return {
+    ...ingredient,
+    image: createPublicMediaReference(
+      ingredient.image,
+      `/public-media/restaurants/${restaurantId}/ingredients/${ingredient.id}`,
+      ingredient.updatedAt,
+    ),
+  };
+}
+
 class ListProductsService {
   async execute({ restaurantId, slug }: ListProductsPayload) {
     let normalizedRestaurantId = Number(restaurantId);
@@ -36,11 +49,28 @@ class ListProductsService {
         `/public-media/restaurants/${normalizedRestaurantId}/products/${product.id}`,
         product.updatedAt,
       );
+      const publicIngredients = product.ingredients.map((ingredient) =>
+        presentIngredientImage(ingredient, normalizedRestaurantId),
+      );
+      const publicCompositionItems = product.compositionItems.map((item) => ({
+        ...item,
+        ingredient: presentIngredientImage(item.ingredient, normalizedRestaurantId),
+      }));
+      const publicOptionGroups = product.optionGroups.map((group) => ({
+        ...group,
+        options: group.options.map((option) => ({
+          ...option,
+          ingredient: presentIngredientImage(option.ingredient, normalizedRestaurantId),
+        })),
+      }));
 
       if (Number.isFinite(stockValue) && stockValue <= 0) {
         return {
           ...product,
           image: publicImage,
+          ingredients: publicIngredients,
+          compositionItems: publicCompositionItems,
+          optionGroups: publicOptionGroups,
           active: false,
           pricing,
         };
@@ -49,6 +79,9 @@ class ListProductsService {
       return {
         ...product,
         image: publicImage,
+        ingredients: publicIngredients,
+        compositionItems: publicCompositionItems,
+        optionGroups: publicOptionGroups,
         pricing,
       };
     });

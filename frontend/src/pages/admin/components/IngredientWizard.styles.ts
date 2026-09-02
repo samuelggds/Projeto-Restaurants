@@ -6,13 +6,26 @@ export const Overlay = styled.div`
   z-index: 130;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: clamp(12px, 2vw, 28px);
   background: rgba(18, 20, 21, 0.64);
+  animation: ingredient-overlay-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes ingredient-overlay-enter {
+    from {
+      background: rgba(18, 20, 21, 0);
+    }
+    to {
+      background: rgba(18, 20, 21, 0.64);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 export const Dialog = styled.form`
-  width: min(100%, 1100px);
-  max-height: min(92dvh, 820px);
+  width: min(100%, 1120px);
+  height: min(760px, calc(100dvh - 40px));
+  max-height: calc(100dvh - 24px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -20,8 +33,21 @@ export const Dialog = styled.form`
   color: #28231f;
   background: #fbfaf8;
   box-shadow: 0 30px 90px rgba(20, 17, 15, 0.3);
+  transform-origin: center;
+  animation: ingredient-dialog-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes ingredient-dialog-enter {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
   button,
-  input {
+  input,
+  select {
     font: inherit;
   }
   button:focus-visible,
@@ -35,14 +61,14 @@ export const Dialog = styled.form`
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 18px 20px;
+    padding: 20px 24px;
     border-bottom: 1px solid #e1dad3;
     background: #fff;
   }
   .wizard-header h2 {
     min-width: 0;
     margin: 0;
-    font-size: 16px;
+    font-size: 18px;
   }
   .header-actions {
     display: flex;
@@ -51,12 +77,12 @@ export const Dialog = styled.form`
   }
   .header-actions small {
     color: #756d66;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
   }
   .header-actions button {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     display: grid;
     place-items: center;
     border: 0;
@@ -68,15 +94,15 @@ export const Dialog = styled.form`
     background: #f6f2ee;
   }
   .header-actions button svg {
-    width: 17px;
+    width: 19px;
   }
   > nav {
     display: flex;
     gap: 4px;
-    padding: 0 20px;
+    padding: 0 24px;
   }
   > nav span {
-    height: 3px;
+    height: 4px;
     flex: 1;
     border-radius: 99px;
     background: #e8e0d9;
@@ -85,13 +111,13 @@ export const Dialog = styled.form`
     background: var(--a);
   }
   .wizard-error {
-    margin: 12px 20px 0;
-    padding: 10px 12px;
+    margin: 14px 24px 0;
+    padding: 12px 14px;
     border: 1px solid #edb7b2;
     border-radius: 9px;
     color: #9b241c;
     background: #fff2f1;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 750;
   }
   > main {
@@ -99,10 +125,10 @@ export const Dialog = styled.form`
     flex: 1;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 270px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     align-items: stretch;
-    gap: 24px;
-    padding: 24px;
+    gap: 32px;
+    padding: 30px 32px;
   }
   > main.success-main {
     grid-template-columns: minmax(0, 1fr);
@@ -113,25 +139,25 @@ export const Dialog = styled.form`
   }
   .wizard-stage > section {
     display: grid;
-    gap: 17px;
+    gap: 20px;
   }
   .step-heading h3 {
-    margin: 0 0 6px;
-    font-size: 19px;
+    margin: 0 0 8px;
+    font-size: 24px;
   }
   .step-heading p,
   .default-price-note {
     margin: 0;
     color: #766d65;
-    font-size: 11px;
-    line-height: 1.5;
+    font-size: 14px;
+    line-height: 1.55;
   }
   .wizard-aside {
     min-width: 0;
     display: grid;
     align-content: start;
-    gap: 18px;
-    padding: 24px 20px;
+    gap: 20px;
+    padding: 26px 22px;
     border-left: 1px solid #ebe4dd;
     border-radius: 8px;
     background: linear-gradient(180deg, #fafbf9 0%, #f8faf7 100%);
@@ -156,12 +182,12 @@ export const Dialog = styled.form`
   }
   .aside-intro h3 {
     max-width: 210px;
-    font-size: 15px;
+    font-size: 17px;
     line-height: 1.3;
   }
   .aside-intro p {
     color: #6f746f;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .aside-benefits {
@@ -208,7 +234,7 @@ export const Dialog = styled.form`
   .aside-benefits small,
   .aside-tip b,
   .aside-tip small {
-    font-size: 9px;
+    font-size: 11px;
   }
   .aside-benefits small,
   .aside-tip small {
@@ -298,7 +324,7 @@ export const Dialog = styled.form`
   }
   .new-category-action {
     justify-self: start;
-    min-height: 38px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -307,7 +333,7 @@ export const Dialog = styled.form`
     padding: 0 11px;
     color: var(--a);
     background: #fff;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 850;
     cursor: pointer;
   }
@@ -321,7 +347,7 @@ export const Dialog = styled.form`
     padding: 0;
     color: var(--a);
     background: transparent;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     cursor: pointer;
   }
@@ -331,7 +357,7 @@ export const Dialog = styled.form`
     display: grid;
     gap: 6px;
     color: #5d554e;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 850;
   }
   .new-category-field input,
@@ -339,7 +365,7 @@ export const Dialog = styled.form`
   .primary-field > select,
   .money-field {
     width: 100%;
-    height: 42px;
+    height: 48px;
     border: 1px solid #dcd4cd;
     border-radius: 9px;
     padding: 0 11px;
@@ -351,7 +377,7 @@ export const Dialog = styled.form`
   .new-category-field small,
   .primary-field > small {
     color: #81776f;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 500;
   }
   .price-choice {
@@ -360,7 +386,7 @@ export const Dialog = styled.form`
     gap: 9px;
   }
   .price-choice button {
-    min-height: 46px;
+    min-height: 50px;
     border: 1px solid #ddd5ce;
     border-radius: 9px;
     color: #4d4640;
@@ -391,11 +417,11 @@ export const Dialog = styled.form`
     color: var(--a);
   }
   .image-loading b {
-    font-size: 12px;
+    font-size: 14px;
   }
   .image-loading span {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
   }
   @keyframes ingredient-image-spin {
     to {
@@ -439,7 +465,7 @@ export const Dialog = styled.form`
   }
   .recommended-image > img {
     width: 100%;
-    height: 158px;
+    height: 190px;
     grid-column: 1 / -1;
     object-fit: cover;
     background: #f2eee9;
@@ -451,18 +477,18 @@ export const Dialog = styled.form`
     padding: 0 0 12px 13px;
   }
   .recommended-image > div b {
-    font-size: 13px;
+    font-size: 15px;
   }
   .recommended-image > div small,
   .recommended-image > div a {
     color: #7b7168;
-    font-size: 9px;
+    font-size: 11px;
   }
   .recommended-image > div a {
     text-decoration: underline;
   }
   .recommended-image > button {
-    min-height: 36px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -472,7 +498,7 @@ export const Dialog = styled.form`
     padding: 0 11px;
     color: var(--a);
     background: #fff;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 850;
     cursor: pointer;
   }
@@ -489,7 +515,7 @@ export const Dialog = styled.form`
   }
   .other-images > span {
     color: #625a53;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 800;
   }
   .other-images > div {
@@ -500,8 +526,8 @@ export const Dialog = styled.form`
   .other-images button {
     position: relative;
     overflow: hidden;
-    width: 66px;
-    height: 66px;
+    width: 78px;
+    height: 78px;
     border: 2px solid transparent;
     border-radius: 8px;
     padding: 0;
@@ -534,7 +560,7 @@ export const Dialog = styled.form`
   }
   .image-actions button,
   .image-actions label {
-    min-height: 37px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -544,7 +570,7 @@ export const Dialog = styled.form`
     padding: 0 10px;
     color: #514943;
     background: #fff;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 800;
     cursor: pointer;
   }
@@ -561,7 +587,7 @@ export const Dialog = styled.form`
   .pexels-credit {
     justify-self: start;
     color: #776e66;
-    font-size: 9px;
+    font-size: 11px;
     text-decoration: underline;
   }
   .money-field {
@@ -676,16 +702,16 @@ export const Dialog = styled.form`
   }
   .success-step button,
   > footer button {
-    min-height: 42px;
+    min-height: 46px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
     border: 1px solid #ddd6cf;
     border-radius: 9px;
-    padding: 0 13px;
+    padding: 0 18px;
     background: #fff;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 850;
     cursor: pointer;
   }
@@ -695,22 +721,38 @@ export const Dialog = styled.form`
   }
   .success-step .primary,
   > footer .primary {
-    border-color: var(--a);
+    border-color: var(--a, #ef5b24);
     color: #fff;
-    background: var(--a);
+    background: var(--a, #ef5b24);
   }
   > footer {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-height: 72px;
     flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    padding: 13px 20px max(13px, env(safe-area-inset-bottom));
+    padding: 13px 24px max(13px, env(safe-area-inset-bottom));
     border-top: 1px solid #e1dad3;
     background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 -8px 22px rgba(48, 35, 25, 0.05);
+  }
+  > footer .primary {
+    min-width: 140px;
+    box-shadow: 0 7px 16px color-mix(in srgb, var(--a, #ef5b24) 20%, transparent);
   }
   > footer button:disabled {
-    opacity: 0.5;
+    color: #8c837b;
+    background: #f4f1ee;
+    opacity: 1;
     cursor: not-allowed;
+  }
+  > footer .primary:disabled {
+    color: #fff;
+    background: var(--a, #ef5b24);
+    opacity: 0.6;
   }
   @media (max-width: 560px) {
     width: 100%;
@@ -756,5 +798,16 @@ export const Dialog = styled.form`
       flex: 1;
       padding: 0 9px;
     }
+  }
+  @media (max-width: 800px) {
+    > main {
+      display: block;
+    }
+    .wizard-aside {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 `;

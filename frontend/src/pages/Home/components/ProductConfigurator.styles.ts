@@ -384,6 +384,27 @@ export const OptionList = styled.div`
   gap: 9px;
 `;
 
+export const OptionIdentity = styled.div`
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  > span {
+    min-width: 0;
+  }
+`;
+
+export const OptionImage = styled.img`
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid #e5ddd6;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f7f3f0;
+`;
+
 export const Option = styled.div<{ $selected: boolean; $disabled: boolean }>`
   min-height: 58px;
   border: 1px solid ${({ $selected }) => ($selected ? 'var(--config-primary)' : '#e9e1da')};

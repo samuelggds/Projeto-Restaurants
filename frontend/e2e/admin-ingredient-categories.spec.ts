@@ -175,6 +175,13 @@ test('admin escolhe uma foto sugerida, preserva e remove a imagem explicitamente
       imageSelectionToken: 'signed-selection-token',
     }),
   ]);
+  const createdCategory = page
+    .getByRole('navigation', { name: 'Categorias de ingredientes' })
+    .getByRole('button', { name: 'Adicionais 1' });
+  await expect(createdCategory.locator('svg')).toHaveCSS('color', 'rgb(32, 168, 75)');
+  await createdCategory.click();
+  await expect(createdCategory).toHaveAttribute('aria-current', 'page');
+  await expect(createdCategory.locator('svg')).toHaveCSS('color', 'rgb(32, 168, 75)');
 
   await card.getByRole('button', { name: 'Opções de Bacon' }).click();
   await page.getByRole('button', { name: 'Desativar' }).click();
@@ -185,6 +192,24 @@ test('admin escolhe uma foto sugerida, preserva e remove a imagem explicitamente
 
   await card.getByRole('button', { name: 'Opções de Bacon' }).click();
   await page.getByRole('button', { name: 'Editar ingrediente' }).click();
+  await expect(card).toHaveClass(/editing/);
+  await expect(card.getByRole('button', { name: 'Salvar Bacon' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Cancelar edição' })).toBeVisible();
+  expect(
+    await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+    'o formulário de edição deve permanecer contido no card',
+  ).toBe(true);
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(
+    await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+    'o formulário de edição deve permanecer contido no card em 320 px',
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+    ),
+    'a edição não deve criar rolagem horizontal na página',
+  ).toBe(true);
   await card.getByRole('button', { name: 'Remover foto' }).click();
   await card.getByRole('button', { name: 'Salvar Bacon' }).click();
   await expect(page.getByText('Ingrediente atualizado.')).toBeVisible();

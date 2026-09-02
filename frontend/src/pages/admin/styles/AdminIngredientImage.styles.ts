@@ -4,13 +4,14 @@ export const ingredientImageStyles = css`
   .ingredient-avatar {
     position: relative;
     overflow: hidden;
-    width: 54px;
-    height: 54px;
+    width: 72px;
+    height: 72px;
     display: grid;
     place-items: center;
     border-radius: 50%;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 10%, white);
+    font-size: 18px;
     font-weight: 900;
   }
   .ingredient-avatar > span {

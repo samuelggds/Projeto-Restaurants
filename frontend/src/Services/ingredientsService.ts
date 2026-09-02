@@ -1,4 +1,5 @@
 import api from './api';
+import { resolvePublicIngredientImages, resolvePublicMediaSource } from './publicMediaSource';
 
 export type IngredientPayload = {
   name: string;
@@ -35,15 +36,30 @@ function unwrapIngredients(payload: unknown) {
   return Array.isArray(record.ingredients) ? record.ingredients : [];
 }
 
+function resolveIngredientResponse(payload: unknown, baseUrl: unknown) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const record = payload as Record<string, unknown>;
+  return {
+    ...record,
+    image: resolvePublicMediaSource(record.image, baseUrl),
+  };
+}
+
 class IngredientsService {
   async listIngredients() {
     const response = await api.get('/ingredients');
-    return unwrapIngredients(response.data);
+    return resolvePublicIngredientImages(
+      unwrapIngredients(response.data),
+      response.config?.baseURL || api.defaults?.baseURL || '',
+    );
   }
 
   async createIngredient(payload: IngredientPayload) {
     const response = await api.post('/ingredients', payload);
-    return response.data;
+    return resolveIngredientResponse(
+      response.data,
+      response.config?.baseURL || api.defaults?.baseURL || '',
+    );
   }
 
   async searchImages(input: { name: string; category?: string; page?: number }) {
@@ -56,7 +72,10 @@ class IngredientsService {
 
   async updateIngredient(id: string | number, payload: Partial<IngredientPayload>) {
     const response = await api.put(`/ingredients/${id}`, payload);
-    return response.data;
+    return resolveIngredientResponse(
+      response.data,
+      response.config?.baseURL || api.defaults?.baseURL || '',
+    );
   }
 
   async deleteIngredient(id: string | number) {

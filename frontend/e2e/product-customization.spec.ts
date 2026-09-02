@@ -23,7 +23,14 @@ const product = {
           id: 1001,
           ingredientId: 1,
           active: true,
-          ingredient: { id: 1, name: 'Base fina', price: 0, active: true },
+          ingredient: {
+            id: 1,
+            name: 'Base fina',
+            price: 0,
+            active: true,
+            image:
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3zS5WQAAAABJRU5ErkJggg==',
+          },
         },
         {
           id: 1002,
@@ -245,6 +252,12 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await mockStorefront(page);
   await openConfigurator(page);
   const dialog = page.getByRole('dialog', { name: 'Montar Produto artesanal' });
+  const baseFineOption = dialog.locator('label').filter({ hasText: 'Base fina' });
+  const baseThickOption = dialog.locator('label').filter({ hasText: 'Base grossa' });
+
+  await expect(baseFineOption.locator('img')).toHaveCount(1);
+  await expect(baseFineOption.locator('img')).toHaveAttribute('src', /^data:image\/png;base64,/u);
+  await expect(baseThickOption.locator('img')).toHaveCount(0);
 
   await dialog.getByRole('button', { name: /Adicionar/ }).click();
   await expect(page.getByText(/Escolha 1 opção/).last()).toBeVisible();

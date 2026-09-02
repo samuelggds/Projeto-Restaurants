@@ -325,10 +325,15 @@ export function ProductConfigurator({
                             }}
                           />
                           <i>{isSelected && <Check size={15} strokeWidth={3} />}</i>
-                          <span>
-                            <b>{option.name}</b>
-                            {option.locked && <small>Já acompanha o produto</small>}
-                          </span>
+                          <S.OptionIdentity>
+                            {option.image && (
+                              <S.OptionImage src={option.image} alt="" loading="lazy" />
+                            )}
+                            <span>
+                              <b>{option.name}</b>
+                              {option.locked && <small>Já acompanha o produto</small>}
+                            </span>
+                          </S.OptionIdentity>
                           <strong>
                             {option.pricingMode === 'ABSOLUTE'
                               ? `Preço final ${brl(Number(option.absolutePrice ?? option.price))}`

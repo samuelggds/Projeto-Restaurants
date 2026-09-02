@@ -5,13 +5,15 @@ export type UnsavedSettingsDialogPhase = 'choice' | 'saving' | 'discarding' | 's
 
 type Props = {
   phase: UnsavedSettingsDialogPhase;
+  subject?: 'settings' | 'product';
   onSave: () => void;
   onDiscard: () => void;
 };
 
-export function UnsavedSettingsDialog({ phase, onSave, onDiscard }: Props) {
+export function UnsavedSettingsDialog({ phase, subject = 'settings', onSave, onDiscard }: Props) {
   const working = phase === 'saving' || phase === 'discarding';
   const result = phase === 'saved' || phase === 'discarded';
+  const isProduct = subject === 'product';
 
   return (
     <S.Backdrop>
@@ -29,14 +31,24 @@ export function UnsavedSettingsDialog({ phase, onSave, onDiscard }: Props) {
               {phase === 'saved' ? <CheckCircle2 /> : <CircleX />}
             </span>
             <h2 id="unsaved-settings-title">
-              {phase === 'saved' ? 'Alterações salvas com sucesso!' : 'Alterações não foram salvas'}
+              {phase === 'saved'
+                ? isProduct
+                  ? 'Produto salvo com sucesso!'
+                  : 'Alterações salvas com sucesso!'
+                : isProduct
+                  ? 'Produto não foi salvo'
+                  : 'Alterações não foram salvas'}
             </h2>
             <p id="unsaved-settings-description">
               {phase === 'saved'
-                ? 'As novas configurações já foram aplicadas ao restaurante.'
-                : 'As mudanças feitas nesta seção foram descartadas.'}
+                ? isProduct
+                  ? 'As alterações do produto já foram aplicadas ao cardápio.'
+                  : 'As novas configurações já foram aplicadas ao restaurante.'
+                : isProduct
+                  ? 'As mudanças feitas no produto foram descartadas.'
+                  : 'As mudanças feitas nesta seção foram descartadas.'}
             </p>
-            <small>Continuando para a próxima seção</small>
+            <small>Abrindo a seção selecionada</small>
           </S.Result>
         ) : (
           <>
@@ -44,9 +56,15 @@ export function UnsavedSettingsDialog({ phase, onSave, onDiscard }: Props) {
               <AlertTriangle />
             </S.ChoiceIcon>
             <S.ChoiceCopy>
-              <h2 id="unsaved-settings-title">Você tem alterações pendentes</h2>
+              <h2 id="unsaved-settings-title">
+                {isProduct
+                  ? 'Este produto tem alterações pendentes'
+                  : 'Você tem alterações pendentes'}
+              </h2>
               <p id="unsaved-settings-description">
-                Deseja salvar as configurações antes de mudar de seção?
+                {isProduct
+                  ? 'Deseja salvar o produto antes de abrir outra seção?'
+                  : 'Deseja salvar as configurações antes de mudar de seção?'}
               </p>
             </S.ChoiceCopy>
             <S.Actions>

@@ -405,9 +405,9 @@ export const TopActions = styled.div`
     }
   }
 `;
-export const Content = styled.div`
+export const Content = styled.div<{ $wide?: boolean }>`
   width: 100%;
-  max-width: 1120px;
+  max-width: ${({ $wide }) => ($wide ? '1480px' : '1120px')};
   margin: auto;
   padding: 28px 34px 80px;
   > * {

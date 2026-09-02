@@ -659,6 +659,6 @@ export function IngredientWizard({
         )}
       </W.Dialog>
     </W.Overlay>,
-    document.body,
+    document.querySelector<HTMLElement>('[data-admin-root]') ?? document.body,
   );
 }

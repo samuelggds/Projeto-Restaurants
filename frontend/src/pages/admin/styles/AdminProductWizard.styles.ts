@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { ProductFormSection } from './AdminProductForm.styles';
+import { ProductFormSection } from './AdminProductFormExperience.styles';
 
 export const ProductWizardStepSection = styled(ProductFormSection)`
   .guided-fields {
@@ -271,11 +271,157 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     border-top: 1px solid #d8dfe1;
     border-radius: 0;
   }
+  .customization-overview {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.5fr);
+    align-items: center;
+    gap: 24px;
+    padding: 16px 18px;
+    border-top: 1px solid #e4ddd6;
+    border-bottom: 1px solid #e4ddd6;
+    background: #f8f6f3;
+  }
+  .customization-overview > header {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+  .customization-overview > header small,
+  .customization-start > header small,
+  .customization-actions > div > small {
+    color: var(--a);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.07em;
+  }
+  .customization-overview h4,
+  .customization-start h4 {
+    margin: 0;
+    color: #312c28;
+    font-size: 15px;
+  }
+  .customization-overview p,
+  .customization-start p {
+    margin: 0;
+    color: #726a63;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .customization-steps {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .customization-steps > li {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    padding: 7px 12px;
+    color: #817971;
+  }
+  .customization-steps > li + li {
+    border-left: 1px solid #ded6cf;
+  }
+  .customization-steps i {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #d8d0c9;
+    border-radius: 50%;
+    color: #766e67;
+    background: #fff;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 900;
+  }
+  .customization-steps i svg {
+    width: 15px;
+  }
+  .customization-steps > li > span {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .customization-steps b {
+    color: #5d554e;
+    font-size: 11px;
+  }
+  .customization-steps small {
+    overflow-wrap: anywhere;
+    color: #8a827a;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .customization-steps > li.active i {
+    border-color: var(--a);
+    color: #fff;
+    background: var(--a);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 10%, transparent);
+  }
+  .customization-steps > li.active b {
+    color: #312c28;
+  }
+  .customization-steps > li.complete i {
+    border-color: #2e8050;
+    color: #fff;
+    background: #2e8050;
+  }
+  .customization-steps > li.complete b {
+    color: #225f3d;
+  }
+  .customization-start {
+    min-width: 0;
+    display: grid;
+    gap: 15px;
+    padding: 18px;
+    border: 1px solid #ded7d0;
+    border-radius: 8px;
+    background: #fff;
+  }
+  .customization-start > header {
+    display: grid;
+    gap: 4px;
+  }
+  .customization-start-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 2px;
+  }
+  .customization-start-footer > span {
+    color: #7a726b;
+    font-size: 10px;
+  }
+  .customization-start-footer > button {
+    min-height: 34px;
+    border: 1px solid #d9d0c8;
+    border-radius: 7px;
+    padding: 0 11px;
+    color: #554c45;
+    background: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .customization-prerequisite {
+    border-style: solid;
+    border-color: #e2c89c;
+    background: #fffaf0;
+  }
   .customization-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
+    padding: 2px 0;
   }
   .customization-actions > div {
     min-width: 0;
@@ -283,7 +429,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     gap: 3px;
   }
   .customization-actions b {
-    font-size: 12px;
+    font-size: 13px;
   }
   .customization-actions span {
     color: var(--muted);
@@ -291,6 +437,31 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     line-height: 1.4;
   }
   @media (max-width: 600px) {
+    .customization-overview {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 15px;
+    }
+    .customization-steps {
+      grid-template-columns: 1fr;
+    }
+    .customization-steps > li {
+      padding: 8px 0;
+    }
+    .customization-steps > li + li {
+      border-top: 1px solid #ded6cf;
+      border-left: 0;
+    }
+    .customization-start {
+      padding: 14px;
+    }
+    .customization-start-footer {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .customization-start-footer > button {
+      width: 100%;
+    }
     .customization-actions {
       grid-template-columns: 1fr;
     }

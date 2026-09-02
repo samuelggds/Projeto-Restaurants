@@ -46,6 +46,7 @@ import {
   UnsavedSettingsDialog,
   type UnsavedSettingsDialogPhase,
 } from './components/UnsavedSettingsDialog';
+import type { ProductDrawerHandle } from './components/ProductDrawer';
 
 const DECISION_PROGRESS_MS = 1200;
 const RESULT_MODAL_MS = 1400;
@@ -55,6 +56,7 @@ const ProductDrawer = lazy(() =>
 
 type PendingNavigation =
   { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
+type PendingChangesSource = 'settings' | 'product';
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => {
@@ -158,6 +160,8 @@ export function AdminPage({
   const [catalogImportOpen, setCatalogImportOpen] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
+  const [pendingChangesSource, setPendingChangesSource] =
+    useState<PendingChangesSource>('settings');
   const [unsavedDialogPhase, setUnsavedDialogPhase] =
     useState<UnsavedSettingsDialogPhase>('choice');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -169,6 +173,7 @@ export function AdminPage({
       : '',
   );
   const logoInput = useRef<HTMLInputElement>(null);
+  const productDrawerRef = useRef<ProductDrawerHandle>(null);
 
   const markSettingsChanged = () => {
     setSettingsDirty(true);
@@ -466,10 +471,22 @@ export function AdminPage({
       return;
     }
     const navigation: PendingNavigation = { kind: 'area', area: nextArea };
+    if (editingProduct !== undefined) {
+      if (productDrawerRef.current?.hasUnsavedChanges()) {
+        setPendingChangesSource('product');
+        setUnsavedDialogPhase('choice');
+        setPendingNavigation(navigation);
+        return;
+      }
+      setEditingProduct(undefined);
+      applyPendingNavigation(navigation);
+      return;
+    }
     if (!settingsDirty) {
       applyPendingNavigation(navigation);
       return;
     }
+    setPendingChangesSource('settings');
     setUnsavedDialogPhase('choice');
     setPendingNavigation(navigation);
   };
@@ -481,6 +498,7 @@ export function AdminPage({
       applyPendingNavigation(navigation);
       return;
     }
+    setPendingChangesSource('settings');
     setUnsavedDialogPhase('choice');
     setPendingNavigation(navigation);
   };
@@ -492,12 +510,28 @@ export function AdminPage({
     await wait(RESULT_MODAL_MS);
     applyPendingNavigation(navigation);
     setPendingNavigation(null);
+    setPendingChangesSource('settings');
     setUnsavedDialogPhase('choice');
   };
 
   const saveBeforeNavigation = async () => {
     if (!pendingNavigation || unsavedDialogPhase !== 'choice') return;
     setUnsavedDialogPhase('saving');
+    if (pendingChangesSource === 'product') {
+      const productDrawer = productDrawerRef.current;
+      const [savedSuccessfully] = await Promise.all([
+        productDrawer?.save() ?? Promise.resolve(false),
+        wait(DECISION_PROGRESS_MS),
+      ]);
+      if (!savedSuccessfully) {
+        setPendingNavigation(null);
+        setPendingChangesSource('settings');
+        setUnsavedDialogPhase('choice');
+        return;
+      }
+      await finishPendingNavigation('saved');
+      return;
+    }
     const [savedSuccessfully] = await Promise.all([save(), wait(DECISION_PROGRESS_MS)]);
     if (!savedSuccessfully) {
       setPendingNavigation(null);
@@ -510,13 +544,20 @@ export function AdminPage({
   const discardBeforeNavigation = async () => {
     if (!pendingNavigation || unsavedDialogPhase !== 'choice') return;
     setUnsavedDialogPhase('discarding');
+    const productDrawer = pendingChangesSource === 'product' ? productDrawerRef.current : null;
     await wait(DECISION_PROGRESS_MS);
+    if (pendingChangesSource === 'product') {
+      if (productDrawer) productDrawer.discard();
+      else setEditingProduct(undefined);
+      await finishPendingNavigation('discarded');
+      return;
+    }
     setSettings(lastSavedSettings);
     setSettingsDirty(false);
     await finishPendingNavigation('discarded');
   };
   return (
-    <S.Root $primary={settings.primaryColor} $settings={area === 'settings'}>
+    <S.Root data-admin-root $primary={settings.primaryColor} $settings={area === 'settings'}>
       {feedbackError && (
         <div
           role="alert"
@@ -704,7 +745,7 @@ export function AdminPage({
             ))}
           </S.MobileSettingsNav>
         )}
-        <S.Content>
+        <S.Content $wide={area === 'catalog'}>
           {area === 'help' ? (
             <HelpCenter
               onReport={async (payload) => {
@@ -837,6 +878,7 @@ export function AdminPage({
       {pendingNavigation && (
         <UnsavedSettingsDialog
           phase={unsavedDialogPhase}
+          subject={pendingChangesSource}
           onSave={() => void saveBeforeNavigation()}
           onDiscard={() => void discardBeforeNavigation()}
         />
@@ -861,6 +903,7 @@ export function AdminPage({
           }
         >
           <ProductDrawer
+            ref={productDrawerRef}
             product={editingProduct}
             categories={categories}
             ingredients={ingredients}

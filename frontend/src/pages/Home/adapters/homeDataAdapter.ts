@@ -85,6 +85,9 @@ export function mapProductOptionGroupsFromApi(product: Record<string, unknown>) 
                 id: String(option.id ?? ''),
                 ingredientId: String(option.ingredientId ?? ingredient.id ?? ''),
                 name: String(ingredient.name || option.name || ''),
+                image: isPersistentImageSource(ingredient.image)
+                  ? String(ingredient.image).trim()
+                  : null,
                 price: Number(option.additionalPrice ?? ingredient.price ?? option.price ?? 0),
                 pricingMode:
                   option.pricingMode === 'ABSOLUTE' ? ('ABSOLUTE' as const) : ('ADDITIVE' as const),

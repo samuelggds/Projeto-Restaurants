@@ -7,6 +7,7 @@ import {
   Layers3,
   PackageOpen,
   Plus,
+  ShoppingBag,
   Trash2,
 } from 'lucide-react';
 import * as S from '../Admin.styles';
@@ -35,6 +36,8 @@ export type PendingCategoryChange = {
 
 type ProductConfigurationWorkspaceProps = {
   name: string;
+  description: string;
+  image: string;
   price: string;
   showComposition?: boolean;
   ingredients: AdminIngredient[];
@@ -73,8 +76,30 @@ type ProductConfigurationWorkspaceProps = {
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+function customerSelectionHint(group: AdminProductOptionGroup) {
+  if (group.selectionType === 'SINGLE') return 'Escolha 1 opção';
+  if (group.minSelections > 0 && group.minSelections !== group.maxSelections) {
+    return `Escolha de ${group.minSelections} até ${group.maxSelections}`;
+  }
+  if (group.minSelections > 0) return `Escolha pelo menos ${group.minSelections}`;
+  return `Escolha até ${group.maxSelections}`;
+}
+
+function customerOptionPrice(
+  option: AdminProductOptionGroup['options'][number],
+  ingredient: AdminIngredient | undefined,
+) {
+  if (option.pricingMode === 'ABSOLUTE') {
+    return `Preço final ${money(Number(option.absolutePrice ?? option.additionalPrice ?? 0))}`;
+  }
+  const additionalPrice = Number(option.additionalPrice ?? ingredient?.price ?? 0);
+  return additionalPrice > 0 ? `+ ${money(additionalPrice)}` : 'Incluso';
+}
+
 export function ProductConfigurationWorkspace({
   name,
+  description,
+  image,
   price,
   showComposition = true,
   ingredients,
@@ -259,10 +284,29 @@ export function ProductConfigurationWorkspace({
 
                   {editingGroupIndex === groupIndex && (
                     <div className="group-editor" id={`product-option-group-editor-${groupIndex}`}>
+                      <div className="group-editor-intro">
+                        <i>{groupIndex + 1}</i>
+                        <span>
+                          <b>Configure a etapa {groupIndex + 1} seguindo a ordem abaixo</b>
+                          <small>Cada alteração aparece na prévia do cliente ao lado.</small>
+                        </span>
+                      </div>
+                      <div className="guided-step-heading">
+                        <i>1</i>
+                        <span>
+                          <b>Escreva a pergunta que o cliente verá</b>
+                          <small>
+                            Dê um nome direto e escolha a categoria onde estão as respostas. Ex.:
+                            “Escolha o tamanho” + categoria “Tamanhos”.
+                          </small>
+                        </span>
+                        <em>
+                          {group.name.trim() && sourceCategory ? 'Pronto' : 'Preencha os campos'}
+                        </em>
+                      </div>
                       <div className="group-fields">
                         <S.Field>
-                          <span className="guided-question">A. O que o cliente vai escolher?</span>
-                          Nome da etapa
+                          Nome da etapa (pergunta para o cliente)
                           <input
                             maxLength={60}
                             value={group.name}
@@ -278,12 +322,12 @@ export function ProductConfigurationWorkspace({
                                 name: nextName,
                               }));
                             }}
-                            placeholder="Ex.: Escolha o tipo ou Adicione complementos"
+                            placeholder="Ex.: Escolha o tamanho"
                           />
+                          <small>Use poucas palavras e comece com um verbo.</small>
                         </S.Field>
                         <S.Field>
-                          <span className="guided-question">B. De onde vêm as opções?</span>
-                          Categoria de ingredientes
+                          Categoria das opções
                           <select
                             value={sourceCategory}
                             onChange={(event) =>
@@ -303,45 +347,11 @@ export function ProductConfigurationWorkspace({
                             ))}
                           </select>
                           <small>
-                            Somente ingredientes desta categoria poderão ser vinculados.
+                            Mostra somente os ingredientes que poderão responder a esta pergunta.
                           </small>
                         </S.Field>
-                        <div className="choice-mode-field">
-                          <b>C. Quantas opções o cliente pode escolher?</b>
-                          <div role="group" aria-label="Quantidade de opções permitidas">
-                            {(['SINGLE', 'MULTIPLE'] as const).map((selectionType) => (
-                              <button
-                                className={group.selectionType === selectionType ? 'active' : ''}
-                                key={selectionType}
-                                type="button"
-                                onClick={() =>
-                                  updateGroup(groupIndex, (current) => ({
-                                    ...current,
-                                    selectionType,
-                                    maxSelections:
-                                      selectionType === 'SINGLE'
-                                        ? 1
-                                        : Math.max(1, current.maxSelections),
-                                  }))
-                                }
-                              >
-                                <i>{selectionType === 'SINGLE' ? '1' : '+'}</i>
-                                <span>
-                                  <b>
-                                    {selectionType === 'SINGLE' ? 'Somente uma' : 'Várias opções'}
-                                  </b>
-                                  <small>
-                                    {selectionType === 'SINGLE'
-                                      ? 'Ex.: tipo de massa'
-                                      : 'Ex.: adicionais'}
-                                  </small>
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
                         <S.Field $full>
-                          Instrução para o cliente (opcional)
+                          Ajuda abaixo da pergunta (opcional)
                           <input
                             maxLength={180}
                             value={group.description ?? ''}
@@ -353,6 +363,7 @@ export function ProductConfigurationWorkspace({
                             }
                             placeholder="Ex.: Selecione uma opção para continuar"
                           />
+                          <small>Use apenas quando o título não explicar tudo sozinho.</small>
                         </S.Field>
                       </div>
 
@@ -395,8 +406,54 @@ export function ProductConfigurationWorkspace({
                         </div>
                       )}
 
+                      <div className="guided-step-heading">
+                        <i>2</i>
+                        <span>
+                          <b>Defina como a escolha funcionará</b>
+                          <small>
+                            Use “Somente uma” para tamanho ou massa. Use “Várias opções” para
+                            adicionais e informe se o cliente pode pular esta etapa.
+                          </small>
+                        </span>
+                        <em>Regra definida</em>
+                      </div>
+                      <div className="choice-mode-field">
+                        <b>Quantas opções poderão ser escolhidas?</b>
+                        <div role="group" aria-label="Quantidade de opções permitidas">
+                          {(['SINGLE', 'MULTIPLE'] as const).map((selectionType) => (
+                            <button
+                              className={group.selectionType === selectionType ? 'active' : ''}
+                              key={selectionType}
+                              type="button"
+                              onClick={() =>
+                                updateGroup(groupIndex, (current) => ({
+                                  ...current,
+                                  selectionType,
+                                  maxSelections:
+                                    selectionType === 'SINGLE'
+                                      ? 1
+                                      : Math.max(1, current.maxSelections),
+                                }))
+                              }
+                            >
+                              <i>{selectionType === 'SINGLE' ? '1' : '+'}</i>
+                              <span>
+                                <b>
+                                  {selectionType === 'SINGLE' ? 'Somente uma' : 'Várias opções'}
+                                </b>
+                                <small>
+                                  {selectionType === 'SINGLE'
+                                    ? 'Ex.: o cliente escolhe uma massa'
+                                    : 'Ex.: o cliente marca vários adicionais'}
+                                </small>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="required-choice">
-                        <b>D. Essa escolha é obrigatória?</b>
+                        <b>A escolha será obrigatória?</b>
                         <div role="group" aria-label="O cliente precisa escolher">
                           <button
                             className={group.required ? 'active' : ''}
@@ -474,8 +531,8 @@ export function ProductConfigurationWorkspace({
                       <div className="customer-rule-summary">
                         <Eye />
                         <span>
-                          O cliente verá <b>“{group.name || `Etapa ${groupIndex + 1}`}”</b> e poderá
-                          escolher{' '}
+                          Na prévia, o cliente verá{' '}
+                          <b>“{group.name || `Etapa ${groupIndex + 1}`}”</b> e poderá escolher{' '}
                           <b>
                             {group.selectionType === 'SINGLE'
                               ? '1 opção'
@@ -485,11 +542,24 @@ export function ProductConfigurationWorkspace({
                         </span>
                       </div>
 
+                      <div className="guided-step-heading">
+                        <i>3</i>
+                        <span>
+                          <b>Marque as respostas que aparecerão</b>
+                          <small>
+                            Selecione os ingredientes desta categoria. O nome e o preço de cada um
+                            serão mostrados ao cliente na mesma ordem.
+                          </small>
+                        </span>
+                        <em className={group.options.length ? '' : 'pending'}>
+                          {group.options.length
+                            ? `${group.options.length} selecionada(s)`
+                            : 'Selecione ao menos 1'}
+                        </em>
+                      </div>
                       <fieldset className="group-options">
                         <legend>
-                          <span>
-                            E. Quais opções aparecerão? — {group.options.length} vinculada(s)
-                          </span>
+                          <span>Opções disponíveis · {group.options.length} selecionada(s)</span>
                           {canCreateIngredient && (
                             <button
                               type="button"
@@ -1013,48 +1083,94 @@ export function ProductConfigurationWorkspace({
       </div>
 
       <div className="configuration-preview">
-        <S.ProductCustomerPreview>
+        <S.ProductCustomerPreview aria-label="Prévia do produto para o cliente" role="region">
           <header>
             <Eye />
             <div>
-              <b>Resumo da experiência do cliente</b>
-              <span>Prévia das etapas configuradas</span>
+              <b>Como ficará para o cliente</b>
+              <span>Resumo da experiência do cliente, atualizado em tempo real</span>
             </div>
+            <em>PRÉVIA</em>
           </header>
-          <div className="customer-preview-product">
-            <span>
-              <PackageOpen />
-            </span>
-            <div>
+          <div className="customer-preview-screen">
+            <div className="customer-preview-cover">
+              {image ? <img src={image} alt={`Foto de ${name || 'produto'}`} /> : <PackageOpen />}
+              <span>VISÃO DO CLIENTE</span>
+            </div>
+            <div className="customer-preview-product">
+              <small>PERSONALIZE SEU PEDIDO</small>
               <b>{name || 'Seu produto'}</b>
-              <small>A partir de {Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</small>
+              <p>{description || 'Escolha as opções disponíveis para montar este produto.'}</p>
+              <strong>A partir de {Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</strong>
+            </div>
+            <div className="customer-preview-intro">
+              <div>
+                <b>Monte seu produto</b>
+                <span>Faça as escolhas abaixo para continuar.</span>
+              </div>
+              <small>
+                {optionGroups.length} {optionGroups.length === 1 ? 'etapa' : 'etapas'}
+              </small>
+            </div>
+            <div className="customer-preview-steps">
+              {optionGroups.map((group, groupIndex) => (
+                <section
+                  className={group.name.trim() && group.options.length ? 'ready' : 'pending'}
+                  key={group.id ?? `preview-${groupIndex}`}
+                >
+                  <header>
+                    <div>
+                      <span>ETAPA {groupIndex + 1}</span>
+                      <b>{group.name || `Etapa ${groupIndex + 1}`}</b>
+                      {group.description && <p>{group.description}</p>}
+                    </div>
+                    <em className={group.required ? 'required' : ''}>
+                      {group.required ? 'Obrigatório' : 'Opcional'}
+                    </em>
+                  </header>
+                  <div className="customer-selection-rule">
+                    <span>{customerSelectionHint(group)}</span>
+                    <small>
+                      {group.options.length} {group.options.length === 1 ? 'opção' : 'opções'}
+                    </small>
+                  </div>
+                  <div className="customer-option-list">
+                    {group.options.map((option) => {
+                      const ingredient = ingredients.find(
+                        (item) => item.id === option.ingredientId,
+                      );
+                      return (
+                        <div key={option.ingredientId}>
+                          <i className={group.selectionType === 'SINGLE' ? 'radio' : ''} />
+                          <span>
+                            <b>{ingredient?.name || `Opção ${option.ingredientId}`}</b>
+                            {option.locked && <small>Já acompanha o produto</small>}
+                          </span>
+                          <strong>{customerOptionPrice(option, ingredient)}</strong>
+                        </div>
+                      );
+                    })}
+                    {!group.options.length && (
+                      <p className="customer-options-empty">As opções aparecerão aqui.</p>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="customer-preview-footer">
+              <span>
+                <ShoppingBag />
+                <b>Adicionar ao pedido</b>
+              </span>
+              <strong>{Number(price) > 0 ? money(Number(price)) : 'R$ 0,00'}</strong>
             </div>
           </div>
-          <div className="customer-preview-steps">
-            {optionGroups.length ? (
-              optionGroups.map((group, index) => (
-                <div
-                  className={group.name.trim() && group.options.length ? 'ready' : ''}
-                  key={group.id ?? `preview-${index}`}
-                >
-                  <i>{index + 1}</i>
-                  <span>
-                    <b>{group.name || `Etapa ${index + 1}`}</b>
-                    <small>
-                      {group.options.length} opção(ões) ·{' '}
-                      {group.required ? 'Obrigatória' : 'Opcional'}
-                    </small>
-                  </span>
-                  {group.name.trim() && group.options.length ? (
-                    <CheckCircle2 />
-                  ) : (
-                    <span className="pending">Configurar</span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p>Adicione a primeira categoria para visualizar a sequência de montagem.</p>
-            )}
+          <div className="customer-preview-note">
+            <Eye />
+            <div>
+              <b>Esta é uma simulação</b>
+              <small>O cliente verá esta sequência no cardápio após você salvar.</small>
+            </div>
           </div>
         </S.ProductCustomerPreview>
       </div>

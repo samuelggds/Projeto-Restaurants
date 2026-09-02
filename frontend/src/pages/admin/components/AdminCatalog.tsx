@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   List,
   MoreVertical,
+  Package,
   Pencil,
   Power,
   Plus,
@@ -17,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAppDialog } from '../../../components/AppDialog/context';
+import { resolveCategoryVisual } from '../../../config/categoryIconMap';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from '../Admin.styles';
 import type { AdminCategory, AdminIngredient, AdminProduct } from '../types';
@@ -355,18 +357,24 @@ export function AdminCatalog(props: AdminCatalogProps) {
                 >
                   <LayoutGrid /> <span>Todos</span> <b>{ingredients.length}</b>
                 </button>
-                {ingredientCategories.map((category) => (
-                  <button
-                    aria-current={ingredientCategoryFilter === category ? 'page' : undefined}
-                    className={ingredientCategoryFilter === category ? 'active' : ''}
-                    key={category}
-                    type="button"
-                    onClick={() => setIngredientCategoryFilter(category)}
-                  >
-                    <Tag /> <span>{category}</span>{' '}
-                    <b>{ingredients.filter((item) => item.category === category).length}</b>
-                  </button>
-                ))}
+                {ingredientCategories.map((category) => {
+                  const categoryVisual = resolveCategoryVisual(category);
+                  const CategoryIcon = categoryVisual.icon;
+
+                  return (
+                    <button
+                      aria-current={ingredientCategoryFilter === category ? 'page' : undefined}
+                      className={ingredientCategoryFilter === category ? 'active' : ''}
+                      key={category}
+                      type="button"
+                      onClick={() => setIngredientCategoryFilter(category)}
+                    >
+                      <CategoryIcon aria-hidden="true" style={{ color: categoryVisual.color }} />{' '}
+                      <span>{category}</span>{' '}
+                      <b>{ingredients.filter((item) => item.category === category).length}</b>
+                    </button>
+                  );
+                })}
               </nav>
             </aside>
 
@@ -439,7 +447,10 @@ export function AdminCatalog(props: AdminCatalogProps) {
                   const busy = ingredientBusy?.endsWith(`-${ingredient.id}`);
                   const displayedImage = editing ? editingIngredientImage : ingredient.image;
                   return (
-                    <article className={ingredient.active ? '' : 'inactive'} key={ingredient.id}>
+                    <article
+                      className={`${ingredient.active ? '' : 'inactive'} ${editing ? 'editing' : ''}`.trim()}
+                      key={ingredient.id}
+                    >
                       <div className="ingredient-avatar">
                         <span>
                           {ingredient.name.trim().charAt(0).toLocaleUpperCase('pt-BR') || 'I'}
@@ -617,55 +628,141 @@ export function AdminCatalog(props: AdminCatalogProps) {
         </S.IngredientWorkspace>
       ) : catalogTab === 'categories' ? (
         <C.CategoryWorkspace>
-          <S.Card>
-            <h2>Gerenciar categorias</h2>
-            <p>Crie categorias e use as ações ao lado de cada item para renomear ou excluir.</p>
-            {categoryFeedback && (
-              <p
-                role="alert"
-                style={{
-                  color: categoryFeedback.startsWith('Categoria') ? '#166534' : '#b91c1c',
-                }}
-              >
-                {categoryFeedback}
-              </p>
-            )}
-            <S.Toolbar>
+          <C.CategoryPageHeader>
+            <C.CategoryTitle>
+              <span>
+                <Tag /> Organização do cardápio
+              </span>
+              <h2>Categorias</h2>
+              <p>Agrupe os produtos para o cliente encontrar o que procura com facilidade.</p>
+            </C.CategoryTitle>
+            <C.CategorySummary aria-label="Resumo das categorias">
+              <div>
+                <strong>{categories.length}</strong>
+                <span>{categories.length === 1 ? 'categoria' : 'categorias'}</span>
+              </div>
+              <i aria-hidden="true" />
+              <div>
+                <strong>{products.length}</strong>
+                <span>{products.length === 1 ? 'produto' : 'produtos'}</span>
+              </div>
+            </C.CategorySummary>
+          </C.CategoryPageHeader>
+
+          {categoryFeedback && (
+            <C.CategoryFeedback
+              $tone={categoryFeedback.startsWith('Categoria') ? 'success' : 'error'}
+              role="status"
+            >
+              {categoryFeedback}
+            </C.CategoryFeedback>
+          )}
+
+          <C.CategoryCreator
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createCategory();
+            }}
+          >
+            <label htmlFor="new-menu-category">
+              <b>Nova categoria</b>
+              <span>Crie uma seção para organizar os próximos produtos.</span>
+            </label>
+            <div className="category-create-field">
+              <Tag aria-hidden="true" />
               <input
+                id="new-menu-category"
                 value={newCategory}
                 onChange={(event) => setNewCategory(event.target.value)}
-                placeholder="Nome da nova categoria"
+                placeholder="Ex.: Pizzas especiais"
               />
-              <button
-                disabled={categoryBusy || !newCategory.trim()}
-                onClick={() => void createCategory()}
-              >
-                {categoryBusy ? 'Salvando...' : '+ Criar categoria'}
+              <button type="submit" disabled={categoryBusy || !newCategory.trim()}>
+                <Plus />
+                <span>{categoryBusy ? 'Criando...' : 'Criar categoria'}</span>
               </button>
-            </S.Toolbar>
-            <S.DataList>
-              {categories.map((category) => (
-                <div className="data-row" key={category.id}>
-                  <div>
-                    <b>{category.name}</b>
-                    <span>{countProductsInCategory(products, category.id)} produto(s)</span>
-                  </div>
-                  <div className="category-actions">
-                    <button disabled={categoryBusy} onClick={() => void renameCategory(category)}>
-                      Renomear
-                    </button>
-                    <button
-                      className="category-delete"
-                      disabled={categoryBusy}
-                      onClick={() => void deleteCategory(category)}
+            </div>
+          </C.CategoryCreator>
+
+          {categories.length > 0 ? (
+            <C.CategoryGrid>
+              {categories.map((category) => {
+                const categoryProducts = products.filter(
+                  (product) => product.categoryId === category.id,
+                );
+                const categoryImages = Array.from(
+                  new Set(categoryProducts.map((product) => product.image.trim()).filter(Boolean)),
+                ).slice(0, 3);
+                const categoryVisual = resolveCategoryVisual(category.name);
+                const CategoryIcon = categoryVisual.icon;
+                const productCount = countProductsInCategory(products, category.id);
+
+                return (
+                  <C.CategoryCard key={category.id} data-category-card>
+                    <C.CategoryMedia
+                      $color={categoryVisual.color}
+                      $imageCount={categoryImages.length}
                     >
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </S.DataList>
-          </S.Card>
+                      {categoryImages.map((image, index) => (
+                        <img key={image} src={image} alt="" loading={index ? 'lazy' : 'eager'} />
+                      ))}
+                      {!categoryImages.length && (
+                        <div className="category-media-empty">
+                          <CategoryIcon aria-hidden="true" />
+                          <span>Sem produtos</span>
+                        </div>
+                      )}
+                      <span className="category-product-count">
+                        <Package aria-hidden="true" /> {productCount}
+                      </span>
+                    </C.CategoryMedia>
+
+                    <C.CategoryCardBody>
+                      <div className="category-identity">
+                        <span
+                          className="category-icon"
+                          style={{ color: categoryVisual.color }}
+                          aria-hidden="true"
+                        >
+                          <CategoryIcon />
+                        </span>
+                        <div>
+                          <h3>{category.name}</h3>
+                          <p>{productCount === 1 ? '1 produto' : `${productCount} produtos`}</p>
+                        </div>
+                      </div>
+                      <div className="category-card-actions">
+                        <button
+                          className="category-rename"
+                          disabled={categoryBusy}
+                          onClick={() => void renameCategory(category)}
+                          type="button"
+                        >
+                          <Pencil aria-hidden="true" />
+                          <span>Renomear</span>
+                        </button>
+                        <button
+                          className="category-delete"
+                          aria-label={`Excluir ${category.name}`}
+                          title={`Excluir ${category.name}`}
+                          disabled={categoryBusy}
+                          onClick={() => void deleteCategory(category)}
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </button>
+                      </div>
+                    </C.CategoryCardBody>
+                  </C.CategoryCard>
+                );
+              })}
+            </C.CategoryGrid>
+          ) : (
+            <C.CategoryEmptyState>
+              <Tag aria-hidden="true" />
+              <h3>Nenhuma categoria cadastrada</h3>
+              <p>Crie a primeira categoria no campo acima.</p>
+            </C.CategoryEmptyState>
+          )}
         </C.CategoryWorkspace>
       ) : (
         <>

@@ -31,7 +31,7 @@ const products = [
             selectionType: 'SINGLE',
             minSelections: 1,
             maxSelections: 1,
-            options: [{ id: 1001, ingredientId: 7, active: true }],
+            options: [{ id: 1001, ingredientId: 7, additionalPrice: 0, active: true }],
           },
           {
             id: 101,
@@ -41,8 +41,8 @@ const products = [
             minSelections: 0,
             maxSelections: 3,
             options: [
-              { id: 1002, ingredientId: 1, active: true },
-              { id: 1003, ingredientId: 2, active: true },
+              { id: 1002, ingredientId: 1, additionalPrice: 5, active: true },
+              { id: 1003, ingredientId: 2, additionalPrice: 6, active: true },
             ],
           },
         ]
@@ -113,7 +113,7 @@ async function mockCatalog(page: Page) {
         categories: ['Proteínas', 'Laticínios', 'Molhos', 'Massas'],
       },
       '/categories': {
-        categories: ['Pizzas', 'Massas', 'Sanduíches', 'Bebidas', 'Sobremesas'].map(
+        categories: ['Pizzas', 'Massas', 'Sanduíches', 'Bebidas', 'Sobremesas', 'Entradas'].map(
           (name, index) => ({ id: index + 1, name, active: true }),
         ),
       },
@@ -162,6 +162,16 @@ test('Cardápio e importação seguem a composição visual de referência no de
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
+  await productCards
+    .first()
+    .locator('..')
+    .evaluate(async (element) => {
+      await Promise.all(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
   const firstProductBox = await productCards.first().boundingBox();
   const lastProductBox = await productCards.last().boundingBox();
   expect(firstProductBox).not.toBeNull();
@@ -169,15 +179,59 @@ test('Cardápio e importação seguem a composição visual de referência no de
   expect(Math.abs(Number(firstProductBox?.y) - Number(lastProductBox?.y))).toBeLessThan(2);
   await page.screenshot({ path: testInfo.outputPath('catalog-products.png'), fullPage: true });
 
+  await page.getByRole('button', { name: 'Categorias', exact: true }).click();
+  const categoryCards = page.locator('[data-category-card]');
+  await expect(categoryCards).toHaveCount(6);
+  await expect(categoryCards.filter({ hasText: 'Pizzas' }).locator('img')).toHaveCount(1);
+  const emptyCategory = categoryCards.filter({ hasText: 'Entradas' });
+  await expect(emptyCategory.locator('img')).toHaveCount(0);
+  await expect(emptyCategory.getByText('Sem produtos')).toBeVisible();
+  const firstCategoryBox = await categoryCards.first().boundingBox();
+  const thirdCategoryBox = await categoryCards.nth(2).boundingBox();
+  expect(firstCategoryBox).not.toBeNull();
+  expect(thirdCategoryBox).not.toBeNull();
+  expect(Math.abs(Number(firstCategoryBox?.y) - Number(thirdCategoryBox?.y))).toBeLessThan(2);
+  await page.screenshot({ path: testInfo.outputPath('catalog-categories.png'), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileCategoryBoxes = await categoryCards.evaluateAll((cards) =>
+    cards.slice(0, 2).map((card) => card.getBoundingClientRect()),
+  );
+  expect(Math.abs(mobileCategoryBoxes[0].x - mobileCategoryBoxes[1].x)).toBeLessThan(2);
+  expect(mobileCategoryBoxes[1].y).toBeGreaterThan(mobileCategoryBoxes[0].y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath('catalog-categories-mobile.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1365, height: 768 });
+
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.getByText('Como funciona?')).toBeVisible();
   await expect(page.locator('.ingredient-list article')).toHaveCount(7);
+  await page.locator('.ingredient-list').evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
   const firstIngredientBox = await page.locator('.ingredient-list article').first().boundingBox();
   const secondIngredientBox = await page.locator('.ingredient-list article').nth(1).boundingBox();
   expect(firstIngredientBox).not.toBeNull();
   expect(secondIngredientBox).not.toBeNull();
   expect(Math.abs(Number(firstIngredientBox?.y) - Number(secondIngredientBox?.y))).toBeLessThan(2);
   await page.screenshot({ path: testInfo.outputPath('catalog-ingredients.png'), fullPage: true });
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const wideIngredientPanel = await page
+    .locator('.ingredient-categories')
+    .locator('..')
+    .boundingBox();
+  expect(Number(wideIngredientPanel?.width)).toBeGreaterThan(1300);
+  await page.setViewportSize({ width: 1365, height: 768 });
 
   await page.getByRole('button', { name: 'Novo ingrediente' }).click();
   const ingredientWizard = page.locator('[data-ingredient-wizard]');
@@ -194,6 +248,27 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await expect(wizardDialog).toHaveCSS('opacity', '1');
   const wizardBox = await wizardDialog.boundingBox();
   expect(Number(wizardBox?.width)).toBeGreaterThan(900);
+  const wizardFooter = ingredientWizard.locator('footer');
+  const backButton = wizardFooter.getByRole('button', { name: 'Voltar', exact: true });
+  const continueButton = wizardFooter.getByRole('button', { name: 'Continuar', exact: true });
+  await expect(backButton).toBeVisible();
+  await expect(continueButton).toBeVisible();
+  await expect(backButton).toHaveCSS('opacity', '1');
+  const adminAccent = await page.locator('[data-admin-root]').evaluate((element) => {
+    const colorProbe = document.createElement('span');
+    colorProbe.style.color = getComputedStyle(element).getPropertyValue('--a');
+    element.appendChild(colorProbe);
+    const color = getComputedStyle(colorProbe).color;
+    colorProbe.remove();
+    return color;
+  });
+  await expect(continueButton).toHaveCSS('background-color', adminAccent);
+  await expect(continueButton).toHaveCSS('color', 'rgb(255, 255, 255)');
+  const footerBox = await wizardFooter.boundingBox();
+  const continueButtonBox = await continueButton.boundingBox();
+  expect(Number(continueButtonBox?.x) + Number(continueButtonBox?.width)).toBeLessThanOrEqual(
+    Number(footerBox?.x) + Number(footerBox?.width) + 1,
+  );
   await page.screenshot({ path: testInfo.outputPath('ingredient-wizard.png') });
   await ingredientWizard.getByRole('button', { name: 'Fechar cadastro de ingrediente' }).click();
 
@@ -207,6 +282,16 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await expect(
     productEditor.getByRole('heading', { name: 'Como o cliente poderá personalizar?' }),
   ).toBeVisible();
+  const customerPreview = productEditor.getByRole('region', {
+    name: 'Prévia do produto para o cliente',
+  });
+  await expect(customerPreview.getByText('Como ficará para o cliente')).toBeVisible();
+  await expect(customerPreview.getByRole('img', { name: 'Foto de Pizza Calabresa' })).toBeVisible();
+  await expect(customerPreview.locator('.customer-preview-steps > section')).toHaveCount(2);
+  await expect(customerPreview.getByText('Massa fina', { exact: true })).toBeVisible();
+  await expect(customerPreview.getByText('Bacon', { exact: true })).toBeVisible();
+  await expect(customerPreview.getByText('Catupiry', { exact: true })).toBeVisible();
+  await expect(customerPreview.getByText('Adicionar ao pedido')).toBeVisible();
   await productEditor.evaluate(async (element) => {
     await Promise.all(
       element
@@ -214,8 +299,62 @@ test('Cardápio e importação seguem a composição visual de referência no de
         .map((animation) => animation.finished.catch(() => undefined)),
     );
   });
+  await productEditor
+    .locator('form')
+    .first()
+    .evaluate((element) => element.scrollTo({ top: 0 }));
   await page.screenshot({ path: testInfo.outputPath('product-customization.png') });
+  await customerPreview.locator('.customer-preview-screen').evaluate((element) => {
+    element.style.maxHeight = 'none';
+    element.style.overflow = 'visible';
+  });
+  const drawerChrome = productEditor.locator('.drawer-header, .drawer-footer');
+  await drawerChrome.evaluateAll((elements) => {
+    elements.forEach((element) => {
+      element.style.display = 'none';
+    });
+  });
+  await customerPreview.screenshot({
+    path: testInfo.outputPath('product-customization-customer-view.png'),
+  });
+  await drawerChrome.evaluateAll((elements) => {
+    elements.forEach((element) => {
+      element.style.removeProperty('display');
+    });
+  });
   await productEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
+
+  await productCards.nth(2).getByRole('button', { name: 'Opções de X-Bacon' }).click();
+  await page.getByRole('button', { name: 'Editar produto' }).click();
+  const emptyCustomizationEditor = page.getByRole('dialog', { name: 'Editar produto' });
+  for (let step = 0; step < 4; step += 1) {
+    await emptyCustomizationEditor.getByRole('button', { name: 'Continuar', exact: true }).click();
+  }
+  await expect(emptyCustomizationEditor.getByText('CONFIGURE EM 3 PASSOS')).toBeVisible();
+  await expect(
+    emptyCustomizationEditor.getByText('O que o cliente escolherá primeiro?'),
+  ).toBeVisible();
+  await expect(
+    emptyCustomizationEditor.getByRole('button', { name: /Uma única opção/ }),
+  ).toBeVisible();
+  await expect(
+    emptyCustomizationEditor.getByRole('button', { name: /Vários adicionais/ }),
+  ).toBeVisible();
+  await expect(
+    emptyCustomizationEditor.getByRole('button', { name: /Dividir em partes/ }),
+  ).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('product-customization-empty.png') });
+
+  await emptyCustomizationEditor.getByRole('button', { name: /Uma única opção/ }).click();
+  await expect(emptyCustomizationEditor.getByTestId('product-option-group')).toHaveCount(1);
+  await expect(
+    emptyCustomizationEditor.getByText('Configure a etapa 1 seguindo a ordem abaixo'),
+  ).toBeVisible();
+  await expect(
+    emptyCustomizationEditor.getByText('Escreva a pergunta que o cliente verá'),
+  ).toBeVisible();
+  await emptyCustomizationEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
+  await page.getByRole('button', { name: 'Descartar alterações', exact: true }).click();
 
   await page.getByRole('button', { name: 'Importar cardápio' }).click();
   await expect(page.getByRole('heading', { name: 'Importar cardápio' })).toBeVisible();
@@ -235,7 +374,61 @@ test('Cardápio e importação seguem a composição visual de referência no de
   expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
 });
 
-test('Cardápio, ingredientes e importação permanecem contidos em 320 px', async ({ page }) => {
+test('trocar de aba com produto alterado exige salvar ou descartar', async ({ page }) => {
+  await mockCatalog(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio' }).click();
+
+  const openProductAndChangeName = async (name: string) => {
+    const productCard = page
+      .locator('article')
+      .filter({ has: page.locator('.product-mode') })
+      .nth(1);
+    await productCard.getByRole('button', { name: 'Opções de Macarrão à Bolonhesa' }).click();
+    await page.getByRole('button', { name: 'Editar produto' }).click();
+    const editor = page.getByRole('dialog', { name: 'Editar produto' });
+    await editor.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await editor.getByLabel('Nome do produto').fill(name);
+    return editor;
+  };
+
+  let editor = await openProductAndChangeName('Macarrão sem salvar');
+  await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
+
+  let navigationDialog = page.getByRole('dialog', {
+    name: 'Este produto tem alterações pendentes',
+  });
+  await expect(navigationDialog).toBeVisible();
+  await expect(navigationDialog.getByRole('button', { name: 'Não salvar' })).toBeVisible();
+  await expect(navigationDialog.getByRole('button', { name: 'Salvar alterações' })).toBeVisible();
+  await expect(editor).toBeVisible();
+
+  await navigationDialog.getByRole('button', { name: 'Não salvar' }).click();
+  await expect(editor).toHaveCount(0, { timeout: 7000 });
+  await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
+
+  await page.getByRole('button', { name: 'Cardápio' }).click();
+  editor = await openProductAndChangeName('Macarrão salvo antes de navegar');
+  await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
+  navigationDialog = page.getByRole('dialog', {
+    name: 'Este produto tem alterações pendentes',
+  });
+
+  const saveRequestPromise = page.waitForRequest(
+    (request) => request.method() === 'PUT' && new URL(request.url()).pathname === '/products/2',
+  );
+  await navigationDialog.getByRole('button', { name: 'Salvar alterações' }).click();
+  const saveRequest = await saveRequestPromise;
+  expect(saveRequest.postDataJSON()).toMatchObject({
+    name: 'Macarrão salvo antes de navegar',
+  });
+  await expect(editor).toHaveCount(0, { timeout: 7000 });
+  await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
+});
+
+test('Cardápio, ingredientes e importação permanecem contidos em 320 px', async ({
+  page,
+}, testInfo) => {
   await mockCatalog(page);
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/admin');
@@ -245,6 +438,24 @@ test('Cardápio, ingredientes e importação permanecem contidos em 320 px', asy
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.locator('.ingredient-list article')).toHaveCount(7);
   await expect(page.getByRole('button', { name: 'Novo ingrediente' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Produtos', exact: true }).click();
+  const mobileProductCards = page.locator('article').filter({ has: page.locator('.product-mode') });
+  await mobileProductCards.nth(2).getByRole('button', { name: 'Opções de X-Bacon' }).click();
+  await page.getByRole('button', { name: 'Editar produto' }).click();
+  const mobileProductEditor = page.getByRole('dialog', { name: 'Editar produto' });
+  for (let step = 0; step < 4; step += 1) {
+    await mobileProductEditor.getByRole('button', { name: 'Continuar', exact: true }).click();
+  }
+  await expect(mobileProductEditor.getByText('CONFIGURE EM 3 PASSOS')).toBeVisible();
+  await expect(mobileProductEditor.getByRole('button', { name: /Uma única opção/ })).toBeVisible();
+  const mobileEditorWidth = await mobileProductEditor.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(mobileEditorWidth.scrollWidth).toBeLessThanOrEqual(mobileEditorWidth.clientWidth);
+  await page.screenshot({ path: testInfo.outputPath('product-customization-empty-mobile.png') });
+  await mobileProductEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
 
   await page.getByRole('button', { name: 'Importar cardápio' }).click();
   await page.getByRole('tab', { name: 'Foto do cardápio' }).click();
