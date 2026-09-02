@@ -15,6 +15,7 @@ import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceC
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
+import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 
 type ForceCloseTableSessionPayload = {
   sessionId: number | string;
@@ -30,7 +31,9 @@ export class ForceCloseTableSessionService {
     const actorUserId = Number(input.actorUserId);
     const { reason } = forceCloseTableAccountInputSchema.parse({ reason: input.reason });
 
-    if (![sessionId, restaurantId, actorUserId].every((value) => Number.isInteger(value) && value > 0)) {
+    if (
+      ![sessionId, restaurantId, actorUserId].every((value) => Number.isInteger(value) && value > 0)
+    ) {
       throw new Error('Dados inválidos para o fechamento administrativo da mesa.');
     }
 
@@ -113,6 +116,12 @@ export class ForceCloseTableSessionService {
             tx,
           );
         }
+        await waiterCompensationProjectionService.project({
+          db: tx,
+          restaurantId,
+          tableSessionId: sessionId,
+          now,
+        });
 
         return { session, closedSession, activeCalls };
       },

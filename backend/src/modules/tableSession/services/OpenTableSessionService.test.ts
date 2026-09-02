@@ -1,6 +1,7 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import prisma from '../../../config/prisma.js';
 import tableRepository from '../../table/repositories/TableRepository.js';
 import resolvePublicTableService from '../../table/services/ResolvePublicTableService.js';
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
@@ -9,6 +10,7 @@ import tableServiceCallRepository from '../../waiterCalls/repositories/TableServ
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
+import tableWaiterAssignmentService from '../../employeeCompensation/services/TableWaiterAssignmentService.js';
 
 const originalFindByIdForRestaurant = tableRepository.findByIdForRestaurant;
 const originalResolvePublicTable = resolvePublicTableService.execute;
@@ -23,6 +25,13 @@ const originalOpenedEvent = tableSessionEvents.opened;
 const originalClosedEvent = tableSessionEvents.closed;
 const originalCallUpdatedEvent = tableServiceCallEvents.updated;
 const originalRevokeParticipants = tableParticipantRepository.revokeActiveBySession;
+const originalTransaction = prisma.$transaction;
+const originalAutoAssign = tableWaiterAssignmentService.autoAssignOpenedByWaiter;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({});
+  tableWaiterAssignmentService.autoAssignOpenedByWaiter = async () => null;
+});
 
 afterEach(() => {
   tableRepository.findByIdForRestaurant = originalFindByIdForRestaurant;
@@ -38,9 +47,13 @@ afterEach(() => {
   tableSessionEvents.closed = originalClosedEvent;
   tableServiceCallEvents.updated = originalCallUpdatedEvent;
   tableParticipantRepository.revokeActiveBySession = originalRevokeParticipants;
+  prisma.$transaction = originalTransaction;
+  tableWaiterAssignmentService.autoAssignOpenedByWaiter = originalAutoAssign;
 });
 
 test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessão', async () => {
+  const transaction = { kind: 'open-table-transaction' };
+  prisma.$transaction = async (callback) => callback(transaction);
   const table = {
     id: 91,
     number: 12,
@@ -68,7 +81,8 @@ test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessã
   tableSessionRepository.findActiveByTable = async () => null;
   tableSessionRepository.listExpiredOpenByTable = async () => [];
   let createData;
-  tableSessionRepository.create = async (data) => {
+  tableSessionRepository.create = async (data, db) => {
+    assert.equal(db, transaction);
     createData = data;
     return {
       id: 55,
@@ -81,6 +95,11 @@ test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessã
       table,
       openedBy: { id: 3, name: 'Alex', email: 'alex@example.com' },
     };
+  };
+  let assignmentPayload;
+  tableWaiterAssignmentService.autoAssignOpenedByWaiter = async (payload) => {
+    assignmentPayload = payload;
+    return null;
   };
   tableSessionEvents.opened = async () => {};
 
@@ -98,6 +117,12 @@ test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessã
   });
   assert.equal(createData.pinHash, 'PIN_FLOW_DISABLED');
   assert.equal(createData.restaurantId, 7);
+  assert.deepEqual(assignmentPayload, {
+    db: transaction,
+    restaurantId: 7,
+    tableSessionId: 55,
+    openedById: 3,
+  });
   assert.match(createData.sessionToken, /^[a-f0-9]{64}$/);
   assert.equal(result.sessionId, 55);
   assert.equal('pin' in result, false);

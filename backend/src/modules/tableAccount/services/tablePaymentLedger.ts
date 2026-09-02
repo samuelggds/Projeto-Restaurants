@@ -10,6 +10,7 @@ import type { TablePaymentIntentStatus as ContractPaymentStatus } from '../domai
 import { assertMoneyCents } from '../domain/tableAccountRules.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
+import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 
 export type TablePaymentTransaction = Prisma.TransactionClient;
 type PrismaClientLike = PrismaClient | Prisma.TransactionClient;
@@ -185,6 +186,13 @@ export async function projectTableSessionFinancialState(
       }
     }
   }
+
+  await waiterCompensationProjectionService.project({
+    db: tx,
+    restaurantId,
+    tableSessionId,
+    now,
+  });
 
   return items;
 }

@@ -7,7 +7,10 @@ class DeactivateEmployeeController {
       const restaurantId = req.user.restaurantId;
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
-      const employee = await deactivateEmployeeService.execute(id, restaurantId);
+      const employee = await deactivateEmployeeService.execute(id, restaurantId, {
+        userId: Number(req.user.id),
+        role: String(req.user.role),
+      });
       return res.status(200).json(employee);
     } catch (error: unknown) {
       return res.status(400).json({

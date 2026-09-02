@@ -19,6 +19,7 @@ class UpdateEmployeeController {
         phone,
         role,
         subRole,
+        actor: { userId: Number(req.user.id), role: String(req.user.role) },
       });
 
       return res.status(200).json(employee);

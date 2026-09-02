@@ -6,6 +6,9 @@ import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import tableServiceCallRepository from '../../waiterCalls/repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
+import prisma from '../../../config/prisma.js';
+import { Prisma } from '@prisma/client';
+import tableWaiterAssignmentService from '../../employeeCompensation/services/TableWaiterAssignmentService.js';
 
 function isUniqueConflict(error: unknown) {
   return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002');
@@ -133,15 +136,30 @@ class OpenTableSessionService {
 
     let session;
     try {
-      session = await tableSessionRepository.create({
-        restaurantId: normalizedRestaurantId,
-        tableId: normalizedTableId,
-        // Kept only for backwards-compatible persistence. No PIN is generated or exposed.
-        pinHash: 'PIN_FLOW_DISABLED',
-        sessionToken,
-        openedById: normalizedOpenedById,
-        expiresAt,
-      });
+      session = await prisma.$transaction(
+        async (tx) => {
+          const created = await tableSessionRepository.create(
+            {
+              restaurantId: normalizedRestaurantId,
+              tableId: normalizedTableId,
+              // Kept only for backwards-compatible persistence. No PIN is generated or exposed.
+              pinHash: 'PIN_FLOW_DISABLED',
+              sessionToken,
+              openedById: normalizedOpenedById,
+              expiresAt,
+            },
+            tx,
+          );
+          await tableWaiterAssignmentService.autoAssignOpenedByWaiter({
+            db: tx,
+            restaurantId: normalizedRestaurantId,
+            tableSessionId: created.id,
+            openedById: normalizedOpenedById,
+          });
+          return created;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     } catch (error: unknown) {
       // O índice parcial no banco resolve duas tentativas concorrentes de
       // abertura sem permitir duas sessões OPEN para a mesma mesa.

@@ -29,6 +29,7 @@ import publicMediaRoutes from '../modules/publicMedia/routes/PublicMediaRoutes.j
 import customerPaymentMethodRoutes from '../modules/customerPaymentMethods/routes/CustomerPaymentMethodRoutes.js';
 import kitchenPrintingRoutes from '../modules/kitchenPrinting/routes/KitchenPrintingRoutes.js';
 import courierCompensationRoutes from '../modules/courierCompensation/routes/CourierCompensationRoutes.js';
+import employeeCompensationRoutes from '../modules/employeeCompensation/routes/EmployeeCompensationRoutes.js';
 import productConfigurationTemplateRoutes from '../modules/productConfigurationTemplates/routes/ProductConfigurationTemplateRoutes.js';
 
 const router = Router();
@@ -65,6 +66,8 @@ router.use('/customer-addresses', customerAddressRoutes);
 router.use('/customer-payment-methods', customerPaymentMethodRoutes);
 router.use('/kitchen-printing', kitchenPrintingRoutes);
 router.use('/courier-compensation', courierCompensationRoutes);
+router.use('/employee-compensation', employeeCompensationRoutes);
+router.use('/employee-payments', employeeCompensationRoutes);
 router.use('/product-configuration-templates', productConfigurationTemplateRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/public-media', publicMediaRoutes);

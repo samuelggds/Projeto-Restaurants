@@ -9,6 +9,7 @@ import tableParticipantRepository from '../repositories/TableParticipantReposito
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import { ForceCloseTableSessionService } from './ForceCloseTableSessionService.js';
+import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -20,6 +21,7 @@ const originals = {
   findCall: tableServiceCallRepository.findByIdForRestaurant,
   callUpdated: tableServiceCallEvents.updated,
   sessionClosed: tableSessionEvents.closed,
+  projectCompensation: waiterCompensationProjectionService.project,
 };
 
 afterEach(() => {
@@ -32,6 +34,7 @@ afterEach(() => {
   tableServiceCallRepository.findByIdForRestaurant = originals.findCall;
   tableServiceCallEvents.updated = originals.callUpdated;
   tableSessionEvents.closed = originals.sessionClosed;
+  waiterCompensationProjectionService.project = originals.projectCompensation;
 });
 
 const openSession = {
@@ -78,6 +81,11 @@ test('fechamento forçado registra motivo e cancela reservas financeiras ativas'
     },
     tableBillItem: { findMany: async () => [] },
     order: { findMany: async () => [] },
+  };
+  const projectionPayloads = [];
+  waiterCompensationProjectionService.project = async (payload) => {
+    projectionPayloads.push(payload);
+    return { created: false, reason: 'NO_VARIABLE_POLICY' };
   };
   prisma.$transaction = async (callback, options) => {
     assert.equal(options.isolationLevel, Prisma.TransactionIsolationLevel.Serializable);
@@ -134,6 +142,10 @@ test('fechamento forçado registra motivo e cancela reservas financeiras ativas'
   assert.equal(result.forcedClosed, true);
   assert.equal(emittedSession.restaurantId, 7);
   assert.equal(emittedSession.tableNumber, 12);
+  assert.equal(projectionPayloads.length, 2);
+  assert.ok(projectionPayloads.every((payload) => payload.db === tx));
+  assert.ok(projectionPayloads.every((payload) => payload.restaurantId === 7));
+  assert.ok(projectionPayloads.every((payload) => payload.tableSessionId === 55));
 });
 
 test('fechamento forçado não atravessa o tenant do administrador', async () => {

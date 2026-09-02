@@ -7,6 +7,7 @@ import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
+import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 
 type CloseTableSessionPayload = {
   sessionId: number | string;
@@ -105,6 +106,12 @@ class CloseTableSessionService {
             tx,
           );
         }
+        await waiterCompensationProjectionService.project({
+          db: tx,
+          restaurantId: normalizedRestaurantId,
+          tableSessionId: session.id,
+          now: closedSession.closedAt || new Date(),
+        });
 
         return { session, closedSession, activeCalls };
       },

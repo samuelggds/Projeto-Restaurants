@@ -5,17 +5,20 @@ import prisma from '../../../config/prisma.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 import tablePaymentRepository from '../repositories/TablePaymentRepository.js';
 import { ConfirmManualTablePaymentService } from './ConfirmManualTablePaymentService.js';
+import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 
 const originals = {
   transaction: prisma.$transaction,
   findForStaffByPublicId: tablePaymentRepository.findForStaffByPublicId,
   updatedEvent: tableAccountEvents.updated,
+  projectCompensation: waiterCompensationProjectionService.project,
 };
 
 afterEach(() => {
   prisma.$transaction = originals.transaction;
   tablePaymentRepository.findForStaffByPublicId = originals.findForStaffByPublicId;
   tableAccountEvents.updated = originals.updatedEvent;
+  waiterCompensationProjectionService.project = originals.projectCompensation;
 });
 
 const now = new Date('2026-08-26T18:00:00.000Z');
@@ -96,6 +99,7 @@ function installTransaction(currentPayment) {
   };
   prisma.$transaction = async (callback) => callback(tx);
   return {
+    tx,
     get updateData() {
       return updateData;
     },
@@ -113,6 +117,11 @@ test('confirma dinheiro presencial e publica a atualização canônica da mesa',
     return current;
   };
   const transaction = installTransaction(current);
+  let projectionPayload;
+  waiterCompensationProjectionService.project = async (payload) => {
+    projectionPayload = payload;
+    return { created: false, reason: 'SESSION_NOT_CLOSED' };
+  };
   let realtimePayload;
   tableAccountEvents.updated = async (payload) => {
     realtimePayload = payload;
@@ -128,6 +137,12 @@ test('confirma dinheiro presencial e publica a atualização canônica da mesa',
   assert.equal(transaction.updateData.manualConfirmedById, actor.id);
   assert.equal(transaction.createdEvent.type, 'MANUAL_CONFIRMED');
   assert.equal(result.payment.status, 'PAID');
+  assert.deepEqual(projectionPayload, {
+    db: transaction.tx,
+    restaurantId: 7,
+    tableSessionId: 55,
+    now,
+  });
   assert.deepEqual(realtimePayload, {
     sessionId: 55,
     restaurantId: 7,

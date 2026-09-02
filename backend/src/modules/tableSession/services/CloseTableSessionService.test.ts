@@ -8,6 +8,7 @@ import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import closeTableSessionService from './CloseTableSessionService.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
+import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -20,6 +21,7 @@ const originals = {
   revokeParticipants: tableParticipantRepository.revokeActiveBySession,
   findAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
   findOperationalBlocking: tableSessionRepository.findOperationalBlockingOrdersForSession,
+  projectCompensation: waiterCompensationProjectionService.project,
 };
 
 afterEach(() => {
@@ -34,20 +36,26 @@ afterEach(() => {
   tableAccountSettingsRepository.findByRestaurantId = originals.findAccountSettings;
   tableSessionRepository.findOperationalBlockingOrdersForSession =
     originals.findOperationalBlocking;
+  waiterCompensationProjectionService.project = originals.projectCompensation;
 });
 
 function mockTransaction() {
-  prisma.$transaction = async (callback) =>
-    callback({
-      $queryRaw: async (query) => {
-        assert.match(String(query.sql), /SELECT 1::int AS "lockAcquired"/i);
-        assert.match(String(query.sql), /FROM pg_advisory_xact_lock/i);
-        return [{ lockAcquired: 1 }];
-      },
-    });
+  const transaction = {
+    $queryRaw: async (query) => {
+      assert.match(String(query.sql), /SELECT 1::int AS "lockAcquired"/i);
+      assert.match(String(query.sql), /FROM pg_advisory_xact_lock/i);
+      return [{ lockAcquired: 1 }];
+    },
+  };
+  prisma.$transaction = async (callback) => callback(transaction);
   tableAccountSettingsRepository.findByRestaurantId = async () => ({
     preventCloseWithOutstandingBalance: true,
   });
+  waiterCompensationProjectionService.project = async () => ({
+    created: false,
+    reason: 'NO_VARIABLE_POLICY',
+  });
+  return transaction;
 }
 
 const openSession = {
@@ -101,7 +109,7 @@ test('bloqueia fechamento enquanto existe pedido ou pagamento pendente', async (
 });
 
 test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entregues', async () => {
-  mockTransaction();
+  const transaction = mockTransaction();
   tableSessionRepository.findById = async () => openSession;
   tableSessionRepository.findBlockingOrdersForSession = async () => [];
   tableServiceCallRepository.listActiveBySession = async () => [];
@@ -114,6 +122,11 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
     closedAt: new Date('2026-08-24T13:00:00.000Z'),
     closedById,
   });
+  let projectionPayload;
+  waiterCompensationProjectionService.project = async (payload) => {
+    projectionPayload = payload;
+    return { created: false, reason: 'NO_VARIABLE_POLICY' };
+  };
   let eventPayload;
   tableSessionEvents.closed = async (payload) => {
     eventPayload = payload;
@@ -136,6 +149,12 @@ test('fecha a mesa e encerra chamados ativos após todos os pedidos pagos e entr
   assert.equal(eventPayload.restaurantId, 7);
   assert.equal(eventPayload.tableId, 91);
   assert.equal(eventPayload.status, 'CLOSED');
+  assert.deepEqual(projectionPayload, {
+    db: transaction,
+    restaurantId: 7,
+    tableSessionId: 55,
+    now: new Date('2026-08-24T13:00:00.000Z'),
+  });
 });
 
 test('consulta somente pedidos MESA vinculados exatamente à sessão e ao restaurante', async () => {
