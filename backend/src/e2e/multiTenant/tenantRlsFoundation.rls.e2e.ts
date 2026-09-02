@@ -160,6 +160,191 @@ test(
         cashCollectedSnapshot: 0,
       },
     });
+    const employeeA = await prisma.user.create({
+      data: {
+        name: 'Funcionário A RLS',
+        email: 'employee-a-rls@tenant-e2e.test',
+        password: 'not-used-by-this-test',
+        role: 'FUNCIONARIO',
+        subRole: 'GARCOM',
+        restaurantId: fixture.restaurants.a.id,
+      },
+    });
+    const tableSessionA = await prisma.tableSession.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        tableId: fixture.tables.a.id,
+        pinHash: 'not-used-by-this-test',
+        sessionToken: 'employee-compensation-rls-session-a',
+        openedById: fixture.users.adminA.id,
+      },
+    });
+    const employeePolicyA = await prisma.employeeCompensationPolicy.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        employeeId: employeeA.id,
+        baseModel: 'FIXED_MONTHLY',
+        fixedMonthlyCents: 240_000n,
+        effectiveFrom: new Date('2026-09-01T03:00:00.000Z'),
+        createdById: fixture.users.adminA.id,
+      },
+    });
+    const employeePolicyB = await prisma.employeeCompensationPolicy.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        employeeId: fixture.users.employeeB.id,
+        baseModel: 'FIXED_MONTHLY',
+        fixedMonthlyCents: 270_000n,
+        effectiveFrom: new Date('2026-09-01T03:00:00.000Z'),
+        createdById: fixture.users.adminB.id,
+      },
+    });
+    const employeeWorkEntryA = await prisma.employeeWorkEntry.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        employeeId: employeeA.id,
+        workDate: new Date('2026-09-01T00:00:00.000Z'),
+        minutesWorked: 480,
+        status: 'APPROVED',
+        createdById: fixture.users.adminA.id,
+        approvedById: fixture.users.adminA.id,
+        approvedAt: new Date('2026-09-01T20:00:00.000Z'),
+      },
+    });
+    const employeeWorkEntryB = await prisma.employeeWorkEntry.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        employeeId: fixture.users.employeeB.id,
+        workDate: new Date('2026-09-01T00:00:00.000Z'),
+        minutesWorked: 480,
+        status: 'APPROVED',
+        createdById: fixture.users.adminB.id,
+        approvedById: fixture.users.adminB.id,
+        approvedAt: new Date('2026-09-01T20:00:00.000Z'),
+      },
+    });
+    const employeeEarningA = await prisma.employeeEarning.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        employeeId: employeeA.id,
+        type: 'FIXED_MONTHLY',
+        direction: 'CREDIT',
+        amountCents: 240_000n,
+        sourceType: 'MONTHLY_BASE',
+        sourceId: '2026-09',
+        policyId: employeePolicyA.id,
+        policyVersion: employeePolicyA.version,
+        snapshot: { referenceMonth: '2026-09', amountCents: '240000' },
+        occurredAt: new Date('2026-09-01T03:00:00.000Z'),
+      },
+    });
+    const employeeEarningB = await prisma.employeeEarning.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        employeeId: fixture.users.employeeB.id,
+        type: 'FIXED_MONTHLY',
+        direction: 'CREDIT',
+        amountCents: 270_000n,
+        sourceType: 'MONTHLY_BASE',
+        sourceId: '2026-09',
+        policyId: employeePolicyB.id,
+        policyVersion: employeePolicyB.version,
+        snapshot: { referenceMonth: '2026-09', amountCents: '270000' },
+        occurredAt: new Date('2026-09-01T03:00:00.000Z'),
+      },
+    });
+    const waiterAssignmentA = await prisma.tableWaiterAssignment.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        tableSessionId: tableSessionA.id,
+        waiterId: employeeA.id,
+        assignedById: fixture.users.adminA.id,
+        reason: 'RLS fixture A',
+      },
+    });
+    const waiterAssignmentB = await prisma.tableWaiterAssignment.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        tableSessionId: fixture.tableSessionB.id,
+        waiterId: fixture.users.employeeB.id,
+        assignedById: fixture.users.adminB.id,
+        reason: 'RLS fixture B',
+      },
+    });
+    const employeeSettlementA = await prisma.employeeSettlement.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        employeeId: employeeA.id,
+        periodYear: 2026,
+        periodMonth: 9,
+        periodStart: new Date('2026-09-01T03:00:00.000Z'),
+        periodEnd: new Date('2026-10-01T03:00:00.000Z'),
+        status: 'CONFIRMED',
+        grossCreditsCents: 240_000n,
+        totalDueCents: 240_000n,
+        confirmedAt: new Date('2026-10-01T12:00:00.000Z'),
+        confirmedById: fixture.users.adminA.id,
+      },
+    });
+    const employeeSettlementB = await prisma.employeeSettlement.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        employeeId: fixture.users.employeeB.id,
+        periodYear: 2026,
+        periodMonth: 9,
+        periodStart: new Date('2026-09-01T03:00:00.000Z'),
+        periodEnd: new Date('2026-10-01T03:00:00.000Z'),
+        status: 'CONFIRMED',
+        grossCreditsCents: 270_000n,
+        totalDueCents: 270_000n,
+        confirmedAt: new Date('2026-10-01T12:00:00.000Z'),
+        confirmedById: fixture.users.adminB.id,
+      },
+    });
+    const employeeSettlementItemA = await prisma.employeeSettlementItem.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        settlementId: employeeSettlementA.id,
+        earningId: employeeEarningA.id,
+        typeSnapshot: employeeEarningA.type,
+        directionSnapshot: employeeEarningA.direction,
+        amountCentsSnapshot: employeeEarningA.amountCents,
+      },
+    });
+    const employeeSettlementItemB = await prisma.employeeSettlementItem.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        settlementId: employeeSettlementB.id,
+        earningId: employeeEarningB.id,
+        typeSnapshot: employeeEarningB.type,
+        directionSnapshot: employeeEarningB.direction,
+        amountCentsSnapshot: employeeEarningB.amountCents,
+      },
+    });
+    const employeeSettlementPaymentA = await prisma.employeeSettlementPayment.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        settlementId: employeeSettlementA.id,
+        employeeId: employeeA.id,
+        amountCents: 100_000n,
+        method: 'PIX',
+        idempotencyKeyHash: 'a'.repeat(64),
+        requestFingerprint: '1'.repeat(64),
+        registeredById: fixture.users.adminA.id,
+      },
+    });
+    const employeeSettlementPaymentB = await prisma.employeeSettlementPayment.create({
+      data: {
+        restaurantId: fixture.restaurants.b.id,
+        settlementId: employeeSettlementB.id,
+        employeeId: fixture.users.employeeB.id,
+        amountCents: 100_000n,
+        method: 'BANK_TRANSFER',
+        idempotencyKeyHash: 'b'.repeat(64),
+        requestFingerprint: '2'.repeat(64),
+        registeredById: fixture.users.adminB.id,
+      },
+    });
     const ingredientA = await prisma.ingredient.create({
       data: {
         restaurantId: fixture.restaurants.a.id,
@@ -273,6 +458,12 @@ test(
             'CourierCompensationRange',
             'CourierSettlement',
             'CourierSettlementItem',
+            'EmployeeCompensationPolicy',
+            'EmployeeEarning',
+            'EmployeeSettlement',
+            'EmployeeSettlementItem',
+            'EmployeeSettlementPayment',
+            'EmployeeWorkEntry',
             'KitchenPrintJob',
             'OrderIssueThread',
             'ProductCompositionItem',
@@ -280,7 +471,8 @@ test(
             'ProductOption',
             'ProductOptionGroup',
             'ProductPortionConfiguration',
-            'RestaurantPrinterSettings'
+            'RestaurantPrinterSettings',
+            'TableWaiterAssignment'
           )
         ORDER BY relations.relname
       `;
@@ -290,6 +482,12 @@ test(
           { table_name: 'CourierSettlement', rls_enabled: true, rls_forced: true },
           { table_name: 'CourierSettlementItem', rls_enabled: true, rls_forced: true },
           { table_name: 'CustomerPaymentMethod', rls_enabled: true, rls_forced: true },
+          { table_name: 'EmployeeCompensationPolicy', rls_enabled: true, rls_forced: true },
+          { table_name: 'EmployeeEarning', rls_enabled: true, rls_forced: true },
+          { table_name: 'EmployeeSettlement', rls_enabled: true, rls_forced: true },
+          { table_name: 'EmployeeSettlementItem', rls_enabled: true, rls_forced: true },
+          { table_name: 'EmployeeSettlementPayment', rls_enabled: true, rls_forced: true },
+          { table_name: 'EmployeeWorkEntry', rls_enabled: true, rls_forced: true },
           { table_name: 'KitchenPrintJob', rls_enabled: true, rls_forced: true },
           { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
           { table_name: 'ProductCompositionItem', rls_enabled: true, rls_forced: true },
@@ -298,6 +496,7 @@ test(
           { table_name: 'ProductOptionGroup', rls_enabled: true, rls_forced: true },
           { table_name: 'ProductPortionConfiguration', rls_enabled: true, rls_forced: true },
           { table_name: 'RestaurantPrinterSettings', rls_enabled: true, rls_forced: true },
+          { table_name: 'TableWaiterAssignment', rls_enabled: true, rls_forced: true },
         ]);
 
         const policies = await runtimePrisma.$queryRaw<
@@ -327,6 +526,12 @@ test(
             'CourierCompensationRange',
             'CourierSettlement',
             'CourierSettlementItem',
+            'EmployeeCompensationPolicy',
+            'EmployeeEarning',
+            'EmployeeSettlement',
+            'EmployeeSettlementItem',
+            'EmployeeSettlementPayment',
+            'EmployeeWorkEntry',
             'KitchenPrintJob',
             'OrderIssueThread',
             'ProductCompositionItem',
@@ -334,11 +539,12 @@ test(
             'ProductOption',
             'ProductOptionGroup',
             'ProductPortionConfiguration',
-            'RestaurantPrinterSettings'
+            'RestaurantPrinterSettings',
+            'TableWaiterAssignment'
           )
         ORDER BY relations.relname
       `;
-        assert.equal(policies.length, 13);
+        assert.equal(policies.length, 20);
         for (const policy of policies) {
           assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
           assert.equal(policy.is_permissive, true);
@@ -387,6 +593,13 @@ test(
         assert.equal(await runtimePrisma.courierCompensationRange.count(), 0);
         assert.equal(await runtimePrisma.courierSettlement.count(), 0);
         assert.equal(await runtimePrisma.courierSettlementItem.count(), 0);
+        assert.equal(await runtimePrisma.employeeCompensationPolicy.count(), 0);
+        assert.equal(await runtimePrisma.employeeWorkEntry.count(), 0);
+        assert.equal(await runtimePrisma.employeeEarning.count(), 0);
+        assert.equal(await runtimePrisma.tableWaiterAssignment.count(), 0);
+        assert.equal(await runtimePrisma.employeeSettlement.count(), 0);
+        assert.equal(await runtimePrisma.employeeSettlementItem.count(), 0);
+        assert.equal(await runtimePrisma.employeeSettlementPayment.count(), 0);
         assert.equal(await runtimePrisma.productCompositionItem.count(), 0);
         assert.equal(await runtimePrisma.productOptionGroup.count(), 0);
         assert.equal(await runtimePrisma.productOption.count(), 0);
@@ -485,7 +698,7 @@ test(
       assert.equal(portionsA.restaurantId, fixture.restaurants.a.id);
       assert.equal(templateA.restaurantId, fixture.restaurants.a.id);
 
-      await t.test('RLS financeiro permite B e oculta políticas e acertos B de A', async () => {
+      await t.test('RLS financeiro permite B e oculta registros financeiros B de A', async () => {
         const own = await withTenantDbContext(fixture.restaurants.b.id, async (db) => ({
           policy: await db.courierCompensationPolicy.findUnique({
             where: { id: compensationPolicyB.id },
@@ -494,10 +707,38 @@ test(
           item: await db.courierSettlementItem.findUnique({
             where: { id: settlementItemB.id },
           }),
+          employeePolicy: await db.employeeCompensationPolicy.findUnique({
+            where: { id: employeePolicyB.id },
+          }),
+          employeeWorkEntry: await db.employeeWorkEntry.findUnique({
+            where: { id: employeeWorkEntryB.id },
+          }),
+          employeeEarning: await db.employeeEarning.findUnique({
+            where: { id: employeeEarningB.id },
+          }),
+          waiterAssignment: await db.tableWaiterAssignment.findUnique({
+            where: { id: waiterAssignmentB.id },
+          }),
+          employeeSettlement: await db.employeeSettlement.findUnique({
+            where: { id: employeeSettlementB.id },
+          }),
+          employeeSettlementItem: await db.employeeSettlementItem.findUnique({
+            where: { id: employeeSettlementItemB.id },
+          }),
+          employeeSettlementPayment: await db.employeeSettlementPayment.findUnique({
+            where: { id: employeeSettlementPaymentB.id },
+          }),
         }));
         assert.equal(own.policy?.restaurantId, fixture.restaurants.b.id);
         assert.equal(own.settlement?.restaurantId, fixture.restaurants.b.id);
         assert.equal(own.item?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.employeePolicy?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.employeeWorkEntry?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.employeeEarning?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.waiterAssignment?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.employeeSettlement?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.employeeSettlementItem?.restaurantId, fixture.restaurants.b.id);
+        assert.equal(own.employeeSettlementPayment?.restaurantId, fixture.restaurants.b.id);
 
         const attack = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
           policy: await db.courierCompensationPolicy.findUnique({
@@ -507,10 +748,38 @@ test(
           item: await db.courierSettlementItem.findUnique({
             where: { id: settlementItemB.id },
           }),
+          employeePolicy: await db.employeeCompensationPolicy.findUnique({
+            where: { id: employeePolicyB.id },
+          }),
+          employeeWorkEntry: await db.employeeWorkEntry.findUnique({
+            where: { id: employeeWorkEntryB.id },
+          }),
+          employeeEarning: await db.employeeEarning.findUnique({
+            where: { id: employeeEarningB.id },
+          }),
+          waiterAssignment: await db.tableWaiterAssignment.findUnique({
+            where: { id: waiterAssignmentB.id },
+          }),
+          employeeSettlement: await db.employeeSettlement.findUnique({
+            where: { id: employeeSettlementB.id },
+          }),
+          employeeSettlementItem: await db.employeeSettlementItem.findUnique({
+            where: { id: employeeSettlementItemB.id },
+          }),
+          employeeSettlementPayment: await db.employeeSettlementPayment.findUnique({
+            where: { id: employeeSettlementPaymentB.id },
+          }),
         }));
         assert.equal(attack.policy, null);
         assert.equal(attack.settlement, null);
         assert.equal(attack.item, null);
+        assert.equal(attack.employeePolicy, null);
+        assert.equal(attack.employeeWorkEntry, null);
+        assert.equal(attack.employeeEarning, null);
+        assert.equal(attack.waiterAssignment, null);
+        assert.equal(attack.employeeSettlement, null);
+        assert.equal(attack.employeeSettlementItem, null);
+        assert.equal(attack.employeeSettlementPayment, null);
       });
 
       await t.test('RLS rejeita política financeira adulterada no INSERT', async () => {
@@ -557,6 +826,79 @@ test(
               db.courierSettlementItem.update({
                 where: { id: settlementItemA.id },
                 data: { restaurantId: fixture.restaurants.b.id },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.employeeCompensationPolicy.update({
+                where: { id: employeePolicyA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  employeeId: fixture.users.employeeB.id,
+                },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.employeeWorkEntry.update({
+                where: { id: employeeWorkEntryA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  employeeId: fixture.users.employeeB.id,
+                },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.employeeEarning.update({
+                where: { id: employeeEarningA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  employeeId: fixture.users.employeeB.id,
+                },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.tableWaiterAssignment.update({
+                where: { id: waiterAssignmentA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  tableSessionId: fixture.tableSessionB.id,
+                  waiterId: fixture.users.employeeB.id,
+                },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.employeeSettlement.update({
+                where: { id: employeeSettlementA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  employeeId: fixture.users.employeeB.id,
+                },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.employeeSettlementItem.update({
+                where: { id: employeeSettlementItemA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  settlementId: employeeSettlementB.id,
+                  earningId: employeeEarningB.id,
+                },
+              }),
+            ),
+          () =>
+            withTenantDbContext(fixture.restaurants.a.id, (db) =>
+              db.employeeSettlementPayment.update({
+                where: { id: employeeSettlementPaymentA.id },
+                data: {
+                  restaurantId: fixture.restaurants.b.id,
+                  settlementId: employeeSettlementB.id,
+                  employeeId: fixture.users.employeeB.id,
+                },
               }),
             ),
         ];
@@ -698,18 +1040,61 @@ test(
         );
       });
 
-      await t.test('DELETE do tenant A não afeta linhas B nas duas tabelas', async () => {
+      await t.test('DELETE do tenant A não afeta linhas financeiras B', async () => {
         const deleted = await withTenantDbContext(fixture.restaurants.a.id, async (db) => ({
           threads: await db.orderIssueThread.deleteMany({ where: { id: fixture.issueThreadB.id } }),
           methods: await db.customerPaymentMethod.deleteMany({ where: { id: paymentMethodB.id } }),
+          employeePolicies: await db.employeeCompensationPolicy.deleteMany({
+            where: { id: employeePolicyB.id },
+          }),
+          employeeWorkEntries: await db.employeeWorkEntry.deleteMany({
+            where: { id: employeeWorkEntryB.id },
+          }),
+          employeeEarnings: await db.employeeEarning.deleteMany({
+            where: { id: employeeEarningB.id },
+          }),
+          waiterAssignments: await db.tableWaiterAssignment.deleteMany({
+            where: { id: waiterAssignmentB.id },
+          }),
+          employeeSettlements: await db.employeeSettlement.deleteMany({
+            where: { id: employeeSettlementB.id },
+          }),
+          employeeSettlementItems: await db.employeeSettlementItem.deleteMany({
+            where: { id: employeeSettlementItemB.id },
+          }),
+          employeeSettlementPayments: await db.employeeSettlementPayment.deleteMany({
+            where: { id: employeeSettlementPaymentB.id },
+          }),
         }));
-        assert.equal(deleted.threads.count, 0);
-        assert.equal(deleted.methods.count, 0);
+        for (const result of Object.values(deleted)) assert.equal(result.count, 0);
         assert.ok(
           await prisma.orderIssueThread.findUnique({ where: { id: fixture.issueThreadB.id } }),
         );
         assert.ok(
           await prisma.customerPaymentMethod.findUnique({ where: { id: paymentMethodB.id } }),
+        );
+        assert.ok(
+          await prisma.employeeCompensationPolicy.findUnique({ where: { id: employeePolicyB.id } }),
+        );
+        assert.ok(
+          await prisma.employeeWorkEntry.findUnique({ where: { id: employeeWorkEntryB.id } }),
+        );
+        assert.ok(await prisma.employeeEarning.findUnique({ where: { id: employeeEarningB.id } }));
+        assert.ok(
+          await prisma.tableWaiterAssignment.findUnique({ where: { id: waiterAssignmentB.id } }),
+        );
+        assert.ok(
+          await prisma.employeeSettlement.findUnique({ where: { id: employeeSettlementB.id } }),
+        );
+        assert.ok(
+          await prisma.employeeSettlementItem.findUnique({
+            where: { id: employeeSettlementItemB.id },
+          }),
+        );
+        assert.ok(
+          await prisma.employeeSettlementPayment.findUnique({
+            where: { id: employeeSettlementPaymentB.id },
+          }),
         );
       });
 
