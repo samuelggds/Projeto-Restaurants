@@ -6,6 +6,7 @@ import {
   ChevronUp,
   CreditCard,
   MapPin,
+  PackageCheck,
   Phone,
   User,
 } from 'lucide-react';
@@ -157,19 +158,13 @@ export default function OrderCard({
   const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
   const normalizedDeliveryCode = String(deliveryCode || '').replace(/\D/g, '');
   const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
-  const paymentStatusLabel = order.paid ? 'Pago' : 'Nao pago';
+  const paymentStatusLabel = order.paid ? 'Pago' : 'Não pago';
   const orderObservation = String(order.notes || order.observation || '')
     .replace(/\s*\|?\s*PAY_ON_DELIVERY:\s*(PIX|CARTAO|DINHEIRO)\s*\|?/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .replace(/^\|\s*|\s*\|$/g, '')
     .trim();
   const orderReferencePoint = getReferencePoint(order);
-  const paymentStatusChipStyle = {
-    color: order.paid ? '#166534' : '#991b1b',
-    background: order.paid ? '#dcfce7' : '#fee2e2',
-    border: order.paid ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
-    fontWeight: 800,
-  };
 
   async function handleMarkDelivered() {
     if (!isDeliveryCodeValid) {
@@ -215,7 +210,7 @@ export default function OrderCard({
   }
 
   return (
-    <S.OrderCard>
+    <S.OrderCard $status={order.status}>
       <S.OrderCardHeader
         type="button"
         aria-expanded={expanded}
@@ -224,7 +219,7 @@ export default function OrderCard({
       >
         <S.OrderMeta>
           <S.OrderId>Pedido #{order.id}</S.OrderId>
-          <S.StatusBadgeInline color={statusInfo.color}>{statusInfo.label}</S.StatusBadgeInline>
+          <S.StatusBadgeInline $color={statusInfo.color}>{statusInfo.label}</S.StatusBadgeInline>
         </S.OrderMeta>
         <S.OrderTopRight>
           <S.OrderTotal>{formatCurrency(order.total)}</S.OrderTotal>
@@ -235,12 +230,7 @@ export default function OrderCard({
       <S.OrderSummaryRow>
         {canClaim ? (
           <S.InfoChip
-            style={{
-              color: order.courierEarningPreview?.available ? '#166534' : '#92400e',
-              background: order.courierEarningPreview?.available ? '#dcfce7' : '#fef3c7',
-              border: '1px solid currentColor',
-              fontWeight: 850,
-            }}
+            $tone={order.courierEarningPreview?.available ? 'success' : 'warning'}
             title={order.courierEarningPreview?.reason || 'Valor calculado pelo servidor'}
           >
             Ganho:{' '}
@@ -257,19 +247,12 @@ export default function OrderCard({
           <CreditCard size={13} />
           {paymentLabel[order.paymentMethod || ''] || order.paymentMethod}
         </S.InfoChip>
-        <S.InfoChip style={paymentStatusChipStyle}>
+        <S.InfoChip $tone={order.paid ? 'success' : 'danger'}>
           <CreditCard size={13} />
           {paymentStatusLabel}
         </S.InfoChip>
         {payOnDeliveryMethod ? (
-          <S.InfoChip
-            style={{
-              color: '#1d4ed8',
-              background: '#dbeafe',
-              border: '1px solid rgba(59, 130, 246, 0.35)',
-              fontWeight: 800,
-            }}
-          >
+          <S.InfoChip $tone="info">
             <CreditCard size={13} />
             {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
           </S.InfoChip>
@@ -346,7 +329,7 @@ export default function OrderCard({
       )}
 
       {error && (
-        <S.ErrorMsg>
+        <S.ErrorMsg role="alert">
           <AlertCircle size={14} />
           {error}
         </S.ErrorMsg>
@@ -358,6 +341,7 @@ export default function OrderCard({
             Confirme a retirada somente quando o pedido estiver com você.
           </S.DeliveryHint>
           <S.ActionButton type="button" onClick={handleClaimDelivery} disabled={loading}>
+            <PackageCheck size={17} />
             {loading ? 'Confirmando retirada...' : 'Retirar e iniciar entrega'}
           </S.ActionButton>
         </S.CardActions>

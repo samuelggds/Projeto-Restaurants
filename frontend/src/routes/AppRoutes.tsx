@@ -24,6 +24,7 @@ const Home = lazy(() => import('../pages/Home/Home'));
 const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuEntryPage'));
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
+const AttendantPage = lazy(() => import('../pages/attendant/AttendantPage'));
 import api from '../Services/api';
 import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
@@ -234,6 +235,8 @@ export default function AppRoutes() {
                     <Route path="/kitchen" element={<KitchenPage />} />
 
                     <Route path="/waiter" element={<WaiterPage />} />
+
+                    <Route path="/attendant" element={<AttendantPage />} />
                   </Route>
                 </Route>
 

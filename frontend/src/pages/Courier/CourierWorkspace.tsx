@@ -2,17 +2,12 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useNavigate } from 'react-router-dom';
 import {
   Bike,
-  CircleHelp,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   History,
-  LayoutGrid,
   LocateFixed,
-  LogOut,
   MapPinOff,
-  Menu,
   Navigation,
   PackageCheck,
   RefreshCw,
@@ -20,19 +15,21 @@ import {
   User,
   DollarSign,
   MapPinned,
-  X,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/authContext';
 import ordersService from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { acquireSocket } from '../../Services/socketService';
-import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import * as L from '../kitchen/Kitchen.styles';
 import * as S from './styles';
+import * as V from './CourierViews.styles';
+import { CourierNavigation } from './CourierNavigation';
+import { CourierListControls } from './components/CourierListControls';
+import { COURIER_VIEW_TITLES, getCourierListViewMeta, type CourierView } from './courierViewMeta';
 import {
   compareReadyForPickupOrders,
   getNormalizedOrderStatus,
@@ -56,7 +53,6 @@ const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
 const DeliveryMap = lazy(() => import('./components/DeliveryMap'));
 const CourierSettlementsPanel = lazy(() => import('./components/CourierSettlementsPanel'));
 
-type CourierView = 'overview' | 'ready' | 'route' | 'map' | 'history' | 'profile' | 'help';
 type GeoStatus = 'idle' | 'checking' | 'enabled' | 'blocked' | 'timeout' | 'error' | 'unsupported';
 type FinanceData = {
   today: { amount: number; deliveries: number };
@@ -102,10 +98,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 const DIGITAL_PAYMENT_METHODS = new Set(['PIX', 'CARTAO', 'CARTAO_DEBITO', 'CARTAO_CREDITO']);
 const LOCATION_UPDATE_INTERVAL_MS = 4_000;
-
-function monogram(name: string) {
-  return createRestaurantMonogram(name);
-}
+const LIST_BATCH_SIZE = 10;
 
 export default function CourierWorkspace() {
   useEmployeeIssueNotifications();
@@ -119,6 +112,8 @@ export default function CourierWorkspace() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
+  const [visibleOrderLimit, setVisibleOrderLimit] = useState(LIST_BATCH_SIZE);
+  const [visibleFinanceLimit, setVisibleFinanceLimit] = useState(LIST_BATCH_SIZE);
   const [refresh, setRefresh] = useState(0);
   const [brand, setBrand] = useState({ name: 'Restaurante', color: '#d64d08' });
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
@@ -599,17 +594,13 @@ export default function CourierWorkspace() {
   const visibleOrders = current.filter((order) =>
     String(order.id).includes(search.replace(/\D/g, '')),
   );
+  const displayedOrders = visibleOrders.slice(0, visibleOrderLimit);
 
-  const titles: Record<CourierView, [string, string]> = {
-    overview: ['Visão geral', 'Acompanhe seu turno e as próximas entregas'],
-    ready: ['Prontos para retirada', 'Assuma um pedido quando ele estiver com você'],
-    route: ['Entregas em andamento', 'Pedidos atribuídos a você e em rota'],
-    history: ['Histórico', 'Entregas concluídas por você'],
-    map: ['Minha rota', 'Acompanhe seu percurso e sua posição atual'],
-    profile: ['Meu perfil', 'Dados da sua conta de motoqueiro'],
-    help: ['Central de ajuda', 'Manual visual da operação de entrega'],
-  };
-  const [title, subtitle] = titles[view];
+  const [title, subtitle] = COURIER_VIEW_TITLES[view];
+  const listViewMeta = getCourierListViewMeta(
+    view === 'ready' || view === 'route' ? view : 'history',
+    { ready: ready.length, route: inRoute.length, history: delivered.length },
+  );
   const isDedicatedView = view === 'map' || view === 'overview' || view === 'help';
   const go = (next: CourierView) => {
     if (next === 'map') {
@@ -621,6 +612,7 @@ export default function CourierWorkspace() {
     }
     setView(next);
     setSearch('');
+    setVisibleOrderLimit(LIST_BATCH_SIZE);
     if (window.innerWidth <= 820) setSidebarOpen(false);
   };
   const requestLocation = async () => {
@@ -664,6 +656,7 @@ export default function CourierWorkspace() {
     setSelectedRouteOrderId(order.id || orderId);
     setView('route');
     setSearch('');
+    setVisibleOrderLimit(LIST_BATCH_SIZE);
     setGeoStatus('enabled');
     setGeoMessage(`Entrega #${orderId} iniciada com rastreamento ativo.`);
     setGeoHint(
@@ -682,69 +675,25 @@ export default function CourierWorkspace() {
 
   return (
     <S.CourierShell $primary={brand.color} $sidebarOpen={sidebarOpen}>
-      <S.CourierSidebar $open={sidebarOpen}>
-        <L.CollapseBtn onClick={() => setSidebarOpen(false)}>
-          <ChevronLeft />
-        </L.CollapseBtn>
-        <S.CourierBrand>
-          <span>{monogram(brand.name)}</span>
-          <b>{brand.name}</b>
-          <small>ÁREA DO MOTOQUEIRO</small>
-        </S.CourierBrand>
-        <L.CloseMenu onClick={() => setSidebarOpen(false)}>
-          <X />
-        </L.CloseMenu>
-        <S.CourierNav>
-          {(
-            [
-              ['overview', 'Visão geral', LayoutGrid, ready.length + inRoute.length],
-              ['ready', 'Para retirar', PackageCheck, ready.length],
-              ['route', 'Em entrega', Bike, inRoute.length],
-              ['map', 'Minha rota', MapPinned, inRoute.length],
-              ['history', 'Histórico', History, delivered.length],
-              ['profile', 'Meu perfil', User, 0],
-            ] as const
-          ).map(([id, label, Icon, count]) => (
-            <a key={id} className={view === id ? 'active' : ''} onClick={() => go(id)}>
-              <Icon /> {label} {count > 0 && <S.NavBadge>{count}</S.NavBadge>}
-            </a>
-          ))}
-        </S.CourierNav>
-        <S.CourierBottomNav>
-          <a className={view === 'help' ? 'active' : ''} onClick={() => go('help')}>
-            <CircleHelp />
-            Central de ajuda
-          </a>
-        </S.CourierBottomNav>
-        <S.CourierUser>
-          <span className="avatar">{monogram(user?.name || 'Motoqueiro')}</span>
-          <span>
-            <b>{user?.name || 'Motoqueiro'}</b>
-            <small>Motoqueiro</small>
-          </span>
-          <button
-            onClick={() => {
-              logout();
-              navigate('/login');
-            }}
-            title="Sair"
-          >
-            <LogOut />
-          </button>
-        </S.CourierUser>
-      </S.CourierSidebar>
-      {sidebarOpen && <L.Overlay onClick={() => setSidebarOpen(false)} />}
-      {!sidebarOpen && (
-        <L.SidebarOpenTab onClick={() => setSidebarOpen(true)}>
-          <ChevronRight />
-        </L.SidebarOpenTab>
-      )}
+      <CourierNavigation
+        view={view}
+        restaurantName={brand.name}
+        userName={user?.name || 'Motoqueiro'}
+        readyCount={ready.length}
+        routeCount={inRoute.length}
+        deliveredCount={delivered.length}
+        sidebarOpen={sidebarOpen}
+        onSidebarOpen={() => setSidebarOpen(true)}
+        onSidebarClose={() => setSidebarOpen(false)}
+        onGo={go}
+        onLogout={() => {
+          logout();
+          navigate('/login', { replace: true });
+        }}
+      />
 
       <S.CourierMain>
         <S.CourierTop>
-          <L.MobileMenu onClick={() => setSidebarOpen(true)}>
-            <Menu />
-          </L.MobileMenu>
           <div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
@@ -916,21 +865,21 @@ export default function CourierWorkspace() {
                   <p>Acompanhe entregas e ganhos em um só lugar.</p>
                 </div>
                 <S.OverviewCounters>
-                  <span>
+                  <button type="button" onClick={() => go('ready')}>
                     <PackageCheck />
                     <b>{ready.length}</b>
                     <small>Para retirar</small>
-                  </span>
-                  <span>
+                  </button>
+                  <button type="button" onClick={() => go('route')}>
                     <Bike />
                     <b>{inRoute.length}</b>
                     <small>Em rota</small>
-                  </span>
-                  <span>
+                  </button>
+                  <button type="button" onClick={() => go('history')}>
                     <CheckCircle2 />
                     <b>{delivered.length}</b>
                     <small>Entregues</small>
-                  </span>
+                  </button>
                 </S.OverviewCounters>
               </S.OverviewHero>
               <S.EarningsPanel>
@@ -1050,7 +999,7 @@ export default function CourierWorkspace() {
                     </div>
                   </S.EarningsHeading>
                   <S.CompactOrders>
-                    {finance.deliveries.slice(0, 8).map((delivery) => (
+                    {finance.deliveries.slice(0, visibleFinanceLimit).map((delivery) => (
                       <S.CompactOrderButton key={delivery.id} as="div">
                         <span>
                           <DollarSign />
@@ -1074,51 +1023,85 @@ export default function CourierWorkspace() {
                       </S.CompactOrderButton>
                     ))}
                   </S.CompactOrders>
+                  <CourierListControls
+                    visibleCount={Math.min(visibleFinanceLimit, finance.deliveries.length)}
+                    totalCount={finance.deliveries.length}
+                    itemLabel="lançamentos"
+                    onShowMore={() =>
+                      setVisibleFinanceLimit((current) =>
+                        Math.min(current + LIST_BATCH_SIZE, finance.deliveries.length),
+                      )
+                    }
+                    onReset={() => setVisibleFinanceLimit(LIST_BATCH_SIZE)}
+                  />
                 </S.PickupPanel>
               ) : null}
             </>
           )}
 
           {view === 'help' ? (
-            <EmployeeHelpCenter role="courier" onReport={reportEmployeeIssue} />
+            <V.HelpFrame>
+              <EmployeeHelpCenter role="courier" onReport={reportEmployeeIssue} />
+            </V.HelpFrame>
           ) : view === 'profile' ? (
-            <Suspense
-              fallback={
-                <S.EmptyState>
-                  <RefreshCw className="spinning" />
-                </S.EmptyState>
-              }
-            >
-              <ProfilePanel
-                user={user}
-                onUpdated={(updated) => {
-                  const token = getAccessToken();
-                  if (token) login(updated, token);
-                }}
-              />
-            </Suspense>
+            <V.ProfileFrame>
+              <V.ProfileAside>
+                <User />
+                <div>
+                  <h2>Conta de trabalho</h2>
+                  <p>Mantenha seus dados de contato corretos para a operação e para os clientes.</p>
+                </div>
+                <ul>
+                  <li>Acesso exclusivo do motoqueiro</li>
+                  <li>CPF protegido contra edição</li>
+                  <li>Alterações salvas na sua conta</li>
+                </ul>
+              </V.ProfileAside>
+              <Suspense
+                fallback={
+                  <S.EmptyState>
+                    <RefreshCw className="spinning" />
+                  </S.EmptyState>
+                }
+              >
+                <ProfilePanel
+                  user={user}
+                  onUpdated={(updated) => {
+                    const token = getAccessToken();
+                    if (token) login(updated, token);
+                  }}
+                />
+              </Suspense>
+            </V.ProfileFrame>
           ) : isDedicatedView ? null : (
-            <>
-              <S.TopBar>
-                <div style={{ position: 'relative', width: 'min(340px, 100%)' }}>
-                  <Search
-                    size={17}
-                    style={{ position: 'absolute', left: 12, top: 11, color: '#718096' }}
-                  />
+            <V.ViewStack>
+              <V.ContextBand $tone={listViewMeta.tone}>
+                <V.ContextIcon $tone={listViewMeta.tone}>
+                  <listViewMeta.icon />
+                </V.ContextIcon>
+                <V.ContextCopy>
+                  <small>{listViewMeta.eyebrow}</small>
+                  <h2>{listViewMeta.heading}</h2>
+                  <p>{listViewMeta.description}</p>
+                </V.ContextCopy>
+                <V.ContextCount $tone={listViewMeta.tone}>
+                  <strong>{listViewMeta.count}</strong>
+                  <span>{listViewMeta.countLabel}</span>
+                </V.ContextCount>
+              </V.ContextBand>
+              <V.Toolbar>
+                <V.SearchField>
+                  <Search />
                   <input
                     aria-label="Buscar pedido"
                     value={search}
-                    onChange={(event) => setSearch(event.target.value.replace(/\D/g, ''))}
-                    placeholder="Buscar pelo número do pedido"
-                    style={{
-                      width: '100%',
-                      height: 40,
-                      border: '1px solid #e5e1dc',
-                      borderRadius: 10,
-                      padding: '0 12px 0 38px',
+                    onChange={(event) => {
+                      setSearch(event.target.value.replace(/\D/g, ''));
+                      setVisibleOrderLimit(LIST_BATCH_SIZE);
                     }}
+                    placeholder="Buscar pelo número do pedido"
                   />
-                </div>
+                </V.SearchField>
                 <S.RefreshButton
                   onClick={() => {
                     setLoading(true);
@@ -1128,7 +1111,7 @@ export default function CourierWorkspace() {
                 >
                   <RefreshCw /> Atualizar
                 </S.RefreshButton>
-              </S.TopBar>
+              </V.Toolbar>
               {loadError ? (
                 <S.RouteError role="alert">
                   <span>{loadError}</span>
@@ -1149,8 +1132,14 @@ export default function CourierWorkspace() {
                 </S.EmptyState>
               ) : visibleOrders.length === 0 ? (
                 <S.EmptyState>
-                  <Bike />
-                  <p>Nenhuma entrega nesta área.</p>
+                  <listViewMeta.icon />
+                  <p>
+                    {view === 'ready'
+                      ? 'Nenhum pedido aguardando retirada.'
+                      : view === 'route'
+                        ? 'Nenhuma entrega em andamento.'
+                        : 'Nenhuma entrega concluída neste período.'}
+                  </p>
                 </S.EmptyState>
               ) : (
                 <Suspense
@@ -1160,22 +1149,35 @@ export default function CourierWorkspace() {
                     </S.EmptyState>
                   }
                 >
-                  <S.OrdersList>
-                    {visibleOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order as never}
-                        onClaimDelivery={claimDelivery}
-                        onMarkDelivered={markDelivered}
-                        digitalPaymentMethods={DIGITAL_PAYMENT_METHODS}
-                        paymentLabel={PAYMENT_LABEL}
-                        statusLabel={STATUS_LABEL}
-                      />
-                    ))}
-                  </S.OrdersList>
+                  <V.ListSurface>
+                    <S.OrdersList>
+                      {displayedOrders.map((order) => (
+                        <OrderCard
+                          key={order.id}
+                          order={order as never}
+                          onClaimDelivery={claimDelivery}
+                          onMarkDelivered={markDelivered}
+                          digitalPaymentMethods={DIGITAL_PAYMENT_METHODS}
+                          paymentLabel={PAYMENT_LABEL}
+                          statusLabel={STATUS_LABEL}
+                        />
+                      ))}
+                    </S.OrdersList>
+                    <CourierListControls
+                      visibleCount={displayedOrders.length}
+                      totalCount={visibleOrders.length}
+                      itemLabel="pedidos"
+                      onShowMore={() =>
+                        setVisibleOrderLimit((current) =>
+                          Math.min(current + LIST_BATCH_SIZE, visibleOrders.length),
+                        )
+                      }
+                      onReset={() => setVisibleOrderLimit(LIST_BATCH_SIZE)}
+                    />
+                  </V.ListSurface>
                 </Suspense>
               )}
-            </>
+            </V.ViewStack>
           )}
         </S.CourierContent>
       </S.CourierMain>

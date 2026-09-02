@@ -65,11 +65,12 @@ describe('política de autorização de rotas', () => {
       redirectTo: '/login',
     });
   });
-  it('isola motoqueiro, cozinha e garçom', () => {
+  it('isola motoqueiro, cozinha, garçom e atendente', () => {
     const cases = [
       [{ role: 'MOTOQUEIRO' }, '/courier', '/admin'],
       [{ role: 'FUNCIONARIO', subRole: 'COZINHA' }, '/kitchen', '/waiter'],
       [{ role: 'FUNCIONARIO', subRole: 'GARCOM' }, '/waiter', '/kitchen'],
+      [{ role: 'FUNCIONARIO', subRole: 'ATENDENTE' }, '/attendant', '/waiter'],
     ] as const;
     for (const [user, own, other] of cases) {
       expect(allowed(own, user)).toBe(true);
@@ -77,8 +78,30 @@ describe('política de autorização de rotas', () => {
       expect(allowed('/', user)).toBe(false);
     }
   });
+  it('reserva a rota de atendimento exclusivamente ao atendente', () => {
+    expect(allowed('/attendant', { role: 'FUNCIONARIO', subRole: 'ATENDENTE' })).toBe(true);
+    for (const user of [
+      { role: 'ADMIN' },
+      { role: 'SUPER_ADMIN' },
+      { role: 'MOTOQUEIRO' },
+      { role: 'CLIENTE' },
+      { role: 'FUNCIONARIO', subRole: 'COZINHA' },
+      { role: 'FUNCIONARIO', subRole: 'GARCOM' },
+    ]) {
+      expect(allowed('/attendant', user), JSON.stringify(user)).toBe(false);
+    }
+  });
   it('manda perfil desconhecido para login', () => {
     expect(authorizeRoute('/admin', { role: 'OUTRO' })).toEqual({
+      allowed: false,
+      redirectTo: '/login',
+    });
+  });
+  it('não cria auto-redirecionamento vazio para funcionário sem subcargo', () => {
+    const legacyEmployee = { role: 'FUNCIONARIO', subRole: null };
+
+    expect(authorizeRoute('/login', legacyEmployee)).toEqual({ allowed: true });
+    expect(authorizeRoute('/attendant', legacyEmployee)).toEqual({
       allowed: false,
       redirectTo: '/login',
     });

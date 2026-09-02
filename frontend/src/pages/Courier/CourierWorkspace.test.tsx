@@ -207,7 +207,7 @@ describe('CourierWorkspace integration', () => {
 
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
-    await act(async () => clickByText(container, 'a', 'Para retirar'));
+    await act(async () => clickByText(container, 'button', 'Para retirar'));
     await flushUntil(() => container.textContent?.includes('Pedido #81') === true);
     expect(container.textContent).not.toContain('Pedido #99');
 
@@ -270,7 +270,7 @@ describe('CourierWorkspace integration', () => {
 
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
-    await act(async () => clickByText(container, 'a', 'Para retirar'));
+    await act(async () => clickByText(container, 'button', 'Para retirar'));
     await flushUntil(() => container.textContent?.includes('Retirar e iniciar entrega') === true);
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
     await flushUntil(() => container.textContent?.includes('A localização foi bloqueada') === true);
@@ -299,7 +299,7 @@ describe('CourierWorkspace integration', () => {
 
     await act(async () => root.render(<CourierWorkspace />));
     await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
-    await act(async () => clickByText(container, 'a', 'Para retirar'));
+    await act(async () => clickByText(container, 'button', 'Para retirar'));
     expect(container.textContent).toContain('Pedido #81');
     expect(container.textContent).not.toContain('Pedido #82');
 
@@ -311,6 +311,54 @@ describe('CourierWorkspace integration', () => {
       }),
     );
     expect(container.textContent).not.toContain('Pedido #83');
+  });
+
+  it('mostra pedidos acumulados em blocos de 10 e permite voltar aos primeiros 10', async () => {
+    mocks.listOrders.mockResolvedValue(
+      Array.from({ length: 21 }, (_, index) => ({
+        ...deliveryOrder('ENTREGUE'),
+        id: 100 + index,
+      })),
+    );
+
+    await act(async () => root.render(<CourierWorkspace />));
+    await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
+    await act(async () => clickByText(container, 'button', 'Histórico'));
+    await flushUntil(() => container.textContent?.includes('Exibindo 10 de 21 pedidos') === true);
+    expect(container.querySelectorAll('button[aria-label^="Ver detalhes do pedido"]')).toHaveLength(
+      10,
+    );
+
+    await act(async () => clickByText(container, 'button', 'Mostrar mais 10'));
+    expect(container.querySelectorAll('button[aria-label^="Ver detalhes do pedido"]')).toHaveLength(
+      20,
+    );
+    await act(async () => clickByText(container, 'button', 'Mostrar mais 10'));
+    expect(container.querySelectorAll('button[aria-label^="Ver detalhes do pedido"]')).toHaveLength(
+      21,
+    );
+
+    await act(async () => clickByText(container, 'button', 'Voltar para 10'));
+    expect(container.querySelectorAll('button[aria-label^="Ver detalhes do pedido"]')).toHaveLength(
+      10,
+    );
+  });
+
+  it('abre Histórico, Perfil e Ajuda pelo menu Mais da navegação inferior', async () => {
+    mocks.listOrders.mockResolvedValue([]);
+
+    await act(async () => root.render(<CourierWorkspace />));
+    await flushUntil(() => container.textContent?.includes('Pedidos aguardando você') === true);
+    await act(async () => clickByText(container, 'button', 'Mais'));
+
+    expect(container.querySelector('[aria-label="Mais opções do motoqueiro"]')).toBeTruthy();
+    expect(container.textContent).toContain('Histórico');
+    expect(container.textContent).toContain('Meu perfil');
+    expect(container.textContent).toContain('Central de ajuda');
+
+    await act(async () => clickByText(container, 'button', 'Central de ajuda'));
+    await flushUntil(() => container.textContent?.includes('Ajuda') === true);
+    expect(container.querySelector('[aria-label="Mais opções do motoqueiro"]')).toBeNull();
   });
 
   it('não enfileira posições offline e reenvia somente a posição atual ao reconectar', async () => {

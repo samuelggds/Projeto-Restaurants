@@ -288,7 +288,19 @@ class EmployeeSettlementService {
           },
         },
       });
-      if (settlement && settlement.status !== EmployeeSettlementStatus.DRAFT) {
+      if (settlement) {
+        await repository.lockSettlement(db, restaurantId, settlement.id);
+        settlement = await db.employeeSettlement.findUniqueOrThrow({
+          where: { id_restaurantId: { id: settlement.id, restaurantId } },
+        });
+      }
+      const regeneratingCanceledSettlement =
+        settlement?.status === EmployeeSettlementStatus.CANCELED;
+      if (
+        settlement &&
+        settlement.status !== EmployeeSettlementStatus.DRAFT &&
+        !regeneratingCanceledSettlement
+      ) {
         return serializeFinancial(
           await db.employeeSettlement.findUniqueOrThrow({
             where: { id_restaurantId: { id: settlement.id, restaurantId } },
@@ -325,7 +337,21 @@ class EmployeeSettlementService {
       } else {
         settlement = await db.employeeSettlement.update({
           where: { id_restaurantId: { id: settlement.id, restaurantId } },
-          data: { ...projection.totals, version: { increment: 1 } },
+          data: {
+            ...projection.totals,
+            ...(regeneratingCanceledSettlement
+              ? {
+                  status: EmployeeSettlementStatus.DRAFT,
+                  confirmedAt: null,
+                  confirmedById: null,
+                  paidAt: null,
+                  canceledAt: null,
+                  canceledById: null,
+                  cancelReason: null,
+                }
+              : {}),
+            version: { increment: 1 },
+          },
         });
       }
 
@@ -352,7 +378,9 @@ class EmployeeSettlementService {
       await auditEmployeeCompensation(db, {
         ...input.actor,
         restaurantId,
-        action: 'EMPLOYEE_SETTLEMENT_GENERATED',
+        action: regeneratingCanceledSettlement
+          ? 'EMPLOYEE_SETTLEMENT_REGENERATED'
+          : 'EMPLOYEE_SETTLEMENT_GENERATED',
         resource: `EmployeeSettlement:${settlement.publicId}`,
         metadata: {
           settlementPublicId: settlement.publicId,
@@ -362,6 +390,7 @@ class EmployeeSettlementService {
           grossDebitsCents: projection.totals.grossDebitsCents.toString(),
           totalDueCents: projection.totals.totalDueCents.toString(),
           itemCount: projection.earnings.length,
+          regenerated: regeneratingCanceledSettlement,
         },
       });
       return serializeFinancial(

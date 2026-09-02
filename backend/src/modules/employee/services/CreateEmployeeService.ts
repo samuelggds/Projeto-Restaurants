@@ -34,6 +34,7 @@ class CreateEmployeeService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const normalizedRole = role || UserRole.FUNCIONARIO;
 
     const employee = await employeeRepository.create({
       name,
@@ -42,8 +43,9 @@ class CreateEmployeeService {
       phone,
       cpf: cpf ? String(cpf).replace(/\D/g, '') : undefined,
       restaurantId,
-      role: role || UserRole.FUNCIONARIO,
-      subRole: subRole ?? null,
+      role: normalizedRole,
+      subRole:
+        normalizedRole === UserRole.FUNCIONARIO ? (subRole ?? FuncionarioSubRole.ATENDENTE) : null,
     });
 
     return employee;

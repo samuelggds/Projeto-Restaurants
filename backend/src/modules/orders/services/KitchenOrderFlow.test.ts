@@ -288,6 +288,7 @@ test('pedido MESA chega ao garçom e à sessão apenas pelas rooms específicas'
     emissions.map(({ room, event }) => ({ room, event })),
     [
       { room: 'restaurant:7:waiter', event: 'new-order' },
+      { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
       { room: 'table:91', event: 'new-order' },
     ],
   );
@@ -299,9 +300,10 @@ test('pedido MESA chega ao garçom e à sessão apenas pelas rooms específicas'
   assert.equal(emissions[0].payload.customer.email, undefined);
   assert.equal(emissions[0].payload.customer.phone, undefined);
   assert.deepEqual(emissions[0].payload.items[0].product, { id: 10, name: 'Pizza' });
-  assert.equal(emissions[1].payload.customer, undefined);
-  assert.equal(emissions[1].payload.items, undefined);
-  assert.deepEqual(emissions[1].payload.table, { id: 91, number: 1 });
+  assert.deepEqual(emissions[1].payload, { resource: 'ORDERS' });
+  assert.equal(emissions[2].payload.customer, undefined);
+  assert.equal(emissions[2].payload.items, undefined);
+  assert.deepEqual(emissions[2].payload.table, { id: 91, number: 1 });
 
   for (const type of [OrderType.DELIVERY, OrderType.RETIRADA]) {
     const countBefore = emissions.length;

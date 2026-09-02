@@ -8,6 +8,7 @@ export type RouteDecision = { allowed: true } | { allowed: false; redirectTo: st
 const SERVICE_PATHS = ['/system-blocked', '/system-maintenance'];
 const RESERVED_ROOTS = new Set([
   'admin',
+  'attendant',
   'billing',
   'change-password',
   'courier',
@@ -54,6 +55,7 @@ export function getRoleHome(user: RouteUser) {
   if (role === 'MOTOQUEIRO') return '/courier';
   if (role === 'FUNCIONARIO' && subRole === 'COZINHA') return '/kitchen';
   if (role === 'FUNCIONARIO' && subRole === 'GARCOM') return '/waiter';
+  if (role === 'FUNCIONARIO' && subRole === 'ATENDENTE') return '/attendant';
   if (role === 'CLIENTE') return '/';
   return '/login';
 }
@@ -76,6 +78,12 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
       : { allowed: false, redirectTo: '/change-password' };
   }
   if (path === '/change-password') return { allowed: true };
+  if (path === '/login' && home === '/login') return { allowed: true };
+  if (isPath(path, '/attendant')) {
+    return role === 'FUNCIONARIO' && subRole === 'ATENDENTE'
+      ? { allowed: true }
+      : { allowed: false, redirectTo: home };
+  }
   if (role === 'SUPER_ADMIN')
     return isPath(path, '/super_admin') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (isPath(path, '/super_admin') || isGuestEntry(path))
@@ -93,5 +101,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPath(path, '/kitchen') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (role === 'FUNCIONARIO' && subRole === 'GARCOM')
     return isPath(path, '/waiter') ? { allowed: true } : { allowed: false, redirectTo: home };
+  if (role === 'FUNCIONARIO' && subRole === 'ATENDENTE')
+    return { allowed: false, redirectTo: home };
   return { allowed: false, redirectTo: '/login' };
 }

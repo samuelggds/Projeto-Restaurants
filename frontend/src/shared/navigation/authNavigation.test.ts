@@ -39,6 +39,20 @@ describe('authNavigation', () => {
     expect(getSafeNextPath(value)).toBe('');
   });
 
+  it.each([
+    '/admin',
+    '/attendant',
+    '/attendant/orders',
+    '/billing',
+    '/courier',
+    '/kitchen',
+    '/super_admin',
+    '/waiter',
+  ])('não preserva área operacional %s como retorno de login', (value) => {
+    expect(getSafeNextPath(value)).toBe('');
+    expect(buildLoginUrl({ pathname: value })).toBe('/login');
+  });
+
   it('compõe pathname, search e hash sem perder o contexto', () => {
     const location = {
       pathname: '/restaurante-x/mesa/5',

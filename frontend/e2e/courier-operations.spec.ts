@@ -518,7 +518,25 @@ async function enableSyntheticLocation(context: BrowserContext) {
 }
 
 async function openCourierView(page: Page, label: string) {
-  await page.locator('nav a').filter({ hasText: label }).first().click();
+  await page
+    .getByRole('navigation', { name: 'Navegação do motoqueiro' })
+    .getByRole('button', {
+      name: new RegExp(label, 'i'),
+    })
+    .click();
+}
+
+async function openMobileCourierView(page: Page, label: string) {
+  const mobileNav = page.getByRole('navigation', { name: 'Navegação móvel do motoqueiro' });
+  if (['Histórico', 'Meu perfil', 'Central de ajuda'].includes(label)) {
+    await mobileNav.getByRole('button', { name: 'Mais', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Mais opções do motoqueiro' })
+      .getByRole('button', { name: label, exact: true })
+      .click();
+    return;
+  }
+  await mobileNav.getByRole('button', { name: label, exact: true }).click();
 }
 
 function orderCard(page: Page, id: number) {
@@ -773,7 +791,7 @@ test('erro de atualização permite tentar novamente e realtime busca somente o 
     (order) => order.restaurantId !== RESTAURANT_ID || order.type !== 'DELIVERY',
   );
   await page.getByRole('button', { name: 'Atualizar' }).click();
-  await expect(page.getByText('Nenhuma entrega nesta área.')).toBeVisible();
+  await expect(page.getByText('Nenhum pedido aguardando retirada.')).toBeVisible();
 
   await expectTenantSafeRequests(state);
 });
@@ -930,18 +948,23 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
   await mockCourierApi(page, state);
   await page.goto('/courier');
 
+  const mobileNav = page.getByRole('navigation', { name: 'Navegação móvel do motoqueiro' });
+  await expect(mobileNav).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navegação do motoqueiro' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Expandir navegação' })).toBeHidden();
+
   const destinations = [
-    ['Para retirar', 'Prontos para retirada'],
-    ['Em entrega', 'Entregas em andamento'],
-    ['Minha rota', 'Minha rota'],
+    ['Retirar', 'Prontos para retirada'],
+    ['Entregas', 'Entregas em andamento'],
+    ['Rota', 'Minha rota'],
     ['Histórico', 'Histórico'],
     ['Meu perfil', 'Meu perfil'],
-    ['Visão geral', 'Visão geral'],
+    ['Central de ajuda', 'Central de ajuda'],
+    ['Início', 'Visão geral'],
   ] as const;
 
   for (const [tab, title] of destinations) {
-    await page.locator('header button').first().click();
-    await page.locator('nav a').filter({ hasText: tab }).first().click();
+    await openMobileCourierView(page, tab);
     await expect(page.getByRole('heading', { name: title, exact: true }).first()).toBeVisible();
     const layout = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -953,8 +976,14 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
     ).toBeLessThanOrEqual(1);
   }
 
-  await page.locator('header button').first().click();
-  await page.locator('nav a').filter({ hasText: 'Minha rota' }).first().click();
+  const navBounds = await mobileNav.boundingBox();
+  expect(navBounds).not.toBeNull();
+  if (navBounds) {
+    expect(navBounds.y + navBounds.height).toBeLessThanOrEqual(844);
+    expect(navBounds.y).toBeGreaterThan(740);
+  }
+
+  await openMobileCourierView(page, 'Rota');
   const activateLocation = page.getByRole('button', {
     name: /(?:Ativar|Testar) localização/,
   });

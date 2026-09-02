@@ -233,6 +233,30 @@ test(
         });
         assert.equal(earning.amountCents, 1_800n);
         assert.equal(earning.policyVersion, 1);
+
+        const canceledSettlement = await request(
+          `/employee-compensation/admin/settlements/${settlement.data.publicId}/cancel`,
+          fixture.tokens.adminB,
+          'POST',
+          { reason: 'Acerto será recalculado após a correção das horas' },
+        );
+        assert.equal(canceledSettlement.response.status, 200);
+        assert.equal(canceledSettlement.data.status, 'CANCELED');
+
+        const regeneratedSettlement = await request(
+          '/employee-compensation/admin/settlements',
+          fixture.tokens.adminB,
+          'POST',
+          { employeeId: hourlyEmployee.id, referenceMonth: '2025-01' },
+        );
+        assert.equal(regeneratedSettlement.response.status, 201);
+        assert.equal(regeneratedSettlement.data.publicId, settlement.data.publicId);
+        assert.equal(regeneratedSettlement.data.status, 'DRAFT');
+        assert.equal(regeneratedSettlement.data.totalDueCents, 1_800);
+        assert.equal(regeneratedSettlement.data.items.length, 1);
+        assert.equal(regeneratedSettlement.data.canceledAt, null);
+        assert.equal(regeneratedSettlement.data.cancelReason, null);
+        assert.ok(regeneratedSettlement.data.version > canceledSettlement.data.version);
       });
 
       await t.test('ajustes idempotentes compõem o acerto mensal com a base', async () => {

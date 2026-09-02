@@ -5,6 +5,7 @@ import type {
   AdminCoupon,
   AdminProduct,
   CouponPayload,
+  Employee,
   ProductDiscountPayload,
   SettingsSection,
 } from '../types';
@@ -29,12 +30,19 @@ const CourierCompensationSettings = lazy(() =>
   })),
 );
 
+const EmployeeCompensationSettings = lazy(() =>
+  import('./EmployeeCompensationSettings').then((module) => ({
+    default: module.EmployeeCompensationSettings,
+  })),
+);
+
 type Settings = typeof adminMockSettings;
 type Props = {
   section: SettingsSection;
   settings: Settings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   openEmployees: () => void;
+  employees: Employee[];
   products: AdminProduct[];
   coupons: AdminCoupon[];
   promotionsLoading?: boolean;
@@ -86,6 +94,15 @@ export function AdminSettingsContent(props: Props) {
     return <TableAccountSettings settings={settings} update={update} />;
   if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
   if (section === 'printing') return <KitchenPrintingSettings />;
+  if (section === 'employee-payments')
+    return (
+      <Suspense fallback={<div role="status">Carregando pagamentos dos funcionários...</div>}>
+        <EmployeeCompensationSettings
+          employees={props.employees}
+          onOpenEmployees={props.openEmployees}
+        />
+      </Suspense>
+    );
   if (section === 'courier-payments')
     return (
       <Suspense fallback={<div role="status">Carregando pagamentos dos motoqueiros...</div>}>

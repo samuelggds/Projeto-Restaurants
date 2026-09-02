@@ -811,6 +811,7 @@ export function AdminPage({
                 section={section}
                 settings={settings}
                 update={update}
+                employees={employees}
                 products={products}
                 coupons={coupons}
                 promotionsLoading={promotionsLoading}

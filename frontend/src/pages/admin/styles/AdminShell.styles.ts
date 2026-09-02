@@ -307,6 +307,10 @@ export const MobileSettingsNav = styled.nav`
     top: 0;
     z-index: 30;
     padding: 9px 10px;
+
+    body:has([aria-modal='true']) & {
+      z-index: 0;
+    }
   }
 `;
 export const Main = styled.main`

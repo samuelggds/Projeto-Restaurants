@@ -1,5 +1,6 @@
 import type { TablePaymentIntentStatus } from '@prisma/client';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
+import { attendantWorkspaceEvents } from '../../attendant/realtime/attendantWorkspaceEvents.js';
 
 type TableAccountUpdateReason =
   | 'PAYMENT_CREATED'
@@ -35,6 +36,7 @@ export const tableAccountEvents = {
       io.to(`table-session:${payload.sessionId}`).emit('table-account:updated', event);
       io.to(`restaurant:${payload.restaurantId}:waiter`).emit('table-account:updated', event);
       io.to(`restaurant:${payload.restaurantId}:admin`).emit('table-account:updated', event);
+      attendantWorkspaceEvents.invalidated(payload.restaurantId, 'TABLES');
       return true;
     } catch (error) {
       // O pagamento já foi persistido antes da publicação. Uma indisponibilidade

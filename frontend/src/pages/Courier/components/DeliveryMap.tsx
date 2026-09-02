@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { divIcon } from 'leaflet';
-import { Navigation } from 'lucide-react';
+import { Bike, Navigation } from 'lucide-react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import * as S from './DeliveryMap.styles';
 
 export type RoutePoint = {
   latitude: number;
@@ -32,7 +33,7 @@ function FollowLatest({ point, destination }: { point: RoutePoint; destination?:
 function RecenterButton({ point, destination }: { point: RoutePoint; destination?: RoutePoint }) {
   const map = useMap();
   return (
-    <button
+    <S.RecenterControl
       type="button"
       aria-label="Centralizar no motoqueiro"
       onClick={() => {
@@ -48,24 +49,9 @@ function RecenterButton({ point, destination }: { point: RoutePoint; destination
         }
         map.setView([point.latitude, point.longitude], 17, { animate: true });
       }}
-      style={{
-        position: 'absolute',
-        right: 16,
-        bottom: 126,
-        zIndex: 1000,
-        width: 46,
-        height: 46,
-        border: '1px solid rgba(15,23,42,.1)',
-        borderRadius: '50%',
-        background: 'white',
-        color: '#1f2937',
-        display: 'grid',
-        placeItems: 'center',
-        boxShadow: '0 6px 22px rgba(15,23,42,.2)',
-      }}
     >
       <Navigation size={21} />
-    </button>
+    </S.RecenterControl>
   );
 }
 
@@ -87,7 +73,7 @@ const courierIcon = divIcon({
 const destinationIcon = divIcon({
   className: 'delivery-destination-marker',
   html: `<div class="delivery-destination-marker__pin" aria-label="Destino da entrega">
-    <span aria-hidden="true">⌂</span>
+    <span aria-hidden="true"></span>
   </div>`,
   iconSize: [52, 60],
   iconAnchor: [26, 58],
@@ -122,35 +108,12 @@ export default function DeliveryMap({
     (point) => [point.latitude, point.longitude] as [number, number],
   );
   return (
-    <div
-      className="delivery-map-shell"
-      style={{
-        height: 'min(68vh, 620px)',
-        minHeight: 420,
-        borderRadius: 20,
-        overflow: 'hidden',
-        border: '1px solid #e5e1dc',
-        position: 'relative',
-        background: '#edece7',
-      }}
-    >
-      <style>{`
-        .delivery-map-shell .leaflet-tile-pane { filter: grayscale(.72) sepia(.14) brightness(1.08) contrast(.82) opacity(.88); }
-        .delivery-map-shell .leaflet-control-attribution { background: rgba(255,255,255,.72); color: #64748b; font-size: 9px; }
-        .delivery-courier-marker { background: transparent; border: 0; }
-        .delivery-courier-marker__pin { width: 62px; height: 62px; border-radius: 50%; background: white; display: grid; place-items: center; box-shadow: 0 8px 28px rgba(15,23,42,.28); border: 4px solid rgba(255,255,255,.9); position: relative; }
-        .delivery-courier-marker__pin::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: #d64d08; z-index: 0; }
-        .delivery-courier-marker__pin svg { position: relative; z-index: 1; width: 32px; height: 32px; fill: none; stroke: white; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-        .delivery-destination-marker { background: transparent; border: 0; }
-        .delivery-destination-marker__pin { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50% 50% 50% 8px; transform: rotate(-45deg); color: white; background: #172733; border: 4px solid white; box-shadow: 0 8px 24px rgba(15,23,42,.3); }
-        .delivery-destination-marker__pin span { transform: rotate(45deg); font-size: 23px; font-weight: 900; }
-        @media (max-width: 560px) { .delivery-map-shell { min-height: 520px !important; border-radius: 0 !important; } }
-      `}</style>
+    <S.MapShell className="delivery-map-shell">
       <MapContainer
         center={[latest.latitude, latest.longitude]}
         zoom={16}
         zoomControl={false}
-        style={{ width: '100%', height: '100%' }}
+        className="delivery-map"
       >
         <TileLayer attribution={mapTileAttribution} url={mapTileUrl} />
         {line.length > 1 && (
@@ -193,44 +156,16 @@ export default function DeliveryMap({
         <FollowLatest point={latest} destination={destination} />
         <RecenterButton point={latest} destination={destination} />
       </MapContainer>
-      <div
-        style={{
-          position: 'absolute',
-          left: 14,
-          right: 14,
-          bottom: 14,
-          zIndex: 1000,
-          borderRadius: 15,
-          background: 'rgba(28,30,33,.92)',
-          color: 'white',
-          padding: '15px 18px',
-          display: 'grid',
-          gridTemplateColumns: '44px 1fr',
-          alignItems: 'center',
-          gap: 13,
-          boxShadow: '0 10px 28px rgba(15,23,42,.25)',
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        <span
-          style={{
-            width: 44,
-            height: 44,
-            display: 'grid',
-            placeItems: 'center',
-            borderRadius: '50%',
-            background: '#fff3ed',
-            color: '#d64d08',
-            fontSize: 22,
-          }}
-        >
-          🛵
+      <S.MapStatus role="status">
+        <span>
+          <Bike size={21} />
         </span>
-        <span style={{ display: 'grid', gap: 3 }}>
-          <strong style={{ fontSize: 14 }}>{statusMessage}</strong>
-          <small style={{ color: 'rgba(255,255,255,.72)', lineHeight: 1.35 }}>{statusDetail}</small>
+        <span>
+          <strong>{statusMessage}</strong>
+          <small>{statusDetail}</small>
         </span>
-      </div>
-    </div>
+        <i>GPS ativo</i>
+      </S.MapStatus>
+    </S.MapShell>
   );
 }

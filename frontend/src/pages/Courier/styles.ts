@@ -261,14 +261,12 @@ export const LocationAlertCard = styled.div`
   grid-template-columns: auto 1fr auto;
   gap: 0.8rem;
   align-items: center;
-  border: 1px solid rgba(214, 77, 8, 0.28);
-  background:
-    radial-gradient(circle at top right, rgba(255, 169, 91, 0.22), transparent 45%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 241, 0.96));
-  border-radius: 16px;
-  padding: 1rem 1.1rem;
-  margin-bottom: 1.15rem;
-  box-shadow: 0 10px 26px rgba(112, 65, 30, 0.08);
+  border: 1px solid #e8d2a8;
+  border-left: 4px solid #c98224;
+  border-radius: 8px;
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  background: #fffbf1;
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
@@ -277,15 +275,15 @@ export const LocationAlertCard = styled.div`
 `;
 
 export const LocationAlertIcon = styled.div`
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #d64d08;
-  background: #fff1e8;
-  border: 1px solid #f3c4aa;
+  color: #885914;
+  background: #fff1ce;
+  border: 1px solid #ecd39c;
 `;
 
 export const LocationAlertContent = styled.div`
@@ -313,10 +311,10 @@ export const LocationAlertContent = styled.div`
 `;
 
 export const LocationAlertButton = styled.button`
-  min-height: 38px;
-  border-radius: 11px;
-  border: 1px solid #d64d08;
-  background: linear-gradient(135deg, #e8642f, #c9471b);
+  min-height: 42px;
+  border-radius: 7px;
+  border: 1px solid var(--courier-primary);
+  background: var(--courier-primary);
   color: #ffffff;
   font-size: 0.8rem;
   font-weight: 800;
@@ -342,7 +340,7 @@ export const LocationStatusChip = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid rgba(22, 163, 74, 0.35);
   background: rgba(34, 197, 94, 0.12);
   color: #166534;
@@ -395,8 +393,9 @@ export const RefreshButton = styled.button`
   align-items: center;
   gap: 6px;
   background: white;
-  border: 1px solid #eadfd3;
-  border-radius: 10px;
+  min-height: 40px;
+  border: 1px solid var(--courier-line);
+  border-radius: 7px;
   padding: 10px 15px;
   font-size: 13px;
   font-weight: 500;
@@ -405,9 +404,9 @@ export const RefreshButton = styled.button`
   transition: all 0.15s;
 
   &:hover {
-    border-color: #df9c80;
-    color: #c94e25;
-    background: #fffaf6;
+    border-color: color-mix(in srgb, var(--courier-primary) 50%, #96a39c);
+    color: color-mix(in srgb, var(--courier-primary) 80%, #1d2823);
+    background: color-mix(in srgb, var(--courier-primary) 6%, #fff);
   }
 `;
 
@@ -448,8 +447,8 @@ export const MobileTab = styled.button`
 
 export const OrdersList = styled.div`
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
 
   @media (max-width: 600px) {
     grid-template-columns: 1fr;
@@ -462,8 +461,12 @@ export const EmptyState = styled.div`
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 60px 0;
-  color: #94a3b8;
+  min-height: 260px;
+  padding: 42px 18px;
+  border: 1px dashed #ccd4cf;
+  border-radius: 8px;
+  color: #7c8881;
+  background: rgba(255, 255, 255, 0.64);
 
   svg {
     opacity: 0.5;
@@ -480,24 +483,34 @@ export const EmptyState = styled.div`
 
 /* ─── Card de pedido ─── */
 
-export const OrderCard = styled.div`
+export const OrderCard = styled.article<{ $status: string }>`
+  position: relative;
+  min-width: 0;
   background: white;
-  border: 1px solid #eadfd3;
-  border-radius: 16px;
-  padding: 18px;
+  border: 1px solid var(--courier-line);
+  border-top: 3px solid
+    ${(props) =>
+      props.$status === 'PRONTO'
+        ? '#d68a24'
+        : props.$status === 'SAIU_PARA_ENTREGA'
+          ? '#197492'
+          : '#3f8153'};
+  border-radius: 8px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 8px 22px rgba(69, 44, 20, 0.045);
+  gap: 11px;
+  box-shadow: 0 5px 16px rgba(24, 32, 29, 0.045);
   transition:
-    box-shadow 0.2s ease,
-    transform 0.2s ease,
+    box-shadow 0.16s ease,
     border-color 0.2s ease;
 
   &:hover {
-    border-color: #e3b6a2;
-    box-shadow: 0 15px 30px rgba(69, 44, 20, 0.09);
-    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(24, 32, 29, 0.085);
+  }
+
+  @media (max-width: 480px) {
+    padding: 14px;
   }
 `;
 
@@ -516,9 +529,9 @@ export const OrderCardHeader = styled.button`
   cursor: pointer;
   user-select: none;
   &:focus-visible {
-    outline: 3px solid rgba(214, 77, 8, 0.26);
-    outline-offset: 5px;
-    border-radius: 8px;
+    outline: 3px solid color-mix(in srgb, var(--courier-primary) 24%, transparent);
+    outline-offset: 3px;
+    border-radius: 5px;
   }
 
   &:disabled {
@@ -529,10 +542,9 @@ export const OrderCardHeader = styled.button`
 `;
 
 export const LocationActiveCard = styled(LocationAlertCard)`
-  border-color: rgba(22, 163, 74, 0.3);
-  background:
-    radial-gradient(circle at top right, rgba(74, 222, 128, 0.16), transparent 45%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 244, 0.96));
+  border-color: #bddfc7;
+  border-left-color: #3c8753;
+  background: #f2faf4;
   ${LocationAlertIcon} {
     color: #15803d;
     background: #dcfce7;
@@ -547,7 +559,7 @@ export const TrackingConnection = styled.span<{ $connected: boolean }>`
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: ${(p) => (p.$connected ? '#166534' : '#92400e')};
   background: ${(p) => (p.$connected ? '#dcfce7' : '#fef3c7')};
   font-size: 11px;
@@ -572,19 +584,23 @@ export const OrderMeta = styled.div`
 `;
 
 export const OrderId = styled.span`
-  font-size: 15px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--courier-ink);
 `;
 
-export const StatusBadgeInline = styled.span`
-  font-size: 11px;
-  font-weight: 600;
-  color: ${(p) => p.color || '#64748b'};
-  background: ${(p) => p.color + '18' || '#f1f5f9'};
-  border: 1px solid ${(p) => p.color + '44' || '#e2e8f0'};
-  border-radius: 20px;
-  padding: 2px 9px;
+export const StatusBadgeInline = styled.span<{ $color?: string }>`
+  min-height: 24px;
+  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid ${(p) => `${p.$color || '#64748b'}55`};
+  border-radius: 5px;
+  color: ${(p) => p.$color || '#64748b'};
+  background: ${(p) => `${p.$color || '#64748b'}12`};
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
 `;
 
 export const OrderTopRight = styled.div`
@@ -596,8 +612,8 @@ export const OrderTopRight = styled.div`
 
 export const OrderTotal = styled.span`
   font-size: 16px;
-  font-weight: 700;
-  color: #ea1d2c;
+  font-weight: 800;
+  color: var(--courier-ink);
 `;
 
 export const OrderSummaryRow = styled.div`
@@ -606,29 +622,65 @@ export const OrderSummaryRow = styled.div`
   flex-wrap: wrap;
 `;
 
-export const InfoChip = styled.span`
+export const InfoChip = styled.span<{
+  $tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
+}>`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #475569;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 3px 8px;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid
+    ${(props) =>
+      props.$tone === 'success'
+        ? '#b8ddc2'
+        : props.$tone === 'warning'
+          ? '#ead09c'
+          : props.$tone === 'danger'
+            ? '#efc2bc'
+            : props.$tone === 'info'
+              ? '#b8d9e4'
+              : '#dce2de'};
+  border-radius: 5px;
+  color: ${(props) =>
+    props.$tone === 'success'
+      ? '#22623a'
+      : props.$tone === 'warning'
+        ? '#805415'
+        : props.$tone === 'danger'
+          ? '#98382e'
+          : props.$tone === 'info'
+            ? '#155d77'
+            : '#52605a'};
+  background: ${(props) =>
+    props.$tone === 'success'
+      ? '#eef8f0'
+      : props.$tone === 'warning'
+        ? '#fff8e8'
+        : props.$tone === 'danger'
+          ? '#fff1ef'
+          : props.$tone === 'info'
+            ? '#edf8fb'
+            : '#f7f9f7'};
+  font-size: 10px;
+  font-weight: ${(props) => (props.$tone && props.$tone !== 'neutral' ? 800 : 650)};
 `;
 
 export const AddressRow = styled.div`
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  font-size: 13px;
-  color: #475569;
+  gap: 9px;
+  padding: 11px 12px;
+  border-left: 3px solid #68776f;
+  color: #34413b;
+  background: #f5f7f5;
+  font-size: 12px;
+  font-weight: 650;
 
   svg {
     flex-shrink: 0;
     margin-top: 2px;
-    color: #ea1d2c;
+    color: #52655b;
   }
   span {
     line-height: 1.4;
@@ -639,8 +691,8 @@ export const ExpandedContent = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 10px;
+  border-top: 1px solid var(--courier-line);
+  padding-top: 11px;
 `;
 
 export const DetailRow = styled.div`
@@ -658,9 +710,10 @@ export const ItemsList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border: 1px solid #e3e8e4;
+  border-radius: 6px;
+  background: #f8faf8;
+  padding: 9px 11px;
 `;
 
 export const ItemRow = styled.div`
@@ -696,7 +749,7 @@ export const ItemChoice = styled.p`
 export const ItemObservation = styled.p`
   margin: 0;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: 5px;
   color: #7c2d12;
   background: #fff7ed;
   font-size: 12px;
@@ -706,7 +759,7 @@ export const ItemObservation = styled.p`
 export const ItemsUnavailable = styled.p`
   margin: 0;
   padding: 10px;
-  border-radius: 9px;
+  border-radius: 5px;
   color: #7c2d12;
   background: #fff7ed;
   font-size: 12px;
@@ -730,16 +783,16 @@ export const ErrorMsg = styled.div`
   color: #dc2626;
   background: #fef2f2;
   border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 5px;
+  padding: 9px 10px;
 `;
 
 export const CardActions = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid #f1f5f9;
-  padding-top: 10px;
+  gap: 9px;
+  border-top: 1px solid var(--courier-line);
+  padding-top: 12px;
 `;
 
 export const DeliveryHint = styled.p`
@@ -751,9 +804,9 @@ export const DeliveryHint = styled.p`
 
 export const DeliveryCodeInput = styled.input`
   width: 100%;
-  min-height: 40px;
+  min-height: 46px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 7px;
   padding: 0 12px;
   font-size: 14px;
   font-weight: 600;
@@ -778,11 +831,12 @@ export const DeliverButton = styled.button`
   justify-content: center;
   gap: 8px;
   width: 100%;
+  min-height: 48px;
   padding: 11px;
   background: ${(p) => (p.disabled ? '#e2e8f0' : '#16a34a')};
   color: ${(p) => (p.disabled ? '#94a3b8' : 'white')};
   border: none;
-  border-radius: 10px;
+  border-radius: 7px;
   font-size: 14px;
   font-weight: 600;
   cursor: ${(p) => (p.disabled ? 'not-allowed' : 'pointer')};
@@ -864,10 +918,10 @@ export const PinConfirmButton = styled.button`
 
 export const ProfilePanel = styled.div`
   background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 28px;
-  max-width: 640px;
+  border: 1px solid var(--courier-line);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: none;
 
   @media (max-width: 600px) {
     padding: 16px;
@@ -883,10 +937,10 @@ export const ProfileAvatarRow = styled.div`
 `;
 
 export const ProfileAvatar = styled.div`
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ea1d2c, #b8141f);
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  background: var(--courier-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -897,7 +951,7 @@ export const ProfileAvatar = styled.div`
 export const ProfileName = styled.h2`
   font-size: 20px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--courier-ink);
   margin: 0 0 4px;
 `;
 
@@ -917,16 +971,17 @@ export const EditProfileBtn = styled.button`
   margin-left: auto;
   padding: 8px 16px;
   background: transparent;
-  border: 1.5px solid #ea1d2c;
-  color: #ea1d2c;
-  border-radius: 8px;
+  min-height: 40px;
+  border: 1px solid var(--courier-primary);
+  color: color-mix(in srgb, var(--courier-primary) 80%, #1d2823);
+  border-radius: 7px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 
   &:hover {
-    background: #fff1f2;
+    background: color-mix(in srgb, var(--courier-primary) 8%, #fff);
   }
 `;
 
@@ -942,9 +997,9 @@ export const ProfileInfoItem = styled.div`
   flex-direction: column;
   gap: 4px;
   padding: 12px 14px;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  background: #f7f9f7;
+  border-radius: 6px;
+  border: 1px solid var(--courier-line);
 
   span {
     display: flex;
@@ -1059,11 +1114,12 @@ export const SuccessMsg = styled.div`
 
 export const ActionButton = styled.button`
   width: 100%;
-  background-color: #ea1d2c;
+  min-height: 48px;
+  background-color: var(--courier-primary);
   color: white;
   border: none;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 7px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -1071,11 +1127,15 @@ export const ActionButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 2px;
   transition: background-color 0.2s;
 
-  &:hover {
-    background-color: #b8141f;
+  &:hover:not(:disabled) {
+    filter: brightness(0.92);
+  }
+
+  &:disabled {
+    opacity: 0.62;
   }
 `;
 
@@ -1109,14 +1169,14 @@ export const NavItem = styled.button`
 
 export const RouteSection = styled.section`
   display: grid;
-  gap: 16px;
+  gap: 12px;
 `;
 
 export const RouteOrderSelect = styled.select`
-  min-height: 40px;
+  min-height: 42px;
   padding: 0 36px 0 13px;
   border: 1px solid #e1d8d1;
-  border-radius: 11px;
+  border-radius: 7px;
   color: #27323a;
   background: #fff;
   font-weight: 700;
@@ -1129,7 +1189,7 @@ export const RouteError = styled.div`
   justify-content: space-between;
   gap: 12px;
   border: 1px solid #fed7aa;
-  border-radius: 12px;
+  border-radius: 7px;
   color: #9a3412;
   background: #fff7ed;
   font-size: 13px;
@@ -1149,21 +1209,21 @@ export const SectionHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
-  border: 1px solid #e5e1dc;
-  border-radius: 15px;
+  padding: 17px 18px;
+  border: 1px solid var(--courier-line);
+  border-left: 4px solid #176b87;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(35, 24, 17, 0.05);
 
   h2 {
     margin: 0;
     color: #191816;
-    font-size: 20px;
+    font-size: 18px;
   }
   p {
     margin: 4px 0 0;
-    color: #73706d;
-    font-size: 13px;
+    color: var(--courier-muted);
+    font-size: 12px;
   }
 
   @media (max-width: 600px) {
@@ -1185,12 +1245,22 @@ export const FinanceList = styled.div`
 
 export const CourierShell = styled.div<{ $primary: string; $sidebarOpen?: boolean }>`
   --courier-primary: ${(p) => p.$primary};
-  --courier-ink: #17202a;
-  min-height: 100dvh;
+  --courier-accent: #e9571b;
+  --courier-ink: #18201d;
+  --courier-muted: #66716c;
+  --courier-line: #dfe4e0;
+  --courier-surface: #ffffff;
+  height: 100dvh;
   display: grid;
-  grid-template-columns: ${(p) => (p.$sidebarOpen === false ? '0' : '270px')} minmax(0, 1fr);
+  grid-template-columns: ${(p) => (p.$sidebarOpen === false ? '0' : '252px')} minmax(0, 1fr);
+  overflow: hidden;
   color: var(--courier-ink);
-  background: linear-gradient(145deg, #f7f8fa 0%, #fffaf6 55%, #f4f7f9 100%);
+  background-color: #f4f6f3;
+  background-image:
+    linear-gradient(rgba(24, 32, 29, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 32, 29, 0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
   transition: grid-template-columns 0.25s ease;
   button,
   a {
@@ -1198,218 +1268,44 @@ export const CourierShell = styled.div<{ $primary: string; $sidebarOpen?: boolea
   }
   @media (max-width: 820px) {
     display: block;
-  }
-`;
-
-export const CourierSidebar = styled.aside<{ $open: boolean }>`
-  position: sticky;
-  top: 0;
-  height: 100dvh;
-  padding: 20px 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  color: #f7fafc;
-  background:
-    radial-gradient(circle at 12% 2%, rgba(240, 103, 42, 0.28), transparent 25%),
-    linear-gradient(165deg, #172733 0%, #101b24 58%, #0b141b 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.07);
-  z-index: 80;
-  @media (max-width: 820px) {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(88vw, 320px);
-    transform: translateX(${(p) => (p.$open ? '0' : '-105%')});
-    transition: transform 0.28s ease;
-    box-shadow: 30px 0 70px rgba(0, 0, 0, 0.38);
-  }
-`;
-
-export const CourierBrand = styled.div`
-  display: grid;
-  grid-template-columns: 54px 1fr;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 8px 22px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  span {
-    grid-row: 1 / span 2;
-    width: 54px;
-    height: 54px;
-    display: grid;
-    place-items: center;
-    border-radius: 17px;
-    background: linear-gradient(135deg, #ff7b39, #d64d08);
-    color: #fff;
-    font:
-      800 21px/1 Inter,
-      sans-serif;
-    letter-spacing: -0.06em;
-    box-shadow: 0 10px 25px rgba(214, 77, 8, 0.32);
-  }
-  b {
-    align-self: end;
-    font-size: 16px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  small {
-    align-self: start;
-    color: #8ca0ad;
-    font-size: 9px;
-    letter-spacing: 0.13em;
-  }
-`;
-
-export const CourierNav = styled.nav`
-  display: grid;
-  gap: 7px;
-  margin-top: 24px;
-  a {
-    min-height: 48px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 14px;
-    border-radius: 13px;
-    color: #aebbc4;
-    font-size: 13.5px;
-    font-weight: 550;
-    cursor: pointer;
-    transition: 0.18s ease;
-  }
-  a:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.07);
-    transform: translateX(2px);
-  }
-  a.active {
-    color: #fff;
-    background: linear-gradient(90deg, rgba(230, 86, 20, 0.95), rgba(230, 86, 20, 0.62));
-    box-shadow: 0 9px 24px rgba(214, 77, 8, 0.22);
-  }
-  svg {
-    width: 19px;
-    flex-shrink: 0;
-  }
-`;
-
-export const CourierBottomNav = styled.nav`
-  margin-top: auto;
-  padding: 16px 8px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-
-  a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 46px;
-    padding: 0 14px;
-    border-radius: 13px;
-    color: #aebbc4;
-    font-size: 13.5px;
-    font-weight: 550;
-    cursor: pointer;
-    transition: 0.18s ease;
-  }
-
-  a:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  a.active {
-    color: #fff;
-    background: linear-gradient(90deg, #ee5c12, #b9471d);
-    box-shadow: 0 8px 18px rgba(222, 83, 21, 0.27);
-  }
-
-  svg {
-    width: 19px;
-    flex-shrink: 0;
-  }
-`;
-
-export const CourierUser = styled.div`
-  margin-top: 8px;
-  padding: 10px 8px 2px;
-  border-top: 0;
-  display: grid;
-  grid-template-columns: 42px 1fr 34px;
-  align-items: center;
-  gap: 10px;
-  .avatar {
-    width: 42px;
-    height: 42px;
-    display: grid;
-    place-items: center;
-    border-radius: 14px;
-    color: #ff8b50;
-    background: #ff78351a;
-    border: 1px solid #ff783555;
-    font-weight: 800;
-  }
-  span:not(.avatar) {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-  }
-  b {
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  small {
-    color: #7f929e;
-    font-size: 10px;
-  }
-  button {
-    width: 34px;
-    height: 34px;
-    border: 0;
-    cursor: pointer;
-    border-radius: 10px;
-    display: grid;
-    place-items: center;
-    color: #aab6bd;
-    background: rgba(255, 255, 255, 0.06);
-  }
-  button:hover {
-    color: #fff;
-    background: rgba(229, 62, 62, 0.22);
-  }
-  svg {
-    width: 17px;
+    overflow: auto;
   }
 `;
 
 export const CourierMain = styled.main`
   min-width: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  @media (max-width: 820px) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
 `;
 
 export const CourierTop = styled.header`
-  min-height: 104px;
-  padding: 22px clamp(20px, 3vw, 42px);
+  min-height: 84px;
+  padding: 17px clamp(18px, 3vw, 38px);
   display: flex;
   align-items: center;
   gap: 15px;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(214, 205, 197, 0.72);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--courier-line);
   position: sticky;
   top: 0;
   z-index: 30;
   h1 {
     margin: 0 0 4px;
-    font-size: clamp(24px, 2vw, 31px);
-    letter-spacing: -0.035em;
+    font-size: 24px;
+    letter-spacing: 0;
   }
   p {
     margin: 0;
-    color: #71808a;
-    font-size: 13px;
+    color: var(--courier-muted);
+    font-size: 12px;
   }
   @media (max-width: 650px) {
     min-height: 84px;
@@ -1424,38 +1320,47 @@ export const CourierTop = styled.header`
 `;
 
 export const CourierContent = styled.div`
-  width: min(100%, 1340px);
+  width: min(100%, 1280px);
   margin: 0 auto;
-  padding: 28px clamp(16px, 3vw, 34px) 70px;
+  padding: 22px clamp(14px, 3vw, 30px) 68px;
   ${WorkspaceStatsGrid} {
     margin-bottom: 20px;
   }
   @media (max-width: 650px) {
-    padding: 14px 10px 82px;
+    padding: 12px 10px 94px;
   }
 `;
 
 export const OverviewHero = styled.section`
-  padding: clamp(22px, 3vw, 34px);
-  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+  padding: clamp(21px, 3vw, 30px);
+  margin-bottom: 20px;
   display: grid;
   grid-template-columns: minmax(230px, 1fr) auto;
   align-items: center;
   gap: 24px;
-  border-radius: 22px;
+  border-radius: 8px;
   color: #fff;
-  background: linear-gradient(125deg, #172733 0%, #213845 62%, #d95719 160%);
-  box-shadow: 0 18px 44px rgba(22, 38, 48, 0.16);
+  background: #1d2823;
+  box-shadow: 0 12px 30px rgba(24, 32, 29, 0.14);
+  &::before {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 8px;
+    background: var(--courier-primary);
+    content: '';
+  }
   & > div > small {
-    color: #ff9b69;
-    font-size: 10px;
+    color: #d8f06a;
+    font-size: 9px;
     font-weight: 800;
-    letter-spacing: 0.16em;
+    letter-spacing: 0;
   }
   h2 {
     margin: 8px 0 5px;
-    font-size: clamp(25px, 3vw, 37px);
-    letter-spacing: -0.04em;
+    font-size: 29px;
+    letter-spacing: 0;
   }
   p {
     margin: 0;
@@ -1471,7 +1376,7 @@ export const OverviewCounters = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(92px, 1fr));
   gap: 9px;
-  span {
+  button {
     min-width: 100px;
     padding: 14px;
     display: grid;
@@ -1479,14 +1384,24 @@ export const OverviewCounters = styled.div`
     align-items: center;
     gap: 2px 8px;
     border: 1px solid rgba(255, 255, 255, 0.11);
-    border-radius: 15px;
+    border-radius: 8px;
+    color: inherit;
     background: rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(8px);
+    font: inherit;
+    text-align: left;
+    transition:
+      background 160ms ease,
+      border-color 160ms ease;
+  }
+  button:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.12);
   }
   svg {
     grid-row: 1 / span 2;
     width: 20px;
-    color: #ff8a50;
+    color: #d8f06a;
   }
   b {
     font-size: 22px;
@@ -1504,19 +1419,17 @@ export const OverviewCounters = styled.div`
   }
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
-    span {
+    button {
       min-width: 0;
     }
   }
 `;
 
 export const EarningsPanel = styled.section`
-  margin-bottom: 18px;
-  padding: 22px;
-  border: 1px solid #e7e1dc;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 34px rgba(46, 35, 26, 0.07);
+  margin-bottom: 8px;
+  padding: 20px 0;
+  border-top: 1px solid var(--courier-line);
+  background: transparent;
   @media (max-width: 600px) {
     padding: 16px;
   }
@@ -1534,27 +1447,27 @@ export const EarningsHeading = styled.div`
     gap: 12px;
   }
   & > div > svg {
-    width: 42px;
-    height: 42px;
-    padding: 10px;
-    border-radius: 13px;
-    color: #d64d08;
-    background: #fff1e9;
+    width: 40px;
+    height: 40px;
+    padding: 9px;
+    border-radius: 7px;
+    color: #2c6f48;
+    background: #eaf6ed;
   }
   span {
     display: grid;
     gap: 2px;
   }
   small {
-    color: #a06b50;
+    color: #6e7b74;
     font-size: 9px;
     font-weight: 800;
-    letter-spacing: 0.13em;
+    letter-spacing: 0;
   }
   h2 {
     margin: 0;
-    font-size: 20px;
-    letter-spacing: -0.025em;
+    font-size: 18px;
+    letter-spacing: 0;
   }
   @media (max-width: 520px) {
     align-items: flex-start;
@@ -1578,26 +1491,25 @@ export const EarningsGrid = styled.div`
 `;
 
 export const EarningCard = styled.article<{ $featured?: boolean }>`
-  min-height: 116px;
-  padding: 17px;
+  min-height: 106px;
+  padding: 15px;
   display: grid;
   align-content: center;
   gap: 7px;
-  border-radius: 16px;
-  border: 1px solid ${(p) => (p.$featured ? '#df6a31' : '#ece6e1')};
+  border-radius: 7px;
+  border: 1px solid ${(p) => (p.$featured ? '#33463c' : 'var(--courier-line)')};
   color: ${(p) => (p.$featured ? '#fff' : '#1d252b')};
-  background: ${(p) => (p.$featured ? 'linear-gradient(135deg,#e96527,#c9480d)' : '#fbfaf9')};
-  box-shadow: ${(p) => (p.$featured ? '0 12px 28px rgba(207,74,15,.2)' : 'none')};
+  background: ${(p) => (p.$featured ? '#25352d' : '#fff')};
   span {
-    color: ${(p) => (p.$featured ? '#ffe3d4' : '#7a7f83')};
+    color: ${(p) => (p.$featured ? '#b7c8be' : '#7a7f83')};
     font-size: 11px;
   }
   strong {
     font-size: clamp(19px, 2vw, 25px);
-    letter-spacing: -0.035em;
+    letter-spacing: 0;
   }
   small {
-    color: ${(p) => (p.$featured ? '#ffd5bf' : '#92979a')};
+    color: ${(p) => (p.$featured ? '#d8f06a' : '#92979a')};
     font-size: 10px;
   }
 `;
@@ -1611,9 +1523,9 @@ export const PickupCount = styled.b`
   padding: 0 10px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  color: #d64d08;
-  background: #fff0e7;
+  border-radius: 6px;
+  color: #805415;
+  background: #fff2d3;
   font-size: 14px;
 `;
 export const CompactOrders = styled.div`
@@ -1627,16 +1539,14 @@ export const CompactOrderButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid #ebe5df;
-  border-radius: 14px;
+  border: 1px solid var(--courier-line);
+  border-radius: 7px;
   color: #27323a;
   background: #fcfbfa;
   transition: 0.18s ease;
   &:hover {
-    border-color: #e27a47;
-    background: #fff8f4;
-    transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(71, 44, 28, 0.07);
+    border-color: #aebbb4;
+    background: #f7f9f7;
   }
   & > span {
     display: grid;
@@ -1649,9 +1559,9 @@ export const CompactOrderButton = styled.button`
     width: 38px;
     height: 38px;
     padding: 9px;
-    border-radius: 11px;
-    color: #d64d08;
-    background: #fff0e7;
+    border-radius: 7px;
+    color: #805415;
+    background: #fff2d3;
   }
   b {
     align-self: end;
@@ -1664,7 +1574,7 @@ export const CompactOrderButton = styled.button`
   }
   & > svg {
     width: 18px;
-    color: #d64d08;
+    color: var(--courier-primary);
   }
 `;
 export const CompactEmpty = styled.div`
@@ -1674,7 +1584,7 @@ export const CompactEmpty = styled.div`
   justify-content: center;
   gap: 12px;
   border: 1px dashed #dce5dd;
-  border-radius: 15px;
+  border-radius: 7px;
   color: #3f7f4b;
   background: #f7fbf7;
   & > svg {

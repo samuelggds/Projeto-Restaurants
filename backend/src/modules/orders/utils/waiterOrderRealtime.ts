@@ -1,5 +1,6 @@
 import { OrderType } from '@prisma/client';
 import type { RealtimeTransport } from '../../../realtime/realtimePublisher.js';
+import { emitAttendantWorkspaceInvalidation } from '../../attendant/realtime/attendantWorkspaceEvents.js';
 
 type AnyOrder = Record<string, any>;
 
@@ -44,6 +45,7 @@ export function emitWaiterTableOrderEvent(
   if (!payload) return false;
 
   io.to(`restaurant:${payload.restaurantId}:waiter`).emit(event, payload);
+  emitAttendantWorkspaceInvalidation(io, payload.restaurantId, 'ORDERS');
   return true;
 }
 

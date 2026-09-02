@@ -29,7 +29,7 @@ function captureEvents() {
   return events;
 }
 
-test('evento de conta da mesa alcança cliente, garçons e administradores', async () => {
+test('evento de conta da mesa alcança cliente e equipes com payload adequado', async () => {
   const events = captureEvents();
   const published = await tableAccountEvents.updated({
     sessionId: 12,
@@ -45,6 +45,7 @@ test('evento de conta da mesa alcança cliente, garçons e administradores', asy
       { room: 'table-session:12', event: 'table-account:updated' },
       { room: 'restaurant:7:waiter', event: 'table-account:updated' },
       { room: 'restaurant:7:admin', event: 'table-account:updated' },
+      { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
     ],
   );
 });
@@ -68,9 +69,11 @@ test('abertura e fechamento de mesa publicam somente nas salas esperadas', async
       { room: 'restaurant:7:waiter', event: 'table:session-opened' },
       { room: 'restaurant:7:admin', event: 'table:session-opened' },
       { room: 'table-waiting:4', event: 'table:session-opened' },
+      { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
       { room: 'restaurant:7:waiter', event: 'table:session-closed' },
       { room: 'restaurant:7:admin', event: 'table:session-closed' },
       { room: 'table-session:12', event: 'table:session-closed' },
+      { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
     ],
   );
 });
@@ -93,9 +96,16 @@ test('chamadas de garçom notificam somente as salas operacionais', async () => 
     [
       { room: 'restaurant:7:waiter', event: 'waiter-call:created' },
       { room: 'restaurant:7:admin', event: 'waiter-call:created' },
+      { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
       { room: 'restaurant:7:waiter', event: 'waiter-call:updated' },
       { room: 'restaurant:7:admin', event: 'waiter-call:updated' },
       { room: 'table:4', event: 'waiter-call:updated' },
+      { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
     ],
   );
+
+  const attendantPayloads = events
+    .filter(({ room }) => room === 'restaurant:7:attendant')
+    .map(({ payload: eventPayload }) => eventPayload);
+  assert.deepEqual(attendantPayloads, [{ resource: 'CALLS' }, { resource: 'CALLS' }]);
 });

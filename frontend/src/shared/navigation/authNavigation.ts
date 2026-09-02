@@ -12,6 +12,17 @@ const BLOCKED_AUTH_PATHS = new Set([
   '/change-password',
   '/super_admin/login',
 ]);
+const ROLE_ONLY_RETURN_ROOTS = [
+  '/admin',
+  '/attendant',
+  '/billing',
+  '/courier',
+  '/kitchen',
+  '/super_admin',
+  '/system-blocked',
+  '/system-maintenance',
+  '/waiter',
+];
 
 function decodePathForValidation(pathname: string) {
   let decoded = pathname;
@@ -69,7 +80,14 @@ export function getSafeNextPath(value: unknown) {
   }
 
   const normalizedPath = decodedPathname.replace(/\/+$/u, '').toLowerCase() || '/';
-  if (BLOCKED_AUTH_PATHS.has(normalizedPath) || /^\/[^/]+\/login$/u.test(normalizedPath)) {
+  const isRoleOnlyPath = ROLE_ONLY_RETURN_ROOTS.some(
+    (root) => normalizedPath === root || normalizedPath.startsWith(`${root}/`),
+  );
+  if (
+    BLOCKED_AUTH_PATHS.has(normalizedPath) ||
+    isRoleOnlyPath ||
+    /^\/[^/]+\/login$/u.test(normalizedPath)
+  ) {
     return '';
   }
 
@@ -77,5 +95,6 @@ export function getSafeNextPath(value: unknown) {
 }
 
 export function buildLoginUrl(location: ReturnLocation) {
-  return `/login?next=${encodeURIComponent(getCurrentReturnPath(location))}`;
+  const nextPath = getSafeNextPath(getCurrentReturnPath(location));
+  return nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login';
 }

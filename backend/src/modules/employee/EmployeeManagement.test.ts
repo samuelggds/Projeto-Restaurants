@@ -5,6 +5,7 @@ import test, { afterEach } from 'node:test';
 import prisma from '../../config/prisma.js';
 import { EmployeeUserSchema, UpdateEmployeeSchema } from '../../validators/EmployeeSchema.js';
 import employeeRepository from './repositories/EmployeeRepository.js';
+import createEmployeeService from './services/CreateEmployeeService.js';
 import updateEmployeeService from './services/UpdateEmployeeService.js';
 import deactivateEmployeeService from './services/DeactivateEmployeeService.js';
 
@@ -15,6 +16,7 @@ const originalTransaction = prisma.$transaction;
 const originalRepositoryMethods = {
   findById: employeeRepository.findById,
   findByEmail: employeeRepository.findByEmail,
+  create: employeeRepository.create,
   update: employeeRepository.update,
   deactivate: employeeRepository.deactivate,
 };
@@ -53,6 +55,27 @@ test('rejeita criação sem telefone e senhas divergentes', () => {
       }),
     /Telefone obrigatório|As senhas não conferem/,
   );
+});
+
+test('canonicaliza funcionário legado sem subcargo como atendente', async () => {
+  let capturedData;
+  employeeRepository.findByEmail = async () => null;
+  employeeRepository.create = async (data) => {
+    capturedData = data;
+    return { id: 91, ...data };
+  };
+
+  await createEmployeeService.execute({
+    name: 'Ana Atendimento',
+    email: 'ana.atendimento@example.com',
+    password: 'Segura123!',
+    phone: '(85) 99999-9999',
+    restaurantId: 17,
+    role: 'FUNCIONARIO',
+  });
+
+  assert.equal(capturedData.role, 'FUNCIONARIO');
+  assert.equal(capturedData.subRole, 'ATENDENTE');
 });
 
 test('valida atualização parcial e rejeita e-mail inválido', () => {

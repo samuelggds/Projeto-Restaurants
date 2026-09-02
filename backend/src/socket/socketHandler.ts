@@ -122,6 +122,10 @@ export function socketHandler(socket: AppSocket) {
     socket.join(`restaurant:${restaurantId}:waiter`);
   }
 
+  if (role === 'FUNCIONARIO' && String(subRole || '').toUpperCase() === 'ATENDENTE') {
+    socket.join(`restaurant:${restaurantId}:attendant`);
+  }
+
   if (role === 'MOTOQUEIRO') {
     socket.join(`restaurant:${restaurantId}`);
     socket.join(`restaurant:${restaurantId}:courier`);

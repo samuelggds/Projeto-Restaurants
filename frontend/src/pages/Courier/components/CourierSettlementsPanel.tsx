@@ -5,6 +5,7 @@ import courierCompensationService, {
   type CourierSettlement,
 } from '../../../Services/courierCompensationService';
 import { useAppDialog } from '../../../components/AppDialog/context';
+import { COURIER_LIST_BATCH_SIZE, CourierListControls } from './CourierListControls';
 import * as S from './CourierSettlementsPanel.styles';
 
 function money(value: number) {
@@ -18,6 +19,7 @@ export default function CourierSettlementsPanel() {
   const [disputing, setDisputing] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(COURIER_LIST_BATCH_SIZE);
 
   const load = useCallback(async () => {
     try {
@@ -35,6 +37,7 @@ export default function CourierSettlementsPanel() {
   const actionable = settlements.filter((entry) =>
     ['AWAITING_COURIER_CONFIRMATION', 'DISPUTED'].includes(entry.status),
   );
+  const visibleSettlements = actionable.slice(0, visibleLimit);
 
   async function confirm(entry: CourierSettlement) {
     const accepted = await confirmDialog({
@@ -94,7 +97,7 @@ export default function CourierSettlementsPanel() {
         </span>
       ) : null}
       <div className="list">
-        {actionable.map((entry) => (
+        {visibleSettlements.map((entry) => (
           <article className="item" key={entry.publicId}>
             <div>
               <small>{entry.items.length} entrega(s) neste acerto</small>
@@ -156,6 +159,17 @@ export default function CourierSettlementsPanel() {
           <div className="empty">Nenhum acerto aguardando sua ação.</div>
         ) : null}
       </div>
+      <CourierListControls
+        visibleCount={visibleSettlements.length}
+        totalCount={actionable.length}
+        itemLabel="acertos"
+        onShowMore={() =>
+          setVisibleLimit((current) =>
+            Math.min(current + COURIER_LIST_BATCH_SIZE, actionable.length),
+          )
+        }
+        onReset={() => setVisibleLimit(COURIER_LIST_BATCH_SIZE)}
+      />
     </S.Panel>
   );
 }

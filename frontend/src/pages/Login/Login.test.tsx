@@ -161,4 +161,33 @@ describe('Login contextual do cliente', () => {
     );
     expect(container.textContent).toContain(TABLE_RETURN_PATH);
   });
+
+  it('envia funcionário ATENDENTE à área exclusiva sem reutilizar o next do cliente', async () => {
+    mocks.loginRequest.mockResolvedValue({
+      token: 'attendant-token',
+      user: {
+        id: 31,
+        name: 'Ana Atendente',
+        role: 'FUNCIONARIO',
+        subRole: 'ATENDENTE',
+      },
+    });
+
+    setInputValue(container.querySelector('#email') as HTMLInputElement, 'atendente@teste.com');
+    setInputValue(container.querySelector('#password') as HTMLInputElement, 'Senha@123');
+    await act(async () => {
+      (container.querySelector('form') as HTMLFormElement).requestSubmit();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+
+    expect(mocks.persistLogin).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'FUNCIONARIO', subRole: 'ATENDENTE' }),
+      'attendant-token',
+    );
+    expect(container.textContent).toBe('/attendant');
+  });
 });

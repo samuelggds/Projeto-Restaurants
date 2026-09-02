@@ -9,6 +9,7 @@ import { useAppDialog } from '../../components/AppDialog/context';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
 import { getSafeNextPath } from '../../shared/navigation/authNavigation';
+import { getRoleHome } from '../../routes/routeAuthorization';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -97,38 +98,12 @@ export default function Login() {
 
   const redirectByRole = useCallback(
     (user) => {
-      if (user?.mustChangePassword === true) {
-        navigate('/change-password');
-        return;
-      }
-
-      if (user?.role === 'SUPER_ADMIN') {
-        navigate('/super_admin');
-        return;
-      }
-
-      if (safeNextPath) {
+      if (user?.role === 'CLIENTE' && safeNextPath && user?.mustChangePassword !== true) {
         navigate(safeNextPath);
         return;
       }
 
-      if (user?.role === 'ADMIN') {
-        navigate('/admin');
-        return;
-      }
-
-      if (user?.role === 'MOTOQUEIRO') {
-        navigate('/courier');
-        return;
-      }
-
-      if (user?.role === 'FUNCIONARIO') {
-        const subRole = (user as Record<string, unknown>)?.subRole;
-        navigate(subRole === 'COZINHA' ? '/kitchen' : subRole === 'GARCOM' ? '/waiter' : '/login');
-        return;
-      }
-
-      navigate('/');
+      navigate(getRoleHome(user));
     },
     [navigate, safeNextPath],
   );

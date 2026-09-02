@@ -2,18 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   KeyRound,
+  MonitorCheck,
+  Power,
   Printer,
+  ReceiptText,
   RefreshCw,
   RotateCw,
+  Search,
   Unplug,
+  X,
 } from 'lucide-react';
 import kitchenPrintingService, {
   type KitchenPrinterSettings,
   type KitchenPrintJobSummary,
   type KitchenPrintingConfiguration,
 } from '../../../Services/kitchenPrintingService';
+import { KitchenPrintPreview } from './KitchenPrintPreview';
 import * as S from './KitchenPrintingSettingsGuide.styles';
 
 const STATUS_REFRESH_MS = 30_000;
@@ -52,6 +60,8 @@ export function KitchenPrintingSettings() {
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState('Agente principal da cozinha');
   const [copied, setCopied] = useState(false);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [jobPage, setJobPage] = useState(0);
 
   const loadConfiguration = useCallback(async (showLoading = false) => {
     if (showLoading && mountedRef.current) setLoading(true);
@@ -63,7 +73,7 @@ export function KitchenPrintingSettings() {
       setDeviceName((current) => result.agent?.name || current);
       setFeedback((current) => (current?.tone === 'error' ? null : current));
       kitchenPrintingService
-        .listJobs()
+        .listJobs(50)
         .then((recentJobs) => {
           if (mountedRef.current) setJobs(recentJobs);
         })
@@ -94,6 +104,17 @@ export function KitchenPrintingSettings() {
     () => Boolean(draft && configuration && !sameSettings(draft, configuration.settings)),
     [configuration, draft],
   );
+  const filteredJobs = useMemo(
+    () =>
+      orderSearch
+        ? jobs.filter((job) => job.orderId !== null && String(job.orderId).includes(orderSearch))
+        : jobs,
+    [jobs, orderSearch],
+  );
+  const jobPageCount = Math.max(1, Math.ceil(filteredJobs.length / 5));
+  const currentJobPage = Math.min(jobPage, jobPageCount - 1);
+  const firstVisibleJob = currentJobPage * 5;
+  const visibleJobs = filteredJobs.slice(firstVisibleJob, firstVisibleJob + 5);
 
   const updateDraft = <K extends keyof KitchenPrinterSettings>(
     key: K,
@@ -281,27 +302,43 @@ export function KitchenPrintingSettings() {
           <Printer />
         </span>
         <div>
-          <span className="eyebrow">Configuração guiada</span>
-          <h2>Configure a impressora em 3 passos</h2>
+          <span className="eyebrow">Operação da cozinha</span>
+          <h2>Comandas impressas sem complicação</h2>
           <p>
-            Ative o recurso, escolha como a comanda será impressa e conecte o computador da cozinha.
-            Os pedidos ficam em uma fila segura, mesmo se o computador estiver offline.
+            Defina como os pedidos chegam à impressora e acompanhe a conexão do computador da
+            cozinha.
           </p>
         </div>
       </header>
 
       <div className="status-summary" aria-label="Resumo da impressão">
-        <span className={`status-item ${draft.enabled ? 'success' : ''}`}>
-          <span className="status-dot" />
-          {draft.enabled ? 'Impressão ativada' : 'Impressão desativada'}
-        </span>
-        <span className={`status-item ${agent?.online ? 'success' : ''}`}>
-          <span className="status-dot" />
-          {agent?.online ? 'Computador conectado' : 'Computador desconectado'}
-        </span>
-        <span className={`status-item ${pendingJobs > 0 ? 'attention' : ''}`}>
-          {pendingJobs} {pendingJobs === 1 ? 'comanda aguardando' : 'comandas aguardando'}
-        </span>
+        <div className={draft.enabled ? 'success' : ''}>
+          <span className="status-icon">
+            <Power aria-hidden="true" />
+          </span>
+          <span>
+            <b>{draft.enabled ? 'Impressão ativada' : 'Impressão desativada'}</b>
+            <small>Recurso da cozinha</small>
+          </span>
+        </div>
+        <div className={agent?.online ? 'success' : ''}>
+          <span className="status-icon">
+            <MonitorCheck aria-hidden="true" />
+          </span>
+          <span>
+            <b>{agent?.online ? 'Conectado' : 'Desconectado'}</b>
+            <small>Computador da cozinha</small>
+          </span>
+        </div>
+        <div className={pendingJobs > 0 ? 'attention' : ''}>
+          <span className="status-icon">
+            <ReceiptText aria-hidden="true" />
+          </span>
+          <span>
+            <b>{pendingJobs}</b>
+            <small>{pendingJobs === 1 ? 'Comanda aguardando' : 'Comandas aguardando'}</small>
+          </span>
+        </div>
       </div>
 
       <div className={`next-action ${setupComplete ? 'complete' : ''}`} role="status">
@@ -322,7 +359,7 @@ export function KitchenPrintingSettings() {
       )}
 
       <div className="setup-flow">
-        <section className="step-card">
+        <section className="step-card activation-step">
           <div className="step-header">
             <span className="step-number">1</span>
             <div>
@@ -348,7 +385,7 @@ export function KitchenPrintingSettings() {
           </div>
         </section>
 
-        <section className={`step-card ${draft.enabled ? '' : 'locked'}`}>
+        <section className={`step-card print-rules-step ${draft.enabled ? '' : 'locked'}`}>
           <div className="step-header">
             <span className="step-number">2</span>
             <div>
@@ -500,7 +537,7 @@ export function KitchenPrintingSettings() {
           </div>
         </section>
 
-        <section className={`step-card ${canConfigureAgent ? '' : 'locked'}`}>
+        <section className={`step-card connection-step ${canConfigureAgent ? '' : 'locked'}`}>
           <div className="step-header">
             <span className="step-number">3</span>
             <div>
@@ -671,6 +708,8 @@ export function KitchenPrintingSettings() {
             </div>
           )}
         </section>
+
+        <KitchenPrintPreview settings={draft} />
       </div>
 
       <details className="history" open={jobs.length > 0}>
@@ -679,47 +718,118 @@ export function KitchenPrintingSettings() {
             <h3>Histórico de impressão</h3>
             <p>Consulte testes, comandas impressas e tentativas que precisam de atenção.</p>
           </div>
-          <span>{jobs.length ? `${jobs.length} registro(s)` : 'Nenhuma impressão ainda'}</span>
+          <span>
+            {jobs.length
+              ? orderSearch
+                ? `${filteredJobs.length} de ${jobs.length} registro(s)`
+                : `${jobs.length} registro(s)`
+              : 'Nenhuma impressão ainda'}
+          </span>
         </summary>
         {jobs.length ? (
-          <div className="jobs-list">
-            {jobs.map((job) => (
-              <div className="job" key={job.publicId}>
-                <span className={`job-status ${job.status.toLocaleLowerCase('pt-BR')}`}>
-                  {job.status === 'PENDING'
-                    ? 'Aguardando'
-                    : job.status === 'PROCESSING'
-                      ? 'Imprimindo'
-                      : job.status === 'PRINTED'
-                        ? 'Impresso'
-                        : job.status === 'FAILED'
-                          ? 'Falhou'
-                          : 'Cancelado'}
-                </span>
-                <span className="job-identity">
-                  <b>{job.type === 'TEST' ? 'Teste de impressão' : `Pedido #${job.orderId}`}</b>
-                  <small>
-                    {job.source === 'MANUAL'
-                      ? 'Reimpressão manual'
-                      : job.source === 'AUTOMATIC'
-                        ? 'Impressão automática'
-                        : 'Teste'}{' '}
-                    • {new Date(job.createdAt).toLocaleString('pt-BR')}
-                  </small>
-                </span>
-                <span className="job-attempts">{job.attempts} tentativa(s)</span>
-                {job.status === 'FAILED' && (
+          <div className="history-content">
+            <div className="history-toolbar">
+              <label className="history-search">
+                <Search aria-hidden="true" />
+                <input
+                  aria-label="Pesquisar histórico pelo número do pedido"
+                  inputMode="numeric"
+                  placeholder="Buscar número do pedido"
+                  value={orderSearch}
+                  onChange={(event) => {
+                    setOrderSearch(event.target.value.replace(/\D/g, ''));
+                    setJobPage(0);
+                  }}
+                />
+                {orderSearch ? (
                   <button
-                    className="secondary"
+                    aria-label="Limpar pesquisa do histórico"
+                    onClick={() => {
+                      setOrderSearch('');
+                      setJobPage(0);
+                    }}
                     type="button"
-                    disabled={retryingJobId !== null}
-                    onClick={() => void retryJob(job.publicId)}
                   >
-                    {retryingJobId === job.publicId ? 'Reenfileirando…' : 'Tentar novamente'}
+                    <X aria-hidden="true" />
                   </button>
-                )}
+                ) : null}
+              </label>
+            </div>
+
+            {visibleJobs.length ? (
+              <div className="jobs-list">
+                {visibleJobs.map((job) => (
+                  <div className="job" key={job.publicId}>
+                    <span className={`job-status ${job.status.toLocaleLowerCase('pt-BR')}`}>
+                      {job.status === 'PENDING'
+                        ? 'Aguardando'
+                        : job.status === 'PROCESSING'
+                          ? 'Imprimindo'
+                          : job.status === 'PRINTED'
+                            ? 'Impresso'
+                            : job.status === 'FAILED'
+                              ? 'Falhou'
+                              : 'Cancelado'}
+                    </span>
+                    <span className="job-identity">
+                      <b>{job.type === 'TEST' ? 'Teste de impressão' : `Pedido #${job.orderId}`}</b>
+                      <small>
+                        {job.source === 'MANUAL'
+                          ? 'Reimpressão manual'
+                          : job.source === 'AUTOMATIC'
+                            ? 'Impressão automática'
+                            : 'Teste'}{' '}
+                        • {new Date(job.createdAt).toLocaleString('pt-BR')}
+                      </small>
+                    </span>
+                    <span className="job-attempts">{job.attempts} tentativa(s)</span>
+                    {job.status === 'FAILED' && (
+                      <button
+                        className="secondary"
+                        type="button"
+                        disabled={retryingJobId !== null}
+                        onClick={() => void retryJob(job.publicId)}
+                      >
+                        {retryingJobId === job.publicId ? 'Reenfileirando…' : 'Tentar novamente'}
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="jobs-empty">
+                Nenhum pedido encontrado com o número <b>#{orderSearch}</b>.
+              </div>
+            )}
+
+            {filteredJobs.length > 5 ? (
+              <footer className="history-pagination">
+                <span>
+                  {firstVisibleJob + 1}–{Math.min(firstVisibleJob + 5, filteredJobs.length)} de{' '}
+                  {filteredJobs.length}
+                </span>
+                <div>
+                  <button
+                    aria-label="Voltar 5 impressões"
+                    className="secondary"
+                    disabled={currentJobPage === 0}
+                    onClick={() => setJobPage((current) => Math.max(0, current - 1))}
+                    type="button"
+                  >
+                    <ChevronLeft aria-hidden="true" /> Voltar 5
+                  </button>
+                  <button
+                    aria-label="Mostrar próximas 5 impressões"
+                    className="secondary"
+                    disabled={currentJobPage >= jobPageCount - 1}
+                    onClick={() => setJobPage((current) => Math.min(jobPageCount - 1, current + 1))}
+                    type="button"
+                  >
+                    Próximas 5 <ChevronRight aria-hidden="true" />
+                  </button>
+                </div>
+              </footer>
+            ) : null}
           </div>
         ) : (
           <div className="jobs-empty">O histórico aparecerá depois da primeira impressão.</div>

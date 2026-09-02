@@ -539,9 +539,16 @@ function mapEmployee(raw: Record<string, unknown>): Employee {
 const subRoleMap: Record<Employee['role'], string | null> = {
   COOK: 'COZINHA',
   WAITER: 'GARCOM',
-  ATTENDANT: null,
+  ATTENDANT: 'ATENDENTE',
   COURIER: null,
 };
+
+export function mapEmployeeRoleToApi(role: Employee['role']) {
+  return {
+    role: role === 'COURIER' ? 'MOTOQUEIRO' : 'FUNCIONARIO',
+    subRole: subRoleMap[role],
+  };
+}
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -763,14 +770,14 @@ export default function Admin() {
 
   async function handleCreateEmployee(employee: EmployeeFormPayload) {
     try {
+      const identity = mapEmployeeRoleToApi(employee.role);
       const created = await employeesService.createEmployee({
         name: employee.name,
         email: employee.email,
         phone: employee.phone,
         password: employee.password,
         confirmPassword: employee.confirmPassword,
-        role: employee.role === 'COURIER' ? 'MOTOQUEIRO' : 'FUNCIONARIO',
-        subRole: subRoleMap[employee.role],
+        ...identity,
       });
       const mappedEmployee = mapEmployee(created as Record<string, unknown>);
       return mappedEmployee;
@@ -782,12 +789,12 @@ export default function Admin() {
 
   async function handleUpdateEmployee(employee: EmployeeFormPayload & { id: string }) {
     try {
+      const identity = mapEmployeeRoleToApi(employee.role);
       await employeesService.updateEmployee(employee.id, {
         name: employee.name,
         email: employee.email,
         ...(employee.phone ? { phone: employee.phone } : {}),
-        role: employee.role === 'COURIER' ? 'MOTOQUEIRO' : 'FUNCIONARIO',
-        subRole: subRoleMap[employee.role],
+        ...identity,
       });
       return employee;
     } catch (error) {

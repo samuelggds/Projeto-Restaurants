@@ -138,4 +138,27 @@ describe('configuração da impressora da cozinha', () => {
     expect(secret.value).toContain('segredo-unico');
     expect(container.textContent).toContain('o servidor armazena somente o hash');
   });
+
+  it('mostra exemplos de comanda para delivery, mesa e retirada', async () => {
+    await act(async () => root.render(<KitchenPrintingSettings />));
+    await flush();
+
+    expect(container.textContent).toContain('DELIVERY');
+    expect(container.textContent).toContain('Rua das Flores, 120');
+    expect(container.textContent).toContain('Via 1 de 1 • 80 mm');
+
+    const mesa = [...container.querySelectorAll('[role="tab"]')].find(
+      (tab) => tab.textContent === 'Mesa',
+    ) as HTMLButtonElement;
+    act(() => mesa.click());
+    expect(container.textContent).toContain('MESA 12');
+    expect(container.textContent).toContain('Garçom Rafael');
+
+    const retirada = [...container.querySelectorAll('[role="tab"]')].find(
+      (tab) => tab.textContent === 'Retirada',
+    ) as HTMLButtonElement;
+    act(() => retirada.click());
+    expect(container.textContent).toContain('RETIRADA');
+    expect(container.textContent).toContain('Retirada no balcão');
+  });
 });
