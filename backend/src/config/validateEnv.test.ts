@@ -23,6 +23,8 @@ function setValidProductionEnv() {
     MFA_REQUIRED_ROLES: 'ADMIN,SUPER_ADMIN',
     IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS: '900000',
     IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS: '5',
+    INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS: '900000',
+    INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS: '20',
     SMTP_HOST: 'smtp.example.com',
     SMTP_PORT: '587',
     SMTP_SECURE: 'false',
@@ -259,5 +261,16 @@ test('impõe uma janela e um teto seguros para melhorias de imagem por IA', () =
   assert.throws(
     () => validateCriticalEnv(),
     /IMAGE_ENHANCEMENT_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 20.*IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000/u,
+  );
+});
+
+test('impõe limite seguro para busca e segredo forte quando configurado', () => {
+  process.env.INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS = '101';
+  process.env.INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS = '1000';
+  process.env.INGREDIENT_IMAGE_TOKEN_SECRET = 'curto';
+
+  assert.throws(
+    () => validateCriticalEnv(),
+    /INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 100.*INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000.*INGREDIENT_IMAGE_TOKEN_SECRET deve ter pelo menos 32 caracteres/u,
   );
 });

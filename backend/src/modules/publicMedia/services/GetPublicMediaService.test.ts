@@ -9,12 +9,14 @@ const originals = {
   findRestaurantImage: repository.findRestaurantImage,
   findBannerImage: repository.findBannerImage,
   findProductImage: repository.findProductImage,
+  findIngredientImage: repository.findIngredientImage,
 };
 
 afterEach(() => {
   repository.findRestaurantImage = originals.findRestaurantImage;
   repository.findBannerImage = originals.findBannerImage;
   repository.findProductImage = originals.findProductImage;
+  repository.findIngredientImage = originals.findIngredientImage;
 });
 
 test('busca somente a mídia do restaurante validado', async () => {
@@ -53,4 +55,17 @@ test('busca a imagem do produto dentro do restaurante informado', async () => {
 
   assert.equal(media.source, 'https://cdn.example.com/produto.webp');
   assert.deepEqual(calls, [[3, 70]]);
+});
+
+test('busca a imagem do ingrediente dentro do restaurante informado', async () => {
+  const calls = [];
+  repository.findIngredientImage = async (...args) => {
+    calls.push(args);
+    return { image: 'data:image/webp;base64,UklGRg==', updatedAt: new Date() };
+  };
+
+  const media = await service.ingredientImage(3, 12);
+
+  assert.equal(media.source, 'data:image/webp;base64,UklGRg==');
+  assert.deepEqual(calls, [[3, 12]]);
 });

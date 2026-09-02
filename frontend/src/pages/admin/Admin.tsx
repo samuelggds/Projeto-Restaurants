@@ -233,6 +233,7 @@ function mapIngredient(value: unknown): AdminIngredient {
     price: Number(raw.price ?? 0),
     category: String(raw.category ?? 'Outros').trim() || 'Outros',
     active: raw.active !== false,
+    image: raw.image ? String(raw.image) : null,
   };
 }
 
@@ -591,10 +592,9 @@ export default function Admin() {
     );
   }, []);
 
-  const loadCatalog = useCallback(
-    () => Promise.all([loadProducts(), loadCategories(), loadIngredients()]),
-    [loadCategories, loadIngredients, loadProducts],
-  );
+  const loadCatalog = useCallback(async () => {
+    await Promise.all([loadProducts(), loadCategories(), loadIngredients()]);
+  }, [loadCategories, loadIngredients, loadProducts]);
 
   const loadCoupons = useCallback(async () => {
     setPromotionsLoading(true);
@@ -882,12 +882,13 @@ export default function Admin() {
         await loadIngredients();
         return mapIngredient(created);
       }}
-      onUpdateIngredient={async (ingredient) => {
+      onUpdateIngredient={async (ingredient, imageUpdate) => {
         await ingredientsService.updateIngredient(ingredient.id, {
           name: ingredient.name,
           price: ingredient.price,
           category: ingredient.category,
           active: ingredient.active,
+          ...(imageUpdate !== undefined ? { image: imageUpdate } : {}),
         });
         await loadIngredients();
       }}
@@ -895,6 +896,7 @@ export default function Admin() {
         await ingredientsService.deleteIngredient(id);
         await loadIngredients();
       }}
+      onReloadCatalog={loadCatalog}
       onApplyProductDiscount={async (productId, payload) => {
         await promotionsService.applyProductDiscount(productId, payload);
         await loadProducts();

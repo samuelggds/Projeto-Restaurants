@@ -62,7 +62,7 @@ export function validateOptionGroups(
   const names = new Set<string>();
 
   if (!groups.length) {
-    return ['Adicione ao menos um grupo de escolha ao produto.'];
+    return ['Adicione ao menos uma etapa de escolha ao produto.'];
   }
 
   groups.forEach((rawGroup, index) => {
@@ -73,7 +73,7 @@ export function validateOptionGroups(
     if (!group.name) errors.push(`Informe o nome do grupo ${index + 1}.`);
     if (group.name.length > 60) errors.push(`${label}: use um nome de até 60 caracteres.`);
     if (normalizedName && names.has(normalizedName)) {
-      errors.push(`O grupo “${label}” está duplicado.`);
+      errors.push(`A etapa “${label}” está duplicada.`);
     }
     if (normalizedName) names.add(normalizedName);
 
@@ -88,7 +88,7 @@ export function validateOptionGroups(
       errors.push(`${label}: o máximo de escolhas deve ser pelo menos 1.`);
     }
     if (group.required && group.minSelections < 1) {
-      errors.push(`${label}: um grupo obrigatório precisa exigir ao menos uma escolha.`);
+      errors.push(`${label}: uma etapa obrigatória precisa exigir ao menos uma escolha.`);
     }
     if (group.selectionType === 'SINGLE' && group.maxSelections !== 1) {
       errors.push(`${label}: grupos de escolha única permitem somente uma opção.`);
@@ -103,8 +103,11 @@ export function validateOptionGroups(
     if (group.maxSelections > activeOptions.length) {
       errors.push(`${label}: o máximo não pode superar as opções ativas.`);
     }
-    if (activeOptions.filter((option) => option.locked).length > group.maxSelections) {
-      errors.push(`${label}: as opções fixas não podem superar o limite de escolhas.`);
+    const initiallySelectedOptions = activeOptions.filter(
+      (option) => option.defaultSelected || option.locked,
+    );
+    if (initiallySelectedOptions.length > group.maxSelections) {
+      errors.push(`${label}: as opções que já vêm selecionadas não podem superar o limite.`);
     }
     group.options.forEach((option) => {
       const optionName =

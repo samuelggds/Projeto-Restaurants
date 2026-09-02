@@ -5,6 +5,8 @@ import {
   listIngredientsService,
   updateIngredientService,
 } from '../services/IngredientServices.js';
+import ingredientImageSearchService from '../services/IngredientImageSearchService.js';
+import { IngredientImageSearchUnavailableError } from '../images/IngredientImageSearchProvider.js';
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -15,6 +17,19 @@ export async function listIngredients(req: Request, res: Response) {
     return res.json(await listIngredientsService.execute(Number(req.user?.restaurantId)));
   } catch (error) {
     return res.status(400).json({ error: errorMessage(error, 'Erro ao listar ingredientes.') });
+  }
+}
+
+export async function searchIngredientImages(req: Request, res: Response) {
+  try {
+    return res.json(
+      await ingredientImageSearchService.search(req.body, Number(req.user?.restaurantId)),
+    );
+  } catch (error) {
+    const status = error instanceof IngredientImageSearchUnavailableError ? 503 : 400;
+    return res.status(status).json({
+      error: errorMessage(error, 'Não conseguimos buscar imagens agora.'),
+    });
   }
 }
 
@@ -46,10 +61,7 @@ export async function updateIngredient(req: Request, res: Response) {
 export async function deleteIngredient(req: Request, res: Response) {
   try {
     return res.json(
-      await deleteIngredientService.execute(
-        Number(req.params.id),
-        Number(req.user?.restaurantId),
-      ),
+      await deleteIngredientService.execute(Number(req.params.id), Number(req.user?.restaurantId)),
     );
   } catch (error) {
     return res.status(400).json({ error: errorMessage(error, 'Erro ao excluir ingrediente.') });

@@ -5,6 +5,8 @@ import {
 } from '../../../validators/IngredientValidator.js';
 import ingredientRepository from '../repositories/IngredientRepository.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
+import ingredientImageSearchService from './IngredientImageSearchService.js';
 
 type CreateIngredientInput = z.infer<typeof createIngredientSchema>;
 type UpdateIngredientInput = z.infer<typeof updateIngredientSchema>;
@@ -16,6 +18,20 @@ function assertRestaurantId(restaurantId: number | null | undefined) {
   return Number(restaurantId);
 }
 
+function presentIngredient<T extends { id: number; image?: string | null; updatedAt?: Date }>(
+  ingredient: T,
+  restaurantId: number,
+) {
+  return {
+    ...ingredient,
+    image: createPublicMediaReference(
+      ingredient.image,
+      `/public-media/restaurants/${restaurantId}/ingredients/${ingredient.id}`,
+      ingredient.updatedAt,
+    ),
+  };
+}
+
 export class ListIngredientsService {
   async execute(restaurantId: number) {
     const tenantId = assertRestaurantId(restaurantId);
@@ -23,7 +39,11 @@ export class ListIngredientsService {
     const categories = [...new Set(ingredients.map((ingredient) => ingredient.category))].sort(
       (left, right) => left.localeCompare(right, 'pt-BR'),
     );
-    return { ingredients, count: ingredients.length, categories };
+    return {
+      ingredients: ingredients.map((ingredient) => presentIngredient(ingredient, tenantId)),
+      count: ingredients.length,
+      categories,
+    };
   }
 }
 
@@ -31,21 +51,29 @@ export class CreateIngredientService {
   async execute(input: CreateIngredientInput, restaurantId: number) {
     const tenantId = assertRestaurantId(restaurantId);
     const data = createIngredientSchema.parse(input);
+    if (data.image !== undefined && data.imageSelectionToken) {
+      throw new Error('Escolha a foto sugerida ou envie sua própria foto, não as duas.');
+    }
     const duplicate = await ingredientRepository.findByName(data.name, tenantId);
 
     if (duplicate) {
       throw new Error('Já existe um ingrediente com este nome neste restaurante.');
     }
 
-    return ingredientRepository.create(
+    const image = data.imageSelectionToken
+      ? await ingredientImageSearchService.importSelection(data.imageSelectionToken, tenantId)
+      : (data.image ?? null);
+    const ingredient = await ingredientRepository.create(
       {
         name: data.name,
         category: data.category,
         price: data.price,
         active: data.active ?? true,
+        image,
       },
       tenantId,
     );
+    return presentIngredient(ingredient, tenantId);
   }
 }
 
@@ -54,6 +82,9 @@ export class UpdateIngredientService {
     const tenantId = assertRestaurantId(restaurantId);
     const ingredientId = Number(id);
     const data = updateIngredientSchema.parse(input);
+    if (data.image !== undefined && data.imageSelectionToken) {
+      throw new Error('Escolha a foto sugerida ou envie sua própria foto, não as duas.');
+    }
     const existing = await ingredientRepository.findById(ingredientId, tenantId);
 
     if (!existing) {
@@ -67,7 +98,15 @@ export class UpdateIngredientService {
       }
     }
 
-    return ingredientRepository.update(ingredientId, data, tenantId);
+    const { imageSelectionToken, ...updateData } = data;
+    if (imageSelectionToken) {
+      updateData.image = await ingredientImageSearchService.importSelection(
+        imageSelectionToken,
+        tenantId,
+      );
+    }
+    const ingredient = await ingredientRepository.update(ingredientId, updateData, tenantId);
+    return ingredient ? presentIngredient(ingredient, tenantId) : ingredient;
   }
 }
 

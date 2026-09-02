@@ -899,6 +899,21 @@ export const Overlay = styled.div`
       opacity: 1;
     }
   }
+  &.product-editor-overlay {
+    inset: 0 0 0 236px;
+    justify-content: center;
+    background: #f9f8f5;
+  }
+  @media (max-width: 1080px) {
+    &.product-editor-overlay {
+      left: 220px;
+    }
+  }
+  @media (max-width: 760px) {
+    &.product-editor-overlay {
+      inset: 0;
+    }
+  }
 `;
 export const Drawer = styled.form`
   width: min(100%, 530px);

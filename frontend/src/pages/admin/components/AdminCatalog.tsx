@@ -1,25 +1,34 @@
 import { useMemo, useState } from 'react';
 import {
+  ArrowRight,
   Check,
-  CircleDollarSign,
-  Layers3,
+  CircleHelp,
+  ImageOff,
+  LayoutGrid,
+  List,
   MoreVertical,
   Pencil,
+  Power,
   Plus,
   Search,
+  Tag,
   Trash2,
+  UploadCloud,
   X,
 } from 'lucide-react';
 import { useAppDialog } from '../../../components/AppDialog/context';
+import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from '../Admin.styles';
 import type { AdminCategory, AdminIngredient, AdminProduct } from '../types';
 import {
   countProductsInCategory,
   filterAdminProducts,
-  groupIngredientsByCategory,
   listIngredientCategories,
 } from '../domain/adminCatalog';
 import { validateIngredientDraft } from '../domain/productCustomizationValidation';
+import { IngredientWizard } from './IngredientWizard';
+import { AdminMenuImport } from './AdminMenuImport';
+import * as C from '../styles/AdminCatalogExperience.styles';
 
 type AdminCatalogProps = {
   products: AdminProduct[];
@@ -32,9 +41,12 @@ type AdminCatalogProps = {
   onCreateCategory: (name: string) => Promise<void>;
   onUpdateCategory: (id: number, name: string) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
-  onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<void>;
-  onUpdateIngredient: (ingredient: AdminIngredient) => Promise<void>;
+  onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<AdminIngredient | void>;
+  onUpdateIngredient: (ingredient: AdminIngredient, imageUpdate?: string | null) => Promise<void>;
   onDeleteIngredient: (id: number) => Promise<void>;
+  importOpen: boolean;
+  onCloseImport: () => void;
+  onImportComplete: () => void | Promise<void>;
 };
 
 function errorMessage(error: unknown, fallback: string) {
@@ -52,17 +64,25 @@ export function AdminCatalog(props: AdminCatalogProps) {
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState('');
   const [openProductMenu, setOpenProductMenu] = useState<string | null>(null);
-  const [catalogTab, setCatalogTab] = useState<'products' | 'ingredients'>('products');
-  const [ingredientName, setIngredientName] = useState('');
-  const [ingredientPrice, setIngredientPrice] = useState('0');
-  const [ingredientCategory, setIngredientCategory] = useState('');
+  const [catalogTab, setCatalogTab] = useState<'products' | 'ingredients' | 'categories'>(
+    'products',
+  );
+  const [ingredientWizardOpen, setIngredientWizardOpen] = useState(false);
   const [ingredientSearch, setIngredientSearch] = useState('');
   const [ingredientFilter, setIngredientFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [ingredientCategoryFilter, setIngredientCategoryFilter] = useState('all');
+  const [ingredientSort, setIngredientSort] = useState<'name-asc' | 'name-desc' | 'price-asc'>(
+    'name-asc',
+  );
+  const [ingredientView, setIngredientView] = useState<'grid' | 'list'>('grid');
+  const [openIngredientMenu, setOpenIngredientMenu] = useState<number | null>(null);
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(null);
   const [editingIngredientName, setEditingIngredientName] = useState('');
   const [editingIngredientPrice, setEditingIngredientPrice] = useState('0');
   const [editingIngredientCategory, setEditingIngredientCategory] = useState('');
+  const [editingIngredientImage, setEditingIngredientImage] = useState<string | null>(null);
+  const [editingIngredientImageChanged, setEditingIngredientImageChanged] = useState(false);
+  const [editingIngredientImageBusy, setEditingIngredientImageBusy] = useState(false);
   const [ingredientBusy, setIngredientBusy] = useState<string | null>(null);
   const [ingredientFeedback, setIngredientFeedback] = useState<{
     tone: 'success' | 'error';
@@ -72,23 +92,10 @@ export function AdminCatalog(props: AdminCatalogProps) {
     () => filterAdminProducts(products, search, categoryFilter),
     [products, search, categoryFilter],
   );
-  const productGroups = useMemo(
-    () =>
-      categories
-        .map((category) => ({
-          category,
-          products: visibleProducts.filter((product) => product.categoryId === category.id),
-        }))
-        .filter((group) => group.products.length > 0),
-    [categories, visibleProducts],
-  );
-  const ingredientCategories = useMemo(
-    () => listIngredientCategories(ingredients),
-    [ingredients],
-  );
+  const ingredientCategories = useMemo(() => listIngredientCategories(ingredients), [ingredients]);
   const visibleIngredients = useMemo(() => {
     const normalizedSearch = ingredientSearch.trim().toLocaleLowerCase('pt-BR');
-    return ingredients.filter((ingredient) => {
+    const filtered = ingredients.filter((ingredient) => {
       if (ingredientFilter === 'active' && !ingredient.active) return false;
       if (ingredientFilter === 'inactive' && ingredient.active) return false;
       if (
@@ -104,47 +111,43 @@ export function AdminCatalog(props: AdminCatalogProps) {
         ingredient.category.toLocaleLowerCase('pt-BR').includes(normalizedSearch)
       );
     });
-  }, [ingredientCategoryFilter, ingredientFilter, ingredientSearch, ingredients]);
-  const visibleIngredientGroups = useMemo(
-    () => groupIngredientsByCategory(visibleIngredients),
-    [visibleIngredients],
-  );
-
-  const createIngredient = async () => {
-    const draft = {
-      name: ingredientName.trim(),
-      price: Number(ingredientPrice),
-      category: ingredientCategory.trim(),
-    };
-    const errors = validateIngredientDraft(draft, ingredients);
-    if (errors.length) {
-      setIngredientFeedback({ tone: 'error', message: errors[0] });
-      return;
-    }
-    setIngredientBusy('create');
-    setIngredientFeedback(null);
-    try {
-      await props.onCreateIngredient({ ...draft, active: true });
-      setIngredientName('');
-      setIngredientPrice('0');
-      setIngredientCategory('');
-      setIngredientFeedback({ tone: 'success', message: 'Ingrediente cadastrado com sucesso.' });
-    } catch (error) {
-      setIngredientFeedback({
-        tone: 'error',
-        message: errorMessage(error, 'Não foi possível cadastrar o ingrediente.'),
-      });
-    } finally {
-      setIngredientBusy(null);
-    }
-  };
+    return filtered.sort((first, second) => {
+      if (ingredientSort === 'price-asc') return first.price - second.price;
+      const comparison = first.name.localeCompare(second.name, 'pt-BR');
+      return ingredientSort === 'name-desc' ? -comparison : comparison;
+    });
+  }, [ingredientCategoryFilter, ingredientFilter, ingredientSearch, ingredientSort, ingredients]);
 
   const beginIngredientEdit = (ingredient: AdminIngredient) => {
+    setOpenIngredientMenu(null);
     setEditingIngredientId(ingredient.id);
     setEditingIngredientName(ingredient.name);
     setEditingIngredientPrice(String(ingredient.price));
     setEditingIngredientCategory(ingredient.category);
+    setEditingIngredientImage(ingredient.image || null);
+    setEditingIngredientImageChanged(false);
     setIngredientFeedback(null);
+  };
+
+  const uploadEditingIngredientImage = async (file?: File) => {
+    if (!file) return;
+    setEditingIngredientImageBusy(true);
+    setIngredientFeedback(null);
+    try {
+      const image = await createPersistentImageDataUrl(file, 512, {
+        targetWidth: 512,
+        targetHeight: 512,
+      });
+      setEditingIngredientImage(image);
+      setEditingIngredientImageChanged(true);
+    } catch (error) {
+      setIngredientFeedback({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Não foi possível carregar a imagem.',
+      });
+    } finally {
+      setEditingIngredientImageBusy(false);
+    }
   };
 
   const saveIngredientEdit = async (ingredient: AdminIngredient) => {
@@ -162,8 +165,12 @@ export function AdminCatalog(props: AdminCatalogProps) {
     setIngredientBusy(`edit-${ingredient.id}`);
     setIngredientFeedback(null);
     try {
-      await props.onUpdateIngredient(updated);
+      await props.onUpdateIngredient(
+        updated,
+        editingIngredientImageChanged ? editingIngredientImage : undefined,
+      );
       setEditingIngredientId(null);
+      setEditingIngredientImageChanged(false);
       setIngredientFeedback({ tone: 'success', message: 'Ingrediente atualizado.' });
     } catch (error) {
       setIngredientFeedback({
@@ -176,6 +183,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
   };
 
   const toggleIngredient = async (ingredient: AdminIngredient) => {
+    setOpenIngredientMenu(null);
     setIngredientBusy(`status-${ingredient.id}`);
     setIngredientFeedback(null);
     try {
@@ -197,6 +205,7 @@ export function AdminCatalog(props: AdminCatalogProps) {
   };
 
   const deleteIngredient = async (ingredient: AdminIngredient) => {
+    setOpenIngredientMenu(null);
     const confirmed = await confirmDialog({
       title: 'Excluir ingrediente?',
       description: `“${ingredient.name}” será removido do catálogo. Se ele já estiver em um produto, desative-o em vez de excluir.`,
@@ -279,84 +288,54 @@ export function AdminCatalog(props: AdminCatalogProps) {
     }
   };
 
+  if (props.importOpen) {
+    return <AdminMenuImport onClose={props.onCloseImport} onImported={props.onImportComplete} />;
+  }
+
   return (
     <>
       <S.CatalogTabs>
-        <button className={catalogTab === 'products' ? 'primary' : ''} onClick={() => setCatalogTab('products')}>Produtos</button>
-        <button className={catalogTab === 'ingredients' ? 'primary' : ''} onClick={() => setCatalogTab('ingredients')}>Ingredientes ({ingredients.length})</button>
+        <button
+          className={catalogTab === 'products' ? 'primary' : ''}
+          onClick={() => setCatalogTab('products')}
+        >
+          Produtos
+        </button>
+        <button
+          className={catalogTab === 'ingredients' ? 'primary' : ''}
+          aria-label={`Ingredientes (${ingredients.length})`}
+          onClick={() => setCatalogTab('ingredients')}
+        >
+          Ingredientes
+        </button>
+        <button
+          className={catalogTab === 'categories' ? 'primary' : ''}
+          onClick={() => setCatalogTab('categories')}
+        >
+          Categorias
+        </button>
       </S.CatalogTabs>
       {catalogTab === 'ingredients' ? (
         <S.IngredientWorkspace>
-          <S.IngredientHero>
-            <div className="hero-icon"><Layers3 /></div>
+          <C.IngredientWorkflowHint>
+            <CircleHelp /> <b>Como funciona?</b> <span>Cadastre</span> <ArrowRight />
+            <span>Organize</span> <ArrowRight /> <span>Use nos produtos</span>
+          </C.IngredientWorkflowHint>
+          <S.IngredientPageHeader>
             <div>
-              <span>CATÁLOGO DO RESTAURANTE</span>
-              <h2>Ingredientes e opções</h2>
-              <p>
-                Cadastre uma vez e reutilize em grupos como massa, tamanho, borda, molhos e
-                adicionais.
-              </p>
+              <h2>Ingredientes</h2>
+              <p>Cadastre e organize ingredientes usados nos produtos.</p>
             </div>
-            <dl>
-              <div><dt>Total</dt><dd>{ingredients.length}</dd></div>
-              <div><dt>Disponíveis</dt><dd>{ingredients.filter((item) => item.active).length}</dd></div>
-            </dl>
-          </S.IngredientHero>
-
-          <S.IngredientForm
-            onSubmit={(event) => {
-              event.preventDefault();
-              void createIngredient();
-            }}
-          >
-            <div className="form-heading">
-              <div className="form-icon"><CircleDollarSign /></div>
-              <div>
-                <h3>Novo ingrediente</h3>
-                <p>O preço informado será somado ao valor base do produto.</p>
-              </div>
-            </div>
-            <label>
-              Nome do ingrediente
-              <input
-                maxLength={80}
-                value={ingredientName}
-                onChange={(event) => setIngredientName(event.target.value)}
-                placeholder="Ex.: Massa grossa, bacon ou molho branco"
-              />
-            </label>
-            <label>
-              Categoria
-              <input
-                required
-                list="ingredient-category-options"
-                maxLength={60}
-                value={ingredientCategory}
-                onChange={(event) => setIngredientCategory(event.target.value)}
-                placeholder="Escolha ou crie. Ex.: Massas"
-              />
-              <datalist id="ingredient-category-options">
-                {ingredientCategories.map((category) => (
-                  <option key={category} value={category} />
-                ))}
-              </datalist>
-            </label>
-            <label>
-              Valor adicional
-              <div className="money-input"><span>R$</span><input
-                type="number"
-                min="0"
-                max="9999"
-                step="0.01"
-                value={ingredientPrice}
-                onChange={(event) => setIngredientPrice(event.target.value)}
-                aria-label="Valor adicional do ingrediente"
-              /></div>
-            </label>
-            <button className="create-ingredient" disabled={ingredientBusy === 'create'} type="submit">
-              <Plus /> {ingredientBusy === 'create' ? 'Cadastrando...' : 'Cadastrar ingrediente'}
+            <button type="button" onClick={() => setIngredientWizardOpen(true)}>
+              <Plus /> Novo ingrediente
             </button>
-          </S.IngredientForm>
+          </S.IngredientPageHeader>
+
+          <datalist id="ingredient-category-options">
+            {ingredientCategories.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
 
           {ingredientFeedback && (
             <S.IngredientFeedback $tone={ingredientFeedback.tone} role="status">
@@ -365,31 +344,43 @@ export function AdminCatalog(props: AdminCatalogProps) {
           )}
 
           <S.IngredientListPanel>
-            <header>
-              <div>
-                <h3>Ingredientes cadastrados</h3>
-                <p>Edite preços e disponibilidade sem recriar o ingrediente.</p>
-              </div>
-              <div className="ingredient-filters">
+            <aside className="ingredient-categories">
+              <h3>Categorias</h3>
+              <nav aria-label="Categorias de ingredientes">
+                <button
+                  aria-current={ingredientCategoryFilter === 'all' ? 'page' : undefined}
+                  className={ingredientCategoryFilter === 'all' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setIngredientCategoryFilter('all')}
+                >
+                  <LayoutGrid /> <span>Todos</span> <b>{ingredients.length}</b>
+                </button>
+                {ingredientCategories.map((category) => (
+                  <button
+                    aria-current={ingredientCategoryFilter === category ? 'page' : undefined}
+                    className={ingredientCategoryFilter === category ? 'active' : ''}
+                    key={category}
+                    type="button"
+                    onClick={() => setIngredientCategoryFilter(category)}
+                  >
+                    <Tag /> <span>{category}</span>{' '}
+                    <b>{ingredients.filter((item) => item.category === category).length}</b>
+                  </button>
+                ))}
+              </nav>
+            </aside>
+
+            <section className="ingredient-library">
+              <header className="ingredient-filters">
                 <label className="ingredient-search">
                   <Search />
                   <input
+                    aria-label="Buscar ingrediente"
                     value={ingredientSearch}
                     onChange={(event) => setIngredientSearch(event.target.value)}
-                    placeholder="Buscar ingrediente"
+                    placeholder="Buscar ingrediente..."
                   />
                 </label>
-                <select
-                  aria-label="Filtrar ingredientes por status"
-                  value={ingredientFilter}
-                  onChange={(event) =>
-                    setIngredientFilter(event.target.value as 'all' | 'active' | 'inactive')
-                  }
-                >
-                  <option value="all">Todos</option>
-                  <option value="active">Disponíveis</option>
-                  <option value="inactive">Inativos</option>
-                </select>
                 <select
                   aria-label="Filtrar ingredientes por categoria"
                   value={ingredientCategoryFilter}
@@ -397,262 +388,392 @@ export function AdminCatalog(props: AdminCatalogProps) {
                 >
                   <option value="all">Todas as categorias</option>
                   {ingredientCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
                   ))}
                 </select>
-              </div>
-            </header>
+                <select
+                  aria-label="Filtrar ingredientes por status"
+                  value={ingredientFilter}
+                  onChange={(event) =>
+                    setIngredientFilter(event.target.value as 'all' | 'active' | 'inactive')
+                  }
+                >
+                  <option value="all">Todos os status</option>
+                  <option value="active">Disponíveis</option>
+                  <option value="inactive">Inativos</option>
+                </select>
+                <select
+                  aria-label="Ordenar ingredientes"
+                  value={ingredientSort}
+                  onChange={(event) =>
+                    setIngredientSort(event.target.value as 'name-asc' | 'name-desc' | 'price-asc')
+                  }
+                >
+                  <option value="name-asc">Ordenar: A-Z</option>
+                  <option value="name-desc">Ordenar: Z-A</option>
+                  <option value="price-asc">Menor preço</option>
+                </select>
+                <button
+                  aria-label={
+                    ingredientView === 'grid'
+                      ? 'Exibir ingredientes em lista'
+                      : 'Exibir ingredientes em grade'
+                  }
+                  className="view-toggle"
+                  type="button"
+                  onClick={() => setIngredientView((view) => (view === 'grid' ? 'list' : 'grid'))}
+                >
+                  {ingredientView === 'grid' ? <List /> : <LayoutGrid />}
+                </button>
+              </header>
 
-            <div className="ingredient-list">
-              {visibleIngredientGroups.map((categoryGroup) => (
-                <section className="ingredient-category-group" key={categoryGroup.category}>
-                  <div className="ingredient-category-heading">
-                    <b>{categoryGroup.category}</b>
-                    <span>{categoryGroup.ingredients.length} ingrediente(s)</span>
-                  </div>
-                  <div className="ingredient-category-items">
-              {categoryGroup.ingredients.map((ingredient) => {
-                const editing = editingIngredientId === ingredient.id;
-                const busy = ingredientBusy?.endsWith(`-${ingredient.id}`);
-                return (
-                  <article className={ingredient.active ? '' : 'inactive'} key={ingredient.id}>
-                    <div className="ingredient-avatar">
-                      {ingredient.name.trim().charAt(0).toLocaleUpperCase('pt-BR') || 'I'}
-                    </div>
-                    {editing ? (
-                      <div className="ingredient-edit-fields">
-                        <input
-                          aria-label="Editar nome do ingrediente"
-                          maxLength={80}
-                          value={editingIngredientName}
-                          onChange={(event) => setEditingIngredientName(event.target.value)}
-                        />
-                        <input
-                          aria-label="Editar categoria do ingrediente"
-                          list="ingredient-category-options"
-                          maxLength={60}
-                          value={editingIngredientCategory}
-                          onChange={(event) => setEditingIngredientCategory(event.target.value)}
-                        />
-                        <div className="money-input"><span>R$</span><input
-                          aria-label="Editar valor adicional"
-                          type="number"
-                          min="0"
-                          max="9999"
-                          step="0.01"
-                          value={editingIngredientPrice}
-                          onChange={(event) => setEditingIngredientPrice(event.target.value)}
-                        /></div>
+              <div
+                aria-label="Ingredientes cadastrados"
+                className={`ingredient-list ${ingredientView}`}
+                role="region"
+              >
+                {visibleIngredients.map((ingredient) => {
+                  const editing = editingIngredientId === ingredient.id;
+                  const busy = ingredientBusy?.endsWith(`-${ingredient.id}`);
+                  const displayedImage = editing ? editingIngredientImage : ingredient.image;
+                  return (
+                    <article className={ingredient.active ? '' : 'inactive'} key={ingredient.id}>
+                      <div className="ingredient-avatar">
+                        <span>
+                          {ingredient.name.trim().charAt(0).toLocaleUpperCase('pt-BR') || 'I'}
+                        </span>
+                        {displayedImage && (
+                          <img
+                            src={displayedImage}
+                            alt=""
+                            onError={(event) => {
+                              event.currentTarget.hidden = true;
+                            }}
+                          />
+                        )}
                       </div>
-                    ) : (
-                      <div className="ingredient-copy">
-                        <b>{ingredient.name}</b>
-                        <div className="ingredient-badges">
-                          <span className="category-badge">{ingredient.category}</span>
-                          <span className={ingredient.active ? 'available' : 'unavailable'}>
-                            {ingredient.active ? 'Disponível' : 'Inativo'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {!editing && <strong>{money(ingredient.price)}</strong>}
-                    <div className="ingredient-actions">
                       {editing ? (
                         <>
-                          <button
-                            aria-label={`Salvar ${ingredient.name}`}
-                            className="confirm"
-                            disabled={busy}
-                            onClick={() => void saveIngredientEdit(ingredient)}
-                            type="button"
-                          ><Check /></button>
-                          <button
-                            aria-label="Cancelar edição"
-                            onClick={() => setEditingIngredientId(null)}
-                            type="button"
-                          ><X /></button>
+                          <div className="ingredient-edit-fields">
+                            <input
+                              aria-label="Editar nome do ingrediente"
+                              maxLength={80}
+                              value={editingIngredientName}
+                              onChange={(event) => setEditingIngredientName(event.target.value)}
+                            />
+                            <input
+                              aria-label="Editar categoria do ingrediente"
+                              list="ingredient-category-options"
+                              maxLength={60}
+                              value={editingIngredientCategory}
+                              onChange={(event) => setEditingIngredientCategory(event.target.value)}
+                            />
+                            <div className="money-input">
+                              <span>R$</span>
+                              <input
+                                aria-label="Editar valor adicional"
+                                type="number"
+                                min="0"
+                                max="9999"
+                                step="0.01"
+                                value={editingIngredientPrice}
+                                onChange={(event) => setEditingIngredientPrice(event.target.value)}
+                              />
+                            </div>
+                            <div className="edit-image-actions">
+                              <label>
+                                <UploadCloud />
+                                {editingIngredientImage ? 'Trocar foto' : 'Adicionar foto'}
+                                <input
+                                  accept="image/jpeg,image/png,image/webp"
+                                  disabled={editingIngredientImageBusy}
+                                  type="file"
+                                  onChange={(event) =>
+                                    void uploadEditingIngredientImage(event.target.files?.[0])
+                                  }
+                                />
+                              </label>
+                              {editingIngredientImage && (
+                                <button
+                                  disabled={editingIngredientImageBusy}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingIngredientImage(null);
+                                    setEditingIngredientImageChanged(true);
+                                  }}
+                                >
+                                  <ImageOff /> Remover foto
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="ingredient-actions">
+                            <button
+                              aria-label={`Salvar ${ingredient.name}`}
+                              className="confirm"
+                              disabled={busy}
+                              onClick={() => void saveIngredientEdit(ingredient)}
+                              type="button"
+                            >
+                              <Check />
+                            </button>
+                            <button
+                              aria-label="Cancelar edição"
+                              onClick={() => setEditingIngredientId(null)}
+                              type="button"
+                            >
+                              <X />
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <>
-                          <button
-                            aria-label={`Editar ${ingredient.name}`}
-                            disabled={busy}
-                            onClick={() => beginIngredientEdit(ingredient)}
-                            type="button"
-                          ><Pencil /></button>
-                          <button
-                            className="status-button"
-                            disabled={busy}
-                            onClick={() => void toggleIngredient(ingredient)}
-                            type="button"
-                          >{ingredient.active ? 'Desativar' : 'Ativar'}</button>
-                          <button
-                            aria-label={`Excluir ${ingredient.name}`}
-                            className="delete"
-                            disabled={busy}
-                            onClick={() => void deleteIngredient(ingredient)}
-                            type="button"
-                          ><Trash2 /></button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-                  </div>
-                </section>
-              ))}
-            </div>
-            {!visibleIngredients.length && (
-              <S.EmptyCatalog>
-                {ingredients.length
-                  ? 'Nenhum ingrediente corresponde aos filtros.'
-                  : 'Nenhum ingrediente cadastrado. Comece pelo formulário acima.'}
-              </S.EmptyCatalog>
-            )}
-          </S.IngredientListPanel>
-        </S.IngredientWorkspace>
-      ) : <>
-      <S.Toolbar>
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar produto"
-        />
-        <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-          <option value="">Todas as categorias</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <button onClick={props.onNewProduct}>+ Novo produto</button>
-      </S.Toolbar>
-      <S.ProductGroups>
-        {productGroups.map(({ category, products: groupedProducts }) => (
-          <section key={category.id}>
-            <S.ProductCategoryTitle>
-              {category.name}
-              <span>{groupedProducts.length} produto(s)</span>
-            </S.ProductCategoryTitle>
-            <S.ProductGrid>
-              {groupedProducts.map((product) => (
-                <S.Product key={product.id}>
-                  {product.image && <img src={product.image} alt="" />}
-                  <div>
-                    <b>{product.name}</b>
-                    <span>
-                      {product.category} • {product.active ? 'Disponível' : 'Indisponível'} •{' '}
-                      {product.stock == null ? 'Estoque ilimitado' : `${product.stock} em estoque`}
-                    </span>
-                    <footer>
-                      <strong>{money(product.price)}</strong>
-                      <div className="product-actions">
-                        <button
-                          className="product-menu-trigger"
-                          type="button"
-                          aria-label={`Opções de ${product.name}`}
-                          onClick={() =>
-                            setOpenProductMenu((current) =>
-                              current === product.id ? null : product.id,
-                            )
-                          }
-                        >
-                          <MoreVertical size={20} />
-                        </button>
-                        {openProductMenu === product.id && (
-                          <div className="product-menu">
+                          <div className="ingredient-copy">
+                            <b>{ingredient.name}</b>
+                            <span className="category-badge">{ingredient.category}</span>
+                          </div>
+                          <div className="ingredient-state">
+                            <strong>{money(ingredient.price)}</strong>
+                            <small>Preço sugerido</small>
+                            <span className={ingredient.active ? 'available' : 'unavailable'}>
+                              {ingredient.active ? 'Disponível' : 'Inativo'}
+                            </span>
+                          </div>
+                          <div className="ingredient-menu-wrap">
                             <button
-                              type="button"
-                              onClick={() => {
-                                setOpenProductMenu(null);
-                                props.onEditProduct(product);
-                              }}
-                            >
-                              Editar produto
-                            </button>
-                            <button
-                              className="danger"
+                              aria-expanded={openIngredientMenu === ingredient.id}
+                              aria-label={`Opções de ${ingredient.name}`}
+                              className="ingredient-menu-trigger"
+                              disabled={busy}
                               type="button"
                               onClick={() =>
-                                void (async () => {
-                                  const confirmed = await confirmDialog({
-                                    title: 'Excluir produto?',
-                                    description: `“${product.name}” será removido permanentemente do cardápio.`,
-                                    confirmLabel: 'Excluir produto',
-                                    tone: 'danger',
-                                  });
-                                  if (!confirmed) return;
-                                  setOpenProductMenu(null);
-                                  await props.onDeleteProduct(product.id);
-                                })()
+                                setOpenIngredientMenu((current) =>
+                                  current === ingredient.id ? null : ingredient.id,
+                                )
                               }
                             >
-                              Excluir produto
+                              <MoreVertical />
                             </button>
+                            {openIngredientMenu === ingredient.id && (
+                              <div className="ingredient-menu">
+                                <button
+                                  type="button"
+                                  onClick={() => beginIngredientEdit(ingredient)}
+                                >
+                                  <Pencil /> Editar ingrediente
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void toggleIngredient(ingredient)}
+                                >
+                                  <Power /> {ingredient.active ? 'Desativar' : 'Ativar'}
+                                </button>
+                                <button
+                                  className="delete"
+                                  type="button"
+                                  onClick={() => void deleteIngredient(ingredient)}
+                                >
+                                  <Trash2 /> Excluir
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </footer>
+                        </>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              {!visibleIngredients.length && (
+                <S.EmptyCatalog>
+                  {ingredients.length
+                    ? 'Nenhum ingrediente corresponde aos filtros.'
+                    : 'Nenhum ingrediente cadastrado. Comece em “Novo ingrediente”.'}
+                </S.EmptyCatalog>
+              )}
+            </section>
+          </S.IngredientListPanel>
+          {ingredientWizardOpen && (
+            <IngredientWizard
+              categories={ingredientCategories}
+              ingredients={ingredients}
+              onClose={() => setIngredientWizardOpen(false)}
+              onCreate={async (ingredient) => {
+                const created = await props.onCreateIngredient(ingredient);
+                setIngredientFeedback({
+                  tone: 'success',
+                  message: 'Ingrediente cadastrado com sucesso.',
+                });
+                return created;
+              }}
+              onUseInProduct={() => {
+                setCatalogTab('products');
+                props.onNewProduct();
+              }}
+            />
+          )}
+        </S.IngredientWorkspace>
+      ) : catalogTab === 'categories' ? (
+        <C.CategoryWorkspace>
+          <S.Card>
+            <h2>Gerenciar categorias</h2>
+            <p>Crie categorias e use as ações ao lado de cada item para renomear ou excluir.</p>
+            {categoryFeedback && (
+              <p
+                role="alert"
+                style={{
+                  color: categoryFeedback.startsWith('Categoria') ? '#166534' : '#b91c1c',
+                }}
+              >
+                {categoryFeedback}
+              </p>
+            )}
+            <S.Toolbar>
+              <input
+                value={newCategory}
+                onChange={(event) => setNewCategory(event.target.value)}
+                placeholder="Nome da nova categoria"
+              />
+              <button
+                disabled={categoryBusy || !newCategory.trim()}
+                onClick={() => void createCategory()}
+              >
+                {categoryBusy ? 'Salvando...' : '+ Criar categoria'}
+              </button>
+            </S.Toolbar>
+            <S.DataList>
+              {categories.map((category) => (
+                <div className="data-row" key={category.id}>
+                  <div>
+                    <b>{category.name}</b>
+                    <span>{countProductsInCategory(products, category.id)} produto(s)</span>
                   </div>
-                </S.Product>
+                  <div className="category-actions">
+                    <button disabled={categoryBusy} onClick={() => void renameCategory(category)}>
+                      Renomear
+                    </button>
+                    <button
+                      className="category-delete"
+                      disabled={categoryBusy}
+                      onClick={() => void deleteCategory(category)}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
               ))}
-            </S.ProductGrid>
-          </section>
-        ))}
-        {!productGroups.length && <S.EmptyCatalog>Nenhum produto encontrado.</S.EmptyCatalog>}
-      </S.ProductGroups>
-      <S.Card style={{ marginTop: 24 }}>
-        <h2>Gerenciar categorias</h2>
-        <p>Crie categorias e use as ações ao lado de cada item para renomear ou excluir.</p>
-        {categoryFeedback && (
-          <p
-            role="alert"
-            style={{
-              color: categoryFeedback.startsWith('Categoria') ? '#166534' : '#b91c1c',
-            }}
-          >
-            {categoryFeedback}
-          </p>
-        )}
-        <S.Toolbar>
-          <input
-            value={newCategory}
-            onChange={(event) => setNewCategory(event.target.value)}
-            placeholder="Nome da nova categoria"
-          />
-          <button
-            disabled={categoryBusy || !newCategory.trim()}
-            onClick={() => void createCategory()}
-          >
-            {categoryBusy ? 'Salvando...' : '+ Criar categoria'}
-          </button>
-        </S.Toolbar>
-        <S.DataList>
-          {categories.map((category) => (
-            <div className="data-row" key={category.id}>
-              <div>
-                <b>{category.name}</b>
-                <span>{countProductsInCategory(products, category.id)} produto(s)</span>
-              </div>
-              <div className="category-actions">
-                <button disabled={categoryBusy} onClick={() => void renameCategory(category)}>
-                  Renomear
-                </button>
-                <button
-                  className="category-delete"
-                  disabled={categoryBusy}
-                  onClick={() => void deleteCategory(category)}
-                >
-                  Excluir
-                </button>
-              </div>
-            </div>
-          ))}
-        </S.DataList>
-      </S.Card>
-      </>}
+            </S.DataList>
+          </S.Card>
+        </C.CategoryWorkspace>
+      ) : (
+        <>
+          <C.ProductToolbar>
+            <label className="product-search">
+              <Search />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar produto..."
+              />
+            </label>
+            <select
+              aria-label="Filtrar produtos por categoria"
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+            >
+              <option value="">Todas as categorias</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <button aria-label="Exibir produtos em grade" type="button">
+              <LayoutGrid />
+            </button>
+          </C.ProductToolbar>
+          <S.ProductGrid>
+            {visibleProducts.map((product) => (
+              <S.Product key={product.id}>
+                {product.image ? (
+                  <img src={product.image} alt="" />
+                ) : (
+                  <C.ProductImageFallback>
+                    <ImageOff />
+                  </C.ProductImageFallback>
+                )}
+                <div>
+                  <b>{product.name}</b>
+                  <span>{product.category}</span>
+                  <footer>
+                    <strong>{money(product.price)}</strong>
+                    <div className="product-actions">
+                      <button
+                        className="product-menu-trigger"
+                        type="button"
+                        aria-label={`Opções de ${product.name}`}
+                        onClick={() =>
+                          setOpenProductMenu((current) =>
+                            current === product.id ? null : product.id,
+                          )
+                        }
+                      >
+                        <MoreVertical size={20} />
+                      </button>
+                      {openProductMenu === product.id && (
+                        <div className="product-menu">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenProductMenu(null);
+                              props.onEditProduct(product);
+                            }}
+                          >
+                            Editar produto
+                          </button>
+                          <button
+                            className="danger"
+                            type="button"
+                            onClick={() =>
+                              void (async () => {
+                                const confirmed = await confirmDialog({
+                                  title: 'Excluir produto?',
+                                  description: `“${product.name}” será removido permanentemente do cardápio.`,
+                                  confirmLabel: 'Excluir produto',
+                                  tone: 'danger',
+                                });
+                                if (!confirmed) return;
+                                setOpenProductMenu(null);
+                                await props.onDeleteProduct(product.id);
+                              })()
+                            }
+                          >
+                            Excluir produto
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </footer>
+                  <span className="product-mode">
+                    {product.saleMode === 'BUILDABLE' ? 'Personalizável' : 'Pronto'}
+                  </span>
+                </div>
+              </S.Product>
+            ))}
+            <C.NewProductTile type="button" onClick={props.onNewProduct}>
+              <Plus /> <span>Novo produto</span>
+            </C.NewProductTile>
+          </S.ProductGrid>
+          {!visibleProducts.length && products.length > 0 && (
+            <S.EmptyCatalog>Nenhum produto encontrado.</S.EmptyCatalog>
+          )}
+          {!products.length && (
+            <S.EmptyCatalog>Nenhum produto cadastrado. Comece em “Novo produto”.</S.EmptyCatalog>
+          )}
+        </>
+      )}
     </>
   );
 }

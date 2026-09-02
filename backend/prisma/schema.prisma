@@ -401,6 +401,7 @@ model Ingredient {
   name             String
   category         String                   @default("Geral")
   price            Decimal                  @default(0) @db.Decimal(10, 2)
+  image            String?
   active           Boolean                  @default(true)
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt

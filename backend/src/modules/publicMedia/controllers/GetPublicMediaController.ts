@@ -82,6 +82,22 @@ class GetPublicMediaController {
       });
     }
   }
+
+  async ingredient(req: Request, res: Response) {
+    try {
+      return sendMedia(
+        res,
+        await getPublicMediaService.ingredientImage(
+          req.params.restaurantId,
+          req.params.ingredientId,
+        ),
+      );
+    } catch (error: unknown) {
+      return res.status(errorStatus(error)).json({
+        error: error instanceof Error ? error.message : 'Imagem não encontrada.',
+      });
+    }
+  }
 }
 
 export default new GetPublicMediaController();

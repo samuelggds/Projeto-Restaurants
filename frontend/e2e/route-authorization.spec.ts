@@ -32,7 +32,7 @@ test('Home é pública e rota privada exige login', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/$/);
   await page.goto('/profile');
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fprofile$/);
 });
 
 const restrictedProfiles = [

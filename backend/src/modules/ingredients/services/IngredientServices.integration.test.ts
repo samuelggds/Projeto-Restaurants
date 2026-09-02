@@ -36,23 +36,66 @@ test('lista categorias dinâmicas apenas do restaurante autenticado', async () =
 });
 
 test('cria ingrediente exclusivamente no restaurante autenticado', async () => {
-  ingredientRepository.findByName = async (_name, restaurantId) => { assert.equal(restaurantId, 8); return null; };
+  ingredientRepository.findByName = async (_name, restaurantId) => {
+    assert.equal(restaurantId, 8);
+    return null;
+  };
   ingredientRepository.create = async (data, restaurantId) => ({ id: 41, restaurantId, ...data });
-  const result = await new CreateIngredientService().execute({ name: '  Bacon  ', category: '  Adicionais  ', price: 4.5, active: true }, 8);
-  assert.equal(result.restaurantId, 8); assert.equal(result.name, 'Bacon'); assert.equal(result.category, 'Adicionais');
+  const result = await new CreateIngredientService().execute(
+    { name: '  Bacon  ', category: '  Adicionais  ', price: 4.5, active: true },
+    8,
+  );
+  assert.equal(result.restaurantId, 8);
+  assert.equal(result.name, 'Bacon');
+  assert.equal(result.category, 'Adicionais');
+});
+
+test('persiste imagem válida e mantém ingrediente sem imagem válido', async () => {
+  const webp = Buffer.from('524946460400000057454250', 'hex');
+  const image = `data:image/webp;base64,${webp.toString('base64')}`;
+  const writes = [];
+  ingredientRepository.findByName = async () => null;
+  ingredientRepository.create = async (data, restaurantId) => {
+    writes.push({ data, restaurantId });
+    return { id: writes.length, restaurantId, ...data, updatedAt: new Date(0) };
+  };
+
+  const withImage = await new CreateIngredientService().execute(
+    { name: 'Bacon', category: 'Adicionais', price: 5, image },
+    8,
+  );
+  const withoutImage = await new CreateIngredientService().execute(
+    { name: 'Sal', category: 'Temperos', price: 0 },
+    8,
+  );
+
+  assert.match(withImage.image, /public-media\/restaurants\/8\/ingredients\/1/);
+  assert.equal(withoutImage.image, null);
+  assert.equal(writes[0].data.image, image);
+  assert.equal(writes[1].data.image, null);
 });
 
 test('não atualiza ingrediente pertencente a outro restaurante', async () => {
   let called = false;
-  ingredientRepository.findById = async (_id, restaurantId) => { assert.equal(restaurantId, 8); return null; };
-  ingredientRepository.update = async () => { called = true; };
-  await assert.rejects(() => new UpdateIngredientService().execute(41, { price: 9 }, 8), /não encontrado neste restaurante/);
+  ingredientRepository.findById = async (_id, restaurantId) => {
+    assert.equal(restaurantId, 8);
+    return null;
+  };
+  ingredientRepository.update = async () => {
+    called = true;
+  };
+  await assert.rejects(
+    () => new UpdateIngredientService().execute(41, { price: 9 }, 8),
+    /não encontrado neste restaurante/,
+  );
   assert.equal(called, false);
 });
 
 test('exige categoria em ingredientes novos', async () => {
   let createCalled = false;
-  ingredientRepository.create = async () => { createCalled = true; };
+  ingredientRepository.create = async () => {
+    createCalled = true;
+  };
   await assert.rejects(
     () => new CreateIngredientService().execute({ name: 'Bacon', price: 4.5 }, 8),
     /Categoria do ingrediente é obrigatória/,
@@ -61,17 +104,56 @@ test('exige categoria em ingredientes novos', async () => {
 });
 
 test('atualiza a categoria apenas dentro do restaurante autenticado', async () => {
-  ingredientRepository.findById = async (_id, restaurantId) => ({ id: 41, restaurantId, name: 'Bacon', category: 'Geral' });
-  ingredientRepository.update = async (_id, data, restaurantId) => ({ id: 41, restaurantId, name: 'Bacon', ...data });
+  ingredientRepository.findById = async (_id, restaurantId) => ({
+    id: 41,
+    restaurantId,
+    name: 'Bacon',
+    category: 'Geral',
+  });
+  ingredientRepository.update = async (_id, data, restaurantId) => ({
+    id: 41,
+    restaurantId,
+    name: 'Bacon',
+    ...data,
+  });
   const result = await new UpdateIngredientService().execute(41, { category: '  Adicionais  ' }, 8);
   assert.equal(result.restaurantId, 8);
   assert.equal(result.category, 'Adicionais');
 });
 
+test('remove somente a imagem do ingrediente do restaurante autenticado', async () => {
+  ingredientRepository.findById = async (_id, restaurantId) => ({
+    id: 41,
+    restaurantId,
+    name: 'Bacon',
+    image: 'imagem-anterior',
+  });
+  ingredientRepository.update = async (_id, data, restaurantId) => ({
+    id: 41,
+    restaurantId,
+    name: 'Bacon',
+    ...data,
+    updatedAt: new Date(0),
+  });
+
+  const result = await new UpdateIngredientService().execute(41, { image: null }, 8);
+
+  assert.equal(result.restaurantId, 8);
+  assert.equal(result.image, null);
+});
+
 test('não exclui ingrediente pertencente a outro restaurante', async () => {
   let called = false;
-  ingredientRepository.findById = async (_id, restaurantId) => { assert.equal(restaurantId, 8); return null; };
-  ingredientRepository.delete = async () => { called = true; };
-  await assert.rejects(() => new DeleteIngredientService().execute(41, 8), /não encontrado neste restaurante/);
+  ingredientRepository.findById = async (_id, restaurantId) => {
+    assert.equal(restaurantId, 8);
+    return null;
+  };
+  ingredientRepository.delete = async () => {
+    called = true;
+  };
+  await assert.rejects(
+    () => new DeleteIngredientService().execute(41, 8),
+    /não encontrado neste restaurante/,
+  );
   assert.equal(called, false);
 });

@@ -167,6 +167,7 @@ export type AdminIngredient = {
   price: number;
   category: string;
   active: boolean;
+  image?: string | null;
 };
 
 export type AdminProductOption = {
@@ -345,8 +346,12 @@ export type AdminPageProps = {
   onCreateIngredient?: (
     ingredient: Omit<AdminIngredient, 'id'>,
   ) => AdminIngredient | void | Promise<AdminIngredient | void>;
-  onUpdateIngredient?: (ingredient: AdminIngredient) => void | Promise<void>;
+  onUpdateIngredient?: (
+    ingredient: AdminIngredient,
+    imageUpdate?: string | null,
+  ) => void | Promise<void>;
   onDeleteIngredient?: (id: number) => void | Promise<void>;
+  onReloadCatalog?: () => void | Promise<void>;
   onApplyProductDiscount?: (
     productId: string,
     payload: ProductDiscountPayload,

@@ -2,10 +2,11 @@ import styled from 'styled-components';
 
 export const ProductFormDrawer = styled.form`
   box-sizing: border-box;
-  width: min(100%, 1040px);
+  width: 100%;
   max-width: 100%;
   height: 100dvh;
   min-width: 0;
+  margin: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -19,7 +20,8 @@ export const ProductFormDrawer = styled.form`
       transparent 20%
     ),
     #f7f5f2;
-  box-shadow: -24px 0 70px rgba(24, 19, 15, 0.18);
+  border-radius: 0;
+  box-shadow: none;
   animation: drawer-enter 260ms cubic-bezier(0.22, 0.8, 0.35, 1) both;
   @keyframes drawer-enter {
     from {
@@ -72,7 +74,7 @@ export const ProductFormDrawer = styled.form`
   .drawer-header h2 {
     margin: 4px 0 2px;
     font-size: 26px;
-    letter-spacing: -0.035em;
+    letter-spacing: 0;
   }
   .drawer-header p {
     margin: 0;
@@ -235,8 +237,9 @@ export const ProductFormDrawer = styled.form`
   }
   .availability-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    grid-template-columns: minmax(0, 760px);
     gap: 20px;
+    justify-content: center;
   }
   .stock-configuration {
     display: grid;
@@ -430,6 +433,10 @@ export const ProductFormDrawer = styled.form`
   }
   .footer-actions button {
     height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     border: 1px solid #ded7cf;
     border-radius: 11px;
     padding: 0 18px;
@@ -437,6 +444,10 @@ export const ProductFormDrawer = styled.form`
     font-size: 11px;
     font-weight: 850;
     cursor: pointer;
+  }
+  .footer-actions button svg {
+    width: 15px;
+    height: 15px;
   }
   .footer-actions .primary {
     min-width: 150px;
@@ -464,6 +475,10 @@ export const ProductFormDrawer = styled.form`
     }
   }
   @media (max-width: 600px) {
+    width: 100%;
+    height: 100dvh;
+    margin: 0;
+    border-radius: 0;
     padding: 0 14px;
     gap: 14px;
     .drawer-header {
@@ -506,47 +521,32 @@ export const ProductFormDrawer = styled.form`
 `;
 export const ProductWizardProgress = styled.nav`
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid #e1d9d2;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 9px 22px rgba(40, 31, 25, 0.035);
-  > div {
-    min-width: 0;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  .wizard-progress-copy {
     display: flex;
     align-items: center;
-    gap: 9px;
-    color: #766c64;
+    justify-content: space-between;
+    color: #625951;
   }
-  > div > i {
-    flex: 0 0 auto;
-    width: 31px;
-    height: 31px;
-    display: grid;
-    place-items: center;
-    border-radius: 9px;
-    background: #eee9e4;
-    font-size: 11px;
-    font-style: normal;
-    font-weight: 900;
+  .wizard-progress-copy b {
+    font-size: 12px;
   }
-  > div > i svg {
-    width: 14px;
+  .wizard-progress-track {
+    position: relative;
+    overflow: hidden;
+    height: 4px;
+    border-radius: 2px;
+    background: #e9e1da;
   }
-  > div > span {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-  > div b {
-    font-size: 11px;
-  }
-  > div small {
-    color: var(--muted);
-    font-size: 11px;
+  .wizard-progress-track > i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: var(--a);
+    transition: width 180ms ease;
   }
   > div.complete {
     color: #16703a;
@@ -566,8 +566,21 @@ export const ProductWizardProgress = styled.nav`
     color: #c5bbb2;
   }
   @media (max-width: 600px) {
-    gap: 4px;
-    padding: 9px;
+    gap: 2px;
+    padding: 7px 5px;
+    > button {
+      min-height: 38px;
+      grid-template-columns: 1fr;
+      justify-items: center;
+      padding: 3px 1px;
+    }
+    > button > i {
+      width: 28px;
+      height: 28px;
+    }
+    > button > span {
+      display: none;
+    }
     > div {
       justify-content: center;
     }
@@ -796,6 +809,12 @@ export const ProductSaleModeSelector = styled.div`
     color: var(--muted);
     font-size: 11px;
     line-height: 1.4;
+  }
+  em {
+    color: #766c64;
+    font-size: 10px;
+    font-style: normal;
+    line-height: 1.35;
   }
   @media (max-width: 650px) {
     grid-template-columns: 1fr;

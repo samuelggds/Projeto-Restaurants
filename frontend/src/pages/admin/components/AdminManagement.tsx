@@ -25,9 +25,12 @@ type Props = {
   onCreateCategory: (name: string) => Promise<void>;
   onUpdateCategory: (id: number, name: string) => Promise<void>;
   onDeleteCategory: (id: number) => Promise<void>;
-  onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<void>;
-  onUpdateIngredient: (ingredient: AdminIngredient) => Promise<void>;
+  onCreateIngredient: (ingredient: Omit<AdminIngredient, 'id'>) => Promise<AdminIngredient | void>;
+  onUpdateIngredient: (ingredient: AdminIngredient, imageUpdate?: string | null) => Promise<void>;
   onDeleteIngredient: (id: number) => Promise<void>;
+  catalogImportOpen: boolean;
+  onCloseCatalogImport: () => void;
+  onCatalogImportComplete: () => void | Promise<void>;
 };
 
 export function AdminManagement(props: Props) {
@@ -60,6 +63,9 @@ export function AdminManagement(props: Props) {
         onCreateIngredient={props.onCreateIngredient}
         onUpdateIngredient={props.onUpdateIngredient}
         onDeleteIngredient={props.onDeleteIngredient}
+        importOpen={props.catalogImportOpen}
+        onCloseImport={props.onCloseCatalogImport}
+        onImportComplete={props.onCatalogImportComplete}
       />
     );
   return <AdminCustomers orders={props.orders} money={money} />;

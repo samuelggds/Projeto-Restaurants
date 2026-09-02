@@ -5,6 +5,27 @@ export type IngredientPayload = {
   price: number;
   category: string;
   active?: boolean;
+  image?: string | null;
+  imageSelectionToken?: string;
+};
+
+export type IngredientImageSearchResult = {
+  id: string;
+  thumbnailUrl: string;
+  previewUrl: string;
+  source: 'Pexels';
+  sourceUrl: string;
+  photographer: string;
+  photographerUrl: string;
+  alt: string;
+  selectionToken: string;
+};
+
+export type IngredientImageSearchResponse = {
+  query: string;
+  page: number;
+  provider: 'Pexels';
+  results: IngredientImageSearchResult[];
 };
 
 function unwrapIngredients(payload: unknown) {
@@ -22,6 +43,14 @@ class IngredientsService {
 
   async createIngredient(payload: IngredientPayload) {
     const response = await api.post('/ingredients', payload);
+    return response.data;
+  }
+
+  async searchImages(input: { name: string; category?: string; page?: number }) {
+    const response = await api.post<IngredientImageSearchResponse>(
+      '/ingredients/image-search',
+      input,
+    );
     return response.data;
   }
 

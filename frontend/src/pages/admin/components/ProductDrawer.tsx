@@ -1,18 +1,15 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CheckCircle2,
-  Copy,
+  ArrowLeft,
+  ArrowRight,
   ChevronRight,
-  Boxes,
-  ImagePlus,
-  Layers3,
+  Copy,
   PackageOpen,
   Plus,
-  Sparkles,
   Trash2,
-  UploadCloud,
   X,
 } from 'lucide-react';
+import { useAppDialog } from '../../../components/AppDialog/context';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import productConfigurationTemplatesService from '../../../Services/productConfigurationTemplatesService';
 import * as S from '../Admin.styles';
@@ -20,6 +17,14 @@ import {
   ProductConfigurationWorkspace,
   type PendingCategoryChange,
 } from './ProductConfigurationWorkspace';
+import { IngredientWizard } from './IngredientWizard';
+import {
+  ProductAvailabilityStep,
+  ProductReviewStep,
+  ProductTypeStep,
+  type ProductFieldErrors,
+} from './ProductWizardSteps';
+import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import type {
   AdminCategory,
   AdminIngredient,
@@ -46,6 +51,11 @@ import {
   isUnlimitedStock,
   normalizeProductStock,
 } from '../domain/productStock';
+import {
+  getAdjacentProductWizardStep,
+  getProductWizardSequence,
+  type ProductWizardStep,
+} from '../domain/productWizard';
 
 type ProductDrawerProps = {
   product: AdminProduct | null;
@@ -57,6 +67,8 @@ type ProductDrawerProps = {
   close: () => void;
   save: (product: AdminProduct) => Promise<void>;
 };
+
+type IngredientWizardTarget = { kind: 'OPTION'; groupIndex: number };
 
 const emptyGroup = (): AdminProductOptionGroup => ({
   name: '',
@@ -92,9 +104,6 @@ const groupPreset = (preset: 'SINGLE' | 'EXTRAS' | 'PORTIONS'): AdminProductOpti
   };
 };
 
-const money = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
 export function ProductDrawer({
   product,
   categories,
@@ -103,11 +112,13 @@ export function ProductDrawer({
   close,
   save,
 }: ProductDrawerProps) {
+  const { confirmDialog } = useAppDialog();
+  const initialCategoryId = product?.categoryId ?? categories[0]?.id ?? 0;
   const [name, setName] = useState(product?.name ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [image, setImage] = useState(product?.image ?? '');
   const [price, setPrice] = useState(String(product?.price ?? ''));
-  const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? 0);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [stock, setStock] = useState(String(product?.stock ?? ''));
   const [unlimitedStock, setUnlimitedStock] = useState(isUnlimitedStock(product?.stock));
   const [saleMode, setSaleMode] = useState<'COMPLETE' | 'BUILDABLE'>(
@@ -117,14 +128,20 @@ export function ProductDrawer({
   const [templates, setTemplates] = useState<AdminProductConfigurationTemplate[]>([]);
   const [templateName, setTemplateName] = useState('');
   const [templateBusy, setTemplateBusy] = useState(false);
-  const [inlineIngredientGroup, setInlineIngredientGroup] = useState<number | null>(null);
-  const [inlineIngredientName, setInlineIngredientName] = useState('');
-  const [inlineIngredientPrice, setInlineIngredientPrice] = useState('0');
-  const [inlineIngredientBusy, setInlineIngredientBusy] = useState(false);
+  const [ingredientWizardTarget, setIngredientWizardTarget] =
+    useState<IngredientWizardTarget | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [currentStep, setCurrentStep] = useState<ProductWizardStep>('TYPE');
+  const [showCustomerPreview, setShowCustomerPreview] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<ProductFieldErrors>({});
+  const drawerRef = useRef<HTMLFormElement>(null);
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const [optionGroups, setOptionGroups] = useState<AdminProductOptionGroup[]>(
     () => product?.optionGroups?.map((group) => ({ ...group, options: [...group.options] })) ?? [],
+  );
+  const [editingGroupIndex, setEditingGroupIndex] = useState<number | null>(() =>
+    product?.optionGroups?.length === 1 ? 0 : null,
   );
   const [compositionItems, setCompositionItems] = useState<AdminProductCompositionItem[]>(
     () => product?.compositionItems?.map((item) => ({ ...item })) ?? [],
@@ -141,38 +158,54 @@ export function ProductDrawer({
   const [pendingCategoryChange, setPendingCategoryChange] = useState<PendingCategoryChange | null>(
     null,
   );
+  const [initialDraftSignature] = useState(() =>
+    JSON.stringify({
+      name: product?.name ?? '',
+      description: product?.description ?? '',
+      image: product?.image ?? '',
+      price: String(product?.price ?? ''),
+      categoryId: initialCategoryId,
+      stock: String(product?.stock ?? ''),
+      unlimitedStock: isUnlimitedStock(product?.stock),
+      saleMode: product?.saleMode ?? 'COMPLETE',
+      optionGroups: product?.optionGroups ?? [],
+      compositionItems: product?.compositionItems ?? [],
+      portionConfiguration: product?.portionConfiguration ?? null,
+    }),
+  );
   const activeIngredients = useMemo(
     () => ingredients.filter((ingredient) => ingredient.active),
     [ingredients],
   );
   const ingredientCategories = useMemo(() => listIngredientCategories(ingredients), [ingredients]);
-  const inlineDuplicate = useMemo(() => {
-    const normalizedName = inlineIngredientName.trim().toLocaleLowerCase('pt-BR');
-    if (!normalizedName) return undefined;
-    return ingredients.find(
-      (ingredient) => ingredient.name.trim().toLocaleLowerCase('pt-BR') === normalizedName,
-    );
-  }, [ingredients, inlineIngredientName]);
   const activeIngredientSections = useMemo(
     () => groupIngredientsByCategory(activeIngredients),
     [activeIngredients],
   );
   const selectedProductCategory = categories.find((item) => item.id === categoryId)?.name ?? '';
   const linkedOptionCount = optionGroups.reduce((total, group) => total + group.options.length, 0);
-  const readyGroupCount = optionGroups.filter(
-    (group, index) =>
-      group.name.trim() &&
-      group.options.length > 0 &&
-      groupCategories[index] &&
-      groupCategories[index] !== MIXED_INGREDIENT_CATEGORY,
-  ).length;
-  const basicInformationReady = Boolean(name.trim() && Number(price) >= 0 && categoryId);
   const hasPersistedConfiguration = Boolean(
     product?.saleMode === 'BUILDABLE' &&
     (product.optionGroups?.length ||
       product.compositionItems?.length ||
       product.portionConfiguration),
   );
+  const hasUnsavedChanges =
+    JSON.stringify({
+      name,
+      description,
+      image,
+      price,
+      categoryId,
+      stock,
+      unlimitedStock,
+      saleMode,
+      optionGroups,
+      compositionItems,
+      portionConfiguration,
+    }) !== initialDraftSignature;
+  const wizardSequence = getProductWizardSequence(saleMode);
+  const currentStepIndex = wizardSequence.indexOf(currentStep);
 
   useEffect(() => {
     let active = true;
@@ -188,6 +221,54 @@ export function ProductDrawer({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    stepHeadingRef.current?.focus();
+  }, [currentStep]);
+
+  const requestClose = useCallback(async () => {
+    if (!hasUnsavedChanges) {
+      close();
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Descartar alterações?',
+      description: 'As informações preenchidas neste produto ainda não foram salvas.',
+      confirmLabel: 'Descartar alterações',
+      tone: 'danger',
+    });
+    if (confirmed) close();
+  }, [close, confirmDialog, hasUnsavedChanges]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || document.querySelector('[data-ingredient-wizard]')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        void requestClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(
+        drawerRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+        ) ?? [],
+      ).filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [requestClose]);
 
   const updateGroup = (
     groupIndex: number,
@@ -250,6 +331,7 @@ export function ProductDrawer({
   const addGroup = () => {
     setOptionGroups((current) => [...current, emptyGroup()]);
     setGroupCategories((current) => [...current, '']);
+    setEditingGroupIndex(optionGroups.length);
     setPendingCategoryChange(null);
   };
 
@@ -257,6 +339,7 @@ export function ProductDrawer({
     const group = groupPreset(preset);
     setOptionGroups((current) => [...current, group]);
     setGroupCategories((current) => [...current, '']);
+    setEditingGroupIndex(optionGroups.length);
     if (preset === 'PORTIONS') {
       setPortionConfiguration({
         enabled: true,
@@ -306,6 +389,7 @@ export function ProductDrawer({
     setGroupCategories(
       groups.map((group) => inferGroupIngredientCategory(group, ingredients).value),
     );
+    setEditingGroupIndex(groups.length ? 0 : null);
     setCompositionItems(
       template.configuration.compositionItems.map((item) => ({ ...item, id: undefined })),
     );
@@ -395,58 +479,6 @@ export function ProductDrawer({
             },
           ],
     }));
-    setInlineIngredientGroup(null);
-    setInlineIngredientName('');
-    setInlineIngredientPrice('0');
-  };
-
-  const createInlineIngredient = async (groupIndex: number) => {
-    const sourceCategory = groupCategories[groupIndex];
-    const normalizedName = inlineIngredientName.trim();
-    const numericPrice = Number(inlineIngredientPrice);
-    if (!sourceCategory || sourceCategory === MIXED_INGREDIENT_CATEGORY) {
-      setError('Escolha a categoria-fonte da etapa antes de criar uma opção.');
-      return;
-    }
-    if (!normalizedName || !Number.isFinite(numericPrice) || numericPrice < 0) {
-      setError('Informe nome e valor igual ou maior que zero para a nova opção.');
-      return;
-    }
-    if (inlineDuplicate) {
-      if (!inlineDuplicate.active) {
-        setError('Já existe um ingrediente inativo com este nome. Reative-o na aba Ingredientes.');
-        return;
-      }
-      if (!ingredientBelongsToCategory(inlineDuplicate, sourceCategory)) {
-        setError(`“${inlineDuplicate.name}” já existe na categoria ${inlineDuplicate.category}.`);
-        return;
-      }
-      selectInlineIngredient(groupIndex, inlineDuplicate);
-      return;
-    }
-    if (!createIngredient) return;
-    setInlineIngredientBusy(true);
-    setError('');
-    try {
-      const created = await createIngredient({
-        name: normalizedName,
-        price: numericPrice,
-        category: sourceCategory,
-        active: true,
-      });
-      if (created) selectInlineIngredient(groupIndex, created);
-    } catch (createError) {
-      const apiError = createError as {
-        response?: { data?: { error?: string; message?: string } };
-      };
-      setError(
-        apiError.response?.data?.error ||
-          apiError.response?.data?.message ||
-          'Não foi possível criar a opção.',
-      );
-    } finally {
-      setInlineIngredientBusy(false);
-    }
   };
 
   const removeGroup = (groupIndex: number) => {
@@ -514,13 +546,115 @@ export function ProductDrawer({
     }
   };
 
+  const clearFieldError = (field: keyof typeof fieldErrors) => {
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  };
+
+  const validateBasicStep = () => {
+    const nextErrors: typeof fieldErrors = {};
+
+    if (!name.trim()) nextErrors.name = 'Informe o nome do produto.';
+    if (!categoryId) nextErrors.category = 'Escolha uma categoria do cardápio.';
+
+    setFieldErrors((current) => ({ ...current, ...nextErrors }));
+    const valid = Object.keys(nextErrors).length === 0;
+    setError(valid ? '' : 'Revise os campos destacados para continuar.');
+    return valid;
+  };
+
+  const validatePriceStep = () => {
+    const numericPrice = Number(price);
+    const valid = Boolean(price.trim()) && Number.isFinite(numericPrice) && numericPrice >= 0;
+    setFieldErrors((current) => ({
+      ...current,
+      price: valid ? undefined : 'Informe um preço igual ou maior que zero.',
+    }));
+    setError(valid ? '' : 'Informe o preço para continuar.');
+    return valid;
+  };
+
+  const getCustomizationValidationError = () => {
+    const unresolvedCategoryIndex = optionGroups.findIndex(
+      (_, index) => !groupCategories[index] || groupCategories[index] === MIXED_INGREDIENT_CATEGORY,
+    );
+    if (unresolvedCategoryIndex >= 0) {
+      return `Escolha uma categoria de ingredientes na etapa ${unresolvedCategoryIndex + 1}.`;
+    }
+
+    const normalizedGroups = optionGroups.map(normalizeOptionGroup);
+    const customizationErrors = validateOptionGroups(normalizedGroups, ingredients);
+    if (customizationErrors.length) return customizationErrors[0];
+    if (
+      portionConfiguration?.enabled &&
+      !normalizedGroups.some((group) => group.name === portionConfiguration.optionGroupName)
+    ) {
+      return 'Escolha uma etapa existente para definir as opções de cada porção.';
+    }
+    if (
+      portionConfiguration?.enabled &&
+      portionConfiguration.minPortions > portionConfiguration.maxPortions
+    ) {
+      return 'O mínimo de porções não pode ser maior que o máximo.';
+    }
+    return '';
+  };
+
+  const validateCustomizationStep = () => {
+    if (saleMode === 'COMPLETE') return true;
+    const nextError = getCustomizationValidationError();
+    setError(nextError);
+    return !nextError;
+  };
+
+  const validateAvailabilityStep = () => {
+    if (unlimitedStock) {
+      setFieldErrors((current) => ({ ...current, stock: undefined }));
+      setError('');
+      return true;
+    }
+
+    const numericStock = Number(stock);
+    const valid = /^\d+$/u.test(stock) && Number.isSafeInteger(numericStock) && numericStock >= 0;
+    setFieldErrors((current) => ({
+      ...current,
+      stock: valid ? undefined : 'Informe a quantidade disponível em unidades inteiras.',
+    }));
+    setError(valid ? '' : 'Informe a quantidade disponível para continuar.');
+    return valid;
+  };
+
+  const validateStep = (step: ProductWizardStep) => {
+    if (step === 'BASIC') return validateBasicStep();
+    if (step === 'PRICE') return validatePriceStep();
+    if (step === 'CUSTOMIZATION') return validateCustomizationStep();
+    if (step === 'AVAILABILITY') return validateAvailabilityStep();
+    return true;
+  };
+
+  const continueWizard = () => {
+    if (!validateStep(currentStep)) return;
+    setError('');
+    setCurrentStep(getAdjacentProductWizardStep(currentStep, 1, saleMode));
+  };
+
+  const returnWizard = () => {
+    setError('');
+    setCurrentStep(getAdjacentProductWizardStep(currentStep, -1, saleMode));
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
 
     const numericPrice = Number(price);
-    if (!name.trim() || !Number.isFinite(numericPrice) || numericPrice < 0 || !categoryId) {
-      setError('Preencha nome, preço base igual ou maior que zero e categoria.');
+    if (!name.trim() || !categoryId) {
+      validateBasicStep();
+      setCurrentStep('BASIC');
+      return;
+    }
+    if (!price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) {
+      validatePriceStep();
+      setCurrentStep('PRICE');
       return;
     }
 
@@ -532,8 +666,9 @@ export function ProductDrawer({
       );
       if (unresolvedCategoryIndex >= 0) {
         setError(
-          `Escolha uma categoria de ingredientes no grupo ${unresolvedCategoryIndex + 1} antes de salvar.`,
+          `Escolha uma categoria de ingredientes na etapa ${unresolvedCategoryIndex + 1} antes de salvar.`,
         );
+        setCurrentStep('CUSTOMIZATION');
         return;
       }
 
@@ -541,6 +676,7 @@ export function ProductDrawer({
       const customizationErrors = validateOptionGroups(normalizedGroups, ingredients);
       if (customizationErrors.length) {
         setError(customizationErrors[0]);
+        setCurrentStep('CUSTOMIZATION');
         return;
       }
       if (
@@ -548,6 +684,7 @@ export function ProductDrawer({
         !normalizedGroups.some((group) => group.name === portionConfiguration.optionGroupName)
       ) {
         setError('Escolha uma etapa existente para definir as opções de cada porção.');
+        setCurrentStep('CUSTOMIZATION');
         return;
       }
       if (
@@ -555,10 +692,17 @@ export function ProductDrawer({
         portionConfiguration.minPortions > portionConfiguration.maxPortions
       ) {
         setError('O mínimo de porções não pode ser maior que o máximo.');
+        setCurrentStep('CUSTOMIZATION');
         return;
       }
     } else if (hasPersistedConfiguration && !confirmDiscardConfiguration) {
       setError('Confirme a remoção da personalização antes de salvar como produto simples.');
+      setCurrentStep('TYPE');
+      return;
+    }
+
+    if (!validateAvailabilityStep()) {
+      setCurrentStep('AVAILABILITY');
       return;
     }
 
@@ -600,523 +744,326 @@ export function ProductDrawer({
 
   return (
     <S.Overlay
-      aria-labelledby="product-form-title"
+      className="product-editor-overlay"
+      aria-label={product ? 'Editar produto' : 'Novo produto'}
       aria-modal="true"
       role="dialog"
-      onMouseDown={(event) => event.target === event.currentTarget && close()}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) void requestClose();
+      }}
     >
-      <S.ProductFormDrawer onSubmit={(event) => void submit(event)}>
+      <S.ProductFormDrawer
+        ref={drawerRef}
+        onSubmit={(event) => {
+          if (currentStep !== 'REVIEW') {
+            event.preventDefault();
+            continueWizard();
+            return;
+          }
+          void submit(event);
+        }}
+      >
         <header className="drawer-header">
           <div className="drawer-title">
-            <span>
-              <Sparkles /> {saleMode === 'BUILDABLE' ? 'PRODUTO PERSONALIZÁVEL' : 'PRODUTO PRONTO'}
-            </span>
-            <h2 id="product-form-title">{product ? 'Editar produto' : 'Novo produto'}</h2>
-            <p>
-              {saleMode === 'BUILDABLE'
-                ? 'Cadastre o produto-base e organize as escolhas que o cliente fará.'
-                : 'Cadastre um item vendido pronto, sem etapas de montagem.'}
-            </p>
+            <h2 id="product-form-title">
+              {currentStep === 'CUSTOMIZATION' && product
+                ? 'Montagem e personalização do produto'
+                : product
+                  ? 'Editar produto'
+                  : 'Novo produto'}
+            </h2>
           </div>
-          <button aria-label="Fechar cadastro" type="button" onClick={close}>
+          <button aria-label="Fechar cadastro" type="button" onClick={() => void requestClose()}>
             <X />
           </button>
         </header>
 
-        <S.ProductWizardProgress aria-label="Etapas do cadastro do produto">
-          <div className={basicInformationReady ? 'complete' : 'current'}>
-            <i>{basicInformationReady ? <CheckCircle2 /> : '1'}</i>
-            <span>
-              <b>Produto-base</b>
-              <small>Nome, preço e imagem</small>
-            </span>
+        <S.ProductWizardProgress aria-label="Progresso do cadastro do produto">
+          <div className="wizard-progress-copy" aria-live="polite">
+            <b>
+              {currentStepIndex + 1} de {wizardSequence.length}
+            </b>
           </div>
-          <ChevronRight />
           <div
-            className={
-              saleMode === 'COMPLETE' ||
-              (readyGroupCount === optionGroups.length && optionGroups.length)
-                ? 'complete'
-                : 'current'
-            }
+            aria-valuemax={wizardSequence.length}
+            aria-valuemin={1}
+            aria-valuenow={currentStepIndex + 1}
+            className="wizard-progress-track"
+            role="progressbar"
           >
-            <i>
-              {saleMode === 'COMPLETE' ||
-              (readyGroupCount === optionGroups.length && optionGroups.length) ? (
-                <CheckCircle2 />
-              ) : (
-                '2'
-              )}
-            </i>
-            <span>
-              <b>{saleMode === 'BUILDABLE' ? 'Personalização' : 'Venda simples'}</b>
-              <small>{saleMode === 'BUILDABLE' ? 'Escolhas do cliente' : 'Sem montagem'}</small>
-            </span>
-          </div>
-          <ChevronRight />
-          <div>
-            <i>3</i>
-            <span>
-              <b>Disponibilidade</b>
-              <small>Estoque e revisão</small>
-            </span>
+            <i style={{ width: `${((currentStepIndex + 1) / wizardSequence.length) * 100}%` }} />
           </div>
         </S.ProductWizardProgress>
 
         {error && <S.ProductFormError role="alert">{error}</S.ProductFormError>}
 
-        <S.ProductFormSection>
-          <div className="section-heading">
-            <span>1</span>
-            <div>
-              <small>PRIMEIRO PASSO</small>
-              <h3>Apresente o produto</h3>
-              <p>Defina as informações que aparecem no card da Home e do cardápio digital.</p>
-            </div>
-          </div>
-          <div className="product-basics-layout">
-            <div className="basic-fields">
-              <S.Field $full>
-                Nome do produto
-                <input
-                  required
-                  maxLength={100}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Ex.: Pizza personalizada, massa artesanal ou poke"
-                />
-              </S.Field>
-              <S.Field>
-                Preço inicial
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  max="999999"
-                  step="0.01"
-                  value={price}
-                  onChange={(event) => setPrice(event.target.value)}
-                  placeholder="0,00"
-                />
-                <small>
-                  {saleMode === 'BUILDABLE'
-                    ? 'Este é o valor inicial; cada opção pode ter seu próprio preço.'
-                    : 'Este será o valor final do produto.'}
-                </small>
-              </S.Field>
-              <S.Field>
-                Categoria no cardápio
-                <select
-                  required
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(Number(event.target.value))}
-                >
-                  <option value={0}>Selecione</option>
-                  {categories.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </S.Field>
-              <S.Field $full>
-                Descrição para o cliente
-                <textarea
-                  maxLength={500}
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Explique a proposta do produto e o que já está incluído no preço inicial."
-                />
-                <small>{description.length}/500 caracteres</small>
-              </S.Field>
-            </div>
+        {currentStep === 'TYPE' && (
+          <ProductTypeStep
+            confirmDiscardConfiguration={confirmDiscardConfiguration}
+            hasPersistedConfiguration={hasPersistedConfiguration}
+            headingRef={stepHeadingRef}
+            saleMode={saleMode}
+            onConfirmDiscardConfigurationChange={setConfirmDiscardConfiguration}
+            onSaleModeChange={(nextSaleMode) => {
+              setSaleMode(nextSaleMode);
+              if (nextSaleMode === 'BUILDABLE') setConfirmDiscardConfiguration(false);
+              setError('');
+            }}
+          />
+        )}
 
-            <div className="image-studio">
-              <div className={image ? 'image-preview has-image' : 'image-preview'}>
-                {image ? (
-                  <img src={image} alt={`Prévia de ${name || 'produto'}`} />
-                ) : (
-                  <div>
-                    <ImagePlus />
-                    <b>Adicione uma foto</b>
-                    <span>JPG, PNG ou WEBP</span>
-                  </div>
-                )}
-                <div className="preview-caption">
-                  <small>{selectedProductCategory || 'Categoria do produto'}</small>
-                  <b>{name || 'Nome do produto'}</b>
-                  <strong>{Number(price) > 0 ? money(Number(price)) : 'Preço inicial'}</strong>
-                </div>
-              </div>
-              <label className="image-upload-action" htmlFor="product-image-upload">
-                <UploadCloud />
-                <span>
-                  <b>{image ? 'Trocar imagem' : 'Selecionar imagem'}</b>
-                  <small>Recomendado: formato quadrado</small>
-                </span>
-                <input
-                  id="product-image-upload"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => void uploadImage(event.target.files?.[0])}
-                />
-              </label>
-              <S.Field>
-                Ou cole uma URL
-                <input
-                  value={image}
-                  onChange={(event) => setImage(event.target.value)}
-                  placeholder="https://..."
-                />
-              </S.Field>
-            </div>
-          </div>
-        </S.ProductFormSection>
+        {currentStep === 'BASIC' && (
+          <ProductBasicStep
+            categories={categories}
+            categoryId={categoryId}
+            fieldErrors={fieldErrors}
+            headingRef={stepHeadingRef}
+            name={name}
+            onCategoryIdChange={setCategoryId}
+            onClearFieldError={clearFieldError}
+            onNameChange={setName}
+          />
+        )}
 
-        <S.ProductFormSection>
-          <div className="section-heading customization-heading">
-            <span>2</span>
-            <div>
-              <small>SEGUNDO PASSO</small>
-              <h3>Este produto pode ser personalizado?</h3>
-              <p>Escolha o comportamento que o cliente encontrará no cardápio.</p>
-            </div>
-          </div>
+        {currentStep === 'PRICE' && (
+          <ProductPriceStep
+            fieldErrors={fieldErrors}
+            headingRef={stepHeadingRef}
+            price={price}
+            saleMode={saleMode}
+            onClearFieldError={clearFieldError}
+            onPriceChange={setPrice}
+          />
+        )}
 
-          <S.ProductSaleModeSelector role="group" aria-label="Personalização do produto">
-            <button
-              className={saleMode === 'COMPLETE' ? 'active' : ''}
-              type="button"
-              onClick={() => {
-                setSaleMode('COMPLETE');
-                setError('');
-              }}
-            >
-              <PackageOpen />
-              <span>
-                <b>Não, é um produto pronto</b>
-                <small>O cliente adiciona direto à sacola, sem escolher etapas.</small>
-              </span>
-              {saleMode === 'COMPLETE' && <CheckCircle2 />}
-            </button>
-            <button
-              className={saleMode === 'BUILDABLE' ? 'active' : ''}
-              type="button"
-              onClick={() => {
-                setSaleMode('BUILDABLE');
-                setConfirmDiscardConfiguration(false);
-                setError('');
-              }}
-            >
-              <Layers3 />
-              <span>
-                <b>Sim, o cliente pode personalizar</b>
-                <small>Crie escolhas, quantidades, itens removíveis ou porções.</small>
-              </span>
-              {saleMode === 'BUILDABLE' && <CheckCircle2 />}
-            </button>
-          </S.ProductSaleModeSelector>
+        {currentStep === 'APPEARANCE' && (
+          <ProductAppearanceStep
+            description={description}
+            headingRef={stepHeadingRef}
+            image={image}
+            name={name}
+            price={price}
+            selectedProductCategory={selectedProductCategory}
+            onDescriptionChange={setDescription}
+            onUploadImage={(file) => void uploadImage(file)}
+          />
+        )}
 
-          {saleMode === 'COMPLETE' && (
-            <S.ProductSimpleMode>
-              <CheckCircle2 />
+        {currentStep === 'CUSTOMIZATION' && (
+          <S.ProductWizardStepSection aria-labelledby="product-step-customization">
+            <div className="section-heading customization-heading">
+              <span>4</span>
               <div>
-                <b>Este produto será vendido sem etapas de montagem.</b>
-                <p>
-                  No cardápio, o cliente toca em adicionar e o item vai direto para a sacola pelo
-                  preço informado acima.
-                </p>
-                {hasPersistedConfiguration && (
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={confirmDiscardConfiguration}
-                      onChange={(event) => setConfirmDiscardConfiguration(event.target.checked)}
-                    />
-                    Confirmo que grupos, composição e porções atuais serão removidos ao salvar.
-                  </label>
-                )}
+                <small>PERSONALIZAÇÃO</small>
+                <h3 id="product-step-customization" ref={stepHeadingRef} tabIndex={-1}>
+                  Como o cliente poderá personalizar?
+                </h3>
+                <p>Crie uma etapa por decisão, como tamanho, massa, borda ou adicionais.</p>
               </div>
-            </S.ProductSimpleMode>
-          )}
+            </div>
 
-          {saleMode === 'BUILDABLE' && (
-            <>
-              <div className="customization-actions">
-                <div>
-                  <b>Oficina de personalização</b>
-                  <span>Monte etapas genéricas para qualquer tipo de produto.</span>
-                </div>
-                <button
-                  className="add-group"
-                  disabled={!activeIngredients.length}
-                  type="button"
-                  onClick={addGroup}
-                >
-                  <Plus /> Adicionar etapa
-                </button>
-              </div>
-
-              <S.ProductPresetGrid>
-                <button type="button" onClick={() => addPreset('SINGLE')}>
-                  <i>1</i>
-                  <span>
-                    <b>Escolha única</b>
-                    <small>Uma opção obrigatória, como tamanho ou tipo.</small>
-                  </span>
-                  <Plus />
-                </button>
-                <button type="button" onClick={() => addPreset('EXTRAS')}>
-                  <i>+</i>
-                  <span>
-                    <b>Adicionais</b>
-                    <small>Várias opções opcionais com preço e quantidade.</small>
-                  </span>
-                  <Plus />
-                </button>
-                <button type="button" onClick={() => addPreset('PORTIONS')}>
-                  <i>½</i>
-                  <span>
-                    <b>Divisão em porções</b>
-                    <small>Cria a etapa usada para escolher cada parte.</small>
-                  </span>
-                  <Plus />
-                </button>
-              </S.ProductPresetGrid>
-
-              <S.ProductTemplateLibrary>
-                <header>
+            {saleMode === 'BUILDABLE' && (
+              <>
+                <div className="customization-actions">
                   <div>
-                    <Copy />
-                    <span>
-                      <b>Modelos reutilizáveis</b>
-                      <small>Aplicar um modelo cria uma cópia independente neste produto.</small>
-                    </span>
+                    <b>Etapas de personalização</b>
+                    <span>Monte etapas genéricas para qualquer tipo de produto.</span>
                   </div>
-                  <span>{templates.length} salvo(s)</span>
-                </header>
-                {!!templates.length && (
-                  <div className="template-list">
-                    {templates.map((template) => (
-                      <article key={template.id}>
-                        <span>
-                          <b>{template.name}</b>
-                          <small>
-                            {template.configuration.optionGroups.length} etapa(s) ·{' '}
-                            {template.configuration.compositionItems.length} item(ns) na composição
-                          </small>
-                        </span>
-                        <button type="button" onClick={() => applyTemplate(template)}>
-                          Aplicar
-                        </button>
-                        <button
-                          aria-label={`Remover modelo ${template.name}`}
-                          className="delete-template"
-                          disabled={templateBusy}
-                          type="button"
-                          onClick={() => void deactivateTemplate(template.id)}
-                        >
-                          <Trash2 />
-                        </button>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                <div className="save-template">
-                  <label>
-                    Nome do novo modelo
-                    <input
-                      maxLength={80}
-                      value={templateName}
-                      onChange={(event) => setTemplateName(event.target.value)}
-                      placeholder="Ex.: Montagem padrão da casa"
-                    />
-                  </label>
                   <button
-                    disabled={templateBusy || !templateName.trim() || !optionGroups.length}
+                    className="add-group"
+                    disabled={!activeIngredients.length}
                     type="button"
-                    onClick={() => void saveTemplate()}
+                    onClick={addGroup}
                   >
-                    {templateBusy ? 'Salvando...' : 'Salvar configuração atual'}
+                    <Plus /> Adicionar etapa
                   </button>
                 </div>
-              </S.ProductTemplateLibrary>
 
-              <div className="group-guidance">
-                <div>
-                  <i>1</i>
-                  <span>
-                    <b>Separe por assunto</b>
-                    <small>Ex.: Massa, Borda e Adicionais.</small>
-                  </span>
-                </div>
-                <ChevronRight />
-                <div>
-                  <i>2</i>
-                  <span>
-                    <b>Defina a regra</b>
-                    <small>Uma ou várias escolhas, obrigatórias ou não.</small>
-                  </span>
-                </div>
-                <ChevronRight />
-                <div>
-                  <i>3</i>
-                  <span>
-                    <b>Vincule as opções</b>
-                    <small>Marque os itens que o cliente verá.</small>
-                  </span>
-                </div>
-              </div>
+                <S.ProductPresetGrid>
+                  <button type="button" onClick={() => addPreset('SINGLE')}>
+                    <i>1</i>
+                    <span>
+                      <b>Escolher uma opção</b>
+                      <small>Tamanho, massa, sabor ou outra escolha.</small>
+                    </span>
+                    <Plus />
+                  </button>
+                  <button type="button" onClick={() => addPreset('EXTRAS')}>
+                    <i>+</i>
+                    <span>
+                      <b>Escolher vários adicionais</b>
+                      <small>Bacon, queijo extra, molhos...</small>
+                    </span>
+                    <Plus />
+                  </button>
+                  <button type="button" onClick={() => addPreset('PORTIONS')}>
+                    <i>½</i>
+                    <span>
+                      <b>Dividir em partes</b>
+                      <small>Ex.: pizza meio a meio.</small>
+                    </span>
+                    <Plus />
+                  </button>
+                </S.ProductPresetGrid>
 
-              <ProductConfigurationWorkspace
-                name={name}
-                price={price}
-                ingredients={ingredients}
-                activeIngredients={activeIngredients}
-                activeIngredientSections={activeIngredientSections}
-                ingredientCategories={ingredientCategories}
-                optionGroups={optionGroups}
-                groupCategories={groupCategories}
-                compositionItems={compositionItems}
-                portionConfiguration={portionConfiguration}
-                pendingCategoryChange={pendingCategoryChange}
-                canCreateIngredient={Boolean(createIngredient)}
-                inlineIngredientGroup={inlineIngredientGroup}
-                inlineIngredientName={inlineIngredientName}
-                inlineIngredientPrice={inlineIngredientPrice}
-                inlineIngredientBusy={inlineIngredientBusy}
-                inlineDuplicate={inlineDuplicate}
-                updateGroup={updateGroup}
-                updateGroupOption={updateGroupOption}
-                moveGroup={moveGroup}
-                removeGroup={removeGroup}
-                selectGroupCategory={selectGroupCategory}
-                confirmGroupCategoryChange={confirmGroupCategoryChange}
-                toggleGroupIngredient={toggleGroupIngredient}
-                toggleCompositionIngredient={toggleCompositionIngredient}
-                createInlineIngredient={createInlineIngredient}
-                setError={setError}
-                setPendingCategoryChange={setPendingCategoryChange}
-                setInlineIngredientGroup={setInlineIngredientGroup}
-                setInlineIngredientName={setInlineIngredientName}
-                setInlineIngredientPrice={setInlineIngredientPrice}
-                setCompositionItems={setCompositionItems}
-                setPortionConfiguration={setPortionConfiguration}
-              />
-            </>
-          )}
-        </S.ProductFormSection>
-
-        <S.ProductFormSection>
-          <div className="section-heading">
-            <span>3</span>
-            <div>
-              <small>ÚLTIMO PASSO</small>
-              <h3>Disponibilidade e revisão</h3>
-              <p>Escolha como o estoque será controlado e confira o resumo antes de salvar.</p>
-            </div>
-          </div>
-          <div className="availability-layout">
-            <div className="stock-configuration">
-              <b className="field-title">Como este produto é preparado?</b>
-              <div className="stock-mode-cards" role="group" aria-label="Controle de estoque">
-                <button
-                  className={unlimitedStock ? 'active' : ''}
-                  type="button"
-                  onClick={() => setUnlimitedStock(true)}
-                >
-                  <PackageOpen />
-                  <span>
-                    <b>Feito sob demanda</b>
-                    <small>Sem limite fixo de unidades</small>
-                  </span>
-                  {unlimitedStock && <CheckCircle2 />}
-                </button>
-                <button
-                  className={!unlimitedStock ? 'active' : ''}
-                  type="button"
-                  onClick={() => setUnlimitedStock(false)}
-                >
-                  <Boxes />
-                  <span>
-                    <b>Estoque limitado</b>
-                    <small>Informe a quantidade disponível</small>
-                  </span>
-                  {!unlimitedStock && <CheckCircle2 />}
-                </button>
-              </div>
-              {!unlimitedStock && (
-                <S.Field>
-                  Quantidade disponível
-                  <input
-                    required
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="Quantidade disponível"
-                    value={stock}
-                    onChange={(event) => setStock(event.target.value.replace(/\D/g, ''))}
-                  />
-                </S.Field>
-              )}
-            </div>
-
-            <div className="product-review-card">
-              <header>
-                <Sparkles />
-                <div>
-                  <b>Revisão rápida</b>
-                  <span>O que será publicado</span>
-                </div>
-              </header>
-              <ul>
-                <li className={basicInformationReady ? 'complete' : ''}>
-                  <i>{basicInformationReady ? <CheckCircle2 /> : '1'}</i>
-                  <span>
-                    <b>Produto-base</b>
-                    <small>{name || 'Preencha nome, preço e categoria'}</small>
-                  </span>
-                </li>
-                <li
-                  className={
-                    saleMode === 'COMPLETE' ||
-                    (readyGroupCount === optionGroups.length && optionGroups.length)
-                      ? 'complete'
-                      : ''
-                  }
-                >
-                  <i>
-                    {saleMode === 'COMPLETE' ||
-                    (readyGroupCount === optionGroups.length && optionGroups.length) ? (
-                      <CheckCircle2 />
-                    ) : (
-                      '2'
+                <details className="advanced-template-settings">
+                  <summary>
+                    Configurações avançadas e modelos
+                    <span>{templates.length} salvo(s)</span>
+                  </summary>
+                  <S.ProductTemplateLibrary>
+                    <header>
+                      <div>
+                        <Copy />
+                        <span>
+                          <b>Modelos reutilizáveis</b>
+                          <small>
+                            Aplicar um modelo cria uma cópia independente neste produto.
+                          </small>
+                        </span>
+                      </div>
+                      <span>{templates.length} salvo(s)</span>
+                    </header>
+                    {!!templates.length && (
+                      <div className="template-list">
+                        {templates.map((template) => (
+                          <article key={template.id}>
+                            <span>
+                              <b>{template.name}</b>
+                              <small>
+                                {template.configuration.optionGroups.length} etapa(s) ·{' '}
+                                {template.configuration.compositionItems.length} item(ns) na
+                                composição
+                              </small>
+                            </span>
+                            <button type="button" onClick={() => applyTemplate(template)}>
+                              Aplicar
+                            </button>
+                            <button
+                              aria-label={`Remover modelo ${template.name}`}
+                              className="delete-template"
+                              disabled={templateBusy}
+                              type="button"
+                              onClick={() => void deactivateTemplate(template.id)}
+                            >
+                              <Trash2 />
+                            </button>
+                          </article>
+                        ))}
+                      </div>
                     )}
-                  </i>
-                  <span>
-                    <b>{saleMode === 'BUILDABLE' ? 'Personalização' : 'Venda simples'}</b>
-                    <small>
-                      {saleMode === 'BUILDABLE'
-                        ? `${readyGroupCount} de ${optionGroups.length} etapa(s) pronta(s)`
-                        : 'Cliente adiciona direto à sacola'}
-                    </small>
-                  </span>
-                </li>
-                <li className="complete">
-                  <i>
-                    <CheckCircle2 />
-                  </i>
-                  <span>
-                    <b>Disponibilidade</b>
-                    <small>
-                      {unlimitedStock ? 'Feito sob demanda' : `${stock || 0} unidade(s)`}
-                    </small>
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </S.ProductFormSection>
+                    <div className="save-template">
+                      <label>
+                        Nome do novo modelo
+                        <input
+                          maxLength={80}
+                          value={templateName}
+                          onChange={(event) => setTemplateName(event.target.value)}
+                          placeholder="Ex.: Montagem padrão da casa"
+                        />
+                      </label>
+                      <button
+                        disabled={templateBusy || !templateName.trim() || !optionGroups.length}
+                        type="button"
+                        onClick={() => void saveTemplate()}
+                      >
+                        {templateBusy ? 'Salvando...' : 'Salvar configuração atual'}
+                      </button>
+                    </div>
+                  </S.ProductTemplateLibrary>
+                </details>
+
+                <div className="group-guidance">
+                  <div>
+                    <i>1</i>
+                    <span>
+                      <b>Separe por assunto</b>
+                      <small>Ex.: Massa, Borda e Adicionais.</small>
+                    </span>
+                  </div>
+                  <ChevronRight />
+                  <div>
+                    <i>2</i>
+                    <span>
+                      <b>Defina a regra</b>
+                      <small>Uma ou várias escolhas, obrigatórias ou não.</small>
+                    </span>
+                  </div>
+                  <ChevronRight />
+                  <div>
+                    <i>3</i>
+                    <span>
+                      <b>Vincule as opções</b>
+                      <small>Marque os itens que o cliente verá.</small>
+                    </span>
+                  </div>
+                </div>
+
+                <ProductConfigurationWorkspace
+                  name={name}
+                  price={price}
+                  showComposition={false}
+                  ingredients={ingredients}
+                  activeIngredients={activeIngredients}
+                  activeIngredientSections={activeIngredientSections}
+                  ingredientCategories={ingredientCategories}
+                  optionGroups={optionGroups}
+                  editingGroupIndex={editingGroupIndex}
+                  setEditingGroupIndex={setEditingGroupIndex}
+                  groupCategories={groupCategories}
+                  compositionItems={compositionItems}
+                  portionConfiguration={portionConfiguration}
+                  pendingCategoryChange={pendingCategoryChange}
+                  canCreateIngredient={Boolean(createIngredient)}
+                  openIngredientWizard={(groupIndex) =>
+                    setIngredientWizardTarget({ kind: 'OPTION', groupIndex })
+                  }
+                  updateGroup={updateGroup}
+                  updateGroupOption={updateGroupOption}
+                  moveGroup={moveGroup}
+                  removeGroup={removeGroup}
+                  selectGroupCategory={selectGroupCategory}
+                  confirmGroupCategoryChange={confirmGroupCategoryChange}
+                  toggleGroupIngredient={toggleGroupIngredient}
+                  toggleCompositionIngredient={toggleCompositionIngredient}
+                  setPendingCategoryChange={setPendingCategoryChange}
+                  setCompositionItems={setCompositionItems}
+                  setPortionConfiguration={setPortionConfiguration}
+                />
+              </>
+            )}
+          </S.ProductWizardStepSection>
+        )}
+
+        {currentStep === 'AVAILABILITY' && (
+          <ProductAvailabilityStep
+            fieldErrors={fieldErrors}
+            headingRef={stepHeadingRef}
+            stock={stock}
+            unlimitedStock={unlimitedStock}
+            onClearFieldError={clearFieldError}
+            onStockChange={setStock}
+            onUnlimitedStockChange={setUnlimitedStock}
+          />
+        )}
+
+        {currentStep === 'REVIEW' && (
+          <ProductReviewStep
+            description={description}
+            headingRef={stepHeadingRef}
+            image={image}
+            name={name}
+            optionGroups={optionGroups}
+            price={price}
+            saleMode={saleMode}
+            selectedProductCategory={selectedProductCategory}
+            showCustomerPreview={showCustomerPreview}
+            stock={stock}
+            unlimitedStock={unlimitedStock}
+            onEdit={setCurrentStep}
+            onToggleCustomerPreview={() => setShowCustomerPreview((current) => !current)}
+          />
+        )}
 
         <footer className="drawer-footer">
           <div className="footer-summary">
@@ -1133,15 +1080,42 @@ export function ProductDrawer({
             </span>
           </div>
           <div className="footer-actions">
-            <button type="button" onClick={close}>
-              Cancelar
+            <button disabled={currentStep === 'TYPE' || busy} type="button" onClick={returnWizard}>
+              <ArrowLeft /> Voltar
             </button>
-            <button className="primary" disabled={busy} type="submit">
-              {busy ? 'Salvando produto...' : product ? 'Salvar alterações' : 'Criar produto'}
-            </button>
+            {currentStep === 'REVIEW' ? (
+              <button className="primary" disabled={busy} type="submit">
+                {busy ? 'Salvando produto...' : product ? 'Salvar alterações' : 'Criar produto'}
+              </button>
+            ) : (
+              <button
+                className="primary"
+                disabled={busy}
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  continueWizard();
+                }}
+              >
+                Continuar <ArrowRight />
+              </button>
+            )}
           </div>
         </footer>
       </S.ProductFormDrawer>
+      {ingredientWizardTarget && createIngredient && (
+        <IngredientWizard
+          categories={ingredientCategories}
+          ingredients={ingredients}
+          initialCategory={groupCategories[ingredientWizardTarget.groupIndex]}
+          mode="INLINE"
+          onClose={() => setIngredientWizardTarget(null)}
+          onCreate={createIngredient}
+          onCreated={(ingredient) => {
+            selectInlineIngredient(ingredientWizardTarget.groupIndex, ingredient);
+          }}
+        />
+      )}
     </S.Overlay>
   );
 }

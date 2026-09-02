@@ -39,6 +39,16 @@ class GetPublicMediaService {
     const product = await publicMediaRepository.findProductImage(restaurantId, productId);
     return requireSource(product?.image, product?.updatedAt);
   }
+
+  async ingredientImage(
+    restaurantIdInput: unknown,
+    ingredientIdInput: unknown,
+  ): Promise<PublicMedia> {
+    const restaurantId = positiveInteger(restaurantIdInput, 'Restaurante');
+    const ingredientId = positiveInteger(ingredientIdInput, 'Ingrediente');
+    const ingredient = await publicMediaRepository.findIngredientImage(restaurantId, ingredientId);
+    return requireSource(ingredient?.image, ingredient?.updatedAt);
+  }
 }
 
 export default new GetPublicMediaService();

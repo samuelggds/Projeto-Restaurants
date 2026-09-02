@@ -196,6 +196,29 @@ export function validateCriticalEnv() {
     errors.push('IMAGE_ENHANCEMENT_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000.');
   }
 
+  const ingredientImageSearchRateLimitMax = asNumber(
+    String(process.env.INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS || '20'),
+    20,
+  );
+  if (ingredientImageSearchRateLimitMax <= 0 || ingredientImageSearchRateLimitMax > 100) {
+    errors.push('INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_MAX_REQUESTS deve estar entre 1 e 100.');
+  }
+
+  const ingredientImageSearchRateLimitWindow = asNumber(
+    String(process.env.INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS || '900000'),
+    900000,
+  );
+  if (ingredientImageSearchRateLimitWindow < 60_000) {
+    errors.push('INGREDIENT_IMAGE_SEARCH_RATE_LIMIT_WINDOW_MS deve ser de pelo menos 60000.');
+  }
+
+  const ingredientImageTokenSecret = String(process.env.INGREDIENT_IMAGE_TOKEN_SECRET || '').trim();
+  if (ingredientImageTokenSecret && ingredientImageTokenSecret.length < 32) {
+    errors.push('INGREDIENT_IMAGE_TOKEN_SECRET deve ter pelo menos 32 caracteres em producao.');
+  } else if (ingredientImageTokenSecret && isPlaceholder(ingredientImageTokenSecret)) {
+    errors.push('INGREDIENT_IMAGE_TOKEN_SECRET nao pode usar um valor placeholder em producao.');
+  }
+
   const loginLockoutAfterFailures = asNumber(
     String(process.env.LOGIN_LOCKOUT_AFTER_FAILURES || '5'),
     5,

@@ -7,7 +7,7 @@ export const ProductOptionGroupList = styled.div`
     min-width: 0;
     overflow: hidden;
     border: 1px solid #e3dcd5;
-    border-radius: 16px;
+    border-radius: 8px;
     background: #fdfcfb;
     box-shadow: 0 7px 20px rgba(38, 29, 23, 0.035);
   }
@@ -100,6 +100,21 @@ export const ProductOptionGroupList = styled.div`
     align-items: center;
     gap: 5px;
   }
+  .edit-group {
+    min-height: 34px;
+    border: 1px solid color-mix(in srgb, var(--a) 35%, #ded7cf);
+    border-radius: 8px;
+    padding: 0 11px;
+    color: var(--a);
+    background: #fff;
+    font-size: 10px;
+    font-weight: 850;
+    cursor: pointer;
+  }
+  .edit-group[aria-expanded='true'] {
+    color: #fff;
+    background: var(--a);
+  }
   .group-order-actions button {
     width: 30px;
     height: 30px;
@@ -146,110 +161,22 @@ export const ProductOptionGroupList = styled.div`
   .group-options > legend svg {
     width: 12px;
   }
-  .inline-ingredient-form {
-    display: grid;
-    gap: 9px;
-    margin-top: 10px;
-    padding: 11px;
-    border: 1px solid #d8c0b2;
-    border-radius: 10px;
-    background: #fffaf7;
-  }
-  .inline-ingredient-form > header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .inline-ingredient-form > header > div {
-    display: grid;
-    gap: 2px;
-  }
-  .inline-ingredient-form > header b,
-  .inline-ingredient-form > header span {
-    font-size: 10px;
-  }
-  .inline-ingredient-form > header span {
-    color: var(--muted);
-  }
-  .inline-ingredient-form > header button {
-    width: 29px;
-    height: 29px;
-    display: grid;
-    place-items: center;
-    border: 1px solid #ded5cd;
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-  }
-  .inline-ingredient-form > header svg {
-    width: 13px;
-  }
-  .inline-ingredient-form > div {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(130px, 0.45fr) auto;
-    align-items: end;
-    gap: 8px;
-  }
-  .inline-ingredient-form label {
-    min-width: 0;
-    display: grid;
-    gap: 4px;
-    color: #615850;
-    font-size: 9px;
-    font-weight: 850;
-  }
-  .inline-ingredient-form label > input,
-  .inline-price-input {
-    width: 100%;
-    height: 38px;
-    border: 1px solid #ddd4cc;
-    border-radius: 8px;
-    padding: 0 9px;
-    background: #fff;
-  }
-  .inline-price-input {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 5px;
-    color: #746b63;
-  }
-  .inline-price-input input {
-    min-width: 0;
-    height: 100%;
-    border: 0;
-    outline: 0;
-  }
-  .inline-ingredient-form > div > button {
-    min-height: 38px;
-    border: 0;
-    border-radius: 8px;
-    padding: 0 11px;
-    color: #fff;
-    background: var(--a);
-    font-size: 9px;
-    font-weight: 850;
-    cursor: pointer;
-  }
-  .inline-ingredient-form > div > button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  .duplicate-suggestion {
-    margin: 0;
-    padding: 8px;
-    border-radius: 8px;
-    color: #7a4a1b;
-    background: #fff2d9;
-    font-size: 9px;
-    line-height: 1.4;
-  }
   .group-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     padding: 16px;
+  }
+  .group-editor {
+    padding-bottom: 2px;
+    background: #fff;
+    animation: reveal-group-editor 180ms ease-out;
+  }
+  .guided-question {
+    display: block;
+    color: var(--a);
+    font-size: 10px;
+    font-weight: 900;
   }
   .group-fields small {
     color: var(--muted);
@@ -373,6 +300,97 @@ export const ProductOptionGroupList = styled.div`
     border-color: #b94d2c;
     color: #fff;
     background: #b94d2c;
+  }
+  .required-choice {
+    display: grid;
+    gap: 8px;
+    margin: 0 14px 12px;
+  }
+  .required-choice > b {
+    color: #514943;
+    font-size: 11px;
+  }
+  .required-choice > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .required-choice button {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    padding: 10px 11px;
+    border: 1px solid #ded7cf;
+    border-radius: 8px;
+    color: #514943;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+  }
+  .required-choice button.active {
+    border-color: color-mix(in srgb, var(--a) 45%, #ded7cf);
+    color: var(--a);
+    background: color-mix(in srgb, var(--a) 6%, white);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 7%, transparent);
+  }
+  .required-choice button b,
+  .required-choice button small {
+    font-size: 10px;
+  }
+  .required-choice button small {
+    color: var(--muted);
+    line-height: 1.35;
+  }
+  .advanced-settings {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #ded7cf;
+    border-radius: 8px;
+    background: #faf9f7;
+  }
+  .advanced-settings > summary {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    color: #5a514a;
+    font-size: 10px;
+    font-weight: 850;
+    list-style: none;
+    cursor: pointer;
+  }
+  .advanced-settings > summary::-webkit-details-marker {
+    display: none;
+  }
+  .advanced-settings > summary::after {
+    content: '+';
+    color: var(--a);
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .advanced-settings[open] > summary::after {
+    content: '−';
+  }
+  .advanced-settings[open] > summary {
+    border-bottom: 1px solid #e5ded7;
+    background: #f5f2ee;
+  }
+  .group-limits {
+    margin: 0 14px 12px;
+  }
+  .group-limits .group-rules {
+    grid-template-columns: minmax(180px, 1fr) auto auto;
+    padding: 12px;
+  }
+  .option-settings {
+    margin: 0 14px 14px;
+  }
+  .option-settings > section {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
   }
   .group-rules {
     display: grid;
@@ -510,7 +528,7 @@ export const ProductOptionGroupList = styled.div`
   .group-options label {
     min-width: 0;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr);
     align-items: center;
     gap: 8px;
     padding: 9px;
@@ -528,6 +546,32 @@ export const ProductOptionGroupList = styled.div`
   }
   .group-options input {
     accent-color: var(--a);
+  }
+  .ingredient-option-thumb {
+    position: relative;
+    overflow: hidden;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--a);
+    background: color-mix(in srgb, var(--a) 9%, white);
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .ingredient-option-thumb > span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
+  .ingredient-option-thumb > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .group-options span {
     min-width: 0;
@@ -554,6 +598,12 @@ export const ProductOptionGroupList = styled.div`
       grid-template-columns: 1fr 1fr;
       align-items: stretch;
     }
+    .group-limits .group-rules {
+      grid-template-columns: 1fr;
+    }
+    .group-limits .group-rules input[type='number'] {
+      width: 100%;
+    }
     .rule-heading {
       grid-column: 1 / -1;
     }
@@ -570,14 +620,19 @@ export const ProductOptionGroupList = styled.div`
       grid-column: 2;
       justify-self: start;
     }
-    .remove-group {
-      grid-column: 3;
-      grid-row: 1 / 3;
+    .group-tools {
+      grid-column: 1 / -1;
+      justify-content: flex-end;
+      padding-top: 8px;
+      border-top: 1px solid #ebe4de;
     }
     .group-fields {
       grid-template-columns: 1fr;
     }
     .choice-mode-field > div {
+      grid-template-columns: 1fr;
+    }
+    .required-choice > div {
       grid-template-columns: 1fr;
     }
     .group-rules {
@@ -600,6 +655,25 @@ export const ProductOptionGroupList = styled.div`
     }
     .category-change-confirm button {
       width: 100%;
+    }
+    .group-options > legend {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .group-editor {
+      animation: none;
+    }
+  }
+  @keyframes reveal-group-editor {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 `;
@@ -683,6 +757,12 @@ export const ProductOptionConfiguration = styled.section`
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
+  }
+  .advanced-question {
+    grid-column: 1 / -1;
+    color: #5d554e;
+    font-size: 10px;
+    font-weight: 850;
   }
   .pricing-mode button {
     min-width: 0;
@@ -803,9 +883,6 @@ export const ProductOptionConfiguration = styled.section`
     .option-behavior {
       grid-template-columns: 1fr;
     }
-    .inline-ingredient-form > div {
-      grid-template-columns: 1fr;
-    }
   }
 `;
 
@@ -813,7 +890,86 @@ export const ProductAdvancedConfiguration = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  > section {
+  &.composition-only {
+    grid-template-columns: 1fr;
+  }
+  > .portion-settings {
+    min-width: 0;
+    grid-column: 1 / -1;
+    overflow: hidden;
+    border: 1px solid #dfd8d1;
+    border-radius: 8px;
+    background: #faf9f7;
+  }
+  > .portion-settings > summary {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    color: #514943;
+    font-size: 11px;
+    font-weight: 850;
+    list-style: none;
+    cursor: pointer;
+  }
+  > .portion-settings > summary::-webkit-details-marker {
+    display: none;
+  }
+  > .portion-settings > summary > span {
+    color: var(--a);
+    font-size: 10px;
+  }
+  > .portion-settings > section {
+    border: 0;
+    border-top: 1px solid #dfd8d1;
+    border-radius: 0;
+  }
+  .composition-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .composition-toolbar > label {
+    min-width: 0;
+    height: 42px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    padding: 0 11px;
+    border: 1px solid #ddd6cf;
+    border-radius: 9px;
+    background: #fff;
+  }
+  .composition-toolbar svg {
+    width: 15px;
+    color: #746a62;
+  }
+  .composition-toolbar input {
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+  }
+  .composition-toolbar > button {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 9px;
+    padding: 0 12px;
+    color: #fff;
+    background: var(--a);
+    font-size: 10px;
+    font-weight: 850;
+    cursor: pointer;
+  }
+  > section,
+  > .portion-settings > section {
     min-width: 0;
     align-content: start;
     display: grid;
@@ -823,33 +979,39 @@ export const ProductAdvancedConfiguration = styled.div`
     border-radius: 13px;
     background: #faf9f7;
   }
-  > section > header {
+  > section > header,
+  > .portion-settings > section > header {
     min-width: 0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
   }
-  > section > header > div {
+  > section > header > div,
+  > .portion-settings > section > header > div {
     min-width: 0;
   }
-  > section > header small {
+  > section > header small,
+  > .portion-settings > section > header small {
     color: var(--a);
     font-size: 10px;
     font-weight: 900;
     letter-spacing: 0.08em;
   }
-  > section > header h4 {
+  > section > header h4,
+  > .portion-settings > section > header h4 {
     margin: 3px 0;
     font-size: 14px;
   }
-  > section > header p {
+  > section > header p,
+  > .portion-settings > section > header p {
     margin: 0;
     color: var(--muted);
     font-size: 10px;
     line-height: 1.4;
   }
-  > section > header > span {
+  > section > header > span,
+  > .portion-settings > section > header > span {
     flex: 0 0 auto;
     padding: 5px 7px;
     border-radius: 8px;
@@ -909,6 +1071,33 @@ export const ProductAdvancedConfiguration = styled.div`
     display: flex;
     align-items: center;
     gap: 7px;
+  }
+  .ingredient-option-thumb {
+    position: relative;
+    overflow: hidden;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--a);
+    background: color-mix(in srgb, var(--a) 9%, white);
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .ingredient-option-thumb > span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
+  .ingredient-option-thumb > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .composition-catalog label > span {
     min-width: 0;
@@ -970,5 +1159,13 @@ export const ProductAdvancedConfiguration = styled.div`
   }
   @media (max-width: 800px) {
     grid-template-columns: 1fr;
+  }
+  @media (max-width: 560px) {
+    .composition-toolbar {
+      grid-template-columns: 1fr;
+    }
+    .composition-toolbar > button {
+      justify-content: center;
+    }
   }
 `;

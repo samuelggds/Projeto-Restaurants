@@ -41,6 +41,20 @@ class PublicMediaRepository {
       },
     });
   }
+
+  async findIngredientImage(restaurantId: number, ingredientId: number) {
+    return prisma.ingredient.findFirst({
+      where: {
+        id: ingredientId,
+        restaurantId,
+        restaurant: { active: true },
+      },
+      select: {
+        image: true,
+        updatedAt: true,
+      },
+    });
+  }
 }
 
 export default new PublicMediaRepository();

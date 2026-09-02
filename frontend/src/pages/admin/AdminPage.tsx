@@ -5,10 +5,12 @@ import {
   LayoutGrid,
   LogOut,
   Menu,
+  Plus,
   ReceiptText,
   Search as SearchIcon,
   Settings2,
   ShoppingBag,
+  Upload,
   Users,
 } from 'lucide-react';
 import { adminMockEmployees, adminMockSettings } from './data';
@@ -102,6 +104,7 @@ export function AdminPage({
   onCreateIngredient,
   onUpdateIngredient,
   onDeleteIngredient,
+  onReloadCatalog,
   onApplyProductDiscount,
   onDeleteProductDiscount,
   onCreateCoupon,
@@ -152,6 +155,7 @@ export function AdminPage({
     useAdminUnreadIssues(area === 'help');
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
+  const [catalogImportOpen, setCatalogImportOpen] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
   const [unsavedDialogPhase, setUnsavedDialogPhase] =
@@ -193,7 +197,9 @@ export function AdminPage({
       ? sectionTitle[section]
       : area === 'help'
         ? 'Central de ajuda'
-        : areaTitles[area];
+        : area === 'catalog' && catalogImportOpen
+          ? 'Importar cardápio'
+          : areaTitles[area];
   const visibleSettingGroups = settingGroups
     .map((group) => ({
       ...group,
@@ -455,6 +461,7 @@ export function AdminPage({
 
   const changeArea = (nextArea: AdminSection) => {
     if (nextArea === area) {
+      if (nextArea === 'catalog') setCatalogImportOpen(false);
       setMobile(false);
       return;
     }
@@ -651,10 +658,28 @@ export function AdminPage({
                   ? 'Troque seu plano e acompanhe o pagamento das mensalidades.'
                   : area === 'settings'
                     ? 'Personalize e gerencie as informações do restaurante.'
-                    : 'Acompanhe e gerencie a operação em um só lugar.'}
+                    : area === 'catalog' && catalogImportOpen
+                      ? 'Use um link público do iFood ou uma foto nítida do seu cardápio.'
+                      : area === 'catalog'
+                        ? 'Gerencie seus produtos, ingredientes e categorias.'
+                        : 'Acompanhe e gerencie a operação em um só lugar.'}
             </p>
           </div>
           <S.TopActions>
+            {area === 'catalog' && !catalogImportOpen && (
+              <>
+                <button
+                  className="preview"
+                  type="button"
+                  onClick={() => setCatalogImportOpen(true)}
+                >
+                  <Upload /> Importar cardápio
+                </button>
+                <button className="save" type="button" onClick={() => setEditingProduct(null)}>
+                  <Plus /> Novo produto
+                </button>
+              </>
+            )}
             {area === 'settings' && section !== 'promotions' && (
               <button className="preview" onClick={onViewStore}>
                 <ExternalLink />
@@ -792,13 +817,18 @@ export function AdminPage({
                 await onDeleteCategory?.(id);
               }}
               onCreateIngredient={async (ingredient) => {
-                await onCreateIngredient?.(ingredient);
+                return onCreateIngredient?.(ingredient);
               }}
-              onUpdateIngredient={async (ingredient) => {
-                await onUpdateIngredient?.(ingredient);
+              onUpdateIngredient={async (ingredient, imageUpdate) => {
+                await onUpdateIngredient?.(ingredient, imageUpdate);
               }}
               onDeleteIngredient={async (id) => {
                 await onDeleteIngredient?.(id);
+              }}
+              catalogImportOpen={catalogImportOpen}
+              onCloseCatalogImport={() => setCatalogImportOpen(false)}
+              onCatalogImportComplete={async () => {
+                await onReloadCatalog?.();
               }}
             />
           )}

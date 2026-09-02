@@ -131,4 +131,22 @@ describe('validação dos grupos de montagem', () => {
       'Escolha a massa · Massa fina: uma seleção fixa precisa vir pré-selecionada.',
     );
   });
+
+  it('rejeita opções iniciais acima do limite de escolhas', () => {
+    const errors = validateOptionGroups(
+      [
+        group({
+          options: [
+            { ingredientId: 1, defaultSelected: true },
+            { ingredientId: 2, defaultSelected: true, locked: true },
+          ],
+        }),
+      ],
+      ingredients,
+    );
+
+    expect(errors).toContain(
+      'Escolha a massa: as opções que já vêm selecionadas não podem superar o limite.',
+    );
+  });
 });

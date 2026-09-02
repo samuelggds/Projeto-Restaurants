@@ -21,5 +21,10 @@ router.get(
   publicRestaurantBillingMiddleware,
   (req, res) => GetPublicMediaController.product(req, res),
 );
+router.get(
+  '/restaurants/:restaurantId/ingredients/:ingredientId',
+  publicRestaurantBillingMiddleware,
+  (req, res) => GetPublicMediaController.ingredient(req, res),
+);
 
 export default router;
