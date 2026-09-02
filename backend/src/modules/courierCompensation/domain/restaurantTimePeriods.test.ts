@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  countActiveCalendarDays,
+  getRestaurantMonthPeriod,
   getRestaurantPeriodBoundaries,
   normalizeRestaurantTimeZone,
 } from './restaurantTimePeriods.js';
@@ -48,4 +50,23 @@ test('fuso ausente usa o padrão seguro brasileiro', () => {
 
 test('fuso IANA inválido é rejeitado', () => {
   assert.throws(() => normalizeRestaurantTimeZone('UTC+25/tenant'), /fuso horário IANA válido/);
+});
+
+test('competência mensal explícita respeita o timezone do restaurante', () => {
+  const period = getRestaurantMonthPeriod('2026-09', 'America/Sao_Paulo');
+  assert.equal(period.gte.toISOString(), '2026-09-01T03:00:00.000Z');
+  assert.equal(period.lt.toISOString(), '2026-10-01T03:00:00.000Z');
+  assert.equal(period.calendarDays, 30);
+});
+
+test('dias civis ativos contam políticas iniciadas e encerradas no meio do mês', () => {
+  const period = getRestaurantMonthPeriod('2026-09', 'America/Sao_Paulo');
+  assert.equal(
+    countActiveCalendarDays(
+      new Date('2026-09-11T03:00:00.000Z'),
+      new Date('2026-09-21T03:00:00.000Z'),
+      period,
+    ),
+    10,
+  );
 });

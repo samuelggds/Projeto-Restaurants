@@ -91,3 +91,39 @@ export function getRestaurantPeriodBoundaries(now: Date, inputTimeZone?: string 
     },
   };
 }
+
+export function getRestaurantMonthPeriod(referenceMonth: string, inputTimeZone?: string | null) {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(referenceMonth);
+  if (!match) throw new Error('Informe uma competência válida no formato YYYY-MM.');
+
+  const timeZone = normalizeRestaurantTimeZone(inputTimeZone);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const nextMonth = new Date(Date.UTC(year, month, 1));
+  const calendarDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  return {
+    referenceMonth,
+    year,
+    month,
+    calendarDays,
+    timeZone,
+    gte: localMidnightToUtc(year, month, 1, timeZone),
+    lt: localMidnightToUtc(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 1, timeZone),
+  };
+}
+
+export function countActiveCalendarDays(
+  effectiveFrom: Date,
+  effectiveUntil: Date | null,
+  period: ReturnType<typeof getRestaurantMonthPeriod>,
+) {
+  let activeDays = 0;
+  for (let day = 1; day <= period.calendarDays; day += 1) {
+    const start = localMidnightToUtc(period.year, period.month, day, period.timeZone);
+    const next = addLocalDays(period.year, period.month, day, 1);
+    const end = localMidnightToUtc(next.year, next.month, next.day, period.timeZone);
+    if (effectiveFrom < end && (!effectiveUntil || effectiveUntil > start)) activeDays += 1;
+  }
+  return activeDays;
+}

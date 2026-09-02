@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                            Int                         @id @default(autoincrement())
+  id                            Int                          @id @default(autoincrement())
   name                          String
-  email                         String                      @unique
+  email                         String                       @unique
   password                      String
   address                       String?
   city                          String?
@@ -19,50 +19,58 @@ model User {
   number                        String?
   state                         String?
   zipCode                       String?
-  active                        Boolean                     @default(true)
-  authVersion                   Int                         @default(0)
-  createdAt                     DateTime                    @default(now())
+  active                        Boolean                      @default(true)
+  authVersion                   Int                          @default(0)
+  createdAt                     DateTime                     @default(now())
   phone                         String?
   restaurantId                  Int?
-  updatedAt                     DateTime                    @updatedAt
+  updatedAt                     DateTime                     @updatedAt
   lastLoginAt                   DateTime?
   /// O índice único parcial `User_single_super_admin_idx` (migration SQL) limita a plataforma a um SUPER_ADMIN.
-  role                          UserRole                    @default(CLIENTE)
+  role                          UserRole                     @default(CLIENTE)
   subRole                       FuncionarioSubRole?
   cpf                           String?
   resetPasswordCodeExpiresAt    DateTime?
   resetPasswordCodeHash         String?
-  resetPasswordFailedAttempts   Int                         @default(0)
+  resetPasswordFailedAttempts   Int                          @default(0)
   resetPasswordLockedUntil      DateTime?
-  mustChangePassword            Boolean                     @default(false)
-  mfaEnabled                    Boolean                     @default(false)
+  mustChangePassword            Boolean                      @default(false)
+  mfaEnabled                    Boolean                      @default(false)
   avatar                        String?
   authMfaChallenge              AuthMfaChallenge?
   authRefreshSession            AuthRefreshSession?
   orders                        Order[]
-  assignedDeliveries            Order[]                     @relation("CourierDeliveries")
+  assignedDeliveries            Order[]                      @relation("CourierDeliveries")
   deliveryLocations             DeliveryLocation[]
   orderIssueThreads             OrderIssueThread[]
-  closedTableSessions           TableSession[]              @relation("ClosedTableSessions")
-  openedTableSessions           TableSession[]              @relation("OpenedTableSessions")
-  closingRequestedTableSessions TableSession[]              @relation("ClosingRequestedTableSessions")
-  forceClosedTableSessions      TableSession[]              @relation("ForceClosedTableSessions")
+  closedTableSessions           TableSession[]               @relation("ClosedTableSessions")
+  openedTableSessions           TableSession[]               @relation("OpenedTableSessions")
+  closingRequestedTableSessions TableSession[]               @relation("ClosingRequestedTableSessions")
+  forceClosedTableSessions      TableSession[]               @relation("ForceClosedTableSessions")
   tableParticipants             TableParticipant[]
-  restaurant                    Restaurant?                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant                    Restaurant?                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   supportChatMessages           SupportChatMessage[]
   productFavorites              ProductFavorite[]
   addresses                     UserAddress[]
   couponRedemptions             CouponRedemption[]
-  assignedTableServiceCalls     TableServiceCall[]          @relation("AssignedTableServiceCalls")
-  resolvedTableServiceCalls     TableServiceCall[]          @relation("ResolvedTableServiceCalls")
-  confirmedTablePayments        TablePaymentIntent[]        @relation("ManualTablePaymentConfirmations")
-  tablePaymentEvents            TablePaymentEvent[]         @relation("TablePaymentEventActor")
+  assignedTableServiceCalls     TableServiceCall[]           @relation("AssignedTableServiceCalls")
+  resolvedTableServiceCalls     TableServiceCall[]           @relation("ResolvedTableServiceCalls")
+  confirmedTablePayments        TablePaymentIntent[]         @relation("ManualTablePaymentConfirmations")
+  tablePaymentEvents            TablePaymentEvent[]          @relation("TablePaymentEventActor")
   requestedAsaasWithdrawals     AsaasWithdrawalRequest[]
   oauthAuthorizationStates      OAuthAuthorizationState[]
   paymentMethods                CustomerPaymentMethod[]
-  requestedKitchenPrintJobs     KitchenPrintJob[]           @relation("KitchenPrintJobRequester")
-  courierCompensationPolicies   CourierCompensationPolicy[] @relation("CourierCompensationPolicyCourier")
-  courierSettlements            CourierSettlement[]         @relation("CourierSettlementCourier")
+  requestedKitchenPrintJobs     KitchenPrintJob[]            @relation("KitchenPrintJobRequester")
+  courierCompensationPolicies   CourierCompensationPolicy[]  @relation("CourierCompensationPolicyCourier")
+  courierSettlements            CourierSettlement[]          @relation("CourierSettlementCourier")
+  employeeCompensationPolicies  EmployeeCompensationPolicy[] @relation("EmployeeCompensationPolicyEmployee")
+  employeeWorkEntries           EmployeeWorkEntry[]          @relation("EmployeeWorkEntryEmployee")
+  employeeEarnings              EmployeeEarning[]            @relation("EmployeeEarningEmployee")
+  employeeSettlements           EmployeeSettlement[]         @relation("EmployeeSettlementEmployee")
+  employeeSettlementPayments    EmployeeSettlementPayment[]  @relation("EmployeeSettlementPaymentEmployee")
+  tableWaiterAssignments        TableWaiterAssignment[]      @relation("TableWaiterAssignmentWaiter")
+
+  @@unique([id, restaurantId])
 }
 
 /// Configuracao publica e operacional da plataforma. Segredos e politicas que
@@ -188,6 +196,13 @@ model Restaurant {
   courierCompensationRanges     CourierCompensationRange[]
   courierSettlements            CourierSettlement[]
   courierSettlementItems        CourierSettlementItem[]
+  employeeCompensationPolicies  EmployeeCompensationPolicy[]
+  employeeWorkEntries           EmployeeWorkEntry[]
+  employeeEarnings              EmployeeEarning[]
+  employeeSettlements           EmployeeSettlement[]
+  employeeSettlementItems       EmployeeSettlementItem[]
+  employeeSettlementPayments    EmployeeSettlementPayment[]
+  tableWaiterAssignments        TableWaiterAssignment[]
 }
 
 model RestaurantPrinterSettings {
@@ -624,6 +639,8 @@ model TableSession {
   paymentIntents       TablePaymentIntent[]
   paymentAllocations   TablePaymentAllocation[]
   paymentEvents        TablePaymentEvent[]
+  waiterAssignments    TableWaiterAssignment[]
+  employeeEarnings     EmployeeEarning[]
 
   @@unique([id, restaurantId])
   @@index([restaurantId, status, openedAt])
@@ -902,6 +919,7 @@ model TablePaymentIntent {
   manualConfirmedBy   User?                     @relation("ManualTablePaymentConfirmations", fields: [manualConfirmedById], references: [id], onDelete: SetNull)
   allocations         TablePaymentAllocation[]
   events              TablePaymentEvent[]
+  employeeEarnings    EmployeeEarning[]
 
   @@unique([restaurantId, tableSessionId, idempotencyKeyHash])
   @@unique([provider, providerExternalId])
@@ -1154,6 +1172,204 @@ model CourierSettlementItem {
 
   @@index([restaurantId, orderId, active])
   @@index([settlementId, restaurantId])
+}
+
+model EmployeeCompensationPolicy {
+  id                  Int                               @id @default(autoincrement())
+  publicId            String                            @unique @default(uuid())
+  restaurantId        Int
+  employeeId          Int
+  baseModel           EmployeeCompensationBaseModel     @default(NONE)
+  fixedMonthlyCents   BigInt?
+  hourlyRateCents     BigInt?
+  variableModel       EmployeeCompensationVariableModel @default(NONE)
+  variableBasisPoints Int?
+  fixedPerTableCents  BigInt?
+  prorationMode       EmployeeCompensationProrationMode @default(NONE)
+  effectiveFrom       DateTime
+  effectiveUntil      DateTime?
+  version             Int                               @default(1)
+  active              Boolean                           @default(true)
+  createdById         Int
+  createdAt           DateTime                          @default(now())
+  updatedAt           DateTime                          @updatedAt
+  restaurant          Restaurant                        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  employee            User                              @relation("EmployeeCompensationPolicyEmployee", fields: [employeeId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  earnings            EmployeeEarning[]
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, employeeId, version])
+  @@index([restaurantId, employeeId, active, effectiveFrom])
+  @@index([restaurantId, effectiveFrom, effectiveUntil])
+}
+
+model TableWaiterAssignment {
+  id             Int          @id @default(autoincrement())
+  publicId       String       @unique @default(uuid())
+  restaurantId   Int
+  tableSessionId Int
+  waiterId       Int
+  assignedAt     DateTime     @default(now())
+  unassignedAt   DateTime?
+  assignedById   Int
+  reason         String?      @db.VarChar(500)
+  createdAt      DateTime     @default(now())
+  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession   TableSession @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  waiter         User         @relation("TableWaiterAssignmentWaiter", fields: [waiterId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, tableSessionId, assignedAt])
+  @@index([restaurantId, waiterId, unassignedAt])
+}
+
+model EmployeeWorkEntry {
+  id            Int                     @id @default(autoincrement())
+  publicId      String                  @unique @default(uuid())
+  restaurantId  Int
+  employeeId    Int
+  workDate      DateTime                @db.Date
+  minutesWorked Int
+  status        EmployeeWorkEntryStatus @default(DRAFT)
+  createdById   Int
+  approvedById  Int?
+  approvedAt    DateTime?
+  canceledById  Int?
+  canceledAt    DateTime?
+  cancelReason  String?                 @db.VarChar(500)
+  version       Int                     @default(1)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  restaurant    Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  employee      User                    @relation("EmployeeWorkEntryEmployee", fields: [employeeId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, employeeId, workDate])
+  @@index([restaurantId, status, workDate])
+}
+
+model EmployeeEarning {
+  id                 Int                         @id @default(autoincrement())
+  publicId           String                      @unique @default(uuid())
+  restaurantId       Int
+  employeeId         Int
+  type               EmployeeEarningType
+  direction          EmployeeEarningDirection
+  amountCents        BigInt
+  sourceType         EmployeeEarningSourceType
+  sourceId           String                      @db.VarChar(191)
+  sourcePublicId     String?                     @db.VarChar(191)
+  idempotencyKeyHash String?                     @db.VarChar(64)
+  requestFingerprint String?                     @db.VarChar(64)
+  policyId           Int?
+  policyVersion      Int?
+  financialBaseCents BigInt?
+  appliedBasisPoints Int?
+  tableSessionId     Int?
+  paymentIntentId    Int?
+  reversesEarningId  Int?
+  snapshot           Json
+  occurredAt         DateTime
+  settledAt          DateTime?
+  createdById        Int?
+  createdAt          DateTime                    @default(now())
+  restaurant         Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  employee           User                        @relation("EmployeeEarningEmployee", fields: [employeeId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  policy             EmployeeCompensationPolicy? @relation(fields: [policyId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  tableSession       TableSession?               @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  paymentIntent      TablePaymentIntent?         @relation(fields: [paymentIntentId, restaurantId, tableSessionId], references: [id, restaurantId, tableSessionId], onDelete: Restrict)
+  reversesEarning    EmployeeEarning?            @relation("EmployeeEarningReversal", fields: [reversesEarningId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  reversedByEarnings EmployeeEarning[]           @relation("EmployeeEarningReversal")
+  settlementItems    EmployeeSettlementItem[]
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, employeeId, sourceType, sourceId, type])
+  @@unique([restaurantId, idempotencyKeyHash])
+  @@index([restaurantId, employeeId, occurredAt])
+  @@index([restaurantId, tableSessionId, type])
+  @@index([restaurantId, settledAt, occurredAt])
+}
+
+model EmployeeSettlement {
+  id                Int                         @id @default(autoincrement())
+  publicId          String                      @unique @default(uuid())
+  restaurantId      Int
+  employeeId        Int
+  periodYear        Int
+  periodMonth       Int
+  periodStart       DateTime
+  periodEnd         DateTime
+  status            EmployeeSettlementStatus    @default(DRAFT)
+  grossCreditsCents BigInt                      @default(0)
+  grossDebitsCents  BigInt                      @default(0)
+  totalDueCents     BigInt                      @default(0)
+  confirmedAt       DateTime?
+  confirmedById     Int?
+  paidAt            DateTime?
+  canceledAt        DateTime?
+  canceledById      Int?
+  cancelReason      String?                     @db.VarChar(500)
+  version           Int                         @default(1)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  restaurant        Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  employee          User                        @relation("EmployeeSettlementEmployee", fields: [employeeId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  items             EmployeeSettlementItem[]
+  payments          EmployeeSettlementPayment[]
+
+  @@unique([id, restaurantId])
+  @@unique([id, restaurantId, employeeId])
+  @@unique([restaurantId, employeeId, periodYear, periodMonth])
+  @@index([restaurantId, status, periodStart])
+}
+
+model EmployeeSettlementItem {
+  id                  Int                      @id @default(autoincrement())
+  publicId            String                   @unique @default(uuid())
+  restaurantId        Int
+  settlementId        Int
+  earningId           Int
+  typeSnapshot        EmployeeEarningType
+  directionSnapshot   EmployeeEarningDirection
+  amountCentsSnapshot BigInt
+  active              Boolean                  @default(true)
+  releasedAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  restaurant          Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  settlement          EmployeeSettlement       @relation(fields: [settlementId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  earning             EmployeeEarning          @relation(fields: [earningId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@unique([settlementId, earningId])
+  @@index([restaurantId, earningId, active])
+}
+
+model EmployeeSettlementPayment {
+  id                 Int                             @id @default(autoincrement())
+  publicId           String                          @unique @default(uuid())
+  restaurantId       Int
+  settlementId       Int
+  employeeId         Int
+  amountCents        BigInt
+  method             EmployeeSettlementPaymentMethod
+  reference          String?                         @db.VarChar(191)
+  notes              String?                         @db.VarChar(500)
+  status             EmployeeSettlementPaymentStatus @default(ACTIVE)
+  idempotencyKeyHash String                          @db.VarChar(64)
+  requestFingerprint String                          @db.VarChar(64)
+  registeredById     Int
+  registeredAt       DateTime                        @default(now())
+  reversedAt         DateTime?
+  reversedById       Int?
+  reverseReason      String?                         @db.VarChar(500)
+  version            Int                             @default(1)
+  restaurant         Restaurant                      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  settlement         EmployeeSettlement              @relation(fields: [settlementId, restaurantId, employeeId], references: [id, restaurantId, employeeId], onDelete: Restrict)
+  employee           User                            @relation("EmployeeSettlementPaymentEmployee", fields: [employeeId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, idempotencyKeyHash])
+  @@index([restaurantId, settlementId, status, registeredAt])
 }
 
 model DeliveryFeeRange {
@@ -1435,6 +1651,7 @@ enum UserRole {
 enum FuncionarioSubRole {
   COZINHA
   GARCOM
+  ATENDENTE
 }
 
 enum OrderStatus {
@@ -1476,6 +1693,76 @@ enum CourierSettlementPaymentMethod {
   CASH
   BANK_TRANSFER
   OTHER
+}
+
+enum EmployeeCompensationBaseModel {
+  NONE
+  FIXED_MONTHLY
+  HOURLY
+}
+
+enum EmployeeCompensationVariableModel {
+  NONE
+  SERVICE_FEE_PERCENTAGE
+  FIXED_PER_TABLE
+  TABLE_SALES_PERCENTAGE
+}
+
+enum EmployeeCompensationProrationMode {
+  NONE
+  CALENDAR_DAYS
+}
+
+enum EmployeeWorkEntryStatus {
+  DRAFT
+  APPROVED
+  CANCELED
+}
+
+enum EmployeeEarningType {
+  FIXED_MONTHLY
+  HOURLY
+  WAITER_SERVICE_FEE
+  WAITER_TABLE_FIXED
+  WAITER_TABLE_SALES
+  BONUS
+  DEDUCTION
+  ADVANCE
+  CORRECTION
+  REFUND_REVERSAL
+}
+
+enum EmployeeEarningDirection {
+  CREDIT
+  DEBIT
+}
+
+enum EmployeeEarningSourceType {
+  MONTHLY_BASE
+  WORK_ENTRY
+  TABLE_SESSION
+  MANUAL_ADJUSTMENT
+  REFUND_REVERSAL
+}
+
+enum EmployeeSettlementStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_PAID
+  PAID
+  CANCELED
+}
+
+enum EmployeeSettlementPaymentMethod {
+  PIX
+  CASH
+  BANK_TRANSFER
+  OTHER
+}
+
+enum EmployeeSettlementPaymentStatus {
+  ACTIVE
+  REVERSED
 }
 
 enum PrinterAutoPrintTrigger {
