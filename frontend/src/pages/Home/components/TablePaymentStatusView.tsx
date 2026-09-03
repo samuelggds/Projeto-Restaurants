@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Ban,
   Check,
@@ -45,11 +45,11 @@ const terminalCopy: Record<
   },
   EXPIRED: {
     title: 'Tempo para pagar encerrado',
-    description: 'A reserva expirou e o valor voltou a ficar disponível na conta.',
+    description: 'O prazo terminou; o valor voltou a ficar disponível na conta.',
   },
   CANCELED: {
     title: 'Pagamento cancelado',
-    description: 'A reserva foi cancelada e nenhum valor foi confirmado como pago.',
+    description: 'Reserva cancelada e nenhum valor foi confirmado como pago.',
   },
   REFUNDED: {
     title: 'Pagamento estornado',
@@ -82,13 +82,16 @@ export function TablePaymentStatusView({
   const checkoutUrl = /^https:\/\//i.test(payment.checkoutUrl || '')
     ? String(payment.checkoutUrl)
     : '';
+  const awaitingCardDetails = pending && payment.method === 'CARD' && Boolean(checkoutUrl);
 
   const title = pending
     ? manual
       ? 'Aguardando o garçom'
       : payment.method === 'PIX'
         ? 'Pague com Pix'
-        : 'Finalize o pagamento com cartão'
+        : awaitingCardDetails
+          ? 'Informe os dados do cartão'
+          : 'Confirmando pagamento com cartão'
     : terminalCopy[status].title;
   const description = pending
     ? manual
@@ -96,8 +99,10 @@ export function TablePaymentStatusView({
         ? 'Entregue o dinheiro à equipe. A conta só muda para paga depois da confirmação no painel do garçom.'
         : 'A equipe fará a cobrança na maquininha. A conta só muda para paga depois da confirmação no painel do garçom.'
       : payment.method === 'PIX'
-        ? 'Use o QR Code ou copie o código. Depois, aguarde a confirmação do banco.'
-        : 'Conclua no checkout seguro e volte para verificar a aprovação do provedor.'
+        ? 'Use o QR Code ou copie o código. A confirmação será consultada automaticamente no provedor.'
+        : awaitingCardDetails
+          ? 'Abra o checkout seguro do gateway e preencha os dados do cartão. Nenhum dado bruto do cartão é armazenado pelo restaurante.'
+          : 'O cartão já foi enviado ao gateway e estamos aguardando a confirmação do provedor.'
     : terminalCopy[status].description;
 
   const copyPaymentCode = async () => {
@@ -116,10 +121,18 @@ export function TablePaymentStatusView({
     const result = await onVerify();
     if (result && result.status !== 'PAID') {
       setVerificationMessage(
-        'Ainda aguardando a confirmação do provedor. Tente novamente em instantes.',
+        'Ainda aguardando a confirmação do provedor. A consulta continuará automaticamente.',
       );
     }
   };
+
+  useEffect(() => {
+    if (!pending || manual) return undefined;
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden && !actionLoading) void onVerify();
+    }, 5_000);
+    return () => window.clearInterval(intervalId);
+  }, [actionLoading, manual, onVerify, pending]);
 
   return (
     <S.PaymentStage data-status={status} aria-live="polite">
@@ -132,9 +145,11 @@ export function TablePaymentStatusView({
       <span className="status-chip">
         {status === 'RESERVED'
           ? 'Reservado'
-          : status === 'PROCESSING'
-            ? 'Em confirmação'
-            : terminalCopy[status].title}
+          : awaitingCardDetails
+            ? 'Aguardando dados do cartão'
+            : status === 'PROCESSING'
+              ? 'Em confirmação'
+              : terminalCopy[status].title}
       </span>
 
       <S.AmountBreakdown aria-label="Composição do pagamento">
@@ -163,9 +178,9 @@ export function TablePaymentStatusView({
       )}
 
       {pending && payment.method === 'CARD' && checkoutUrl && (
-        <S.CheckoutLink href={checkoutUrl}>
+        <S.CheckoutLink href={checkoutUrl} target="_blank" rel="noopener noreferrer">
           <CreditCard size={17} />
-          Continuar no checkout seguro
+          Abrir checkout seguro do cartão
         </S.CheckoutLink>
       )}
 
@@ -174,7 +189,7 @@ export function TablePaymentStatusView({
       {pending && !manual && (
         <S.SecondaryAction type="button" disabled={actionLoading} onClick={() => void verify()}>
           <RefreshCw size={17} />
-          {actionLoading ? 'Consultando provedor...' : 'Verificar pagamento'}
+          {actionLoading ? 'Consultando provedor...' : 'Verificar pagamento agora'}
         </S.SecondaryAction>
       )}
       {pending && (
