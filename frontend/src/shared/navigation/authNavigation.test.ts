@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildLoginUrl, getCurrentReturnPath, getSafeNextPath } from './authNavigation';
+import {
+  buildAuthEntryUrl,
+  buildLoginUrl,
+  getCurrentReturnPath,
+  getSafeAuthSearchParams,
+  getSafeNextPath,
+  resolveAuthExperience,
+} from './authNavigation';
 
 describe('authNavigation', () => {
   it.each([
@@ -64,5 +71,58 @@ describe('authNavigation', () => {
     expect(new URLSearchParams(buildLoginUrl(location).split('?')[1]).get('next')).toBe(
       '/restaurante-x/mesa/5?rid=1&tk=ABC123#bebidas',
     );
+  });
+
+  it('resolve contexto TABLE sem remover query ou hash do next', () => {
+    const next = '/restaurante-x/mesa/12?rid=42&tk=abc#conta';
+    const result = resolveAuthExperience(new URLSearchParams({ next }));
+
+    expect(result).toEqual({
+      context: 'TABLE',
+      nextPath: next,
+      restaurantSlug: 'restaurante-x',
+      tableNumber: '12',
+    });
+  });
+
+  it('resolve rota pública normal como ONLINE', () => {
+    const next = '/restaurante-x?delivery=1#cardapio';
+    expect(resolveAuthExperience(new URLSearchParams({ next }))).toEqual({
+      context: 'ONLINE',
+      nextPath: next,
+      restaurantSlug: null,
+      tableNumber: null,
+    });
+  });
+
+  it('propaga entre telas de auth somente contexto seguro e necessário', () => {
+    const params = new URLSearchParams({
+      next: '/restaurante-x/mesa/5?rid=1&tk=abc#bebidas',
+      rid: '1',
+      slug: 'Restaurante-X',
+      arbitrary: 'não-propagar',
+      callbackUrl: 'https://evil.com',
+    });
+
+    const safe = getSafeAuthSearchParams(params);
+    expect(safe.get('next')).toBe('/restaurante-x/mesa/5?rid=1&tk=abc#bebidas');
+    expect(safe.get('rid')).toBe('1');
+    expect(safe.get('slug')).toBe('restaurante-x');
+    expect(safe.has('arbitrary')).toBe(false);
+    expect(safe.has('callbackUrl')).toBe(false);
+
+    const registerUrl = buildAuthEntryUrl('/register', params);
+    const registerParams = new URLSearchParams(registerUrl.split('?')[1]);
+    expect(registerParams.get('next')).toBe('/restaurante-x/mesa/5?rid=1&tk=abc#bebidas');
+  });
+
+  it('remove next inseguro e referências de restaurante malformadas', () => {
+    const params = new URLSearchParams({
+      next: '//evil.com',
+      rid: '-7',
+      slug: '../admin',
+    });
+
+    expect(buildAuthEntryUrl('/recover-password', params)).toBe('/recover-password');
   });
 });
