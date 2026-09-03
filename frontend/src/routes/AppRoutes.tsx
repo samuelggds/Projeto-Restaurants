@@ -21,7 +21,7 @@ const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'))
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
 const Home = lazy(() => import('../pages/Home/Home'));
-const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuEntryPage'));
+const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuIdentityEntryPage'));
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
 const AttendantPage = lazy(() => import('../pages/attendant/AttendantPage'));
