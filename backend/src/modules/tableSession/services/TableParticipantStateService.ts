@@ -160,7 +160,7 @@ export class TableParticipantStateService {
     const tableSessionId = normalizePositiveInteger(input.tableSessionId, 'Sessão');
     const restaurantId = normalizePositiveInteger(input.restaurantId, 'Restaurante');
     const now = input.now || new Date();
-    const blocked = await db.$queryRaw<Array<{ participantId: number }>>(Prisma.sql`
+    const blockedRows = await db.$queryRaw<Array<{ participantId: number }>>(Prisma.sql`
       SELECT "participantId"
       FROM "TableParticipantState"
       WHERE "restaurantId" = ${restaurantId}
@@ -169,6 +169,9 @@ export class TableParticipantStateService {
       ORDER BY "participantId" ASC
       FOR UPDATE
     `);
+    const blocked = blockedRows.filter(
+      (row) => Number.isSafeInteger(Number(row.participantId)) && Number(row.participantId) > 0,
+    );
     if (!blocked.length) return [];
 
     const ledgerItems = await loadTablePaymentLedgerItems(db, restaurantId, tableSessionId, now);
