@@ -43,7 +43,7 @@ export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
 export const Search = styled.label`
   min-height: 46px;
   border: 1px solid #e2dad2;
-  border-radius: 11px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   padding: 0 13px;
   display: flex;
@@ -95,7 +95,7 @@ export const SettingsNav = styled.nav`
     gap: 3px;
     padding: 8px;
     border: 1px solid rgba(226, 218, 210, 0.9);
-    border-radius: 14px;
+    border-radius: 10px;
     background: rgba(255, 255, 255, 0.72);
     box-shadow: 0 7px 22px rgba(58, 44, 34, 0.035);
     animation: settings-group-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -121,7 +121,7 @@ export const SettingsNav = styled.nav`
   .settings-empty {
     padding: 18px 14px;
     border: 1px dashed #ddd2c8;
-    border-radius: 12px;
+    border-radius: 8px;
     color: var(--muted);
     background: rgba(255, 255, 255, 0.65);
     font-size: 11px;
@@ -135,7 +135,7 @@ export const SettingsNav = styled.nav`
     width: 100%;
     min-height: 48px;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: 8px;
     background: transparent;
     color: #5a524c;
     display: flex;
@@ -206,7 +206,7 @@ export const SettingsNav = styled.nav`
     height: 32px;
     flex: 0 0 auto;
     padding: 7px;
-    border-radius: 9px;
+    border-radius: 8px;
     color: #71675f;
     background: #f3efea;
     transition:
@@ -289,7 +289,7 @@ export const MobileSettingsNav = styled.nav`
     gap: 7px;
     scroll-snap-align: start;
     border: 1px solid #e4ddd5;
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 0 12px;
     color: #625a53;
     background: #fff;
