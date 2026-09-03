@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { CheckCircle2, AlertCircle, Utensils, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import authService from '../../Services/authService';
@@ -8,7 +8,11 @@ import * as S from './styles';
 import { useAppDialog } from '../../components/AppDialog/context';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
-import { getSafeNextPath } from '../../shared/navigation/authNavigation';
+import {
+  buildAuthEntryUrl,
+  getSafeNextPath,
+  resolveAuthExperience,
+} from '../../shared/navigation/authNavigation';
 import { getRoleHome } from '../../routes/routeAuthorization';
 
 export default function Login() {
@@ -17,8 +21,11 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const isTechnicalAccess = location.pathname === '/super_admin/login';
   const branding = useRestaurantLoginBranding(searchParams);
-  const restaurantQuery = searchParams.toString();
   const safeNextPath = getSafeNextPath(searchParams.get('next'));
+  const authExperience = resolveAuthExperience(searchParams);
+  const registerPath = buildAuthEntryUrl('/register', searchParams);
+  const recoverPasswordPath = buildAuthEntryUrl('/recover-password', searchParams);
+  const isTableContext = !isTechnicalAccess && authExperience.context === 'TABLE';
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -281,6 +288,7 @@ export default function Login() {
   };
 
   const hasCover = Boolean(branding.logoUrl);
+  const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
 
   return (
     <ThemeProvider
@@ -290,7 +298,7 @@ export default function Login() {
         primaryHover: branding.primaryColor,
       }}
     >
-      <S.Container data-testid="login-layout">
+      <S.Container data-testid="login-layout" data-auth-context={authExperience.context}>
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -323,17 +331,27 @@ export default function Login() {
           <S.BrandSubtitle>
             {isTechnicalAccess
               ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
-              : branding.description}
+              : isTableContext
+                ? `Você está entrando para continuar o atendimento da ${tableLabel}.`
+                : branding.description}
           </S.BrandSubtitle>
         </S.BannerSection>
 
         <S.FormSection data-testid="login-form-section">
           <S.FormWrapper data-testid="login-card">
-            <S.WelcomeText>{isTechnicalAccess ? 'Acesso técnico' : 'Bem-vindo!'}</S.WelcomeText>
+            <S.WelcomeText>
+              {isTechnicalAccess
+                ? 'Acesso técnico'
+                : isTableContext
+                  ? `Continuar na ${tableLabel}`
+                  : 'Bem-vindo!'}
+            </S.WelcomeText>
             <S.FormSubtitle>
               {isTechnicalAccess
                 ? 'Entre com a conta exclusiva de Super Admin para acompanhar a manutenção.'
-                : 'Por favor, insira seus dados de acesso para continuar.'}
+                : isTableContext
+                  ? 'Entre com a mesma conta de cliente que você usa no cardápio online.'
+                  : 'Por favor, insira seus dados de acesso para continuar.'}
             </S.FormSubtitle>
 
             {feedback && (
@@ -409,19 +427,14 @@ export default function Login() {
                   Lembrar de mim
                 </S.CheckboxLabel>
                 {!isTechnicalAccess ? (
-                  <S.ForgotLink
-                    type="button"
-                    onClick={() =>
-                      navigate(`/recover-password${restaurantQuery ? `?${restaurantQuery}` : ''}`)
-                    }
-                  >
+                  <S.ForgotLink type="button" onClick={() => navigate(recoverPasswordPath)}>
                     Esqueceu a senha?
                   </S.ForgotLink>
                 ) : null}
               </S.Row>
 
               <S.Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Entrando...' : 'Entrar no Sistema'}
+                {isLoading ? 'Entrando...' : isTableContext ? `Entrar e continuar na ${tableLabel}` : 'Entrar no Sistema'}
               </S.Button>
             </S.Form>
 
@@ -444,7 +457,7 @@ export default function Login() {
                 </S.GoogleButtonContainer>
                 {googleMessage && <S.GoogleHint>{googleMessage}</S.GoogleHint>}
                 <S.RegisterText>
-                  Não tem uma conta? <a href="/register">Cadastre-se aqui</a>
+                  Não tem uma conta? <Link to={registerPath}>Cadastre-se aqui</Link>
                 </S.RegisterText>
               </>
             ) : null}
