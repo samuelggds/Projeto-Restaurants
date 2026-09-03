@@ -32,7 +32,7 @@ ALTER TABLE "TableServiceCall"
   ADD CONSTRAINT "TableServiceCall_participant_tenant_fkey"
   FOREIGN KEY ("participantId", "restaurantId")
   REFERENCES "TableParticipant"("id", "restaurantId")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+  ON DELETE CASCADE ON UPDATE CASCADE;
 
 DROP INDEX IF EXISTS "TableServiceCall_active_table_type_key";
 
