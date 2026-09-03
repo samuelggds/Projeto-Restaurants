@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
-import { Moon, Sun, Utensils } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../../Services/authService';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../features/password-policy';
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
+import { TenantBrandHero } from '../Login/components/TenantBrandHero';
 import {
   buildAuthEntryUrl,
   resolveAuthExperience,
@@ -155,19 +156,15 @@ export default function RecoverPassword() {
           $hasLogo={Boolean(branding.logoUrl)}
           data-has-cover={branding.logoUrl ? 'true' : 'false'}
         >
-          <S.BrandTitle>
-            {branding.logoUrl ? (
-              <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />
-            ) : (
-              <Utensils size={32} strokeWidth={2.5} />
-            )}
-            <span>{branding.name}</span>
-          </S.BrandTitle>
-          <S.BrandSubtitle>
-            {isTableContext
-              ? `Recupere seu acesso para voltar à ${tableLabel} sem perder o contexto do QR Code.`
-              : 'Recupere seu acesso de forma segura usando e-mail ou telefone cadastrado.'}
-          </S.BrandSubtitle>
+          <TenantBrandHero
+            branding={branding}
+            mode="recover"
+            overrideText={
+              isTableContext
+                ? `Recupere seu acesso para voltar à ${tableLabel} sem perder o contexto do QR Code.`
+                : null
+            }
+          />
         </S.BannerSection>
 
         <S.FormSection>
@@ -179,8 +176,8 @@ export default function RecoverPassword() {
               {step === 'request'
                 ? isTableContext
                   ? `Escolha e-mail ou telefone. Depois da redefinição você voltará ao login da ${tableLabel}.`
-                  : 'Escolha e-mail ou telefone e receba um codigo para redefinir sua senha.'
-                : 'Digite o codigo recebido e informe sua nova senha.'}
+                  : 'Escolha e-mail ou telefone e receba um código para redefinir sua senha.'
+                : 'Digite o código recebido e informe sua nova senha.'}
             </S.FormSubtitle>
 
             <S.Form onSubmit={step === 'request' ? handleRequestCode : handleResetPassword}>
@@ -228,13 +225,13 @@ export default function RecoverPassword() {
                     Código solicitado para {identifier}.
                   </S.AvailabilityNote>
                   <S.InputGroup>
-                    <S.Label htmlFor="reset-code">Codigo</S.Label>
+                    <S.Label htmlFor="reset-code">Código</S.Label>
                     <S.Input
                       id="reset-code"
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      placeholder="Codigo de 6 digitos"
+                      placeholder="Código de 6 dígitos"
                       value={code}
                       onChange={(event) =>
                         setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
@@ -296,7 +293,7 @@ export default function RecoverPassword() {
                 {isLoading
                   ? 'Processando...'
                   : step === 'request'
-                    ? 'Enviar codigo'
+                    ? 'Enviar código'
                     : isTableContext
                       ? `Redefinir e voltar ao login da ${tableLabel}`
                       : 'Redefinir senha'}
@@ -308,7 +305,7 @@ export default function RecoverPassword() {
                     Alterar contato
                   </S.SecondaryButton>
                   <S.SecondaryButton type="button" onClick={handleRequestCode} disabled={isLoading}>
-                    Reenviar codigo
+                    Reenviar código
                   </S.SecondaryButton>
                 </S.ActionRow>
               )}
