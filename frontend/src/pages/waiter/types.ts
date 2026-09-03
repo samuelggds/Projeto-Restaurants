@@ -102,6 +102,8 @@ export interface ServiceCall {
   status: CallStatus;
   elapsed: string;
   employeeName?: string;
+  customerName?: string;
+  customerPhone?: string;
   createdAt?: string;
   resolvedAt?: string;
 }
