@@ -22,7 +22,7 @@ export const Root = styled.div<{
   display: grid;
   grid-template-columns: ${({ $settings, $sidebarOpen }) => {
     const sidebar = $sidebarOpen === false ? '0px' : '236px';
-    return $settings ? `${sidebar} 298px minmax(0,1fr)` : `${sidebar} minmax(0,1fr)`;
+    return $settings ? `${sidebar} 320px minmax(0,1fr)` : `${sidebar} minmax(0,1fr)`;
   }};
   transition: grid-template-columns 250ms ease;
   *,
@@ -68,34 +68,61 @@ export const Root = styled.div<{
   }
 `;
 export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
-  height: 100vh;
+  height: 100dvh;
   position: sticky;
   top: 0;
-  background: linear-gradient(180deg, #fff 0%, #fcfaf7 100%);
-  border-right: 1px solid var(--border);
-  padding: 30px 14px;
+  background: linear-gradient(180deg, #fffdfb 0%, #f8f5f1 100%);
+  border-right: 1px solid #e7e0d8;
+  padding: 20px 14px 22px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d8cec4 transparent;
   display: ${({ $visible }) => ($visible ? 'block' : 'none')};
+
+  &::before {
+    content: 'Configurações';
+    display: block;
+    margin: 2px 8px 14px;
+    color: #29231f;
+    font-family: 'Sora', sans-serif;
+    font-size: 17px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+
+  &::-webkit-scrollbar {
+    width: 7px;
+  }
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #d8cec4;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   @media (max-width: 1080px) {
     display: none;
   }
 `;
 export const Search = styled.label`
-  height: 50px;
-  border: 1px solid #e3ddd6;
-  border-radius: 12px;
-  background: #f8f6f3;
+  min-height: 46px;
+  border: 1px solid #e2dad2;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.94);
   padding: 0 13px;
   display: flex;
   align-items: center;
-  gap: 11px;
-  margin-bottom: 26px;
+  gap: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 5px 16px rgba(54, 42, 32, 0.035);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
     background 180ms ease;
   &:focus-within {
-    border-color: color-mix(in srgb, var(--a) 65%, #fff);
+    border-color: color-mix(in srgb, var(--a) 60%, #fff);
     background: #fff;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 10%, transparent);
   }
@@ -105,88 +132,183 @@ export const Search = styled.label`
     border: 0;
     outline: 0;
     background: transparent;
+    color: #2d2824;
+    font-size: 12px;
+  }
+  input::placeholder {
+    color: #958b83;
   }
   svg {
-    color: #666;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    color: #766d66;
   }
 `;
 export const SettingsNav = styled.nav`
   display: grid;
-  gap: 4px;
+  gap: 12px;
+
   .settings-group {
     display: grid;
-    gap: 4px;
+    gap: 3px;
+    padding: 8px;
+    border: 1px solid rgba(226, 218, 210, 0.9);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 7px 22px rgba(58, 44, 34, 0.035);
   }
+
   .settings-group > small {
-    font-size: 10px;
-    font-weight: 700;
-    color: #777;
-    margin: 10px 0 4px;
+    padding: 4px 8px 7px;
+    color: #8c827a;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    text-transform: uppercase;
   }
+
   .settings-empty {
-    padding: 14px 8px;
+    padding: 18px 14px;
+    border: 1px dashed #ddd2c8;
+    border-radius: 12px;
     color: var(--muted);
+    background: rgba(255, 255, 255, 0.65);
     font-size: 11px;
-    line-height: 1.45;
+    line-height: 1.5;
+    text-align: center;
   }
+
   button {
-    height: 47px;
-    border: 0;
-    border-radius: 9px;
+    position: relative;
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid transparent;
+    border-radius: 10px;
     background: transparent;
-    color: #555;
+    color: #5a524c;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0 12px;
+    gap: 10px;
+    padding: 7px 10px;
     text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
     transition:
+      border-color 160ms ease,
       background 160ms ease,
       color 160ms ease,
-      transform 160ms ease;
+      box-shadow 160ms ease;
   }
+
+  button::after {
+    content: '›';
+    margin-left: auto;
+    color: #a79d95;
+    font-size: 19px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateX(-3px);
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease,
+      color 160ms ease;
+  }
+
   button:hover {
-    background: #f7f3ef;
-    color: #26221f;
-    transform: translateX(2px);
+    border-color: #ece4dd;
+    background: #fbf8f5;
+    color: #2c2723;
   }
+
+  button:hover::after,
+  button.active::after {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--a) 18%, transparent);
+    outline-offset: 2px;
+  }
+
   button.active {
-    background: #fbf0e7;
-    color: var(--a);
-    font-weight: 700;
+    border-color: color-mix(in srgb, var(--a) 24%, #eadfd6);
+    background: color-mix(in srgb, var(--a) 8%, #fff);
+    color: #2a2521;
+    font-weight: 750;
+    box-shadow:
+      inset 3px 0 var(--a),
+      0 7px 17px color-mix(in srgb, var(--a) 7%, transparent);
   }
+
+  button.active::after {
+    color: var(--a);
+  }
+
   svg {
-    width: 19px;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    padding: 7px;
+    border-radius: 9px;
+    color: #71675f;
+    background: #f3efea;
+    transition:
+      color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  button:hover svg {
+    color: var(--a);
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(55, 41, 31, 0.07);
+  }
+
+  button.active svg {
+    color: #fff;
+    background: var(--a);
+    box-shadow: 0 5px 12px color-mix(in srgb, var(--a) 24%, transparent);
   }
 `;
 export const MobileSettingsNav = styled.nav`
   display: none;
   width: 100%;
   min-width: 0;
-  gap: 7px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 11px 18px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 253, 249, 0.96);
+  background: rgba(255, 253, 249, 0.97);
+  box-shadow: 0 5px 16px rgba(48, 36, 28, 0.035);
   scrollbar-width: thin;
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline proximity;
 
   button {
     flex: 0 0 auto;
-    height: 39px;
+    min-height: 40px;
     display: inline-flex;
     align-items: center;
     gap: 7px;
     scroll-snap-align: start;
     border: 1px solid #e4ddd5;
-    border-radius: 999px;
-    padding: 0 13px;
-    color: #5f5750;
+    border-radius: 10px;
+    padding: 0 12px;
+    color: #625a53;
     background: #fff;
     font-size: 11px;
-    font-weight: 750;
+    font-weight: 700;
     white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(48, 36, 28, 0.025);
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
   }
 
   button svg {
@@ -194,11 +316,16 @@ export const MobileSettingsNav = styled.nav`
     height: 15px;
   }
 
+  button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--a) 16%, transparent);
+    outline-offset: 2px;
+  }
+
   button.active {
-    border-color: color-mix(in srgb, var(--a) 42%, #fff);
-    color: var(--a);
-    background: color-mix(in srgb, var(--a) 9%, white);
-    box-shadow: 0 5px 13px color-mix(in srgb, var(--a) 10%, transparent);
+    border-color: color-mix(in srgb, var(--a) 34%, #e3d7cd);
+    color: color-mix(in srgb, var(--a) 88%, #2d2722);
+    background: color-mix(in srgb, var(--a) 8%, white);
+    box-shadow: 0 6px 15px color-mix(in srgb, var(--a) 9%, transparent);
   }
 
   @media (max-width: 1080px) {
