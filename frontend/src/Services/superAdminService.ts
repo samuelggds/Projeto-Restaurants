@@ -7,10 +7,17 @@ import type {
   RestaurantAccessInput,
   SubscriptionUpdateInput,
 } from '../pages/super_admin/types';
+import type { RestaurantCategory } from '../config/restaurantCategory';
 
 export interface CreateRestaurantInput {
   plan: string;
-  restaurant: { name: string; slug: string; email: string; phone?: string };
+  restaurant: {
+    name: string;
+    slug: string;
+    email: string;
+    phone?: string;
+    category: RestaurantCategory;
+  };
   admin: { name: string; email: string; password: string };
 }
 
