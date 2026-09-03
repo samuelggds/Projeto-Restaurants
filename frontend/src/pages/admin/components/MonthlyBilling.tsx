@@ -1,15 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowRight,
+  BadgeCheck,
   CalendarClock,
+  CalendarDays,
+  Check,
   CheckCircle2,
+  CircleAlert,
+  Clock3,
   Copy,
   CreditCard,
+  FileText,
+  Info,
   Layers3,
+  LockKeyhole,
   QrCode,
+  ShieldCheck,
   Sparkles,
+  WalletCards,
+  X,
   Zap,
 } from 'lucide-react';
-import { toast } from 'react-toastify';
 import monthlyBillingService, {
   type BillingPlan,
   type BillingOverview,
@@ -43,8 +54,8 @@ const fallbackPlans: BillingPlan[] = [
 ];
 
 const planDescriptions: Record<PlanCode, string> = {
-  BASICO: 'Para restaurantes que trabalham somente com pedidos por delivery.',
-  PREMIUM: 'A experiência completa para delivery e atendimento nas mesas por QR Code.',
+  BASICO: 'O essencial para receber e gerenciar pedidos de delivery.',
+  PREMIUM: 'A operação completa, com delivery e atendimento nas mesas por QR Code.',
 };
 
 const planIcons = { BASICO: Zap, PREMIUM: Sparkles };
@@ -58,8 +69,10 @@ const invoiceLabels: Record<string, string> = {
   PENDENTE: 'Pendente',
   PAGO: 'Pago',
   ATRASADO: 'Atrasado',
+  VENCIDO: 'Vencido',
   CANCELADO: 'Cancelado',
 };
+const payableStatuses = new Set(['PENDENTE', 'ATRASADO', 'VENCIDO']);
 
 const money = (value: number | string) =>
   Number(value || 0).toLocaleString('pt-BR', {
@@ -67,12 +80,24 @@ const money = (value: number | string) =>
     currency: 'BRL',
   });
 const date = (value?: string | null) =>
-  value ? new Intl.DateTimeFormat('pt-BR').format(new Date(value)) : '--';
+  value ? new Intl.DateTimeFormat('pt-BR').format(new Date(value)) : 'Não informado';
 const errorMessage = (error: unknown) =>
   (error as { response?: { data?: { error?: string } } }).response?.data?.error;
 
+function getInvoiceTone(status?: string) {
+  if (status === 'PAGO') return 'success';
+  if (status === 'ATRASADO' || status === 'VENCIDO') return 'danger';
+  if (status === 'PENDENTE') return 'warning';
+  return 'neutral';
+}
+
 type MonthlyBillingProps = {
   restricted?: boolean;
+};
+
+type BillingFeedback = {
+  tone: 'success' | 'error';
+  message: string;
 };
 
 export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {}) {
@@ -84,6 +109,8 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
   const [loading, setLoading] = useState(true);
   const [changingPlan, setChangingPlan] = useState<PlanCode | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<BillingFeedback | null>(null);
+  const [pixCopyState, setPixCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [pix, setPix] = useState<{
     invoice: Invoice;
     qrCode: string;
@@ -107,7 +134,10 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
         clearSystemBlockState();
       }
     } catch (error) {
-      toast.error(errorMessage(error) || 'Não foi possível carregar as mensalidades.');
+      setFeedback({
+        tone: 'error',
+        message: errorMessage(error) || 'Não foi possível carregar as mensalidades.',
+      });
     } finally {
       setLoading(false);
     }
@@ -131,7 +161,10 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
         if (paidInvoice) {
           window.clearInterval(timer);
           setPix(null);
-          toast.success('Pagamento confirmado. A escolha do plano foi liberada.');
+          setFeedback({
+            tone: 'success',
+            message: 'Pagamento confirmado. A escolha do plano foi liberada.',
+          });
           await load();
         }
       } catch {
@@ -142,14 +175,40 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     return () => window.clearInterval(timer);
   }, [load, pix]);
 
+  useEffect(() => {
+    if (feedback?.tone !== 'success') return;
+    const timer = window.setTimeout(() => setFeedback(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  useEffect(() => {
+    if (!pix) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPix(null);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeWithEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeWithEscape);
+    };
+  }, [pix]);
+
   const changePlan = async (plan: PlanCode) => {
     setChangingPlan(plan);
     try {
       const result = await monthlyBillingService.requestPlanChange(plan);
-      toast.success(result.message || 'Troca de plano agendada.');
+      setFeedback({
+        tone: 'success',
+        message: result.message || 'Troca de plano agendada.',
+      });
       await load();
     } catch (error) {
-      toast.error(errorMessage(error) || 'Não foi possível alterar o plano.');
+      setFeedback({
+        tone: 'error',
+        message: errorMessage(error) || 'Não foi possível alterar o plano.',
+      });
     } finally {
       setChangingPlan(null);
     }
@@ -159,6 +218,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     setPayingInvoice(invoice.id);
     try {
       const result = await monthlyBillingService.generatePix(invoice.id);
+      setPixCopyState('idle');
       setPix({
         invoice,
         qrCode: result.pixQrCode,
@@ -166,10 +226,12 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
         expiresAt: result.pixExpiresAt,
       });
     } catch (error) {
-      toast.error(
-        errorMessage(error) ||
+      setFeedback({
+        tone: 'error',
+        message:
+          errorMessage(error) ||
           (error instanceof Error ? error.message : 'Não foi possível gerar o Pix.'),
-      );
+      });
     } finally {
       setPayingInvoice(null);
     }
@@ -177,22 +239,27 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
 
   const copyPix = async () => {
     if (!pix?.qrCode) return;
-    await navigator.clipboard.writeText(pix.qrCode);
-    toast.success('Código Pix copiado.');
+    try {
+      await navigator.clipboard.writeText(pix.qrCode);
+      setPixCopyState('copied');
+    } catch {
+      setPixCopyState('error');
+    }
   };
 
-  if (loading) return <S.Loading>Carregando planos e mensalidades...</S.Loading>;
-
+  const displayedPlans = useMemo(() => (plans.length ? plans : fallbackPlans), [plans]);
   const active = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  const displayedPlans = plans.length ? plans : fallbackPlans;
   const currentPlan = displayedPlans.find((plan) => plan.plan === subscription?.plan);
   const scheduledPlan = displayedPlans.find((plan) => plan.plan === subscription?.scheduledPlan);
   const planChoice = subscription?.planChangeEligibility;
-  const payableStatuses = new Set(['PENDENTE', 'ATRASADO', 'VENCIDO']);
   const currentInvoice =
     invoices.find((invoice) => invoice.id === billing?.currentInvoiceId) ||
     invoices.find((invoice) => payableStatuses.has(invoice.status));
   const currentPixAvailable = Boolean(currentInvoice && billing?.pixAvailable);
+  const openInvoices = invoices.filter((invoice) => payableStatuses.has(invoice.status));
+  const paidInvoices = invoices.filter((invoice) => invoice.status === 'PAGO');
+  const currentStatus =
+    statusLabels[subscription?.status || ''] || subscription?.status || 'Não configurada';
 
   const invoicePixAvailable = (invoice: Invoice) => {
     if (invoice.status === 'ATRASADO') return true;
@@ -203,94 +270,240 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     return new Date() >= availableAt;
   };
 
+  if (loading) {
+    return (
+      <S.Loading role="status" aria-live="polite">
+        <span className="spinner" aria-hidden="true" />
+        <strong>Organizando sua área financeira</strong>
+        <small>Carregando planos e mensalidades...</small>
+      </S.Loading>
+    );
+  }
+
   return (
     <S.Shell>
-      <S.Summary>
-        <div>
-          <small>SEU PLANO ATUAL</small>
-          <h2>{currentPlan?.name || subscription?.plan || 'Sem plano'}</h2>
+      <S.BillingHero aria-labelledby="billing-hero-title">
+        <S.HeroCopy>
+          <span className="eyebrow">
+            <Sparkles aria-hidden="true" /> Gestão da assinatura
+          </span>
+          <h2 id="billing-hero-title">
+            {active ? 'Sua assinatura está em dia' : 'Sua assinatura precisa de atenção'}
+          </h2>
           <p>
-            {currentPlan
-              ? `${money(currentPlan.monthlyFee)} por mês`
-              : 'Escolha o plano ideal para o restaurante.'}
+            Veja o plano contratado, acompanhe os próximos vencimentos e resolva pagamentos em um só
+            lugar.
           </p>
-        </div>
-        <S.Status $active={active}>
-          {statusLabels[subscription?.status || ''] || subscription?.status || 'Não configurada'}
-        </S.Status>
-      </S.Summary>
+          <S.HeroFacts aria-label="Resumo da assinatura">
+            <span>
+              <Layers3 aria-hidden="true" />
+              <small>Plano</small>
+              <strong>{currentPlan?.name || subscription?.plan || 'Não definido'}</strong>
+            </span>
+            <span>
+              <WalletCards aria-hidden="true" />
+              <small>Mensalidade</small>
+              <strong>{currentPlan ? money(currentPlan.monthlyFee) : 'A definir'}</strong>
+            </span>
+            <span>
+              <CalendarDays aria-hidden="true" />
+              <small>Próximo vencimento</small>
+              <strong>{date(billing?.dueDate || currentInvoice?.dueDate)}</strong>
+            </span>
+          </S.HeroFacts>
+        </S.HeroCopy>
+
+        <S.HeroStatusPanel $active={active}>
+          <span className="status-icon" aria-hidden="true">
+            {active ? <ShieldCheck /> : <CircleAlert />}
+          </span>
+          <small>Status da assinatura</small>
+          <strong>{currentStatus}</strong>
+          <p>
+            {active
+              ? 'Todos os recursos do seu plano estão disponíveis.'
+              : 'Regularize a situação para manter a operação disponível.'}
+          </p>
+          <button type="button" onClick={() => setView('charges')}>
+            {currentInvoice ? 'Ver cobrança atual' : 'Ver histórico'}
+            <ArrowRight aria-hidden="true" />
+          </button>
+        </S.HeroStatusPanel>
+      </S.BillingHero>
+
+      {feedback ? (
+        <S.FeedbackBanner
+          $tone={feedback.tone}
+          role={feedback.tone === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          <span aria-hidden="true">
+            {feedback.tone === 'success' ? <CheckCircle2 /> : <CircleAlert />}
+          </span>
+          <div>
+            <strong>
+              {feedback.tone === 'success' ? 'Tudo certo' : 'Não foi possível concluir'}
+            </strong>
+            <p>{feedback.message}</p>
+          </div>
+          <button type="button" aria-label="Fechar aviso" onClick={() => setFeedback(null)}>
+            <X aria-hidden="true" />
+          </button>
+        </S.FeedbackBanner>
+      ) : null}
 
       {subscription?.status === 'TESTE' && subscription.trialEndsAt ? (
-        <S.Notice>
-          Seu período de teste termina em <strong>{date(subscription.trialEndsAt)}</strong>.
+        <S.Notice $tone="info" role="status">
+          <span aria-hidden="true">
+            <Clock3 />
+          </span>
+          <div>
+            <strong>Período de teste em andamento</strong>
+            <p>
+              Você pode usar os recursos do plano até <b>{date(subscription.trialEndsAt)}</b>.
+            </p>
+          </div>
         </S.Notice>
       ) : null}
       {scheduledPlan ? (
-        <S.Notice>
-          A troca para <strong>{scheduledPlan.name}</strong> está agendada para{' '}
-          {String(subscription?.scheduledPlanEffectiveMonth).padStart(2, '0')}/
-          {subscription?.scheduledPlanEffectiveYear}.
+        <S.Notice $tone="warning" role="status">
+          <span aria-hidden="true">
+            <CalendarClock />
+          </span>
+          <div>
+            <strong>Troca de plano agendada</strong>
+            <p>
+              O plano muda para <b>{scheduledPlan.name}</b> em{' '}
+              {String(subscription?.scheduledPlanEffectiveMonth).padStart(2, '0')}/
+              {subscription?.scheduledPlanEffectiveYear}. Até lá, o plano atual continua ativo.
+            </p>
+          </div>
         </S.Notice>
       ) : null}
 
-      <S.ViewTabs aria-label="Seções de cobrança e assinatura">
+      <S.ViewTabs role="tablist" aria-label="Seções de cobrança e assinatura">
         {!restricted ? (
-          <button className={view === 'plans' ? 'active' : ''} onClick={() => setView('plans')}>
-            <Layers3 size={17} /> Assinatura e planos
+          <button
+            role="tab"
+            type="button"
+            aria-selected={view === 'plans'}
+            className={view === 'plans' ? 'active' : ''}
+            onClick={() => setView('plans')}
+          >
+            <Layers3 aria-hidden="true" />
+            <span>
+              <strong>Planos</strong>
+              <small>Compare os benefícios</small>
+            </span>
           </button>
         ) : null}
-        <button className={view === 'charges' ? 'active' : ''} onClick={() => setView('charges')}>
-          <CreditCard size={17} /> Cobranças
+        <button
+          role="tab"
+          type="button"
+          aria-selected={view === 'charges'}
+          className={view === 'charges' ? 'active' : ''}
+          onClick={() => setView('charges')}
+        >
+          <CreditCard aria-hidden="true" />
+          <span>
+            <strong>Cobranças</strong>
+            <small>Vencimentos e pagamentos</small>
+          </span>
+          {openInvoices.length ? <em>{openInvoices.length}</em> : null}
         </button>
       </S.ViewTabs>
 
       {!restricted && view === 'plans' ? (
-        <>
-          <S.SectionTitle>
-            <h2>Planos disponíveis</h2>
-            <p>
-              {planChoice?.reason || 'A escolha é liberada depois que uma fatura vencida for paga.'}
-            </p>
-          </S.SectionTitle>
+        <S.ViewPanel role="tabpanel">
+          <S.SectionHeader>
+            <div>
+              <span className="section-icon" aria-hidden="true">
+                <Layers3 />
+              </span>
+              <span>
+                <small>ESCOLHA COM TRANQUILIDADE</small>
+                <h2>Encontre o plano certo para sua operação</h2>
+                <p>Compare os recursos e programe a mudança para o próximo ciclo.</p>
+              </span>
+            </div>
+            <S.ChoiceStatus $available={Boolean(planChoice?.allowed)}>
+              {planChoice?.allowed ? (
+                <CheckCircle2 aria-hidden="true" />
+              ) : (
+                <LockKeyhole aria-hidden="true" />
+              )}
+              <span>
+                <strong>
+                  {planChoice?.allowed ? 'Troca disponível' : 'Troca indisponível agora'}
+                </strong>
+                <small>
+                  {planChoice?.reason ||
+                    'A escolha é liberada depois que uma fatura vencida for paga.'}
+                </small>
+              </span>
+            </S.ChoiceStatus>
+          </S.SectionHeader>
+
           <S.Plans>
             {displayedPlans.map((plan) => {
               const Icon = planIcons[plan.plan];
               const current = subscription?.plan === plan.plan;
+              const planFeatures = plan.features?.length ? plan.features : benefits[plan.plan];
+              const actionDisabled =
+                !planChoice?.allowed ||
+                Boolean(changingPlan) ||
+                Boolean(subscription?.scheduledPlan);
               return (
-                <S.PlanCard key={plan.plan} $featured={plan.plan === 'PREMIUM'} $current={current}>
-                  {current ? <S.CurrentTag>Plano atual</S.CurrentTag> : null}
-                  {plan.plan === 'PREMIUM' && !current ? (
-                    <S.RecommendedTag>Recomendado</S.RecommendedTag>
-                  ) : null}
-                  <S.PlanHeading>
-                    <span>
-                      <Icon size={22} />
-                    </span>
-                    <div>
-                      <small>PLANO</small>
-                      <h3>{plan.name}</h3>
-                    </div>
-                  </S.PlanHeading>
+                <S.PlanCard
+                  key={plan.plan}
+                  $featured={plan.plan === 'PREMIUM'}
+                  $current={current}
+                  aria-label={`Plano ${plan.name}${current ? ', plano atual' : ''}`}
+                >
+                  <S.PlanCardTop>
+                    <S.PlanHeading>
+                      <span>
+                        <Icon aria-hidden="true" />
+                      </span>
+                      <div>
+                        <small>
+                          {plan.plan === 'PREMIUM' ? 'EXPERIÊNCIA COMPLETA' : 'PARA COMEÇAR'}
+                        </small>
+                        <h3>{plan.name}</h3>
+                      </div>
+                    </S.PlanHeading>
+                    {current ? (
+                      <S.PlanTag $tone="current">
+                        <BadgeCheck aria-hidden="true" /> Atual
+                      </S.PlanTag>
+                    ) : plan.plan === 'PREMIUM' ? (
+                      <S.PlanTag $tone="recommended">Mais completo</S.PlanTag>
+                    ) : null}
+                  </S.PlanCardTop>
                   <p className="description">{planDescriptions[plan.plan]}</p>
                   <div className="price">
-                    {money(plan.monthlyFee)} <small>por mês</small>
+                    <strong>{money(plan.monthlyFee)}</strong>
+                    <span>
+                      por mês
+                      {plan.trialDays ? <small>{plan.trialDays} dias de teste</small> : null}
+                    </span>
                   </div>
                   <S.Benefits>
-                    {(plan.features?.length ? plan.features : benefits[plan.plan]).map(
-                      (benefit) => (
-                        <li key={benefit}>
-                          <CheckCircle2 size={16} /> <span>{benefit}</span>
-                        </li>
-                      ),
-                    )}
+                    <span>O que está incluído</span>
+                    {planFeatures.map((benefit) => (
+                      <li key={benefit}>
+                        <i aria-hidden="true">
+                          <Check />
+                        </i>
+                        <span>{benefit}</span>
+                      </li>
+                    ))}
                   </S.Benefits>
                   <S.ChoosePlanButton
                     $current={current}
-                    disabled={
-                      !planChoice?.allowed ||
-                      Boolean(changingPlan) ||
-                      Boolean(subscription?.scheduledPlan)
-                    }
+                    type="button"
+                    disabled={actionDisabled}
+                    title={actionDisabled ? planChoice?.reason : undefined}
                     onClick={() => void changePlan(plan.plan)}
                   >
                     {changingPlan === plan.plan
@@ -298,121 +511,253 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
                       : current && planChoice?.allowed
                         ? 'Continuar neste plano'
                         : current
-                          ? 'Plano atual'
+                          ? 'Este é o seu plano'
                           : planChoice?.allowed
                             ? 'Escolher para o próximo ciclo'
-                            : 'Escolha bloqueada'}
+                            : 'Escolha indisponível'}
+                    {!current && planChoice?.allowed ? <ArrowRight aria-hidden="true" /> : null}
                   </S.ChoosePlanButton>
                 </S.PlanCard>
               );
             })}
           </S.Plans>
-        </>
+          <S.PlanFootnote>
+            <Info aria-hidden="true" />
+            <span>
+              A alteração não interrompe sua operação. Quando permitida, ela é programada para o
+              próximo ciclo de cobrança.
+            </span>
+          </S.PlanFootnote>
+        </S.ViewPanel>
       ) : (
-        <>
-          <S.SectionTitle>
-            <h2>Mensalidades</h2>
-            <p>Acompanhe vencimentos, pagamentos e mensalidades pendentes.</p>
-          </S.SectionTitle>
+        <S.ViewPanel role="tabpanel">
+          <S.SectionHeader>
+            <div>
+              <span className="section-icon charges" aria-hidden="true">
+                <WalletCards />
+              </span>
+              <span>
+                <small>CONTROLE FINANCEIRO</small>
+                <h2>Mensalidades e pagamentos</h2>
+                <p>Veja primeiro o que exige ação e consulte o histórico quando precisar.</p>
+              </span>
+            </div>
+            <S.InvoiceOverview aria-label="Resumo das mensalidades">
+              <span>
+                <small>Em aberto</small>
+                <strong>{openInvoices.length}</strong>
+              </span>
+              <span>
+                <small>Pagas</small>
+                <strong>{paidInvoices.length}</strong>
+              </span>
+            </S.InvoiceOverview>
+          </S.SectionHeader>
+
+          <S.ChargeMetrics>
+            <S.ChargeMetric $tone={getInvoiceTone(currentInvoice?.status)}>
+              <span className="metric-icon" aria-hidden="true">
+                <FileText />
+              </span>
+              <span>
+                <small>Cobrança atual</small>
+                <strong>
+                  {currentInvoice ? money(currentInvoice.total) : 'Nenhuma pendência'}
+                </strong>
+                <em>
+                  {currentInvoice
+                    ? invoiceLabels[currentInvoice.status] || currentInvoice.status
+                    : 'Tudo em dia'}
+                </em>
+              </span>
+            </S.ChargeMetric>
+            <S.ChargeMetric $tone="neutral">
+              <span className="metric-icon" aria-hidden="true">
+                <CalendarDays />
+              </span>
+              <span>
+                <small>Vencimento</small>
+                <strong>{date(billing?.dueDate || currentInvoice?.dueDate)}</strong>
+                <em>{currentInvoice ? 'Data da mensalidade atual' : 'Sem cobrança em aberto'}</em>
+              </span>
+            </S.ChargeMetric>
+            <S.ChargeMetric $tone={currentPixAvailable ? 'success' : 'neutral'}>
+              <span className="metric-icon" aria-hidden="true">
+                <QrCode />
+              </span>
+              <span>
+                <small>Pagamento via Pix</small>
+                <strong>{currentPixAvailable ? 'Disponível agora' : 'Ainda não liberado'}</strong>
+                <em>
+                  {currentInvoice
+                    ? currentPixAvailable
+                      ? 'Confirmação automática'
+                      : `Liberação em ${date(billing?.pixAvailableAt)}`
+                    : 'Nenhum pagamento necessário'}
+                </em>
+              </span>
+            </S.ChargeMetric>
+          </S.ChargeMetrics>
+
           <S.BillingCard>
             <S.BillingCardHeader>
               <div>
                 <span className="label">
-                  <CalendarClock size={16} /> Ciclo da assinatura
+                  <CalendarClock aria-hidden="true" /> Ciclo da assinatura
                 </span>
-                <h2>{billing?.completedMonths || 0} meses completos</h2>
-                <p>Contagem iniciada quando o restaurante e seu primeiro Admin foram vinculados.</p>
+                <h2>{billing?.currentCycle || 1}º mês da sua assinatura</h2>
+                <p>
+                  {billing?.completedMonths || 0}{' '}
+                  {(billing?.completedMonths || 0) === 1 ? 'mês completo' : 'meses completos'} até
+                  agora.
+                </p>
               </div>
-              <div className="cycle">
+              <div className="cycle" aria-label={`${billing?.currentCycle || 1}º ciclo atual`}>
                 <small>CICLO ATUAL</small>
-                <strong>{billing?.currentCycle || 1}º mês</strong>
+                <strong>{billing?.currentCycle || 1}º</strong>
+                <span>mês</span>
               </div>
             </S.BillingCardHeader>
-            <S.BillingDates>
-              <div>
-                <span>Restaurante criado em</span>
+
+            <S.BillingTimeline aria-label="Datas do ciclo da assinatura">
+              <div className="completed">
+                <span className="step-icon">
+                  <Check aria-hidden="true" />
+                </span>
+                <small>Restaurante criado</small>
                 <strong>{date(billing?.restaurantCreatedAt)}</strong>
               </div>
-              <div>
-                <span>Admin vinculado em</span>
-                <strong>
-                  {date(billing?.adminCreatedAt)}
-                  {billing?.adminName ? ` • ${billing.adminName}` : ''}
-                </strong>
+              <div className="completed">
+                <span className="step-icon">
+                  <Check aria-hidden="true" />
+                </span>
+                <small>Admin vinculado</small>
+                <strong>{date(billing?.adminCreatedAt)}</strong>
+                {billing?.adminName ? <em>{billing.adminName}</em> : null}
               </div>
-              <div>
-                <span>Vencimento da mensalidade</span>
+              <div className="current">
+                <span className="step-icon">
+                  <CalendarDays aria-hidden="true" />
+                </span>
+                <small>Vencimento</small>
                 <strong>{date(billing?.dueDate || currentInvoice?.dueDate)}</strong>
               </div>
               <div className="grace">
-                <span>Limite com 5 dias úteis</span>
+                <span className="step-icon">
+                  <ShieldCheck aria-hidden="true" />
+                </span>
+                <small>Prazo de segurança</small>
                 <strong>{date(billing?.graceLimitDate)}</strong>
+                <em>5 dias úteis</em>
               </div>
-            </S.BillingDates>
-            <S.BillingPayment>
+            </S.BillingTimeline>
+
+            <S.BillingPayment $available={currentPixAvailable}>
+              <span className="payment-icon" aria-hidden="true">
+                <QrCode />
+              </span>
               <div>
-                <h3>Pagamento mensal via Pix Mercado Pago</h3>
+                <small>{currentPixAvailable ? 'PAGAMENTO DISPONÍVEL' : 'PRÓXIMA ETAPA'}</small>
+                <h3>
+                  {currentPixAvailable
+                    ? `Pague ${currentInvoice ? money(currentInvoice.total) : 'a mensalidade'} via Pix`
+                    : 'Pagamento mensal via Pix Mercado Pago'}
+                </h3>
                 <p>
                   {currentInvoice && currentPixAvailable
-                    ? `Mensalidade atual: ${money(currentInvoice.total)}. O valor é recebido pela conta Mercado Pago do dono da plataforma e a confirmação é automática.`
+                    ? 'Gere o QR Code, pague pelo aplicativo do seu banco e aguarde a confirmação automática.'
                     : currentInvoice
-                      ? `O QR Code será liberado em ${date(billing?.pixAvailableAt)}, próximo ao vencimento da mensalidade.`
-                      : 'Não existe mensalidade pendente para gerar o QR Code neste momento.'}
+                      ? `O QR Code será liberado em ${date(billing?.pixAvailableAt)}, próximo ao vencimento.`
+                      : 'Não existe mensalidade pendente. Quando uma nova cobrança for gerada, ela aparecerá aqui.'}
                 </p>
               </div>
               <button
+                type="button"
                 disabled={!currentPixAvailable || payingInvoice === currentInvoice?.id}
                 onClick={() => currentInvoice && void payInvoice(currentInvoice)}
               >
-                <QrCode size={18} />
+                <QrCode aria-hidden="true" />
                 {currentInvoice && payingInvoice === currentInvoice.id
                   ? 'Gerando QR Code...'
-                  : 'Gerar QR Code Pix'}
+                  : currentPixAvailable
+                    ? 'Gerar QR Code Pix'
+                    : 'Pix ainda não disponível'}
               </button>
             </S.BillingPayment>
           </S.BillingCard>
-          {invoices.length ? (
-            <S.Invoices>
-              {invoices.map((invoice) => (
-                <S.InvoiceRow key={invoice.id}>
-                  <div>
-                    <h3>
-                      Mensalidade {String(invoice.month).padStart(2, '0')}/{invoice.year}
-                    </h3>
-                    <p>
-                      Vencimento em {date(invoice.dueDate)}
-                      {invoice.paidAt ? ` • Pago em ${date(invoice.paidAt)}` : ''}
-                    </p>
-                  </div>
-                  <strong>{money(invoice.total)}</strong>
-                  <S.InvoiceStatus $status={invoice.status}>
-                    {invoiceLabels[invoice.status] || invoice.status}
-                  </S.InvoiceStatus>
-                  {invoice.status === 'PAGO' ? (
-                    <S.PaidMark title="Mensalidade paga">
-                      <CheckCircle2 size={22} />
-                    </S.PaidMark>
-                  ) : payableStatuses.has(invoice.status) ? (
-                    <button
-                      disabled={!invoicePixAvailable(invoice) || payingInvoice === invoice.id}
-                      onClick={() => void payInvoice(invoice)}
-                    >
-                      {payingInvoice === invoice.id
-                        ? 'Gerando Pix...'
-                        : invoicePixAvailable(invoice)
-                          ? 'Pagar com Pix'
-                          : 'Pix ainda não disponível'}
-                    </button>
-                  ) : (
-                    <S.InvoiceUnavailable>Pagamento indisponível</S.InvoiceUnavailable>
-                  )}
-                </S.InvoiceRow>
-              ))}
-            </S.Invoices>
-          ) : (
-            <S.Empty>Nenhuma mensalidade foi gerada para este restaurante ainda.</S.Empty>
-          )}
-        </>
+
+          <S.HistorySection>
+            <S.HistoryHeader>
+              <div>
+                <span className="history-icon" aria-hidden="true">
+                  <FileText />
+                </span>
+                <span>
+                  <h3>Histórico de mensalidades</h3>
+                  <p>Comprovantes, vencimentos e situação de cada cobrança.</p>
+                </span>
+              </div>
+              <strong>
+                {invoices.length} {invoices.length === 1 ? 'mensalidade' : 'mensalidades'}
+              </strong>
+            </S.HistoryHeader>
+            {invoices.length ? (
+              <S.Invoices>
+                {invoices.map((invoice) => {
+                  const pixAvailable = invoicePixAvailable(invoice);
+                  const tone = getInvoiceTone(invoice.status);
+                  return (
+                    <S.InvoiceRow key={invoice.id} $tone={tone}>
+                      <span className="invoice-icon" aria-hidden="true">
+                        {invoice.status === 'PAGO' ? <CheckCircle2 /> : <FileText />}
+                      </span>
+                      <div className="invoice-copy">
+                        <h3>
+                          Mensalidade {String(invoice.month).padStart(2, '0')}/{invoice.year}
+                        </h3>
+                        <p>
+                          Vencimento em {date(invoice.dueDate)}
+                          {invoice.paidAt ? ` • Pago em ${date(invoice.paidAt)}` : ''}
+                        </p>
+                      </div>
+                      <strong className="invoice-value">{money(invoice.total)}</strong>
+                      <S.InvoiceStatus $status={invoice.status}>
+                        {invoiceLabels[invoice.status] || invoice.status}
+                      </S.InvoiceStatus>
+                      {invoice.status === 'PAGO' ? (
+                        <S.PaidMark title="Mensalidade paga" aria-label="Mensalidade paga">
+                          <CheckCircle2 aria-hidden="true" />
+                        </S.PaidMark>
+                      ) : payableStatuses.has(invoice.status) ? (
+                        <button
+                          type="button"
+                          disabled={!pixAvailable || payingInvoice === invoice.id}
+                          onClick={() => void payInvoice(invoice)}
+                        >
+                          {payingInvoice === invoice.id
+                            ? 'Gerando Pix...'
+                            : pixAvailable
+                              ? 'Pagar com Pix'
+                              : 'Pix em breve'}
+                        </button>
+                      ) : (
+                        <S.InvoiceUnavailable>Indisponível</S.InvoiceUnavailable>
+                      )}
+                    </S.InvoiceRow>
+                  );
+                })}
+              </S.Invoices>
+            ) : (
+              <S.Empty>
+                <span aria-hidden="true">
+                  <FileText />
+                </span>
+                <strong>Nenhuma mensalidade gerada</strong>
+                <p>Assim que o primeiro ciclo for fechado, o histórico aparecerá aqui.</p>
+              </S.Empty>
+            )}
+          </S.HistorySection>
+        </S.ViewPanel>
       )}
 
       {pix ? (
@@ -420,27 +765,48 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
           <S.PixModal
             role="dialog"
             aria-modal="true"
-            aria-label="Pagamento Pix Mercado Pago"
+            aria-labelledby="pix-payment-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button className="close" aria-label="Fechar" onClick={() => setPix(null)}>
-              ×
+            <button
+              className="close"
+              type="button"
+              aria-label="Fechar"
+              onClick={() => setPix(null)}
+            >
+              <X aria-hidden="true" />
             </button>
             <span className="brand">
-              <QrCode size={17} /> Pix Mercado Pago
+              <QrCode aria-hidden="true" /> Pagamento seguro via Pix
             </span>
-            <h2>Pague sua mensalidade</h2>
+            <h2 id="pix-payment-title">Pague sua mensalidade</h2>
             <p>Escaneie o QR Code pelo aplicativo do seu banco ou copie o código Pix.</p>
-            <img
-              src={`data:image/png;base64,${pix.qrCodeBase64}`}
-              alt="QR Code Pix da mensalidade"
-            />
+            <div className="qr-frame">
+              <img
+                src={`data:image/png;base64,${pix.qrCodeBase64}`}
+                alt="QR Code Pix da mensalidade"
+              />
+            </div>
+            <small className="amount-label">VALOR DA MENSALIDADE</small>
             <div className="amount">{money(pix.invoice.total)}</div>
-            <button className="copy" onClick={() => void copyPix()}>
-              <Copy size={17} /> Copiar código Pix
+            <button className="copy" type="button" onClick={() => void copyPix()}>
+              {pixCopyState === 'copied' ? (
+                <Check aria-hidden="true" />
+              ) : (
+                <Copy aria-hidden="true" />
+              )}
+              {pixCopyState === 'copied' ? 'Código copiado' : 'Copiar código Pix'}
             </button>
+            {pixCopyState !== 'idle' ? (
+              <span className={`copy-feedback ${pixCopyState}`} role="status">
+                {pixCopyState === 'copied'
+                  ? 'Pronto! Agora cole o código no aplicativo do seu banco.'
+                  : 'Não foi possível copiar automaticamente. Tente novamente.'}
+              </span>
+            ) : null}
             <div className="expires">
-              Válido até {date(pix.expiresAt)}. A confirmação acontece automaticamente.
+              <Clock3 aria-hidden="true" />
+              <span>Válido até {date(pix.expiresAt)}. A confirmação acontece automaticamente.</span>
             </div>
           </S.PixModal>
         </S.PixBackdrop>

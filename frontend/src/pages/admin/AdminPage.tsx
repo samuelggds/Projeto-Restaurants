@@ -745,7 +745,14 @@ export function AdminPage({
             ))}
           </S.MobileSettingsNav>
         )}
-        <S.Content $wide={area === 'catalog' || area === 'overview' || area === 'orders'}>
+        <S.Content
+          $wide={
+            area === 'catalog' ||
+            area === 'overview' ||
+            area === 'orders' ||
+            area === 'subscriptions'
+          }
+        >
           {area === 'help' ? (
             <HelpCenter
               onReport={async (payload) => {
