@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { CheckCircle2, LockKeyhole, RefreshCw, Sparkles } from 'lucide-react';
 import styled from 'styled-components';
-import monthlyBillingService, { type Subscription } from '../../../Services/monthlyBillingService';
+import tablesService from '../../../Services/tablesService';
 
 const Shell = styled.section`
   border: 1px solid #eadbcf;
@@ -169,31 +169,39 @@ const Status = styled.div`
   @keyframes spin { to { transform: rotate(360deg); } }
 `;
 
-function hasPremiumTableAccess(subscription: Subscription | null) {
+type PremiumAccessState = 'loading' | 'allowed' | 'blocked' | 'error';
+
+type RequestError = {
+  response?: {
+    status?: number;
+    data?: {
+      code?: string;
+    };
+  };
+};
+
+function isPremiumTablePlanRequired(error: unknown) {
+  const requestError = error as RequestError;
   return (
-    subscription?.plan === 'PREMIUM' &&
-    (subscription.status === 'ATIVA' || subscription.status === 'TESTE')
+    requestError.response?.status === 403 &&
+    requestError.response?.data?.code === 'PREMIUM_TABLE_PLAN_REQUIRED'
   );
 }
 
 export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [accessState, setAccessState] = useState<PremiumAccessState>('loading');
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
-    monthlyBillingService
-      .getSubscription()
-      .then((result) => {
-        if (active) setSubscription(result);
+    tablesService
+      .listTables()
+      .then(() => {
+        if (active) setAccessState('allowed');
       })
-      .catch(() => {
-        if (active) setError('Não foi possível verificar o plano do restaurante agora.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+      .catch((error: unknown) => {
+        if (!active) return;
+        setAccessState(isPremiumTablePlanRequired(error) ? 'blocked' : 'error');
       });
 
     return () => {
@@ -202,12 +210,11 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
   }, [revision]);
 
   const retry = () => {
-    setLoading(true);
-    setError('');
+    setAccessState('loading');
     setRevision((current) => current + 1);
   };
 
-  if (loading) {
+  if (accessState === 'loading') {
     return (
       <Status role="status">
         <div>
@@ -218,12 +225,12 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (error) {
+  if (accessState === 'error') {
     return (
       <Status role="alert">
         <div>
           <LockKeyhole />
-          <b>{error}</b>
+          <b>Não foi possível verificar os recursos do plano do restaurante agora.</b>
           <button type="button" onClick={retry}>
             Tentar novamente
           </button>
@@ -232,7 +239,7 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (hasPremiumTableAccess(subscription)) return <>{children}</>;
+  if (accessState === 'allowed') return <>{children}</>;
 
   return (
     <Shell aria-label="Recurso exclusivo do plano Premium">
