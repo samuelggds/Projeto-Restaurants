@@ -7,7 +7,6 @@ import processTablePaymentWebhookService, {
 } from './ProcessTablePaymentWebhookService.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
 
-type ProviderReader = Pick<PaymentProvider, 'code' | 'getPayment'>;
 type CanonicalProcessor = Pick<ProcessTablePaymentWebhookServiceType, 'executeValidated'>;
 
 type ReconcileInput = {
@@ -23,7 +22,7 @@ type ReconcileInput = {
 
 export class ReconcileTablePaymentService {
   constructor(
-    private readonly provider: ProviderReader | null = null,
+    private readonly provider: PaymentProvider | null = null,
     private readonly processor: CanonicalProcessor | null = null,
     private readonly now: () => Date = () => new Date(),
   ) {}
