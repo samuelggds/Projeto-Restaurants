@@ -183,6 +183,36 @@ function initialState(): TestState {
   };
 }
 
+test('visão geral administrativa mantém leitura e ações em desktop e mobile', async ({ page }) => {
+  const state = initialState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockAdminApi(page, state);
+  await page.goto('/admin');
+
+  await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sua operação, em um só olhar' })).toBeVisible();
+  await expect(page.getByText('Resumo de hoje')).toBeVisible();
+  await expect(page.getByText('Saúde do cardápio')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Acompanhar pedidos/i })).toBeVisible();
+
+  const assertNoHorizontalOverflow = async () => {
+    const dimensions = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.documentWidth - dimensions.viewportWidth).toBeLessThanOrEqual(1);
+  };
+
+  await assertNoHorizontalOverflow();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('heading', { name: 'Sua operação, em um só olhar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Gerenciar cardápio/i })).toBeVisible();
+  await assertNoHorizontalOverflow();
+
+  await page.getByRole('button', { name: /Acompanhar pedidos/i }).click();
+  await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
+});
+
 test('admin cadastra desconto e benefício de fidelidade com confirmação do sistema', async ({
   page,
 }) => {

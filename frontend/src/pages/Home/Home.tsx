@@ -129,23 +129,9 @@ export default function Home() {
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableContinuationOpen, setTableContinuationOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
-  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(
-    () =>
-      /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname) ||
-      (!user &&
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(max-width: 700px)').matches),
+  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(() =>
+    /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname),
   );
-
-  useEffect(() => {
-    if (user || /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname)) return undefined;
-    const syncGuestFloatingActions = () => {
-      setFloatingActionsCollapsed(window.innerWidth <= 700);
-    };
-    syncGuestFloatingActions();
-    window.addEventListener('resize', syncGuestFloatingActions);
-    return () => window.removeEventListener('resize', syncGuestFloatingActions);
-  }, [user]);
 
   useEffect(() => {
     if (!cartOpen) return undefined;
@@ -1036,37 +1022,24 @@ export default function Home() {
         onPointerCancel={handleFloatingPointerCancel}
         onClickCapture={handleFloatingClickCapture}
       >
-        {(mesaMode || !user) && (
+        {mesaMode && (
           <S.FloatingActionsToggle
             type="button"
-            data-public-menu={!mesaMode ? 'true' : undefined}
             data-floating-drag-handle="true"
             title="Clique para abrir ou arraste para mover"
             aria-expanded={!floatingActionsCollapsed}
             aria-label={
               floatingActionsCollapsed
-                ? mesaMode
-                  ? 'Abrir cupons, status do pedido e avisos da mesa'
-                  : 'Abrir atalhos de atendimento e fidelidade'
-                : mesaMode
-                  ? 'Minimizar cupons, status do pedido e avisos da mesa'
-                  : 'Minimizar atalhos de atendimento e fidelidade'
+                ? 'Abrir cupons, status do pedido e avisos da mesa'
+                : 'Minimizar cupons, status do pedido e avisos da mesa'
             }
             onClick={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
           >
             {floatingActionsCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}
-            <span>
-              {mesaMode
-                ? floatingActionsCollapsed
-                  ? 'Cupons e status'
-                  : 'Minimizar'
-                : floatingActionsCollapsed
-                  ? 'Abrir atalhos'
-                  : 'Minimizar atalhos'}
-            </span>
+            <span>{floatingActionsCollapsed ? 'Cupons e status' : 'Minimizar'}</span>
           </S.FloatingActionsToggle>
         )}
-        {!floatingActionsCollapsed && (
+        {(!mesaMode || !floatingActionsCollapsed) && (
           <>
             {mesaMode && tableSession && (
               <TableServiceActions

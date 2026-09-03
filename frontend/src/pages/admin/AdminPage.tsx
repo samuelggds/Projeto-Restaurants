@@ -745,7 +745,7 @@ export function AdminPage({
             ))}
           </S.MobileSettingsNav>
         )}
-        <S.Content $wide={area === 'catalog'}>
+        <S.Content $wide={area === 'catalog' || area === 'overview' || area === 'orders'}>
           {area === 'help' ? (
             <HelpCenter
               onReport={async (payload) => {
@@ -835,6 +835,8 @@ export function AdminPage({
               products={products}
               categories={categories}
               ingredients={ingredients}
+              restaurantName={settings.restaurantName}
+              onNavigate={(destination) => void changeArea(destination)}
               onUpdateOrderStatus={async (id, status) => {
                 await onUpdateOrderStatus?.(id, status);
               }}

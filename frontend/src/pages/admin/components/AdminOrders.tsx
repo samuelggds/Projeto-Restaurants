@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   Bike,
   CheckCircle2,
   ChevronDown,
@@ -10,18 +11,20 @@ import {
   Clock3,
   CookingPot,
   CreditCard,
+  FilterX,
   LoaderCircle,
   PackageCheck,
   QrCode,
   Search,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Undo2,
   Utensils,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
-import * as S from '../Admin.styles';
+import * as S from './AdminOrders.styles';
 import type { AdminOrder } from '../types';
 import {
   filterAdminOrders,
@@ -33,8 +36,11 @@ import {
   ORDER_STATUSES,
 } from '../domain/adminOrders';
 
+type QueueView = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED';
+
 type AdminOrdersProps = {
   orders: AdminOrder[];
+  restaurantName: string;
   money: (value: number) => string;
   onConfirmPayment: (id: number) => Promise<void>;
   onCancelOrder: (id: number) => Promise<void>;
@@ -51,6 +57,9 @@ const statusLabels: Record<string, string> = {
 
 const LIST_BATCH_SIZE = 10;
 const PROGRESS_STEPS = 5;
+const TERMINAL_STATUSES = new Set(['ENTREGUE', 'CANCELADO']);
+const IN_PROGRESS_STATUSES = new Set(['PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA']);
+const progressLabels = ['Recebido', 'Preparo', 'Pronto', 'Em rota', 'Concluído'];
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (!error || typeof error !== 'object') return fallback;
@@ -76,6 +85,15 @@ function formatCreatedAt(value?: string) {
   return `${createdAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}, ${time}`;
 }
 
+function matchesQueueView(order: AdminOrder, view: QueueView) {
+  const orderStatus = String(order.status || '').toUpperCase();
+  if (view === 'ACTIVE') return !TERMINAL_STATUSES.has(orderStatus);
+  if (view === 'PAYMENT') return !order.paid && orderStatus !== 'CANCELADO';
+  if (view === 'IN_PROGRESS') return IN_PROGRESS_STATUSES.has(orderStatus);
+  if (view === 'DELIVERED') return orderStatus === 'ENTREGUE';
+  return true;
+}
+
 function PaymentIcon({ method }: { method?: string }) {
   const normalized = String(method || '').toUpperCase();
   if (normalized.includes('PIX')) return <QrCode aria-hidden="true" />;
@@ -94,19 +112,44 @@ function OrderTypeIcon({ type }: { type?: string }) {
   return <ShoppingBag aria-hidden="true" />;
 }
 
-export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: AdminOrdersProps) {
+export function AdminOrders({
+  orders,
+  restaurantName,
+  money,
+  onConfirmPayment,
+  onCancelOrder,
+}: AdminOrdersProps) {
   const { confirmDialog } = useAppDialog();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
-  const visibleOrders = useMemo(
-    () => filterAdminOrders(orders, search, status),
-    [orders, search, status],
-  );
-  const summary = useMemo(() => getAdminOrdersSummary(orders), [orders]);
   const [visibleLimit, setVisibleLimit] = useState(LIST_BATCH_SIZE);
+  const summary = useMemo(() => getAdminOrdersSummary(orders), [orders]);
+  const visibleOrders = useMemo(
+    () =>
+      filterAdminOrders(orders, search, status).filter((order) =>
+        matchesQueueView(order, queueView),
+      ),
+    [orders, queueView, search, status],
+  );
   const displayedOrders = visibleOrders.slice(0, visibleLimit);
+  const hasFilters = Boolean(search || status || queueView !== 'ALL');
+  const priorityView: QueueView = summary.awaitingPayment
+    ? 'PAYMENT'
+    : summary.inProgress
+      ? 'IN_PROGRESS'
+      : summary.active
+        ? 'ACTIVE'
+        : 'ALL';
+  const priorityTitle = summary.awaitingPayment
+    ? `${summary.awaitingPayment} ${summary.awaitingPayment === 1 ? 'pagamento aguarda' : 'pagamentos aguardam'} confirmação`
+    : summary.inProgress
+      ? `${summary.inProgress} ${summary.inProgress === 1 ? 'pedido está' : 'pedidos estão'} em andamento`
+      : summary.active
+        ? `${summary.active} ${summary.active === 1 ? 'pedido precisa' : 'pedidos precisam'} de acompanhamento`
+        : 'Nenhuma pendência operacional';
 
   const updateSearch = (value: string) => {
     setSearch(value);
@@ -115,6 +158,20 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
 
   const updateStatus = (value: string) => {
     setStatus(value);
+    setQueueView('ALL');
+    setVisibleLimit(LIST_BATCH_SIZE);
+  };
+
+  const selectQueueView = (view: QueueView) => {
+    setQueueView(view);
+    setStatus('');
+    setVisibleLimit(LIST_BATCH_SIZE);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatus('');
+    setQueueView('ALL');
     setVisibleLimit(LIST_BATCH_SIZE);
   };
 
@@ -182,77 +239,193 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
 
   return (
     <S.OrdersWorkspace>
-      <S.OrdersSummary aria-label="Resumo dos pedidos">
-        <article>
-          <span className="summary-icon active">
-            <ShoppingBag aria-hidden="true" />
+      <S.OrdersHero aria-labelledby="orders-command-title">
+        <S.HeroCopy>
+          <span className="eyebrow">
+            <Sparkles aria-hidden="true" /> Central de pedidos
           </span>
-          <div>
+          <h2 id="orders-command-title">
+            {summary.active
+              ? 'Acompanhe cada pedido sem perder o ritmo'
+              : 'Sua fila está sob controle'}
+          </h2>
+          <p>
+            Pagamentos, preparo e entregas organizados para sua equipe agir com segurança e rapidez.
+          </p>
+          <div className="hero-pulse" aria-label="Situação atual da fila">
+            <span>
+              <ShoppingBag aria-hidden="true" /> {summary.active} ativos
+            </span>
+            <span>
+              <Clock3 aria-hidden="true" /> {summary.inProgress} em andamento
+            </span>
+            <span>
+              <PackageCheck aria-hidden="true" /> {summary.delivered} entregues
+            </span>
+          </div>
+        </S.HeroCopy>
+        <S.PriorityCard>
+          <span className="priority-label">
+            <Activity aria-hidden="true" /> Prioridade agora
+          </span>
+          <strong>{priorityTitle}</strong>
+          <p>
+            {summary.awaitingPayment
+              ? 'Confirme apenas os valores que já foram recebidos.'
+              : summary.active
+                ? 'Abra a fila prioritária para acompanhar os próximos passos.'
+                : 'Continue acompanhando o histórico e aguarde novos pedidos.'}
+          </p>
+          <button type="button" onClick={() => selectQueueView(priorityView)}>
+            {summary.active ? 'Ver prioridade' : 'Ver todos os pedidos'}
+            <ArrowRight aria-hidden="true" />
+          </button>
+          <small>{restaurantName}</small>
+        </S.PriorityCard>
+      </S.OrdersHero>
+
+      <S.OrdersSummary aria-label="Resumo dos pedidos">
+        <button
+          type="button"
+          className="summary-card active"
+          aria-label="Mostrar pedidos ativos"
+          aria-pressed={queueView === 'ACTIVE'}
+          onClick={() => selectQueueView('ACTIVE')}
+        >
+          <span className="summary-icon active" aria-hidden="true">
+            <ShoppingBag />
+          </span>
+          <span className="summary-copy">
             <small>Pedidos ativos</small>
             <strong>{summary.active}</strong>
-            <p>Precisam de acompanhamento</p>
-          </div>
-        </article>
-        <article>
-          <span className="summary-icon payment">
-            <CircleDollarSign aria-hidden="true" />
+            <em>Precisam de acompanhamento</em>
           </span>
-          <div>
+          <ArrowRight className="summary-arrow" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="summary-card payment"
+          aria-label="Mostrar pedidos aguardando pagamento"
+          aria-pressed={queueView === 'PAYMENT'}
+          onClick={() => selectQueueView('PAYMENT')}
+        >
+          <span className="summary-icon payment" aria-hidden="true">
+            <CircleDollarSign />
+          </span>
+          <span className="summary-copy">
             <small>Aguardando pagamento</small>
             <strong>{summary.awaitingPayment}</strong>
-            <p>Confirme somente após receber</p>
-          </div>
-        </article>
-        <article>
-          <span className="summary-icon progress">
-            <CookingPot aria-hidden="true" />
+            <em>Confirme somente após receber</em>
           </span>
-          <div>
+          <ArrowRight className="summary-arrow" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="summary-card progress"
+          aria-label="Mostrar pedidos em andamento"
+          aria-pressed={queueView === 'IN_PROGRESS'}
+          onClick={() => selectQueueView('IN_PROGRESS')}
+        >
+          <span className="summary-icon progress" aria-hidden="true">
+            <CookingPot />
+          </span>
+          <span className="summary-copy">
             <small>Em andamento</small>
             <strong>{summary.inProgress}</strong>
-            <p>Preparo, pronto ou em rota</p>
-          </div>
-        </article>
-        <article>
-          <span className="summary-icon delivered">
-            <PackageCheck aria-hidden="true" />
+            <em>Preparo, pronto ou em rota</em>
           </span>
-          <div>
+          <ArrowRight className="summary-arrow" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="summary-card delivered"
+          aria-label="Mostrar pedidos entregues"
+          aria-pressed={queueView === 'DELIVERED'}
+          onClick={() => selectQueueView('DELIVERED')}
+        >
+          <span className="summary-icon delivered" aria-hidden="true">
+            <PackageCheck />
+          </span>
+          <span className="summary-copy">
             <small>Entregues</small>
             <strong>{summary.delivered}</strong>
-            <p>Pedidos concluídos</p>
-          </div>
-        </article>
+            <em>Pedidos concluídos</em>
+          </span>
+          <ArrowRight className="summary-arrow" aria-hidden="true" />
+        </button>
       </S.OrdersSummary>
 
       <S.OrdersPanel>
         <S.OrdersPanelHeader>
           <div>
-            <small>GESTÃO DE PEDIDOS</small>
-            <h2>Fila de atendimento</h2>
-            <p>Pagamento, modalidade, andamento e ações organizados em um só lugar.</p>
+            <span className="section-icon" aria-hidden="true">
+              <ShoppingBag />
+            </span>
+            <span>
+              <small>OPERAÇÃO EM TEMPO REAL</small>
+              <h2>Fila de atendimento</h2>
+              <p>Encontre o pedido certo e veja exatamente qual ação precisa ser tomada.</p>
+            </span>
           </div>
           <span className="live-status">
-            <Activity size={15} aria-hidden="true" />
+            <Activity aria-hidden="true" />
             Sincronizado em tempo real
           </span>
         </S.OrdersPanelHeader>
 
+        <S.QueueTabs aria-label="Visualizações rápidas da fila">
+          <button
+            type="button"
+            aria-pressed={queueView === 'ALL'}
+            onClick={() => selectQueueView('ALL')}
+          >
+            Todos <span>{orders.length}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={queueView === 'ACTIVE'}
+            onClick={() => selectQueueView('ACTIVE')}
+          >
+            Ativos <span>{summary.active}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={queueView === 'PAYMENT'}
+            onClick={() => selectQueueView('PAYMENT')}
+          >
+            Pagamento <span>{summary.awaitingPayment}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={queueView === 'IN_PROGRESS'}
+            onClick={() => selectQueueView('IN_PROGRESS')}
+          >
+            Em andamento <span>{summary.inProgress}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={queueView === 'DELIVERED'}
+            onClick={() => selectQueueView('DELIVERED')}
+          >
+            Entregues <span>{summary.delivered}</span>
+          </button>
+        </S.QueueTabs>
+
         <S.OrdersToolbar>
           <label className="search-field">
-            <span>Buscar</span>
+            <span>Buscar pedido</span>
             <div>
-              <Search size={17} aria-hidden="true" />
+              <Search aria-hidden="true" />
               <input
                 value={search}
                 onChange={(event) => updateSearch(event.target.value)}
-                placeholder="Número do pedido ou cliente"
+                placeholder="Número do pedido ou nome do cliente"
                 aria-label="Buscar pedido por número ou cliente"
               />
             </div>
           </label>
           <label className="status-filter">
-            <span>Status</span>
+            <span>Status específico</span>
             <div>
               <select
                 value={status}
@@ -266,13 +439,20 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                   </option>
                 ))}
               </select>
-              <ChevronDown size={16} aria-hidden="true" />
+              <ChevronDown aria-hidden="true" />
             </div>
           </label>
-          <span className="results-count" role="status" aria-live="polite">
-            {visibleOrders.length}{' '}
-            {visibleOrders.length === 1 ? 'pedido encontrado' : 'pedidos encontrados'}
-          </span>
+          <div className="toolbar-result">
+            <span role="status" aria-live="polite">
+              <strong>{visibleOrders.length}</strong>
+              {visibleOrders.length === 1 ? 'pedido encontrado' : 'pedidos encontrados'}
+            </span>
+            {hasFilters && (
+              <button type="button" onClick={clearFilters}>
+                <FilterX aria-hidden="true" /> Limpar filtros
+              </button>
+            )}
+          </div>
         </S.OrdersToolbar>
 
         {displayedOrders.length ? (
@@ -290,7 +470,10 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
               const isConfirmingPayment = confirmingPaymentId === order.numericId;
 
               return (
-                <article className="order-card" key={order.numericId}>
+                <article
+                  className={`order-card status-${order.status.toLowerCase()}`}
+                  key={order.numericId}
+                >
                   <header className="order-header">
                     <div className="order-identity">
                       <div>
@@ -302,7 +485,7 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                         {formatCreatedAt(order.createdAt)}
                       </span>
                     </div>
-                    <span className={`order-status status-${order.status.toLowerCase()}`}>
+                    <span className="order-status">
                       <i aria-hidden="true" />
                       {statusLabel}
                     </span>
@@ -310,7 +493,7 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
 
                   <div className="order-details">
                     <div className={`detail payment-detail tone-${payment.tone}`}>
-                      <span className="detail-icon">
+                      <span className="detail-icon" aria-hidden="true">
                         <PaymentIcon method={order.payOnDeliveryMethod || order.paymentMethod} />
                       </span>
                       <div>
@@ -320,7 +503,7 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                       </div>
                     </div>
                     <div className="detail">
-                      <span className="detail-icon neutral">
+                      <span className="detail-icon neutral" aria-hidden="true">
                         <OrderTypeIcon type={order.type} />
                       </span>
                       <div>
@@ -336,26 +519,33 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                   </div>
 
                   <div className="order-progress">
-                    <div>
+                    <div className="progress-heading">
                       <span>Andamento do pedido</span>
                       <b>{statusLabel}</b>
                     </div>
-                    <div
-                      className={`progress-track${isCancelled ? ' cancelled' : ''}`}
-                      role="progressbar"
-                      aria-label={`Andamento do pedido ${order.id}`}
-                      aria-valuemin={0}
-                      aria-valuemax={PROGRESS_STEPS}
-                      aria-valuenow={progress}
-                      aria-valuetext={statusLabel}
-                    >
-                      {Array.from({ length: PROGRESS_STEPS }, (_, index) => (
-                        <i
-                          key={index}
-                          data-active={!isCancelled && index < progress}
-                          aria-hidden="true"
-                        />
-                      ))}
+                    <div className="progress-content">
+                      <div
+                        className={`progress-track${isCancelled ? ' cancelled' : ''}`}
+                        role="progressbar"
+                        aria-label={`Andamento do pedido ${order.id}`}
+                        aria-valuemin={0}
+                        aria-valuemax={PROGRESS_STEPS}
+                        aria-valuenow={progress}
+                        aria-valuetext={statusLabel}
+                      >
+                        {Array.from({ length: PROGRESS_STEPS }, (_, index) => (
+                          <i
+                            key={progressLabels[index]}
+                            data-active={!isCancelled && index < progress}
+                            aria-hidden="true"
+                          />
+                        ))}
+                      </div>
+                      <div className="progress-labels" aria-hidden="true">
+                        {progressLabels.map((label) => (
+                          <span key={label}>{label}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -447,19 +637,16 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
           </S.OrdersList>
         ) : (
           <S.OrdersEmpty>
-            <Search aria-hidden="true" />
-            <h3>Nenhum pedido encontrado</h3>
-            <p>Ajuste a busca ou escolha outro status para visualizar os pedidos.</p>
-            {(search || status) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch('');
-                  setStatus('');
-                  setVisibleLimit(LIST_BATCH_SIZE);
-                }}
-              >
-                Limpar filtros
+            <span aria-hidden="true">{orders.length ? <Search /> : <ShoppingBag />}</span>
+            <h3>{orders.length ? 'Nenhum pedido encontrado' : 'Sua fila está vazia'}</h3>
+            <p>
+              {orders.length
+                ? 'Ajuste a busca ou escolha outra visualização para encontrar o pedido.'
+                : 'Os novos pedidos aparecerão aqui automaticamente, sem precisar atualizar a página.'}
+            </p>
+            {hasFilters && (
+              <button type="button" onClick={clearFilters}>
+                <FilterX aria-hidden="true" /> Limpar filtros
               </button>
             )}
           </S.OrdersEmpty>
@@ -478,7 +665,7 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                 aria-label="Voltar aos 10 pedidos iniciais"
                 onClick={() => setVisibleLimit(LIST_BATCH_SIZE)}
               >
-                <ChevronLeft size={16} aria-hidden="true" /> Voltar aos 10 iniciais
+                <ChevronLeft aria-hidden="true" /> Voltar aos 10 iniciais
               </button>
             ) : null}
             {displayedOrders.length < visibleOrders.length ? (
@@ -491,7 +678,7 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                   )
                 }
               >
-                Mostrar mais 10 <ChevronDown size={16} aria-hidden="true" />
+                Mostrar mais 10 <ChevronDown aria-hidden="true" />
               </button>
             ) : null}
           </div>

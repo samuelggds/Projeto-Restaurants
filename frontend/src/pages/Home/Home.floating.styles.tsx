@@ -47,32 +47,6 @@ const Button = styled.button`
     min-height: 48px;
     border-radius: 14px;
   }
-
-  &[data-public-menu='true'] {
-    display: none;
-  }
-
-  @media (max-width: 700px) {
-    &[data-public-menu='true'] {
-      width: 48px;
-      height: 48px;
-      min-height: 48px;
-      padding: 0;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      align-self: flex-end;
-
-      > span {
-        display: none;
-      }
-
-      svg {
-        width: 19px;
-        height: 19px;
-      }
-    }
-  }
 `;
 
 export function FloatingActionsToggle({ children, ...props }: FloatingActionsToggleProps) {

@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminOrder, AdminProduct } from '../types';
 import { AdminOverview } from './AdminOverview';
 
@@ -42,7 +42,13 @@ describe('AdminOverview', () => {
 
     act(() =>
       root.render(
-        <AdminOverview orders={orders} products={products} money={(value) => `R$ ${value}`} />,
+        <AdminOverview
+          orders={orders}
+          products={products}
+          restaurantName="Restaurante Teste"
+          money={(value) => `R$ ${value}`}
+          onNavigate={() => undefined}
+        />,
       ),
     );
 
@@ -71,5 +77,35 @@ describe('AdminOverview', () => {
     ) as HTMLButtonElement;
     act(() => resetProducts.click());
     expect(container.querySelectorAll('.data-row')).toHaveLength(20);
+  });
+
+  it('oferece atalhos contextuais para pedidos, cardápio e clientes', () => {
+    const onNavigate = vi.fn();
+
+    act(() =>
+      root.render(
+        <AdminOverview
+          orders={[]}
+          products={[]}
+          restaurantName="Restaurante Teste"
+          money={(value) => `R$ ${value}`}
+          onNavigate={onNavigate}
+        />,
+      ),
+    );
+
+    const click = (label: string) => {
+      const button = Array.from(container.querySelectorAll('button')).find((item) =>
+        item.textContent?.includes(label),
+      );
+      expect(button).toBeDefined();
+      act(() => button?.click());
+    };
+
+    click('Acompanhar pedidos');
+    click('Gerenciar cardápio');
+    click('Ver clientes');
+
+    expect(onNavigate.mock.calls).toEqual([['orders'], ['catalog'], ['customers']]);
   });
 });

@@ -148,6 +148,39 @@ async function mockAdminApi(page: Page, state: TestState) {
   await mockAuthRefresh(page, 9, 'e2e-admin-token');
 }
 
+test('central de pedidos mantém hierarquia e ações acessíveis em desktop e mobile', async ({
+  page,
+}) => {
+  const state = createState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockAdminApi(page, state);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
+
+  await expect(
+    page.getByRole('heading', { name: 'Acompanhe cada pedido sem perder o ritmo' }),
+  ).toBeVisible();
+  await expect(page.getByText('Prioridade agora')).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Visualizações rápidas da fila' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mostrar pedidos ativos' })).toBeVisible();
+
+  const assertNoHorizontalOverflow = async () => {
+    const dimensions = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.documentWidth - dimensions.viewportWidth).toBeLessThanOrEqual(1);
+  };
+
+  await assertNoHorizontalOverflow();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'Mostrar pedidos ativos' })).toBeVisible();
+  await expect(page.getByLabel('Buscar pedido por número ou cliente')).toBeVisible();
+  await assertNoHorizontalOverflow();
+});
+
 test('admin cancela Pix online com estorno único e distingue pagamento na entrega', async ({
   page,
 }) => {
@@ -155,7 +188,7 @@ test('admin cancela Pix online com estorno único e distingue pagamento na entre
   await mockAdminApi(page, state);
   await page.goto('/admin');
 
-  await page.getByRole('button', { name: 'Pedidos' }).click();
+  await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
 
   const onlinePixOrder = page.locator('article.order-card').filter({ hasText: '#701' });
   await expect(onlinePixOrder).toContainText('Cliente Pix Online');

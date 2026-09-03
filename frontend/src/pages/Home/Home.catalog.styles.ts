@@ -782,59 +782,6 @@ export const FloatingActions = styled.div<{ $aboveNudge: boolean; $primary: stri
   }
 `;
 
-export const FloatingActionsToggle = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 6px 9px;
-  border: 1px solid #eadfd3;
-  border-radius: 999px;
-  background: rgba(255, 253, 249, 0.96);
-  color: #514b44;
-  box-shadow: 0 10px 24px rgba(55, 38, 26, 0.14);
-  font: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  cursor: pointer;
-
-  svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  &:hover {
-    border-color: #d8c7b8;
-    background: #fff;
-  }
-
-  &[data-public-menu='true'] {
-    display: none;
-  }
-
-  @media (max-width: 700px) {
-    &[data-public-menu='true'] {
-      width: 48px;
-      height: 48px;
-      padding: 0;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      align-self: flex-end;
-
-      > span {
-        display: none;
-      }
-
-      svg {
-        width: 19px;
-        height: 19px;
-      }
-    }
-  }
-`;
-
 export const Whatsapp = styled.a`
   position: relative;
   width: 56px;

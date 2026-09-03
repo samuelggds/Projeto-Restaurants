@@ -16,6 +16,8 @@ type Props = {
   products: AdminProduct[];
   categories: AdminCategory[];
   ingredients: AdminIngredient[];
+  restaurantName: string;
+  onNavigate: (area: 'orders' | 'catalog' | 'customers') => void;
   onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
   onConfirmOrderPayment: (id: number) => Promise<void>;
   onCancelOrder: (id: number) => Promise<void>;
@@ -37,11 +39,20 @@ export function AdminManagement(props: Props) {
   const money = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   if (props.area === 'overview')
-    return <AdminOverview orders={props.orders} products={props.products} money={money} />;
+    return (
+      <AdminOverview
+        orders={props.orders}
+        products={props.products}
+        restaurantName={props.restaurantName}
+        money={money}
+        onNavigate={props.onNavigate}
+      />
+    );
   if (props.area === 'orders')
     return (
       <AdminOrders
         orders={props.orders}
+        restaurantName={props.restaurantName}
         money={money}
         onConfirmPayment={props.onConfirmOrderPayment}
         onCancelOrder={props.onCancelOrder}

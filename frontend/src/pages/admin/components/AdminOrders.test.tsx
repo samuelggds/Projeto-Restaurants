@@ -87,6 +87,7 @@ describe('AdminOrders', () => {
         <AppDialogProvider>
           <AdminOrders
             orders={renderedOrders}
+            restaurantName="Restaurante Teste"
             money={money}
             onConfirmPayment={onConfirmPayment}
             onCancelOrder={onCancelOrder}
@@ -132,6 +133,21 @@ describe('AdminOrders', () => {
 
     act(() => buttonByLabel(container, 'Voltar aos 10 pedidos iniciais').click());
     expect(container.querySelectorAll('.order-card')).toHaveLength(10);
+  });
+
+  it('usa os indicadores para focar a fila sem combinar filtros conflitantes', () => {
+    renderOrders();
+
+    const awaitingPayment = buttonByLabel(container, 'Mostrar pedidos aguardando pagamento');
+    act(() => awaitingPayment.click());
+
+    expect(awaitingPayment.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('.order-card')).toHaveLength(1);
+    expect(container.textContent).toContain('#303');
+    expect(container.textContent).not.toContain('#301');
+
+    act(() => buttonByLabel(container, 'Mostrar pedidos ativos').click());
+    expect(container.querySelectorAll('.order-card')).toHaveLength(3);
   });
 
   it('só chama o cancelamento online depois da confirmação no diálogo interno', async () => {
