@@ -1,12 +1,12 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import monthlyBillingService from '../../../Services/monthlyBillingService';
+import tablesService from '../../../Services/tablesService';
 import { PremiumTableFeatureGate } from './PremiumTableFeatureGate';
 
-vi.mock('../../../Services/monthlyBillingService', () => ({
+vi.mock('../../../Services/tablesService', () => ({
   default: {
-    getSubscription: vi.fn(),
+    listTables: vi.fn(),
   },
 }));
 
@@ -48,11 +48,12 @@ afterEach(() => {
 });
 
 describe('PremiumTableFeatureGate', () => {
-  it('mantém o sistema de mesas bloqueado no plano Básico', async () => {
-    vi.mocked(monthlyBillingService.getSubscription).mockResolvedValue({
-      id: 1,
-      plan: 'BASICO',
-      status: 'ATIVA',
+  it('mantém o sistema de mesas bloqueado quando o backend exige Premium', async () => {
+    vi.mocked(tablesService.listTables).mockRejectedValue({
+      response: {
+        status: 403,
+        data: { code: 'PREMIUM_TABLE_PLAN_REQUIRED' },
+      },
     });
 
     const { container, root } = renderGate();
@@ -67,12 +68,8 @@ describe('PremiumTableFeatureGate', () => {
     cleanup(root, container);
   });
 
-  it('libera o conteúdo de mesas no plano Premium ativo', async () => {
-    vi.mocked(monthlyBillingService.getSubscription).mockResolvedValue({
-      id: 2,
-      plan: 'PREMIUM',
-      status: 'ATIVA',
-    });
+  it('libera o conteúdo quando a API protegida de mesas autoriza o restaurante', async () => {
+    vi.mocked(tablesService.listTables).mockResolvedValue([]);
 
     const { container, root } = renderGate();
     await flush();
@@ -83,17 +80,16 @@ describe('PremiumTableFeatureGate', () => {
     cleanup(root, container);
   });
 
-  it('não libera Premium cancelado ou expirado', async () => {
-    vi.mocked(monthlyBillingService.getSubscription).mockResolvedValue({
-      id: 3,
-      plan: 'PREMIUM',
-      status: 'EXPIRADA',
-    });
+  it('não libera o recurso quando a verificação falha por um erro inesperado', async () => {
+    vi.mocked(tablesService.listTables).mockRejectedValue(new Error('Falha de rede'));
 
     const { container, root } = renderGate();
     await flush();
 
-    expect(container.textContent).toContain('Sistema de mesas disponível no Premium');
+    expect(container.textContent).toContain(
+      'Não foi possível verificar os recursos do plano do restaurante agora.',
+    );
+    expect(container.textContent).toContain('Tentar novamente');
     expect(container.textContent).not.toContain('Conteúdo de mesas liberado');
 
     cleanup(root, container);
