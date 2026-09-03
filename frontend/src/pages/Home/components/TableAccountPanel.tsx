@@ -549,6 +549,22 @@ function TableAccountPanelContent({
                         <p>Escolha uma opção para continuar.</p>
                       </div>
                     </header>
+
+                    {!capabilities.allowOnlinePayment && (
+                      <S.ConfirmationInfo $manual>
+                        <ShieldCheck size={18} />
+                        <span>
+                          <b>Pagamento online indisponível neste restaurante</b>
+                          <small>
+                            Pix e cartão online ainda não estão habilitados.{' '}
+                            {waiterMethods.length
+                              ? 'Você ainda pode continuar pelas formas presenciais disponíveis abaixo.'
+                              : 'Peça ajuda à equipe do restaurante para concluir o pagamento.'}
+                          </small>
+                        </span>
+                      </S.ConfirmationInfo>
+                    )}
+
                     <S.Modes>
                       {modeLabels.map((mode) => {
                         const unavailable =
