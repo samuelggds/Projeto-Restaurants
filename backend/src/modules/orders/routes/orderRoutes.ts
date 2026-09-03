@@ -38,6 +38,8 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
+import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
+import { premiumTableOrderMiddleware } from '../../../middlewares/premiumTableOrderMiddleware.js';
 import {
   paymentPinAttemptRateLimitMiddleware,
   paymentPinRequestRateLimitMiddleware,
@@ -49,31 +51,31 @@ router.post('/webhook/mercadopago', MercadoPagoOrderWebhookController.handle);
 router.post('/webhook/stripe', StripeOrderWebhookController.handle);
 router.post('/webhook/pagbank', PagBankOrderWebhookController.handle);
 
-router.post('/', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   CreateOrderController.handle(req, res);
 });
 
-router.post('/quote', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/quote', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   QuoteOrderController.handle(req, res);
 });
 
-router.post('/pix/payment', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/pix/payment', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   CreateOrderPixPaymentController.handle(req, res);
 });
 
-router.post('/card/checkout', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/card/checkout', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   CreateOrderCardCheckoutController.handle(req, res);
 });
 
-router.post('/card/checkout/status', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/card/checkout/status', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   GetOrderCardPaymentStatusController.handle(req, res);
 });
 
-router.post('/pix/payment/status', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/pix/payment/status', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   GetOrderPixPaymentStatusController.handle(req, res);
 });
 
-router.post('/pix/payment/confirm', orderAccessMiddleware, billingMiddleware, (req, res) => {
+router.post('/pix/payment/confirm', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   ConfirmOrderPixPaymentController.handle(req, res);
 });
 
@@ -137,6 +139,7 @@ router.get(
   '/table/current',
   optionalAuthMiddleware,
   sessionMiddleware,
+  premiumTablePlanMiddleware,
   tableParticipantMiddleware,
   (req, res) => {
     GetCurrentTableOrderController.handle(req, res);
@@ -147,6 +150,7 @@ router.patch(
   '/table/:publicOrderId/cancel',
   optionalAuthMiddleware,
   sessionMiddleware,
+  premiumTablePlanMiddleware,
   tableParticipantMiddleware,
   (req, res) => {
     CancelTableParticipantOrderController.handle(req, res);
