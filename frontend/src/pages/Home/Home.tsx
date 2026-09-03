@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PanelBottomClose, PanelBottomOpen } from 'lucide-react';
+import { PanelBottomClose, PanelBottomOpen, ShoppingBag, X } from 'lucide-react';
 import { useAuth } from '../../contexts/authContext';
 import { HomePage } from './HomePage';
 import PixPaymentPanel from '../Cart/components/PixPaymentPanel';
@@ -62,6 +62,7 @@ import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 type NotifType = 'success' | 'error' | 'info' | 'warning';
 type HomeNavigationState = {
   openCart?: boolean;
+  openSearch?: boolean;
   loyaltyRedemptionId?: number;
 };
 
@@ -103,6 +104,8 @@ export default function Home() {
   const resolvedRestaurantId = useResolvedRestaurantId(normalizedSlug);
   const navigationState = (location.state as HomeNavigationState | null) || null;
   const [cartOpen, setCartOpen] = useState(() => Boolean(navigationState?.openCart));
+  const cartCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const cartReturnFocusRef = useRef<HTMLElement | null>(null);
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('pix');
   const [guestCheckoutDetails, setGuestCheckoutDetails] = useState<GuestCheckoutDetails>({
@@ -126,9 +129,42 @@ export default function Home() {
   const [tableOrderLoading, setTableOrderLoading] = useState(false);
   const [tableContinuationOpen, setTableContinuationOpen] = useState(false);
   const [tableAccountOpen, setTableAccountOpen] = useState(false);
-  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(() =>
-    /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname),
+  const [floatingActionsCollapsed, setFloatingActionsCollapsed] = useState(
+    () =>
+      /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname) ||
+      (!user &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(max-width: 700px)').matches),
   );
+
+  useEffect(() => {
+    if (user || /\/mesa\/\d+(?:\/|$)/.test(window.location.pathname)) return undefined;
+    const syncGuestFloatingActions = () => {
+      setFloatingActionsCollapsed(window.innerWidth <= 700);
+    };
+    syncGuestFloatingActions();
+    window.addEventListener('resize', syncGuestFloatingActions);
+    return () => window.removeEventListener('resize', syncGuestFloatingActions);
+  }, [user]);
+
+  useEffect(() => {
+    if (!cartOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => cartCloseButtonRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setCartOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+      cartReturnFocusRef.current?.focus();
+    };
+  }, [cartOpen]);
   const {
     elementRef: floatingActionsRef,
     style: floatingActionsStyle,
@@ -143,23 +179,37 @@ export default function Home() {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const customerId = user?.role === 'CLIENTE' ? (user as { id?: number | string }).id : null;
 
-  const notify = useCallback((type: NotifType, title: string, msg?: string, duration = 3500) => {
-    const id = Date.now();
-    setNotifs((prev) => {
-      const duplicate = prev.some(
-        (notification) => notification.title === title && notification.msg === msg,
+  const notify = useCallback(
+    (
+      type: NotifType,
+      title: string,
+      msg?: string,
+      duration = 3500,
+      action?: HomeNotification['action'],
+    ) => {
+      const id = Date.now();
+      setNotifs((prev) => {
+        const current =
+          action === 'open-cart' ? prev.filter((item) => item.action !== action) : prev;
+        const duplicate = current.some(
+          (notification) =>
+            notification.title === title &&
+            notification.msg === msg &&
+            notification.action === action,
+        );
+        if (duplicate) return current;
+        return [...current.slice(-2), { id, type, title, msg, visible: false, action }];
+      });
+      requestAnimationFrame(() =>
+        setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: true } : n))),
       );
-      if (duplicate) return prev;
-      return [...prev.slice(-3), { id, type, title, msg, visible: false }];
-    });
-    requestAnimationFrame(() =>
-      setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: true } : n))),
-    );
-    setTimeout(() => {
-      setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
-      setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
-    }, duration);
-  }, []);
+      setTimeout(() => {
+        setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
+        setTimeout(() => setNotifs((prev) => prev.filter((n) => n.id !== id)), 400);
+      }, duration);
+    },
+    [],
+  );
 
   function dismissNotif(id: number) {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, visible: false } : n)));
@@ -675,6 +725,7 @@ export default function Home() {
       openTableAccount();
       return;
     }
+    cartReturnFocusRef.current = document.activeElement as HTMLElement | null;
     setCartOpen(true);
   }, [openTableAccount, tableClosingRequested]);
   const openProfile = useCallback(() => {
@@ -780,6 +831,7 @@ export default function Home() {
       <HomePage
         data={homeData}
         cartCount={tableClosingRequested ? 0 : cartCount}
+        initialSearchOpen={Boolean(navigationState?.openSearch)}
         userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
         userEmail={user ? String((user as Record<string, unknown>).email || '') : undefined}
         userAvatar={user ? String((user as Record<string, unknown>).avatar || '') : undefined}
@@ -814,24 +866,44 @@ export default function Home() {
         onClick={() => setCartOpen(false)}
         aria-label="Fechar sacola"
       />
-      <S.CartDrawer $open={cartOpen}>
+      <S.CartDrawer
+        $open={cartOpen}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="home-cart-title"
+        aria-hidden={!cartOpen}
+      >
         <S.CartHead>
-          <div className="cart-title">
-            <h2>Minha sacola</h2>
-            <small>
-              {cartCount === 0
-                ? 'Nenhum item'
-                : `${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
-            </small>
+          <div className="cart-heading">
+            <span className="cart-mark" aria-hidden="true">
+              <ShoppingBag />
+            </span>
+            <div className="cart-title">
+              <small>Seu pedido</small>
+              <h2 id="home-cart-title">Minha sacola</h2>
+            </div>
           </div>
-          <button type="button" onClick={() => setCartOpen(false)} aria-label="Fechar">
-            ×
+          <span className="cart-count">
+            {cartCount === 0 ? 'Vazia' : `${cartCount} ${cartCount === 1 ? 'item' : 'itens'}`}
+          </span>
+          <button
+            ref={cartCloseButtonRef}
+            type="button"
+            onClick={() => setCartOpen(false)}
+            aria-label="Fechar sacola"
+          >
+            <X aria-hidden="true" />
           </button>
         </S.CartHead>
 
-        <CartItemsList items={cart} onIncrease={increaseCart} onDecrease={decreaseCart} />
+        <S.CartBody>
+          <CartItemsList
+            items={cart}
+            onIncrease={increaseCart}
+            onDecrease={decreaseCart}
+            onContinueShopping={() => setCartOpen(false)}
+          />
 
-        <S.CartFoot>
           <S.CartOptions>
             {cart.length > 0 && !mesaMode && (
               <DeliveryMethodSelector
@@ -884,7 +956,9 @@ export default function Home() {
               />
             )}
           </S.CartOptions>
+        </S.CartBody>
 
+        <S.CartFoot>
           <CartCheckoutSummary
             count={cartCount}
             total={cartTotal}
@@ -946,9 +1020,11 @@ export default function Home() {
         onLogin={navigateToLogin}
         onDismissNudge={() => setNudgeDismissed(true)}
         onDismissNotification={dismissNotif}
+        onOpenCart={openHomeCart}
       />
       <S.FloatingActions
         ref={floatingActionsRef}
+        data-testid="floating-actions-layer"
         style={floatingActionsStyle}
         data-dragging={floatingActionsDragging ? 'true' : 'false'}
         data-drag-positioned={floatingActionsPositioned ? 'true' : 'false'}
@@ -960,21 +1036,34 @@ export default function Home() {
         onPointerCancel={handleFloatingPointerCancel}
         onClickCapture={handleFloatingClickCapture}
       >
-        {mesaMode && (
+        {(mesaMode || !user) && (
           <S.FloatingActionsToggle
             type="button"
+            data-public-menu={!mesaMode ? 'true' : undefined}
             data-floating-drag-handle="true"
             title="Clique para abrir ou arraste para mover"
             aria-expanded={!floatingActionsCollapsed}
             aria-label={
               floatingActionsCollapsed
-                ? 'Abrir cupons, status do pedido e avisos da mesa'
-                : 'Minimizar cupons, status do pedido e avisos da mesa'
+                ? mesaMode
+                  ? 'Abrir cupons, status do pedido e avisos da mesa'
+                  : 'Abrir atalhos de atendimento e fidelidade'
+                : mesaMode
+                  ? 'Minimizar cupons, status do pedido e avisos da mesa'
+                  : 'Minimizar atalhos de atendimento e fidelidade'
             }
             onClick={() => setFloatingActionsCollapsed((collapsed) => !collapsed)}
           >
             {floatingActionsCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}
-            <span>{floatingActionsCollapsed ? 'Cupons e status' : 'Minimizar'}</span>
+            <span>
+              {mesaMode
+                ? floatingActionsCollapsed
+                  ? 'Cupons e status'
+                  : 'Minimizar'
+                : floatingActionsCollapsed
+                  ? 'Abrir atalhos'
+                  : 'Minimizar atalhos'}
+            </span>
           </S.FloatingActionsToggle>
         )}
         {!floatingActionsCollapsed && (

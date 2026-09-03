@@ -2,8 +2,11 @@ import {
   Bike,
   CheckCircle2,
   ChefHat,
+  ChevronDown,
   ChevronRight,
   Clock3,
+  CreditCard,
+  Grid2X2,
   Heart,
   Headphones,
   KeyRound,
@@ -11,12 +14,15 @@ import {
   Package,
   PackageCheck,
   Plus,
+  RotateCcw,
+  ShoppingBag,
   ShieldCheck,
   TicketPercent,
   Trash2,
+  UserRound,
   WalletCards,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   evaluatePassword,
   PasswordRequirements,
@@ -34,6 +40,7 @@ import type { ProfileOrder, ProfileOrderStatus, ProfilePageProps, ProfileView } 
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const ORDER_LIST_BATCH_SIZE = 10;
 const rank: Record<ProfileOrderStatus, number> = {
   confirmed: 0,
   preparing: 1,
@@ -57,11 +64,19 @@ function OrderAction({
   order: ProfileOrder;
 }) {
   if (order.status === 'delivered') {
-    return <button onClick={() => onReorder?.(order.id)}>Pedir novamente</button>;
+    return (
+      <button type="button" onClick={() => onReorder?.(order.id)}>
+        Pedir novamente
+      </button>
+    );
   }
 
   if (order.status !== 'cancelled') {
-    return <button onClick={() => onViewOrder?.(order.id)}>Acompanhar</button>;
+    return (
+      <button type="button" onClick={() => onViewOrder?.(order.id)}>
+        Acompanhar
+      </button>
+    );
   }
 
   return null;
@@ -72,6 +87,16 @@ const trackingSteps = [
   { label: 'Saiu para entrega', icon: Bike },
   { label: 'Entregue', icon: PackageCheck },
 ] as const;
+const profileTabIcons = {
+  overview: Grid2X2,
+  orders: ShoppingBag,
+  coupons: TicketPercent,
+  addresses: MapPin,
+  paymentMethods: CreditCard,
+  favorites: Heart,
+  personalData: UserRound,
+  security: ShieldCheck,
+};
 export function ProfilePage(props: ProfilePageProps) {
   const {
     data = profileMockData,
@@ -84,7 +109,41 @@ export function ProfilePage(props: ProfilePageProps) {
     onLogout,
   } = props;
   const [view, setView] = useState<ProfileView>(initialView);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const mobileNavigationRef = useRef<HTMLElement>(null);
+  const mobileNavigationTriggerRef = useRef<HTMLButtonElement>(null);
   const { brand, user } = data;
+  const activeTabLabel = tabs.find(([id]) => id === view)?.[1] ?? 'Visão geral';
+  const ActiveTabIcon = profileTabIcons[view];
+
+  useEffect(() => {
+    if (!mobileNavigationOpen) return undefined;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!mobileNavigationRef.current?.contains(event.target as Node)) {
+        setMobileNavigationOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMobileNavigationOpen(false);
+      mobileNavigationTriggerRef.current?.focus();
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileNavigationOpen]);
+
+  const selectView = (nextView: ProfileView, restoreMobileFocus = false) => {
+    setView(nextView);
+    setMobileNavigationOpen(false);
+    if (restoreMobileFocus) {
+      window.requestAnimationFrame(() => mobileNavigationTriggerRef.current?.focus());
+    }
+  };
+
   return (
     <S.Root $primary={brand.primaryColor ?? '#d64d08'}>
       <ProfileHeader
@@ -98,22 +157,77 @@ export function ProfilePage(props: ProfilePageProps) {
         onLogout={onLogout}
       />
       <S.Page>
-        <small>Início &nbsp;/&nbsp; Minha conta</small>
-        <h1>
-          Olá, <em>{user.firstName}</em>
-        </h1>
-        <S.Subtitle>Gerencie seus pedidos e suas informações</S.Subtitle>
-        <S.MobileTabs>
-          {tabs.map(([id, label]) => (
-            <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
-              {label}
-            </button>
-          ))}
+        <S.ProfileIntro>
+          <div>
+            <span>Minha conta</span>
+            <h1>
+              Olá, <em>{user.firstName}</em>
+            </h1>
+          </div>
+          <S.ProfileSummary aria-label="Resumo da conta">
+            <div>
+              <strong>{data.recentOrders.length}</strong>
+              <span>pedidos recentes</span>
+            </div>
+            <div>
+              <strong>{user.favoriteCount}</strong>
+              <span>favoritos</span>
+            </div>
+            <div>
+              <strong>{data.addresses?.length ?? 0}</strong>
+              <span>endereços</span>
+            </div>
+          </S.ProfileSummary>
+        </S.ProfileIntro>
+        <S.MobileTabs ref={mobileNavigationRef} aria-label="Navegação móvel do perfil">
+          <button
+            ref={mobileNavigationTriggerRef}
+            type="button"
+            className="mobile-tabs-trigger"
+            aria-haspopup="menu"
+            aria-expanded={mobileNavigationOpen}
+            aria-controls="profile-mobile-sections"
+            aria-current="page"
+            onClick={() => setMobileNavigationOpen((open) => !open)}
+          >
+            <span className="current-icon">
+              <ActiveTabIcon aria-hidden="true" />
+            </span>
+            <span className="current-copy">
+              <small>Seção atual</small>
+              <strong>{activeTabLabel}</strong>
+            </span>
+            <ChevronDown
+              className="current-chevron"
+              data-open={mobileNavigationOpen ? 'true' : 'false'}
+              aria-hidden="true"
+            />
+          </button>
+          {mobileNavigationOpen && (
+            <div id="profile-mobile-sections" className="mobile-tabs-menu" role="menu">
+              {tabs.map(([id, label]) => {
+                const Icon = profileTabIcons[id];
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitem"
+                    className={view === id ? 'active' : ''}
+                    aria-current={view === id ? 'page' : undefined}
+                    onClick={() => selectView(id, true)}
+                  >
+                    <Icon aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </S.MobileTabs>
         <S.Layout>
           <ProfileNavigation
             view={view}
-            setView={setView}
+            setView={selectView}
             data={data}
             onLogout={onLogout}
             onUploadAvatar={props.onUploadAvatar}
@@ -123,10 +237,10 @@ export function ProfilePage(props: ProfilePageProps) {
               {view === 'overview' && (
                 <Overview
                   {...props}
-                  onViewAllOrders={() => setView('orders')}
-                  onOpenFavorites={() => setView('favorites')}
-                  onOpenCoupons={() => setView('coupons')}
-                  onEditPayment={() => setView('paymentMethods')}
+                  onViewAllOrders={() => selectView('orders')}
+                  onOpenFavorites={() => selectView('favorites')}
+                  onOpenCoupons={() => selectView('coupons')}
+                  onEditPayment={() => selectView('paymentMethods')}
                   data={data}
                 />
               )}
@@ -154,12 +268,22 @@ export function ProfilePage(props: ProfilePageProps) {
   );
 }
 
-function PaymentMethods({ paymentMethods = [], onAddPaymentMethod, onSelectPaymentMethod, onRemovePaymentMethod }: ProfilePageProps) {
+function PaymentMethods({
+  paymentMethods = [],
+  onAddPaymentMethod,
+  onSelectPaymentMethod,
+  onRemovePaymentMethod,
+}: ProfilePageProps) {
   return (
     <>
       <S.ViewHeader>
-        <div><h2>Meus cartões</h2><p>Escolha o cartão principal usado para pagamentos rápidos e seguros.</p></div>
-        <button type="button" onClick={onAddPaymentMethod}><Plus size={17} /> Adicionar cartão</button>
+        <div>
+          <h2>Meus cartões</h2>
+          <p>Escolha o cartão principal usado para pagamentos rápidos e seguros.</p>
+        </div>
+        <button type="button" onClick={onAddPaymentMethod}>
+          <Plus size={17} /> Adicionar cartão
+        </button>
       </S.ViewHeader>
       <S.PaymentMethodGrid>
         {paymentMethods.map((method) => {
@@ -168,23 +292,60 @@ function PaymentMethods({ paymentMethods = [], onAddPaymentMethod, onSelectPayme
             <S.SavedCard key={method.publicId} $default={method.isDefault} $brand={brand.id}>
               <header>
                 <span className="saved-card-chip" aria-hidden="true" />
-                <span className="saved-card-brand">{method.isDefault && <b>Principal</b>}<CardBrandLogo brand={brand.id} /></span>
+                <span className="saved-card-brand">
+                  {method.isDefault && <b>Principal</b>}
+                  <CardBrandLogo brand={brand.id} />
+                </span>
               </header>
               <strong>•••• •••• •••• {method.last4}</strong>
               <div className="saved-card-details">
-                <span><small>Titular</small><b>{method.holderName || 'Cartão salvo'}</b></span>
-                <span><small>Validade</small><b>{String(method.expMonth).padStart(2, '0')}/{String(method.expYear).slice(-2)}</b></span>
+                <span>
+                  <small>Titular</small>
+                  <b>{method.holderName || 'Cartão salvo'}</b>
+                </span>
+                <span>
+                  <small>Validade</small>
+                  <b>
+                    {String(method.expMonth).padStart(2, '0')}/{String(method.expYear).slice(-2)}
+                  </b>
+                </span>
               </div>
               <footer>
-                {!method.isDefault && <button type="button" onClick={() => onSelectPaymentMethod?.(method.publicId)}>Usar como principal</button>}
-                <button type="button" className="danger" onClick={() => onRemovePaymentMethod?.(method.publicId)}><Trash2 size={15} /> Remover</button>
+                {!method.isDefault && (
+                  <button
+                    type="button"
+                    aria-label={`Usar cartão final ${method.last4} como principal`}
+                    onClick={() => onSelectPaymentMethod?.(method.publicId)}
+                  >
+                    Usar como principal
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="danger"
+                  aria-label={`Remover cartão final ${method.last4}`}
+                  onClick={() => onRemovePaymentMethod?.(method.publicId)}
+                >
+                  <Trash2 size={15} /> Remover
+                </button>
               </footer>
             </S.SavedCard>
           );
         })}
-        {!paymentMethods.length && <S.Empty>Nenhum cartão cadastrado. Adicione um cartão para pagar sem digitar os dados a cada pedido.</S.Empty>}
+        {!paymentMethods.length && (
+          <S.Empty>
+            Nenhum cartão cadastrado. Adicione um cartão para pagar sem digitar os dados a cada
+            pedido.
+          </S.Empty>
+        )}
       </S.PaymentMethodGrid>
-      <S.PaymentProtection><ShieldCheck /> <span><b>Pagamento protegido</b>O provedor de pagamento protege os dados sensíveis. Este site armazena somente o token seguro e os quatro últimos dígitos.</span></S.PaymentProtection>
+      <S.PaymentProtection>
+        <ShieldCheck />{' '}
+        <span>
+          <b>Pagamento protegido</b>O provedor de pagamento protege os dados sensíveis. Este site
+          armazena somente o token seguro e os quatro últimos dígitos.
+        </span>
+      </S.PaymentProtection>
     </>
   );
 }
@@ -201,6 +362,7 @@ function Overview(props: ProfilePageProps) {
     onOpenFavorites,
     onOpenCoupons,
     onSupport,
+    onOpenMenu,
   } = props;
   const { brand, user, activeOrder, recentOrders } = data;
   const step = activeOrder ? rank[activeOrder.status] : 0;
@@ -208,63 +370,75 @@ function Overview(props: ProfilePageProps) {
     <>
       {activeOrder ? (
         <S.Active>
-          <div>
+          <div className="active-content">
             <S.Heading>
-              <h2>Pedido em andamento</h2>
+              <div>
+                <small>Pedido {activeOrder.id}</small>
+                <h2>Pedido em andamento</h2>
+              </div>
               <S.Status>
                 <Package size={17} />
                 {statusLabel[activeOrder.status]}
               </S.Status>
-              <span>{activeOrder.id}</span>
             </S.Heading>
-            <S.Tracking>
+            <S.Tracking aria-label="Progresso do pedido">
               {trackingSteps.map(({ label, icon: Icon }, index) => (
-                <span key={label} style={{ display: 'contents' }}>
-                  <S.Step $done={index < step} $active={index === step}>
-                    <i aria-hidden="true">
-                      <Icon size={18} strokeWidth={2.25} />
-                    </i>
-                  </S.Step>
-                  {index < 3 && <S.Line $done={index < step} />}
-                </span>
+                <S.Step
+                  key={label}
+                  $done={index < step}
+                  $active={index === step}
+                  aria-current={index === step ? 'step' : undefined}
+                  aria-label={`${label}: ${index < step ? 'concluído' : index === step ? 'etapa atual' : 'aguardando'}`}
+                >
+                  <i aria-hidden="true">
+                    <Icon size={18} strokeWidth={2.25} />
+                  </i>
+                  <span aria-hidden="true">{label}</span>
+                </S.Step>
               ))}
             </S.Tracking>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4,1fr)',
-                textAlign: 'center',
-                fontSize: 12,
-                marginTop: -18,
-              }}
-            >
-              {trackingSteps.map(({ label }) => (
-                <span key={label}>{label}</span>
-              ))}
-            </div>
             <S.Eta>
               <Clock3 />
               Previsão de chegada: {activeOrder.estimatedArrival}
             </S.Eta>
             <S.Actions>
-              <button onClick={() => onTrackOrder?.(activeOrder.id)}>
+              <button type="button" onClick={() => onTrackOrder?.(activeOrder.id)}>
                 Acompanhar em tempo real <MapPin size={16} />
               </button>
-              <button onClick={() => onViewOrder?.(activeOrder.id)}>Ver detalhes</button>
+              <button type="button" onClick={() => onViewOrder?.(activeOrder.id)}>
+                Ver detalhes
+              </button>
             </S.Actions>
           </div>
-          <S.Map>
-            <span className="store">⌂</span>
-            <div />
-            <span className="driver">●</span>
-          </S.Map>
+          <S.ActiveVisual>
+            <img src={activeOrder.image} alt="" />
+            <div>
+              <span>Seu pedido</span>
+              <strong>{activeOrder.summary}</strong>
+              <b>{brl(activeOrder.total)}</b>
+            </div>
+          </S.ActiveVisual>
         </S.Active>
       ) : (
-        <S.Empty>Nenhum pedido em andamento.</S.Empty>
+        <S.Empty>
+          <Package aria-hidden="true" />
+          <div>
+            <b>Nenhum pedido em andamento</b>
+            <span>Seu próximo pedido aparecerá aqui.</span>
+          </div>
+          <button type="button" onClick={onOpenMenu}>
+            Ver cardápio
+          </button>
+        </S.Empty>
       )}
       <S.Bottom>
         <S.Card>
-          <h2>Últimos pedidos</h2>
+          <header className="section-heading">
+            <div>
+              <span>Histórico</span>
+              <h2>Últimos pedidos</h2>
+            </div>
+          </header>
           {recentOrders.slice(0, 2).map((order) => (
             <S.Order key={order.id}>
               <img src={order.image} alt="" />
@@ -282,12 +456,18 @@ function Overview(props: ProfilePageProps) {
               </aside>
             </S.Order>
           ))}
+          {!recentOrders.length && <p className="section-empty">Você ainda não fez pedidos.</p>}
           <S.All onClick={onViewAllOrders}>
             Ver todos os pedidos <ChevronRight size={17} />
           </S.All>
         </S.Card>
         <S.Card>
-          <h2>Minha conta</h2>
+          <header className="section-heading">
+            <div>
+              <span>Acesso rápido</span>
+              <h2>Minha conta</h2>
+            </div>
+          </header>
           <S.Account>
             <i>
               <TicketPercent />
@@ -337,19 +517,24 @@ function Overview(props: ProfilePageProps) {
         </S.Card>
       </S.Bottom>
       <S.Support>
-        <Headphones />
-        <span>Precisa de ajuda com um pedido?</span>
-        <button onClick={onSupport}>Falar com o suporte</button>
+        <i>
+          <Headphones aria-hidden="true" />
+        </i>
+        <span>
+          <b>Precisa de ajuda?</b>
+          <small>Fale com a equipe sobre um pedido.</small>
+        </span>
+        <button type="button" onClick={onSupport}>
+          Falar com o suporte
+        </button>
       </S.Support>
     </>
   );
 }
 
 function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageProps) {
-  const [ordersOffset, setOrdersOffset] = useState(0);
-  const pageSize = 5;
-  const visibleOrders = data.recentOrders.slice(ordersOffset, ordersOffset + pageSize);
-  const lastVisibleOrder = Math.min(ordersOffset + visibleOrders.length, data.recentOrders.length);
+  const [visibleOrderLimit, setVisibleOrderLimit] = useState(ORDER_LIST_BATCH_SIZE);
+  const visibleOrders = data.recentOrders.slice(0, visibleOrderLimit);
 
   return (
     <>
@@ -377,7 +562,7 @@ function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageP
             </aside>
           </S.FullOrder>
         )}
-        <S.OrderPage key={ordersOffset}>
+        <S.OrderPage aria-label="Histórico de pedidos">
           {visibleOrders.map((order) => (
             <S.FullOrder key={order.id}>
               <img src={order.image} alt="" />
@@ -395,26 +580,43 @@ function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageP
             </S.FullOrder>
           ))}
         </S.OrderPage>
-        {data.recentOrders.length > pageSize && (
-          <S.OrderPagination>
+        {!data.activeOrder && !visibleOrders.length && (
+          <S.Empty>
+            <ShoppingBag aria-hidden="true" />
+            <div>
+              <b>Nenhum pedido encontrado</b>
+              <span>Assim que você pedir, o histórico ficará disponível aqui.</span>
+            </div>
+          </S.Empty>
+        )}
+        {data.recentOrders.length > ORDER_LIST_BATCH_SIZE && (
+          <S.OrderPagination aria-label="Controles do histórico de pedidos">
             <span>
-              Mostrando {ordersOffset + 1}–{lastVisibleOrder} de {data.recentOrders.length}
+              Exibindo {visibleOrders.length} de {data.recentOrders.length} pedidos
             </span>
             <div>
-              <button
-                type="button"
-                disabled={ordersOffset === 0}
-                onClick={() => setOrdersOffset((current) => Math.max(0, current - pageSize))}
-              >
-                ← Voltar 5
-              </button>
-              <button
-                type="button"
-                disabled={ordersOffset + pageSize >= data.recentOrders.length}
-                onClick={() => setOrdersOffset((current) => current + pageSize)}
-              >
-                Próximos 5 →
-              </button>
+              {visibleOrderLimit > ORDER_LIST_BATCH_SIZE ? (
+                <button
+                  type="button"
+                  aria-label="Voltar aos 10 pedidos iniciais"
+                  onClick={() => setVisibleOrderLimit(ORDER_LIST_BATCH_SIZE)}
+                >
+                  <RotateCcw size={15} aria-hidden="true" /> Voltar aos 10
+                </button>
+              ) : null}
+              {visibleOrders.length < data.recentOrders.length ? (
+                <button
+                  type="button"
+                  aria-label="Mostrar mais 10 pedidos do histórico"
+                  onClick={() =>
+                    setVisibleOrderLimit((current) =>
+                      Math.min(current + ORDER_LIST_BATCH_SIZE, data.recentOrders.length),
+                    )
+                  }
+                >
+                  Mostrar mais 10 <ChevronDown size={15} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           </S.OrderPagination>
         )}
@@ -453,6 +655,18 @@ function Addresses({ data = profileMockData, onNewAddress, onSelectAddress }: Pr
             </button>
           </S.AddressCard>
         ))}
+        {!addresses.length && (
+          <S.Empty>
+            <MapPin aria-hidden="true" />
+            <div>
+              <b>Nenhum endereço salvo</b>
+              <span>Cadastre um local para agilizar suas próximas entregas.</span>
+            </div>
+            <button type="button" onClick={onNewAddress}>
+              Cadastrar endereço
+            </button>
+          </S.Empty>
+        )}
       </S.AddressGrid>
     </>
   );
@@ -462,6 +676,7 @@ function Favorites({
   data = profileMockData,
   onAddFavoriteToCart,
   onToggleFavorite,
+  onOpenMenu,
 }: ProfilePageProps) {
   const favorites = data.favorites ?? [];
   return (
@@ -490,23 +705,29 @@ function Favorites({
                 <footer>
                   <strong>{brl(item.price)}</strong>
                   <button
+                    type="button"
+                    className="add-favorite"
                     aria-label={`Adicionar ${item.name} à sacola`}
                     onClick={() => onAddFavoriteToCart?.(item)}
-                    style={{
-                      border: 0,
-                      borderRadius: 8,
-                      background: 'var(--p)',
-                      color: '#fff',
-                      width: 34,
-                      height: 34,
-                    }}
                   >
-                    <Plus />
+                    <Plus aria-hidden="true" />
                   </button>
                 </footer>
               </div>
             </S.FavoriteCard>
           ))}
+          {!favorites.length && (
+            <S.Empty>
+              <Heart aria-hidden="true" />
+              <div>
+                <b>Nenhum favorito salvo</b>
+                <span>Marque seus produtos preferidos para encontrá-los mais rápido.</span>
+              </div>
+              <button type="button" onClick={onOpenMenu}>
+                Ver cardápio
+              </button>
+            </S.Empty>
+          )}
         </S.FavoriteGrid>
       </S.PageCard>
     </>
@@ -564,8 +785,13 @@ function PersonalData({ data = profileMockData, onSavePersonalData }: ProfilePag
             <input placeholder="Não informado" disabled />
           </label>
           {saveError && (
-            <span style={{ color: '#c94040', fontSize: 13, gridColumn: '1 / -1' }}>
+            <span className="form-message error" role="alert">
               {saveError}
+            </span>
+          )}
+          {saved && (
+            <span className="form-message success" role="status">
+              Alterações salvas com sucesso.
             </span>
           )}
           <footer>

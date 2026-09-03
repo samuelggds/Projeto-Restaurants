@@ -29,14 +29,15 @@ const FloatingNotice = styled.button`
   position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
-  max-width: min(370px, calc(100vw - 32px));
-  padding: 11px 15px 11px 11px;
-  border: 1px solid rgba(214, 77, 8, 0.24);
-  border-radius: 15px;
-  background: #fffdf9;
+  gap: 8px;
+  width: min(320px, calc(100vw - 32px));
+  min-height: 52px;
+  padding: 7px 9px 7px 7px;
+  border: 1px solid #e5dfd8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
   color: #201c18;
-  box-shadow: 0 14px 32px rgba(55, 38, 26, 0.18);
+  box-shadow: 0 5px 16px rgba(55, 38, 26, 0.11);
   text-align: left;
   transition:
     transform 180ms ease,
@@ -48,11 +49,11 @@ const FloatingNotice = styled.button`
   }
   .icon {
     display: grid;
-    width: 37px;
-    height: 37px;
+    width: 36px;
+    height: 36px;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 12px;
+    border-radius: 7px;
     background: #fff0e8;
     color: var(--home-primary, #d64d08);
   }
@@ -62,17 +63,17 @@ const FloatingNotice = styled.button`
     gap: 2px;
   }
   strong {
-    font-size: 13px;
+    font-size: 12px;
   }
   small {
     overflow: hidden;
     color: #6f6a63;
-    font-size: 12px;
+    font-size: 10px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   @media (max-width: 700px) {
-    max-width: min(350px, 100%);
+    width: min(300px, 100%);
   }
 `;
 

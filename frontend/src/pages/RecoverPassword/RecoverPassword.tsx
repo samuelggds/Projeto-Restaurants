@@ -42,6 +42,19 @@ export default function RecoverPassword() {
       (requirement) => requirement.id === 'confirmation' && !requirement.met,
     );
 
+  const selectContactMethod = (method: ContactMethod) => {
+    if (method === contactMethod) return;
+    setContactMethod(method);
+    setIdentifier('');
+  };
+
+  const changeContact = () => {
+    setStep('request');
+    setCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
   const buildIdentifierPayload = () => {
     const value = String(identifier || '').trim();
 
@@ -120,6 +133,7 @@ export default function RecoverPassword() {
           <S.ThemeToggleButton
             type="button"
             aria-label={isDarkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            aria-pressed={isDarkMode}
             onClick={() => setIsDarkMode((prev) => !prev)}
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -153,21 +167,22 @@ export default function RecoverPassword() {
             </S.FormSubtitle>
 
             <S.Form onSubmit={step === 'request' ? handleRequestCode : handleResetPassword}>
-              <S.SwitchRow>
+              <S.SwitchRow role="group" aria-label="Método de recuperação">
                 <S.SwitchButton
                   type="button"
                   $active={contactMethod === 'email'}
-                  onClick={() => {
-                    toast.info('Recuperacao por e-mail esta temporariamente indisponivel.');
-                    setContactMethod('phone');
-                  }}
+                  aria-pressed={contactMethod === 'email'}
+                  disabled={step === 'reset'}
+                  onClick={() => selectContactMethod('email')}
                 >
                   E-mail
                 </S.SwitchButton>
                 <S.SwitchButton
                   type="button"
                   $active={contactMethod === 'phone'}
-                  onClick={() => setContactMethod('phone')}
+                  aria-pressed={contactMethod === 'phone'}
+                  disabled={step === 'reset'}
+                  onClick={() => selectContactMethod('phone')}
                 >
                   Telefone
                 </S.SwitchButton>
@@ -184,12 +199,17 @@ export default function RecoverPassword() {
                   placeholder={contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'}
                   value={identifier}
                   onChange={(event) => setIdentifier(event.target.value)}
+                  readOnly={step === 'reset'}
+                  autoComplete={contactMethod === 'email' ? 'email' : 'tel'}
                   required
                 />
               </S.InputGroup>
 
               {step === 'reset' && (
                 <>
+                  <S.AvailabilityNote role="status">
+                    Código solicitado para {identifier}.
+                  </S.AvailabilityNote>
                   <S.InputGroup>
                     <S.Label htmlFor="reset-code">Codigo</S.Label>
                     <S.Input
@@ -264,9 +284,14 @@ export default function RecoverPassword() {
               </S.Button>
 
               {step === 'reset' && (
-                <S.Button type="button" onClick={handleRequestCode} disabled={isLoading}>
-                  Reenviar codigo
-                </S.Button>
+                <S.ActionRow>
+                  <S.SecondaryButton type="button" onClick={changeContact} disabled={isLoading}>
+                    Alterar contato
+                  </S.SecondaryButton>
+                  <S.SecondaryButton type="button" onClick={handleRequestCode} disabled={isLoading}>
+                    Reenviar codigo
+                  </S.SecondaryButton>
+                </S.ActionRow>
               )}
             </S.Form>
 

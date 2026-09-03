@@ -1,8 +1,13 @@
 import type { TableAccountActor } from '../domain/tableAccountContracts.js';
-import { canViewTableAccountFinancialHistory } from '../domain/tableAccountRules.js';
+import {
+  canViewTableAccountFinancialHistory,
+  isManualTablePaymentIntent,
+} from '../domain/tableAccountRules.js';
 import tableAccountRepository from '../repositories/TableAccountRepository.js';
-import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
-import { buildTableAccountBaseSnapshot } from './GetCurrentTableAccountService.js';
+import {
+  buildTableAccountBaseSnapshot,
+  toSafeMoneyCents,
+} from './GetCurrentTableAccountService.js';
 import { TablePaymentError } from './tablePaymentSupport.js';
 
 export class ListTableAccountAdminSessionsService {
@@ -16,41 +21,55 @@ export class ListTableAccountAdminSessionsService {
       );
     }
 
-    const sessions = await tableSessionRepository.listOpenByRestaurant(restaurantId);
     const now = new Date();
-    const snapshots = await Promise.all(
-      sessions.map(async (session) => {
-        const data = await tableAccountRepository.findAdminSnapshotData(
-          session.publicId,
-          restaurantId,
-        );
-        if (!data) return null;
-        const account = buildTableAccountBaseSnapshot(data, now);
-        return {
-          tableSessionId: session.id,
-          sessionPublicId: session.publicId,
-          tableId: session.tableId,
-          tableNumber: session.table.number,
-          openedAt: session.openedAt.toISOString(),
-          status: session.status,
-          openedByName: session.openedBy.name,
-          summary: account.summary,
-          participants: account.participants,
-          itemsCount: account.items.length,
-          paymentCounts: {
-            reserved: data.paymentIntents.filter((payment) => payment.status === 'RESERVED').length,
-            processing: data.paymentIntents.filter((payment) => payment.status === 'PROCESSING')
-              .length,
-            online: data.paymentIntents.filter((payment) => Boolean(payment.provider)).length,
-            inPerson: data.paymentIntents.filter((payment) =>
-              ['CASH', 'CARD_MACHINE'].includes(payment.method),
-            ).length,
-          },
-        };
-      }),
+    const sessions = await tableAccountRepository.listAdminSnapshotDataByRestaurant(
+      restaurantId,
+      now,
     );
+    const snapshots = sessions.map((data) => {
+      const account = buildTableAccountBaseSnapshot(data, now);
+      const pendingManualPayments = data.paymentIntents
+        .filter(
+          (payment) =>
+            ['RESERVED', 'PROCESSING'].includes(payment.status) &&
+            payment.expiresAt > now &&
+            isManualTablePaymentIntent(payment),
+        )
+        .map((payment) => ({
+          publicId: payment.publicId,
+          method: payment.method,
+          status: payment.status,
+          totalCents: toSafeMoneyCents(
+            payment.totalCents,
+            `pagamento presencial ${payment.publicId}`,
+          ),
+          createdAt: payment.createdAt.toISOString(),
+        }));
+      return {
+        tableSessionId: data.id,
+        sessionPublicId: data.publicId,
+        tableId: data.tableId,
+        tableNumber: data.table.number,
+        openedAt: data.openedAt.toISOString(),
+        status: data.status,
+        openedByName: data.openedBy.name,
+        summary: account.summary,
+        participants: account.participants,
+        itemsCount: account.items.length,
+        pendingManualPayments,
+        paymentCounts: {
+          reserved: data.paymentIntents.filter((payment) => payment.status === 'RESERVED').length,
+          processing: data.paymentIntents.filter((payment) => payment.status === 'PROCESSING')
+            .length,
+          online: data.paymentIntents.filter((payment) => Boolean(payment.provider)).length,
+          inPerson: data.paymentIntents.filter((payment) =>
+            ['CASH', 'CARD_MACHINE'].includes(payment.method),
+          ).length,
+        },
+      };
+    });
 
-    return { sessions: snapshots.filter((session) => session !== null) };
+    return { sessions: snapshots };
   }
 }
 

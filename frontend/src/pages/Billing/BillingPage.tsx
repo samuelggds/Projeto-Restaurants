@@ -54,6 +54,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [payingInvoiceId, setPayingInvoiceId] = useState<number | string | null>(null);
 
   const PLAN_DISPLAY = {
     BASICO: 'Basico',
@@ -300,6 +301,7 @@ export default function BillingPage() {
         return;
       }
 
+      setPayingInvoiceId(invoice.id);
       const response = await api.post(`/billing/invoices/${invoice.id}/regenerate-link`);
 
       const newLink = response?.data?.paymentLink;
@@ -326,6 +328,8 @@ export default function BillingPage() {
         paymentWindow.close();
       }
       toast.error('Erro ao gerar link de pagamento');
+    } finally {
+      setPayingInvoiceId(null);
     }
   };
 
@@ -345,7 +349,12 @@ export default function BillingPage() {
             <DollarSign size={28} />
             <span>Faturas e Pagamentos</span>
           </S.Brand>
-          <S.ThemeToggleButton onClick={() => setIsDarkMode(!isDarkMode)}>
+          <S.ThemeToggleButton
+            type="button"
+            aria-label={isDarkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            aria-pressed={isDarkMode}
+            onClick={() => setIsDarkMode(!isDarkMode)}
+          >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </S.ThemeToggleButton>
         </S.Navbar>
@@ -353,7 +362,7 @@ export default function BillingPage() {
         {/* MAIN CONTENT */}
         <S.MainContent>
           {isLoading ? (
-            <S.LoadingContainer>
+            <S.LoadingContainer role="status" aria-live="polite">
               <p>Carregando seu contexto de autenticação...</p>
             </S.LoadingContainer>
           ) : (
@@ -413,10 +422,12 @@ export default function BillingPage() {
                     <S.PlanTitle>
                       <Gem size={18} /> Basico
                     </S.PlanTitle>
-                    <S.PlanPrice>{PLAN_PRICES.BASICO}</S.PlanPrice>
+                    <S.PlanPrice>{PLAN_PRICES.BASICO || 'Valor indisponível'}</S.PlanPrice>
                     <S.PlanMutedText>Sistema de delivery e suporte.</S.PlanMutedText>
                     <S.PlanActionButton
                       $tone="basic"
+                      type="button"
+                      aria-busy={isChangingPlan}
                       disabled={
                         isChangingPlan ||
                         Boolean(getScheduledPlanLabel()) ||
@@ -433,7 +444,7 @@ export default function BillingPage() {
                     <S.PlanTitle>
                       <Gem size={18} /> Premium
                     </S.PlanTitle>
-                    <S.PlanPrice>{PLAN_PRICES.PREMIUM}</S.PlanPrice>
+                    <S.PlanPrice>{PLAN_PRICES.PREMIUM || 'Valor indisponível'}</S.PlanPrice>
                     <S.PlanList>
                       {PLAN_BENEFITS.PREMIUM.map((benefit) => (
                         <li key={benefit}>{benefit}</li>
@@ -441,6 +452,8 @@ export default function BillingPage() {
                     </S.PlanList>
                     <S.PlanActionButton
                       $tone="premium"
+                      type="button"
+                      aria-busy={isChangingPlan}
                       disabled={
                         isChangingPlan ||
                         Boolean(getScheduledPlanLabel()) ||
@@ -456,11 +469,11 @@ export default function BillingPage() {
               </S.PlanSection>
 
               {loading ? (
-                <S.LoadingContainer>
+                <S.LoadingContainer role="status" aria-live="polite">
                   <p>Carregando faturas...</p>
                 </S.LoadingContainer>
               ) : error ? (
-                <S.ErrorContainer>
+                <S.ErrorContainer role="alert">
                   <AlertCircle size={24} style={{ marginRight: '1rem' }} />
                   <div>
                     <h3>Erro ao carregar faturas</h3>
@@ -468,7 +481,7 @@ export default function BillingPage() {
                   </div>
                 </S.ErrorContainer>
               ) : invoices.length === 0 ? (
-                <S.EmptyContainer>
+                <S.EmptyContainer role="status">
                   <p>Nenhuma fatura encontrada</p>
                 </S.EmptyContainer>
               ) : (
@@ -482,7 +495,10 @@ export default function BillingPage() {
                           </S.InvoiceTitle>
                           <S.InvoiceDate>Vencimento: {formatDate(invoice.dueDate)}</S.InvoiceDate>
                         </div>
-                        <S.StatusBadge status={invoice.status}>
+                        <S.StatusBadge
+                          status={invoice.status}
+                          aria-label={`Status da fatura: ${getStatusLabel(invoice.status)}`}
+                        >
                           {invoice.status === 'PAGO' && <CheckCircle2 size={16} />}
                           {invoice.status === 'PENDENTE' && <Clock size={16} />}
                           {invoice.status === 'VENCIDO' && <AlertCircle size={16} />}
@@ -510,19 +526,26 @@ export default function BillingPage() {
                       )}
 
                       {isPayableStatus(invoice.status) ? (
-                        <S.PaymentButton onClick={() => handlePaymentClick(invoice)}>
+                        <S.PaymentButton
+                          type="button"
+                          onClick={() => handlePaymentClick(invoice)}
+                          disabled={payingInvoiceId === invoice.id}
+                          aria-busy={payingInvoiceId === invoice.id}
+                        >
                           <ExternalLink size={18} />
-                          {isValidPaymentLink(invoice.paymentLink)
-                            ? 'Pagar com Mercado Pago'
-                            : 'Gerar link e pagar'}
+                          {payingInvoiceId === invoice.id
+                            ? 'Preparando pagamento...'
+                            : isValidPaymentLink(invoice.paymentLink)
+                              ? 'Pagar com Mercado Pago'
+                              : 'Gerar link e pagar'}
                         </S.PaymentButton>
                       ) : invoice.status === 'PAGO' ? (
-                        <S.PaidButton>
+                        <S.PaidButton type="button" disabled>
                           <CheckCircle2 size={18} />
                           Fatura Paga
                         </S.PaidButton>
                       ) : (
-                        <S.DisabledButton>
+                        <S.DisabledButton type="button" disabled>
                           <AlertCircle size={18} />
                           {invoice.paymentLink ? 'Preparando link...' : 'Link indisponível'}
                         </S.DisabledButton>

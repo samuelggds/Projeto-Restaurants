@@ -237,7 +237,12 @@ export function SubscriptionDialog({
       footer={
         <>
           <S.Button onClick={onClose}>Cancelar</S.Button>
-          <S.Button $variant="primary" disabled={saving} onClick={() => void save()}>
+          <S.Button
+            $variant="primary"
+            disabled={saving}
+            aria-busy={saving}
+            onClick={() => void save()}
+          >
             {saving ? 'Salvando…' : 'Salvar assinatura'}
           </S.Button>
         </>
@@ -353,7 +358,12 @@ export function EditPlanDialog({
       footer={
         <>
           <S.Button onClick={onClose}>Cancelar</S.Button>
-          <S.Button $variant="primary" disabled={saving} onClick={() => void save()}>
+          <S.Button
+            $variant="primary"
+            disabled={saving}
+            aria-busy={saving}
+            onClick={() => void save()}
+          >
             {saving ? 'Salvando…' : 'Salvar plano'}
           </S.Button>
         </>
@@ -404,6 +414,7 @@ export function EditPlanDialog({
             <S.Switch
               type="button"
               role="switch"
+              aria-label="Plano ativo"
               aria-checked={form.active}
               $on={form.active}
               onClick={() => setForm({ ...form, active: !form.active })}

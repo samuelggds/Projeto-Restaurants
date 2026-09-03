@@ -295,6 +295,7 @@ export default function Login() {
           <S.ThemeToggleButton
             type="button"
             aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            aria-pressed={isDarkMode}
             onClick={() => setIsDarkMode(!isDarkMode)}
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}

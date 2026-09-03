@@ -8,22 +8,10 @@ export const Hero = styled.section`
   overflow: hidden;
   margin-bottom: 18px;
   padding: 26px;
-  border-radius: 18px;
-  background: linear-gradient(125deg, #172630 0%, #26343d 52%, #6b4437 100%);
+  border-radius: 8px;
+  background: linear-gradient(125deg, #21382e 0%, #294237 58%, #77422f 100%);
   box-shadow: 0 18px 36px rgba(29, 37, 43, 0.15);
   color: #fff;
-
-  &::after {
-    position: absolute;
-    right: -56px;
-    bottom: -92px;
-    width: 220px;
-    height: 220px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 50%;
-    box-shadow: 0 0 0 32px rgba(255, 255, 255, 0.035);
-    content: '';
-  }
 
   .eyebrow {
     display: flex;
@@ -64,7 +52,7 @@ export const Hero = styled.section`
     min-width: 92px;
     padding: 13px 15px;
     border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 13px;
+    border-radius: 7px;
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(8px);
   }
@@ -135,7 +123,7 @@ export const ProgressGrid = styled.div`
 export const ProgressCard = styled.article`
   padding: 15px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fff;
 
   > div:first-child {
@@ -184,7 +172,7 @@ export const ProgressCard = styled.article`
 export const Wallet = styled.section`
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 12px 30px rgba(51, 37, 27, 0.06);
 `;
@@ -224,14 +212,14 @@ export const Segments = styled.nav`
   gap: 5px;
   padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: 7px;
   background: #faf7f3;
 
   button {
     min-height: 36px;
     padding: 0 13px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 5px;
     background: transparent;
     color: var(--muted);
     font-size: 12px;
@@ -253,16 +241,31 @@ export const Segments = styled.nav`
 
 export const CouponGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  padding: 20px 22px 22px;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  align-items: start;
+  gap: 12px;
+  max-height: min(560px, 62vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 18px 18px;
+  scrollbar-color: #c9bdb4 transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 
-  @media (max-width: 720px) {
-    grid-template-columns: 1fr;
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: #c9bdb4;
+    background-clip: padding-box;
   }
 
   @media (max-width: 520px) {
-    padding: 14px;
+    max-height: min(500px, 60vh);
+    padding: 12px;
   }
 `;
 
@@ -270,9 +273,9 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
   position: relative;
   display: grid;
   min-width: 0;
-  padding: 18px;
+  padding: 14px;
   border: 1px solid ${({ $muted }) => ($muted ? '#e6e1dc' : '#efc9b7')};
-  border-radius: 15px;
+  border-radius: 8px;
   background: ${({ $muted }) => ($muted ? '#faf9f7' : '#fffaf7')};
   opacity: ${({ $muted }) => ($muted ? 0.82 : 1)};
 
@@ -280,8 +283,8 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
   &::after {
     position: absolute;
     top: 62%;
-    width: 12px;
-    height: 24px;
+    width: 10px;
+    height: 20px;
     border: 1px solid ${({ $muted }) => ($muted ? '#e6e1dc' : '#efc9b7')};
     background: #fff;
     content: '';
@@ -323,22 +326,22 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
   }
 
   h4 {
-    margin: 15px 0 4px;
-    font-size: 18px;
+    margin: 11px 0 3px;
+    font-size: 16px;
   }
 
   > p {
-    min-height: 34px;
+    min-height: 32px;
     margin: 0;
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.45;
+    line-height: 1.4;
   }
 
   .value {
-    margin: 14px 0;
+    margin: 10px 0;
     color: var(--p);
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 850;
   }
 
@@ -347,7 +350,7 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding-top: 14px;
+    padding-top: 10px;
     border-top: 1px dashed #ddcabe;
   }
 
@@ -355,7 +358,7 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
     overflow: hidden;
     color: #29231f;
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 850;
     letter-spacing: 0.08em;
     text-overflow: ellipsis;
@@ -364,8 +367,8 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
 
   .meta {
     display: grid;
-    gap: 7px;
-    margin: 13px 0 0;
+    gap: 5px;
+    margin: 10px 0 0;
     padding: 0;
     list-style: none;
     color: var(--muted);
@@ -380,10 +383,10 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
 
   .action {
     width: 100%;
-    min-height: 42px;
-    margin-top: 15px;
+    min-height: 38px;
+    margin-top: 11px;
     border: 0;
-    border-radius: 10px;
+    border-radius: 7px;
     background: var(--p);
     color: #fff;
     font-size: 12px;
@@ -398,7 +401,7 @@ export const Coupon = styled.article<{ $muted?: boolean }>`
 
 export const Status = styled.span<{ $tone: 'available' | 'reserved' | 'used' | 'expired' }>`
   flex: 0 0 auto;
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 999px;
   background: ${({ $tone }) =>
     $tone === 'available'
@@ -436,7 +439,7 @@ export const State = styled.div`
     width: 52px;
     height: 52px;
     place-items: center;
-    border-radius: 16px;
+    border-radius: 8px;
     background: #f8eee7;
     color: var(--p);
     font-style: normal;
@@ -459,7 +462,7 @@ export const State = styled.div`
     margin-top: 4px;
     padding: 0 15px;
     border: 1px solid var(--p);
-    border-radius: 9px;
+    border-radius: 7px;
     background: #fff;
     color: var(--p);
     font-weight: 750;
@@ -468,7 +471,7 @@ export const State = styled.div`
 
 export const Skeleton = styled.div`
   height: 245px;
-  border-radius: 15px;
+  border-radius: 8px;
   background: linear-gradient(100deg, #f5f1ed 20%, #fbf9f7 38%, #f5f1ed 56%);
   background-size: 300% 100%;
   animation: wallet-loading 1.3s ease infinite;

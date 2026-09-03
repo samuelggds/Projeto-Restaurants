@@ -62,6 +62,38 @@ export const AvailabilityNote = styled.p`
   color: ${(props) => props.theme.textMuted};
 `;
 
+export const ActionRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const SecondaryButton = styled.button`
+  min-height: 44px;
+  border: 1px solid ${(props) => props.theme.border};
+  border-radius: 10px;
+  background: ${(props) => props.theme.surface};
+  color: ${(props) => props.theme.text};
+  font-size: 0.86rem;
+  font-weight: 750;
+  cursor: pointer;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    border-color: ${(props) => props.theme.primary};
+    color: ${(props) => props.theme.primary};
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+`;
+
 export const FooterRow = styled.div`
   margin-top: 1rem;
   display: flex;

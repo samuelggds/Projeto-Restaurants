@@ -5,6 +5,8 @@ import type {
   ServiceCall,
   TableSessionStatus,
   TableStatus,
+  WaiterAccountSession,
+  WaiterManualPayment,
 } from './types';
 
 type GenericRecord = Record<string, unknown>;
@@ -96,6 +98,72 @@ export function mapWaiterCalls(raw: unknown[], now = Date.now()): ServiceCall[] 
         employeeName: String(assignedTo.name || call.employeeName || '').trim() || undefined,
         createdAt: requestedAt || undefined,
         resolvedAt: String(call.resolvedAt || '').trim() || undefined,
+      },
+    ];
+  });
+}
+
+export function mapWaiterAccountSessions(raw: unknown[]): WaiterAccountSession[] {
+  return raw.flatMap((value) => {
+    const session = asRecord(value);
+    const summary = asRecord(session.summary);
+    const paymentCounts = asRecord(session.paymentCounts);
+    const tableNumber = Number(session.tableNumber);
+    const status = asActiveTableSessionStatus(session.status);
+    const sessionPublicId = String(session.sessionPublicId || '').trim();
+    if (!sessionPublicId || !status || !Number.isInteger(tableNumber) || tableNumber <= 0)
+      return [];
+
+    const pendingManualPayments = (
+      Array.isArray(session.pendingManualPayments) ? session.pendingManualPayments : []
+    ).flatMap((value): WaiterManualPayment[] => {
+      const payment = asRecord(value);
+      const method = payment.method;
+      const paymentStatus = payment.status;
+      const publicId = String(payment.publicId || '').trim();
+      if (
+        !publicId ||
+        (method !== 'CASH' && method !== 'CARD_MACHINE') ||
+        (paymentStatus !== 'RESERVED' && paymentStatus !== 'PROCESSING')
+      ) {
+        return [];
+      }
+      return [
+        {
+          publicId,
+          method,
+          status: paymentStatus,
+          totalCents: Math.max(0, Number(payment.totalCents) || 0),
+          createdAt: String(payment.createdAt || ''),
+        },
+      ];
+    });
+
+    return [
+      {
+        tableSessionId: String(session.tableSessionId || ''),
+        sessionPublicId,
+        tableId: String(session.tableId || ''),
+        tableNumber,
+        openedAt: String(session.openedAt || ''),
+        status,
+        openedByName: String(session.openedByName || '').trim() || 'Equipe do salão',
+        summary: {
+          consumedCents: Math.max(0, Number(summary.consumedCents) || 0),
+          netPaidCents: Math.max(0, Number(summary.netPaidCents) || 0),
+          reservedCents: Math.max(0, Number(summary.reservedCents) || 0),
+          processingCents: Math.max(0, Number(summary.processingCents) || 0),
+          remainingCents: Math.max(0, Number(summary.remainingCents) || 0),
+          participantsCount: Math.max(0, Number(summary.participantsCount) || 0),
+        },
+        itemsCount: Math.max(0, Number(session.itemsCount) || 0),
+        paymentCounts: {
+          reserved: Math.max(0, Number(paymentCounts.reserved) || 0),
+          processing: Math.max(0, Number(paymentCounts.processing) || 0),
+          online: Math.max(0, Number(paymentCounts.online) || 0),
+          inPerson: Math.max(0, Number(paymentCounts.inPerson) || 0),
+        },
+        pendingManualPayments,
       },
     ];
   });

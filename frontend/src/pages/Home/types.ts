@@ -167,6 +167,7 @@ export type HomeData = {
 export type HomePageProps = {
   data: HomeData;
   cartCount?: number;
+  initialSearchOpen?: boolean;
   userName?: string;
   userEmail?: string;
   userAvatar?: string;

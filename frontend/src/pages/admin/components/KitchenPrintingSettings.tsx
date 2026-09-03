@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
-  ChevronRight,
   Copy,
   KeyRound,
   MonitorCheck,
@@ -25,6 +25,7 @@ import { KitchenPrintPreview } from './KitchenPrintPreview';
 import * as S from './KitchenPrintingSettingsGuide.styles';
 
 const STATUS_REFRESH_MS = 30_000;
+const PRINT_JOB_BATCH_SIZE = 10;
 
 function errorMessage(error: unknown, fallback: string) {
   const typed = error as {
@@ -61,7 +62,7 @@ export function KitchenPrintingSettings() {
   const [deviceName, setDeviceName] = useState('Agente principal da cozinha');
   const [copied, setCopied] = useState(false);
   const [orderSearch, setOrderSearch] = useState('');
-  const [jobPage, setJobPage] = useState(0);
+  const [visibleJobLimit, setVisibleJobLimit] = useState(PRINT_JOB_BATCH_SIZE);
 
   const loadConfiguration = useCallback(async (showLoading = false) => {
     if (showLoading && mountedRef.current) setLoading(true);
@@ -111,10 +112,7 @@ export function KitchenPrintingSettings() {
         : jobs,
     [jobs, orderSearch],
   );
-  const jobPageCount = Math.max(1, Math.ceil(filteredJobs.length / 5));
-  const currentJobPage = Math.min(jobPage, jobPageCount - 1);
-  const firstVisibleJob = currentJobPage * 5;
-  const visibleJobs = filteredJobs.slice(firstVisibleJob, firstVisibleJob + 5);
+  const visibleJobs = filteredJobs.slice(0, visibleJobLimit);
 
   const updateDraft = <K extends keyof KitchenPrinterSettings>(
     key: K,
@@ -738,7 +736,7 @@ export function KitchenPrintingSettings() {
                   value={orderSearch}
                   onChange={(event) => {
                     setOrderSearch(event.target.value.replace(/\D/g, ''));
-                    setJobPage(0);
+                    setVisibleJobLimit(PRINT_JOB_BATCH_SIZE);
                   }}
                 />
                 {orderSearch ? (
@@ -746,7 +744,7 @@ export function KitchenPrintingSettings() {
                     aria-label="Limpar pesquisa do histórico"
                     onClick={() => {
                       setOrderSearch('');
-                      setJobPage(0);
+                      setVisibleJobLimit(PRINT_JOB_BATCH_SIZE);
                     }}
                     type="button"
                   >
@@ -802,31 +800,36 @@ export function KitchenPrintingSettings() {
               </div>
             )}
 
-            {filteredJobs.length > 5 ? (
+            {filteredJobs.length > PRINT_JOB_BATCH_SIZE ? (
               <footer className="history-pagination">
                 <span>
-                  {firstVisibleJob + 1}–{Math.min(firstVisibleJob + 5, filteredJobs.length)} de{' '}
-                  {filteredJobs.length}
+                  Exibindo {visibleJobs.length} de {filteredJobs.length} impressões
                 </span>
                 <div>
-                  <button
-                    aria-label="Voltar 5 impressões"
-                    className="secondary"
-                    disabled={currentJobPage === 0}
-                    onClick={() => setJobPage((current) => Math.max(0, current - 1))}
-                    type="button"
-                  >
-                    <ChevronLeft aria-hidden="true" /> Voltar 5
-                  </button>
-                  <button
-                    aria-label="Mostrar próximas 5 impressões"
-                    className="secondary"
-                    disabled={currentJobPage >= jobPageCount - 1}
-                    onClick={() => setJobPage((current) => Math.min(jobPageCount - 1, current + 1))}
-                    type="button"
-                  >
-                    Próximas 5 <ChevronRight aria-hidden="true" />
-                  </button>
+                  {visibleJobLimit > PRINT_JOB_BATCH_SIZE ? (
+                    <button
+                      aria-label="Voltar às 10 impressões iniciais"
+                      className="secondary"
+                      onClick={() => setVisibleJobLimit(PRINT_JOB_BATCH_SIZE)}
+                      type="button"
+                    >
+                      <ChevronLeft aria-hidden="true" /> Voltar às 10
+                    </button>
+                  ) : null}
+                  {visibleJobs.length < filteredJobs.length ? (
+                    <button
+                      aria-label="Mostrar mais 10 impressões"
+                      className="secondary"
+                      onClick={() =>
+                        setVisibleJobLimit((current) =>
+                          Math.min(current + PRINT_JOB_BATCH_SIZE, filteredJobs.length),
+                        )
+                      }
+                      type="button"
+                    >
+                      Mostrar mais 10 <ChevronDown aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
               </footer>
             ) : null}

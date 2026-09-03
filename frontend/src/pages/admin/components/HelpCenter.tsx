@@ -408,7 +408,7 @@ function getDetailedSteps({ area, path, fields, action }: GuideSection) {
       'Leia os quatro cartões superiores: vendas de hoje, pedidos, ticket médio e clientes ativos. Eles são apenas indicadores, não precisam ser preenchidos.',
       'Em “Pedidos recentes”, use o campo de busca para localizar pelo ID ou pelo nome do cliente e use o seletor para filtrar pelo status.',
       'Em “Produtos disponíveis”, pesquise pelo nome ou ID do produto e altere o filtro de disponibilidade quando necessário.',
-      'Use “Voltar 5” e “Próximos 5” no fim de cada lista para navegar pelos resultados sem sair da tela.',
+      'Use “Mostrar mais 10” para expandir cada lista sem perder os itens anteriores e “Voltar aos 10” para retornar ao início.',
     ];
   }
 
@@ -486,10 +486,10 @@ function LegacyGuidePreview({
                   #57 · Samuel Gomes <b>R$ 49,68</b>
                 </p>
                 <footer>
-                  <small>1–5 de 11</small>
+                  <small>Exibindo 10 de 11</small>
                   <strong className="marker">6</strong>
-                  <button>‹ Voltar 5</button>
-                  <button>Próximos 5 ›</button>
+                  <button>Voltar aos 10</button>
+                  <button>Mostrar mais 10</button>
                 </footer>
               </section>
               <section>
@@ -507,9 +507,9 @@ function LegacyGuidePreview({
                   Fanta Uva <b>R$ 8,90</b>
                 </p>
                 <footer>
-                  <small>1–5 de 6</small>
-                  <button>‹ Voltar 5</button>
-                  <button>Próximos 5 ›</button>
+                  <small>Exibindo 6 de 6</small>
+                  <button>Voltar aos 10</button>
+                  <button>Mostrar mais 10</button>
                 </footer>
               </section>
             </div>

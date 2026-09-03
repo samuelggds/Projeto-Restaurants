@@ -13,8 +13,12 @@ const tableAccountSnapshotSelect = {
   id: true,
   publicId: true,
   restaurantId: true,
+  tableId: true,
   status: true,
+  openedAt: true,
+  expiresAt: true,
   table: { select: { number: true } },
+  openedBy: { select: { name: true } },
   participants: {
     select: {
       publicId: true,
@@ -126,6 +130,22 @@ export class TableAccountRepository {
         restaurantId,
       },
       select: tableAccountSnapshotSelect,
+    });
+  }
+
+  async listAdminSnapshotDataByRestaurant(
+    restaurantId: number,
+    now: Date,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.tableSession.findMany({
+      where: {
+        restaurantId,
+        status: { in: [...activeSessionStatuses] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+      select: tableAccountSnapshotSelect,
+      orderBy: [{ openedAt: 'desc' }, { id: 'desc' }],
     });
   }
 }

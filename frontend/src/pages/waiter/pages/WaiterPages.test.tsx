@@ -10,6 +10,13 @@ import {
   WaiterOverviewPage,
   WaiterTablesPage,
 } from './WaiterPages';
+import { WaiterPaymentsPage } from './WaiterPaymentsPage';
+
+const dialogMocks = vi.hoisted(() => ({ confirmDialog: vi.fn() }));
+
+vi.mock('../../../components/AppDialog/context', () => ({
+  useAppDialog: () => ({ confirmDialog: dialogMocks.confirmDialog }),
+}));
 
 vi.mock('../../../Services/tableAccountService', () => ({
   default: {
@@ -98,6 +105,7 @@ const data: EmployeeWorkspaceData = {
       resolvedAt: new Date().toISOString(),
     },
   ],
+  accounts: [],
 };
 
 describe('waiter operational pages', () => {
@@ -106,6 +114,7 @@ describe('waiter operational pages', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    dialogMocks.confirmDialog.mockResolvedValue(true);
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -335,7 +344,6 @@ describe('waiter operational pages', () => {
   });
 
   it('mostra a conta e permite confirmar somente dinheiro ou maquininha já recebidos', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(tableAccountService.getAdminSnapshot).mockResolvedValue({
       summary: {
         consumedCents: 5800,
@@ -381,9 +389,84 @@ describe('waiter operational pages', () => {
     expect(confirmButtons).toHaveLength(1);
 
     await act(async () => confirmButtons[0]?.click());
+    expect(dialogMocks.confirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Confirmar pagamento recebido?',
+        description: expect.stringMatching(/R\$\s*29,00 em maquininha/),
+        confirmLabel: 'Confirmar recebimento',
+      }),
+    );
     expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('manual-payment');
     expect(tableAccountService.confirmManualPayment).not.toHaveBeenCalledWith('online-payment');
     expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it('organiza pagamentos presenciais em fila e confirma pelo ledger sem ações administrativas', async () => {
+    const onRefresh = vi.fn(async () => undefined);
+    vi.mocked(tableAccountService.confirmManualPayment).mockResolvedValue({});
+    await act(async () =>
+      root.render(
+        <WaiterProvider
+          employee={employee}
+          restaurant={restaurant}
+          data={{
+            ...data,
+            accounts: [
+              {
+                tableSessionId: '31',
+                sessionPublicId: 'session-public-31',
+                tableId: '91',
+                tableNumber: 12,
+                openedAt: '2026-08-26T17:30:00.000Z',
+                status: 'CLOSING_REQUESTED',
+                openedByName: 'Ana Garçom',
+                summary: {
+                  consumedCents: 5800,
+                  netPaidCents: 2900,
+                  reservedCents: 2900,
+                  processingCents: 0,
+                  remainingCents: 2900,
+                  participantsCount: 2,
+                },
+                itemsCount: 3,
+                paymentCounts: { reserved: 1, processing: 0, online: 0, inPerson: 1 },
+                pendingManualPayments: [
+                  {
+                    publicId: 'cash-payment',
+                    method: 'CASH',
+                    status: 'RESERVED',
+                    totalCents: 2900,
+                    createdAt: '2026-08-26T18:00:00.000Z',
+                  },
+                ],
+              },
+            ],
+          }}
+          onRefresh={onRefresh}
+        >
+          <WaiterPaymentsPage />
+        </WaiterProvider>,
+      ),
+    );
+
+    expect(container.textContent).toContain('Recebimentos para confirmar');
+    expect(container.textContent).toContain('Mesa 12');
+    expect(container.textContent).toMatch(/R\$\s*29,00/);
+    expect(container.textContent).not.toMatch(/estornar|fechamento forçado|criar cobrança/i);
+
+    const confirm = container.querySelector(
+      'button[aria-label*="Confirmar Dinheiro"][aria-label*="Mesa 12"]',
+    ) as HTMLButtonElement;
+    await act(async () => confirm.click());
+
+    expect(dialogMocks.confirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Confirmar pagamento recebido?',
+        description: expect.stringMatching(/Mesa 12.*R\$\s*29,00.*dinheiro/),
+      }),
+    );
+    expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('cash-payment');
+    expect(onRefresh).toHaveBeenCalledOnce();
   });
 
   it('busca chamados e confirma Atender pelo contrato de atualização', async () => {
@@ -414,8 +497,8 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('Nenhum chamado aguardando atendimento.');
   });
 
-  it('volta à primeira página dos concluídos quando a busca muda', () => {
-    const resolvedCalls = Array.from({ length: 6 }, (_, index) => ({
+  it('expande os concluídos de 10 em 10 e permite voltar para os primeiros 10', () => {
+    const resolvedCalls = Array.from({ length: 16 }, (_, index) => ({
       id: String(index + 1),
       tableNumber: index + 1,
       type: 'WAITER' as const,
@@ -425,15 +508,18 @@ describe('waiter operational pages', () => {
     }));
     renderPage(<WaiterCallsPage />, { calls: resolvedCalls });
 
+    expect(container.textContent).toContain('Exibindo 10 de 16 chamados');
     const next = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'Próximos 5',
+      (button) => button.textContent?.trim() === 'Mostrar mais 10',
     );
     act(() => next?.click());
-    expect(container.textContent).toContain('6-6 de 6');
+    expect(container.textContent).toContain('Exibindo 16 de 16 chamados');
 
-    const search = container.querySelector('[aria-label="Buscar chamados"]') as HTMLInputElement;
-    act(() => changeInput(search, 'mesa'));
+    const reset = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Voltar para 10',
+    );
+    act(() => reset?.click());
 
-    expect(container.textContent).toContain('1-5 de 6');
+    expect(container.textContent).toContain('Exibindo 10 de 16 chamados');
   });
 });

@@ -78,7 +78,13 @@ describe('busca de produtos na Home', () => {
     ).toBeTruthy();
   });
 
-  it('adiciona produto COMPLETE diretamente sem abrir o configurador', () => {
+  it('abre a busca ao receber a intenção de navegação do perfil', () => {
+    act(() => root.render(<HomePage data={homeMockData} initialSearchOpen />));
+
+    expect(document.querySelector('input[aria-label="Pesquisar produto pelo nome"]')).toBeTruthy();
+  });
+
+  it('adiciona produto COMPLETE sem abrir o configurador nem a sacola', () => {
     const onAddProduct = vi.fn();
     const onOpenCart = vi.fn();
     act(() =>
@@ -119,7 +125,7 @@ describe('busca de produtos na Home', () => {
       observation: '',
       configurationVersion: 4,
     });
-    expect(onOpenCart).toHaveBeenCalledOnce();
+    expect(onOpenCart).not.toHaveBeenCalled();
     expect(document.querySelector('[role="dialog"][aria-label="Montar Refrigerante"]')).toBeNull();
   });
 });

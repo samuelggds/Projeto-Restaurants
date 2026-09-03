@@ -85,7 +85,8 @@ describe('ProductSearchDialog', () => {
 
   it('mostra orientação inicial e estado vazio quando não encontra produtos', () => {
     renderDialog();
-    expect(document.body.textContent).toContain('O que você deseja pedir?');
+    expect(document.body.textContent).toContain('Sugestões do cardápio');
+    expect(document.body.textContent).toContain('Pizza Portuguesa');
 
     searchFor('produto inexistente');
 

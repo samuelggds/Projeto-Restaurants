@@ -1,3 +1,4 @@
+import { ArrowRight, CreditCard, QrCode, ReceiptText } from 'lucide-react';
 import type { CheckoutPaymentMethod } from '../domain/checkout';
 import * as S from '../Home.styles';
 import * as Summary from './CartCheckoutSummary.styles';
@@ -33,6 +34,8 @@ export function CartCheckoutSummary({
   checkoutButtonLabel,
   onCheckout,
 }: Props) {
+  if (count <= 0) return null;
+
   const finalTotal = quote?.total ?? total;
   const buttonLabel = loading
     ? 'Processando...'
@@ -43,10 +46,12 @@ export function CartCheckoutSummary({
         : checkoutButtonLabel
           ? checkoutButtonLabel
           : paymentMethod === 'pix'
-            ? '⚡ Gerar código Pix'
+            ? 'Gerar código Pix'
             : paymentMethod === 'card'
-              ? '💳 Ir para pagamento seguro'
-              : '✓ Fazer pedido e pagar na entrega';
+              ? 'Ir para pagamento seguro'
+              : 'Fazer pedido e pagar na entrega';
+  const CheckoutIcon =
+    paymentMethod === 'pix' ? QrCode : paymentMethod === 'card' ? CreditCard : ReceiptText;
   return (
     <div className="cart-checkout-area">
       {count > 0 && (
@@ -83,16 +88,19 @@ export function CartCheckoutSummary({
           O valor final será confirmado com segurança antes de criar o pedido.
         </Summary.Hint>
       )}
-      <S.CartTotal>
+      <S.CartTotal aria-label={`Total do pedido: ${currency(finalTotal)}`}>
         <span>Total</span>
         <span>{currency(finalTotal)}</span>
       </S.CartTotal>
       <S.CartCheckout
         type="button"
-        disabled={!count || loading || !isRestaurantOpen || Boolean(checkoutBlockedMessage)}
+        disabled={loading || !isRestaurantOpen || Boolean(checkoutBlockedMessage)}
+        aria-busy={loading}
         onClick={onCheckout}
       >
-        {buttonLabel} →
+        <CheckoutIcon aria-hidden="true" />
+        <span>{buttonLabel}</span>
+        <ArrowRight className="checkout-arrow" aria-hidden="true" />
       </S.CartCheckout>
     </div>
   );

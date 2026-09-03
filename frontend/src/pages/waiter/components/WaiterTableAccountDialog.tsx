@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import tableAccountService from '../../../Services/tableAccountService';
+import { useAppDialog } from '../../../components/AppDialog/context';
 import type { RestaurantTable, WaiterTableAccountSnapshot } from '../types';
 import { useWaiterWorkspace } from '../useWaiterWorkspace';
 import { brl } from './Shared';
@@ -45,6 +46,18 @@ function canConfirmManualPayment(payment: WaiterTableAccountSnapshot['paymentInt
   return isManualPayment(payment) && ['RESERVED', 'PROCESSING'].includes(payment.status);
 }
 
+function formatConfirmation(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function WaiterTableAccountDialog({
   table,
   onClose,
@@ -52,6 +65,7 @@ export function WaiterTableAccountDialog({
   table: RestaurantTable;
   onClose: () => void;
 }) {
+  const { confirmDialog } = useAppDialog();
   const { onRefresh, tableAccountRefreshKey } = useWaiterWorkspace();
   const [snapshot, setSnapshot] = useState<WaiterTableAccountSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,17 +103,15 @@ export function WaiterTableAccountDialog({
     };
   }, [loadSnapshot, tableAccountRefreshKey]);
 
-  const confirmManual = async (
-    payment: WaiterTableAccountSnapshot['paymentIntents'][number],
-  ) => {
+  const confirmManual = async (payment: WaiterTableAccountSnapshot['paymentIntents'][number]) => {
     const method = payment.method === 'CASH' ? 'dinheiro' : 'maquininha';
-    if (
-      !window.confirm(
-        `Confirma que recebeu ${brl(payment.totalCents / 100)} em ${method}? Esta ação marcará o pagamento como pago.`,
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: 'Confirmar pagamento recebido?',
+      description: `Mesa ${String(table.number).padStart(2, '0')} • ${brl(payment.totalCents / 100)} em ${method}. Confirme somente depois de receber o valor do cliente.`,
+      confirmLabel: 'Confirmar recebimento',
+      cancelLabel: 'Voltar e conferir',
+    });
+    if (!confirmed) return;
 
     setBusyPaymentId(payment.publicId);
     setError('');
@@ -147,8 +159,8 @@ export function WaiterTableAccountDialog({
               <b>Como a confirmação funciona</b>
               <p>
                 <strong>Pix e cartão online</strong> são confirmados automaticamente pelo provedor.
-                Em <strong>dinheiro ou maquininha</strong>, confirme abaixo somente depois de receber o
-                valor do cliente.
+                Em <strong>dinheiro ou maquininha</strong>, confirme abaixo somente depois de
+                receber o valor do cliente.
               </p>
             </div>
           </S.AccountGuidance>
@@ -209,7 +221,11 @@ export function WaiterTableAccountDialog({
                         <small>
                           {payment.status === 'PAID'
                             ? payment.manualConfirmedByName
-                              ? `Recebimento confirmado por ${payment.manualConfirmedByName}`
+                              ? `Recebimento confirmado por ${payment.manualConfirmedByName}${
+                                  formatConfirmation(payment.manualConfirmedAt)
+                                    ? ` em ${formatConfirmation(payment.manualConfirmedAt)}`
+                                    : ''
+                                }`
                               : 'Confirmação automática recebida'
                             : confirmable
                               ? 'Confira o recebimento presencial antes de confirmar'

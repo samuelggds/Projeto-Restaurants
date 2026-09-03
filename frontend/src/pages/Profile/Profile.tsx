@@ -20,7 +20,9 @@ import { readJsonStorage } from '../../shared/storage/jsonStorage';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { LoyaltySummary } from '../Home/types';
 import type { ProfileFavorite } from './types';
-import customerPaymentMethodService, { type CustomerPaymentMethod } from '../../Services/customerPaymentMethodService';
+import customerPaymentMethodService, {
+  type CustomerPaymentMethod,
+} from '../../Services/customerPaymentMethodService';
 import { PaymentMethodModal } from './components/PaymentMethodModal';
 import { resolveProfileView } from './domain/profileView';
 
@@ -157,9 +159,15 @@ export default function Profile() {
   }, []);
 
   const loadPaymentMethods = useCallback(async () => {
-    if (!restaurantId) { setPaymentMethods([]); return; }
-    try { setPaymentMethods(await customerPaymentMethodService.list(restaurantId)); }
-    catch { setPaymentMethods([]); }
+    if (!restaurantId) {
+      setPaymentMethods([]);
+      return;
+    }
+    try {
+      setPaymentMethods(await customerPaymentMethodService.list(restaurantId));
+    } catch {
+      setPaymentMethods([]);
+    }
   }, [restaurantId]);
 
   useEffect(() => {
@@ -212,6 +220,18 @@ export default function Profile() {
       .toLowerCase();
     return slug ? `/${slug}` : '/';
   }, [settings]);
+  const storedCartCount = useMemo(() => {
+    if (!restaurantId) return 0;
+    const namespacedCart = readJsonStorage<CartItem[]>(`cartItems:${restaurantId}`, []);
+    const legacyRestaurantId = Number(
+      localStorage.getItem('cartRestaurantId') || localStorage.getItem('menuRestaurantId') || 0,
+    );
+    const cart =
+      namespacedCart.length || legacyRestaurantId !== restaurantId
+        ? namespacedCart
+        : readJsonStorage<CartItem[]>('cartItems', []);
+    return cart.reduce((total, item) => total + Math.max(0, Number(item.quantity) || 0), 0);
+  }, [restaurantId]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -350,9 +370,19 @@ export default function Profile() {
           },
         }}
         initialView={resolveProfileView(searchParams.get('view'))}
-        cartCount={0}
+        cartCount={storedCartCount}
         onGoHome={() => navigate('/')}
         onOpenMenu={() => navigate('/')}
+        onOpenSearch={() =>
+          navigate(restaurantMenuPath, {
+            state: { openSearch: true },
+          })
+        }
+        onOpenCart={() =>
+          navigate(restaurantMenuPath, {
+            state: { openCart: true },
+          })
+        }
         onLogout={handleLogout}
         onUploadAvatar={handleUploadAvatar}
         onSavePersonalData={handleSavePersonalData}

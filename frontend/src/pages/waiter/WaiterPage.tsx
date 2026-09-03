@@ -6,11 +6,17 @@ import restaurantSettingsService from '../../Services/restaurantSettingsService'
 import { acquireSocket } from '../../Services/socketService';
 import tablesService from '../../Services/tablesService';
 import waiterCallsService from '../../Services/waiterCallsService';
+import tableAccountService from '../../Services/tableAccountService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { WaiterModule } from './WaiterModule';
 import type { EmployeeWorkspaceData, RestaurantBrand, WaiterWorkspaceState } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
-import { asRecord, mapWaiterCalls, mapWaiterTables } from './waiterAdapter';
+import {
+  asRecord,
+  mapWaiterAccountSessions,
+  mapWaiterCalls,
+  mapWaiterTables,
+} from './waiterAdapter';
 import {
   playOrderNotificationSound,
   prepareOrderNotificationSound,
@@ -31,7 +37,12 @@ export default function WaiterPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const restaurantId = Number((user as GenericRecord)?.restaurantId || 0) || null;
-  const [data, setData] = useState<EmployeeWorkspaceData>({ orders: [], tables: [], calls: [] });
+  const [data, setData] = useState<EmployeeWorkspaceData>({
+    orders: [],
+    tables: [],
+    calls: [],
+    accounts: [],
+  });
   const [restaurant, setRestaurant] = useState<RestaurantBrand>({
     restaurantName: 'Restaurante',
     monogram: 'R',
@@ -79,6 +90,7 @@ export default function WaiterPage() {
       ordersService.listRestaurantOrders(),
       tablesService.listTables(),
       waiterCallsService.listCalls(),
+      tableAccountService.listWaiterSessions(),
     ]);
     inFlightRef.current = false;
     if (!mountedRef.current) return;
@@ -87,6 +99,7 @@ export default function WaiterPage() {
     if (results[0].status === 'rejected') failures.push('pedidos');
     if (results[1].status === 'rejected') failures.push('mesas');
     if (results[2].status === 'rejected') failures.push('chamados');
+    if (results[3].status === 'rejected') failures.push('contas');
 
     setData((current) => ({
       orders:
@@ -101,6 +114,12 @@ export default function WaiterPage() {
         results[2].status === 'fulfilled'
           ? mapWaiterCalls(Array.isArray(results[2].value) ? results[2].value : [])
           : current.calls,
+      accounts:
+        results[3].status === 'fulfilled'
+          ? mapWaiterAccountSessions(
+              Array.isArray(results[3].value.sessions) ? results[3].value.sessions : [],
+            )
+          : current.accounts,
     }));
     setWorkspaceState({
       loading: false,
@@ -108,7 +127,7 @@ export default function WaiterPage() {
       error: failures.length
         ? `Não foi possível carregar ${failures.join(', ')}. Os demais dados continuam disponíveis.`
         : null,
-      lastUpdatedAt: failures.length === 3 ? null : new Date().toISOString(),
+      lastUpdatedAt: failures.length === 4 ? null : new Date().toISOString(),
     });
   }, []);
 

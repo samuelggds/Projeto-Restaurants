@@ -8,31 +8,19 @@ export const Page = styled.div`
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(1200px 500px at 100% -20%, #ffd88b 0%, transparent 60%),
-    radial-gradient(900px 450px at -10% 120%, #ff9c73 0%, transparent 60%),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0,
+      transparent 22px,
+      rgba(78, 63, 48, 0.035) 22px,
+      rgba(78, 63, 48, 0.035) 23px
+    ),
     linear-gradient(135deg, ${(p) => p.theme.bgA}, ${(p) => p.theme.bgB});
-`;
 
-export const BlobTop = styled.div`
-  position: absolute;
-  top: -100px;
-  right: -120px;
-  width: 340px;
-  height: 340px;
-  border-radius: 50%;
-  background: rgba(255, 177, 0, 0.26);
-  filter: blur(8px);
-`;
-
-export const BlobBottom = styled.div`
-  position: absolute;
-  bottom: -120px;
-  left: -120px;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: rgba(255, 111, 60, 0.25);
-  filter: blur(10px);
+  @media (max-width: 480px) {
+    place-items: start center;
+    padding: 16px 12px;
+  }
 `;
 
 export const Card = styled.section`
@@ -45,6 +33,11 @@ export const Card = styled.section`
   box-shadow: 0 30px 80px rgba(16, 10, 6, 0.35);
   position: relative;
   z-index: 2;
+
+  @media (max-width: 480px) {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
 `;
 
 export const Badge = styled.div`
@@ -96,6 +89,16 @@ export const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+
+  @media (max-width: 480px) {
+    display: grid;
+    grid-template-columns: 1fr;
+
+    > button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 `;
 
 export const PrimaryButton = styled.button`
@@ -110,6 +113,11 @@ export const PrimaryButton = styled.button`
   cursor: pointer;
   background: linear-gradient(135deg, ${(p) => p.theme.accent}, ${(p) => p.theme.accentAlt});
   color: #1b130a;
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.68;
+  }
 `;
 
 export const SecondaryButton = styled.button`
@@ -132,4 +140,9 @@ export const GhostButton = styled.button`
   cursor: pointer;
   background: rgba(255, 255, 255, 0.08);
   color: ${(p) => p.theme.text};
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.68;
+  }
 `;

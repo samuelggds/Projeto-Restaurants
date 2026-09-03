@@ -22,11 +22,11 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
   right: 0;
   top: 0;
   z-index: 70;
-  width: min(480px, 100%);
+  width: min(520px, 100%);
   height: 100dvh;
-  background: #fffdf9;
-  display: flex;
-  flex-direction: column;
+  background: #f4f6f3;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior: contain;
@@ -38,68 +38,120 @@ export const CartDrawer = styled.aside<{ $open: boolean }>`
     transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.2s ease,
     visibility 0s linear ${({ $open }) => ($open ? '0s' : '0.32s')};
-  box-shadow: ${({ $open }) => ($open ? '-24px 0 80px rgba(70, 45, 20, 0.22)' : 'none')};
+  box-shadow: ${({ $open }) => ($open ? '-24px 0 80px rgba(20, 31, 26, 0.24)' : 'none')};
   will-change: ${({ $open }) => ($open ? 'transform, opacity' : 'auto')};
   contain: layout paint;
 `;
 
 export const CartHead = styled.div`
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 12px;
-  padding: 22px 24px 18px;
-  background: #191816;
-  color: #fff;
+  gap: 10px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--home-border);
+  background: #fff;
+  color: var(--home-text);
+
+  .cart-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .cart-mark {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    color: #fff;
+    background: var(--home-primary);
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
 
   .cart-title {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
 
   h2 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: #fff;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--home-text);
   }
 
   small {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.55);
-    font-weight: 400;
+    color: var(--home-primary);
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
   }
 
-  button {
+  .cart-count {
+    padding: 6px 9px;
+    border-radius: 6px;
+    color: #53605a;
+    background: #eef2ee;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  > button {
     width: 36px;
     height: 36px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    font-size: 20px;
+    border: 1px solid var(--home-border);
+    border-radius: 50%;
+    background: #f7f9f7;
+    color: var(--home-text);
     cursor: pointer;
     display: grid;
     place-items: center;
     transition: background 0.18s;
+    svg {
+      width: 18px;
+      height: 18px;
+    }
     &:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: #edf1ed;
+    }
+  }
+
+  @media (max-width: 420px) {
+    padding: 14px 12px;
+
+    .cart-mark {
+      width: 38px;
+      height: 38px;
+    }
+
+    h2 {
+      font-size: 20px;
     }
   }
 `;
 
-export const CartItems = styled.div`
-  flex: 0 1 auto;
-  width: 100%;
-  max-height: 32dvh;
+export const CartBody = styled.div`
+  min-height: 0;
   overflow-y: auto;
-  padding: 14px 20px 10px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--home-border) transparent;
+`;
+
+export const CartItems = styled.div`
+  width: 100%;
+  padding: 18px 20px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -117,10 +169,10 @@ export const CartItemRow = styled.div`
   display: grid;
   grid-template-columns: 76px 1fr;
   gap: 14px;
-  padding: 14px;
+  padding: 10px;
   background: #fff;
   border: 1px solid var(--home-border);
-  border-radius: 14px;
+  border-radius: 8px;
   transition: box-shadow 0.2s;
 
   &:hover {
@@ -130,7 +182,7 @@ export const CartItemRow = styled.div`
   img {
     width: 76px;
     height: 76px;
-    border-radius: 10px;
+    border-radius: 6px;
     object-fit: cover;
   }
 `;
@@ -200,8 +252,6 @@ export const CartQty = styled.div`
     height: 30px;
     border: none;
     background: transparent;
-    font-size: 18px;
-    font-weight: 700;
     cursor: pointer;
     display: grid;
     place-items: center;
@@ -209,6 +259,10 @@ export const CartQty = styled.div`
     transition: background 0.15s;
     &:hover {
       background: var(--home-border);
+    }
+    svg {
+      width: 15px;
+      height: 15px;
     }
   }
 
@@ -226,19 +280,24 @@ export const CartEmpty = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
+  min-height: min(470px, 62dvh);
   gap: 12px;
   color: var(--home-muted);
   text-align: center;
 
   .icon {
-    width: 72px;
-    height: 72px;
-    background: #f5f0ea;
-    border-radius: 50%;
+    width: 58px;
+    height: 58px;
+    background: color-mix(in srgb, var(--home-primary) 9%, #fff);
+    border-radius: 8px;
     display: grid;
     place-items: center;
-    font-size: 32px;
+    color: var(--home-primary);
+
+    svg {
+      width: 25px;
+      height: 25px;
+    }
   }
 
   strong {
@@ -253,40 +312,49 @@ export const CartEmpty = styled.div`
     max-width: 240px;
     line-height: 1.5;
   }
+
+  > button {
+    min-height: 42px;
+    margin-top: 4px;
+    padding: 0 15px;
+    border: 1px solid var(--home-border);
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--home-text);
+    background: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
 `;
 
 export const CartFoot = styled.div`
-  flex: 1 1 auto;
   width: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 0 20px 20px;
+  padding: 16px 20px max(18px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--home-border);
   background: #fff;
-  overflow: hidden;
+  box-shadow: 0 -12px 30px rgba(20, 31, 26, 0.07);
 
-  > * {
-    flex: 0 0 auto;
+  .cart-checkout-area {
     width: 100%;
   }
 
-  .cart-checkout-area {
-    flex: 0 0 auto;
-    width: 100%;
-    margin-top: auto;
-    padding-top: 14px;
-    background: #fff;
-    border-top: 1px solid var(--home-border);
+  &:empty {
+    display: none;
   }
 `;
 
 export const CartOptions = styled.div`
-  flex: 1 1 auto;
-  min-height: 0;
   width: 100%;
-  padding-top: 14px;
-  overflow-y: auto;
+  padding: 8px 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -312,8 +380,8 @@ export const CartTotal = styled.div`
   align-items: center;
   font-weight: 800;
   font-size: 20px;
-  color: #191816;
-  margin: 12px 0 16px;
+  color: var(--home-text);
+  margin: 10px 0 14px;
   padding-top: 12px;
   border-top: 2px solid var(--home-border);
 
@@ -372,19 +440,35 @@ export const OrderTypeBtn = styled.button<{ $active: boolean }>`
 export const CartCheckout = styled.button`
   width: 100%;
   height: 56px;
-  background: #191816;
+  background: var(--home-primary);
   color: #fff;
   border: 0;
-  border-radius: 14px;
+  border-radius: 7px;
   font-weight: 800;
   font-size: 16px;
   cursor: pointer;
   font-family: inherit;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  > svg {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 auto;
+  }
+
+  > span {
+    min-width: 0;
+    flex: 1;
+    text-align: center;
+  }
+
+  .checkout-arrow {
+    width: 18px;
+  }
+
   transition:
     transform 0.18s,
     background 0.18s;
@@ -398,7 +482,7 @@ export const CartCheckout = styled.button`
   }
 
   &:hover:not(:disabled) {
-    background: #d64d08;
+    filter: brightness(0.95);
     transform: translateY(-1px);
   }
 
@@ -496,12 +580,47 @@ export const PaymentGrid = styled.div`
   }
 `;
 export const SavedPaymentChooser = styled.div`
-  display: grid; gap: 8px; margin-top: 10px;
-  > button, > a { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: var(--text); padding: 11px 13px; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; text-decoration: none; transition: border-color .2s, transform .2s, background .2s, box-shadow .2s; }
-  > button:hover, > a:hover { transform: translateY(-1px); border-color: var(--primary); }
-  > button.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, white); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 12%, transparent); }
-  span { display: flex; flex-direction: column; gap: 2px; }
-  small { color: var(--muted); }
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  > button,
+  > a {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text);
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    cursor: pointer;
+    text-decoration: none;
+    transition:
+      border-color 0.2s,
+      transform 0.2s,
+      background 0.2s,
+      box-shadow 0.2s;
+  }
+  > button:hover,
+  > a:hover {
+    transform: translateY(-1px);
+    border-color: var(--primary);
+  }
+  > button.active {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 7%, white);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+  span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  small {
+    color: var(--muted);
+  }
   > a.add {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -511,41 +630,137 @@ export const SavedPaymentChooser = styled.div`
     border-radius: 14px;
     background: #fbfaf8;
     color: #27231f;
-    box-shadow: 0 6px 18px rgba(38, 31, 25, .05);
+    box-shadow: 0 6px 18px rgba(38, 31, 25, 0.05);
   }
   > a.add:hover {
     border-color: color-mix(in srgb, var(--primary) 45%, #e6ded7);
     background: #fff;
-    box-shadow: 0 10px 24px rgba(38, 31, 25, .09);
+    box-shadow: 0 10px 24px rgba(38, 31, 25, 0.09);
   }
   .add-icon {
-    width: 38px; height: 38px; border-radius: 11px;
-    display: grid; place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
     background: color-mix(in srgb, var(--primary) 10%, #f5f1ed);
     color: var(--primary);
   }
-  .add-copy { min-width: 0; gap: 3px; }
-  .add-copy b { color: #27231f; font-size: 12px; line-height: 1.25; }
-  .add-copy small { overflow: hidden; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-  .add-arrow { color: #9b938c; transition: color .2s, transform .2s; }
-  > a.add:hover .add-arrow { color: var(--primary); transform: translateX(2px); }
+  .add-copy {
+    min-width: 0;
+    gap: 3px;
+  }
+  .add-copy b {
+    color: #27231f;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  .add-copy small {
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .add-arrow {
+    color: #9b938c;
+    transition:
+      color 0.2s,
+      transform 0.2s;
+  }
+  > a.add:hover .add-arrow {
+    color: var(--primary);
+    transform: translateX(2px);
+  }
 `;
 export const CardAccountNotice = styled.div`
-  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px;
-  margin: 4px 0 12px; padding: 14px; border: 1px solid #d9d0ff; border-radius: 14px;
-  background: linear-gradient(135deg, #f8f6ff, #fff); color: #292342;
-  animation: cardNoticeIn .28s ease-out both;
-  @keyframes cardNoticeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-  .notice-icon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: #ebe7ff; color: #5842c3; }
-  .notice-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .notice-copy b { font-size: 13px; }
-  .notice-copy span { color: #686178; font-size: 11px; line-height: 1.45; }
-  .notice-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  button { min-height: 38px; border: 1px solid #d9d0ff; border-radius: 10px; background: #fff; color: #4a3a9b; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: transform .18s, box-shadow .18s; }
-  button:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(73, 53, 159, .12); }
-  button.primary { border-color: #5943c7; background: #5943c7; color: #fff; }
-  button.guest { grid-column: 1 / -1; border-color: #cdc4f5; background: #f1eeff; color: #392985; }
-  @media (max-width: 360px) { .notice-actions { grid-template-columns: 1fr; } }
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 12px;
+  margin: 4px 0 12px;
+  padding: 14px;
+  border: 1px solid #d9d0ff;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8f6ff, #fff);
+  color: #292342;
+  animation: cardNoticeIn 0.28s ease-out both;
+  @keyframes cardNoticeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .notice-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    background: #ebe7ff;
+    color: #5842c3;
+  }
+  .notice-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .notice-copy b {
+    font-size: 13px;
+  }
+  .notice-copy span {
+    color: #686178;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .notice-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  button {
+    min-height: 38px;
+    border: 1px solid #d9d0ff;
+    border-radius: 10px;
+    background: #fff;
+    color: #4a3a9b;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    transition:
+      transform 0.18s,
+      box-shadow 0.18s;
+  }
+  button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(73, 53, 159, 0.12);
+  }
+  button.primary {
+    border-color: #5943c7;
+    background: #5943c7;
+    color: #fff;
+  }
+  button.guest {
+    grid-column: 1 / -1;
+    border-color: #cdc4f5;
+    background: #f1eeff;
+    color: #392985;
+  }
+  @media (max-width: 360px) {
+    .notice-actions {
+      grid-template-columns: 1fr;
+    }
+  }
 `;
 
 export const GuestCheckoutForm = styled.div`
@@ -559,24 +774,69 @@ export const GuestCheckoutForm = styled.div`
   background: #fcfaf7;
   animation: guestCheckoutIn 0.25s ease-out both;
   @keyframes guestCheckoutIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  .guest-heading, .full { grid-column: 1 / -1; }
-  .guest-heading { display: flex; flex-direction: column; gap: 3px; }
-  .guest-heading b { font-size: 13px; color: #2d2925; }
-  .guest-heading span, small { color: #756e67; font-size: 10px; line-height: 1.4; }
-  label { display: grid; gap: 5px; min-width: 0; }
-  label > span { color: #514b44; font-size: 11px; font-weight: 750; }
+  .guest-heading,
+  .full {
+    grid-column: 1 / -1;
+  }
+  .guest-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .guest-heading b {
+    font-size: 13px;
+    color: #2d2925;
+  }
+  .guest-heading span,
+  small {
+    color: #756e67;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+  label > span {
+    color: #514b44;
+    font-size: 11px;
+    font-weight: 750;
+  }
   input {
-    width: 100%; height: 40px; padding: 0 11px; border: 1px solid #dcd2c7;
-    border-radius: 10px; background: #fff; color: #241f1b; font: inherit; font-size: 12px;
-    outline: none; transition: border-color .2s, box-shadow .2s;
+    width: 100%;
+    height: 40px;
+    padding: 0 11px;
+    border: 1px solid #dcd2c7;
+    border-radius: 10px;
+    background: #fff;
+    color: #241f1b;
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
   }
-  input:focus { border-color: var(--primary, #d65a38); box-shadow: 0 0 0 3px rgba(214, 90, 56, .1); }
+  input:focus {
+    border-color: var(--primary, #d65a38);
+    box-shadow: 0 0 0 3px rgba(214, 90, 56, 0.1);
+  }
   @media (max-width: 390px) {
     grid-template-columns: 1fr;
-    .guest-heading, .full { grid-column: 1; }
+    .guest-heading,
+    .full {
+      grid-column: 1;
+    }
   }
 `;
 
@@ -882,73 +1142,139 @@ export const CardSubmit = styled.button`
 /* ── Login nudge bar (shown when user is not authenticated) */
 export const LoginNudge = styled.div`
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: #191816;
+  top: 98px;
+  right: 24px;
+  z-index: 52;
+  width: min(500px, calc(100vw - 48px));
+  min-height: 58px;
+  padding: 9px 10px 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: #17211d;
   color: #fff;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 12px 20px;
-  font-size: 13px;
-  font-weight: 500;
-  flex-wrap: wrap;
+  gap: 11px;
+  box-shadow: 0 16px 38px rgba(18, 27, 23, 0.24);
 
-  span {
-    color: rgba(255, 255, 255, 0.7);
+  > svg {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--home-primary) 62%, white);
   }
 
-  a,
+  > span {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 2px;
+  }
+
+  strong,
+  small {
+    display: block;
+    line-height: 1.25;
+  }
+
+  strong {
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.67);
+    font-size: 10px;
+  }
+
   button {
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
+    flex: 0 0 auto;
+    height: 36px;
+    border-radius: 6px;
     font-family: inherit;
-    transition: filter 0.18s;
+    cursor: pointer;
+    transition:
+      filter 0.18s,
+      transform 0.18s;
     &:hover {
       filter: brightness(1.1);
+      transform: translateY(-1px);
     }
   }
 
   .nudge-login {
-    background: #d64d08;
-    color: #fff;
+    padding: 0 15px;
     border: none;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
+    background: var(--home-primary);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
   }
 
   .nudge-dismiss {
-    background: transparent;
-    color: rgba(255, 255, 255, 0.55);
+    width: 36px;
+    padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    display: grid;
+    place-items: center;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  @media (max-width: 1040px) {
+    top: 122px;
+    right: 16px;
+  }
+
+  @media (max-width: 620px) {
+    top: auto;
+    right: 10px;
+    bottom: 10px;
+    width: calc(100vw - 20px);
+    min-height: 54px;
+    padding: 8px;
+    gap: 8px;
+
+    small {
+      display: none;
+    }
+
+    .nudge-login {
+      padding-inline: 12px;
+    }
   }
 `;
 
 /* ── In-app notification banner */
 export const NotifStack = styled.div`
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 999;
+  top: 88px;
+  left: 50%;
+  z-index: 45;
+  width: min(520px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
+  transform: translateX(-50%);
   pointer-events: none;
-  width: min(380px, calc(100vw - 40px));
 
-  @media (max-width: 600px) {
-    top: 12px;
-    right: 12px;
-    left: 12px;
-    width: auto;
+  @media (max-width: 1040px) {
+    top: 120px;
+  }
+
+  @media (max-width: 760px) {
+    top: 116px;
+    width: calc(100vw - 24px);
+  }
+
+  @media (max-width: 360px) {
+    top: 104px;
+    width: calc(100vw - 20px);
   }
 `;
 
@@ -958,85 +1284,202 @@ export const NotifItem = styled.div<{
 }>`
   pointer-events: auto;
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 8px 9px;
   background: #fff;
-  border-radius: 14px;
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.04),
-    0 10px 30px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  border: 1px solid
+    ${({ $type }) =>
+      $type === 'success'
+        ? '#b9d9bd'
+        : $type === 'error'
+          ? '#efb7ae'
+          : $type === 'warning'
+            ? '#ead3a2'
+            : '#b7d2d7'};
   border-left: 4px solid
     ${({ $type }) =>
       $type === 'success'
-        ? '#4f8b40'
+        ? '#368044'
         : $type === 'error'
-          ? '#c94040'
+          ? '#bf4637'
           : $type === 'warning'
-            ? '#d97706'
-            : '#d64d08'};
+            ? '#b77917'
+            : '#357584'};
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(31, 27, 23, 0.15);
 
-  transform: translateX(${({ $visible }) => ($visible ? '0' : 'calc(100% + 40px)')});
+  transform: translateY(${({ $visible }) => ($visible ? '0' : '-10px')})
+    scale(${({ $visible }) => ($visible ? '1' : '0.98')});
   opacity: ${({ $visible }) => ($visible ? 1 : 0)};
   transition:
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.28s ease;
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
 
   .notif-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 7px;
     display: grid;
     place-items: center;
-    font-size: 16px;
     flex-shrink: 0;
+    color: ${({ $type }) =>
+      $type === 'success'
+        ? '#287139'
+        : $type === 'error'
+          ? '#ae3c30'
+          : $type === 'warning'
+            ? '#98600d'
+            : '#2d6c79'};
     background: ${({ $type }) =>
       $type === 'success'
-        ? '#edfaeb'
+        ? '#edf7ee'
         : $type === 'error'
-          ? '#fdf0f0'
+          ? '#fff0ed'
           : $type === 'warning'
-            ? '#fef9ec'
-            : '#fdeee7'};
+            ? '#fff7e7'
+            : '#edf5f7'};
+  }
+
+  .notif-icon svg {
+    width: 19px;
+    height: 19px;
   }
 
   .notif-body {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
     min-width: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  .notif-type {
+    color: ${({ $type }) =>
+      $type === 'success'
+        ? '#287139'
+        : $type === 'error'
+          ? '#ae3c30'
+          : $type === 'warning'
+            ? '#98600d'
+            : '#2d6c79'};
+    font-size: 9px;
+    font-weight: 850;
+    line-height: 1.15;
+    text-transform: uppercase;
   }
 
   .notif-title {
-    font-size: 14px;
-    font-weight: 700;
+    overflow: hidden;
     color: #191816;
-    line-height: 1.25;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .notif-msg {
-    font-size: 13px;
+    display: -webkit-box;
+    overflow: hidden;
     color: #6f6a63;
-    line-height: 1.35;
+    font-size: 10px;
+    line-height: 1.3;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .notif-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .notif-action {
+    min-height: 30px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--home-primary) 32%, #e7e2dc);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--home-primary) 8%, #fff);
+    color: color-mix(in srgb, var(--home-primary) 88%, #241e1a);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+
+    svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--home-primary) 52%, #e7e2dc);
+      background: color-mix(in srgb, var(--home-primary) 13%, #fff);
+    }
+
+    &:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--home-primary) 20%, transparent);
+      outline-offset: 1px;
+    }
   }
 
   .notif-close {
-    width: 24px;
-    height: 24px;
-    border: none;
-    background: #f5f0ea;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #e7e2dc;
+    background: #fff;
     border-radius: 6px;
-    font-size: 14px;
     cursor: pointer;
     display: grid;
     place-items: center;
     color: #6f6a63;
     flex-shrink: 0;
     transition: background 0.15s;
+
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+
     &:hover {
-      background: #eadfd3;
+      background: #f4f2ef;
+    }
+
+    &:focus-visible {
+      outline: 3px solid rgba(53, 117, 132, 0.2);
+      outline-offset: 1px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 8px;
+    min-height: 54px;
+    padding: 7px;
+
+    .notif-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .notif-close {
+      width: 28px;
+      height: 28px;
+    }
+
+    .notif-action {
+      width: 30px;
+      min-height: 28px;
+      padding: 0;
+
+      span {
+        display: none;
+      }
     }
   }
 `;

@@ -48,6 +48,8 @@ export const Sidebar = styled.aside<{ $open: boolean }>`
     inset: 0 auto 0 0;
     width: min(86vw, 310px);
     transform: translateX(${(p) => (p.$open ? '0' : '-105%')});
+    visibility: ${(p) => (p.$open ? 'visible' : 'hidden')};
+    pointer-events: ${(p) => (p.$open ? 'auto' : 'none')};
     transition: 0.25s;
     box-shadow: 24px 0 60px #0007;
   }
@@ -859,6 +861,11 @@ export const CreateDialog = styled.form`
     footer {
       display: grid;
       grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 480px) {
+    footer {
+      grid-template-columns: 1fr;
     }
   }
 `;

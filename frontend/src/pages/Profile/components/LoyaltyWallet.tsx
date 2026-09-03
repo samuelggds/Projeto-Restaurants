@@ -206,7 +206,13 @@ export function LoyaltyWallet({
             </button>
           </S.Segments>
         </S.WalletHeader>
-        <S.CouponGrid aria-live="polite" aria-busy={loading}>
+        <S.CouponGrid
+          role="region"
+          aria-label={section === 'active' ? 'Cupons válidos' : 'Histórico de cupons'}
+          aria-live="polite"
+          aria-busy={loading}
+          tabIndex={visible.length > 2 ? 0 : undefined}
+        >
           {loading ? (
             <>
               <S.Skeleton aria-label="Carregando cupons" />

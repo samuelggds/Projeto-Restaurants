@@ -19,16 +19,17 @@ const fillStoryIndicator = keyframes`
 export const Carousel = styled.section`
   position: relative;
   width: 100%;
-  height: clamp(320px, 32vw, 455px);
-  margin-bottom: 28px;
+  height: min(58svh, 540px);
+  min-height: 420px;
+  margin: 0;
   overflow: hidden;
   touch-action: pan-y pinch-zoom;
   border: 1px solid rgba(47, 35, 25, 0.1);
-  border-radius: 28px;
+  border-radius: 8px;
   background: #18130f;
   box-shadow:
-    0 26px 58px rgba(52, 31, 14, 0.15),
-    0 3px 10px rgba(52, 31, 14, 0.08);
+    0 24px 54px rgba(28, 36, 31, 0.16),
+    0 2px 8px rgba(28, 36, 31, 0.08);
 
   &::after {
     content: '';
@@ -41,9 +42,14 @@ export const Carousel = styled.section`
   }
 
   @media (max-width: 800px) {
-    height: clamp(150px, 42vw, 190px);
-    margin-bottom: 20px;
-    border-radius: 17px;
+    height: min(40svh, 300px);
+    min-height: 250px;
+    border-radius: 7px;
+  }
+
+  @media (max-width: 480px) {
+    height: 224px;
+    min-height: 224px;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -97,8 +103,8 @@ export const Shade = styled.span`
 export const Copy = styled.div`
   position: absolute;
   top: 50%;
-  left: clamp(76px, 7vw, 104px);
-  width: min(540px, calc(100% - 190px));
+  left: 72px;
+  width: min(560px, calc(100% - 150px));
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
@@ -111,10 +117,11 @@ export const Copy = styled.div`
     width: 100%;
     max-width: 500px;
     margin: 12px 0 0;
-    font-size: clamp(34px, 3.7vw, 54px);
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -0.04em;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 54px;
+    font-weight: 700;
+    line-height: 1.03;
+    letter-spacing: 0;
     overflow-wrap: anywhere;
     text-wrap: balance;
     text-shadow: 0 3px 24px rgba(0, 0, 0, 0.32);
@@ -129,8 +136,8 @@ export const Copy = styled.div`
     margin-top: 7px;
     color: color-mix(in srgb, var(--home-primary) 72%, #ffc49d);
     font-style: normal;
-    font-size: 0.86em;
-    letter-spacing: -0.025em;
+    font-size: 0.84em;
+    letter-spacing: 0;
   }
 
   p {
@@ -149,7 +156,7 @@ export const Copy = styled.div`
   > button {
     min-height: 46px;
     border: 1px solid color-mix(in srgb, var(--home-primary) 72%, white);
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 0 21px;
     display: inline-flex;
     align-items: center;
@@ -179,16 +186,16 @@ export const Copy = styled.div`
   }
 
   @media (max-width: 800px) {
-    top: 46%;
-    left: 50%;
-    width: calc(100% - 90px);
+    top: 50%;
+    left: 48px;
+    width: calc(100% - 96px);
     padding: 0;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
 
     h1 {
-      margin-top: 0;
-      font-size: clamp(21px, 6.4vw, 28px);
-      line-height: 0.98;
+      margin-top: 7px;
+      font-size: 30px;
+      line-height: 1.02;
     }
 
     h1 em {
@@ -214,6 +221,30 @@ export const Copy = styled.div`
     }
   }
 
+  @media (max-width: 480px) {
+    left: 42px;
+    width: calc(100% - 84px);
+
+    h1 {
+      margin-top: 0;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    > button {
+      min-height: 34px;
+      margin-top: 8px;
+    }
+  }
+
+  @media (min-width: 801px) and (max-width: 1100px) {
+    left: 64px;
+
+    h1 {
+      font-size: 44px;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     > button {
       transition: none;
@@ -228,7 +259,7 @@ export const Eyebrow = styled.span`
   color: rgba(255, 255, 255, 0.82);
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   text-transform: uppercase;
 
   > span {
@@ -249,15 +280,16 @@ export const ArrowButton = styled.button<{ $side: 'left' | 'right' }>`
   top: 50%;
   ${({ $side }) => ($side === 'left' ? 'left: 14px;' : 'right: 14px;')}
   z-index: 5;
-  width: 58px;
-  height: 76px;
-  border: 0;
-  border-radius: 20px;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 50%;
   display: grid;
   place-items: center;
   padding: 0;
   color: #fff;
-  background: transparent;
+  background: rgba(12, 9, 7, 0.24);
+  backdrop-filter: blur(8px);
   filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.62));
   transform: translateY(-50%);
   cursor: pointer;
@@ -267,14 +299,14 @@ export const ArrowButton = styled.button<{ $side: 'left' | 'right' }>`
     transform 180ms ease;
 
   svg {
-    width: 45px;
-    height: 45px;
-    stroke-width: 1.65;
+    width: 24px;
+    height: 24px;
+    stroke-width: 2;
   }
 
   &:hover {
     color: color-mix(in srgb, var(--home-primary) 68%, #fff);
-    background: rgba(12, 9, 7, 0.24);
+    background: rgba(12, 9, 7, 0.52);
     transform: translateY(-50%) scale(1.06);
   }
 
@@ -284,13 +316,13 @@ export const ArrowButton = styled.button<{ $side: 'left' | 'right' }>`
   }
 
   @media (max-width: 800px) {
-    ${({ $side }) => ($side === 'left' ? 'left: 2px;' : 'right: 2px;')}
-    width: 42px;
-    height: 50px;
+    ${({ $side }) => ($side === 'left' ? 'left: 7px;' : 'right: 7px;')}
+    width: 34px;
+    height: 34px;
 
     svg {
-      width: 30px;
-      height: 30px;
+      width: 20px;
+      height: 20px;
     }
   }
 

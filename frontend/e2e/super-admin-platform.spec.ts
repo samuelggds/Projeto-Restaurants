@@ -414,12 +414,24 @@ test('SUPER_ADMIN responde e encerra um chamado exclusivo do administrador', asy
 test('painel continua contido no celular e mantém navegação acessível', async ({ page }) => {
   const state = createDashboard();
   const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 320, height: 844 });
   await mockSuperAdminApi(page, state, writes);
 
   await page.goto('/super_admin/audit');
   await expect(page.getByRole('heading', { level: 1, name: 'Auditoria' })).toBeVisible();
-  await page.getByRole('button', { name: 'Abrir menu' }).click();
+  const menuButton = page.getByRole('button', { name: 'Abrir menu' });
+  await menuButton.click();
+  await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Fechar menu' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(menuButton).toBeFocused();
+
+  await menuButton.click();
+  await page.getByTestId('super-admin-menu-overlay').click({ position: { x: 319, y: 420 } });
+  await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+  await menuButton.click();
   await page.getByRole('button', { name: 'Suporte' }).click();
   await expect(page).toHaveURL(/\/super_admin\/support$/);
   await expect(
@@ -431,4 +443,39 @@ test('painel continua contido no celular e mantém navegação acessível', asyn
     scrollWidth: element.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+});
+
+test('estado vazio orienta o primeiro cadastro e dialog preserva foco no celular', async ({
+  page,
+}) => {
+  const state = createDashboard();
+  state.restaurants = [];
+  state.metrics.restaurantsTotal = 0;
+  state.metrics.restaurantsActive = 0;
+  const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
+  await page.setViewportSize({ width: 320, height: 844 });
+  await mockSuperAdminApi(page, state, writes);
+
+  await page.goto('/super_admin/overview');
+  await expect(
+    page.getByRole('heading', { level: 3, name: 'Nenhum restaurante cadastrado' }),
+  ).toBeVisible();
+
+  const createButton = page.getByRole('button', { name: 'Novo restaurante' });
+  await createButton.click();
+  const dialog = page.getByRole('dialog', { name: 'Criar restaurante' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('Nome do restaurante')).toBeFocused();
+
+  const cancelBox = await dialog.getByRole('button', { name: 'Cancelar' }).boundingBox();
+  const submitBox = await dialog.getByRole('button', { name: 'Criar restaurante' }).boundingBox();
+  expect(Math.abs((cancelBox?.x || 0) - (submitBox?.x || 0))).toBeLessThan(1);
+  expect(submitBox?.y || 0).toBeGreaterThan(cancelBox?.y || 0);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(createButton).toBeFocused();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
 });

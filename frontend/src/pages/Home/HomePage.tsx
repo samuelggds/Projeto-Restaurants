@@ -33,6 +33,7 @@ const EMPTY_FAVORITE_PRODUCT_IDS: string[] = [];
 export function HomePage({
   data,
   cartCount = 0,
+  initialSearchOpen = false,
   userName,
   userEmail,
   userAvatar,
@@ -59,7 +60,7 @@ export function HomePage({
 }: HomePageProps) {
   const [activeCategory, setActiveCategory] = useState(data.categories[0]?.id ?? '');
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(initialSearchOpen);
   const toggleFavoriteRef = useRef(onToggleFavorite);
 
   useEffect(() => {
@@ -138,12 +139,11 @@ export function HomePage({
           observation: '',
           configurationVersion: product.configurationVersion,
         });
-        onOpenCart?.();
         return;
       }
       setSelectedProduct(product);
     },
-    [onAddProduct, onOpenCart, onOpenTableAccount, orderingLocked],
+    [onAddProduct, onOpenTableAccount, orderingLocked],
   );
 
   const handleToggleFavorite = useCallback((productId: string) => {
@@ -183,14 +183,17 @@ export function HomePage({
         {isTableMenu && orderingLocked && (
           <TableClosingNotice tableNumber={tableLabel} onOpenAccount={onOpenTableAccount} />
         )}
-        {data.about && (
-          <S.About id="sobre">
-            <small>{data.brand.name || 'NOSSA CASA'}</small>
-            <p>{data.about}</p>
-          </S.About>
+        {(promotionBanners.length > 0 || data.about) && (
+          <S.HeroStage aria-label={`Destaques de ${data.brand.name || 'restaurante'}`}>
+            <PromotionCarousel banners={promotionBanners} onOpenMenu={onOpenMenu} />
+            {data.about && (
+              <S.About id="sobre">
+                <small>{data.brand.name || 'Nossa casa'}</small>
+                <p>{data.about}</p>
+              </S.About>
+            )}
+          </S.HeroStage>
         )}
-
-        <PromotionCarousel banners={promotionBanners} onOpenMenu={onOpenMenu} />
 
         {/* InfoBar: only shows fields that have real backend data */}
         {(data.minimumOrder > 0 || (data.acceptsDelivery && data.freeDeliveryFrom > 0)) && (
@@ -245,11 +248,12 @@ export function HomePage({
         {data.categories.length > 0 && (
           <>
             <S.SectionTitle>O que você deseja hoje?</S.SectionTitle>
-            <S.CategoryRow id="cardapio">
+            <S.CategoryRow id="cardapio" aria-label="Categorias do cardápio">
               {data.categories.map((category) => (
                 <S.CategoryButton
                   key={category.id}
                   $active={selectedCategory === category.id}
+                  aria-pressed={selectedCategory === category.id}
                   onClick={() => selectCategory(category.id)}
                 >
                   {category.image && (
@@ -440,7 +444,6 @@ export function HomePage({
           onConfirm={(configuration) => {
             onAddProduct?.(selectedProduct.id, configuration);
             setSelectedProduct(null);
-            onOpenCart?.();
           }}
         />
       )}

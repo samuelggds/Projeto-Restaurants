@@ -1,3 +1,4 @@
+import { ArrowLeft, Minus, Plus, ShoppingBag } from 'lucide-react';
 import type { CartItem } from '../hooks/useCart';
 import * as S from '../../Home/Home.styles';
 
@@ -5,12 +6,13 @@ type Props = {
   items: CartItem[];
   onIncrease: (cartId: string) => void;
   onDecrease: (cartId: string) => void;
+  onContinueShopping?: () => void;
 };
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=80&q=80';
 
-export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
+export function CartItemsList({ items, onIncrease, onDecrease, onContinueShopping }: Props) {
   return (
     <S.CartItems>
       {items.length ? (
@@ -31,7 +33,7 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
                     aria-label={`Diminuir ${item.name}`}
                     onClick={() => onDecrease(item.cartId || item.productId)}
                   >
-                    −
+                    <Minus aria-hidden="true" />
                   </button>
                   <b>{item.quantity}</b>
                   <button
@@ -39,7 +41,7 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
                     aria-label={`Aumentar ${item.name}`}
                     onClick={() => onIncrease(item.cartId || item.productId)}
                   >
-                    +
+                    <Plus aria-hidden="true" />
                   </button>
                 </S.CartQty>
                 <span className="item-price">
@@ -83,9 +85,17 @@ export function CartItemsList({ items, onIncrease, onDecrease }: Props) {
         ))
       ) : (
         <S.CartEmpty>
-          <div className="icon">🛒</div>
+          <div className="icon">
+            <ShoppingBag aria-hidden="true" />
+          </div>
           <strong>Sacola vazia</strong>
           <p>Adicione itens do cardápio para começar seu pedido.</p>
+          {onContinueShopping && (
+            <button type="button" onClick={onContinueShopping}>
+              <ArrowLeft aria-hidden="true" />
+              Ver cardápio
+            </button>
+          )}
         </S.CartEmpty>
       )}
     </S.CartItems>

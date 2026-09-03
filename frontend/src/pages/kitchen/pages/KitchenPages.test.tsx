@@ -218,6 +218,33 @@ describe('páginas operacionais da cozinha', () => {
     expect(card.textContent).toContain('Ative a impressão da cozinha');
   });
 
+  it('expande a fila em blocos de 10 e permite voltar ao recorte inicial', () => {
+    const pendingOrders = Array.from({ length: 12 }, (_, index) =>
+      order({
+        id: `#${index + 1}`,
+        createdAtIso: new Date(2026, 7, 24, 18, index).toISOString(),
+      }),
+    );
+    renderPage(<KitchenQueuePage />, {
+      currentData: { ...data, orders: pendingOrders },
+    });
+
+    expect(container.querySelectorAll('[data-order-id]')).toHaveLength(10);
+    expect(container.textContent).toContain('Exibindo 10 de 12 pedidos');
+
+    const showMore = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Mostrar mais 10',
+    ) as HTMLButtonElement;
+    act(() => showMore.click());
+    expect(container.querySelectorAll('[data-order-id]')).toHaveLength(12);
+
+    const reset = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Voltar para 10',
+    ) as HTMLButtonElement;
+    act(() => reset.click());
+    expect(container.querySelectorAll('[data-order-id]')).toHaveLength(10);
+  });
+
   it('calcula o histórico com timestamps reais e mantém itens básicos consultáveis', () => {
     const now = new Date();
     const startedAt = new Date(now.getTime() - 20 * 60_000).toISOString();
@@ -251,7 +278,7 @@ describe('páginas operacionais da cozinha', () => {
     expect(details.textContent).toContain('Pizza histórica');
   });
 
-  it('pagina o histórico em blocos de 10 e volta à primeira página ao pesquisar', () => {
+  it('expande o histórico de 10 em 10 e volta para os primeiros pedidos', () => {
     const historyOrders = Array.from({ length: 12 }, (_, index) =>
       order({
         id: `#${index + 1}`,
@@ -269,23 +296,41 @@ describe('páginas operacionais da cozinha', () => {
         (element) => element.textContent,
       );
 
-    expect(container.textContent).toContain('Mostrando 1–10 de 12 pedidos');
+    expect(container.textContent).toContain('Exibindo 10 de 12 pedidos');
     expect(visibleIds()).toEqual(['#12', '#11', '#10', '#9', '#8', '#7', '#6', '#5', '#4', '#3']);
 
     const next = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'Próximos 10',
+      (button) => button.textContent?.trim() === 'Mostrar mais 10',
     ) as HTMLButtonElement;
     act(() => next.click());
 
-    expect(container.textContent).toContain('Mostrando 11–12 de 12 pedidos');
-    expect(visibleIds()).toEqual(['#2', '#1']);
+    expect(container.textContent).toContain('Exibindo 12 de 12 pedidos');
+    expect(visibleIds()).toEqual([
+      '#12',
+      '#11',
+      '#10',
+      '#9',
+      '#8',
+      '#7',
+      '#6',
+      '#5',
+      '#4',
+      '#3',
+      '#2',
+      '#1',
+    ]);
+
+    const reset = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Voltar para 10',
+    ) as HTMLButtonElement;
+    act(() => reset.click());
+    expect(container.textContent).toContain('Exibindo 10 de 12 pedidos');
 
     const search = container.querySelector(
       '[aria-label="Buscar no histórico da cozinha"]',
     ) as HTMLInputElement;
     act(() => changeInput(search, '#12'));
 
-    expect(container.textContent).toContain('Mostrando 1–1 de 1 pedidos');
     expect(container.textContent).toContain('#12');
   });
 });

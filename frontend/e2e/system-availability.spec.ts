@@ -32,6 +32,7 @@ async function mockGlobalMaintenance(page: Page) {
 
 test('manutenção global cobre o negócio e mantém todos os logins acessíveis', async ({ page }) => {
   await mockGlobalMaintenance(page);
+  await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/qualquer-restaurante');
 
   await expect(page.getByRole('heading', { name: 'Sistema em manutenção' })).toBeVisible();
@@ -39,6 +40,9 @@ test('manutenção global cobre o negócio e mantém todos os logins acessíveis
   await expect(
     page.getByText('Atualização programada dos servidores de pagamento.'),
   ).not.toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
 
   await page.getByRole('link', { name: 'Acesso técnico' }).click();
   await expect(page).toHaveURL(/\/super_admin\/login$/);
@@ -214,4 +218,82 @@ test('login técnico recusa qualquer conta que não seja SUPER_ADMIN', async ({ 
   ).toBeVisible();
   await expect(page).toHaveURL(/\/super_admin\/login$/);
   await expect.poll(() => logoutCalls).toBe(1);
+});
+
+test('faturamento mantém estados completos e sem overflow em 320px', async ({ page }) => {
+  const admin = {
+    id: 17,
+    name: 'Ana Administradora',
+    email: 'ana@restaurante.test',
+    role: 'ADMIN',
+    restaurantId: 7,
+  };
+
+  await page.route(LOCAL_API, async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === '/platform/status') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ available: true, maintenanceMode: false }),
+      });
+      return;
+    }
+    if (pathname === '/auth/refresh') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accessToken: 'admin-e2e-token', userId: admin.id }),
+      });
+      return;
+    }
+    if (pathname === '/auth/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: admin }),
+      });
+      return;
+    }
+    if (pathname === '/billing/invoices') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          invoices: [],
+          billing: { plan: 'PREMIUM', isPlanActive: true, subscriptionStatus: 'ATIVA' },
+        }),
+      });
+      return;
+    }
+    if (pathname === '/billing/plans') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      return;
+    }
+    if (pathname === '/subscription') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ plan: 'PREMIUM', status: 'ATIVA' }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  await page.addInitScript((user) => {
+    localStorage.clear();
+    localStorage.setItem('user', JSON.stringify(user));
+  }, admin);
+  await page.setViewportSize({ width: 320, height: 844 });
+
+  await page.goto('/billing');
+
+  await expect(page.getByRole('heading', { name: 'Gerenciamento de Faturas' })).toBeVisible();
+  await expect(page.getByText('Valor indisponível')).toHaveCount(2);
+  await expect(page.getByRole('status', { name: '' })).toContainText('Nenhuma fatura encontrada');
+  const themeToggle = page.getByRole('button', { name: 'Ativar tema claro' });
+  await expect(themeToggle).toHaveAttribute('aria-pressed', 'true');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
 });

@@ -32,6 +32,10 @@ router.get('/admin/sessions', authMiddleware, waiterMiddleware, (req, res) =>
   ListTableAccountAdminSessionsController.handle(req, res),
 );
 
+router.get('/waiter/sessions', authMiddleware, waiterMiddleware, (req, res) =>
+  ListTableAccountAdminSessionsController.handle(req, res),
+);
+
 router.post('/webhooks/fake', (req, res) => FakeTablePaymentWebhookController.handle(req, res));
 
 router.get(

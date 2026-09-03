@@ -1,6 +1,7 @@
 import { AlertCircle, FileDown, Inbox, LoaderCircle, RefreshCw, X } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import * as S from '../SuperAdmin.styles';
+import { useDialogFocusManagement } from '../hooks/useDialogFocusManagement';
 
 export function Metrics({
   items,
@@ -67,9 +68,9 @@ export function Empty({
   description?: string;
 }) {
   return (
-    <S.EmptyState>
+    <S.EmptyState role="status">
       <Inbox aria-hidden="true" />
-      <b>{title}</b>
+      <h3>{title}</h3>
       <p>{description}</p>
     </S.EmptyState>
   );
@@ -125,19 +126,7 @@ export function Modal({
   drawer?: boolean;
   ariaLabel?: string;
 }) {
-  const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', escape);
-    panel.current?.querySelector<HTMLElement>('button, input, select, textarea')?.focus();
-    return () => {
-      document.removeEventListener('keydown', escape);
-      previous?.focus?.();
-    };
-  }, [onClose]);
+  const panel = useDialogFocusManagement<HTMLDivElement>(onClose);
   return (
     <S.ModalBackdrop onMouseDown={onClose}>
       <S.ModalPanel
@@ -245,6 +234,7 @@ export function ConfirmAction({
           <S.Button
             $variant={danger ? 'danger' : 'primary'}
             disabled={saving}
+            aria-busy={saving}
             onClick={() => void submit()}
           >
             {saving ? 'Salvando…' : confirmLabel}
@@ -256,7 +246,6 @@ export function ConfirmAction({
         <label className="wide">
           Motivo da alteração
           <textarea
-            autoFocus
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Explique por que esta ação é necessária"

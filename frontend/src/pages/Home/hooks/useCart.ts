@@ -44,6 +44,7 @@ type Notify = (
   title: string,
   message: string,
   duration?: number,
+  action?: 'open-cart',
 ) => void;
 
 function normalizeStoredCart(items: CartItem[]) {
@@ -304,7 +305,13 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
         },
       ];
     });
-    notify('success', product.name, 'Adicionado à sacola!', 2000);
+    notify(
+      'success',
+      'Item adicionado',
+      `${product.name} já está na sacola. Continue escolhendo ou abra a sacola quando quiser.`,
+      3200,
+      'open-cart',
+    );
   };
 
   const increaseCart = (cartId: string) => {

@@ -66,12 +66,12 @@ export function hasOrderPreparationDetails(order: Order) {
   );
 }
 
-export function OrderItems({ order }: { order: Order }) {
+export function OrderItems({ order, compact = false }: { order: Order; compact?: boolean }) {
   const detailedItems = order.itemDetails?.length ? order.itemDetails : null;
   const summaryItems = order.items.filter((item) => item.trim());
 
   return (
-    <S.ItemList className="items">
+    <S.ItemList className={`items${compact ? ' compact' : ''}`}>
       {detailedItems ? (
         detailedItems.map((item, itemIndex) => (
           <div className="order-item" key={`${item.name}-${itemIndex}`}>

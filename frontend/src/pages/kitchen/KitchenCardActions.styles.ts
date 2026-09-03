@@ -10,15 +10,15 @@ export const KitchenCardActions = styled.div`
   }
 
   .reprint {
-    min-height: 38px;
-    border: 1px solid #d8dce0;
-    border-radius: 8px;
+    min-height: 42px;
+    border: 1px solid #d5dcde;
+    border-radius: 7px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    color: #3d4a54;
-    background: #f8fafb;
+    color: #3b4b50;
+    background: #f7faf9;
     font-size: 10px;
     font-weight: 750;
   }

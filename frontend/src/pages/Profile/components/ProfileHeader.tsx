@@ -50,81 +50,107 @@ export function ProfileHeader({
 
   return (
     <Header $primary={brand.primaryColor ?? '#d64d08'}>
-      <Brand type="button" onClick={onGoHome}>
-        {brand.logoUrl ? (
-          <Logo src={brand.logoUrl} alt={brand.name} />
-        ) : (
-          <Monogram>{brand.monogram ?? brand.name.slice(0, 2)}</Monogram>
-        )}
-        <strong>{brand.name}</strong>
-      </Brand>
-      <Location>
-        <MapPin size={17} />
-        <span>{hasMainAddress ? 'Entregar em' : 'Endereço de entrega'}</span>
-        <b>• {hasMainAddress ? mainAddress : 'Não cadastrado'}</b>
-      </Location>
-      <Nav $open={open}>
-        <button onClick={onGoHome}>Início</button>
-        <button onClick={onOpenMenu}>Cardápio</button>
-        <a href="#sobre">Sobre</a>
-      </Nav>
-      <Actions>
-        <Round aria-label="Buscar" onClick={onOpenSearch}>
-          <Search size={20} />
-        </Round>
-
-        {/* ── Profile dropdown */}
-        <ProfileWrap ref={profileRef}>
-          <AvatarButton
-            aria-label="Minha conta"
-            $open={profileOpen}
-            onClick={() => setProfileOpen((o) => !o)}
+      <HeaderInner>
+        <Brand type="button" onClick={onGoHome} aria-label={`Ir para ${brand.name}`}>
+          {brand.logoUrl ? (
+            <Logo src={brand.logoUrl} alt="" />
+          ) : (
+            <Monogram>{brand.monogram ?? brand.name.slice(0, 2)}</Monogram>
+          )}
+          <strong>{brand.name}</strong>
+        </Brand>
+        <Location title={hasMainAddress ? mainAddress : 'Nenhum endereço cadastrado'}>
+          <MapPin size={16} aria-hidden="true" />
+          <span>{hasMainAddress ? 'Entregar em' : 'Endereço de entrega'}</span>
+          <b>{hasMainAddress ? mainAddress : 'Não cadastrado'}</b>
+        </Location>
+        <Nav id="profile-main-navigation" $open={open} aria-label="Navegação principal">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onGoHome?.();
+            }}
           >
-            {user.avatarUrl ? <AvatarImg src={user.avatarUrl} alt="" /> : initials}
-          </AvatarButton>
+            Início
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onOpenMenu?.();
+            }}
+          >
+            Cardápio
+          </button>
+        </Nav>
+        <Actions>
+          <Round type="button" aria-label="Buscar" onClick={onOpenSearch}>
+            <Search size={19} aria-hidden="true" />
+          </Round>
 
-          <ProfileDropdown $open={profileOpen}>
-            <DropdownArrow />
-            <DropdownUser>
-              <DropdownAvatar>
-                {user.avatarUrl ? <AvatarImgSm src={user.avatarUrl} alt="" /> : initials}
-              </DropdownAvatar>
-              <div>
-                <span className="name">{user.fullName}</span>
-                <span className="email">{user.email}</span>
-              </div>
-            </DropdownUser>
-            <DropdownDivider />
-            <DropdownItem
-              onClick={() => {
-                setProfileOpen(false);
-              }}
+          <ProfileWrap ref={profileRef}>
+            <AvatarButton
+              type="button"
+              aria-label="Minha conta"
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+              aria-controls="profile-account-menu"
+              $open={profileOpen}
+              onClick={() => setProfileOpen((current) => !current)}
             >
-              <UserRound size={16} />
-              Meu Perfil
-            </DropdownItem>
-            <DropdownItem
-              $danger
-              onClick={() => {
-                setProfileOpen(false);
-                onLogout?.();
-              }}
-            >
-              <LogOut size={16} />
-              Sair da conta
-            </DropdownItem>
-          </ProfileDropdown>
-        </ProfileWrap>
+              {user.avatarUrl ? <AvatarImg src={user.avatarUrl} alt="" /> : initials}
+            </AvatarButton>
 
-        <Cart aria-label={`Sacola com ${cartCount} itens`} onClick={onOpenCart}>
-          <ShoppingBag size={19} />
-          <span>Sacola</span>
-          <i>{cartCount}</i>
-        </Cart>
-        <Mobile aria-label="Menu" onClick={() => setOpen((v) => !v)}>
-          {open ? <X /> : <Menu />}
-        </Mobile>
-      </Actions>
+            {profileOpen && (
+              <ProfileDropdown id="profile-account-menu" role="menu">
+                <DropdownArrow />
+                <DropdownUser>
+                  <DropdownAvatar>
+                    {user.avatarUrl ? <AvatarImgSm src={user.avatarUrl} alt="" /> : initials}
+                  </DropdownAvatar>
+                  <div>
+                    <span className="name">{user.fullName}</span>
+                    <span className="email">{user.email}</span>
+                  </div>
+                </DropdownUser>
+                <DropdownDivider />
+                <DropdownItem type="button" role="menuitem" onClick={() => setProfileOpen(false)}>
+                  <UserRound size={16} aria-hidden="true" />
+                  Meu perfil
+                </DropdownItem>
+                <DropdownItem
+                  type="button"
+                  role="menuitem"
+                  $danger
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onLogout?.();
+                  }}
+                >
+                  <LogOut size={16} aria-hidden="true" />
+                  Sair da conta
+                </DropdownItem>
+              </ProfileDropdown>
+            )}
+          </ProfileWrap>
+
+          <Cart type="button" aria-label={`Sacola com ${cartCount} itens`} onClick={onOpenCart}>
+            <ShoppingBag size={18} aria-hidden="true" />
+            <span>Sacola</span>
+            <i>{cartCount}</i>
+          </Cart>
+          <Mobile
+            type="button"
+            aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={open}
+            aria-controls="profile-main-navigation"
+            onClick={() => setOpen((current) => !current)}
+          >
+            {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+          </Mobile>
+        </Actions>
+      </HeaderInner>
     </Header>
   );
 }
@@ -134,16 +160,24 @@ const Header = styled.header<{ $primary: string }>`
   position: sticky;
   top: 0;
   z-index: 50;
-  height: 82px;
-  padding: 0 clamp(18px, 3.4vw, 54px);
+  height: 72px;
+  border-bottom: 1px solid #dedfd9;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  @media (max-width: 760px) {
+    height: 64px;
+  }
+`;
+const HeaderInner = styled.div`
+  width: 100%;
+  max-width: 1320px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 clamp(22px, 4vw, 56px);
   display: flex;
   align-items: center;
-  gap: 28px;
-  border-bottom: 1px solid #eadfd3;
-  background: rgba(255, 253, 249, 0.96);
-  backdrop-filter: blur(14px);
+  gap: 16px;
   @media (max-width: 980px) {
-    height: 68px;
     padding: 0 14px;
     gap: 9px;
   }
@@ -151,22 +185,29 @@ const Header = styled.header<{ $primary: string }>`
 const Brand = styled.button`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   border: 0;
   background: transparent;
   color: #191816;
-  font-size: 20px;
+  font:
+    700 16px 'Sora',
+    sans-serif;
   white-space: nowrap;
   cursor: pointer;
   @media (max-width: 520px) {
     gap: 7px;
     font-size: 15px;
   }
+  @media (max-width: 360px) {
+    strong {
+      display: none;
+    }
+  }
 `;
 const Logo = styled.img`
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
+  width: 39px;
+  height: 39px;
+  border-radius: 7px;
   object-fit: contain;
   @media (max-width: 520px) {
     width: 38px;
@@ -184,18 +225,31 @@ const Monogram = styled.span`
 `;
 const Location = styled.div`
   margin-left: auto;
+  min-width: 0;
+  max-width: 380px;
+  height: 40px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border: 1px solid #eadfd3;
-  border-radius: 999px;
-  font-size: 14px;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #dedfd9;
+  border-radius: 7px;
+  background: #fafaf7;
+  font-size: 11px;
+  svg {
+    flex: 0 0 auto;
+    color: var(--profile-primary);
+  }
   span {
-    font-weight: 600;
+    flex: 0 0 auto;
+    font-weight: 800;
   }
   b {
+    overflow: hidden;
+    color: #5f665f;
     font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   @media (max-width: 980px) {
     display: none;
@@ -203,12 +257,15 @@ const Location = styled.div`
 `;
 const Nav = styled.nav<{ $open: boolean }>`
   display: flex;
-  gap: 28px;
+  gap: 2px;
   align-items: center;
   height: 100%;
   button,
   a {
+    min-height: 36px;
+    padding: 0 10px;
     border: 0;
+    border-radius: 6px;
     background: transparent;
     color: #191816;
     text-decoration: none;
@@ -219,10 +276,14 @@ const Nav = styled.nav<{ $open: boolean }>`
     color: var(--profile-primary);
     font-weight: 700;
   }
+  button:hover,
+  a:hover {
+    background: #f1f2ee;
+  }
   @media (max-width: 760px) {
     display: ${({ $open }) => ($open ? 'flex' : 'none')};
     position: fixed;
-    top: 68px;
+    top: 64px;
     left: 0;
     right: 0;
     height: auto;
@@ -230,8 +291,8 @@ const Nav = styled.nav<{ $open: boolean }>`
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
-    background: #fffdf9;
-    border-bottom: 1px solid #eadfd3;
+    background: #fff;
+    border-bottom: 1px solid #dedfd9;
     box-shadow: 0 18px 30px rgba(50, 30, 15, 0.1);
     button,
     a {
@@ -244,14 +305,17 @@ const Actions = styled.div`
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-left: auto;
+  margin-left: 2px;
+  @media (max-width: 980px) {
+    margin-left: auto;
+  }
 `;
 const Round = styled.button`
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: transparent;
-  border: 1px solid #eadfd3;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  background: #fff;
+  border: 1px solid #dedfd9;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -260,20 +324,20 @@ const Round = styled.button`
   }
 `;
 const Cart = styled.button`
-  height: 48px;
-  padding: 0 18px;
+  height: 40px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 7px;
   background: var(--profile-primary);
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   font-weight: 700;
   cursor: pointer;
   i {
-    width: 23px;
-    height: 23px;
+    min-width: 19px;
+    height: 19px;
     border-radius: 50%;
     background: #fff;
     color: var(--profile-primary);
@@ -303,7 +367,8 @@ const Mobile = styled.button`
   width: 40px;
   height: 40px;
   border: 0;
-  background: transparent;
+  border-radius: 7px;
+  background: #f1f2ee;
   place-items: center;
   @media (max-width: 760px) {
     display: grid;
@@ -326,10 +391,10 @@ const AvatarImgSm = styled.img`
   object-fit: cover;
 `;
 const AvatarButton = styled.button<{ $open: boolean }>`
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  border: 2px solid ${({ $open }) => ($open ? 'var(--profile-primary)' : '#eadfd3')};
+  border: 2px solid ${({ $open }) => ($open ? 'var(--profile-primary)' : '#dedfd9')};
   background: ${({ $open }) => ($open ? '#fdeee7' : '#fff')};
   color: ${({ $open }) => ($open ? 'var(--profile-primary)' : '#191816')};
   font-weight: 800;
@@ -346,25 +411,26 @@ const AvatarButton = styled.button<{ $open: boolean }>`
     color: var(--profile-primary);
   }
 `;
-const ProfileDropdown = styled.div<{ $open: boolean }>`
+const ProfileDropdown = styled.div`
   position: absolute;
   right: 0;
   top: calc(100% + 12px);
   width: 240px;
   background: #fff;
-  border: 1px solid #eadfd3;
-  border-radius: 16px;
+  border: 1px solid #dedfd9;
+  border-radius: 8px;
   box-shadow:
     0 8px 32px rgba(50, 30, 15, 0.12),
     0 2px 8px rgba(50, 30, 15, 0.06);
   padding: 8px;
-  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
-  opacity: ${({ $open }) => ($open ? 1 : 0)};
-  transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
-  transition:
-    opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: profile-menu-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 200;
+  @keyframes profile-menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
 `;
 const DropdownArrow = styled.div`
   position: absolute;
@@ -431,7 +497,7 @@ const DropdownItem = styled.button<{ $danger?: boolean }>`
   padding: 11px 12px;
   border: none;
   background: transparent;
-  border-radius: 10px;
+  border-radius: 6px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;

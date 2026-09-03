@@ -248,6 +248,17 @@ async function openConfigurator(page: Page, path = '/restaurante-teste') {
   await expect(page.getByRole('dialog', { name: 'Montar Produto artesanal' })).toBeVisible();
 }
 
+async function openCartAfterAddition(page: Page) {
+  const cart = page.getByRole('dialog', { name: 'Minha sacola' });
+  await expect(cart).toBeHidden();
+  await expect(
+    page.getByLabel('Avisos recentes').getByRole('status').filter({ hasText: 'Item adicionado' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
+  await expect(cart).toBeVisible();
+  return cart;
+}
+
 test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page }) => {
   await mockStorefront(page);
   await openConfigurator(page);
@@ -269,7 +280,7 @@ test('cliente monta o produto antes de adicioná-lo à sacola', async ({ page })
   await expect(addButton).toHaveAccessibleDescription('R$ 38,00');
   await addButton.click();
 
-  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await openCartAfterAddition(page);
   await expect(page.getByText('Base grossa')).toBeVisible();
   await expect(page.getByText('Queijo especial')).toBeVisible();
   await expect(page.getByText('Embalagem separada')).toBeVisible();
@@ -282,10 +293,8 @@ test('produto COMPLETE é adicionado sem abrir etapas de montagem', async ({ pag
   await page.getByRole('button', { name: 'Ver detalhes de Refrigerante pronto' }).click();
 
   await expect(page.getByRole('dialog', { name: 'Montar Refrigerante pronto' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
-  await expect(
-    page.getByRole('complementary').getByText('Refrigerante pronto', { exact: true }),
-  ).toBeVisible();
+  const cart = await openCartAfterAddition(page);
+  await expect(cart.getByText('Refrigerante pronto', { exact: true })).toBeVisible();
 });
 
 test('aplica defaultSelected e impede remover opção locked', async ({ page }) => {
@@ -305,7 +314,7 @@ test('aplica defaultSelected e impede remover opção locked', async ({ page }) 
   await expect(lockedOption).toBeChecked();
   await dialog.getByRole('button', { name: 'Adicionar à sacola' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await openCartAfterAddition(page);
   await expect(page.getByText('Embalagem fixa')).toBeVisible();
 });
 
@@ -427,7 +436,7 @@ test('cliente define quantidade, retirada e opções por porção', async ({ pag
   await expect(dialog.getByText('R$ 50,00').last()).toBeVisible();
   await dialog.getByRole('button', { name: /Adicionar/ }).click();
 
-  await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
+  await openCartAfterAddition(page);
   await expect(page.getByText('2x Bacon')).toBeVisible();
   await expect(page.getByText(/Porção 1:.*Calabresa/)).toBeVisible();
   await expect(page.getByText(/Porção 2:.*Especial.*Bem assada/)).toBeVisible();

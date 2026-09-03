@@ -421,7 +421,10 @@ function orderCard(page: Page, id: number) {
 }
 
 async function openKitchenView(page: Page, label: string) {
-  await page.locator('nav').getByText(label, { exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação da cozinha' })
+    .getByRole('button', { name: label, exact: true })
+    .click();
 }
 
 async function expectTenantSafeRequests(state: KitchenE2EState) {
@@ -440,6 +443,7 @@ test('pedido completo do tenant chega à fila e avança de pendente até pronto'
   await expect(page.getByText('Restaurante Tenant 41')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Abrir #71 na fila de pedidos' })).toBeVisible();
   await expect(page.getByText('PEDIDO VAZADO DE OUTRO TENANT')).toHaveCount(0);
+  await captureReadmeScreenshot(page, 'kitchen-overview.png', { fullPage: true });
 
   const priorityOrder = page.getByRole('button', { name: 'Abrir #71 na fila de pedidos' });
   await priorityOrder.focus();
@@ -610,10 +614,12 @@ test('todas as abas da cozinha permanecem acessíveis e sem overflow em celular'
     ['Histórico', 'Histórico'],
     ['Visão geral', 'Visão geral'],
   ] as const;
+  const mobileNavigation = page.getByRole('navigation', {
+    name: 'Navegação móvel da cozinha',
+  });
 
   for (const [tab, title] of destinations) {
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
-    await page.locator('nav').getByText(tab, { exact: true }).click();
+    await mobileNavigation.getByRole('button', { name: tab, exact: true }).click();
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
 
     const layout = await page.evaluate(() => ({
@@ -627,11 +633,11 @@ test('todas as abas da cozinha permanecem acessíveis e sem overflow em celular'
     ).toBeLessThanOrEqual(1);
   }
 
-  await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.locator('nav').getByText('Fila de pedidos', { exact: true }).click();
+  await mobileNavigation.getByRole('button', { name: 'Fila de pedidos', exact: true }).click();
   const queuedOrder = orderCard(page, 71);
   await expect(queuedOrder.getByText('Bacon crocante')).toBeVisible();
   await expect(queuedOrder.getByText('Assar bem a massa e cortar em oito pedaços')).toBeVisible();
+  await captureReadmeScreenshot(page, 'kitchen-mobile.png');
 
   const cardLayout = await queuedOrder.evaluate((element) => ({
     clientWidth: element.clientWidth,

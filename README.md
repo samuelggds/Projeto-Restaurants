@@ -180,7 +180,15 @@ O administrador pode aplicar descontos percentuais ou fixos em produtos, agendar
 
 ![Painel operacional do garçom](docs/assets/screenshots/waiter-dashboard.png)
 
-O painel do garçom prioriza o que precisa de atenção no salão. A interface separa a operação diária das configurações administrativas para que o funcionário execute somente ações compatíveis com sua função.
+O painel do garçom prioriza o que precisa de atenção no salão. A interface separa a operação diária das configurações administrativas para que o funcionário execute somente ações compatíveis com sua função. No celular, as cinco áreas operacionais ficam na navegação inferior, sem menu lateral sobre o conteúdo.
+
+<details>
+  <summary><strong>Ver pagamentos e versão móvel</strong></summary>
+  <br />
+  <img src="docs/assets/screenshots/waiter-payments.png" alt="Fila de pagamentos presenciais do garçom" width="100%" />
+  <br /><br />
+  <img src="docs/assets/screenshots/waiter-mobile.png" alt="Painel do garçom em celular com navegação inferior" width="390" />
+</details>
 
 ### Visão geral do salão
 
@@ -188,16 +196,18 @@ O painel do garçom prioriza o que precisa de atenção no salão. A interface s
 - chamados ainda não assumidos;
 - quantidade de mesas ocupadas;
 - observações importantes, como talheres ou atendimento especial;
-- mesas abertas, horário de abertura e valor atual da conta.
+- mesas abertas, horário de abertura e valor atual da conta;
+- recebimentos presenciais aguardando conferência.
 
 ### Fluxos disponíveis
 
-| Seção                | Ações principais                                                   |
-| -------------------- | ------------------------------------------------------------------ |
-| **Para entregar**    | Filtrar pedidos prontos, conferir mesa e marcar entrega ao cliente |
-| **Mesas e QR Codes** | Abrir/fechar sessão, visualizar QR e consultar estado operacional  |
-| **Chamados**         | Assumir, acompanhar e concluir solicitações de garçom ou conta     |
-| **Conta da mesa**    | Consultar itens, pagamentos, saldo e meios presenciais permitidos  |
+| Seção                | Ações principais                                                        |
+| -------------------- | ----------------------------------------------------------------------- |
+| **Para entregar**    | Filtrar pedidos prontos, conferir mesa e marcar entrega ao cliente      |
+| **Mesas e QR Codes** | Abrir/fechar sessão e consultar estado operacional; o QR fica no admin  |
+| **Chamados**         | Assumir, acompanhar e concluir solicitações de garçom ou conta          |
+| **Pagamentos**       | Conferir saldos e confirmar dinheiro ou maquininha já recebidos         |
+| **Conta da mesa**    | Consultar histórico, pagamentos automáticos e auditoria de recebimentos |
 
 O QR Code só libera pedidos enquanto a sessão da mesa estiver válida. O fechamento respeita pedidos, pagamentos e saldo pendentes, reduzindo divergências entre o salão e o sistema.
 
@@ -208,6 +218,14 @@ O QR Code só libera pedidos enquanto a sessão da mesa estiver válida. O fecha
 ![Fila operacional da cozinha](docs/assets/screenshots/kitchen-dashboard.png)
 
 A cozinha recebe uma fila visual pensada para produção. Cada pedido preserva canal, mesa ou entrega, quantidades, montagem, adicionais e observações exatamente como foram confirmados.
+
+<details>
+  <summary><strong>Ver visão geral e operação móvel</strong></summary>
+  <br />
+  <img src="docs/assets/screenshots/kitchen-overview.png" alt="Visão geral do turno da cozinha" width="100%" />
+  <br /><br />
+  <img src="docs/assets/screenshots/kitchen-mobile.png" alt="Fila da cozinha em celular com navegação inferior" width="390" />
+</details>
 
 ### Organização da fila
 

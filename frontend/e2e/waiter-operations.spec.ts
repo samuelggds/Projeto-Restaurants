@@ -7,6 +7,8 @@ const WAITER_ACCESS_TOKEN = 'e2e-waiter-token';
 const RESTAURANT_ID = 41;
 const TABLE_ID = 11;
 const SESSION_ID = 501;
+const ACCOUNT_SESSION_PUBLIC_ID = 'session-public-502';
+const MANUAL_PAYMENT_PUBLIC_ID = 'manual-payment-12';
 
 type CallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
 
@@ -31,6 +33,8 @@ type WaiterE2EState = {
   closeRequests: number;
   joinRequests: number;
   deliveredOrders: number[];
+  manualPaymentPending: boolean;
+  confirmedManualPayments: string[];
   callUpdates: Array<{ id: number; status: CallStatus }>;
   calls: WaiterCall[];
 };
@@ -88,6 +92,8 @@ function initialState(): WaiterE2EState {
     closeRequests: 0,
     joinRequests: 0,
     deliveredOrders: [],
+    manualPaymentPending: true,
+    confirmedManualPayments: [],
     callUpdates: [],
     calls: [
       {
@@ -225,6 +231,48 @@ function rawTables(state: WaiterE2EState) {
   ];
 }
 
+function waiterAccounts(state: WaiterE2EState) {
+  return {
+    sessions: [
+      {
+        tableSessionId: 502,
+        sessionPublicId: ACCOUNT_SESSION_PUBLIC_ID,
+        tableId: 12,
+        tableNumber: 12,
+        openedAt: isoMinutesAgo(30),
+        status: 'CLOSING_REQUESTED',
+        openedByName: waiterUser.name,
+        summary: {
+          consumedCents: 8400,
+          netPaidCents: state.manualPaymentPending ? 4200 : 8400,
+          reservedCents: state.manualPaymentPending ? 4200 : 0,
+          processingCents: 0,
+          remainingCents: state.manualPaymentPending ? 4200 : 0,
+          participantsCount: 2,
+        },
+        itemsCount: 3,
+        paymentCounts: {
+          reserved: state.manualPaymentPending ? 1 : 0,
+          processing: 0,
+          online: 0,
+          inPerson: 1,
+        },
+        pendingManualPayments: state.manualPaymentPending
+          ? [
+              {
+                publicId: MANUAL_PAYMENT_PUBLIC_ID,
+                method: 'CASH',
+                status: 'RESERVED',
+                totalCents: 4200,
+                createdAt: isoMinutesAgo(3),
+              },
+            ]
+          : [],
+      },
+    ],
+  };
+}
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
     status,
@@ -314,6 +362,19 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
 
     if (pathname === '/waiter-calls' && method === 'GET') {
       return json(route, state.calls);
+    }
+
+    if (pathname === '/table-accounts/waiter/sessions' && method === 'GET') {
+      return json(route, waiterAccounts(state));
+    }
+
+    if (
+      pathname === `/table-accounts/payments/${MANUAL_PAYMENT_PUBLIC_ID}/confirm-manual` &&
+      method === 'POST'
+    ) {
+      state.manualPaymentPending = false;
+      state.confirmedManualPayments.push(MANUAL_PAYMENT_PUBLIC_ID);
+      return json(route, { payment: { publicId: MANUAL_PAYMENT_PUBLIC_ID, status: 'PAID' } });
     }
 
     const callUpdate = pathname.match(/^\/waiter-calls\/(\d+)\/status$/);
@@ -557,9 +618,9 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
     };
   });
   expect(navigationStyle.width).toBeGreaterThan(190);
-  expect(navigationStyle.height).toBe(52);
+  expect(navigationStyle.height).toBe(46);
   expect(navigationStyle.display).toBe('flex');
-  expect(navigationStyle.borderRadius).toBe('10px');
+  expect(navigationStyle.borderRadius).toBe('7px');
   expect(navigationStyle.backgroundColor).not.toBe('rgb(239, 239, 239)');
   await expect(metric(page, 'Prontos para entregar').getByText('1', { exact: true })).toBeVisible();
   await expect(metric(page, 'Chamados aguardando').getByText('1', { exact: true })).toBeVisible();
@@ -581,7 +642,10 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
   await page.getByLabel('Buscar pedidos prontos').fill('Mesa inexistente');
   await expect(page.getByText('Nenhum pedido pronto para os filtros selecionados.')).toBeVisible();
 
-  await page.locator('nav').getByText('Chamados', { exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação do garçom' })
+    .getByRole('button', { name: 'Chamados' })
+    .click();
   await expect(page.getByRole('heading', { name: 'Chamados', exact: true })).toBeVisible();
   await page.getByLabel('Buscar chamados').fill('Mesa 7');
   const waitingCall = tableCard(page, '07');
@@ -596,6 +660,30 @@ test('garçom consulta visão geral, filtra entregas e atende chamados persistid
   await expect(page.getByRole('heading', { name: 'Concluídos' })).toBeVisible();
   await expect(tableCard(page, '07').getByText('Chamou o garçom')).toBeVisible();
   await expect(metric(page, 'Atendidos hoje').getByText('2', { exact: true })).toBeVisible();
+});
+
+test('garçom confere e confirma pagamento presencial pelo ledger', async ({ page }) => {
+  const state = initialState();
+  await mockWaiterAndTableApi(page, state);
+  await page.goto('/waiter');
+
+  await page
+    .getByRole('navigation', { name: 'Navegação do garçom' })
+    .getByRole('button', { name: 'Pagamentos' })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Pagamentos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recebimentos para confirmar' })).toBeVisible();
+  await expect(page.getByText('R$ 42,00').first()).toBeVisible();
+  await captureReadmeScreenshot(page, 'waiter-payments.png', { fullPage: true });
+
+  await page.getByRole('button', { name: /Confirmar Dinheiro.*Mesa 12/ }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Confirmar pagamento recebido?' });
+  await expect(confirmation).toContainText('Mesa 12');
+  await expect(confirmation).toContainText('R$ 42,00');
+  await confirmation.getByRole('button', { name: 'Confirmar recebimento' }).click();
+
+  await expect.poll(() => state.confirmedManualPayments).toEqual([MANUAL_PAYMENT_PUBLIC_ID]);
+  await expect(page.getByText('Nenhum pagamento presencial aguarda confirmação.')).toBeVisible();
 });
 
 test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendências', async ({
@@ -636,16 +724,18 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.getByRole('button', { name: 'Ver detalhes de Prato da casa' }).click();
   await page.getByText('Arroz da casa').click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await page.getByRole('button', { name: 'Revisar e continuar' }).click();
-  const continuationDialog = page.getByRole('dialog');
+  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
   await expect(continuationDialog).toBeVisible();
   await continuationDialog.getByRole('button', { name: 'Escolher forma de pagamento' }).click();
+  const paymentDialog = page.getByRole('dialog', { name: 'Como deseja pagar este pedido?' });
   await expect(
-    continuationDialog.getByRole('heading', { name: 'Como deseja pagar este pedido?' }),
+    paymentDialog.getByRole('heading', { name: 'Como deseja pagar este pedido?' }),
   ).toBeVisible();
-  await continuationDialog.getByRole('button', { name: 'Pix' }).click();
-  await continuationDialog.getByRole('button', { name: 'Continuar para pagar' }).click();
+  await paymentDialog.getByRole('button', { name: 'Pix' }).click();
+  await paymentDialog.getByRole('button', { name: 'Continuar para pagar' }).click();
   await expect.poll(() => state.orderPayload).not.toBeNull();
   expect(state.orderPayload).toMatchObject({
     restaurantId: RESTAURANT_ID,
@@ -686,17 +776,24 @@ test('todas as abas do garçom permanecem acessíveis e sem overflow em celular'
   await page.setViewportSize({ width: 390, height: 844 });
   await mockWaiterAndTableApi(page, state);
   await page.goto('/waiter');
+  await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
+  await captureReadmeScreenshot(page, 'waiter-mobile.png');
 
   const destinations = [
     ['Para entregar', 'Pedidos para entregar'],
     ['Mesas e QR Codes', 'Mesas e QR Codes'],
     ['Chamados', 'Chamados'],
     ['Visão geral', 'Visão geral'],
+    ['Pagamentos', 'Pagamentos'],
   ] as const;
 
+  const mobileNavigation = page.getByRole('navigation', {
+    name: 'Navegação móvel do garçom',
+  });
+  await expect(page.getByRole('button', { name: 'Abrir menu' })).toHaveCount(0);
+
   for (const [tab, title] of destinations) {
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
-    await page.locator('nav').getByText(tab, { exact: true }).click();
+    await mobileNavigation.getByRole('button', { name: tab }).click();
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     const layout = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -708,8 +805,7 @@ test('todas as abas do garçom permanecem acessíveis e sem overflow em celular'
     ).toBeLessThanOrEqual(1);
   }
 
-  await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.locator('nav').getByText('Mesas e QR Codes', { exact: true }).click();
+  await mobileNavigation.getByRole('button', { name: 'Mesas e QR Codes' }).click();
   const mobileTable = tableCard(page, '07');
   await expect(mobileTable.getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: /visualizar qr code|imprimir qr/i })).toHaveCount(

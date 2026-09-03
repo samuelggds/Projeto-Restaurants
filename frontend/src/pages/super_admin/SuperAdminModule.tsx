@@ -16,7 +16,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   AdministratorDetails,
   AuditDetails,
@@ -107,6 +107,34 @@ export function SuperAdminModule({
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [selectedAuditLogId, setSelectedAuditLogId] = useState<number | null>(null);
   const [creatingAdministrator, setCreatingAdministrator] = useState(false);
+  const sidebar = useRef<HTMLElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const focusSidebarClose = useCallback(
+    (element: HTMLButtonElement | null) => {
+      if (sidebarOpen) element?.focus();
+    },
+    [sidebarOpen],
+  );
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const opener = menuButton.current;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSidebarOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    const focusTimer = window.setTimeout(() => {
+      sidebar.current?.querySelector<HTMLElement>('[aria-label="Fechar menu"]')?.focus();
+    }, 260);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+      opener?.focus();
+    };
+  }, [sidebarOpen]);
 
   const notify = useCallback((message: string, error = false) => {
     setNotice({ message, error });
@@ -207,14 +235,19 @@ export function SuperAdminModule({
 
   return (
     <S.Root style={{ '--brand': data.settings.primaryColor || '#e9530b' } as CSSProperties}>
-      <S.Sidebar $open={sidebarOpen} aria-label="Navegação do painel SUPER_ADMIN">
+      <S.Sidebar ref={sidebar} $open={sidebarOpen} aria-label="Navegação do painel SUPER_ADMIN">
         <S.Brand>
           <span>
             <b>{brandMark}</b> {brandName}
           </span>
           <small>PAINEL SUPER ADMIN</small>
         </S.Brand>
-        <S.Close type="button" aria-label="Fechar menu" onClick={() => setSidebarOpen(false)}>
+        <S.Close
+          ref={focusSidebarClose}
+          type="button"
+          aria-label="Fechar menu"
+          onClick={() => setSidebarOpen(false)}
+        >
           <X />
         </S.Close>
         <S.Nav>
@@ -249,11 +282,23 @@ export function SuperAdminModule({
           </button>
         </S.User>
       </S.Sidebar>
-      {sidebarOpen ? <S.Overlay aria-hidden="true" onClick={() => setSidebarOpen(false)} /> : null}
+      {sidebarOpen ? (
+        <S.Overlay
+          data-testid="super-admin-menu-overlay"
+          aria-hidden="true"
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
 
       <S.Main>
         <S.Header>
-          <S.MobileMenu type="button" aria-label="Abrir menu" onClick={() => setSidebarOpen(true)}>
+          <S.MobileMenu
+            ref={menuButton}
+            type="button"
+            aria-label="Abrir menu"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
             <Menu aria-hidden="true" />
           </S.MobileMenu>
           <div className="title">

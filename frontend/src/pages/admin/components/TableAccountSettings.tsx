@@ -135,7 +135,7 @@ function timeToMinute(value: string, fallback: number) {
 }
 
 export function TableAccountSettings({ settings, update }: Props) {
-  const { promptDialog } = useAppDialog();
+  const { confirmDialog, promptDialog } = useAppDialog();
   const account = settings.tableAccount;
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [details, setDetails] = useState<Record<string, AccountDetail>>({});
@@ -214,13 +214,24 @@ export function TableAccountSettings({ settings, update }: Props) {
     }
   };
 
-  const confirmManual = async (paymentPublicId: string, sessionPublicId: string) => {
-    if (!window.confirm('Confirma que o valor foi recebido no caixa ou na maquininha?')) return;
-    setBusyId(paymentPublicId);
+  const confirmManual = async (
+    payment: AccountDetail['paymentIntents'][number],
+    session: AdminSession,
+  ) => {
+    const method = payment.method === 'CASH' ? 'dinheiro' : 'maquininha';
+    const confirmed = await confirmDialog({
+      title: 'Confirmar pagamento recebido?',
+      description: `Mesa ${String(session.tableNumber).padStart(2, '0')} • ${money(payment.totalCents)} em ${method}. Confirme somente depois de conferir o recebimento no caixa.`,
+      confirmLabel: 'Confirmar recebimento',
+      cancelLabel: 'Voltar e conferir',
+    });
+    if (!confirmed) return;
+
+    setBusyId(payment.publicId);
     try {
-      await tableAccountService.confirmManualPayment(paymentPublicId);
-      const detail = await tableAccountService.getAdminSnapshot(sessionPublicId);
-      setDetails((current) => ({ ...current, [sessionPublicId]: detail }));
+      await tableAccountService.confirmManualPayment(payment.publicId);
+      const detail = await tableAccountService.getAdminSnapshot(session.sessionPublicId);
+      setDetails((current) => ({ ...current, [session.sessionPublicId]: detail }));
       await refreshSessions();
       toast.success('Pagamento presencial confirmado.');
     } catch {
@@ -230,14 +241,27 @@ export function TableAccountSettings({ settings, update }: Props) {
     }
   };
 
-  const refund = async (paymentPublicId: string, sessionPublicId: string) => {
-    const reason = window.prompt('Informe o motivo do estorno (mínimo de 5 caracteres):')?.trim();
+  const refund = async (
+    payment: AccountDetail['paymentIntents'][number],
+    session: AdminSession,
+  ) => {
+    const reason = (
+      await promptDialog({
+        title: `Estornar pagamento da Mesa ${String(session.tableNumber).padStart(2, '0')}?`,
+        description: `${money(payment.totalCents)} • ${payment.method}. O motivo ficará registrado na auditoria financeira.`,
+        inputLabel: 'Motivo do estorno',
+        placeholder: 'Ex.: cobrança duplicada confirmada no caixa',
+        confirmLabel: 'Registrar estorno',
+        cancelLabel: 'Manter pagamento',
+        tone: 'danger',
+      })
+    )?.trim();
     if (!reason || reason.length < 5) return;
-    setBusyId(paymentPublicId);
+    setBusyId(payment.publicId);
     try {
-      await tableAccountService.refundPayment(paymentPublicId, reason);
-      const detail = await tableAccountService.getAdminSnapshot(sessionPublicId);
-      setDetails((current) => ({ ...current, [sessionPublicId]: detail }));
+      await tableAccountService.refundPayment(payment.publicId, reason);
+      const detail = await tableAccountService.getAdminSnapshot(session.sessionPublicId);
+      setDetails((current) => ({ ...current, [session.sessionPublicId]: detail }));
       await refreshSessions();
       toast.success('Estorno registrado com sucesso.');
     } catch {
@@ -689,9 +713,7 @@ export function TableAccountSettings({ settings, update }: Props) {
                                 <S.Button
                                   type="button"
                                   disabled={busyId === payment.publicId}
-                                  onClick={() =>
-                                    void confirmManual(payment.publicId, session.sessionPublicId)
-                                  }
+                                  onClick={() => void confirmManual(payment, session)}
                                 >
                                   Confirmar recebimento
                                 </S.Button>
@@ -701,9 +723,7 @@ export function TableAccountSettings({ settings, update }: Props) {
                                 $danger
                                 type="button"
                                 disabled={busyId === payment.publicId}
-                                onClick={() =>
-                                  void refund(payment.publicId, session.sessionPublicId)
-                                }
+                                onClick={() => void refund(payment, session)}
                               >
                                 Estornar
                               </S.Button>

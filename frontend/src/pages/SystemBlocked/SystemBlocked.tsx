@@ -27,6 +27,7 @@ export default function SystemBlockedPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isResolvingLink, setIsResolvingLink] = useState(false);
+  const [isRetestingAccess, setIsRetestingAccess] = useState(false);
   const blockState = getSystemBlockState();
 
   const isAdmin = useMemo(() => {
@@ -149,6 +150,7 @@ export default function SystemBlockedPage() {
 
   const handleRetestAccess = async () => {
     try {
+      setIsRetestingAccess(true);
       const response = await api.get('/billing/invoices');
       const invoiceList = Array.isArray(response?.data)
         ? response.data
@@ -169,15 +171,14 @@ export default function SystemBlockedPage() {
       navigate('/admin');
     } catch {
       toast.error('Não foi possível validar a liberação agora. Tente novamente em instantes.');
+    } finally {
+      setIsRetestingAccess(false);
     }
   };
 
   return (
     <ThemeProvider theme={theme}>
       <S.Page>
-        <S.BlobTop />
-        <S.BlobBottom />
-
         <S.Card>
           <S.Badge>
             <ShieldAlert size={16} />
@@ -199,15 +200,27 @@ export default function SystemBlockedPage() {
               </S.InfoBox>
 
               <S.Actions>
-                <S.PrimaryButton onClick={handlePayNow}>
+                <S.PrimaryButton
+                  type="button"
+                  onClick={handlePayNow}
+                  disabled={isResolvingLink}
+                  aria-busy={isResolvingLink}
+                >
                   <CreditCard size={18} />
                   {isResolvingLink ? 'Buscando link...' : 'Pagar agora'}
                 </S.PrimaryButton>
 
-                <S.SecondaryButton onClick={handleGoToBilling}>Ver faturas</S.SecondaryButton>
+                <S.SecondaryButton type="button" onClick={handleGoToBilling}>
+                  Ver faturas
+                </S.SecondaryButton>
 
-                <S.GhostButton onClick={handleRetestAccess}>
-                  Já paguei, testar liberação
+                <S.GhostButton
+                  type="button"
+                  onClick={handleRetestAccess}
+                  disabled={isRetestingAccess}
+                  aria-busy={isRetestingAccess}
+                >
+                  {isRetestingAccess ? 'Verificando liberação...' : 'Já paguei, testar liberação'}
                 </S.GhostButton>
               </S.Actions>
             </>
@@ -220,7 +233,7 @@ export default function SystemBlockedPage() {
               </S.Description>
               <S.InfoBox>Obrigado pela compreensão. Tente novamente em alguns minutos.</S.InfoBox>
               <S.Actions>
-                <S.SecondaryButton onClick={() => window.location.reload()}>
+                <S.SecondaryButton type="button" onClick={() => window.location.reload()}>
                   Tentar novamente
                 </S.SecondaryButton>
               </S.Actions>

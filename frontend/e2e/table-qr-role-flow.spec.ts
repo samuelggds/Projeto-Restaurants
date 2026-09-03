@@ -681,6 +681,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await expect(page.getByRole('heading', { name: 'Minha sacola' })).toBeVisible();
   await page.getByRole('button', { name: /Revisar e continuar/ }).click();
   const continuationDialog = page.getByRole('dialog');
@@ -708,6 +709,9 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByText(/Clicar em pagar não significa pagamento confirmado/i)).toBeVisible();
   await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page
+    .getByRole('button', { name: 'Abrir cupons, status do pedido e avisos da mesa' })
+    .click();
   await page.getByRole('button', { name: /Status do pedido da mesa/i }).click();
   const tableOrderDialog = page.getByRole('dialog', { name: 'Pedido da mesa 1' });
   await expect(tableOrderDialog).toBeVisible();
@@ -742,7 +746,10 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
-  await page.locator('nav').getByText('Fila de pedidos', { exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação da cozinha' })
+    .getByRole('button', { name: 'Fila de pedidos', exact: true })
+    .click();
   const kitchenOrder = page.locator('[data-order-id="#1001"]');
   await expect(kitchenOrder).toBeVisible();
   await expect(kitchenOrder.getByText('Mesa 1', { exact: true })).toBeVisible();
@@ -773,6 +780,7 @@ test('cliente separa escopo e método e só vê pago após reconciliação canô
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
   await page.getByRole('button', { name: /Revisar e continuar/ }).click();
 
   const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
@@ -787,13 +795,11 @@ test('cliente separa escopo e método e só vê pago após reconciliação canô
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
 
+  await page
+    .getByRole('button', { name: 'Abrir cupons, status do pedido e avisos da mesa' })
+    .click();
   await page.getByRole('button', { name: 'Ver conta' }).click();
   const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
-  const notificationCloseButtons = page.getByRole('button', { name: 'Fechar notificação' });
-  for (const closeButton of await notificationCloseButtons.all()) {
-    await closeButton.click();
-  }
-  await expect(notificationCloseButtons).toHaveCount(0);
   await expect(accountDialog.getByText('1 de 3')).toBeVisible();
   await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();
   await expect(accountDialog.getByText('Pix online')).toHaveCount(0);

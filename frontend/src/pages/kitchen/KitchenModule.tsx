@@ -8,9 +8,8 @@ import {
   CircleHelp,
   LayoutGrid,
   LogOut,
-  Menu,
+  MoreHorizontal,
   RefreshCw,
-  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { KitchenProvider, type KitchenModuleProps as BaseProps } from './KitchenContext';
@@ -22,6 +21,7 @@ import {
   KitchenReadyPage,
 } from './pages/KitchenPages';
 import * as S from './Kitchen.styles';
+import * as N from './KitchenNavigation.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
@@ -63,16 +63,21 @@ function KitchenShell({
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
+  const [moreOpen, setMoreOpen] = useState(false);
   const navigate = (next: KitchenView | 'help') => {
     setView(next);
-    if (window.innerWidth <= 820) setOpen(false);
+    setMoreOpen(false);
     if (next !== 'help') onViewChange?.(next);
   };
+  const queueCount = orders.filter(
+    (order) => order.status === 'PENDENTE' || order.status === 'PREPARANDO',
+  ).length;
+  const readyCount = orders.filter((order) => order.status === 'PRONTO').length;
   const nav = [
-    ['overview', 'Visão geral', LayoutGrid],
-    ['queue', 'Fila de pedidos', ChefHat],
-    ['ready', 'Prontos', CheckCircle2],
-    ['history', 'Histórico', History],
+    ['overview', 'Visão geral', 'Início', LayoutGrid, 0],
+    ['queue', 'Fila de pedidos', 'Fila', ChefHat, queueCount],
+    ['ready', 'Prontos', 'Prontos', CheckCircle2, readyCount],
+    ['history', 'Histórico', 'Histórico', History, 0],
   ] as const;
   const titles: Record<KitchenView | 'help', [string, string]> = {
     overview: ['Visão geral', 'Área operacional exclusiva da cozinha'],
@@ -84,79 +89,122 @@ function KitchenShell({
   const [title, subtitle] = titles[view];
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
-      <S.Sidebar $open={open}>
-        <S.CollapseBtn
-          type="button"
-          aria-label="Recolher menu lateral"
-          onClick={() => setOpen(false)}
-        >
-          <ChevronLeft />
-        </S.CollapseBtn>
-        <S.Brand>
-          <span>{restaurant.monogram}</span>
-          <b>{restaurant.restaurantName}</b>
-          <small>ÁREA DA COZINHA</small>
-        </S.Brand>
-        <S.CloseMenu type="button" aria-label="Fechar menu lateral" onClick={() => setOpen(false)}>
-          <X />
-        </S.CloseMenu>
-        <S.Nav>
-          {nav.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              className={view === id ? 'active' : ''}
-              aria-current={view === id ? 'page' : undefined}
-              onClick={() => navigate(id)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </S.Nav>
-        <S.BottomNav>
-          <button
+      {open && (
+        <N.Sidebar>
+          <N.CollapseButton
             type="button"
-            className={view === 'help' ? 'active' : ''}
-            aria-current={view === 'help' ? 'page' : undefined}
-            onClick={() => navigate('help')}
+            aria-label="Recolher menu lateral"
+            onClick={() => setOpen(false)}
           >
-            <CircleHelp />
-            Central de ajuda
-          </button>
-        </S.BottomNav>
-        <S.User>
-          <span className="avatar">
-            {employee.name
-              .split(' ')
-              .map((x) => x[0])
-              .slice(0, 2)
-              .join('')}
-          </span>
-          <span>
-            <b>{employee.name}</b>
-            <small>Cozinha</small>
-          </span>
-          <button type="button" aria-label="Sair da área da cozinha" onClick={onLogout}>
-            <LogOut />
-          </button>
-        </S.User>
-      </S.Sidebar>
-      {open && <S.Overlay onClick={() => setOpen(false)} />}
+            <ChevronLeft />
+          </N.CollapseButton>
+          <N.Brand>
+            <span>{restaurant.monogram}</span>
+            <b>{restaurant.restaurantName}</b>
+            <small>Área da cozinha</small>
+          </N.Brand>
+          <N.Nav aria-label="Navegação da cozinha">
+            {nav.map(([id, label, , Icon, count]) => (
+              <button
+                key={id}
+                type="button"
+                aria-label={label}
+                className={view === id ? 'active' : ''}
+                aria-current={view === id ? 'page' : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon />
+                {label}
+                {count > 0 && <N.NavBadge>{count}</N.NavBadge>}
+              </button>
+            ))}
+          </N.Nav>
+          <N.SupportNav>
+            <button
+              type="button"
+              className={view === 'help' ? 'active' : ''}
+              aria-current={view === 'help' ? 'page' : undefined}
+              onClick={() => navigate('help')}
+            >
+              <CircleHelp />
+              Central de ajuda
+            </button>
+          </N.SupportNav>
+          <N.User>
+            <span className="avatar">
+              {employee.name
+                .split(' ')
+                .map((x) => x[0])
+                .slice(0, 2)
+                .join('')}
+            </span>
+            <span>
+              <b>{employee.name}</b>
+              <small>Cozinha</small>
+            </span>
+            <button type="button" aria-label="Sair da área da cozinha" onClick={onLogout}>
+              <LogOut />
+            </button>
+          </N.User>
+        </N.Sidebar>
+      )}
       {!open && (
-        <S.SidebarOpenTab
+        <N.SidebarOpenButton
           type="button"
           aria-label="Expandir menu lateral"
           onClick={() => setOpen(true)}
         >
           <ChevronRight />
-        </S.SidebarOpenTab>
+        </N.SidebarOpenButton>
+      )}
+      <N.MobileNav aria-label="Navegação móvel da cozinha">
+        {nav.map(([id, label, mobileLabel, Icon, count]) => (
+          <button
+            key={id}
+            type="button"
+            aria-label={label}
+            className={view === id ? 'active' : ''}
+            aria-current={view === id ? 'page' : undefined}
+            onClick={() => navigate(id)}
+          >
+            <span>
+              <Icon />
+              {count > 0 && <i>{count}</i>}
+            </span>
+            {mobileLabel}
+          </button>
+        ))}
+      </N.MobileNav>
+      {moreOpen && (
+        <>
+          <N.MoreBackdrop
+            type="button"
+            aria-label="Fechar opções da cozinha"
+            onClick={() => setMoreOpen(false)}
+          />
+          <N.MoreSheet role="menu" aria-label="Opções da cozinha">
+            <header>
+              <span>
+                <b>{employee.name}</b>
+                <small>Cozinha • turno iniciado às {employee.shift}</small>
+              </span>
+            </header>
+            <button
+              type="button"
+              role="menuitem"
+              className={view === 'help' ? 'active' : ''}
+              onClick={() => navigate('help')}
+            >
+              <CircleHelp /> Central de ajuda
+            </button>
+            <button type="button" role="menuitem" className="logout" onClick={onLogout}>
+              <LogOut /> Sair da conta
+            </button>
+          </N.MoreSheet>
+        </>
       )}
       <S.Main>
         <S.Top>
-          <S.MobileMenu type="button" aria-label="Abrir menu" onClick={() => setOpen(true)}>
-            <Menu />
-          </S.MobileMenu>
           <div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
@@ -182,6 +230,15 @@ function KitchenShell({
             {workspaceState?.refreshing ? 'Atualizando' : 'Atualizar'} <i />{' '}
             {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </S.Live>
+          <N.MobileMoreButton
+            type="button"
+            aria-label="Abrir opções da cozinha"
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((current) => !current)}
+          >
+            <MoreHorizontal />
+          </N.MobileMoreButton>
         </S.Top>
         <S.Content>
           {workspaceState?.error && (

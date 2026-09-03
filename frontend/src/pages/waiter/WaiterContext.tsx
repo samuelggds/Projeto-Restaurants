@@ -84,6 +84,7 @@ export function WaiterProvider({
       orders: data.orders,
       tables: data.tables,
       calls: data.calls,
+      accounts: data.accounts,
       updateOrderStatus,
       openTable,
       closeTable,

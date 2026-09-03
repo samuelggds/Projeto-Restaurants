@@ -13,6 +13,7 @@ import type { CallStatus, Order, RestaurantTable, ServiceCall, TableStatus } fro
 import { useWaiterWorkspace as useWorkspace } from '../useWaiterWorkspace';
 import { Empty, MetricCards, OrderItems, StatusBadge, brl } from '../components/Shared';
 import { WaiterTableAccountDialog } from '../components/WaiterTableAccountDialog';
+import { WAITER_LIST_BATCH_SIZE, WaiterListControls } from '../components/WaiterListControls';
 import * as S from '../Waiter.styles';
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -141,15 +142,20 @@ function ReadyOrderCard({
 
 export function WaiterOverviewPage({
   onOpenOrder,
+  onOpenPayments,
 }: {
   onOpenOrder?: (orderId: string) => void;
+  onOpenPayments?: () => void;
 } = {}) {
-  const { orders, tables, calls } = useWorkspace();
+  const { orders, tables, calls, accounts } = useWorkspace();
   const ready = orders
     .filter((order) => order.channel === 'TABLE' && order.status === 'PRONTO')
     .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed));
   const waiting = calls.filter((call) => call.status === 'WAITING');
   const openedTables = tables.filter((table) => table.status === 'OCCUPIED');
+  const pendingPayments = accounts.flatMap((account) =>
+    account.pendingManualPayments.map((payment) => ({ account, payment })),
+  );
 
   return (
     <>
@@ -169,6 +175,7 @@ export function WaiterOverviewPage({
             value: tables.filter((table) => table.status === 'OCCUPIED').length,
             icon: 'tables',
           },
+          { label: 'Pagamentos para confirmar', value: pendingPayments.length, icon: 'clock' },
         ]}
       />
       <S.Grid>
@@ -195,6 +202,34 @@ export function WaiterOverviewPage({
         </S.Card>
         <S.Stack>
           <WaiterCallsSummary />
+          <S.Card>
+            <header>
+              <div>
+                <h2>Recebimentos presenciais</h2>
+                <p>Confirme somente após receber em dinheiro ou na maquininha.</p>
+              </div>
+              <ReceiptText aria-hidden="true" />
+            </header>
+            <S.Stack>
+              {pendingPayments.slice(0, 3).map(({ account, payment }) => (
+                <S.OpenTableRow key={payment.publicId}>
+                  <span>
+                    <b>Mesa {String(account.tableNumber).padStart(2, '0')}</b>
+                    <small>{payment.method === 'CASH' ? 'Dinheiro' : 'Cartão na maquininha'}</small>
+                  </span>
+                  <strong>{brl(payment.totalCents / 100)}</strong>
+                  {onOpenPayments && (
+                    <button type="button" onClick={onOpenPayments}>
+                      Conferir
+                    </button>
+                  )}
+                </S.OpenTableRow>
+              ))}
+              {!pendingPayments.length && (
+                <Empty>Nenhum recebimento presencial aguarda confirmação.</Empty>
+              )}
+            </S.Stack>
+          </S.Card>
           <S.Card>
             <header>
               <div>
@@ -261,6 +296,7 @@ export function WaiterDeliveriesPage({
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
     focusedOrderId ?? null,
   );
+  const [visibleCount, setVisibleCount] = useState(WAITER_LIST_BATCH_SIZE);
 
   useEffect(() => {
     if (!focusedOrderId) return;
@@ -322,13 +358,19 @@ export function WaiterDeliveriesPage({
         <input
           aria-label="Buscar pedidos prontos"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setVisibleCount(WAITER_LIST_BATCH_SIZE);
+          }}
           placeholder="Buscar mesa, pedido, cliente ou item"
         />
         <select
           aria-label="Filtrar por mesa"
           value={table}
-          onChange={(event) => setTable(event.target.value)}
+          onChange={(event) => {
+            setTable(event.target.value);
+            setVisibleCount(WAITER_LIST_BATCH_SIZE);
+          }}
         >
           <option value="ALL">Todas as mesas</option>
           {tableOptions.map((item) => (
@@ -359,7 +401,7 @@ export function WaiterDeliveriesPage({
           </div>
         </header>
         <S.Stack>
-          {ready.map((order) => (
+          {ready.slice(0, visibleCount).map((order) => (
             <ReadyOrderCard
               key={order.id}
               order={order}
@@ -368,6 +410,13 @@ export function WaiterDeliveriesPage({
             />
           ))}
           {!ready.length && <Empty>Nenhum pedido pronto para os filtros selecionados.</Empty>}
+          <WaiterListControls
+            visibleCount={Math.min(visibleCount, ready.length)}
+            totalCount={ready.length}
+            itemLabel="pedidos"
+            onShowMore={() => setVisibleCount((current) => current + WAITER_LIST_BATCH_SIZE)}
+            onReset={() => setVisibleCount(WAITER_LIST_BATCH_SIZE)}
+          />
         </S.Stack>
       </S.Card>
     </>
@@ -437,13 +486,18 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
 }
 
 export function WaiterTablesPage() {
-  const { tables } = useWorkspace();
+  const { tables, accounts } = useWorkspace();
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<TableStatus | 'ALL'>('ALL');
+  const [status, setStatus] = useState<TableStatus | 'ALL' | 'CLOSING'>('ALL');
   const [accountTable, setAccountTable] = useState<RestaurantTable | null>(null);
+  const [visibleCount, setVisibleCount] = useState(WAITER_LIST_BATCH_SIZE);
   const visible = tables.filter(
     (table) =>
-      (status === 'ALL' || table.status === status) && String(table.number).includes(query.trim()),
+      (status === 'ALL' ||
+        (status === 'CLOSING'
+          ? table.sessionStatus === 'CLOSING_REQUESTED'
+          : table.status === status)) &&
+      String(table.number).includes(query.trim()),
   );
 
   return (
@@ -459,18 +513,25 @@ export function WaiterTablesPage() {
         <input
           aria-label="Buscar mesa"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setVisibleCount(WAITER_LIST_BATCH_SIZE);
+          }}
           placeholder="Buscar número da mesa"
           inputMode="numeric"
         />
         <select
           aria-label="Filtrar mesas por status"
           value={status}
-          onChange={(event) => setStatus(event.target.value as TableStatus | 'ALL')}
+          onChange={(event) => {
+            setStatus(event.target.value as TableStatus | 'ALL' | 'CLOSING');
+            setVisibleCount(WAITER_LIST_BATCH_SIZE);
+          }}
         >
           <option value="ALL">Todos os status</option>
           <option value="FREE">Livres</option>
           <option value="OCCUPIED">Ocupadas</option>
+          <option value="CLOSING">Conta solicitada</option>
         </select>
       </S.Toolbar>
       <MetricCards
@@ -487,57 +548,84 @@ export function WaiterTablesPage() {
             tone: 'green',
             icon: 'tables',
           },
+          {
+            label: 'Conta solicitada',
+            value: tables.filter((table) => table.sessionStatus === 'CLOSING_REQUESTED').length,
+            icon: 'calls',
+          },
         ]}
       />
       <S.TableGrid>
-        {visible.map((table) => (
-          <S.TableCard key={table.id}>
-            <header>
-              <b>Mesa {String(table.number).padStart(2, '0')}</b>
-              <S.TableState $state={table.status}>{tableStatusLabel(table)}</S.TableState>
-            </header>
-            <div className="meta">
-              <span>
-                <Users size={14} /> {table.guests || 0} cliente(s)
-              </span>
-              {table.openedAt ? (
+        {visible.slice(0, visibleCount).map((table) => {
+          const account = accounts.find(
+            (item) =>
+              item.sessionPublicId === table.sessionPublicId || item.tableNumber === table.number,
+          );
+          return (
+            <S.TableCard
+              key={table.id}
+              className={table.sessionStatus === 'CLOSING_REQUESTED' ? 'closing' : undefined}
+            >
+              <header>
+                <b>Mesa {String(table.number).padStart(2, '0')}</b>
+                <S.TableState $state={table.status}>{tableStatusLabel(table)}</S.TableState>
+              </header>
+              <div className="meta">
                 <span>
-                  <Clock3 size={14} /> Aberta às {table.openedAt}
+                  <Users size={14} /> {table.guests || 0} cliente(s)
                 </span>
-              ) : table.sessionStatus === 'CLOSING_REQUESTED' ? (
-                <span>Atendimento em finalização</span>
-              ) : (
-                <span>Abra a mesa antes de o cliente fazer o pedido</span>
-              )}
-              {table.sessionStatus === 'CLOSING_REQUESTED' && (
-                <span>
-                  <ReceiptText size={14} /> Conta solicitada: novos pedidos estão bloqueados
-                </span>
-              )}
-              <strong>{brl(table.total || 0)}</strong>
-            </div>
-            <div className="actions">
-              {table.status === 'OCCUPIED' && (
-                <button
-                  type="button"
-                  className="view-account"
-                  disabled={!table.sessionPublicId}
-                  title={
-                    table.sessionPublicId
-                      ? 'Abrir conta e pagamentos desta mesa'
-                      : 'Atualize os dados para carregar a conta desta mesa'
-                  }
-                  onClick={() => setAccountTable(table)}
-                >
-                  <ReceiptText size={14} /> Ver conta e pagamentos
-                </button>
-              )}
-              <TableSessionButton table={table} />
-            </div>
-          </S.TableCard>
-        ))}
+                {table.openedAt ? (
+                  <span>
+                    <Clock3 size={14} /> Aberta às {table.openedAt}
+                  </span>
+                ) : table.sessionStatus === 'CLOSING_REQUESTED' ? (
+                  <span>Atendimento em finalização</span>
+                ) : (
+                  <span>Abra a mesa antes de o cliente fazer o pedido</span>
+                )}
+                {table.sessionStatus === 'CLOSING_REQUESTED' && (
+                  <span>
+                    <ReceiptText size={14} /> Conta solicitada: novos pedidos estão bloqueados
+                  </span>
+                )}
+                <strong>{brl(table.total || 0)}</strong>
+                {account && (
+                  <span>
+                    <ReceiptText size={14} /> Saldo em aberto:{' '}
+                    {brl(account.summary.remainingCents / 100)}
+                  </span>
+                )}
+              </div>
+              <div className="actions">
+                {table.status === 'OCCUPIED' && (
+                  <button
+                    type="button"
+                    className="view-account"
+                    disabled={!table.sessionPublicId}
+                    title={
+                      table.sessionPublicId
+                        ? 'Abrir conta e pagamentos desta mesa'
+                        : 'Atualize os dados para carregar a conta desta mesa'
+                    }
+                    onClick={() => setAccountTable(table)}
+                  >
+                    <ReceiptText size={14} /> Ver conta e pagamentos
+                  </button>
+                )}
+                <TableSessionButton table={table} />
+              </div>
+            </S.TableCard>
+          );
+        })}
       </S.TableGrid>
       {!visible.length && <Empty>Nenhuma mesa encontrada com estes filtros.</Empty>}
+      <WaiterListControls
+        visibleCount={Math.min(visibleCount, visible.length)}
+        totalCount={visible.length}
+        itemLabel="mesas"
+        onShowMore={() => setVisibleCount((current) => current + WAITER_LIST_BATCH_SIZE)}
+        onReset={() => setVisibleCount(WAITER_LIST_BATCH_SIZE)}
+      />
       {accountTable && (
         <WaiterTableAccountDialog table={accountTable} onClose={() => setAccountTable(null)} />
       )}
@@ -662,7 +750,11 @@ export function WaiterCallsPage() {
   const { calls, updateCall, deleteCall } = useWorkspace();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<CallStatus | 'ALL'>('ALL');
-  const [resolvedPage, setResolvedPage] = useState(0);
+  const [visibleCounts, setVisibleCounts] = useState({
+    waiting: WAITER_LIST_BATCH_SIZE,
+    attending: WAITER_LIST_BATCH_SIZE,
+    resolved: WAITER_LIST_BATCH_SIZE,
+  });
   const [deleteCandidate, setDeleteCandidate] = useState<ServiceCall | null>(null);
   const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
   const filtered = calls.filter((call) =>
@@ -675,10 +767,13 @@ export function WaiterCallsPage() {
     .sort((left, right) => durationInSeconds(right.elapsed) - durationInSeconds(left.elapsed));
   const attending = filtered.filter((call) => call.status === 'IN_PROGRESS');
   const resolved = filtered.filter((call) => call.status === 'RESOLVED');
-  const resolvedPageCount = Math.max(1, Math.ceil(resolved.length / 5));
-  const resolvedPageIndex = Math.min(resolvedPage, resolvedPageCount - 1);
-  const visibleResolved = resolved.slice(resolvedPageIndex * 5, resolvedPageIndex * 5 + 5);
   const activeCalls = calls.filter((call) => call.status !== 'RESOLVED');
+  const resetVisibleCounts = () =>
+    setVisibleCounts({
+      waiting: WAITER_LIST_BATCH_SIZE,
+      attending: WAITER_LIST_BATCH_SIZE,
+      resolved: WAITER_LIST_BATCH_SIZE,
+    });
 
   return (
     <>
@@ -688,7 +783,7 @@ export function WaiterCallsPage() {
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
-            setResolvedPage(0);
+            resetVisibleCounts();
           }}
           placeholder="Buscar mesa ou tipo de chamado"
           inputMode="numeric"
@@ -698,7 +793,7 @@ export function WaiterCallsPage() {
           value={filter}
           onChange={(event) => {
             setFilter(event.target.value as CallStatus | 'ALL');
-            setResolvedPage(0);
+            resetVisibleCounts();
           }}
         >
           <option value="ALL">Todos os status</option>
@@ -734,56 +829,85 @@ export function WaiterCallsPage() {
           <CallSection
             title="Aguardando atendimento"
             description="Os chamados com maior espera aparecem primeiro."
-            calls={waiting}
+            calls={waiting.slice(0, visibleCounts.waiting)}
             action={(call) => updateCall(call.id, 'IN_PROGRESS')}
             empty="Nenhum chamado aguardando atendimento."
+            footer={
+              <WaiterListControls
+                visibleCount={Math.min(visibleCounts.waiting, waiting.length)}
+                totalCount={waiting.length}
+                itemLabel="chamados"
+                onShowMore={() =>
+                  setVisibleCounts((current) => ({
+                    ...current,
+                    waiting: current.waiting + WAITER_LIST_BATCH_SIZE,
+                  }))
+                }
+                onReset={() =>
+                  setVisibleCounts((current) => ({
+                    ...current,
+                    waiting: WAITER_LIST_BATCH_SIZE,
+                  }))
+                }
+              />
+            }
           />
         )}
         {(filter === 'ALL' || filter === 'IN_PROGRESS') && (
           <CallSection
             title="Em atendimento"
             description="Conclua somente depois de atender a solicitação da mesa."
-            calls={attending}
+            calls={attending.slice(0, visibleCounts.attending)}
             action={(call) => updateCall(call.id, 'RESOLVED')}
             actionLabel="Concluir"
             empty="Nenhum chamado em atendimento."
+            footer={
+              <WaiterListControls
+                visibleCount={Math.min(visibleCounts.attending, attending.length)}
+                totalCount={attending.length}
+                itemLabel="chamados"
+                onShowMore={() =>
+                  setVisibleCounts((current) => ({
+                    ...current,
+                    attending: current.attending + WAITER_LIST_BATCH_SIZE,
+                  }))
+                }
+                onReset={() =>
+                  setVisibleCounts((current) => ({
+                    ...current,
+                    attending: WAITER_LIST_BATCH_SIZE,
+                  }))
+                }
+              />
+            }
           />
         )}
         {(filter === 'RESOLVED' || filter === 'ALL') && (
           <CallSection
             title="Concluídos"
             description="Histórico recente dos chamados atendidos pela equipe."
-            calls={visibleResolved}
+            calls={resolved.slice(0, visibleCounts.resolved)}
             action={async (call) => setDeleteCandidate(call)}
             actionLabel="Excluir"
             actionIcon="delete"
             footer={
-              resolved.length > 5 ? (
-                <S.Pagination aria-label="Paginação dos chamados concluídos">
-                  <span>
-                    {resolvedPageIndex * 5 + 1}-
-                    {Math.min((resolvedPageIndex + 1) * 5, resolved.length)} de {resolved.length}
-                  </span>
-                  <div>
-                    <S.PaginationButton
-                      type="button"
-                      disabled={resolvedPageIndex === 0}
-                      onClick={() => setResolvedPage((current) => Math.max(0, current - 1))}
-                    >
-                      Anterior
-                    </S.PaginationButton>
-                    <S.PaginationButton
-                      type="button"
-                      disabled={resolvedPageIndex >= resolvedPageCount - 1}
-                      onClick={() =>
-                        setResolvedPage((current) => Math.min(resolvedPageCount - 1, current + 1))
-                      }
-                    >
-                      Próximos 5
-                    </S.PaginationButton>
-                  </div>
-                </S.Pagination>
-              ) : null
+              <WaiterListControls
+                visibleCount={Math.min(visibleCounts.resolved, resolved.length)}
+                totalCount={resolved.length}
+                itemLabel="chamados"
+                onShowMore={() =>
+                  setVisibleCounts((current) => ({
+                    ...current,
+                    resolved: current.resolved + WAITER_LIST_BATCH_SIZE,
+                  }))
+                }
+                onReset={() =>
+                  setVisibleCounts((current) => ({
+                    ...current,
+                    resolved: WAITER_LIST_BATCH_SIZE,
+                  }))
+                }
+              />
             }
             empty="Nenhum chamado concluído para esta busca."
           />
@@ -815,9 +939,6 @@ export function WaiterCallsPage() {
                   const call = deleteCandidate;
                   setDeleteCandidate(null);
                   await deleteCall(call.id);
-                  setResolvedPage((current) =>
-                    Math.min(current, Math.max(0, resolvedPageCount - 2)),
-                  );
                 }}
               >
                 Excluir chamado

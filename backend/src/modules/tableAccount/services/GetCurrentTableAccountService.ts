@@ -27,7 +27,7 @@ const operationalStatusMap: Record<OrderStatus, TableOrderOperationalStatus> = {
   [OrderStatus.CANCELADO]: 'CANCELED',
 };
 
-function toSafeMoneyCents(value: bigint, fieldName: string) {
+export function toSafeMoneyCents(value: bigint, fieldName: string) {
   return assertMoneyCents(Number(value), fieldName);
 }
 

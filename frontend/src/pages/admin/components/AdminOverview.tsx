@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Search } from 'lucide-react';
 import * as S from '../Admin.styles';
 import type { AdminOrder, AdminProduct } from '../types';
 import { calculateOverviewMetrics } from '../domain/adminOverview';
@@ -10,15 +10,16 @@ type AdminOverviewProps = {
   money: (value: number) => string;
 };
 
+const LIST_BATCH_SIZE = 10;
+
 export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
   const metrics = calculateOverviewMetrics(orders);
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatus, setOrderStatus] = useState('ALL');
-  const [orderPage, setOrderPage] = useState(0);
+  const [visibleOrderLimit, setVisibleOrderLimit] = useState(LIST_BATCH_SIZE);
   const [productSearch, setProductSearch] = useState('');
   const [productStatus, setProductStatus] = useState('AVAILABLE');
-  const [productPage, setProductPage] = useState(0);
-  const pageSize = 5;
+  const [visibleProductLimit, setVisibleProductLimit] = useState(LIST_BATCH_SIZE);
   const normalize = (value: unknown) =>
     String(value ?? '')
       .normalize('NFD')
@@ -50,13 +51,8 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
       return matchesSearch && matchesStatus;
     });
   }, [products, productSearch, productStatus]);
-  const orderPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
-  const productPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
-  const visibleOrders = filteredOrders.slice(orderPage * pageSize, orderPage * pageSize + pageSize);
-  const visibleProducts = filteredProducts.slice(
-    productPage * pageSize,
-    productPage * pageSize + pageSize,
-  );
+  const visibleOrders = filteredOrders.slice(0, visibleOrderLimit);
+  const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
 
   return (
     <>
@@ -92,7 +88,7 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
                 value={orderSearch}
                 onChange={(event) => {
                   setOrderSearch(event.target.value);
-                  setOrderPage(0);
+                  setVisibleOrderLimit(LIST_BATCH_SIZE);
                 }}
                 placeholder="Buscar por ID ou cliente"
               />
@@ -102,7 +98,7 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
               value={orderStatus}
               onChange={(event) => {
                 setOrderStatus(event.target.value);
-                setOrderPage(0);
+                setVisibleOrderLimit(LIST_BATCH_SIZE);
               }}
             >
               <option value="ALL">Todos os status</option>
@@ -130,24 +126,32 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
           <S.OverviewPagination>
             <span>
               {filteredOrders.length
-                ? `${orderPage * pageSize + 1}–${Math.min((orderPage + 1) * pageSize, filteredOrders.length)} de ${filteredOrders.length}`
+                ? `Exibindo ${visibleOrders.length} de ${filteredOrders.length}`
                 : '0 resultados'}
             </span>
             <div>
-              <button
-                type="button"
-                disabled={orderPage === 0}
-                onClick={() => setOrderPage((page) => Math.max(0, page - 1))}
-              >
-                <ChevronLeft /> Voltar 5
-              </button>
-              <button
-                type="button"
-                disabled={orderPage + 1 >= orderPages}
-                onClick={() => setOrderPage((page) => Math.min(orderPages - 1, page + 1))}
-              >
-                Próximos 5 <ChevronRight />
-              </button>
+              {visibleOrderLimit > LIST_BATCH_SIZE ? (
+                <button
+                  type="button"
+                  aria-label="Voltar aos 10 pedidos recentes iniciais"
+                  onClick={() => setVisibleOrderLimit(LIST_BATCH_SIZE)}
+                >
+                  <ChevronLeft /> Voltar aos 10
+                </button>
+              ) : null}
+              {visibleOrders.length < filteredOrders.length ? (
+                <button
+                  type="button"
+                  aria-label="Mostrar mais 10 pedidos recentes"
+                  onClick={() =>
+                    setVisibleOrderLimit((current) =>
+                      Math.min(current + LIST_BATCH_SIZE, filteredOrders.length),
+                    )
+                  }
+                >
+                  Mostrar mais 10 <ChevronDown />
+                </button>
+              ) : null}
             </div>
           </S.OverviewPagination>
         </S.Card>
@@ -160,7 +164,7 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
                 value={productSearch}
                 onChange={(event) => {
                   setProductSearch(event.target.value);
-                  setProductPage(0);
+                  setVisibleProductLimit(LIST_BATCH_SIZE);
                 }}
                 placeholder="Buscar por ID ou produto"
               />
@@ -170,7 +174,7 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
               value={productStatus}
               onChange={(event) => {
                 setProductStatus(event.target.value);
-                setProductPage(0);
+                setVisibleProductLimit(LIST_BATCH_SIZE);
               }}
             >
               <option value="ALL">Todos</option>
@@ -196,24 +200,32 @@ export function AdminOverview({ orders, products, money }: AdminOverviewProps) {
           <S.OverviewPagination>
             <span>
               {filteredProducts.length
-                ? `${productPage * pageSize + 1}–${Math.min((productPage + 1) * pageSize, filteredProducts.length)} de ${filteredProducts.length}`
+                ? `Exibindo ${visibleProducts.length} de ${filteredProducts.length}`
                 : '0 resultados'}
             </span>
             <div>
-              <button
-                type="button"
-                disabled={productPage === 0}
-                onClick={() => setProductPage((page) => Math.max(0, page - 1))}
-              >
-                <ChevronLeft /> Voltar 5
-              </button>
-              <button
-                type="button"
-                disabled={productPage + 1 >= productPages}
-                onClick={() => setProductPage((page) => Math.min(productPages - 1, page + 1))}
-              >
-                Próximos 5 <ChevronRight />
-              </button>
+              {visibleProductLimit > LIST_BATCH_SIZE ? (
+                <button
+                  type="button"
+                  aria-label="Voltar aos 10 produtos iniciais"
+                  onClick={() => setVisibleProductLimit(LIST_BATCH_SIZE)}
+                >
+                  <ChevronLeft /> Voltar aos 10
+                </button>
+              ) : null}
+              {visibleProducts.length < filteredProducts.length ? (
+                <button
+                  type="button"
+                  aria-label="Mostrar mais 10 produtos"
+                  onClick={() =>
+                    setVisibleProductLimit((current) =>
+                      Math.min(current + LIST_BATCH_SIZE, filteredProducts.length),
+                    )
+                  }
+                >
+                  Mostrar mais 10 <ChevronDown />
+                </button>
+              ) : null}
             </div>
           </S.OverviewPagination>
         </S.Card>

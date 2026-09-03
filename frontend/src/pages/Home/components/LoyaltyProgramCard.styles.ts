@@ -1,30 +1,21 @@
-import styled, { keyframes } from 'styled-components';
-
-const glow = keyframes`
-  0%, 100% { box-shadow: 0 12px 30px rgba(55, 38, 26, 0.18); }
-  50% { box-shadow: 0 14px 34px color-mix(in srgb, var(--home-primary, #d64d08) 28%, transparent); }
-`;
+import styled from 'styled-components';
 
 export const CompactNotice = styled.button`
   position: relative;
-  width: min(350px, calc(100vw - 32px));
+  width: 100%;
   min-width: 0;
-  min-height: 64px;
-  padding: 9px 12px 9px 9px;
+  min-height: 52px;
+  padding: 7px 8px 7px 7px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 30%, #eadfd3);
-  border-radius: 17px;
+  gap: 8px;
+  border: 1px solid #e5dfd8;
+  border-radius: 8px;
   color: #211d19;
-  background: linear-gradient(
-    112deg,
-    #fffdf9 35%,
-    color-mix(in srgb, var(--home-primary, #d64d08) 8%, #fff)
-  );
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 5px 16px rgba(55, 38, 26, 0.11);
   text-align: left;
   cursor: pointer;
-  animation: ${glow} 2.8s ease-in-out infinite;
   transition:
     transform 180ms ease,
     border-color 180ms ease;
@@ -35,19 +26,18 @@ export const CompactNotice = styled.button`
   }
 
   .icon {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border-radius: 14px;
-    color: #fff;
-    background: var(--home-primary, #d64d08);
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--home-primary, #d64d08) 28%, transparent);
+    border-radius: 7px;
+    color: var(--home-primary, #d64d08);
+    background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
   }
 
   .icon svg {
-    width: 21px;
+    width: 18px;
   }
 
   > span {
@@ -59,7 +49,7 @@ export const CompactNotice = styled.button`
 
   strong {
     overflow: hidden;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -68,18 +58,18 @@ export const CompactNotice = styled.button`
   small {
     overflow: hidden;
     color: #6f665e;
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .notice-badge {
-    min-width: 42px;
-    max-width: 72px;
-    padding: 6px 8px;
+    min-width: 38px;
+    max-width: 64px;
+    padding: 5px 6px;
     overflow: hidden;
-    border-radius: 999px;
+    border-radius: 6px;
     color: var(--home-primary, #d64d08);
     background: color-mix(in srgb, var(--home-primary, #d64d08) 11%, #fff);
     font-size: 10px;
@@ -93,17 +83,29 @@ export const CompactNotice = styled.button`
     color: #8d8279;
   }
 
-  @media (max-width: 420px) {
-    width: min(310px, 100%);
-    min-height: 58px;
-    padding: 7px 9px 7px 7px;
-    gap: 8px;
+  &[data-guest='true'] {
+    width: 56px;
+    min-height: 56px;
+    padding: 0;
+    border-radius: 50%;
+    animation: none;
 
     .icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
     }
+
+    > span,
+    .notice-badge,
+    .chevron {
+      display: none;
+    }
+  }
+
+  @media (max-width: 420px) {
+    min-height: 50px;
+    padding: 6px 7px 6px 6px;
 
     .notice-badge {
       max-width: 59px;
@@ -116,7 +118,6 @@ export const CompactNotice = styled.button`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    animation: none;
     transition: none;
   }
 `;

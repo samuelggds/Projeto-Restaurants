@@ -93,10 +93,20 @@ describe('LoyaltyProgramCard', () => {
     expect(markup).not.toContain('Faltam 0');
   });
 
-  it('oferece acesso ao programa para o cliente deslogado', () => {
-    const markup = renderToStaticMarkup(
-      <LoyaltyProgramCard loyalty={loyalty({ loggedIn: false, summary: null })} />,
-    );
+  it('oferece acesso ao programa para o cliente deslogado em tela móvel', () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 });
+    let markup: string;
+    try {
+      markup = renderToStaticMarkup(
+        <LoyaltyProgramCard loyalty={loyalty({ loggedIn: false, summary: null })} />,
+      );
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        value: originalInnerWidth,
+      });
+    }
 
     expect(markup).toContain('Ganhe descontos');
     expect(markup).toContain('Entre para acompanhar sua fidelidade');

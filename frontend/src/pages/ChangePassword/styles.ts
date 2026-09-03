@@ -7,9 +7,13 @@ export const Page = styled.main`
   padding: 24px;
   background:
     radial-gradient(circle at 15% 15%, rgba(255, 177, 0, 0.22), transparent 34%),
-    radial-gradient(circle at 90% 85%, rgba(255, 111, 60, 0.2), transparent 38%),
-    #120f0d;
+    radial-gradient(circle at 90% 85%, rgba(255, 111, 60, 0.2), transparent 38%), #120f0d;
   color: #fff8ef;
+
+  @media (max-width: 480px) {
+    place-items: start center;
+    padding: 16px 12px;
+  }
 `;
 
 export const Card = styled.section`
@@ -19,6 +23,11 @@ export const Card = styled.section`
   padding: clamp(24px, 6vw, 40px);
   background: rgba(31, 26, 22, 0.96);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+
+  @media (max-width: 480px) {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
 `;
 
 export const Icon = styled.div`
@@ -85,6 +94,16 @@ export const Actions = styled.div`
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 6px;
+
+  @media (max-width: 480px) {
+    display: grid;
+    grid-template-columns: 1fr;
+
+    > button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 `;
 
 export const PrimaryButton = styled.button`
@@ -100,7 +119,7 @@ export const PrimaryButton = styled.button`
   cursor: pointer;
 
   &:disabled {
-    cursor: not-allowed;
+    cursor: wait;
     opacity: 0.65;
   }
 `;

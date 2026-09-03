@@ -159,7 +159,7 @@ test('admin visualiza as comandas de delivery, mesa e retirada', async ({ page }
   await page.screenshot({ path: testInfo.outputPath('printing-pickup.png'), fullPage: true });
 });
 
-test('histórico pesquisa por pedido e navega em blocos de cinco', async ({ page }, testInfo) => {
+test('histórico pesquisa por pedido e cresce em blocos de dez', async ({ page }, testInfo) => {
   const state = initialState();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await mockAdminApi(page, state);
@@ -168,14 +168,16 @@ test('histórico pesquisa por pedido e navega em blocos de cinco', async ({ page
   const history = page.locator('.history');
   await expect.poll(() => state.jobsLimit).toBe(50);
   await expect(history.getByText('Pedido #1842', { exact: true })).toBeVisible();
-  await expect(history.getByText('Pedido #1837', { exact: true })).toHaveCount(0);
+  await expect(history.getByText('Pedido #1833', { exact: true })).toBeVisible();
+  await expect(history.getByText('Pedido #1832', { exact: true })).toHaveCount(0);
 
-  await history.getByRole('button', { name: 'Mostrar próximas 5 impressões' }).click();
-  await expect(history.getByText('Pedido #1837', { exact: true })).toBeVisible();
-  await expect(history.getByText('Pedido #1842', { exact: true })).toHaveCount(0);
-
-  await history.getByRole('button', { name: 'Voltar 5 impressões' }).click();
+  await history.getByRole('button', { name: 'Mostrar mais 10 impressões' }).click();
+  await expect(history.getByText('Pedido #1832', { exact: true })).toBeVisible();
   await expect(history.getByText('Pedido #1842', { exact: true })).toBeVisible();
+
+  await history.getByRole('button', { name: 'Voltar às 10 impressões iniciais' }).click();
+  await expect(history.getByText('Pedido #1842', { exact: true })).toBeVisible();
+  await expect(history.getByText('Pedido #1832', { exact: true })).toHaveCount(0);
 
   await history.getByLabel('Pesquisar histórico pelo número do pedido').fill('1832');
   await expect(history.getByText('Pedido #1832', { exact: true })).toBeVisible();

@@ -168,6 +168,63 @@ describe('endereço de entrega da Home', () => {
     expect(markup).not.toContain(brand.address);
   });
 
+  it('distingue endereços com o mesmo nome e sinaliza a seleção', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() =>
+      root.render(
+        <HomeHeader
+          brand={brand}
+          cartCount={0}
+          userLoggedIn
+          savedAddresses={[
+            {
+              id: 1,
+              label: 'Casa',
+              address: 'Rua das Flores',
+              number: '10',
+              district: 'Centro',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60000000',
+              isDefault: true,
+            },
+            {
+              id: 2,
+              label: 'Casa',
+              address: 'Avenida Beira Mar',
+              number: '220',
+              district: 'Meireles',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60165000',
+              isDefault: false,
+            },
+          ]}
+          selectedAddressId="2"
+        />,
+      ),
+    );
+
+    const locationButton = container.querySelector(
+      'button[aria-label^="Endereço de entrega"]',
+    ) as HTMLButtonElement;
+    act(() => locationButton.click());
+
+    const options = Array.from(container.querySelectorAll('button[aria-pressed]'));
+    expect(options).toHaveLength(2);
+    expect(options[0].getAttribute('aria-label')).toContain('Rua das Flores, 10');
+    expect(options[1].getAttribute('aria-label')).toContain('Avenida Beira Mar, 220');
+    expect(options[1].getAttribute('aria-pressed')).toBe('true');
+    expect(options[1].textContent).toContain('Selecionado');
+    expect(container.querySelector('button[aria-label="Fechar endereços"]')).not.toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('explica a exigência de login antes de encaminhar o visitante', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);

@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
   CircleDollarSign,
   Clock3,
   CookingPot,
@@ -50,7 +49,7 @@ const statusLabels: Record<string, string> = {
   CANCELADO: 'Cancelado',
 };
 
-const PAGE_SIZE = 5;
+const LIST_BATCH_SIZE = 10;
 const PROGRESS_STEPS = 5;
 
 function getActionErrorMessage(error: unknown, fallback: string) {
@@ -106,19 +105,17 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
     [orders, search, status],
   );
   const summary = useMemo(() => getAdminOrdersSummary(orders), [orders]);
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(visibleOrders.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageOrders = visibleOrders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const [visibleLimit, setVisibleLimit] = useState(LIST_BATCH_SIZE);
+  const displayedOrders = visibleOrders.slice(0, visibleLimit);
 
   const updateSearch = (value: string) => {
     setSearch(value);
-    setPage(1);
+    setVisibleLimit(LIST_BATCH_SIZE);
   };
 
   const updateStatus = (value: string) => {
     setStatus(value);
-    setPage(1);
+    setVisibleLimit(LIST_BATCH_SIZE);
   };
 
   const confirmPayment = async (order: AdminOrder) => {
@@ -278,9 +275,9 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
           </span>
         </S.OrdersToolbar>
 
-        {pageOrders.length ? (
+        {displayedOrders.length ? (
           <S.OrdersList aria-busy={cancellingOrderId !== null || confirmingPaymentId !== null}>
-            {pageOrders.map((order) => {
+            {displayedOrders.map((order) => {
               const payment = getOrderPaymentPresentation(order);
               const progress = getOrderProgress(order.status);
               const statusLabel =
@@ -459,7 +456,7 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
                 onClick={() => {
                   setSearch('');
                   setStatus('');
-                  setPage(1);
+                  setVisibleLimit(LIST_BATCH_SIZE);
                 }}
               >
                 Limpar filtros
@@ -472,28 +469,31 @@ export function AdminOrders({ orders, money, onConfirmPayment, onCancelOrder }: 
           <span>
             {visibleOrders.length === 0
               ? 'Nenhum pedido para exibir'
-              : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, visibleOrders.length)} de ${visibleOrders.length}`}
+              : `Exibindo ${displayedOrders.length} de ${visibleOrders.length} pedidos`}
           </span>
           <div>
-            <button
-              type="button"
-              aria-label="Ir para a página anterior de pedidos"
-              disabled={currentPage === 1}
-              onClick={() => setPage((value) => Math.max(1, value - 1))}
-            >
-              <ChevronLeft size={16} aria-hidden="true" /> Anteriores
-            </button>
-            <b>
-              Página {currentPage} de {totalPages}
-            </b>
-            <button
-              type="button"
-              aria-label="Ir para a próxima página de pedidos"
-              disabled={currentPage === totalPages}
-              onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-            >
-              Próximos <ChevronRight size={16} aria-hidden="true" />
-            </button>
+            {visibleLimit > LIST_BATCH_SIZE ? (
+              <button
+                type="button"
+                aria-label="Voltar aos 10 pedidos iniciais"
+                onClick={() => setVisibleLimit(LIST_BATCH_SIZE)}
+              >
+                <ChevronLeft size={16} aria-hidden="true" /> Voltar aos 10 iniciais
+              </button>
+            ) : null}
+            {displayedOrders.length < visibleOrders.length ? (
+              <button
+                type="button"
+                aria-label="Mostrar mais 10 pedidos"
+                onClick={() =>
+                  setVisibleLimit((current) =>
+                    Math.min(current + LIST_BATCH_SIZE, visibleOrders.length),
+                  )
+                }
+              >
+                Mostrar mais 10 <ChevronDown size={16} aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         </S.OrdersPagination>
       </S.OrdersPanel>

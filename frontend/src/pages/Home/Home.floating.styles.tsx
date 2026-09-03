@@ -1,5 +1,4 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type MouseEventHandler } from 'react';
-import { PanelBottomClose, PanelBottomOpen } from 'lucide-react';
+import type { ButtonHTMLAttributes, MouseEventHandler } from 'react';
 import styled from 'styled-components';
 
 type FloatingActionsToggleProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -18,8 +17,7 @@ const Button = styled.button`
   gap: 8px;
   color: #3d352f;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--home-primary) 7%, #fff), #fff 62%),
-    #fff;
+    linear-gradient(135deg, color-mix(in srgb, var(--home-primary) 7%, #fff), #fff 62%), #fff;
   box-shadow:
     0 12px 30px rgba(55, 38, 26, 0.14),
     0 2px 7px rgba(55, 38, 26, 0.06);
@@ -49,78 +47,34 @@ const Button = styled.button`
     min-height: 48px;
     border-radius: 14px;
   }
-`;
 
-const Copy = styled.span`
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-
-  strong {
-    color: #26211d;
-    font-size: 12px;
-    line-height: 1.15;
-    font-weight: 900;
+  &[data-public-menu='true'] {
+    display: none;
   }
 
-  small {
-    color: #776c63;
-    font-size: 9px;
-    line-height: 1.25;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-`;
+  @media (max-width: 700px) {
+    &[data-public-menu='true'] {
+      width: 48px;
+      height: 48px;
+      min-height: 48px;
+      padding: 0;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      align-self: flex-end;
 
-const Action = styled.span`
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 5px 7px;
-  border-radius: 9px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  color: color-mix(in srgb, var(--home-primary) 88%, #2b211b);
-  background: color-mix(in srgb, var(--home-primary) 10%, #fff);
-  font-size: 9px;
-  font-weight: 900;
+      > span {
+        display: none;
+      }
 
-  svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  @media (max-width: 350px) {
-    padding-inline: 8px;
-
-    span {
-      display: none;
+      svg {
+        width: 19px;
+        height: 19px;
+      }
     }
   }
 `;
 
-export function FloatingActionsToggle({ children: _children, ...props }: FloatingActionsToggleProps) {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const expanded = props['aria-expanded'] === true || props['aria-expanded'] === 'true';
-  const shouldOpenOnMount = useRef(!expanded);
-
-  useEffect(() => {
-    if (!shouldOpenOnMount.current) return;
-    shouldOpenOnMount.current = false;
-    buttonRef.current?.click();
-  }, []);
-
-  return (
-    <Button {...props} ref={buttonRef}>
-      <Copy>
-        <strong>Mesa e atendimento</strong>
-        <small>Pedido • Garçom • Conta • Cupons</small>
-      </Copy>
-      <Action aria-hidden="true">
-        {expanded ? <PanelBottomClose /> : <PanelBottomOpen />}
-        <span>{expanded ? 'Minimizar' : 'Mostrar'}</span>
-      </Action>
-    </Button>
-  );
+export function FloatingActionsToggle({ children, ...props }: FloatingActionsToggleProps) {
+  return <Button {...props}>{children}</Button>;
 }

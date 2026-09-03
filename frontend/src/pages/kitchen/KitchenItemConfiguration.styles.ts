@@ -6,8 +6,8 @@ export const kitchenItemConfigurationStyles = css`
     margin-top: 2px;
     padding-top: 5px;
     padding-bottom: 5px;
-    border-radius: 6px;
-    background: #f0f5f5;
+    border-radius: 5px;
+    background: #eef5f4;
   }
   .portion-group b {
     color: #176477;

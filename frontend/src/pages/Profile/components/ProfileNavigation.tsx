@@ -1,5 +1,6 @@
 import {
   Camera,
+  ChevronRight,
   Grid2X2,
   Heart,
   LockKeyhole,
@@ -43,40 +44,38 @@ export function ProfileNavigation({ view, setView, data, onLogout, onUploadAvata
     .join('')
     .toUpperCase();
   return (
-    <S.Side>
-      <S.AvatarWrap title="Alterar foto de perfil">
-        {user.avatarUrl ? (
-          <S.AvatarImg src={user.avatarUrl} alt={`Foto de ${user.fullName}`} />
-        ) : (
-          <S.AvatarInitials>{initials}</S.AvatarInitials>
-        )}
-        <S.AvatarOverlay>
-          <Camera size={18} />
-          <span>Alterar foto</span>
-        </S.AvatarOverlay>
-        <input
-          type="file"
-          accept="image/*"
-          title=""
-          aria-label="Carregar foto de perfil"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: 0,
-            cursor: 'pointer',
-            width: '100%',
-            height: '100%',
-          }}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void onUploadAvatar?.(file);
-            event.target.value = '';
-          }}
-        />
-      </S.AvatarWrap>
-      <h2>{user.fullName}</h2>
-      <p>{user.email}</p>
-      <nav>
+    <S.Side aria-label="Navegação da conta">
+      <div className="profile-identity">
+        <S.AvatarWrap title="Alterar foto de perfil">
+          {user.avatarUrl ? (
+            <S.AvatarImg src={user.avatarUrl} alt={`Foto de ${user.fullName}`} />
+          ) : (
+            <S.AvatarInitials>{initials}</S.AvatarInitials>
+          )}
+          <S.AvatarOverlay>
+            <Camera size={17} />
+            <span>Alterar</span>
+          </S.AvatarOverlay>
+          <input
+            type="file"
+            accept="image/*"
+            title=""
+            aria-label="Carregar foto de perfil"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void onUploadAvatar?.(file);
+              event.target.value = '';
+            }}
+          />
+        </S.AvatarWrap>
+        <div className="profile-copy">
+          <span>Conta do cliente</span>
+          <h2>{user.fullName}</h2>
+          <p>{user.email}</p>
+        </div>
+      </div>
+      <nav aria-label="Seções do perfil">
+        <span className="nav-label">Sua conta</span>
         {profileTabs.map(([id, label]) => {
           const Icon = icons[id];
           return (
@@ -84,16 +83,18 @@ export function ProfileNavigation({ view, setView, data, onLogout, onUploadAvata
               type="button"
               key={id}
               className={view === id ? 'active' : ''}
+              aria-current={view === id ? 'page' : undefined}
               onClick={() => setView(id)}
             >
-              <Icon />
-              {label}
+              <Icon aria-hidden="true" />
+              <span>{label}</span>
+              <ChevronRight className="nav-chevron" aria-hidden="true" />
             </button>
           );
         })}
       </nav>
       <button type="button" className="logout" onClick={onLogout}>
-        <LogOut />
+        <LogOut aria-hidden="true" />
         Sair da conta
       </button>
     </S.Side>

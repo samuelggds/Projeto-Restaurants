@@ -11,6 +11,8 @@ describe('tela de manutenção', () => {
     const markup = renderToStaticMarkup(<SystemMaintenancePage mode="platform" />);
 
     expect(markup).toContain('Sistema em manutenção');
+    expect(markup).toContain('Disponibilidade da plataforma');
+    expect(markup).toContain('Sessão preservada');
     expect(markup).toContain('Tente novamente em alguns instantes');
     expect(markup).toContain('Tentar novamente');
     expect(markup).not.toContain('Atualização programada dos pagamentos');
@@ -24,6 +26,8 @@ describe('tela de manutenção', () => {
       <SystemMaintenancePage mode="tenant" message="Restaurante temporariamente indisponível." />,
     );
     expect(markup).toContain('Sistema em manutenção');
+    expect(markup).toContain('Disponibilidade do restaurante');
+    expect(markup).toContain('Este restaurante está temporariamente indisponível');
     expect(markup).not.toContain('inadimpl');
     expect(markup).not.toContain('Restaurante temporariamente indisponível');
     expect(markup).not.toContain('Acesso técnico');

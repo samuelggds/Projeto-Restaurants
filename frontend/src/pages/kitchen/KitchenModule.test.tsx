@@ -98,5 +98,16 @@ describe('KitchenModule workspace states', () => {
     expect(overview?.getAttribute('aria-current')).toBe('page');
     expect(container.querySelector('[aria-label="Atualizar pedidos da cozinha"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Sair da área da cozinha"]')).not.toBeNull();
+
+    const mobileNavigation = container.querySelector('[aria-label="Navegação móvel da cozinha"]');
+    expect(mobileNavigation?.querySelectorAll('button')).toHaveLength(4);
+
+    const more = container.querySelector(
+      '[aria-label="Abrir opções da cozinha"]',
+    ) as HTMLButtonElement;
+    act(() => more.click());
+    const menu = container.querySelector('[role="menu"]');
+    expect(menu?.textContent).toContain('Central de ajuda');
+    expect(menu?.textContent).toContain('Sair da conta');
   });
 });

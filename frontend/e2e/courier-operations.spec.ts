@@ -866,6 +866,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   page,
 }) => {
   const state = initialState();
+  await page.setViewportSize({ width: 320, height: 844 });
   const tracking = await mockCustomerTrackingApi(page, state);
   await page.goto('/orders/601/tracking');
 
@@ -881,6 +882,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   await expect(page.locator('.delivery-destination-marker')).toBeVisible();
   await expect(page.locator('.delivery-planned-route')).toBeVisible();
   await expect(page.getByText(/Estimativa de rota: cerca de 12 min/)).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
 
   await expect.poll(() => Boolean(state.sendSocketEvent)).toBe(true);
   const courierMarker = page.locator('.delivery-courier-marker');

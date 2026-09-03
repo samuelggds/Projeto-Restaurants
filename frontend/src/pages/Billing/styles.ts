@@ -18,6 +18,10 @@ export const Navbar = styled.nav`
   position: sticky;
   top: 0;
   z-index: 100;
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 export const Brand = styled.div`
@@ -27,6 +31,16 @@ export const Brand = styled.div`
   font-weight: 800;
   font-size: 1.5rem;
   color: ${(props) => props.theme.primary};
+
+  @media (max-width: 480px) {
+    gap: 0.55rem;
+    font-size: 1.05rem;
+
+    svg {
+      width: 23px;
+      height: 23px;
+    }
+  }
 `;
 
 export const ThemeToggleButton = styled.button`
@@ -61,6 +75,14 @@ export const MainContent = styled.main`
 
   p {
     color: ${(props) => props.theme.textMuted};
+  }
+
+  @media (max-width: 480px) {
+    padding: 1.25rem 1rem 2rem;
+
+    h1 {
+      font-size: 1.6rem;
+    }
   }
 `;
 
@@ -108,7 +130,7 @@ export const EmptyContainer = styled.div`
 
 export const InvoicesGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(350px, 100%), 1fr));
   gap: 1.5rem;
 `;
 
@@ -126,6 +148,10 @@ export const InvoiceCard = styled.div`
     border-color: ${(props) => props.theme.primary};
     box-shadow: 0 4px 12px rgba(234, 179, 8, 0.1);
   }
+
+  @media (max-width: 480px) {
+    padding: 1.1rem;
+  }
 `;
 
 export const InvoiceHeader = styled.div`
@@ -133,6 +159,7 @@ export const InvoiceHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  flex-wrap: wrap;
 `;
 
 export const InvoiceTitle = styled.h3`
@@ -241,6 +268,12 @@ export const PaymentButton = styled.button`
 
   &:active {
     transform: translateY(0);
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.68;
+    transform: none;
   }
 `;
 

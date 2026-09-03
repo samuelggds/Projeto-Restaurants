@@ -1,5 +1,5 @@
-import { ChevronRight, Search, ShoppingBag, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronRight, Search, SearchX, ShoppingBag, X } from 'lucide-react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled, { keyframes } from 'styled-components';
 import type { HomeProduct } from '../types';
@@ -55,6 +55,12 @@ export function ProductSearchDialog({
       normalizeSearchText(product.name).includes(normalizedQuery),
     );
   }, [normalizedQuery, products]);
+  const suggestedProducts = useMemo(
+    () => products.filter((product) => product.available !== false).slice(0, 5),
+    [products],
+  );
+  const visibleProducts = normalizedQuery ? results : suggestedProducts;
+  const closeFromEffect = useEffectEvent(onClose);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -62,7 +68,7 @@ export function ProductSearchDialog({
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') closeFromEffect();
     };
 
     document.body.style.overflow = 'hidden';
@@ -74,7 +80,7 @@ export function ProductSearchDialog({
       document.removeEventListener('keydown', handleEscape);
       previouslyFocused?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -94,7 +100,7 @@ export function ProductSearchDialog({
       >
         <Header>
           <div>
-            <span>Encontre seu pedido</span>
+            <span>Pesquisa rápida</span>
             <h2 id="product-search-title">Buscar no cardápio</h2>
           </div>
           <CloseButton type="button" aria-label="Fechar busca" onClick={onClose}>
@@ -108,7 +114,6 @@ export function ProductSearchDialog({
             ref={inputRef}
             type="search"
             value={query}
-            autoFocus
             autoComplete="off"
             aria-label="Pesquisar produto pelo nome"
             placeholder="Digite o nome do produto..."
@@ -122,33 +127,40 @@ export function ProductSearchDialog({
         </SearchField>
 
         <Content aria-live="polite">
-          {!normalizedQuery && (
+          {!normalizedQuery && !visibleProducts.length && (
             <EmptyState>
               <IconCircle>
-                <Search size={28} />
+                <ShoppingBag size={23} />
               </IconCircle>
-              <h3>O que você deseja pedir?</h3>
-              <p>Digite o nome de um produto para encontrá-lo rapidamente no cardápio.</p>
+              <span>
+                <h3>Cardápio indisponível</h3>
+                <p>Os produtos aparecerão aqui assim que estiverem disponíveis.</p>
+              </span>
             </EmptyState>
           )}
 
           {normalizedQuery && !results.length && (
             <EmptyState>
               <IconCircle>
-                <ShoppingBag size={27} />
+                <SearchX size={23} />
               </IconCircle>
-              <h3>Nenhum produto encontrado</h3>
-              <p>Tente buscar por outro nome ou confira a escrita do produto.</p>
+              <span>
+                <h3>Nenhum produto encontrado</h3>
+                <p>Tente outro nome ou limpe a pesquisa para ver as sugestões.</p>
+              </span>
             </EmptyState>
           )}
 
-          {results.length > 0 && (
-            <Results aria-label="Produtos encontrados">
+          {visibleProducts.length > 0 && (
+            <Results
+              aria-label={normalizedQuery ? 'Produtos encontrados' : 'Sugestões do cardápio'}
+            >
               <ResultCount>
-                {results.length}{' '}
-                {results.length === 1 ? 'produto encontrado' : 'produtos encontrados'}
+                {normalizedQuery
+                  ? `${results.length} ${results.length === 1 ? 'produto encontrado' : 'produtos encontrados'}`
+                  : 'Sugestões do cardápio'}
               </ResultCount>
-              {results.map((product) => (
+              {visibleProducts.map((product) => (
                 <ResultButton
                   key={product.id}
                   type="button"
@@ -191,25 +203,30 @@ const Backdrop = styled.div<{ $primary: string }>`
   inset: 0;
   z-index: 1300;
   display: grid;
-  place-items: start center;
-  padding: clamp(72px, 11vh, 128px) 20px 28px;
-  background: rgba(17, 18, 18, 0.52);
-  backdrop-filter: blur(8px);
+  place-items: center;
+  padding: 20px;
+  background: rgba(17, 18, 18, 0.58);
+  backdrop-filter: blur(6px);
   animation: ${revealBackdrop} 180ms ease-out both;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
+
+  @media (max-width: 620px) {
+    align-items: end;
+    padding: 8px;
+  }
 `;
 
 const Dialog = styled.section`
-  width: min(720px, 100%);
-  max-height: min(720px, calc(100vh - 100px));
+  width: min(640px, 100%);
+  max-height: min(680px, calc(100dvh - 40px));
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  border-radius: 24px;
-  background: #fffdfb;
-  box-shadow: 0 30px 80px rgba(35, 23, 15, 0.28);
+  border: 1px solid #e6ddd5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(22, 18, 15, 0.3);
   color: #211d1a;
   animation: ${revealDialog} 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 
@@ -218,8 +235,8 @@ const Dialog = styled.section`
   }
 
   @media (max-width: 620px) {
-    max-height: calc(100dvh - 32px);
-    border-radius: 20px;
+    max-height: calc(100dvh - 16px);
+    border-radius: 8px;
   }
 `;
 
@@ -228,35 +245,40 @@ const Header = styled.header`
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 24px 26px 16px;
+  padding: 18px 20px 12px;
 
   span {
     color: var(--search-primary);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 800;
-    letter-spacing: 0.11em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
   h2 {
-    margin: 4px 0 0;
-    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    margin: 2px 0 0;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.45rem;
     line-height: 1.15;
   }
 
   @media (max-width: 620px) {
-    padding: 20px 18px 14px;
+    padding: 14px 14px 10px;
+
+    h2 {
+      font-size: 1.25rem;
+    }
   }
 `;
 
 const CloseButton = styled.button`
   flex: 0 0 auto;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   border: 1px solid #e8e0d8;
-  border-radius: 50%;
+  border-radius: 8px;
   background: #fff;
   color: #332c27;
   cursor: pointer;
@@ -273,13 +295,12 @@ const SearchField = styled.label`
   display: flex;
   align-items: center;
   gap: 11px;
-  margin: 0 26px 18px;
-  padding: 0 15px;
+  margin: 0 20px 12px;
+  padding: 0 12px;
   border: 1px solid #ded5cd;
-  border-radius: 15px;
-  background: #fff;
+  border-radius: 8px;
+  background: #fbfaf8;
   color: #786e66;
-  box-shadow: 0 7px 22px rgba(49, 34, 23, 0.06);
 
   &:focus-within {
     border-color: var(--search-primary);
@@ -290,13 +311,13 @@ const SearchField = styled.label`
   input {
     min-width: 0;
     flex: 1;
-    height: 52px;
+    height: 46px;
     border: 0;
     outline: 0;
     background: transparent;
     color: #211d1a;
     font: inherit;
-    font-size: 1rem;
+    font-size: 0.94rem;
   }
 
   input::placeholder {
@@ -313,74 +334,73 @@ const SearchField = styled.label`
     height: 32px;
     place-items: center;
     border: 0;
-    border-radius: 50%;
+    border-radius: 6px;
     background: #f5f0eb;
     color: #655b54;
     cursor: pointer;
   }
 
   @media (max-width: 620px) {
-    margin: 0 18px 14px;
+    margin: 0 14px 10px;
   }
 `;
 
 const Content = styled.div`
-  min-height: 250px;
-  max-height: min(530px, calc(100vh - 265px));
+  min-height: 132px;
+  max-height: min(500px, calc(100dvh - 190px));
   overflow-y: auto;
-  padding: 0 26px 26px;
+  padding: 0 20px 18px;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--search-primary) 40%, #ddd) transparent;
 
   @media (max-width: 620px) {
-    min-height: 210px;
-    max-height: calc(100dvh - 210px);
-    padding: 0 18px 20px;
+    min-height: 124px;
+    max-height: calc(100dvh - 158px);
+    padding: 0 14px 14px;
   }
 `;
 
 const EmptyState = styled.div`
   display: grid;
-  min-height: 245px;
-  place-items: center;
+  grid-template-columns: 44px minmax(0, 1fr);
+  min-height: 124px;
   align-content: center;
-  padding: 28px;
-  border: 1px dashed #dfd5cc;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #fff 0%, #fbf6f1 100%);
-  text-align: center;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 12px;
+  border-block: 1px solid #eee8e2;
+  text-align: left;
 
   h3 {
-    margin: 15px 0 6px;
-    font-size: 1.05rem;
+    margin: 0 0 4px;
+    font-size: 0.98rem;
   }
 
   p {
-    max-width: 410px;
     margin: 0;
     color: #756b63;
-    font-size: 0.91rem;
-    line-height: 1.55;
+    font-size: 0.82rem;
+    line-height: 1.4;
   }
 `;
 
 const IconCircle = styled.div`
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 44px;
+  height: 44px;
   place-items: center;
-  border-radius: 18px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--search-primary) 11%, #fff);
   color: var(--search-primary);
 `;
 
 const Results = styled.div`
   display: grid;
-  gap: 10px;
+  gap: 6px;
 `;
 
 const ResultCount = styled.p`
-  margin: 0 0 2px;
+  margin: 2px 0 4px;
   color: #786f68;
   font-size: 0.78rem;
   font-weight: 700;
@@ -388,13 +408,13 @@ const ResultCount = styled.p`
 
 const ResultButton = styled.button`
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 38px;
+  grid-template-columns: 76px minmax(0, 1fr) 24px;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid #e8dfd7;
-  border-radius: 17px;
+  border-radius: 8px;
   background: #fff;
   color: inherit;
   text-align: left;
@@ -419,22 +439,21 @@ const ResultButton = styled.button`
   }
 
   @media (max-width: 620px) {
-    grid-template-columns: 70px minmax(0, 1fr) 32px;
-    gap: 11px;
-    border-radius: 15px;
+    grid-template-columns: 58px minmax(0, 1fr) 20px;
+    gap: 9px;
   }
 `;
 
 const ProductImage = styled.img`
-  width: 92px;
-  height: 78px;
-  border-radius: 12px;
+  width: 76px;
+  height: 64px;
+  border-radius: 6px;
   object-fit: cover;
   background: #eee8e2;
 
   @media (max-width: 620px) {
-    width: 70px;
-    height: 68px;
+    width: 58px;
+    height: 56px;
   }
 `;
 
@@ -444,7 +463,7 @@ const ProductInfo = styled.span`
   h3 {
     overflow: hidden;
     margin: 0 0 4px;
-    font-size: 1rem;
+    font-size: 0.92rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -452,9 +471,9 @@ const ProductInfo = styled.span`
   p {
     display: -webkit-box;
     overflow: hidden;
-    margin: 0 0 7px;
+    margin: 0 0 5px;
     color: #766c65;
-    font-size: 0.82rem;
+    font-size: 0.76rem;
     line-height: 1.35;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -479,18 +498,15 @@ const Price = styled.span`
 
 const ChevronCircle = styled.span`
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 32px;
   place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--search-primary) 10%, #fff);
   color: var(--search-primary);
   transition:
     color 160ms ease,
     background 160ms ease;
 
   @media (max-width: 620px) {
-    width: 32px;
-    height: 32px;
+    width: 20px;
   }
 `;

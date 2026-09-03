@@ -4,13 +4,13 @@ import {
   CircleHelp,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   LayoutGrid,
   LogOut,
-  Menu,
+  MoreHorizontal,
   QrCode,
   RefreshCw,
   ShoppingBag,
-  X,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { WaiterProvider, type WaiterModuleProps as BaseProps } from './WaiterContext';
@@ -21,12 +21,14 @@ import {
   WaiterOverviewPage,
   WaiterTablesPage,
 } from './pages/WaiterPages';
+import { WaiterPaymentsPage } from './pages/WaiterPaymentsPage';
 import * as S from './Waiter.styles';
+import * as N from './WaiterNavigation.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 
-export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls';
+export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments';
 export interface WaiterModuleProps extends BaseProps {
   initialView?: WaiterView;
   onViewChange?: (view: WaiterView) => void;
@@ -52,28 +54,48 @@ function WaiterShell({
   onViewChange?: WaiterModuleProps['onViewChange'];
 }) {
   useEmployeeIssueNotifications();
-  const { employee, restaurant, onLogout, onRefresh, workspaceState, orders, tables, calls } =
-    useWaiterWorkspace();
+  const {
+    employee,
+    restaurant,
+    onLogout,
+    onRefresh,
+    workspaceState,
+    orders,
+    tables,
+    calls,
+    accounts,
+  } = useWaiterWorkspace();
   const [view, setView] = useState<WaiterView | 'help'>(initialView);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
+  const [moreOpen, setMoreOpen] = useState(false);
   const navigate = (next: WaiterView | 'help') => {
     setView(next);
-    if (window.innerWidth <= 820) setOpen(false);
+    setMoreOpen(false);
     if (next !== 'help') onViewChange?.(next);
   };
+  const readyCount = orders.filter(
+    (order) => order.channel === 'TABLE' && order.status === 'PRONTO',
+  ).length;
+  const waitingCallCount = calls.filter((call) => call.status === 'WAITING').length;
+  const pendingPaymentCount = accounts.reduce(
+    (total, account) => total + account.pendingManualPayments.length,
+    0,
+  );
   const nav = [
-    ['overview', 'Visão geral', LayoutGrid],
-    ['deliveries', 'Para entregar', ShoppingBag],
-    ['tables', 'Mesas e QR Codes', QrCode],
-    ['calls', 'Chamados', BellRing],
+    ['overview', 'Visão geral', 'Início', LayoutGrid, 0],
+    ['deliveries', 'Para entregar', 'Entregas', ShoppingBag, readyCount],
+    ['tables', 'Mesas e QR Codes', 'Mesas', QrCode, 0],
+    ['calls', 'Chamados', 'Chamados', BellRing, waitingCallCount],
+    ['payments', 'Pagamentos', 'Pagamentos', CreditCard, pendingPaymentCount],
   ] as const;
   const titles: Record<WaiterView | 'help', [string, string]> = {
     overview: ['Visão geral', 'Área operacional exclusiva do garçom'],
     deliveries: ['Pedidos para entregar', 'Veja os pedidos prontos e leve-os até a mesa'],
     tables: ['Mesas e QR Codes', 'Abra e feche as mesas cadastradas pelo administrador'],
     calls: ['Chamados', 'Atenda rapidamente as solicitações do salão'],
+    payments: ['Pagamentos', 'Confira contas e confirme recebimentos presenciais'],
     help: ['Central de ajuda', 'Manual visual da operação do garçom'],
   };
   const Page =
@@ -84,75 +106,118 @@ function WaiterShell({
           deliveries: WaiterDeliveriesPage,
           tables: WaiterTablesPage,
           calls: WaiterCallsPage,
+          payments: WaiterPaymentsPage,
         }[view];
   const [title, subtitle] = titles[view];
   return (
     <S.Root $primary={restaurant.primaryColor} $sidebarOpen={open}>
-      <S.Sidebar $open={open}>
-        <S.CollapseBtn type="button" aria-label="Recolher menu" onClick={() => setOpen(false)}>
-          <ChevronLeft />
-        </S.CollapseBtn>
-        <S.Brand>
-          <span>{restaurant.monogram}</span>
-          <b>{restaurant.restaurantName}</b>
-          <small>ÁREA DO GARÇOM</small>
-        </S.Brand>
-        <S.CloseMenu type="button" aria-label="Fechar menu" onClick={() => setOpen(false)}>
-          <X />
-        </S.CloseMenu>
-        <S.Nav aria-label="Navegação do garçom">
-          {nav.map(([id, label, Icon]) => (
+      {open && (
+        <N.Sidebar>
+          <N.CollapseButton type="button" aria-label="Recolher menu" onClick={() => setOpen(false)}>
+            <ChevronLeft />
+          </N.CollapseButton>
+          <N.Brand>
+            <span>{restaurant.monogram}</span>
+            <b>{restaurant.restaurantName}</b>
+            <small>Área do garçom</small>
+          </N.Brand>
+          <N.Nav aria-label="Navegação do garçom">
+            {nav.map(([id, label, , Icon, count]) => (
+              <button
+                type="button"
+                key={id}
+                aria-label={label}
+                className={view === id ? 'active' : ''}
+                aria-current={view === id ? 'page' : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon />
+                {label}
+                {count > 0 && <N.NavBadge>{count}</N.NavBadge>}
+              </button>
+            ))}
+          </N.Nav>
+          <N.SupportNav>
             <button
               type="button"
-              key={id}
-              className={view === id ? 'active' : ''}
-              aria-current={view === id ? 'page' : undefined}
-              onClick={() => navigate(id)}
+              className={view === 'help' ? 'active' : ''}
+              aria-current={view === 'help' ? 'page' : undefined}
+              onClick={() => navigate('help')}
             >
-              <Icon />
-              {label}
+              <CircleHelp />
+              Central de ajuda
             </button>
-          ))}
-        </S.Nav>
-        <S.BottomNav>
+          </N.SupportNav>
+          <N.User>
+            <span className="avatar">
+              {employee.name
+                .split(' ')
+                .map((x) => x[0])
+                .slice(0, 2)
+                .join('')}
+            </span>
+            <span>
+              <b>{employee.name}</b>
+              <small>Garçom</small>
+            </span>
+            <button type="button" aria-label="Sair da área do garçom" onClick={onLogout}>
+              <LogOut />
+            </button>
+          </N.User>
+        </N.Sidebar>
+      )}
+      {!open && (
+        <N.SidebarOpenButton type="button" aria-label="Expandir menu" onClick={() => setOpen(true)}>
+          <ChevronRight />
+        </N.SidebarOpenButton>
+      )}
+      <N.MobileNav aria-label="Navegação móvel do garçom">
+        {nav.map(([id, label, mobileLabel, Icon, count]) => (
           <button
             type="button"
-            className={view === 'help' ? 'active' : ''}
-            aria-current={view === 'help' ? 'page' : undefined}
-            onClick={() => navigate('help')}
+            key={id}
+            aria-label={label}
+            className={view === id ? 'active' : ''}
+            aria-current={view === id ? 'page' : undefined}
+            onClick={() => navigate(id)}
           >
-            <CircleHelp />
-            Central de ajuda
+            <span>
+              <Icon />
+              {count > 0 && <i>{count}</i>}
+            </span>
+            {mobileLabel}
           </button>
-        </S.BottomNav>
-        <S.User>
-          <span className="avatar">
-            {employee.name
-              .split(' ')
-              .map((x) => x[0])
-              .slice(0, 2)
-              .join('')}
-          </span>
-          <span>
-            <b>{employee.name}</b>
-            <small>Garçom</small>
-          </span>
-          <button type="button" aria-label="Sair da área do garçom" onClick={onLogout}>
-            <LogOut />
-          </button>
-        </S.User>
-      </S.Sidebar>
-      {open && <S.Overlay onClick={() => setOpen(false)} />}
-      {!open && (
-        <S.SidebarOpenTab type="button" aria-label="Expandir menu" onClick={() => setOpen(true)}>
-          <ChevronRight />
-        </S.SidebarOpenTab>
+        ))}
+      </N.MobileNav>
+      {moreOpen && (
+        <>
+          <N.MoreBackdrop
+            type="button"
+            aria-label="Fechar opções do garçom"
+            onClick={() => setMoreOpen(false)}
+          />
+          <N.MoreSheet role="dialog" aria-modal="true" aria-label="Opções do garçom">
+            <header>
+              <span>
+                <b>{employee.name}</b>
+                <small>Garçom • turno iniciado às {employee.shift}</small>
+              </span>
+            </header>
+            <button
+              type="button"
+              className={view === 'help' ? 'active' : ''}
+              onClick={() => navigate('help')}
+            >
+              <CircleHelp /> Central de ajuda
+            </button>
+            <button type="button" className="logout" onClick={onLogout}>
+              <LogOut /> Sair da conta
+            </button>
+          </N.MoreSheet>
+        </>
       )}
       <S.Main>
         <S.Top>
-          <S.MobileMenu type="button" aria-label="Abrir menu" onClick={() => setOpen(true)}>
-            <Menu />
-          </S.MobileMenu>
           <div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
@@ -167,6 +232,14 @@ function WaiterShell({
             <RefreshCw className={workspaceState?.refreshing ? 'spinning' : ''} />
             {workspaceState?.refreshing ? 'Atualizando' : 'Atualizar'} <i /> {employee.shift}
           </S.Live>
+          <N.MobileMoreButton
+            type="button"
+            aria-label="Abrir opções do garçom"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((current) => !current)}
+          >
+            <MoreHorizontal />
+          </N.MobileMoreButton>
         </S.Top>
         <S.Content>
           {workspaceState?.error && (
@@ -197,6 +270,7 @@ function WaiterShell({
                 setFocusedOrderId(orderId);
                 navigate('deliveries');
               }}
+              onOpenPayments={() => navigate('payments')}
             />
           ) : view === 'deliveries' ? (
             <WaiterDeliveriesPage

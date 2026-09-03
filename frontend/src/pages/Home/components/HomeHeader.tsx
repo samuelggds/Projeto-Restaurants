@@ -1,11 +1,15 @@
 import {
+  Check,
+  ChevronDown,
   Clock3,
   LogOut,
   LayoutDashboard,
   MapPin,
+  Plus,
   Search,
   ShoppingBag,
   UserRound,
+  X,
 } from 'lucide-react';
 import { memo, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -66,6 +70,7 @@ export const HomeHeader = memo(function HomeHeader({
   const [avatarFailed, setAvatarFailed] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
+  const locationTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -141,42 +146,96 @@ export const HomeHeader = memo(function HomeHeader({
       )}
 
       {!isTableMenu && (
-        <LocationWrap ref={locationRef}>
+        <LocationWrap
+          ref={locationRef}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !locationOpen) return;
+            event.stopPropagation();
+            setLocationOpen(false);
+            locationTriggerRef.current?.focus();
+          }}
+        >
           <Location
+            ref={locationTriggerRef}
             type="button"
             aria-label={selectedAddress ? `Endereço de entrega: ${locationText}` : locationLabel}
             aria-expanded={locationOpen}
+            aria-haspopup="dialog"
             aria-controls="home-delivery-address-menu"
             onClick={() => setLocationOpen((open) => !open)}
           >
-            <MapPin size={17} />
-            <span>{locationLabel}</span>
-            {locationText && <b>• {locationText}</b>}
+            <MapPin size={17} aria-hidden="true" />
+            <LocationCopy>
+              <span>{locationLabel}</span>
+              {locationText && <b>{locationText}</b>}
+            </LocationCopy>
+            <LocationChevron $open={locationOpen} aria-hidden="true">
+              <ChevronDown size={16} />
+            </LocationChevron>
           </Location>
           {locationOpen && (
-            <LocationDropdown id="home-delivery-address-menu" $open>
+            <LocationDropdown
+              id="home-delivery-address-menu"
+              $open
+              role="dialog"
+              aria-labelledby="home-delivery-address-title"
+            >
+              <LocationDropdownHeader>
+                <div>
+                  <small>Endereço de entrega</small>
+                  <strong id="home-delivery-address-title">Onde deseja receber?</strong>
+                </div>
+                <DropdownClose
+                  type="button"
+                  aria-label="Fechar endereços"
+                  onClick={() => {
+                    setLocationOpen(false);
+                    locationTriggerRef.current?.focus();
+                  }}
+                >
+                  <X size={17} />
+                </DropdownClose>
+              </LocationDropdownHeader>
               {availableAddresses.length > 0 ? (
                 <>
-                  <strong>Onde deseja receber?</strong>
-                  {availableAddresses.map((address) => (
-                    <LocationOption
-                      type="button"
-                      key={address.id}
-                      $active={String(address.id) === String(selectedAddressId)}
-                      onClick={() => {
-                        onSelectAddress?.(String(address.id));
-                        setLocationOpen(false);
-                      }}
-                    >
-                      <MapPin size={17} />
-                      <span>
-                        <b>{address.label}</b>
-                        <small>
-                          {address.address}, {address.number} • {address.district}
-                        </small>
-                      </span>
-                    </LocationOption>
-                  ))}
+                  <LocationOptions role="group" aria-label="Endereços salvos">
+                    {availableAddresses.map((address) => {
+                      const active = String(address.id) === String(selectedAddressId);
+                      const street = [address.address, address.number].filter(Boolean).join(', ');
+                      const locality = [address.district, address.city].filter(Boolean).join(' • ');
+
+                      return (
+                        <LocationOption
+                          type="button"
+                          key={address.id}
+                          $active={active}
+                          aria-pressed={active}
+                          aria-label={`${address.label || 'Endereço'}: ${street}, ${locality}${active ? '. Selecionado' : ''}`}
+                          onClick={() => {
+                            onSelectAddress?.(String(address.id));
+                            setLocationOpen(false);
+                          }}
+                        >
+                          <LocationOptionIcon $active={active}>
+                            <MapPin size={16} aria-hidden="true" />
+                          </LocationOptionIcon>
+                          <LocationOptionText>
+                            <LocationOptionTitle>
+                              <b>{address.label || 'Endereço'}</b>
+                              {active && (
+                                <SelectedAddress>
+                                  <Check size={12} />
+                                  Selecionado
+                                </SelectedAddress>
+                              )}
+                            </LocationOptionTitle>
+                            <small>{street}</small>
+                            {locality && <em>{locality}</em>}
+                          </LocationOptionText>
+                        </LocationOption>
+                      );
+                    })}
+                  </LocationOptions>
                   <AddressAction
                     type="button"
                     onClick={() => {
@@ -184,6 +243,7 @@ export const HomeHeader = memo(function HomeHeader({
                       onManageAddresses?.();
                     }}
                   >
+                    <Plus size={17} />
                     Cadastrar outro endereço
                   </AddressAction>
                 </>
@@ -205,6 +265,7 @@ export const HomeHeader = memo(function HomeHeader({
                       onManageAddresses?.();
                     }}
                   >
+                    <Plus size={17} />
                     {userLoggedIn ? 'Cadastrar endereço' : 'Entrar na conta'}
                   </AddressAction>
                 </EmptyAddress>
@@ -313,7 +374,7 @@ export const HomeHeader = memo(function HomeHeader({
         <CartButton aria-label={`Sacola com ${cartCount} itens`} onClick={onOpenCart}>
           <ShoppingBag size={19} />
           <span>Sacola</span>
-          <i>{cartCount}</i>
+          {cartCount > 0 && <i>{cartCount}</i>}
         </CartButton>
       </Actions>
     </Header>
@@ -330,21 +391,27 @@ const Header = styled.header<{ $primary: string }>`
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  height: 82px;
+  height: 76px;
   padding: 0 clamp(18px, 3.4vw, 54px);
   display: flex;
   align-items: center;
   gap: clamp(10px, 1.45vw, 28px);
-  border-bottom: 1px solid #eadfd3;
-  background: rgba(255, 253, 249, 0.96);
-  backdrop-filter: blur(14px);
+  border-bottom: 1px solid #dfe4df;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
   @media (max-width: 1380px) {
     padding-inline: 24px;
   }
-  @media (max-width: 980px) {
-    height: 68px;
-    padding: 0 14px;
-    gap: 10px;
+  @media (max-width: 1040px) {
+    height: auto;
+    padding: 10px 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'brand status actions'
+      'footer footer footer';
+    column-gap: 12px;
+    row-gap: 8px;
   }
   @media (max-width: 760px) {
     --home-control-height: 40px;
@@ -354,9 +421,8 @@ const Header = styled.header<{ $primary: string }>`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      'brand brand'
-      'status actions'
-      'footer footer';
+      'brand actions'
+      'footer status';
     align-items: center;
     column-gap: 12px;
     row-gap: 8px;
@@ -381,12 +447,12 @@ const Brand = styled.a`
   color: #191816;
   text-decoration: none;
   white-space: nowrap;
-  font-size: 20px;
+  font-size: 18px;
   strong {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 1040px) {
     grid-area: brand;
     width: 100%;
     flex: none;
@@ -419,8 +485,8 @@ const BrandName = styled.strong`
   }
 `;
 const Logo = styled.img`
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   border-radius: 10px;
   @media (max-width: 520px) {
@@ -448,9 +514,12 @@ const LocationWrap = styled.div`
   max-width: 360px;
   margin-left: auto;
   position: relative;
-  @media (max-width: 980px) {
-    width: min(300px, 34vw);
-    min-width: 160px;
+  @media (max-width: 1040px) {
+    grid-area: footer;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
   }
   @media (max-width: 760px) {
     grid-area: footer;
@@ -474,186 +543,283 @@ const Location = styled.button`
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border: 1px solid #eadfd3;
-  border-radius: 999px;
+  border: 1px solid #dfe4df;
+  border-radius: 7px;
   font-size: 14px;
-  background: #fffdf9;
-  color: #191816;
+  background: #f8faf8;
+  color: #17211d;
   cursor: pointer;
   max-width: 100%;
-  span {
-    font-weight: 600;
-    white-space: nowrap;
-    flex-shrink: 0;
+
+  > svg {
+    flex: 0 0 auto;
+    color: var(--home-primary);
   }
-  b {
-    font-weight: 500;
-    min-width: 0;
-    max-width: 210px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-primary) 24%, transparent);
+    outline-offset: 2px;
   }
+
   @media (max-width: 760px) {
     width: 100%;
     padding: 0 12px;
     max-width: none;
     font-size: 12px;
-    b {
-      max-width: none;
-      flex: 1;
-      text-align: left;
-    }
   }
 `;
-const LocationDropdown = styled.div<{ $open: boolean }>`
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
+const LocationCopy = styled.span`
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
 
-  width: min(360px, 86vw);
-  max-width: 100%;
-  box-sizing: border-box;
+  > span {
+    flex: 0 0 auto;
+    font-weight: 700;
+    white-space: nowrap;
+  }
 
-  padding: 12px;
-
-  border: 1px solid #eadfd3;
-  border-radius: 16px;
-  background: #fff;
-
-  box-shadow: 0 18px 40px rgba(50, 30, 15, 0.16);
-
-  opacity: ${({ $open }) => ($open ? 1 : 0)};
-
-  transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
-
-  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
-
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-
-  z-index: 210;
-
-  > strong {
-    display: block;
-    padding: 5px 7px 12px;
-    font-size: 14px;
+  > b {
+    min-width: 0;
+    overflow: hidden;
+    color: #5d625e;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   @media (max-width: 760px) {
-    width: 100%;
-    max-width: 100%;
+    align-content: center;
+    align-items: start;
+    display: grid;
+    gap: 1px;
 
-    max-height: min(420px, 65vh);
-    overflow-y: auto;
+    > span {
+      font-size: 10px;
+      line-height: 1.05;
+    }
 
-    padding: 10px;
+    > b {
+      width: 100%;
+      font-size: 12px;
+      line-height: 1.15;
+    }
+  }
+`;
+const LocationChevron = styled.span<{ $open: boolean }>`
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  color: #626963;
+  transform: rotate(${({ $open }) => ($open ? '180deg' : '0deg')});
+  transition: transform 0.18s ease;
+`;
+const LocationDropdown = styled.div<{ $open: boolean }>`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(390px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(430px, calc(100vh - 110px));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border: 1px solid #eadfd3;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(50, 30, 15, 0.16);
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  transform: translateY(${({ $open }) => ($open ? '0' : '-8px')});
+  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  z-index: 210;
+
+  @media (max-width: 760px) {
+    width: calc(100vw - 28px);
+    max-width: none;
+    max-height: min(360px, calc(100vh - 150px));
+    padding: 7px;
   }
 
   @media (max-width: 380px) {
-    padding: 8px;
-    border-radius: 14px;
+    width: calc(100vw - 20px);
+    padding: 6px;
   }
+`;
+const LocationDropdownHeader = styled.header`
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 4px 8px 8px;
+  border-bottom: 1px solid #eee8e1;
+
+  > div {
+    min-width: 0;
+  }
+
+  small,
+  strong {
+    display: block;
+  }
+
+  small {
+    margin-bottom: 2px;
+    color: #77716b;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  strong {
+    color: #191816;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+`;
+const DropdownClose = styled.button`
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e5e2dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #4d514d;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #cfc9c1;
+    background: #f7f6f3;
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-primary) 24%, transparent);
+    outline-offset: 1px;
+  }
+`;
+const LocationOptions = styled.div`
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+  padding: 6px 0;
 `;
 const LocationOption = styled.button<{ $active: boolean }>`
   width: 100%;
   min-width: 0;
-
   display: flex;
   align-items: center;
-  gap: 12px;
-
-  padding: 12px;
-
-  /* cria espaço entre um endereço e outro */
-  margin-bottom: 8px;
-
-  border: 1px solid ${({ $active }) => ($active ? 'var(--home-primary)' : 'transparent')};
-
-  border-radius: 11px;
-
-  background: ${({ $active }) => ($active ? '#fff5ef' : 'transparent')};
-
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid
+    ${({ $active }) => ($active ? 'color-mix(in srgb, var(--home-primary) 54%, #fff)' : '#ebe8e3')};
+  border-radius: 7px;
+  background: ${({ $active }) =>
+    $active ? 'color-mix(in srgb, var(--home-primary) 7%, #fff)' : '#fff'};
   color: #191816;
   text-align: left;
   cursor: pointer;
-
   box-sizing: border-box;
 
-  > svg {
-    flex-shrink: 0;
-  }
-
   &:hover {
-    background: #fbf4ec;
+    border-color: #d8d1c8;
+    background: #faf8f5;
   }
 
-  > span {
-    min-width: 0;
-    flex: 1;
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-primary) 22%, transparent);
+    outline-offset: 1px;
   }
 
-  b,
-  small {
+  @media (max-width: 520px) {
+    align-items: flex-start;
+    padding: 7px;
+    gap: 8px;
+  }
+
+  @media (max-width: 360px) {
+    padding: 6px;
+  }
+`;
+const LocationOptionIcon = styled.span<{ $active: boolean }>`
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: ${({ $active }) =>
+    $active ? 'color-mix(in srgb, var(--home-primary) 14%, #fff)' : '#f2f3f0'};
+  color: ${({ $active }) => ($active ? 'var(--home-primary)' : '#606761')};
+`;
+const LocationOptionText = styled.span`
+  min-width: 0;
+  flex: 1;
+
+  > small,
+  > em {
     display: block;
-  }
-
-  b {
-    font-size: 13px;
-    margin-bottom: 4px;
-  }
-
-  small {
-    color: #746d66;
-    font-size: 12px;
-    line-height: 1.4;
-
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  @media (max-width: 520px) {
-    align-items: flex-start;
-
-    padding: 12px 10px;
-    gap: 10px;
-
-    > svg {
-      margin-top: 2px;
-    }
-
-    b {
-      font-size: 14px;
-    }
-
-    small {
-      /*
-       * Em celular pequeno deixamos o endereço quebrar
-       * em mais de uma linha em vez de cortar.
-       */
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-      overflow-wrap: anywhere;
-    }
+  > small {
+    margin-top: 2px;
+    color: #4f544f;
+    font-size: 12px;
+    line-height: 1.25;
   }
 
-  @media (max-width: 360px) {
-    padding: 11px 9px;
-
-    b {
-      font-size: 13px;
-    }
-
-    small {
-      font-size: 11px;
-    }
+  > em {
+    margin-top: 1px;
+    color: #807970;
+    font-size: 11px;
+    font-style: normal;
+    line-height: 1.25;
   }
 `;
+const LocationOptionTitle = styled.span`
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  > b {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+`;
+const SelectedAddress = styled.span`
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--home-primary) 13%, #fff);
+  color: color-mix(in srgb, var(--home-primary) 84%, #2b201a);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.2;
+`;
 const EmptyAddress = styled.div`
-  padding: 13px 11px 7px;
+  padding: 14px 10px 4px;
   color: #191816;
   text-align: center;
 
@@ -676,22 +842,21 @@ const EmptyAddress = styled.div`
 `;
 const AddressAction = styled.button`
   width: 100%;
-  min-height: 44px;
-
-  padding: 10px 12px;
-
+  min-height: 40px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: 10px;
-
+  border-radius: 7px;
   background: var(--home-primary);
   color: #fff;
-
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 750;
-
   cursor: pointer;
-
   box-sizing: border-box;
 
   &:hover {
@@ -705,7 +870,7 @@ const AddressAction = styled.button`
   }
 
   @media (max-width: 360px) {
-    min-height: 42px;
+    min-height: 38px;
     font-size: 13px;
     padding-inline: 10px;
   }
@@ -720,7 +885,7 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
   min-width: 0;
   padding: 0 11px;
   border: 1px solid ${({ $open }) => ($open ? '#bfe4ca' : '#f1aaa4')};
-  border-radius: 999px;
+  border-radius: 7px;
   background: ${({ $open }) => ($open ? '#f0faf1' : '#fff1f0')};
   color: ${({ $open }) => ($open ? '#23743b' : '#bf3029')};
   font-size: 12px;
@@ -743,7 +908,9 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
       display: none;
     }
   }
-  @media (max-width: 980px) {
+  @media (max-width: 1040px) {
+    grid-area: status;
+    justify-self: end;
     padding: 0 9px;
     font-size: 11px;
     margin-left: auto;
@@ -765,9 +932,12 @@ const BusinessStatus = styled.div<{ $open: boolean }>`
       box-shadow: none;
     }
     span {
-      max-width: 84px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: none;
+      font-size: 0;
+    }
+    span::after {
+      content: '${({ $open }) => ($open ? 'Aberto' : 'Fechado')}';
+      font-size: 10px;
     }
   }
 `;
@@ -795,7 +965,7 @@ const TableBadge = styled.div`
     line-height: 1;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 1040px) {
     grid-area: footer;
     position: static;
     justify-self: start;
@@ -813,7 +983,7 @@ const Actions = styled.div`
   align-items: center;
   gap: 9px;
   margin-left: auto;
-  @media (max-width: 760px) {
+  @media (max-width: 1040px) {
     grid-area: actions;
     justify-self: end;
     margin-left: 0;
@@ -827,10 +997,10 @@ const RoundButton = styled.button`
   height: var(--home-control-height);
   border-radius: 50%;
   background: transparent;
-  border: 1px solid #eadfd3;
+  border: 1px solid #dfe4df;
   display: grid;
   place-items: center;
-  color: #191816;
+  color: #17211d;
   cursor: pointer;
 `;
 const ProfileWrap = styled.div`
@@ -976,7 +1146,7 @@ const CartButton = styled.button`
   height: var(--home-control-height);
   padding: 0 18px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 7px;
   background: var(--home-primary);
   color: #fff;
   display: flex;

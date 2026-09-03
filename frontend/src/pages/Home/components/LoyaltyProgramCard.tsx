@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 import {
   ArrowRight,
+  BellRing,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Gift,
   LockKeyhole,
-  PanelBottomClose,
-  PanelBottomOpen,
   ShoppingBag,
   Sparkles,
   X,
@@ -18,12 +19,13 @@ import { isActiveLoyaltyRedemption, loyaltyRedemptionEntries } from '../domain/l
 import * as S from './LoyaltyProgramCard.styles';
 
 const FloatingGroup = styled.div`
-  width: min(350px, calc(100vw - 32px));
+  width: min(320px, calc(100vw - 32px));
   display: grid;
-  gap: 7px;
+  justify-items: end;
+  gap: 5px;
 
   &[data-collapsed='true'] {
-    width: min(290px, calc(100vw - 24px));
+    width: 46px;
   }
 
   &[data-collapsed='true'] ~ * {
@@ -31,40 +33,52 @@ const FloatingGroup = styled.div`
   }
 
   @media (max-width: 700px) {
-    width: 100%;
+    width: min(300px, 100%);
 
     &[data-collapsed='true'] {
-      width: min(290px, 100%);
+      width: 46px;
     }
   }
 `;
 
 const GroupControl = styled.button`
-  width: min(290px, 100%);
+  width: 100%;
   justify-self: end;
-  min-height: 48px;
-  padding: 6px 7px 6px 10px;
-  border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 32%, #eadfd3);
-  border-radius: 14px;
+  min-height: 42px;
+  padding: 5px 6px;
+  border: 1px solid #e4ded7;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
   color: #302923;
-  background: linear-gradient(
-    130deg,
-    color-mix(in srgb, var(--home-primary, #d64d08) 7%, #fff),
-    #fff 62%
-  );
-  box-shadow: 0 10px 26px rgba(55, 38, 26, 0.13);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 6px 18px rgba(55, 38, 26, 0.12);
   font: inherit;
   text-align: left;
   cursor: pointer;
 
-  > span:first-child {
-    min-width: 0;
+  .control-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
     display: grid;
-    gap: 2px;
+    place-items: center;
+    border-radius: 7px;
+    color: var(--home-primary, #d64d08);
+    background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
+  }
+
+  .control-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .control-copy {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 1px;
   }
 
   strong,
@@ -74,36 +88,34 @@ const GroupControl = styled.button`
 
   strong {
     color: #26211d;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.2;
-    font-weight: 900;
+    font-weight: 800;
   }
 
   small {
     color: #776d65;
     font-size: 9px;
     line-height: 1.3;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .action {
     flex: 0 0 auto;
-    min-height: 32px;
-    padding: 5px 7px;
-    border-radius: 9px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 7px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
     color: color-mix(in srgb, var(--home-primary, #d64d08) 88%, #2b211b);
     background: color-mix(in srgb, var(--home-primary, #d64d08) 10%, #fff);
-    font-size: 9px;
-    font-weight: 900;
   }
 
   .action svg {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
   }
 
   &:hover {
@@ -115,10 +127,24 @@ const GroupControl = styled.button`
     outline-offset: 2px;
   }
 
-  @media (max-width: 350px) {
-    padding-left: 9px;
+  &[data-collapsed='true'] {
+    width: 46px;
+    height: 46px;
+    min-height: 46px;
+    padding: 5px;
+    border-radius: 50%;
 
-    .action span {
+    .control-icon {
+      width: 34px;
+      height: 34px;
+      flex-basis: 34px;
+      border-radius: 50%;
+      background: var(--home-primary, #d64d08);
+      color: #fff;
+    }
+
+    .control-copy,
+    .action {
       display: none;
     }
   }
@@ -232,7 +258,10 @@ function RewardCard({
 
 export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [floatingCollapsed, setFloatingCollapsed] = useState(false);
+  const [floatingCollapsed, setFloatingCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 700,
+  );
+  const isFloatingCollapsed = loyalty.loggedIn && floatingCollapsed;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -350,29 +379,34 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
   }
 
   return (
-    <FloatingGroup data-collapsed={loyalty.loggedIn && floatingCollapsed ? 'true' : 'false'}>
+    <FloatingGroup data-collapsed={isFloatingCollapsed ? 'true' : 'false'}>
       {loyalty.loggedIn && (
         <GroupControl
           type="button"
+          data-collapsed={isFloatingCollapsed ? 'true' : 'false'}
           data-floating-drag-handle="true"
-          title="Clique para mostrar ou arraste para mover"
+          title={
+            isFloatingCollapsed ? 'Mostrar benefícios e pedido' : 'Recolher benefícios e pedido'
+          }
           data-testid="customer-coupon-status-toggle"
-          aria-expanded={!floatingCollapsed}
-          aria-label={`${floatingCollapsed ? 'Mostrar' : 'Minimizar'} cupom, fidelidade e status do pedido`}
+          aria-expanded={!isFloatingCollapsed}
+          aria-label={`${isFloatingCollapsed ? 'Mostrar' : 'Minimizar'} cupom, fidelidade e status do pedido`}
           onClick={() => setFloatingCollapsed((collapsed) => !collapsed)}
         >
-          <span>
-            <strong>Cupom e status</strong>
-            <small>Fidelidade • Pedido em andamento</small>
+          <span className="control-icon" aria-hidden="true">
+            <BellRing />
+          </span>
+          <span className="control-copy">
+            <strong>Seus benefícios</strong>
+            <small>Cupom e andamento do pedido</small>
           </span>
           <span className="action" aria-hidden="true">
-            {floatingCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}
-            <span>{floatingCollapsed ? 'Mostrar' : 'Minimizar'}</span>
+            {isFloatingCollapsed ? <ChevronUp /> : <ChevronDown />}
           </span>
         </GroupControl>
       )}
 
-      {!floatingCollapsed && (
+      {!isFloatingCollapsed && (
         <S.CompactNotice
           ref={triggerRef}
           type="button"
@@ -383,6 +417,7 @@ export function LoyaltyProgramCard({ loyalty }: { loyalty: LoyaltyProgramProps }
           aria-expanded={isOpen}
           aria-busy={loyalty.loading}
           aria-label={`${title}. ${description}`}
+          data-guest={!loyalty.loggedIn ? 'true' : undefined}
         >
           <i className="icon">
             {claimed || highlightedReward?.canRedeem ? <Sparkles /> : <Gift />}

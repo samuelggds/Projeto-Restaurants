@@ -7,6 +7,7 @@ import type {
   TablePaymentIntent,
 } from '../pages/Home/domain/tableAccount';
 import { buildTablePaymentPayload } from '../pages/Home/domain/tableAccount';
+import type { WaiterAccountSession } from '../pages/waiter/types';
 
 class TableAccountService {
   async getCurrent(sessionPublicId: string): Promise<TableAccountSnapshot> {
@@ -56,6 +57,11 @@ class TableAccountService {
 
   async listAdminSessions() {
     const response = await api.get('/table-accounts/admin/sessions');
+    return response.data;
+  }
+
+  async listWaiterSessions(): Promise<{ sessions: WaiterAccountSession[] }> {
+    const response = await api.get('/table-accounts/waiter/sessions');
     return response.data;
   }
 

@@ -19,6 +19,7 @@ export default function ChangePasswordPage() {
   const [confirmation, setConfirmation] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const passwordEvaluation = evaluatePassword(
     newPassword,
     confirmation,
@@ -32,6 +33,7 @@ export default function ChangePasswordPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setHasAttemptedSubmit(true);
     setErrorMessage('');
 
     if (!currentPassword) {
@@ -69,11 +71,11 @@ export default function ChangePasswordPage() {
         </S.Icon>
         <S.Title>Crie sua senha definitiva</S.Title>
         <S.Description>
-          Antes de acessar a plataforma, substitua a senha temporária do primeiro deploy. Sua
-          sessão será encerrada ao concluir.
+          Antes de acessar a plataforma, substitua a senha temporária do primeiro deploy. Sua sessão
+          será encerrada ao concluir.
         </S.Description>
 
-        <S.Form onSubmit={handleSubmit} noValidate>
+        <S.Form onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
           <S.Field>
             Senha temporária atual
             <S.Input
@@ -81,7 +83,12 @@ export default function ChangePasswordPage() {
               autoComplete="current-password"
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
+              aria-invalid={hasAttemptedSubmit && !currentPassword}
+              aria-describedby={
+                hasAttemptedSubmit && !currentPassword ? 'change-password-error' : undefined
+              }
               disabled={isSubmitting}
+              required
             />
           </S.Field>
 
@@ -96,12 +103,13 @@ export default function ChangePasswordPage() {
               onChange={(event) => setNewPassword(event.target.value)}
               aria-describedby="change-password-requirements"
               aria-invalid={
-                newPassword.length > 0 &&
+                (newPassword.length > 0 || hasAttemptedSubmit) &&
                 passwordEvaluation.requirements.some(
                   (requirement) => requirement.id !== 'confirmation' && !requirement.met,
                 )
               }
               disabled={isSubmitting}
+              required
             />
           </S.Field>
 
@@ -116,12 +124,13 @@ export default function ChangePasswordPage() {
               onChange={(event) => setConfirmation(event.target.value)}
               aria-describedby="change-password-requirements"
               aria-invalid={
-                confirmation.length > 0 &&
+                (confirmation.length > 0 || hasAttemptedSubmit) &&
                 passwordEvaluation.requirements.some(
                   (requirement) => requirement.id === 'confirmation' && !requirement.met,
                 )
               }
               disabled={isSubmitting}
+              required
             />
           </S.Field>
 
@@ -133,16 +142,13 @@ export default function ChangePasswordPage() {
           />
 
           {errorMessage ? (
-            <S.ErrorMessage role="alert" aria-live="polite">
+            <S.ErrorMessage id="change-password-error" role="alert" aria-live="polite">
               {errorMessage}
             </S.ErrorMessage>
           ) : null}
 
           <S.Actions>
-            <S.PrimaryButton
-              type="submit"
-              disabled={isSubmitting || !currentPassword || !passwordEvaluation.isValid}
-            >
+            <S.PrimaryButton type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
               {isSubmitting ? 'Alterando…' : 'Alterar senha e continuar'}
             </S.PrimaryButton>
             <S.SecondaryButton type="button" onClick={leaveSession} disabled={isSubmitting}>

@@ -1,4 +1,4 @@
-import { LockKeyhole, RefreshCw, Wrench } from 'lucide-react';
+import { Activity, LockKeyhole, RefreshCw, ShieldCheck, Wrench } from 'lucide-react';
 import { getPlatformMaintenanceState } from '../../Services/platformMaintenance';
 import { clearSystemBlockState } from '../../Services/systemBlock';
 import * as S from './styles';
@@ -14,6 +14,12 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
   const platformState = getPlatformMaintenanceState();
   const resolvedMode: MaintenanceMode = mode || (platformState ? 'platform' : 'tenant');
   const isPlatformMaintenance = resolvedMode === 'platform';
+  const eyebrow = isPlatformMaintenance
+    ? 'Disponibilidade da plataforma'
+    : 'Disponibilidade do restaurante';
+  const description = isPlatformMaintenance
+    ? 'Estamos realizando uma manutenção. Tente novamente em alguns instantes.'
+    : 'Este restaurante está temporariamente indisponível. Tente novamente em alguns instantes.';
   const retry = () => {
     if (!isPlatformMaintenance) clearSystemBlockState();
     window.location.reload();
@@ -21,31 +27,42 @@ export default function SystemMaintenancePage({ mode }: SystemMaintenancePagePro
 
   return (
     <S.Page>
-      <S.Background aria-hidden="true">
-        <span />
-        <span />
-      </S.Background>
-
       <S.Header>
-        <S.BrandMark>S&C</S.BrandMark>
+        <S.BrandMark aria-hidden="true">S&C</S.BrandMark>
         <S.BrandCopy>
-          <strong>Platform</strong>
+          <strong>S&C Platform</strong>
+          <small>Operação de restaurantes</small>
         </S.BrandCopy>
       </S.Header>
 
       <S.Main>
-        <S.NoticeCard role="status" aria-live="polite">
-          <S.IconWrap aria-hidden="true">
-            <Wrench size={30} />
-          </S.IconWrap>
-          <S.Eyebrow>Manutenção temporária</S.Eyebrow>
-          <S.Title>Sistema em manutenção</S.Title>
-          <S.Description>
-            Estamos realizando uma manutenção. Tente novamente em alguns instantes.
-          </S.Description>
-          <S.RetryButton type="button" onClick={retry}>
-            <RefreshCw size={18} /> Tentar novamente
-          </S.RetryButton>
+        <S.NoticeCard role="status" aria-live="polite" aria-labelledby="maintenance-title">
+          <S.StatusPanel aria-hidden="true">
+            <S.IconWrap>
+              <Wrench size={34} />
+            </S.IconWrap>
+            <span>
+              <Activity size={16} /> Intervenção em andamento
+            </span>
+          </S.StatusPanel>
+
+          <S.NoticeContent>
+            <S.Eyebrow>{eyebrow}</S.Eyebrow>
+            <S.Title id="maintenance-title">Sistema em manutenção</S.Title>
+            <S.Description>{description}</S.Description>
+
+            <S.Assurance>
+              <ShieldCheck aria-hidden="true" />
+              <span>
+                <strong>Sessão preservada</strong>
+                <small>Você poderá continuar assim que o serviço estiver disponível.</small>
+              </span>
+            </S.Assurance>
+
+            <S.RetryButton type="button" onClick={retry}>
+              <RefreshCw size={18} aria-hidden="true" /> Tentar novamente
+            </S.RetryButton>
+          </S.NoticeContent>
         </S.NoticeCard>
       </S.Main>
 

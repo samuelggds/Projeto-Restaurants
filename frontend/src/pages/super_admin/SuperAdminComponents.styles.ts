@@ -60,7 +60,8 @@ export const EmptyState = styled.div`
     color: #b1a79f;
     margin-bottom: 9px;
   }
-  b {
+  h3 {
+    margin: 0;
     color: var(--ink);
     font-size: 14px;
   }
@@ -126,6 +127,10 @@ export const ModalBackdrop = styled.div`
   display: grid;
   place-items: center;
   padding: 18px;
+
+  @media (max-width: 480px) {
+    padding: 10px;
+  }
 `;
 
 export const ModalPanel = styled.div<{ $drawer?: boolean }>`
@@ -170,6 +175,28 @@ export const ModalPanel = styled.div<{ $drawer?: boolean }>`
     gap: 9px;
     padding-top: 17px;
     border-top: 1px solid #e7e2dc;
+  }
+
+  @media (max-width: 480px) {
+    max-height: calc(100dvh - 20px);
+    padding: 18px 14px;
+    border-radius: 14px;
+
+    > header h2 {
+      font-size: 20px;
+    }
+
+    footer {
+      display: grid;
+      grid-template-columns: 1fr;
+
+      > button {
+        width: 100%;
+      }
+    }
+
+    ${(p) =>
+      p.$drawer ? 'width:100%;height:calc(100dvh - 20px);margin-left:0;border-radius:14px;' : ''}
   }
 `;
 

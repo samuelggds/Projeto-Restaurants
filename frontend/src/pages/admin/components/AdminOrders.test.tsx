@@ -77,13 +77,16 @@ describe('AdminOrders', () => {
     container.remove();
   });
 
-  function renderOrders(onCancelOrder = vi.fn().mockResolvedValue(undefined)) {
+  function renderOrders(
+    onCancelOrder = vi.fn().mockResolvedValue(undefined),
+    renderedOrders = orders,
+  ) {
     const onConfirmPayment = vi.fn().mockResolvedValue(undefined);
     act(() =>
       root.render(
         <AppDialogProvider>
           <AdminOrders
-            orders={orders}
+            orders={renderedOrders}
             money={money}
             onConfirmPayment={onConfirmPayment}
             onCancelOrder={onCancelOrder}
@@ -107,6 +110,28 @@ describe('AdminOrders', () => {
     expect(container.textContent).toContain('Entrega');
     expect(container.textContent).toContain('Retirada no balcão');
     expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
+  });
+
+  it('cresce em blocos de 10 e retorna aos 10 pedidos iniciais', () => {
+    const manyOrders = Array.from({ length: 23 }, (_, index) => ({
+      ...orders[0],
+      id: `#${401 + index}`,
+      numericId: 401 + index,
+      customerName: `Cliente ${index + 1}`,
+    }));
+    renderOrders(undefined, manyOrders);
+
+    expect(container.querySelectorAll('.order-card')).toHaveLength(10);
+    expect(container.textContent).toContain('Exibindo 10 de 23 pedidos');
+
+    act(() => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
+    expect(container.querySelectorAll('.order-card')).toHaveLength(20);
+
+    act(() => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
+    expect(container.querySelectorAll('.order-card')).toHaveLength(23);
+
+    act(() => buttonByLabel(container, 'Voltar aos 10 pedidos iniciais').click());
+    expect(container.querySelectorAll('.order-card')).toHaveLength(10);
   });
 
   it('só chama o cancelamento online depois da confirmação no diálogo interno', async () => {

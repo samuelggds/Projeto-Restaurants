@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   Bike,
   CheckCircle2,
   ChefHat,
@@ -6,6 +7,7 @@ import {
   History,
   LayoutGrid,
   Printer,
+  Radio,
   ShoppingBag,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -23,11 +25,17 @@ import {
 } from '../components/Shared';
 import * as S from '../Kitchen.styles';
 import { KitchenCardActions } from '../KitchenCardActions.styles';
+import { KITCHEN_LIST_BATCH_SIZE, KitchenListControls } from '../components/KitchenListControls';
+import * as D from './KitchenDashboard.styles';
 
-const activeStatuses: OrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
+type ActiveOrderStatus = Extract<OrderStatus, 'PENDENTE' | 'PREPARANDO' | 'PRONTO'>;
+const activeStatuses: ActiveOrderStatus[] = ['PENDENTE', 'PREPARANDO', 'PRONTO'];
 const INITIAL_KITCHEN_TIME = Date.now();
-const HISTORY_PAGE_SIZE = 10;
 type ChannelFilterValue = OrderChannel | 'ALL';
+
+function isActiveOrderStatus(status: OrderStatus): status is ActiveOrderStatus {
+  return activeStatuses.some((activeStatus) => activeStatus === status);
+}
 
 function useKitchenClock() {
   const [now, setNow] = useState(INITIAL_KITCHEN_TIME);
@@ -151,13 +159,42 @@ function isToday(value: string | undefined, now: number) {
 export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: string) => void }) {
   const { orders } = useWorkspace();
   const now = useKitchenClock();
-  const active = orders.filter((o) => activeStatuses.includes(o.status));
+  const active = orders.filter((order) => isActiveOrderStatus(order.status));
   const urgent = active
     .filter((o) => o.status !== 'PRONTO')
     .sort(oldestCreatedFirst)
     .slice(0, 4);
+  const nextOrder = urgent[0];
   return (
     <>
+      <D.ShiftBanner>
+        <div className="copy">
+          <span className="eyebrow">
+            <Radio /> Produção em tempo real
+          </span>
+          <h2>{active.length ? `${active.length} pedidos em produção` : 'Produção em dia'}</h2>
+          <p>
+            {active.filter((order) => order.status === 'PENDENTE').length} aguardando início •{' '}
+            {active.filter((order) => order.status === 'PREPARANDO').length} em preparo •{' '}
+            {active.filter((order) => order.status === 'PRONTO').length} prontos para retirada
+          </p>
+        </div>
+        <div className="signal">
+          <span>
+            <small>Próximo pedido</small>
+            <b>{nextOrder?.id ?? 'Livre'}</b>
+          </span>
+          <span>
+            <small>Maior espera</small>
+            <b>{nextOrder ? orderElapsed(nextOrder, now) : '00:00'}</b>
+          </span>
+          {nextOrder && (
+            <button type="button" onClick={() => onOpenOrder?.(nextOrder.id)}>
+              Abrir próximo pedido <ArrowRight />
+            </button>
+          )}
+        </div>
+      </D.ShiftBanner>
       <MetricCards
         items={[
           { label: 'Pedidos ativos', value: active.length },
@@ -191,6 +228,7 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
             {urgent.map((order) => (
               <S.PriorityOrder
                 key={order.id}
+                className="overview-priority"
                 role="button"
                 tabIndex={0}
                 onClick={() => onOpenOrder?.(order.id)}
@@ -207,8 +245,11 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
                     {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
                     aguardando há {orderElapsed(order, now)}
                   </span>
+                  {hasOrderPreparationDetails(order) && (
+                    <em className="preparation-alert">Montagem especial</em>
+                  )}
                 </div>
-                <OrderItems order={order} />
+                <OrderItems order={order} compact />
                 <div className="right">
                   <StatusBadge status={order.status} />
                 </div>
@@ -279,10 +320,10 @@ function ChannelFilter({
 function RealtimeIndicator({ status = 'connected' }: { status?: KitchenRealtimeStatus }) {
   const label =
     status === 'connected'
-      ? 'Atualização em tempo real'
+      ? 'Tempo real ativo'
       : status === 'connecting'
-        ? 'Conectando tempo real'
-        : 'Atualização automática a cada 30 s';
+        ? 'Conectando'
+        : 'Sincronização a cada 30 s';
 
   return (
     <span className={`live ${status}`} role="status" aria-live="polite">
@@ -295,10 +336,12 @@ function KitchenCard({
   order,
   highlighted = false,
   now,
+  position,
 }: {
   order: Order;
   highlighted?: boolean;
   now: number;
+  position: number;
 }) {
   const {
     role,
@@ -324,7 +367,7 @@ function KitchenCard({
     <S.KitchenOrder
       id={`kitchen-order-${encodeURIComponent(order.id.replace(/^#/, ''))}`}
       data-order-id={order.id}
-      className={highlighted ? 'highlighted' : undefined}
+      className={`${highlighted ? 'highlighted ' : ''}status-${order.status.toLocaleLowerCase('pt-BR')}`}
     >
       <div className="head">
         <span className="identity">
@@ -334,7 +377,12 @@ function KitchenCard({
             {order.customer ? ` • ${order.customer}` : ''}
           </small>
         </span>
-        <StatusBadge status={order.status} />
+        <span className="card-flags">
+          {position === 0 && order.status !== 'PRONTO' && (
+            <em className="queue-lead">Próximo da fila</em>
+          )}
+          <StatusBadge status={order.status} />
+        </span>
       </div>
       <OrderItems order={order} />
       {order.status === 'PRONTO' ? (
@@ -408,6 +456,18 @@ export function KitchenQueuePage({
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
     focusedOrder?.id ?? null,
   );
+  const [visibleCounts, setVisibleCounts] = useState<Record<ActiveOrderStatus, number>>({
+    PENDENTE: KITCHEN_LIST_BATCH_SIZE,
+    PREPARANDO: KITCHEN_LIST_BATCH_SIZE,
+    PRONTO: KITCHEN_LIST_BATCH_SIZE,
+  });
+  const resetVisibleCounts = () =>
+    setVisibleCounts((current) => ({
+      ...current,
+      PENDENTE: KITCHEN_LIST_BATCH_SIZE,
+      PREPARANDO: KITCHEN_LIST_BATCH_SIZE,
+      PRONTO: KITCHEN_LIST_BATCH_SIZE,
+    }));
 
   useEffect(() => {
     if (!focusedOrderId) return;
@@ -444,7 +504,7 @@ export function KitchenQueuePage({
         .filter(
           (o) =>
             (channel === 'ALL' || o.channel === channel) &&
-            activeStatuses.includes(o.status) &&
+            isActiveOrderStatus(o.status) &&
             (status === 'ALL' || o.status === status) &&
             matchesOrderSearch(o, query),
         )
@@ -457,7 +517,10 @@ export function KitchenQueuePage({
         <input
           aria-label="Buscar pedidos da cozinha"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            resetVisibleCounts();
+          }}
           placeholder="Buscar pedido ou mesa"
         />
         <ChannelFilter
@@ -465,12 +528,16 @@ export function KitchenQueuePage({
           onChange={(value) => {
             setChannel(value);
             setStatus('ALL');
+            resetVisibleCounts();
           }}
         />
         <select
           aria-label="Filtrar por status"
           value={status}
-          onChange={(e) => setStatus(e.target.value as OrderStatus | 'ALL')}
+          onChange={(e) => {
+            setStatus(e.target.value as OrderStatus | 'ALL');
+            resetVisibleCounts();
+          }}
         >
           <option value="ALL">Todos os status</option>
           <option value="PENDENTE">Pendente</option>
@@ -508,28 +575,44 @@ export function KitchenQueuePage({
       <S.StatusColumns>
         {activeStatuses
           .filter((item) => status === 'ALL' || item === status)
-          .map((item) => (
-            <S.StatusColumn key={item}>
-              <header>
-                <span className="dot" />
-                <b>{statusLabel[item]}</b>
-                <span>{visible.filter((o) => o.status === item).length}</span>
-              </header>
-              {visible
-                .filter((o) => o.status === item)
-                .map((order) => (
+          .map((item) => {
+            const laneOrders = visible.filter((order) => order.status === item);
+            return (
+              <S.StatusColumn key={item} className={`lane-${item.toLocaleLowerCase('pt-BR')}`}>
+                <header>
+                  <span className="dot" />
+                  <b>{statusLabel[item]}</b>
+                  <span>{laneOrders.length}</span>
+                </header>
+                {laneOrders.slice(0, visibleCounts[item]).map((order, position) => (
                   <KitchenCard
                     key={order.id}
                     order={order}
                     highlighted={highlightedOrderId === order.id}
                     now={now}
+                    position={position}
                   />
                 ))}
-              {!visible.some((o) => o.status === item) && (
-                <Empty>Nenhum pedido neste status.</Empty>
-              )}
-            </S.StatusColumn>
-          ))}
+                {!laneOrders.length && <Empty>Nenhum pedido neste status.</Empty>}
+                <KitchenListControls
+                  visibleCount={Math.min(visibleCounts[item], laneOrders.length)}
+                  totalCount={laneOrders.length}
+                  onShowMore={() =>
+                    setVisibleCounts((current) => ({
+                      ...current,
+                      [item]: current[item] + KITCHEN_LIST_BATCH_SIZE,
+                    }))
+                  }
+                  onReset={() =>
+                    setVisibleCounts((current) => ({
+                      ...current,
+                      [item]: KITCHEN_LIST_BATCH_SIZE,
+                    }))
+                  }
+                />
+              </S.StatusColumn>
+            );
+          })}
       </S.StatusColumns>
     </>
   );
@@ -539,6 +622,7 @@ export function KitchenReadyPage() {
   const { orders, workspaceState } = useWorkspace();
   const now = useKitchenClock();
   const [channel, setChannel] = useState<ChannelFilterValue>('ALL');
+  const [visibleCount, setVisibleCount] = useState(KITCHEN_LIST_BATCH_SIZE);
   const ready = orders
     .filter(
       (order) => order.status === 'PRONTO' && (channel === 'ALL' || order.channel === channel),
@@ -553,7 +637,13 @@ export function KitchenReadyPage() {
   return (
     <>
       <S.Toolbar>
-        <ChannelFilter value={channel} onChange={setChannel} />
+        <ChannelFilter
+          value={channel}
+          onChange={(value) => {
+            setChannel(value);
+            setVisibleCount(KITCHEN_LIST_BATCH_SIZE);
+          }}
+        />
         <RealtimeIndicator status={workspaceState?.realtimeStatus} />
       </S.Toolbar>
       <MetricCards
@@ -575,10 +665,11 @@ export function KitchenReadyPage() {
           <CheckCircle2 />
         </header>
         <S.Stack>
-          {ready.map((order) => (
+          {ready.slice(0, visibleCount).map((order, index) => (
             <S.PriorityOrder key={order.id}>
               <div className="identity">
                 <b>{order.id}</b>
+                {index === 0 && <em className="ready-priority">Retirada prioritária</em>}
                 <span>
                   {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
                   pronto há {orderElapsed(order, now)}
@@ -592,6 +683,12 @@ export function KitchenReadyPage() {
             </S.PriorityOrder>
           ))}
           {!ready.length && <Empty>Nenhum pedido pronto neste canal.</Empty>}
+          <KitchenListControls
+            visibleCount={Math.min(visibleCount, ready.length)}
+            totalCount={ready.length}
+            onShowMore={() => setVisibleCount((current) => current + KITCHEN_LIST_BATCH_SIZE)}
+            onReset={() => setVisibleCount(KITCHEN_LIST_BATCH_SIZE)}
+          />
         </S.Stack>
       </S.Card>
     </>
@@ -603,7 +700,7 @@ export function KitchenHistoryPage() {
   const now = useKitchenClock();
   const [channel, setChannel] = useState<ChannelFilterValue>('ALL');
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(KITCHEN_LIST_BATCH_SIZE);
   const completed = orders
     .filter(
       (order) =>
@@ -612,10 +709,7 @@ export function KitchenHistoryPage() {
         matchesOrderSearch(order, query),
     )
     .sort(newestCompletedFirst);
-  const totalPages = Math.max(1, Math.ceil(completed.length / HISTORY_PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages - 1);
-  const pageStart = currentPage * HISTORY_PAGE_SIZE;
-  const visibleCompleted = completed.slice(pageStart, pageStart + HISTORY_PAGE_SIZE);
+  const visibleCompleted = completed.slice(0, visibleCount);
 
   return (
     <>
@@ -624,7 +718,7 @@ export function KitchenHistoryPage() {
           value={channel}
           onChange={(value) => {
             setChannel(value);
-            setPage(0);
+            setVisibleCount(KITCHEN_LIST_BATCH_SIZE);
           }}
         />
         <input
@@ -632,7 +726,7 @@ export function KitchenHistoryPage() {
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
-            setPage(0);
+            setVisibleCount(KITCHEN_LIST_BATCH_SIZE);
           }}
           placeholder="Buscar no histórico"
         />
@@ -696,33 +790,12 @@ export function KitchenHistoryPage() {
         ))}
         {!completed.length && <Empty>Nenhum pedido encontrado neste canal.</Empty>}
       </S.HistoryTable>
-      {completed.length > 0 && (
-        <S.HistoryPagination aria-label="Navegação do histórico">
-          <span>
-            Mostrando {pageStart + 1}–{Math.min(pageStart + HISTORY_PAGE_SIZE, completed.length)} de{' '}
-            {completed.length} pedidos
-          </span>
-          <div>
-            <button
-              type="button"
-              onClick={() => setPage((value) => Math.max(0, value - 1))}
-              disabled={currentPage === 0}
-            >
-              Voltar 10
-            </button>
-            <strong>
-              {currentPage + 1} de {totalPages}
-            </strong>
-            <button
-              type="button"
-              onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
-              disabled={currentPage >= totalPages - 1}
-            >
-              Próximos 10
-            </button>
-          </div>
-        </S.HistoryPagination>
-      )}
+      <KitchenListControls
+        visibleCount={Math.min(visibleCount, completed.length)}
+        totalCount={completed.length}
+        onShowMore={() => setVisibleCount((current) => current + KITCHEN_LIST_BATCH_SIZE)}
+        onReset={() => setVisibleCount(KITCHEN_LIST_BATCH_SIZE)}
+      />
     </>
   );
 }

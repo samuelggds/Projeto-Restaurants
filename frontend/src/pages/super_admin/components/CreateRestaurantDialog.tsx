@@ -14,11 +14,13 @@ import {
 } from '../domain/superAdminDomain';
 import type { PlatformPlan } from '../types';
 import * as S from '../SuperAdmin.styles';
+import { useDialogFocusManagement } from '../hooks/useDialogFocusManagement';
 
 type Props = { plans: PlatformPlan[]; onClose: () => void; onCreated: () => void | Promise<void> };
 type Form = CreateRestaurantInput & { passwordConfirmation: string };
 
 export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
+  const dialogRef = useDialogFocusManagement<HTMLFormElement>(onClose);
   const firstPlan = plans.find((plan) => plan.active)?.code || plans[0]?.code || '';
   const [form, setForm] = useState<Form>({
     plan: firstPlan,
@@ -89,6 +91,7 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
   return (
     <S.CreateBackdrop onMouseDown={onClose}>
       <S.CreateDialog
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Criar restaurante"
@@ -108,7 +111,6 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
           <label>
             Nome do restaurante
             <input
-              autoFocus
               required
               minLength={2}
               maxLength={120}
@@ -241,7 +243,12 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
           <button className="cancel" type="button" onClick={onClose}>
             Cancelar
           </button>
-          <button className="submit" type="submit" disabled={saving || !passwordEvaluation.isValid}>
+          <button
+            className="submit"
+            type="submit"
+            disabled={saving || !passwordEvaluation.isValid}
+            aria-busy={saving}
+          >
             {saving ? 'Criando…' : 'Criar restaurante'}
           </button>
         </footer>

@@ -129,8 +129,8 @@ function OverviewPreview({ icon: Icon, area, path, helper }: FaithfulGuidePrevie
               </div>
               <footer>
                 <small>Sem cadastros exibidos</small>
-                <button type="button">‹ Voltar 5</button>
-                <button type="button">Próximos 5 ›</button>
+                <button type="button">Voltar aos 10</button>
+                <button type="button">Mostrar mais 10</button>
               </footer>
             </section>
             <section>
@@ -151,7 +151,7 @@ function OverviewPreview({ icon: Icon, area, path, helper }: FaithfulGuidePrevie
                 <small>Sem cadastros exibidos</small>
                 <button type="button">
                   <Marker number={6} />
-                  Próximos 5 ›
+                  Mostrar mais 10
                 </button>
               </footer>
             </section>

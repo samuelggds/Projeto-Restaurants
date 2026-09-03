@@ -9,13 +9,8 @@ export const Section = styled.section`
   position: relative;
   isolation: isolate;
   width: min(1240px, 100%);
-  margin: 34px auto 0;
-  padding: clamp(20px, 3vw, 30px);
-  overflow: hidden;
-  border: 1px solid #e9e2da;
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 14px 38px rgba(70, 45, 20, 0.055);
+  margin: 48px auto 0;
+  padding: 0;
   animation: ${offerReveal} 320ms ease both;
 
   @media (prefers-reduced-motion: reduce) {
@@ -23,9 +18,7 @@ export const Section = styled.section`
   }
 
   @media (max-width: 760px) {
-    margin-top: 24px;
-    padding: 18px 12px 14px;
-    border-radius: 20px;
+    margin-top: 34px;
   }
 `;
 
@@ -36,14 +29,17 @@ export const Header = styled.header`
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--home-border);
 
   h2 {
     margin: 7px 0 5px;
     color: var(--home-text);
-    font-size: clamp(24px, 3vw, 32px);
-    line-height: 1.05;
-    letter-spacing: -0.035em;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: 0;
   }
 
   p {
@@ -58,10 +54,11 @@ export const Header = styled.header`
     align-items: flex-start;
     flex-direction: column;
     gap: 13px;
-    margin: 0 5px 17px;
+    margin: 0 2px 17px;
+    padding-bottom: 16px;
 
     h2 {
-      font-size: 25px;
+      font-size: 26px;
     }
 
     p {
@@ -77,7 +74,7 @@ export const Eyebrow = styled.span`
   color: var(--home-primary);
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   text-transform: uppercase;
 `;
 
@@ -89,7 +86,7 @@ export const Count = styled.span`
   gap: 7px;
   flex: 0 0 auto;
   border: 1px solid #e7ded5;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--home-primary);
   background: rgba(255, 255, 255, 0.84);
   box-shadow: 0 5px 14px rgba(70, 45, 20, 0.045);
