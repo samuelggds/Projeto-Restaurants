@@ -1,6 +1,8 @@
-import { UserRole } from '@prisma/client';
 import type { NextFunction, Request, Response } from 'express';
+import { UserRole } from '@prisma/client';
+import { withTenantDbContext } from '../database/tenantDbContext.js';
 import tableParticipantRepository from '../modules/tableSession/repositories/TableParticipantRepository.js';
+import tableParticipantStateService from '../modules/tableSession/services/TableParticipantStateService.js';
 import {
   getParticipantCookieName,
   hashParticipantToken,
@@ -47,6 +49,14 @@ export async function tableParticipantMiddleware(req: Request, res: Response, ne
       });
     }
 
+    const participantState = await withTenantDbContext(session.restaurantId, (db) =>
+      tableParticipantStateService.getState(db, {
+        participantId: participant.id,
+        tableSessionId: session.id,
+        restaurantId: session.restaurantId,
+      }),
+    );
+
     req.tableParticipant = {
       id: participant.id,
       publicId: participant.publicId,
@@ -54,6 +64,8 @@ export async function tableParticipantMiddleware(req: Request, res: Response, ne
       restaurantId: participant.restaurantId,
       userId: participant.userId,
       displayName: participant.displayName || participant.user?.name || null,
+      phone: participantState?.phone || null,
+      orderingBlocked: Boolean(participantState?.orderingBlockedAt),
       authenticated: Boolean(participant.userId),
     };
 
