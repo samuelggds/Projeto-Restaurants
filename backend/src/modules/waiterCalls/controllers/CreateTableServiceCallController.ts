@@ -8,6 +8,7 @@ class CreateTableServiceCallController {
         sessionId: req.tableSession.id,
         tableId: req.tableSession.tableId,
         restaurantId: req.tableSession.restaurantId,
+        participantId: req.tableParticipant.id,
         type: req.body?.type,
       });
 
