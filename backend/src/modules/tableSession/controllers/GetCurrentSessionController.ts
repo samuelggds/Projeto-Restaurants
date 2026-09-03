@@ -13,7 +13,9 @@ class GetCurrentSessionController {
           ? {
               publicId: req.tableParticipant.publicId,
               displayName: req.tableParticipant.displayName,
+              phone: req.tableParticipant.phone,
               authenticated: req.tableParticipant.authenticated,
+              orderingBlocked: req.tableParticipant.orderingBlocked,
             }
           : null,
       });
