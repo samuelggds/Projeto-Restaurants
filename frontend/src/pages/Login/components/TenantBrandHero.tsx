@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import styled from 'styled-components';
 import { resolveCategoryIcon } from '../../../config/categoryIconMap';
 import {
@@ -74,7 +75,7 @@ type Props = {
 export function TenantBrandHero({ branding, mode, overrideText }: Props) {
   const presentation = getRestaurantCategoryPresentation(branding.category);
   const copy = getAuthHeroCopy(branding.category, mode);
-  const CategoryIcon = resolveCategoryIcon(presentation.iconLabel);
+  const categoryIcon = createElement(resolveCategoryIcon(presentation.iconLabel));
   const hasCover = Boolean(branding.logoUrl);
 
   return (
@@ -85,7 +86,7 @@ export function TenantBrandHero({ branding, mode, overrideText }: Props) {
 
       <S.BrandTitle>
         <BrandIcon $hasCover={hasCover} aria-hidden="true">
-          <CategoryIcon />
+          {categoryIcon}
         </BrandIcon>
         <span>{branding.name}</span>
       </S.BrandTitle>
