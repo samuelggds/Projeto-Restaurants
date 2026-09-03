@@ -7,6 +7,10 @@ import {
 } from '../../../features/password-policy';
 import superAdminService, { type CreateRestaurantInput } from '../../../Services/superAdminService';
 import {
+  RESTAURANT_CATEGORY_OPTIONS,
+  type RestaurantCategory,
+} from '../../../config/restaurantCategory';
+import {
   formatCurrency,
   normalizeEmail,
   requestErrorMessage,
@@ -24,7 +28,13 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
   const firstPlan = plans.find((plan) => plan.active)?.code || plans[0]?.code || '';
   const [form, setForm] = useState<Form>({
     plan: firstPlan,
-    restaurant: { name: '', slug: '', email: '', phone: '' },
+    restaurant: {
+      name: '',
+      slug: '',
+      email: '',
+      phone: '',
+      category: 'RESTAURANTE',
+    },
     admin: { name: '', email: '', password: '' },
     passwordConfirmation: '',
   });
@@ -38,13 +48,16 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
     [form.admin.password, form.passwordConfirmation],
   );
 
-  const setRestaurant = (field: keyof Form['restaurant'], value: string) => {
+  const setRestaurant = <K extends keyof Form['restaurant']>(
+    field: K,
+    value: Form['restaurant'][K],
+  ) => {
     setForm((current) => ({
       ...current,
       restaurant: {
         ...current.restaurant,
         [field]: value,
-        ...(field === 'name' && !slugEdited ? { slug: slugify(value) } : {}),
+        ...(field === 'name' && !slugEdited ? { slug: slugify(String(value)) } : {}),
       },
     }));
   };
@@ -71,7 +84,7 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
           name: form.restaurant.name.trim(),
           slug: slugify(form.restaurant.slug),
           email: normalizeEmail(form.restaurant.email),
-          phone: form.restaurant.phone.replace(/\D/g, ''),
+          phone: form.restaurant.phone?.replace(/\D/g, ''),
         },
         admin: {
           ...form.admin,
@@ -101,7 +114,7 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
         <header>
           <div>
             <h2>Novo restaurante</h2>
-            <p>Crie o tenant, a assinatura e um acesso administrativo individual.</p>
+            <p>Crie o tenant, defina o tipo de estabelecimento e configure o acesso inicial.</p>
           </div>
           <button className="close" type="button" aria-label="Fechar" onClick={onClose}>
             <X size={19} />
@@ -117,6 +130,22 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
               value={form.restaurant.name}
               onChange={(e) => setRestaurant('name', e.target.value)}
             />
+          </label>
+          <label>
+            Categoria do estabelecimento
+            <select
+              required
+              value={form.restaurant.category}
+              onChange={(e) =>
+                setRestaurant('category', e.target.value as RestaurantCategory)
+              }
+            >
+              {RESTAURANT_CATEGORY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             Endereço público (slug)
@@ -229,6 +258,10 @@ export function CreateRestaurantDialog({ plans, onClose, onCreated }: Props) {
               {selectedPlan.trialDays} dias.
             </div>
           ) : null}
+          <div className="plan-help">
+            A categoria será usada para personalizar automaticamente ícone e textos das telas de
+            acesso. A imagem, o nome e a cor continuam sendo definidos pela identidade do tenant.
+          </div>
           <div className="plan-help">
             O administrador deverá trocar a senha temporária no primeiro login. Envie a credencial
             por um canal seguro.
