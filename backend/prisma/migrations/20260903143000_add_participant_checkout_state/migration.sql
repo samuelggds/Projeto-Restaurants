@@ -12,8 +12,8 @@ CREATE TABLE "TableParticipantState" (
 
   CONSTRAINT "TableParticipantState_pkey" PRIMARY KEY ("participantId"),
   CONSTRAINT "TableParticipantState_participant_tenant_fkey"
-    FOREIGN KEY ("participantId", "restaurantId")
-    REFERENCES "TableParticipant"("id", "restaurantId")
+    FOREIGN KEY ("participantId", "tableSessionId", "restaurantId")
+    REFERENCES "TableParticipant"("id", "tableSessionId", "restaurantId")
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "TableParticipantState_session_tenant_fkey"
     FOREIGN KEY ("tableSessionId", "restaurantId")
@@ -30,8 +30,8 @@ CREATE INDEX "TableParticipantState_tenant_session_blocked_idx"
 ALTER TABLE "TableServiceCall" ADD COLUMN "participantId" INTEGER;
 ALTER TABLE "TableServiceCall"
   ADD CONSTRAINT "TableServiceCall_participant_tenant_fkey"
-  FOREIGN KEY ("participantId", "restaurantId")
-  REFERENCES "TableParticipant"("id", "restaurantId")
+  FOREIGN KEY ("participantId", "tableSessionId", "restaurantId")
+  REFERENCES "TableParticipant"("id", "tableSessionId", "restaurantId")
   ON DELETE CASCADE ON UPDATE CASCADE;
 
 DROP INDEX IF EXISTS "TableServiceCall_active_table_type_key";
