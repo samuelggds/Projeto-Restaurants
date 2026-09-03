@@ -30,7 +30,56 @@ const callInclude = {
   },
 } satisfies Prisma.TableServiceCallInclude;
 
+type ParticipantContextRow = {
+  callId: number;
+  participantId: number;
+  publicId: string;
+  displayName: string | null;
+  phone: string | null;
+};
+
 class TableServiceCallRepository {
+  private async enrichParticipantContext<T extends { id: number }>(
+    calls: T[],
+    restaurantId: number,
+    db: PrismaClientLike,
+  ) {
+    if (!calls.length) return calls;
+    const ids = calls.map((call) => call.id);
+    const rows = await db.$queryRaw<ParticipantContextRow[]>(Prisma.sql`
+      SELECT
+        call."id" AS "callId",
+        participant."id" AS "participantId",
+        participant."publicId",
+        participant."displayName",
+        state."phone"
+      FROM "TableServiceCall" AS call
+      JOIN "TableParticipant" AS participant
+        ON participant."id" = call."participantId"
+       AND participant."restaurantId" = call."restaurantId"
+      LEFT JOIN "TableParticipantState" AS state
+        ON state."participantId" = participant."id"
+       AND state."restaurantId" = participant."restaurantId"
+      WHERE call."restaurantId" = ${restaurantId}
+        AND call."id" IN (${Prisma.join(ids)})
+    `);
+    const byCall = new Map(rows.map((row) => [row.callId, row]));
+    return calls.map((call) => {
+      const participant = byCall.get(call.id);
+      return participant
+        ? {
+            ...call,
+            participant: {
+              id: participant.participantId,
+              publicId: participant.publicId,
+              displayName: participant.displayName,
+              phone: participant.phone,
+            },
+          }
+        : call;
+    });
+  }
+
   async findOpenSessionContext(
     sessionId: number,
     tableId: number,
@@ -98,15 +147,66 @@ class TableServiceCallRepository {
     });
   }
 
+  async findActiveBillByParticipant(
+    restaurantId: number,
+    tableSessionId: number,
+    participantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    const rows = await db.$queryRaw<Array<{ id: number }>>(Prisma.sql`
+      SELECT "id"
+      FROM "TableServiceCall"
+      WHERE "restaurantId" = ${restaurantId}
+        AND "tableSessionId" = ${tableSessionId}
+        AND "participantId" = ${participantId}
+        AND "type" = ${TableServiceCallType.BILL}::"TableServiceCallType"
+        AND "status" IN (
+          ${TableServiceCallStatus.WAITING}::"TableServiceCallStatus",
+          ${TableServiceCallStatus.IN_PROGRESS}::"TableServiceCallStatus"
+        )
+      ORDER BY "requestedAt" ASC
+      LIMIT 1
+    `);
+    if (!rows[0]) return null;
+    return this.findByIdForRestaurant(rows[0].id, restaurantId, db);
+  }
+
+  async createBillForParticipant(
+    input: {
+      restaurantId: number;
+      tableId: number;
+      tableSessionId: number;
+      participantId: number;
+    },
+    db: Prisma.TransactionClient,
+  ) {
+    const rows = await db.$queryRaw<Array<{ id: number }>>(Prisma.sql`
+      INSERT INTO "TableServiceCall" (
+        "restaurantId", "tableId", "tableSessionId", "participantId", "type", "status",
+        "requestedAt", "createdAt", "updatedAt"
+      ) VALUES (
+        ${input.restaurantId}, ${input.tableId}, ${input.tableSessionId}, ${input.participantId},
+        ${TableServiceCallType.BILL}::"TableServiceCallType",
+        ${TableServiceCallStatus.WAITING}::"TableServiceCallStatus",
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+      RETURNING "id"
+    `);
+    return this.findByIdForRestaurant(rows[0].id, input.restaurantId, db);
+  }
+
   async create(data: Prisma.TableServiceCallUncheckedCreateInput, db: PrismaClientLike = prisma) {
     return db.tableServiceCall.create({ data, include: callInclude });
   }
 
   async findByIdForRestaurant(id: number, restaurantId: number, db: PrismaClientLike = prisma) {
-    return db.tableServiceCall.findFirst({
+    const call = await db.tableServiceCall.findFirst({
       where: { id, restaurantId },
       include: callInclude,
     });
+    if (!call) return null;
+    const [enriched] = await this.enrichParticipantContext([call], restaurantId, db);
+    return enriched;
   }
 
   async listByRestaurant(
@@ -134,7 +234,7 @@ class TableServiceCallRepository {
           ],
         };
 
-    return db.tableServiceCall.findMany({
+    const calls = await db.tableServiceCall.findMany({
       where: {
         restaurantId,
         ...statusFilter,
@@ -145,6 +245,7 @@ class TableServiceCallRepository {
       orderBy: [{ status: 'asc' }, { requestedAt: 'asc' }],
       take: filters.take || 200,
     });
+    return this.enrichParticipantContext(calls, restaurantId, db);
   }
 
   async assignIfWaiting(
@@ -193,7 +294,7 @@ class TableServiceCallRepository {
     restaurantId: number,
     db: PrismaClientLike = prisma,
   ) {
-    return db.tableServiceCall.findMany({
+    const calls = await db.tableServiceCall.findMany({
       where: {
         tableSessionId,
         restaurantId,
@@ -201,6 +302,7 @@ class TableServiceCallRepository {
       },
       include: callInclude,
     });
+    return this.enrichParticipantContext(calls, restaurantId, db);
   }
 
   async resolveActiveBySession(
@@ -219,25 +321,6 @@ class TableServiceCallRepository {
         status: TableServiceCallStatus.RESOLVED,
         resolvedById,
         resolvedAt: new Date(),
-      },
-    });
-  }
-
-
-  async requestSessionClosing(
-    tableSessionId: number,
-    restaurantId: number,
-    db: PrismaClientLike = prisma,
-  ) {
-    return db.tableSession.updateMany({
-      where: {
-        id: tableSessionId,
-        restaurantId,
-        status: TableSessionStatus.OPEN,
-      },
-      data: {
-        status: TableSessionStatus.CLOSING_REQUESTED,
-        closingRequestedAt: new Date(),
       },
     });
   }
