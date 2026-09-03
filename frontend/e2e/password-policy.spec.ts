@@ -130,7 +130,7 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
   await page.getByLabel('E-mail').fill('existente@example.test');
   await page.getByLabel('Senha', { exact: true }).fill('Ab1!cdef');
   await page.getByLabel('Confirmar Senha', { exact: true }).fill('Ab1!cdef');
-  await page.getByRole('button', { name: 'Finalizar Cadastro' }).click();
+  await page.getByRole('button', { name: 'Criar conta e continuar na Mesa 5' }).click();
 
   const submitting = page.getByRole('button', { name: 'Finalizando...' });
   await expect(submitting).toBeDisabled();
@@ -141,11 +141,15 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
   await expect(page.getByRole('main').getByRole('alert')).toHaveText(
     'Este e-mail já está cadastrado.',
   );
-  await expect(page.getByRole('button', { name: 'Finalizar Cadastro' })).toBeEnabled();
-  await expect(page.getByRole('link', { name: 'Fazer Login' })).toHaveAttribute(
-    'href',
-    '/login?rid=9&next=%2Fmesa%2F5',
-  );
+  await expect(
+    page.getByRole('button', { name: 'Criar conta e continuar na Mesa 5' }),
+  ).toBeEnabled();
+  const loginHref = await page.getByRole('link', { name: 'Fazer Login' }).getAttribute('href');
+  expect(loginHref).not.toBeNull();
+  const loginUrl = new URL(loginHref || '', 'http://internal.test');
+  expect(loginUrl.pathname).toBe('/login');
+  expect(loginUrl.searchParams.get('next')).toBe('/mesa/5');
+  expect(loginUrl.searchParams.get('rid')).toBe('9');
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);

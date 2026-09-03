@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { KeyRound, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext';
@@ -10,9 +10,12 @@ import {
   PRIVILEGED_PASSWORD_POLICY,
 } from '../../features/password-policy';
 import * as S from './styles';
+import { buildAuthEntryUrl } from '../../shared/navigation/authNavigation';
 
 export default function ChangePasswordPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const loginPath = buildAuthEntryUrl('/login', searchParams);
   const { logout } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -28,7 +31,7 @@ export default function ChangePasswordPage() {
 
   const leaveSession = () => {
     logout();
-    navigate('/login', { replace: true });
+    navigate(loginPath, { replace: true });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -53,7 +56,7 @@ export default function ChangePasswordPage() {
       });
       logout();
       toast.success('Senha alterada. Entre novamente com a nova senha.');
-      navigate('/login', { replace: true });
+      navigate(loginPath, { replace: true });
     } catch (error) {
       const message =
         error?.response?.data?.error || 'Não foi possível alterar a senha. Tente novamente.';

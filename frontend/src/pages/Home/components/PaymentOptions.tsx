@@ -16,7 +16,10 @@ import type { CheckoutPaymentMethod } from '../domain/checkout';
 import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
 import * as S from '../../Home/Home.styles';
-import { buildLoginUrl } from '../../../shared/navigation/authNavigation';
+import {
+  buildAuthEntryUrlForLocation,
+  buildLoginUrl,
+} from '../../../shared/navigation/authNavigation';
 
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
@@ -208,9 +211,7 @@ export function PaymentOptions({
               type="button"
               className="primary"
               onClick={() =>
-                window.location.assign(
-                  `/register?next=${encodeURIComponent(window.location.pathname)}`,
-                )
+                window.location.assign(buildAuthEntryUrlForLocation('/register', window.location))
               }
             >
               <UserPlus size={16} /> Criar conta para salvar

@@ -870,7 +870,9 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
   const tracking = await mockCustomerTrackingApi(page, state);
   await page.goto('/orders/601/tracking');
 
-  await expect(page.getByText('Pedido #601')).toBeVisible();
+  await expect(
+    page.getByRole('banner').getByText('Pedido #601', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Saiu para entrega', { exact: true })).toBeVisible();
   await expect(page.getByText(courierUser.name)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ligar para o motoqueiro' })).toHaveAttribute(

@@ -1,16 +1,41 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import prisma from '../config/prisma.js';
 import tableParticipantRepository from '../modules/tableSession/repositories/TableParticipantRepository.js';
 import { hashParticipantToken } from '../modules/tableSession/security/participantToken.js';
+import tableParticipantStateService from '../modules/tableSession/services/TableParticipantStateService.js';
 import { tableParticipantMiddleware } from './tableParticipantMiddleware.js';
 
+const originalTransaction = prisma.$transaction;
 const originalFindGuest = tableParticipantRepository.findGuestByTokenHash;
 const originalFindUser = tableParticipantRepository.findByUser;
+const originalGetState = tableParticipantStateService.getState;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  tableParticipantStateService.getState = async (_db, input) => {
+    assert.deepEqual(input, {
+      participantId: input.participantId,
+      tableSessionId: 55,
+      restaurantId: 7,
+    });
+    return {
+      participantId: input.participantId,
+      tableSessionId: 55,
+      restaurantId: 7,
+      phone: '85999999999',
+      orderingBlockedAt: null,
+      orderingUnblockedAt: null,
+    };
+  };
+});
 
 afterEach(() => {
+  prisma.$transaction = originalTransaction;
   tableParticipantRepository.findGuestByTokenHash = originalFindGuest;
   tableParticipantRepository.findByUser = originalFindUser;
+  tableParticipantStateService.getState = originalGetState;
 });
 
 function responseStub() {
@@ -68,6 +93,8 @@ test('cookie válido identifica somente o convidado da sessão e tenant atuais',
   assert.equal(nextCalled, true);
   assert.equal(req.tableParticipant.id, 80);
   assert.equal(req.tableParticipant.restaurantId, 7);
+  assert.equal(req.tableParticipant.phone, '85999999999');
+  assert.equal(req.tableParticipant.orderingBlocked, false);
   assert.equal(req.tableParticipant.authenticated, false);
 });
 

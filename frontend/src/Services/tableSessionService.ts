@@ -1,5 +1,15 @@
 import api from './api';
 
+type JoinOpenSessionInput = {
+  tableId: number | null;
+  tableNumber: number | null;
+  tableToken: string;
+  restaurantId: number | null;
+  restaurantSlug: string | null;
+  displayName?: string;
+  phone?: string;
+};
+
 class TableSessionService {
   async getCurrentSession() {
     const response = await api.get('/table-sessions/current');
@@ -25,7 +35,7 @@ class TableSessionService {
     restaurantSlug,
     displayName,
     phone,
-  }) {
+  }: JoinOpenSessionInput) {
     const response = await api.post('/table-sessions/join', {
       tableId,
       tableNumber,

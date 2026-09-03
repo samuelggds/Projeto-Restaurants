@@ -356,8 +356,12 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await featuredOffers.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional').click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: 'Retirada' }).click();
-  await page.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
+  await page.getByRole('button', { name: /^Sacola com [1-9]\d* ite(?:m|ns)$/ }).click();
+  const cartDialog = page.getByRole('dialog', { name: 'Minha sacola' });
+  await expect(cartDialog).toBeVisible();
+  await cartDialog.getByRole('button', { name: 'Retirada', exact: true }).click();
+  const loyaltyPanel = cartDialog.getByRole('region', { name: 'Cupom de fidelidade' });
+  await loyaltyPanel.getByRole('button', { name: /Cliente fiel.*Aplicar/ }).click();
 
   await expect(page.getByText('Cupom • FIEL10')).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
@@ -372,6 +376,10 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(page.getByText('Pagamento confirmado', { exact: true })).toBeVisible();
   await expect(page.getByText('O backend confirmou o recebimento')).toBeVisible();
   await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  const loyaltyToggle = page.getByTestId('customer-coupon-status-toggle');
+  await expect(loyaltyToggle).toHaveAttribute('aria-expanded', 'false');
+  await loyaltyToggle.click();
+  await expect(loyaltyToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(
     page.getByRole('button', { name: /Faltam 5 pedidos.*próxima recompensa/i }),
   ).toBeVisible();

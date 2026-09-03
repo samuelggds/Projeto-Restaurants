@@ -709,10 +709,11 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByText(/Clicar em pagar não significa pagamento confirmado/i)).toBeVisible();
   await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await page
-    .getByRole('button', { name: 'Abrir cupons, status do pedido e avisos da mesa' })
-    .click();
-  await page.getByRole('button', { name: /Status do pedido da mesa/i }).click();
+  const tableStatusButton = page.getByRole('button', {
+    name: /^Status do pedido da mesa\b/i,
+  });
+  await expect(tableStatusButton).toBeVisible();
+  await tableStatusButton.click();
   const tableOrderDialog = page.getByRole('dialog', { name: 'Pedido da mesa 1' });
   await expect(tableOrderDialog).toBeVisible();
   await expect(tableOrderDialog.getByText('Pedido recebido', { exact: true })).toBeVisible();
@@ -795,10 +796,14 @@ test('cliente separa escopo e método e só vê pago após reconciliação canô
   });
   expect(state.orderPayload).not.toHaveProperty('paymentMethod');
 
-  await page
-    .getByRole('button', { name: 'Abrir cupons, status do pedido e avisos da mesa' })
-    .click();
-  await page.getByRole('button', { name: 'Ver conta' }).click();
+  const tableActions = page.getByRole('region', {
+    name: `Mesa e atendimento da mesa ${TABLE_NUMBER}`,
+  });
+  const tableActionsToggle = tableActions.getByTestId('table-service-actions-toggle');
+  await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'false');
+  await tableActionsToggle.click();
+  await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'true');
+  await tableActions.getByRole('button', { name: 'Ver conta', exact: true }).click();
   const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
   await expect(accountDialog.getByText('1 de 3')).toBeVisible();
   await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();

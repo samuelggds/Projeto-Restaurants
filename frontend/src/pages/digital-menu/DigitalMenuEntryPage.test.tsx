@@ -6,6 +6,7 @@ import tableSessionService from '../../Services/tableSessionService';
 import tablesService from '../../Services/tablesService';
 import { connectTableWaitingSocket } from '../../Services/socketService';
 import DigitalMenuEntryPage from './DigitalMenuEntryPage';
+import DigitalMenuIdentityEntryPage from './DigitalMenuIdentityEntryPage';
 
 vi.mock('../../Services/tablesService', () => ({
   default: {
@@ -194,6 +195,140 @@ describe('DigitalMenuEntryPage', () => {
 
     expect(container.textContent).toContain('não corresponde ao QR Code');
     expect(container.textContent).not.toContain('Fluxo funcional do cardápio');
+    expect(tableSessionService.joinOpenSession).not.toHaveBeenCalled();
+  });
+
+  it('só solicita a identidade depois de validar a mesa canônica', async () => {
+    const tableToken = '0123456789abcdef0123456789abcdef';
+    const onParticipantIdentityRequired = vi.fn();
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession).mockRejectedValue({
+      response: {
+        data: {
+          code: 'TABLE_PARTICIPANT_IDENTITY_REQUIRED',
+          error: 'Informe seu nome e telefone para entrar nesta mesa.',
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[`/restaurante-teste/mesa/12?rid=7&tk=${tableToken}`]}>
+          <Routes>
+            <Route
+              path="/:restaurantSlug/mesa/:tableNumber"
+              element={
+                <DigitalMenuEntryPage
+                  onParticipantIdentityRequired={onParticipantIdentityRequired}
+                />
+              }
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(1);
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledWith({
+      tableId: 91,
+      tableNumber: 12,
+      tableToken,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+    });
+    expect(onParticipantIdentityRequired).toHaveBeenCalledWith({
+      tableNumber: 12,
+      message: 'Informe seu nome e telefone para entrar nesta mesa.',
+    });
+    expect(container.textContent).not.toContain('QR Code inválido');
+  });
+
+  it('valida o QR antes de pedir identidade e faz uma única entrada identificada', async () => {
+    const tableToken = '0123456789abcdef0123456789abcdef';
+    vi.mocked(tablesService.resolvePublicTable).mockResolvedValue({
+      id: 91,
+      number: 12,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      tableOrderingEnabled: true,
+      waiterCallEnabled: true,
+      billRequestEnabled: true,
+    });
+    vi.mocked(tableSessionService.joinOpenSession)
+      .mockRejectedValueOnce({
+        response: {
+          data: {
+            code: 'TABLE_PARTICIPANT_IDENTITY_REQUIRED',
+            error: 'Informe seu nome e telefone para entrar nesta mesa.',
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        sessionToken: 'sessao-segura',
+        sessionId: 31,
+        sessionPublicId: '323e4567-e89b-42d3-a456-426614174001',
+        tableId: 91,
+        tableNumber: 12,
+        restaurantId: 7,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        tableOrderingEnabled: true,
+        waiterCallEnabled: true,
+        billRequestEnabled: true,
+      });
+
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <MemoryRouter initialEntries={[`/restaurante-teste/mesa/12?rid=7&tk=${tableToken}`]}>
+            <Routes>
+              <Route
+                path="/:restaurantSlug/mesa/:tableNumber"
+                element={<DigitalMenuIdentityEntryPage />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('Como podemos identificar você?');
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(1);
+
+    const [nameInput, phoneInput] = Array.from(container.querySelectorAll('input'));
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      valueSetter?.call(nameInput, '  Samuel   Gomes  ');
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      valueSetter?.call(phoneInput, '(11) 99999-9999');
+      phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(tableSessionService.joinOpenSession).toHaveBeenCalledTimes(2);
+    expect(tableSessionService.joinOpenSession).toHaveBeenLastCalledWith({
+      tableId: 91,
+      tableNumber: 12,
+      tableToken,
+      restaurantId: 7,
+      restaurantSlug: 'restaurante-teste',
+      displayName: 'Samuel Gomes',
+      phone: '11999999999',
+    });
+    expect(container.textContent).toContain('Fluxo funcional do cardápio');
   });
 
   it('usa o token como identidade principal quando o tid do QR está desatualizado', async () => {

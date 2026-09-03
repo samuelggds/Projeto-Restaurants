@@ -25,6 +25,7 @@ export default function Login() {
   const authExperience = resolveAuthExperience(searchParams);
   const registerPath = buildAuthEntryUrl('/register', searchParams);
   const recoverPasswordPath = buildAuthEntryUrl('/recover-password', searchParams);
+  const changePasswordPath = buildAuthEntryUrl('/change-password', searchParams);
   const isTableContext = !isTechnicalAccess && authExperience.context === 'TABLE';
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
@@ -105,15 +106,27 @@ export default function Login() {
 
   const redirectByRole = useCallback(
     (user) => {
-      if (user?.role === 'CLIENTE' && safeNextPath && user?.mustChangePassword !== true) {
-        navigate(safeNextPath);
-        return;
+      if (user?.role === 'CLIENTE') {
+        if (user?.mustChangePassword === true) {
+          navigate(changePasswordPath);
+          return;
+        }
+
+        if (safeNextPath) {
+          navigate(safeNextPath);
+          return;
+        }
       }
 
       navigate(getRoleHome(user));
     },
-    [navigate, safeNextPath],
+    [changePasswordPath, navigate, safeNextPath],
   );
+  const latestRedirectByRoleRef = useRef(redirectByRole);
+
+  useEffect(() => {
+    latestRedirectByRoleRef.current = redirectByRole;
+  }, [redirectByRole]);
 
   const completeLoginWithMfaIfNeeded = useCallback(
     async (authResponse) => {
@@ -186,7 +199,7 @@ export default function Login() {
               });
               setTimeout(() => {
                 login(authResponse.user, authResponse.token);
-                redirectByRole(authResponse.user);
+                latestRedirectByRoleRef.current(authResponse.user);
               }, 700);
             } catch (error) {
               const message = error?.response?.data?.error || 'Erro ao autenticar com Google';
@@ -221,14 +234,7 @@ export default function Login() {
     } finally {
       googleInitInFlightRef.current = false;
     }
-  }, [
-    getGoogleClientId,
-    loadGoogleScript,
-    login,
-    redirectByRole,
-    isDarkMode,
-    completeLoginWithMfaIfNeeded,
-  ]);
+  }, [getGoogleClientId, loadGoogleScript, login, isDarkMode, completeLoginWithMfaIfNeeded]);
 
   useEffect(() => {
     if (isTechnicalAccess) {
@@ -271,7 +277,7 @@ export default function Login() {
       setFeedback({ type: 'success', message: 'Login realizado com sucesso!' });
       setTimeout(() => {
         login(response.user, response.token);
-        redirectByRole(response.user);
+        latestRedirectByRoleRef.current(response.user);
       }, 700);
     } catch (error) {
       const message =
@@ -356,6 +362,8 @@ export default function Login() {
 
             {feedback && (
               <div
+                role={feedback.type === 'error' ? 'alert' : 'status'}
+                aria-live={feedback.type === 'error' ? 'assertive' : 'polite'}
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -388,6 +396,7 @@ export default function Login() {
                   id="email"
                   type="email"
                   placeholder="exemplo@email.com"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -401,6 +410,7 @@ export default function Login() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -459,7 +469,11 @@ export default function Login() {
                     </S.GoogleFallbackButton>
                   )}
                 </S.GoogleButtonContainer>
-                {googleMessage && <S.GoogleHint>{googleMessage}</S.GoogleHint>}
+                {googleMessage && (
+                  <S.GoogleHint role="alert" aria-live="polite">
+                    {googleMessage}
+                  </S.GoogleHint>
+                )}
                 <S.RegisterText>
                   Não tem uma conta? <Link to={registerPath}>Cadastre-se aqui</Link>
                 </S.RegisterText>

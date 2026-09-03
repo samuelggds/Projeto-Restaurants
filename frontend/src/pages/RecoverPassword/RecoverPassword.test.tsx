@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -27,6 +27,13 @@ import RecoverPassword from './RecoverPassword';
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
+const TABLE_RETURN_PATH = '/restaurante-teste/mesa/12?rid=42&tk=test-token#conta';
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output>{`${location.pathname}${location.search}${location.hash}`}</output>;
+}
+
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   act(() => {
@@ -47,8 +54,13 @@ describe('RecoverPassword', () => {
     root = createRoot(container);
     act(() => {
       root.render(
-        <MemoryRouter initialEntries={['/recover-password']}>
-          <RecoverPassword />
+        <MemoryRouter
+          initialEntries={[`/recover-password?next=${encodeURIComponent(TABLE_RETURN_PATH)}`]}
+        >
+          <Routes>
+            <Route path="/recover-password" element={<RecoverPassword />} />
+            <Route path="/login" element={<LocationProbe />} />
+          </Routes>
         </MemoryRouter>,
       );
     });
@@ -97,5 +109,42 @@ describe('RecoverPassword', () => {
 
     expect(identifier.readOnly).toBe(false);
     expect(container.querySelector('#reset-code')).toBeNull();
+  });
+
+  it('retorna ao Login com o next completo após redefinir a senha', async () => {
+    mocks.resetPassword.mockResolvedValue({ message: 'Senha redefinida.' });
+    const emailMethod = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'E-mail',
+    ) as HTMLButtonElement;
+    act(() => emailMethod.click());
+    setInputValue(
+      container.querySelector('#identifier') as HTMLInputElement,
+      'cliente@example.test',
+    );
+
+    await act(async () => {
+      (container.querySelector('form') as HTMLFormElement).requestSubmit();
+      await Promise.resolve();
+    });
+
+    setInputValue(container.querySelector('#reset-code') as HTMLInputElement, '123456');
+    setInputValue(container.querySelector('#new-password') as HTMLInputElement, 'Senha@123');
+    setInputValue(container.querySelector('#confirm-password') as HTMLInputElement, 'Senha@123');
+
+    await act(async () => {
+      (container.querySelector('form') as HTMLFormElement).requestSubmit();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.resetPassword).toHaveBeenCalledWith({
+      email: 'cliente@example.test',
+      code: '123456',
+      newPassword: 'Senha@123',
+      confirmPassword: 'Senha@123',
+    });
+    const location = container.textContent || '';
+    expect(location).toMatch(/^\/login\?next=/u);
+    expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(TABLE_RETURN_PATH);
   });
 });

@@ -14,6 +14,32 @@ describe('identidade dinâmica do login', () => {
       slug: '',
     });
   });
+  it('prioriza o restaurante presente no retorno seguro da mesa', () => {
+    const next = '/north-pizza/mesa/12?rid=42&tk=abc';
+    expect(
+      resolveLoginRestaurant(
+        new URLSearchParams({ next, restaurantId: '99', slug: 'outro-restaurante' }),
+      ),
+    ).toEqual({
+      restaurantId: 42,
+      slug: 'north-pizza',
+    });
+  });
+  it('usa o restaurantId da mesa sem slug em vez de branding conflitante', () => {
+    const next = '/mesa/12?rid=42&tk=abc';
+    expect(
+      resolveLoginRestaurant(new URLSearchParams({ next, slug: 'outro-restaurante' })),
+    ).toEqual({
+      restaurantId: 42,
+      slug: '',
+    });
+  });
+  it('descarta slug explícito malformado', () => {
+    expect(resolveLoginRestaurant(new URLSearchParams({ slug: '../admin' }))).toEqual({
+      restaurantId: null,
+      slug: '',
+    });
+  });
   it('mapeia nome, descrição, logo e cor cadastrados', () => {
     expect(
       mapLoginBranding({

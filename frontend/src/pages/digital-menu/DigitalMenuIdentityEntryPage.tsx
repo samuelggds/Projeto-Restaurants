@@ -1,9 +1,15 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useState } from 'react';
 import { LogIn, Phone, UserRound } from 'lucide-react';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import tableSessionService from '../../Services/tableSessionService';
-import DigitalMenuEntryPage from './DigitalMenuEntryPage';
+import {
+  buildLoginUrl,
+  getCurrentReturnPath,
+} from '../../shared/navigation/authNavigation';
+import DigitalMenuEntryPage, {
+  type TableParticipantIdentity,
+  type TableParticipantIdentityRequirement,
+} from './DigitalMenuEntryPage';
 
 const Page = styled.main`
   min-height: 100vh;
@@ -135,78 +141,30 @@ const Card = styled.section`
   }
 `;
 
-const Loading = styled(Page)`
-  color: #756b63;
-  font-size: 14px;
-  font-weight: 700;
-`;
-
-function positiveInteger(value: unknown) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 export default function DigitalMenuIdentityEntryPage() {
-  const { tableNumber, restaurantSlug } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mode, setMode] = useState<'checking' | 'identity' | 'ready'>('checking');
+  const currentEntryPath = getCurrentReturnPath(location);
+  const [identityRequirement, setIdentityRequirement] = useState<
+    (TableParticipantIdentityRequirement & { entryPath: string }) | null
+  >(null);
+  const [participantIdentity, setParticipantIdentity] =
+    useState<TableParticipantIdentity | null>(null);
+  const [entryAttempt, setEntryAttempt] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const context = useMemo(
-    () => ({
-      tableNumber: positiveInteger(tableNumber),
-      tableId: positiveInteger(searchParams.get('tableId') || searchParams.get('tid')),
-      restaurantId: positiveInteger(
-        searchParams.get('restaurantId') || searchParams.get('rid'),
-      ),
-      restaurantSlug: String(restaurantSlug || '').trim().toLowerCase() || null,
-      tableToken: String(searchParams.get('tk') || searchParams.get('token') || '').trim(),
-    }),
-    [restaurantSlug, searchParams, tableNumber],
-  );
-  const hasJoinContext = Boolean(
-    context.tableNumber &&
-      (context.restaurantId || context.restaurantSlug) &&
-      context.tableToken,
+  const requireParticipantIdentity = useCallback(
+    (requirement: TableParticipantIdentityRequirement) => {
+      setError(participantIdentity ? requirement.message : '');
+      setIdentityRequirement({ ...requirement, entryPath: currentEntryPath });
+    },
+    [currentEntryPath, participantIdentity],
   );
 
-  useEffect(() => {
-    if (!hasJoinContext) return undefined;
-
-    let active = true;
-    const check = async () => {
-      try {
-        await tableSessionService.joinOpenSession(context);
-        if (active) setMode('ready');
-      } catch (requestError: unknown) {
-        if (!active) return;
-        const typed = requestError as {
-          response?: { data?: { code?: string; error?: string } };
-        };
-        if (typed.response?.data?.code === 'TABLE_PARTICIPANT_IDENTITY_REQUIRED') {
-          setMode('identity');
-          return;
-        }
-        // A tela original continua responsável por mesa fechada, QR inválido,
-        // assinatura e demais estados operacionais.
-        setMode('ready');
-      }
-    };
-
-    void check();
-    return () => {
-      active = false;
-    };
-  }, [context, hasJoinContext]);
-
-  const submit = async (event: FormEvent) => {
+  const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (submitting) return;
     const normalizedName = name.trim().replace(/\s+/g, ' ');
     const normalizedPhone = phone.replace(/\D/g, '');
     if (normalizedName.length < 2) {
@@ -218,36 +176,24 @@ export default function DigitalMenuIdentityEntryPage() {
       return;
     }
 
-    setSubmitting(true);
     setError('');
-    try {
-      await tableSessionService.joinOpenSession({
-        ...context,
-        displayName: normalizedName,
-        phone: normalizedPhone,
-      });
-      setMode('ready');
-    } catch (requestError: unknown) {
-      const typed = requestError as {
-        response?: { data?: { error?: string } };
-        message?: string;
-      };
-      setError(
-        typed.response?.data?.error ||
-          typed.message ||
-          'Não foi possível confirmar sua identificação nesta mesa.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    setParticipantIdentity({ displayName: normalizedName, phone: normalizedPhone });
+    setIdentityRequirement(null);
+    setEntryAttempt((attempt) => attempt + 1);
   };
 
-  if (!hasJoinContext || mode === 'ready') return <DigitalMenuEntryPage />;
-  if (mode === 'checking') return <Loading role="status">Identificando sua mesa...</Loading>;
+  const showIdentityForm = identityRequirement?.entryPath === currentEntryPath;
+  if (!showIdentityForm) {
+    return (
+      <DigitalMenuEntryPage
+        key={entryAttempt}
+        participantIdentity={participantIdentity}
+        onParticipantIdentityRequired={requireParticipantIdentity}
+      />
+    );
+  }
 
-  const tableLabel = context.tableNumber ? `Mesa ${context.tableNumber}` : 'Sua mesa';
-  const nextPath = `${location.pathname}${location.search}${location.hash}`;
-
+  const tableLabel = `Mesa ${identityRequirement.tableNumber}`;
   return (
     <Page>
       <Card aria-labelledby="participant-identity-title">
@@ -269,7 +215,7 @@ export default function DigitalMenuIdentityEntryPage() {
                 maxLength={100}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Ex.: Samuel Gomes"
+                placeholder="Digite seu nome"
                 aria-invalid={Boolean(error && name.trim().length < 2)}
               />
             </span>
@@ -290,16 +236,19 @@ export default function DigitalMenuIdentityEntryPage() {
             </span>
           </label>
 
-          {error && <p className="error" role="alert">{error}</p>}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
 
-          <button className="primary" type="submit" disabled={submitting}>
-            {submitting ? 'Entrando na mesa...' : `Continuar na ${tableLabel}`}
+          <button className="primary" type="submit">
+            {`Continuar na ${tableLabel}`}
           </button>
           <button
             className="secondary"
             type="button"
-            disabled={submitting}
-            onClick={() => navigate(`/login?next=${encodeURIComponent(nextPath)}`)}
+            onClick={() => navigate(buildLoginUrl(location))}
           >
             <LogIn size={17} /> Já tenho uma conta
           </button>

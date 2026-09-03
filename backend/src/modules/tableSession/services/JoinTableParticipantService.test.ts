@@ -1,10 +1,11 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import prisma from '../../../config/prisma.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import { hashParticipantToken } from '../security/participantToken.js';
 import joinTableParticipantService from './JoinTableParticipantService.js';
+import tableParticipantStateService from './TableParticipantStateService.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -17,7 +18,29 @@ const originals = {
   revoke: tableParticipantRepository.revoke,
   attachUserToOwnedOrders: tableParticipantRepository.attachUserToOwnedOrders,
   transferOwnedTableData: tableParticipantRepository.transferOwnedTableData,
+  getState: tableParticipantStateService.getState,
+  upsertIdentity: tableParticipantStateService.upsertIdentity,
 };
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  tableParticipantStateService.getState = async (_db, input) => ({
+    participantId: input.participantId,
+    tableSessionId: input.tableSessionId,
+    restaurantId: input.restaurantId,
+    phone: '85999999999',
+    orderingBlockedAt: null,
+    orderingUnblockedAt: null,
+  });
+  tableParticipantStateService.upsertIdentity = async (_db, input) => ({
+    participantId: input.participantId,
+    tableSessionId: input.tableSessionId,
+    restaurantId: input.restaurantId,
+    phone: input.phone || '85999999999',
+    orderingBlockedAt: null,
+    orderingUnblockedAt: null,
+  });
+});
 
 afterEach(() => {
   prisma.$transaction = originals.transaction;
@@ -30,6 +53,8 @@ afterEach(() => {
   tableParticipantRepository.revoke = originals.revoke;
   tableParticipantRepository.attachUserToOwnedOrders = originals.attachUserToOwnedOrders;
   tableParticipantRepository.transferOwnedTableData = originals.transferOwnedTableData;
+  tableParticipantStateService.getState = originals.getState;
+  tableParticipantStateService.upsertIdentity = originals.upsertIdentity;
 });
 
 const session = {
@@ -68,6 +93,7 @@ test('cria convidado sem persistir ou devolver o token original no DTO público'
   const result = await joinTableParticipantService.execute({
     session,
     displayName: '  Samuel  ',
+    phone: '(85) 99999-9999',
   });
 
   assert.match(result.participantToken, /^[a-zA-Z0-9_-]{43}$/);
@@ -75,6 +101,7 @@ test('cria convidado sem persistir ou devolver o token original no DTO público'
   assert.notEqual(storedData.guestTokenHash, result.participantToken);
   assert.equal('guestTokenHash' in result.participant, false);
   assert.equal(result.participant.displayName, 'Samuel');
+  assert.equal(result.participant.phone, '85999999999');
   assert.equal(result.participant.authenticated, false);
 });
 
@@ -115,13 +142,15 @@ test('token de outra mesa ou expirado não concede acesso e cria nova identidade
     guestParticipant({
       id: 81,
       publicId: data.publicId,
-      displayName: null,
+      displayName: data.displayName,
       tokenExpiresAt: data.tokenExpiresAt,
     });
 
   const result = await joinTableParticipantService.execute({
     session,
     cookies: { [`table_participant_${session.publicId}`]: rawToken },
+    displayName: 'Novo convidado',
+    phone: '85988887777',
   });
 
   assert.deepEqual(lookupScope, [55, 7]);
@@ -132,6 +161,7 @@ test('token de outra mesa ou expirado não concede acesso e cria nova identidade
 test('login associa o convidado ativo ao usuário sem criar outro participante', async () => {
   const rawToken = 'c'.repeat(43);
   const tx = {
+    $queryRaw: async () => [],
     user: {
       findFirst: async ({ where }) => {
         assert.deepEqual(where, { id: 12, role: 'CLIENTE', active: true });
@@ -169,6 +199,7 @@ test('login associa o convidado ativo ao usuário sem criar outro participante',
 test('login mescla o convidado no participante autenticado sem duplicar pedidos', async () => {
   const rawToken = 'd'.repeat(43);
   const tx = {
+    $queryRaw: async () => [],
     user: {
       findFirst: async () => ({ id: 12 }),
     },
@@ -208,7 +239,8 @@ test('login mescla o convidado no participante autenticado sem duplicar pedidos'
 });
 
 test('cliente autenticado precisa continuar ativo no banco', async () => {
-  prisma.$transaction = async (callback) => callback({ user: { findFirst: async () => null } });
+  prisma.$transaction = async (callback) =>
+    callback({ $queryRaw: async () => [], user: { findFirst: async () => null } });
 
   await assert.rejects(
     () =>

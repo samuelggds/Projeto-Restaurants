@@ -21,6 +21,21 @@ type ResolvedTable = {
   billRequestEnabled: boolean;
 };
 
+export type TableParticipantIdentity = {
+  displayName: string;
+  phone: string;
+};
+
+export type TableParticipantIdentityRequirement = {
+  tableNumber: number;
+  message: string;
+};
+
+type DigitalMenuEntryPageProps = {
+  participantIdentity?: TableParticipantIdentity | null;
+  onParticipantIdentityRequired?: (requirement: TableParticipantIdentityRequirement) => void;
+};
+
 type EntryState =
   | { status: 'loading'; key: string; table: null; error: '' }
   | { status: 'ready'; key: string; table: ResolvedTable; error: '' }
@@ -122,6 +137,7 @@ async function resolveAndJoinTable(input: {
   queryRestaurantId: number | null;
   normalizedSlug: string;
   tableToken: string;
+  participantIdentity: TableParticipantIdentity | null;
 }): Promise<JoinResolution> {
   const raw = (await tablesService.resolvePublicTable({
     tableNumber: input.routeTableNumber,
@@ -159,6 +175,7 @@ async function resolveAndJoinTable(input: {
       tableToken: input.tableToken,
       restaurantId: table.restaurantId,
       restaurantSlug: table.restaurantSlug,
+      ...(input.participantIdentity || {}),
     });
   } catch (error) {
     throw new TableJoinFailure(error, table);
@@ -189,7 +206,10 @@ async function resolveAndJoinTable(input: {
   return { table, session };
 }
 
-export default function DigitalMenuEntryPage() {
+export default function DigitalMenuEntryPage({
+  participantIdentity = null,
+  onParticipantIdentityRequired,
+}: DigitalMenuEntryPageProps = {}) {
   const { tableNumber, restaurantSlug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [retryVersion, setRetryVersion] = useState(0);
@@ -207,6 +227,9 @@ export default function DigitalMenuEntryPage() {
   const hasValidRestaurantReference = Boolean(queryRestaurantId || normalizedSlug);
   const invalidQrContext = !routeTableNumber || !hasValidRestaurantReference || !tableToken;
   const searchParamsString = searchParams.toString();
+  const participantIdentityKey = participantIdentity
+    ? `${participantIdentity.displayName}\u001f${participantIdentity.phone}`
+    : '';
   const entryKey = useMemo(
     () =>
       [
@@ -215,8 +238,16 @@ export default function DigitalMenuEntryPage() {
         queryRestaurantId || '',
         normalizedSlug,
         tableToken,
+        participantIdentityKey,
       ].join(':'),
-    [normalizedSlug, queryRestaurantId, queryTableId, routeTableNumber, tableToken],
+    [
+      normalizedSlug,
+      participantIdentityKey,
+      queryRestaurantId,
+      queryTableId,
+      routeTableNumber,
+      tableToken,
+    ],
   );
   const joinKey = useMemo(
     () =>
@@ -224,8 +255,9 @@ export default function DigitalMenuEntryPage() {
         routeTableNumber || '',
         normalizedSlug ? `slug:${normalizedSlug}` : `restaurant:${queryRestaurantId || ''}`,
         tableToken,
+        participantIdentityKey,
       ].join(':'),
-    [normalizedSlug, queryRestaurantId, routeTableNumber, tableToken],
+    [normalizedSlug, participantIdentityKey, queryRestaurantId, routeTableNumber, tableToken],
   );
   const joinInFlightRef = useRef<{
     key: string;
@@ -273,6 +305,7 @@ export default function DigitalMenuEntryPage() {
               queryRestaurantId,
               normalizedSlug,
               tableToken,
+              participantIdentity,
             });
             request = { key: joinKey, promise };
             joinInFlightRef.current = request;
@@ -320,6 +353,17 @@ export default function DigitalMenuEntryPage() {
         localStorage.removeItem('tableSession');
         localStorage.removeItem('tableSessionToken');
         const failure = apiError(error);
+        if (
+          error instanceof TableJoinFailure &&
+          failure.code === 'TABLE_PARTICIPANT_IDENTITY_REQUIRED' &&
+          onParticipantIdentityRequired
+        ) {
+          onParticipantIdentityRequired({
+            tableNumber: error.resolvedTable.number,
+            message: failure.message,
+          });
+          return;
+        }
         const closingRequested = failure.code === 'TABLE_CLOSING_REQUESTED';
         const waiting = closingRequested || isWaitingForWaiter(failure.message);
         setEntry(
@@ -346,6 +390,8 @@ export default function DigitalMenuEntryPage() {
     invalidQrContext,
     joinKey,
     normalizedSlug,
+    onParticipantIdentityRequired,
+    participantIdentity,
     queryRestaurantId,
     queryTableId,
     retryVersion,

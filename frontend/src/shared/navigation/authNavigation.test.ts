@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAuthEntryUrl,
+  buildAuthEntryUrlForLocation,
   buildLoginUrl,
   getCurrentReturnPath,
   getSafeAuthSearchParams,
@@ -29,9 +30,23 @@ describe('authNavigation', () => {
     '/%5cevil.com',
     'javascript:alert(1)',
     'data:text/html,<h1>evil</h1>',
+    '/%252f%252fevil.com',
+    '/%255cevil.com',
+    '/seguro?valor=%0aexterno',
+    '/seguro?valor=%250dexterno',
+    '/seguro#%00externo',
+    ' /seguro',
+    '/seguro ',
   ])('rejeita destino externo ou ambíguo %s', (value) => {
     expect(getSafeNextPath(value)).toBe('');
   });
+
+  it.each(['/seguro\n', '/seguro?valor=linha\rquebrada', '/seguro#\u007f'])(
+    'rejeita caracteres de controle literais em qualquer parte de %j',
+    (value) => {
+      expect(getSafeNextPath(value)).toBe('');
+    },
+  );
 
   it.each([
     '/login',
@@ -70,6 +85,23 @@ describe('authNavigation', () => {
     expect(getCurrentReturnPath(location)).toBe('/restaurante-x/mesa/5?rid=1&tk=ABC123#bebidas');
     expect(new URLSearchParams(buildLoginUrl(location).split('?')[1]).get('next')).toBe(
       '/restaurante-x/mesa/5?rid=1&tk=ABC123#bebidas',
+    );
+  });
+
+  it('monta uma entrada contextual sem dupla codificação', () => {
+    const location = {
+      pathname: '/restaurante-x/mesa/5',
+      search: '?rid=1&tk=ABC%20123',
+      hash: '#minha-conta',
+    };
+    const expected = '/restaurante-x/mesa/5?rid=1&tk=ABC%20123#minha-conta';
+    const url = buildAuthEntryUrlForLocation('/register', location);
+    const params = new URLSearchParams(url.split('?')[1]);
+
+    expect(url.startsWith('/register?next=')).toBe(true);
+    expect(params.get('next')).toBe(expected);
+    expect(decodeURIComponent(params.get('next') || '')).toBe(
+      '/restaurante-x/mesa/5?rid=1&tk=ABC 123#minha-conta',
     );
   });
 

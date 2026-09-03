@@ -38,13 +38,27 @@ function parsePositiveRestaurantId(value: string | null) {
   return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
 }
 
+function parseSafeRestaurantSlug(value: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > 100) return '';
+
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(raw).trim().toLowerCase();
+  } catch {
+    return '';
+  }
+
+  return /^[a-z0-9_-]+$/u.test(decoded) ? decoded : '';
+}
+
 export function resolveLoginRestaurant(searchParams: URLSearchParams) {
   const explicitRestaurantId = parsePositiveRestaurantId(
     searchParams.get('restaurantId') || searchParams.get('rid'),
   );
-  const explicitSlug = String(searchParams.get('restaurantSlug') || searchParams.get('slug') || '')
-    .trim()
-    .toLowerCase();
+  const explicitSlug = parseSafeRestaurantSlug(
+    searchParams.get('restaurantSlug') || searchParams.get('slug'),
+  );
   const safeNextPath = getSafeNextPath(searchParams.get('next'));
 
   let nextRestaurantId: number | null = null;
@@ -55,7 +69,9 @@ export function resolveLoginRestaurant(searchParams: URLSearchParams) {
       nextRestaurantId = parsePositiveRestaurantId(
         parsed.searchParams.get('restaurantId') || parsed.searchParams.get('rid'),
       );
-      const firstSegment = parsed.pathname.split('/').filter(Boolean)[0]?.toLowerCase() || '';
+      const firstSegment = parseSafeRestaurantSlug(
+        parsed.pathname.split('/').filter(Boolean)[0] || '',
+      );
       if (firstSegment && !RESERVED_ROUTES.has(firstSegment)) {
         nextSlug = firstSegment;
       }
@@ -64,9 +80,9 @@ export function resolveLoginRestaurant(searchParams: URLSearchParams) {
     }
   }
 
-  const restaurantId = explicitRestaurantId || nextRestaurantId;
-  const slug = explicitSlug || nextSlug;
-  return { restaurantId, slug };
+  if (nextSlug) return { restaurantId: nextRestaurantId, slug: nextSlug };
+  if (nextRestaurantId) return { restaurantId: nextRestaurantId, slug: '' };
+  return { restaurantId: explicitRestaurantId, slug: explicitSlug };
 }
 
 export function mapLoginBranding(settings: Record<string, unknown> | null): LoginBranding {
@@ -78,9 +94,7 @@ export function mapLoginBranding(settings: Record<string, unknown> | null): Logi
     restaurant.logo ||
     settings.restaurantLogo;
   const description = String(
-    restaurant.description ||
-      settings.restaurantDescription ||
-      DEFAULT_LOGIN_BRANDING.description,
+    restaurant.description || settings.restaurantDescription || DEFAULT_LOGIN_BRANDING.description,
   ).trim();
 
   return {

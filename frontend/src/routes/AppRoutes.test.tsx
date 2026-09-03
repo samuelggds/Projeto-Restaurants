@@ -80,14 +80,16 @@ describe('RouteAuthorizationGuard após login', () => {
     container.remove();
   });
 
-  function renderGuardedLogin(user: NonNullable<typeof mocks.auth.user>, nextPath: string) {
+  function renderGuardedEntry(user: NonNullable<typeof mocks.auth.user>, initialEntry: string) {
     mocks.auth.user = user;
     act(() => {
       root.render(
-        <MemoryRouter initialEntries={[`/login?next=${encodeURIComponent(nextPath)}`]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route element={<RouteAuthorizationGuard />}>
               <Route path="/login" element={<div>Login</div>} />
+              <Route path="/register" element={<div>Cadastro</div>} />
+              <Route path="/recover-password" element={<div>Recuperação</div>} />
               <Route path="/:restaurantSlug/mesa/:tableNumber" element={<LocationProbe />} />
               <Route path="/admin" element={<LocationProbe />} />
               <Route path="/change-password" element={<LocationProbe />} />
@@ -96,6 +98,10 @@ describe('RouteAuthorizationGuard após login', () => {
         </MemoryRouter>,
       );
     });
+  }
+
+  function renderGuardedLogin(user: NonNullable<typeof mocks.auth.user>, nextPath: string) {
+    renderGuardedEntry(user, `/login?next=${encodeURIComponent(nextPath)}`);
   }
 
   it('prioriza o next seguro de mesa para CLIENTE', () => {
@@ -112,11 +118,30 @@ describe('RouteAuthorizationGuard após login', () => {
   });
 
   it('mantém a troca obrigatória de senha acima do next do CLIENTE', () => {
-    renderGuardedLogin(
-      { role: 'CLIENTE', mustChangePassword: true },
-      '/restaurante-teste/mesa/5?rid=1&tk=abc',
-    );
+    const nextPath = '/restaurante-teste/mesa/5?rid=1&tk=abc';
+    renderGuardedLogin({ role: 'CLIENTE', mustChangePassword: true }, nextPath);
 
-    expect(container.textContent).toBe('/change-password');
+    const renderedLocation = container.textContent || '';
+    expect(renderedLocation).toMatch(/^\/change-password\?next=/u);
+    expect(new URLSearchParams(renderedLocation.split('?')[1]).get('next')).toBe(nextPath);
+  });
+
+  it.each(['/register', '/recover-password'])(
+    'retorna CLIENTE já autenticado ao contexto ao abrir %s',
+    (entryPath) => {
+      const nextPath = '/restaurante-teste/mesa/5?rid=1&tk=abc#conta';
+      renderGuardedEntry({ role: 'CLIENTE' }, `${entryPath}?next=${encodeURIComponent(nextPath)}`);
+
+      expect(container.textContent).toBe(nextPath);
+    },
+  );
+
+  it('preserva a rota da mesa ao exigir troca de senha de CLIENTE já autenticado', () => {
+    const nextPath = '/restaurante-teste/mesa/5?rid=1&tk=abc#conta';
+    renderGuardedEntry({ role: 'CLIENTE', mustChangePassword: true }, nextPath);
+
+    const renderedLocation = container.textContent || '';
+    expect(renderedLocation).toMatch(/^\/change-password\?next=/u);
+    expect(new URLSearchParams(renderedLocation.split('?')[1]).get('next')).toBe(nextPath);
   });
 });

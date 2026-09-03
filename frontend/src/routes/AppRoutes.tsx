@@ -38,7 +38,30 @@ import {
 import { authorizeRoute } from './routeAuthorization';
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
-import { buildLoginUrl, getSafeNextPath } from '../shared/navigation/authNavigation';
+import {
+  buildAuthEntryUrl,
+  buildLoginUrl,
+  getCurrentReturnPath,
+  getSafeNextPath,
+} from '../shared/navigation/authNavigation';
+
+function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
+  const isAuthEntry =
+    location.pathname === '/login' ||
+    location.pathname === '/register' ||
+    location.pathname === '/recover-password' ||
+    /^\/[^/]+\/login$/u.test(location.pathname);
+
+  if (isAuthEntry) {
+    const requestedNext = getSafeNextPath(new URLSearchParams(location.search).get('next'));
+    if (requestedNext) return requestedNext;
+
+    const restaurantLogin = location.pathname.match(/^\/([^/]+)\/login$/u);
+    return restaurantLogin ? getSafeNextPath(`/${restaurantLogin[1]}`) : '';
+  }
+
+  return getSafeNextPath(getCurrentReturnPath(location));
+}
 
 function RouteLoading() {
   return (
@@ -109,15 +132,20 @@ export function RouteAuthorizationGuard() {
 
   const decision = authorizeRoute(location.pathname, user);
   if ('redirectTo' in decision) {
-    const customerNextPath =
-      user?.role === 'CLIENTE' && user.mustChangePassword !== true && location.pathname === '/login'
-        ? getSafeNextPath(new URLSearchParams(location.search).get('next'))
-        : '';
-    const redirectTo = customerNextPath
-      ? customerNextPath
-      : !user && decision.redirectTo === '/login'
-        ? buildLoginUrl(location)
-        : decision.redirectTo;
+    const isCustomer = String(user?.role || '').toUpperCase() === 'CLIENTE';
+    const customerReturnPath = isCustomer ? getCustomerReturnPath(location) : '';
+    let redirectTo = decision.redirectTo;
+
+    if (isCustomer && decision.redirectTo === '/change-password') {
+      const params = new URLSearchParams();
+      if (customerReturnPath) params.set('next', customerReturnPath);
+      redirectTo = buildAuthEntryUrl('/change-password', params);
+    } else if (isCustomer && customerReturnPath) {
+      redirectTo = customerReturnPath;
+    } else if (!user && decision.redirectTo === '/login') {
+      redirectTo = buildLoginUrl(location);
+    }
+
     return <Navigate to={redirectTo} replace />;
   }
   return <Outlet />;

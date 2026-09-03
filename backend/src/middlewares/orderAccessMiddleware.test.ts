@@ -1,21 +1,39 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { TableSessionStatus } from '@prisma/client';
+import prisma from '../config/prisma.js';
 import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
 import tableParticipantRepository from '../modules/tableSession/repositories/TableParticipantRepository.js';
 import {
   getParticipantCookieName,
   hashParticipantToken,
 } from '../modules/tableSession/security/participantToken.js';
+import tableParticipantStateService from '../modules/tableSession/services/TableParticipantStateService.js';
 import { orderAccessMiddleware } from './orderAccessMiddleware.js';
 
+const originalTransaction = prisma.$transaction;
 const originalFindBySessionToken = tableSessionRepository.findBySessionToken;
 const originalFindGuestByTokenHash = tableParticipantRepository.findGuestByTokenHash;
+const originalGetState = tableParticipantStateService.getState;
+
+beforeEach(() => {
+  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  tableParticipantStateService.getState = async (_db, input) => ({
+    participantId: input.participantId,
+    tableSessionId: input.tableSessionId,
+    restaurantId: input.restaurantId,
+    phone: '85999999999',
+    orderingBlockedAt: null,
+    orderingUnblockedAt: null,
+  });
+});
 
 afterEach(() => {
+  prisma.$transaction = originalTransaction;
   tableSessionRepository.findBySessionToken = originalFindBySessionToken;
   tableParticipantRepository.findGuestByTokenHash = originalFindGuestByTokenHash;
+  tableParticipantStateService.getState = originalGetState;
 });
 
 function responseStub() {

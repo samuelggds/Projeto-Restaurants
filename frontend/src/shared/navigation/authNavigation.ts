@@ -4,7 +4,8 @@ export type ReturnLocation = {
   hash?: string;
 };
 
-export type AuthEntryPath = '/login' | '/register' | '/recover-password';
+export type AuthEntryPath = '/login' | '/register' | '/recover-password' | '/change-password';
+
 export type AuthExperience = {
   context: 'ONLINE' | 'TABLE';
   nextPath: string;
@@ -13,6 +14,8 @@ export type AuthExperience = {
 };
 
 const INTERNAL_URL_BASE = 'https://internal.invalid';
+const MAX_NEXT_PATH_LENGTH = 4_096;
+const MAX_DECODE_PASSES = 8;
 const BLOCKED_AUTH_PATHS = new Set([
   '/login',
   '/register',
@@ -34,22 +37,6 @@ const ROLE_ONLY_RETURN_ROOTS = [
 const AUTH_RESTAURANT_ID_KEYS = ['restaurantId', 'rid'] as const;
 const AUTH_RESTAURANT_SLUG_KEYS = ['restaurantSlug', 'slug'] as const;
 
-function decodePathForValidation(pathname: string) {
-  let decoded = pathname;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const nextDecoded = decodeURIComponent(decoded);
-      if (nextDecoded === decoded) break;
-      decoded = nextDecoded;
-    } catch {
-      return '';
-    }
-  }
-
-  return decoded;
-}
-
 function containsControlCharacter(value: string) {
   return Array.from(value).some((character) => {
     const codePoint = character.codePointAt(0) || 0;
@@ -57,43 +44,55 @@ function containsControlCharacter(value: string) {
   });
 }
 
-function sanitizeRestaurantId(value: string | null) {
-  const raw = String(value || '').trim();
-  if (!/^\d+$/u.test(raw)) return '';
+function decodePathForValidation(pathname: string) {
+  let decoded = pathname;
 
-  const numeric = Number(raw);
-  return Number.isSafeInteger(numeric) && numeric > 0 ? String(numeric) : '';
+  for (let attempt = 0; attempt < MAX_DECODE_PASSES; attempt += 1) {
+    try {
+      const nextDecoded = decodeURIComponent(decoded);
+      if (nextDecoded === decoded) return decoded;
+      decoded = nextDecoded;
+    } catch {
+      return '';
+    }
+  }
+
+  return '';
 }
 
-function decodeSingleURIComponent(value: string) {
+function containsEncodedControlOrBackslash(value: string) {
+  let candidate = value;
+
+  for (let attempt = 0; attempt < MAX_DECODE_PASSES; attempt += 1) {
+    if (/%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/iu.test(candidate)) return true;
+    const unwrapped = candidate.replace(/%25/giu, '%');
+    if (unwrapped === candidate) return false;
+    candidate = unwrapped;
+  }
+
+  return true;
+}
+
+function sanitizeRestaurantId(value: unknown) {
+  const raw = String(value || '').trim();
+  if (!/^\d+$/u.test(raw)) return '';
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? String(parsed) : '';
+}
+
+function sanitizeRestaurantSlug(value: unknown) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > 100 || containsControlCharacter(raw)) return '';
+
+  let decoded: string;
   try {
-    return decodeURIComponent(value);
+    decoded = decodeURIComponent(raw);
   } catch {
     return '';
   }
-}
 
-function sanitizeRestaurantSlug(value: string | null) {
-  const raw = String(value || '').trim();
-  if (!raw || raw.length > 100) return '';
-
-  const decoded = decodeSingleURIComponent(raw);
-  if (!decoded) return '';
-
-  const normalized = decoded.trim().toLowerCase();
-  if (
-    !normalized ||
-    containsControlCharacter(normalized) ||
-    normalized.includes('/') ||
-    normalized.includes('\\') ||
-    normalized.includes('?') ||
-    normalized.includes('#') ||
-    !/^[a-z0-9_-]+$/u.test(normalized)
-  ) {
-    return '';
-  }
-
-  return normalized;
+  const slug = decoded.trim().toLowerCase();
+  return /^[a-z0-9_-]+$/u.test(slug) ? slug : '';
 }
 
 export function getCurrentReturnPath(location: ReturnLocation) {
@@ -102,12 +101,20 @@ export function getCurrentReturnPath(location: ReturnLocation) {
 }
 
 export function getSafeNextPath(value: unknown) {
-  const rawNext = String(value || '').trim();
+  const rawNext = String(value || '');
 
-  if (!rawNext.startsWith('/') || rawNext.startsWith('//')) return '';
-
-  const rawPathname = rawNext.split(/[?#]/u, 1)[0];
-  if (rawPathname.includes('\\')) return '';
+  if (
+    !rawNext ||
+    rawNext !== rawNext.trim() ||
+    rawNext.length > MAX_NEXT_PATH_LENGTH ||
+    !rawNext.startsWith('/') ||
+    rawNext.startsWith('//') ||
+    rawNext.includes('\\') ||
+    containsControlCharacter(rawNext) ||
+    containsEncodedControlOrBackslash(rawNext)
+  ) {
+    return '';
+  }
 
   let parsed: URL;
   try {
@@ -144,9 +151,8 @@ export function getSafeNextPath(value: unknown) {
 }
 
 /**
- * Keeps only the authentication context that is intentionally shared between
- * Login, Register and RecoverPassword. Arbitrary query parameters are not
- * forwarded from one authentication screen to another.
+ * Propaga entre as telas de autenticação somente o retorno interno validado e
+ * as referências de restaurante usadas para apresentação.
  */
 export function getSafeAuthSearchParams(searchParams: URLSearchParams) {
   const safeParams = new URLSearchParams();
@@ -172,6 +178,13 @@ export function getSafeAuthSearchParams(searchParams: URLSearchParams) {
 export function buildAuthEntryUrl(path: AuthEntryPath, searchParams: URLSearchParams) {
   const query = getSafeAuthSearchParams(searchParams).toString();
   return query ? `${path}?${query}` : path;
+}
+
+export function buildAuthEntryUrlForLocation(path: AuthEntryPath, location: ReturnLocation) {
+  const nextPath = getSafeNextPath(getCurrentReturnPath(location));
+  if (!nextPath) return path;
+
+  return buildAuthEntryUrl(path, new URLSearchParams({ next: nextPath }));
 }
 
 export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperience {
@@ -202,6 +215,5 @@ export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperi
 }
 
 export function buildLoginUrl(location: ReturnLocation) {
-  const nextPath = getSafeNextPath(getCurrentReturnPath(location));
-  return nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login';
+  return buildAuthEntryUrlForLocation('/login', location);
 }

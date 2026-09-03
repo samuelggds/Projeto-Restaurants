@@ -15,11 +15,14 @@ import listTableServiceCallsService from './ListTableServiceCallsService.js';
 import updateTableServiceCallStatusService from './UpdateTableServiceCallStatusService.js';
 import prisma from '../../../config/prisma.js';
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
 
 const originals = {
   findContext: tableServiceCallRepository.findOpenSessionContext,
   findActive: tableServiceCallRepository.findActiveByTableAndType,
+  findActiveBill: tableServiceCallRepository.findActiveBillByParticipant,
   create: tableServiceCallRepository.create,
+  createBill: tableServiceCallRepository.createBillForParticipant,
   list: tableServiceCallRepository.listByRestaurant,
   findById: tableServiceCallRepository.findByIdForRestaurant,
   assign: tableServiceCallRepository.assignIfWaiting,
@@ -29,10 +32,26 @@ const originals = {
   transaction: prisma.$transaction,
   findAccountSettings: tableAccountSettingsRepository.findByRestaurantId,
   requestSessionClosing: tableServiceCallRepository.requestSessionClosing,
+  blockOrderingForBill: tableParticipantStateService.blockOrderingForBill,
 };
 
 beforeEach(() => {
-  prisma.$transaction = async (callback) => callback({ $queryRaw: async () => [] });
+  prisma.$transaction = async (callback) =>
+    callback({
+      $queryRaw: async () => [],
+      tableParticipant: {
+        findFirst: async ({ where }) => {
+          assert.deepEqual(where, {
+            id: 80,
+            restaurantId: 7,
+            tableSessionId: 55,
+            status: 'ACTIVE',
+            revokedAt: null,
+          });
+          return { id: 80 };
+        },
+      },
+    });
   tableAccountSettingsRepository.findByRestaurantId = async () => ({
     blockNewOrdersOnClosingRequest: true,
   });
@@ -42,7 +61,9 @@ beforeEach(() => {
 afterEach(() => {
   tableServiceCallRepository.findOpenSessionContext = originals.findContext;
   tableServiceCallRepository.findActiveByTableAndType = originals.findActive;
+  tableServiceCallRepository.findActiveBillByParticipant = originals.findActiveBill;
   tableServiceCallRepository.create = originals.create;
+  tableServiceCallRepository.createBillForParticipant = originals.createBill;
   tableServiceCallRepository.listByRestaurant = originals.list;
   tableServiceCallRepository.findByIdForRestaurant = originals.findById;
   tableServiceCallRepository.assignIfWaiting = originals.assign;
@@ -52,6 +73,7 @@ afterEach(() => {
   prisma.$transaction = originals.transaction;
   tableAccountSettingsRepository.findByRestaurantId = originals.findAccountSettings;
   tableServiceCallRepository.requestSessionClosing = originals.requestSessionClosing;
+  tableParticipantStateService.blockOrderingForBill = originals.blockOrderingForBill;
 });
 
 const activeContext = {
@@ -113,6 +135,7 @@ test('cria chamado usando exclusivamente o contexto tenant da sessão aberta', a
     sessionId: 55,
     tableId: 91,
     restaurantId: 7,
+    participantId: 80,
     type: 'WAITER',
   });
 
@@ -142,6 +165,7 @@ test('não cria chamado para sessão expirada, fechada ou pertencente a outro re
         sessionId: 55,
         tableId: 91,
         restaurantId: 8,
+        participantId: 80,
         type: 'WAITER',
       }),
     /sessão.*não está mais ativa/i,
@@ -170,22 +194,27 @@ test('respeita flags WAITER/BILL e mantém cliques repetidos idempotentes', asyn
         sessionId: 55,
         tableId: 91,
         restaurantId: 7,
+        participantId: 80,
         type: 'WAITER',
       }),
     /chamados ao garçom estão desativados/i,
   );
 
   tableServiceCallRepository.findOpenSessionContext = async () => activeContext;
-  tableServiceCallRepository.findActiveByTableAndType = async (
+  tableServiceCallRepository.findActiveBillByParticipant = async (
     restaurantId,
-    tableId,
-    type,
+    tableSessionId,
+    participantId,
   ) => {
-    assert.deepEqual([restaurantId, tableId, type], [7, 91, TableServiceCallType.BILL]);
+    assert.deepEqual([restaurantId, tableSessionId, participantId], [7, 55, 80]);
     return { ...waitingCall, type: TableServiceCallType.BILL };
   };
+  let blockedInput;
+  tableParticipantStateService.blockOrderingForBill = async (_db, input) => {
+    blockedInput = input;
+  };
   let createCalled = false;
-  tableServiceCallRepository.create = async () => {
+  tableServiceCallRepository.createBillForParticipant = async () => {
     createCalled = true;
   };
 
@@ -193,9 +222,15 @@ test('respeita flags WAITER/BILL e mantém cliques repetidos idempotentes', asyn
     sessionId: 55,
     tableId: 91,
     restaurantId: 7,
+    participantId: 80,
     type: 'BILL',
   });
   assert.equal(result.duplicate, true);
+  assert.deepEqual(blockedInput, {
+    participantId: 80,
+    tableSessionId: 55,
+    restaurantId: 7,
+  });
   assert.equal(createCalled, false);
 });
 

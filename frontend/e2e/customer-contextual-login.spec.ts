@@ -54,6 +54,11 @@ type ContextState = {
   googleLoginCalls: number;
   sessionValidationCalls: number;
   orderPayloads: Record<string, unknown>[];
+  registerPayloads?: Record<string, unknown>[];
+  forgotPasswordPayloads?: Record<string, unknown>[];
+  resetPasswordPayloads?: Record<string, unknown>[];
+  mfaRequired?: boolean;
+  mfaVerificationCalls?: number;
 };
 
 function json(route: Route, body: unknown, status = 200) {
@@ -151,9 +156,37 @@ async function mockContextApi(page: Page, state: ContextState) {
       if (payload.email !== CUSTOMER_EMAIL) {
         return json(route, { error: 'Credenciais inválidas.' }, 401);
       }
-      state.authenticated = true;
       state.loginCalls += 1;
+      if (state.mfaRequired) {
+        return json(route, { mfaRequired: true, mfaToken: 'context-mfa-token' });
+      }
+      state.authenticated = true;
       return json(route, { token: CUSTOMER_TOKEN, user: customer });
+    }
+
+    if (pathname === '/auth/login/verify-2fa' && method === 'POST') {
+      const payload = request.postDataJSON() as { mfaToken?: string; code?: string };
+      if (payload.mfaToken !== 'context-mfa-token' || payload.code !== '123456') {
+        return json(route, { error: 'Código inválido.' }, 401);
+      }
+      state.authenticated = true;
+      state.mfaVerificationCalls = (state.mfaVerificationCalls || 0) + 1;
+      return json(route, { token: CUSTOMER_TOKEN, user: customer });
+    }
+
+    if (pathname === '/auth/register' && method === 'POST') {
+      (state.registerPayloads ||= []).push(request.postDataJSON() as Record<string, unknown>);
+      return json(route, { id: customer.id, name: customer.name, email: customer.email }, 201);
+    }
+
+    if (pathname === '/auth/forgot-password' && method === 'POST') {
+      (state.forgotPasswordPayloads ||= []).push(request.postDataJSON() as Record<string, unknown>);
+      return json(route, { message: 'Código enviado.' });
+    }
+
+    if (pathname === '/auth/reset-password' && method === 'POST') {
+      (state.resetPasswordPayloads ||= []).push(request.postDataJSON() as Record<string, unknown>);
+      return json(route, { message: 'Senha redefinida.' });
     }
 
     if (pathname === '/auth/google' && method === 'POST') {
@@ -339,6 +372,24 @@ async function loginWithPassword(page: Page) {
   await page.getByRole('button', { name: 'Entrar no Sistema' }).click();
 }
 
+async function registerCustomer(page: Page) {
+  await page.getByLabel('Nome Completo').fill(customer.name);
+  await page.getByLabel('E-mail').fill(CUSTOMER_EMAIL);
+  await page.getByLabel('Senha', { exact: true }).fill('Senha@123');
+  await page.getByLabel('Confirmar Senha', { exact: true }).fill('Senha@123');
+  await page.getByRole('button', { name: /Criar conta|Finalizar Cadastro/u }).click();
+}
+
+async function recoverCustomerPassword(page: Page) {
+  await page.getByRole('button', { name: 'E-mail' }).click();
+  await page.getByLabel('E-mail').fill(CUSTOMER_EMAIL);
+  await page.getByRole('button', { name: 'Enviar codigo' }).click();
+  await page.getByLabel('Codigo').fill('123456');
+  await page.getByLabel('Nova senha', { exact: true }).fill('Senha@123');
+  await page.getByLabel('Confirmar nova senha', { exact: true }).fill('Senha@123');
+  await page.getByRole('button', { name: /Redefinir/u }).click();
+}
+
 async function addConfiguredProduct(page: Page) {
   await expect(page.getByText(product.name).first()).toBeVisible();
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
@@ -388,6 +439,148 @@ test('QR deslogado retorna à mesma Mesa 05 após login e cria pedido MESA', asy
     type: 'MESA',
     tableId: TABLE_ID,
   });
+});
+
+test('Home preserva origem completa durante Cadastro e Login', async ({ page }) => {
+  const state: ContextState = {
+    authenticated: false,
+    tableOpen: true,
+    loginCalls: 0,
+    googleLoginCalls: 0,
+    sessionValidationCalls: 0,
+    orderPayloads: [],
+    registerPayloads: [],
+  };
+  await mockContextApi(page, state);
+  const homePath = `/${RESTAURANT_SLUG}?canal=retirada#menu`;
+
+  await page.goto(homePath);
+  await expectLoginPreserves(page, homePath);
+  await page.getByRole('link', { name: 'Cadastre-se aqui' }).click();
+  expect(new URL(page.url()).searchParams.get('next')).toBe(homePath);
+  await registerCustomer(page);
+
+  await expect(page).toHaveURL(/\/login\?next=/u);
+  expect(new URL(page.url()).searchParams.get('next')).toBe(homePath);
+  expect(state.registerPayloads).toHaveLength(1);
+  expect(state.registerPayloads?.[0]).not.toHaveProperty('role');
+
+  await loginWithPassword(page);
+  await expect.poll(() => currentPath(page)).toBe(homePath);
+});
+
+test('Home preserva origem completa durante Recuperação e Login', async ({ page }) => {
+  const state: ContextState = {
+    authenticated: false,
+    tableOpen: true,
+    loginCalls: 0,
+    googleLoginCalls: 0,
+    sessionValidationCalls: 0,
+    orderPayloads: [],
+    forgotPasswordPayloads: [],
+    resetPasswordPayloads: [],
+  };
+  await mockContextApi(page, state);
+  const homePath = `/${RESTAURANT_SLUG}?canal=delivery#promocoes`;
+
+  await page.goto(homePath);
+  await expectLoginPreserves(page, homePath);
+  await page.getByRole('button', { name: 'Esqueceu a senha?' }).click();
+  expect(new URL(page.url()).searchParams.get('next')).toBe(homePath);
+  await recoverCustomerPassword(page);
+
+  await expect(page).toHaveURL(/\/login\?next=/u);
+  expect(new URL(page.url()).searchParams.get('next')).toBe(homePath);
+  expect(state.forgotPasswordPayloads).toEqual([{ email: CUSTOMER_EMAIL }]);
+  expect(state.resetPasswordPayloads).toHaveLength(1);
+
+  await loginWithPassword(page);
+  await expect.poll(() => currentPath(page)).toBe(homePath);
+});
+
+test('QR preserva Mesa 05 durante Cadastro e Login', async ({ page }) => {
+  const state: ContextState = {
+    authenticated: false,
+    tableOpen: true,
+    loginCalls: 0,
+    googleLoginCalls: 0,
+    sessionValidationCalls: 0,
+    orderPayloads: [],
+    registerPayloads: [],
+  };
+  await mockContextApi(page, state);
+  const tablePath =
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#conta`;
+
+  await page.goto(tablePath);
+  await expectLoginPreserves(page, tablePath);
+  await page.getByRole('link', { name: 'Cadastre-se aqui' }).click();
+  await expect(page.locator('[data-auth-context="TABLE"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
+  await registerCustomer(page);
+
+  await expect(page).toHaveURL(/\/login\?next=/u);
+  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
+  expect(state.registerPayloads?.[0]).not.toHaveProperty('role');
+  await loginWithPassword(page);
+  await expect.poll(() => currentPath(page)).toBe(tablePath);
+  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
+});
+
+test('QR preserva Mesa 05 durante Recuperação e Login', async ({ page }) => {
+  const state: ContextState = {
+    authenticated: false,
+    tableOpen: true,
+    loginCalls: 0,
+    googleLoginCalls: 0,
+    sessionValidationCalls: 0,
+    orderPayloads: [],
+    forgotPasswordPayloads: [],
+    resetPasswordPayloads: [],
+  };
+  await mockContextApi(page, state);
+  const tablePath =
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#conta`;
+
+  await page.goto(tablePath);
+  await expectLoginPreserves(page, tablePath);
+  await page.getByRole('button', { name: 'Esqueceu a senha?' }).click();
+  await expect(page.locator('[data-auth-context="TABLE"]')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
+  await recoverCustomerPassword(page);
+
+  await expect(page).toHaveURL(/\/login\?next=/u);
+  expect(new URL(page.url()).searchParams.get('next')).toBe(tablePath);
+  await loginWithPassword(page);
+  await expect.poll(() => currentPath(page)).toBe(tablePath);
+  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
+});
+
+test('MFA preserva o next completo da Mesa 05', async ({ page }) => {
+  const state: ContextState = {
+    authenticated: false,
+    tableOpen: true,
+    loginCalls: 0,
+    googleLoginCalls: 0,
+    sessionValidationCalls: 0,
+    orderPayloads: [],
+    mfaRequired: true,
+    mfaVerificationCalls: 0,
+  };
+  await mockContextApi(page, state);
+  const tablePath =
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#mfa`;
+
+  await page.goto(tablePath);
+  await expectLoginPreserves(page, tablePath);
+  await loginWithPassword(page);
+  const dialog = page.getByRole('dialog', { name: 'Verificação em duas etapas' });
+  await dialog.getByLabel('Código de verificação').fill('123456');
+  await dialog.getByRole('button', { name: 'Verificar' }).click();
+
+  await expect.poll(() => currentPath(page)).toBe(tablePath);
+  expect(state.mfaVerificationCalls).toBe(1);
+  await expect(page.getByLabel(`Mesa ${TABLE_NUMBER}`, { exact: true })).toContainText('05');
 });
 
 test('a mesma conta alterna Home, QR autenticado e Home sem modo permanente', async ({ page }) => {
@@ -489,3 +682,40 @@ test('Google mockado preserva o next completo da Mesa 05', async ({ page }) => {
   expect(state.googleLoginCalls).toBe(1);
   expect(state.loginCalls).toBe(0);
 });
+
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 375, height: 667 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+]) {
+  test(`Cadastro e Recuperação TABLE não criam overflow em ${viewport.width}px`, async ({
+    page,
+  }) => {
+    const state: ContextState = {
+      authenticated: false,
+      tableOpen: true,
+      loginCalls: 0,
+      googleLoginCalls: 0,
+      sessionValidationCalls: 0,
+      orderPayloads: [],
+    };
+    await mockContextApi(page, state);
+    await page.setViewportSize(viewport);
+    const tablePath =
+      `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#conta`;
+
+    for (const entryPath of ['/register', '/recover-password']) {
+      await page.goto(`${entryPath}?next=${encodeURIComponent(tablePath)}`);
+      await expect(page.locator('[data-auth-context="TABLE"]')).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(() => ({
+            viewportWidth: window.innerWidth,
+            documentWidth: document.documentElement.scrollWidth,
+          })),
+        )
+        .toEqual({ viewportWidth: viewport.width, documentWidth: viewport.width });
+    }
+  });
+}
