@@ -12,6 +12,11 @@ class CreateTablePaymentIntentController {
           sessionPublicId: String(req.tableSession?.publicId || ''),
           restaurantId: Number(req.tableSession?.restaurantId),
           participantId: Number(req.tableParticipant?.id),
+          participantUserId: req.tableParticipant?.userId
+            ? Number(req.tableParticipant.userId)
+            : null,
+          participantName: String(req.tableParticipant?.displayName || '').trim() || null,
+          participantPhone: String(req.tableParticipant?.phone || '').trim() || null,
         },
         {
           ...(req.body || {}),
