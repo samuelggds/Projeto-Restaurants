@@ -324,15 +324,15 @@ jobs:
         run: npm --prefix print-agent ci
 
       - name: Audit backend packages
-        # react-router GHSA-qwww-vcr4-c8h2 is RSC-only; this is a Vite SPA — not affected
-        run: npm --prefix backend audit --audit-level=high
+        # Audit the committed lockfile directly so transient/inconsistent node_modules trees
+        # cannot force npm onto the legacy quick-audit endpoint.
+        run: npm --prefix backend audit --package-lock-only --audit-level=high
 
       - name: Audit frontend packages
-        # react-router GHSA-qwww-vcr4-c8h2 is RSC-only; this is a Vite SPA — not affected
-        run: npm --prefix frontend audit --audit-level=high
+        run: npm --prefix frontend audit --package-lock-only --audit-level=high
 
       - name: Audit Print Agent packages
-        run: npm --prefix print-agent audit --audit-level=high
+        run: npm --prefix print-agent audit --package-lock-only --audit-level=high
 
   # ─────────────────────────────────────────────
   # 5. BUILD — vite build + tsup (only after all checks pass)

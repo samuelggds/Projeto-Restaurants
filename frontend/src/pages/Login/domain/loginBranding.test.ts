@@ -40,7 +40,26 @@ describe('identidade dinâmica do login', () => {
       slug: '',
     });
   });
-  it('mapeia nome, descrição, logo e cor cadastrados', () => {
+  it('mapeia nome, descrição, logo, cor e categoria cadastrados', () => {
+    expect(
+      mapLoginBranding({
+        primaryColor: '#123456',
+        restaurant: {
+          name: 'North Pizza',
+          description: 'A melhor experiência em cada pedido',
+          logo: 'https://cdn.test/logo.png',
+          category: 'PIZZARIA',
+        },
+      }),
+    ).toEqual({
+      name: 'North Pizza',
+      description: 'A melhor experiência em cada pedido',
+      logoUrl: 'https://cdn.test/logo.png',
+      primaryColor: '#123456',
+      category: 'PIZZARIA',
+    });
+  });
+  it('usa restaurante como categoria padrão quando ela não é informada', () => {
     expect(
       mapLoginBranding({
         primaryColor: '#123456',
@@ -49,13 +68,8 @@ describe('identidade dinâmica do login', () => {
           description: 'A melhor experiência em cada pedido',
           logo: 'https://cdn.test/logo.png',
         },
-      }),
-    ).toEqual({
-      name: 'North Pizza',
-      description: 'A melhor experiência em cada pedido',
-      logoUrl: 'https://cdn.test/logo.png',
-      primaryColor: '#123456',
-    });
+      }).category,
+    ).toBe('RESTAURANTE');
   });
   it('prioriza a capa de alta resolução sobre o logotipo', () => {
     expect(

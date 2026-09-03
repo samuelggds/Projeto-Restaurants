@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
-import { LoaderCircle, Moon, Sun, Utensils } from 'lucide-react';
+import { LoaderCircle, Moon, Sun } from 'lucide-react';
 import authService from '../../Services/authService';
 import {
   evaluatePassword,
@@ -11,6 +11,7 @@ import {
 } from '../../features/password-policy';
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
+import { TenantBrandHero } from '../Login/components/TenantBrandHero';
 import {
   buildAuthEntryUrl,
   resolveAuthExperience,
@@ -111,19 +112,15 @@ export default function Register() {
           $hasLogo={Boolean(branding.logoUrl)}
           data-has-cover={branding.logoUrl ? 'true' : 'false'}
         >
-          <S.BrandTitle>
-            {branding.logoUrl ? (
-              <S.RestaurantLogo src={branding.logoUrl} alt={`Logo ${branding.name}`} />
-            ) : (
-              <Utensils size={32} strokeWidth={2.5} />
-            )}
-            <span>{branding.name}</span>
-          </S.BrandTitle>
-          <S.BrandSubtitle>
-            {isTableContext
-              ? `Crie sua conta para continuar seu pedido na ${tableLabel}. A conta será a mesma usada no cardápio online.`
-              : 'Crie sua conta em poucos segundos e tenha acesso ao cardápio, histórico de pedidos e benefícios do restaurante.'}
-          </S.BrandSubtitle>
+          <TenantBrandHero
+            branding={branding}
+            mode="register"
+            overrideText={
+              isTableContext
+                ? `Crie sua conta para continuar seu pedido na ${tableLabel}. A conta será a mesma usada no cardápio online.`
+                : null
+            }
+          />
         </S.BannerSection>
 
         <S.FormSection>

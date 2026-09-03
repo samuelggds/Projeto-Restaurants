@@ -1,11 +1,16 @@
 import { getSafeNextPath } from '../../../shared/navigation/authNavigation';
 import { isPersistentImageSource } from '../../../utils/persistentImage';
+import {
+  normalizeRestaurantCategory,
+  type RestaurantCategory,
+} from '../../../config/restaurantCategory';
 
 export type LoginBranding = {
   name: string;
   description: string;
   logoUrl: string;
   primaryColor: string;
+  category: RestaurantCategory;
 };
 
 export const DEFAULT_LOGIN_BRANDING: LoginBranding = {
@@ -14,6 +19,7 @@ export const DEFAULT_LOGIN_BRANDING: LoginBranding = {
     'Acesse nosso menu interativo global. Faça seus pedidos de forma rápida e gerencie sua experiência gastronômica sem complicações.',
   logoUrl: '',
   primaryColor: '#ef5b00',
+  category: 'RESTAURANTE',
 };
 
 const RESERVED_ROUTES = new Set([
@@ -102,5 +108,8 @@ export function mapLoginBranding(settings: Record<string, unknown> | null): Logi
     description: description || DEFAULT_LOGIN_BRANDING.description,
     logoUrl: isPersistentImageSource(logo) ? String(logo) : '',
     primaryColor: String(settings.primaryColor || DEFAULT_LOGIN_BRANDING.primaryColor),
+    category: normalizeRestaurantCategory(
+      restaurant.category || settings.restaurantCategory || DEFAULT_LOGIN_BRANDING.category,
+    ),
   };
 }

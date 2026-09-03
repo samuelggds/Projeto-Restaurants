@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { CheckCircle2, AlertCircle, Utensils, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import authService from '../../Services/authService';
 import { useAuth } from '../../contexts/authContext.js';
 import * as S from './styles';
 import { useAppDialog } from '../../components/AppDialog/context';
 import { useRestaurantLoginBranding } from './hooks/useRestaurantLoginBranding';
+import { TenantBrandHero } from './components/TenantBrandHero';
 import { canUseTechnicalAccess, TECHNICAL_ACCESS_DENIED_MESSAGE } from './technicalAccess';
 import {
   buildAuthEntryUrl,
@@ -166,7 +167,6 @@ export default function Login() {
 
     try {
       const [googleClientId] = await Promise.all([getGoogleClientId(), loadGoogleScript()]);
-
       resolvedGoogleClientId = String(googleClientId || '');
 
       if (!googleClientId) {
@@ -193,10 +193,7 @@ export default function Login() {
               const firstStep = await authService.loginWithGoogle(response.credential);
               const authResponse = await completeLoginWithMfaIfNeeded(firstStep);
 
-              setFeedback({
-                type: 'success',
-                message: 'Login realizado com sucesso!',
-              });
+              setFeedback({ type: 'success', message: 'Login realizado com sucesso!' });
               setTimeout(() => {
                 login(authResponse.user, authResponse.token);
                 latestRedirectByRoleRef.current(authResponse.user);
@@ -237,9 +234,7 @@ export default function Login() {
   }, [getGoogleClientId, loadGoogleScript, login, isDarkMode, completeLoginWithMfaIfNeeded]);
 
   useEffect(() => {
-    if (isTechnicalAccess) {
-      return;
-    }
+    if (isTechnicalAccess) return;
     isGoogleMountedRef.current = true;
 
     const timeoutId = setTimeout(() => {
@@ -257,10 +252,7 @@ export default function Login() {
     setFeedback(null);
     setIsLoading(true);
     try {
-      const firstStep = await authService.login({
-        email,
-        password,
-      });
+      const firstStep = await authService.login({ email, password });
       const response = await completeLoginWithMfaIfNeeded(firstStep);
 
       if (isTechnicalAccess && !canUseTechnicalAccess(response?.user)) {
@@ -321,26 +313,17 @@ export default function Login() {
           data-testid="login-cover"
           data-has-cover={hasCover ? 'true' : 'false'}
         >
-          {hasCover ? (
-            <S.RestaurantLogo
-              data-testid="login-cover-image"
-              src={branding.logoUrl}
-              alt={`Capa ${branding.name}`}
-            />
-          ) : null}
-
-          <S.BrandTitle>
-            {!hasCover ? <Utensils size={32} strokeWidth={2.5} /> : null}
-            <span>{branding.name}</span>
-          </S.BrandTitle>
-
-          <S.BrandSubtitle>
-            {isTechnicalAccess
-              ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
-              : isTableContext
-                ? `Você está entrando para continuar o atendimento da ${tableLabel}.`
-                : branding.description}
-          </S.BrandSubtitle>
+          <TenantBrandHero
+            branding={branding}
+            mode="login"
+            overrideText={
+              isTechnicalAccess
+                ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
+                : isTableContext
+                  ? `Você está entrando para continuar o atendimento da ${tableLabel}.`
+                  : null
+            }
+          />
         </S.BannerSection>
 
         <S.FormSection data-testid="login-form-section">
@@ -357,7 +340,7 @@ export default function Login() {
                 ? 'Entre com a conta exclusiva de Super Admin para acompanhar a manutenção.'
                 : isTableContext
                   ? 'Entre com a mesma conta de cliente que você usa no cardápio online.'
-                  : 'Por favor, insira seus dados de acesso para continuar.'}
+                  : 'Acesse sua conta para continuar.'}
             </S.FormSubtitle>
 
             {feedback && (

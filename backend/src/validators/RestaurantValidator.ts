@@ -2,6 +2,19 @@ import { z } from 'zod';
 import { temporaryStrongPasswordSchema } from './PasswordValidator.js';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const restaurantCategorySchema = z.enum([
+  'RESTAURANTE',
+  'PIZZARIA',
+  'HAMBURGUERIA',
+  'ACAITERIA',
+  'CAFETERIA',
+  'JAPONESA',
+  'CHURRASCARIA',
+  'DOCERIA',
+  'LANCHONETE',
+  'PADARIA',
+  'OUTRO',
+]);
 const COMMON_EMAIL_DOMAIN_TYPOS: Record<string, string> = {
   'hotmali.com': 'hotmail.com',
   'hotmai.com': 'hotmail.com',
@@ -72,20 +85,17 @@ export const createRestaurantSchema = z.object({
           });
         }
       }),
-
+    category: restaurantCategorySchema.default('RESTAURANTE'),
     phone: z
       .string()
       .optional()
       .transform((value) => normalizePhone(value || ''))
       .refine((value) => !value || /^\d{10,11}$/.test(value), 'Telefone do restaurante inválido!'),
     whatsapp: z.string().optional(),
-
     cnpj: z.string().optional(),
-
     logo: z.string().optional(),
     coverImage: z.string().optional(),
     description: z.string().optional(),
-
     address: z.string().trim().optional(),
     city: z
       .string()
@@ -102,7 +112,6 @@ export const createRestaurantSchema = z.object({
         'Estado deve conter exatamente 2 letras.',
       ),
     zipCode: z.string().optional(),
-
     openingHours: z.string().optional(),
   }),
 

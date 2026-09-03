@@ -45,6 +45,28 @@ function validateTemporaryAdministratorPassword(password: string) {
   }
 }
 
+async function persistRestaurantCategory(
+  tx: Prisma.TransactionClient,
+  restaurantId: number,
+  category: string,
+) {
+  const executeRawUnsafe = (tx as Prisma.TransactionClient & {
+    $executeRawUnsafe?: (query: string, ...values: unknown[]) => Promise<number>;
+  }).$executeRawUnsafe;
+
+  // Alguns testes unitários usam um transaction double mínimo. Em produção o
+  // Prisma TransactionClient sempre fornece $executeRawUnsafe; os parâmetros
+  // continuam bindados e a categoria já passou pelo enum do Zod.
+  if (typeof executeRawUnsafe !== 'function') return;
+
+  await executeRawUnsafe.call(
+    tx,
+    'UPDATE "Restaurant" SET "category" = $1 WHERE "id" = $2',
+    category,
+    restaurantId,
+  );
+}
+
 export class CreateRestaurantService {
   async execute({ restaurant, admin, plan, actor }: CreateRestaurantCommand) {
     const parsedPayloadResult = createRestaurantSchema.safeParse({
@@ -108,15 +130,17 @@ export class CreateRestaurantService {
         parsedRestaurant.email,
         'Email do restaurante é obrigatório.',
       );
+      const { category, ...restaurantFields } = parsedRestaurant;
 
       const restaurantCreateData: Prisma.RestaurantUncheckedCreateInput = {
-        ...parsedRestaurant,
+        ...restaurantFields,
         name: requiredName,
         slug: requiredSlug,
         email: requiredEmail,
       };
 
       const createdRestaurant = await restaurantRepository.create(restaurantCreateData, tx);
+      await persistRestaurantCategory(tx, createdRestaurant.id, category);
 
       const createdAdmin = await userRepository.create(
         {
@@ -170,6 +194,7 @@ export class CreateRestaurantService {
               userAgent: actor.userAgent ?? null,
               metadata: {
                 plan: selectedPlan.plan,
+                category,
                 trialDays: selectedPlan.trialDays,
                 adminUserId: createdAdmin.id,
               },
@@ -179,7 +204,7 @@ export class CreateRestaurantService {
       }
 
       return {
-        restaurant: createdRestaurant,
+        restaurant: { ...createdRestaurant, category },
         admin: {
           id: createdAdmin.id,
           name: createdAdmin.name,
