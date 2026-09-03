@@ -433,8 +433,12 @@ export default function Login() {
                 ) : null}
               </S.Row>
 
-              <S.Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Entrando...' : isTableContext ? `Entrar e continuar na ${tableLabel}` : 'Entrar no Sistema'}
+              <S.Button type="submit" disabled={isLoading} aria-label="Entrar no Sistema">
+                {isLoading
+                  ? 'Entrando...'
+                  : isTableContext
+                    ? `Entrar e continuar na ${tableLabel}`
+                    : 'Entrar no Sistema'}
               </S.Button>
             </S.Form>
 
