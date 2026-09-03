@@ -77,16 +77,18 @@ export function useTableSession(options: Options) {
     [notify, setSessionEndedMessage, setTableSession],
   );
 
+  // Mantemos este nome por compatibilidade com Home. Agora ele representa o
+  // bloqueio local do participante que pediu a própria conta; não transforma
+  // mais a TableSession inteira em CLOSING_REQUESTED.
   const markClosingRequested = useCallback(() => {
     setTableSession((current) => {
       if (!current) return current;
-      const closingSession: StoredTableSession = {
+      const blockedSession: StoredTableSession = {
         ...current,
-        sessionStatus: 'CLOSING_REQUESTED',
         tableOrderingEnabled: false,
       };
-      localStorage.setItem('tableSession', JSON.stringify(closingSession));
-      return closingSession;
+      localStorage.setItem('tableSession', JSON.stringify(blockedSession));
+      return blockedSession;
     });
   }, [setTableSession]);
 
@@ -104,6 +106,63 @@ export function useTableSession(options: Options) {
       activeSession.sessionToken,
       `menu-table-${activeSession.tableId || 'unknown'}`,
     );
+
+    const verifySession = async (showSettlementNotification = false) => {
+      try {
+        const current = await tableSessionService.getCurrentSession();
+        if (
+          Number(current?.id || current?.sessionId) !== Number(activeSession.sessionId) ||
+          Number(current?.tableId) !== Number(activeSession.tableId)
+        ) {
+          endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
+          return;
+        }
+
+        const closingRequested = current?.sessionStatus === 'CLOSING_REQUESTED';
+        const participantOrderingBlocked = current?.participant?.orderingBlocked === true;
+        const effectiveOrderingEnabled = !closingRequested && !participantOrderingBlocked;
+        const shouldEnrichPublicId = !activeSession.sessionPublicId && current?.sessionPublicId;
+        const shouldSyncStatus =
+          closingRequested && activeSession.sessionStatus !== 'CLOSING_REQUESTED';
+        const shouldSyncOrdering =
+          Boolean(activeSession.tableOrderingEnabled) !== effectiveOrderingEnabled;
+
+        if (!shouldEnrichPublicId && !shouldSyncStatus && !shouldSyncOrdering) return;
+
+        const wasBlocked = activeSession.tableOrderingEnabled === false;
+        const enrichedSession: StoredTableSession = {
+          ...activeSession,
+          ...(shouldEnrichPublicId
+            ? { sessionPublicId: String(current.sessionPublicId) }
+            : undefined),
+          ...(shouldSyncStatus
+            ? { sessionStatus: 'CLOSING_REQUESTED' as const }
+            : undefined),
+          tableOrderingEnabled: effectiveOrderingEnabled,
+        };
+        localStorage.setItem('tableSession', JSON.stringify(enrichedSession));
+        setTableSession(enrichedSession);
+
+        if (
+          showSettlementNotification &&
+          wasBlocked &&
+          effectiveOrderingEnabled &&
+          !closingRequested
+        ) {
+          notify(
+            'success',
+            'Pagamento confirmado',
+            'Sua conta foi quitada. Você já pode fazer novos pedidos nesta mesa.',
+          );
+        }
+      } catch (error: unknown) {
+        const status = Number((error as { response?: { status?: number } })?.response?.status || 0);
+        if (status === 403 || status === 404) {
+          endSession('Esta mesa já foi fechada ou a sessão expirou. Aguarde o garçom reabri-la.');
+        }
+      }
+    };
+
     const handleClosed = (payload?: { sessionId?: number; tableId?: number }) => {
       const sameSession =
         !payload?.sessionId || Number(payload.sessionId) === Number(activeSession.sessionId);
@@ -128,55 +187,22 @@ export function useTableSession(options: Options) {
           'Seu aviso foi assumido pela equipe do salão.',
         );
       }
-      if (payload?.status === 'RESOLVED') {
+      if (payload?.status === 'RESOLVED' && payload.type !== 'BILL') {
         notify(
           'success',
-          payload.type === 'BILL' ? 'Solicitação da conta concluída' : 'Atendimento concluído',
+          'Atendimento concluído',
           'Se precisar novamente, envie um novo aviso pelo cardápio.',
         );
       }
     };
+    const handleParticipantOrderingUpdate = (payload?: { tableId?: number }) => {
+      if (payload?.tableId && Number(payload.tableId) !== Number(activeSession.tableId)) return;
+      void verifySession(true);
+    };
+
     socket?.on('table:session-closed', handleClosed);
     socket?.on('waiter-call:updated', handleServiceUpdate);
-
-    const verifySession = async () => {
-      try {
-        const current = await tableSessionService.getCurrentSession();
-        if (
-          Number(current?.id || current?.sessionId) !== Number(activeSession.sessionId) ||
-          Number(current?.tableId) !== Number(activeSession.tableId)
-        ) {
-          endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
-        } else {
-          const closingRequested = current?.sessionStatus === 'CLOSING_REQUESTED';
-          const shouldEnrichPublicId = !activeSession.sessionPublicId && current?.sessionPublicId;
-          const shouldSyncClosing =
-            closingRequested && activeSession.sessionStatus !== 'CLOSING_REQUESTED';
-
-          if (!shouldEnrichPublicId && !shouldSyncClosing) return;
-
-          const enrichedSession: StoredTableSession = {
-            ...activeSession,
-            ...(shouldEnrichPublicId
-              ? { sessionPublicId: String(current.sessionPublicId) }
-              : undefined),
-            ...(shouldSyncClosing
-              ? {
-                  sessionStatus: 'CLOSING_REQUESTED' as const,
-                  tableOrderingEnabled: false,
-                }
-              : undefined),
-          };
-          localStorage.setItem('tableSession', JSON.stringify(enrichedSession));
-          setTableSession(enrichedSession);
-        }
-      } catch (error: unknown) {
-        const status = Number((error as { response?: { status?: number } })?.response?.status || 0);
-        if (status === 403 || status === 404) {
-          endSession('Esta mesa já foi fechada ou a sessão expirou. Aguarde o garçom reabri-la.');
-        }
-      }
-    };
+    socket?.on('table-participant:ordering-updated', handleParticipantOrderingUpdate);
 
     void verifySession();
     const intervalId = window.setInterval(() => void verifySession(), 30_000);
@@ -190,6 +216,7 @@ export function useTableSession(options: Options) {
       document.removeEventListener('visibilitychange', verifyWhenVisible);
       socket?.off('table:session-closed', handleClosed);
       socket?.off('waiter-call:updated', handleServiceUpdate);
+      socket?.off('table-participant:ordering-updated', handleParticipantOrderingUpdate);
       disconnectTableSessionSocket();
     };
   }, [activeSession, endSession, notify, route.mesaMode]);
