@@ -12,8 +12,8 @@ import {
   sumMoneyCents,
 } from '../domain/tableAccountRules.js';
 import { buildTablePaymentPlan, TablePaymentPlanError } from '../domain/tablePaymentPlan.js';
-import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
+import { createConfiguredTablePaymentProvider } from '../providers/ConfiguredTablePaymentProvider.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
   type TablePaymentIntentRecord,
@@ -32,17 +32,21 @@ import {
   TablePaymentError,
 } from './tablePaymentSupport.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
+import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 
 interface CreateTablePaymentIntentContext {
   tableSessionId: number;
   sessionPublicId: string;
   restaurantId: number;
   participantId: number;
+  participantUserId?: number | null;
+  participantName?: string | null;
+  participantPhone?: string | null;
 }
 
 export class CreateTablePaymentIntentService {
   constructor(
-    private readonly provider: PaymentProvider = fakePaymentProvider,
+    private readonly provider: PaymentProvider | null = null,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -254,13 +258,32 @@ export class CreateTablePaymentIntentService {
     return this.createProviderPayment(context, reservation.intent, reservation.reused);
   }
 
+  private async resolveProvider(
+    context: CreateTablePaymentIntentContext,
+    intent: TablePaymentIntentRecord,
+  ) {
+    if (this.provider) return this.provider;
+    return createConfiguredTablePaymentProvider({
+      restaurantId: context.restaurantId,
+      participantId: context.participantId,
+      participantUserId: context.participantUserId || null,
+      participantName: context.participantName || null,
+      participantPhone: context.participantPhone || null,
+      intentId: intent.id,
+      intentPublicId: intent.publicId,
+      method: intent.method as 'PIX' | 'CARD',
+    });
+  }
+
   private async createProviderPayment(
     context: CreateTablePaymentIntentContext,
     intent: TablePaymentIntentRecord,
     reused: boolean,
   ) {
+    let provider: PaymentProvider | null = null;
     try {
-      const payment = await this.provider.createPayment({
+      provider = await this.resolveProvider(context, intent);
+      const payment = await provider.createPayment({
         intentPublicId: intent.publicId,
         amountCents: Number(intent.totalCents),
         method: intent.method as 'PIX' | 'CARD',
@@ -280,7 +303,7 @@ export class CreateTablePaymentIntentService {
             },
             data: {
               status: TablePaymentIntentStatus.PROCESSING,
-              provider: this.provider.code,
+              provider: provider?.code,
               providerExternalId: payment.externalId,
               providerCheckoutUrl: payment.checkoutUrl,
               providerPaymentCode: payment.paymentCode,
@@ -298,7 +321,7 @@ export class CreateTablePaymentIntentService {
                 type: TablePaymentEventType.PROCESSING,
                 fromStatus: TablePaymentIntentStatus.RESERVED,
                 toStatus: TablePaymentIntentStatus.PROCESSING,
-                provider: this.provider.code,
+                provider: provider?.code,
                 amountCents: intent.totalCents,
                 occurredAt: this.now(),
               },
@@ -319,6 +342,29 @@ export class CreateTablePaymentIntentService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
 
+      if (payment.status !== 'PENDING') {
+        const processor = new ProcessTablePaymentWebhookService(provider);
+        await processor.executeValidated({
+          eventId: `provider-create:${provider.code}:${payment.externalId}:${payment.status}`,
+          externalId: payment.externalId,
+          status: payment.status,
+          amountCents: payment.amountCents,
+          occurredAt: this.now(),
+        });
+        const canonical = await tablePaymentRepository.findOwnedByPublicId(
+          intent.publicId,
+          context.restaurantId,
+          context.tableSessionId,
+          context.participantId,
+        );
+        if (canonical) {
+          return {
+            payment: serializeTablePaymentIntent(canonical, context.sessionPublicId),
+            idempotentReplay: reused,
+          };
+        }
+      }
+
       await tableAccountEvents.updated({
         sessionId: context.tableSessionId,
         restaurantId: context.restaurantId,
@@ -332,9 +378,11 @@ export class CreateTablePaymentIntentService {
         idempotentReplay: reused,
       };
     } catch (error) {
-      await this.failProviderCreation(context, intent, error);
+      await this.failProviderCreation(context, intent, error, provider?.code || null);
       throw new TablePaymentError(
-        'Não foi possível iniciar o pagamento online. A reserva foi liberada.',
+        error instanceof Error && error.message
+          ? error.message
+          : 'Não foi possível iniciar o pagamento online. A reserva foi liberada.',
         502,
         'PAYMENT_PROVIDER_UNAVAILABLE',
       );
@@ -345,6 +393,7 @@ export class CreateTablePaymentIntentService {
     context: CreateTablePaymentIntentContext,
     intent: TablePaymentIntentRecord,
     error: unknown,
+    providerCode: string | null,
   ) {
     const failed = await prisma.$transaction(
       async (tx) => {
@@ -373,7 +422,7 @@ export class CreateTablePaymentIntentService {
               type: TablePaymentEventType.FAILED,
               fromStatus: TablePaymentIntentStatus.RESERVED,
               toStatus: TablePaymentIntentStatus.FAILED,
-              provider: this.provider.code,
+              provider: providerCode,
               amountCents: intent.totalCents,
               occurredAt: this.now(),
               metadata: {
