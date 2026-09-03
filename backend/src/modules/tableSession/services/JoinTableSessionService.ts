@@ -12,6 +12,7 @@ type Input = {
   authenticatedUser?: { id: number | null; role: string } | null;
   cookies?: Record<string, string>;
   displayName?: unknown;
+  phone?: unknown;
 };
 
 export class TableSessionJoinError extends Error {
@@ -35,6 +36,7 @@ class JoinTableSessionService {
     authenticatedUser,
     cookies,
     displayName,
+    phone,
   }: Input) {
     const resolvedTable = await resolvePublicTableService.execute({
       tableId,
@@ -79,6 +81,7 @@ class JoinTableSessionService {
       authenticatedUser,
       cookies,
       displayName,
+      phone,
     });
 
     return {
@@ -90,9 +93,13 @@ class JoinTableSessionService {
       restaurantId: sessionRestaurantId,
       expiresAt: session.expiresAt,
       sessionStatus: session.status,
-      // A sessão continua acessível para consultar e quitar a conta, mas o
-      // cardápio não deve oferecer novos pedidos após a solicitação de fechamento.
-      tableOrderingEnabled: resolvedTable.tableOrderingEnabled && !closingRequested,
+      // A mesa pode continuar OPEN enquanto um participante individual aguarda
+      // pagamento. O bloqueio efetivo é a combinação do estado global da sessão
+      // com o estado financeiro daquele participante.
+      tableOrderingEnabled:
+        resolvedTable.tableOrderingEnabled &&
+        !closingRequested &&
+        !participantResult.participant.orderingBlocked,
       waiterCallEnabled: resolvedTable.waiterCallEnabled,
       billRequestEnabled: resolvedTable.billRequestEnabled,
       ...participantResult,
