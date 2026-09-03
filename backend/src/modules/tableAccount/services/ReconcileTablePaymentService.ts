@@ -1,28 +1,34 @@
-import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
+import { createConfiguredTablePaymentProviderForExisting } from '../providers/ConfiguredTablePaymentProvider.js';
 import tablePaymentRepository from '../repositories/TablePaymentRepository.js';
 import processTablePaymentWebhookService, {
-  type ProcessTablePaymentWebhookService,
+  ProcessTablePaymentWebhookService,
+  type ProcessTablePaymentWebhookService as ProcessTablePaymentWebhookServiceType,
 } from './ProcessTablePaymentWebhookService.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
 
 type ProviderReader = Pick<PaymentProvider, 'code' | 'getPayment'>;
-type CanonicalProcessor = Pick<ProcessTablePaymentWebhookService, 'executeValidated'>;
+type CanonicalProcessor = Pick<ProcessTablePaymentWebhookServiceType, 'executeValidated'>;
+
+type ReconcileInput = {
+  publicId: string;
+  tableSessionId: number;
+  sessionPublicId: string;
+  restaurantId: number;
+  participantId: number;
+  participantUserId?: number | null;
+  participantName?: string | null;
+  participantPhone?: string | null;
+};
 
 export class ReconcileTablePaymentService {
   constructor(
-    private readonly provider: ProviderReader = fakePaymentProvider,
-    private readonly processor: CanonicalProcessor = processTablePaymentWebhookService,
+    private readonly provider: ProviderReader | null = null,
+    private readonly processor: CanonicalProcessor | null = null,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async execute(input: {
-    publicId: string;
-    tableSessionId: number;
-    sessionPublicId: string;
-    restaurantId: number;
-    participantId: number;
-  }) {
+  async execute(input: ReconcileInput) {
     const intent = await tablePaymentRepository.findOwnedByPublicId(
       input.publicId,
       input.restaurantId,
@@ -36,7 +42,7 @@ export class ReconcileTablePaymentService {
         'TABLE_PAYMENT_NOT_FOUND',
       );
     }
-    if (intent.provider !== this.provider.code || !intent.providerExternalId) {
+    if (!intent.provider || !intent.providerExternalId) {
       throw new TablePaymentError(
         'Este pagamento não possui verificação online.',
         409,
@@ -44,7 +50,31 @@ export class ReconcileTablePaymentService {
       );
     }
 
-    const providerPayment = await this.provider.getPayment(intent.providerExternalId);
+    const provider =
+      this.provider ||
+      createConfiguredTablePaymentProviderForExisting(
+        {
+          restaurantId: input.restaurantId,
+          participantId: input.participantId,
+          participantUserId: input.participantUserId || null,
+          participantName: input.participantName || null,
+          participantPhone: input.participantPhone || null,
+          intentId: intent.id,
+          intentPublicId: intent.publicId,
+          method: intent.method as 'PIX' | 'CARD',
+        },
+        intent.provider,
+      );
+
+    if (intent.provider !== provider.code) {
+      throw new TablePaymentError(
+        'O provedor do pagamento não corresponde à configuração esperada.',
+        409,
+        'TABLE_PAYMENT_PROVIDER_MISMATCH',
+      );
+    }
+
+    const providerPayment = await provider.getPayment(intent.providerExternalId);
     if (providerPayment.externalId !== intent.providerExternalId) {
       throw new TablePaymentError(
         'A cobrança retornada pelo provedor não corresponde ao pagamento.',
@@ -61,8 +91,11 @@ export class ReconcileTablePaymentService {
     }
 
     const occurredAt = this.now();
-    await this.processor.executeValidated({
-      eventId: `reconcile:${this.provider.code}:${providerPayment.externalId}:${providerPayment.status}`,
+    const processor =
+      this.processor ||
+      (this.provider ? processTablePaymentWebhookService : new ProcessTablePaymentWebhookService(provider));
+    await processor.executeValidated({
+      eventId: `reconcile:${provider.code}:${providerPayment.externalId}:${providerPayment.status}`,
       externalId: providerPayment.externalId,
       status: providerPayment.status,
       amountCents: providerPayment.amountCents,
