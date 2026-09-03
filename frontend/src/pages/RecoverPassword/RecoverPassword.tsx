@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { Moon, Sun, Utensils } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../../Services/authService';
 import {
   evaluatePassword,
@@ -11,13 +11,22 @@ import {
 } from '../../features/password-policy';
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
+import {
+  buildAuthEntryUrl,
+  resolveAuthExperience,
+} from '../../shared/navigation/authNavigation';
 
 type ContactMethod = 'email' | 'phone';
 
 export default function RecoverPassword() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const branding = useRestaurantLoginBranding(searchParams);
-  const restaurantQuery = searchParams.toString();
+  const authExperience = resolveAuthExperience(searchParams);
+  const loginPath = buildAuthEntryUrl('/login', searchParams);
+  const registerPath = buildAuthEntryUrl('/register', searchParams);
+  const isTableContext = authExperience.context === 'TABLE';
+  const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [contactMethod, setContactMethod] = useState<ContactMethod>('phone');
@@ -108,11 +117,13 @@ export default function RecoverPassword() {
         confirmPassword,
       });
 
-      toast.success(response?.message || 'Senha redefinida com sucesso.');
-      setStep('request');
-      setCode('');
-      setNewPassword('');
-      setConfirmPassword('');
+      toast.success(
+        response?.message ||
+          (isTableContext
+            ? `Senha redefinida. Entre para continuar na ${tableLabel}.`
+            : 'Senha redefinida com sucesso. Faça login para continuar.'),
+      );
+      navigate(loginPath, { replace: true });
     } catch (error) {
       toast.error(error?.response?.data?.error || 'Nao foi possivel redefinir a senha.');
     } finally {
@@ -128,7 +139,7 @@ export default function RecoverPassword() {
         primaryHover: branding.primaryColor,
       }}
     >
-      <S.Container>
+      <S.Container data-auth-context={authExperience.context}>
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -153,16 +164,22 @@ export default function RecoverPassword() {
             <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
-            Recupere seu acesso de forma segura usando e-mail ou telefone cadastrado.
+            {isTableContext
+              ? `Recupere seu acesso para voltar à ${tableLabel} sem perder o contexto do QR Code.`
+              : 'Recupere seu acesso de forma segura usando e-mail ou telefone cadastrado.'}
           </S.BrandSubtitle>
         </S.BannerSection>
 
         <S.FormSection>
           <S.FormWrapper>
-            <S.WelcomeText>Recuperar senha</S.WelcomeText>
+            <S.WelcomeText>
+              {isTableContext ? `Recuperar acesso da ${tableLabel}` : 'Recuperar senha'}
+            </S.WelcomeText>
             <S.FormSubtitle>
               {step === 'request'
-                ? 'Escolha e-mail ou telefone e receba um codigo para redefinir sua senha.'
+                ? isTableContext
+                  ? `Escolha e-mail ou telefone. Depois da redefinição você voltará ao login da ${tableLabel}.`
+                  : 'Escolha e-mail ou telefone e receba um codigo para redefinir sua senha.'
                 : 'Digite o codigo recebido e informe sua nova senha.'}
             </S.FormSubtitle>
 
@@ -280,7 +297,9 @@ export default function RecoverPassword() {
                   ? 'Processando...'
                   : step === 'request'
                     ? 'Enviar codigo'
-                    : 'Redefinir senha'}
+                    : isTableContext
+                      ? `Redefinir e voltar ao login da ${tableLabel}`
+                      : 'Redefinir senha'}
               </S.Button>
 
               {step === 'reset' && (
@@ -296,13 +315,9 @@ export default function RecoverPassword() {
             </S.Form>
 
             <S.FooterRow>
-              <S.BackLink to={`/login${restaurantQuery ? `?${restaurantQuery}` : ''}`}>
-                Voltar para login
-              </S.BackLink>
+              <S.BackLink to={loginPath}>Voltar para login</S.BackLink>
               <span>|</span>
-              <S.BackLink to={`/register${restaurantQuery ? `?${restaurantQuery}` : ''}`}>
-                Criar conta
-              </S.BackLink>
+              <S.BackLink to={registerPath}>Criar conta</S.BackLink>
             </S.FooterRow>
           </S.FormWrapper>
         </S.FormSection>
