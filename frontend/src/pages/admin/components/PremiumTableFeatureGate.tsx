@@ -184,8 +184,6 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
     monthlyBillingService
       .getSubscription()
       .then((result) => {
@@ -202,6 +200,12 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
       active = false;
     };
   }, [revision]);
+
+  const retry = () => {
+    setLoading(true);
+    setError('');
+    setRevision((current) => current + 1);
+  };
 
   if (loading) {
     return (
@@ -220,7 +224,7 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
         <div>
           <LockKeyhole />
           <b>{error}</b>
-          <button type="button" onClick={() => setRevision((current) => current + 1)}>
+          <button type="button" onClick={retry}>
             Tentar novamente
           </button>
         </div>
