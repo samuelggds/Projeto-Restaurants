@@ -25,6 +25,8 @@ import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 
 const router = Router();
 
+// O join resolve o QR oficial antes de criar o participante. ResolvePublicTableService
+// já exige assinatura Premium ativa/teste para esse fluxo público.
 router.post('/join', tableJoinRateLimitMiddleware, optionalAuthMiddleware, (req, res) =>
   JoinTableSessionController.handle(req, res),
 );
@@ -39,6 +41,7 @@ router.get(
   '/current',
   optionalAuthMiddleware,
   sessionMiddleware,
+  premiumTablePlanMiddleware,
   tableParticipantMiddleware,
   (req, res) => GetCurrentSessionController.handle(req, res),
 );
@@ -46,6 +49,7 @@ router.patch(
   '/participant',
   optionalAuthMiddleware,
   sessionMiddleware,
+  premiumTablePlanMiddleware,
   tableParticipantMiddleware,
   (req, res) => UpdateTableParticipantController.handle(req, res),
 );

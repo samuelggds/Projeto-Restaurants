@@ -3,7 +3,7 @@ import prisma from '../config/prisma.js';
 
 export async function premiumTablePlanMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    const restaurantId = Number(req.user?.restaurantId || 0);
+    const restaurantId = Number(req.user?.restaurantId || req.tableSession?.restaurantId || 0);
     if (!restaurantId) {
       return res.status(400).json({ error: 'Restaurante não identificado.' });
     }
@@ -16,7 +16,7 @@ export async function premiumTablePlanMiddleware(req: Request, res: Response, ne
     const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
     if (!isActive || subscription?.plan !== 'PREMIUM') {
       return res.status(403).json({
-        error: 'O cardápio digital com QR Code de mesa está disponível no plano Premium.',
+        error: 'O sistema de mesas está disponível somente no plano Premium.',
         code: 'PREMIUM_TABLE_PLAN_REQUIRED',
       });
     }

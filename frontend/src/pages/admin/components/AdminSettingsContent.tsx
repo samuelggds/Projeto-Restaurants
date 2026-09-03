@@ -23,6 +23,7 @@ import { SecuritySettings } from './SecuritySettings';
 import { PromotionsSettings } from './PromotionsSettings';
 import { TableAccountSettings } from './TableAccountSettings';
 import { KitchenPrintingSettings } from './KitchenPrintingSettings';
+import { PremiumTableFeatureGate } from './PremiumTableFeatureGate';
 
 const CourierCompensationSettings = lazy(() =>
   import('./CourierCompensationSettings').then((module) => ({
@@ -89,9 +90,18 @@ export function AdminSettingsContent(props: Props) {
       />
     );
   if (section === 'delivery') return <DeliverySettings settings={settings} update={update} />;
-  if (section === 'table') return <TableMenuSettings settings={settings} update={update} />;
+  if (section === 'table')
+    return (
+      <PremiumTableFeatureGate>
+        <TableMenuSettings settings={settings} update={update} />
+      </PremiumTableFeatureGate>
+    );
   if (section === 'table-account')
-    return <TableAccountSettings settings={settings} update={update} />;
+    return (
+      <PremiumTableFeatureGate>
+        <TableAccountSettings settings={settings} update={update} />
+      </PremiumTableFeatureGate>
+    );
   if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
   if (section === 'printing') return <KitchenPrintingSettings />;
   if (section === 'employee-payments')
