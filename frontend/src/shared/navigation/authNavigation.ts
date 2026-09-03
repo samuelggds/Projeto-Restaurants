@@ -65,16 +65,20 @@ function sanitizeRestaurantId(value: string | null) {
   return Number.isSafeInteger(numeric) && numeric > 0 ? String(numeric) : '';
 }
 
+function decodeSingleURIComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return '';
+  }
+}
+
 function sanitizeRestaurantSlug(value: string | null) {
   const raw = String(value || '').trim();
   if (!raw || raw.length > 100) return '';
 
-  let decoded = raw;
-  try {
-    decoded = decodeURIComponent(raw);
-  } catch {
-    return '';
-  }
+  const decoded = decodeSingleURIComponent(raw);
+  if (!decoded) return '';
 
   const normalized = decoded.trim().toLowerCase();
   if (
