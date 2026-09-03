@@ -212,7 +212,7 @@ export const Card = styled.section`
   position: relative;
   overflow: hidden;
   border: 1px solid #e8e1da;
-  border-radius: 18px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.96);
   padding: 28px;
   box-shadow: 0 9px 28px rgba(51, 35, 22, 0.042);
@@ -273,7 +273,7 @@ export const Card = styled.section`
 
   @media (max-width: 580px) {
     padding: 19px 15px;
-    border-radius: 15px;
+    border-radius: 9px;
     &::before {
       left: 15px;
     }
@@ -309,7 +309,7 @@ export const LogoCard = styled.div`
     height: 168px;
     position: relative;
     border: 1px solid #ddd4cc;
-    border-radius: 18px;
+    border-radius: 10px;
     background:
       linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent),
       #171b1e;
@@ -349,7 +349,7 @@ export const LogoCard = styled.div`
     min-height: 46px;
     padding: 0 17px;
     border: 1px solid #ddd4cc;
-    border-radius: 10px;
+    border-radius: 8px;
     background: #fff;
     color: #37312d;
     display: flex;
@@ -454,7 +454,7 @@ export const Field = styled.label<{ $full?: boolean }>`
     width: 100%;
     min-width: 0;
     border: 1px solid #ded7cf;
-    border-radius: 11px;
+    border-radius: 8px;
     background: #fcfbf9;
     color: #1f1c19;
     padding: 0 14px;
@@ -532,7 +532,7 @@ export const IdentityNameInput = styled.input`
     height: 52px;
     width: 100%;
     border: 1px solid #ded7cf;
-    border-radius: 11px;
+    border-radius: 8px;
     background: #fcfbf9;
     color: #1f1c19;
     padding: 0 14px;
@@ -562,11 +562,11 @@ export const Color = styled.div`
   input[type='color'] {
     padding: 6px;
     width: 56px;
-    border-radius: 11px 0 0 11px;
+    border-radius: 8px 0 0 8px;
     cursor: pointer;
   }
   input[type='color'] + input {
-    border-radius: 0 11px 11px 0;
+    border-radius: 0 8px 8px 0;
   }
 `;
 
@@ -579,7 +579,7 @@ export const Banners = styled.div`
     position: relative;
     min-height: 170px;
     border: 1px dashed #bdb4aa;
-    border-radius: 14px;
+    border-radius: 10px;
     background: linear-gradient(145deg, #fff, #faf7f3);
     display: flex;
     flex-direction: column;
@@ -649,7 +649,7 @@ export const Generic = styled.div`
   .row {
     min-height: 68px;
     border: 1px solid #ebe4dd;
-    border-radius: 12px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 14px;
@@ -698,7 +698,7 @@ export const EmployeeHeader = styled.div`
   button {
     height: 44px;
     border: 0;
-    border-radius: 9px;
+    border-radius: 8px;
     background: var(--a);
     color: #fff;
     padding: 0 16px;
@@ -753,7 +753,7 @@ export const EmployeeRow = styled.article`
     height: 34px;
     border: 0;
     background: transparent;
-    border-radius: 9px;
+    border-radius: 8px;
     cursor: pointer;
     transition:
       background 160ms ease,
@@ -767,7 +767,7 @@ export const EmployeeRow = styled.article`
   .reactivate {
     min-height: 36px;
     border: 1px solid #f2c7c2;
-    border-radius: 10px;
+    border-radius: 8px;
     background: #fff7f5;
     color: #b53b32;
     padding: 0 12px;
@@ -900,7 +900,7 @@ export const Drawer = styled.form`
   }
   .permissions {
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 13px;
     display: grid;
     gap: 12px;
