@@ -4,6 +4,7 @@ import {
   TablePaymentIntentStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import type {
   PaymentProvider,
@@ -18,6 +19,8 @@ import {
 import { sha256, TablePaymentError } from './tablePaymentSupport.js';
 import { resolveTablePaymentProviderTransition } from '../domain/tablePaymentProviderTransition.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
+import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
 
 export class ProcessTablePaymentWebhookService {
   constructor(private readonly provider: PaymentProvider = fakePaymentProvider) {}
@@ -54,6 +57,7 @@ export class ProcessTablePaymentWebhookService {
     )}`;
     const outcome = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, initial.restaurantId);
         await lockTablePaymentSession(tx, initial.restaurantId, initial.tableSessionId);
 
         const duplicate = await tx.tablePaymentEvent.findUnique({
@@ -68,7 +72,12 @@ export class ProcessTablePaymentWebhookService {
         const latePayment = transition.latePayment;
 
         if (duplicate) {
-          return { duplicate: true, latePayment, current };
+          return {
+            duplicate: true,
+            latePayment,
+            current,
+            released: [] as Awaited<ReturnType<typeof tableParticipantStateService.releaseSettledParticipants>>,
+          };
         }
 
         const nextStatus = transition.nextStatus as TablePaymentIntentStatus | null;
@@ -119,6 +128,7 @@ export class ProcessTablePaymentWebhookService {
           },
         });
 
+        let released: Awaited<ReturnType<typeof tableParticipantStateService.releaseSettledParticipants>> = [];
         if (nextStatus) {
           await projectTableSessionFinancialState(
             tx,
@@ -126,13 +136,20 @@ export class ProcessTablePaymentWebhookService {
             current.tableSessionId,
             event.occurredAt,
           );
+          if (nextStatus === TablePaymentIntentStatus.PAID) {
+            released = await tableParticipantStateService.releaseSettledParticipants(tx, {
+              restaurantId: current.restaurantId,
+              tableSessionId: current.tableSessionId,
+              now: event.occurredAt,
+            });
+          }
         }
 
         const updated = await tx.tablePaymentIntent.findUniqueOrThrow({
           where: { id: current.id },
           select: tablePaymentIntentDtoSelect,
         });
-        return { duplicate: false, latePayment, current: updated };
+        return { duplicate: false, latePayment, current: updated, released };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -174,6 +191,17 @@ export class ProcessTablePaymentWebhookService {
         paymentStatus: outcome.current.status,
         occurredAt: event.occurredAt,
       });
+      for (const released of outcome.released) {
+        await tableParticipantStateEvents.orderingUpdated({
+          restaurantId: outcome.current.restaurantId,
+          tableId: released.tableId,
+          tableSessionId: outcome.current.tableSessionId,
+          participantPublicId: released.participantPublicId,
+          orderingBlocked: false,
+          reason: 'PAYMENT_SETTLED',
+          occurredAt: event.occurredAt,
+        });
+      }
     }
 
     return {
