@@ -1,3 +1,4 @@
+import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import restaurantRepository from '../../restaurants/repositories/RestaurantRepository.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
@@ -7,6 +8,33 @@ type RestaurantIdPayload = {
   slug?: string;
   useDefault?: boolean;
 };
+
+type RestaurantCategory =
+  | 'RESTAURANTE'
+  | 'PIZZARIA'
+  | 'HAMBURGUERIA'
+  | 'ACAITERIA'
+  | 'CAFETERIA'
+  | 'JAPONESA'
+  | 'CHURRASCARIA'
+  | 'DOCERIA'
+  | 'LANCHONETE'
+  | 'PADARIA'
+  | 'OUTRO';
+
+const RESTAURANT_CATEGORIES = new Set<RestaurantCategory>([
+  'RESTAURANTE',
+  'PIZZARIA',
+  'HAMBURGUERIA',
+  'ACAITERIA',
+  'CAFETERIA',
+  'JAPONESA',
+  'CHURRASCARIA',
+  'DOCERIA',
+  'LANCHONETE',
+  'PADARIA',
+  'OUTRO',
+]);
 
 type PublicSettingsFallback = {
   restaurantId: number;
@@ -50,6 +78,7 @@ type PublicSettingsFallback = {
     updatedAt?: Date;
     name: string | null;
     slug: string | null;
+    category: RestaurantCategory;
     logo: string | null;
     coverImage: string | null;
     description: string | null;
@@ -72,6 +101,25 @@ type PublicSettingsFallback = {
     }>;
   };
 };
+
+function normalizeRestaurantCategory(value: unknown): RestaurantCategory {
+  const normalized = String(value || '').trim().toUpperCase() as RestaurantCategory;
+  return RESTAURANT_CATEGORIES.has(normalized) ? normalized : 'RESTAURANTE';
+}
+
+async function loadRestaurantCategory(restaurantId: number): Promise<RestaurantCategory> {
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ category?: string | null }>>(
+      'SELECT "category" FROM "Restaurant" WHERE "id" = $1 LIMIT 1',
+      restaurantId,
+    );
+    return normalizeRestaurantCategory(rows[0]?.category);
+  } catch {
+    // Compatibilidade durante rollout: antes da migration a coluna ainda não
+    // existe. O tenant continua funcional com a identidade genérica.
+    return 'RESTAURANTE';
+  }
+}
 
 function externalizePublicRestaurantImages(
   restaurantId: number,
@@ -132,6 +180,7 @@ class GetPublicRestaurantSettingsService {
         throw new Error('Restaurante não encontrado ou indisponível.');
       }
 
+      const category = await loadRestaurantCategory(normalizedRestaurantId);
       const fallback: PublicSettingsFallback = {
         restaurantId: normalizedRestaurantId,
         primaryColor: '#c95d3d',
@@ -174,6 +223,7 @@ class GetPublicRestaurantSettingsService {
           updatedAt: restaurant?.updatedAt,
           name: restaurant?.name || null,
           slug: restaurant?.slug || null,
+          category,
           logo: restaurant?.logo || null,
           coverImage: restaurant?.coverImage || null,
           description: restaurant?.description || null,
@@ -198,7 +248,13 @@ class GetPublicRestaurantSettingsService {
       throw new Error('Restaurante não encontrado ou indisponível.');
     }
 
-    const restaurant = settings.restaurant as PublicSettingsFallback['restaurant'] | null;
+    const rawRestaurant = settings.restaurant as unknown as Omit<
+      PublicSettingsFallback['restaurant'],
+      'category'
+    > | null;
+    const category = await loadRestaurantCategory(normalizedRestaurantId);
+    const restaurant = rawRestaurant ? { ...rawRestaurant, category } : null;
+
     return {
       ...settings,
       ...(restaurant
