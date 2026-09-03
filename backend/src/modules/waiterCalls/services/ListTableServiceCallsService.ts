@@ -1,4 +1,5 @@
 import { TableServiceCallStatus, TableServiceCallType } from '@prisma/client';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import tableServiceCallRepository from '../repositories/TableServiceCallRepository.js';
 
 type Input = {
@@ -43,13 +44,19 @@ class ListTableServiceCallsService {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    return tableServiceCallRepository.listByRestaurant(normalizedRestaurantId, {
-      status: normalizedStatus ? (normalizedStatus as TableServiceCallStatus) : undefined,
-      type: normalizedType ? (normalizedType as TableServiceCallType) : undefined,
-      tableNumber: parsedTableNumber,
-      resolvedSince: startOfToday,
-      take: 200,
-    });
+    return withTenantDbContext(normalizedRestaurantId, (db) =>
+      tableServiceCallRepository.listByRestaurant(
+        normalizedRestaurantId,
+        {
+          status: normalizedStatus ? (normalizedStatus as TableServiceCallStatus) : undefined,
+          type: normalizedType ? (normalizedType as TableServiceCallType) : undefined,
+          tableNumber: parsedTableNumber,
+          resolvedSince: startOfToday,
+          take: 200,
+        },
+        db,
+      ),
+    );
   }
 }
 
