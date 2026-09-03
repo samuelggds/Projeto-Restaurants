@@ -11,11 +11,19 @@ import {
 } from '../../features/password-policy';
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
+import {
+  buildAuthEntryUrl,
+  resolveAuthExperience,
+} from '../../shared/navigation/authNavigation';
 
 export default function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const branding = useRestaurantLoginBranding(searchParams);
+  const authExperience = resolveAuthExperience(searchParams);
+  const loginPath = buildAuthEntryUrl('/login', searchParams);
+  const isTableContext = authExperience.context === 'TABLE';
+  const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,7 +31,6 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const loginPath = `/login${searchParams.size ? `?${searchParams.toString()}` : ''}`;
   const passwordEvaluation = evaluatePassword(password, confirmPassword, STANDARD_PASSWORD_POLICY);
   const passwordHasError =
     password.length > 0 &&
@@ -57,7 +64,11 @@ export default function Register() {
         confirmPassword,
       });
 
-      toast.success('Cadastro realizado com sucesso! Faça login para continuar.');
+      toast.success(
+        isTableContext
+          ? `Cadastro realizado! Entre para continuar na ${tableLabel}.`
+          : 'Cadastro realizado com sucesso! Faça login para continuar.',
+      );
       navigate(loginPath);
     } catch (error) {
       const typed = error as {
@@ -84,7 +95,7 @@ export default function Register() {
         primaryHover: branding.primaryColor,
       }}
     >
-      <S.Container>
+      <S.Container data-auth-context={authExperience.context}>
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -109,16 +120,21 @@ export default function Register() {
             <span>{branding.name}</span>
           </S.BrandTitle>
           <S.BrandSubtitle>
-            Crie sua conta em poucos segundos e tenha acesso completo ao nosso cardápio, histórico
-            de pedidos na mesa e benefícios exclusivos de fidelidade.
+            {isTableContext
+              ? `Crie sua conta para continuar seu pedido na ${tableLabel}. A conta será a mesma usada no cardápio online.`
+              : 'Crie sua conta em poucos segundos e tenha acesso ao cardápio, histórico de pedidos e benefícios do restaurante.'}
           </S.BrandSubtitle>
         </S.BannerSection>
 
         <S.FormSection>
           <S.FormWrapper>
-            <S.WelcomeText>Criar Conta</S.WelcomeText>
+            <S.WelcomeText>
+              {isTableContext ? `Criar conta para a ${tableLabel}` : 'Criar Conta'}
+            </S.WelcomeText>
             <S.FormSubtitle>
-              Preencha os campos abaixo de maneira rápida para começar.
+              {isTableContext
+                ? 'Depois do cadastro, entre com esta mesma conta para voltar exatamente à sua mesa.'
+                : 'Preencha os campos abaixo para começar.'}
             </S.FormSubtitle>
 
             <S.Form onSubmit={handleSubmit} aria-busy={isSubmitting}>
@@ -208,6 +224,8 @@ export default function Register() {
                   <>
                     <LoaderCircle className="loading-icon" aria-hidden="true" /> Finalizando...
                   </>
+                ) : isTableContext ? (
+                  `Criar conta e continuar na ${tableLabel}`
                 ) : (
                   'Finalizar Cadastro'
                 )}
