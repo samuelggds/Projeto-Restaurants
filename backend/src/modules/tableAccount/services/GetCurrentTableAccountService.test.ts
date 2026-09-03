@@ -148,7 +148,7 @@ test('monta a conta com centavos exatos, ignora cancelados e não expõe dados d
     enabled: true,
     allowCash: true,
     allowCardMachine: true,
-    allowOnlinePayment: true,
+    allowOnlinePayment: false,
     allowSplit: true,
     serviceFeeMode: 'OPTIONAL',
     serviceFeeBasisPoints: 1_000,
