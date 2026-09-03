@@ -17,6 +17,7 @@ import tableAccountRepository, {
 import tableAccountSettingsRepository from '../repositories/TableAccountSettingsRepository.js';
 import { calculateTableBillItemLedger } from '../domain/tablePaymentAllocation.js';
 import { serializeTablePaymentIntent } from './tablePaymentSupport.js';
+import { getConfiguredTablePaymentReadiness } from '../providers/ConfiguredTablePaymentProvider.js';
 
 const operationalStatusMap: Record<OrderStatus, TableOrderOperationalStatus> = {
   [OrderStatus.PENDENTE]: 'PENDING',
@@ -126,8 +127,6 @@ export function buildTableAccountBaseSnapshot(
   ]);
   const serviceFeeCents = sumMoneyCents(
     paymentIntents
-      // Uma cobrança totalmente estornada não pode continuar compondo o
-      // valor devido da mesa. O histórico permanece em grossPaid/refunded.
       .filter((payment) => payment.status === 'PAID')
       .map((payment) => toSafeMoneyCents(payment.serviceFeeCents, `taxa ${payment.publicId}`)),
   );
@@ -208,9 +207,15 @@ export class GetCurrentTableAccountService {
       throw new TableAccountAccessError();
     }
 
-    const [data, settings] = await Promise.all([
+    const [data, settings, onlineReadiness] = await Promise.all([
       tableAccountRepository.findSnapshotData(tableSessionId, restaurantId, participantId),
       tableAccountSettingsRepository.findByRestaurantId(restaurantId),
+      getConfiguredTablePaymentReadiness(restaurantId).catch(() => ({
+        allowPix: false,
+        allowCard: false,
+        pixProvider: null,
+        cardProvider: null,
+      })),
     ]);
     if (!data) {
       throw new TableAccountAccessError();
@@ -223,10 +228,7 @@ export class GetCurrentTableAccountService {
         ['RESERVED', 'PROCESSING'].includes(payment.status) &&
         payment.expiresAt > now,
     );
-    // Nesta etapa o único adapter disponível é o simulador local, que se
-    // desativa em produção. Não ofereça Pix/cartão online ao cliente quando
-    // não existe um provedor real capaz de criar e confirmar a cobrança.
-    const onlinePaymentProviderAvailable = process.env.NODE_ENV !== 'production';
+    const onlinePaymentProviderAvailable = onlineReadiness.allowPix || onlineReadiness.allowCard;
 
     return {
       ...buildTableAccountBaseSnapshot(data, now),
