@@ -1,3 +1,4 @@
+import { MapPinned, Navigation, Store } from 'lucide-react';
 import * as S from '../Admin.styles';
 import {
   formatEstablishmentCep,
@@ -11,6 +12,9 @@ type Props = {
 };
 export function AddressSettings({ settings, update }: Props) {
   const errors = validateEstablishmentAddress(settings);
+  const hasLocation = Boolean(
+    settings.businessAddress.trim() && settings.businessCity.trim() && settings.businessState.trim(),
+  );
   const textField = <K extends keyof AdminSettings>(key: K, label: string, optional = false) => (
     <S.Field>
       {label}
@@ -43,9 +47,36 @@ export function AddressSettings({ settings, update }: Props) {
   );
   return (
     <S.SettingSection>
+      <S.SettingsHero>
+        <div className="settings-hero-copy">
+          <span className="settings-hero-icon" aria-hidden="true">
+            <MapPinned />
+          </span>
+          <div>
+            <span className="settings-eyebrow">LOCALIZAÇÃO DA OPERAÇÃO</span>
+            <h2>Um endereço único para retirada e entregas</h2>
+            <p>
+              Mantenha a origem das entregas e o ponto de retirada corretos para reduzir erros na
+              operação e orientar o cliente.
+            </p>
+          </div>
+        </div>
+        <span className="settings-hero-badge">
+          <Navigation /> {hasLocation ? 'Localização principal definida' : 'Localização pendente'}
+        </span>
+      </S.SettingsHero>
+
       <S.Card>
-        <h2>Endereço do estabelecimento</h2>
-        <p>Origem das entregas e local de retirada. Esses dados aparecem no rodapé da sua loja.</p>
+        <S.SettingsCardHeading>
+          <div className="settings-card-copy">
+            <h2>Endereço do estabelecimento</h2>
+            <p>Esses dados também aparecem no rodapé da sua loja.</p>
+          </div>
+          <span className="settings-card-icon" aria-hidden="true">
+            <Store />
+          </span>
+        </S.SettingsCardHeading>
+
         <S.FormGrid>
           <S.Field>
             CEP

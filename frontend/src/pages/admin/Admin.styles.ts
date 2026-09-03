@@ -8,3 +8,4 @@ export * from './styles/AdminProductConfigurationExperience.styles';
 export * from './styles/AdminOperations.styles';
 export * from './styles/AdminCatalogSettings.styles';
 export * from './styles/AdminCatalogExperience.styles';
+export * from './styles/AdminSettingsExperience.styles';
