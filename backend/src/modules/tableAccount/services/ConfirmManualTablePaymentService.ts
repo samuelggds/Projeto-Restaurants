@@ -4,6 +4,7 @@ import {
   TablePaymentIntentStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import type { TableAccountActor } from '../domain/tableAccountContracts.js';
 import {
   canConfirmManualTablePayment,
@@ -19,6 +20,8 @@ import {
 } from './tablePaymentLedger.js';
 import { serializeTablePaymentIntent, TablePaymentError } from './tablePaymentSupport.js';
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
+import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
 
 export class ConfirmManualTablePaymentService {
   constructor(private readonly now: () => Date = () => new Date()) {}
@@ -46,8 +49,9 @@ export class ConfirmManualTablePaymentService {
     }
 
     const now = this.now();
-    const updated = await prisma.$transaction(
+    const outcome = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, restaurantId);
         await lockTablePaymentSession(tx, restaurantId, initial.tableSessionId);
         await expireTablePaymentReservations(tx, restaurantId, initial.tableSessionId, now);
 
@@ -72,10 +76,8 @@ export class ConfirmManualTablePaymentService {
           );
         }
 
-        // A confirmação é idempotente mesmo se outro funcionário tocar no botão
-        // depois do primeiro. O histórico preserva quem confirmou originalmente.
         if (intent.status === TablePaymentIntentStatus.PAID && intent.manualConfirmedAt) {
-          return intent;
+          return { payment: intent, released: [] as Awaited<ReturnType<typeof tableParticipantStateService.releaseSettledParticipants>> };
         }
         if (
           intent.status !== TablePaymentIntentStatus.RESERVED &&
@@ -125,26 +127,44 @@ export class ConfirmManualTablePaymentService {
           },
         });
         await projectTableSessionFinancialState(tx, restaurantId, intent.tableSessionId, now);
+        const released = await tableParticipantStateService.releaseSettledParticipants(tx, {
+          restaurantId,
+          tableSessionId: intent.tableSessionId,
+          now,
+        });
 
-        return tx.tablePaymentIntent.findUniqueOrThrow({
+        const payment = await tx.tablePaymentIntent.findUniqueOrThrow({
           where: { id: intent.id },
           select: tablePaymentIntentDtoSelect,
         });
+        return { payment, released };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
     await tableAccountEvents.updated({
-      sessionId: updated.tableSessionId,
+      sessionId: outcome.payment.tableSessionId,
       restaurantId,
       reason: 'PAYMENT_CONFIRMED_MANUALLY',
-      paymentPublicId: updated.publicId,
-      paymentStatus: updated.status,
-      occurredAt: updated.paidAt || now,
+      paymentPublicId: outcome.payment.publicId,
+      paymentStatus: outcome.payment.status,
+      occurredAt: outcome.payment.paidAt || now,
     });
 
+    for (const released of outcome.released) {
+      await tableParticipantStateEvents.orderingUpdated({
+        restaurantId,
+        tableId: released.tableId,
+        tableSessionId: outcome.payment.tableSessionId,
+        participantPublicId: released.participantPublicId,
+        orderingBlocked: false,
+        reason: 'PAYMENT_SETTLED',
+        occurredAt: outcome.payment.paidAt || now,
+      });
+    }
+
     return {
-      payment: serializeTablePaymentIntent(updated, initial.tableSession.publicId),
+      payment: serializeTablePaymentIntent(outcome.payment, initial.tableSession.publicId),
     };
   }
 }
