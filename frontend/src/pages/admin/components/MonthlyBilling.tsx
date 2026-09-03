@@ -599,13 +599,15 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
             </S.ChargeMetric>
           </S.ChargeMetrics>
 
-          <S.BillingCard>
+          <S.BillingCard aria-labelledby="billing-cycle-title">
             <S.BillingCardHeader>
               <div>
                 <span className="label">
                   <CalendarClock aria-hidden="true" /> Ciclo da assinatura
                 </span>
-                <h2>{billing?.currentCycle || 1}º mês da sua assinatura</h2>
+                <h2 id="billing-cycle-title">
+                  {billing?.currentCycle || 1}º mês da sua assinatura
+                </h2>
                 <p>
                   {billing?.completedMonths || 0}{' '}
                   {(billing?.completedMonths || 0) === 1 ? 'mês completo' : 'meses completos'} até
@@ -686,14 +688,14 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
             </S.BillingPayment>
           </S.BillingCard>
 
-          <S.HistorySection>
+          <S.HistorySection aria-labelledby="billing-history-title">
             <S.HistoryHeader>
               <div>
                 <span className="history-icon" aria-hidden="true">
                   <FileText />
                 </span>
                 <span>
-                  <h3>Histórico de mensalidades</h3>
+                  <h3 id="billing-history-title">Histórico de mensalidades</h3>
                   <p>Comprovantes, vencimentos e situação de cada cobrança.</p>
                 </span>
               </div>

@@ -568,8 +568,10 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
 
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Abrir menu administrativo' }).click();
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação administrativa móvel' })
+    .getByRole('button', { name: 'Cardápio' })
+    .click();
   await page.getByRole('button', { name: 'Opções de Produto artesanal' }).click();
   await page.getByRole('button', { name: 'Editar produto' }).click();
 

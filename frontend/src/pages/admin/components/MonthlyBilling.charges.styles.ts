@@ -18,7 +18,7 @@ export const InvoiceOverview = styled.div`
   align-items: center;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: 8px;
   background: #fff;
 
   > span {
@@ -62,7 +62,7 @@ export const ChargeMetric = styled.article<{ $tone: BillingTone }>`
   align-items: center;
   padding: 16px;
   border: 1px solid ${({ $tone }) => toneColors[$tone].border};
-  border-radius: 16px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 7px 22px rgba(52, 36, 25, 0.045);
 
@@ -71,7 +71,7 @@ export const ChargeMetric = styled.article<{ $tone: BillingTone }>`
     height: 42px;
     display: grid;
     place-items: center;
-    border-radius: 12px;
+    border-radius: 8px;
     color: ${({ $tone }) => toneColors[$tone].color};
     background: ${({ $tone }) => toneColors[$tone].background};
   }
@@ -117,7 +117,7 @@ export const BillingCard = styled.article`
   gap: 22px;
   padding: clamp(20px, 3vw, 28px);
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 8px;
   background: linear-gradient(140deg, #fff 0%, #fffaf5 100%);
   box-shadow: 0 14px 34px rgba(43, 31, 22, 0.07);
 
@@ -159,7 +159,7 @@ export const BillingCardHeader = styled.div`
   h2 {
     margin: 8px 0 4px;
     font-size: clamp(19px, 2.2vw, 24px);
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
   }
 
   p {
@@ -177,7 +177,7 @@ export const BillingCardHeader = styled.div`
     justify-content: center;
     column-gap: 5px;
     padding: 12px 14px;
-    border-radius: 15px;
+    border-radius: 8px;
     color: #fff;
     background: #211e1b;
     text-align: center;
@@ -235,7 +235,7 @@ export const BillingTimeline = styled.div`
     align-items: center;
     padding: 10px 9px;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.91);
     text-align: center;
   }
@@ -346,7 +346,7 @@ export const BillingPayment = styled.div<{ $available: boolean }>`
   align-items: center;
   padding: 16px;
   border: 1px solid ${({ $available }) => ($available ? '#cde7d7' : '#e4ddd6')};
-  border-radius: 16px;
+  border-radius: 8px;
   background: ${({ $available }) => ($available ? '#f2faf5' : '#f7f5f2')};
 
   .payment-icon {
@@ -354,7 +354,7 @@ export const BillingPayment = styled.div<{ $available: boolean }>`
     height: 45px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
+    border-radius: 8px;
     color: ${({ $available }) => ($available ? '#247344' : '#67605a')};
     background: #fff;
     box-shadow: 0 5px 16px rgba(52, 36, 25, 0.06);
@@ -433,7 +433,7 @@ export const HistorySection = styled.section`
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 10px 30px rgba(52, 36, 25, 0.055);
 `;
@@ -461,7 +461,7 @@ export const HistoryHeader = styled.header`
     flex: 0 0 38px;
     display: grid;
     place-items: center;
-    border-radius: 11px;
+    border-radius: 8px;
     color: #5c5650;
     background: #efebe7;
   }
@@ -673,7 +673,7 @@ export const Empty = styled.div`
     display: grid;
     place-items: center;
     margin-bottom: 11px;
-    border-radius: 14px;
+    border-radius: 8px;
     color: #77706a;
     background: #f1eeeb;
   }
@@ -702,7 +702,7 @@ export const Loading = styled.div`
   justify-content: center;
   gap: 7px;
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 8px;
   color: var(--muted);
   background: #fff;
 
@@ -791,7 +791,7 @@ export const PixModal = styled.div`
   h2 {
     margin: 15px 0 6px;
     font-size: 23px;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
   }
 
   > p {
@@ -834,7 +834,7 @@ export const PixModal = styled.div`
     color: var(--a);
     font-size: 26px;
     font-weight: 900;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   .copy {

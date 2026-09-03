@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import type {
   AdminCategory,
   AdminIngredient,
@@ -8,7 +9,10 @@ import type {
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
 import { AdminCatalog } from './AdminCatalog';
-import { AdminCustomers } from './AdminCustomers';
+
+const AdminCustomers = lazy(() =>
+  import('./AdminCustomers').then((module) => ({ default: module.AdminCustomers })),
+);
 
 type Props = {
   area: Exclude<AdminSection, 'settings' | 'employees' | 'subscriptions'>;
@@ -79,5 +83,9 @@ export function AdminManagement(props: Props) {
         onImportComplete={props.onCatalogImportComplete}
       />
     );
-  return <AdminCustomers orders={props.orders} money={money} />;
+  return (
+    <Suspense fallback={<p role="status">Carregando clientes...</p>}>
+      <AdminCustomers orders={props.orders} money={money} />
+    </Suspense>
+  );
 }

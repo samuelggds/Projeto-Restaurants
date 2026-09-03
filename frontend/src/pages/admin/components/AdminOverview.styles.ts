@@ -24,7 +24,7 @@ export const Hero = styled.section`
   min-height: 226px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 30px;
   color: #fff;
   background:
@@ -71,7 +71,7 @@ export const Hero = styled.section`
   @media (max-width: 560px) {
     min-height: 0;
     padding: 23px 20px;
-    border-radius: 20px;
+    border-radius: 8px;
   }
 `;
 
@@ -99,7 +99,7 @@ export const HeroCopy = styled.div`
     margin: 12px 0 0;
     font-size: clamp(27px, 3vw, 39px);
     line-height: 1.04;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   p {
@@ -265,7 +265,7 @@ export const Metric = styled.article`
   min-width: 0;
   min-height: 126px;
   border: 1px solid #e5dfd8;
-  border-radius: 17px;
+  border-radius: 8px;
   padding: 18px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 9px 25px rgba(48, 35, 25, 0.045);
@@ -287,7 +287,7 @@ export const Metric = styled.article`
     flex: 0 0 42px;
     width: 42px;
     height: 42px;
-    border-radius: 13px;
+    border-radius: 8px;
     display: grid;
     place-items: center;
   }
@@ -373,7 +373,7 @@ export const Metric = styled.article`
       flex-basis: 36px;
       width: 36px;
       height: 36px;
-      border-radius: 11px;
+      border-radius: 8px;
     }
 
     .metric-icon svg {
@@ -418,14 +418,14 @@ export const Panel = styled.section`
   min-width: 0;
   overflow: hidden;
   border: 1px solid #e5dfd8;
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 22px;
   background: #fff;
   box-shadow: 0 12px 34px rgba(48, 35, 25, 0.055);
 
   @media (max-width: 560px) {
     padding: 17px 14px;
-    border-radius: 17px;
+    border-radius: 8px;
   }
 `;
 
@@ -446,7 +446,7 @@ export const PanelHeader = styled.header`
     flex: 0 0 42px;
     width: 42px;
     height: 42px;
-    border-radius: 13px;
+    border-radius: 8px;
     display: grid;
     place-items: center;
   }
@@ -470,7 +470,7 @@ export const PanelHeader = styled.header`
     margin: 2px 0 0;
     color: #24211e;
     font-size: 20px;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
   }
 
   small {
@@ -516,7 +516,7 @@ export const CatalogHealth = styled.div`
   margin-top: 16px;
   padding: 14px;
   border: 1px solid #e1e8e4;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #f7faf8;
 
   > div {
@@ -922,7 +922,7 @@ export const BottomInsight = styled.section`
   min-height: 94px;
   padding: 18px 20px;
   border: 1px solid #e3ded8;
-  border-radius: 18px;
+  border-radius: 8px;
   background: linear-gradient(110deg, #fff 0%, #fffaf6 100%);
   box-shadow: 0 9px 28px rgba(48, 35, 25, 0.045);
   display: grid;
@@ -933,7 +933,7 @@ export const BottomInsight = styled.section`
   > span {
     width: 44px;
     height: 44px;
-    border-radius: 14px;
+    border-radius: 8px;
     color: #c04b19;
     background: #fff0e8;
     display: grid;

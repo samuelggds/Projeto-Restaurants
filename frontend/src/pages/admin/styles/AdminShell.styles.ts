@@ -1,27 +1,40 @@
 import styled from 'styled-components';
 
-export const Root = styled.div<{ $primary: string; $settings?: boolean }>`
+export const Root = styled.div<{
+  $primary: string;
+  $settings?: boolean;
+  $sidebarOpen?: boolean;
+}>`
   --a: ${({ $primary }) => $primary};
+  --brand: ${({ $primary }) => $primary};
   --border: #e4ddd5;
   --muted: #716d68;
   min-height: 100vh;
   min-height: 100dvh;
-  background: #f9f8f5;
+  background-color: #f6f7f4;
+  background-image:
+    linear-gradient(rgba(60, 48, 40, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(60, 48, 40, 0.026) 1px, transparent 1px);
+  background-size: 32px 32px;
   color: #191816;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0;
   display: grid;
-  grid-template-columns: ${({ $settings }) =>
-    $settings ? '236px 298px minmax(0,1fr)' : '236px minmax(0,1fr)'};
+  grid-template-columns: ${({ $settings, $sidebarOpen }) => {
+    const sidebar = $sidebarOpen === false ? '0px' : '236px';
+    return $settings ? `${sidebar} 298px minmax(0,1fr)` : `${sidebar} minmax(0,1fr)`;
+  }};
+  transition: grid-template-columns 250ms ease;
   *,
   *::before,
   *::after {
     box-sizing: border-box;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: 'Sora', sans-serif;
+    letter-spacing: 0;
   }
   button,
   input,
@@ -47,121 +60,11 @@ export const Root = styled.div<{ $primary: string; $settings?: boolean }>`
     cursor: not-allowed;
   }
   @media (max-width: 1080px) {
-    grid-template-columns: ${({ $settings }) =>
-      $settings ? '220px minmax(0,1fr)' : '220px minmax(0,1fr)'};
+    grid-template-columns: ${({ $sidebarOpen }) =>
+      $sidebarOpen === false ? '0px minmax(0,1fr)' : '232px minmax(0,1fr)'};
   }
-  @media (max-width: 760px) {
+  @media (max-width: 820px) {
     display: block;
-  }
-`;
-export const MainSidebar = styled.aside<{ $open: boolean }>`
-  height: 100vh;
-  position: sticky;
-  top: 0;
-  background: #171b1e;
-  color: #d3d3d3;
-  padding: 30px 10px 20px;
-  display: flex;
-  flex-direction: column;
-  z-index: 60;
-  @media (max-width: 760px) {
-    display: ${({ $open }) => ($open ? 'flex' : 'none')};
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(86vw, 300px);
-    height: 100dvh;
-    box-shadow: 24px 0 60px #0007;
-  }
-`;
-export const Brand = styled.div`
-  padding: 5px 26px 26px;
-  span {
-    display: block;
-    font:
-      50px Georgia,
-      serif;
-    color: #eb641e;
-  }
-  b {
-    display: block;
-    font:
-      23px Georgia,
-      serif;
-    color: #fff;
-    margin-top: 3px;
-  }
-  small {
-    display: block;
-    margin-top: 12px;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    color: #92999c;
-  }
-`;
-export const MainNav = styled.nav`
-  display: grid;
-  gap: 5px;
-  margin-top: 8px;
-  button {
-    height: 56px;
-    border: 0;
-    border-left: 2px solid transparent;
-    border-radius: 9px;
-    background: transparent;
-    color: #b9bdbf;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 0 20px;
-    text-align: left;
-  }
-  button.active {
-    border-left-color: var(--a);
-    background: #2c241e;
-    color: #ff6c21;
-  }
-  svg {
-    width: 21px;
-  }
-  .employees {
-    margin-top: 8px;
-  }
-`;
-export const SideFooter = styled.div`
-  margin-top: auto;
-  border-top: 1px solid #34383a;
-  padding: 14px 10px 0;
-  display: grid;
-  gap: 3px;
-  button {
-    height: 48px;
-    border: 0;
-    background: transparent;
-    color: #bbb;
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    text-align: left;
-  }
-  button:hover,
-  button.active {
-    color: #ff6c21;
-    background: #2c241e;
-    border-radius: 9px;
-  }
-  .unread-badge {
-    min-width: 19px;
-    height: 19px;
-    margin-left: auto;
-    padding: 0 5px;
-    border-radius: 999px;
-    color: #fff;
-    background: #e64a19;
-    display: grid;
-    place-items: center;
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
   }
 `;
 export const SettingsSidebar = styled.aside<{ $visible: boolean }>`
@@ -350,18 +253,6 @@ export const Top = styled.header`
     }
   }
 `;
-export const MobileMenu = styled.button`
-  display: none;
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 9px;
-  place-items: center;
-  @media (max-width: 760px) {
-    display: grid;
-  }
-`;
 export const TopActions = styled.div`
   margin-left: auto;
   display: flex;
@@ -427,8 +318,13 @@ export const Content = styled.div<{ $wide?: boolean }>`
       transform: translateY(0);
     }
   }
-  @media (max-width: 760px) {
-    padding: 14px 10px 50px;
+  @media (max-width: 820px) {
+    padding: 14px 10px calc(96px + env(safe-area-inset-bottom));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    > * {
+      animation: none;
+    }
   }
 `;
 export const Stack = styled.div`

@@ -17,9 +17,7 @@ type EmployeeDrawerProps = {
 export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
   const [name, setName] = useState(employee?.name ?? '');
   const [email, setEmail] = useState(employee?.email ?? '');
-  const [phone, setPhone] = useState(
-    String(employee?.phone ?? ''),
-  );
+  const [phone, setPhone] = useState(String(employee?.phone ?? ''));
   const [role, setRole] = useState<EmployeeRole>(employee?.role ?? 'ATTENDANT');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -81,11 +79,16 @@ export function EmployeeDrawer({ employee, close, save }: EmployeeDrawerProps) {
 
   return (
     <S.Overlay onMouseDown={(event) => event.target === event.currentTarget && close()}>
-      <S.Drawer onSubmit={submit}>
+      <S.Drawer
+        onSubmit={submit}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="employee-drawer-title"
+      >
         <header>
-          <h2>{employee ? 'Editar funcionário' : 'Novo funcionário'}</h2>
-          <button type="button" onClick={close}>
-            <X />
+          <h2 id="employee-drawer-title">{employee ? 'Editar funcionário' : 'Novo funcionário'}</h2>
+          <button type="button" onClick={close} aria-label="Fechar cadastro de funcionário">
+            <X aria-hidden="true" />
           </button>
         </header>
         <S.Field>

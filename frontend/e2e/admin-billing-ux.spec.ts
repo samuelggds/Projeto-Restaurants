@@ -209,16 +209,76 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
   await openBilling(page, state);
 
   await expect(page.getByText('Gestão da assinatura')).toBeVisible();
+  const adminShellStyles = await page.locator('[data-admin-root]').evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+    return {
+      backgroundImage: styles.backgroundImage,
+      fontFamily: styles.fontFamily,
+    };
+  });
+  expect(adminShellStyles.backgroundImage).toContain('linear-gradient');
+  expect(adminShellStyles.fontFamily).toContain('DM Sans');
+  const desktopNavigation = page.getByRole('navigation', {
+    name: 'Navegação principal do painel',
+  });
+  await expect(desktopNavigation).toBeVisible();
+  await expect(
+    desktopNavigation.getByRole('button', { name: 'Cobranças e assinaturas' }),
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(
+    page.getByRole('navigation', { name: 'Navegação administrativa móvel' }),
+  ).not.toBeVisible();
   await expect(page.getByRole('tab', { name: /Planos/ })).toHaveAttribute('aria-selected', 'true');
   await expect(
     page.getByRole('heading', { name: 'Encontre o plano certo para sua operação' }),
   ).toBeVisible();
+  await expect(page.locator('section[aria-labelledby="billing-hero-title"]')).toHaveCSS(
+    'border-radius',
+    '8px',
+  );
+  await expect(page.locator('article[aria-label^="Plano Básico"]')).toHaveCSS(
+    'border-radius',
+    '8px',
+  );
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  await page.getByRole('button', { name: 'Recolher menu lateral' }).click();
+  await expect(desktopNavigation).not.toBeVisible();
+  await page.getByRole('button', { name: 'Expandir menu lateral' }).click();
+  await expect(desktopNavigation).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('heading', { name: 'Sua assinatura está em dia' })).toBeVisible();
+  const mobileNavigation = page.getByRole('navigation', {
+    name: 'Navegação administrativa móvel',
+  });
+  await expect(mobileNavigation).toBeVisible();
+  await expect(mobileNavigation.getByText('Mais', { exact: true })).toBeVisible();
+  await mobileNavigation.getByRole('button', { name: 'Abrir menu administrativo' }).click();
+  await expect(page.locator('#admin-mobile-menu')).toBeVisible();
+  await expect(mobileNavigation).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#admin-mobile-menu')).not.toBeVisible();
+  await expect(mobileNavigation).toBeVisible();
+  await mobileNavigation.getByRole('button', { name: 'Visão geral' }).click();
+  await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
+  await expect(page.locator('section[aria-labelledby="overview-summary-title"]')).toHaveCSS(
+    'border-radius',
+    '8px',
+  );
+  await mobileNavigation.getByRole('button', { name: 'Abrir menu administrativo' }).click();
+  await page.getByRole('button', { name: 'Cobranças e assinaturas' }).click();
+  await expect(page.getByRole('heading', { name: 'Sua assinatura está em dia' })).toBeVisible();
   await expect(page.getByRole('tab', { name: /Cobranças/ })).toBeVisible();
+  await page.getByRole('tab', { name: /Cobranças/ }).click();
+  await expect(page.locator('article[aria-labelledby="billing-cycle-title"]')).toHaveCSS(
+    'border-radius',
+    '8px',
+  );
+  await expect(page.locator('section[aria-labelledby="billing-history-title"]')).toHaveCSS(
+    'border-radius',
+    '8px',
+  );
   await expectNoHorizontalOverflow(page);
 });
 

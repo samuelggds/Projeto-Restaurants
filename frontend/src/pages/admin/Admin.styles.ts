@@ -1,4 +1,5 @@
 export * from './styles/AdminShell.styles';
+export * from './styles/AdminNavigation.styles';
 export * from './styles/AdminProductForm.styles';
 export * from './styles/AdminProductFormExperience.styles';
 export * from './styles/AdminProductWizard.styles';

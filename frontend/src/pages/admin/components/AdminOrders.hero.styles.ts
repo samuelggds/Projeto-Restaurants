@@ -5,7 +5,7 @@ export const OrdersHero = styled.section`
   min-height: 226px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 30px;
   color: #fff;
   background:
@@ -52,7 +52,7 @@ export const OrdersHero = styled.section`
   @media (max-width: 560px) {
     min-height: 0;
     padding: 23px 20px;
-    border-radius: 20px;
+    border-radius: 8px;
   }
 `;
 
@@ -80,7 +80,7 @@ export const HeroCopy = styled.div`
     margin: 12px 0 0;
     font-size: clamp(28px, 3vw, 40px);
     line-height: 1.04;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   p {
@@ -132,7 +132,7 @@ export const HeroCopy = styled.div`
 export const PriorityCard = styled.aside`
   min-width: 0;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 20px;
   background: rgba(255, 255, 255, 0.07);
   display: flex;
@@ -160,7 +160,7 @@ export const PriorityCard = styled.aside`
     color: #fff;
     font-size: 19px;
     line-height: 1.2;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
   }
 
   > p {

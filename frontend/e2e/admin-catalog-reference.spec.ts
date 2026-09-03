@@ -432,8 +432,10 @@ test('Cardápio, ingredientes e importação permanecem contidos em 320 px', asy
   await mockCatalog(page);
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Abrir menu administrativo' }).click();
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação administrativa móvel' })
+    .getByRole('button', { name: 'Cardápio' })
+    .click();
 
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.locator('.ingredient-list article')).toHaveCount(7);

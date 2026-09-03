@@ -1,10 +1,13 @@
-import { ChangeEvent, lazy, Suspense, useRef, useState } from 'react';
+import { ChangeEvent, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   HelpCircle,
   LayoutGrid,
   LogOut,
   Menu,
+  MoreHorizontal,
   Plus,
   ReceiptText,
   Search as SearchIcon,
@@ -12,6 +15,7 @@ import {
   ShoppingBag,
   Upload,
   Users,
+  type LucideIcon,
 } from 'lucide-react';
 import { adminMockEmployees, adminMockSettings } from './data';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -19,7 +23,6 @@ import { createPersistentImageDataUrl } from '../../utils/persistentImage';
 import imageEnhancementService from '../../Services/imageEnhancementService';
 import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeDrawer } from './components/EmployeeDrawer';
-import { EmployeeList } from './components/EmployeeList';
 import { BrandSettings } from './components/BrandSettings';
 import { AdminSettingsContent } from './components/AdminSettingsContent';
 import { AdminManagement } from './components/AdminManagement';
@@ -53,10 +56,70 @@ const RESULT_MODAL_MS = 1400;
 const ProductDrawer = lazy(() =>
   import('./components/ProductDrawer').then((module) => ({ default: module.ProductDrawer })),
 );
+const EmployeeList = lazy(() =>
+  import('./components/EmployeeList').then((module) => ({ default: module.EmployeeList })),
+);
 
 type PendingNavigation =
   { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
 type PendingChangesSource = 'settings' | 'product';
+
+type AdminNavigationItem = {
+  area: AdminSection;
+  label: string;
+  mobileLabel: string;
+  icon: LucideIcon;
+};
+
+const operationNavigationItems: AdminNavigationItem[] = [
+  {
+    area: 'overview',
+    label: 'Visão geral',
+    mobileLabel: 'Início',
+    icon: LayoutGrid,
+  },
+  {
+    area: 'orders',
+    label: 'Pedidos',
+    mobileLabel: 'Pedidos',
+    icon: ShoppingBag,
+  },
+  {
+    area: 'catalog',
+    label: 'Cardápio',
+    mobileLabel: 'Cardápio',
+    icon: Menu,
+  },
+  {
+    area: 'customers',
+    label: 'Clientes',
+    mobileLabel: 'Clientes',
+    icon: Users,
+  },
+];
+
+const managementNavigationItems: AdminNavigationItem[] = [
+  {
+    area: 'employees',
+    label: 'Funcionários',
+    mobileLabel: 'Equipe',
+    icon: Users,
+  },
+  {
+    area: 'subscriptions',
+    label: 'Cobranças e assinaturas',
+    mobileLabel: 'Cobranças',
+    icon: ReceiptText,
+  },
+  {
+    area: 'settings',
+    label: 'Configurações',
+    mobileLabel: 'Ajustes',
+    icon: Settings2,
+  },
+];
+
+const mobilePrimaryNavigationItems = operationNavigationItems.slice(0, 4);
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => {
@@ -151,6 +214,7 @@ export function AdminPage({
   const categories = initialCategories;
   const ingredients = initialIngredients;
   const coupons = initialCoupons;
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobile, setMobile] = useState(false);
   const [settingsSearch, setSettingsSearch] = useState('');
   const { unreadIssues: unreadEmployeeIssues, clearUnreadIssues: clearUnreadEmployeeIssues } =
@@ -174,6 +238,20 @@ export function AdminPage({
   );
   const logoInput = useRef<HTMLInputElement>(null);
   const productDrawerRef = useRef<ProductDrawerHandle>(null);
+
+  useEffect(() => {
+    if (!mobile) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobile(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobile]);
 
   const markSettingsChanged = () => {
     setSettingsDirty(true);
@@ -557,7 +635,12 @@ export function AdminPage({
     await finishPendingNavigation('discarded');
   };
   return (
-    <S.Root data-admin-root $primary={settings.primaryColor} $settings={area === 'settings'}>
+    <S.Root
+      data-admin-root
+      $primary={settings.primaryColor}
+      $settings={area === 'settings'}
+      $sidebarOpen={sidebarOpen}
+    >
       {feedbackError && (
         <div
           role="alert"
@@ -577,82 +660,76 @@ export function AdminPage({
           {feedbackError}
         </div>
       )}
-      <S.MainSidebar $open={mobile}>
-        <S.Brand>
-          <span>{createRestaurantMonogram(settings.restaurantName)}</span>
-          <b>{settings.restaurantName}</b>
-          <small>PAINEL ADMINISTRATIVO</small>
-        </S.Brand>
-        <S.MainNav>
-          <button
-            className={area === 'overview' ? 'active' : ''}
-            onClick={() => void changeArea('overview')}
+      {sidebarOpen && (
+        <S.MainSidebar aria-label="Menu administrativo">
+          <S.CollapseButton
+            type="button"
+            aria-label="Recolher menu lateral"
+            onClick={() => setSidebarOpen(false)}
           >
-            <LayoutGrid />
-            Visão geral
-          </button>
-          <button
-            className={area === 'orders' ? 'active' : ''}
-            onClick={() => void changeArea('orders')}
-          >
-            <ShoppingBag />
-            Pedidos
-          </button>
-          <button
-            className={area === 'catalog' ? 'active' : ''}
-            onClick={() => void changeArea('catalog')}
-          >
-            <Menu />
-            Cardápio
-          </button>
-          <button
-            className={area === 'customers' ? 'active' : ''}
-            onClick={() => void changeArea('customers')}
-          >
-            <Users />
-            Clientes
-          </button>
-          <button
-            className={area === 'employees' ? 'active employees' : 'employees'}
-            onClick={() => void changeArea('employees')}
-          >
-            <Users />
-            Funcionários
-          </button>
-          <button
-            className={area === 'subscriptions' ? 'active' : ''}
-            onClick={() => void changeArea('subscriptions')}
-          >
-            <ReceiptText />
-            Cobranças e assinaturas
-          </button>
-          <button
-            className={area === 'settings' ? 'active' : ''}
-            onClick={() => void changeArea('settings')}
-          >
-            <Settings2 />
-            Configurações
-          </button>
-        </S.MainNav>
-        <S.SideFooter>
-          <button
-            className={area === 'help' ? 'active' : ''}
-            onClick={() => void changeArea('help')}
-          >
-            <HelpCircle />
-            Central de ajuda
-            {unreadEmployeeIssues > 0 && (
-              <span className="unread-badge">
-                {unreadEmployeeIssues > 99 ? '99+' : unreadEmployeeIssues}
+            <ChevronLeft />
+          </S.CollapseButton>
+          <S.Brand>
+            <span>{createRestaurantMonogram(settings.restaurantName)}</span>
+            <b>{settings.restaurantName}</b>
+            <small>Painel administrativo</small>
+          </S.Brand>
+          <S.MainNav aria-label="Navegação principal do painel">
+            {[...operationNavigationItems, ...managementNavigationItems].map((item) => {
+              const Icon = item.icon;
+              const active = area === item.area;
+              return (
+                <button
+                  key={item.area}
+                  type="button"
+                  className={active ? 'active' : ''}
+                  aria-label={item.label}
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => void changeArea(item.area)}
+                >
+                  <Icon />
+                  {item.label}
+                </button>
+              );
+            })}
+          </S.MainNav>
+          <S.SideFooter>
+            <button
+              className={area === 'help' ? 'active' : ''}
+              aria-label="Central de ajuda"
+              aria-current={area === 'help' ? 'page' : undefined}
+              onClick={() => void changeArea('help')}
+            >
+              <HelpCircle />
+              Central de ajuda
+              {unreadEmployeeIssues > 0 && (
+                <span className="unread-badge">
+                  {unreadEmployeeIssues > 99 ? '99+' : unreadEmployeeIssues}
+                </span>
+              )}
+            </button>
+            <S.SidebarUser>
+              <span className="avatar">{createRestaurantMonogram(settings.restaurantName)}</span>
+              <span>
+                <b>Administrador</b>
+                <small>Gestão da loja</small>
               </span>
-            )}
-          </button>
-          <button onClick={onLogout}>
-            <LogOut />
-            Sair
-          </button>
-        </S.SideFooter>
-      </S.MainSidebar>
+              <button type="button" aria-label="Sair" onClick={onLogout}>
+                <LogOut />
+              </button>
+            </S.SidebarUser>
+          </S.SideFooter>
+        </S.MainSidebar>
+      )}
+      {!sidebarOpen && (
+        <S.SidebarOpenButton
+          type="button"
+          aria-label="Expandir menu lateral"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <ChevronRight />
+        </S.SidebarOpenButton>
+      )}
       <S.SettingsSidebar $visible={area === 'settings'}>
         <S.Search>
           <SearchIcon />
@@ -686,11 +763,13 @@ export function AdminPage({
       </S.SettingsSidebar>
       <S.Main>
         <S.Top>
-          <S.MobileMenu aria-label="Abrir menu administrativo" onClick={() => setMobile(true)}>
-            <Menu />
-          </S.MobileMenu>
           <div>
-            <small>PAINEL &nbsp;/&nbsp; {area.toUpperCase()}</small>
+            <small>
+              PAINEL &nbsp;/&nbsp;{' '}
+              {area === 'customers' || area === 'employees'
+                ? title.toLocaleUpperCase('pt-BR')
+                : area.toUpperCase()}
+            </small>
             <h1>{title}</h1>
             <p>
               {area === 'employees'
@@ -750,6 +829,8 @@ export function AdminPage({
             area === 'catalog' ||
             area === 'overview' ||
             area === 'orders' ||
+            area === 'customers' ||
+            area === 'employees' ||
             area === 'subscriptions'
           }
         >
@@ -763,40 +844,48 @@ export function AdminPage({
               }}
             />
           ) : area === 'employees' ? (
-            <EmployeeList
-              employees={employees}
-              onNew={() => setEditing(null)}
-              onEdit={setEditing}
-              onDeactivate={async (employee) => {
-                const confirmed = await confirmDialog({
-                  title: 'Desativar funcionário?',
-                  description: `${employee.name} perderá o acesso ao sistema até ser reativado.`,
-                  confirmLabel: 'Desativar',
-                  tone: 'danger',
-                });
-                if (!confirmed) return;
-                await onDeactivateEmployee?.(employee.id);
-                setEmployees((current) =>
-                  current.map((item) =>
-                    item.id === employee.id ? { ...item, active: false } : item,
-                  ),
-                );
-              }}
-              onReactivate={async (employee) => {
-                const confirmed = await confirmDialog({
-                  title: 'Reativar funcionário?',
-                  description: `${employee.name} voltará a ter acesso ao sistema.`,
-                  confirmLabel: 'Reativar',
-                });
-                if (!confirmed) return;
-                await onReactivateEmployee?.(employee.id);
-                setEmployees((current) =>
-                  current.map((item) =>
-                    item.id === employee.id ? { ...item, active: true } : item,
-                  ),
-                );
-              }}
-            />
+            <Suspense
+              fallback={
+                <S.Card role="status">
+                  <p>Carregando equipe...</p>
+                </S.Card>
+              }
+            >
+              <EmployeeList
+                employees={employees}
+                onNew={() => setEditing(null)}
+                onEdit={setEditing}
+                onDeactivate={async (employee) => {
+                  const confirmed = await confirmDialog({
+                    title: 'Desativar funcionário?',
+                    description: `${employee.name} perderá o acesso ao sistema até ser reativado.`,
+                    confirmLabel: 'Desativar',
+                    tone: 'danger',
+                  });
+                  if (!confirmed) return;
+                  await onDeactivateEmployee?.(employee.id);
+                  setEmployees((current) =>
+                    current.map((item) =>
+                      item.id === employee.id ? { ...item, active: false } : item,
+                    ),
+                  );
+                }}
+                onReactivate={async (employee) => {
+                  const confirmed = await confirmDialog({
+                    title: 'Reativar funcionário?',
+                    description: `${employee.name} voltará a ter acesso ao sistema.`,
+                    confirmLabel: 'Reativar',
+                  });
+                  if (!confirmed) return;
+                  await onReactivateEmployee?.(employee.id);
+                  setEmployees((current) =>
+                    current.map((item) =>
+                      item.id === employee.id ? { ...item, active: true } : item,
+                    ),
+                  );
+                }}
+              />
+            </Suspense>
           ) : area === 'subscriptions' ? (
             <MonthlyBilling />
           ) : area === 'settings' ? (
@@ -885,6 +974,112 @@ export function AdminPage({
           )}
         </S.Content>
       </S.Main>
+      <S.MobileBottomNav aria-label="Navegação administrativa móvel">
+        {mobilePrimaryNavigationItems.map((item) => {
+          const Icon = item.icon;
+          const active = area === item.area;
+          return (
+            <button
+              key={item.area}
+              type="button"
+              className={active ? 'active' : ''}
+              aria-label={item.label}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => void changeArea(item.area)}
+            >
+              <span aria-hidden="true">
+                <Icon />
+              </span>
+              {item.mobileLabel}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className={
+            managementNavigationItems.some((item) => item.area === area) || area === 'help'
+              ? 'active'
+              : ''
+          }
+          aria-label="Abrir menu administrativo"
+          aria-expanded={mobile}
+          aria-controls="admin-mobile-menu"
+          onClick={() => setMobile((current) => !current)}
+        >
+          <span aria-hidden="true">
+            <MoreHorizontal />
+            {unreadEmployeeIssues > 0 && <i />}
+          </span>
+          Mais
+        </button>
+      </S.MobileBottomNav>
+      {mobile && (
+        <>
+          <S.MobileBackdrop
+            type="button"
+            aria-label="Fechar menu administrativo"
+            onClick={() => setMobile(false)}
+          />
+          <S.MobileMoreSheet
+            id="admin-mobile-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Opções administrativas"
+          >
+            <header>
+              <span className="avatar">{createRestaurantMonogram(settings.restaurantName)}</span>
+              <span>
+                <b>{settings.restaurantName}</b>
+                <small>Gestão e configurações</small>
+              </span>
+            </header>
+            {managementNavigationItems.map((item) => {
+              const Icon = item.icon;
+              const active = area === item.area;
+              return (
+                <button
+                  key={item.area}
+                  type="button"
+                  className={active ? 'active' : ''}
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => void changeArea(item.area)}
+                >
+                  <Icon />
+                  <span>
+                    <b>{item.label}</b>
+                    <small>{item.mobileLabel}</small>
+                  </span>
+                  <ChevronRight />
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className={area === 'help' ? 'active' : ''}
+              aria-current={area === 'help' ? 'page' : undefined}
+              onClick={() => void changeArea('help')}
+            >
+              <HelpCircle />
+              <span>
+                <b>Central de ajuda</b>
+                <small>Suporte e orientações</small>
+              </span>
+              {unreadEmployeeIssues > 0 && (
+                <span className="unread-badge">
+                  {unreadEmployeeIssues > 99 ? '99+' : unreadEmployeeIssues}
+                </span>
+              )}
+            </button>
+            <button type="button" className="logout" onClick={onLogout}>
+              <LogOut />
+              <span>
+                <b>Sair da conta</b>
+                <small>Encerrar sessão administrativa</small>
+              </span>
+            </button>
+          </S.MobileMoreSheet>
+        </>
+      )}
       {pendingNavigation && (
         <UnsavedSettingsDialog
           phase={unsavedDialogPhase}
@@ -925,17 +1120,6 @@ export function AdminPage({
             }}
           />
         </Suspense>
-      )}
-      {mobile && (
-        <div
-          onClick={() => setMobile(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 55,
-            background: '#0005',
-          }}
-        />
       )}
     </S.Root>
   );

@@ -41,7 +41,7 @@ export const BillingHero = styled.section`
   align-items: stretch;
   padding: clamp(26px, 3.5vw, 42px);
   border: 1px solid #302b27;
-  border-radius: 26px;
+  border-radius: 8px;
   color: #fff;
   background:
     radial-gradient(circle at 82% 14%, rgba(231, 94, 41, 0.24), transparent 29%),
@@ -81,7 +81,7 @@ export const BillingHero = styled.section`
     min-height: 0;
     gap: 20px;
     padding: 22px 18px;
-    border-radius: 20px;
+    border-radius: 8px;
   }
 `;
 
@@ -113,7 +113,7 @@ export const HeroCopy = styled.div`
     margin: 12px 0 8px;
     font-size: clamp(27px, 3.3vw, 40px);
     line-height: 1.08;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   > p {
@@ -141,7 +141,7 @@ export const HeroFacts = styled.div`
     align-content: center;
     padding: 11px 12px;
     border: 1px solid rgba(255, 255, 255, 0.11);
-    border-radius: 14px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.055);
   }
 
@@ -185,7 +185,7 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
   align-items: flex-start;
   padding: 22px;
   border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 19px;
+  border-radius: 8px;
   background: rgba(8, 9, 10, 0.28);
   backdrop-filter: blur(8px);
 
@@ -194,7 +194,7 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
     height: 43px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
+    border-radius: 8px;
     color: ${({ $active }) => ($active ? '#67d790' : '#ff9c83')};
     background: ${({ $active }) => ($active ? 'rgba(75,190,116,.15)' : 'rgba(235,89,58,.16)')};
   }
@@ -263,7 +263,7 @@ export const Notice = styled.div<{ $tone: 'info' | 'warning' }>`
   align-items: center;
   padding: 14px 16px;
   border: 1px solid ${({ $tone }) => ($tone === 'info' ? '#c9dfef' : '#edd7b8')};
-  border-radius: 15px;
+  border-radius: 8px;
   color: ${({ $tone }) => ($tone === 'info' ? '#315f7c' : '#795525')};
   background: ${({ $tone }) => ($tone === 'info' ? '#f2f8fc' : '#fff9ee')};
 
@@ -272,7 +272,7 @@ export const Notice = styled.div<{ $tone: 'info' | 'warning' }>`
     height: 37px;
     display: grid;
     place-items: center;
-    border-radius: 11px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.7);
   }
 
@@ -300,7 +300,7 @@ export const FeedbackBanner = styled.div<{ $tone: 'success' | 'error' }>`
   align-items: center;
   padding: 14px 15px;
   border: 1px solid ${({ $tone }) => ($tone === 'success' ? '#c6e7d3' : '#efcbc5')};
-  border-radius: 15px;
+  border-radius: 8px;
   color: ${({ $tone }) => ($tone === 'success' ? '#236b40' : '#a53f35')};
   background: ${({ $tone }) => ($tone === 'success' ? '#eef9f2' : '#fff1ef')};
 
@@ -309,7 +309,7 @@ export const FeedbackBanner = styled.div<{ $tone: 'success' | 'error' }>`
     height: 36px;
     display: grid;
     place-items: center;
-    border-radius: 11px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.72);
   }
 
@@ -358,7 +358,7 @@ export const ViewTabs = styled.div`
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 8px;
   background: #f4f1ed;
 
   button {
@@ -371,7 +371,7 @@ export const ViewTabs = styled.div`
     align-items: center;
     padding: 8px 13px;
     border: 1px solid transparent;
-    border-radius: 11px;
+    border-radius: 7px;
     color: #77706a;
     background: transparent;
     text-align: left;
@@ -474,7 +474,7 @@ export const SectionHeader = styled.header`
     flex: 0 0 43px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
+    border-radius: 8px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 10%, #fff);
   }
@@ -499,7 +499,7 @@ export const SectionHeader = styled.header`
   h2 {
     margin: 4px 0 3px;
     font-size: clamp(19px, 2.3vw, 24px);
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
   }
 
   p {
@@ -523,7 +523,7 @@ export const ChoiceStatus = styled.div<{ $available: boolean }>`
   align-items: center;
   padding: 11px 13px;
   border: 1px solid ${({ $available }) => ($available ? '#cde7d7' : '#eadfd4')};
-  border-radius: 13px;
+  border-radius: 8px;
   color: ${({ $available }) => ($available ? '#267545' : '#6e6259')};
   background: ${({ $available }) => ($available ? '#f0faf4' : '#faf7f4')};
 
@@ -574,7 +574,7 @@ export const PlanCard = styled.article<{ $featured?: boolean; $current?: boolean
   padding: clamp(20px, 2.5vw, 28px);
   border: 1px solid
     ${({ $current }) => ($current ? 'color-mix(in srgb, var(--a) 72%, #fff)' : 'var(--border)')};
-  border-radius: 22px;
+  border-radius: 8px;
   background: ${({ $featured }) => ($featured ? 'linear-gradient(145deg, #fff8f2 0%, #fff 54%)' : '#fff')};
   box-shadow: ${({ $current }) => ($current ? '0 18px 42px rgba(126, 64, 28, 0.11)' : '0 10px 30px rgba(52, 36, 25, 0.06)')};
   content-visibility: auto;
@@ -621,7 +621,7 @@ export const PlanCard = styled.article<{ $featured?: boolean; $current?: boolean
     color: var(--a);
     font-size: clamp(28px, 3.2vw, 36px);
     line-height: 1;
-    letter-spacing: -0.05em;
+    letter-spacing: 0;
   }
 
   .price > span {
@@ -659,7 +659,7 @@ export const PlanHeading = styled.div`
     flex: 0 0 48px;
     display: grid;
     place-items: center;
-    border-radius: 14px;
+    border-radius: 8px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 11%, #fff);
   }

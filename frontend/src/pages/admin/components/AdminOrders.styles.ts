@@ -18,7 +18,7 @@ export const OrdersSummary = styled.section`
     min-height: 126px;
     overflow: hidden;
     border: 1px solid #e5dfd8;
-    border-radius: 17px;
+    border-radius: 8px;
     padding: 18px;
     color: inherit;
     background: rgba(255, 255, 255, 0.92);
@@ -55,7 +55,7 @@ export const OrdersSummary = styled.section`
     flex: 0 0 42px;
     width: 42px;
     height: 42px;
-    border-radius: 13px;
+    border-radius: 8px;
     display: grid;
     place-items: center;
   }
@@ -140,7 +140,7 @@ export const OrdersSummary = styled.section`
       flex-basis: 36px;
       width: 36px;
       height: 36px;
-      border-radius: 11px;
+      border-radius: 8px;
     }
 
     .summary-icon svg {
@@ -177,14 +177,14 @@ export const OrdersPanel = styled.section`
   min-width: 0;
   overflow: hidden;
   border: 1px solid #e5dfd8;
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 23px;
   background: #fff;
   box-shadow: 0 12px 34px rgba(48, 35, 25, 0.055);
 
   @media (max-width: 560px) {
     padding: 17px 14px;
-    border-radius: 17px;
+    border-radius: 8px;
   }
 `;
 
@@ -205,7 +205,7 @@ export const OrdersPanelHeader = styled.header`
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
-    border-radius: 14px;
+    border-radius: 8px;
     color: #c94d17;
     background: #fff0e8;
     display: grid;
@@ -232,7 +232,7 @@ export const OrdersPanelHeader = styled.header`
     margin: 3px 0 0;
     color: #24211e;
     font-size: 21px;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
   }
 
   p {
@@ -519,7 +519,7 @@ export const OrdersList = styled.div`
     min-width: 0;
     overflow: hidden;
     border: 1px solid #e6dfd7;
-    border-radius: 17px;
+    border-radius: 8px;
     padding: 18px;
     background: #fff;
     box-shadow: 0 5px 18px rgba(49, 34, 22, 0.035);
@@ -607,7 +607,7 @@ export const OrdersList = styled.div`
     margin: 0;
     color: #201d1a;
     font-size: 16px;
-    letter-spacing: -0.015em;
+    letter-spacing: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -655,7 +655,7 @@ export const OrdersList = styled.div`
     margin-top: 16px;
     padding: 14px;
     border: 1px solid #eee8e1;
-    border-radius: 14px;
+    border-radius: 8px;
     background: #faf9f7;
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) auto;
@@ -674,7 +674,7 @@ export const OrdersList = styled.div`
     flex: 0 0 38px;
     width: 38px;
     height: 38px;
-    border-radius: 11px;
+    border-radius: 8px;
     color: #2d7650;
     background: #e8f6ee;
     display: grid;
@@ -1032,7 +1032,7 @@ export const OrdersEmpty = styled.div`
   min-height: 280px;
   padding: 32px 20px;
   border: 1px dashed #dcd3ca;
-  border-radius: 17px;
+  border-radius: 8px;
   background: #faf9f7;
   display: flex;
   align-items: center;
@@ -1043,7 +1043,7 @@ export const OrdersEmpty = styled.div`
   > span {
     width: 48px;
     height: 48px;
-    border-radius: 15px;
+    border-radius: 8px;
     color: #b64a1b;
     background: #fff0e8;
     display: grid;
