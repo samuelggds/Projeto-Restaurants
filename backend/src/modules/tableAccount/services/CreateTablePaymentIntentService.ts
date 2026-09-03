@@ -13,6 +13,7 @@ import {
 } from '../domain/tableAccountRules.js';
 import { buildTablePaymentPlan, TablePaymentPlanError } from '../domain/tablePaymentPlan.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
+import fakePaymentProvider from '../providers/FakePaymentProvider.js';
 import { createConfiguredTablePaymentProvider } from '../providers/ConfiguredTablePaymentProvider.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
@@ -263,6 +264,7 @@ export class CreateTablePaymentIntentService {
     intent: TablePaymentIntentRecord,
   ) {
     if (this.provider) return this.provider;
+    if (process.env.NODE_ENV === 'test') return fakePaymentProvider;
     return createConfiguredTablePaymentProvider({
       restaurantId: context.restaurantId,
       participantId: context.participantId,
