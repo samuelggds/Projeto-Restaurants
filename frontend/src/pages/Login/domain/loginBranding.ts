@@ -1,3 +1,4 @@
+import { getSafeNextPath } from '../../../shared/navigation/authNavigation';
 import { isPersistentImageSource } from '../../../utils/persistentImage';
 
 export type LoginBranding = {
@@ -24,23 +25,48 @@ const RESERVED_ROUTES = new Set([
   'courier',
   'kitchen',
   'waiter',
+  'attendant',
   'recover-password',
   'orders',
+  'mesa',
 ]);
 
+function parsePositiveRestaurantId(value: string | null) {
+  const raw = String(value || '').trim();
+  if (!/^\d+$/u.test(raw)) return null;
+  const numeric = Number(raw);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
 export function resolveLoginRestaurant(searchParams: URLSearchParams) {
-  const restaurantId = Number(searchParams.get('restaurantId') || searchParams.get('rid') || 0);
+  const explicitRestaurantId = parsePositiveRestaurantId(
+    searchParams.get('restaurantId') || searchParams.get('rid'),
+  );
   const explicitSlug = String(searchParams.get('restaurantSlug') || searchParams.get('slug') || '')
     .trim()
     .toLowerCase();
-  const nextSegment =
-    String(searchParams.get('next') || '')
-      .split('?')[0]
-      .split('/')
-      .filter(Boolean)[0]
-      ?.toLowerCase() || '';
-  const slug = explicitSlug || (!RESERVED_ROUTES.has(nextSegment) ? nextSegment : '');
-  return { restaurantId: restaurantId > 0 ? restaurantId : null, slug };
+  const safeNextPath = getSafeNextPath(searchParams.get('next'));
+
+  let nextRestaurantId: number | null = null;
+  let nextSlug = '';
+  if (safeNextPath) {
+    try {
+      const parsed = new URL(safeNextPath, 'https://internal.invalid');
+      nextRestaurantId = parsePositiveRestaurantId(
+        parsed.searchParams.get('restaurantId') || parsed.searchParams.get('rid'),
+      );
+      const firstSegment = parsed.pathname.split('/').filter(Boolean)[0]?.toLowerCase() || '';
+      if (firstSegment && !RESERVED_ROUTES.has(firstSegment)) {
+        nextSlug = firstSegment;
+      }
+    } catch {
+      // getSafeNextPath already validates the destination; fallback branding is safe here.
+    }
+  }
+
+  const restaurantId = explicitRestaurantId || nextRestaurantId;
+  const slug = explicitSlug || nextSlug;
+  return { restaurantId, slug };
 }
 
 export function mapLoginBranding(settings: Record<string, unknown> | null): LoginBranding {
