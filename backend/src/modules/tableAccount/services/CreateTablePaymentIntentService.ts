@@ -264,7 +264,9 @@ export class CreateTablePaymentIntentService {
     intent: TablePaymentIntentRecord,
   ) {
     if (this.provider) return this.provider;
-    if (process.env.NODE_ENV === 'test') return fakePaymentProvider;
+    if (process.env.NODE_ENV === 'test' || process.env.TENANT_E2E_DATABASE_URL) {
+      return fakePaymentProvider;
+    }
     return createConfiguredTablePaymentProvider({
       restaurantId: context.restaurantId,
       participantId: context.participantId,
