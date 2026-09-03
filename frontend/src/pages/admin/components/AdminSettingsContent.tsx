@@ -9,6 +9,7 @@ import type {
   ProductDiscountPayload,
   SettingsSection,
 } from '../types';
+import * as S from '../Admin.styles';
 import { BusinessSettings } from './BusinessSettings';
 import { AddressSettings } from './AddressSettings';
 import { OpeningHoursSettings } from './OpeningHoursSettings';
@@ -70,66 +71,75 @@ type Props = {
 
 export function AdminSettingsContent(props: Props) {
   const { section, settings, update } = props;
-  if (section === 'business') return <BusinessSettings settings={settings} update={update} />;
-  if (section === 'address') return <AddressSettings settings={settings} update={update} />;
-  if (section === 'hours') return <OpeningHoursSettings settings={settings} update={update} />;
-  if (section === 'orders') return <OrderFlowSettings settings={settings} update={update} />;
-  if (section === 'promotions')
-    return (
-      <PromotionsSettings
-        products={props.products}
-        coupons={props.coupons}
-        loading={props.promotionsLoading}
-        error={props.promotionsError}
-        onApplyProductDiscount={props.onApplyProductDiscount}
-        onDeleteProductDiscount={props.onDeleteProductDiscount}
-        onCreateCoupon={props.onCreateCoupon}
-        onUpdateCoupon={props.onUpdateCoupon}
-        onDeleteCoupon={props.onDeleteCoupon}
-        onReload={props.onReloadPromotions}
-      />
-    );
-  if (section === 'delivery') return <DeliverySettings settings={settings} update={update} />;
-  if (section === 'table')
-    return (
-      <PremiumTableFeatureGate>
-        <TableMenuSettings settings={settings} update={update} />
-      </PremiumTableFeatureGate>
-    );
-  if (section === 'table-account')
-    return (
-      <PremiumTableFeatureGate>
-        <TableAccountSettings settings={settings} update={update} />
-      </PremiumTableFeatureGate>
-    );
-  if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
-  if (section === 'printing') return <KitchenPrintingSettings />;
-  if (section === 'employee-payments')
-    return (
-      <Suspense fallback={<div role="status">Carregando pagamentos dos funcionários...</div>}>
-        <EmployeeCompensationSettings
-          employees={props.employees}
-          onOpenEmployees={props.openEmployees}
+
+  const content = (() => {
+    if (section === 'business') return <BusinessSettings settings={settings} update={update} />;
+    if (section === 'address') return <AddressSettings settings={settings} update={update} />;
+    if (section === 'hours') return <OpeningHoursSettings settings={settings} update={update} />;
+    if (section === 'orders') return <OrderFlowSettings settings={settings} update={update} />;
+    if (section === 'promotions')
+      return (
+        <PromotionsSettings
+          products={props.products}
+          coupons={props.coupons}
+          loading={props.promotionsLoading}
+          error={props.promotionsError}
+          onApplyProductDiscount={props.onApplyProductDiscount}
+          onDeleteProductDiscount={props.onDeleteProductDiscount}
+          onCreateCoupon={props.onCreateCoupon}
+          onUpdateCoupon={props.onUpdateCoupon}
+          onDeleteCoupon={props.onDeleteCoupon}
+          onReload={props.onReloadPromotions}
         />
-      </Suspense>
-    );
-  if (section === 'courier-payments')
-    return (
-      <Suspense fallback={<div role="status">Carregando pagamentos dos motoqueiros...</div>}>
-        <CourierCompensationSettings />
-      </Suspense>
-    );
-  if (section === 'payments')
-    return (
-      <PaymentSettings
-        settings={settings}
-        update={update}
-        onConnectMercadoPago={props.onConnectMercadoPago}
-        onConnectPagBank={props.onConnectPagBank}
-        onOnboardAsaas={props.onOnboardAsaas}
-      />
-    );
-  if (section === 'social') return <SocialMediaSettings settings={settings} update={update} />;
-  if (section === 'appearance') return <AppearanceSettings settings={settings} update={update} />;
-  return <SecuritySettings openEmployees={props.openEmployees} />;
+      );
+    if (section === 'delivery') return <DeliverySettings settings={settings} update={update} />;
+    if (section === 'table')
+      return (
+        <PremiumTableFeatureGate>
+          <TableMenuSettings settings={settings} update={update} />
+        </PremiumTableFeatureGate>
+      );
+    if (section === 'table-account')
+      return (
+        <PremiumTableFeatureGate>
+          <TableAccountSettings settings={settings} update={update} />
+        </PremiumTableFeatureGate>
+      );
+    if (section === 'whatsapp') return <WhatsAppSettings settings={settings} update={update} />;
+    if (section === 'printing') return <KitchenPrintingSettings />;
+    if (section === 'employee-payments')
+      return (
+        <Suspense fallback={<div role="status">Carregando pagamentos dos funcionários...</div>}>
+          <EmployeeCompensationSettings
+            employees={props.employees}
+            onOpenEmployees={props.openEmployees}
+          />
+        </Suspense>
+      );
+    if (section === 'courier-payments')
+      return (
+        <Suspense fallback={<div role="status">Carregando pagamentos dos motoqueiros...</div>}>
+          <CourierCompensationSettings />
+        </Suspense>
+      );
+    if (section === 'payments')
+      return (
+        <PaymentSettings
+          settings={settings}
+          update={update}
+          onConnectMercadoPago={props.onConnectMercadoPago}
+          onConnectPagBank={props.onConnectPagBank}
+          onOnboardAsaas={props.onOnboardAsaas}
+        />
+      );
+    if (section === 'social') return <SocialMediaSettings settings={settings} update={update} />;
+    if (section === 'appearance') return <AppearanceSettings settings={settings} update={update} />;
+    return <SecuritySettings openEmployees={props.openEmployees} />;
+  })();
+
+  return (
+    <S.SettingsMotionFrame key={section} data-settings-section={section}>
+      {content}
+    </S.SettingsMotionFrame>
+  );
 }
