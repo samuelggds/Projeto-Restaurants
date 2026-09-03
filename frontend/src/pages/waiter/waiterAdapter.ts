@@ -79,6 +79,7 @@ export function mapWaiterCalls(raw: unknown[], now = Date.now()): ServiceCall[] 
     const call = asRecord(value);
     const table = asRecord(call.table);
     const assignedTo = asRecord(call.assignedTo);
+    const participant = asRecord(call.participant);
     const type = call.type === 'BILL' ? 'BILL' : call.type === 'WAITER' ? 'WAITER' : null;
     const status = ['WAITING', 'IN_PROGRESS', 'RESOLVED'].includes(String(call.status))
       ? (String(call.status) as CallStatus)
@@ -96,6 +97,8 @@ export function mapWaiterCalls(raw: unknown[], now = Date.now()): ServiceCall[] 
         status,
         elapsed: requestedAt ? formatElapsed(requestedAt, now) : '00:00',
         employeeName: String(assignedTo.name || call.employeeName || '').trim() || undefined,
+        customerName: String(participant.displayName || '').trim() || undefined,
+        customerPhone: String(participant.phone || '').trim() || undefined,
         createdAt: requestedAt || undefined,
         resolvedAt: String(call.resolvedAt || '').trim() || undefined,
       },
