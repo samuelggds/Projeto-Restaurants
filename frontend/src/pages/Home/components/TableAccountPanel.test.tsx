@@ -115,6 +115,34 @@ describe('TableAccountPanel', () => {
     expect(markup).not.toContain('Acesso encerrado');
   });
 
+  it('avisa quando Pix e cartão online não estão configurados', () => {
+    const markup = renderToStaticMarkup(
+      <TableAccountPanel
+        open
+        tableNumber={4}
+        snapshot={{
+          ...snapshot,
+          capabilities: {
+            ...snapshot.capabilities,
+            allowOnlinePayment: false,
+          },
+        }}
+        loading={false}
+        actionLoading={false}
+        error=""
+        onRefresh={() => undefined}
+        onCreatePayment={async () => null}
+        onCancelPayment={async () => true}
+        onReconcilePayment={async () => null}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('Pagamento online indisponível neste restaurante');
+    expect(markup).toContain('Pix e cartão online ainda não estão habilitados');
+    expect(markup).toContain('formas presenciais disponíveis');
+  });
+
   it('limpa os itens escolhidos depois de criar uma reserva com sucesso', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
