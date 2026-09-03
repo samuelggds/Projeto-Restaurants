@@ -4,6 +4,16 @@ import { optionalAuthMiddleware } from './optionalAuthMiddleware.js';
 import { sessionMiddleware } from './sessionMiddleware.js';
 import { tableParticipantMiddleware } from './tableParticipantMiddleware.js';
 
+function continueAfterParticipantCheck(req: Request, res: Response, next: NextFunction) {
+  if (req.tableParticipant?.orderingBlocked) {
+    return res.status(409).json({
+      error: 'Você já pediu a conta. Aguarde a confirmação do pagamento para fazer novos pedidos.',
+      code: 'TABLE_PARTICIPANT_ORDERING_BLOCKED',
+    });
+  }
+  return next();
+}
+
 export async function orderAccessMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const sessionToken = req.headers['x-session-token'];
@@ -28,7 +38,9 @@ export async function orderAccessMiddleware(req: Request, res: Response, next: N
         }
 
         req.body.tableId = Number(req.tableSession.tableId);
-        return tableParticipantMiddleware(req, res, next);
+        return tableParticipantMiddleware(req, res, () =>
+          continueAfterParticipantCheck(req, res, next),
+        );
       }),
     );
   }
