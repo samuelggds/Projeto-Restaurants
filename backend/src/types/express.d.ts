@@ -27,6 +27,8 @@ declare global {
         restaurantId: number;
         userId: number | null;
         displayName: string | null;
+        phone: string | null;
+        orderingBlocked: boolean;
         authenticated: boolean;
       };
       subscription?: unknown;
