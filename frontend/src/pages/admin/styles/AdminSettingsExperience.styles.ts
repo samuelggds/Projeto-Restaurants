@@ -10,7 +10,7 @@ export const SettingsHero = styled.section`
   gap: 24px;
   padding: 26px 28px;
   border: 1px solid #ded5cd;
-  border-radius: 20px;
+  border-radius: 12px;
   color: #fff;
   background:
     radial-gradient(circle at 91% 10%, color-mix(in srgb, var(--a) 22%, transparent), transparent 29%),
@@ -45,7 +45,7 @@ export const SettingsHero = styled.section`
     display: grid;
     place-items: center;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
+    border-radius: 10px;
     color: color-mix(in srgb, var(--a) 68%, white);
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(8px);
@@ -151,7 +151,7 @@ export const SettingsCardHeading = styled.header`
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border-radius: 12px;
+    border-radius: 8px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 11%, transparent);
@@ -186,7 +186,7 @@ export const SettingsToggleList = styled.div`
     gap: 14px;
     padding: 12px 13px;
     border: 1px solid #ebe4dd;
-    border-radius: 13px;
+    border-radius: 9px;
     background: #fcfbf9;
     transition:
       border-color 200ms ease,
@@ -278,7 +278,7 @@ export const SettingsInfoStrip = styled.div`
   margin-top: 18px;
   padding: 12px 13px;
   border: 1px solid color-mix(in srgb, var(--a) 14%, #e5ded7);
-  border-radius: 12px;
+  border-radius: 8px;
   color: #665e58;
   background: color-mix(in srgb, var(--a) 4%, #fbfaf8);
   font-size: 10px;
