@@ -17,13 +17,23 @@ class TableSessionService {
     return response.data;
   }
 
-  async joinOpenSession({ tableId, tableNumber, tableToken, restaurantId, restaurantSlug }) {
+  async joinOpenSession({
+    tableId,
+    tableNumber,
+    tableToken,
+    restaurantId,
+    restaurantSlug,
+    displayName,
+    phone,
+  }) {
     const response = await api.post('/table-sessions/join', {
       tableId,
       tableNumber,
       tableToken,
       restaurantId,
       restaurantSlug,
+      ...(displayName ? { displayName } : {}),
+      ...(phone ? { phone } : {}),
     });
 
     return response.data;
