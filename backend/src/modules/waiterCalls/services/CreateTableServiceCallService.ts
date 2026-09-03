@@ -1,14 +1,19 @@
 import { PlanType, Prisma, SubscriptionStatus, TableServiceCallType } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import tableServiceCallRepository from '../repositories/TableServiceCallRepository.js';
 import { tableServiceCallEvents } from '../realtime/tableServiceCallEvents.js';
-import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
-import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
+import {
+  loadTablePaymentLedgerItems,
+  lockTablePaymentSession,
+} from '../../tableAccount/services/tablePaymentLedger.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
 
 type SessionCallInput = {
   sessionId: number;
   tableId: number;
   restaurantId: number;
+  participantId: number;
   type: TableServiceCallType | string;
 };
 
@@ -36,66 +41,59 @@ class CreateTableServiceCallService {
     return normalized as TableServiceCallType;
   }
 
-  private async createIdempotently({
-    restaurantId,
-    tableId,
-    tableSessionId,
-    type,
-    db,
-  }: {
+  private async createWaiterCallIdempotently(input: {
     restaurantId: number;
     tableId: number;
     tableSessionId: number;
-    type: TableServiceCallType;
     db: Prisma.TransactionClient;
   }) {
     const existing = await tableServiceCallRepository.findActiveByTableAndType(
-      restaurantId,
-      tableId,
-      type,
-      db,
+      input.restaurantId,
+      input.tableId,
+      TableServiceCallType.WAITER,
+      input.db,
     );
-    if (existing) {
-      return { call: existing, duplicate: true };
-    }
+    if (existing) return { call: existing, duplicate: true };
 
     try {
-      const call = await tableServiceCallRepository.create({
-        restaurantId,
-        tableId,
-        tableSessionId,
-        type,
-      }, db);
+      const call = await tableServiceCallRepository.create(
+        {
+          restaurantId: input.restaurantId,
+          tableId: input.tableId,
+          tableSessionId: input.tableSessionId,
+          type: TableServiceCallType.WAITER,
+        },
+        input.db,
+      );
       return { call, duplicate: false };
     } catch (error: unknown) {
-      // The partial unique index also protects the race between two concurrent
-      // requests. Returning the active call makes the endpoint safely idempotent.
       if (isUniqueConflict(error)) {
         const concurrent = await tableServiceCallRepository.findActiveByTableAndType(
-          restaurantId,
-          tableId,
-          type,
-          db,
+          input.restaurantId,
+          input.tableId,
+          TableServiceCallType.WAITER,
+          input.db,
         );
-        if (concurrent) {
-          return { call: concurrent, duplicate: true };
-        }
+        if (concurrent) return { call: concurrent, duplicate: true };
       }
       throw error;
     }
   }
 
-  async execute({ sessionId, tableId, restaurantId, type }: SessionCallInput) {
+  async execute({ sessionId, tableId, restaurantId, participantId, type }: SessionCallInput) {
     const normalizedSessionId = Number(sessionId);
     const normalizedTableId = Number(tableId);
     const normalizedRestaurantId = Number(restaurantId);
+    const normalizedParticipantId = Number(participantId);
     if (
       !Number.isInteger(normalizedSessionId) ||
       normalizedSessionId <= 0 ||
       !Number.isInteger(normalizedTableId) ||
       normalizedTableId <= 0 ||
       !Number.isInteger(normalizedRestaurantId) ||
-      normalizedRestaurantId <= 0
+      normalizedRestaurantId <= 0 ||
+      !Number.isInteger(normalizedParticipantId) ||
+      normalizedParticipantId <= 0
     ) {
       throw new Error('Sessão de mesa inválida para criar o chamado.');
     }
@@ -103,6 +101,7 @@ class CreateTableServiceCallService {
     const normalizedType = this.normalizeSessionCallType(type);
     const result = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, normalizedRestaurantId);
         await lockTablePaymentSession(tx, normalizedRestaurantId, normalizedSessionId);
         const context = await tableServiceCallRepository.findOpenSessionContext(
           normalizedSessionId,
@@ -112,6 +111,20 @@ class CreateTableServiceCallService {
         );
         if (!context) {
           throw new Error('A sessão desta mesa não está mais ativa. Escaneie o QR novamente.');
+        }
+
+        const participant = await tx.tableParticipant.findFirst({
+          where: {
+            id: normalizedParticipantId,
+            restaurantId: normalizedRestaurantId,
+            tableSessionId: normalizedSessionId,
+            status: 'ACTIVE',
+            revokedAt: null,
+          },
+          select: { id: true },
+        });
+        if (!participant) {
+          throw new Error('Sua identificação nesta mesa não está mais ativa.');
         }
 
         const subscription = context.table.restaurant.subscription;
@@ -138,27 +151,61 @@ class CreateTableServiceCallService {
           throw new Error('Solicitações de conta estão desativadas neste restaurante.');
         }
 
-        const callResult = await this.createIdempotently({
-          restaurantId: normalizedRestaurantId,
-          tableId: normalizedTableId,
-          tableSessionId: normalizedSessionId,
-          type: normalizedType,
-          db: tx,
-        });
-        if (normalizedType === TableServiceCallType.BILL) {
-          const accountSettings = await tableAccountSettingsRepository.findByRestaurantId(
-            normalizedRestaurantId,
-            tx,
-          );
-          if (accountSettings.blockNewOrdersOnClosingRequest) {
-            await tableServiceCallRepository.requestSessionClosing(
-              normalizedSessionId,
-              normalizedRestaurantId,
-              tx,
-            );
-          }
+        if (normalizedType === TableServiceCallType.WAITER) {
+          return this.createWaiterCallIdempotently({
+            restaurantId: normalizedRestaurantId,
+            tableId: normalizedTableId,
+            tableSessionId: normalizedSessionId,
+            db: tx,
+          });
         }
-        return callResult;
+
+        const existing = await tableServiceCallRepository.findActiveBillByParticipant(
+          normalizedRestaurantId,
+          normalizedSessionId,
+          normalizedParticipantId,
+          tx,
+        );
+        if (existing) {
+          await tableParticipantStateService.blockOrderingForBill(tx, {
+            participantId: normalizedParticipantId,
+            tableSessionId: normalizedSessionId,
+            restaurantId: normalizedRestaurantId,
+          });
+          return { call: existing, duplicate: true };
+        }
+
+        const ledgerItems = await loadTablePaymentLedgerItems(
+          tx,
+          normalizedRestaurantId,
+          normalizedSessionId,
+        );
+        const participantHasOutstandingItems = ledgerItems.some(
+          (item) =>
+            item.participantId === normalizedParticipantId &&
+            !item.canceled &&
+            item.projectedStatus !== 'REFUNDED' &&
+            (item.availableCents > 0 || item.reservedCents > 0 || item.processingCents > 0),
+        );
+        if (!participantHasOutstandingItems) {
+          throw new Error('Você não possui itens em aberto para pedir a conta.');
+        }
+
+        await tableParticipantStateService.blockOrderingForBill(tx, {
+          participantId: normalizedParticipantId,
+          tableSessionId: normalizedSessionId,
+          restaurantId: normalizedRestaurantId,
+        });
+        const call = await tableServiceCallRepository.createBillForParticipant(
+          {
+            restaurantId: normalizedRestaurantId,
+            tableId: normalizedTableId,
+            tableSessionId: normalizedSessionId,
+            participantId: normalizedParticipantId,
+          },
+          tx,
+        );
+        return { call, duplicate: false };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
