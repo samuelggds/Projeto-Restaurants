@@ -169,14 +169,16 @@ export default function DigitalMenuIdentityEntryPage() {
     }),
     [restaurantSlug, searchParams, tableNumber],
   );
+  const hasJoinContext = Boolean(
+    context.tableNumber &&
+      (context.restaurantId || context.restaurantSlug) &&
+      context.tableToken,
+  );
 
   useEffect(() => {
-    let active = true;
-    if (!context.tableNumber || (!context.restaurantId && !context.restaurantSlug) || !context.tableToken) {
-      setMode('ready');
-      return undefined;
-    }
+    if (!hasJoinContext) return undefined;
 
+    let active = true;
     const check = async () => {
       try {
         await tableSessionService.joinOpenSession(context);
@@ -200,7 +202,7 @@ export default function DigitalMenuIdentityEntryPage() {
     return () => {
       active = false;
     };
-  }, [context]);
+  }, [context, hasJoinContext]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -240,7 +242,7 @@ export default function DigitalMenuIdentityEntryPage() {
     }
   };
 
-  if (mode === 'ready') return <DigitalMenuEntryPage />;
+  if (!hasJoinContext || mode === 'ready') return <DigitalMenuEntryPage />;
   if (mode === 'checking') return <Loading role="status">Identificando sua mesa...</Loading>;
 
   const tableLabel = context.tableNumber ? `Mesa ${context.tableNumber}` : 'Sua mesa';
