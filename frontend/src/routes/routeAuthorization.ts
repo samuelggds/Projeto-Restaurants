@@ -29,7 +29,6 @@ const isPath = (pathname: string, base: string) =>
   pathname === base || pathname.startsWith(`${base}/`);
 const isGuestEntry = (path: string) =>
   path === '/login' ||
-  path === '/admin/login' ||
   path === '/recover-password' ||
   path === '/register' ||
   /^\/[^/]+\/(?:login|register|equipe|admin)$/.test(path);
