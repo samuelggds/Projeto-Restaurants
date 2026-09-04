@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
-import { Moon, Sun } from 'lucide-react';
+import { ArrowRight, KeyRound, LockKeyhole, Mail, Moon, Phone, Sun } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../../Services/authService';
 import {
@@ -75,12 +75,7 @@ export default function RecoverPassword() {
 
   const buildIdentifierPayload = () => {
     const value = String(identifier || '').trim();
-
-    if (contactMethod === 'phone') {
-      return { phone: value };
-    }
-
-    return { email: value };
+    return contactMethod === 'phone' ? { phone: value } : { email: value };
   };
 
   const handleRequestCode = async (event) => {
@@ -94,7 +89,6 @@ export default function RecoverPassword() {
     try {
       setIsLoading(true);
       const response = await authService.forgotPassword(buildIdentifierPayload());
-
       toast.success(
         response?.message ||
           'Se os dados informados existirem, enviamos um codigo para redefinir a senha.',
@@ -225,17 +219,22 @@ export default function RecoverPassword() {
                 <S.Label htmlFor="identifier">
                   {contactMethod === 'email' ? 'E-mail' : 'Telefone'}
                 </S.Label>
-                <S.Input
-                  id="identifier"
-                  type={contactMethod === 'email' ? 'email' : 'text'}
-                  inputMode={contactMethod === 'phone' ? 'tel' : undefined}
-                  placeholder={contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'}
-                  value={identifier}
-                  onChange={(event) => setIdentifier(event.target.value)}
-                  readOnly={step === 'reset'}
-                  autoComplete={contactMethod === 'email' ? 'email' : 'tel'}
-                  required
-                />
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true">
+                    {contactMethod === 'email' ? <Mail /> : <Phone />}
+                  </S.LoginInputIcon>
+                  <S.Input
+                    id="identifier"
+                    type={contactMethod === 'email' ? 'email' : 'text'}
+                    inputMode={contactMethod === 'phone' ? 'tel' : undefined}
+                    placeholder={contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'}
+                    value={identifier}
+                    onChange={(event) => setIdentifier(event.target.value)}
+                    readOnly={step === 'reset'}
+                    autoComplete={contactMethod === 'email' ? 'email' : 'tel'}
+                    required
+                  />
+                </S.LoginInputField>
               </S.InputGroup>
 
               {step === 'reset' && (
@@ -245,52 +244,61 @@ export default function RecoverPassword() {
                   </S.AvailabilityNote>
                   <S.InputGroup>
                     <S.Label htmlFor="reset-code">Código</S.Label>
-                    <S.Input
-                      id="reset-code"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      placeholder="Código de 6 dígitos"
-                      value={code}
-                      onChange={(event) =>
-                        setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
-                      }
-                      required
-                    />
+                    <S.LoginInputField>
+                      <S.LoginInputIcon aria-hidden="true"><KeyRound /></S.LoginInputIcon>
+                      <S.Input
+                        id="reset-code"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="Código de 6 dígitos"
+                        value={code}
+                        onChange={(event) =>
+                          setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                        }
+                        required
+                      />
+                    </S.LoginInputField>
                   </S.InputGroup>
 
                   <S.InputGroup>
                     <S.Label htmlFor="new-password">Nova senha</S.Label>
-                    <S.Input
-                      id="new-password"
-                      type="password"
-                      placeholder="Mínimo 8 caracteres"
-                      autoComplete="new-password"
-                      minLength={STANDARD_PASSWORD_POLICY.minLength}
-                      maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                      value={newPassword}
-                      onChange={(event) => setNewPassword(event.target.value)}
-                      aria-invalid={passwordHasError}
-                      aria-describedby="recover-password-requirements"
-                      required
-                    />
+                    <S.LoginInputField>
+                      <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                      <S.Input
+                        id="new-password"
+                        type="password"
+                        placeholder="Mínimo 8 caracteres"
+                        autoComplete="new-password"
+                        minLength={STANDARD_PASSWORD_POLICY.minLength}
+                        maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        aria-invalid={passwordHasError}
+                        aria-describedby="recover-password-requirements"
+                        required
+                      />
+                    </S.LoginInputField>
                   </S.InputGroup>
 
                   <S.InputGroup>
                     <S.Label htmlFor="confirm-password">Confirmar nova senha</S.Label>
-                    <S.Input
-                      id="confirm-password"
-                      type="password"
-                      placeholder="••••••••"
-                      autoComplete="new-password"
-                      minLength={STANDARD_PASSWORD_POLICY.minLength}
-                      maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                      aria-invalid={confirmationHasError}
-                      aria-describedby="recover-password-requirements"
-                      required
-                    />
+                    <S.LoginInputField>
+                      <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                      <S.Input
+                        id="confirm-password"
+                        type="password"
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        minLength={STANDARD_PASSWORD_POLICY.minLength}
+                        maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        aria-invalid={confirmationHasError}
+                        aria-describedby="recover-password-requirements"
+                        required
+                      />
+                    </S.LoginInputField>
                   </S.InputGroup>
 
                   <PasswordRequirements
@@ -309,13 +317,20 @@ export default function RecoverPassword() {
                   (step === 'reset' && (code.length !== 6 || !passwordEvaluation.isValid))
                 }
               >
-                {isLoading
-                  ? 'Processando...'
-                  : step === 'request'
-                    ? 'Enviar código'
-                    : isTableContext
-                      ? `Redefinir e voltar ao login da ${tableLabel}`
-                      : 'Redefinir senha'}
+                {isLoading ? (
+                  'Processando...'
+                ) : (
+                  <>
+                    <span>
+                      {step === 'request'
+                        ? 'Enviar código'
+                        : isTableContext
+                          ? `Redefinir e voltar ao login da ${tableLabel}`
+                          : 'Redefinir senha'}
+                    </span>
+                    <ArrowRight aria-hidden="true" />
+                  </>
+                )}
               </S.Button>
 
               {step === 'reset' && (
