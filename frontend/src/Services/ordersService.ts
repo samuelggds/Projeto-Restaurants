@@ -153,6 +153,16 @@ class OrdersService {
     return normalizeOrder(response.data);
   }
 
+  async getDeliveryPayment(orderId: string | number) {
+    const response = await api.get(`/orders/${orderId}/delivery-payment`);
+    return response.data?.payment || null;
+  }
+
+  async reconcileDeliveryPix(orderId: string | number) {
+    const response = await api.post(`/orders/${orderId}/delivery-payment/reconcile-pix`);
+    return response.data?.payment || null;
+  }
+
   async confirmDeliveryReceived(orderId: string | number) {
     const response = await api.patch(`/orders/${orderId}/confirm-delivery-received`);
     return normalizeOrder(response.data);
