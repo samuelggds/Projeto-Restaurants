@@ -163,6 +163,11 @@ class OrdersService {
     return response.data?.payment || null;
   }
 
+  async reconcileDeliveryCard(orderId: string | number) {
+    const response = await api.post(`/orders/${orderId}/delivery-payment/reconcile-card`);
+    return response.data?.payment || null;
+  }
+
   async confirmDeliveryReceived(orderId: string | number) {
     const response = await api.patch(`/orders/${orderId}/confirm-delivery-received`);
     return normalizeOrder(response.data);
