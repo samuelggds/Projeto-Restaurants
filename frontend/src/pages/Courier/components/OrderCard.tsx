@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import QRCode from 'react-qr-code';
 import {
   AlertCircle,
   Banknote,
@@ -10,10 +11,13 @@ import {
   MapPin,
   PackageCheck,
   Phone,
+  RefreshCw,
   User,
 } from 'lucide-react';
+import ordersService from '../../../Services/ordersService';
 import * as S from '../styles';
 import * as C from './OrderCard.styles';
+import * as P from './DeliveryPaymentStatus.styles';
 import { getCourierItemChoices, getCourierItemObservation } from '../domain/courierOrders';
 
 type OrderItem = {
@@ -58,6 +62,17 @@ type Order = {
   };
 };
 
+type DeliveryPayment = {
+  method: string;
+  provider: string;
+  status: string;
+  amount: number;
+  currency?: string;
+  pixCopyPaste?: string | null;
+  lastProviderStatus?: string | null;
+  paidAt?: string | null;
+};
+
 type OrderCardProps = {
   order: Order;
   onClaimDelivery?: (orderId: number) => Promise<void>;
@@ -95,33 +110,15 @@ function getDeliveryAddress(order: Order) {
 
 function getReferencePoint(order: Order) {
   const explicitReference = String(order?.pointReference || '').trim();
-  if (explicitReference) {
-    return explicitReference;
-  }
+  if (explicitReference) return explicitReference;
 
   const complement = String(order?.complement || '').trim();
   const complementMatch = complement.match(/(?:^|\|)\s*(?:Ref\.:|Ponto de referencia:)\s*(.+)$/i);
-  if (complementMatch?.[1]) {
-    return complementMatch[1].trim();
-  }
+  if (complementMatch?.[1]) return complementMatch[1].trim();
 
   const observation = String(order?.observation || order?.notes || '').trim();
   const observationMatch = observation.match(/(?:^|\|)\s*(?:Ref\.:|Ponto de referencia:)\s*(.+)$/i);
-  if (observationMatch?.[1]) {
-    return observationMatch[1].trim();
-  }
-
-  return '';
-}
-
-function requiresConfirmedPayment(order: Order, digitalPaymentMethods: Set<string>) {
-  const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
-  if (payOnDeliveryMethod) {
-    return false;
-  }
-
-  const paymentMethod = String(order?.paymentMethod || '').toUpperCase();
-  return digitalPaymentMethods.has(paymentMethod) && order?.paid !== true;
+  return observationMatch?.[1]?.trim() || '';
 }
 
 function getPayOnDeliveryMethod(order: Order) {
@@ -129,13 +126,18 @@ function getPayOnDeliveryMethod(order: Order) {
     .trim()
     .toUpperCase();
 
-  if (order?.payOnDelivery && structuredMethod) {
-    return structuredMethod;
-  }
+  if (order?.payOnDelivery && structuredMethod) return structuredMethod;
 
   const rawObservation = String(order?.notes || order?.observation || '');
   const match = rawObservation.toUpperCase().match(/PAY_ON_DELIVERY:\s*(PIX|CARTAO|DINHEIRO)/);
   return match?.[1] || null;
+}
+
+function requiresConfirmedPayment(order: Order, digitalPaymentMethods: Set<string>) {
+  const paymentMethod = String(order?.paymentMethod || '').toUpperCase();
+  const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
+  const effectiveMethod = String(payOnDeliveryMethod || paymentMethod).toUpperCase();
+  return digitalPaymentMethods.has(effectiveMethod) && order?.paid !== true;
 }
 
 export default function OrderCard({
@@ -150,6 +152,8 @@ export default function OrderCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [deliveryCode, setDeliveryCode] = useState('');
+  const [deliveryPayment, setDeliveryPayment] = useState<DeliveryPayment | null>(null);
+  const [paymentRefreshing, setPaymentRefreshing] = useState(false);
   const canClaim = order.status === 'PRONTO' && Boolean(onClaimDelivery);
 
   const statusInfo = statusLabel[order.status] || {
@@ -157,11 +161,17 @@ export default function OrderCard({
     color: '#64748b',
   };
   const canDeliver = order.status === 'SAIU_PARA_ENTREGA';
-  const paymentPendingConfirmation = requiresConfirmedPayment(order, digitalPaymentMethods);
   const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
+  const automatedPayOnDelivery =
+    payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO';
+  const providerPaid = order.paid === true || deliveryPayment?.status === 'PAID';
+  const paymentPendingConfirmation =
+    automatedPayOnDelivery
+      ? !providerPaid
+      : requiresConfirmedPayment(order, digitalPaymentMethods);
   const normalizedDeliveryCode = String(deliveryCode || '').replace(/\D/g, '');
   const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
-  const paymentStatusLabel = order.paid ? 'Pago' : 'Não pago';
+  const paymentStatusLabel = providerPaid ? 'Pago' : 'Não pago';
   const paymentMethodLabel =
     paymentLabel[order.paymentMethod || ''] || order.paymentMethod || 'Não informado';
   const orderObservation = String(order.notes || order.observation || '')
@@ -172,7 +182,44 @@ export default function OrderCard({
   const orderReferencePoint = getReferencePoint(order);
   const earningAvailable = Boolean(order.courierEarningPreview?.available);
 
+  const refreshDeliveryPayment = useCallback(async () => {
+    if (!canDeliver || !automatedPayOnDelivery) return;
+    try {
+      const payment =
+        payOnDeliveryMethod === 'PIX'
+          ? await ordersService.reconcileDeliveryPix(order.id)
+          : await ordersService.reconcileDeliveryCard(order.id);
+      setDeliveryPayment(payment as DeliveryPayment | null);
+    } catch {
+      const payment = await ordersService.getDeliveryPayment(order.id).catch(() => null);
+      if (payment) setDeliveryPayment(payment as DeliveryPayment);
+    }
+  }, [automatedPayOnDelivery, canDeliver, order.id, payOnDeliveryMethod]);
+
+  useEffect(() => {
+    if (!canDeliver || !automatedPayOnDelivery) {
+      setDeliveryPayment(null);
+      return;
+    }
+    void refreshDeliveryPayment();
+    const interval = window.setInterval(() => void refreshDeliveryPayment(), 5000);
+    return () => window.clearInterval(interval);
+  }, [automatedPayOnDelivery, canDeliver, refreshDeliveryPayment]);
+
+  async function handleRefreshPayment() {
+    setPaymentRefreshing(true);
+    try {
+      await refreshDeliveryPayment();
+    } finally {
+      setPaymentRefreshing(false);
+    }
+  }
+
   async function handleMarkDelivered() {
+    if (paymentPendingConfirmation) {
+      setError('Aguarde a confirmação automática do pagamento antes de concluir a entrega.');
+      return;
+    }
     if (!isDeliveryCodeValid) {
       setError('Digite exatamente 4 dígitos para confirmar a entrega.');
       return;
@@ -239,8 +286,8 @@ export default function OrderCard({
           <small>Pagamento</small>
           <strong title={paymentMethodLabel}>{paymentMethodLabel}</strong>
         </C.SummaryItem>
-        <C.SummaryItem $tone={order.paid ? 'success' : 'danger'}>
-          {order.paid ? <CheckCircle aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
+        <C.SummaryItem $tone={providerPaid ? 'success' : 'danger'}>
+          {providerPaid ? <CheckCircle aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
           <small>Status</small>
           <strong>{paymentStatusLabel}</strong>
         </C.SummaryItem>
@@ -267,6 +314,49 @@ export default function OrderCard({
           {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
         </C.PayOnDelivery>
       ) : null}
+
+      {canDeliver && automatedPayOnDelivery && (
+        <P.Box $paid={providerPaid}>
+          <P.Head>
+            <span>
+              {payOnDeliveryMethod === 'PIX' ? 'PIX na entrega' : 'Cartão na entrega'}
+            </span>
+            <strong>{formatCurrency(Number(deliveryPayment?.amount || order.total))}</strong>
+          </P.Head>
+          <P.Status $paid={providerPaid}>
+            {providerPaid ? <CheckCircle /> : <RefreshCw />}
+            <span>
+              {providerPaid
+                ? 'Pagamento confirmado automaticamente pelo provedor.'
+                : payOnDeliveryMethod === 'PIX'
+                  ? 'Aguardando o cliente pagar. O sistema confere o Pix automaticamente.'
+                  : 'Aguardando aprovação na maquininha vinculada. O motoqueiro não confirma o pagamento.'}
+            </span>
+          </P.Status>
+          {!providerPaid && payOnDeliveryMethod === 'PIX' && deliveryPayment?.pixCopyPaste && (
+            <P.PixArea>
+              <QRCode value={deliveryPayment.pixCopyPaste} />
+              <small>Mostre este QR Code ao cliente ou copie o código Pix.</small>
+              <P.CopyButton
+                type="button"
+                onClick={() => void navigator.clipboard.writeText(deliveryPayment.pixCopyPaste || '')}
+              >
+                Copiar código Pix
+              </P.CopyButton>
+            </P.PixArea>
+          )}
+          {!providerPaid && (
+            <P.RefreshButton
+              type="button"
+              onClick={() => void handleRefreshPayment()}
+              disabled={paymentRefreshing}
+            >
+              <RefreshCw size={15} />
+              {paymentRefreshing ? 'Consultando provedor...' : 'Atualizar pagamento'}
+            </P.RefreshButton>
+          )}
+        </P.Box>
+      )}
 
       <C.AddressBox>
         <C.AddressIcon aria-hidden="true">
@@ -353,7 +443,11 @@ export default function OrderCard({
         <C.ActionArea>
           <C.Hint>
             <Info aria-hidden="true" />
-            <span>Confirme a retirada somente quando o pedido estiver com você.</span>
+            <span>
+              {payOnDeliveryMethod === 'CARTAO'
+                ? 'Para cartão na entrega, uma Point integrada precisa estar vinculada ao seu usuário.'
+                : 'Confirme a retirada somente quando o pedido estiver com você.'}
+            </span>
           </C.Hint>
           <C.PrimaryButton type="button" onClick={handleClaimDelivery} disabled={loading}>
             <PackageCheck size={18} />
@@ -367,8 +461,9 @@ export default function OrderCard({
           <C.Hint>
             <Info aria-hidden="true" />
             <span>
-              Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para concluir a
-              entrega.
+              {paymentPendingConfirmation
+                ? 'O botão de entrega será liberado somente após a confirmação automática do pagamento.'
+                : 'Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para concluir a entrega.'}
             </span>
           </C.Hint>
           <C.DeliveryActions>
@@ -380,9 +475,7 @@ export default function OrderCard({
               value={deliveryCode}
               onChange={(event) => {
                 setDeliveryCode(event.target.value.replace(/\D/g, '').slice(0, 4));
-                if (error) {
-                  setError('');
-                }
+                if (error) setError('');
               }}
               placeholder="4 últimos dígitos do celular"
             />
@@ -392,7 +485,7 @@ export default function OrderCard({
               disabled={loading || paymentPendingConfirmation || !isDeliveryCodeValid}
               title={
                 paymentPendingConfirmation
-                  ? 'Pagamento ainda não confirmado'
+                  ? 'Pagamento ainda não confirmado pelo provedor'
                   : !isDeliveryCodeValid
                     ? 'Digite os 4 dígitos para concluir'
                     : ''
