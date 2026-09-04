@@ -1,4 +1,5 @@
 import api from './api';
+import { notifyRestaurantBrowserBrandingUpdated } from '../config/browserBranding';
 import { resolvePublicMediaSource } from './publicMediaSource';
 
 function normalizePublicSettingsMedia(settings, baseUrl) {
@@ -36,11 +37,13 @@ class RestaurantSettingsService {
 
   async createSettings(payload) {
     const response = await api.post('/settings', payload);
+    notifyRestaurantBrowserBrandingUpdated();
     return response.data;
   }
 
   async updateSettings(id, payload) {
     const response = await api.put(`/settings/${id}`, payload);
+    notifyRestaurantBrowserBrandingUpdated();
     return response.data;
   }
 
