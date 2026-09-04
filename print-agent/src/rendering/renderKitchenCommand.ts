@@ -73,6 +73,14 @@ function renderDeliveryAddress(order: KitchenOrderPrintPayloadV1['order'], width
     : [];
 }
 
+function renderTableIdentity(order: KitchenOrderPrintPayloadV1['order'], width: number) {
+  if (order.type !== 'MESA' || order.tableNumber === undefined) return [];
+  const tableNumber = String(order.tableNumber).padStart(2, '0');
+  const customerName = clean(order.customerName);
+  const identity = customerName ? `MESA ${tableNumber} • ${customerName}` : `MESA ${tableNumber}`;
+  return wrap(identity, width).map((line) => center(line, width));
+}
+
 function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
   const line = '='.repeat(width);
   const divider = '-'.repeat(width);
@@ -82,11 +90,9 @@ function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
     center(payload.restaurantName.toUpperCase(), width),
     line,
     center(`PEDIDO #${clean(order.displayNumber)}`, width),
+    ...renderTableIdentity(order, width),
   ];
 
-  if (order.type === 'MESA' && order.tableNumber !== undefined) {
-    lines.push(center(`MESA ${order.tableNumber}`, width));
-  }
   lines.push(
     center(
       new Date(order.createdAt).toLocaleString('pt-BR', {
@@ -104,7 +110,9 @@ function renderOrder(payload: KitchenOrderPrintPayloadV1, width: number) {
       width,
     ),
   );
-  if (order.customerName) lines.push(...wrap(`CLIENTE: ${order.customerName}`, width));
+  if (order.customerName && order.type !== 'MESA') {
+    lines.push(...wrap(`CLIENTE: ${order.customerName}`, width));
+  }
   if (order.type === 'RETIRADA') lines.push(...wrap('RETIRADA NO LOCAL', width));
   lines.push(divider);
 
