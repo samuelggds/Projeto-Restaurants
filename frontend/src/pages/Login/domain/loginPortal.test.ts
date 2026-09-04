@@ -9,6 +9,7 @@ describe('loginPortal', () => {
   it.each([
     ['/pizzaria/login', 'CUSTOMER'],
     ['/pizzaria/equipe', 'STAFF'],
+    ['/pizzaria/admin', 'ADMIN'],
     ['/admin/login', 'ADMIN'],
     ['/super_admin/login', 'SUPER_ADMIN'],
     ['/login', 'GENERIC'],
@@ -20,6 +21,7 @@ describe('loginPortal', () => {
     expect(getRestaurantSlugFromAuthPath('/Bella-Pizza/login')).toBe('bella-pizza');
     expect(getRestaurantSlugFromAuthPath('/bella-pizza/register')).toBe('bella-pizza');
     expect(getRestaurantSlugFromAuthPath('/bella-pizza/equipe')).toBe('bella-pizza');
+    expect(getRestaurantSlugFromAuthPath('/bella-pizza/admin')).toBe('bella-pizza');
     expect(getRestaurantSlugFromAuthPath('/admin/login')).toBe('');
   });
 
