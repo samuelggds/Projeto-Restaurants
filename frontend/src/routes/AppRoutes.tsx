@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams 
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 const Login = lazy(() => import('../pages/Login/Login'));
+const AdminPortalEntry = lazy(() => import('../pages/Login/AdminPortalEntry'));
+const AdminPortalLoginGate = lazy(() => import('../pages/Login/AdminPortalLoginGate'));
 const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
 const ChangePasswordPage = lazy(() => import('../pages/ChangePassword/ChangePasswordPage'));
 const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
@@ -209,12 +211,12 @@ export default function AppRoutes() {
           <Routes>
             <Route element={<PageTransition />}>
               <Route path="/super_admin/login" element={<Login />} />
+              <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
               <Route element={<RouteAuthorizationGuard />}>
                 <Route path="/login" element={<Login />} />
-                <Route path="/admin/login" element={<Login />} />
                 <Route path="/:restaurantSlug/login" element={<Login />} />
                 <Route path="/:restaurantSlug/equipe" element={<Login />} />
-                <Route path="/:restaurantSlug/admin" element={<Login />} />
+                <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
                 <Route path="/recover-password" element={<RecoverPassword />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/:restaurantSlug/register" element={<Register />} />
