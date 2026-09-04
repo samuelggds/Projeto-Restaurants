@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { adminMockSettings } from '../data';
 import { isValidCnpj, isValidCpf } from '../domain/businessSettingsValidation';
+import { PaymentTerminalSettings } from './PaymentTerminalSettings';
 import * as PS from './PaymentSettings.styles';
 
 type Settings = typeof adminMockSettings;
@@ -337,9 +338,9 @@ export function PaymentSettings({
               <CreditCard />
             </PS.MethodIcon>
             <div>
-              <span>CHECKOUT DO PROVEDOR</span>
+              <span>CHECKOUT E ENTREGA</span>
               <h3>Cartão</h3>
-              <p>Os dados do cartão são informados no ambiente seguro</p>
+              <p>Checkout online e, com Mercado Pago Point, cobrança integrada na entrega.</p>
             </div>
             <PS.SwitchLabel>
               <span>{settings.acceptsCard ? 'Ativado' : 'Desativado'}</span>
@@ -370,7 +371,9 @@ export function PaymentSettings({
               <small>
                 {settings.acceptsCard && !settings.cardGateway
                   ? 'Escolha um gateway para aceitar cartão.'
-                  : 'O cliente será direcionado ao checkout protegido do provedor.'}
+                  : settings.cardGateway === 'MERCADO_PAGO'
+                    ? 'Mercado Pago também habilita a integração com Point para cartão na entrega.'
+                    : 'O cliente será direcionado ao checkout protegido do provedor.'}
               </small>
             </PS.Field>
           </PS.ControlGrid>
@@ -502,6 +505,12 @@ export function PaymentSettings({
         </PS.ErrorAlert>
       )}
 
+      {settings.acceptsCard && settings.cardGateway === 'MERCADO_PAGO' && (
+        <PaymentTerminalSettings
+          mercadoPagoConnected={Boolean(settings.mercadoPagoAccessTokenConfigured)}
+        />
+      )}
+
       <PS.SecurityNotes>
         <div>
           <LockKeyhole />
@@ -514,9 +523,9 @@ export function PaymentSettings({
         <div>
           <ShieldCheck />
           <p>
-            <strong>Faça um pedido de teste</strong>
-            “Conta vinculada” confirma o cadastro da credencial. Antes de vender, valide um Pix e um
-            cartão no ambiente de homologação.
+            <strong>Pagamento confirmado pelo provedor</strong>
+            Pix e cartão na entrega automatizados só ficam como pagos depois da confirmação
+            financeira do provedor. O motoqueiro não confirma pagamento.
           </p>
         </div>
       </PS.SecurityNotes>
