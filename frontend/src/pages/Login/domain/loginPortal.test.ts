@@ -10,9 +10,9 @@ describe('loginPortal', () => {
     ['/pizzaria/login', 'CUSTOMER'],
     ['/pizzaria/equipe', 'STAFF'],
     ['/pizzaria/admin', 'ADMIN'],
-    ['/admin/login', 'ADMIN'],
     ['/super_admin/login', 'SUPER_ADMIN'],
     ['/login', 'GENERIC'],
+    ['/admin/login', 'GENERIC'],
   ] as const)('resolve %s como %s', (path, expected) => {
     expect(resolveLoginPortal(path)).toBe(expected);
   });
@@ -40,5 +40,7 @@ describe('loginPortal', () => {
 
     expect(canUseLoginPortal('SUPER_ADMIN', { role: 'SUPER_ADMIN' })).toBe(true);
     expect(canUseLoginPortal('GENERIC', { role: 'SUPER_ADMIN' })).toBe(false);
+    expect(canUseLoginPortal('GENERIC', { role: 'ADMIN' })).toBe(false);
+    expect(canUseLoginPortal('GENERIC', { role: 'CLIENTE' })).toBe(true);
   });
 });
