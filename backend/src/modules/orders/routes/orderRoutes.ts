@@ -31,6 +31,8 @@ import PagBankOrderWebhookController from '../controllers/PagBankOrderWebhookCon
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
 import QuoteOrderController from '../controllers/QuoteOrderController.js';
+import DeliveryPaymentController from '../../paymentTerminals/controllers/DeliveryPaymentController.js';
+import MercadoPagoPointWebhookController from '../../paymentTerminals/controllers/MercadoPagoPointWebhookController.js';
 import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { orderAccessMiddleware } from '../../../middlewares/orderAccessMiddleware.js';
@@ -48,6 +50,7 @@ import {
 const router = Router();
 
 router.post('/webhook/mercadopago', MercadoPagoOrderWebhookController.handle);
+router.post('/webhook/mercadopago-point', MercadoPagoPointWebhookController.handle);
 router.post('/webhook/stripe', StripeOrderWebhookController.handle);
 router.post('/webhook/pagbank', PagBankOrderWebhookController.handle);
 
@@ -85,6 +88,14 @@ router.put('/:id/status', authMiddleware, staffMiddleware, (req, res) => {
 
 router.patch('/:id/claim-delivery', authMiddleware, (req, res) => {
   ClaimOrderForDeliveryController.handle(req, res);
+});
+
+router.get('/:id/delivery-payment', authMiddleware, (req, res) => {
+  DeliveryPaymentController.get(req, res);
+});
+
+router.post('/:id/delivery-payment/reconcile-pix', authMiddleware, (req, res) => {
+  DeliveryPaymentController.reconcilePix(req, res);
 });
 
 router.patch('/:id/confirm-delivery-received', authMiddleware, (req, res) => {
