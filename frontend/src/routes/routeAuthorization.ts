@@ -30,7 +30,13 @@ const isPath = (pathname: string, base: string) =>
 const isAllowedTenantRoot = (value: string | undefined) =>
   Boolean(value && !RESERVED_ROOTS.has(value.toLowerCase()));
 const isGuestEntry = (path: string) => {
-  if (path === '/login' || path === '/recover-password' || path === '/register') return true;
+  if (
+    path === '/login' ||
+    path === '/recover-password' ||
+    path === '/register' ||
+    path === '/super_admin/login'
+  )
+    return true;
 
   const contextualEntry = path.match(/^\/([^/]+)\/(?:login|register|equipe|admin)$/)?.[1];
   if (isAllowedTenantRoot(contextualEntry)) return true;
