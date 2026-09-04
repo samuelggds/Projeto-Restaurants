@@ -74,7 +74,7 @@ export function isTechnicalMaintenancePath(pathname: string) {
 
 export function isAlwaysAvailableLoginPath(pathname: string) {
   const path = normalizeAvailabilityPath(pathname);
-  return path === '/login' || path === '/super_admin/login' || /^\/[^/]+\/login$/u.test(path);
+  return path === '/super_admin/login' || /^\/[^/]+\/(?:login|team|admin)$/u.test(path);
 }
 
 export function isSuperAdminAccessPath(pathname: string) {
