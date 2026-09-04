@@ -13,7 +13,8 @@ class DeliveryPaymentController {
   async get(req: Request, res: Response) {
     try {
       const restaurantId = restaurantIdFrom(req);
-      const courierId = String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
+      const courierId =
+        String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
       const payment = await paymentTerminalService.getOrderDeliveryPayment(
         Number(req.params.id),
         restaurantId,
@@ -28,14 +29,24 @@ class DeliveryPaymentController {
   }
 
   async reconcilePix(req: Request, res: Response) {
+    const restaurantId = restaurantIdFrom(req);
+    const orderId = Number(req.params.id);
     try {
-      const restaurantId = restaurantIdFrom(req);
-      const payment = await paymentTerminalService.reconcilePix(Number(req.params.id), restaurantId);
+      const payment = await paymentTerminalService.reconcilePix(orderId, restaurantId);
       return res.json({ payment });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Não foi possível consultar o Pix.';
-      const pending = message.toLowerCase().includes('ainda não foi aprovado');
-      return res.status(pending ? 202 : 400).json({ error: message });
+      if (message.toLowerCase().includes('ainda não foi aprovado')) {
+        const courierId =
+          String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
+        const payment = await paymentTerminalService.getOrderDeliveryPayment(
+          orderId,
+          restaurantId,
+          courierId,
+        );
+        return res.json({ payment, pending: true });
+      }
+      return res.status(400).json({ error: message });
     }
   }
 }
