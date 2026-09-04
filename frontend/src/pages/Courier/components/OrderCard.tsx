@@ -197,10 +197,7 @@ export default function OrderCard({
   }, [automatedPayOnDelivery, canDeliver, order.id, payOnDeliveryMethod]);
 
   useEffect(() => {
-    if (!canDeliver || !automatedPayOnDelivery) {
-      setDeliveryPayment(null);
-      return;
-    }
+    if (!canDeliver || !automatedPayOnDelivery) return;
     void refreshDeliveryPayment();
     const interval = window.setInterval(() => void refreshDeliveryPayment(), 5000);
     return () => window.clearInterval(interval);
@@ -408,8 +405,7 @@ export default function OrderCard({
                     </S.ItemRow>
                     {choices.map((group, groupIndex) => (
                       <S.ItemChoice key={`${group.groupName}-${groupIndex}`}>
-                        <b>{group.groupName}:</b> {group.options.join(', ')}
-                      </S.ItemChoice>
+                        <b>{group.groupName}:</b> {group.options.join(', ')}</S.ItemChoice>
                     ))}
                     {itemObservation ? (
                       <S.ItemObservation>
