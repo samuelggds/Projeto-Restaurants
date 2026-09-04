@@ -8,6 +8,7 @@ import { validateDeliveryLocationPayload } from '../../../socket/deliveryLocatio
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
 import { findEffectiveCompensationPolicy } from '../../courierCompensation/repositories/CourierCompensationRepository.js';
+import paymentTerminalService from '../../paymentTerminals/services/PaymentTerminalService.js';
 
 class ClaimOrderForDeliveryService {
   async execute({
@@ -123,14 +124,49 @@ class ClaimOrderForDeliveryService {
 
     const { updatedOrder, location, savedLocation } = result;
 
+    try {
+      await paymentTerminalService.ensureForClaim(normalizedOrderId, restaurantId, courierId);
+    } catch (error) {
+      await prisma.$transaction(async (tx) => {
+        await setTenantDbContext(tx, restaurantId);
+        await tx.deliveryLocation.deleteMany({
+          where: {
+            orderId: normalizedOrderId,
+            courierId,
+            recordedAt: savedLocation.recordedAt,
+          },
+        });
+        await tx.order.updateMany({
+          where: {
+            id: normalizedOrderId,
+            restaurantId,
+            status: OrderStatus.SAIU_PARA_ENTREGA,
+            assignedCourierId: courierId,
+          },
+          data: {
+            assignedCourierId: null,
+            deliveryStartedAt: null,
+            courierEarning: 0,
+            courierEarningCalculatedAt: null,
+            courierCompensationModel: null,
+            status: OrderStatus.PRONTO,
+          },
+        });
+      });
+      throw error;
+    }
+
+    const refreshedOrder =
+      (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder;
+
     notifyCustomerOrderStatusChanged({
       restaurantId,
-      customerPhone: updatedOrder.user?.phone,
-      customerName: updatedOrder.user?.name,
-      restaurantName: updatedOrder.restaurant?.name,
-      restaurantWhatsapp: updatedOrder.restaurant?.whatsapp,
-      orderId: updatedOrder.id,
-      status: updatedOrder.status,
+      customerPhone: refreshedOrder.user?.phone,
+      customerName: refreshedOrder.user?.name,
+      restaurantName: refreshedOrder.restaurant?.name,
+      restaurantWhatsapp: refreshedOrder.restaurant?.whatsapp,
+      orderId: refreshedOrder.id,
+      status: refreshedOrder.status,
     }).catch((error: unknown) => {
       console.error(
         '[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]',
@@ -138,11 +174,13 @@ class ClaimOrderForDeliveryService {
       );
     });
 
-    io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
-    io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
+    io.to(`restaurant:${restaurantId}`).emit('order:status-changed', refreshedOrder);
+    if (refreshedOrder.userId) {
+      io.to(`user:${refreshedOrder.userId}`).emit('order:status-changed', refreshedOrder);
+    }
 
     const payload = {
-      orderId: updatedOrder.id,
+      orderId: refreshedOrder.id,
       restaurantId,
       latitude: location.latitude,
       longitude: location.longitude,
@@ -153,10 +191,12 @@ class ClaimOrderForDeliveryService {
       recordedAt: savedLocation.recordedAt.toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    io.to(`user:${updatedOrder.userId}`).emit('order:delivery-location', payload);
+    if (refreshedOrder.userId) {
+      io.to(`user:${refreshedOrder.userId}`).emit('order:delivery-location', payload);
+    }
     io.to(`restaurant:${restaurantId}:admin`).emit('order:delivery-location', payload);
 
-    return updatedOrder;
+    return refreshedOrder;
   }
 }
 
