@@ -99,6 +99,26 @@ class UpdateOrderStatusService {
       }
     }
 
+    const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
+    const isPayOnDelivery =
+      order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
+    const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
+    const isAutomatedDeliveryPaymentPending =
+      order.type === OrderType.DELIVERY &&
+      isPayOnDelivery &&
+      isDigitalPayment &&
+      order.paid !== true;
+
+    if (
+      status === OrderStatus.ENTREGUE &&
+      normalizedRole === UserRole.MOTOQUEIRO &&
+      isAutomatedDeliveryPaymentPending
+    ) {
+      throw new Error(
+        'O pagamento na entrega ainda não foi confirmado automaticamente pelo provedor.',
+      );
+    }
+
     if (
       status === OrderStatus.ENTREGUE &&
       normalizedRole === UserRole.MOTOQUEIRO &&
@@ -125,11 +145,6 @@ class UpdateOrderStatusService {
       }
     }
 
-    const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
-    const isPayOnDelivery =
-      order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
-    const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
-
     const isUnpaidDigitalOrderBlocked = isDigitalPayment && !isPayOnDelivery && order.paid !== true;
 
     if (
@@ -154,7 +169,7 @@ class UpdateOrderStatusService {
     }
 
     let updatedOrder;
-    let paymentConfirmedOnDelivery = false;
+    let cashPaymentConfirmedOnDelivery = false;
 
     if (status === OrderStatus.CANCELADO) {
       updatedOrder = await prisma.$transaction(async (tx) => {
@@ -205,10 +220,10 @@ class UpdateOrderStatusService {
 
         if (
           order.type !== OrderType.MESA &&
-          (order.paymentMethod === PaymentMethod.DINHEIRO || isPayOnDelivery) &&
+          order.paymentMethod === PaymentMethod.DINHEIRO &&
           deliveredOrder.paid !== true
         ) {
-          paymentConfirmedOnDelivery = true;
+          cashPaymentConfirmedOnDelivery = true;
           deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
         }
 
@@ -225,7 +240,7 @@ class UpdateOrderStatusService {
       });
     }
 
-    if (paymentConfirmedOnDelivery && updatedOrder) {
+    if (cashPaymentConfirmedOnDelivery && updatedOrder) {
       io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
         orderId: updatedOrder.id,
         paid: true,
