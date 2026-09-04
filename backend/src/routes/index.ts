@@ -25,6 +25,7 @@ import ingredientRoutes from '../modules/ingredients/routes/ingredientRoutes.js'
 import tableServiceCallRoutes from '../modules/waiterCalls/routes/TableServiceCallRoutes.js';
 import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoutes.js';
 import superAdminRoutes from '../modules/superAdmin/routes/SuperAdminRoutes.js';
+import adminPortalRoutes from '../modules/adminPortal/routes/AdminPortalRoutes.js';
 import publicMediaRoutes from '../modules/publicMedia/routes/PublicMediaRoutes.js';
 import customerPaymentMethodRoutes from '../modules/customerPaymentMethods/routes/CustomerPaymentMethodRoutes.js';
 import kitchenPrintingRoutes from '../modules/kitchenPrinting/routes/KitchenPrintingRoutes.js';
@@ -74,6 +75,7 @@ router.use('/product-configuration-templates', productConfigurationTemplateRoute
 router.use('/attendant', attendantRoutes);
 router.use('/payment-terminals', paymentTerminalRoutes);
 router.use('/super-admin', superAdminRoutes);
+router.use('/admin-portal', adminPortalRoutes);
 router.use('/public-media', publicMediaRoutes);
 
 router.get('/profile', authMiddleware, (req, res) => {
