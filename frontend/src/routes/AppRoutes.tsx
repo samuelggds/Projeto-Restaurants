@@ -38,6 +38,7 @@ import {
 import { authorizeRoute } from './routeAuthorization';
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
+import BrowserTabBranding from '../components/BrowserTabBranding/BrowserTabBranding';
 import {
   buildAuthEntryUrl,
   buildLoginUrl,
@@ -226,6 +227,7 @@ function BillingGate() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+      <BrowserTabBranding />
       <Suspense fallback={<RouteLoading />}>
         <SystemAvailabilityGate>
           <Routes>
