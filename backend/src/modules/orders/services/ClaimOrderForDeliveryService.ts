@@ -123,41 +123,50 @@ class ClaimOrderForDeliveryService {
     });
 
     const { updatedOrder, location, savedLocation } = result;
+    const payOnDeliveryMethod = String(
+      updatedOrder.payOnDeliveryMethod || updatedOrder.paymentMethod || '',
+    ).toUpperCase();
+    const requiresAutomatedDeliveryPayment =
+      updatedOrder.payOnDelivery === true &&
+      (payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO');
 
-    try {
-      await paymentTerminalService.ensureForClaim(normalizedOrderId, restaurantId, courierId);
-    } catch (error) {
-      await prisma.$transaction(async (tx) => {
-        await setTenantDbContext(tx, restaurantId);
-        await tx.deliveryLocation.deleteMany({
-          where: {
-            orderId: normalizedOrderId,
-            courierId,
-            recordedAt: savedLocation.recordedAt,
-          },
+    if (requiresAutomatedDeliveryPayment) {
+      try {
+        await paymentTerminalService.ensureForClaim(normalizedOrderId, restaurantId, courierId);
+      } catch (error) {
+        await prisma.$transaction(async (tx) => {
+          await setTenantDbContext(tx, restaurantId);
+          await tx.deliveryLocation.deleteMany({
+            where: {
+              orderId: normalizedOrderId,
+              courierId,
+              recordedAt: savedLocation.recordedAt,
+            },
+          });
+          await tx.order.updateMany({
+            where: {
+              id: normalizedOrderId,
+              restaurantId,
+              status: OrderStatus.SAIU_PARA_ENTREGA,
+              assignedCourierId: courierId,
+            },
+            data: {
+              assignedCourierId: null,
+              deliveryStartedAt: null,
+              courierEarning: 0,
+              courierEarningCalculatedAt: null,
+              courierCompensationModel: null,
+              status: OrderStatus.PRONTO,
+            },
+          });
         });
-        await tx.order.updateMany({
-          where: {
-            id: normalizedOrderId,
-            restaurantId,
-            status: OrderStatus.SAIU_PARA_ENTREGA,
-            assignedCourierId: courierId,
-          },
-          data: {
-            assignedCourierId: null,
-            deliveryStartedAt: null,
-            courierEarning: 0,
-            courierEarningCalculatedAt: null,
-            courierCompensationModel: null,
-            status: OrderStatus.PRONTO,
-          },
-        });
-      });
-      throw error;
+        throw error;
+      }
     }
 
-    const refreshedOrder =
-      (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder;
+    const refreshedOrder = requiresAutomatedDeliveryPayment
+      ? (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder
+      : updatedOrder;
 
     notifyCustomerOrderStatusChanged({
       restaurantId,
