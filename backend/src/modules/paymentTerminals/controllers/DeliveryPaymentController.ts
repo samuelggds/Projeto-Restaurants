@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import paymentTerminalRepository from '../repositories/PaymentTerminalRepository.js';
 import paymentTerminalService from '../services/PaymentTerminalService.js';
 
 function restaurantIdFrom(req: Request) {
@@ -47,6 +48,35 @@ class DeliveryPaymentController {
         return res.json({ payment, pending: true });
       }
       return res.status(400).json({ error: message });
+    }
+  }
+
+  async reconcileCard(req: Request, res: Response) {
+    const restaurantId = restaurantIdFrom(req);
+    const orderId = Number(req.params.id);
+    try {
+      const courierId =
+        String(req.user?.role || '').toUpperCase() === 'MOTOQUEIRO' ? userIdFrom(req) : null;
+      await paymentTerminalService.getOrderDeliveryPayment(orderId, restaurantId, courierId);
+      const localPayment = await paymentTerminalRepository.findDeliveryPayment(orderId, restaurantId);
+      if (!localPayment?.providerOrderId) {
+        throw new Error('Cobrança da maquininha ainda não foi criada.');
+      }
+      await paymentTerminalService.reconcilePointOrder(
+        String(localPayment.providerOrderId),
+        restaurantId,
+      );
+      const payment = await paymentTerminalService.getOrderDeliveryPayment(
+        orderId,
+        restaurantId,
+        courierId,
+      );
+      return res.json({ payment });
+    } catch (error: unknown) {
+      return res.status(400).json({
+        error:
+          error instanceof Error ? error.message : 'Não foi possível consultar a maquininha.',
+      });
     }
   }
 }
