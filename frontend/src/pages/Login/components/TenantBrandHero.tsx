@@ -83,6 +83,7 @@ export function TenantBrandHero({ branding, mode, overrideText, contextLabel }: 
   const hasCover = Boolean(branding.logoUrl);
   const categoryLabel = getRestaurantCategoryLabel(presentation.category);
   const supportText = overrideText || copy.support;
+  const visibleContextLabel = contextLabel === 'Painel administrativo' ? 'ADMIN' : contextLabel;
 
   const coverImage = hasCover ? (
     <S.RestaurantLogo
@@ -107,8 +108,8 @@ export function TenantBrandHero({ branding, mode, overrideText, contextLabel }: 
               {categoryIcon}
             </S.LoginCategoryIcon>
             <S.LoginCategoryCopy>
-              <small>{contextLabel ? 'Acesso personalizado' : 'Experiência para você'}</small>
-              <strong>{contextLabel || categoryLabel}</strong>
+              <small>{visibleContextLabel ? 'Acesso personalizado' : 'Experiência para você'}</small>
+              <strong>{visibleContextLabel || categoryLabel}</strong>
             </S.LoginCategoryCopy>
           </S.LoginCategoryBadge>
 
