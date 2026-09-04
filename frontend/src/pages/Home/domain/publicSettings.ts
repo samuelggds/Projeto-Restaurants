@@ -89,14 +89,12 @@ export function buildSocialProfileUrl(network: HomeSocialNetwork, value?: string
 
 export function applyHomeSeoMetadata(
   targetDocument: Document,
-  titleValue: string,
+  _titleValue: string,
   descriptionValue: string,
 ) {
-  const seoTitle = String(titleValue || '').trim();
   const seoDescription = String(descriptionValue || '').trim();
-  if (!seoTitle && !seoDescription) return () => undefined;
+  if (!seoDescription) return () => undefined;
 
-  const previousTitle = targetDocument.title;
   const existingDescription = targetDocument.querySelector<HTMLMetaElement>(
     'meta[name="description"]',
   );
@@ -104,20 +102,16 @@ export function applyHomeSeoMetadata(
   let descriptionMeta = existingDescription;
   let createdDescription = false;
 
-  if (seoTitle) targetDocument.title = seoTitle;
-  if (seoDescription) {
-    if (!descriptionMeta) {
-      descriptionMeta = targetDocument.createElement('meta');
-      descriptionMeta.name = 'description';
-      targetDocument.head.appendChild(descriptionMeta);
-      createdDescription = true;
-    }
-    descriptionMeta.content = seoDescription;
+  if (!descriptionMeta) {
+    descriptionMeta = targetDocument.createElement('meta');
+    descriptionMeta.name = 'description';
+    targetDocument.head.appendChild(descriptionMeta);
+    createdDescription = true;
   }
+  descriptionMeta.content = seoDescription;
 
   return () => {
-    if (seoTitle) targetDocument.title = previousTitle;
-    if (!seoDescription || !descriptionMeta) return;
+    if (!descriptionMeta) return;
     if (createdDescription) {
       descriptionMeta.remove();
     } else if (previousDescription === null) {
