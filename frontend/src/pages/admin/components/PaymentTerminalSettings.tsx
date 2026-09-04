@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CreditCard, RefreshCw } from 'lucide-react';
 import paymentTerminalService, {
   type PaymentTerminal,
@@ -26,21 +26,34 @@ export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
   const [savingTerminalId, setSavingTerminalId] = useState('');
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
+  async function refresh() {
     if (!mercadoPagoConnected) return;
-    try {
-      const snapshot = await paymentTerminalService.list();
-      setTerminals(snapshot.terminals || []);
-      setCouriers(snapshot.couriers || []);
-      setError('');
-    } catch (loadError) {
-      setError(errorMessage(loadError));
-    }
-  }, [mercadoPagoConnected]);
+    const snapshot = await paymentTerminalService.list();
+    setTerminals(snapshot.terminals || []);
+    setCouriers(snapshot.couriers || []);
+    setError('');
+  }
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!mercadoPagoConnected) return;
+    let active = true;
+
+    paymentTerminalService
+      .list()
+      .then((snapshot) => {
+        if (!active) return;
+        setTerminals(snapshot.terminals || []);
+        setCouriers(snapshot.couriers || []);
+        setError('');
+      })
+      .catch((loadError) => {
+        if (active) setError(errorMessage(loadError));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [mercadoPagoConnected]);
 
   const sync = async () => {
     setLoading(true);
@@ -62,7 +75,7 @@ export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
     setError('');
     try {
       await paymentTerminalService.assign(terminal.publicId, courierId);
-      await load();
+      await refresh();
     } catch (assignError) {
       setError(errorMessage(assignError));
     } finally {
