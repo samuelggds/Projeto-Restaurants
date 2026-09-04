@@ -16,6 +16,7 @@ export type AuthExperience = {
 const INTERNAL_URL_BASE = 'https://internal.invalid';
 const MAX_NEXT_PATH_LENGTH = 4_096;
 const MAX_DECODE_PASSES = 8;
+const AUTH_RETURN_STORAGE_PREFIX = 'gastronexa:auth-return:';
 const BLOCKED_AUTH_PATHS = new Set([
   '/login',
   '/register',
@@ -124,6 +125,13 @@ function getRestaurantSlugFromLocation(location: ReturnLocation) {
   return slug && !RESERVED_RESTAURANT_SLUGS.has(slug) ? slug : '';
 }
 
+function getAuthReturnStorageKey(restaurantSlug: string) {
+  const slug = sanitizeRestaurantSlug(restaurantSlug);
+  return slug && !RESERVED_RESTAURANT_SLUGS.has(slug)
+    ? `${AUTH_RETURN_STORAGE_PREFIX}${slug}`
+    : '';
+}
+
 export function getCurrentReturnPath(location: ReturnLocation) {
   const pathname = String(location.pathname || '/');
   return `${pathname}${String(location.search || '')}${String(location.hash || '')}`;
@@ -177,6 +185,31 @@ export function getSafeNextPath(value: unknown) {
   }
 
   return rawNext;
+}
+
+export function rememberAuthReturnPath(restaurantSlug: string, value: unknown) {
+  if (typeof window === 'undefined') return;
+  const key = getAuthReturnStorageKey(restaurantSlug);
+  const safeNextPath = getSafeNextPath(value);
+  if (!key || !safeNextPath) return;
+
+  try {
+    window.sessionStorage.setItem(key, safeNextPath);
+  } catch {
+    // sessionStorage pode estar indisponível em navegadores com políticas restritas.
+  }
+}
+
+export function getRememberedAuthReturnPath(restaurantSlug: string) {
+  if (typeof window === 'undefined') return '';
+  const key = getAuthReturnStorageKey(restaurantSlug);
+  if (!key) return '';
+
+  try {
+    return getSafeNextPath(window.sessionStorage.getItem(key));
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -252,6 +285,7 @@ export function buildLoginUrl(location: ReturnLocation) {
   const portalPath = `/${restaurantSlug}/login`;
   const nextPath = getSafeNextPath(getCurrentReturnPath(location));
   if (!nextPath) return portalPath;
+  rememberAuthReturnPath(restaurantSlug, nextPath);
   const query = getSafeAuthSearchParams(new URLSearchParams({ next: nextPath })).toString();
   return query ? `${portalPath}?${query}` : portalPath;
 }
