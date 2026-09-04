@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
@@ -12,7 +12,12 @@ import {
 import * as S from './styles';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from '../Login/components/TenantBrandHero';
-import { buildAuthEntryUrl, resolveAuthExperience } from '../../shared/navigation/authNavigation';
+import {
+  buildAuthEntryUrl,
+  getRememberedAuthReturnPath,
+  getSafeAuthSearchParams,
+  resolveAuthExperience,
+} from '../../shared/navigation/authNavigation';
 import {
   getRestaurantCategoryLabel,
   getRestaurantLoginVisual,
@@ -30,14 +35,23 @@ export default function Register() {
     const params = new URLSearchParams(searchReference);
     if (pathSlug) {
       if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', pathSlug);
-      if (!params.has('next')) params.set('next', `/${pathSlug}`);
+      if (!params.has('next')) {
+        params.set('next', getRememberedAuthReturnPath(pathSlug) || `/${pathSlug}`);
+      }
     }
     return params;
   }, [pathSlug, searchReference]);
+  const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
+
+  useEffect(() => {
+    if (!pathSlug || searchParams.has('next') || !canonicalSearch) return;
+    navigate(`/${pathSlug}/register?${canonicalSearch}`, { replace: true });
+  }, [canonicalSearch, navigate, pathSlug, searchParams]);
+
   const branding = useRestaurantLoginBranding(contextualSearchParams);
   const authExperience = resolveAuthExperience(contextualSearchParams);
   const loginPath = pathSlug
-    ? `/${pathSlug}/login`
+    ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
     : buildAuthEntryUrl('/login', contextualSearchParams);
   const isTableContext = authExperience.context === 'TABLE';
   const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
