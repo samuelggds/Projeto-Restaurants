@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import {
@@ -31,19 +31,45 @@ import {
   getRestaurantLoginVisual,
 } from '../../config/restaurantCategory';
 import { getAccessibleBrandColor, getReadableTextColor } from './domain/loginBranding';
+import {
+  canUseLoginPortal,
+  getLoginPortalAccessError,
+  getRestaurantSlugFromAuthPath,
+  resolveLoginPortal,
+} from './domain/loginPortal';
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const isTechnicalAccess = location.pathname === '/super_admin/login';
-  const branding = useRestaurantLoginBranding(searchParams);
-  const safeNextPath = getSafeNextPath(searchParams.get('next'));
-  const authExperience = resolveAuthExperience(searchParams);
-  const registerPath = buildAuthEntryUrl('/register', searchParams);
-  const recoverPasswordPath = buildAuthEntryUrl('/recover-password', searchParams);
-  const changePasswordPath = buildAuthEntryUrl('/change-password', searchParams);
+  const portal = resolveLoginPortal(location.pathname);
+  const portalSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const searchReference = searchParams.toString();
+  const contextualSearchParams = useMemo(() => {
+    const params = new URLSearchParams(searchReference);
+    if (portalSlug) {
+      if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', portalSlug);
+      if (!params.has('next') && portal === 'CUSTOMER') params.set('next', `/${portalSlug}`);
+    }
+    return params;
+  }, [portal, portalSlug, searchReference]);
+
+  const isTechnicalAccess = portal === 'SUPER_ADMIN';
+  const isAdminAccess = portal === 'ADMIN';
+  const isStaffAccess = portal === 'STAFF';
+  const isCustomerAccess = portal === 'CUSTOMER';
+  const branding = useRestaurantLoginBranding(contextualSearchParams);
+  const safeNextPath = getSafeNextPath(contextualSearchParams.get('next'));
+  const authExperience = resolveAuthExperience(contextualSearchParams);
+  const registerPath =
+    isCustomerAccess && portalSlug
+      ? `/${portalSlug}/register`
+      : buildAuthEntryUrl('/register', contextualSearchParams);
+  const recoverPasswordPath = buildAuthEntryUrl('/recover-password', contextualSearchParams);
+  const changePasswordPath = buildAuthEntryUrl('/change-password', contextualSearchParams);
   const isTableContext = !isTechnicalAccess && authExperience.context === 'TABLE';
+  const showCustomerSelfService =
+    !isTechnicalAccess && !isAdminAccess && !isStaffAccess && (isCustomerAccess || portal === 'GENERIC');
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -171,8 +197,25 @@ export default function Login() {
     [promptDialog],
   );
 
+  const validatePortalAccess = useCallback(
+    async (authResponse) => {
+      if (isTechnicalAccess && !canUseTechnicalAccess(authResponse?.user)) {
+        await authService.logout(authResponse?.token).catch(() => undefined);
+        throw new Error(TECHNICAL_ACCESS_DENIED_MESSAGE);
+      }
+
+      if (!canUseLoginPortal(portal, authResponse?.user)) {
+        await authService.logout(authResponse?.token).catch(() => undefined);
+        throw new Error(getLoginPortalAccessError(portal));
+      }
+
+      return authResponse;
+    },
+    [isTechnicalAccess, portal],
+  );
+
   const initializeGoogleLogin = useCallback(async () => {
-    if (googleInitInFlightRef.current) {
+    if (!showCustomerSelfService || googleInitInFlightRef.current) {
       return;
     }
 
@@ -207,7 +250,8 @@ export default function Login() {
           callback: async (response) => {
             try {
               const firstStep = await authService.loginWithGoogle(response.credential);
-              const authResponse = await completeLoginWithMfaIfNeeded(firstStep);
+              const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
+              const authResponse = await validatePortalAccess(withMfa);
 
               setFeedback({ type: 'success', message: 'Login realizado com sucesso!' });
               setTimeout(() => {
@@ -215,7 +259,9 @@ export default function Login() {
                 latestRedirectByRoleRef.current(authResponse.user);
               }, 700);
             } catch (error) {
-              const message = error?.response?.data?.error || 'Erro ao autenticar com Google';
+              const message =
+                error?.response?.data?.error ||
+                (error instanceof Error ? error.message : 'Erro ao autenticar com Google');
               setFeedback({ type: 'error', message });
             }
           },
@@ -247,10 +293,18 @@ export default function Login() {
     } finally {
       googleInitInFlightRef.current = false;
     }
-  }, [getGoogleClientId, loadGoogleScript, login, isDarkMode, completeLoginWithMfaIfNeeded]);
+  }, [
+    completeLoginWithMfaIfNeeded,
+    getGoogleClientId,
+    isDarkMode,
+    loadGoogleScript,
+    login,
+    showCustomerSelfService,
+    validatePortalAccess,
+  ]);
 
   useEffect(() => {
-    if (isTechnicalAccess) return;
+    if (!showCustomerSelfService) return;
     isGoogleMountedRef.current = true;
 
     const timeoutId = setTimeout(() => {
@@ -261,7 +315,7 @@ export default function Login() {
       clearTimeout(timeoutId);
       isGoogleMountedRef.current = false;
     };
-  }, [initializeGoogleLogin, isTechnicalAccess]);
+  }, [initializeGoogleLogin, showCustomerSelfService]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -269,12 +323,8 @@ export default function Login() {
     setIsLoading(true);
     try {
       const firstStep = await authService.login({ email, password });
-      const response = await completeLoginWithMfaIfNeeded(firstStep);
-
-      if (isTechnicalAccess && !canUseTechnicalAccess(response?.user)) {
-        await authService.logout(response?.token).catch(() => undefined);
-        throw new Error(TECHNICAL_ACCESS_DENIED_MESSAGE);
-      }
+      const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
+      const response = await validatePortalAccess(withMfa);
 
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', email);
@@ -306,17 +356,72 @@ export default function Login() {
   const categoryVisual = getRestaurantLoginVisual(branding.category);
   const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
   const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
-  const submitLabel = isTableContext ? `Entrar e continuar na ${tableLabel}` : 'Entrar no Sistema';
+  const submitLabel = isTechnicalAccess
+    ? 'Entrar no Super Admin'
+    : isAdminAccess
+      ? 'Entrar no painel administrativo'
+      : isStaffAccess
+        ? 'Entrar na área da equipe'
+        : isTableContext
+          ? `Entrar e continuar na ${tableLabel}`
+          : isCustomerAccess
+            ? 'Entrar como cliente'
+            : 'Entrar no Sistema';
   const accessLabel = isTechnicalAccess
     ? 'Canal técnico protegido'
-    : isTableContext
-      ? `Atendimento da ${tableLabel}`
-      : `${categoryLabel} • acesso protegido`;
+    : isAdminAccess
+      ? 'Administração GastroNexa'
+      : isStaffAccess
+        ? `${branding.name} • área da equipe`
+        : isTableContext
+          ? `Atendimento da ${tableLabel}`
+          : isCustomerAccess
+            ? `${branding.name} • acesso do cliente`
+            : `${categoryLabel} • acesso protegido`;
   const heroContextLabel = isTechnicalAccess
     ? 'Operação segura da plataforma'
-    : isTableContext
-      ? `${tableLabel} • acesso seguro`
-      : null;
+    : isAdminAccess
+      ? 'Painel administrativo'
+      : isStaffAccess
+        ? 'Acesso da equipe'
+        : isTableContext
+          ? `${tableLabel} • acesso seguro`
+          : isCustomerAccess
+            ? 'Área do cliente'
+            : null;
+  const heroOverrideText = isTechnicalAccess
+    ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
+    : isAdminAccess
+      ? 'Acesse o painel administrativo. Os dados exibidos serão sempre os do restaurante vinculado à sua conta.'
+      : isStaffAccess
+        ? 'Entre com sua conta de funcionário. Sua função define automaticamente o painel operacional correto.'
+        : isTableContext
+          ? `Você está entrando para continuar o atendimento da ${tableLabel}.`
+          : isCustomerAccess
+            ? `Entre para continuar no cardápio e nos pedidos de ${branding.name}.`
+            : null;
+  const welcomeText = isTechnicalAccess
+    ? 'Acesso técnico'
+    : isAdminAccess
+      ? 'Painel administrativo'
+      : isStaffAccess
+        ? 'Acesso da equipe'
+        : isTableContext
+          ? `Continuar na ${tableLabel}`
+          : isCustomerAccess
+            ? 'Bem-vindo de volta!'
+            : 'Bem-vindo!';
+  const formSubtitle = isTechnicalAccess
+    ? 'Entre com a conta exclusiva de Super Admin para administrar a plataforma.'
+    : isAdminAccess
+      ? 'Entre com a conta de administrador cadastrada para o seu restaurante.'
+      : isStaffAccess
+        ? 'Use sua conta de garçom, cozinha, atendente ou motoqueiro.'
+        : isTableContext
+          ? 'Entre com a mesma conta de cliente que você usa no cardápio online.'
+          : isCustomerAccess
+            ? `Acesse sua conta para continuar no ${branding.name}.`
+            : `Acesse sua conta para continuar no ${branding.name}.`;
 
   return (
     <ThemeProvider
@@ -334,6 +439,7 @@ export default function Login() {
       <S.Container
         data-testid="login-layout"
         data-auth-context={authExperience.context}
+        data-auth-portal={portal.toLowerCase()}
         data-restaurant-category={categoryVisual.category}
       >
         <S.TopBar>
@@ -356,13 +462,7 @@ export default function Login() {
             branding={branding}
             mode="login"
             contextLabel={heroContextLabel}
-            overrideText={
-              isTechnicalAccess
-                ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
-                : isTableContext
-                  ? `Você está entrando para continuar o atendimento da ${tableLabel}.`
-                  : null
-            }
+            overrideText={heroOverrideText}
           />
         </S.LoginBannerSection>
 
@@ -372,20 +472,8 @@ export default function Login() {
               <ShieldCheck aria-hidden="true" />
               <span>{accessLabel}</span>
             </S.LoginAccessBadge>
-            <S.WelcomeText>
-              {isTechnicalAccess
-                ? 'Acesso técnico'
-                : isTableContext
-                  ? `Continuar na ${tableLabel}`
-                  : 'Bem-vindo!'}
-            </S.WelcomeText>
-            <S.FormSubtitle>
-              {isTechnicalAccess
-                ? 'Entre com a conta exclusiva de Super Admin para acompanhar a manutenção.'
-                : isTableContext
-                  ? 'Entre com a mesma conta de cliente que você usa no cardápio online.'
-                  : `Acesse sua conta para continuar no ${branding.name}.`}
-            </S.FormSubtitle>
+            <S.WelcomeText>{welcomeText}</S.WelcomeText>
+            <S.FormSubtitle>{formSubtitle}</S.FormSubtitle>
 
             {feedback && (
               <S.LoginFeedback
@@ -475,7 +563,7 @@ export default function Login() {
               <span>Seus dados são protegidos durante o acesso.</span>
             </S.LoginSecurityNote>
 
-            {!isTechnicalAccess ? (
+            {showCustomerSelfService ? (
               <>
                 <S.Divider>ou</S.Divider>
                 <S.GoogleButtonContainer>
