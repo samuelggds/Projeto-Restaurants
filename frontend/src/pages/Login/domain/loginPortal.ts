@@ -20,7 +20,7 @@ export function normalizePortalRestaurantSlug(value: unknown) {
 export function resolveLoginPortal(pathname: string): LoginPortal {
   const path = normalizePath(pathname);
   if (path === '/super_admin/login') return 'SUPER_ADMIN';
-  if (path === '/admin/login') return 'ADMIN';
+  if (path === '/admin/login' || /^\/[^/]+\/admin$/u.test(path)) return 'ADMIN';
   if (/^\/[^/]+\/equipe$/u.test(path)) return 'STAFF';
   if (/^\/[^/]+\/login$/u.test(path)) return 'CUSTOMER';
   return 'GENERIC';
@@ -28,7 +28,7 @@ export function resolveLoginPortal(pathname: string): LoginPortal {
 
 export function getRestaurantSlugFromAuthPath(pathname: string) {
   const path = normalizePath(pathname);
-  const match = path.match(/^\/([^/]+)\/(?:login|register|equipe)$/u);
+  const match = path.match(/^\/([^/]+)\/(?:login|register|equipe|admin)$/u);
   return normalizePortalRestaurantSlug(match?.[1]);
 }
 
