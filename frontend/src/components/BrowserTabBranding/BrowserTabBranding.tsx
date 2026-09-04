@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
+import { useAuth } from '../../contexts/authContext';
 import {
   applyRestaurantBrowserBranding,
   DEFAULT_BROWSER_TITLE,
@@ -105,8 +106,11 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
 
 export default function BrowserTabBranding() {
   const location = useLocation();
+  const { isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
+    if (isAuthLoading) return undefined;
+
     let active = true;
 
     const refresh = async () => {
@@ -160,7 +164,7 @@ export default function BrowserTabBranding() {
       active = false;
       window.removeEventListener(RESTAURANT_BROWSER_BRANDING_UPDATED_EVENT, handleBrandingUpdate);
     };
-  }, [location.pathname, location.search]);
+  }, [isAuthLoading, location.pathname, location.search]);
 
   return null;
 }
