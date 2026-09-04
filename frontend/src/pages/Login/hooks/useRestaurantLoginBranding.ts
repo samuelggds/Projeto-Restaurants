@@ -22,22 +22,16 @@ export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
     }
 
     const { restaurantId, slug } = resolveLoginRestaurant(params);
-    const storedRestaurantId = Number(localStorage.getItem('menuRestaurantId') || 0);
     const request = slug
       ? restaurantSettingsService.getPublicSettingsBySlug(slug)
       : restaurantId
         ? restaurantSettingsService.getPublicSettings(restaurantId)
-        : storedRestaurantId > 0
-          ? restaurantSettingsService.getPublicSettings(storedRestaurantId)
-          : restaurantSettingsService.getDefaultPublicSettings();
+        : Promise.resolve(null);
 
     Promise.resolve(request)
       .then((settings) => {
         if (!active) return;
-        if (Number(settings?.restaurantId) > 0) {
-          localStorage.setItem('menuRestaurantId', String(settings.restaurantId));
-        }
-        setBranding(mapLoginBranding(settings));
+        setBranding(settings ? mapLoginBranding(settings) : DEFAULT_LOGIN_BRANDING);
       })
       .catch(() => {
         if (active) setBranding(DEFAULT_LOGIN_BRANDING);
