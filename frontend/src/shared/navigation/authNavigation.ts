@@ -250,14 +250,6 @@ export function buildLoginUrl(location: ReturnLocation) {
   }
 
   const portalPath = `/${restaurantSlug}/login`;
-  const cleanRestaurantPath = `/${restaurantSlug}`;
-  const pathname = String(location.pathname || '/').replace(/\/+$/u, '') || '/';
-  const hasExtraContext = Boolean(String(location.search || '') || String(location.hash || ''));
-
-  if (pathname === cleanRestaurantPath && !hasExtraContext) {
-    return portalPath;
-  }
-
   const nextPath = getSafeNextPath(getCurrentReturnPath(location));
   if (!nextPath) return portalPath;
   const query = getSafeAuthSearchParams(new URLSearchParams({ next: nextPath })).toString();
