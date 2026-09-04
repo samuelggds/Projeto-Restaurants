@@ -1,6 +1,7 @@
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import prisma from '../../../config/prisma.js';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
+import paymentTerminalRepository from '../../paymentTerminals/repositories/PaymentTerminalRepository.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
 import { markCouponRedemptionUsedForOrder } from './couponRedemptionLifecycle.js';
@@ -18,6 +19,15 @@ type FinalizeOrderPixPaymentPayload = {
 };
 
 class FinalizeOrderPixPaymentService {
+  async syncDeliveryPayment(order: { id: number; restaurantId: number; payOnDelivery?: boolean }) {
+    if (order.payOnDelivery !== true) return;
+    await paymentTerminalRepository.markDeliveryPaymentPaid({
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      lastProviderStatus: 'paid',
+    });
+  }
+
   async execute({
     orderId,
     paymentId,
@@ -45,10 +55,7 @@ class FinalizeOrderPixPaymentService {
       : existingPaymentOrder;
 
     if (!order) {
-      if (allowMissingOrder) {
-        return null;
-      }
-
+      if (allowMissingOrder) return null;
       throw new Error('Pedido PIX nao encontrado para este pagamento.');
     }
 
@@ -82,6 +89,7 @@ class FinalizeOrderPixPaymentService {
     }
 
     if (order.paid === true) {
+      await this.syncDeliveryPayment(order);
       return order;
     }
 
@@ -115,6 +123,8 @@ class FinalizeOrderPixPaymentService {
       }
       throw error;
     }
+
+    await this.syncDeliveryPayment(updatedOrder);
 
     io.to(`restaurant:${updatedOrder.restaurantId}`).emit('order:payment-confirmed', {
       orderId: updatedOrder.id,
