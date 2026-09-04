@@ -98,6 +98,10 @@ router.post('/:id/delivery-payment/reconcile-pix', authMiddleware, (req, res) =>
   DeliveryPaymentController.reconcilePix(req, res);
 });
 
+router.post('/:id/delivery-payment/reconcile-card', authMiddleware, (req, res) => {
+  DeliveryPaymentController.reconcileCard(req, res);
+});
+
 router.patch('/:id/confirm-delivery-received', authMiddleware, (req, res) => {
   ConfirmOrderDeliveryReceivedController.handle(req, res);
 });
