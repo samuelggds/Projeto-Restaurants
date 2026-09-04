@@ -21,6 +21,7 @@ const BLOCKED_AUTH_PATHS = new Set([
   '/register',
   '/recover-password',
   '/change-password',
+  '/admin/login',
   '/super_admin/login',
 ]);
 const ROLE_ONLY_RETURN_ROOTS = [
@@ -34,6 +35,25 @@ const ROLE_ONLY_RETURN_ROOTS = [
   '/system-maintenance',
   '/waiter',
 ];
+const RESERVED_RESTAURANT_SLUGS = new Set([
+  'admin',
+  'attendant',
+  'billing',
+  'change-password',
+  'courier',
+  'equipe',
+  'kitchen',
+  'login',
+  'mesa',
+  'orders',
+  'profile',
+  'recover-password',
+  'register',
+  'super_admin',
+  'system-blocked',
+  'system-maintenance',
+  'waiter',
+]);
 const AUTH_RESTAURANT_ID_KEYS = ['restaurantId', 'rid'] as const;
 const AUTH_RESTAURANT_SLUG_KEYS = ['restaurantSlug', 'slug'] as const;
 
@@ -95,6 +115,15 @@ function sanitizeRestaurantSlug(value: unknown) {
   return /^[a-z0-9_-]+$/u.test(slug) ? slug : '';
 }
 
+function getRestaurantSlugFromLocation(location: ReturnLocation) {
+  const pathname = String(location.pathname || '/')
+    .replace(/\/+$/u, '') || '/';
+  const match = pathname.match(/^\/([^/]+)(?:\/mesa\/[^/]+)?$/u);
+  if (!match) return '';
+  const slug = sanitizeRestaurantSlug(match[1]);
+  return slug && !RESERVED_RESTAURANT_SLUGS.has(slug) ? slug : '';
+}
+
 export function getCurrentReturnPath(location: ReturnLocation) {
   const pathname = String(location.pathname || '/');
   return `${pathname}${String(location.search || '')}${String(location.hash || '')}`;
@@ -142,7 +171,7 @@ export function getSafeNextPath(value: unknown) {
   if (
     BLOCKED_AUTH_PATHS.has(normalizedPath) ||
     isRoleOnlyPath ||
-    /^\/[^/]+\/login$/u.test(normalizedPath)
+    /^\/[^/]+\/(?:login|register|equipe)$/u.test(normalizedPath)
   ) {
     return '';
   }
@@ -215,5 +244,22 @@ export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperi
 }
 
 export function buildLoginUrl(location: ReturnLocation) {
-  return buildAuthEntryUrlForLocation('/login', location);
+  const restaurantSlug = getRestaurantSlugFromLocation(location);
+  if (!restaurantSlug) {
+    return buildAuthEntryUrlForLocation('/login', location);
+  }
+
+  const portalPath = `/${restaurantSlug}/login`;
+  const cleanRestaurantPath = `/${restaurantSlug}`;
+  const pathname = String(location.pathname || '/').replace(/\/+$/u, '') || '/';
+  const hasExtraContext = Boolean(String(location.search || '') || String(location.hash || ''));
+
+  if (pathname === cleanRestaurantPath && !hasExtraContext) {
+    return portalPath;
+  }
+
+  const nextPath = getSafeNextPath(getCurrentReturnPath(location));
+  if (!nextPath) return portalPath;
+  const query = getSafeAuthSearchParams(new URLSearchParams({ next: nextPath })).toString();
+  return query ? `${portalPath}?${query}` : portalPath;
 }
