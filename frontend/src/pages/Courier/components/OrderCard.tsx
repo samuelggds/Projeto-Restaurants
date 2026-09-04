@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import {
   AlertCircle,
+  Banknote,
   CheckCircle,
   ChevronDown,
   ChevronUp,
   CreditCard,
+  Info,
   MapPin,
   PackageCheck,
   Phone,
   User,
 } from 'lucide-react';
 import * as S from '../styles';
+import * as C from './OrderCard.styles';
 import { getCourierItemChoices, getCourierItemObservation } from '../domain/courierOrders';
 
 type OrderItem = {
@@ -159,12 +162,15 @@ export default function OrderCard({
   const normalizedDeliveryCode = String(deliveryCode || '').replace(/\D/g, '');
   const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
   const paymentStatusLabel = order.paid ? 'Pago' : 'Não pago';
+  const paymentMethodLabel =
+    paymentLabel[order.paymentMethod || ''] || order.paymentMethod || 'Não informado';
   const orderObservation = String(order.notes || order.observation || '')
     .replace(/\s*\|?\s*PAY_ON_DELIVERY:\s*(PIX|CARTAO|DINHEIRO)\s*\|?/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .replace(/^\|\s*|\s*\|$/g, '')
     .trim();
   const orderReferencePoint = getReferencePoint(order);
+  const earningAvailable = Boolean(order.courierEarningPreview?.available);
 
   async function handleMarkDelivered() {
     if (!isDeliveryCodeValid) {
@@ -210,72 +216,80 @@ export default function OrderCard({
   }
 
   return (
-    <S.OrderCard $status={order.status}>
-      <S.OrderCardHeader
-        type="button"
-        aria-expanded={expanded}
-        aria-label={`${expanded ? 'Ocultar' : 'Ver'} detalhes do pedido ${order.id}`}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <S.OrderMeta>
-          <S.OrderId>Pedido #{order.id}</S.OrderId>
-          <S.StatusBadgeInline $color={statusInfo.color}>{statusInfo.label}</S.StatusBadgeInline>
-        </S.OrderMeta>
-        <S.OrderTopRight>
-          <S.OrderTotal>{formatCurrency(order.total)}</S.OrderTotal>
-          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </S.OrderTopRight>
-      </S.OrderCardHeader>
+    <C.Card $status={order.status}>
+      <C.Header>
+        <C.HeaderIdentity>
+          <C.OrderId>Pedido #{order.id}</C.OrderId>
+          <C.StatusBadge $color={statusInfo.color}>
+            <PackageCheck size={14} aria-hidden="true" />
+            {statusInfo.label}
+          </C.StatusBadge>
+        </C.HeaderIdentity>
+        <C.Total>{formatCurrency(order.total)}</C.Total>
+      </C.Header>
 
-      <S.OrderSummaryRow>
-        {canClaim ? (
-          <S.InfoChip
-            $tone={order.courierEarningPreview?.available ? 'success' : 'warning'}
-            title={order.courierEarningPreview?.reason || 'Valor calculado pelo servidor'}
-          >
-            Ganho:{' '}
-            {order.courierEarningPreview?.available
-              ? formatCurrency(Number(order.courierEarningPreview.amount || 0))
+      <C.SummaryGrid>
+        <C.SummaryItem>
+          <User aria-hidden="true" />
+          <small>Cliente</small>
+          <strong title={order.user?.name || 'Cliente'}>{order.user?.name || 'Cliente'}</strong>
+        </C.SummaryItem>
+        <C.SummaryItem>
+          <CreditCard aria-hidden="true" />
+          <small>Pagamento</small>
+          <strong title={paymentMethodLabel}>{paymentMethodLabel}</strong>
+        </C.SummaryItem>
+        <C.SummaryItem $tone={order.paid ? 'success' : 'danger'}>
+          {order.paid ? <CheckCircle aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
+          <small>Status</small>
+          <strong>{paymentStatusLabel}</strong>
+        </C.SummaryItem>
+      </C.SummaryGrid>
+
+      {canClaim ? (
+        <C.EarningBar
+          $available={earningAvailable}
+          title={order.courierEarningPreview?.reason || 'Valor calculado pelo servidor'}
+        >
+          <Banknote size={16} aria-hidden="true" />
+          <span>Ganho</span>
+          <strong>
+            {earningAvailable
+              ? formatCurrency(Number(order.courierEarningPreview?.amount || 0))
               : 'indisponível'}
-          </S.InfoChip>
-        ) : null}
-        <S.InfoChip>
-          <User size={13} />
-          {order.user?.name || 'Cliente'}
-        </S.InfoChip>
-        <S.InfoChip>
-          <CreditCard size={13} />
-          {paymentLabel[order.paymentMethod || ''] || order.paymentMethod}
-        </S.InfoChip>
-        <S.InfoChip $tone={order.paid ? 'success' : 'danger'}>
-          <CreditCard size={13} />
-          {paymentStatusLabel}
-        </S.InfoChip>
-        {payOnDeliveryMethod ? (
-          <S.InfoChip $tone="info">
-            <CreditCard size={13} />
-            {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
-          </S.InfoChip>
-        ) : null}
-      </S.OrderSummaryRow>
+          </strong>
+        </C.EarningBar>
+      ) : null}
 
-      <S.AddressRow>
-        <MapPin size={14} />
-        <span>{getDeliveryAddress(order)}</span>
-      </S.AddressRow>
+      {payOnDeliveryMethod ? (
+        <C.PayOnDelivery>
+          <CreditCard size={14} aria-hidden="true" />
+          {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
+        </C.PayOnDelivery>
+      ) : null}
+
+      <C.AddressBox>
+        <C.AddressIcon aria-hidden="true">
+          <MapPin />
+        </C.AddressIcon>
+        <C.AddressContent>
+          <small>Endereço de entrega</small>
+          <strong>{getDeliveryAddress(order)}</strong>
+        </C.AddressContent>
+      </C.AddressBox>
 
       {canClaim && Number.isFinite(order.deliveryDistanceMeters) ? (
-        <S.DetailRow>
-          <MapPin size={14} />
+        <C.ContextRow>
+          <MapPin aria-hidden="true" />
           <span>Rota calculada: {(Number(order.deliveryDistanceMeters) / 1000).toFixed(1)} km</span>
-        </S.DetailRow>
+        </C.ContextRow>
       ) : null}
 
       {orderReferencePoint ? (
-        <S.DetailRow>
-          <MapPin size={14} />
+        <C.ContextRow>
+          <MapPin aria-hidden="true" />
           <span>Ponto de referência: {orderReferencePoint}</span>
-        </S.DetailRow>
+        </C.ContextRow>
       ) : null}
 
       {expanded && (
@@ -336,52 +350,70 @@ export default function OrderCard({
       )}
 
       {canClaim && (
-        <S.CardActions>
-          <S.DeliveryHint>
-            Confirme a retirada somente quando o pedido estiver com você.
-          </S.DeliveryHint>
-          <S.ActionButton type="button" onClick={handleClaimDelivery} disabled={loading}>
-            <PackageCheck size={17} />
+        <C.ActionArea>
+          <C.Hint>
+            <Info aria-hidden="true" />
+            <span>Confirme a retirada somente quando o pedido estiver com você.</span>
+          </C.Hint>
+          <C.PrimaryButton type="button" onClick={handleClaimDelivery} disabled={loading}>
+            <PackageCheck size={18} />
             {loading ? 'Confirmando retirada...' : 'Retirar e iniciar entrega'}
-          </S.ActionButton>
-        </S.CardActions>
+          </C.PrimaryButton>
+        </C.ActionArea>
       )}
 
       {canDeliver && (
-        <S.CardActions>
-          <S.DeliveryHint>
-            Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para concluir a entrega.
-          </S.DeliveryHint>
-          <S.DeliveryCodeInput
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={4}
-            value={deliveryCode}
-            onChange={(event) => {
-              setDeliveryCode(event.target.value.replace(/\D/g, '').slice(0, 4));
-              if (error) {
-                setError('');
+        <C.ActionArea>
+          <C.Hint>
+            <Info aria-hidden="true" />
+            <span>
+              Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para concluir a
+              entrega.
+            </span>
+          </C.Hint>
+          <C.DeliveryActions>
+            <S.DeliveryCodeInput
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              value={deliveryCode}
+              onChange={(event) => {
+                setDeliveryCode(event.target.value.replace(/\D/g, '').slice(0, 4));
+                if (error) {
+                  setError('');
+                }
+              }}
+              placeholder="4 últimos dígitos do celular"
+            />
+            <C.DeliverButton
+              type="button"
+              onClick={handleMarkDelivered}
+              disabled={loading || paymentPendingConfirmation || !isDeliveryCodeValid}
+              title={
+                paymentPendingConfirmation
+                  ? 'Pagamento ainda não confirmado'
+                  : !isDeliveryCodeValid
+                    ? 'Digite os 4 dígitos para concluir'
+                    : ''
               }
-            }}
-            placeholder="4 últimos dígitos do celular"
-          />
-          <S.DeliverButton
-            onClick={handleMarkDelivered}
-            disabled={loading || paymentPendingConfirmation || !isDeliveryCodeValid}
-            title={
-              paymentPendingConfirmation
-                ? 'Pagamento ainda não confirmado'
-                : !isDeliveryCodeValid
-                  ? 'Digite os 4 dígitos para concluir'
-                  : ''
-            }
-          >
-            <CheckCircle size={16} />
-            {loading ? 'Atualizando...' : 'Marcar como Entregue'}
-          </S.DeliverButton>
-        </S.CardActions>
+            >
+              <CheckCircle size={16} />
+              {loading ? 'Atualizando...' : 'Marcar como Entregue'}
+            </C.DeliverButton>
+          </C.DeliveryActions>
+        </C.ActionArea>
       )}
-    </S.OrderCard>
+
+      <C.DetailsButton
+        type="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Ocultar' : 'Ver'} detalhes do pedido ${order.id}`}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </C.DetailsButton>
+    </C.Card>
   );
 }
