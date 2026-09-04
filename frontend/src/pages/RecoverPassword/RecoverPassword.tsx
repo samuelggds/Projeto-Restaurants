@@ -16,6 +16,11 @@ import {
   buildAuthEntryUrl,
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
+import {
+  getRestaurantCategoryLabel,
+  getRestaurantLoginVisual,
+} from '../../config/restaurantCategory';
+import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
 
 type ContactMethod = 'email' | 'phone';
 
@@ -51,6 +56,9 @@ export default function RecoverPassword() {
     passwordEvaluation.requirements.some(
       (requirement) => requirement.id === 'confirmation' && !requirement.met,
     );
+  const categoryVisual = getRestaurantLoginVisual(branding.category);
+  const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
+  const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
 
   const selectContactMethod = (method: ContactMethod) => {
     if (method === contactMethod) return;
@@ -135,12 +143,20 @@ export default function RecoverPassword() {
   return (
     <ThemeProvider
       theme={{
-        ...(isDarkMode ? S.darkTheme : S.lightTheme),
+        ...baseTheme,
         primary: branding.primaryColor,
         primaryHover: branding.primaryColor,
+        primaryText: getReadableTextColor(branding.primaryColor),
+        primaryReadable: getAccessibleBrandColor(branding.primaryColor, baseTheme.surface),
+        categoryAccent: categoryVisual.accent,
+        categoryAccentText: getReadableTextColor(categoryVisual.accent),
+        categoryDeep: categoryVisual.deep,
       }}
     >
-      <S.Container data-auth-context={authExperience.context}>
+      <S.Container
+        data-auth-context={authExperience.context}
+        data-restaurant-category={categoryVisual.category}
+      >
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -152,7 +168,7 @@ export default function RecoverPassword() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection
+        <S.LoginBannerSection
           $hasLogo={Boolean(branding.logoUrl)}
           data-has-cover={branding.logoUrl ? 'true' : 'false'}
         >
@@ -165,10 +181,13 @@ export default function RecoverPassword() {
                 : null
             }
           />
-        </S.BannerSection>
+        </S.LoginBannerSection>
 
-        <S.FormSection>
-          <S.FormWrapper>
+        <S.LoginFormSection>
+          <S.LoginFormWrapper>
+            <S.LoginAccessBadge>
+              <span>{categoryLabel}</span>
+            </S.LoginAccessBadge>
             <S.WelcomeText>
               {isTableContext ? `Recuperar acesso da ${tableLabel}` : 'Recuperar senha'}
             </S.WelcomeText>
@@ -316,8 +335,8 @@ export default function RecoverPassword() {
               <span>|</span>
               <S.BackLink to={registerPath}>Criar conta</S.BackLink>
             </S.FooterRow>
-          </S.FormWrapper>
-        </S.FormSection>
+          </S.LoginFormWrapper>
+        </S.LoginFormSection>
       </S.Container>
     </ThemeProvider>
   );
