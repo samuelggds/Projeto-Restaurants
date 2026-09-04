@@ -51,17 +51,17 @@ describe('configurações públicas da Home', () => {
     expect(normalizeHomeFontFamily('Comic Sans')).toBe('Inter');
   });
 
-  it('aplica e restaura título e descrição SEO sem deixar metadados órfãos', () => {
-    document.title = 'Título original';
-    const restore = applyHomeSeoMetadata(document, 'Restaurante do Bairro', 'Menu atualizado.');
+  it('preserva o nome dinâmico da aba e aplica somente a descrição SEO', () => {
+    document.title = 'Pizzaria Horizonte';
+    const restore = applyHomeSeoMetadata(document, 'Título para buscadores', 'Menu atualizado.');
 
-    expect(document.title).toBe('Restaurante do Bairro');
+    expect(document.title).toBe('Pizzaria Horizonte');
     expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
       'Menu atualizado.',
     );
 
     restore();
-    expect(document.title).toBe('Título original');
+    expect(document.title).toBe('Pizzaria Horizonte');
     expect(document.querySelector('meta[name="description"]')).toBeNull();
   });
 });
