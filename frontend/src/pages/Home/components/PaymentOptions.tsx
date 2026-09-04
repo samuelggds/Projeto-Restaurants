@@ -60,14 +60,14 @@ const DELIVERY_OPTIONS: Option[] = [
   {
     method: 'delivery_pix',
     name: 'Pix na entrega',
-    description: 'Pago ao entregador',
+    description: 'QR Code ao receber',
     color: '#32BCAD',
     icon: 'pix',
   },
   {
     method: 'delivery_card',
     name: 'Cartão na entrega',
-    description: 'Maquininha ao receber',
+    description: 'Maquininha integrada ao receber',
     color: '#3b6cf6',
     icon: 'card',
   },
