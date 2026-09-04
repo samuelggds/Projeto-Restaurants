@@ -12,6 +12,7 @@ const RESERVED_ROOTS = new Set([
   'billing',
   'change-password',
   'courier',
+  'equipe',
   'kitchen',
   'login',
   'orders',
@@ -28,9 +29,10 @@ const isPath = (pathname: string, base: string) =>
   pathname === base || pathname.startsWith(`${base}/`);
 const isGuestEntry = (path: string) =>
   path === '/login' ||
+  path === '/admin/login' ||
   path === '/recover-password' ||
   path === '/register' ||
-  /^\/[^/]+\/login$/.test(path);
+  /^\/[^/]+\/(?:login|register|equipe)$/.test(path);
 
 export function isPublicRoute(pathname: string) {
   const path = normalizePath(pathname);
