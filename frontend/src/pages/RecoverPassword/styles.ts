@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { Button as SharedButton } from '../Login/styles';
+import { LoginSubmitButton as SharedButton } from '../Login/styles';
 
 export * from '../Login/styles';
 
@@ -11,6 +11,7 @@ export const Button = styled(SharedButton)`
     box-shadow: none;
     cursor: not-allowed;
     opacity: 0.55;
+    transform: none;
   }
 `;
 
@@ -67,7 +68,7 @@ export const SecondaryButton = styled.button`
   &:hover:not(:disabled),
   &:focus-visible {
     border-color: ${(props) => props.theme.primary};
-    color: ${(props) => props.theme.primary};
+    color: ${(props) => props.theme.primaryReadable};
   }
 
   &:disabled {
@@ -82,15 +83,19 @@ export const FooterRow = styled.div`
   justify-content: center;
   gap: 0.75rem;
   font-size: 0.9rem;
+
+  @media (max-width: 360px) {
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
 `;
 
 export const BackLink = styled(Link)`
-  color: ${(props) => props.theme.primary};
-  font-weight: 700;
+  color: ${(props) => props.theme.primaryReadable};
+  font-weight: 800;
   text-decoration: none;
 
   &:hover {
-    color: ${(props) => props.theme.primaryHover};
     text-decoration: underline;
   }
 `;
