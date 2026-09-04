@@ -3,32 +3,38 @@ import { useParams } from 'react-router-dom';
 import Login from './Login';
 import { verifyAdminPortalGrant } from './domain/adminPortalSession';
 
+type GateState = {
+  slug: string;
+  status: 'checking' | 'allowed' | 'denied';
+};
+
 export default function AdminPortalLoginGate() {
   const { restaurantSlug } = useParams();
   const slug = String(restaurantSlug || '').trim().toLowerCase();
-  const [state, setState] = useState<'checking' | 'allowed' | 'denied'>('checking');
+  const [gateState, setGateState] = useState<GateState>({ slug: '', status: 'checking' });
 
   useEffect(() => {
-    let active = true;
-    if (!slug) {
-      setState('denied');
-      return () => {
-        active = false;
-      };
-    }
+    if (!slug) return;
 
+    let active = true;
     void verifyAdminPortalGrant(slug)
       .then((result) => {
-        if (active) setState(result.valid && result.slug === slug ? 'allowed' : 'denied');
+        if (!active) return;
+        setGateState({
+          slug,
+          status: result.valid && result.slug === slug ? 'allowed' : 'denied',
+        });
       })
       .catch(() => {
-        if (active) setState('denied');
+        if (active) setGateState({ slug, status: 'denied' });
       });
 
     return () => {
       active = false;
     };
   }, [slug]);
+
+  const state = !slug ? 'denied' : gateState.slug === slug ? gateState.status : 'checking';
 
   if (state === 'checking') {
     return (
