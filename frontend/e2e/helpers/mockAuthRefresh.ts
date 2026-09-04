@@ -36,12 +36,15 @@ export async function mockAuthRefresh(page: Page, userId: number, accessToken: s
 
     const publicSettingsMatch = pathname.match(PUBLIC_RESTAURANT_SETTINGS);
     const refererPathname = pathnameFromUrl(request.headers().referer);
+    const pagePathname = pathnameFromUrl(page.url());
     const authorization = request.headers().authorization;
+    const isTrackingPage =
+      TRACKING_ROUTE.test(refererPathname) || TRACKING_ROUTE.test(pagePathname);
 
     if (
       publicSettingsMatch &&
       request.method() === 'GET' &&
-      TRACKING_ROUTE.test(refererPathname) &&
+      isTrackingPage &&
       authorization === `Bearer ${accessToken}`
     ) {
       const restaurantId = Number(publicSettingsMatch[1]);
