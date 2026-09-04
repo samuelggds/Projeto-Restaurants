@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
@@ -43,7 +43,7 @@ export default function Register() {
   }, [pathSlug, searchReference]);
   const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!pathSlug || searchParams.has('next') || !canonicalSearch) return;
     navigate(`/${pathSlug}/register?${canonicalSearch}`, { replace: true });
   }, [canonicalSearch, navigate, pathSlug, searchParams]);
