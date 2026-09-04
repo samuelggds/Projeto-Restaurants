@@ -62,10 +62,11 @@ export default function Login() {
   const branding = useRestaurantLoginBranding(contextualSearchParams);
   const safeNextPath = getSafeNextPath(contextualSearchParams.get('next'));
   const authExperience = resolveAuthExperience(contextualSearchParams);
+  const contextualRegisterPath = buildAuthEntryUrl('/register', contextualSearchParams);
   const registerPath =
     isCustomerAccess && portalSlug
-      ? `/${portalSlug}/register`
-      : buildAuthEntryUrl('/register', contextualSearchParams);
+      ? contextualRegisterPath.replace(/^\/register/u, `/${portalSlug}/register`)
+      : contextualRegisterPath;
   const recoverPasswordPath = buildAuthEntryUrl('/recover-password', contextualSearchParams);
   const changePasswordPath = buildAuthEntryUrl('/change-password', contextualSearchParams);
   const isTableContext = !isTechnicalAccess && authExperience.context === 'TABLE';
