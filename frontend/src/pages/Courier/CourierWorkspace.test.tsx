@@ -219,7 +219,9 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).toContain('Itens escolhidos: Bacon');
     expect(container.textContent).toContain('Observação do item: Sem cebola');
     expect(container.textContent).toContain('Tocar interfone');
-    expect(container.textContent?.replaceAll('\u00a0', ' ')).toContain('Ganho: R$ 8,50');
+    const earningBar = container.querySelector<HTMLElement>('[title="Valor calculado pelo servidor"]');
+    expect(earningBar?.textContent).toContain('Ganho');
+    expect(earningBar?.textContent?.replaceAll('\u00a0', ' ')).toContain('R$ 8,50');
     expect(container.textContent).toContain('Rota calculada: 3.2 km');
 
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
