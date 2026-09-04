@@ -32,6 +32,7 @@ vi.mock('./hooks/useRestaurantLoginBranding', () => ({
     description: 'Cardápio de teste',
     primaryColor: '#cf562f',
     logoUrl: '',
+    category: 'PIZZARIA',
   }),
 }));
 
@@ -128,6 +129,19 @@ describe('Login contextual do cliente', () => {
     container.remove();
     Reflect.deleteProperty(window, 'google');
     vi.useRealTimers();
+  });
+
+  it('aplica a identidade da categoria sem perder o contexto da mesa', () => {
+    expect(
+      container
+        .querySelector('[data-testid="login-layout"]')
+        ?.getAttribute('data-restaurant-category'),
+    ).toBe('PIZZARIA');
+    expect(
+      container.querySelector('[data-testid="login-hero-content"]')?.getAttribute('data-category'),
+    ).toBe('PIZZARIA');
+    expect(container.textContent).toContain('A experiência digital da sua pizzaria começa aqui.');
+    expect(container.textContent).toContain('Mesa 5 • acesso seguro');
   });
 
   it('preserva a mesa durante email, senha e MFA até o redirect final', async () => {

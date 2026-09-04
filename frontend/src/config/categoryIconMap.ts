@@ -1,13 +1,17 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Beef,
+  CakeSlice,
   CircleDot,
   CirclePlus,
+  Coffee,
   CookingPot,
+  Croissant,
   CupSoda,
   Fish,
   Flame,
   IceCream,
+  IceCreamBowl,
   Milk,
   Pizza,
   Sandwich,
@@ -78,6 +82,22 @@ export function resolveCategoryIcon(categoryName: string): LucideIcon {
     return Wine;
   }
 
+  if (/(cafe|cafeteria|espresso|cappuccino)/.test(normalized)) {
+    return Coffee;
+  }
+
+  if (/(padaria|pao|paes|croissant|folhado|folhados)/.test(normalized)) {
+    return Croissant;
+  }
+
+  if (/(doceria|confeitaria|bolo|bolos|torta|tortas|cupcake|cupcakes)/.test(normalized)) {
+    return CakeSlice;
+  }
+
+  if (/(acai|acaiteria)/.test(normalized)) {
+    return IceCreamBowl;
+  }
+
   if (
     /(bebida|bebidas|drink|drinks|suco|sucos|refrigerante|refrigerantes|cerveja|cervejas|chopp|agua|energetico|cha|cafe)/.test(
       normalized,
@@ -127,6 +147,10 @@ const CATEGORY_ICON_COLORS = new Map<LucideIcon, string>([
   [CircleDot, '#a85c22'],
   [Soup, '#d97706'],
   [Wine, '#a23f62'],
+  [Coffee, '#9a5f3b'],
+  [Croissant, '#c87922'],
+  [CakeSlice, '#d94f87'],
+  [IceCreamBowl, '#7c4bb3'],
   [CupSoda, '#168c91'],
   [Sandwich, '#b7652a'],
   [Pizza, '#e4542f'],

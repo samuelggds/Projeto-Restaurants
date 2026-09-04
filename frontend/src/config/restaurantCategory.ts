@@ -61,6 +61,11 @@ export function getRestaurantCategoryLabel(category: RestaurantCategory) {
 
 export type AuthHeroMode = 'login' | 'register' | 'recover';
 
+export type RestaurantLoginVisual = {
+  accent: string;
+  deep: string;
+};
+
 type CategoryPresentation = {
   iconLabel: string;
   noun: string;
@@ -185,6 +190,53 @@ const PRESENTATIONS: Record<RestaurantCategory, CategoryPresentation> = {
   },
 };
 
+const LOGIN_VISUALS: Record<RestaurantCategory, RestaurantLoginVisual> = {
+  RESTAURANTE: {
+    accent: '#f97316',
+    deep: '#152321',
+  },
+  PIZZARIA: {
+    accent: '#ff6b2c',
+    deep: '#271611',
+  },
+  HAMBURGUERIA: {
+    accent: '#f59e0b',
+    deep: '#24190d',
+  },
+  ACAITERIA: {
+    accent: '#8b5cf6',
+    deep: '#211536',
+  },
+  CAFETERIA: {
+    accent: '#c47b4f',
+    deep: '#251711',
+  },
+  JAPONESA: {
+    accent: '#ef4444',
+    deep: '#251015',
+  },
+  CHURRASCARIA: {
+    accent: '#f97316',
+    deep: '#28140f',
+  },
+  DOCERIA: {
+    accent: '#ec4899',
+    deep: '#2a1325',
+  },
+  LANCHONETE: {
+    accent: '#22c55e',
+    deep: '#11271a',
+  },
+  PADARIA: {
+    accent: '#d97706',
+    deep: '#281c0e',
+  },
+  OUTRO: {
+    accent: '#14b8a6',
+    deep: '#102725',
+  },
+};
+
 export function getRestaurantCategoryPresentation(value: unknown) {
   const category = normalizeRestaurantCategory(value);
   return { category, ...PRESENTATIONS[category] };
@@ -199,4 +251,9 @@ export function getAuthHeroCopy(value: unknown, mode: AuthHeroMode) {
     return { headline: presentation.recoverHeadline, support: presentation.recoverSupport };
   }
   return { headline: presentation.loginHeadline, support: presentation.loginSupport };
+}
+
+export function getRestaurantLoginVisual(value: unknown) {
+  const category = normalizeRestaurantCategory(value);
+  return { category, ...LOGIN_VISUALS[category] };
 }

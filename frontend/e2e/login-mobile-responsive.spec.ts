@@ -3,10 +3,7 @@ import { expect, test } from '@playwright/test';
 import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 
 const LOGIN_COVER_URL = 'https://assets.test/north-cover.jpg';
-const LOGIN_COVER_FILE = new URL(
-  './fixtures/readme/pizza-margherita.jpg',
-  import.meta.url,
-);
+const LOGIN_COVER_FILE = new URL('./fixtures/readme/pizza-margherita.jpg', import.meta.url);
 
 const MOBILE_VIEWPORTS = [
   { name: '320x568', width: 320, height: 568 },
@@ -31,6 +28,7 @@ async function mockLoginBranding(page) {
           description: 'Sabor que acolhe. Experiência que fica.',
           coverImage: LOGIN_COVER_URL,
           logo: null,
+          category: 'PIZZARIA',
         },
       }),
     });
@@ -81,7 +79,19 @@ test('login desktop preserva identidade e hierarquia visual', async ({ page }) =
   await expect(page.getByTestId('login-cover')).toBeVisible();
   await expect(page.getByTestId('login-card')).toBeVisible();
   await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
+  await expect(page.getByText('Pizzaria', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Entrar no Sistema' })).toBeVisible();
+
+  const heroStyle = await page.getByTestId('login-hero-content').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { backgroundColor: style.backgroundColor, borderWidth: style.borderWidth };
+  });
+  expect(heroStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', borderWidth: '0px' });
+
+  const categoryIconBackground = await page
+    .getByTestId('login-category-icon')
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(categoryIconBackground).toBe('rgba(0, 0, 0, 0)');
   await captureReadmeScreenshot(page, 'login-desktop.png', { fullPage: true });
 
   const layout = await page.evaluate(() => ({
@@ -107,7 +117,9 @@ for (const viewport of MOBILE_VIEWPORTS) {
     await expect(coverImage).toBeVisible();
     await expect(card).toBeVisible();
     await expect(page.getByText('North Pizza', { exact: true })).toBeVisible();
-    await expect(page.getByText('Sabor que acolhe. Experiência que fica.')).toBeVisible();
+    await expect(
+      page.getByText('Acesse pedidos, cardápio e atendimento em poucos segundos.'),
+    ).toBeVisible();
 
     if (viewport.name === '390x844') {
       await captureReadmeScreenshot(page, 'login-mobile.png', { fullPage: true });

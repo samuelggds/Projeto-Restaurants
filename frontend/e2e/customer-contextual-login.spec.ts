@@ -369,7 +369,10 @@ async function expectLoginPreserves(page: Page, returnPath: string) {
 async function loginWithPassword(page: Page) {
   await page.getByLabel('E-mail').fill(CUSTOMER_EMAIL);
   await page.locator('#password').fill('Senha@123');
-  await page.getByRole('button', { name: 'Entrar no Sistema' }).click();
+  await page
+    .locator('form')
+    .getByRole('button', { name: /Entrar/u })
+    .click();
 }
 
 async function registerCustomer(page: Page) {

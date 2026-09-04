@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { CheckCircle2, AlertCircle, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  Sun,
+  Moon,
+  Eye,
+  EyeOff,
+  Mail,
+  LockKeyhole,
+  ArrowRight,
+  ShieldCheck,
+} from 'lucide-react';
 import authService from '../../Services/authService';
 import { useAuth } from '../../contexts/authContext.js';
 import * as S from './styles';
@@ -15,6 +26,11 @@ import {
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
 import { getRoleHome } from '../../routes/routeAuthorization';
+import {
+  getRestaurantCategoryLabel,
+  getRestaurantLoginVisual,
+} from '../../config/restaurantCategory';
+import { getAccessibleBrandColor, getReadableTextColor } from './domain/loginBranding';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -287,16 +303,39 @@ export default function Login() {
 
   const hasCover = Boolean(branding.logoUrl);
   const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
+  const categoryVisual = getRestaurantLoginVisual(branding.category);
+  const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
+  const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
+  const submitLabel = isTableContext ? `Entrar e continuar na ${tableLabel}` : 'Entrar no Sistema';
+  const accessLabel = isTechnicalAccess
+    ? 'Canal técnico protegido'
+    : isTableContext
+      ? `Atendimento da ${tableLabel}`
+      : `${categoryLabel} • acesso protegido`;
+  const heroContextLabel = isTechnicalAccess
+    ? 'Operação segura da plataforma'
+    : isTableContext
+      ? `${tableLabel} • acesso seguro`
+      : null;
 
   return (
     <ThemeProvider
       theme={{
-        ...(isDarkMode ? S.darkTheme : S.lightTheme),
+        ...baseTheme,
         primary: branding.primaryColor,
         primaryHover: branding.primaryColor,
+        primaryText: getReadableTextColor(branding.primaryColor),
+        primaryReadable: getAccessibleBrandColor(branding.primaryColor, baseTheme.surface),
+        categoryAccent: categoryVisual.accent,
+        categoryAccentText: getReadableTextColor(categoryVisual.accent),
+        categoryDeep: categoryVisual.deep,
       }}
     >
-      <S.Container data-testid="login-layout" data-auth-context={authExperience.context}>
+      <S.Container
+        data-testid="login-layout"
+        data-auth-context={authExperience.context}
+        data-restaurant-category={categoryVisual.category}
+      >
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -308,7 +347,7 @@ export default function Login() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection
+        <S.LoginBannerSection
           $hasLogo={hasCover}
           data-testid="login-cover"
           data-has-cover={hasCover ? 'true' : 'false'}
@@ -316,6 +355,7 @@ export default function Login() {
           <TenantBrandHero
             branding={branding}
             mode="login"
+            contextLabel={heroContextLabel}
             overrideText={
               isTechnicalAccess
                 ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
@@ -324,10 +364,14 @@ export default function Login() {
                   : null
             }
           />
-        </S.BannerSection>
+        </S.LoginBannerSection>
 
-        <S.FormSection data-testid="login-form-section">
-          <S.FormWrapper data-testid="login-card">
+        <S.LoginFormSection data-testid="login-form-section">
+          <S.LoginFormWrapper data-testid="login-card">
+            <S.LoginAccessBadge>
+              <ShieldCheck aria-hidden="true" />
+              <span>{accessLabel}</span>
+            </S.LoginAccessBadge>
             <S.WelcomeText>
               {isTechnicalAccess
                 ? 'Acesso técnico'
@@ -340,55 +384,49 @@ export default function Login() {
                 ? 'Entre com a conta exclusiva de Super Admin para acompanhar a manutenção.'
                 : isTableContext
                   ? 'Entre com a mesma conta de cliente que você usa no cardápio online.'
-                  : 'Acesse sua conta para continuar.'}
+                  : `Acesse sua conta para continuar no ${branding.name}.`}
             </S.FormSubtitle>
 
             {feedback && (
-              <div
+              <S.LoginFeedback
                 role={feedback.type === 'error' ? 'alert' : 'status'}
                 aria-live={feedback.type === 'error' ? 'assertive' : 'polite'}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '0.6rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  marginBottom: '0.5rem',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  lineHeight: 1.45,
-                  background:
-                    feedback.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
-                  border: `1px solid ${feedback.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
-                  color: feedback.type === 'success' ? '#059669' : '#dc2626',
-                }}
+                $type={feedback.type}
               >
                 {feedback.type === 'success' ? (
-                  <CheckCircle2 size={17} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <CheckCircle2 size={17} aria-hidden="true" />
                 ) : (
-                  <AlertCircle size={17} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <AlertCircle size={17} aria-hidden="true" />
                 )}
                 <span>{feedback.message}</span>
-              </div>
+              </S.LoginFeedback>
             )}
 
             <S.Form onSubmit={handleSubmit}>
               <S.InputGroup>
                 <S.Label htmlFor="email">E-mail</S.Label>
-                <S.Input
-                  id="email"
-                  type="email"
-                  placeholder="exemplo@email.com"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true">
+                    <Mail />
+                  </S.LoginInputIcon>
+                  <S.Input
+                    id="email"
+                    type="email"
+                    placeholder="exemplo@email.com"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </S.LoginInputField>
               </S.InputGroup>
 
               <S.InputGroup>
                 <S.Label htmlFor="password">Senha</S.Label>
-                <S.PasswordField>
+                <S.LoginInputField data-password="true">
+                  <S.LoginInputIcon aria-hidden="true">
+                    <LockKeyhole />
+                  </S.LoginInputIcon>
                   <S.Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -406,7 +444,7 @@ export default function Login() {
                   >
                     {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                   </S.PasswordToggleButton>
-                </S.PasswordField>
+                </S.LoginInputField>
               </S.InputGroup>
 
               <S.Row>
@@ -420,20 +458,22 @@ export default function Login() {
                   Lembrar de mim
                 </S.CheckboxLabel>
                 {!isTechnicalAccess ? (
-                  <S.ForgotLink type="button" onClick={() => navigate(recoverPasswordPath)}>
+                  <S.LoginForgotLink type="button" onClick={() => navigate(recoverPasswordPath)}>
                     Esqueceu a senha?
-                  </S.ForgotLink>
+                  </S.LoginForgotLink>
                 ) : null}
               </S.Row>
 
-              <S.Button type="submit" disabled={isLoading} aria-label="Entrar no Sistema">
-                {isLoading
-                  ? 'Entrando...'
-                  : isTableContext
-                    ? `Entrar e continuar na ${tableLabel}`
-                    : 'Entrar no Sistema'}
-              </S.Button>
+              <S.LoginSubmitButton type="submit" disabled={isLoading} aria-label={submitLabel}>
+                <span>{isLoading ? 'Entrando...' : submitLabel}</span>
+                {!isLoading ? <ArrowRight aria-hidden="true" /> : null}
+              </S.LoginSubmitButton>
             </S.Form>
+
+            <S.LoginSecurityNote>
+              <ShieldCheck aria-hidden="true" />
+              <span>Seus dados são protegidos durante o acesso.</span>
+            </S.LoginSecurityNote>
 
             {!isTechnicalAccess ? (
               <>
@@ -457,13 +497,13 @@ export default function Login() {
                     {googleMessage}
                   </S.GoogleHint>
                 )}
-                <S.RegisterText>
+                <S.LoginRegisterText>
                   Não tem uma conta? <Link to={registerPath}>Cadastre-se aqui</Link>
-                </S.RegisterText>
+                </S.LoginRegisterText>
               </>
             ) : null}
-          </S.FormWrapper>
-        </S.FormSection>
+          </S.LoginFormWrapper>
+        </S.LoginFormSection>
       </S.Container>
     </ThemeProvider>
   );

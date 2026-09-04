@@ -1,4 +1,16 @@
-import { Beef, CircleDot, CirclePlus, CookingPot, Milk, Utensils, Wheat } from 'lucide-react';
+import {
+  Beef,
+  CakeSlice,
+  CircleDot,
+  CirclePlus,
+  Coffee,
+  CookingPot,
+  Croissant,
+  IceCreamBowl,
+  Milk,
+  Utensils,
+  Wheat,
+} from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import {
   resolveCategoryIcon,
@@ -14,6 +26,10 @@ describe('ícones das categorias', () => {
     ['Queijos', Milk],
     ['Ingredientes adicionais', CirclePlus],
     ['Bordas recheadas', CircleDot],
+    ['Cafeteria', Coffee],
+    ['Padaria artesanal', Croissant],
+    ['Doceria e confeitaria', CakeSlice],
+    ['Açaíteria', IceCreamBowl],
   ])('seleciona um ícone Lucide para %s', (category, expectedIcon) => {
     expect(resolveCategoryIcon(category)).toBe(expectedIcon);
   });

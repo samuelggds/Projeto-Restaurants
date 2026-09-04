@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { resolveCategoryIcon } from '../../../config/categoryIconMap';
 import {
   getAuthHeroCopy,
+  getRestaurantCategoryLabel,
   getRestaurantCategoryPresentation,
   type AuthHeroMode,
 } from '../../../config/restaurantCategory';
@@ -18,7 +19,9 @@ const BrandIcon = styled.span<{ $hasCover: boolean }>`
   justify-content: center;
   border: 1px solid
     ${(props) =>
-      props.$hasCover ? 'rgba(255, 255, 255, 0.28)' : `color-mix(in srgb, ${props.theme.primary} 24%, ${props.theme.border})`};
+      props.$hasCover
+        ? 'rgba(255, 255, 255, 0.28)'
+        : `color-mix(in srgb, ${props.theme.primary} 24%, ${props.theme.border})`};
   border-radius: 12px;
   color: ${(props) => (props.$hasCover ? '#fff' : props.theme.primary)};
   background: ${(props) =>
@@ -70,19 +73,59 @@ type Props = {
   branding: LoginBranding;
   mode: AuthHeroMode;
   overrideText?: string | null;
+  contextLabel?: string | null;
 };
 
-export function TenantBrandHero({ branding, mode, overrideText }: Props) {
+export function TenantBrandHero({ branding, mode, overrideText, contextLabel }: Props) {
   const presentation = getRestaurantCategoryPresentation(branding.category);
   const copy = getAuthHeroCopy(branding.category, mode);
   const categoryIcon = createElement(resolveCategoryIcon(presentation.iconLabel));
   const hasCover = Boolean(branding.logoUrl);
+  const categoryLabel = getRestaurantCategoryLabel(presentation.category);
+  const supportText = overrideText || copy.support;
+
+  const coverImage = hasCover ? (
+    <S.RestaurantLogo
+      src={branding.logoUrl}
+      alt=""
+      aria-hidden="true"
+      data-testid="login-cover-image"
+      loading="eager"
+      fetchPriority="high"
+      decoding="async"
+      draggable="false"
+    />
+  ) : null;
+
+  if (mode === 'login') {
+    return (
+      <>
+        {coverImage}
+        <S.LoginHeroPanel data-testid="login-hero-content" data-category={presentation.category}>
+          <S.LoginCategoryBadge>
+            <S.LoginCategoryIcon aria-hidden="true" data-testid="login-category-icon">
+              {categoryIcon}
+            </S.LoginCategoryIcon>
+            <S.LoginCategoryCopy>
+              <small>{contextLabel ? 'Acesso personalizado' : 'Experiência para você'}</small>
+              <strong>{contextLabel || categoryLabel}</strong>
+            </S.LoginCategoryCopy>
+          </S.LoginCategoryBadge>
+
+          <S.LoginBrandTitle>{branding.name}</S.LoginBrandTitle>
+
+          <S.LoginHeroCopy>
+            <strong>{copy.headline}</strong>
+            <span>{supportText}</span>
+          </S.LoginHeroCopy>
+        </S.LoginHeroPanel>
+      </>
+    );
+  }
 
   return (
     <>
-      {hasCover ? (
-        <S.RestaurantLogo src={branding.logoUrl} alt={`Capa ${branding.name}`} />
-      ) : null}
+      {coverImage}
 
       <S.BrandTitle>
         <BrandIcon $hasCover={hasCover} aria-hidden="true">

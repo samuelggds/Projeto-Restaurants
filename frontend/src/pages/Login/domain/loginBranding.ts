@@ -22,6 +22,74 @@ export const DEFAULT_LOGIN_BRANDING: LoginBranding = {
   category: 'RESTAURANTE',
 };
 
+const HEX_COLOR_PATTERN = /^#([\da-f]{3}|[\da-f]{6})$/iu;
+
+export function normalizeLoginBrandColor(value: unknown) {
+  const color = String(value || '').trim();
+  const match = HEX_COLOR_PATTERN.exec(color);
+  if (!match) return DEFAULT_LOGIN_BRANDING.primaryColor;
+
+  const hex = match[1].toLowerCase();
+  if (hex.length === 6) return `#${hex}`;
+  return `#${hex
+    .split('')
+    .map((channel) => `${channel}${channel}`)
+    .join('')}`;
+}
+
+function colorChannels(color: unknown) {
+  const hex = normalizeLoginBrandColor(color).slice(1);
+  return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+}
+
+function relativeLuminance(color: unknown) {
+  const [red, green, blue] = colorChannels(color).map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(foreground: unknown, background: unknown) {
+  const light = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const dark = Math.min(relativeLuminance(foreground), relativeLuminance(background));
+  return (light + 0.05) / (dark + 0.05);
+}
+
+function channelsToHex(channels: number[]) {
+  return `#${channels
+    .map((channel) => Math.round(channel).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+export function getReadableTextColor(background: unknown) {
+  const luminance = relativeLuminance(background);
+  const whiteContrast = 1.05 / (luminance + 0.05);
+  const darkContrast = (luminance + 0.05) / 0.05;
+
+  return darkContrast >= whiteContrast ? '#000000' : '#ffffff';
+}
+
+export function getAccessibleBrandColor(accent: unknown, background: unknown) {
+  const normalizedAccent = normalizeLoginBrandColor(accent);
+  const normalizedBackground = normalizeLoginBrandColor(background);
+  if (contrastRatio(normalizedAccent, normalizedBackground) >= 4.5) return normalizedAccent;
+
+  const target = relativeLuminance(normalizedBackground) > 0.45 ? [0, 0, 0] : [255, 255, 255];
+  const source = colorChannels(normalizedAccent);
+
+  for (let step = 1; step <= 20; step += 1) {
+    const amount = step / 20;
+    const candidate = channelsToHex(
+      source.map((channel, index) => channel + (target[index] - channel) * amount),
+    );
+    if (contrastRatio(candidate, normalizedBackground) >= 4.5) return candidate;
+  }
+
+  return channelsToHex(target);
+}
+
 const RESERVED_ROUTES = new Set([
   'login',
   'register',
@@ -107,7 +175,7 @@ export function mapLoginBranding(settings: Record<string, unknown> | null): Logi
     name: String(restaurant.name || settings.restaurantName || DEFAULT_LOGIN_BRANDING.name),
     description: description || DEFAULT_LOGIN_BRANDING.description,
     logoUrl: isPersistentImageSource(logo) ? String(logo) : '',
-    primaryColor: String(settings.primaryColor || DEFAULT_LOGIN_BRANDING.primaryColor),
+    primaryColor: normalizeLoginBrandColor(settings.primaryColor),
     category: normalizeRestaurantCategory(
       restaurant.category || settings.restaurantCategory || DEFAULT_LOGIN_BRANDING.category,
     ),
