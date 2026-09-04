@@ -20,7 +20,7 @@ export function normalizePortalRestaurantSlug(value: unknown) {
 export function resolveLoginPortal(pathname: string): LoginPortal {
   const path = normalizePath(pathname);
   if (path === '/super_admin/login') return 'SUPER_ADMIN';
-  if (path === '/admin/login' || /^\/[^/]+\/admin$/u.test(path)) return 'ADMIN';
+  if (/^\/[^/]+\/admin$/u.test(path)) return 'ADMIN';
   if (/^\/[^/]+\/equipe$/u.test(path)) return 'STAFF';
   if (/^\/[^/]+\/login$/u.test(path)) return 'CUSTOMER';
   return 'GENERIC';
@@ -43,9 +43,13 @@ export function canUseLoginPortal(portal: LoginPortal, user: LoginPortalUser) {
   if (portal === 'ADMIN') return role === 'ADMIN';
   if (portal === 'SUPER_ADMIN') return role === 'SUPER_ADMIN';
 
-  // O Super Admin possui uma entrada técnica dedicada e não deve autenticar
-  // pelo portal genérico usado como fallback de compatibilidade.
-  return Boolean(role) && role !== 'SUPER_ADMIN';
+  // Admin e Super Admin possuem entradas dedicadas. O fallback genérico fica
+  // restrito a cliente/equipe para não contornar os portais protegidos.
+  return (
+    role === 'CLIENTE' ||
+    role === 'MOTOQUEIRO' ||
+    (role === 'FUNCIONARIO' && STAFF_SUBROLES.has(subRole))
+  );
 }
 
 export function getLoginPortalAccessError(portal: LoginPortal) {
@@ -61,5 +65,5 @@ export function getLoginPortalAccessError(portal: LoginPortal) {
   if (portal === 'SUPER_ADMIN') {
     return 'Este acesso é exclusivo para o Super Admin da plataforma.';
   }
-  return 'Use o acesso técnico reservado para entrar como Super Admin.';
+  return 'Administradores devem usar o link administrativo privado do restaurante.';
 }
