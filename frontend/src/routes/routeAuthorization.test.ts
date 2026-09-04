@@ -14,6 +14,7 @@ describe('política de autorização de rotas', () => {
       '/pizzaria/login',
       '/pizzaria/register',
       '/pizzaria/equipe',
+      '/pizzaria/admin',
       '/admin/login',
     ])
       expect(allowed(path, null), path).toBe(true);
@@ -62,6 +63,10 @@ describe('política de autorização de rotas', () => {
   });
   it('redireciona usuário já autenticado para a própria área ao tentar outro portal de login', () => {
     expect(authorizeRoute('/admin/login', { role: 'ADMIN' })).toEqual({
+      allowed: false,
+      redirectTo: '/admin',
+    });
+    expect(authorizeRoute('/pizzaria/admin', { role: 'ADMIN' })).toEqual({
       allowed: false,
       redirectTo: '/admin',
     });
