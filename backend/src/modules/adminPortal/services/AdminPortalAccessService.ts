@@ -1,12 +1,12 @@
 import crypto from 'node:crypto';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import prisma from '../../../config/prisma.js';
 import { getJwtSecret } from '../../../config/auth.js';
 
 const ROTATED_ACTION = 'ADMIN_PORTAL_KEY_ROTATED';
 const REVOKED_ACTION = 'ADMIN_PORTAL_KEY_REVOKED';
 const LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-const GRANT_TTL = '10m';
+const GRANT_TTL: SignOptions['expiresIn'] = '10m';
 
 export class AdminPortalAccessError extends Error {
   constructor(
