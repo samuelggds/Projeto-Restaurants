@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { Button as SharedButton } from '../Login/styles';
+import { LoginSubmitButton as SharedButton } from '../Login/styles';
 
 export * from '../Login/styles';
 
@@ -22,6 +22,7 @@ export const Button = styled(SharedButton)`
     box-shadow: none;
     cursor: not-allowed;
     opacity: 0.55;
+    transform: none;
   }
 `;
 
