@@ -32,7 +32,7 @@ const isGuestEntry = (path: string) =>
   path === '/admin/login' ||
   path === '/recover-password' ||
   path === '/register' ||
-  /^\/[^/]+\/(?:login|register|equipe)$/.test(path);
+  /^\/[^/]+\/(?:login|register|equipe|admin)$/.test(path);
 
 export function isPublicRoute(pathname: string) {
   const path = normalizePath(pathname);
