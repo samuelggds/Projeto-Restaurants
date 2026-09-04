@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
-import { LoaderCircle, Moon, Sun } from 'lucide-react';
+import { ArrowRight, LoaderCircle, LockKeyhole, Mail, Moon, Sun, User } from 'lucide-react';
 import authService from '../../Services/authService';
 import {
   evaluatePassword,
@@ -156,66 +156,78 @@ export default function Register() {
             <S.Form onSubmit={handleSubmit} aria-busy={isSubmitting}>
               <S.InputGroup>
                 <S.Label htmlFor="name">Nome Completo</S.Label>
-                <S.Input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome completo"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true"><User /></S.LoginInputIcon>
+                  <S.Input
+                    id="name"
+                    type="text"
+                    placeholder="Seu nome completo"
+                    autoComplete="name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </S.LoginInputField>
               </S.InputGroup>
 
               <S.InputGroup>
                 <S.Label htmlFor="email">E-mail</S.Label>
-                <S.Input
-                  id="email"
-                  type="email"
-                  placeholder="exemplo@email.com"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true"><Mail /></S.LoginInputIcon>
+                  <S.Input
+                    id="email"
+                    type="email"
+                    placeholder="exemplo@email.com"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </S.LoginInputField>
               </S.InputGroup>
 
               <S.InputGroup>
                 <S.Label htmlFor="password">Senha</S.Label>
-                <S.Input
-                  id="password"
-                  type="password"
-                  placeholder="Mínimo 8 caracteres"
-                  autoComplete="new-password"
-                  minLength={STANDARD_PASSWORD_POLICY.minLength}
-                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  aria-invalid={passwordHasError}
-                  aria-describedby="register-password-requirements"
-                  disabled={isSubmitting}
-                  required
-                />
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                  <S.Input
+                    id="password"
+                    type="password"
+                    placeholder="Mínimo 8 caracteres"
+                    autoComplete="new-password"
+                    minLength={STANDARD_PASSWORD_POLICY.minLength}
+                    maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    aria-invalid={passwordHasError}
+                    aria-describedby="register-password-requirements"
+                    disabled={isSubmitting}
+                    required
+                  />
+                </S.LoginInputField>
               </S.InputGroup>
 
               <S.InputGroup>
                 <S.Label htmlFor="confirmPassword">Confirmar Senha</S.Label>
-                <S.Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Repita sua senha"
-                  autoComplete="new-password"
-                  minLength={STANDARD_PASSWORD_POLICY.minLength}
-                  maxLength={STANDARD_PASSWORD_POLICY.maxLength}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  aria-invalid={confirmationHasError}
-                  aria-describedby="register-password-requirements"
-                  disabled={isSubmitting}
-                  required
-                />
+                <S.LoginInputField>
+                  <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                  <S.Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Repita sua senha"
+                    autoComplete="new-password"
+                    minLength={STANDARD_PASSWORD_POLICY.minLength}
+                    maxLength={STANDARD_PASSWORD_POLICY.maxLength}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    aria-invalid={confirmationHasError}
+                    aria-describedby="register-password-requirements"
+                    disabled={isSubmitting}
+                    required
+                  />
+                </S.LoginInputField>
               </S.InputGroup>
 
               <PasswordRequirements
@@ -240,17 +252,18 @@ export default function Register() {
                   <>
                     <LoaderCircle className="loading-icon" aria-hidden="true" /> Finalizando...
                   </>
-                ) : isTableContext ? (
-                  `Criar conta e continuar na ${tableLabel}`
                 ) : (
-                  'Finalizar Cadastro'
+                  <>
+                    <span>{isTableContext ? `Criar conta e continuar na ${tableLabel}` : 'Finalizar Cadastro'}</span>
+                    <ArrowRight aria-hidden="true" />
+                  </>
                 )}
               </S.Button>
             </S.Form>
 
-            <S.RegisterText>
+            <S.LoginRegisterText>
               Já possui uma conta? <Link to={loginPath}>Fazer Login</Link>
-            </S.RegisterText>
+            </S.LoginRegisterText>
           </S.LoginFormWrapper>
         </S.LoginFormSection>
       </S.Container>
