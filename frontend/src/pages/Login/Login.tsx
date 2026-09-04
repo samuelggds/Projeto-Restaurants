@@ -31,6 +31,7 @@ import {
   getRestaurantLoginVisual,
 } from '../../config/restaurantCategory';
 import { getAccessibleBrandColor, getReadableTextColor } from './domain/loginBranding';
+import { verifyAdminPortalGrant } from './domain/adminPortalSession';
 import {
   canUseLoginPortal,
   getLoginPortalAccessError,
@@ -209,9 +210,23 @@ export default function Login() {
         throw new Error(getLoginPortalAccessError(portal));
       }
 
+      if (isAdminAccess) {
+        const grantContext = await verifyAdminPortalGrant(portalSlug);
+        const userRestaurantId = Number(authResponse?.user?.restaurantId || 0);
+        if (
+          !grantContext.valid ||
+          grantContext.slug !== portalSlug ||
+          !Number.isInteger(userRestaurantId) ||
+          userRestaurantId !== grantContext.restaurantId
+        ) {
+          await authService.logout(authResponse?.token).catch(() => undefined);
+          throw new Error('Esta conta administrativa não pertence a este restaurante.');
+        }
+      }
+
       return authResponse;
     },
-    [isTechnicalAccess, portal],
+    [isAdminAccess, isTechnicalAccess, portal, portalSlug],
   );
 
   const initializeGoogleLogin = useCallback(async () => {
@@ -370,7 +385,7 @@ export default function Login() {
   const accessLabel = isTechnicalAccess
     ? 'Canal técnico protegido'
     : isAdminAccess
-      ? 'Administração GastroNexa'
+      ? 'ADMIN'
       : isStaffAccess
         ? `${branding.name} • área da equipe`
         : isTableContext
@@ -381,7 +396,7 @@ export default function Login() {
   const heroContextLabel = isTechnicalAccess
     ? 'Operação segura da plataforma'
     : isAdminAccess
-      ? 'Painel administrativo'
+      ? 'ADMIN'
       : isStaffAccess
         ? 'Acesso da equipe'
         : isTableContext
@@ -392,7 +407,7 @@ export default function Login() {
   const heroOverrideText = isTechnicalAccess
     ? 'Canal reservado para suporte, monitoramento e manutenção segura da plataforma.'
     : isAdminAccess
-      ? 'Acesse o painel administrativo. Os dados exibidos serão sempre os do restaurante vinculado à sua conta.'
+      ? 'Acesso administrativo privado deste restaurante. Entre somente com a conta ADMIN vinculada a este tenant.'
       : isStaffAccess
         ? 'Entre com sua conta de funcionário. Sua função define automaticamente o painel operacional correto.'
         : isTableContext
@@ -403,7 +418,7 @@ export default function Login() {
   const welcomeText = isTechnicalAccess
     ? 'Acesso técnico'
     : isAdminAccess
-      ? 'Painel administrativo'
+      ? 'ADMIN'
       : isStaffAccess
         ? 'Acesso da equipe'
         : isTableContext
@@ -414,7 +429,7 @@ export default function Login() {
   const formSubtitle = isTechnicalAccess
     ? 'Entre com a conta exclusiva de Super Admin para administrar a plataforma.'
     : isAdminAccess
-      ? 'Entre com a conta de administrador cadastrada para o seu restaurante.'
+      ? `Entre com a conta ADMIN vinculada ao ${branding.name}.`
       : isStaffAccess
         ? 'Use sua conta de garçom, cozinha, atendente ou motoqueiro.'
         : isTableContext
