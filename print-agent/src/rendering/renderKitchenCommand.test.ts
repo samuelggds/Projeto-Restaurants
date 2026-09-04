@@ -45,6 +45,7 @@ for (const paperWidth of ['MM58', 'MM80'] as const) {
     const rendered = renderKitchenCommand(payload, paperWidth);
     assert.ok(rendered.split('\n').every((line) => line.length <= CHARACTER_WIDTH[paperWidth]));
     assert.match(rendered, /PEDIDO #184/u);
+    assert.match(rendered, /CLIENTE: Maria de Souza/u);
     assert.match(rendered, /2x X-BACON/u);
     assert.match(rendered, /Bacon crocante/u);
     assert.match(rendered, /Cheddar cremoso/u);
@@ -59,20 +60,43 @@ for (const paperWidth of ['MM58', 'MM80'] as const) {
   });
 }
 
-test('render de mesa destaca mesa e não depende de imagem ou fonte externa', () => {
+test('render de mesa destaca mesa e cliente juntos sem duplicar identificação', () => {
   const rendered = renderKitchenCommand(
     {
       ...payload,
-      order: { ...payload.order, type: 'MESA', tableNumber: 12 },
+      order: {
+        ...payload.order,
+        type: 'MESA',
+        tableNumber: 1,
+        customerName: 'Samuel Gomes',
+      },
     },
     'MM80',
   );
-  assert.match(rendered, /MESA 12/u);
+  assert.match(rendered, /MESA 01 • Samuel Gomes/u);
+  assert.doesNotMatch(rendered, /CLIENTE: Samuel Gomes/u);
   assert.doesNotMatch(rendered, /Rua das Flores|ENTREGA:/u);
   assert.doesNotMatch(rendered, /https?:|<img|font-family/iu);
 });
 
-test('render de retirada destaca retirada local e nunca imprime endereço', () => {
+test('render de mesa sem nome ainda destaca o número da mesa', () => {
+  const rendered = renderKitchenCommand(
+    {
+      ...payload,
+      order: {
+        ...payload.order,
+        type: 'MESA',
+        tableNumber: 7,
+        customerName: undefined,
+      },
+    },
+    'MM58',
+  );
+  assert.match(rendered, /MESA 07/u);
+  assert.doesNotMatch(rendered, /CLIENTE:/u);
+});
+
+test('render de retirada destaca retirada local e mantém cliente separado', () => {
   const rendered = renderKitchenCommand(
     {
       ...payload,
@@ -81,6 +105,7 @@ test('render de retirada destaca retirada local e nunca imprime endereço', () =
     'MM80',
   );
   assert.match(rendered, /TIPO: RETIRADA/u);
+  assert.match(rendered, /CLIENTE: Maria de Souza/u);
   assert.match(rendered, /RETIRADA NO LOCAL/u);
   assert.doesNotMatch(rendered, /Rua das Flores|ENTREGA:/u);
 });
