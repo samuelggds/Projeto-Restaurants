@@ -1,12 +1,4 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  Outlet,
-  useLocation,
-  useParams,
-} from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 const Login = lazy(() => import('../pages/Login/Login'));
@@ -51,14 +43,14 @@ function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
     location.pathname === '/login' ||
     location.pathname === '/register' ||
     location.pathname === '/recover-password' ||
-    /^\/[^/]+\/login$/u.test(location.pathname);
+    /^\/[^/]+\/(?:login|register)$/u.test(location.pathname);
 
   if (isAuthEntry) {
     const requestedNext = getSafeNextPath(new URLSearchParams(location.search).get('next'));
     if (requestedNext) return requestedNext;
 
-    const restaurantLogin = location.pathname.match(/^\/([^/]+)\/login$/u);
-    return restaurantLogin ? getSafeNextPath(`/${restaurantLogin[1]}`) : '';
+    const restaurantAuth = location.pathname.match(/^\/([^/]+)\/(?:login|register)$/u);
+    return restaurantAuth ? getSafeNextPath(`/${restaurantAuth[1]}`) : '';
   }
 
   return getSafeNextPath(getCurrentReturnPath(location));
@@ -70,20 +62,6 @@ function RouteLoading() {
       <span role="status">Carregando página…</span>
     </main>
   );
-}
-
-function RestaurantLoginRedirect() {
-  const { restaurantSlug } = useParams();
-
-  const normalizedSlug = String(restaurantSlug || '')
-    .trim()
-    .toLowerCase();
-
-  if (!normalizedSlug) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <Navigate to={buildLoginUrl({ pathname: `/${normalizedSlug}` })} replace />;
 }
 
 function RestaurantMenuGate() {
@@ -216,8 +194,6 @@ function BillingGate() {
   }
 
   if (blockState?.blocked) {
-    // SystemAvailabilityGate observa o mesmo estado e substitui toda a árvore
-    // pela manutenção ou pelo painel financeiro restrito.
     return <RouteLoading />;
   }
 
@@ -235,9 +211,12 @@ export default function AppRoutes() {
               <Route path="/super_admin/login" element={<Login />} />
               <Route element={<RouteAuthorizationGuard />}>
                 <Route path="/login" element={<Login />} />
-                <Route path="/:restaurantSlug/login" element={<RestaurantLoginRedirect />} />
+                <Route path="/admin/login" element={<Login />} />
+                <Route path="/:restaurantSlug/login" element={<Login />} />
+                <Route path="/:restaurantSlug/equipe" element={<Login />} />
                 <Route path="/recover-password" element={<RecoverPassword />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/:restaurantSlug/register" element={<Register />} />
                 <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
                 <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
                 <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
@@ -261,11 +240,8 @@ export default function AppRoutes() {
                     />
 
                     <Route path="/courier" element={<CourierDashboard />} />
-
                     <Route path="/kitchen" element={<KitchenPage />} />
-
                     <Route path="/waiter" element={<WaiterPage />} />
-
                     <Route path="/attendant" element={<AttendantPage />} />
                   </Route>
                 </Route>
