@@ -324,15 +324,13 @@ jobs:
         run: npm --prefix print-agent ci
 
       - name: Audit backend packages
-        # Audit the committed lockfile directly so transient/inconsistent node_modules trees
-        # cannot force npm onto the legacy quick-audit endpoint.
-        run: npm --prefix backend audit --package-lock-only --audit-level=high
+        run: npm --prefix backend audit --audit-level=high
 
       - name: Audit frontend packages
-        run: npm --prefix frontend audit --package-lock-only --audit-level=high
+        run: npm --prefix frontend audit --audit-level=high
 
       - name: Audit Print Agent packages
-        run: npm --prefix print-agent audit --package-lock-only --audit-level=high
+        run: npm --prefix print-agent audit --audit-level=high
 
   # ─────────────────────────────────────────────
   # 5. BUILD — vite build + tsup (only after all checks pass)
