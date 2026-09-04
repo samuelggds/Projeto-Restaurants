@@ -165,10 +165,9 @@ export default function OrderCard({
   const automatedPayOnDelivery =
     payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO';
   const providerPaid = order.paid === true || deliveryPayment?.status === 'PAID';
-  const paymentPendingConfirmation =
-    automatedPayOnDelivery
-      ? !providerPaid
-      : requiresConfirmedPayment(order, digitalPaymentMethods);
+  const paymentPendingConfirmation = automatedPayOnDelivery
+    ? !providerPaid
+    : requiresConfirmedPayment(order, digitalPaymentMethods);
   const normalizedDeliveryCode = String(deliveryCode || '').replace(/\D/g, '');
   const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
   const paymentStatusLabel = providerPaid ? 'Pago' : 'Não pago';
@@ -198,9 +197,18 @@ export default function OrderCard({
 
   useEffect(() => {
     if (!canDeliver || !automatedPayOnDelivery) return;
-    void refreshDeliveryPayment();
-    const interval = window.setInterval(() => void refreshDeliveryPayment(), 5000);
-    return () => window.clearInterval(interval);
+
+    const initialRefresh = window.setTimeout(() => {
+      void refreshDeliveryPayment();
+    }, 0);
+    const interval = window.setInterval(() => {
+      void refreshDeliveryPayment();
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(initialRefresh);
+      window.clearInterval(interval);
+    };
   }, [automatedPayOnDelivery, canDeliver, refreshDeliveryPayment]);
 
   async function handleRefreshPayment() {
@@ -315,9 +323,7 @@ export default function OrderCard({
       {canDeliver && automatedPayOnDelivery && (
         <P.Box $paid={providerPaid}>
           <P.Head>
-            <span>
-              {payOnDeliveryMethod === 'PIX' ? 'PIX na entrega' : 'Cartão na entrega'}
-            </span>
+            <span>{payOnDeliveryMethod === 'PIX' ? 'PIX na entrega' : 'Cartão na entrega'}</span>
             <strong>{formatCurrency(Number(deliveryPayment?.amount || order.total))}</strong>
           </P.Head>
           <P.Status $paid={providerPaid}>
@@ -405,7 +411,8 @@ export default function OrderCard({
                     </S.ItemRow>
                     {choices.map((group, groupIndex) => (
                       <S.ItemChoice key={`${group.groupName}-${groupIndex}`}>
-                        <b>{group.groupName}:</b> {group.options.join(', ')}</S.ItemChoice>
+                        <b>{group.groupName}:</b> {group.options.join(', ')}
+                      </S.ItemChoice>
                     ))}
                     {itemObservation ? (
                       <S.ItemObservation>
