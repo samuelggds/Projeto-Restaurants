@@ -78,8 +78,10 @@ describe('authNavigation', () => {
     expect(buildLoginUrl({ pathname: value })).toBe('/login');
   });
 
-  it('mantém o slug na URL do login quando o cliente entra pelo restaurante', () => {
-    expect(buildLoginUrl({ pathname: '/restaurante-x' })).toBe('/restaurante-x/login');
+  it('mantém o slug e o retorno seguro na URL do login quando o cliente entra pelo restaurante', () => {
+    const loginUrl = buildLoginUrl({ pathname: '/restaurante-x' });
+    expect(loginUrl.startsWith('/restaurante-x/login?next=')).toBe(true);
+    expect(new URLSearchParams(loginUrl.split('?')[1]).get('next')).toBe('/restaurante-x');
   });
 
   it('mantém o slug e o retorno completo quando o login começa em uma mesa', () => {
