@@ -2,25 +2,7 @@ import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Button as SharedButton } from '../Login/styles';
 
-export {
-  lightTheme,
-  darkTheme,
-  Container,
-  TopBar,
-  ThemeToggleButton,
-  BannerSection,
-  BrandTitle,
-  RestaurantLogo,
-  BrandSubtitle,
-  FormSection,
-  FormWrapper,
-  WelcomeText,
-  FormSubtitle,
-  Form,
-  InputGroup,
-  Label,
-  Input,
-} from '../Login/styles';
+export * from '../Login/styles';
 
 export const Button = styled(SharedButton)`
   &:disabled,
