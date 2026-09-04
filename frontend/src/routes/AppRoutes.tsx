@@ -214,6 +214,7 @@ export default function AppRoutes() {
                 <Route path="/admin/login" element={<Login />} />
                 <Route path="/:restaurantSlug/login" element={<Login />} />
                 <Route path="/:restaurantSlug/equipe" element={<Login />} />
+                <Route path="/:restaurantSlug/admin" element={<Login />} />
                 <Route path="/recover-password" element={<RecoverPassword />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/:restaurantSlug/register" element={<Register />} />
