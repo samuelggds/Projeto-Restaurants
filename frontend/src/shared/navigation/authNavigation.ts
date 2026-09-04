@@ -13,10 +13,13 @@ export type AuthExperience = {
   restaurantSlug: string | null;
 };
 
+export const TENANT_REQUIRED_PATH = '/restaurant-required';
+
 const INTERNAL_URL_BASE = 'https://internal.invalid';
 const MAX_NEXT_PATH_LENGTH = 4_096;
 const MAX_DECODE_PASSES = 8;
 const AUTH_RETURN_STORAGE_PREFIX = 'gastronexa:auth-return:';
+const TENANT_SLUG_STORAGE_KEY = 'gastronexa:tenant-slug';
 const BLOCKED_AUTH_PATHS = new Set([
   '/login',
   '/register',
@@ -24,6 +27,7 @@ const BLOCKED_AUTH_PATHS = new Set([
   '/change-password',
   '/admin/login',
   '/super_admin/login',
+  TENANT_REQUIRED_PATH,
 ]);
 const ROLE_ONLY_RETURN_ROOTS = [
   '/admin',
@@ -50,9 +54,11 @@ const RESERVED_RESTAURANT_SLUGS = new Set([
   'profile',
   'recover-password',
   'register',
+  'restaurant-required',
   'super_admin',
   'system-blocked',
   'system-maintenance',
+  'team',
   'waiter',
 ]);
 const AUTH_RESTAURANT_ID_KEYS = ['restaurantId', 'rid'] as const;
@@ -116,20 +122,46 @@ function sanitizeRestaurantSlug(value: unknown) {
   return /^[a-z0-9_-]+$/u.test(slug) ? slug : '';
 }
 
-function getRestaurantSlugFromLocation(location: ReturnLocation) {
-  const pathname = String(location.pathname || '/')
-    .replace(/\/+$/u, '') || '/';
-  const match = pathname.match(/^\/([^/]+)(?:\/mesa\/[^/]+)?$/u);
-  if (!match) return '';
-  const slug = sanitizeRestaurantSlug(match[1]);
+function isUsableRestaurantSlug(value: unknown) {
+  const slug = sanitizeRestaurantSlug(value);
   return slug && !RESERVED_RESTAURANT_SLUGS.has(slug) ? slug : '';
 }
 
+export function getRestaurantSlugFromLocation(location: ReturnLocation) {
+  const pathname = String(location.pathname || '/')
+    .split(/[?#]/u, 1)[0]
+    .replace(/\/+$/u, '') || '/';
+  const match = pathname.match(
+    /^\/([^/]+)(?:\/(?:login|register|recover-password|team|admin(?:\/[^/]+)?|mesa\/[^/]+))?$/u,
+  );
+  return isUsableRestaurantSlug(match?.[1]);
+}
+
+export function rememberTenantSlug(value: unknown) {
+  if (typeof window === 'undefined') return;
+  const slug = isUsableRestaurantSlug(value);
+  if (!slug) return;
+
+  try {
+    window.sessionStorage.setItem(TENANT_SLUG_STORAGE_KEY, slug);
+  } catch {
+    // sessionStorage pode estar indisponível em navegadores com políticas restritas.
+  }
+}
+
+export function getRememberedTenantSlug() {
+  if (typeof window === 'undefined') return '';
+
+  try {
+    return isUsableRestaurantSlug(window.sessionStorage.getItem(TENANT_SLUG_STORAGE_KEY));
+  } catch {
+    return '';
+  }
+}
+
 function getAuthReturnStorageKey(restaurantSlug: string) {
-  const slug = sanitizeRestaurantSlug(restaurantSlug);
-  return slug && !RESERVED_RESTAURANT_SLUGS.has(slug)
-    ? `${AUTH_RETURN_STORAGE_PREFIX}${slug}`
-    : '';
+  const slug = isUsableRestaurantSlug(restaurantSlug);
+  return slug ? `${AUTH_RETURN_STORAGE_PREFIX}${slug}` : '';
 }
 
 export function getCurrentReturnPath(location: ReturnLocation) {
@@ -177,9 +209,13 @@ export function getSafeNextPath(value: unknown) {
     (root) => normalizedPath === root || normalizedPath.startsWith(`${root}/`),
   );
   if (
+    normalizedPath === '/' ||
+    /^\/mesa(?:\/|$)/u.test(normalizedPath) ||
     BLOCKED_AUTH_PATHS.has(normalizedPath) ||
     isRoleOnlyPath ||
-    /^\/[^/]+\/(?:login|register|equipe)$/u.test(normalizedPath)
+    /^\/[^/]+\/(?:login|register|recover-password|team|admin(?:\/[^/]+)?)$/u.test(
+      normalizedPath,
+    )
   ) {
     return '';
   }
@@ -230,31 +266,58 @@ export function getSafeAuthSearchParams(searchParams: URLSearchParams) {
   }
 
   for (const key of AUTH_RESTAURANT_SLUG_KEYS) {
-    const value = sanitizeRestaurantSlug(searchParams.get(key));
+    const value = isUsableRestaurantSlug(searchParams.get(key));
     if (value) safeParams.set(key, value);
   }
 
   return safeParams;
 }
 
+function getCurrentBrowserRestaurantSlug() {
+  if (typeof window === 'undefined') return '';
+  return getRestaurantSlugFromLocation(window.location);
+}
+
+function buildTenantAuthEntryPath(path: Exclude<AuthEntryPath, '/change-password'>, slug: string) {
+  return `/${slug}${path}`;
+}
+
 export function buildAuthEntryUrl(path: AuthEntryPath, searchParams: URLSearchParams) {
   const safeParams = getSafeAuthSearchParams(searchParams);
   const safeNextPath = safeParams.get('next');
-  const restaurantSlug = safeParams.get('restaurantSlug') || safeParams.get('slug');
 
-  if (restaurantSlug && safeNextPath) {
-    rememberAuthReturnPath(restaurantSlug, safeNextPath);
+  if (path === '/change-password') {
+    const query = safeParams.toString();
+    return query ? `${path}?${query}` : path;
   }
 
+  const pathSlug = getCurrentBrowserRestaurantSlug();
+  const explicitSlug =
+    isUsableRestaurantSlug(safeParams.get('restaurantSlug')) ||
+    isUsableRestaurantSlug(safeParams.get('slug'));
+  const restaurantSlug = pathSlug || explicitSlug || getRememberedTenantSlug();
+
+  if (!restaurantSlug) return TENANT_REQUIRED_PATH;
+
+  rememberTenantSlug(restaurantSlug);
+  if (safeNextPath) rememberAuthReturnPath(restaurantSlug, safeNextPath);
+  safeParams.delete('restaurantSlug');
+  safeParams.delete('slug');
+
+  const entryPath = buildTenantAuthEntryPath(path, restaurantSlug);
   const query = safeParams.toString();
-  return query ? `${path}?${query}` : path;
+  return query ? `${entryPath}?${query}` : entryPath;
 }
 
 export function buildAuthEntryUrlForLocation(path: AuthEntryPath, location: ReturnLocation) {
+  const params = new URLSearchParams();
   const nextPath = getSafeNextPath(getCurrentReturnPath(location));
-  if (!nextPath) return path;
+  const restaurantSlug = getRestaurantSlugFromLocation(location);
 
-  return buildAuthEntryUrl(path, new URLSearchParams({ next: nextPath }));
+  if (nextPath) params.set('next', nextPath);
+  if (restaurantSlug) params.set('slug', restaurantSlug);
+
+  return buildAuthEntryUrl(path, params);
 }
 
 export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperience {
@@ -270,12 +333,12 @@ export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperi
     return { context: 'ONLINE', nextPath, tableNumber: null, restaurantSlug: null };
   }
 
-  const tableMatch = parsed.pathname.match(/^\/(?:([^/]+)\/)?mesa\/([1-9]\d*)\/?$/iu);
+  const tableMatch = parsed.pathname.match(/^\/([^/]+)\/mesa\/([1-9]\d*)\/?$/iu);
   if (!tableMatch) {
     return { context: 'ONLINE', nextPath, tableNumber: null, restaurantSlug: null };
   }
 
-  const restaurantSlug = tableMatch[1] ? sanitizeRestaurantSlug(tableMatch[1]) || null : null;
+  const restaurantSlug = isUsableRestaurantSlug(tableMatch[1]) || null;
   return {
     context: 'TABLE',
     nextPath,
@@ -285,14 +348,14 @@ export function resolveAuthExperience(searchParams: URLSearchParams): AuthExperi
 }
 
 export function buildLoginUrl(location: ReturnLocation) {
-  const restaurantSlug = getRestaurantSlugFromLocation(location);
-  if (!restaurantSlug) {
-    return buildAuthEntryUrlForLocation('/login', location);
-  }
+  const restaurantSlug = getRestaurantSlugFromLocation(location) || getRememberedTenantSlug();
+  if (!restaurantSlug) return TENANT_REQUIRED_PATH;
 
+  rememberTenantSlug(restaurantSlug);
   const portalPath = `/${restaurantSlug}/login`;
   const nextPath = getSafeNextPath(getCurrentReturnPath(location));
   if (!nextPath) return portalPath;
+
   rememberAuthReturnPath(restaurantSlug, nextPath);
   const query = getSafeAuthSearchParams(new URLSearchParams({ next: nextPath })).toString();
   return query ? `${portalPath}?${query}` : portalPath;
