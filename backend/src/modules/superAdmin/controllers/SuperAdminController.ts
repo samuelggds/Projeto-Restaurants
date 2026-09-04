@@ -9,6 +9,7 @@ import updateRestaurantSubscriptionService from '../services/UpdateRestaurantSub
 import createRestaurantAdministratorService from '../services/CreateRestaurantAdministratorService.js';
 import updateAdministratorAccessService from '../services/UpdateAdministratorAccessService.js';
 import sendSuperAdminSupportMessageService from '../services/SendSuperAdminSupportMessageService.js';
+import adminPortalAccessService from '../../adminPortal/services/AdminPortalAccessService.js';
 import type { AuditContext } from '../repositories/SuperAdminRepository.js';
 
 function firstParameter(value: string | string[] | undefined) {
@@ -140,6 +141,31 @@ export class SuperAdminController {
     }
   }
 
+  async rotateAdminPortalKey(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(firstParameter(req.params.id));
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new SuperAdminError('Restaurante inválido.', 400, 'INVALID_RESTAURANT');
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(201).json(await adminPortalAccessService.rotate(id, auditContext(req)));
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async revokeAdminPortalKey(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(firstParameter(req.params.id));
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new SuperAdminError('Restaurante inválido.', 400, 'INVALID_RESTAURANT');
+      }
+      return res.status(200).json(await adminPortalAccessService.revoke(id, auditContext(req)));
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async supportMessage(req: Request, res: Response, next: NextFunction) {
     try {
       return res
@@ -158,4 +184,3 @@ export class SuperAdminController {
 }
 
 export default new SuperAdminController();
-
