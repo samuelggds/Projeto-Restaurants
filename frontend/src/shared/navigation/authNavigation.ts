@@ -238,7 +238,15 @@ export function getSafeAuthSearchParams(searchParams: URLSearchParams) {
 }
 
 export function buildAuthEntryUrl(path: AuthEntryPath, searchParams: URLSearchParams) {
-  const query = getSafeAuthSearchParams(searchParams).toString();
+  const safeParams = getSafeAuthSearchParams(searchParams);
+  const safeNextPath = safeParams.get('next');
+  const restaurantSlug = safeParams.get('restaurantSlug') || safeParams.get('slug');
+
+  if (restaurantSlug && safeNextPath) {
+    rememberAuthReturnPath(restaurantSlug, safeNextPath);
+  }
+
+  const query = safeParams.toString();
   return query ? `${path}?${query}` : path;
 }
 
