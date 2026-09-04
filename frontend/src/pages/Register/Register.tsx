@@ -16,6 +16,11 @@ import {
   buildAuthEntryUrl,
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
+import {
+  getRestaurantCategoryLabel,
+  getRestaurantLoginVisual,
+} from '../../config/restaurantCategory';
+import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -43,6 +48,9 @@ export default function Register() {
     passwordEvaluation.requirements.some(
       (requirement) => requirement.id === 'confirmation' && !requirement.met,
     );
+  const categoryVisual = getRestaurantLoginVisual(branding.category);
+  const categoryLabel = getRestaurantCategoryLabel(categoryVisual.category);
+  const baseTheme = isDarkMode ? S.darkTheme : S.lightTheme;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,12 +99,20 @@ export default function Register() {
   return (
     <ThemeProvider
       theme={{
-        ...(isDarkMode ? S.darkTheme : S.lightTheme),
+        ...baseTheme,
         primary: branding.primaryColor,
         primaryHover: branding.primaryColor,
+        primaryText: getReadableTextColor(branding.primaryColor),
+        primaryReadable: getAccessibleBrandColor(branding.primaryColor, baseTheme.surface),
+        categoryAccent: categoryVisual.accent,
+        categoryAccentText: getReadableTextColor(categoryVisual.accent),
+        categoryDeep: categoryVisual.deep,
       }}
     >
-      <S.Container data-auth-context={authExperience.context}>
+      <S.Container
+        data-auth-context={authExperience.context}
+        data-restaurant-category={categoryVisual.category}
+      >
         <S.TopBar>
           <S.ThemeToggleButton
             type="button"
@@ -108,7 +124,7 @@ export default function Register() {
           </S.ThemeToggleButton>
         </S.TopBar>
 
-        <S.BannerSection
+        <S.LoginBannerSection
           $hasLogo={Boolean(branding.logoUrl)}
           data-has-cover={branding.logoUrl ? 'true' : 'false'}
         >
@@ -121,10 +137,13 @@ export default function Register() {
                 : null
             }
           />
-        </S.BannerSection>
+        </S.LoginBannerSection>
 
-        <S.FormSection>
-          <S.FormWrapper>
+        <S.LoginFormSection>
+          <S.LoginFormWrapper>
+            <S.LoginAccessBadge>
+              <span>{categoryLabel}</span>
+            </S.LoginAccessBadge>
             <S.WelcomeText>
               {isTableContext ? `Criar conta para a ${tableLabel}` : 'Criar Conta'}
             </S.WelcomeText>
@@ -232,8 +251,8 @@ export default function Register() {
             <S.RegisterText>
               Já possui uma conta? <Link to={loginPath}>Fazer Login</Link>
             </S.RegisterText>
-          </S.FormWrapper>
-        </S.FormSection>
+          </S.LoginFormWrapper>
+        </S.LoginFormSection>
       </S.Container>
     </ThemeProvider>
   );
