@@ -659,7 +659,9 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   await expect(readyOrder.getByText('Interfone quebrado; chamar pelo telefone')).toBeVisible();
   await expect(readyOrder.getByText('Rua das Flores, 120')).toBeVisible();
   await expect(readyOrder.getByText('Próximo à praça')).toBeVisible();
-  await expect(readyOrder.getByText(/Ganho: R\$\s*8,00/)).toBeVisible();
+  const earningBar = readyOrder.locator('[title="Valor calculado pelo servidor"]');
+  await expect(earningBar.getByText('Ganho', { exact: true })).toBeVisible();
+  await expect(earningBar.getByText(/R\$\s*8,00/)).toBeVisible();
   await expect(readyOrder.getByText('Rota calculada: 4.2 km')).toBeVisible();
   await captureReadmeScreenshot(page, 'courier-dashboard.png', { fullPage: true });
 
