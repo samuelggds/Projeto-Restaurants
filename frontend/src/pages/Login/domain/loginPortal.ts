@@ -20,9 +20,11 @@ const RESERVED_PORTAL_SLUGS = new Set([
   'profile',
   'recover-password',
   'register',
+  'restaurant-required',
   'super_admin',
   'system-blocked',
   'system-maintenance',
+  'team',
   'waiter',
 ]);
 
@@ -47,14 +49,14 @@ export function resolveLoginPortal(pathname: string): LoginPortal {
   const path = normalizePath(pathname);
   if (path === '/super_admin/login') return 'SUPER_ADMIN';
   if (getContextualSlug(path, ['admin'])) return 'ADMIN';
-  if (getContextualSlug(path, ['equipe'])) return 'STAFF';
+  if (getContextualSlug(path, ['team'])) return 'STAFF';
   if (getContextualSlug(path, ['login'])) return 'CUSTOMER';
   return 'GENERIC';
 }
 
 export function getRestaurantSlugFromAuthPath(pathname: string) {
   const path = normalizePath(pathname);
-  return getContextualSlug(path, ['login', 'register', 'equipe', 'admin']);
+  return getContextualSlug(path, ['login', 'register', 'recover-password', 'team', 'admin']);
 }
 
 export function canUseLoginPortal(portal: LoginPortal, user: LoginPortalUser) {
@@ -67,14 +69,7 @@ export function canUseLoginPortal(portal: LoginPortal, user: LoginPortalUser) {
   }
   if (portal === 'ADMIN') return role === 'ADMIN';
   if (portal === 'SUPER_ADMIN') return role === 'SUPER_ADMIN';
-
-  // Admin e Super Admin possuem entradas dedicadas. O fallback genérico fica
-  // restrito a cliente/equipe para não contornar os portais protegidos.
-  return (
-    role === 'CLIENTE' ||
-    role === 'MOTOQUEIRO' ||
-    (role === 'FUNCIONARIO' && STAFF_SUBROLES.has(subRole))
-  );
+  return false;
 }
 
 export function getLoginPortalAccessError(portal: LoginPortal) {
@@ -90,5 +85,5 @@ export function getLoginPortalAccessError(portal: LoginPortal) {
   if (portal === 'SUPER_ADMIN') {
     return 'Este acesso é exclusivo para o Super Admin da plataforma.';
   }
-  return 'Administradores devem usar o link administrativo privado do restaurante.';
+  return 'A rota de autenticação precisa informar o restaurante na URL.';
 }
