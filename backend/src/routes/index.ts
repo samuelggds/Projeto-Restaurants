@@ -32,6 +32,7 @@ import courierCompensationRoutes from '../modules/courierCompensation/routes/Cou
 import employeeCompensationRoutes from '../modules/employeeCompensation/routes/EmployeeCompensationRoutes.js';
 import productConfigurationTemplateRoutes from '../modules/productConfigurationTemplates/routes/ProductConfigurationTemplateRoutes.js';
 import attendantRoutes from '../modules/attendant/routes/AttendantRoutes.js';
+import paymentTerminalRoutes from '../modules/paymentTerminals/routes/PaymentTerminalRoutes.js';
 
 const router = Router();
 
@@ -71,6 +72,7 @@ router.use('/employee-compensation', employeeCompensationRoutes);
 router.use('/employee-payments', employeeCompensationRoutes);
 router.use('/product-configuration-templates', productConfigurationTemplateRoutes);
 router.use('/attendant', attendantRoutes);
+router.use('/payment-terminals', paymentTerminalRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/public-media', publicMediaRoutes);
 
