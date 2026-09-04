@@ -6,6 +6,25 @@ export type LoginPortalUser = {
 } | null;
 
 const STAFF_SUBROLES = new Set(['COZINHA', 'GARCOM', 'ATENDENTE']);
+const RESERVED_PORTAL_SLUGS = new Set([
+  'admin',
+  'attendant',
+  'billing',
+  'change-password',
+  'courier',
+  'equipe',
+  'kitchen',
+  'login',
+  'mesa',
+  'orders',
+  'profile',
+  'recover-password',
+  'register',
+  'super_admin',
+  'system-blocked',
+  'system-maintenance',
+  'waiter',
+]);
 
 const normalizePath = (pathname: string) =>
   String(pathname || '/')
@@ -17,19 +36,25 @@ export function normalizePortalRestaurantSlug(value: unknown) {
   return /^[a-z0-9_-]{1,100}$/u.test(raw) ? raw : '';
 }
 
+function getContextualSlug(path: string, suffixes: string[]) {
+  const suffixPattern = suffixes.join('|');
+  const match = path.match(new RegExp(`^/([^/]+)/(?:${suffixPattern})$`, 'u'));
+  const slug = normalizePortalRestaurantSlug(match?.[1]);
+  return slug && !RESERVED_PORTAL_SLUGS.has(slug) ? slug : '';
+}
+
 export function resolveLoginPortal(pathname: string): LoginPortal {
   const path = normalizePath(pathname);
   if (path === '/super_admin/login') return 'SUPER_ADMIN';
-  if (/^\/[^/]+\/admin$/u.test(path)) return 'ADMIN';
-  if (/^\/[^/]+\/equipe$/u.test(path)) return 'STAFF';
-  if (/^\/[^/]+\/login$/u.test(path)) return 'CUSTOMER';
+  if (getContextualSlug(path, ['admin'])) return 'ADMIN';
+  if (getContextualSlug(path, ['equipe'])) return 'STAFF';
+  if (getContextualSlug(path, ['login'])) return 'CUSTOMER';
   return 'GENERIC';
 }
 
 export function getRestaurantSlugFromAuthPath(pathname: string) {
   const path = normalizePath(pathname);
-  const match = path.match(/^\/([^/]+)\/(?:login|register|equipe|admin)$/u);
-  return normalizePortalRestaurantSlug(match?.[1]);
+  return getContextualSlug(path, ['login', 'register', 'equipe', 'admin']);
 }
 
 export function canUseLoginPortal(portal: LoginPortal, user: LoginPortalUser) {
