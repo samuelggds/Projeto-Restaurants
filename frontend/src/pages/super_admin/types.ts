@@ -268,3 +268,15 @@ export interface SuperAdminActions {
     closeConversation?: boolean,
   ) => Promise<void>;
 }
+
+export interface SuperAdminModuleProps {
+  currentUser: SuperAdminUser;
+  data: SuperAdminData;
+  currentView: SuperAdminView;
+  onViewChange: (view: SuperAdminView) => void;
+  actions: SuperAdminActions;
+  onCreateRestaurant: () => void;
+  onLogout: () => void;
+  refreshing?: boolean;
+  loadError?: string | null;
+}
