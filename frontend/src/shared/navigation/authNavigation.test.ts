@@ -55,8 +55,11 @@ describe('authNavigation', () => {
     '/register',
     '/recover-password',
     '/change-password',
+    '/admin/login',
     '/super_admin/login',
     '/restaurante-x/login',
+    '/restaurante-x/register',
+    '/restaurante-x/equipe',
   ])('rejeita rota de autenticação %s para evitar loop', (value) => {
     expect(getSafeNextPath(value)).toBe('');
   });
@@ -75,7 +78,11 @@ describe('authNavigation', () => {
     expect(buildLoginUrl({ pathname: value })).toBe('/login');
   });
 
-  it('compõe pathname, search e hash sem perder o contexto', () => {
+  it('mantém o slug na URL do login quando o cliente entra pelo restaurante', () => {
+    expect(buildLoginUrl({ pathname: '/restaurante-x' })).toBe('/restaurante-x/login');
+  });
+
+  it('mantém o slug e o retorno completo quando o login começa em uma mesa', () => {
     const location = {
       pathname: '/restaurante-x/mesa/5',
       search: '?rid=1&tk=ABC123',
@@ -83,7 +90,9 @@ describe('authNavigation', () => {
     };
 
     expect(getCurrentReturnPath(location)).toBe('/restaurante-x/mesa/5?rid=1&tk=ABC123#bebidas');
-    expect(new URLSearchParams(buildLoginUrl(location).split('?')[1]).get('next')).toBe(
+    const loginUrl = buildLoginUrl(location);
+    expect(loginUrl.startsWith('/restaurante-x/login?next=')).toBe(true);
+    expect(new URLSearchParams(loginUrl.split('?')[1]).get('next')).toBe(
       '/restaurante-x/mesa/5?rid=1&tk=ABC123#bebidas',
     );
   });
