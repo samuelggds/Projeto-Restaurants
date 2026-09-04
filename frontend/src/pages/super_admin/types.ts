@@ -243,6 +243,14 @@ export interface AdministratorAccessInput {
   reason: string;
 }
 
+export interface AdminPortalKeyResult {
+  restaurantId: number;
+  slug: string;
+  key: string;
+  expiresAt: string;
+  rotationId: number;
+}
+
 export interface SuperAdminActions {
   refresh: () => Promise<void>;
   updateSettings: (settings: PlatformSettings) => Promise<void>;
@@ -250,6 +258,8 @@ export interface SuperAdminActions {
   updateRestaurantAccess: (id: number, input: RestaurantAccessInput) => Promise<void>;
   updateSubscription: (id: number, input: SubscriptionUpdateInput) => Promise<void>;
   createAdministrator: (id: number, input: AdministratorCreateInput) => Promise<void>;
+  rotateAdminPortalKey: (id: number) => Promise<AdminPortalKeyResult>;
+  revokeAdminPortalKey: (id: number) => Promise<void>;
   updateAdministratorAccess: (id: number, input: AdministratorAccessInput) => Promise<void>;
   getSupportMessages: (restaurantId: number) => Promise<SupportMessage[]>;
   sendSupportMessage: (

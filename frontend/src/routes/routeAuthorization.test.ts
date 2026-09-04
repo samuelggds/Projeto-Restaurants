@@ -5,9 +5,22 @@ const allowed = (path: string, user: Parameters<typeof authorizeRoute>[1]) =>
   authorizeRoute(path, user).allowed;
 
 describe('política de autorização de rotas', () => {
-  it('mantém Home e QR públicos, mas protege tracking', () => {
-    for (const path of ['/', '/mesa/12', '/pizzaria', '/pizzaria/mesa/12'])
+  it('mantém Home, QR e portais contextuais públicos, mas protege tracking', () => {
+    for (const path of [
+      '/',
+      '/mesa/12',
+      '/pizzaria',
+      '/pizzaria/mesa/12',
+      '/pizzaria/login',
+      '/pizzaria/register',
+      '/pizzaria/equipe',
+      '/pizzaria/admin',
+    ])
       expect(allowed(path, null), path).toBe(true);
+    expect(authorizeRoute('/admin/login', null)).toEqual({
+      allowed: false,
+      redirectTo: '/login',
+    });
     expect(authorizeRoute('/orders/42/tracking', null)).toEqual({
       allowed: false,
       redirectTo: '/login',
@@ -50,6 +63,20 @@ describe('política de autorização de rotas', () => {
       redirectTo: '/super_admin/login',
     });
     expect(authorizeRoute('/super_admin/login', null)).toEqual({ allowed: true });
+  });
+  it('redireciona usuário já autenticado para a própria área ao tentar outro portal de login', () => {
+    expect(authorizeRoute('/pizzaria/admin', { role: 'ADMIN' })).toEqual({
+      allowed: false,
+      redirectTo: '/admin',
+    });
+    expect(authorizeRoute('/pizzaria/equipe', { role: 'FUNCIONARIO', subRole: 'GARCOM' })).toEqual({
+      allowed: false,
+      redirectTo: '/waiter',
+    });
+    expect(authorizeRoute('/pizzaria/login', { role: 'CLIENTE' })).toEqual({
+      allowed: false,
+      redirectTo: '/',
+    });
   });
   it('isola qualquer conta com troca de senha obrigatória na página dedicada', () => {
     for (const role of ['SUPER_ADMIN', 'ADMIN']) {

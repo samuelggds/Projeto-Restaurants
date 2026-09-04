@@ -55,6 +55,14 @@ export default function SuperAdminPage() {
       createAdministrator: async (restaurantId, input) => {
         await mutateAndRefresh(() => superAdminService.createAdministrator(restaurantId, input));
       },
+      rotateAdminPortalKey: async (restaurantId) => {
+        const result = await superAdminService.rotateAdminPortalKey(restaurantId);
+        await refresh();
+        return result;
+      },
+      revokeAdminPortalKey: async (restaurantId) => {
+        await mutateAndRefresh(() => superAdminService.revokeAdminPortalKey(restaurantId));
+      },
       updateAdministratorAccess: async (id, input) => {
         await mutateAndRefresh(() => superAdminService.updateAdministratorAccess(id, input));
       },
@@ -95,7 +103,7 @@ export default function SuperAdminPage() {
         onCreateRestaurant={() => setCreateRestaurantOpen(true)}
         onLogout={() => {
           logout();
-          navigate('/login', { replace: true });
+          navigate('/super_admin/login', { replace: true });
         }}
         refreshing={refreshing}
         loadError={error}

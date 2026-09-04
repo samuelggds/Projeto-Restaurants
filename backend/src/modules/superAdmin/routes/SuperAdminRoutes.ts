@@ -22,6 +22,12 @@ router.patch('/restaurants/:id/subscription', (req, res, next) =>
 router.post('/restaurants/:id/administrators', (req, res, next) =>
   SuperAdminController.createAdministrator(req, res, next),
 );
+router.post('/restaurants/:id/admin-portal-key', (req, res, next) =>
+  SuperAdminController.rotateAdminPortalKey(req, res, next),
+);
+router.delete('/restaurants/:id/admin-portal-key', (req, res, next) =>
+  SuperAdminController.revokeAdminPortalKey(req, res, next),
+);
 router.patch('/administrators/:id/access', (req, res, next) =>
   SuperAdminController.administratorAccess(req, res, next),
 );
@@ -30,4 +36,3 @@ router.post('/support/:restaurantId/messages', (req, res, next) =>
 );
 
 export default router;
-

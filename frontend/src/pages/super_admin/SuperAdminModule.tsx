@@ -23,9 +23,9 @@ import {
   CreateAdministratorDialog,
   EditPlanDialog,
   InvoiceDetails,
-  RestaurantDetails,
   SupportConversation,
 } from './components/ActionDialogs';
+import { RestaurantDetailsSecure } from './components/RestaurantDetailsSecure';
 import {
   AdministratorsPage,
   AuditPage,
@@ -334,7 +334,7 @@ export function SuperAdminModule({
       </S.Main>
 
       {selectedRestaurant ? (
-        <RestaurantDetails
+        <RestaurantDetailsSecure
           restaurant={selectedRestaurant}
           plans={data.plans}
           actions={actions}

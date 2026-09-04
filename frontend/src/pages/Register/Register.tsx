@@ -1,5 +1,5 @@
-import { type FormEvent, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { type FormEvent, useLayoutEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { ArrowRight, LoaderCircle, LockKeyhole, Mail, Moon, Sun, User } from 'lucide-react';
@@ -14,6 +14,8 @@ import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBra
 import { TenantBrandHero } from '../Login/components/TenantBrandHero';
 import {
   buildAuthEntryUrl,
+  getRememberedAuthReturnPath,
+  getSafeAuthSearchParams,
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
 import {
@@ -21,13 +23,36 @@ import {
   getRestaurantLoginVisual,
 } from '../../config/restaurantCategory';
 import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/loginBranding';
+import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
 
 export default function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const branding = useRestaurantLoginBranding(searchParams);
-  const authExperience = resolveAuthExperience(searchParams);
-  const loginPath = buildAuthEntryUrl('/login', searchParams);
+  const pathSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const searchReference = searchParams.toString();
+  const contextualSearchParams = useMemo(() => {
+    const params = new URLSearchParams(searchReference);
+    if (pathSlug) {
+      if (!params.has('slug') && !params.has('restaurantSlug')) params.set('slug', pathSlug);
+      if (!params.has('next')) {
+        params.set('next', getRememberedAuthReturnPath(pathSlug) || `/${pathSlug}`);
+      }
+    }
+    return params;
+  }, [pathSlug, searchReference]);
+  const canonicalSearch = getSafeAuthSearchParams(contextualSearchParams).toString();
+
+  useLayoutEffect(() => {
+    if (!pathSlug || searchParams.has('next') || !canonicalSearch) return;
+    navigate(`/${pathSlug}/register?${canonicalSearch}`, { replace: true });
+  }, [canonicalSearch, navigate, pathSlug, searchParams]);
+
+  const branding = useRestaurantLoginBranding(contextualSearchParams);
+  const authExperience = resolveAuthExperience(contextualSearchParams);
+  const loginPath = pathSlug
+    ? `/${pathSlug}/login${canonicalSearch ? `?${canonicalSearch}` : ''}`
+    : buildAuthEntryUrl('/login', contextualSearchParams);
   const isTableContext = authExperience.context === 'TABLE';
   const tableLabel = authExperience.tableNumber ? `Mesa ${authExperience.tableNumber}` : 'sua mesa';
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -76,7 +101,9 @@ export default function Register() {
       toast.success(
         isTableContext
           ? `Cadastro realizado! Entre para continuar na ${tableLabel}.`
-          : 'Cadastro realizado com sucesso! Faça login para continuar.',
+          : pathSlug
+            ? `Cadastro realizado! Entre para continuar no ${branding.name}.`
+            : 'Cadastro realizado com sucesso! Faça login para continuar.',
       );
       navigate(loginPath);
     } catch (error) {
@@ -134,7 +161,9 @@ export default function Register() {
             overrideText={
               isTableContext
                 ? `Crie sua conta para continuar seu pedido na ${tableLabel}. A conta será a mesma usada no cardápio online.`
-                : null
+                : pathSlug
+                  ? `Crie sua conta de cliente para pedir e acompanhar seus pedidos no ${branding.name}.`
+                  : null
             }
           />
         </S.LoginBannerSection>
@@ -142,22 +171,30 @@ export default function Register() {
         <S.LoginFormSection>
           <S.LoginFormWrapper>
             <S.LoginAccessBadge>
-              <span>{categoryLabel}</span>
+              <span>{pathSlug ? `${branding.name} • cliente` : categoryLabel}</span>
             </S.LoginAccessBadge>
             <S.WelcomeText>
-              {isTableContext ? `Criar conta para a ${tableLabel}` : 'Criar Conta'}
+              {isTableContext
+                ? `Criar conta para a ${tableLabel}`
+                : pathSlug
+                  ? 'Criar conta de cliente'
+                  : 'Criar Conta'}
             </S.WelcomeText>
             <S.FormSubtitle>
               {isTableContext
                 ? 'Depois do cadastro, entre com esta mesma conta para voltar exatamente à sua mesa.'
-                : 'Preencha os campos abaixo para começar.'}
+                : pathSlug
+                  ? `Seu cadastro continuará vinculado à experiência de ${branding.name}.`
+                  : 'Preencha os campos abaixo para começar.'}
             </S.FormSubtitle>
 
             <S.Form onSubmit={handleSubmit} aria-busy={isSubmitting}>
               <S.InputGroup>
                 <S.Label htmlFor="name">Nome Completo</S.Label>
                 <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true"><User /></S.LoginInputIcon>
+                  <S.LoginInputIcon aria-hidden="true">
+                    <User />
+                  </S.LoginInputIcon>
                   <S.Input
                     id="name"
                     type="text"
@@ -174,7 +211,9 @@ export default function Register() {
               <S.InputGroup>
                 <S.Label htmlFor="email">E-mail</S.Label>
                 <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true"><Mail /></S.LoginInputIcon>
+                  <S.LoginInputIcon aria-hidden="true">
+                    <Mail />
+                  </S.LoginInputIcon>
                   <S.Input
                     id="email"
                     type="email"
@@ -191,7 +230,9 @@ export default function Register() {
               <S.InputGroup>
                 <S.Label htmlFor="password">Senha</S.Label>
                 <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                  <S.LoginInputIcon aria-hidden="true">
+                    <LockKeyhole />
+                  </S.LoginInputIcon>
                   <S.Input
                     id="password"
                     type="password"
@@ -212,7 +253,9 @@ export default function Register() {
               <S.InputGroup>
                 <S.Label htmlFor="confirmPassword">Confirmar Senha</S.Label>
                 <S.LoginInputField>
-                  <S.LoginInputIcon aria-hidden="true"><LockKeyhole /></S.LoginInputIcon>
+                  <S.LoginInputIcon aria-hidden="true">
+                    <LockKeyhole />
+                  </S.LoginInputIcon>
                   <S.Input
                     id="confirmPassword"
                     type="password"
@@ -254,7 +297,13 @@ export default function Register() {
                   </>
                 ) : (
                   <>
-                    <span>{isTableContext ? `Criar conta e continuar na ${tableLabel}` : 'Finalizar Cadastro'}</span>
+                    <span>
+                      {isTableContext
+                        ? `Criar conta e continuar na ${tableLabel}`
+                        : pathSlug
+                          ? 'Criar conta de cliente'
+                          : 'Finalizar Cadastro'}
+                    </span>
                     <ArrowRight aria-hidden="true" />
                   </>
                 )}

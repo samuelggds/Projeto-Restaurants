@@ -6,6 +6,7 @@ import type {
   PlatformSettings,
   RestaurantAccessInput,
   SubscriptionUpdateInput,
+  AdminPortalKeyResult,
 } from '../pages/super_admin/types';
 import type { RestaurantCategory } from '../config/restaurantCategory';
 
@@ -58,6 +59,16 @@ class SuperAdminService {
       `/super-admin/restaurants/${restaurantId}/administrators`,
       input,
     );
+    return response.data;
+  }
+
+  async rotateAdminPortalKey(restaurantId: number): Promise<AdminPortalKeyResult> {
+    const response = await api.post(`/super-admin/restaurants/${restaurantId}/admin-portal-key`);
+    return response.data;
+  }
+
+  async revokeAdminPortalKey(restaurantId: number) {
+    const response = await api.delete(`/super-admin/restaurants/${restaurantId}/admin-portal-key`);
     return response.data;
   }
 

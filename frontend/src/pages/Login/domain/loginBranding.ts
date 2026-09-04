@@ -14,9 +14,9 @@ export type LoginBranding = {
 };
 
 export const DEFAULT_LOGIN_BRANDING: LoginBranding = {
-  name: 'Peça Já Food',
+  name: 'GastroNexa',
   description:
-    'Acesse nosso menu interativo global. Faça seus pedidos de forma rápida e gerencie sua experiência gastronômica sem complicações.',
+    'Acesse a plataforma com segurança para continuar sua experiência no restaurante ou na operação.',
   logoUrl: '',
   primaryColor: '#ef5b00',
   category: 'RESTAURANTE',
@@ -103,6 +103,7 @@ const RESERVED_ROUTES = new Set([
   'recover-password',
   'orders',
   'mesa',
+  'equipe',
 ]);
 
 function parsePositiveRestaurantId(value: string | null) {

@@ -12,6 +12,7 @@ const RESERVED_ROOTS = new Set([
   'billing',
   'change-password',
   'courier',
+  'equipe',
   'kitchen',
   'login',
   'orders',
@@ -26,11 +27,23 @@ const RESERVED_ROOTS = new Set([
 const normalizePath = (pathname: string) => pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
 const isPath = (pathname: string, base: string) =>
   pathname === base || pathname.startsWith(`${base}/`);
-const isGuestEntry = (path: string) =>
-  path === '/login' ||
-  path === '/recover-password' ||
-  path === '/register' ||
-  /^\/[^/]+\/login$/.test(path);
+const isAllowedTenantRoot = (value: string | undefined) =>
+  Boolean(value && !RESERVED_ROOTS.has(value.toLowerCase()));
+const isGuestEntry = (path: string) => {
+  if (
+    path === '/login' ||
+    path === '/recover-password' ||
+    path === '/register' ||
+    path === '/super_admin/login'
+  )
+    return true;
+
+  const contextualEntry = path.match(/^\/([^/]+)\/(?:login|register|equipe|admin)$/)?.[1];
+  if (isAllowedTenantRoot(contextualEntry)) return true;
+
+  const privateAdminEntry = path.match(/^\/([^/]+)\/admin\/[^/]+$/)?.[1];
+  return isAllowedTenantRoot(privateAdminEntry);
+};
 
 export function isPublicRoute(pathname: string) {
   const path = normalizePath(pathname);
