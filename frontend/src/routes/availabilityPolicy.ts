@@ -15,15 +15,12 @@ export function resolveAvailabilityView(input: {
   const role = String(input.role || '').toUpperCase();
   const superAdmin = role === 'SUPER_ADMIN';
 
-  // O login precisa continuar renderizável para autenticar o SUPER_ADMIN e
-  // as rotas do painel seguem para o guard de autenticação/RBAC. O bypass de
-  // disponibilidade não concede acesso ao painel por conta própria.
   if (isMaintenanceBypassPath(input.pathname)) return 'APP';
   if (input.platformMaintenance && !superAdmin) return 'PLATFORM_MAINTENANCE';
   if (input.initialStatusPending && !superAdmin) return 'LOADING';
   if (!input.systemBlock || superAdmin) return 'APP';
 
-  if (!input.userPresent && input.pathname === '/login') return 'APP';
+  if (!input.userPresent && /^\/[^/]+\/(?:login|team|admin)$/u.test(input.pathname)) return 'APP';
   if (role === 'ADMIN' && input.systemBlock.reason === 'BILLING') return 'BILLING_ADMIN';
   return 'TENANT_MAINTENANCE';
 }
