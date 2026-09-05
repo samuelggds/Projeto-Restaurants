@@ -14,7 +14,10 @@ import * as S from './DeliveryChat.styles';
 const POLL_INTERVAL_MS = 5_000;
 
 function mergeMessage(list: DeliveryChatMessage[], incoming: DeliveryChatMessage) {
-  if (list.some((item) => item.id === incoming.id)) return list;
+  const existing = list.find((item) => item.id === incoming.id);
+  if (existing) {
+    return list.map((item) => (item.id === incoming.id ? { ...item, ...incoming } : item));
+  }
   return [...list, incoming].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
@@ -46,7 +49,7 @@ function playSingleBeep() {
 
 function vibrateOnce() {
   try {
-    if ('vibrate' in navigator) navigator.vibrate(180);
+    navigator.vibrate?.(180);
   } catch {
     // Vibração não é suportada em todos os aparelhos/navegadores.
   }
@@ -75,9 +78,9 @@ export default function DeliveryChatPage() {
   );
 
   useEffect(() => {
-    if (!hasInvalidOrderId && actorId) {
-      clearDeliveryChatUnread(actorScope, actorId, orderId);
-    }
+    if (hasInvalidOrderId) return;
+    if (actorId) clearDeliveryChatUnread(actorScope, actorId, orderId);
+    void deliveryChatService.markRead(orderId).catch(() => undefined);
   }, [actorId, actorScope, hasInvalidOrderId, orderId]);
 
   useEffect(() => {
@@ -134,7 +137,7 @@ export default function DeliveryChatPage() {
       const payload = event as { orderId?: number; message?: DeliveryChatMessage };
       if (Number(payload?.orderId || 0) !== orderId || !payload?.message) return;
 
-      const incomingMessage = payload.message as DeliveryChatMessage;
+      const incomingMessage = payload.message;
       setSnapshot((current) => {
         if (!current) return current;
         const next = {
@@ -154,9 +157,14 @@ export default function DeliveryChatPage() {
       ) {
         seenIncomingMessageIdsRef.current.add(incomingId);
         if (actorId) clearDeliveryChatUnread(actorScope, actorId, orderId);
+        void deliveryChatService.markRead(orderId).catch(() => undefined);
         playSingleBeep();
         vibrateOnce();
       }
+    };
+    const onRead = (event: unknown) => {
+      const payload = event as { orderId?: number };
+      if (Number(payload?.orderId || 0) === orderId) void refresh(true);
     };
     const onStatus = (event: unknown) => {
       const raw = event as { id?: number; order?: { id?: number } };
@@ -164,12 +172,14 @@ export default function DeliveryChatPage() {
       if (eventOrderId === orderId) void refresh(true);
     };
     socket.on('delivery:chat-message', onMessage);
+    socket.on('delivery:chat-read', onRead);
     socket.on('order:status-changed', onStatus);
 
     return () => {
       active = false;
       window.clearInterval(poll);
       socket.off('delivery:chat-message', onMessage);
+      socket.off('delivery:chat-read', onRead);
       socket.off('order:status-changed', onStatus);
       release();
     };
@@ -261,7 +271,6 @@ export default function DeliveryChatPage() {
               </strong>
               <span>{snapshot.order.restaurantName}</span>
             </div>
-            <span className="live">Tempo real</span>
           </S.Header>
           <S.Context aria-label="Informações da conversa">
             <span>
@@ -296,18 +305,22 @@ export default function DeliveryChatPage() {
               </p>
             </S.Empty>
           ) : (
-            snapshot.messages.map((message) => (
-              <S.Message key={message.id} $mine={message.senderRole === myMessageRole}>
-                <b>{message.senderName}</b>
-                <p>{message.message}</p>
-                <time dateTime={message.createdAt}>
-                  {new Date(message.createdAt).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </time>
-              </S.Message>
-            ))
+            snapshot.messages.map((message) => {
+              const mine = String(message.senderRole).toUpperCase() === myMessageRole;
+              return (
+                <S.Message key={message.id} $mine={mine}>
+                  <b>{message.senderName}</b>
+                  <p>{message.message}</p>
+                  <time dateTime={message.createdAt}>
+                    {new Date(message.createdAt).toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {mine && message.readAt ? ' · Visualizada' : ''}
+                  </time>
+                </S.Message>
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </S.Messages>
