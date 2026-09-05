@@ -42,6 +42,7 @@ import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
 import { premiumTableOrderMiddleware } from '../../../middlewares/premiumTableOrderMiddleware.js';
+import { deliveryTrackingAccessMiddleware } from '../../../middlewares/deliveryTrackingAccessMiddleware.js';
 import {
   deliveryConfirmationAttemptRateLimitMiddleware,
   paymentPinAttemptRateLimitMiddleware,
@@ -179,7 +180,7 @@ router.patch(
   },
 );
 
-router.get('/:id/tracking', authMiddleware, (req, res, next) => {
+router.get('/:id/tracking', deliveryTrackingAccessMiddleware, (req, res, next) => {
   GetDeliveryTrackingController.handle(req, res, next);
 });
 
