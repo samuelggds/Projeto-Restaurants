@@ -66,6 +66,21 @@ export function HomePage({
   useEffect(() => {
     toggleFavoriteRef.current = onToggleFavorite;
   }, [onToggleFavorite]);
+
+  useEffect(() => {
+    if (window.location.hash.toLowerCase() !== '#cardapio' || data.categories.length === 0) {
+      return undefined;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const menu = document.getElementById('cardapio');
+      if (!menu) return;
+      const reducedMotion =
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+      menu.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [data.categories.length]);
+
   const selectedCategory = data.categories.some((category) => category.id === activeCategory)
     ? activeCategory
     : (data.categories[0]?.id ?? '');
