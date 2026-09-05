@@ -25,6 +25,7 @@ import {
 import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
+import PickupPaymentPanel from './PickupPaymentPanel';
 import type { AdminOrder } from '../types';
 import {
   filterAdminOrders,
@@ -374,39 +375,19 @@ export function AdminOrders({
         </S.OrdersPanelHeader>
 
         <S.QueueTabs aria-label="Visualizações rápidas da fila">
-          <button
-            type="button"
-            aria-pressed={queueView === 'ALL'}
-            onClick={() => selectQueueView('ALL')}
-          >
+          <button type="button" aria-pressed={queueView === 'ALL'} onClick={() => selectQueueView('ALL')}>
             Todos <span>{orders.length}</span>
           </button>
-          <button
-            type="button"
-            aria-pressed={queueView === 'ACTIVE'}
-            onClick={() => selectQueueView('ACTIVE')}
-          >
+          <button type="button" aria-pressed={queueView === 'ACTIVE'} onClick={() => selectQueueView('ACTIVE')}>
             Ativos <span>{summary.active}</span>
           </button>
-          <button
-            type="button"
-            aria-pressed={queueView === 'PAYMENT'}
-            onClick={() => selectQueueView('PAYMENT')}
-          >
+          <button type="button" aria-pressed={queueView === 'PAYMENT'} onClick={() => selectQueueView('PAYMENT')}>
             Pagamento <span>{summary.awaitingPayment}</span>
           </button>
-          <button
-            type="button"
-            aria-pressed={queueView === 'IN_PROGRESS'}
-            onClick={() => selectQueueView('IN_PROGRESS')}
-          >
+          <button type="button" aria-pressed={queueView === 'IN_PROGRESS'} onClick={() => selectQueueView('IN_PROGRESS')}>
             Em andamento <span>{summary.inProgress}</span>
           </button>
-          <button
-            type="button"
-            aria-pressed={queueView === 'DELIVERED'}
-            onClick={() => selectQueueView('DELIVERED')}
-          >
+          <button type="button" aria-pressed={queueView === 'DELIVERED'} onClick={() => selectQueueView('DELIVERED')}>
             Entregues <span>{summary.delivered}</span>
           </button>
         </S.QueueTabs>
@@ -434,9 +415,7 @@ export function AdminOrders({
               >
                 <option value="">Todos os status</option>
                 {ORDER_STATUSES.map((item) => (
-                  <option key={item} value={item}>
-                    {statusLabels[item]}
-                  </option>
+                  <option key={item} value={item}>{statusLabels[item]}</option>
                 ))}
               </select>
               <ChevronDown aria-hidden="true" />
@@ -448,9 +427,7 @@ export function AdminOrders({
               {visibleOrders.length === 1 ? 'pedido encontrado' : 'pedidos encontrados'}
             </span>
             {hasFilters && (
-              <button type="button" onClick={clearFilters}>
-                <FilterX aria-hidden="true" /> Limpar filtros
-              </button>
+              <button type="button" onClick={clearFilters}><FilterX aria-hidden="true" /> Limpar filtros</button>
             )}
           </div>
         </S.OrdersToolbar>
@@ -460,173 +437,92 @@ export function AdminOrders({
             {displayedOrders.map((order) => {
               const payment = getOrderPaymentPresentation(order);
               const progress = getOrderProgress(order.status);
-              const statusLabel =
-                statusLabels[order.status] ??
-                order.status.replaceAll('_', ' ').toLocaleLowerCase('pt-BR');
+              const statusLabel = statusLabels[order.status] ?? order.status.replaceAll('_', ' ').toLocaleLowerCase('pt-BR');
               const isCancelled = order.status === 'CANCELADO';
               const isFinished = isCancelled || order.status === 'ENTREGUE';
               const isRefundProcessing = order.refundStatus === 'PROCESSING';
               const isCancelling = cancellingOrderId === order.numericId;
               const isConfirmingPayment = confirmingPaymentId === order.numericId;
+              const isPickupPayAtStore =
+                String(order.type || '').toUpperCase() === 'RETIRADA' &&
+                !order.paid &&
+                !order.paymentMethod &&
+                !order.payOnDelivery;
 
               return (
-                <article
-                  className={`order-card status-${order.status.toLowerCase()}`}
-                  key={order.numericId}
-                >
+                <article className={`order-card status-${order.status.toLowerCase()}`} key={order.numericId}>
                   <header className="order-header">
                     <div className="order-identity">
-                      <div>
-                        <span className="order-number">{order.id}</span>
-                        <h3>{order.customerName}</h3>
-                      </div>
-                      <span className="order-created">
-                        <Clock3 aria-hidden="true" />
-                        {formatCreatedAt(order.createdAt)}
-                      </span>
+                      <div><span className="order-number">{order.id}</span><h3>{order.customerName}</h3></div>
+                      <span className="order-created"><Clock3 aria-hidden="true" />{formatCreatedAt(order.createdAt)}</span>
                     </div>
-                    <span className="order-status">
-                      <i aria-hidden="true" />
-                      {statusLabel}
-                    </span>
+                    <span className="order-status"><i aria-hidden="true" />{statusLabel}</span>
                   </header>
 
                   <div className="order-details">
                     <div className={`detail payment-detail tone-${payment.tone}`}>
-                      <span className="detail-icon" aria-hidden="true">
-                        <PaymentIcon method={order.payOnDeliveryMethod || order.paymentMethod} />
-                      </span>
+                      <span className="detail-icon" aria-hidden="true"><PaymentIcon method={order.payOnDeliveryMethod || order.paymentMethod} /></span>
                       <div>
                         <span>Pagamento</span>
-                        <b>{payment.title}</b>
-                        <small>{payment.detail}</small>
+                        <b>{isPickupPayAtStore ? 'Pagar no restaurante' : payment.title}</b>
+                        <small>{isPickupPayAtStore ? 'Cliente paga ao retirar' : payment.detail}</small>
                       </div>
                     </div>
                     <div className="detail">
-                      <span className="detail-icon neutral" aria-hidden="true">
-                        <OrderTypeIcon type={order.type} />
-                      </span>
-                      <div>
-                        <span>Modalidade</span>
-                        <b>{getOrderTypeLabel(order.type)}</b>
-                        <small>Forma de atendimento</small>
-                      </div>
+                      <span className="detail-icon neutral" aria-hidden="true"><OrderTypeIcon type={order.type} /></span>
+                      <div><span>Modalidade</span><b>{getOrderTypeLabel(order.type)}</b><small>Forma de atendimento</small></div>
                     </div>
-                    <div className="order-total">
-                      <span>Total do pedido</span>
-                      <strong>{money(order.total)}</strong>
-                    </div>
+                    <div className="order-total"><span>Total do pedido</span><strong>{money(order.total)}</strong></div>
                   </div>
 
                   <div className="order-progress">
-                    <div className="progress-heading">
-                      <span>Andamento do pedido</span>
-                      <b>{statusLabel}</b>
-                    </div>
+                    <div className="progress-heading"><span>Andamento do pedido</span><b>{statusLabel}</b></div>
                     <div className="progress-content">
-                      <div
-                        className={`progress-track${isCancelled ? ' cancelled' : ''}`}
-                        role="progressbar"
-                        aria-label={`Andamento do pedido ${order.id}`}
-                        aria-valuemin={0}
-                        aria-valuemax={PROGRESS_STEPS}
-                        aria-valuenow={progress}
-                        aria-valuetext={statusLabel}
-                      >
+                      <div className={`progress-track${isCancelled ? ' cancelled' : ''}`} role="progressbar" aria-label={`Andamento do pedido ${order.id}`} aria-valuemin={0} aria-valuemax={PROGRESS_STEPS} aria-valuenow={progress} aria-valuetext={statusLabel}>
                         {Array.from({ length: PROGRESS_STEPS }, (_, index) => (
-                          <i
-                            key={progressLabels[index]}
-                            data-active={!isCancelled && index < progress}
-                            aria-hidden="true"
-                          />
+                          <i key={progressLabels[index]} data-active={!isCancelled && index < progress} aria-hidden="true" />
                         ))}
                       </div>
                       <div className="progress-labels" aria-hidden="true">
-                        {progressLabels.map((label) => (
-                          <span key={label}>{label}</span>
-                        ))}
+                        {progressLabels.map((label) => <span key={label}>{label}</span>)}
                       </div>
                     </div>
                   </div>
 
+                  {isPickupPayAtStore && !isFinished ? (
+                    <PickupPaymentPanel orderId={order.numericId} total={order.total} onPaid={() => undefined} />
+                  ) : null}
+
                   <footer className="order-actions">
                     {order.refundStatus === 'SUCCEEDED' ? (
-                      <span className="operation-note refund-note">
-                        <CheckCircle2 aria-hidden="true" />
-                        Estorno concluído no mesmo meio de pagamento
-                      </span>
+                      <span className="operation-note refund-note"><CheckCircle2 aria-hidden="true" />Estorno concluído no mesmo meio de pagamento</span>
                     ) : isRefundProcessing ? (
-                      <span className="operation-note processing-note">
-                        <LoaderCircle className="loading-icon" aria-hidden="true" />
-                        Estorno em processamento; aguarde a confirmação
-                      </span>
+                      <span className="operation-note processing-note"><LoaderCircle className="loading-icon" aria-hidden="true" />Estorno em processamento; aguarde a confirmação</span>
                     ) : order.refundStatus === 'FAILED' ? (
-                      <span className="operation-note failed-note">
-                        <AlertTriangle aria-hidden="true" />O estorno não foi concluído; tente
-                        novamente
-                      </span>
+                      <span className="operation-note failed-note"><AlertTriangle aria-hidden="true" />O estorno não foi concluído; tente novamente</span>
                     ) : !isFinished && payment.automaticRefund ? (
-                      <span className="operation-note refund-note">
-                        <ShieldCheck aria-hidden="true" />
-                        Ao cancelar, o estorno online será solicitado automaticamente
-                      </span>
+                      <span className="operation-note refund-note"><ShieldCheck aria-hidden="true" />Ao cancelar, o estorno online será solicitado automaticamente</span>
                     ) : !isFinished && order.paid && order.payOnDelivery ? (
-                      <span className="operation-note manual-note">
-                        <CircleDollarSign aria-hidden="true" />
-                        Pagamento na entrega exige devolução manual
-                      </span>
+                      <span className="operation-note manual-note"><CircleDollarSign aria-hidden="true" />Pagamento na entrega exige devolução manual</span>
                     ) : !isFinished && order.paid ? (
-                      <span className="operation-note manual-note">
-                        <AlertTriangle aria-hidden="true" />
-                        Pagamento sem estorno online automático
-                      </span>
+                      <span className="operation-note manual-note"><AlertTriangle aria-hidden="true" />Pagamento sem estorno online automático</span>
                     ) : (
                       <span className="operation-note finished-note">
-                        {isFinished ? (
-                          <>
-                            <CheckCircle2 aria-hidden="true" /> Pedido finalizado
-                          </>
-                        ) : (
-                          'Sem cobrança online confirmada'
-                        )}
+                        {isFinished ? <><CheckCircle2 aria-hidden="true" /> Pedido finalizado</> : isPickupPayAtStore ? 'Aguardando pagamento no balcão' : 'Sem cobrança online confirmada'}
                       </span>
                     )}
 
                     {!isFinished && !isRefundProcessing && (
                       <div className="action-buttons">
                         {!order.paid && order.payOnDelivery && (
-                          <button
-                            className="confirm-payment"
-                            type="button"
-                            onClick={() => void confirmPayment(order)}
-                            disabled={isConfirmingPayment || isCancelling}
-                            aria-label={`Confirmar pagamento do pedido ${order.id}`}
-                          >
-                            {isConfirmingPayment ? (
-                              <LoaderCircle className="loading-icon" aria-hidden="true" />
-                            ) : (
-                              <CheckCircle2 aria-hidden="true" />
-                            )}
+                          <button className="confirm-payment" type="button" onClick={() => void confirmPayment(order)} disabled={isConfirmingPayment || isCancelling} aria-label={`Confirmar pagamento do pedido ${order.id}`}>
+                            {isConfirmingPayment ? <LoaderCircle className="loading-icon" aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
                             {isConfirmingPayment ? 'Confirmando...' : 'Confirmar pagamento'}
                           </button>
                         )}
-                        <button
-                          className="cancel-order"
-                          type="button"
-                          onClick={() => void cancelOrder(order)}
-                          disabled={isCancelling || isConfirmingPayment}
-                          aria-label={`${payment.automaticRefund ? 'Cancelar e estornar' : 'Cancelar'} o pedido ${order.id}`}
-                        >
-                          {isCancelling ? (
-                            <LoaderCircle className="loading-icon" aria-hidden="true" />
-                          ) : (
-                            <Undo2 aria-hidden="true" />
-                          )}
-                          {isCancelling
-                            ? 'Processando...'
-                            : payment.automaticRefund
-                              ? 'Cancelar e estornar'
-                              : 'Cancelar pedido'}
+                        <button className="cancel-order" type="button" onClick={() => void cancelOrder(order)} disabled={isCancelling || isConfirmingPayment} aria-label={`${payment.automaticRefund ? 'Cancelar e estornar' : 'Cancelar'} o pedido ${order.id}`}>
+                          {isCancelling ? <LoaderCircle className="loading-icon" aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
+                          {isCancelling ? 'Processando...' : payment.automaticRefund ? 'Cancelar e estornar' : 'Cancelar pedido'}
                         </button>
                       </div>
                     )}
@@ -639,47 +535,19 @@ export function AdminOrders({
           <S.OrdersEmpty>
             <span aria-hidden="true">{orders.length ? <Search /> : <ShoppingBag />}</span>
             <h3>{orders.length ? 'Nenhum pedido encontrado' : 'Sua fila está vazia'}</h3>
-            <p>
-              {orders.length
-                ? 'Ajuste a busca ou escolha outra visualização para encontrar o pedido.'
-                : 'Os novos pedidos aparecerão aqui automaticamente, sem precisar atualizar a página.'}
-            </p>
-            {hasFilters && (
-              <button type="button" onClick={clearFilters}>
-                <FilterX aria-hidden="true" /> Limpar filtros
-              </button>
-            )}
+            <p>{orders.length ? 'Ajuste a busca ou escolha outra visualização para encontrar o pedido.' : 'Os novos pedidos aparecerão aqui automaticamente, sem precisar atualizar a página.'}</p>
+            {hasFilters && <button type="button" onClick={clearFilters}><FilterX aria-hidden="true" /> Limpar filtros</button>}
           </S.OrdersEmpty>
         )}
 
         <S.OrdersPagination>
-          <span>
-            {visibleOrders.length === 0
-              ? 'Nenhum pedido para exibir'
-              : `Exibindo ${displayedOrders.length} de ${visibleOrders.length} pedidos`}
-          </span>
+          <span>{visibleOrders.length === 0 ? 'Nenhum pedido para exibir' : `Exibindo ${displayedOrders.length} de ${visibleOrders.length} pedidos`}</span>
           <div>
             {visibleLimit > LIST_BATCH_SIZE ? (
-              <button
-                type="button"
-                aria-label="Voltar aos 10 pedidos iniciais"
-                onClick={() => setVisibleLimit(LIST_BATCH_SIZE)}
-              >
-                <ChevronLeft aria-hidden="true" /> Voltar aos 10 iniciais
-              </button>
+              <button type="button" aria-label="Voltar aos 10 pedidos iniciais" onClick={() => setVisibleLimit(LIST_BATCH_SIZE)}><ChevronLeft aria-hidden="true" /> Voltar aos 10 iniciais</button>
             ) : null}
             {displayedOrders.length < visibleOrders.length ? (
-              <button
-                type="button"
-                aria-label="Mostrar mais 10 pedidos"
-                onClick={() =>
-                  setVisibleLimit((current) =>
-                    Math.min(current + LIST_BATCH_SIZE, visibleOrders.length),
-                  )
-                }
-              >
-                Mostrar mais 10 <ChevronDown aria-hidden="true" />
-              </button>
+              <button type="button" aria-label="Mostrar mais 10 pedidos" onClick={() => setVisibleLimit((current) => Math.min(current + LIST_BATCH_SIZE, visibleOrders.length))}>Mostrar mais 10 <ChevronDown aria-hidden="true" /></button>
             ) : null}
           </div>
         </S.OrdersPagination>
