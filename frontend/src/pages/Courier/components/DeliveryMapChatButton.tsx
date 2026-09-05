@@ -32,15 +32,29 @@ export function DeliveryMapChatButton() {
   const role = String(user?.role || '').toUpperCase();
   const courierId = Number(user?.id || 0);
   const [orderId, setOrderId] = useState<number | null>(() => resolveCourierOrderId());
-  const [chatEnabled, setChatEnabled] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(() =>
-    courierId && orderId ? readDeliveryChatUnread('courier', courierId, orderId) : 0,
-  );
+  const [chatState, setChatState] = useState<{ orderId: number | null; enabled: boolean }>(() => ({
+    orderId: null,
+    enabled: false,
+  }));
+  const [unreadState, setUnreadState] = useState<{
+    orderId: number | null;
+    count: number;
+  }>(() => ({
+    orderId,
+    count: courierId && orderId ? readDeliveryChatUnread('courier', courierId, orderId) : 0,
+  }));
+
+  const unreadCount =
+    unreadState.orderId === orderId
+      ? unreadState.count
+      : courierId && orderId
+        ? readDeliveryChatUnread('courier', courierId, orderId)
+        : 0;
+  const chatEnabled = chatState.orderId === orderId && chatState.enabled;
 
   useEffect(() => {
     if (role !== 'MOTOQUEIRO') return;
     const updateOrder = () => setOrderId(resolveCourierOrderId());
-    updateOrder();
     const selector = document.querySelector<HTMLSelectElement>(
       'select[aria-label="Escolher entrega para visualizar no mapa"]',
     );
@@ -49,21 +63,21 @@ export function DeliveryMapChatButton() {
   }, [role]);
 
   useEffect(() => {
-    if (role !== 'MOTOQUEIRO' || !courierId || !orderId) {
-      setUnreadCount(0);
-      setChatEnabled(false);
-      return;
-    }
+    if (role !== 'MOTOQUEIRO' || !courierId || !orderId) return;
 
-    setUnreadCount(readDeliveryChatUnread('courier', courierId, orderId));
     let active = true;
     deliveryChatService
       .get(orderId)
       .then((snapshot) => {
-        if (active) setChatEnabled(String(snapshot.order.status).toUpperCase() === 'SAIU_PARA_ENTREGA');
+        if (active) {
+          setChatState({
+            orderId,
+            enabled: String(snapshot.order.status).toUpperCase() === 'SAIU_PARA_ENTREGA',
+          });
+        }
       })
       .catch(() => {
-        if (active) setChatEnabled(false);
+        if (active) setChatState({ orderId, enabled: false });
       });
 
     const unsubscribe = subscribeDeliveryChatUnread((event) => {
@@ -72,7 +86,7 @@ export function DeliveryMapChatButton() {
         event.actorId === courierId &&
         event.orderId === orderId
       ) {
-        setUnreadCount(event.count);
+        setUnreadState({ orderId: event.orderId, count: event.count });
       }
     });
 
