@@ -555,6 +555,7 @@ async function expectTenantSafeRequests(state: CourierE2EState) {
 
 async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
   let trackingStatus: CourierStatus = 'SAIU_PARA_ENTREGA';
+  const deliveryStartedAt = isoMinutesAgo(8);
   await mockSocket(page, state);
   await page.route(/^https:\/\/[^/]*tile\.openstreetmap\.org\/.*$/, (route) => route.abort());
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
@@ -574,14 +575,34 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
     if (pathname === '/auth/me' && method === 'GET') {
       return json(route, { user: customerUser });
     }
+    if (pathname === '/orders/my-orders' && method === 'GET') {
+      return json(route, {
+        orders: [
+          {
+            id: 601,
+            restaurantId: RESTAURANT_ID,
+            type: 'DELIVERY',
+            status: trackingStatus,
+            createdAt: isoMinutesAgo(18),
+            deliveryStartedAt,
+            deliveryConfirmationCode:
+              trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
+            items: [{ product: { name: 'Massa artesanal' } }],
+          },
+        ],
+      });
+    }
     if (pathname === '/orders/601/tracking' && method === 'GET') {
       state.trackingRequests.push(601);
       return json(route, {
         order: {
           id: 601,
           restaurantId: RESTAURANT_ID,
+          type: 'DELIVERY',
           status: trackingStatus,
-          deliveryStartedAt: isoMinutesAgo(8),
+          deliveryStartedAt,
+          deliveryConfirmationCode:
+            trackingStatus === 'SAIU_PARA_ENTREGA' ? DELIVERY_CODE : null,
           deliveredAt: trackingStatus === 'ENTREGUE' ? new Date().toISOString() : null,
           estimatedArrival:
             trackingStatus === 'ENTREGUE' ? null : new Date(Date.now() + 720_000).toISOString(),
@@ -667,7 +688,7 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
 
   await readyOrder.getByRole('button', { name: 'Retirar e iniciar entrega' }).click();
   const locationChoice = page.getByRole('dialog', {
-    name: 'Compartilhar localização durante a entrega?',
+    name: 'Compartilhar localização?',
   });
   await expect(locationChoice).toBeVisible();
   await expect.poll(() => state.claims).toHaveLength(0);
@@ -688,7 +709,7 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
     name: 'Ver detalhes do pedido 601',
   });
   if (await expandRouteOrder.isVisible()) await expandRouteOrder.click();
-  await expect(routeOrder.getByPlaceholder('4 últimos dígitos do celular')).toBeVisible();
+  await expect(routeOrder.getByLabel('Código de entrega informado pelo cliente')).toBeVisible();
 
   await openCourierView(page, 'Minha rota');
   const activateLocation = page.getByRole('button', { name: 'Ativar localização' });
@@ -720,10 +741,11 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
 
   await openCourierView(page, 'Em entrega');
   const deliveryOrder = orderCard(page, 601);
-  await deliveryOrder.getByPlaceholder('4 últimos dígitos do celular').fill('1234');
+  const deliveryCodeInput = deliveryOrder.getByLabel('Código de entrega informado pelo cliente');
+  await deliveryCodeInput.fill('1234');
   await deliveryOrder.getByRole('button', { name: 'Marcar como Entregue' }).click();
   await expect(deliveryOrder.getByText(/Código de confirmação/)).toBeVisible();
-  await deliveryOrder.getByPlaceholder('4 últimos dígitos do celular').fill(DELIVERY_CODE);
+  await deliveryCodeInput.fill(DELIVERY_CODE);
   await deliveryOrder.getByRole('button', { name: 'Marcar como Entregue' }).click();
   await expect.poll(() => state.deliveries).toEqual([{ id: 601, code: DELIVERY_CODE }]);
   await expect(deliveryOrder).toHaveCount(0);
