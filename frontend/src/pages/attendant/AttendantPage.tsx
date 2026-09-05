@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
@@ -169,8 +170,11 @@ export default function AttendantPage() {
       onRefresh={() => loadWorkspace(true)}
       onLogout={() => {
         const tenantSlug = restaurantSlugRef.current || getRememberedTenantSlug();
-        logout();
-        navigate(tenantSlug ? `/${tenantSlug}/team` : TENANT_REQUIRED_PATH, { replace: true });
+        const destination = tenantSlug ? `/${tenantSlug}/team` : TENANT_REQUIRED_PATH;
+        flushSync(() => {
+          logout();
+          navigate(destination, { replace: true });
+        });
       }}
     />
   );
