@@ -14,33 +14,57 @@ function asRecord(value: unknown): GenericRecord | null {
   return value as GenericRecord;
 }
 
+function safeStorageGet(key: string) {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // O checkout não deve falhar caso o navegador bloqueie o armazenamento local.
+  }
+}
+
+function safeStorageRemove(key: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // A remoção é best-effort em ambientes com storage restrito.
+  }
+}
+
 function rememberGuestTrackingAccess(payload: unknown) {
   const record = asRecord(payload);
   if (!record || typeof window === 'undefined') return;
   const orderId = Number(record.id ?? record.orderId ?? 0);
   const token = String(record.guestTrackingToken || '').trim();
   if (!Number.isInteger(orderId) || orderId <= 0 || !token) return;
-  localStorage.setItem(`${GUEST_TRACKING_TOKEN_PREFIX}${orderId}`, token);
-  localStorage.setItem(LAST_GUEST_DELIVERY_ORDER_KEY, String(orderId));
+  safeStorageSet(`${GUEST_TRACKING_TOKEN_PREFIX}${orderId}`, token);
+  safeStorageSet(LAST_GUEST_DELIVERY_ORDER_KEY, String(orderId));
 }
 
 export function getGuestOrderTrackingToken(orderId: string | number) {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem(`${GUEST_TRACKING_TOKEN_PREFIX}${Number(orderId)}`) || '';
+  return safeStorageGet(`${GUEST_TRACKING_TOKEN_PREFIX}${Number(orderId)}`) || '';
 }
 
 export function getLatestGuestDeliveryOrderId() {
-  if (typeof window === 'undefined') return null;
-  const orderId = Number(localStorage.getItem(LAST_GUEST_DELIVERY_ORDER_KEY) || 0);
+  const orderId = Number(safeStorageGet(LAST_GUEST_DELIVERY_ORDER_KEY) || 0);
   return Number.isInteger(orderId) && orderId > 0 ? orderId : null;
 }
 
 export function clearGuestOrderTrackingAccess(orderId: string | number) {
-  if (typeof window === 'undefined') return;
   const normalizedOrderId = Number(orderId);
-  localStorage.removeItem(`${GUEST_TRACKING_TOKEN_PREFIX}${normalizedOrderId}`);
-  if (Number(localStorage.getItem(LAST_GUEST_DELIVERY_ORDER_KEY) || 0) === normalizedOrderId) {
-    localStorage.removeItem(LAST_GUEST_DELIVERY_ORDER_KEY);
+  safeStorageRemove(`${GUEST_TRACKING_TOKEN_PREFIX}${normalizedOrderId}`);
+  if (Number(safeStorageGet(LAST_GUEST_DELIVERY_ORDER_KEY) || 0) === normalizedOrderId) {
+    safeStorageRemove(LAST_GUEST_DELIVERY_ORDER_KEY);
   }
 }
 
