@@ -146,21 +146,33 @@ export function CustomerTrackingChatButton({ orderId }: { orderId: number }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const customerId = Number(user?.id || 0);
-  const [unreadCount, setUnreadCount] = useState(() =>
-    customerId ? readDeliveryChatUnread('customer', customerId, orderId) : 0,
-  );
+  const [unreadState, setUnreadState] = useState<{
+    customerId: number;
+    orderId: number;
+    count: number;
+  }>(() => ({
+    customerId,
+    orderId,
+    count: customerId ? readDeliveryChatUnread('customer', customerId, orderId) : 0,
+  }));
   const seenMessageIdsRef = useRef(new Set<string>());
+
+  const unreadCount =
+    unreadState.customerId === customerId && unreadState.orderId === orderId
+      ? unreadState.count
+      : customerId
+        ? readDeliveryChatUnread('customer', customerId, orderId)
+        : 0;
 
   useEffect(() => {
     if (!customerId || !orderId) return;
-    setUnreadCount(readDeliveryChatUnread('customer', customerId, orderId));
     return subscribeDeliveryChatUnread((event) => {
       if (
         event.scope === 'customer' &&
         event.actorId === customerId &&
         event.orderId === orderId
       ) {
-        setUnreadCount(event.count);
+        setUnreadState({ customerId, orderId, count: event.count });
       }
     });
   }, [customerId, orderId]);
