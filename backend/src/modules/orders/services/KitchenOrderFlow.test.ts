@@ -12,6 +12,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
+import kitchenOrderRepository from '../repositories/KitchenOrderRepository.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import {
@@ -32,12 +33,14 @@ http.createServer = originalHttpCreateServer;
 
 const originals = {
   findAll: orderRepository.findAll,
+  kitchenFindAll: kitchenOrderRepository.findAll,
   findById: orderRepository.findById,
   updateStatusIfCurrent: orderRepository.updateStatusIfCurrent,
 };
 
 afterEach(() => {
   orderRepository.findAll = originals.findAll;
+  kitchenOrderRepository.findAll = originals.kitchenFindAll;
   orderRepository.findById = originals.findById;
   orderRepository.updateStatusIfCurrent = originals.updateStatusIfCurrent;
 });
@@ -64,7 +67,7 @@ test('fila da cozinha mantém MESA, RETIRADA e DELIVERY do mesmo tenant com iten
     { id: 2, restaurantId: 7, type: OrderType.RETIRADA, items: [] },
     { id: 3, restaurantId: 7, type: OrderType.DELIVERY, items: [] },
   ];
-  orderRepository.findAll = async (restaurantId, status) => {
+  kitchenOrderRepository.findAll = async (restaurantId, status) => {
     assert.equal(restaurantId, 7);
     assert.equal(status, undefined);
     return expected;
@@ -105,14 +108,12 @@ test('consulta operacional inclui conta da mesa e oculta somente PIX/cartão onl
   assert.equal(query.where.id, 81);
   assert.equal(query.where.restaurantId, 7);
   const paymentVisibility = query.where.AND[0].OR;
-  assert.deepEqual(paymentVisibility[0], {
-    settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT,
-  });
-  assert.equal(paymentVisibility[1].NOT.paid, false);
-  assert.equal(paymentVisibility[1].NOT.payOnDelivery, false);
-  assert.deepEqual(paymentVisibility[1].NOT.paymentMethod.in, [
-    PaymentMethod.PIX,
-    PaymentMethod.CARTAO,
+  assert.deepEqual(paymentVisibility, [
+    { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
+    { paymentMethod: null },
+    { paid: true },
+    { payOnDelivery: true },
+    { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
   ]);
   assert.equal(query.include.items.include.product, true);
   assert.equal(query.include.table.select.number, true);

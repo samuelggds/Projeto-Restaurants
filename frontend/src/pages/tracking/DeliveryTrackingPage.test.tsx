@@ -26,6 +26,11 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: mocks.id }),
   useNavigate: () => mocks.navigate,
 }));
+vi.mock('../../contexts/authContext', () => ({
+  useAuth: () => ({
+    user: { id: 12, role: 'CLIENTE' },
+  }),
+}));
 vi.mock('../../Services/ordersService', () => ({
   default: { getDeliveryTracking: mocks.getTracking },
   getGuestOrderTrackingToken: mocks.getGuestTrackingToken,
