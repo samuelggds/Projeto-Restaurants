@@ -3,6 +3,8 @@ export type ActiveOrderNotice = {
   status: string;
   summary: string;
   statusLabel: string;
+  deliveryConfirmationCode?: string | null;
+  deliveryStartedAt?: string | null;
 };
 
 const ACTIVE_STATUSES = new Set(['PENDENTE', 'PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA']);
@@ -17,7 +19,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 function orderSummary(order: Record<string, unknown>) {
   const items = Array.isArray(order.items) ? (order.items as Record<string, unknown>[]) : [];
-
   if (!items.length) return 'Seu pedido está em andamento';
 
   const product = items[0]?.product as Record<string, unknown> | undefined;
@@ -41,22 +42,21 @@ export function getActiveOrderNotice(orders: Record<string, unknown>[]): ActiveO
       new Date(String(first.createdAt || 0)).getTime(),
   )[0];
 
-  if (!latestOrder || latestOrder.id == null) {
-    return null;
-  }
+  if (!latestOrder || latestOrder.id == null) return null;
 
   const status = String(latestOrder.status || '').toUpperCase();
-
   const awaitsReceiptConfirmation = status === 'ENTREGUE' && !latestOrder.deliveryConfirmedAt;
+  if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) return null;
 
-  if (!ACTIVE_STATUSES.has(status) && !awaitsReceiptConfirmation) {
-    return null;
-  }
-
+  const code = String(latestOrder.deliveryConfirmationCode || '').trim();
   return {
     id: String(latestOrder.id),
     status,
     summary: orderSummary(latestOrder),
     statusLabel: STATUS_LABELS[status] || 'Pedido em andamento',
+    deliveryConfirmationCode: /^\d{4}$/.test(code) ? code : null,
+    deliveryStartedAt: latestOrder.deliveryStartedAt
+      ? String(latestOrder.deliveryStartedAt)
+      : null,
   };
 }
