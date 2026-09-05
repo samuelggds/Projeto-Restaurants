@@ -104,13 +104,15 @@ class UpdateOrderStatusService {
     const isPayOnDelivery =
       order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
     const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
+    const isCashPaymentAtHandoff =
+      order.type === OrderType.DELIVERY && order.paymentMethod === PaymentMethod.DINHEIRO;
 
     if (
       status === OrderStatus.ENTREGUE &&
       normalizedRole === UserRole.MOTOQUEIRO &&
       order.type === OrderType.DELIVERY
     ) {
-      if (order.paid !== true) {
+      if (order.paid !== true && !isCashPaymentAtHandoff) {
         throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
       }
 
@@ -164,6 +166,7 @@ class UpdateOrderStatusService {
     }
 
     let updatedOrder;
+    let cashPaymentConfirmedOnDelivery = false;
 
     if (status === OrderStatus.CANCELADO) {
       updatedOrder = await prisma.$transaction(async (tx) => {
@@ -212,6 +215,11 @@ class UpdateOrderStatusService {
           },
         });
 
+        if (isCashPaymentAtHandoff && deliveredOrder.paid !== true) {
+          cashPaymentConfirmedOnDelivery = true;
+          deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
+        }
+
         if (deliveredOrder?.paid === true) {
           await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
         }
@@ -223,6 +231,23 @@ class UpdateOrderStatusService {
         status: currentStatus,
         paid: order.paid,
       });
+    }
+
+    if (cashPaymentConfirmedOnDelivery && updatedOrder) {
+      io.to(`restaurant:${restaurantId}`).emit('order:payment-confirmed', {
+        orderId: updatedOrder.id,
+        paid: true,
+        paymentMethod: updatedOrder.paymentMethod,
+      });
+
+      if (updatedOrder.userId) {
+        io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
+          orderId: updatedOrder.id,
+          paid: true,
+          paymentMethod: updatedOrder.paymentMethod,
+        });
+      }
+      emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
     }
 
     notifyCustomerOrderStatusChanged({
