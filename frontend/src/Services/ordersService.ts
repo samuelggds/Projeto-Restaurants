@@ -6,51 +6,65 @@ type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
 
 const MAX_DELIVERY_TRACKING_ACCURACY_METERS = 500;
+const GUEST_TRACKING_TOKEN_PREFIX = 'guest-order-tracking-token:';
+const LAST_GUEST_DELIVERY_ORDER_KEY = 'last-guest-delivery-order-id';
 
 function asRecord(value: unknown): GenericRecord | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as GenericRecord;
+}
+
+function rememberGuestTrackingAccess(payload: unknown) {
+  const record = asRecord(payload);
+  if (!record || typeof window === 'undefined') return;
+  const orderId = Number(record.id ?? record.orderId ?? 0);
+  const token = String(record.guestTrackingToken || '').trim();
+  if (!Number.isInteger(orderId) || orderId <= 0 || !token) return;
+  localStorage.setItem(`${GUEST_TRACKING_TOKEN_PREFIX}${orderId}`, token);
+  localStorage.setItem(LAST_GUEST_DELIVERY_ORDER_KEY, String(orderId));
+}
+
+export function getGuestOrderTrackingToken(orderId: string | number) {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(`${GUEST_TRACKING_TOKEN_PREFIX}${Number(orderId)}`) || '';
+}
+
+export function getLatestGuestDeliveryOrderId() {
+  if (typeof window === 'undefined') return null;
+  const orderId = Number(localStorage.getItem(LAST_GUEST_DELIVERY_ORDER_KEY) || 0);
+  return Number.isInteger(orderId) && orderId > 0 ? orderId : null;
+}
+
+export function clearGuestOrderTrackingAccess(orderId: string | number) {
+  if (typeof window === 'undefined') return;
+  const normalizedOrderId = Number(orderId);
+  localStorage.removeItem(`${GUEST_TRACKING_TOKEN_PREFIX}${normalizedOrderId}`);
+  if (Number(localStorage.getItem(LAST_GUEST_DELIVERY_ORDER_KEY) || 0) === normalizedOrderId) {
+    localStorage.removeItem(LAST_GUEST_DELIVERY_ORDER_KEY);
+  }
 }
 
 function normalizeOrderItem(item: unknown) {
   const record = asRecord(item);
-  if (!record) {
-    return item;
-  }
-
+  if (!record) return item;
   const productRecord = asRecord(record.product) || {};
-  const fallbackName =
-    String(record.productName || record.name || record.title || '').trim() || undefined;
-
+  const fallbackName = String(record.productName || record.name || record.title || '').trim() || undefined;
   return {
     ...record,
     quantity: Number(record.quantity || 0) || 0,
-    product: {
-      ...productRecord,
-      name: productRecord.name || fallbackName,
-    },
+    product: { ...productRecord, name: productRecord.name || fallbackName },
   };
 }
 
 function normalizeOrder(order: unknown) {
   const record = asRecord(order);
-  if (!record) {
-    return order;
-  }
-
+  if (!record) return order;
   const rawItems = Array.isArray(record.items)
     ? record.items
     : Array.isArray(record.orderItems)
       ? record.orderItems
       : [];
-
-  return {
-    ...record,
-    items: rawItems.map(normalizeOrderItem),
-  };
+  return { ...record, items: rawItems.map(normalizeOrderItem) };
 }
 
 function normalizeOrdersPayload(payload: unknown) {
@@ -60,16 +74,12 @@ function normalizeOrdersPayload(payload: unknown) {
     : Array.isArray(payloadRecord?.orders)
       ? payloadRecord.orders
       : [];
-
   return candidate.map(normalizeOrder);
 }
 
 class OrdersService {
   async listRestaurantOrders(status?: string) {
-    const response = await api.get('/orders', {
-      params: status ? { status } : undefined,
-    });
-
+    const response = await api.get('/orders', { params: status ? { status } : undefined });
     return normalizeOrdersPayload(response.data);
   }
 
@@ -79,9 +89,7 @@ class OrdersService {
   }
 
   async clearOrdersAndCategories(confirmation: string) {
-    const response = await api.delete('/orders/cleanup/orders-categories', {
-      data: { confirmation },
-    });
+    const response = await api.delete('/orders/cleanup/orders-categories', { data: { confirmation } });
     return response.data;
   }
 
@@ -93,6 +101,7 @@ class OrdersService {
 
   async createOrder(payload: OrderPayload) {
     const response = await api.post('/orders', payload);
+    rememberGuestTrackingAccess(response.data);
     return response.data;
   }
 
@@ -103,11 +112,13 @@ class OrdersService {
 
   async createPixPayment(payload: PixPaymentPayload) {
     const response = await api.post('/orders/pix/payment', payload);
+    rememberGuestTrackingAccess(response.data);
     return response.data;
   }
 
   async createCardCheckout(payload: PixPaymentPayload) {
     const response = await api.post('/orders/card/checkout', payload);
+    rememberGuestTrackingAccess(response.data);
     return response.data;
   }
 
@@ -129,11 +140,7 @@ class OrdersService {
   async updateStatus(orderId: string | number, status: string, deliveryConfirmationCode?: string) {
     const response = await api.put(`/orders/${orderId}/status`, {
       status,
-      ...(deliveryConfirmationCode
-        ? {
-            deliveryConfirmationCode,
-          }
-        : {}),
+      ...(deliveryConfirmationCode ? { deliveryConfirmationCode } : {}),
     });
     return response.data;
   }
@@ -155,7 +162,6 @@ class OrdersService {
       Number.isFinite(accuracy) &&
       accuracy >= 0 &&
       accuracy <= MAX_DELIVERY_TRACKING_ACCURACY_METERS;
-
     const response = await api.patch(`/orders/${orderId}/claim-delivery`, {
       ...(hasShareableInitialLocation ? { initialLocation } : {}),
     });
@@ -188,7 +194,10 @@ class OrdersService {
   }
 
   async getDeliveryTracking(orderId: string | number) {
-    const response = await api.get(`/orders/${orderId}/tracking`);
+    const guestToken = getGuestOrderTrackingToken(orderId);
+    const response = await api.get(`/orders/${orderId}/tracking`, {
+      ...(guestToken ? { headers: { 'x-guest-order-token': guestToken } } : {}),
+    });
     return response.data;
   }
 
@@ -213,23 +222,17 @@ class OrdersService {
   }
 
   async confirmPaymentWithPin(orderId: string | number, pin: string) {
-    const response = await api.patch(`/orders/${orderId}/confirm-payment-with-pin`, {
-      pin,
-    });
+    const response = await api.patch(`/orders/${orderId}/confirm-payment-with-pin`, { pin });
     return response.data;
   }
 
   async reportIssue(orderId: string | number, message: string) {
-    const response = await api.post(`/orders/${orderId}/report-issue`, {
-      message,
-    });
+    const response = await api.post(`/orders/${orderId}/report-issue`, { message });
     return response.data;
   }
 
   async replyIssue(orderId: string | number, message: string) {
-    const response = await api.post(`/orders/${orderId}/reply-issue`, {
-      message,
-    });
+    const response = await api.post(`/orders/${orderId}/reply-issue`, { message });
     return response.data;
   }
 
