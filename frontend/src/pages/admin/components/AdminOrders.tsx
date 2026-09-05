@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -25,7 +25,6 @@ import {
 import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
-import PickupPaymentPanel from './PickupPaymentPanel';
 import type { AdminOrder } from '../types';
 import {
   filterAdminOrders,
@@ -36,6 +35,8 @@ import {
   getPaymentMethodLabel,
   ORDER_STATUSES,
 } from '../domain/adminOrders';
+
+const PickupPaymentPanel = lazy(() => import('./PickupPaymentPanel'));
 
 type QueueView = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED';
 
@@ -490,7 +491,9 @@ export function AdminOrders({
                   </div>
 
                   {isPickupPayAtStore && !isFinished ? (
-                    <PickupPaymentPanel orderId={order.numericId} total={order.total} onPaid={() => undefined} />
+                    <Suspense fallback={null}>
+                      <PickupPaymentPanel orderId={order.numericId} total={order.total} onPaid={() => undefined} />
+                    </Suspense>
                   ) : null}
 
                   <footer className="order-actions">
