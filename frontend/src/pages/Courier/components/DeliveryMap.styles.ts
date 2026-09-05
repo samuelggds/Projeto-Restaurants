@@ -130,6 +130,43 @@ export const RecenterControl = styled.button`
   }
 `;
 
+export const ChatControl = styled.button`
+  position: absolute;
+  right: 68px;
+  bottom: 106px;
+  z-index: 1000;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 12px;
+  color: #1d4ed8;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.24);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 560px) {
+    left: 16px;
+    right: auto;
+    max-width: calc(100% - 84px);
+  }
+`;
+
 export const MapStatus = styled.div`
   position: absolute;
   right: 16px;
