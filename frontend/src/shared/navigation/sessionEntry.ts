@@ -1,4 +1,8 @@
-import { buildSessionEntryUrl, type ReturnLocation } from './authNavigation';
+import {
+  buildSessionEntryUrl,
+  TENANT_REQUIRED_PATH,
+  type ReturnLocation,
+} from './authNavigation';
 
 const SIGNED_OUT_ROLE_STORAGE_KEY = 'gastronexa:signed-out-role';
 
@@ -21,7 +25,7 @@ export function rememberSignedOutRole(role: unknown) {
 }
 
 export function consumeSignedOutEntryUrl(location: ReturnLocation) {
-  if (typeof window === 'undefined') return buildSessionEntryUrl(location);
+  if (typeof window === 'undefined') return TENANT_REQUIRED_PATH;
 
   let role = '';
   try {
@@ -31,5 +35,5 @@ export function consumeSignedOutEntryUrl(location: ReturnLocation) {
     role = '';
   }
 
-  return buildSessionEntryUrl(location, role);
+  return role ? buildSessionEntryUrl(location, role) : TENANT_REQUIRED_PATH;
 }
