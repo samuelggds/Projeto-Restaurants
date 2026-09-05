@@ -3,17 +3,20 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import { FuncionarioSubRole, OrderStatus, UserRole } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
+import kitchenOrderRepository from '../repositories/KitchenOrderRepository.js';
 import listOrdersService from './ListOrdersService.js';
 import courierAccessService from './CourierAccessService.js';
 import prisma from '../../../config/prisma.js';
 
 const originalFindAll = orderRepository.findAll;
+const originalKitchenFindAll = kitchenOrderRepository.findAll;
 const originalFindCourierOrders = orderRepository.findCourierOrders;
 const originalAssertActiveCourier = courierAccessService.assertActiveCourier;
 const originalTransaction = prisma.$transaction;
 
 afterEach(() => {
   orderRepository.findAll = originalFindAll;
+  kitchenOrderRepository.findAll = originalKitchenFindAll;
   orderRepository.findCourierOrders = originalFindCourierOrders;
   courierAccessService.assertActiveCourier = originalAssertActiveCourier;
   prisma.$transaction = originalTransaction;
@@ -78,11 +81,16 @@ test('motoqueiro sem id autenticado nao acessa entregas', async () => {
 
 test('cozinha continua usando a consulta operacional do restaurante', async () => {
   let courierQueryCalled = false;
+  let genericQueryCalled = false;
   orderRepository.findCourierOrders = async () => {
     courierQueryCalled = true;
     return [];
   };
-  orderRepository.findAll = async (restaurantId, status) => {
+  orderRepository.findAll = async () => {
+    genericQueryCalled = true;
+    return [];
+  };
+  kitchenOrderRepository.findAll = async (restaurantId, status) => {
     assert.equal(restaurantId, 7);
     assert.equal(status, OrderStatus.PRONTO);
     return [{ id: 10 }];
@@ -97,5 +105,6 @@ test('cozinha continua usando a consulta operacional do restaurante', async () =
   );
 
   assert.equal(courierQueryCalled, false);
+  assert.equal(genericQueryCalled, false);
   assert.deepEqual(result, [{ id: 10 }]);
 });
