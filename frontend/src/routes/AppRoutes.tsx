@@ -41,6 +41,7 @@ import {
   rememberTenantSlug,
   TENANT_REQUIRED_PATH,
 } from '../shared/navigation/authNavigation';
+import { consumeSignedOutEntryUrl } from '../shared/navigation/sessionEntry';
 
 function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
   const isAuthEntry = /^\/[^/]+\/(?:login|register|recover-password)$/u.test(location.pathname);
@@ -75,6 +76,11 @@ function TenantRequiredPage() {
       </div>
     </main>
   );
+}
+
+function LegacyLoginRedirect() {
+  const location = useLocation();
+  return <Navigate to={consumeSignedOutEntryUrl(location)} replace />;
 }
 
 function RestaurantMenuGate() {
@@ -266,7 +272,7 @@ export default function AppRoutes() {
               </Route>
 
               <Route path="/" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-              <Route path="/login" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route path="/login" element={<LegacyLoginRedirect />} />
               <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
               <Route path="/recover-password" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
               <Route path="/mesa/:tableNumber" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
