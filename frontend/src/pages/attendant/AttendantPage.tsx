@@ -4,6 +4,11 @@ import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { acquireSocket } from '../../Services/socketService';
+import {
+  getRememberedTenantSlug,
+  rememberTenantSlug,
+  TENANT_REQUIRED_PATH,
+} from '../../shared/navigation/authNavigation';
 import { mapRestaurantBrand } from '../operations/orderAdapter';
 import attendantApi from './attendantApi';
 import { AttendantWorkspace } from './AttendantWorkspace';
@@ -36,6 +41,9 @@ export default function AttendantPage() {
   const accountRestaurant = asRecord(account.restaurant);
   const restaurantId = Number(account.restaurantId || accountRestaurant.id || 0) || null;
   const attendantName = String(account.name || 'Atendente').trim() || 'Atendente';
+  const restaurantSlugRef = useRef(
+    String(account.restaurantSlug || accountRestaurant.slug || '').trim().toLowerCase(),
+  );
   const [snapshot, setSnapshot] = useState<AttendantWorkspaceSnapshot>(emptySnapshot);
   const [restaurant, setRestaurant] = useState<AttendantRestaurantBrand>({
     name: String(accountRestaurant.name || 'Restaurante'),
@@ -103,6 +111,14 @@ export default function AttendantPage() {
       .getPublicSettings(restaurantId)
       .then((settings: UnknownRecord) => {
         if (!mountedRef.current) return;
+        const settingsRestaurant = asRecord(settings.restaurant);
+        const settingsSlug = String(settingsRestaurant.slug || settings.restaurantSlug || '')
+          .trim()
+          .toLowerCase();
+        if (settingsSlug) {
+          restaurantSlugRef.current = settingsSlug;
+          rememberTenantSlug(settingsSlug);
+        }
         const brand = mapRestaurantBrand(settings);
         setRestaurant((current) => ({
           name: brand.restaurantName || current.name,
@@ -152,8 +168,9 @@ export default function AttendantPage() {
       workspaceState={workspaceState}
       onRefresh={() => loadWorkspace(true)}
       onLogout={() => {
+        const tenantSlug = restaurantSlugRef.current || getRememberedTenantSlug();
         logout();
-        navigate('/login', { replace: true });
+        navigate(tenantSlug ? `/${tenantSlug}/team` : TENANT_REQUIRED_PATH, { replace: true });
       }}
     />
   );
