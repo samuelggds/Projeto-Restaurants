@@ -147,11 +147,17 @@ export default function OrderCard({
   const canDeliver = order.status === 'SAIU_PARA_ENTREGA';
   const payOnDeliveryMethod = getPayOnDeliveryMethod(order);
   const automatedPayOnDelivery = payOnDeliveryMethod === 'PIX' || payOnDeliveryMethod === 'CARTAO';
+  const cashPaymentAtHandoff =
+    payOnDeliveryMethod === 'DINHEIRO' || String(order.paymentMethod || '').toUpperCase() === 'DINHEIRO';
   const providerPaid = order.paid === true || deliveryPayment?.status === 'PAID';
-  const paymentPendingConfirmation = !providerPaid;
+  const paymentPendingConfirmation = !providerPaid && !cashPaymentAtHandoff;
   const normalizedDeliveryCode = String(deliveryCode || '').replace(/\D/g, '');
   const isDeliveryCodeValid = /^\d{4}$/.test(normalizedDeliveryCode);
-  const paymentStatusLabel = providerPaid ? 'Pago' : 'Não pago';
+  const paymentStatusLabel = providerPaid
+    ? 'Pago'
+    : cashPaymentAtHandoff
+      ? 'Receber na entrega'
+      : 'Não pago';
   const paymentMethodLabel = paymentLabel[order.paymentMethod || ''] || order.paymentMethod || 'Não informado';
   const orderObservation = String(order.notes || order.observation || '')
     .replace(/\s*\|?\s*PAY_ON_DELIVERY:\s*(PIX|CARTAO|DINHEIRO)\s*\|?/gi, ' ')
@@ -257,7 +263,7 @@ export default function OrderCard({
             <CreditCard aria-hidden="true" /><small>Pagamento</small>
             <strong title={paymentMethodLabel}>{paymentMethodLabel}</strong>
           </C.SummaryItem>
-          <C.SummaryItem $tone={providerPaid ? 'success' : 'danger'}>
+          <C.SummaryItem $tone={providerPaid ? 'success' : cashPaymentAtHandoff ? 'warning' : 'danger'}>
             {providerPaid ? <CheckCircle aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
             <small>Status</small><strong>{paymentStatusLabel}</strong>
           </C.SummaryItem>
@@ -347,7 +353,9 @@ export default function OrderCard({
           <C.ActionArea>
             <C.Hint><Info aria-hidden="true" /><span>{paymentPendingConfirmation
               ? 'O botão de entrega será liberado somente quando o pagamento estiver confirmado.'
-              : 'Peça ao cliente o código de 4 dígitos exibido no acompanhamento do pedido.'}</span></C.Hint>
+              : cashPaymentAtHandoff && !providerPaid
+                ? 'Receba o pagamento em dinheiro e peça ao cliente o código de 4 dígitos para concluir a entrega.'
+                : 'Peça ao cliente o código de 4 dígitos exibido no acompanhamento do pedido.'}</span></C.Hint>
             <C.DeliveryActions>
               <S.DeliveryCodeInput
                 type="text"
