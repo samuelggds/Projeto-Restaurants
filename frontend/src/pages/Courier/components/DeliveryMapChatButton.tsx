@@ -23,6 +23,38 @@ type DeliveryChatRealtimeEvent = {
   };
 };
 
+function playSingleBeep() {
+  try {
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    const context = new AudioContextCtor();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.2);
+    oscillator.addEventListener('ended', () => void context.close().catch(() => {}), { once: true });
+  } catch {
+    // Alguns navegadores bloqueiam áudio sem uma interação prévia do usuário.
+  }
+}
+
+function vibrateOnce() {
+  try {
+    if ('vibrate' in navigator) navigator.vibrate(180);
+  } catch {
+    // Vibração não é suportada em todos os aparelhos/navegadores.
+  }
+}
+
 function resolveOrderId(role: string) {
   if (typeof window === 'undefined') return null;
 
@@ -125,6 +157,8 @@ export function DeliveryMapChatButton() {
       }
       seenMessageIdsRef.current.add(messageId);
       incrementDeliveryChatUnread('customer', actorId, orderId);
+      playSingleBeep();
+      vibrateOnce();
     };
     const onStatus = (raw: unknown) => {
       const payload = raw as { id?: number; status?: string; order?: { id?: number; status?: string } };
@@ -163,12 +197,18 @@ export function DeliveryMapChatButton() {
         navigate(`/orders/${orderId}/chat`);
       }}
     >
-      <span className="chat-icon"><MessageCircle size={18} /></span>
+      <span className="chat-icon">
+        <MessageCircle size={18} />
+      </span>
       <span className="chat-copy">
         <strong>{isCourier ? 'Chat do pedido' : 'Falar com o motoqueiro'}</strong>
         <small>Pedido #{orderId}</small>
       </span>
-      {unreadCount > 0 ? <span className="chat-badge">{unreadLabel}</span> : null}
+      {unreadCount > 0 ? (
+        <span className="chat-badge" aria-label={`${unreadCount} mensagens não lidas`}>
+          {unreadLabel}
+        </span>
+      ) : null}
     </S.ChatControl>
   );
 }
