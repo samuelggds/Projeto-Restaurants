@@ -7,7 +7,6 @@ import {
   Clock3,
   LocateFixed,
   MapPin,
-  MessageCircle,
   Phone,
   RefreshCw,
 } from 'lucide-react';
@@ -16,6 +15,7 @@ import ordersService, { getGuestOrderTrackingToken } from '../../Services/orders
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
+import { CustomerTrackingChatButton } from './CustomerTrackingChatButton';
 import DeliveryConfirmationCodePrompt from './DeliveryConfirmationCodePrompt';
 import {
   mergeTrackingLocation,
@@ -223,7 +223,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             <span>{isGuestTracking ? 'Voltar' : 'Meus pedidos'}</span>
           </S.BackButton>
           <S.OrderIdentity>
-            <span aria-hidden="true"><Bike /></span>
+            <span aria-hidden="true">
+              <Bike />
+            </span>
             <span>
               <b>Pedido #{data?.order.id || id}</b>
               <small>Acompanhamento da entrega</small>
@@ -394,15 +396,21 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                 </S.PanelHeader>
                 <S.Summary>
                   <div>
-                    <dt><Bike aria-hidden="true" /> Motoqueiro</dt>
+                    <dt>
+                      <Bike aria-hidden="true" /> Motoqueiro
+                    </dt>
                     <dd>{data.order.assignedCourier?.name || 'Aguardando retirada'}</dd>
                   </div>
                   <div>
-                    <dt><Clock3 aria-hidden="true" /> Saiu para entrega às</dt>
+                    <dt>
+                      <Clock3 aria-hidden="true" /> Saiu para entrega às
+                    </dt>
                     <dd>{formatTime(data.order.deliveryStartedAt) || 'Aguardando saída'}</dd>
                   </div>
                   <div>
-                    <dt><LocateFixed aria-hidden="true" /> Previsão de chegada</dt>
+                    <dt>
+                      <LocateFixed aria-hidden="true" /> Previsão de chegada
+                    </dt>
                     <dd>
                       {formatTime(data.order.estimatedArrival) ||
                         (latest
@@ -411,7 +419,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                             ? 'Sem localização em tempo real'
                             : 'Aguardando GPS')}
                     </dd>
-                    {routeMinutes ? <small>Estimativa de rota: cerca de {routeMinutes} min</small> : null}
+                    {routeMinutes ? (
+                      <small>Estimativa de rota: cerca de {routeMinutes} min</small>
+                    ) : null}
                   </div>
                 </S.Summary>
                 {data.order.routeEstimate?.destination ? (
@@ -425,19 +435,14 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                       <b>
                         {(data.order.routeEstimate.distanceMeters / 1000).toLocaleString('pt-BR', {
                           maximumFractionDigits: 1,
-                        })}{' '}km
+                        })}{' '}
+                        km
                       </b>
                     ) : null}
                   </S.Destination>
                 ) : null}
-                {!isTerminal && data.order.assignedCourier ? (
-                  <S.Contact
-                    as="button"
-                    type="button"
-                    onClick={() => navigate(`/orders/${data.order.id}/chat`)}
-                  >
-                    <MessageCircle aria-hidden="true" /> Falar com o motoqueiro
-                  </S.Contact>
+                {data.order.status === 'SAIU_PARA_ENTREGA' && data.order.assignedCourier && !isGuestTracking ? (
+                  <CustomerTrackingChatButton orderId={data.order.id} />
                 ) : null}
                 {data.order.assignedCourier?.phone ? (
                   <S.Contact href={`tel:${data.order.assignedCourier.phone}`}>
