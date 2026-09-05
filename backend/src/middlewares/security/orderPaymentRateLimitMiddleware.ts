@@ -33,3 +33,16 @@ export const paymentPinRequestRateLimitMiddleware = rateLimit({
     error: 'Muitas solicitações de PIN para este pedido. Aguarde um instante.',
   },
 });
+
+export const deliveryConfirmationAttemptRateLimitMiddleware = rateLimit({
+  windowMs: Number(process.env.DELIVERY_CODE_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),
+  max: Number(process.env.DELIVERY_CODE_RATE_LIMIT_MAX_REQUESTS || 5),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  skip: (req) => String(req.body?.status || '').toUpperCase() !== 'ENTREGUE',
+  keyGenerator: getOrderActorKey,
+  message: {
+    error: 'Muitas tentativas de código de entrega. Aguarde alguns minutos e tente novamente.',
+  },
+});
