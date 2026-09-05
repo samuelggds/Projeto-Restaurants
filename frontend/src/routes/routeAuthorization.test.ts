@@ -21,7 +21,15 @@ describe('política de autorização de rotas', () => {
     ])
       expect(allowed(path, null), path).toBe(true);
 
-    for (const path of ['/', '/mesa/12', '/login', '/register', '/recover-password', '/pizzaria/equipe']) {
+    for (const path of [
+      '/',
+      '/mesa/12',
+      '/login',
+      '/register',
+      '/recover-password',
+      '/pizzaria/equipe',
+      '/__TENANT_LOGIN__',
+    ]) {
       expect(authorizeRoute(path, null), path).toEqual({
         allowed: false,
         redirectTo: TENANT_LOGIN_REDIRECT,
@@ -139,10 +147,10 @@ describe('política de autorização de rotas', () => {
     }
   });
 
-  it('manda perfil desconhecido para resolução explícita de tenant', () => {
+  it('manda perfil desconhecido para resolução explícita de tenant sem expor marcador interno', () => {
     expect(authorizeRoute('/admin', { role: 'OUTRO' })).toEqual({
       allowed: false,
-      redirectTo: TENANT_LOGIN_REDIRECT,
+      redirectTo: TENANT_REQUIRED_PATH,
     });
   });
 
