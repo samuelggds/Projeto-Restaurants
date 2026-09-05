@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rememberTenantSlug } from './authNavigation';
+import { rememberTenantSlug, TENANT_REQUIRED_PATH } from './authNavigation';
 import { consumeSignedOutEntryUrl, rememberSignedOutRole } from './sessionEntry';
 
 describe('sessionEntry', () => {
@@ -19,14 +19,14 @@ describe('sessionEntry', () => {
     expect(consumeSignedOutEntryUrl({ pathname: '/login' })).toBe(expected);
   });
 
-  it('consome o papel apenas uma vez para não transformar /login em entrypoint global permanente', () => {
+  it('consome o papel apenas uma vez e volta a neutralizar /login', () => {
     rememberSignedOutRole('FUNCIONARIO');
     expect(consumeSignedOutEntryUrl({ pathname: '/login' })).toBe('/restaurante-x/team');
-    expect(consumeSignedOutEntryUrl({ pathname: '/login' })).toBe('/restaurante-x/login');
+    expect(consumeSignedOutEntryUrl({ pathname: '/login' })).toBe(TENANT_REQUIRED_PATH);
   });
 
-  it('ignora papel vazio e usa o fluxo contextual padrão', () => {
+  it('não usa o tenant lembrado quando não existe marcador de logout válido', () => {
     rememberSignedOutRole('');
-    expect(consumeSignedOutEntryUrl({ pathname: '/login' })).toBe('/restaurante-x/login');
+    expect(consumeSignedOutEntryUrl({ pathname: '/login' })).toBe(TENANT_REQUIRED_PATH);
   });
 });
