@@ -56,7 +56,7 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
 
   const password = page.getByLabel('Senha', { exact: true });
   const confirmation = page.getByLabel('Confirmar Senha', { exact: true });
-  const submit = page.getByRole('button', { name: 'Finalizar Cadastro' });
+  const submit = page.locator('form button[type="submit"]');
   const requirements = page.getByRole('region', { name: 'Requisitos da senha' });
 
   await expect(requirements).toHaveCount(0);
