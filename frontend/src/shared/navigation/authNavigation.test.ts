@@ -3,9 +3,12 @@ import {
   buildAuthEntryUrl,
   buildAuthEntryUrlForLocation,
   buildLoginUrl,
+  buildSessionEntryUrl,
   getCurrentReturnPath,
   getSafeAuthSearchParams,
   getSafeNextPath,
+  isAuthenticationEntryPath,
+  rememberTenantSlug,
   resolveAuthExperience,
   TENANT_REQUIRED_PATH,
 } from './authNavigation';
@@ -180,5 +183,43 @@ describe('authNavigation', () => {
     });
 
     expect(buildAuthEntryUrl('/recover-password', params)).toBe(TENANT_REQUIRED_PATH);
+  });
+
+  it('manda áreas operacionais para o portal da equipe do tenant lembrado', () => {
+    rememberTenantSlug('restaurante-x');
+
+    for (const pathname of ['/attendant', '/courier', '/kitchen', '/waiter']) {
+      expect(buildSessionEntryUrl({ pathname })).toBe('/restaurante-x/team');
+    }
+  });
+
+  it('manda áreas administrativas para o gate privado do tenant lembrado', () => {
+    rememberTenantSlug('restaurante-x');
+
+    expect(buildSessionEntryUrl({ pathname: '/admin' })).toBe('/restaurante-x/admin');
+    expect(buildSessionEntryUrl({ pathname: '/billing' }, 'ADMIN')).toBe('/restaurante-x/admin');
+  });
+
+  it('mantém super admin isolado mesmo quando existe tenant lembrado', () => {
+    rememberTenantSlug('restaurante-x');
+    expect(buildSessionEntryUrl({ pathname: '/super_admin' })).toBe('/super_admin/login');
+    expect(buildSessionEntryUrl({ pathname: '/profile' }, 'SUPER_ADMIN')).toBe('/super_admin/login');
+  });
+
+  it('manda cliente para login contextual e nunca preserva rota operacional', () => {
+    rememberTenantSlug('restaurante-x');
+    expect(buildSessionEntryUrl({ pathname: '/profile' }, 'CLIENTE')).toBe('/restaurante-x/login');
+  });
+
+  it.each([
+    '/restaurante-x/login',
+    '/restaurante-x/register',
+    '/restaurante-x/recover-password',
+    '/restaurante-x/team',
+    '/restaurante-x/admin',
+    '/restaurante-x/admin/chave',
+    '/super_admin/login',
+  ])('reconhece %s como entrypoint de autenticação', (pathname) => {
+    expect(isAuthenticationEntryPath(pathname)).toBe(true);
   });
 });
