@@ -32,15 +32,15 @@ class ClaimOrderForDeliveryService {
       throw new Error('Pedido inválido.');
     }
 
-    if (!initialLocation || typeof initialLocation !== 'object' || Array.isArray(initialLocation)) {
-      throw new Error('A localização atual é obrigatória para retirar o pedido.');
-    }
-
-    const initialLocationValidation = validateDeliveryLocationPayload({
-      ...initialLocation,
-      orderId: normalizedOrderId,
-    });
-    if ('error' in initialLocationValidation) {
+    const hasInitialLocation =
+      Boolean(initialLocation) && typeof initialLocation === 'object' && !Array.isArray(initialLocation);
+    const initialLocationValidation = hasInitialLocation
+      ? validateDeliveryLocationPayload({
+          ...initialLocation,
+          orderId: normalizedOrderId,
+        })
+      : null;
+    if (initialLocationValidation && 'error' in initialLocationValidation) {
       throw new Error(initialLocationValidation.error);
     }
 
@@ -104,6 +104,10 @@ class ClaimOrderForDeliveryService {
       const updatedOrder = await orderRepository.findById(normalizedOrderId, restaurantId, tx);
       if (!updatedOrder) throw new Error('Não foi possível carregar o pedido.');
 
+      if (!initialLocationValidation || 'error' in initialLocationValidation) {
+        return { updatedOrder, location: null, savedLocation: null };
+      }
+
       const location = initialLocationValidation.value;
       const savedLocation = await tx.deliveryLocation.create({
         data: {
@@ -136,13 +140,15 @@ class ClaimOrderForDeliveryService {
       } catch (error) {
         await prisma.$transaction(async (tx) => {
           await setTenantDbContext(tx, restaurantId);
-          await tx.deliveryLocation.deleteMany({
-            where: {
-              orderId: normalizedOrderId,
-              courierId,
-              recordedAt: savedLocation.recordedAt,
-            },
-          });
+          if (savedLocation) {
+            await tx.deliveryLocation.deleteMany({
+              where: {
+                orderId: normalizedOrderId,
+                courierId,
+                recordedAt: savedLocation.recordedAt,
+              },
+            });
+          }
           await tx.order.updateMany({
             where: {
               id: normalizedOrderId,
@@ -188,22 +194,24 @@ class ClaimOrderForDeliveryService {
       io.to(`user:${refreshedOrder.userId}`).emit('order:status-changed', refreshedOrder);
     }
 
-    const payload = {
-      orderId: refreshedOrder.id,
-      restaurantId,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      heading: location.heading,
-      speed: location.speed,
-      accuracy: location.accuracy,
-      sentAt: location.sentAt,
-      recordedAt: savedLocation.recordedAt.toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    if (refreshedOrder.userId) {
-      io.to(`user:${refreshedOrder.userId}`).emit('order:delivery-location', payload);
+    if (location && savedLocation) {
+      const payload = {
+        orderId: refreshedOrder.id,
+        restaurantId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        heading: location.heading,
+        speed: location.speed,
+        accuracy: location.accuracy,
+        sentAt: location.sentAt,
+        recordedAt: savedLocation.recordedAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      if (refreshedOrder.userId) {
+        io.to(`user:${refreshedOrder.userId}`).emit('order:delivery-location', payload);
+      }
+      io.to(`restaurant:${restaurantId}:admin`).emit('order:delivery-location', payload);
     }
-    io.to(`restaurant:${restaurantId}:admin`).emit('order:delivery-location', payload);
 
     return refreshedOrder;
   }
