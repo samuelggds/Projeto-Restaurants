@@ -5,7 +5,7 @@ const Login = lazy(() => import('../pages/Login/Login'));
 const AdminPortalEntry = lazy(() => import('../pages/Login/AdminPortalEntry'));
 const AdminPortalLoginGate = lazy(() => import('../pages/Login/AdminPortalLoginGate'));
 const RecoverPassword = lazy(() => import('../pages/RecoverPassword/RecoverPassword'));
-const ChangePasswordPage = lazy(() => import('../pages/ChangePassword/ChangePasswordPage'));
+const ChangePasswordPage = lazy(() => import('../pages/RecoverPassword/ChangePasswordPage'));
 const AdminDashboard = lazy(() => import('../pages/admin/Admin'));
 const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
@@ -135,8 +135,8 @@ export function RouteAuthorizationGuard() {
       redirectTo = buildAuthEntryUrl('/change-password', params);
     } else if (isCustomer && customerReturnPath) {
       redirectTo = customerReturnPath;
-    } else if (!user && decision.redirectTo === TENANT_LOGIN_REDIRECT) {
-      redirectTo = buildSessionEntryUrl(location);
+    } else if (decision.redirectTo === TENANT_LOGIN_REDIRECT) {
+      redirectTo = user ? TENANT_REQUIRED_PATH : buildSessionEntryUrl(location);
     }
 
     return <Navigate to={redirectTo} replace />;
