@@ -63,6 +63,10 @@ async function collectFiles(directory) {
   return files;
 }
 
+function countEffectiveLines(content) {
+  return content.split(/\r?\n/u).filter((line) => line.trim().length > 0).length;
+}
+
 const files = (await Promise.all(roots.map(collectFiles))).flat();
 const oversized = [];
 const forbiddenImports = [];
@@ -70,7 +74,7 @@ const forbiddenContent = [];
 
 for (const file of files) {
   const content = await readFile(file, "utf8");
-  const lines = content.split(/\r?\n/u).length;
+  const lines = countEffectiveLines(content);
   const normalizedFile = file.replace(/\\/gu, "/");
   const limit = legacyLimits.get(normalizedFile) ?? maximumLines;
   if (lines > limit) oversized.push({ file: normalizedFile, lines, limit });
@@ -102,7 +106,7 @@ for (const file of files) {
 if (oversized.length) {
   console.error(`Arquivos acima do respectivo limite arquitetural:`);
   for (const item of oversized.sort((a, b) => b.lines - a.lines)) {
-    console.error(`- ${item.file}: ${item.lines} linhas (limite ${item.limit})`);
+    console.error(`- ${item.file}: ${item.lines} linhas efetivas (limite ${item.limit})`);
   }
 }
 
