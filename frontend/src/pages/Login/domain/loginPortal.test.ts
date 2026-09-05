@@ -8,10 +8,11 @@ import {
 describe('loginPortal', () => {
   it.each([
     ['/pizzaria/login', 'CUSTOMER'],
-    ['/pizzaria/equipe', 'STAFF'],
+    ['/pizzaria/team', 'STAFF'],
     ['/pizzaria/admin', 'ADMIN'],
     ['/super_admin/login', 'SUPER_ADMIN'],
     ['/login', 'GENERIC'],
+    ['/pizzaria/equipe', 'GENERIC'],
     ['/admin/login', 'GENERIC'],
   ] as const)('resolve %s como %s', (path, expected) => {
     expect(resolveLoginPortal(path)).toBe(expected);
@@ -20,8 +21,10 @@ describe('loginPortal', () => {
   it('extrai slug somente de entradas contextuais de restaurante', () => {
     expect(getRestaurantSlugFromAuthPath('/Bella-Pizza/login')).toBe('bella-pizza');
     expect(getRestaurantSlugFromAuthPath('/bella-pizza/register')).toBe('bella-pizza');
-    expect(getRestaurantSlugFromAuthPath('/bella-pizza/equipe')).toBe('bella-pizza');
+    expect(getRestaurantSlugFromAuthPath('/bella-pizza/recover-password')).toBe('bella-pizza');
+    expect(getRestaurantSlugFromAuthPath('/bella-pizza/team')).toBe('bella-pizza');
     expect(getRestaurantSlugFromAuthPath('/bella-pizza/admin')).toBe('bella-pizza');
+    expect(getRestaurantSlugFromAuthPath('/bella-pizza/equipe')).toBe('');
     expect(getRestaurantSlugFromAuthPath('/admin/login')).toBe('');
   });
 
@@ -41,6 +44,6 @@ describe('loginPortal', () => {
     expect(canUseLoginPortal('SUPER_ADMIN', { role: 'SUPER_ADMIN' })).toBe(true);
     expect(canUseLoginPortal('GENERIC', { role: 'SUPER_ADMIN' })).toBe(false);
     expect(canUseLoginPortal('GENERIC', { role: 'ADMIN' })).toBe(false);
-    expect(canUseLoginPortal('GENERIC', { role: 'CLIENTE' })).toBe(true);
+    expect(canUseLoginPortal('GENERIC', { role: 'CLIENTE' })).toBe(false);
   });
 });
