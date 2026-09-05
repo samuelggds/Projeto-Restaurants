@@ -5,14 +5,65 @@ import styled from 'styled-components';
 type Props = {
   code: string;
   orderId: number;
-  showArrivalNotice?: boolean;
+  deliveryStartedAt?: string | null;
 };
 
-export default function DeliveryConfirmationCodePrompt({ code, orderId, showArrivalNotice = false }: Props) {
+function playDeliveryTone() {
+  try {
+    const AudioContextClass = window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = 740;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.24);
+    oscillator.addEventListener('ended', () => void context.close());
+  } catch {
+    // Alguns navegadores bloqueiam áudio sem interação prévia. O aviso visual continua disponível.
+  }
+}
+
+export default function DeliveryConfirmationCodePrompt({ code, orderId, deliveryStartedAt }: Props) {
   const [open, setOpen] = useState(false);
+  const [showArrivalNotice, setShowArrivalNotice] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const alertKey = `delivery-start-alert:${orderId}:${deliveryStartedAt || 'active'}`;
+    if (sessionStorage.getItem(alertKey)) return;
+    sessionStorage.setItem(alertKey, 'shown');
+    setShowArrivalNotice(true);
+    const timeout = window.setTimeout(() => setShowArrivalNotice(false), 9000);
+
+    try {
+      navigator.vibrate?.([180, 90, 180]);
+    } catch {
+      // Vibração não é suportada por todos os dispositivos.
+    }
+    playDeliveryTone();
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification('Seu pedido saiu para entrega', {
+          body: 'O código de recebimento já está disponível. Informe-o ao motoqueiro somente ao receber o pedido.',
+          tag: `delivery-start-${orderId}`,
+        });
+      } catch {
+        // O aviso dentro da página continua sendo a fonte principal.
+      }
+    }
+
+    return () => window.clearTimeout(timeout);
+  }, [deliveryStartedAt, orderId]);
 
   useEffect(() => {
     if (!open) return;
@@ -82,12 +133,7 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, showArri
             if (event.target === event.currentTarget) setOpen(false);
           }}
         >
-          <Dialog
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`delivery-code-title-${orderId}`}
-          >
+          <Dialog ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`delivery-code-title-${orderId}`}>
             <DialogHeader>
               <IconBox aria-hidden="true"><KeyRound /></IconBox>
               <span>
@@ -132,7 +178,6 @@ const Notice = styled.div`
   background: #fff7f2;
   color: #8d3d21;
   box-shadow: 0 8px 22px rgba(100, 55, 30, 0.08);
-
   > svg { width: 20px; height: 20px; margin-top: 1px; }
   span { display: grid; gap: 3px; }
   strong { font-size: 0.9rem; }
@@ -155,7 +200,6 @@ const FloatingButton = styled.button`
   cursor: pointer;
   box-shadow: 0 12px 30px rgba(179, 64, 27, 0.3);
   transition: transform 0.16s ease, box-shadow 0.16s ease;
-
   > svg { width: 24px; height: 24px; }
   &:hover { transform: translateY(-2px); box-shadow: 0 15px 34px rgba(179, 64, 27, 0.36); }
   &:focus-visible { outline: 3px solid rgba(216, 83, 41, 0.28); outline-offset: 3px; }
