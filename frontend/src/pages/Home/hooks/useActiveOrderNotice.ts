@@ -87,8 +87,15 @@ export function useActiveOrderNotice(customerId: number | string | null | undefi
     };
   }, [refresh]);
 
+  const currentGuestOrderId = customerKey ? null : getLatestGuestDeliveryOrderId();
+  const currentAccessKey = customerKey
+    ? `customer:${customerKey}`
+    : currentGuestOrderId
+      ? `guest:${currentGuestOrderId}`
+      : '';
+
   return {
-    activeOrder: noticeState.order,
+    activeOrder: noticeState.accessKey === currentAccessKey ? noticeState.order : null,
     refreshActiveOrder: refresh,
   };
 }
