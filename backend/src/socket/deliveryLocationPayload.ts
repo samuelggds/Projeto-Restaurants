@@ -1,3 +1,5 @@
+export const MAX_DELIVERY_TRACKING_ACCURACY_METERS = 500;
+
 export type DeliveryLocationPayload = {
   orderId: number;
   latitude: number;
@@ -52,8 +54,15 @@ export function validateDeliveryLocationPayload(
   }
 
   const accuracy = optionalFiniteNumber(rawPayload?.accuracy);
-  if (accuracy !== null && (accuracy < 0 || accuracy > 10_000)) {
-    return { ok: false, error: 'Precisão da localização inválida.' };
+  if (
+    accuracy === null ||
+    accuracy < 0 ||
+    accuracy > MAX_DELIVERY_TRACKING_ACCURACY_METERS
+  ) {
+    return {
+      ok: false,
+      error: `Precisão insuficiente para rastreamento. É necessário até ${MAX_DELIVERY_TRACKING_ACCURACY_METERS} m.`,
+    };
   }
 
   const sentAtValue =
@@ -79,7 +88,7 @@ export function validateDeliveryLocationPayload(
       longitude,
       heading,
       speed,
-      accuracy: accuracy === null ? null : Math.round(accuracy),
+      accuracy: Math.round(accuracy),
       sentAt: recordedAt.toISOString(),
       recordedAt,
     },
