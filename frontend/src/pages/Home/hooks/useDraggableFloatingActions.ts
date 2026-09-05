@@ -41,10 +41,10 @@ export function clampFloatingPosition(
   };
 }
 
-function readStoredPosition(): Point | null {
+function readStoredPosition(storageKey: string): Point | null {
   if (typeof window === 'undefined') return null;
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<Point> | null;
+    const value = JSON.parse(localStorage.getItem(storageKey) || 'null') as Partial<Point> | null;
     if (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y)) return null;
     return { x: Number(value.x), y: Number(value.y) };
   } catch {
@@ -52,7 +52,7 @@ function readStoredPosition(): Point | null {
   }
 }
 
-export function useDraggableFloatingActions() {
+export function useDraggableFloatingActions(storageKey = STORAGE_KEY) {
   const elementRef = useRef<HTMLDivElement>(null);
   const positionRef = useRef<Point | null>(null);
   const pendingPositionRef = useRef<Point | null>(null);
@@ -67,7 +67,7 @@ export function useDraggableFloatingActions() {
     moved: boolean;
   } | null>(null);
   const suppressClickRef = useRef(false);
-  const [position, setPositionState] = useState<Point | null>(readStoredPosition);
+  const [position, setPositionState] = useState<Point | null>(() => readStoredPosition(storageKey));
   const [dragging, setDragging] = useState(false);
 
   const applyPositionToElement = useCallback((next: Point) => {
@@ -228,7 +228,7 @@ export function useDraggableFloatingActions() {
       if (current) {
         setPositionState(current);
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+          localStorage.setItem(storageKey, JSON.stringify(current));
         } catch {
           // O movimento continua funcionando mesmo quando o armazenamento está indisponível.
         }
@@ -237,7 +237,7 @@ export function useDraggableFloatingActions() {
         suppressClickRef.current = false;
       }, 0);
     },
-    [flushScheduledPosition],
+    [flushScheduledPosition, storageKey],
   );
 
   const onClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
