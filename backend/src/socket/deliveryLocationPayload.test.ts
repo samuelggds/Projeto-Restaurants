@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateDeliveryLocationPayload } from './deliveryLocationPayload.js';
+import {
+  MAX_DELIVERY_TRACKING_ACCURACY_METERS,
+  validateDeliveryLocationPayload,
+} from './deliveryLocationPayload.js';
 
 const now = Date.parse('2026-08-24T15:00:00.000Z');
 
@@ -33,11 +36,12 @@ test('normaliza uma posição recente e preserva zero como valor válido', () =>
   }
 });
 
-test('recusa coordenadas, telemetria e horários manipulados', () => {
+test('recusa coordenadas, telemetria, precisão ruim e horários manipulados', () => {
   const base = {
     orderId: 91,
     latitude: -3.7319,
     longitude: -38.5267,
+    accuracy: 25,
     sentAt: '2026-08-24T14:59:58.000Z',
   };
 
@@ -46,6 +50,14 @@ test('recusa coordenadas, telemetria e horários manipulados', () => {
   assert.match('error' in invalidCoordinates ? invalidCoordinates.error : '', /Coordenadas/);
   assert.equal(validateDeliveryLocationPayload({ ...base, speed: 101 }, now).ok, false);
   assert.equal(validateDeliveryLocationPayload({ ...base, accuracy: -1 }, now).ok, false);
+  assert.equal(
+    validateDeliveryLocationPayload(
+      { ...base, accuracy: MAX_DELIVERY_TRACKING_ACCURACY_METERS + 1 },
+      now,
+    ).ok,
+    false,
+  );
+  assert.equal(validateDeliveryLocationPayload({ ...base, accuracy: undefined }, now).ok, false);
   assert.equal(
     validateDeliveryLocationPayload({ ...base, sentAt: '2026-08-24T14:50:00.000Z' }, now).ok,
     false,
