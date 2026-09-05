@@ -58,14 +58,17 @@ export function routePointFromPosition(
 }
 
 export function buildCourierLocationPayload(orderId: number, point: CourierRoutePoint) {
-  if (!Number.isInteger(orderId) || orderId <= 0 || !isShareableCourierRoutePoint(point)) return null;
+  if (!Number.isInteger(orderId) || orderId <= 0 || !isValidCourierRoutePoint(point)) return null;
   return {
     orderId,
     latitude: point.latitude,
     longitude: point.longitude,
     heading: Number.isFinite(point.heading) ? point.heading : null,
     speed: Number.isFinite(point.speed) ? point.speed : null,
-    accuracy: Math.round(Number(point.accuracy)),
+    accuracy:
+      Number.isFinite(point.accuracy) && Number(point.accuracy) >= 0
+        ? Math.round(Number(point.accuracy))
+        : null,
     sentAt: point.recordedAt || new Date().toISOString(),
   };
 }
