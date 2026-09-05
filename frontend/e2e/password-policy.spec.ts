@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const RESTAURANT_SLUG = 'restaurante-teste';
+
 type RegisterPayload = {
   name: string;
   email: string;
@@ -30,7 +32,7 @@ async function mockRegistrationApi(page: Page, submitted: RegisterPayload[]) {
           restaurantId: 9,
           restaurantName: 'Restaurante Teste',
           primaryColor: '#d64d08',
-          restaurant: { id: 9, name: 'Restaurante Teste' },
+          restaurant: { id: 9, name: 'Restaurante Teste', slug: RESTAURANT_SLUG },
         }),
       });
       return;
@@ -39,7 +41,10 @@ async function mockRegistrationApi(page: Page, submitted: RegisterPayload[]) {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
 
-  await page.addInitScript(() => localStorage.clear());
+  await page.addInitScript(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 }
 
 test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 caracteres', async ({
@@ -47,7 +52,7 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
 }) => {
   const submitted: RegisterPayload[] = [];
   await mockRegistrationApi(page, submitted);
-  await page.goto('/register');
+  await page.goto(`/${RESTAURANT_SLUG}/register`);
 
   const password = page.getByLabel('Senha', { exact: true });
   const confirmation = page.getByLabel('Confirmar Senha', { exact: true });
@@ -75,7 +80,7 @@ test('cadastro exige os seis requisitos e aceita senha forte com exatamente 8 ca
   await page.getByLabel('E-mail').fill('cliente.e2e@example.test');
   await submit.click();
 
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}/login(?:\\?.*)?$`, 'u'));
   expect(submitted).toEqual([
     {
       name: 'Cliente E2E',
@@ -115,6 +120,7 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
           restaurantId: 9,
           restaurantName: 'Restaurante Teste',
           primaryColor: '#d64d08',
+          restaurant: { id: 9, name: 'Restaurante Teste', slug: RESTAURANT_SLUG },
         }),
       });
       return;
@@ -122,9 +128,13 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
 
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
-  await page.addInitScript(() => localStorage.clear());
+  await page.addInitScript(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
   await page.setViewportSize({ width: 320, height: 844 });
-  await page.goto('/register?rid=9&next=%2Fmesa%2F5');
+  const tablePath = `/${RESTAURANT_SLUG}/mesa/5`;
+  await page.goto(`/${RESTAURANT_SLUG}/register?next=${encodeURIComponent(tablePath)}`);
 
   await page.getByLabel('Nome Completo').fill('Cliente Existente');
   await page.getByLabel('E-mail').fill('existente@example.test');
@@ -147,9 +157,8 @@ test('cadastro preserva o restaurante, anuncia o envio e apresenta o erro da API
   const loginHref = await page.getByRole('link', { name: 'Fazer Login' }).getAttribute('href');
   expect(loginHref).not.toBeNull();
   const loginUrl = new URL(loginHref || '', 'http://internal.test');
-  expect(loginUrl.pathname).toBe('/login');
-  expect(loginUrl.searchParams.get('next')).toBe('/mesa/5');
-  expect(loginUrl.searchParams.get('rid')).toBe('9');
+  expect(loginUrl.pathname).toBe(`/${RESTAURANT_SLUG}/login`);
+  expect(loginUrl.searchParams.get('next')).toBe(tablePath);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
