@@ -11,6 +11,7 @@ const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
+const DeliveryCustomerAlertLayer = lazy(() => import('../pages/tracking/DeliveryCustomerAlertLayer'));
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
@@ -93,10 +94,7 @@ function RestaurantMenuGate() {
     if (normalizedSlug) rememberTenantSlug(normalizedSlug);
   }, [normalizedSlug]);
 
-  if (!normalizedSlug) {
-    return <Navigate to={TENANT_REQUIRED_PATH} replace />;
-  }
-
+  if (!normalizedSlug) return <Navigate to={TENANT_REQUIRED_PATH} replace />;
   return <Home />;
 }
 
@@ -214,6 +212,7 @@ export default function AppRoutes() {
     <BrowserRouter>
       <BrowserTabBranding />
       <Suspense fallback={<RouteLoading />}>
+        <DeliveryCustomerAlertLayer />
         <SystemAvailabilityGate>
           <Routes>
             <Route element={<PageTransition />}>
