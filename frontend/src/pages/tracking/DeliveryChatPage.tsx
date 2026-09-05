@@ -24,20 +24,18 @@ export default function DeliveryChatPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const orderId = Number(id || 0);
+  const hasInvalidOrderId = !Number.isInteger(orderId) || orderId <= 0;
   const [snapshot, setSnapshot] = useState<DeliveryChatSnapshot | null>(null);
   const [draft, setDraft] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasInvalidOrderId);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const snapshotRef = useRef<DeliveryChatSnapshot | null>(null);
   const actorRole = String(user?.role || 'CLIENTE').toUpperCase();
 
   useEffect(() => {
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      setError('Pedido inválido para conversa.');
-      setLoading(false);
-      return;
-    }
+    if (hasInvalidOrderId) return;
 
     let active = true;
     let inFlight = false;
@@ -49,12 +47,17 @@ export default function DeliveryChatPage() {
         const data = await deliveryChatService.get(orderId);
         if (!active) return;
         setSnapshot((current) => {
-          if (!current) return data;
-          const mergedMessages = data.messages.reduce(
-            (messages, message) => mergeMessage(messages, message),
-            current.messages,
-          );
-          return { ...data, messages: mergedMessages };
+          const next = current
+            ? {
+                ...data,
+                messages: data.messages.reduce(
+                  (messages, message) => mergeMessage(messages, message),
+                  current.messages,
+                ),
+              }
+            : data;
+          snapshotRef.current = next;
+          return next;
         });
         setError('');
       } catch (err) {
@@ -63,7 +66,7 @@ export default function DeliveryChatPage() {
           (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
           (err as Error)?.message ||
           'Não foi possível abrir a conversa.';
-        if (!snapshot) setError(message);
+        if (!snapshotRef.current) setError(message);
       } finally {
         inFlight = false;
         if (active) setLoading(false);
@@ -84,11 +87,15 @@ export default function DeliveryChatPage() {
     const onMessage = (event: unknown) => {
       const payload = event as { orderId?: number; message?: DeliveryChatMessage };
       if (Number(payload?.orderId || 0) !== orderId || !payload?.message) return;
-      setSnapshot((current) =>
-        current
-          ? { ...current, messages: mergeMessage(current.messages, payload.message as DeliveryChatMessage) }
-          : current,
-      );
+      setSnapshot((current) => {
+        if (!current) return current;
+        const next = {
+          ...current,
+          messages: mergeMessage(current.messages, payload.message as DeliveryChatMessage),
+        };
+        snapshotRef.current = next;
+        return next;
+      });
     };
     const onStatus = (event: unknown) => {
       const raw = event as { id?: number; order?: { id?: number } };
@@ -105,7 +112,7 @@ export default function DeliveryChatPage() {
       socket.off('order:status-changed', onStatus);
       release();
     };
-  }, [orderId]);
+  }, [hasInvalidOrderId, orderId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -126,9 +133,12 @@ export default function DeliveryChatPage() {
       const result = await deliveryChatService.send(orderId, message);
       const sent = result?.message as DeliveryChatMessage | undefined;
       if (sent) {
-        setSnapshot((current) =>
-          current ? { ...current, messages: mergeMessage(current.messages, sent) } : current,
-        );
+        setSnapshot((current) => {
+          if (!current) return current;
+          const next = { ...current, messages: mergeMessage(current.messages, sent) };
+          snapshotRef.current = next;
+          return next;
+        });
       }
       setDraft('');
     } catch (err) {
@@ -139,6 +149,14 @@ export default function DeliveryChatPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  if (hasInvalidOrderId) {
+    return (
+      <S.State role="alert">
+        <div><MessageCircle /><h1>Pedido inválido</h1><p>Volte ao pedido e abra a conversa novamente.</p></div>
+      </S.State>
+    );
   }
 
   if (loading && !snapshot) {
