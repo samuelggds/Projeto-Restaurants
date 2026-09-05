@@ -5,6 +5,8 @@ type PixPaymentPayload = Record<string, unknown>;
 type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
 
+const MAX_DELIVERY_TRACKING_ACCURACY_METERS = 500;
+
 function asRecord(value: unknown): GenericRecord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -147,8 +149,15 @@ class OrdersService {
       sentAt: string;
     },
   ) {
+    const accuracy = Number(initialLocation?.accuracy);
+    const hasShareableInitialLocation =
+      Boolean(initialLocation) &&
+      Number.isFinite(accuracy) &&
+      accuracy >= 0 &&
+      accuracy <= MAX_DELIVERY_TRACKING_ACCURACY_METERS;
+
     const response = await api.patch(`/orders/${orderId}/claim-delivery`, {
-      ...(initialLocation ? { initialLocation } : {}),
+      ...(hasShareableInitialLocation ? { initialLocation } : {}),
     });
     return normalizeOrder(response.data);
   }
