@@ -4,6 +4,7 @@ import { getJwtSecret } from '../../../config/auth.js';
 const TOKEN_TYPE = 'guest-order-tracking';
 const TOKEN_ISSUER = 'projeto-restaurants';
 const TOKEN_AUDIENCE = 'guest-order-tracking';
+const TOKEN_ALGORITHM = 'HS256' as const;
 const DEFAULT_EXPIRES_IN: SignOptions['expiresIn'] = '3d';
 
 function getGuestTrackingSecret() {
@@ -38,6 +39,7 @@ export function issueGuestOrderTrackingToken({ orderId, publicId }: GuestOrderTr
     },
     getGuestTrackingSecret(),
     {
+      algorithm: TOKEN_ALGORITHM,
       expiresIn: DEFAULT_EXPIRES_IN,
       issuer: TOKEN_ISSUER,
       audience: TOKEN_AUDIENCE,
@@ -55,6 +57,7 @@ export function verifyGuestOrderTrackingToken(
   }
 
   const decoded = jwt.verify(token, getGuestTrackingSecret(), {
+    algorithms: [TOKEN_ALGORITHM],
     issuer: TOKEN_ISSUER,
     audience: TOKEN_AUDIENCE,
   });
