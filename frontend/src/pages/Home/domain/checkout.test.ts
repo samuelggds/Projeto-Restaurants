@@ -47,6 +47,36 @@ describe('checkout', () => {
     ).toBe('Opção indisponível');
   });
 
+  it('restringe pagar no restaurante à retirada e exige celular', () => {
+    expect(
+      validateCheckout({
+        type: 'DELIVERY',
+        customerPhone: '85999999999',
+        deliveryAddress: address,
+        cepStatus: 'success',
+        paymentMethod: 'pickup_store',
+      })?.title,
+    ).toBe('Opção indisponível');
+    expect(
+      validateCheckout({
+        type: 'RETIRADA',
+        customerPhone: '',
+        deliveryAddress: address,
+        cepStatus: 'idle',
+        paymentMethod: 'pickup_store',
+      })?.title,
+    ).toBe('Celular obrigatório');
+    expect(
+      validateCheckout({
+        type: 'RETIRADA',
+        customerPhone: '(85) 99999-9999',
+        deliveryAddress: address,
+        cepStatus: 'idle',
+        paymentMethod: 'pickup_store',
+      }),
+    ).toBeNull();
+  });
+
   it('valida a identificação necessária para o pedido de visitante', () => {
     const base = {
       type: 'RETIRADA' as const,
@@ -93,6 +123,30 @@ describe('checkout', () => {
       resolvedPaymentMethod: 'PIX',
       payload: { state: 'CE', items: [{ productId: 12, quantity: 2 }] },
     });
+  });
+
+  it('cria retirada para pagar no balcão sem acionar gateway ou forjar método', () => {
+    const result = buildOrderPayload({
+      restaurantId: 7,
+      type: 'RETIRADA',
+      paymentMethod: 'pickup_store',
+      cart: [{ productId: '12', name: 'Pizza', price: 39.9, quantity: 1, image: '' }],
+      customer: { name: 'Samuel', phone: '(85) 99999-9999' },
+      deliveryAddress: address,
+    });
+
+    expect(result).toMatchObject({
+      payOnDelivery: false,
+      payAtPickup: true,
+      resolvedPaymentMethod: 'PRESENCIAL',
+      payload: {
+        type: 'RETIRADA',
+        payOnDelivery: false,
+        customerPhone: '(85) 99999-9999',
+      },
+    });
+    expect(result.payload).not.toHaveProperty('paymentMethod');
+    expect(result.payload).not.toHaveProperty('payOnDeliveryMethod');
   });
 
   it('adiciona o pedido à conta da mesa sem forjar uma forma de pagamento', () => {
