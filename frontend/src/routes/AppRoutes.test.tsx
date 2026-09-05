@@ -43,7 +43,7 @@ describe('RequireAuth', () => {
     container.remove();
   });
 
-  it('preserva pathname, query e hash ao encaminhar rota protegida para o login do tenant lembrado', () => {
+  it('preserva pathname, query e hash ao encaminhar rota protegida do cliente para o login do tenant lembrado', () => {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/profile?view=addresses&newAddress=1#form']}>
@@ -63,6 +63,26 @@ describe('RequireAuth', () => {
       '/profile?view=addresses&newAddress=1#form',
     );
   });
+
+  it.each(['/attendant', '/courier', '/kitchen', '/waiter'])(
+    'encaminha a rota operacional %s para o portal da equipe sem next',
+    (initialEntry) => {
+      act(() => {
+        root.render(
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+              <Route element={<RequireAuth />}>
+                <Route path={initialEntry} element={<div>Área privada</div>} />
+              </Route>
+              <Route path="/:restaurantSlug/team" element={<LocationProbe />} />
+            </Routes>
+          </MemoryRouter>,
+        );
+      });
+
+      expect(container.textContent).toBe('/restaurante-teste/team');
+    },
+  );
 });
 
 describe('RouteAuthorizationGuard após login', () => {
