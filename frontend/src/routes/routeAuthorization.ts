@@ -60,8 +60,8 @@ export function isPublicRoute(pathname: string) {
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||
-    Boolean(singleSegment && !RESERVED_ROOTS.has(singleSegment)) ||
-    Boolean(restaurantTable && !RESERVED_ROOTS.has(restaurantTable))
+    isAllowedTenantRoot(singleSegment) ||
+    isAllowedTenantRoot(restaurantTable)
   );
 }
 
@@ -91,6 +91,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPublicRoute(path) || isGuestEntry(path)
       ? { allowed: true }
       : { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
+  if (path === TENANT_REQUIRED_PATH) return { allowed: true };
   const home = getRoleHome(user);
   if (user.mustChangePassword === true) {
     return path === '/change-password'
