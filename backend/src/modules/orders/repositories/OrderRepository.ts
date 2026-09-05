@@ -68,13 +68,10 @@ function operationalPaymentWhere(): Prisma.OrderWhereInput {
   return {
     OR: [
       { settlementMode: TableOrderSettlementMode.TABLE_ACCOUNT },
-      {
-        NOT: {
-          paid: false,
-          paymentMethod: { in: [PaymentMethod.PIX, PaymentMethod.CARTAO] },
-          payOnDelivery: false,
-        },
-      },
+      { paymentMethod: null },
+      { paid: true },
+      { payOnDelivery: true },
+      { paymentMethod: { notIn: [PaymentMethod.PIX, PaymentMethod.CARTAO] } },
     ],
   };
 }
