@@ -10,7 +10,8 @@ type Props = {
 
 function playDeliveryTone() {
   try {
-    const AudioContextClass = window.AudioContext ||
+    const AudioContextClass =
+      window.AudioContext ||
       (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const context = new AudioContextClass();
@@ -31,17 +32,18 @@ function playDeliveryTone() {
 }
 
 export default function DeliveryConfirmationCodePrompt({ code, orderId, deliveryStartedAt }: Props) {
+  const alertKey = `delivery-start-alert:${orderId}:${deliveryStartedAt || 'active'}`;
   const [open, setOpen] = useState(false);
-  const [showArrivalNotice, setShowArrivalNotice] = useState(false);
+  const [showArrivalNotice, setShowArrivalNotice] = useState(
+    () => sessionStorage.getItem(alertKey) !== 'shown',
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const alertKey = `delivery-start-alert:${orderId}:${deliveryStartedAt || 'active'}`;
-    if (sessionStorage.getItem(alertKey)) return;
+    if (!showArrivalNotice) return;
     sessionStorage.setItem(alertKey, 'shown');
-    setShowArrivalNotice(true);
     const timeout = window.setTimeout(() => setShowArrivalNotice(false), 9000);
 
     try {
@@ -63,11 +65,12 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
     }
 
     return () => window.clearTimeout(timeout);
-  }, [deliveryStartedAt, orderId]);
+  }, [alertKey, orderId, showArrivalNotice]);
 
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
+    const trigger = triggerRef.current;
     document.body.style.overflow = 'hidden';
     queueMicrotask(() => closeRef.current?.focus());
 
@@ -98,7 +101,7 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      triggerRef.current?.focus();
+      trigger?.focus();
     };
   }, [open]);
 
@@ -111,7 +114,9 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
           <BellRing aria-hidden="true" />
           <span>
             <strong>Seu pedido saiu para entrega</strong>
-            <small>O código de recebimento já está disponível. Guarde-o para informar ao motoqueiro.</small>
+            <small>
+              O código de recebimento já está disponível. Guarde-o para informar ao motoqueiro.
+            </small>
           </span>
         </Notice>
       ) : null}
@@ -133,32 +138,51 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
             if (event.target === event.currentTarget) setOpen(false);
           }}
         >
-          <Dialog ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`delivery-code-title-${orderId}`}>
+          <Dialog
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`delivery-code-title-${orderId}`}
+          >
             <DialogHeader>
-              <IconBox aria-hidden="true"><KeyRound /></IconBox>
+              <IconBox aria-hidden="true">
+                <KeyRound />
+              </IconBox>
               <span>
                 <Eyebrow>Pedido #{orderId}</Eyebrow>
                 <Title id={`delivery-code-title-${orderId}`}>Código de entrega</Title>
               </span>
-              <CloseButton ref={closeRef} type="button" onClick={() => setOpen(false)} aria-label="Fechar código de entrega">
+              <CloseButton
+                ref={closeRef}
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Fechar código de entrega"
+              >
                 <X aria-hidden="true" />
               </CloseButton>
             </DialogHeader>
 
             <Description>
-              Informe este código ao motoqueiro <strong>somente quando estiver recebendo o pedido</strong>.
+              Informe este código ao motoqueiro{' '}
+              <strong>somente quando estiver recebendo o pedido</strong>.
             </Description>
 
             <Digits aria-label={`Código ${digits.join(' ')}`}>
-              {digits.map((digit, index) => <Digit key={`${digit}-${index}`}>{digit}</Digit>)}
+              {digits.map((digit, index) => (
+                <Digit key={`${digit}-${index}`}>{digit}</Digit>
+              ))}
             </Digits>
 
             <SecurityNote>
               <ShieldCheck aria-hidden="true" />
-              <span>O motoqueiro precisa deste código e do pagamento confirmado para concluir a entrega.</span>
+              <span>
+                O motoqueiro precisa deste código e do pagamento confirmado para concluir a entrega.
+              </span>
             </SecurityNote>
 
-            <DoneButton type="button" onClick={() => setOpen(false)}>Entendi</DoneButton>
+            <DoneButton type="button" onClick={() => setOpen(false)}>
+              Entendi
+            </DoneButton>
           </Dialog>
         </Overlay>
       ) : null}
@@ -167,17 +191,22 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
 }
 
 const Notice = styled.div`
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 1250;
+  width: min(420px, calc(100vw - 24px));
+  transform: translateX(-50%);
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 11px;
   align-items: start;
-  margin-bottom: 16px;
   padding: 12px 14px;
   border: 1px solid #f0c2ad;
   border-radius: 10px;
   background: #fff7f2;
   color: #8d3d21;
-  box-shadow: 0 8px 22px rgba(100, 55, 30, 0.08);
+  box-shadow: 0 12px 34px rgba(100, 55, 30, 0.16);
   > svg { width: 20px; height: 20px; margin-top: 1px; }
   span { display: grid; gap: 3px; }
   strong { font-size: 0.9rem; }
