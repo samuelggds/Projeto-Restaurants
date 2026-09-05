@@ -35,6 +35,7 @@ import productConfigurationTemplateRoutes from '../modules/productConfigurationT
 import attendantRoutes from '../modules/attendant/routes/AttendantRoutes.js';
 import paymentTerminalRoutes from '../modules/paymentTerminals/routes/PaymentTerminalRoutes.js';
 import deliveryChatRoutes from '../modules/deliveryChat/routes/DeliveryChatRoutes.js';
+import pickupPaymentRoutes from '../modules/pickupPayments/routes/PickupPaymentRoutes.js';
 
 const router = Router();
 
@@ -53,6 +54,7 @@ router.use('/products', productRoutes);
 router.use('/ingredients', ingredientRoutes);
 router.use('/orders', orderRoutes);
 router.use('/delivery-chat', deliveryChatRoutes);
+router.use('/pickup-payments', pickupPaymentRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/table-sessions', tableSessionRoutes);
 router.use('/table-accounts', tableAccountRoutes);
