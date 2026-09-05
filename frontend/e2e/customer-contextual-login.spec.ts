@@ -708,8 +708,10 @@ for (const viewport of [
     const tablePath =
       `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}` + `?rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}#conta`;
 
-    for (const entryPath of ['/register', '/recover-password']) {
-      await page.goto(`${entryPath}?next=${encodeURIComponent(tablePath)}`);
+    for (const entryPath of ['register', 'recover-password']) {
+      await page.goto(
+        `/${RESTAURANT_SLUG}/${entryPath}?next=${encodeURIComponent(tablePath)}`,
+      );
       await expect(page.locator('[data-auth-context="TABLE"]')).toBeVisible();
       await expect
         .poll(() =>
