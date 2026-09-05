@@ -230,7 +230,9 @@ describe('CourierWorkspace integration', () => {
     );
     expect(mocks.claimDelivery).not.toHaveBeenCalled();
 
-    await act(async () => clickByText(container, 'button', 'Ativar localização'));
+    await act(async () =>
+      clickByText(container, '[role="dialog"] button', 'Ativar localização'),
+    );
     await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
     expect(mocks.getCurrentPosition).toHaveBeenCalledTimes(1);
     expect(mocks.claimDelivery).toHaveBeenCalledWith(
@@ -284,7 +286,9 @@ describe('CourierWorkspace integration', () => {
       container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
     );
 
-    await act(async () => clickByText(container, 'button', 'Ativar localização'));
+    await act(async () =>
+      clickByText(container, '[role="dialog"] button', 'Ativar localização'),
+    );
     await flushUntil(() => container.textContent?.includes('A localização foi bloqueada') === true);
     expect(mocks.claimDelivery).not.toHaveBeenCalled();
     expect(mocks.watchPosition).not.toHaveBeenCalled();
