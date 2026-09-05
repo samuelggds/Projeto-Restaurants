@@ -5,6 +5,7 @@ import deliveryChatService, {
   type DeliveryChatMessage,
   type DeliveryChatSnapshot,
 } from '../../Services/deliveryChatService';
+import ordersService from '../../Services/ordersService';
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { useAuth } from '../../contexts/authContext';
@@ -12,6 +13,7 @@ import { clearDeliveryChatUnread, type DeliveryChatActorScope } from './delivery
 import * as S from './DeliveryChat.styles';
 
 const POLL_INTERVAL_MS = 5_000;
+const ETA_REFRESH_INTERVAL_MS = 60_000;
 
 function mergeMessage(list: DeliveryChatMessage[], incoming: DeliveryChatMessage) {
   const existing = list.find((item) => item.id === incoming.id);
@@ -55,6 +57,13 @@ function vibrateOnce() {
   }
 }
 
+function formatEta(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function DeliveryChatPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -66,6 +75,7 @@ export default function DeliveryChatPage() {
   const [loading, setLoading] = useState(!hasInvalidOrderId);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [estimatedArrival, setEstimatedArrival] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<DeliveryChatSnapshot | null>(null);
   const seenIncomingMessageIdsRef = useRef(new Set<string>());
@@ -82,6 +92,27 @@ export default function DeliveryChatPage() {
     if (actorId) clearDeliveryChatUnread(actorScope, actorId, orderId);
     void deliveryChatService.markRead(orderId).catch(() => undefined);
   }, [actorId, actorScope, hasInvalidOrderId, orderId]);
+
+  useEffect(() => {
+    if (hasInvalidOrderId) return undefined;
+    let active = true;
+    const refreshEta = async () => {
+      try {
+        const tracking = await ordersService.getDeliveryTracking(orderId);
+        if (!active) return;
+        setEstimatedArrival(String(tracking?.order?.estimatedArrival || '') || null);
+      } catch {
+        if (active) setEstimatedArrival(null);
+      }
+    };
+    const initial = window.setTimeout(() => void refreshEta(), 0);
+    const interval = window.setInterval(() => void refreshEta(), ETA_REFRESH_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [hasInvalidOrderId, orderId]);
 
   useEffect(() => {
     if (hasInvalidOrderId) return;
@@ -152,6 +183,7 @@ export default function DeliveryChatPage() {
       const incomingId = String(incomingMessage.id || '').trim();
       if (
         incomingRole !== myMessageRole &&
+        incomingRole !== 'SYSTEM' &&
         incomingId &&
         !seenIncomingMessageIdsRef.current.has(incomingId)
       ) {
@@ -255,6 +287,13 @@ export default function DeliveryChatPage() {
 
   if (!snapshot) return null;
 
+  const eta = formatEta(estimatedArrival);
+  const deliveryLabel = snapshot.thread.readOnly
+    ? 'Entrega encerrada'
+    : eta
+      ? `Em entrega · chegada estimada ${eta}`
+      : 'Em entrega';
+
   return (
     <S.Page>
       <S.Shell>
@@ -269,7 +308,7 @@ export default function DeliveryChatPage() {
                   ? `${snapshot.order.customerName} · Pedido #${snapshot.order.id}`
                   : `${snapshot.order.courierName} · Pedido #${snapshot.order.id}`}
               </strong>
-              <span>{snapshot.order.restaurantName}</span>
+              <span>{snapshot.order.restaurantName} · {deliveryLabel}</span>
             </div>
           </S.Header>
           <S.Context aria-label="Informações da conversa">
@@ -306,7 +345,11 @@ export default function DeliveryChatPage() {
             </S.Empty>
           ) : (
             snapshot.messages.map((message) => {
-              const mine = String(message.senderRole).toUpperCase() === myMessageRole;
+              const senderRole = String(message.senderRole).toUpperCase();
+              if (senderRole === 'SYSTEM') {
+                return <S.SystemMessage key={message.id}>{message.message}</S.SystemMessage>;
+              }
+              const mine = senderRole === myMessageRole;
               return (
                 <S.Message key={message.id} $mine={mine}>
                   <b>{message.senderName}</b>
