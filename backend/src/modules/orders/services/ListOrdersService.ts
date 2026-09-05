@@ -1,5 +1,6 @@
 import { FuncionarioSubRole, OrderStatus, UserRole } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
+import kitchenOrderRepository from '../repositories/KitchenOrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
@@ -71,6 +72,8 @@ class ListOrdersService {
       if (normalizedSubRole !== FuncionarioSubRole.COZINHA) {
         throw new Error('Funcionário sem perfil operacional válido.');
       }
+
+      return kitchenOrderRepository.findAll(normalizedRestaurantId, status);
     }
 
     return orderRepository.findAll(normalizedRestaurantId, status);
