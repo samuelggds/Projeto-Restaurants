@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const LOCAL_API = /^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/;
+const RESTAURANT_SLUG = 'restaurante-teste';
 
 async function mockGlobalMaintenance(page: Page) {
   await page.route(LOCAL_API, async (route) => {
@@ -25,12 +26,29 @@ async function mockGlobalMaintenance(page: Page) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
       return;
     }
+    if (pathname === `/settings/public/slug/${RESTAURANT_SLUG}`) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          restaurantId: 7,
+          restaurantName: 'Restaurante Teste',
+          restaurant: { id: 7, name: 'Restaurante Teste', slug: RESTAURANT_SLUG },
+        }),
+      });
+      return;
+    }
     await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
   });
-  await page.addInitScript(() => localStorage.clear());
+  await page.addInitScript(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 }
 
-test('manutenção global cobre o negócio e mantém todos os logins acessíveis', async ({ page }) => {
+test('manutenção global cobre o negócio e mantém todos os logins válidos acessíveis', async ({
+  page,
+}) => {
   await mockGlobalMaintenance(page);
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/qualquer-restaurante');
@@ -49,8 +67,12 @@ test('manutenção global cobre o negócio e mantém todos os logins acessíveis
   await expect(page.getByRole('heading', { name: 'Acesso técnico' })).toBeVisible();
   await expect(page.getByText('conta exclusiva de Super Admin')).toBeVisible();
 
-  await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Bem-vindo!' })).toBeVisible();
+  await page.goto(`/${RESTAURANT_SLUG}/login`);
+  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta!' })).toBeVisible();
+  await expect(page.getByLabel('E-mail')).toBeVisible();
+
+  await page.goto(`/${RESTAURANT_SLUG}/team`);
+  await expect(page.getByRole('heading', { name: 'Acesso da equipe' })).toBeVisible();
   await expect(page.getByLabel('E-mail')).toBeVisible();
 
   await page.goto('/super_admin');
