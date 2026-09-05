@@ -13,6 +13,10 @@ declare global {
         mustChangePassword?: boolean;
         isGuest?: boolean;
       };
+      guestOrderTracking?: {
+        orderId: number;
+        publicId: string;
+      };
       tableSession?: {
         id: number;
         publicId: string;
