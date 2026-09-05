@@ -20,6 +20,8 @@ const MAX_NEXT_PATH_LENGTH = 4_096;
 const MAX_DECODE_PASSES = 8;
 const AUTH_RETURN_STORAGE_PREFIX = 'gastronexa:auth-return:';
 const TENANT_SLUG_STORAGE_KEY = 'gastronexa:tenant-slug';
+const TEAM_SESSION_ROOTS = ['/attendant', '/courier', '/kitchen', '/waiter'] as const;
+const ADMIN_SESSION_ROOTS = ['/admin', '/billing'] as const;
 const BLOCKED_AUTH_PATHS = new Set([
   '/login',
   '/register',
@@ -63,6 +65,19 @@ const RESERVED_RESTAURANT_SLUGS = new Set([
 ]);
 const AUTH_RESTAURANT_ID_KEYS = ['restaurantId', 'rid'] as const;
 const AUTH_RESTAURANT_SLUG_KEYS = ['restaurantSlug', 'slug'] as const;
+
+function normalizePathname(value: unknown) {
+  return (
+    String(value || '/')
+      .split(/[?#]/u, 1)[0]
+      .replace(/\/+$/u, '')
+      .toLowerCase() || '/'
+  );
+}
+
+function isPathUnderRoots(pathname: string, roots: readonly string[]) {
+  return roots.some((root) => pathname === root || pathname.startsWith(`${root}/`));
+}
 
 function containsControlCharacter(value: string) {
   return Array.from(value).some((character) => {
@@ -359,4 +374,40 @@ export function buildLoginUrl(location: ReturnLocation) {
   rememberAuthReturnPath(restaurantSlug, nextPath);
   const query = getSafeAuthSearchParams(new URLSearchParams({ next: nextPath })).toString();
   return query ? `${portalPath}?${query}` : portalPath;
+}
+
+export function isAuthenticationEntryPath(pathname: unknown) {
+  const path = normalizePathname(pathname);
+  if (path === '/super_admin/login') return true;
+  return /^\/[^/]+\/(?:login|register|recover-password|team|admin(?:\/[^/]+)?)$/u.test(path);
+}
+
+export function buildSessionEntryUrl(location: ReturnLocation, role?: unknown) {
+  const pathname = normalizePathname(location.pathname);
+  const normalizedRole = String(role || '')
+    .trim()
+    .toUpperCase();
+
+  if (normalizedRole === 'SUPER_ADMIN' || isPathUnderRoots(pathname, ['/super_admin'])) {
+    return '/super_admin/login';
+  }
+
+  const restaurantSlug = getRestaurantSlugFromLocation(location) || getRememberedTenantSlug();
+  if (!restaurantSlug) return TENANT_REQUIRED_PATH;
+
+  rememberTenantSlug(restaurantSlug);
+
+  if (normalizedRole === 'ADMIN' || isPathUnderRoots(pathname, ADMIN_SESSION_ROOTS)) {
+    return `/${restaurantSlug}/admin`;
+  }
+
+  if (
+    normalizedRole === 'FUNCIONARIO' ||
+    normalizedRole === 'MOTOQUEIRO' ||
+    isPathUnderRoots(pathname, TEAM_SESSION_ROOTS)
+  ) {
+    return `/${restaurantSlug}/team`;
+  }
+
+  return buildLoginUrl(location);
 }
