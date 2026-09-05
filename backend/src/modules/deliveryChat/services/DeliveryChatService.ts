@@ -3,6 +3,7 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 
 const ACTIVE_DELIVERY_STATUS = 'SAIU_PARA_ENTREGA';
 const MAX_MESSAGE_LENGTH = 500;
+const DELIVERY_CODE_PATTERN = /^\d{4}$/u;
 
 type Actor = {
   userId?: number | null;
@@ -45,6 +46,21 @@ type MessageRow = {
   senderName: string;
   message: string;
   createdAt: Date;
+  readAt: Date | null;
+};
+
+type CourierInboxRow = {
+  threadId: number;
+  orderId: number;
+  status: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  updatedAt: Date;
+  lastMessageId: bigint | number | string | null;
+  lastMessage: string | null;
+  lastSenderRole: string | null;
+  lastMessageAt: Date | null;
+  unreadCount: bigint | number | string;
 };
 
 function normalizeMessage(value: unknown) {
@@ -58,6 +74,7 @@ function publicMessage(row: MessageRow) {
     senderName: String(row.senderName),
     message: String(row.message),
     createdAt: row.createdAt.toISOString(),
+    readAt: row.readAt?.toISOString() || null,
   };
 }
 
@@ -135,7 +152,7 @@ class DeliveryChatService {
 
   private async loadMessages(threadId: number) {
     return prisma.$queryRaw<MessageRow[]>`
-      SELECT "id", "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt"
+      SELECT "id", "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt", "readAt"
       FROM "DeliveryChatMessage"
       WHERE "threadId" = ${threadId}
       ORDER BY "createdAt" ASC, "id" ASC
@@ -189,12 +206,101 @@ class DeliveryChatService {
     return this.buildPayload(order, thread, messages);
   }
 
+  async listCourierInbox(actor: Actor) {
+    const courierId = Number(actor.userId || 0);
+    const restaurantId = Number(actor.restaurantId || 0);
+    if (String(actor.role || '').toUpperCase() !== 'MOTOQUEIRO' || !courierId || !restaurantId) {
+      throw new Error('A caixa de conversas é exclusiva do motoqueiro autenticado.');
+    }
+
+    const rows = await prisma.$queryRaw<CourierInboxRow[]>`
+      SELECT
+        thread."id" AS "threadId",
+        thread."orderId",
+        o."status"::text AS "status",
+        customer."name" AS "customerName",
+        customer."phone" AS "customerPhone",
+        thread."updatedAt",
+        last_message."id" AS "lastMessageId",
+        last_message."message" AS "lastMessage",
+        last_message."senderRole" AS "lastSenderRole",
+        last_message."createdAt" AS "lastMessageAt",
+        COALESCE(unread."count", 0) AS "unreadCount"
+      FROM "DeliveryChatThread" thread
+      INNER JOIN "Order" o ON o."id" = thread."orderId"
+      LEFT JOIN "User" customer ON customer."id" = o."userId"
+      LEFT JOIN LATERAL (
+        SELECT message."id", message."message", message."senderRole", message."createdAt"
+        FROM "DeliveryChatMessage" message
+        WHERE message."threadId" = thread."id"
+        ORDER BY message."createdAt" DESC, message."id" DESC
+        LIMIT 1
+      ) last_message ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS "count"
+        FROM "DeliveryChatMessage" message
+        WHERE message."threadId" = thread."id"
+          AND message."senderRole" = 'CUSTOMER'
+          AND message."readAt" IS NULL
+      ) unread ON TRUE
+      WHERE thread."courierId" = ${courierId}
+        AND thread."restaurantId" = ${restaurantId}
+        AND last_message."id" IS NOT NULL
+      ORDER BY COALESCE(last_message."createdAt", thread."updatedAt") DESC
+      LIMIT 100
+    `;
+
+    return rows.map((row) => ({
+      threadId: row.threadId,
+      orderId: row.orderId,
+      status: row.status,
+      customerName: row.customerName || 'Cliente',
+      customerPhone: row.customerPhone || null,
+      updatedAt: row.updatedAt.toISOString(),
+      lastMessage: row.lastMessage || '',
+      lastSenderRole: row.lastSenderRole || '',
+      lastMessageAt: row.lastMessageAt?.toISOString() || row.updatedAt.toISOString(),
+      unreadCount: Number(row.unreadCount || 0),
+    }));
+  }
+
+  async markRead(orderId: number, actor: Actor) {
+    if (!Number.isInteger(orderId) || orderId <= 0) throw new Error('Pedido inválido.');
+    const order = await this.loadOrder(orderId);
+    if (!order) throw new Error('Pedido não encontrado.');
+    const access = this.assertActorAccess(order, actor);
+    if (!order.assignedCourierId) return { orderId, readCount: 0 };
+    const thread = await this.ensureThread(order);
+    const incomingRole = access.isCourier ? 'CUSTOMER' : 'COURIER';
+    const readCount = await prisma.$executeRaw`
+      UPDATE "DeliveryChatMessage"
+      SET "readAt" = COALESCE("readAt", NOW())
+      WHERE "threadId" = ${thread.id}
+        AND "senderRole" = ${incomingRole}
+        AND "readAt" IS NULL
+    `;
+
+    const event = {
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      courierId: order.assignedCourierId,
+      customerUserId: order.userId,
+      readerRole: access.isCourier ? 'COURIER' : 'CUSTOMER',
+    };
+    if (order.userId) io.to(`user:${order.userId}`).emit('delivery:chat-read', event);
+    io.to(`user:${order.assignedCourierId}`).emit('delivery:chat-read', event);
+    return { orderId: order.id, readCount: Number(readCount || 0) };
+  }
+
   async send(orderId: number, actor: Actor, rawMessage: unknown) {
     if (!Number.isInteger(orderId) || orderId <= 0) throw new Error('Pedido inválido.');
     const message = normalizeMessage(rawMessage);
     if (message.length < 1) throw new Error('Digite uma mensagem.');
     if (message.length > MAX_MESSAGE_LENGTH) {
       throw new Error(`Mensagem muito longa. Use no máximo ${MAX_MESSAGE_LENGTH} caracteres.`);
+    }
+    if (DELIVERY_CODE_PATTERN.test(message)) {
+      throw new Error('Por segurança, não envie o código de 4 dígitos pelo chat. Informe-o somente no momento da entrega.');
     }
 
     const order = await this.loadOrder(orderId);
@@ -213,11 +319,11 @@ class DeliveryChatService {
     const senderName = access.isCourier ? order.courierName || 'Motoqueiro' : order.customerName || 'Cliente';
     const rows = await prisma.$queryRaw<MessageRow[]>`
       INSERT INTO "DeliveryChatMessage" (
-        "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt"
+        "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt", "readAt"
       ) VALUES (
-        ${thread.id}, ${senderRole}, ${senderUserId}, ${senderName}, ${message}, NOW()
+        ${thread.id}, ${senderRole}, ${senderUserId}, ${senderName}, ${message}, NOW(), NULL
       )
-      RETURNING "id", "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt"
+      RETURNING "id", "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt", "readAt"
     `;
     await prisma.$executeRaw`
       UPDATE "DeliveryChatThread" SET "updatedAt" = NOW() WHERE "id" = ${thread.id}
