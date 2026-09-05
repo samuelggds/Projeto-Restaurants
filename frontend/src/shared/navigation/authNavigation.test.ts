@@ -206,9 +206,12 @@ describe('authNavigation', () => {
     expect(buildSessionEntryUrl({ pathname: '/profile' }, 'SUPER_ADMIN')).toBe('/super_admin/login');
   });
 
-  it('manda cliente para login contextual e nunca preserva rota operacional', () => {
+  it('manda cliente para login contextual e preserva somente retorno interno seguro', () => {
     rememberTenantSlug('restaurante-x');
-    expect(buildSessionEntryUrl({ pathname: '/profile' }, 'CLIENTE')).toBe('/restaurante-x/login');
+    const url = buildSessionEntryUrl({ pathname: '/profile' }, 'CLIENTE');
+
+    expect(url.startsWith('/restaurante-x/login?next=')).toBe(true);
+    expect(new URLSearchParams(url.split('?')[1]).get('next')).toBe('/profile');
   });
 
   it.each([
