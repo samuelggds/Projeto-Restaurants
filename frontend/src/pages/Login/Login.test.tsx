@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   loginWithGoogle: vi.fn(),
   verifyLogin2fa: vi.fn(),
   getGoogleClientId: vi.fn(),
+  logout: vi.fn(),
   persistLogin: vi.fn(),
   promptDialog: vi.fn(),
 }));
@@ -18,6 +19,7 @@ vi.mock('../../Services/authService', () => ({
     loginWithGoogle: mocks.loginWithGoogle,
     verifyLogin2fa: mocks.verifyLogin2fa,
     getGoogleClientId: mocks.getGoogleClientId,
+    logout: mocks.logout,
   },
 }));
 vi.mock('../../contexts/authContext.js', () => ({
@@ -52,13 +54,35 @@ function LocationProbe() {
 function ContextSwitcher() {
   const navigate = useNavigate();
   return (
-    <button
-      type="button"
-      data-testid="change-auth-context"
-      onClick={() => navigate(`/login?next=${encodeURIComponent(SECOND_TABLE_RETURN_PATH)}`)}
-    >
-      Alterar contexto
-    </button>
+    <>
+      <button
+        type="button"
+        data-testid="change-auth-context"
+        onClick={() =>
+          navigate(
+            `/outro-restaurante/login?next=${encodeURIComponent(SECOND_TABLE_RETURN_PATH)}`,
+          )
+        }
+      >
+        Alterar contexto
+      </button>
+      <button
+        type="button"
+        data-testid="change-to-team-context"
+        onClick={() => navigate('/restaurante-teste/team')}
+      >
+        Acesso da equipe
+      </button>
+    </>
+  );
+}
+
+function LoginHarness() {
+  return (
+    <>
+      <ContextSwitcher />
+      <Login />
+    </>
   );
 }
 
@@ -78,6 +102,7 @@ describe('Login contextual do cliente', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     googleCallback = undefined;
     mocks.getGoogleClientId.mockResolvedValue('google-client-id');
     Object.defineProperty(window, 'google', {
@@ -103,17 +128,14 @@ describe('Login contextual do cliente', () => {
 
     act(() => {
       root.render(
-        <MemoryRouter initialEntries={[`/login?next=${encodeURIComponent(TABLE_RETURN_PATH)}`]}>
+        <MemoryRouter
+          initialEntries={[
+            `/restaurante-teste/login?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
+          ]}
+        >
           <Routes>
-            <Route
-              path="/login"
-              element={
-                <>
-                  <ContextSwitcher />
-                  <Login />
-                </>
-              }
-            />
+            <Route path="/:restaurantSlug/login" element={<LoginHarness />} />
+            <Route path="/:restaurantSlug/team" element={<LoginHarness />} />
             <Route path="*" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
@@ -247,6 +269,13 @@ describe('Login contextual do cliente', () => {
   });
 
   it('envia funcionário ATENDENTE à área exclusiva sem reutilizar o next do cliente', async () => {
+    act(() => {
+      (container.querySelector('[data-testid="change-to-team-context"]') as HTMLButtonElement).click();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
     mocks.loginRequest.mockResolvedValue({
       token: 'attendant-token',
       user: {

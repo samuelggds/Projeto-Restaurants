@@ -31,6 +31,8 @@ describe('RequireAuth', () => {
   beforeEach(() => {
     mocks.auth.user = null;
     mocks.auth.isLoading = false;
+    window.sessionStorage.clear();
+    window.sessionStorage.setItem('gastronexa:tenant-slug', 'restaurante-teste');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -41,7 +43,7 @@ describe('RequireAuth', () => {
     container.remove();
   });
 
-  it('preserva pathname, query e hash ao encaminhar uma rota protegida para o login', () => {
+  it('preserva pathname, query e hash ao encaminhar rota protegida do cliente para o login do tenant lembrado', () => {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/profile?view=addresses&newAddress=1#form']}>
@@ -49,18 +51,38 @@ describe('RequireAuth', () => {
             <Route element={<RequireAuth />}>
               <Route path="/profile" element={<div>Perfil privado</div>} />
             </Route>
-            <Route path="/login" element={<LocationProbe />} />
+            <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       );
     });
 
     const renderedLocation = container.textContent || '';
-    expect(renderedLocation).toMatch(/^\/login\?next=/u);
+    expect(renderedLocation).toMatch(/^\/restaurante-teste\/login\?next=/u);
     expect(new URLSearchParams(renderedLocation.split('?')[1]).get('next')).toBe(
       '/profile?view=addresses&newAddress=1#form',
     );
   });
+
+  it.each(['/attendant', '/courier', '/kitchen', '/waiter'])(
+    'encaminha a rota operacional %s para o portal da equipe sem next',
+    (initialEntry) => {
+      act(() => {
+        root.render(
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+              <Route element={<RequireAuth />}>
+                <Route path={initialEntry} element={<div>Área privada</div>} />
+              </Route>
+              <Route path="/:restaurantSlug/team" element={<LocationProbe />} />
+            </Routes>
+          </MemoryRouter>,
+        );
+      });
+
+      expect(container.textContent).toBe('/restaurante-teste/team');
+    },
+  );
 });
 
 describe('RouteAuthorizationGuard após login', () => {
@@ -70,6 +92,7 @@ describe('RouteAuthorizationGuard após login', () => {
   beforeEach(() => {
     mocks.auth.user = null;
     mocks.auth.isLoading = false;
+    window.sessionStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -87,10 +110,11 @@ describe('RouteAuthorizationGuard após login', () => {
         <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route element={<RouteAuthorizationGuard />}>
-              <Route path="/login" element={<div>Login</div>} />
-              <Route path="/register" element={<div>Cadastro</div>} />
-              <Route path="/recover-password" element={<div>Recuperação</div>} />
+              <Route path="/:restaurantSlug/login" element={<div>Login</div>} />
+              <Route path="/:restaurantSlug/register" element={<div>Cadastro</div>} />
+              <Route path="/:restaurantSlug/recover-password" element={<div>Recuperação</div>} />
               <Route path="/:restaurantSlug/mesa/:tableNumber" element={<LocationProbe />} />
+              <Route path="/:restaurantSlug" element={<LocationProbe />} />
               <Route path="/admin" element={<LocationProbe />} />
               <Route path="/change-password" element={<LocationProbe />} />
             </Route>
@@ -101,7 +125,7 @@ describe('RouteAuthorizationGuard após login', () => {
   }
 
   function renderGuardedLogin(user: NonNullable<typeof mocks.auth.user>, nextPath: string) {
-    renderGuardedEntry(user, `/login?next=${encodeURIComponent(nextPath)}`);
+    renderGuardedEntry(user, `/restaurante-teste/login?next=${encodeURIComponent(nextPath)}`);
   }
 
   it('prioriza o next seguro de mesa para CLIENTE', () => {
@@ -126,7 +150,7 @@ describe('RouteAuthorizationGuard após login', () => {
     expect(new URLSearchParams(renderedLocation.split('?')[1]).get('next')).toBe(nextPath);
   });
 
-  it.each(['/register', '/recover-password'])(
+  it.each(['/restaurante-teste/register', '/restaurante-teste/recover-password'])(
     'retorna CLIENTE já autenticado ao contexto ao abrir %s',
     (entryPath) => {
       const nextPath = '/restaurante-teste/mesa/5?rid=1&tk=abc#conta';

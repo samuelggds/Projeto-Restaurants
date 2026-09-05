@@ -104,6 +104,7 @@ const RESERVED_ROUTES = new Set([
   'orders',
   'mesa',
   'equipe',
+  'team',
 ]);
 
 function parsePositiveRestaurantId(value: string | null) {
@@ -178,7 +179,7 @@ export function mapLoginBranding(settings: Record<string, unknown> | null): Logi
     logoUrl: isPersistentImageSource(logo) ? String(logo) : '',
     primaryColor: normalizeLoginBrandColor(settings.primaryColor),
     category: normalizeRestaurantCategory(
-      restaurant.category || settings.restaurantCategory || DEFAULT_LOGIN_BRANDING.category,
+      restaurant.category || settings.restaurantCategory || settings.category,
     ),
   };
 }

@@ -38,8 +38,13 @@ describe('política de disponibilidade do sistema', () => {
     ).toBe('APP');
   });
 
-  it('mantém qualquer tela de login disponível durante manutenção ou bloqueio local', () => {
-    for (const pathname of ['/login', '/pizzaria/login', '/super_admin/login']) {
+  it('mantém somente os portais de autenticação válidos disponíveis durante manutenção ou bloqueio local', () => {
+    for (const pathname of [
+      '/pizzaria/login',
+      '/pizzaria/team',
+      '/pizzaria/admin',
+      '/super_admin/login',
+    ]) {
       expect(
         resolveAvailabilityView({
           ...base,
@@ -53,6 +58,18 @@ describe('política de disponibilidade do sistema', () => {
         pathname,
       ).toBe('APP');
     }
+
+    expect(
+      resolveAvailabilityView({
+        ...base,
+        pathname: '/login',
+        role: '',
+        userPresent: false,
+        platformMaintenance: true,
+        initialStatusPending: true,
+        systemBlock: { reason: 'BILLING' },
+      }),
+    ).toBe('PLATFORM_MAINTENANCE');
   });
 
   it('deixa a rota SUPER_ADMIN chegar ao guard de autenticação e RBAC', () => {
@@ -96,11 +113,11 @@ describe('política de disponibilidade do sistema', () => {
     );
   });
 
-  it('permite login sem sessão para que o ADMIN regularize a conta', () => {
+  it('permite o portal ADMIN tenant-scoped sem sessão para regularizar a conta', () => {
     expect(
       resolveAvailabilityView({
         ...base,
-        pathname: '/login',
+        pathname: '/pizzaria/admin',
         role: '',
         userPresent: false,
         systemBlock: { reason: 'BILLING' },

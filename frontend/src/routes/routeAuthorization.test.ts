@@ -1,41 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import { authorizeRoute } from './routeAuthorization';
+import { authorizeRoute, TENANT_LOGIN_REDIRECT } from './routeAuthorization';
+import { TENANT_REQUIRED_PATH } from '../shared/navigation/authNavigation';
 
 const allowed = (path: string, user: Parameters<typeof authorizeRoute>[1]) =>
   authorizeRoute(path, user).allowed;
 
 describe('política de autorização de rotas', () => {
-  it('mantém Home, QR e portais contextuais públicos, mas protege tracking', () => {
+  it('mantém apenas entradas públicas com slug do restaurante', () => {
     for (const path of [
-      '/',
-      '/mesa/12',
       '/pizzaria',
       '/pizzaria/mesa/12',
       '/pizzaria/login',
       '/pizzaria/register',
-      '/pizzaria/equipe',
+      '/pizzaria/recover-password',
+      '/pizzaria/team',
       '/pizzaria/admin',
+      TENANT_REQUIRED_PATH,
     ])
       expect(allowed(path, null), path).toBe(true);
-    expect(authorizeRoute('/admin/login', null)).toEqual({
-      allowed: false,
-      redirectTo: '/login',
-    });
+
+    for (const path of ['/', '/mesa/12', '/login', '/register', '/recover-password', '/pizzaria/equipe']) {
+      expect(authorizeRoute(path, null), path).toEqual({
+        allowed: false,
+        redirectTo: TENANT_LOGIN_REDIRECT,
+      });
+    }
+
     expect(authorizeRoute('/orders/42/tracking', null)).toEqual({
       allowed: false,
-      redirectTo: '/login',
+      redirectTo: TENANT_LOGIN_REDIRECT,
     });
   });
-  it('limita CLIENTE a Home, cardápio, perfil e tracking', () => {
+
+  it('limita CLIENTE ao tenant público, perfil e tracking', () => {
     const user = { role: 'CLIENTE' };
-    for (const path of ['/', '/loja/mesa/3', '/profile', '/orders/a/tracking'])
+    for (const path of ['/loja', '/loja/mesa/3', '/profile', '/orders/a/tracking'])
       expect(allowed(path, user), path).toBe(true);
-    expect(authorizeRoute('/admin', user)).toEqual({ allowed: false, redirectTo: '/' });
+    expect(authorizeRoute('/admin', user)).toEqual({
+      allowed: false,
+      redirectTo: TENANT_REQUIRED_PATH,
+    });
   });
+
   it('permite todos os módulos operacionais ao ADMIN, menos super_admin', () => {
     const user = { role: 'ADMIN' };
     for (const path of [
-      '/',
       '/admin',
       '/billing',
       '/profile',
@@ -47,12 +56,14 @@ describe('política de autorização de rotas', () => {
       expect(allowed(path, user), path).toBe(true);
     expect(authorizeRoute('/super_admin', user)).toEqual({ allowed: false, redirectTo: '/admin' });
   });
+
   it('mantém SUPER_ADMIN exclusivamente em super_admin', () => {
     const user = { role: 'SUPER_ADMIN' };
     expect(allowed('/super_admin/restaurantes', user)).toBe(true);
-    expect(authorizeRoute('/', user)).toEqual({ allowed: false, redirectTo: '/super_admin' });
+    expect(authorizeRoute('/pizzaria', user)).toEqual({ allowed: false, redirectTo: '/super_admin' });
     expect(allowed('/admin', user)).toBe(false);
   });
+
   it('encaminha visitante do painel diretamente ao login técnico', () => {
     expect(authorizeRoute('/super_admin', null)).toEqual({
       allowed: false,
@@ -64,20 +75,22 @@ describe('política de autorização de rotas', () => {
     });
     expect(authorizeRoute('/super_admin/login', null)).toEqual({ allowed: true });
   });
-  it('redireciona usuário já autenticado para a própria área ao tentar outro portal de login', () => {
+
+  it('redireciona usuário já autenticado para a própria área ao tentar outro portal', () => {
     expect(authorizeRoute('/pizzaria/admin', { role: 'ADMIN' })).toEqual({
       allowed: false,
       redirectTo: '/admin',
     });
-    expect(authorizeRoute('/pizzaria/equipe', { role: 'FUNCIONARIO', subRole: 'GARCOM' })).toEqual({
+    expect(authorizeRoute('/pizzaria/team', { role: 'FUNCIONARIO', subRole: 'GARCOM' })).toEqual({
       allowed: false,
       redirectTo: '/waiter',
     });
     expect(authorizeRoute('/pizzaria/login', { role: 'CLIENTE' })).toEqual({
       allowed: false,
-      redirectTo: '/',
+      redirectTo: TENANT_REQUIRED_PATH,
     });
   });
+
   it('isola qualquer conta com troca de senha obrigatória na página dedicada', () => {
     for (const role of ['SUPER_ADMIN', 'ADMIN']) {
       const user = { role, mustChangePassword: true };
@@ -89,9 +102,10 @@ describe('política de autorização de rotas', () => {
     }
     expect(authorizeRoute('/change-password', null)).toEqual({
       allowed: false,
-      redirectTo: '/login',
+      redirectTo: TENANT_LOGIN_REDIRECT,
     });
   });
+
   it('isola motoqueiro, cozinha, garçom e atendente', () => {
     const cases = [
       [{ role: 'MOTOQUEIRO' }, '/courier', '/admin'],
@@ -102,9 +116,10 @@ describe('política de autorização de rotas', () => {
     for (const [user, own, other] of cases) {
       expect(allowed(own, user)).toBe(true);
       expect(allowed(other, user)).toBe(false);
-      expect(allowed('/', user)).toBe(false);
+      expect(allowed('/pizzaria', user)).toBe(false);
     }
   });
+
   it('reserva a rota de atendimento exclusivamente ao atendente', () => {
     expect(allowed('/attendant', { role: 'FUNCIONARIO', subRole: 'ATENDENTE' })).toBe(true);
     for (const user of [
@@ -118,19 +133,24 @@ describe('política de autorização de rotas', () => {
       expect(allowed('/attendant', user), JSON.stringify(user)).toBe(false);
     }
   });
-  it('manda perfil desconhecido para login', () => {
+
+  it('manda perfil desconhecido para resolução explícita de tenant', () => {
     expect(authorizeRoute('/admin', { role: 'OUTRO' })).toEqual({
       allowed: false,
-      redirectTo: '/login',
+      redirectTo: TENANT_LOGIN_REDIRECT,
     });
   });
-  it('não cria auto-redirecionamento vazio para funcionário sem subcargo', () => {
+
+  it('não cria login global para funcionário sem subcargo', () => {
     const legacyEmployee = { role: 'FUNCIONARIO', subRole: null };
 
-    expect(authorizeRoute('/login', legacyEmployee)).toEqual({ allowed: true });
+    expect(authorizeRoute('/pizzaria/team', legacyEmployee)).toEqual({
+      allowed: false,
+      redirectTo: TENANT_REQUIRED_PATH,
+    });
     expect(authorizeRoute('/attendant', legacyEmployee)).toEqual({
       allowed: false,
-      redirectTo: '/login',
+      redirectTo: TENANT_REQUIRED_PATH,
     });
   });
 });

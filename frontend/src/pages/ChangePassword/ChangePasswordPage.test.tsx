@@ -39,6 +39,8 @@ describe('ChangePasswordPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
+    window.sessionStorage.setItem('gastronexa:tenant-slug', 'restaurante-teste');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -49,7 +51,7 @@ describe('ChangePasswordPage', () => {
         >
           <Routes>
             <Route path="/change-password" element={<ChangePasswordPage />} />
-            <Route path="/login" element={<LocationProbe />} />
+            <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       );
@@ -93,7 +95,7 @@ describe('ChangePasswordPage', () => {
     });
     expect(mocks.logout).toHaveBeenCalledOnce();
     const location = container.textContent || '';
-    expect(location).toMatch(/^\/login\?next=/u);
+    expect(location).toMatch(/^\/restaurante-teste\/login\?next=/u);
     expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(TABLE_RETURN_PATH);
   });
 });

@@ -29,29 +29,30 @@ import {
   setSystemBlockState,
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
-import { authorizeRoute } from './routeAuthorization';
+import { authorizeRoute, TENANT_LOGIN_REDIRECT } from './routeAuthorization';
 import SystemAvailabilityGate from './SystemAvailabilityGate';
 import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance';
 import BrowserTabBranding from '../components/BrowserTabBranding/BrowserTabBranding';
 import {
   buildAuthEntryUrl,
-  buildLoginUrl,
+  buildSessionEntryUrl,
   getCurrentReturnPath,
   getSafeNextPath,
+  rememberTenantSlug,
+  TENANT_REQUIRED_PATH,
 } from '../shared/navigation/authNavigation';
+import { consumeSignedOutEntryUrl } from '../shared/navigation/sessionEntry';
 
 function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
-  const isAuthEntry =
-    location.pathname === '/login' ||
-    location.pathname === '/register' ||
-    location.pathname === '/recover-password' ||
-    /^\/[^/]+\/(?:login|register)$/u.test(location.pathname);
+  const isAuthEntry = /^\/[^/]+\/(?:login|register|recover-password)$/u.test(location.pathname);
 
   if (isAuthEntry) {
     const requestedNext = getSafeNextPath(new URLSearchParams(location.search).get('next'));
     if (requestedNext) return requestedNext;
 
-    const restaurantAuth = location.pathname.match(/^\/([^/]+)\/(?:login|register)$/u);
+    const restaurantAuth = location.pathname.match(
+      /^\/([^/]+)\/(?:login|register|recover-password)$/u,
+    );
     return restaurantAuth ? getSafeNextPath(`/${restaurantAuth[1]}`) : '';
   }
 
@@ -66,15 +67,34 @@ function RouteLoading() {
   );
 }
 
+function TenantRequiredPage() {
+  return (
+    <main className="app-route-loading" aria-live="polite">
+      <div>
+        <h1>Restaurante não informado</h1>
+        <p>Use o link do seu restaurante, por exemplo: /north-pizza.</p>
+      </div>
+    </main>
+  );
+}
+
+function LegacyLoginRedirect() {
+  const location = useLocation();
+  return <Navigate to={consumeSignedOutEntryUrl(location)} replace />;
+}
+
 function RestaurantMenuGate() {
   const { restaurantSlug } = useParams();
-
   const normalizedSlug = String(restaurantSlug || '')
     .trim()
     .toLowerCase();
 
+  useEffect(() => {
+    if (normalizedSlug) rememberTenantSlug(normalizedSlug);
+  }, [normalizedSlug]);
+
   if (!normalizedSlug) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={TENANT_REQUIRED_PATH} replace />;
   }
 
   return <Home />;
@@ -89,7 +109,7 @@ export function RequireAuth() {
   }
 
   if (!user) {
-    return <Navigate to={buildLoginUrl(location)} replace />;
+    return <Navigate to={buildSessionEntryUrl(location)} replace />;
   }
 
   return <Outlet />;
@@ -123,8 +143,8 @@ export function RouteAuthorizationGuard() {
       redirectTo = buildAuthEntryUrl('/change-password', params);
     } else if (isCustomer && customerReturnPath) {
       redirectTo = customerReturnPath;
-    } else if (!user && decision.redirectTo === '/login') {
-      redirectTo = buildLoginUrl(location);
+    } else if (!user && decision.redirectTo === TENANT_LOGIN_REDIRECT) {
+      redirectTo = buildSessionEntryUrl(location);
     }
 
     return <Navigate to={redirectTo} replace />;
@@ -213,19 +233,15 @@ export default function AppRoutes() {
               <Route path="/super_admin/login" element={<Login />} />
               <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
               <Route element={<RouteAuthorizationGuard />}>
-                <Route path="/login" element={<Login />} />
                 <Route path="/:restaurantSlug/login" element={<Login />} />
-                <Route path="/:restaurantSlug/equipe" element={<Login />} />
-                <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
-                <Route path="/recover-password" element={<RecoverPassword />} />
-                <Route path="/register" element={<Register />} />
                 <Route path="/:restaurantSlug/register" element={<Register />} />
+                <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
+                <Route path="/:restaurantSlug/team" element={<Login />} />
+                <Route path="/:restaurantSlug/admin" element={<AdminPortalLoginGate />} />
                 <Route path="/system-maintenance" element={<SystemMaintenancePage />} />
-                <Route path="/mesa/:tableNumber" element={<DigitalMenu />} />
+                <Route path={TENANT_REQUIRED_PATH} element={<TenantRequiredPage />} />
                 <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
                 <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
-
-                <Route path="/" element={<Home />} />
 
                 <Route element={<RequireAuth />}>
                   <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -255,7 +271,12 @@ export default function AppRoutes() {
                 </Route>
               </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="/" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route path="/login" element={<LegacyLoginRedirect />} />
+              <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route path="/recover-password" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route path="/mesa/:tableNumber" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route path="*" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
             </Route>
           </Routes>
         </SystemAvailabilityGate>

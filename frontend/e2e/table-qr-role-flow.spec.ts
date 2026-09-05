@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route, type TestInfo } from '@playwright/
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 1;
+const RESTAURANT_SLUG = 'restaurante-teste';
 const TABLE_ID = 101;
 const TABLE_NUMBER = 1;
 const TABLE_TOKEN = '11112222333344445555666677778888';
@@ -41,7 +42,7 @@ const users = {
     email: 'admin@restaurante.test',
     role: 'ADMIN',
     restaurantId: RESTAURANT_ID,
-    restaurantSlug: 'restaurante-teste',
+    restaurantSlug: RESTAURANT_SLUG,
   },
   waiter: {
     id: 12,
@@ -373,13 +374,13 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         url.searchParams.get('tableId') === String(TABLE_ID) &&
         url.searchParams.get('restaurantId') === String(RESTAURANT_ID) &&
         url.searchParams.get('tableToken') === TABLE_TOKEN &&
-        !url.searchParams.get('slug');
+        url.searchParams.get('slug') === RESTAURANT_SLUG;
       return valid
         ? json(route, {
             id: TABLE_ID,
             number: TABLE_NUMBER,
             restaurantId: RESTAURANT_ID,
-            restaurantSlug: 'restaurante-teste',
+            restaurantSlug: RESTAURANT_SLUG,
             tableOrderingEnabled: true,
             waiterCallEnabled: true,
             billRequestEnabled: true,
@@ -395,7 +396,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         Number(payload.tableNumber) === TABLE_NUMBER &&
         Number(payload.restaurantId) === RESTAURANT_ID &&
         payload.tableToken === TABLE_TOKEN &&
-        payload.restaurantSlug === 'restaurante-teste';
+        payload.restaurantSlug === RESTAURANT_SLUG;
       if (!valid) return json(route, { error: 'O QR Code da mesa é inválido.' }, 400);
       if (!state.tableOpen) {
         return json(
@@ -527,7 +528,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
 
     if (
       pathname === `/settings/public/${RESTAURANT_ID}` ||
-      pathname === '/settings/public/slug/restaurante-teste'
+      pathname === `/settings/public/slug/${RESTAURANT_SLUG}`
     ) {
       return json(route, {
         restaurantId: RESTAURANT_ID,
@@ -540,7 +541,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         restaurant: {
           id: RESTAURANT_ID,
           name: 'Restaurante Teste',
-          slug: 'restaurante-teste',
+          slug: RESTAURANT_SLUG,
         },
       });
     }
@@ -555,7 +556,7 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
         restaurant: {
           id: RESTAURANT_ID,
           name: 'Restaurante Teste',
-          slug: 'restaurante-teste',
+          slug: RESTAURANT_SLUG,
         },
       });
     }
@@ -676,7 +677,9 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   expect(state.waiterTableReads).toBeGreaterThan(0);
 
   await selectPersona(page, 'customer');
-  await page.goto(`/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`);
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
   await expect(page.getByText(product.name).first()).toBeVisible();
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
@@ -776,7 +779,9 @@ test('cliente separa escopo e método e só vê pago após reconciliação canô
   await page.goto('/');
   await selectPersona(page, 'customer');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`);
+  await page.goto(
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+  );
 
   await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
   await page.getByText('Arroz', { exact: true }).click();
@@ -858,7 +863,7 @@ test('retorno success do cartão permanece pendente até o backend confirmar', a
   await page.goto('/');
   await selectPersona(page, 'customer');
   await page.goto(
-    `/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}&cardCheckoutStatus=success&orderPublicId=${CARD_ORDER_PUBLIC_ID}`,
+    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}&cardCheckoutStatus=success&orderPublicId=${CARD_ORDER_PUBLIC_ID}`,
   );
 
   await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(0);

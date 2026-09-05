@@ -57,10 +57,14 @@ describe('Register contextual do cliente', () => {
 
     act(() => {
       root.render(
-        <MemoryRouter initialEntries={[`/register?next=${encodeURIComponent(TABLE_RETURN_PATH)}`]}>
+        <MemoryRouter
+          initialEntries={[
+            `/restaurante-teste/register?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
+          ]}
+        >
           <Routes>
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<LocationProbe />} />
+            <Route path="/:restaurantSlug/register" element={<Register />} />
+            <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       );
@@ -72,7 +76,7 @@ describe('Register contextual do cliente', () => {
     container.remove();
   });
 
-  it('cria somente uma conta CLIENTE e mantém a mesa até o Login', async () => {
+  it('cria somente uma conta CLIENTE e mantém a mesa até o Login tenant-scoped', async () => {
     expect(container.querySelector('[data-auth-context="TABLE"]')).not.toBeNull();
     expect(container.textContent).toContain('Criar conta para a Mesa 12');
 
@@ -96,7 +100,7 @@ describe('Register contextual do cliente', () => {
     expect(mocks.register.mock.calls[0][0]).not.toHaveProperty('role');
 
     const location = container.textContent || '';
-    expect(location).toMatch(/^\/login\?next=/u);
+    expect(location).toMatch(/^\/restaurante-teste\/login\?next=/u);
     expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(TABLE_RETURN_PATH);
   });
 });

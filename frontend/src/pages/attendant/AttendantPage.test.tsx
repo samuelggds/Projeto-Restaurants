@@ -67,11 +67,12 @@ describe('AttendantPage data integration', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     mocks.listeners.clear();
     mocks.latestProps = null;
     mocks.getWorkspace.mockResolvedValue(snapshot);
     mocks.getPublicSettings.mockResolvedValue({
-      restaurant: { name: 'Pizzaria Teste' },
+      restaurant: { name: 'Pizzaria Teste', slug: 'pizzaria-teste' },
       primaryColor: '#e16a3d',
     });
     mocks.socket.on.mockImplementation((event: string, listener: () => void) => {
@@ -116,7 +117,7 @@ describe('AttendantPage data integration', () => {
     expect(mocks.getWorkspace).toHaveBeenCalledTimes(2);
   });
 
-  it('encerra a sessão e retorna ao login pelo comando do workspace', async () => {
+  it('encerra a sessão e retorna ao portal tenant-scoped da equipe', async () => {
     await renderPage();
 
     act(() => {
@@ -125,6 +126,6 @@ describe('AttendantPage data integration', () => {
     });
 
     expect(mocks.logout).toHaveBeenCalledOnce();
-    expect(mocks.navigate).toHaveBeenCalledWith('/login', { replace: true });
+    expect(mocks.navigate).toHaveBeenCalledWith('/pizzaria-teste/team', { replace: true });
   });
 });

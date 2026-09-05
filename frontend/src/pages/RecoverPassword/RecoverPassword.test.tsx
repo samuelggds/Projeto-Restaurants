@@ -48,6 +48,8 @@ describe('RecoverPassword', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
+    window.sessionStorage.setItem('gastronexa:tenant-slug', 'restaurante-teste');
     mocks.forgotPassword.mockResolvedValue({ message: 'Código enviado.' });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -55,11 +57,13 @@ describe('RecoverPassword', () => {
     act(() => {
       root.render(
         <MemoryRouter
-          initialEntries={[`/recover-password?next=${encodeURIComponent(TABLE_RETURN_PATH)}`]}
+          initialEntries={[
+            `/restaurante-teste/recover-password?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
+          ]}
         >
           <Routes>
-            <Route path="/recover-password" element={<RecoverPassword />} />
-            <Route path="/login" element={<LocationProbe />} />
+            <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
+            <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       );
@@ -111,7 +115,7 @@ describe('RecoverPassword', () => {
     expect(container.querySelector('#reset-code')).toBeNull();
   });
 
-  it('retorna ao Login com o next completo após redefinir a senha', async () => {
+  it('retorna ao Login tenant-scoped com o next completo após redefinir a senha', async () => {
     mocks.resetPassword.mockResolvedValue({ message: 'Senha redefinida.' });
     const emailMethod = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'E-mail',
@@ -144,7 +148,7 @@ describe('RecoverPassword', () => {
       confirmPassword: 'Senha@123',
     });
     const location = container.textContent || '';
-    expect(location).toMatch(/^\/login\?next=/u);
+    expect(location).toMatch(/^\/restaurante-teste\/login\?next=/u);
     expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(TABLE_RETURN_PATH);
   });
 });

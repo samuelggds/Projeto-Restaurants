@@ -10,6 +10,7 @@ import {
   isAuthSnapshotCurrent,
   persistAuthSession,
 } from '../modules/auth/session/authSession';
+import { rememberSignedOutRole } from '../shared/navigation/sessionEntry';
 
 type AuthUser = {
   id?: number;
@@ -164,6 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function logout() {
     authRevision.current += 1;
+    rememberSignedOutRole(user?.role);
     void api.post('/auth/logout').catch(() => undefined);
     clearAuthSession();
     clearSystemBlockState();

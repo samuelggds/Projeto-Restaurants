@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const RESTAURANT_ID = 47;
+const RESTAURANT_SLUG = 'pizzaria-horizonte';
 const ATTENDANT_TOKEN = 'e2e-attendant-token';
 
 const attendantUser = {
@@ -143,7 +144,7 @@ async function mockAttendantApi(page: Page, user = attendantUser) {
         restaurant: {
           id: RESTAURANT_ID,
           name: 'Pizzaria Horizonte',
-          slug: 'pizzaria-horizonte',
+          slug: RESTAURANT_SLUG,
         },
       });
     }
@@ -156,6 +157,7 @@ async function mockAttendantApi(page: Page, user = attendantUser) {
   await mockAuthRefresh(page, user.id, ATTENDANT_TOKEN);
   await page.addInitScript((sessionUser) => {
     localStorage.clear();
+    sessionStorage.clear();
     localStorage.setItem('user', JSON.stringify(sessionUser));
   }, user);
 }
@@ -255,14 +257,17 @@ test('ADMIN não entra na rota exclusiva do atendente', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin(?:\?.*)?$/u);
 });
 
-test('logout do atendente retorna ao login sem preservar a rota operacional', async ({ page }) => {
+test('logout do atendente retorna ao portal da equipe sem preservar a rota operacional', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await mockAttendantApi(page);
   await page.goto('/attendant');
+  await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sair da área do atendente' }).first().click();
 
-  await expect(page).toHaveURL(/\/login$/u);
-  await expect(page.getByRole('heading', { name: 'Bem-vindo!' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}/team$`, 'u'));
+  await expect(page.getByRole('heading', { name: 'Acesso da equipe' })).toBeVisible();
   expect(new URL(page.url()).searchParams.has('next')).toBe(false);
 });

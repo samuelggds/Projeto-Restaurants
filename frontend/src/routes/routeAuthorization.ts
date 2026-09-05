@@ -1,9 +1,13 @@
+import { TENANT_REQUIRED_PATH } from '../shared/navigation/authNavigation';
+
 export type RouteUser = {
   role?: string;
   subRole?: unknown;
   mustChangePassword?: boolean;
 } | null;
 export type RouteDecision = { allowed: true } | { allowed: false; redirectTo: string };
+
+export const TENANT_LOGIN_REDIRECT = '__TENANT_LOGIN__';
 
 const SERVICE_PATHS = ['/system-blocked', '/system-maintenance'];
 const RESERVED_ROOTS = new Set([
@@ -15,13 +19,16 @@ const RESERVED_ROOTS = new Set([
   'equipe',
   'kitchen',
   'login',
+  'mesa',
   'orders',
   'profile',
   'recover-password',
   'register',
+  'restaurant-required',
   'super_admin',
   'system-blocked',
   'system-maintenance',
+  'team',
   'waiter',
 ]);
 const normalizePath = (pathname: string) => pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
@@ -30,18 +37,14 @@ const isPath = (pathname: string, base: string) =>
 const isAllowedTenantRoot = (value: string | undefined) =>
   Boolean(value && !RESERVED_ROOTS.has(value.toLowerCase()));
 const isGuestEntry = (path: string) => {
-  if (
-    path === '/login' ||
-    path === '/recover-password' ||
-    path === '/register' ||
-    path === '/super_admin/login'
-  )
-    return true;
+  if (path === '/super_admin/login') return true;
 
-  const contextualEntry = path.match(/^\/([^/]+)\/(?:login|register|equipe|admin)$/)?.[1];
+  const contextualEntry = path.match(
+    /^\/([^/]+)\/(?:login|register|recover-password|team|admin)$/u,
+  )?.[1];
   if (isAllowedTenantRoot(contextualEntry)) return true;
 
-  const privateAdminEntry = path.match(/^\/([^/]+)\/admin\/[^/]+$/)?.[1];
+  const privateAdminEntry = path.match(/^\/([^/]+)\/admin\/[^/]+$/u)?.[1];
   return isAllowedTenantRoot(privateAdminEntry);
 };
 
@@ -50,9 +53,8 @@ export function isPublicRoute(pathname: string) {
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
   return (
-    path === '/' ||
     path === '/system-maintenance' ||
-    /^\/mesa\/[^/]+$/.test(path) ||
+    path === TENANT_REQUIRED_PATH ||
     Boolean(singleSegment && !RESERVED_ROOTS.has(singleSegment)) ||
     Boolean(restaurantTable && !RESERVED_ROOTS.has(restaurantTable))
   );
@@ -69,8 +71,8 @@ export function getRoleHome(user: RouteUser) {
   if (role === 'FUNCIONARIO' && subRole === 'COZINHA') return '/kitchen';
   if (role === 'FUNCIONARIO' && subRole === 'GARCOM') return '/waiter';
   if (role === 'FUNCIONARIO' && subRole === 'ATENDENTE') return '/attendant';
-  if (role === 'CLIENTE') return '/';
-  return '/login';
+  if (role === 'CLIENTE') return TENANT_REQUIRED_PATH;
+  return TENANT_REQUIRED_PATH;
 }
 
 export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision {
@@ -83,7 +85,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
   if (!user)
     return isPublicRoute(path) || isGuestEntry(path)
       ? { allowed: true }
-      : { allowed: false, redirectTo: '/login' };
+      : { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
   const home = getRoleHome(user);
   if (user.mustChangePassword === true) {
     return path === '/change-password'
@@ -91,7 +93,6 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
       : { allowed: false, redirectTo: '/change-password' };
   }
   if (path === '/change-password') return { allowed: true };
-  if (path === '/login' && home === '/login') return { allowed: true };
   if (isPath(path, '/attendant')) {
     return role === 'FUNCIONARIO' && subRole === 'ATENDENTE'
       ? { allowed: true }
@@ -116,5 +117,5 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPath(path, '/waiter') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (role === 'FUNCIONARIO' && subRole === 'ATENDENTE')
     return { allowed: false, redirectTo: home };
-  return { allowed: false, redirectTo: '/login' };
+  return { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
 }
