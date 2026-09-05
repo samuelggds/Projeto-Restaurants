@@ -11,6 +11,7 @@ export const TENANT_LOGIN_REDIRECT = '__TENANT_LOGIN__';
 
 const SERVICE_PATHS = ['/system-blocked', '/system-maintenance'];
 const RESERVED_ROOTS = new Set([
+  TENANT_LOGIN_REDIRECT.toLowerCase(),
   'admin',
   'attendant',
   'billing',
@@ -125,5 +126,5 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPath(path, '/waiter') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (role === 'FUNCIONARIO' && subRole === 'ATENDENTE')
     return { allowed: false, redirectTo: home };
-  return { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
+  return { allowed: false, redirectTo: home };
 }
