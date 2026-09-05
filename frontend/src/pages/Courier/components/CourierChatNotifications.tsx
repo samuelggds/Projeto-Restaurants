@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { useAuth } from '../../../contexts/authContext';
 import { getAccessToken } from '../../../modules/auth/session/authSession';
 import { acquireSocket } from '../../../Services/socketService';
+import {
+  clearDeliveryChatUnread,
+  incrementDeliveryChatUnread,
+  readDeliveryChatUnread,
+} from '../../tracking/deliveryChatUnread';
 
 type DeliveryChatRealtimeEvent = {
   orderId?: number;
@@ -24,7 +29,13 @@ type PendingChatAlert = {
   customerName: string;
   message: string;
   messageId: string;
+  unreadCount: number;
 };
+
+const arrive = keyframes`
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
 
 const Stack = styled.aside`
   position: fixed;
@@ -39,26 +50,44 @@ const Stack = styled.aside`
 
 const Alert = styled.button`
   pointer-events: auto;
+  position: relative;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 11px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 13px;
-  border: 1px solid rgba(37, 99, 235, 0.18);
-  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.98);
   color: #17231d;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
   text-align: left;
   cursor: pointer;
+  animation: ${arrive} 220ms ease-out both;
+  backdrop-filter: blur(14px);
+
+  &::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    border-radius: 16px 0 0 16px;
+    background: #2563eb;
+    content: '';
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+  }
 
   .icon {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
-    border-radius: 12px;
-    background: #dbeafe;
+    border-radius: 13px;
+    background: #eaf2ff;
     color: #1d4ed8;
   }
 
@@ -85,6 +114,21 @@ const Alert = styled.button`
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .badge {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #fff;
+    background: #2563eb;
+    font-size: 11px;
+    font-weight: 900;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.24);
   }
 `;
 
@@ -153,11 +197,13 @@ export function CourierChatNotifications() {
       }
 
       seenMessageIdsRef.current.add(messageId);
+      const unreadCount = incrementDeliveryChatUnread('courier', courierId, orderId);
       const alert: PendingChatAlert = {
         orderId,
         customerName: String(event?.customerName || event?.message?.senderName || 'Cliente'),
         message: String(event?.message?.message || '').trim() || 'Nova mensagem recebida.',
         messageId,
+        unreadCount,
       };
 
       setAlerts((current) => [alert, ...current.filter((item) => item.orderId !== orderId)]);
@@ -176,25 +222,37 @@ export function CourierChatNotifications() {
 
   return (
     <Stack aria-live="assertive">
-      {alerts.map((alert) => (
-        <Alert
-          key={`${alert.orderId}:${alert.messageId}`}
-          type="button"
-          onClick={() => {
-            setAlerts((current) => current.filter((item) => item.orderId !== alert.orderId));
-            navigate(`/orders/${alert.orderId}/chat`);
-          }}
-        >
-          <span className="icon">
-            <MessageCircle size={21} />
-          </span>
-          <span className="copy">
-            <strong>Nova mensagem do cliente</strong>
-            <b>Pedido #{alert.orderId}</b>
-            <small>{alert.customerName}: {alert.message}</small>
-          </span>
-        </Alert>
-      ))}
+      {alerts.map((alert) => {
+        const unreadCount = Math.max(
+          alert.unreadCount,
+          readDeliveryChatUnread('courier', courierId, alert.orderId),
+        );
+        return (
+          <Alert
+            key={`${alert.orderId}:${alert.messageId}`}
+            type="button"
+            onClick={() => {
+              clearDeliveryChatUnread('courier', courierId, alert.orderId);
+              setAlerts((current) => current.filter((item) => item.orderId !== alert.orderId));
+              navigate(`/orders/${alert.orderId}/chat`);
+            }}
+          >
+            <span className="icon">
+              <MessageCircle size={21} />
+            </span>
+            <span className="copy">
+              <strong>Nova mensagem do cliente</strong>
+              <b>Pedido #{alert.orderId}</b>
+              <small>
+                {alert.customerName}: {alert.message}
+              </small>
+            </span>
+            <span className="badge" aria-label={`${unreadCount} mensagens não lidas`}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          </Alert>
+        );
+      })}
     </Stack>
   );
 }
