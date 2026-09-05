@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   id: '601',
   navigate: vi.fn(),
   getTracking: vi.fn(),
+  getGuestTrackingToken: vi.fn(() => ''),
   listeners: new Map<string, (...args: unknown[]) => void>(),
   mapProps: null as null | {
     points: RoutePoint[];
@@ -27,6 +28,7 @@ vi.mock('react-router-dom', () => ({
 }));
 vi.mock('../../Services/ordersService', () => ({
   default: { getDeliveryTracking: mocks.getTracking },
+  getGuestOrderTrackingToken: mocks.getGuestTrackingToken,
 }));
 vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
@@ -97,6 +99,7 @@ describe('DeliveryTrackingPage integration', () => {
     persistAuthSession({ id: 12, role: 'CLIENTE' }, 'customer-token');
     mocks.id = '601';
     mocks.mapProps = null;
+    mocks.getGuestTrackingToken.mockReturnValue('');
     mocks.listeners.clear();
     mocks.socket.on.mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
       mocks.listeners.set(event, listener);
