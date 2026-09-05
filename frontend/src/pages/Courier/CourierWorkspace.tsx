@@ -120,10 +120,10 @@ export default function CourierWorkspace() {
   const [locationTrackingRequested, setLocationTrackingRequested] = useState(false);
   const [trackingAttempt, setTrackingAttempt] = useState(0);
   const [geoMessage, setGeoMessage] = useState(
-    'Ative a localização para o cliente acompanhar a entrega.',
+    'A localização é opcional e permite que o cliente acompanhe a entrega em tempo real.',
   );
   const [geoHint, setGeoHint] = useState(
-    'Ao retirar um pedido, o celular solicitará a permissão antes de iniciar a entrega.',
+    'Você pode ativar agora, ao retirar um pedido ou durante uma entrega em andamento.',
   );
   const [socketConnected, setSocketConnected] = useState(false);
   const [finance, setFinance] = useState<FinanceData | null>(null);
@@ -320,7 +320,7 @@ export default function CourierWorkspace() {
       setLocationTrackingRequested(false);
       setGeoStatus('idle');
       setGeoMessage(message);
-      setGeoHint('Retire outro pedido para iniciar um novo acompanhamento.');
+      setGeoHint('Você pode ativar a localização quando iniciar outra entrega.');
       latestPositionRef.current = null;
       localStorage.removeItem(trackingPreferenceKey);
       setSelectedRouteOrderId(null);
@@ -335,22 +335,22 @@ export default function CourierWorkspace() {
 
   const requestInitialPosition = useCallback(() => {
     setGeoStatus('checking');
-    setGeoMessage('Confirmando a posição inicial antes de retirar o pedido...');
+    setGeoMessage('Confirmando a posição para iniciar o rastreamento...');
     setGeoHint('Mantenha a localização precisa ativada durante toda a entrega.');
 
     return new Promise<CourierRoutePoint>((resolve, reject) => {
       if (typeof window !== 'undefined' && window.isSecureContext === false) {
         setGeoStatus('unsupported');
         setGeoMessage('A localização do celular exige uma conexão segura (HTTPS).');
-        setGeoHint('Abra o endereço oficial com HTTPS antes de iniciar a entrega.');
+        setGeoHint('Abra o endereço oficial com HTTPS para usar o rastreamento.');
         reject(new Error('Abra o sistema pelo endereço HTTPS para ativar a localização.'));
         return;
       }
       if (!navigator.geolocation) {
         setGeoStatus('unsupported');
         setGeoMessage('Este aparelho não oferece geolocalização neste navegador.');
-        setGeoHint('Abra o sistema em um navegador com acesso ao GPS.');
-        reject(new Error('Ative a localização em um aparelho compatível antes de retirar.'));
+        setGeoHint('Você pode continuar a entrega sem rastreamento.');
+        reject(new Error('Este aparelho não oferece acesso ao GPS.'));
         return;
       }
 
@@ -360,8 +360,8 @@ export default function CourierWorkspace() {
           if (!point) {
             setGeoStatus('error');
             setGeoMessage('O celular retornou uma posição inválida.');
-            setGeoHint('Confira o GPS e tente novamente.');
-            reject(new Error('Não foi possível validar a posição inicial. Tente novamente.'));
+            setGeoHint('Confira o GPS ou continue sem localização.');
+            reject(new Error('Não foi possível validar a posição atual.'));
             return;
           }
           latestPositionRef.current = point;
@@ -374,7 +374,7 @@ export default function CourierWorkspace() {
           const failure = describeGeolocationFailure(error);
           setGeoStatus(failure.status);
           setGeoMessage(failure.message);
-          setGeoHint(failure.hint);
+          setGeoHint(`${failure.hint} Você também pode continuar sem localização.`);
           reject(new Error(`${failure.message} ${failure.hint}`));
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 },
@@ -459,7 +459,7 @@ export default function CourierWorkspace() {
       const unsupportedTimer = window.setTimeout(() => {
         setGeoStatus('unsupported');
         setGeoMessage('Este aparelho não oferece geolocalização neste navegador.');
-        setGeoHint('Abra o sistema em um navegador com acesso ao GPS.');
+        setGeoHint('A entrega continua normalmente sem rastreamento.');
         setLocationTrackingRequested(false);
       }, 0);
       return () => window.clearTimeout(unsupportedTimer);
@@ -497,7 +497,7 @@ export default function CourierWorkspace() {
         const failure = describeGeolocationFailure(error);
         setGeoStatus(failure.status);
         setGeoMessage(failure.message);
-        setGeoHint(failure.hint);
+        setGeoHint(`${failure.hint} A entrega continua sem rastreamento.`);
         if (error.code === 1) {
           setLocationTrackingRequested(false);
           localStorage.removeItem(trackingPreferenceKey);
@@ -643,26 +643,55 @@ export default function CourierWorkspace() {
     });
     return order;
   };
-  const claimDelivery = async (orderId: number) => {
-    const initialPoint = await requestInitialPosition();
-    const payload = buildCourierLocationPayload(orderId, initialPoint);
-    if (!payload) throw new Error('Não foi possível validar a posição inicial desta entrega.');
-    const { orderId: _orderId, ...initialLocation } = payload;
+  const claimDelivery = async (orderId: number, options: { shareLocation: boolean }) => {
+    let initialPoint: CourierRoutePoint | null = null;
+    let initialLocation:
+      | {
+          latitude: number;
+          longitude: number;
+          heading: number | null;
+          speed: number | null;
+          accuracy: number | null;
+          sentAt: string;
+        }
+      | undefined;
+
+    if (options.shareLocation) {
+      initialPoint = await requestInitialPosition();
+      const payload = buildCourierLocationPayload(orderId, initialPoint);
+      if (!payload) throw new Error('Não foi possível validar a posição inicial desta entrega.');
+      const { orderId: _orderId, ...locationPayload } = payload;
+      initialLocation = locationPayload;
+    }
+
     const order = updateLocalOrder(await ordersService.claimDelivery(orderId, initialLocation));
-    latestPositionRef.current = initialPoint;
-    localStorage.setItem(trackingPreferenceKey, 'enabled');
-    setLocationTrackingRequested(true);
-    setTrackingAttempt((value) => value + 1);
     setSelectedRouteOrderId(order.id || orderId);
     setView('route');
     setSearch('');
     setVisibleOrderLimit(LIST_BATCH_SIZE);
-    setGeoStatus('enabled');
-    setGeoMessage(`Entrega #${orderId} iniciada com rastreamento ativo.`);
-    setGeoHint(
-      'Mantenha esta página aberta e a localização precisa ligada até concluir a entrega.',
-    );
-    setRoutePoints((current) => mergeCourierRoutePoints(current, [initialPoint]));
+
+    if (options.shareLocation && initialPoint) {
+      latestPositionRef.current = initialPoint;
+      localStorage.setItem(trackingPreferenceKey, 'enabled');
+      setLocationTrackingRequested(true);
+      setTrackingAttempt((value) => value + 1);
+      setGeoStatus('enabled');
+      setGeoMessage(`Entrega #${orderId} iniciada com rastreamento ativo.`);
+      setGeoHint(
+        'Mantenha esta página aberta e a localização precisa ligada até concluir a entrega.',
+      );
+      setRoutePoints((current) => mergeCourierRoutePoints(current, [initialPoint]));
+      return;
+    }
+
+    if (!locationTrackingRequested) {
+      latestPositionRef.current = null;
+      localStorage.removeItem(trackingPreferenceKey);
+      setGeoStatus('idle');
+      setGeoMessage(`Entrega #${orderId} iniciada sem compartilhamento de localização.`);
+      setGeoHint('A entrega segue normalmente. Você pode ativar a localização a qualquer momento.');
+      setRoutePoints([]);
+    }
   };
   const markDelivered = async (orderId: number, code: string) => {
     updateLocalOrder(await ordersService.updateStatus(orderId, 'ENTREGUE', code));
@@ -736,7 +765,7 @@ export default function CourierWorkspace() {
                     ? 'Confirmando sua localização'
                     : geoStatus === 'blocked' || geoStatus === 'timeout' || geoStatus === 'error'
                       ? 'A localização precisa de atenção'
-                      : 'Ative a localização antes da entrega'}
+                      : 'Rastreamento em tempo real opcional'}
                 </strong>
                 <p>{geoMessage}</p>
                 <small>{geoHint}</small>
@@ -830,7 +859,7 @@ export default function CourierWorkspace() {
               ) : inRoute.length ? (
                 <S.EmptyState>
                   <LocateFixed />
-                  <p>Aguardando a primeira posição válida do GPS.</p>
+                  <p>Rastreamento desativado. Ative a localização se quiser compartilhar sua rota.</p>
                 </S.EmptyState>
               ) : (
                 <S.EmptyState>
