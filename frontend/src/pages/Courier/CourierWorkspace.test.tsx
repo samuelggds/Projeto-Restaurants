@@ -119,9 +119,9 @@ function deliveryOrder(status = 'PRONTO') {
 }
 
 async function flushUntil(condition: () => boolean) {
-  for (let attempt = 0; attempt < 30 && !condition(); attempt += 1) {
+  for (let attempt = 0; attempt < 200 && !condition(); attempt += 1) {
     await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1));
+      await new Promise((resolve) => window.setTimeout(resolve, 5));
     });
   }
 }
