@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { BellRing, KeyRound, ShieldCheck, X } from 'lucide-react';
 import styled from 'styled-components';
+import { useDraggableFloatingActions } from '../Home/hooks/useDraggableFloatingActions';
 
 type Props = {
   code: string;
   orderId: number;
   deliveryStartedAt?: string | null;
 };
+
+const DELIVERY_CODE_POSITION_KEY = '@PecaJaFood:deliveryCodePosition';
 
 function playDeliveryTone() {
   try {
@@ -40,6 +43,16 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const {
+    elementRef: floatingButtonRef,
+    style: floatingButtonStyle,
+    dragging,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    onClickCapture,
+  } = useDraggableFloatingActions(DELIVERY_CODE_POSITION_KEY);
 
   useEffect(() => {
     if (!showArrivalNotice) return;
@@ -121,15 +134,28 @@ export default function DeliveryConfirmationCodePrompt({ code, orderId, delivery
         </Notice>
       ) : null}
 
-      <FloatingButton
-        ref={triggerRef}
-        type="button"
-        aria-label={`Ver código de entrega do pedido ${orderId}`}
-        onClick={() => setOpen(true)}
+      <FloatingButtonShell
+        ref={floatingButtonRef}
+        style={floatingButtonStyle}
+        $dragging={dragging}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onClickCapture={onClickCapture}
       >
-        <KeyRound aria-hidden="true" />
-        <Badge aria-hidden="true">4</Badge>
-      </FloatingButton>
+        <FloatingButton
+          ref={triggerRef}
+          type="button"
+          data-floating-drag-handle="true"
+          aria-label={`Ver código de entrega do pedido ${orderId}. Arraste para mover.`}
+          title="Clique para ver o código ou arraste para mover"
+          onClick={() => setOpen(true)}
+        >
+          <KeyRound aria-hidden="true" />
+          <Badge aria-hidden="true">4</Badge>
+        </FloatingButton>
+      </FloatingButtonShell>
 
       {open ? (
         <Overlay
@@ -213,11 +239,20 @@ const Notice = styled.div`
   small { color: #6e5d54; font-size: 0.78rem; line-height: 1.4; }
 `;
 
-const FloatingButton = styled.button`
+const FloatingButtonShell = styled.div<{ $dragging: boolean }>`
   position: fixed;
   right: 18px;
   bottom: 22px;
   z-index: 1050;
+  width: 58px;
+  height: 58px;
+  touch-action: none;
+  user-select: none;
+  cursor: ${({ $dragging }) => ($dragging ? 'grabbing' : 'grab')};
+`;
+
+const FloatingButton = styled.button`
+  position: relative;
   width: 58px;
   height: 58px;
   display: grid;
@@ -226,7 +261,8 @@ const FloatingButton = styled.button`
   border-radius: 50%;
   background: #d85329;
   color: #fff;
-  cursor: pointer;
+  cursor: inherit;
+  touch-action: none;
   box-shadow: 0 12px 30px rgba(179, 64, 27, 0.3);
   transition: transform 0.16s ease, box-shadow 0.16s ease;
   > svg { width: 24px; height: 24px; }
