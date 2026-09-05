@@ -145,8 +145,9 @@ class ClaimOrderForDeliveryService {
       }
     }
 
-    const refreshedOrder =
-      (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder;
+    const refreshedOrder = requiresAutomatedDeliveryPayment
+      ? (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder
+      : updatedOrder;
 
     notifyCustomerOrderStatusChanged({
       restaurantId,
