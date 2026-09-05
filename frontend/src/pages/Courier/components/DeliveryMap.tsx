@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { divIcon } from 'leaflet';
 import { Bike, Navigation } from 'lucide-react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
@@ -125,10 +125,7 @@ export default function DeliveryMap({
   statusDetail?: string;
 }) {
   const latest = points[points.length - 1] || { latitude: -23.5505, longitude: -46.6333 };
-  const remainingRoute = useMemo(
-    () => remainingRouteFromCurrentPosition(routePath, latest),
-    [latest.latitude, latest.longitude, routePath],
-  );
+  const remainingRoute = remainingRouteFromCurrentPosition(routePath, latest);
   const plannedRoute = remainingRoute.map(
     (point) => [point.latitude, point.longitude] as [number, number],
   );
