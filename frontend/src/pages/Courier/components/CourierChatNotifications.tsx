@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, MessageCircle, Send, X } from 'lucide-react';
 import styled, { css, keyframes } from 'styled-components';
 import { useAuth } from '../../../contexts/authContext';
@@ -28,8 +28,17 @@ type DeliveryChatRealtimeEvent = {
   message?: DeliveryChatMessage;
 };
 
+type MessagePreviewState = {
+  orderId: number;
+  customerName: string;
+  message: string;
+} | null;
+
 function mergeMessage(list: DeliveryChatMessage[], incoming: DeliveryChatMessage) {
-  if (list.some((item) => item.id === incoming.id)) return list;
+  const existing = list.find((item) => item.id === incoming.id);
+  if (existing) {
+    return list.map((item) => (item.id === incoming.id ? { ...item, ...incoming } : item));
+  }
   return [...list, incoming].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
@@ -78,8 +87,10 @@ export function CourierChatNotifications() {
   const [sending, setSending] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [error, setError] = useState('');
+  const [messagePreview, setMessagePreview] = useState<MessagePreviewState>(null);
   const seenMessageIdsRef = useRef(new Set<string>());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previewTimeoutRef = useRef<number | null>(null);
   const {
     elementRef,
     style,
@@ -96,7 +107,7 @@ export function CourierChatNotifications() {
     [conversations],
   );
 
-  async function refreshInbox() {
+  const refreshInbox = useCallback(async () => {
     if (!courierId || !restaurantId) return;
     try {
       const next = await deliveryChatService.courierInbox();
@@ -104,12 +115,17 @@ export function CourierChatNotifications() {
     } catch {
       // O socket continua avisando novas mensagens; a próxima atualização tenta novamente.
     }
-  }
+  }, [courierId, restaurantId]);
 
   async function openConversation(orderId: number) {
     setActiveOrderId(orderId);
     setLoadingThread(true);
     setError('');
+    setMessagePreview(null);
+    if (previewTimeoutRef.current !== null) {
+      window.clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
     try {
       await deliveryChatService.markRead(orderId);
       const data = await deliveryChatService.get(orderId);
@@ -128,10 +144,20 @@ export function CourierChatNotifications() {
   }
 
   useEffect(() => {
-    void refreshInbox();
+    const initial = window.setTimeout(() => void refreshInbox(), 0);
     const interval = window.setInterval(() => void refreshInbox(), 15_000);
-    return () => window.clearInterval(interval);
-  }, [courierId, restaurantId]);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [refreshInbox]);
+
+  useEffect(
+    () => () => {
+      if (previewTimeoutRef.current !== null) window.clearTimeout(previewTimeoutRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const token = getAccessToken();
@@ -170,12 +196,16 @@ export function CourierChatNotifications() {
 
       setConversations((current) => {
         const existing = current.find((item) => item.orderId === orderId);
-        const unreadCount = isCustomerMessage && !threadIsOpen ? Number(existing?.unreadCount || 0) + 1 : 0;
+        const unreadCount = isCustomerMessage && !threadIsOpen
+          ? Number(existing?.unreadCount || 0) + 1
+          : Number(existing?.unreadCount || 0);
         const next: CourierChatConversation = {
           threadId: existing?.threadId || 0,
           orderId,
           status: existing?.status || 'SAIU_PARA_ENTREGA',
-          customerName: String(event.customerName || message.senderName || existing?.customerName || 'Cliente'),
+          customerName: String(
+            event.customerName || message.senderName || existing?.customerName || 'Cliente',
+          ),
           customerPhone: existing?.customerPhone || null,
           updatedAt: message.createdAt,
           lastMessage: message.message,
@@ -187,6 +217,13 @@ export function CourierChatNotifications() {
       });
 
       if (isCustomerMessage && !threadIsOpen) {
+        const customerName = String(event.customerName || message.senderName || 'Cliente');
+        setMessagePreview({ orderId, customerName, message: message.message });
+        if (previewTimeoutRef.current !== null) window.clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = window.setTimeout(() => {
+          setMessagePreview(null);
+          previewTimeoutRef.current = null;
+        }, 6000);
         playSingleBeep();
         vibrateOnce();
       }
@@ -208,7 +245,7 @@ export function CourierChatNotifications() {
       socket.off('delivery:chat-read', onRead);
       release();
     };
-  }, [activeOrderId, courierId, open, restaurantId]);
+  }, [activeOrderId, courierId, open, refreshInbox, restaurantId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -246,6 +283,22 @@ export function CourierChatNotifications() {
 
   return (
     <>
+      {messagePreview ? (
+        <MessagePreview
+          type="button"
+          onClick={() => {
+            setOpen(true);
+            void openConversation(messagePreview.orderId);
+          }}
+        >
+          <span className="preview-icon"><MessageCircle /></span>
+          <span className="preview-copy">
+            <b>{messagePreview.customerName} · Pedido #{messagePreview.orderId}</b>
+            <small>{messagePreview.message}</small>
+          </span>
+        </MessagePreview>
+      ) : null}
+
       <LauncherShell
         ref={elementRef}
         style={style}
@@ -273,7 +326,10 @@ export function CourierChatNotifications() {
       </LauncherShell>
 
       {open ? (
-        <Backdrop role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}>
+        <Backdrop
+          role="presentation"
+          onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}
+        >
           <Inbox role="dialog" aria-modal="true" aria-label="Conversas das entregas">
             <InboxHeader>
               <div>
@@ -305,7 +361,12 @@ export function CourierChatNotifications() {
                       <span className="copy">
                         <b>Pedido #{conversation.orderId} · {conversation.customerName}</b>
                         <small>{conversation.lastMessage || 'Conversa iniciada'}</small>
-                        <time>{new Date(conversation.lastMessageAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>
+                        <time>
+                          {new Date(conversation.lastMessageAt).toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </time>
                       </span>
                       {conversation.unreadCount > 0 ? <Unread>{conversation.unreadCount}</Unread> : null}
                     </ConversationButton>
@@ -325,7 +386,14 @@ export function CourierChatNotifications() {
                 ) : snapshot ? (
                   <>
                     <ThreadHeader>
-                      <button type="button" onClick={() => { setActiveOrderId(null); setSnapshot(null); }} aria-label="Voltar para conversas">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveOrderId(null);
+                          setSnapshot(null);
+                        }}
+                        aria-label="Voltar para conversas"
+                      >
                         <ChevronLeft />
                       </button>
                       <div>
@@ -335,6 +403,11 @@ export function CourierChatNotifications() {
                     </ThreadHeader>
 
                     <Messages aria-live="polite">
+                      <SystemStatus $closed={snapshot.thread.readOnly}>
+                        {snapshot.thread.readOnly
+                          ? '✅ Entrega encerrada. A conversa permanece disponível para consulta.'
+                          : '🛵 Pedido em entrega. Use este canal somente para combinar esta entrega.'}
+                      </SystemStatus>
                       {snapshot.messages.length === 0 ? (
                         <ThreadPlaceholder>
                           <MessageCircle />
@@ -349,7 +422,10 @@ export function CourierChatNotifications() {
                               <b>{message.senderName}</b>
                               <p>{message.message}</p>
                               <span>
-                                {new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(message.createdAt).toLocaleTimeString('pt-BR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                                 {mine && message.readAt ? ' · Visualizada' : ''}
                               </span>
                             </Bubble>
@@ -363,7 +439,12 @@ export function CourierChatNotifications() {
                       <ComposerArea>
                         <QuickReplies aria-label="Respostas rápidas">
                           {QUICK_REPLIES.map((reply) => (
-                            <button key={reply} type="button" disabled={sending} onClick={() => void sendMessage(reply)}>
+                            <button
+                              key={reply}
+                              type="button"
+                              disabled={sending}
+                              onClick={() => void sendMessage(reply)}
+                            >
                               {reply}
                             </button>
                           ))}
@@ -377,18 +458,28 @@ export function CourierChatNotifications() {
                             aria-label="Mensagem para o cliente"
                             disabled={sending}
                           />
-                          <button type="submit" disabled={sending || !draft.trim()} aria-label="Enviar mensagem">
+                          <button
+                            type="submit"
+                            disabled={sending || !draft.trim()}
+                            aria-label="Enviar mensagem"
+                          >
                             <Send />
                           </button>
                         </Composer>
-                        <SafetyNote>Não envie o código de 4 dígitos pelo chat. Ele deve ser informado somente no recebimento.</SafetyNote>
+                        <SafetyNote>
+                          Não envie o código de 4 dígitos pelo chat. Ele deve ser informado somente no recebimento.
+                        </SafetyNote>
                       </ComposerArea>
                     ) : (
-                      <ClosedNote>Esta entrega foi encerrada. A conversa permanece disponível somente para consulta.</ClosedNote>
+                      <ClosedNote>
+                        Esta entrega foi encerrada. A conversa permanece disponível somente para consulta.
+                      </ClosedNote>
                     )}
                   </>
                 ) : (
-                  <ThreadPlaceholder><strong>{error || 'Não foi possível carregar a conversa.'}</strong></ThreadPlaceholder>
+                  <ThreadPlaceholder>
+                    <strong>{error || 'Não foi possível carregar a conversa.'}</strong>
+                  </ThreadPlaceholder>
                 )}
               </Thread>
             </InboxBody>
@@ -402,6 +493,45 @@ export function CourierChatNotifications() {
 const pulse = keyframes`
   0%, 100% { transform: scale(1); box-shadow: 0 12px 30px rgba(37, 99, 235, .28), 0 0 0 0 rgba(37, 99, 235, .32); }
   50% { transform: scale(1.06); box-shadow: 0 14px 36px rgba(37, 99, 235, .34), 0 0 0 10px rgba(37, 99, 235, 0); }
+`;
+
+const previewArrive = keyframes`
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+const MessagePreview = styled.button`
+  position: fixed;
+  right: 18px;
+  bottom: 164px;
+  z-index: 1260;
+  width: min(360px, calc(100vw - 28px));
+  padding: 11px 12px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #cbdaf0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, .18);
+  text-align: left;
+  cursor: pointer;
+  animation: ${previewArrive} 180ms ease-out both;
+  .preview-icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .preview-icon svg { width: 19px; height: 19px; }
+  .preview-copy { min-width: 0; display: grid; gap: 3px; }
+  b, small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  b { color: #172033; font-size: 11px; }
+  small { color: #64748b; font-size: 10px; }
 `;
 
 const LauncherShell = styled.div<{ $dragging: boolean }>`
@@ -564,6 +694,19 @@ const Messages = styled.div`
   flex-direction: column;
   gap: 9px;
   background: #f8fafc;
+`;
+
+const SystemStatus = styled.div<{ $closed: boolean }>`
+  align-self: center;
+  max-width: 92%;
+  padding: 7px 10px;
+  border: 1px solid ${({ $closed }) => ($closed ? '#d7dde6' : '#cce5d5')};
+  border-radius: 999px;
+  background: ${({ $closed }) => ($closed ? '#f8fafc' : '#f0fdf4')};
+  color: ${({ $closed }) => ($closed ? '#64748b' : '#267044')};
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
 `;
 
 const Bubble = styled.div<{ $mine: boolean }>`
