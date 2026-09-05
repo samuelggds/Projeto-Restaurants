@@ -4,6 +4,8 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 const ACTIVE_DELIVERY_STATUS = 'SAIU_PARA_ENTREGA';
 const MAX_MESSAGE_LENGTH = 500;
 const DELIVERY_CODE_PATTERN = /^\d{4}$/u;
+const DELIVERY_STARTED_MESSAGE = '🛵 O motoqueiro retirou o pedido e iniciou a entrega.';
+const DELIVERY_CLOSED_MESSAGE = '✅ A entrega foi encerrada. Esta conversa agora é somente para consulta.';
 
 type Actor = {
   userId?: number | null;
@@ -150,6 +152,21 @@ class DeliveryChatService {
     return rows[0];
   }
 
+  private async ensureSystemMessage(threadId: number, message: string) {
+    await prisma.$executeRaw`
+      INSERT INTO "DeliveryChatMessage" (
+        "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt", "readAt"
+      )
+      SELECT ${threadId}, 'SYSTEM', NULL, 'Sistema', ${message}, NOW(), NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "DeliveryChatMessage"
+        WHERE "threadId" = ${threadId}
+          AND "senderRole" = 'SYSTEM'
+          AND "message" = ${message}
+      )
+    `;
+  }
+
   private async loadMessages(threadId: number) {
     return prisma.$queryRaw<MessageRow[]>`
       SELECT "id", "threadId", "senderRole", "senderUserId", "senderName", "message", "createdAt", "readAt"
@@ -193,7 +210,9 @@ class DeliveryChatService {
     if (!order.assignedCourierId) throw new Error('A conversa ficará disponível quando a entrega começar.');
 
     const thread = await this.ensureThread(order);
-    if (String(order.status).toUpperCase() !== ACTIVE_DELIVERY_STATUS && thread.status === 'OPEN') {
+    if (String(order.status).toUpperCase() === ACTIVE_DELIVERY_STATUS) {
+      await this.ensureSystemMessage(thread.id, DELIVERY_STARTED_MESSAGE);
+    } else if (thread.status === 'OPEN') {
       await prisma.$executeRaw`
         UPDATE "DeliveryChatThread"
         SET "status" = 'CLOSED', "closedAt" = COALESCE("closedAt", NOW()), "updatedAt" = NOW()
@@ -201,6 +220,9 @@ class DeliveryChatService {
       `;
       thread.status = 'CLOSED';
       thread.closedAt = thread.closedAt || new Date();
+      await this.ensureSystemMessage(thread.id, DELIVERY_CLOSED_MESSAGE);
+    } else {
+      await this.ensureSystemMessage(thread.id, DELIVERY_CLOSED_MESSAGE);
     }
     const messages = await this.loadMessages(thread.id);
     return this.buildPayload(order, thread, messages);
@@ -312,6 +334,7 @@ class DeliveryChatService {
     if (!order.assignedCourierId) throw new Error('O pedido ainda não possui motoqueiro responsável.');
 
     const thread = await this.ensureThread(order);
+    await this.ensureSystemMessage(thread.id, DELIVERY_STARTED_MESSAGE);
     if (thread.status !== 'OPEN') throw new Error('Esta conversa já foi encerrada.');
 
     const senderRole = access.isCourier ? 'COURIER' : 'CUSTOMER';
