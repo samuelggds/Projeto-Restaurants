@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Bike,
-  ChefHat,
-  ChevronRight,
-  Clock3,
-  MessageCircle,
-  PackageCheck,
-  PackageSearch,
-  X,
-} from 'lucide-react';
+import { Bike, ChefHat, ChevronRight, Clock3, PackageCheck, PackageSearch, X } from 'lucide-react';
 import styled from 'styled-components';
 import type { ActiveOrderNotice as ActiveOrder } from '../domain/activeOrderNotice';
 
@@ -231,37 +222,24 @@ const Dialog = styled.section`
     color: #2e2925;
     font-weight: 700;
   }
-  .delivery-actions {
-    display: grid;
-    gap: 9px;
-  }
-  .track,
-  .chat {
+  .track {
     display: flex;
     width: 100%;
     height: 46px;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    border: 0;
     border-radius: 12px;
+    background: var(--home-primary, #d64d08);
+    color: #fff;
     font-weight: 800;
     cursor: pointer;
     transition:
       filter 180ms ease,
       transform 180ms ease;
   }
-  .track {
-    border: 0;
-    background: var(--home-primary, #d64d08);
-    color: #fff;
-  }
-  .chat {
-    border: 1px solid color-mix(in srgb, var(--home-primary, #d64d08) 35%, #eadfd3);
-    background: #fff;
-    color: var(--home-primary, #d64d08);
-  }
-  .track:hover,
-  .chat:hover {
+  .track:hover {
     filter: brightness(0.94);
     transform: translateY(-1px);
   }
@@ -335,10 +313,6 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
   const track = () => {
     setIsOpen(false);
     onTrack(order.id);
-  };
-  const openChat = () => {
-    setIsOpen(false);
-    window.location.assign(`/orders/${order.id}/chat`);
   };
   const confirmReceipt = async () => {
     setConfirmationError(null);
@@ -419,14 +393,9 @@ export function ActiveOrderNotice({ primaryColor, order, onTrack, onConfirmDeliv
                   <span className={progress >= 4 ? 'active' : ''}>Entrega</span>
                 </div>
                 {isOutForDelivery ? (
-                  <div className="delivery-actions">
-                    <button className="chat" type="button" onClick={openChat}>
-                      <MessageCircle size={19} /> Falar com o motoqueiro · Pedido #{order.id}
-                    </button>
-                    <button className="track" type="button" onClick={track}>
-                      <Bike size={19} /> Acompanhar entrega no GPS <ChevronRight size={18} />
-                    </button>
-                  </div>
+                  <button className="track" type="button" onClick={track}>
+                    <Bike size={19} /> Acompanhar entrega no GPS <ChevronRight size={18} />
+                  </button>
                 ) : isDelivered ? (
                   <div className="receipt">
                     <span>
