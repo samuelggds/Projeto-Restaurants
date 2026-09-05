@@ -6,7 +6,7 @@ const allowed = (path: string, user: Parameters<typeof authorizeRoute>[1]) =>
   authorizeRoute(path, user).allowed;
 
 describe('política de autorização de rotas', () => {
-  it('mantém apenas entradas públicas com slug do restaurante', () => {
+  it('mantém apenas entradas públicas com slug do restaurante e tracking seguro de visitante', () => {
     for (const path of [
       '/pizzaria',
       '/pizzaria/mesa/12',
@@ -15,6 +15,7 @@ describe('política de autorização de rotas', () => {
       '/pizzaria/recover-password',
       '/pizzaria/team',
       '/pizzaria/admin',
+      '/orders/42/tracking',
       TENANT_REQUIRED_PATH,
     ])
       expect(allowed(path, null), path).toBe(true);
@@ -26,7 +27,7 @@ describe('política de autorização de rotas', () => {
       });
     }
 
-    expect(authorizeRoute('/orders/42/tracking', null)).toEqual({
+    expect(authorizeRoute('/orders/qualquer/tracking', null)).toEqual({
       allowed: false,
       redirectTo: TENANT_LOGIN_REDIRECT,
     });
