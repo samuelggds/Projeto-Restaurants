@@ -32,13 +32,13 @@ describe('identidade dinâmica do login', () => {
       slug: 'north-pizza',
     });
   });
-  it('usa o restaurantId da mesa sem slug em vez de branding conflitante', () => {
+  it('ignora retorno legado /mesa sem slug e mantém o tenant explícito', () => {
     const next = '/mesa/12?rid=42&tk=abc';
     expect(
       resolveLoginRestaurant(new URLSearchParams({ next, slug: 'outro-restaurante' })),
     ).toEqual({
-      restaurantId: 42,
-      slug: '',
+      restaurantId: null,
+      slug: 'outro-restaurante',
     });
   });
   it('descarta slug explícito malformado', () => {
