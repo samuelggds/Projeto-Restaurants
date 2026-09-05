@@ -138,41 +138,15 @@ class ClaimOrderForDeliveryService {
       try {
         await paymentTerminalService.ensureForClaim(normalizedOrderId, restaurantId, courierId);
       } catch (error) {
-        await prisma.$transaction(async (tx) => {
-          await setTenantDbContext(tx, restaurantId);
-          if (savedLocation) {
-            await tx.deliveryLocation.deleteMany({
-              where: {
-                orderId: normalizedOrderId,
-                courierId,
-                recordedAt: savedLocation.recordedAt,
-              },
-            });
-          }
-          await tx.order.updateMany({
-            where: {
-              id: normalizedOrderId,
-              restaurantId,
-              status: OrderStatus.SAIU_PARA_ENTREGA,
-              assignedCourierId: courierId,
-            },
-            data: {
-              assignedCourierId: null,
-              deliveryStartedAt: null,
-              courierEarning: 0,
-              courierEarningCalculatedAt: null,
-              courierCompensationModel: null,
-              status: OrderStatus.PRONTO,
-            },
-          });
-        });
-        throw error;
+        console.warn(
+          '[DELIVERY_PAYMENT_SETUP_DEFERRED]',
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
 
-    const refreshedOrder = requiresAutomatedDeliveryPayment
-      ? (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder
-      : updatedOrder;
+    const refreshedOrder =
+      (await orderRepository.findById(normalizedOrderId, restaurantId)) || updatedOrder;
 
     notifyCustomerOrderStatusChanged({
       restaurantId,
