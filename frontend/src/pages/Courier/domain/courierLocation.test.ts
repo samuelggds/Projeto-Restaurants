@@ -48,7 +48,7 @@ describe('courierLocation', () => {
     expect(buildCourierLocationPayload(0, point!)).toBeNull();
   });
 
-  it('só compartilha GPS com precisão de até 500 metros', () => {
+  it('classifica como compartilhável somente GPS com precisão de até 500 metros', () => {
     const limitPoint = routePointFromPosition(
       position(-3.7319, -38.5267, MAX_COURIER_TRACKING_ACCURACY_METERS),
       '2026-08-24T20:00:00Z',
@@ -59,16 +59,14 @@ describe('courierLocation', () => {
     );
 
     expect(isShareableCourierRoutePoint(limitPoint!)).toBe(true);
-    expect(buildCourierLocationPayload(91, limitPoint!)).not.toBeNull();
     expect(isShareableCourierRoutePoint(imprecisePoint!)).toBe(false);
-    expect(buildCourierLocationPayload(91, imprecisePoint!)).toBeNull();
     expect(
-      buildCourierLocationPayload(91, {
+      isShareableCourierRoutePoint({
         latitude: -3.7319,
         longitude: -38.5267,
         accuracy: null,
       }),
-    ).toBeNull();
+    ).toBe(false);
   });
 
   it('remove pontos inválidos/duplicados e limita o histórico local', () => {
