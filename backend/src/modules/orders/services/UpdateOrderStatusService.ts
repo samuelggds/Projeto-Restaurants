@@ -21,6 +21,7 @@ import {
   emitWaiterTableOrderEvent,
 } from '../utils/waiterOrderRealtime.js';
 import courierAccessService from './CourierAccessService.js';
+import { verifyDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
 
 class UpdateOrderStatusService {
   private readonly PAY_ON_DELIVERY_MARKER = 'PAY_ON_DELIVERY:';
@@ -103,45 +104,33 @@ class UpdateOrderStatusService {
     const isPayOnDelivery =
       order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
     const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
-    const isAutomatedDeliveryPaymentPending =
-      order.type === OrderType.DELIVERY &&
-      isPayOnDelivery &&
-      isDigitalPayment &&
-      order.paid !== true;
-
-    if (
-      status === OrderStatus.ENTREGUE &&
-      normalizedRole === UserRole.MOTOQUEIRO &&
-      isAutomatedDeliveryPaymentPending
-    ) {
-      throw new Error(
-        'O pagamento na entrega ainda não foi confirmado automaticamente pelo provedor.',
-      );
-    }
+    const isCashPaymentAtHandoff =
+      order.type === OrderType.DELIVERY && order.paymentMethod === PaymentMethod.DINHEIRO;
 
     if (
       status === OrderStatus.ENTREGUE &&
       normalizedRole === UserRole.MOTOQUEIRO &&
       order.type === OrderType.DELIVERY
     ) {
-      const customerPhoneDigits = String(order?.user?.phone || '').replace(/\D/g, '');
-      const expectedCode = customerPhoneDigits.slice(-4);
+      if (order.paid !== true && !isCashPaymentAtHandoff) {
+        throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
+      }
+
       const providedCode = String(deliveryConfirmationCode || '').replace(/\D/g, '');
-
-      if (!customerPhoneDigits || customerPhoneDigits.length < 4) {
-        throw new Error(
-          'Não é possível confirmar a entrega: cliente sem telefone válido cadastrado.',
-        );
-      }
-
       if (!/^\d{4}$/.test(providedCode)) {
-        throw new Error(
-          'Informe os 4 últimos dígitos do celular do cliente para concluir a entrega.',
-        );
+        throw new Error('Informe o código de 4 dígitos exibido para o cliente.');
       }
-
-      if (providedCode !== expectedCode) {
-        throw new Error('Código de confirmação inválido para esta entrega.');
+      if (!order.publicId || !order.deliveryStartedAt) {
+        throw new Error('Código de entrega indisponível para este pedido.');
+      }
+      if (
+        !verifyDeliveryConfirmationCode(providedCode, {
+          orderId: Number(order.id),
+          publicId: String(order.publicId),
+          deliveryStartedAt: order.deliveryStartedAt,
+        })
+      ) {
+        throw new Error('Código de entrega inválido. Confira com o cliente e tente novamente.');
       }
     }
 
@@ -218,11 +207,7 @@ class UpdateOrderStatusService {
           },
         });
 
-        if (
-          order.type !== OrderType.MESA &&
-          order.paymentMethod === PaymentMethod.DINHEIRO &&
-          deliveredOrder.paid !== true
-        ) {
+        if (isCashPaymentAtHandoff && deliveredOrder.paid !== true) {
           cashPaymentConfirmedOnDelivery = true;
           deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
         }

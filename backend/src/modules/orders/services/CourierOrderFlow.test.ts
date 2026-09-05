@@ -11,6 +11,7 @@ import getOrderByIdService from './GetOrderByIdService.js';
 import updateOrderStatusService from './UpdateOrderStatusService.js';
 import requestOrderPaymentConfirmationPinService from './RequestOrderPaymentConfirmationPinService.js';
 import confirmOrderPaymentWithPinService from './ConfirmOrderPaymentWithPinService.js';
+import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
 
 const originals = {
   transaction: prisma.$transaction,
@@ -18,6 +19,7 @@ const originals = {
   findById: orderRepository.findById,
   findCourierOrderById: orderRepository.findCourierOrderById,
   updateStatusIfCurrent: orderRepository.updateStatusIfCurrent,
+  confirmPayment: orderRepository.confirmPayment,
   assertActiveCourier: courierAccessService.assertActiveCourier,
 };
 
@@ -27,17 +29,21 @@ afterEach(() => {
   orderRepository.findById = originals.findById;
   orderRepository.findCourierOrderById = originals.findCourierOrderById;
   orderRepository.updateStatusIfCurrent = originals.updateStatusIfCurrent;
+  orderRepository.confirmPayment = originals.confirmPayment;
   courierAccessService.assertActiveCourier = originals.assertActiveCourier;
 });
 
 function deliveryOrder(overrides = {}) {
   return {
     id: 91,
+    publicId: 'public-order-91',
     userId: 12,
     restaurantId: 7,
     assignedCourierId: 31,
     type: OrderType.DELIVERY,
     status: OrderStatus.SAIU_PARA_ENTREGA,
+    deliveryStartedAt: new Date('2026-09-05T15:00:00.000Z'),
+    deliveredAt: null,
     paid: false,
     payOnDelivery: true,
     paymentMethod: PaymentMethod.DINHEIRO,
@@ -223,6 +229,55 @@ test('motoqueiro não conclui entrega atribuída a outra conta', async () => {
     /não está atribuída a você/,
   );
   assert.equal(updateCalls, 0);
+});
+
+test('motoqueiro conclui dinheiro no handoff com código e pagamento é confirmado na mesma transação', async () => {
+  const order = deliveryOrder();
+  const code = generateDeliveryConfirmationCode({
+    orderId: order.id,
+    publicId: order.publicId,
+    deliveryStartedAt: order.deliveryStartedAt,
+  });
+  const emissions = [];
+  let paymentConfirmations = 0;
+
+  courierAccessService.assertActiveCourier = async () => ({ id: 31, restaurantId: 7 });
+  orderRepository.findById = async () => order;
+  orderRepository.updateStatusIfCurrent = async () => ({ ...order, status: OrderStatus.ENTREGUE });
+  orderRepository.confirmPayment = async () => {
+    paymentConfirmations += 1;
+    return { ...order, status: OrderStatus.ENTREGUE, paid: true, deliveredAt: new Date() };
+  };
+
+  const tx = {
+    order: {
+      update: async () => ({ ...order, status: OrderStatus.ENTREGUE, paid: false, deliveredAt: new Date() }),
+      findFirst: async () => ({ couponRedemptionId: null }),
+    },
+  };
+  prisma.$transaction = async (callback) => callback(tx);
+  io.to = (room) => ({
+    emit(event, payload) {
+      emissions.push({ room, event, payload });
+    },
+  });
+
+  const result = await updateOrderStatusService.execute(
+    91,
+    7,
+    OrderStatus.ENTREGUE,
+    UserRole.MOTOQUEIRO,
+    code,
+    31,
+  );
+
+  assert.equal(result.status, OrderStatus.ENTREGUE);
+  assert.equal(result.paid, true);
+  assert.equal(paymentConfirmations, 1);
+  assert.equal(
+    emissions.some(({ room, event }) => room === 'restaurant:7' && event === 'order:payment-confirmed'),
+    true,
+  );
 });
 
 test('PIN de pagamento só pode ser solicitado e usado pelo motoqueiro atribuído', async () => {

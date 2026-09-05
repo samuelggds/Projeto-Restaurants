@@ -42,7 +42,9 @@ import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
 import { premiumTableOrderMiddleware } from '../../../middlewares/premiumTableOrderMiddleware.js';
+import { deliveryTrackingAccessMiddleware } from '../../../middlewares/deliveryTrackingAccessMiddleware.js';
 import {
+  deliveryConfirmationAttemptRateLimitMiddleware,
   paymentPinAttemptRateLimitMiddleware,
   paymentPinRequestRateLimitMiddleware,
 } from '../../../middlewares/security/orderPaymentRateLimitMiddleware.js';
@@ -82,9 +84,15 @@ router.post('/pix/payment/confirm', orderAccessMiddleware, premiumTableOrderMidd
   ConfirmOrderPixPaymentController.handle(req, res);
 });
 
-router.put('/:id/status', authMiddleware, staffMiddleware, (req, res) => {
-  UpdateOrderStatusController.handle(req, res);
-});
+router.put(
+  '/:id/status',
+  authMiddleware,
+  staffMiddleware,
+  deliveryConfirmationAttemptRateLimitMiddleware,
+  (req, res) => {
+    UpdateOrderStatusController.handle(req, res);
+  },
+);
 
 router.patch('/:id/claim-delivery', authMiddleware, (req, res) => {
   ClaimOrderForDeliveryController.handle(req, res);
@@ -172,7 +180,7 @@ router.patch(
   },
 );
 
-router.get('/:id/tracking', authMiddleware, (req, res, next) => {
+router.get('/:id/tracking', deliveryTrackingAccessMiddleware, (req, res, next) => {
   GetDeliveryTrackingController.handle(req, res, next);
 });
 

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import createOrderCardCheckoutService from '../services/CreateOrderCardCheckoutService.js';
+import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -63,7 +64,19 @@ class CreateOrderCardCheckoutController {
         customerIp: req.ip,
       });
 
-      return res.status(201).json(result);
+      const isGuestDelivery =
+        req.user?.isGuest === true && String(type || '').toUpperCase() === 'DELIVERY';
+      const guestTrackingToken = isGuestDelivery
+        ? issueGuestOrderTrackingToken({
+            orderId: Number(result.orderId),
+            publicId: String(result.orderPublicId),
+          })
+        : null;
+
+      return res.status(201).json({
+        ...result,
+        ...(guestTrackingToken ? { guestTrackingToken } : {}),
+      });
     } catch (error: unknown) {
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Erro ao iniciar pagamento com cartao',

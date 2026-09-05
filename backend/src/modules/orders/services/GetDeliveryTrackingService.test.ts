@@ -26,6 +26,7 @@ afterEach(() => {
 function order(overrides = {}) {
   return {
     id: 91,
+    publicId: 'order-public-91',
     userId: 12,
     restaurantId: 7,
     assignedCourierId: 31,
@@ -86,6 +87,7 @@ test('cliente dono recebe rastro, destino salvo e geometria da rota', async () =
   assert.equal(result.order.routeEstimate.destination.latitude, -3.74);
   assert.equal(result.order.routeEstimate.routeCoordinates.length, 2);
   assert.match(result.order.routeEstimate.destination.label, /Rua das Flores/);
+  assert.match(result.order.deliveryConfirmationCode, /^\d{4}$/);
 });
 
 test('nega outro cliente, outro motoqueiro e pedido que não seja delivery', async () => {

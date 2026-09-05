@@ -52,9 +52,11 @@ export function isPublicRoute(pathname: string) {
   const path = normalizePath(pathname);
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
+  const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
   return (
     path === '/system-maintenance' ||
     path === TENANT_REQUIRED_PATH ||
+    deliveryTracking ||
     Boolean(singleSegment && !RESERVED_ROOTS.has(singleSegment)) ||
     Boolean(restaurantTable && !RESERVED_ROOTS.has(restaurantTable))
   );

@@ -21,6 +21,7 @@ export type DeliveryTrackingData = {
     status: string;
     deliveryStartedAt?: string | null;
     estimatedArrival?: string | null;
+    deliveryConfirmationCode?: string | null;
     routeEstimate?: DeliveryRouteEstimate | null;
     assignedCourier?: { name?: string; phone?: string; avatar?: string } | null;
   };
@@ -57,6 +58,10 @@ export function normalizeDeliveryTrackingData(value: unknown): DeliveryTrackingD
       id,
       restaurantId: order.restaurantId ? Number(order.restaurantId) : undefined,
       status: String(order.status || '').toUpperCase(),
+      deliveryConfirmationCode:
+        typeof order.deliveryConfirmationCode === 'string'
+          ? order.deliveryConfirmationCode
+          : null,
       routeEstimate: routeEstimate ? { ...routeEstimate, routeCoordinates, destination } : null,
     },
     locations: mergeCourierRoutePoints([], Array.isArray(record.locations) ? record.locations : []),

@@ -24,6 +24,8 @@ describe('getActiveOrderNotice', () => {
       status: 'PREPARANDO',
       summary: 'Pizza + 1 item',
       statusLabel: 'Em preparo',
+      deliveryConfirmationCode: null,
+      deliveryStartedAt: null,
     });
   });
 
@@ -41,6 +43,8 @@ describe('getActiveOrderNotice', () => {
       status: 'ENTREGUE',
       summary: 'Seu pedido está em andamento',
       statusLabel: 'Entrega realizada',
+      deliveryConfirmationCode: null,
+      deliveryStartedAt: null,
     });
   });
 
@@ -67,6 +71,29 @@ describe('getActiveOrderNotice', () => {
       status: 'PREPARANDO',
       summary: 'Pizza Calabresa',
       statusLabel: 'Em preparo',
+      deliveryConfirmationCode: null,
+      deliveryStartedAt: null,
+    });
+  });
+
+  it('expõe o código somente quando ele é válido e preserva o início da entrega', () => {
+    expect(
+      getActiveOrderNotice([
+        {
+          id: 22,
+          type: 'DELIVERY',
+          status: 'SAIU_PARA_ENTREGA',
+          deliveryConfirmationCode: '4821',
+          deliveryStartedAt: '2026-08-16T13:00:00.000Z',
+        },
+      ]),
+    ).toEqual({
+      id: '22',
+      status: 'SAIU_PARA_ENTREGA',
+      summary: 'Seu pedido está em andamento',
+      statusLabel: 'Saiu para entrega',
+      deliveryConfirmationCode: '4821',
+      deliveryStartedAt: '2026-08-16T13:00:00.000Z',
     });
   });
 

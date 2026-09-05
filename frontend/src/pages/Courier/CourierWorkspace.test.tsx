@@ -199,9 +199,10 @@ describe('CourierWorkspace integration', () => {
       deliveryOrder(),
       { ...deliveryOrder(), id: 99, type: 'MESA' },
     ]);
-    mocks.claimDelivery.mockResolvedValue(deliveryOrder('SAIU_PARA_ENTREGA'));
+    mocks.claimDelivery.mockResolvedValue({ ...deliveryOrder('SAIU_PARA_ENTREGA'), paid: true });
     mocks.updateStatus.mockResolvedValue({
       ...deliveryOrder('ENTREGUE'),
+      paid: true,
       deliveredAt: '2026-08-24T13:00:00Z',
     });
 
@@ -255,7 +256,7 @@ describe('CourierWorkspace integration', () => {
     );
 
     const codeInput = container.querySelector<HTMLInputElement>(
-      'input[placeholder="4 últimos dígitos do celular"]',
+      'input[placeholder="Código de 4 dígitos"]',
     );
     expect(codeInput).toBeTruthy();
     await act(async () => {
@@ -265,6 +266,7 @@ describe('CourierWorkspace integration', () => {
     });
     await act(async () => clickByText(container, 'button', 'Marcar como Entregue'));
     await flushUntil(() => mocks.updateStatus.mock.calls.length === 1);
+    expect(mocks.updateStatus).toHaveBeenCalledWith(81, 'ENTREGUE', '1234');
     expect(mocks.clearWatch).toHaveBeenCalledWith(77);
     expect(localStorage.getItem('courier-location-tracking:44')).toBeNull();
   });

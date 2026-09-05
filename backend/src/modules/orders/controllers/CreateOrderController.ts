@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import createOrderService from '../services/CreateOrderService.js';
+import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 
 class CreateOrderController {
   async handle(req: Request, res: Response) {
@@ -66,7 +67,19 @@ class CreateOrderController {
         complement,
       });
 
-      return res.status(201).json(order);
+      const isGuestDelivery =
+        req.user?.isGuest === true && String(order.type || '').toUpperCase() === 'DELIVERY';
+      const guestTrackingToken = isGuestDelivery
+        ? issueGuestOrderTrackingToken({
+            orderId: Number(order.id),
+            publicId: String(order.publicId),
+          })
+        : null;
+
+      return res.status(201).json({
+        ...order,
+        ...(guestTrackingToken ? { guestTrackingToken } : {}),
+      });
     } catch (error: unknown) {
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Erro ao criar pedido',

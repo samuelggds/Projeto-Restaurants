@@ -11,6 +11,7 @@ const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
+const DeliveryCustomerAlertLayer = lazy(() => import('../pages/tracking/DeliveryCustomerAlertLayer'));
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
@@ -93,10 +94,7 @@ function RestaurantMenuGate() {
     if (normalizedSlug) rememberTenantSlug(normalizedSlug);
   }, [normalizedSlug]);
 
-  if (!normalizedSlug) {
-    return <Navigate to={TENANT_REQUIRED_PATH} replace />;
-  }
-
+  if (!normalizedSlug) return <Navigate to={TENANT_REQUIRED_PATH} replace />;
   return <Home />;
 }
 
@@ -104,20 +102,13 @@ export function RequireAuth() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return <RouteLoading />;
-  }
-
-  if (!user) {
-    return <Navigate to={buildSessionEntryUrl(location)} replace />;
-  }
-
+  if (isLoading) return <RouteLoading />;
+  if (!user) return <Navigate to={buildSessionEntryUrl(location)} replace />;
   return <Outlet />;
 }
 
 function PageTransition() {
   const location = useLocation();
-
   return (
     <div className="app-page-transition" key={location.pathname}>
       <Outlet />
@@ -211,14 +202,8 @@ function BillingGate() {
     };
   }, [isLoading, role]);
 
-  if (isLoading || isCheckingBilling) {
-    return <RouteLoading />;
-  }
-
-  if (blockState?.blocked) {
-    return <RouteLoading />;
-  }
-
+  if (isLoading || isCheckingBilling) return <RouteLoading />;
+  if (blockState?.blocked) return <RouteLoading />;
   return <Outlet />;
 }
 
@@ -227,6 +212,7 @@ export default function AppRoutes() {
     <BrowserRouter>
       <BrowserTabBranding />
       <Suspense fallback={<RouteLoading />}>
+        <DeliveryCustomerAlertLayer />
         <SystemAvailabilityGate>
           <Routes>
             <Route element={<PageTransition />}>
@@ -242,6 +228,7 @@ export default function AppRoutes() {
                 <Route path={TENANT_REQUIRED_PATH} element={<TenantRequiredPage />} />
                 <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
                 <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
+                <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
 
                 <Route element={<RequireAuth />}>
                   <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -250,14 +237,11 @@ export default function AppRoutes() {
                   <Route element={<BillingGate />}>
                     <Route path="/billing" element={<BillingPage />} />
                     <Route path="/profile" element={<UserProfile />} />
-                    <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
-
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route
                       path="/admin/configuracoes"
                       element={<Navigate to="/admin?settings=brand" replace />}
                     />
-
                     <Route path="/courier" element={<CourierDashboard />} />
                     <Route path="/kitchen" element={<KitchenPage />} />
                     <Route path="/waiter" element={<WaiterPage />} />

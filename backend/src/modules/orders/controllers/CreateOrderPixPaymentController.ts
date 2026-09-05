@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import orderPixPaymentService from '../services/OrderPixPaymentService.js';
 import createOrderService from '../services/CreateOrderService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
+import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -99,8 +100,6 @@ class CreateOrderPixPaymentController {
           paymentId: String(result.paymentId || ''),
         });
       } catch (error: unknown) {
-        // The external charge already exists. Keep the order and return the QR;
-        // provider webhooks use orderId in their reference and can reconcile it.
         console.error(
           '[PIX_ORDER_PAYMENT_LINK_ERROR]',
           error instanceof Error ? error.message : String(error),
@@ -108,9 +107,20 @@ class CreateOrderPixPaymentController {
         );
       }
 
+      const isGuestDelivery =
+        req.user?.isGuest === true && String(order.type || '').toUpperCase() === 'DELIVERY';
+      const guestTrackingToken = isGuestDelivery
+        ? issueGuestOrderTrackingToken({
+            orderId: Number(order.id),
+            publicId: String(order.publicId),
+          })
+        : null;
+
       return res.status(201).json({
         ...result,
         orderId: order.id,
+        orderPublicId: order.publicId,
+        ...(guestTrackingToken ? { guestTrackingToken } : {}),
       });
     } catch (error: unknown) {
       return res.status(400).json({

@@ -2,6 +2,7 @@ import { UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import getOsrmDeliveryRouteService from './GetOsrmDeliveryRouteService.js';
 import courierAccessService from './CourierAccessService.js';
+import { generateDeliveryConfirmationCode } from '../utils/deliveryConfirmationCode.js';
 
 class GetDeliveryTrackingService {
   async execute({
@@ -9,11 +10,13 @@ class GetDeliveryTrackingService {
     userId,
     restaurantId,
     role,
+    guestPublicId,
   }: {
     orderId: number | string;
-    userId: number;
+    userId: number | null;
     restaurantId: number | null;
     role: string;
+    guestPublicId?: string | null;
   }) {
     const id = Number(orderId);
     if (!Number.isInteger(id) || id <= 0) throw new Error('Pedido inválido.');
@@ -21,6 +24,7 @@ class GetDeliveryTrackingService {
       where: { id },
       select: {
         id: true,
+        publicId: true,
         userId: true,
         restaurantId: true,
         assignedCourierId: true,
@@ -40,19 +44,38 @@ class GetDeliveryTrackingService {
     if (String(order.type || '').toUpperCase() !== 'DELIVERY') {
       throw new Error('Rastreamento disponível apenas para pedidos de delivery.');
     }
+
     const normalizedRole = String(role || '').toUpperCase();
-    const allowed =
-      order.userId === userId ||
-      (normalizedRole === UserRole.MOTOQUEIRO && order.assignedCourierId === userId) ||
-      (normalizedRole === UserRole.ADMIN && order.restaurantId === restaurantId);
-    if (!allowed) throw new Error('Você não pode acompanhar esta entrega.');
-    if (normalizedRole === UserRole.MOTOQUEIRO) {
-      await courierAccessService.assertActiveCourier(userId, Number(restaurantId || 0));
+    const authenticatedUserId = Number(userId || 0);
+    const isAuthenticatedCustomer =
+      authenticatedUserId > 0 && order.userId === authenticatedUserId;
+    const isGuestCustomer =
+      Boolean(guestPublicId) && String(order.publicId) === String(guestPublicId);
+    const isCustomer = isAuthenticatedCustomer || isGuestCustomer;
+    const isCourier =
+      authenticatedUserId > 0 &&
+      normalizedRole === UserRole.MOTOQUEIRO &&
+      order.assignedCourierId === authenticatedUserId;
+    const isAdmin =
+      authenticatedUserId > 0 &&
+      normalizedRole === UserRole.ADMIN &&
+      order.restaurantId === restaurantId;
+
+    if (!isCustomer && !isCourier && !isAdmin) {
+      throw new Error('Você não pode acompanhar esta entrega.');
     }
-    if (normalizedRole === UserRole.ADMIN) {
+
+    if (isCourier) {
+      await courierAccessService.assertActiveCourier(
+        authenticatedUserId,
+        Number(restaurantId || 0),
+      );
+    }
+
+    if (isAdmin) {
       const activeAdmin = await prisma.user.findFirst({
         where: {
-          id: userId,
+          id: authenticatedUserId,
           restaurantId: Number(restaurantId || 0),
           role: UserRole.ADMIN,
           active: true,
@@ -90,8 +113,22 @@ class GetDeliveryTrackingService {
     const estimatedArrival = routeEstimate
       ? new Date(Date.now() + routeEstimate.durationSeconds * 1000).toISOString()
       : null;
+    const deliveryConfirmationCode =
+      isCustomer && order.status === 'SAIU_PARA_ENTREGA' && order.deliveryStartedAt
+        ? generateDeliveryConfirmationCode({
+            orderId: order.id,
+            publicId: order.publicId,
+            deliveryStartedAt: order.deliveryStartedAt,
+          })
+        : null;
+
     return {
-      order: { ...order, estimatedArrival, routeEstimate },
+      order: {
+        ...order,
+        estimatedArrival,
+        routeEstimate,
+        deliveryConfirmationCode,
+      },
       locations: locations.map((point) => ({
         ...point,
         latitude: Number(point.latitude),
