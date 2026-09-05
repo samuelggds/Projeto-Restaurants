@@ -120,7 +120,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
 
     const token = getAccessToken();
     if (!token) {
-      setSocketConnected(false);
       return () => {
         active = false;
         window.clearInterval(pollTimer);
