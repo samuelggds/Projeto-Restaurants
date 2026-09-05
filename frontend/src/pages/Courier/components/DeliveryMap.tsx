@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { divIcon } from 'leaflet';
-import { Bike, Navigation } from 'lucide-react';
+import { Bike, MessageCircle, Navigation } from 'lucide-react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as S from './DeliveryMap.styles';
@@ -82,6 +82,43 @@ function RecenterButton({ point, destination }: { point: RoutePoint; destination
     >
       <Navigation size={20} />
     </S.RecenterControl>
+  );
+}
+
+function resolveCourierRouteOrderId() {
+  if (typeof document === 'undefined') return null;
+
+  const selector = document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Escolher entrega para visualizar no mapa"]',
+  );
+  const selectedId = Number(selector?.value || 0);
+  if (Number.isInteger(selectedId) && selectedId > 0) return selectedId;
+
+  const shell = document.querySelector('.delivery-map-shell');
+  const routeSection = shell?.closest('section');
+  const match = routeSection?.textContent?.match(/Pedido\s+#(\d+)/i);
+  const fallbackId = Number(match?.[1] || 0);
+  return Number.isInteger(fallbackId) && fallbackId > 0 ? fallbackId : null;
+}
+
+function CourierChatButton() {
+  if (typeof window === 'undefined' || !window.location.pathname.startsWith('/courier')) return null;
+
+  const openChat = () => {
+    const orderId = resolveCourierRouteOrderId();
+    if (!orderId) return;
+    window.location.assign(`/orders/${orderId}/chat`);
+  };
+
+  return (
+    <S.ChatControl
+      type="button"
+      aria-label="Abrir chat do pedido selecionado"
+      title="Falar com o cliente deste pedido"
+      onClick={openChat}
+    >
+      <MessageCircle size={18} /> Chat deste pedido
+    </S.ChatControl>
   );
 }
 
@@ -195,6 +232,7 @@ export default function DeliveryMap({
         <FollowLatest point={latest} destination={destination} />
         <RecenterButton point={latest} destination={destination} />
       </MapContainer>
+      <CourierChatButton />
       <S.MapStatus role="status">
         <span>
           <Bike size={20} />
