@@ -8,6 +8,7 @@ import deliveryChatService, {
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { useAuth } from '../../contexts/authContext';
+import { clearDeliveryChatUnread, type DeliveryChatActorScope } from './deliveryChatUnread';
 import * as S from './DeliveryChat.styles';
 
 const POLL_INTERVAL_MS = 5_000;
@@ -17,6 +18,38 @@ function mergeMessage(list: DeliveryChatMessage[], incoming: DeliveryChatMessage
   return [...list, incoming].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
+}
+
+function playSingleBeep() {
+  try {
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    const context = new AudioContextCtor();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.2);
+    oscillator.addEventListener('ended', () => void context.close().catch(() => {}), { once: true });
+  } catch {
+    // Alguns navegadores bloqueiam áudio sem interação prévia do usuário.
+  }
+}
+
+function vibrateOnce() {
+  try {
+    if ('vibrate' in navigator) navigator.vibrate(180);
+  } catch {
+    // Vibração não é suportada em todos os aparelhos/navegadores.
+  }
 }
 
 export default function DeliveryChatPage() {
@@ -32,7 +65,20 @@ export default function DeliveryChatPage() {
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<DeliveryChatSnapshot | null>(null);
+  const seenIncomingMessageIdsRef = useRef(new Set<string>());
   const actorRole = String(user?.role || 'CLIENTE').toUpperCase();
+  const actorId = Number(user?.id || 0);
+  const actorScope: DeliveryChatActorScope = actorRole === 'MOTOQUEIRO' ? 'courier' : 'customer';
+  const myMessageRole = useMemo(
+    () => (actorRole === 'MOTOQUEIRO' ? 'COURIER' : 'CUSTOMER'),
+    [actorRole],
+  );
+
+  useEffect(() => {
+    if (!hasInvalidOrderId && actorId) {
+      clearDeliveryChatUnread(actorScope, actorId, orderId);
+    }
+  }, [actorId, actorScope, hasInvalidOrderId, orderId]);
 
   useEffect(() => {
     if (hasInvalidOrderId) return;
@@ -87,15 +133,30 @@ export default function DeliveryChatPage() {
     const onMessage = (event: unknown) => {
       const payload = event as { orderId?: number; message?: DeliveryChatMessage };
       if (Number(payload?.orderId || 0) !== orderId || !payload?.message) return;
+
+      const incomingMessage = payload.message as DeliveryChatMessage;
       setSnapshot((current) => {
         if (!current) return current;
         const next = {
           ...current,
-          messages: mergeMessage(current.messages, payload.message as DeliveryChatMessage),
+          messages: mergeMessage(current.messages, incomingMessage),
         };
         snapshotRef.current = next;
         return next;
       });
+
+      const incomingRole = String(incomingMessage.senderRole || '').toUpperCase();
+      const incomingId = String(incomingMessage.id || '').trim();
+      if (
+        incomingRole !== myMessageRole &&
+        incomingId &&
+        !seenIncomingMessageIdsRef.current.has(incomingId)
+      ) {
+        seenIncomingMessageIdsRef.current.add(incomingId);
+        if (actorId) clearDeliveryChatUnread(actorScope, actorId, orderId);
+        playSingleBeep();
+        vibrateOnce();
+      }
     };
     const onStatus = (event: unknown) => {
       const raw = event as { id?: number; order?: { id?: number } };
@@ -112,16 +173,11 @@ export default function DeliveryChatPage() {
       socket.off('order:status-changed', onStatus);
       release();
     };
-  }, [hasInvalidOrderId, orderId]);
+  }, [actorId, actorScope, hasInvalidOrderId, myMessageRole, orderId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [snapshot?.messages.length]);
-
-  const myMessageRole = useMemo(
-    () => (actorRole === 'MOTOQUEIRO' ? 'COURIER' : 'CUSTOMER'),
-    [actorRole],
-  );
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -154,7 +210,11 @@ export default function DeliveryChatPage() {
   if (hasInvalidOrderId) {
     return (
       <S.State role="alert">
-        <div><MessageCircle /><h1>Pedido inválido</h1><p>Volte ao pedido e abra a conversa novamente.</p></div>
+        <div>
+          <MessageCircle />
+          <h1>Pedido inválido</h1>
+          <p>Volte ao pedido e abra a conversa novamente.</p>
+        </div>
       </S.State>
     );
   }
@@ -162,7 +222,11 @@ export default function DeliveryChatPage() {
   if (loading && !snapshot) {
     return (
       <S.State role="status">
-        <div><MessageCircle /><h1>Abrindo conversa...</h1><p>Carregando os dados do pedido e as mensagens.</p></div>
+        <div>
+          <MessageCircle />
+          <h1>Abrindo conversa...</h1>
+          <p>Carregando os dados do pedido e as mensagens.</p>
+        </div>
       </S.State>
     );
   }
@@ -170,7 +234,11 @@ export default function DeliveryChatPage() {
   if (error && !snapshot) {
     return (
       <S.State role="alert">
-        <div><MessageCircle /><h1>Conversa indisponível</h1><p>{error}</p></div>
+        <div>
+          <MessageCircle />
+          <h1>Conversa indisponível</h1>
+          <p>{error}</p>
+        </div>
       </S.State>
     );
   }
@@ -196,12 +264,24 @@ export default function DeliveryChatPage() {
             <span className="live">Tempo real</span>
           </S.Header>
           <S.Context aria-label="Informações da conversa">
-            <span><Store size={13} />{snapshot.order.restaurantName}</span>
-            <span><UserRound size={13} />{snapshot.order.customerName}</span>
+            <span>
+              <Store size={13} />
+              {snapshot.order.restaurantName}
+            </span>
+            <span>
+              <UserRound size={13} />
+              {snapshot.order.customerName}
+            </span>
             {snapshot.order.customerPhone ? (
-              <span><MessageCircle size={13} />{snapshot.order.customerPhone}</span>
+              <span>
+                <MessageCircle size={13} />
+                {snapshot.order.customerPhone}
+              </span>
             ) : null}
-            <span><Bike size={13} />{snapshot.order.courierName}</span>
+            <span>
+              <Bike size={13} />
+              {snapshot.order.courierName}
+            </span>
           </S.Context>
         </div>
 
@@ -233,7 +313,11 @@ export default function DeliveryChatPage() {
         </S.Messages>
 
         <div>
-          {error ? <div role="alert" style={{ padding: '8px 16px', color: '#b42318', fontSize: 12 }}>{error}</div> : null}
+          {error ? (
+            <div role="alert" style={{ padding: '8px 16px', color: '#b42318', fontSize: 12 }}>
+              {error}
+            </div>
+          ) : null}
           <S.Composer onSubmit={submit}>
             <input
               value={draft}
