@@ -15,6 +15,7 @@ import ordersService from '../../Services/ordersService';
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
+import DeliveryConfirmationCodePrompt from './DeliveryConfirmationCodePrompt';
 import {
   mergeTrackingLocation,
   normalizeDeliveryTrackingData,
@@ -186,6 +187,10 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
   const isTerminal = isDelivered || isCancelled;
   const isInDeliveryWithoutLocation =
     data?.order.status === 'SAIU_PARA_ENTREGA' && data.locations.length === 0;
+  const activeDeliveryCode =
+    data?.order.status === 'SAIU_PARA_ENTREGA' && /^\d{4}$/.test(data.order.deliveryConfirmationCode || '')
+      ? data.order.deliveryConfirmationCode
+      : null;
   const statusLabel = data
     ? data.order.status === 'SAIU_PARA_ENTREGA'
       ? 'Saiu para entrega'
@@ -208,9 +213,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             <ArrowLeft aria-hidden="true" /> <span>Meus pedidos</span>
           </S.BackButton>
           <S.OrderIdentity>
-            <span aria-hidden="true">
-              <Bike />
-            </span>
+            <span aria-hidden="true"><Bike /></span>
             <span>
               <b>Pedido #{data?.order.id || id}</b>
               <small>Acompanhamento da entrega</small>
@@ -240,7 +243,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             <h2>Carregando rastreamento...</h2>
             <p>Buscando a posição mais recente e a previsão de chegada.</p>
           </S.State>
-        ) : (
+        ) : data ? (
           <>
             <S.HeadingRow>
               <div>
@@ -293,6 +296,13 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
               </S.TrackingBar>
             </S.HeadingRow>
             {warning ? <S.Warning role="alert">{warning}</S.Warning> : null}
+            {activeDeliveryCode ? (
+              <DeliveryConfirmationCodePrompt
+                code={activeDeliveryCode}
+                orderId={data.order.id}
+                deliveryStartedAt={data.order.deliveryStartedAt}
+              />
+            ) : null}
             {isDelivered ? (
               <S.CompletionNotice role="status">
                 <CheckCircle2 aria-hidden="true" />
@@ -372,21 +382,15 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                 </S.PanelHeader>
                 <S.Summary>
                   <div>
-                    <dt>
-                      <Bike aria-hidden="true" /> Motoqueiro
-                    </dt>
+                    <dt><Bike aria-hidden="true" /> Motoqueiro</dt>
                     <dd>{data.order.assignedCourier?.name || 'Aguardando retirada'}</dd>
                   </div>
                   <div>
-                    <dt>
-                      <Clock3 aria-hidden="true" /> Saiu para entrega às
-                    </dt>
+                    <dt><Clock3 aria-hidden="true" /> Saiu para entrega às</dt>
                     <dd>{formatTime(data.order.deliveryStartedAt) || 'Aguardando saída'}</dd>
                   </div>
                   <div>
-                    <dt>
-                      <LocateFixed aria-hidden="true" /> Previsão de chegada
-                    </dt>
+                    <dt><LocateFixed aria-hidden="true" /> Previsão de chegada</dt>
                     <dd>
                       {formatTime(data.order.estimatedArrival) ||
                         (latest
@@ -395,9 +399,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                             ? 'Sem localização em tempo real'
                             : 'Aguardando GPS')}
                     </dd>
-                    {routeMinutes ? (
-                      <small>Estimativa de rota: cerca de {routeMinutes} min</small>
-                    ) : null}
+                    {routeMinutes ? <small>Estimativa de rota: cerca de {routeMinutes} min</small> : null}
                   </div>
                 </S.Summary>
                 {data.order.routeEstimate?.destination ? (
@@ -405,16 +407,13 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     <MapPin aria-hidden="true" />
                     <span>
                       <small>Destino salvo no pedido</small>
-                      <strong>
-                        {data.order.routeEstimate.destination.label || 'Endereço de entrega'}
-                      </strong>
+                      <strong>{data.order.routeEstimate.destination.label || 'Endereço de entrega'}</strong>
                     </span>
                     {data.order.routeEstimate.distanceMeters !== null ? (
                       <b>
                         {(data.order.routeEstimate.distanceMeters / 1000).toLocaleString('pt-BR', {
                           maximumFractionDigits: 1,
-                        })}{' '}
-                        km
+                        })}{' '}km
                       </b>
                     ) : null}
                   </S.Destination>
@@ -425,13 +424,12 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   </S.Contact>
                 ) : null}
                 <S.Privacy>
-                  O mapa usa tiles do OpenStreetMap. A localização é exibida somente para este
-                  pedido autenticado.
+                  O mapa usa tiles do OpenStreetMap. A localização é exibida somente para este pedido autenticado.
                 </S.Privacy>
               </S.DetailsPanel>
             </S.Workspace>
           </>
-        )}
+        ) : null}
       </S.Main>
     </S.Page>
   );
