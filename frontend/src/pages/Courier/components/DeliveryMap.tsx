@@ -30,7 +30,15 @@ function remainingRouteFromCurrentPosition(routePath: RoutePoint[], latest: Rout
     }
   });
   const remaining = routePath.slice(nearestIndex);
-  return [latest, ...remaining.filter((point) => distanceSquared(point, latest) > 0.00000001)];
+  const futurePoints = remaining.filter((point) => distanceSquared(point, latest) > 0.00000001);
+  if (futurePoints.length > 0) return [latest, ...futurePoints];
+
+  const previousPoint = routePath[Math.max(0, nearestIndex - 1)];
+  if (previousPoint && distanceSquared(previousPoint, latest) > 0.00000001) {
+    return [previousPoint, latest];
+  }
+
+  return routePath.slice(-2);
 }
 
 function FollowLatest({ point, destination }: { point: RoutePoint; destination?: RoutePoint }) {
