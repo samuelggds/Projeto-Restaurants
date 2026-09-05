@@ -36,7 +36,7 @@ export function resolveAvailableFulfillmentMethod(
 
 export function getAvailablePaymentMethods({
   allowPayOnDelivery,
-  allowPayAtPickup = false,
+  allowPayAtPickup = !allowPayOnDelivery,
   allowPix = true,
   allowCard = true,
 }: {
