@@ -6,9 +6,10 @@ class GetDeliveryTrackingController {
     try {
       const result = await getDeliveryTrackingService.execute({
         orderId: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
-        userId: Number(req.user.id || 0),
-        restaurantId: req.user.restaurantId,
-        role: req.user.role,
+        userId: req.user?.id ? Number(req.user.id) : null,
+        restaurantId: req.user?.restaurantId ?? null,
+        role: req.user?.role || 'CLIENTE',
+        guestPublicId: req.guestOrderTracking?.publicId || null,
       });
       return res.json(result);
     } catch (error: unknown) {
