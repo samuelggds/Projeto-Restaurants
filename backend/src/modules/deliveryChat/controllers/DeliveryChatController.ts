@@ -15,15 +15,37 @@ function actorFrom(req: Request) {
   };
 }
 
+function errorResponse(res: Response, error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+  const status = /não tem acesso|visitante|inválido|exclusiva/i.test(message) ? 403 : 400;
+  return res.status(status).json({ error: message });
+}
+
 class DeliveryChatController {
   async get(req: Request, res: Response) {
     try {
       const result = await deliveryChatService.get(orderIdFrom(req), actorFrom(req));
       return res.status(200).json(result);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Não foi possível abrir a conversa.';
-      const status = /não tem acesso|visitante|inválido/i.test(message) ? 403 : 400;
-      return res.status(status).json({ error: message });
+      return errorResponse(res, error, 'Não foi possível abrir a conversa.');
+    }
+  }
+
+  async courierInbox(req: Request, res: Response) {
+    try {
+      const result = await deliveryChatService.listCourierInbox(actorFrom(req));
+      return res.status(200).json({ conversations: result });
+    } catch (error: unknown) {
+      return errorResponse(res, error, 'Não foi possível carregar as conversas.');
+    }
+  }
+
+  async markRead(req: Request, res: Response) {
+    try {
+      const result = await deliveryChatService.markRead(orderIdFrom(req), actorFrom(req));
+      return res.status(200).json(result);
+    } catch (error: unknown) {
+      return errorResponse(res, error, 'Não foi possível marcar as mensagens como visualizadas.');
     }
   }
 
@@ -36,9 +58,7 @@ class DeliveryChatController {
       );
       return res.status(201).json(result);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Não foi possível enviar a mensagem.';
-      const status = /não tem acesso|visitante|inválido/i.test(message) ? 403 : 400;
-      return res.status(status).json({ error: message });
+      return errorResponse(res, error, 'Não foi possível enviar a mensagem.');
     }
   }
 }
