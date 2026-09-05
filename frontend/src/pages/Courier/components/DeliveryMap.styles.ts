@@ -1,4 +1,15 @@
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const unreadPulse = keyframes`
+  0%, 100% {
+    box-shadow: 0 10px 28px rgba(37, 99, 235, 0.16), 0 0 0 0 rgba(37, 99, 235, 0);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    box-shadow: 0 14px 34px rgba(37, 99, 235, 0.24), 0 0 0 5px rgba(37, 99, 235, 0.10);
+    transform: translateY(-1px) scale(1.015);
+  }
+`;
 
 export const MapShell = styled.section`
   position: relative;
@@ -130,29 +141,82 @@ export const RecenterControl = styled.button`
   }
 `;
 
-export const ChatControl = styled.button`
+export const ChatControl = styled.button<{ $hasUnread: boolean }>`
   position: absolute;
   right: 68px;
   bottom: 106px;
   z-index: 1000;
-  min-height: 42px;
+  min-height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 13px;
-  border: 1px solid rgba(37, 99, 235, 0.18);
-  border-radius: 12px;
-  color: #1d4ed8;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(8px);
-  font-size: 12px;
-  font-weight: 800;
+  gap: 10px;
+  padding: 6px 10px 6px 7px;
+  border: 1px solid ${({ $hasUnread }) => ($hasUnread ? 'rgba(37, 99, 235, 0.34)' : 'rgba(37, 99, 235, 0.16)')};
+  border-radius: 15px;
+  color: #17355f;
+  background: ${({ $hasUnread }) => ($hasUnread ? 'rgba(245, 249, 255, 0.98)' : 'rgba(255, 255, 255, 0.97)')};
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(12px);
   cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  animation: ${({ $hasUnread }) => ($hasUnread ? unreadPulse : 'none')} 1.55s ease-in-out infinite;
+
+  .chat-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 11px;
+    color: #1d4ed8;
+    background: #e7f0ff;
+  }
+
+  .chat-copy {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+    text-align: left;
+  }
+
+  .chat-copy strong {
+    color: #172554;
+    font-size: 12px;
+    font-weight: 850;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .chat-copy small {
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .chat-badge {
+    min-width: 27px;
+    height: 27px;
+    padding: 0 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    color: #fff;
+    background: #2563eb;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.34);
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+  }
 
   &:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    border-color: rgba(37, 99, 235, 0.34);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
   }
 
   &:focus-visible {
@@ -160,10 +224,20 @@ export const ChatControl = styled.button`
     outline-offset: 2px;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
   @media (max-width: 560px) {
     left: 16px;
     right: auto;
     max-width: calc(100% - 84px);
+
+    .chat-copy strong,
+    .chat-copy small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 `;
 
