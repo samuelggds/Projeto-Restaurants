@@ -6,7 +6,7 @@ const allowed = (path: string, user: Parameters<typeof authorizeRoute>[1]) =>
   authorizeRoute(path, user).allowed;
 
 describe('política de autorização de rotas', () => {
-  it('mantém apenas entradas públicas com slug do restaurante e tracking seguro de visitante', () => {
+  it('mantém apenas entradas públicas com slug e acesso seguro por pedido', () => {
     for (const path of [
       '/pizzaria',
       '/pizzaria/mesa/12',
@@ -16,6 +16,7 @@ describe('política de autorização de rotas', () => {
       '/pizzaria/team',
       '/pizzaria/admin',
       '/orders/42/tracking',
+      '/orders/42/chat',
       TENANT_REQUIRED_PATH,
     ])
       expect(allowed(path, null), path).toBe(true);
@@ -27,15 +28,17 @@ describe('política de autorização de rotas', () => {
       });
     }
 
-    expect(authorizeRoute('/orders/qualquer/tracking', null)).toEqual({
-      allowed: false,
-      redirectTo: TENANT_LOGIN_REDIRECT,
-    });
+    for (const path of ['/orders/qualquer/tracking', '/orders/qualquer/chat']) {
+      expect(authorizeRoute(path, null)).toEqual({
+        allowed: false,
+        redirectTo: TENANT_LOGIN_REDIRECT,
+      });
+    }
   });
 
-  it('limita CLIENTE ao tenant público, perfil e tracking', () => {
+  it('limita CLIENTE ao tenant público, perfil, tracking e chat do pedido', () => {
     const user = { role: 'CLIENTE' };
-    for (const path of ['/loja', '/loja/mesa/3', '/profile', '/orders/a/tracking'])
+    for (const path of ['/loja', '/loja/mesa/3', '/profile', '/orders/a/tracking', '/orders/42/chat'])
       expect(allowed(path, user), path).toBe(true);
     expect(authorizeRoute('/admin', user)).toEqual({
       allowed: false,
@@ -119,6 +122,7 @@ describe('política de autorização de rotas', () => {
       expect(allowed(other, user)).toBe(false);
       expect(allowed('/pizzaria', user)).toBe(false);
     }
+    expect(allowed('/orders/42/chat', { role: 'MOTOQUEIRO' })).toBe(true);
   });
 
   it('reserva a rota de atendimento exclusivamente ao atendente', () => {

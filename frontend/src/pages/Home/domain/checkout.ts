@@ -2,10 +2,16 @@ import type { CartItem } from '../hooks/useCart';
 import type { DeliveryAddress } from '../hooks/useDeliveryAddress';
 import { validateDeliveryAddress } from './deliveryAddress';
 
-export type CheckoutPaymentMethod = 'pix' | 'card' | 'delivery_pix' | 'delivery_card';
+export type CheckoutPaymentMethod =
+  | 'pix'
+  | 'card'
+  | 'delivery_pix'
+  | 'delivery_card'
+  | 'pickup_store';
 export type OrderType = 'MESA' | 'DELIVERY' | 'RETIRADA';
 export type TableOrderSettlementMode = 'TABLE_ACCOUNT' | 'PAY_NOW';
 export type CheckoutIssue = { title: string; message: string };
+export type ResolvedCheckoutPaymentMethod = 'PIX' | 'CARTAO' | 'PRESENCIAL';
 
 function optionalCustomerPhone(value: unknown) {
   const phone = String(value || '').trim();
@@ -89,6 +95,19 @@ export function validateCheckout(input: ValidationInput): CheckoutIssue | null {
       title: 'Opção indisponível',
       message: 'Pagar na entrega só está disponível para delivery.',
     };
+  if (paymentMethod === 'pickup_store' && type !== 'RETIRADA')
+    return {
+      title: 'Opção indisponível',
+      message: 'Pagar no restaurante só está disponível para pedidos de retirada.',
+    };
+  if (paymentMethod === 'pickup_store') {
+    const phoneDigits = String(customerPhone || '').replace(/\D/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 13)
+      return {
+        title: 'Celular obrigatório',
+        message: 'Informe um celular com DDD para o restaurante identificar e contatar você.',
+      };
+  }
   return null;
 }
 
@@ -199,21 +218,28 @@ export function buildOrderPayload(input: PayloadInput) {
   } = input;
   const isTableAccountOrder = type === 'MESA' && settlementMode === 'TABLE_ACCOUNT';
   const safePaymentMethod = paymentMethod || 'pix';
+  const payAtPickup = type === 'RETIRADA' && safePaymentMethod === 'pickup_store';
   const payOnDelivery = !isTableAccountOrder && safePaymentMethod.startsWith('delivery_');
-  const resolvedPaymentMethod = safePaymentMethod.includes('pix') ? 'PIX' : 'CARTAO';
+  const resolvedPaymentMethod: ResolvedCheckoutPaymentMethod = payAtPickup
+    ? 'PRESENCIAL'
+    : safePaymentMethod.includes('pix')
+      ? 'PIX'
+      : 'CARTAO';
   const customerPhone = optionalCustomerPhone(customer.phone);
   return {
     payload: {
       restaurantId,
       type,
       ...(type === 'MESA' && settlementMode ? { settlementMode } : {}),
-      ...(!isTableAccountOrder
+      ...(!isTableAccountOrder && !payAtPickup
         ? {
             paymentMethod: resolvedPaymentMethod,
             payOnDelivery,
             payOnDeliveryMethod: payOnDelivery ? resolvedPaymentMethod : undefined,
           }
-        : {}),
+        : !isTableAccountOrder
+          ? { payOnDelivery: false }
+          : {}),
       items: buildOrderItems(cart),
       ...(couponRedemptionId ? { couponRedemptionId } : {}),
       tableId: type === 'MESA' ? tableId || undefined : undefined,
@@ -229,6 +255,7 @@ export function buildOrderPayload(input: PayloadInput) {
       complement: deliveryAddress.complement.trim(),
     },
     payOnDelivery,
+    payAtPickup,
     resolvedPaymentMethod,
   } as const;
 }

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
-import type { CheckoutPaymentMethod } from '../domain/checkout';
+import type {
+  CheckoutPaymentMethod,
+  ResolvedCheckoutPaymentMethod,
+} from '../domain/checkout';
 import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
 
 export type PixPaymentData = {
@@ -170,11 +173,25 @@ export function useCheckoutPayments(options: Options) {
     payload: Record<string, unknown>,
     paymentMethod: CheckoutPaymentMethod,
     payOnDelivery: boolean,
-    resolvedPaymentMethod: 'PIX' | 'CARTAO',
+    resolvedPaymentMethod: ResolvedCheckoutPaymentMethod,
   ) => {
     if (checkoutLoading) return false;
     setCheckoutLoading(true);
     try {
+      if (paymentMethod === 'pickup_store') {
+        const order = await ordersService.createOrder(payload);
+        onPurchased();
+        onClearCart();
+        onCloseCart();
+        notify(
+          'success',
+          `Pedido #${String(order?.id || '')} recebido`,
+          'Seu pedido será preparado. O pagamento será feito no restaurante quando você retirar.',
+          6000,
+        );
+        return true;
+      }
+
       if (payOnDelivery) {
         const order = await ordersService.createOrder(payload);
         onPurchased();
@@ -250,8 +267,10 @@ export function useCheckoutPayments(options: Options) {
     } catch (error: unknown) {
       notify(
         'error',
-        'Não foi possível iniciar o pagamento',
-        getCheckoutErrorMessage(error) || 'Confira as configurações de pagamento do restaurante.',
+        paymentMethod === 'pickup_store'
+          ? 'Não foi possível criar o pedido para retirada'
+          : 'Não foi possível iniciar o pagamento',
+        getCheckoutErrorMessage(error) || 'Confira os dados do pedido e tente novamente.',
       );
       return false;
     } finally {

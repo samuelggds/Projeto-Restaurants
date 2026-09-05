@@ -53,10 +53,12 @@ export function isPublicRoute(pathname: string) {
   const singleSegment = path.match(/^\/([^/]+)$/)?.[1];
   const restaurantTable = path.match(/^\/([^/]+)\/mesa\/[^/]+$/)?.[1];
   const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
+  const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
   return (
     path === '/system-maintenance' ||
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
+    deliveryChat ||
     Boolean(singleSegment && !RESERVED_ROOTS.has(singleSegment)) ||
     Boolean(restaurantTable && !RESERVED_ROOTS.has(restaurantTable))
   );
@@ -108,11 +110,15 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
   if (SERVICE_PATHS.includes(path)) return { allowed: true };
   if (role === 'CLIENTE') {
     const ok =
-      isPublicRoute(path) || path === '/profile' || /^\/orders\/[^/]+\/tracking$/.test(path);
+      isPublicRoute(path) ||
+      path === '/profile' ||
+      /^\/orders\/[^/]+\/(?:tracking|chat)$/.test(path);
     return ok ? { allowed: true } : { allowed: false, redirectTo: home };
   }
-  if (role === 'MOTOQUEIRO')
-    return isPath(path, '/courier') ? { allowed: true } : { allowed: false, redirectTo: home };
+  if (role === 'MOTOQUEIRO') {
+    const ok = isPath(path, '/courier') || /^\/orders\/\d+\/chat$/u.test(path);
+    return ok ? { allowed: true } : { allowed: false, redirectTo: home };
+  }
   if (role === 'FUNCIONARIO' && subRole === 'COZINHA')
     return isPath(path, '/kitchen') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (role === 'FUNCIONARIO' && subRole === 'GARCOM')

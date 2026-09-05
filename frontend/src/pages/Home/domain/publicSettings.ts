@@ -36,10 +36,12 @@ export function resolveAvailableFulfillmentMethod(
 
 export function getAvailablePaymentMethods({
   allowPayOnDelivery,
+  allowPayAtPickup = !allowPayOnDelivery,
   allowPix = true,
   allowCard = true,
 }: {
   allowPayOnDelivery: boolean;
+  allowPayAtPickup?: boolean;
   allowPix?: boolean;
   allowCard?: boolean;
 }): CheckoutPaymentMethod[] {
@@ -48,6 +50,7 @@ export function getAvailablePaymentMethods({
   if (allowCard) methods.push('card');
   if (allowPayOnDelivery && allowPix) methods.push('delivery_pix');
   if (allowPayOnDelivery && allowCard) methods.push('delivery_card');
+  if (allowPayAtPickup) methods.push('pickup_store');
   return methods;
 }
 

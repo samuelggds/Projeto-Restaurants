@@ -2,26 +2,29 @@ import styled from 'styled-components';
 
 export const MapShell = styled.section`
   position: relative;
-  height: min(68vh, 660px);
-  min-height: 440px;
+  height: min(64vh, 620px);
+  min-height: 430px;
   overflow: hidden;
-  border: 1px solid var(--courier-line);
-  border-radius: 8px;
-  background: #e5e9e5;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: #edf1ed;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
 
   .delivery-map {
     width: 100%;
     height: 100%;
+    background: #edf1ed;
   }
 
   .leaflet-tile-pane {
-    filter: grayscale(0.72) sepia(0.1) brightness(1.07) contrast(0.86) opacity(0.9);
+    filter: grayscale(0.72) saturate(0.56) brightness(1.13) contrast(0.82) opacity(0.82);
   }
 
   .leaflet-control-attribution {
-    color: #64716b;
-    background: rgba(255, 255, 255, 0.8);
+    color: #76817c;
+    background: rgba(255, 255, 255, 0.76);
     font-size: 8px;
+    backdrop-filter: blur(6px);
   }
 
   .delivery-courier-marker,
@@ -30,32 +33,31 @@ export const MapShell = styled.section`
     background: transparent;
   }
 
-  .delivery-courier-marker__pin {
-    position: relative;
+  .delivery-courier-marker__halo {
     width: 58px;
     height: 58px;
     display: grid;
     place-items: center;
-    border: 4px solid #fff;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 8px 24px rgba(15, 23, 20, 0.26);
+    background: rgba(37, 99, 235, 0.14);
+    box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.08);
   }
 
-  .delivery-courier-marker__pin::after {
-    position: absolute;
-    inset: 6px;
-    z-index: 0;
+  .delivery-courier-marker__pin {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 3px solid #fff;
     border-radius: 50%;
-    background: var(--courier-primary);
-    content: '';
+    background: #2563eb;
+    box-shadow: 0 8px 22px rgba(37, 99, 235, 0.3);
   }
 
   .delivery-courier-marker__pin svg {
-    position: relative;
-    z-index: 1;
-    width: 30px;
-    height: 30px;
+    width: 23px;
+    height: 23px;
     fill: none;
     stroke: #fff;
     stroke-linecap: round;
@@ -64,83 +66,97 @@ export const MapShell = styled.section`
   }
 
   .delivery-destination-marker__pin {
-    width: 46px;
-    height: 46px;
+    width: 42px;
+    height: 42px;
     display: grid;
     place-items: center;
     border: 4px solid #fff;
-    border-radius: 50% 50% 50% 7px;
-    color: #fff;
-    background: #1d2823;
-    box-shadow: 0 8px 22px rgba(15, 23, 20, 0.26);
+    border-radius: 50% 50% 50% 8px;
+    background: #ef4444;
+    box-shadow: 0 9px 24px rgba(239, 68, 68, 0.28);
     transform: rotate(-45deg);
   }
 
   .delivery-destination-marker__pin span {
-    width: 13px;
-    height: 13px;
-    border: 3px solid #d8f06a;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
+    background: #fff;
+  }
+
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    color: #15211c;
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .leaflet-popup-content-wrapper {
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
   }
 
   @media (max-width: 560px) {
-    height: calc(100dvh - 248px);
-    min-height: 470px;
-    margin-inline: -10px;
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
+    height: calc(100dvh - 270px);
+    min-height: 460px;
+    margin-inline: -8px;
+    border-radius: 12px;
   }
 `;
 
 export const RecenterControl = styled.button`
   position: absolute;
-  right: 14px;
-  bottom: 112px;
+  right: 16px;
+  bottom: 106px;
   z-index: 1000;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(24, 32, 29, 0.16);
-  border-radius: 7px;
-  color: #1d2823;
-  background: #fff;
-  box-shadow: 0 6px 20px rgba(15, 23, 20, 0.18);
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 12px;
+  color: #17231d;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
 
   &:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--courier-primary) 24%, transparent);
+    outline: 3px solid rgba(37, 99, 235, 0.24);
     outline-offset: 2px;
   }
 `;
 
 export const MapStatus = styled.div`
   position: absolute;
-  right: 14px;
-  bottom: 14px;
-  left: 14px;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
   z-index: 1000;
-  min-height: 78px;
-  padding: 13px 15px;
+  min-height: 70px;
+  padding: 12px 14px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 8px;
-  color: #fff;
-  background: rgba(24, 32, 29, 0.94);
-  box-shadow: 0 10px 26px rgba(15, 23, 20, 0.24);
-  backdrop-filter: blur(9px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  color: #17231d;
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
 
   & > span:first-child {
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
     display: grid;
     place-items: center;
-    border-radius: 7px;
-    color: #1d2823;
-    background: #d8f06a;
+    border-radius: 12px;
+    color: #1d4ed8;
+    background: #dbeafe;
   }
 
   & > span:nth-child(2) {
@@ -150,11 +166,12 @@ export const MapStatus = styled.div`
   }
 
   strong {
+    color: #111827;
     font-size: 13px;
   }
 
   small {
-    color: rgba(255, 255, 255, 0.7);
+    color: #66736d;
     font-size: 10px;
     line-height: 1.4;
   }
@@ -162,11 +179,12 @@ export const MapStatus = styled.div`
   & > i {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: #bfe9ca;
+    gap: 7px;
+    color: #16713a;
     font-size: 9px;
     font-style: normal;
     font-weight: 800;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
@@ -174,15 +192,15 @@ export const MapStatus = styled.div`
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #66d184;
-    box-shadow: 0 0 0 4px rgba(102, 209, 132, 0.15);
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
     content: '';
   }
 
   @media (max-width: 560px) {
     grid-template-columns: 38px minmax(0, 1fr);
-    min-height: 72px;
-    padding: 11px;
+    min-height: 66px;
+    padding: 10px 12px;
 
     & > i {
       display: none;

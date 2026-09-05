@@ -4,6 +4,7 @@ import {
   LogIn,
   QrCode,
   ShieldCheck,
+  Store,
   UserPlus,
   WalletCards,
   X,
@@ -24,6 +25,7 @@ import {
 type Props = {
   paymentMethod: CheckoutPaymentMethod;
   allowPayOnDelivery: boolean;
+  allowPayAtPickup?: boolean;
   allowPix?: boolean;
   allowCard?: boolean;
   onChange: (method: CheckoutPaymentMethod) => void;
@@ -36,21 +38,21 @@ type Option = {
   name: string;
   description: string;
   color: string;
-  icon: 'pix' | 'card';
+  icon: 'pix' | 'card' | 'store';
 };
 
 const ONLINE_OPTIONS: Option[] = [
   {
     method: 'pix',
     name: 'Pix',
-    description: 'Aprovação instantânea',
+    description: 'Pague agora com confirmação automática',
     color: '#32BCAD',
     icon: 'pix',
   },
   {
     method: 'card',
     name: 'Cartão',
-    description: 'Ambiente seguro',
+    description: 'Pague agora em ambiente seguro',
     color: '#3b6cf6',
     icon: 'card',
   },
@@ -73,6 +75,14 @@ const DELIVERY_OPTIONS: Option[] = [
   },
 ];
 
+const PICKUP_STORE_OPTION: Option = {
+  method: 'pickup_store',
+  name: 'Pagar no restaurante',
+  description: 'Escolha Pix, cartão ou dinheiro quando chegar',
+  color: '#111827',
+  icon: 'store',
+};
+
 function filterOptions(options: Option[], allowPix: boolean, allowCard: boolean) {
   return options.filter((option) => (option.icon === 'pix' ? allowPix : allowCard));
 }
@@ -86,7 +96,7 @@ function PaymentOption({
   active: boolean;
   onSelect: () => void;
 }) {
-  const Icon = option.icon === 'pix' ? QrCode : CreditCard;
+  const Icon = option.icon === 'pix' ? QrCode : option.icon === 'card' ? CreditCard : Store;
   return (
     <S.PaymentCard
       type="button"
@@ -130,6 +140,7 @@ function OptionsGrid({
 export function PaymentOptions({
   paymentMethod,
   allowPayOnDelivery,
+  allowPayAtPickup = !allowPayOnDelivery,
   allowPix = true,
   allowCard = true,
   onChange,
@@ -170,6 +181,7 @@ export function PaymentOptions({
   const deliveryOptions = filterOptions(DELIVERY_OPTIONS, allowPix, allowCard);
   const availableMethods = getAvailablePaymentMethods({
     allowPayOnDelivery,
+    allowPayAtPickup,
     allowPix,
     allowCard,
   });
@@ -185,7 +197,7 @@ export function PaymentOptions({
   }
   return (
     <>
-      <S.CartSectionLabel>Forma de pagamento</S.CartSectionLabel>
+      <S.CartSectionLabel>Pagar agora</S.CartSectionLabel>
       <OptionsGrid
         options={onlineOptions}
         selected={paymentMethod}
@@ -269,6 +281,22 @@ export function PaymentOptions({
             <ChevronRight className="add-arrow" size={18} />
           </a>
         </S.SavedPaymentChooser>
+      )}
+      {allowPayAtPickup && (
+        <>
+          <S.CartSectionLabel>Pagar quando retirar</S.CartSectionLabel>
+          <OptionsGrid
+            options={[PICKUP_STORE_OPTION]}
+            selected={paymentMethod}
+            onChange={handlePaymentChange}
+          />
+          {paymentMethod === 'pickup_store' && (
+            <S.CheckoutUnavailable role="status">
+              O pedido será preparado sem cobrança agora. No balcão, Pix e cartão são confirmados
+              automaticamente quando integrados; dinheiro é confirmado pelo funcionário.
+            </S.CheckoutUnavailable>
+          )}
+        </>
       )}
       {allowPayOnDelivery && deliveryOptions.length > 0 && (
         <>

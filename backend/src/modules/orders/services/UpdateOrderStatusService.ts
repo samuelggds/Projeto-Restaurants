@@ -134,6 +134,14 @@ class UpdateOrderStatusService {
       }
     }
 
+    if (
+      status === OrderStatus.ENTREGUE &&
+      order.type === OrderType.RETIRADA &&
+      order.paid !== true
+    ) {
+      throw new Error('Confirme o pagamento antes de concluir a retirada do pedido.');
+    }
+
     const isUnpaidDigitalOrderBlocked = isDigitalPayment && !isPayOnDelivery && order.paid !== true;
 
     if (

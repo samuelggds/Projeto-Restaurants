@@ -11,6 +11,7 @@ const Register = lazy(() => import('../pages/Register/Register'));
 const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
+const DeliveryChatPage = lazy(() => import('../pages/tracking/DeliveryChatPage'));
 const DeliveryCustomerAlertLayer = lazy(() => import('../pages/tracking/DeliveryCustomerAlertLayer'));
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
@@ -229,6 +230,7 @@ export default function AppRoutes() {
                 <Route path="/:restaurantSlug" element={<RestaurantMenuGate />} />
                 <Route path="/:restaurantSlug/mesa/:tableNumber" element={<DigitalMenu />} />
                 <Route path="/orders/:id/tracking" element={<DeliveryTrackingPage />} />
+                <Route path="/orders/:id/chat" element={<DeliveryChatPage />} />
 
                 <Route element={<RequireAuth />}>
                   <Route path="/change-password" element={<ChangePasswordPage />} />

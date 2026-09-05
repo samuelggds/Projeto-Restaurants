@@ -7,6 +7,7 @@ import {
   Clock3,
   LocateFixed,
   MapPin,
+  MessageCircle,
   Phone,
   RefreshCw,
 } from 'lucide-react';
@@ -428,6 +429,15 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                       </b>
                     ) : null}
                   </S.Destination>
+                ) : null}
+                {!isTerminal && data.order.assignedCourier ? (
+                  <S.Contact
+                    as="button"
+                    type="button"
+                    onClick={() => navigate(`/orders/${data.order.id}/chat`)}
+                  >
+                    <MessageCircle aria-hidden="true" /> Falar com o motoqueiro
+                  </S.Contact>
                 ) : null}
                 {data.order.assignedCourier?.phone ? (
                   <S.Contact href={`tel:${data.order.assignedCourier.phone}`}>
