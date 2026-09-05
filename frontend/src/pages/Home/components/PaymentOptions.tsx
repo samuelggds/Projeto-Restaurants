@@ -140,7 +140,7 @@ function OptionsGrid({
 export function PaymentOptions({
   paymentMethod,
   allowPayOnDelivery,
-  allowPayAtPickup = false,
+  allowPayAtPickup = !allowPayOnDelivery,
   allowPix = true,
   allowCard = true,
   onChange,
