@@ -32,7 +32,7 @@ export function consumeSignedOutEntryUrl(location: ReturnLocation) {
     role = normalizeRole(window.sessionStorage.getItem(SIGNED_OUT_ROLE_STORAGE_KEY));
     window.sessionStorage.removeItem(SIGNED_OUT_ROLE_STORAGE_KEY);
   } catch {
-    role = '';
+    // Mantém role vazio quando sessionStorage está indisponível.
   }
 
   return role ? buildSessionEntryUrl(location, role) : TENANT_REQUIRED_PATH;
