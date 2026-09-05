@@ -117,6 +117,7 @@ describe('RouteAuthorizationGuard após login', () => {
               <Route path="/:restaurantSlug" element={<LocationProbe />} />
               <Route path="/admin" element={<LocationProbe />} />
               <Route path="/change-password" element={<LocationProbe />} />
+              <Route path="/restaurant-required" element={<LocationProbe />} />
             </Route>
           </Routes>
         </MemoryRouter>,
@@ -167,5 +168,12 @@ describe('RouteAuthorizationGuard após login', () => {
     const renderedLocation = container.textContent || '';
     expect(renderedLocation).toMatch(/^\/change-password\?next=/u);
     expect(new URLSearchParams(renderedLocation.split('?')[1]).get('next')).toBe(nextPath);
+  });
+
+  it('nunca expõe o marcador interno quando a sessão contém perfil desconhecido', () => {
+    renderGuardedEntry({ role: 'OUTRO' }, '/admin');
+
+    expect(container.textContent).toBe('/restaurant-required');
+    expect(container.textContent).not.toContain('__TENANT_LOGIN__');
   });
 });

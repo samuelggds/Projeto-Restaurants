@@ -9,7 +9,6 @@ import {
   CreditCard,
   Info,
   MapPin,
-  MessageCircle,
   PackageCheck,
   Phone,
   RefreshCw,
@@ -346,12 +345,6 @@ export default function OrderCard({
 
         {canDeliver && (
           <C.ActionArea>
-            <C.DetailsButton
-              type="button"
-              onClick={() => window.location.assign(`/orders/${order.id}/chat`)}
-            >
-              <MessageCircle size={16} /> Conversar com cliente
-            </C.DetailsButton>
             <C.Hint><Info aria-hidden="true" /><span>{paymentPendingConfirmation
               ? 'O botão de entrega será liberado somente quando o pagamento estiver confirmado.'
               : 'Peça ao cliente o código de 4 dígitos exibido no acompanhamento do pedido.'}</span></C.Hint>

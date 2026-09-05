@@ -135,8 +135,8 @@ export function RouteAuthorizationGuard() {
       redirectTo = buildAuthEntryUrl('/change-password', params);
     } else if (isCustomer && customerReturnPath) {
       redirectTo = customerReturnPath;
-    } else if (!user && decision.redirectTo === TENANT_LOGIN_REDIRECT) {
-      redirectTo = buildSessionEntryUrl(location);
+    } else if (decision.redirectTo === TENANT_LOGIN_REDIRECT) {
+      redirectTo = user ? TENANT_REQUIRED_PATH : buildSessionEntryUrl(location);
     }
 
     return <Navigate to={redirectTo} replace />;

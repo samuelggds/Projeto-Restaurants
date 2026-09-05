@@ -349,6 +349,10 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
       return json(route, { updates: [] });
     }
 
+    if (pathname === '/delivery-chat/courier/inbox' && method === 'GET') {
+      return json(route, { conversations: [] });
+    }
+
     if (pathname === '/orders' && method === 'GET') {
       state.orderRequests += 1;
       state.orderRequestTokens.push(token);

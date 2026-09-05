@@ -67,6 +67,7 @@ describe('authNavigation', () => {
     '/change-password',
     '/admin/login',
     '/super_admin/login',
+    '/__TENANT_LOGIN__',
     '/restaurante-x/login',
     '/restaurante-x/register',
     '/restaurante-x/recover-password',
@@ -96,8 +97,9 @@ describe('authNavigation', () => {
     expect(new URLSearchParams(loginUrl.split('?')[1]).get('next')).toBe('/restaurante-x');
   });
 
-  it('não inventa tenant quando a origem não possui slug', () => {
+  it('não inventa tenant quando a origem não possui slug ou usa marcador interno', () => {
     expect(buildLoginUrl({ pathname: '/' })).toBe(TENANT_REQUIRED_PATH);
+    expect(buildLoginUrl({ pathname: '/__TENANT_LOGIN__' })).toBe(TENANT_REQUIRED_PATH);
     expect(buildAuthEntryUrl('/login', new URLSearchParams())).toBe(TENANT_REQUIRED_PATH);
   });
 

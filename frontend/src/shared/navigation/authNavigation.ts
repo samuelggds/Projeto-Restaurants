@@ -16,6 +16,7 @@ export type AuthExperience = {
 export const TENANT_REQUIRED_PATH = '/restaurant-required';
 
 const INTERNAL_URL_BASE = 'https://internal.invalid';
+const INTERNAL_TENANT_LOGIN_PATH = '/__tenant_login__';
 const MAX_NEXT_PATH_LENGTH = 4_096;
 const MAX_DECODE_PASSES = 8;
 const AUTH_RETURN_STORAGE_PREFIX = 'gastronexa:auth-return:';
@@ -29,6 +30,7 @@ const BLOCKED_AUTH_PATHS = new Set([
   '/change-password',
   '/admin/login',
   '/super_admin/login',
+  INTERNAL_TENANT_LOGIN_PATH,
   TENANT_REQUIRED_PATH,
 ]);
 const ROLE_ONLY_RETURN_ROOTS = [
@@ -43,6 +45,7 @@ const ROLE_ONLY_RETURN_ROOTS = [
   '/waiter',
 ];
 const RESERVED_RESTAURANT_SLUGS = new Set([
+  '__tenant_login__',
   'admin',
   'attendant',
   'billing',

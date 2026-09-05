@@ -3,7 +3,6 @@ import { divIcon } from 'leaflet';
 import { Bike, Navigation } from 'lucide-react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { DeliveryMapChatButton } from './DeliveryMapChatButton';
 import * as S from './DeliveryMap.styles';
 
 export type RoutePoint = {
@@ -196,7 +195,6 @@ export default function DeliveryMap({
         <FollowLatest point={latest} destination={destination} />
         <RecenterButton point={latest} destination={destination} />
       </MapContainer>
-      <DeliveryMapChatButton />
       <S.MapStatus role="status">
         <span>
           <Bike size={20} />

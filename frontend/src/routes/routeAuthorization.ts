@@ -11,6 +11,7 @@ export const TENANT_LOGIN_REDIRECT = '__TENANT_LOGIN__';
 
 const SERVICE_PATHS = ['/system-blocked', '/system-maintenance'];
 const RESERVED_ROOTS = new Set([
+  TENANT_LOGIN_REDIRECT.toLowerCase(),
   'admin',
   'attendant',
   'billing',
@@ -59,8 +60,8 @@ export function isPublicRoute(pathname: string) {
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||
-    Boolean(singleSegment && !RESERVED_ROOTS.has(singleSegment)) ||
-    Boolean(restaurantTable && !RESERVED_ROOTS.has(restaurantTable))
+    isAllowedTenantRoot(singleSegment) ||
+    isAllowedTenantRoot(restaurantTable)
   );
 }
 
@@ -90,6 +91,7 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPublicRoute(path) || isGuestEntry(path)
       ? { allowed: true }
       : { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
+  if (path === TENANT_REQUIRED_PATH) return { allowed: true };
   const home = getRoleHome(user);
   if (user.mustChangePassword === true) {
     return path === '/change-password'
@@ -125,5 +127,5 @@ export function authorizeRoute(pathname: string, user: RouteUser): RouteDecision
     return isPath(path, '/waiter') ? { allowed: true } : { allowed: false, redirectTo: home };
   if (role === 'FUNCIONARIO' && subRole === 'ATENDENTE')
     return { allowed: false, redirectTo: home };
-  return { allowed: false, redirectTo: TENANT_LOGIN_REDIRECT };
+  return { allowed: false, redirectTo: home };
 }

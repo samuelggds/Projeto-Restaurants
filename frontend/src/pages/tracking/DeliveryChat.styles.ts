@@ -33,7 +33,7 @@ export const Shell = styled.section`
 export const Header = styled.header`
   padding: 18px 20px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 14px;
   border-bottom: 1px solid #edf0ed;
@@ -64,27 +64,12 @@ export const Header = styled.header`
     }
 
     span {
+      overflow: hidden;
       color: #68746e;
       font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-  }
-
-  .live {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: #17733c;
-    font-size: 10px;
-    font-weight: 800;
-  }
-
-  .live::before {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
-    content: '';
   }
 `;
 
@@ -153,6 +138,20 @@ export const Message = styled.div<{ $mine: boolean }>`
     font-size: 9px;
     text-align: right;
   }
+`;
+
+export const SystemMessage = styled.div`
+  align-self: center;
+  max-width: min(92%, 560px);
+  padding: 7px 11px;
+  border: 1px solid #dbe4df;
+  border-radius: 999px;
+  background: #f3f8f5;
+  color: #53645a;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
 `;
 
 export const Empty = styled.div`
