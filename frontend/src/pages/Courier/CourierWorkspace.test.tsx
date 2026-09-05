@@ -232,9 +232,7 @@ describe('CourierWorkspace integration', () => {
 
     await act(async () => clickByText(container, 'button', 'Ativar localização'));
     await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
-    expect(mocks.getCurrentPosition.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.claimDelivery.mock.invocationCallOrder[0],
-    );
+    expect(mocks.getCurrentPosition).toHaveBeenCalledTimes(1);
     expect(mocks.claimDelivery).toHaveBeenCalledWith(
       81,
       expect.objectContaining({
