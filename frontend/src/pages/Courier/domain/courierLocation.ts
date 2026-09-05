@@ -1,3 +1,5 @@
+export const MAX_COURIER_TRACKING_ACCURACY_METERS = 500;
+
 export type CourierRoutePoint = {
   latitude: number;
   longitude: number;
@@ -26,6 +28,15 @@ export function isValidCourierRoutePoint(value: unknown): value is CourierRouteP
   );
 }
 
+export function isShareableCourierRoutePoint(point: CourierRoutePoint) {
+  return (
+    isValidCourierRoutePoint(point) &&
+    Number.isFinite(point.accuracy) &&
+    Number(point.accuracy) >= 0 &&
+    Number(point.accuracy) <= MAX_COURIER_TRACKING_ACCURACY_METERS
+  );
+}
+
 export function routePointFromPosition(
   position: GeolocationPosition,
   recordedAt = Number.isFinite(position.timestamp)
@@ -47,17 +58,14 @@ export function routePointFromPosition(
 }
 
 export function buildCourierLocationPayload(orderId: number, point: CourierRoutePoint) {
-  if (!Number.isInteger(orderId) || orderId <= 0 || !isValidCourierRoutePoint(point)) return null;
+  if (!Number.isInteger(orderId) || orderId <= 0 || !isShareableCourierRoutePoint(point)) return null;
   return {
     orderId,
     latitude: point.latitude,
     longitude: point.longitude,
     heading: Number.isFinite(point.heading) ? point.heading : null,
     speed: Number.isFinite(point.speed) ? point.speed : null,
-    accuracy:
-      Number.isFinite(point.accuracy) && Number(point.accuracy) >= 0
-        ? Math.round(Number(point.accuracy))
-        : null,
+    accuracy: Math.round(Number(point.accuracy)),
     sentAt: point.recordedAt || new Date().toISOString(),
   };
 }
