@@ -11,7 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import ordersService from '../../Services/ordersService';
+import ordersService, { getGuestOrderTrackingToken } from '../../Services/ordersService';
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { mergeCourierRoutePoints } from '../Courier/domain/courierLocation';
@@ -47,6 +47,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const lastRouteRefreshAt = useRef(0);
   const dataRef = useRef<DeliveryTrackingData | null>(null);
+  const isGuestTracking = Boolean(orderId && getGuestOrderTrackingToken(orderId));
 
   useEffect(() => {
     if (hasInvalidOrderId) return;
@@ -111,9 +112,21 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     };
 
     void refreshTracking();
+    const pollTimer = window.setInterval(() => {
+      if (!isDeliveryTrackingTerminalStatus(dataRef.current?.order.status)) {
+        void refreshTracking(true);
+      }
+    }, TRACKING_POLL_INTERVAL_MS);
 
     const token = getAccessToken();
-    if (!token) return () => void (active = false);
+    if (!token) {
+      setSocketConnected(false);
+      return () => {
+        active = false;
+        window.clearInterval(pollTimer);
+      };
+    }
+
     const { socket, release } = acquireSocket(token, `delivery-tracking-${orderId}`);
     const onConnect = () => setSocketConnected(true);
     const onDisconnect = () => setSocketConnected(false);
@@ -158,11 +171,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
     socket.on('disconnect', onDisconnect);
     socket.on('order:delivery-location', onLocation);
     socket.on('order:status-changed', onStatus);
-    const pollTimer = window.setInterval(() => {
-      if (!isDeliveryTrackingTerminalStatus(dataRef.current?.order.status)) {
-        void refreshTracking(true);
-      }
-    }, TRACKING_POLL_INTERVAL_MS);
+
     return () => {
       active = false;
       window.clearInterval(pollTimer);
@@ -207,10 +216,11 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
         <S.HeaderInner>
           <S.BackButton
             type="button"
-            aria-label="Voltar para meus pedidos"
-            onClick={() => navigate('/profile')}
+            aria-label={isGuestTracking ? 'Voltar ao cardápio' : 'Voltar para meus pedidos'}
+            onClick={() => (isGuestTracking ? navigate(-1) : navigate('/profile'))}
           >
-            <ArrowLeft aria-hidden="true" /> <span>Meus pedidos</span>
+            <ArrowLeft aria-hidden="true" />
+            <span>{isGuestTracking ? 'Voltar' : 'Meus pedidos'}</span>
           </S.BackButton>
           <S.OrderIdentity>
             <span aria-hidden="true"><Bike /></span>
@@ -280,7 +290,9 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                         ? 'Entrega em andamento'
                         : socketConnected
                           ? 'Atualização em tempo real'
-                          : 'Reconectando · atualização automática ativa'}
+                          : isGuestTracking
+                            ? 'Atualização automática ativa'
+                            : 'Reconectando · atualização automática ativa'}
                 </span>
                 <small>
                   {refreshing
@@ -424,7 +436,7 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                   </S.Contact>
                 ) : null}
                 <S.Privacy>
-                  O mapa usa tiles do OpenStreetMap. A localização é exibida somente para este pedido autenticado.
+                  O mapa usa tiles do OpenStreetMap. A localização é exibida somente para quem tem acesso a este pedido.
                 </S.Privacy>
               </S.DetailsPanel>
             </S.Workspace>
