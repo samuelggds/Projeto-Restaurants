@@ -25,6 +25,10 @@ import customerPaymentMethodService, {
 } from '../../Services/customerPaymentMethodService';
 import { PaymentMethodModal } from './components/PaymentMethodModal';
 import { resolveProfileView } from './domain/profileView';
+import {
+  buildProfileRestaurantHomePath,
+  buildProfileRestaurantMenuPath,
+} from './domain/profileRestaurantNavigation';
 
 function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -213,13 +217,18 @@ export default function Profile() {
       }),
     [user, settings, orders, favorites, addresses, avatarUrl],
   );
-  const restaurantMenuPath = useMemo(() => {
-    const restaurant = (settings?.restaurant as Record<string, unknown> | null) || {};
-    const slug = String(restaurant.slug || settings?.slug || '')
-      .trim()
-      .toLowerCase();
-    return slug ? `/${slug}` : '/';
-  }, [settings]);
+  const restaurantHomePath = useMemo(
+    () =>
+      buildProfileRestaurantHomePath(
+        settings,
+        (user as Record<string, unknown> | null) || null,
+      ) || '/',
+    [settings, user],
+  );
+  const restaurantMenuPath = useMemo(
+    () => buildProfileRestaurantMenuPath(restaurantHomePath),
+    [restaurantHomePath],
+  );
   const storedCartCount = useMemo(() => {
     if (!restaurantId) return 0;
     const namespacedCart = readJsonStorage<CartItem[]>(`cartItems:${restaurantId}`, []);
@@ -333,9 +342,9 @@ export default function Profile() {
 
       localStorage.setItem('cartItems', JSON.stringify(items));
       toast.success('Itens adicionados à sacola.');
-      navigate('/', { state: { openCart: true } });
+      navigate(restaurantHomePath, { state: { openCart: true } });
     },
-    [navigate, orders],
+    [navigate, orders, restaurantHomePath],
   );
 
   const handleAddFavoriteToCart = useCallback(
@@ -354,9 +363,9 @@ export default function Profile() {
 
       localStorage.setItem('cartItems', JSON.stringify(result.cart));
       toast.success(`${favorite.name} adicionado à sacola.`);
-      navigate('/', { state: { openCart: true } });
+      navigate(restaurantHomePath, { state: { openCart: true } });
     },
-    [navigate],
+    [navigate, restaurantHomePath],
   );
 
   return (
@@ -371,15 +380,15 @@ export default function Profile() {
         }}
         initialView={resolveProfileView(searchParams.get('view'))}
         cartCount={storedCartCount}
-        onGoHome={() => navigate('/')}
-        onOpenMenu={() => navigate('/')}
+        onGoHome={() => navigate(restaurantHomePath)}
+        onOpenMenu={() => navigate(restaurantMenuPath)}
         onOpenSearch={() =>
-          navigate(restaurantMenuPath, {
+          navigate(restaurantHomePath, {
             state: { openSearch: true },
           })
         }
         onOpenCart={() =>
-          navigate(restaurantMenuPath, {
+          navigate(restaurantHomePath, {
             state: { openCart: true },
           })
         }
@@ -420,7 +429,7 @@ export default function Profile() {
         loyaltyError={loyaltyError}
         onRetryLoyalty={() => void loadLoyaltyWallet()}
         onUseCoupon={(redemptionId) =>
-          navigate(restaurantMenuPath, {
+          navigate(restaurantHomePath, {
             state: { openCart: true, loyaltyRedemptionId: redemptionId },
           })
         }
