@@ -35,7 +35,7 @@ import SystemMaintenancePage from '../pages/SystemMaintenance/SystemMaintenance'
 import BrowserTabBranding from '../components/BrowserTabBranding/BrowserTabBranding';
 import {
   buildAuthEntryUrl,
-  buildLoginUrl,
+  buildSessionEntryUrl,
   getCurrentReturnPath,
   getSafeNextPath,
   rememberTenantSlug,
@@ -103,7 +103,7 @@ export function RequireAuth() {
   }
 
   if (!user) {
-    return <Navigate to={buildLoginUrl(location)} replace />;
+    return <Navigate to={buildSessionEntryUrl(location)} replace />;
   }
 
   return <Outlet />;
@@ -138,7 +138,7 @@ export function RouteAuthorizationGuard() {
     } else if (isCustomer && customerReturnPath) {
       redirectTo = customerReturnPath;
     } else if (!user && decision.redirectTo === TENANT_LOGIN_REDIRECT) {
-      redirectTo = buildLoginUrl(location);
+      redirectTo = buildSessionEntryUrl(location);
     }
 
     return <Navigate to={redirectTo} replace />;
