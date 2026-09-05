@@ -128,7 +128,6 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
       setData(merged);
       setLastUpdatedAt(new Date());
 
-      // A rota é recalculada periodicamente, sem chamar o provedor a cada ponto de GPS.
       if (Date.now() - lastRouteRefreshAt.current >= 20_000) void refreshTracking(true);
     };
     const onStatus = (rawOrder: unknown) => {
@@ -185,6 +184,8 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
   const isDelivered = data?.order.status === 'ENTREGUE';
   const isCancelled = data?.order.status === 'CANCELADO';
   const isTerminal = isDelivered || isCancelled;
+  const isInDeliveryWithoutLocation =
+    data?.order.status === 'SAIU_PARA_ENTREGA' && data.locations.length === 0;
   const statusLabel = data
     ? data.order.status === 'SAIU_PARA_ENTREGA'
       ? 'Saiu para entrega'
@@ -244,17 +245,25 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
             <S.HeadingRow>
               <div>
                 <S.Eyebrow>
-                  {isTerminal ? 'Último status da entrega' : 'Trajeto em tempo real'}
+                  {isTerminal
+                    ? 'Último status da entrega'
+                    : isInDeliveryWithoutLocation
+                      ? 'Pedido em deslocamento'
+                      : 'Trajeto em tempo real'}
                 </S.Eyebrow>
                 <h1>
                   {isDelivered
                     ? 'Entrega finalizada'
                     : isCancelled
                       ? 'Acompanhamento finalizado'
-                      : 'Acompanhe o trajeto do pedido'}
+                      : isInDeliveryWithoutLocation
+                        ? 'Seu pedido está a caminho'
+                        : 'Acompanhe o trajeto do pedido'}
                 </h1>
                 <p>
-                  Veja a posição do motoqueiro, o destino e a previsão calculada para esta entrega.
+                  {isInDeliveryWithoutLocation
+                    ? 'O motoqueiro já retirou o pedido. A localização em tempo real não está disponível neste momento.'
+                    : 'Veja a posição do motoqueiro, o destino e a previsão calculada para esta entrega.'}
                 </p>
               </div>
               <S.TrackingBar $connected={socketConnected} role="status" aria-live="polite">
@@ -264,9 +273,11 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     ? 'Acompanhamento concluído'
                     : isCancelled
                       ? 'Acompanhamento encerrado'
-                      : socketConnected
-                        ? 'Atualização em tempo real'
-                        : 'Reconectando · atualização automática ativa'}
+                      : isInDeliveryWithoutLocation
+                        ? 'Entrega em andamento'
+                        : socketConnected
+                          ? 'Atualização em tempo real'
+                          : 'Reconectando · atualização automática ativa'}
                 </span>
                 <small>
                   {refreshing
@@ -335,8 +346,16 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                 ) : (
                   <S.MapPlaceholder role="status">
                     <Clock3 aria-hidden="true" />
-                    <h2>Aguardando a primeira posição do motoqueiro</h2>
-                    <p>O mapa aparecerá automaticamente quando a rota começar.</p>
+                    <h2>
+                      {isInDeliveryWithoutLocation
+                        ? 'Localização em tempo real indisponível'
+                        : 'Aguardando a primeira posição do motoqueiro'}
+                    </h2>
+                    <p>
+                      {isInDeliveryWithoutLocation
+                        ? 'Seu pedido continua a caminho normalmente. Se o motoqueiro ativar a localização, o mapa aparecerá automaticamente.'
+                        : 'O mapa aparecerá automaticamente quando a rota começar.'}
+                    </p>
                   </S.MapPlaceholder>
                 )}
               </S.MapArea>
@@ -370,7 +389,11 @@ function DeliveryTrackingContent({ id }: { id?: string }) {
                     </dt>
                     <dd>
                       {formatTime(data.order.estimatedArrival) ||
-                        (latest ? 'Calculando rota' : 'Aguardando GPS')}
+                        (latest
+                          ? 'Calculando rota'
+                          : isInDeliveryWithoutLocation
+                            ? 'Sem localização em tempo real'
+                            : 'Aguardando GPS')}
                     </dd>
                     {routeMinutes ? (
                       <small>Estimativa de rota: cerca de {routeMinutes} min</small>

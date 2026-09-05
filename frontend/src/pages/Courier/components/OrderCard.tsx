@@ -18,6 +18,7 @@ import ordersService from '../../../Services/ordersService';
 import * as S from '../styles';
 import * as C from './OrderCard.styles';
 import * as P from './DeliveryPaymentStatus.styles';
+import CourierLocationChoiceModal from './CourierLocationChoiceModal';
 import { getCourierItemChoices, getCourierItemObservation } from '../domain/courierOrders';
 
 type OrderItem = {
@@ -75,12 +76,14 @@ type DeliveryPayment = {
 
 type OrderCardProps = {
   order: Order;
-  onClaimDelivery?: (orderId: number) => Promise<void>;
+  onClaimDelivery?: (orderId: number, options: { shareLocation: boolean }) => Promise<void>;
   onMarkDelivered: (orderId: number, deliveryConfirmationCode: string) => Promise<void>;
   digitalPaymentMethods: Set<string>;
   paymentLabel: Record<string, string>;
   statusLabel: Record<string, { label: string; color: string }>;
 };
+
+type ClaimMode = 'location' | 'without-location' | null;
 
 function formatCurrency(value: number) {
   return Number(value || 0).toLocaleString('pt-BR', {
@@ -154,6 +157,9 @@ export default function OrderCard({
   const [deliveryCode, setDeliveryCode] = useState('');
   const [deliveryPayment, setDeliveryPayment] = useState<DeliveryPayment | null>(null);
   const [paymentRefreshing, setPaymentRefreshing] = useState(false);
+  const [locationChoiceOpen, setLocationChoiceOpen] = useState(false);
+  const [locationChoiceError, setLocationChoiceError] = useState('');
+  const [claimMode, setClaimMode] = useState<ClaimMode>(null);
   const canClaim = order.status === 'PRONTO' && Boolean(onClaimDelivery);
 
   const statusInfo = statusLabel[order.status] || {
@@ -251,265 +257,296 @@ export default function OrderCard({
     }
   }
 
-  async function handleClaimDelivery() {
+  async function handleClaimDelivery(shareLocation: boolean) {
     if (!onClaimDelivery) return;
     setLoading(true);
+    setClaimMode(shareLocation ? 'location' : 'without-location');
     setError('');
+    setLocationChoiceError('');
     try {
-      await onClaimDelivery(order.id);
+      await onClaimDelivery(order.id, { shareLocation });
+      setLocationChoiceOpen(false);
     } catch (err) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err as { message?: string })?.message ||
         'Não foi possível retirar este pedido.';
-      setError(message);
+      setLocationChoiceError(message);
     } finally {
       setLoading(false);
+      setClaimMode(null);
     }
   }
 
   return (
-    <C.Card $status={order.status}>
-      <C.Header>
-        <C.HeaderIdentity>
-          <C.OrderId>Pedido #{order.id}</C.OrderId>
-          <C.StatusBadge $color={statusInfo.color}>
-            <PackageCheck size={14} aria-hidden="true" />
-            {statusInfo.label}
-          </C.StatusBadge>
-        </C.HeaderIdentity>
-        <C.Total>{formatCurrency(order.total)}</C.Total>
-      </C.Header>
+    <>
+      <C.Card $status={order.status}>
+        <C.Header>
+          <C.HeaderIdentity>
+            <C.OrderId>Pedido #{order.id}</C.OrderId>
+            <C.StatusBadge $color={statusInfo.color}>
+              <PackageCheck size={14} aria-hidden="true" />
+              {statusInfo.label}
+            </C.StatusBadge>
+          </C.HeaderIdentity>
+          <C.Total>{formatCurrency(order.total)}</C.Total>
+        </C.Header>
 
-      <C.SummaryGrid>
-        <C.SummaryItem>
-          <User aria-hidden="true" />
-          <small>Cliente</small>
-          <strong title={order.user?.name || 'Cliente'}>{order.user?.name || 'Cliente'}</strong>
-        </C.SummaryItem>
-        <C.SummaryItem>
-          <CreditCard aria-hidden="true" />
-          <small>Pagamento</small>
-          <strong title={paymentMethodLabel}>{paymentMethodLabel}</strong>
-        </C.SummaryItem>
-        <C.SummaryItem $tone={providerPaid ? 'success' : 'danger'}>
-          {providerPaid ? <CheckCircle aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
-          <small>Status</small>
-          <strong>{paymentStatusLabel}</strong>
-        </C.SummaryItem>
-      </C.SummaryGrid>
+        <C.SummaryGrid>
+          <C.SummaryItem>
+            <User aria-hidden="true" />
+            <small>Cliente</small>
+            <strong title={order.user?.name || 'Cliente'}>{order.user?.name || 'Cliente'}</strong>
+          </C.SummaryItem>
+          <C.SummaryItem>
+            <CreditCard aria-hidden="true" />
+            <small>Pagamento</small>
+            <strong title={paymentMethodLabel}>{paymentMethodLabel}</strong>
+          </C.SummaryItem>
+          <C.SummaryItem $tone={providerPaid ? 'success' : 'danger'}>
+            {providerPaid ? <CheckCircle aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
+            <small>Status</small>
+            <strong>{paymentStatusLabel}</strong>
+          </C.SummaryItem>
+        </C.SummaryGrid>
 
-      {canClaim ? (
-        <C.EarningBar
-          $available={earningAvailable}
-          title={order.courierEarningPreview?.reason || 'Valor calculado pelo servidor'}
-        >
-          <Banknote size={16} aria-hidden="true" />
-          <span>Ganho</span>
-          <strong>
-            {earningAvailable
-              ? formatCurrency(Number(order.courierEarningPreview?.amount || 0))
-              : 'indisponível'}
-          </strong>
-        </C.EarningBar>
-      ) : null}
+        {canClaim ? (
+          <C.EarningBar
+            $available={earningAvailable}
+            title={order.courierEarningPreview?.reason || 'Valor calculado pelo servidor'}
+          >
+            <Banknote size={16} aria-hidden="true" />
+            <span>Ganho</span>
+            <strong>
+              {earningAvailable
+                ? formatCurrency(Number(order.courierEarningPreview?.amount || 0))
+                : 'indisponível'}
+            </strong>
+          </C.EarningBar>
+        ) : null}
 
-      {payOnDeliveryMethod ? (
-        <C.PayOnDelivery>
-          <CreditCard size={14} aria-hidden="true" />
-          {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
-        </C.PayOnDelivery>
-      ) : null}
+        {payOnDeliveryMethod ? (
+          <C.PayOnDelivery>
+            <CreditCard size={14} aria-hidden="true" />
+            {`Pagar na entrega (${paymentLabel[payOnDeliveryMethod] || payOnDeliveryMethod})`}
+          </C.PayOnDelivery>
+        ) : null}
 
-      {canDeliver && automatedPayOnDelivery && (
-        <P.Box $paid={providerPaid}>
-          <P.Head>
-            <span>{payOnDeliveryMethod === 'PIX' ? 'PIX na entrega' : 'Cartão na entrega'}</span>
-            <strong>{formatCurrency(Number(deliveryPayment?.amount || order.total))}</strong>
-          </P.Head>
-          <P.Status $paid={providerPaid}>
-            {providerPaid ? <CheckCircle /> : <RefreshCw />}
-            <span>
-              {providerPaid
-                ? 'Pagamento confirmado automaticamente pelo provedor.'
-                : payOnDeliveryMethod === 'PIX'
-                  ? 'Aguardando o cliente pagar. O sistema confere o Pix automaticamente.'
-                  : 'Aguardando aprovação na maquininha vinculada. O motoqueiro não confirma o pagamento.'}
-            </span>
-          </P.Status>
-          {!providerPaid && payOnDeliveryMethod === 'PIX' && deliveryPayment?.pixCopyPaste && (
-            <P.PixArea>
-              <QRCode value={deliveryPayment.pixCopyPaste} />
-              <small>Mostre este QR Code ao cliente ou copie o código Pix.</small>
-              <P.CopyButton
+        {canDeliver && automatedPayOnDelivery && (
+          <P.Box $paid={providerPaid}>
+            <P.Head>
+              <span>{payOnDeliveryMethod === 'PIX' ? 'PIX na entrega' : 'Cartão na entrega'}</span>
+              <strong>{formatCurrency(Number(deliveryPayment?.amount || order.total))}</strong>
+            </P.Head>
+            <P.Status $paid={providerPaid}>
+              {providerPaid ? <CheckCircle /> : <RefreshCw />}
+              <span>
+                {providerPaid
+                  ? 'Pagamento confirmado automaticamente pelo provedor.'
+                  : payOnDeliveryMethod === 'PIX'
+                    ? 'Aguardando o cliente pagar. O sistema confere o Pix automaticamente.'
+                    : 'Aguardando aprovação na maquininha vinculada. O motoqueiro não confirma o pagamento.'}
+              </span>
+            </P.Status>
+            {!providerPaid && payOnDeliveryMethod === 'PIX' && deliveryPayment?.pixCopyPaste && (
+              <P.PixArea>
+                <QRCode value={deliveryPayment.pixCopyPaste} />
+                <small>Mostre este QR Code ao cliente ou copie o código Pix.</small>
+                <P.CopyButton
+                  type="button"
+                  onClick={() => void navigator.clipboard.writeText(deliveryPayment.pixCopyPaste || '')}
+                >
+                  Copiar código Pix
+                </P.CopyButton>
+              </P.PixArea>
+            )}
+            {!providerPaid && (
+              <P.RefreshButton
                 type="button"
-                onClick={() => void navigator.clipboard.writeText(deliveryPayment.pixCopyPaste || '')}
+                onClick={() => void handleRefreshPayment()}
+                disabled={paymentRefreshing}
               >
-                Copiar código Pix
-              </P.CopyButton>
-            </P.PixArea>
-          )}
-          {!providerPaid && (
-            <P.RefreshButton
+                <RefreshCw size={15} />
+                {paymentRefreshing ? 'Consultando provedor...' : 'Atualizar pagamento'}
+              </P.RefreshButton>
+            )}
+          </P.Box>
+        )}
+
+        <C.AddressBox>
+          <C.AddressIcon aria-hidden="true">
+            <MapPin />
+          </C.AddressIcon>
+          <C.AddressContent>
+            <small>Endereço de entrega</small>
+            <strong>{getDeliveryAddress(order)}</strong>
+          </C.AddressContent>
+        </C.AddressBox>
+
+        {canClaim && Number.isFinite(order.deliveryDistanceMeters) ? (
+          <C.ContextRow>
+            <MapPin aria-hidden="true" />
+            <span>Rota calculada: {(Number(order.deliveryDistanceMeters) / 1000).toFixed(1)} km</span>
+          </C.ContextRow>
+        ) : null}
+
+        {orderReferencePoint ? (
+          <C.ContextRow>
+            <MapPin aria-hidden="true" />
+            <span>Ponto de referência: {orderReferencePoint}</span>
+          </C.ContextRow>
+        ) : null}
+
+        {expanded && (
+          <S.ExpandedContent>
+            {order.user?.phone && (
+              <S.DetailRow>
+                <Phone size={14} />
+                <span>{order.user.phone}</span>
+              </S.DetailRow>
+            )}
+
+            {(order.items || []).length ? (
+              <S.ItemsList>
+                {(order.items || []).map((item, index) => {
+                  const choices = getCourierItemChoices(item);
+                  const itemObservation = getCourierItemObservation(item);
+                  return (
+                    <S.ItemDetail key={`${order.id}-${index}`}>
+                      <S.ItemRow>
+                        <strong>
+                          {item.quantity}x {item.product?.name || 'Item'}
+                        </strong>
+                        <span>
+                          {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
+                        </span>
+                      </S.ItemRow>
+                      {choices.map((group, groupIndex) => (
+                        <S.ItemChoice key={`${group.groupName}-${groupIndex}`}>
+                          <b>{group.groupName}:</b> {group.options.join(', ')}
+                        </S.ItemChoice>
+                      ))}
+                      {itemObservation ? (
+                        <S.ItemObservation>
+                          <b>Observação do item:</b> {itemObservation}
+                        </S.ItemObservation>
+                      ) : null}
+                    </S.ItemDetail>
+                  );
+                })}
+              </S.ItemsList>
+            ) : (
+              <S.ItemsUnavailable>Itens do pedido não informados.</S.ItemsUnavailable>
+            )}
+
+            {orderObservation && (
+              <S.NotesBox>
+                <strong>Obs:</strong> {orderObservation}
+              </S.NotesBox>
+            )}
+          </S.ExpandedContent>
+        )}
+
+        {error && (
+          <S.ErrorMsg role="alert">
+            <AlertCircle size={14} />
+            {error}
+          </S.ErrorMsg>
+        )}
+
+        {canClaim && (
+          <C.ActionArea>
+            <C.Hint>
+              <Info aria-hidden="true" />
+              <span>
+                {payOnDeliveryMethod === 'CARTAO'
+                  ? 'Para cartão na entrega, uma Point integrada precisa estar vinculada ao seu usuário.'
+                  : 'Confirme a retirada somente quando o pedido estiver com você.'}
+              </span>
+            </C.Hint>
+            <C.PrimaryButton
               type="button"
-              onClick={() => void handleRefreshPayment()}
-              disabled={paymentRefreshing}
-            >
-              <RefreshCw size={15} />
-              {paymentRefreshing ? 'Consultando provedor...' : 'Atualizar pagamento'}
-            </P.RefreshButton>
-          )}
-        </P.Box>
-      )}
-
-      <C.AddressBox>
-        <C.AddressIcon aria-hidden="true">
-          <MapPin />
-        </C.AddressIcon>
-        <C.AddressContent>
-          <small>Endereço de entrega</small>
-          <strong>{getDeliveryAddress(order)}</strong>
-        </C.AddressContent>
-      </C.AddressBox>
-
-      {canClaim && Number.isFinite(order.deliveryDistanceMeters) ? (
-        <C.ContextRow>
-          <MapPin aria-hidden="true" />
-          <span>Rota calculada: {(Number(order.deliveryDistanceMeters) / 1000).toFixed(1)} km</span>
-        </C.ContextRow>
-      ) : null}
-
-      {orderReferencePoint ? (
-        <C.ContextRow>
-          <MapPin aria-hidden="true" />
-          <span>Ponto de referência: {orderReferencePoint}</span>
-        </C.ContextRow>
-      ) : null}
-
-      {expanded && (
-        <S.ExpandedContent>
-          {order.user?.phone && (
-            <S.DetailRow>
-              <Phone size={14} />
-              <span>{order.user.phone}</span>
-            </S.DetailRow>
-          )}
-
-          {(order.items || []).length ? (
-            <S.ItemsList>
-              {(order.items || []).map((item, index) => {
-                const choices = getCourierItemChoices(item);
-                const itemObservation = getCourierItemObservation(item);
-                return (
-                  <S.ItemDetail key={`${order.id}-${index}`}>
-                    <S.ItemRow>
-                      <strong>
-                        {item.quantity}x {item.product?.name || 'Item'}
-                      </strong>
-                      <span>
-                        {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
-                      </span>
-                    </S.ItemRow>
-                    {choices.map((group, groupIndex) => (
-                      <S.ItemChoice key={`${group.groupName}-${groupIndex}`}>
-                        <b>{group.groupName}:</b> {group.options.join(', ')}
-                      </S.ItemChoice>
-                    ))}
-                    {itemObservation ? (
-                      <S.ItemObservation>
-                        <b>Observação do item:</b> {itemObservation}
-                      </S.ItemObservation>
-                    ) : null}
-                  </S.ItemDetail>
-                );
-              })}
-            </S.ItemsList>
-          ) : (
-            <S.ItemsUnavailable>Itens do pedido não informados.</S.ItemsUnavailable>
-          )}
-
-          {orderObservation && (
-            <S.NotesBox>
-              <strong>Obs:</strong> {orderObservation}
-            </S.NotesBox>
-          )}
-        </S.ExpandedContent>
-      )}
-
-      {error && (
-        <S.ErrorMsg role="alert">
-          <AlertCircle size={14} />
-          {error}
-        </S.ErrorMsg>
-      )}
-
-      {canClaim && (
-        <C.ActionArea>
-          <C.Hint>
-            <Info aria-hidden="true" />
-            <span>
-              {payOnDeliveryMethod === 'CARTAO'
-                ? 'Para cartão na entrega, uma Point integrada precisa estar vinculada ao seu usuário.'
-                : 'Confirme a retirada somente quando o pedido estiver com você.'}
-            </span>
-          </C.Hint>
-          <C.PrimaryButton type="button" onClick={handleClaimDelivery} disabled={loading}>
-            <PackageCheck size={18} />
-            {loading ? 'Confirmando retirada...' : 'Retirar e iniciar entrega'}
-          </C.PrimaryButton>
-        </C.ActionArea>
-      )}
-
-      {canDeliver && (
-        <C.ActionArea>
-          <C.Hint>
-            <Info aria-hidden="true" />
-            <span>
-              {paymentPendingConfirmation
-                ? 'O botão de entrega será liberado somente após a confirmação automática do pagamento.'
-                : 'Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para concluir a entrega.'}
-            </span>
-          </C.Hint>
-          <C.DeliveryActions>
-            <S.DeliveryCodeInput
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={4}
-              value={deliveryCode}
-              onChange={(event) => {
-                setDeliveryCode(event.target.value.replace(/\D/g, '').slice(0, 4));
-                if (error) setError('');
+              onClick={() => {
+                setError('');
+                setLocationChoiceError('');
+                setLocationChoiceOpen(true);
               }}
-              placeholder="4 últimos dígitos do celular"
-            />
-            <C.DeliverButton
-              type="button"
-              onClick={handleMarkDelivered}
-              disabled={loading || paymentPendingConfirmation || !isDeliveryCodeValid}
-              title={
-                paymentPendingConfirmation
-                  ? 'Pagamento ainda não confirmado pelo provedor'
-                  : !isDeliveryCodeValid
-                    ? 'Digite os 4 dígitos para concluir'
-                    : ''
-              }
+              disabled={loading}
             >
-              <CheckCircle size={16} />
-              {loading ? 'Atualizando...' : 'Marcar como Entregue'}
-            </C.DeliverButton>
-          </C.DeliveryActions>
-        </C.ActionArea>
-      )}
+              <PackageCheck size={18} />
+              Retirar e iniciar entrega
+            </C.PrimaryButton>
+          </C.ActionArea>
+        )}
 
-      <C.DetailsButton
-        type="button"
-        aria-expanded={expanded}
-        aria-label={`${expanded ? 'Ocultar' : 'Ver'} detalhes do pedido ${order.id}`}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
-        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </C.DetailsButton>
-    </C.Card>
+        {canDeliver && (
+          <C.ActionArea>
+            <C.Hint>
+              <Info aria-hidden="true" />
+              <span>
+                {paymentPendingConfirmation
+                  ? 'O botão de entrega será liberado somente após a confirmação automática do pagamento.'
+                  : 'Peça ao cliente os 4 últimos dígitos do celular e digite abaixo para concluir a entrega.'}
+              </span>
+            </C.Hint>
+            <C.DeliveryActions>
+              <S.DeliveryCodeInput
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={deliveryCode}
+                onChange={(event) => {
+                  setDeliveryCode(event.target.value.replace(/\D/g, '').slice(0, 4));
+                  if (error) setError('');
+                }}
+                placeholder="4 últimos dígitos do celular"
+              />
+              <C.DeliverButton
+                type="button"
+                onClick={handleMarkDelivered}
+                disabled={loading || paymentPendingConfirmation || !isDeliveryCodeValid}
+                title={
+                  paymentPendingConfirmation
+                    ? 'Pagamento ainda não confirmado pelo provedor'
+                    : !isDeliveryCodeValid
+                      ? 'Digite os 4 dígitos para concluir'
+                      : ''
+                }
+              >
+                <CheckCircle size={16} />
+                {loading ? 'Atualizando...' : 'Marcar como Entregue'}
+              </C.DeliverButton>
+            </C.DeliveryActions>
+          </C.ActionArea>
+        )}
+
+        <C.DetailsButton
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Ocultar' : 'Ver'} detalhes do pedido ${order.id}`}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </C.DetailsButton>
+      </C.Card>
+
+      <CourierLocationChoiceModal
+        open={locationChoiceOpen && canClaim}
+        orderId={order.id}
+        loading={loading}
+        activeChoice={claimMode}
+        error={locationChoiceError}
+        onClose={() => {
+          if (!loading) {
+            setLocationChoiceOpen(false);
+            setLocationChoiceError('');
+          }
+        }}
+        onUseLocation={() => void handleClaimDelivery(true)}
+        onContinueWithoutLocation={() => void handleClaimDelivery(false)}
+      />
+    </>
   );
 }

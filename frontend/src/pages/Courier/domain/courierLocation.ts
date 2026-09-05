@@ -1,3 +1,5 @@
+export const MAX_COURIER_TRACKING_ACCURACY_METERS = 500;
+
 export type CourierRoutePoint = {
   latitude: number;
   longitude: number;
@@ -23,6 +25,15 @@ export function isValidCourierRoutePoint(value: unknown): value is CourierRouteP
     Number(point.latitude) <= 90 &&
     Number(point.longitude) >= -180 &&
     Number(point.longitude) <= 180
+  );
+}
+
+export function isShareableCourierRoutePoint(point: CourierRoutePoint) {
+  return (
+    isValidCourierRoutePoint(point) &&
+    Number.isFinite(point.accuracy) &&
+    Number(point.accuracy) >= 0 &&
+    Number(point.accuracy) <= MAX_COURIER_TRACKING_ACCURACY_METERS
   );
 }
 

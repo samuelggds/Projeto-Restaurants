@@ -51,7 +51,7 @@ function deliveryOrder(overrides = {}) {
   };
 }
 
-test('retirada valida conta e persiste o primeiro GPS na mesma transação', async () => {
+test('retirada persiste GPS quando informado e também funciona sem localização', async () => {
   let savedLocation;
   const emissions = [];
   const order = deliveryOrder();
@@ -143,25 +143,34 @@ test('retirada valida conta e persiste o primeiro GPS na mesma transação', asy
     ),
     true,
   );
+
+  savedLocation = undefined;
+  emissions.length = 0;
+  const resultWithoutGps = await claimOrderForDeliveryService.execute({
+    orderId: 91,
+    restaurantId: 7,
+    courierId: 31,
+    role: UserRole.MOTOQUEIRO,
+    initialLocation: null,
+  });
+
+  assert.equal(resultWithoutGps.id, 91);
+  assert.equal(savedLocation, undefined);
+  assert.equal(
+    emissions.some(({ event }) => event === 'order:delivery-location'),
+    false,
+  );
+  assert.equal(
+    emissions.some(({ room, event }) => room === 'restaurant:7' && event === 'order:status-changed'),
+    true,
+  );
 });
 
-test('retirada exige GPS atual e rejeita posição inválida antes da transação', async () => {
+test('retirada rejeita GPS inválido antes da transação quando localização é informada', async () => {
   let transactionCalls = 0;
   prisma.$transaction = async () => {
     transactionCalls += 1;
   };
-
-  await assert.rejects(
-    () =>
-      claimOrderForDeliveryService.execute({
-        orderId: 91,
-        restaurantId: 7,
-        courierId: 31,
-        role: UserRole.MOTOQUEIRO,
-        initialLocation: null,
-      }),
-    /localização atual é obrigatória/,
-  );
 
   await assert.rejects(
     () =>

@@ -119,9 +119,9 @@ function deliveryOrder(status = 'PRONTO') {
 }
 
 async function flushUntil(condition: () => boolean) {
-  for (let attempt = 0; attempt < 30 && !condition(); attempt += 1) {
+  for (let attempt = 0; attempt < 200 && !condition(); attempt += 1) {
     await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1));
+      await new Promise((resolve) => window.setTimeout(resolve, 5));
     });
   }
 }
@@ -194,7 +194,7 @@ describe('CourierWorkspace integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('filtra Delivery, exibe montagem e exige GPS antes de retirar', async () => {
+  it('filtra Delivery, exibe montagem e permite ativar GPS ao retirar', async () => {
     mocks.listOrders.mockResolvedValue([
       deliveryOrder(),
       { ...deliveryOrder(), id: 99, type: 'MESA' },
@@ -225,10 +225,16 @@ describe('CourierWorkspace integration', () => {
     expect(container.textContent).toContain('Rota calculada: 3.2 km');
 
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
-    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
-    expect(mocks.getCurrentPosition.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.claimDelivery.mock.invocationCallOrder[0],
+    await flushUntil(() =>
+      container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
     );
+    expect(mocks.claimDelivery).not.toHaveBeenCalled();
+
+    await act(async () =>
+      clickByText(container, '[role="dialog"] button', 'Ativar localização'),
+    );
+    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
+    expect(mocks.getCurrentPosition).toHaveBeenCalledTimes(1);
     expect(mocks.claimDelivery).toHaveBeenCalledWith(
       81,
       expect.objectContaining({
@@ -263,8 +269,9 @@ describe('CourierWorkspace integration', () => {
     expect(localStorage.getItem('courier-location-tracking:44')).toBeNull();
   });
 
-  it('não retira o pedido quando a permissão de localização é negada', async () => {
+  it('permite retirar sem GPS mesmo quando a permissão de localização é negada', async () => {
     mocks.listOrders.mockResolvedValue([deliveryOrder()]);
+    mocks.claimDelivery.mockResolvedValue(deliveryOrder('SAIU_PARA_ENTREGA'));
     mocks.getCurrentPosition.mockImplementation(
       (_success: PositionCallback, error: PositionErrorCallback) =>
         error({ code: 1, message: 'denied' } as GeolocationPositionError),
@@ -275,11 +282,21 @@ describe('CourierWorkspace integration', () => {
     await act(async () => clickByText(container, 'button', 'Para retirar'));
     await flushUntil(() => container.textContent?.includes('Retirar e iniciar entrega') === true);
     await act(async () => clickByText(container, 'button', 'Retirar e iniciar entrega'));
-    await flushUntil(() => container.textContent?.includes('A localização foi bloqueada') === true);
+    await flushUntil(() =>
+      container.textContent?.includes('Compartilhar localização durante a entrega?') === true,
+    );
 
+    await act(async () =>
+      clickByText(container, '[role="dialog"] button', 'Ativar localização'),
+    );
+    await flushUntil(() => container.textContent?.includes('A localização foi bloqueada') === true);
     expect(mocks.claimDelivery).not.toHaveBeenCalled();
     expect(mocks.watchPosition).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('permita Localização');
+
+    await act(async () => clickByText(container, 'button', 'Continuar sem localização'));
+    await flushUntil(() => mocks.claimDelivery.mock.calls.length === 1);
+    expect(mocks.claimDelivery).toHaveBeenCalledWith(81, undefined);
+    expect(container.textContent).toContain('iniciada sem compartilhamento de localização');
   });
 
   it('mostra erro de carregamento e permite tentar novamente', async () => {
