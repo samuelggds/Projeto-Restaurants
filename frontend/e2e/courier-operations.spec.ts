@@ -666,6 +666,12 @@ test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entr
   await captureReadmeScreenshot(page, 'courier-dashboard.png', { fullPage: true });
 
   await readyOrder.getByRole('button', { name: 'Retirar e iniciar entrega' }).click();
+  const locationChoice = page.getByRole('dialog', {
+    name: 'Compartilhar localização durante a entrega?',
+  });
+  await expect(locationChoice).toBeVisible();
+  await expect.poll(() => state.claims).toHaveLength(0);
+  await locationChoice.getByRole('button', { name: /Ativar localização/ }).click();
   await expect.poll(() => state.claims).toHaveLength(1);
   expect(state.claims[0]).toMatchObject({
     id: 601,
@@ -853,7 +859,7 @@ test('explica localização negada e navegador sem suporte sem enviar coordenada
   await mockCourierApi(unsupportedPage, unsupportedState);
   await unsupportedPage.goto('/courier');
   await openCourierView(unsupportedPage, 'Minha rota');
-  await expect(unsupportedPage.getByText('Ative a localização antes da entrega')).toBeVisible();
+  await expect(unsupportedPage.getByText('Rastreamento em tempo real opcional')).toBeVisible();
   await unsupportedPage.getByRole('button', { name: /(?:Ativar|Testar) localização/ }).click();
   await expect(
     unsupportedPage.getByText('Este aparelho não oferece geolocalização neste navegador.'),
