@@ -1,6 +1,7 @@
 const ACCESS_TOKEN_KEY = 'token';
 const USER_KEY = 'user';
 const REFRESH_TOKEN_KEY = 'refreshToken';
+const REMEMBERED_EMAIL_KEY = 'rememberedEmail';
 
 let accessToken: string | null = null;
 let sessionUserId: number | null = null;
@@ -21,6 +22,7 @@ function removeLegacyPersistedAuthData() {
 
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(REMEMBERED_EMAIL_KEY);
   // Versões anteriores guardavam também o snapshot do usuário de forma persistente.
   // Isso não é necessário para autenticação e pode expor identidade em dispositivos compartilhados.
   localStorage.removeItem(USER_KEY);
