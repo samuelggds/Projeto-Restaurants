@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import createOrderService from '../services/CreateOrderService.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
+import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 
 class CreateOrderController {
   async handle(req: Request, res: Response) {
@@ -75,10 +76,17 @@ class CreateOrderController {
             publicId: String(order.publicId),
           })
         : null;
+      const guestOwnershipToken = isGuestDelivery
+        ? issueGuestOrderOwnershipToken({
+            orderId: Number(order.id),
+            publicId: String(order.publicId),
+          })
+        : null;
 
       return res.status(201).json({
         ...order,
         ...(guestTrackingToken ? { guestTrackingToken } : {}),
+        ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
       return res.status(400).json({
