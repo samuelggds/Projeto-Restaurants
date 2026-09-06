@@ -5,10 +5,18 @@ class ReportOrderIssueController {
   async handle(req: Request, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const { id: userId, restaurantId } = req.user;
       const { message } = req.body || {};
 
-      const result = await reportOrderIssueService.execute(id, userId, restaurantId, message);
+      const result = await reportOrderIssueService.execute(
+        id,
+        {
+          userId: req.user?.id ?? null,
+          restaurantId: req.user?.restaurantId ?? null,
+          role: req.user?.role || 'CLIENTE',
+          guestPublicId: req.guestOrderOwnership?.publicId || null,
+        },
+        message,
+      );
 
       return res.status(200).json(result);
     } catch (error: unknown) {
