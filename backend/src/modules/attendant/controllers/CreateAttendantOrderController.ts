@@ -1,4 +1,6 @@
+import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
+import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import createOrderService from '../../orders/services/CreateOrderService.js';
 
 class CreateAttendantOrderController {
@@ -20,6 +22,7 @@ class CreateAttendantOrderController {
         throw new Error('Pagamento em dinheiro na entrega precisa ser registrado pelo administrador.');
       }
 
+      const guestPasswordHash = await bcrypt.hash(generateStrongRandomPassword(), 12);
       const order = await createOrderService.execute({
         userId: null,
         restaurantId,
@@ -36,6 +39,7 @@ class CreateAttendantOrderController {
         customerName: req.body?.customerName,
         customerCpf: req.body?.customerCpf,
         customerPhone: req.body?.customerPhone,
+        guestPasswordHash,
         tableId: undefined,
         couponRedemptionId: undefined,
         items: req.body?.items,
