@@ -1,13 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalStyles } from '../GlobalStyles/globalStyles.js';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import './config/sentry.js';
 import AppRoutes from './routes/AppRoutes.js';
 import { AuthProvider } from './contexts/authContext.js';
 import { AppDialogProvider } from './components/AppDialog/AppDialogProvider.js';
 import AppRuntimeBoundary from './components/AppRuntimeBoundary/AppRuntimeBoundary.js';
+import { NoticeViewport } from './components/AppNotice/NoticeViewport.js';
 import {
   installVitePreloadRecovery,
   markRuntimeReady,
@@ -31,18 +30,7 @@ createRoot(rootElement).render(
     <AppRuntimeBoundary>
       <AuthProvider>
         <AppDialogProvider>
-          <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick={false}
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="dark"
-          />
+          <NoticeViewport />
           <GlobalStyles />
           <AppRoutes />
         </AppDialogProvider>
