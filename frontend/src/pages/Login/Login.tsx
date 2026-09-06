@@ -39,13 +39,13 @@ import {
   resolveLoginPortal,
 } from './domain/loginPortal';
 
-const REMEMBERED_EMAIL_KEY = 'rememberedEmail';
+const LEGACY_REMEMBERED_EMAIL_KEY = 'rememberedEmail';
 
-function getRememberedEmail() {
+function clearLegacyRememberedEmail() {
   try {
-    return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '';
+    localStorage.removeItem(LEGACY_REMEMBERED_EMAIL_KEY);
   } catch {
-    return '';
+    // Storage pode estar indisponível em navegadores com políticas restritivas.
   }
 }
 
@@ -84,12 +84,10 @@ export default function Login() {
     !isTechnicalAccess && !isAdminAccess && !isStaffAccess && (isCustomerAccess || portal === 'GENERIC');
   const { login } = useAuth();
   const { promptDialog } = useAppDialog();
-  const rememberedEmail = useMemo(() => getRememberedEmail(), []);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [email, setEmail] = useState(rememberedEmail);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(Boolean(rememberedEmail));
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
@@ -102,6 +100,10 @@ export default function Login() {
   const googleInitInFlightRef = useRef(false);
   const googleInitializedRef = useRef(false);
   const googleInitializedClientIdRef = useRef('');
+
+  useEffect(() => {
+    clearLegacyRememberedEmail();
+  }, []);
 
   const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
@@ -344,35 +346,15 @@ export default function Login() {
     };
   }, [initializeGoogleLogin, showCustomerSelfService]);
 
-  const handleRememberMeChange = (checked: boolean) => {
-    setRememberMe(checked);
-    if (!checked) {
-      try {
-        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
-      } catch {
-        // Storage pode estar indisponível em navegadores com políticas restritivas.
-      }
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFeedback(null);
     setIsLoading(true);
+    clearLegacyRememberedEmail();
     try {
       const firstStep = await authService.login({ email, password });
       const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
       const response = await validatePortalAccess(withMfa);
-
-      try {
-        if (rememberMe) {
-          localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
-        } else {
-          localStorage.removeItem(REMEMBERED_EMAIL_KEY);
-        }
-      } catch {
-        // A autenticação continua funcionando mesmo se o navegador bloquear storage.
-      }
 
       setFeedback({ type: 'success', message: 'Login realizado com sucesso!' });
       setTimeout(() => {
@@ -532,7 +514,7 @@ export default function Login() {
               </S.LoginFeedback>
             )}
 
-            <S.Form onSubmit={handleSubmit} autoComplete="on">
+            <S.Form onSubmit={handleSubmit} autoComplete="off">
               <S.InputGroup>
                 <S.Label htmlFor="email">E-mail</S.Label>
                 <S.LoginInputField>
@@ -544,7 +526,7 @@ export default function Login() {
                     name="username"
                     type="email"
                     placeholder="exemplo@email.com"
-                    autoComplete="username"
+                    autoComplete="off"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -563,7 +545,7 @@ export default function Login() {
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
-                    autoComplete="current-password"
+                    autoComplete="off"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -579,22 +561,14 @@ export default function Login() {
                 </S.LoginInputField>
               </S.InputGroup>
 
-              <S.Row>
-                <S.CheckboxLabel htmlFor="remember">
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => handleRememberMeChange(e.target.checked)}
-                  />{' '}
-                  Lembrar de mim
-                </S.CheckboxLabel>
-                {!isTechnicalAccess ? (
+              {!isTechnicalAccess ? (
+                <S.Row>
+                  <span />
                   <S.LoginForgotLink type="button" onClick={() => navigate(recoverPasswordPath)}>
                     Esqueceu a senha?
                   </S.LoginForgotLink>
-                ) : null}
-              </S.Row>
+                </S.Row>
+              ) : null}
 
               <S.LoginSubmitButton type="submit" disabled={isLoading} aria-label={submitLabel}>
                 <span>{isLoading ? 'Entrando...' : submitLabel}</span>
@@ -604,7 +578,7 @@ export default function Login() {
 
             <S.LoginSecurityNote>
               <ShieldCheck aria-hidden="true" />
-              <span>Seus dados são protegidos durante o acesso.</span>
+              <span>O sistema não salva seu e-mail nem sua senha neste dispositivo.</span>
             </S.LoginSecurityNote>
 
             {showCustomerSelfService ? (
