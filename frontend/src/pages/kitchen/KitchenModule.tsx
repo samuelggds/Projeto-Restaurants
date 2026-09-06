@@ -1,4 +1,5 @@
 import {
+  BellRing,
   CheckCircle2,
   ChefHat,
   ChevronLeft,
@@ -241,6 +242,18 @@ function KitchenShell({
           </N.MobileMoreButton>
         </S.Top>
         <S.Content>
+          {workspaceState?.newOrderNotice && (
+            <S.NewOrderNotice role="status" aria-live="assertive">
+              <BellRing />
+              <span>
+                <b>Novo pedido na cozinha</b>
+                <small>{workspaceState.newOrderNotice}</small>
+              </span>
+              <button type="button" onClick={() => navigate('queue')}>
+                Abrir fila
+              </button>
+            </S.NewOrderNotice>
+          )}
           {workspaceState?.error && (
             <S.WorkspaceNotice role="alert">
               <AlertTriangle />
