@@ -108,15 +108,16 @@ class CreateOrderPixPaymentController {
         );
       }
 
+      const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery =
-        req.user?.isGuest === true && String(order.type || '').toUpperCase() === 'DELIVERY';
+        isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
       const guestTrackingToken = isGuestDelivery
         ? issueGuestOrderTrackingToken({
             orderId: Number(order.id),
             publicId: String(order.publicId),
           })
         : null;
-      const guestOwnershipToken = isGuestDelivery
+      const guestOwnershipToken = isGuestOrder
         ? issueGuestOrderOwnershipToken({
             orderId: Number(order.id),
             publicId: String(order.publicId),
