@@ -110,6 +110,7 @@ export class AdminPortalAccessService {
       restaurantId: restaurant.id,
       slug: restaurant.slug,
       key,
+      expiresAt: null,
       rotationId: audit.id,
     };
   }
