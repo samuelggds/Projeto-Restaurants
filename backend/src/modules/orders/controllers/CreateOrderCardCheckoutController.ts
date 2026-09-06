@@ -65,15 +65,16 @@ class CreateOrderCardCheckoutController {
         customerIp: req.ip,
       });
 
+      const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery =
-        req.user?.isGuest === true && String(type || '').toUpperCase() === 'DELIVERY';
+        isGuestOrder && String(type || '').toUpperCase() === 'DELIVERY';
       const guestTrackingToken = isGuestDelivery
         ? issueGuestOrderTrackingToken({
             orderId: Number(result.orderId),
             publicId: String(result.orderPublicId),
           })
         : null;
-      const guestOwnershipToken = isGuestDelivery
+      const guestOwnershipToken = isGuestOrder
         ? issueGuestOrderOwnershipToken({
             orderId: Number(result.orderId),
             publicId: String(result.orderPublicId),
