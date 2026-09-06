@@ -5,7 +5,7 @@ import AdminPortalController from '../controllers/AdminPortalController.js';
 
 const router = Router();
 
-function adminPortalRateLimitKey(req: Request) {
+export function adminPortalRateLimitKey(req: Request) {
   const ip = ipKeyGenerator(String(req.ip || 'unknown').trim());
   const slug = String(req.params.slug || '')
     .trim()
