@@ -12,7 +12,7 @@ import {
 } from '../../shared/navigation/authNavigation';
 import { mapRestaurantBrand } from '../operations/orderAdapter';
 import attendantApi from './attendantApi';
-import { AttendantOperationCenter } from './AttendantOperationCenter';
+import { AttendantOperationCenterV2 } from './AttendantOperationCenterV2';
 import type {
   AttendantRestaurantBrand,
   AttendantWorkspaceSnapshot,
@@ -187,7 +187,7 @@ export default function AttendantPage() {
   }
 
   return (
-    <AttendantOperationCenter
+    <AttendantOperationCenterV2
       attendantId={attendantId}
       attendantName={attendantName}
       restaurantId={restaurantId}
