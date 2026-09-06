@@ -41,17 +41,16 @@ vi.mock('../../Services/restaurantSettingsService', () => ({
 vi.mock('./attendantApi', () => ({
   default: { getWorkspace: mocks.getWorkspace },
 }));
-vi.mock('./AttendantWorkspace', () => ({
-  AttendantWorkspace: (props: Record<string, unknown>) => {
+vi.mock('./AttendantOperationCenter', () => ({
+  AttendantOperationCenter: (props: Record<string, unknown>) => {
     mocks.latestProps = props;
-    return <div data-testid="attendant-workspace" />;
+    return <div data-testid="attendant-operation-center" />;
   },
 }));
 
 import AttendantPage from './AttendantPage';
 
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const snapshot = {
   generatedAt: '2026-09-02T18:10:00.000Z',
@@ -99,13 +98,17 @@ describe('AttendantPage data integration', () => {
     });
   }
 
-  it('carrega exclusivamente o snapshot dedicado e assina sua invalidação', async () => {
+  it('carrega o snapshot dedicado, identifica o atendente e assina invalidações operacionais', async () => {
     await renderPage();
 
     expect(mocks.getWorkspace).toHaveBeenCalledTimes(1);
     expect(mocks.listeners.has('attendant:workspace-invalidated')).toBe(true);
+    expect(mocks.listeners.has('order:issue-message')).toBe(true);
+    expect(mocks.listeners.has('order:issue-resolved')).toBe(true);
     expect(mocks.latestProps?.snapshot).toEqual(snapshot);
     expect(mocks.latestProps?.attendantName).toBe('Ana Atendente');
+    expect(mocks.latestProps?.attendantId).toBe(12);
+    expect(mocks.latestProps?.restaurantId).toBe(7);
 
     await act(async () => {
       mocks.listeners.get('attendant:workspace-invalidated')?.();
