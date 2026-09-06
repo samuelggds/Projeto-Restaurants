@@ -5,13 +5,13 @@ class GetOrderIssueThreadController {
   async handle(req: Request, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const { id: requesterUserId, role, restaurantId } = req.user;
 
       const result = await getOrderIssueThreadService.execute({
         orderId: id,
-        requesterUserId,
-        requesterRole: role,
-        requesterRestaurantId: restaurantId,
+        requesterUserId: req.user?.id ?? null,
+        requesterRole: req.user?.role || 'CLIENTE',
+        requesterRestaurantId: req.user?.restaurantId ?? null,
+        guestPublicId: req.guestOrderOwnership?.publicId || null,
       });
 
       return res.status(200).json(result);
