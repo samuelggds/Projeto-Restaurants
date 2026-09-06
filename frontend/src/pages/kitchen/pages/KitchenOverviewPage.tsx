@@ -91,7 +91,7 @@ function capacityState(activeCount: number, maxConcurrentOrders: number) {
       percent,
       tone: 'critical' as const,
       label: 'Capacidade máxima',
-      detail: 'Novos pedidos pausados até uma vaga ser liberada.',
+      detail: 'Novos pedidos pausados até um pedido sair da fila ativa.',
     };
   }
 
@@ -184,7 +184,7 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
         <O.QueueHeader>
           <div>
             <h2>Fila de pedidos</h2>
-            <p>Os pedidos mais antigos aparecem primeiro para facilitar a prioridade da cozinha.</p>
+            <p>Quem está há mais tempo na etapa atual aparece primeiro para facilitar a prioridade.</p>
           </div>
           <span className="ready-count">
             <CheckCircle2 /> {readyCount} prontos
@@ -226,7 +226,7 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
         </S.Stack>
 
         <O.QueueHint>
-          Clique em um pedido para abrir a fila completa, conferir os itens e atualizar o status.
+          Selecione um pedido para abrir a fila completa, conferir os itens e atualizar o status.
         </O.QueueHint>
       </O.QueueSection>
     </>
