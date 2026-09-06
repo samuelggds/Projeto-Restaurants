@@ -39,7 +39,7 @@ function responseDouble() {
   };
 }
 
-test('cookie __Host de produção usa atributos aceitos pelo navegador', () => {
+test('cookie __Host de produção usa atributos seguros e não persistentes', () => {
   process.env.NODE_ENV = 'production';
   const response = responseDouble();
 
@@ -53,6 +53,8 @@ test('cookie __Host de produção usa atributos aceitos pelo navegador', () => {
   assert.equal(options.secure, true);
   assert.equal(options.httpOnly, true);
   assert.equal(options.sameSite, 'lax');
+  assert.equal('maxAge' in options, false);
+  assert.equal('expires' in options, false);
   assert.equal(response.calls[1][2].path, '/');
 });
 
@@ -67,6 +69,8 @@ test('move refresh para cookie HttpOnly e nunca o devolve no JSON', () => {
 
   assert.deepEqual(result, { accessToken: 'access-value', userId: 17 });
   assert.equal(response.calls[0][1], 'pizza_refresh');
+  assert.equal('maxAge' in response.calls[0][3], false);
+  assert.equal('expires' in response.calls[0][3], false);
 });
 
 test('produção lê somente o cookie e ignora refresh enviado no body', () => {

@@ -9,6 +9,8 @@ import {
   invalidateAuthSessionMemory,
   isAuthSnapshotCurrent,
   persistAuthSession,
+  readSessionUserRaw,
+  replaceSessionUser,
 } from '../modules/auth/session/authSession';
 import { rememberSignedOutRole } from '../shared/navigation/sessionEntry';
 
@@ -63,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authRevision = useRef(0);
 
   function readStoredUser(): AuthUser {
-    const storedUserRaw = localStorage.getItem('user');
+    const storedUserRaw = readSessionUserRaw();
 
     if (!storedUserRaw || storedUserRaw === 'undefined') {
       return null;
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       return sanitizeUserRole(JSON.parse(storedUserRaw));
     } catch {
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
       return null;
     }
   }
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const mergedUser = mergeUserData(remoteUser, storedUser);
 
         if (mergedUser?.id && sessionIsStillCurrent()) {
-          localStorage.setItem('user', JSON.stringify(mergedUser));
+          replaceSessionUser(mergedUser);
           setUser(mergedUser);
         } else if (storedUser && sessionIsStillCurrent()) {
           setUser(storedUser);

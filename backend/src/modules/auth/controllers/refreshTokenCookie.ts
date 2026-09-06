@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 
 const COOKIE_NAME = '__Host-pizza_refresh';
 const LOCAL_COOKIE_NAME = 'pizza_refresh';
-const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 type RefreshCookieSameSite = 'lax' | 'strict' | 'none';
 
 function cookieName() {
@@ -19,12 +18,14 @@ export function resolveRefreshCookieSameSite(
 }
 
 export function setRefreshTokenCookie(res: Response, refreshToken: string) {
+  // Segurança para dispositivos compartilhados: o refresh token é sempre um
+  // cookie de sessão. Sem maxAge/expires, o navegador não deve preservar a
+  // autenticação depois que a sessão do navegador termina.
   res.cookie(cookieName(), refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: resolveRefreshCookieSameSite(),
     path: '/',
-    maxAge: FOURTEEN_DAYS_MS,
   });
 }
 
