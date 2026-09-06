@@ -6,9 +6,10 @@ class ConfirmOrderDeliveryReceivedController {
     try {
       const order = await confirmOrderDeliveryReceivedService.execute({
         orderId: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
-        restaurantId: Number(req.user.restaurantId || 0),
-        customerId: Number(req.user.id || 0),
-        role: req.user.role,
+        restaurantId: Number(req.user?.restaurantId || 0),
+        customerId: Number(req.user?.id || 0),
+        role: req.user?.role || 'CLIENTE',
+        guestPublicId: req.guestOrderTracking?.publicId || null,
       });
 
       return res.status(200).json(order);
