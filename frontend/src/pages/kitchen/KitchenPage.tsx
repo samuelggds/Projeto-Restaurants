@@ -16,7 +16,7 @@ const NEW_ORDER_NOTICE_MS = 5000;
 export default function KitchenPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const shiftStartedAtRef = useRef(new Date().toISOString());
+  const [shiftStartedAt] = useState(() => new Date().toISOString());
   const newOrderNoticeTimerRef = useRef<number | null>(null);
   const [data, setData] = useState<EmployeeWorkspaceData>({
     orders: [],
@@ -81,7 +81,7 @@ export default function KitchenPage() {
           'Não foi possível carregar os pedidos da cozinha. Verifique sua conexão e tente novamente.',
       }));
     }
-  }, []);
+  }, [setData, setWorkspaceState]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -187,11 +187,11 @@ export default function KitchenPage() {
     name: String(u?.name || 'Cozinheiro'),
     email: String(u?.email || ''),
     role: 'KITCHEN' as const,
-    shift: new Date(shiftStartedAtRef.current).toLocaleTimeString('pt-BR', {
+    shift: new Date(shiftStartedAt).toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    shiftStartedAt: shiftStartedAtRef.current,
+    shiftStartedAt,
   };
 
   return (
