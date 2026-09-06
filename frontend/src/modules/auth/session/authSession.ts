@@ -16,18 +16,32 @@ function readUserId(user: unknown) {
   return normalizeUserId((user as { id?: unknown }).id);
 }
 
-function removeLegacyPersistedTokens() {
+function removeLegacyPersistedAuthData() {
   if (typeof localStorage === 'undefined') return;
 
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  // Versões anteriores guardavam também o snapshot do usuário de forma persistente.
+  // Isso não é necessário para autenticação e pode expor identidade em dispositivos compartilhados.
+  localStorage.removeItem(USER_KEY);
 }
 
-// Remove credentials left by versions that persisted them in Web Storage.
-removeLegacyPersistedTokens();
+function persistSessionUser(user: unknown) {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function readSessionUserRaw() {
+  removeLegacyPersistedAuthData();
+  if (typeof sessionStorage === 'undefined') return null;
+  return sessionStorage.getItem(USER_KEY);
+}
+
+// Remove credenciais/snapshots deixados por versões que persistiam dados em Web Storage.
+removeLegacyPersistedAuthData();
 
 export function getAccessToken() {
-  removeLegacyPersistedTokens();
+  removeLegacyPersistedAuthData();
   return accessToken;
 }
 
@@ -55,7 +69,7 @@ export function applyRefreshedAccessToken(
 
   accessToken = normalizedToken;
   sessionUserId = normalizedUserId;
-  removeLegacyPersistedTokens();
+  removeLegacyPersistedAuthData();
   return true;
 }
 
@@ -68,20 +82,25 @@ export function persistAuthSession(user: unknown, token: string) {
   sessionRevision += 1;
   accessToken = normalizedToken;
   sessionUserId = readUserId(user);
-  removeLegacyPersistedTokens();
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  removeLegacyPersistedAuthData();
+  persistSessionUser(user);
+}
+
+export function replaceSessionUser(user: unknown) {
+  removeLegacyPersistedAuthData();
+  persistSessionUser(user);
 }
 
 export function invalidateAuthSessionMemory() {
   sessionRevision += 1;
   accessToken = null;
   sessionUserId = null;
-  removeLegacyPersistedTokens();
+  removeLegacyPersistedAuthData();
 }
 
 export function clearAuthSession() {
   invalidateAuthSessionMemory();
-  localStorage.removeItem(USER_KEY);
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(USER_KEY);
 }
 
 export function isAuthSnapshotCurrent({
