@@ -1,13 +1,55 @@
-import { useMemo, useState } from 'react';
-import { Headphones, LockKeyhole, MessageCircle, PackageSearch, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Headphones, LoaderCircle, LockKeyhole, MessageCircle, PackageSearch, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { getGuestOwnedOrderProofs } from '../../Services/ordersService';
+import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
 
-export function PublicGuestOrderHelp({ restaurantSlug }: { restaurantSlug: string }) {
+type VerifiedGuestOrder = {
+  orderId: number;
+};
+
+export function PublicGuestOrderHelp({
+  restaurantId,
+  restaurantName,
+}: {
+  restaurantId: number | null;
+  restaurantName?: string;
+}) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const proofs = useMemo(() => getGuestOwnedOrderProofs().slice().reverse(), [open]);
+  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<VerifiedGuestOrder[]>([]);
+
+  useEffect(() => {
+    if (!open || !restaurantId) {
+      if (!open) setOrders([]);
+      return undefined;
+    }
+
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      const proofs = getGuestOwnedOrderProofs().slice().reverse();
+      const verified = await Promise.all(
+        proofs.map(async ({ orderId }) => {
+          try {
+            const thread = await ordersService.getIssueThread(orderId);
+            return Number(thread?.restaurantId) === Number(restaurantId) ? { orderId } : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (!active) return;
+      setOrders(verified.filter((item): item is VerifiedGuestOrder => Boolean(item)));
+      setLoading(false);
+    };
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [open, restaurantId]);
 
   const goToOrder = (orderId: number) => {
     setOpen(false);
@@ -25,34 +67,43 @@ export function PublicGuestOrderHelp({ restaurantSlug }: { restaurantSlug: strin
       </Launcher>
 
       {open ? (
-        <Backdrop role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}>
+        <Backdrop
+          role="presentation"
+          onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}
+        >
           <Dialog role="dialog" aria-modal="true" aria-label="Ajuda com um pedido">
             <Header>
               <div>
                 <span className="mark"><Headphones /></span>
                 <span>
                   <strong>Ajuda com um pedido</strong>
-                  <small>{restaurantSlug ? `Atendimento de ${restaurantSlug.replace(/-/g, ' ')}` : 'Atendimento do restaurante'}</small>
+                  <small>{restaurantName || 'Atendimento do restaurante'}</small>
                 </span>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Fechar"><X /></button>
             </Header>
 
-            {proofs.length ? (
+            {loading ? (
+              <LoadingState role="status">
+                <LoaderCircle />
+                <strong>Verificando seus pedidos...</strong>
+                <p>Estamos validando com segurança quais pedidos pertencem a este restaurante.</p>
+              </LoadingState>
+            ) : orders.length ? (
               <Content>
                 <Intro>
                   <PackageSearch />
                   <div>
-                    <strong>Pedidos reconhecidos neste navegador</strong>
-                    <p>Escolha um pedido para abrir o acompanhamento seguro e falar com o restaurante.</p>
+                    <strong>Pedidos deste restaurante reconhecidos neste navegador</strong>
+                    <p>Escolha um pedido para abrir o acompanhamento seguro e falar com a equipe.</p>
                   </div>
                 </Intro>
                 <OrderList>
-                  {proofs.map(({ orderId }) => (
+                  {orders.map(({ orderId }) => (
                     <OrderButton key={orderId} type="button" onClick={() => goToOrder(orderId)}>
                       <span>
                         <b>Pedido #{orderId}</b>
-                        <small>Comprovante seguro disponível</small>
+                        <small>Identidade do pedido validada com segurança</small>
                       </span>
                       <MessageCircle />
                     </OrderButton>
@@ -61,20 +112,22 @@ export function PublicGuestOrderHelp({ restaurantSlug }: { restaurantSlug: strin
                 <SecurityNote>
                   <LockKeyhole />
                   <span>
-                    <b>Proteção contra acesso indevido</b>
-                    <small>Não liberamos pedidos apenas pelo número, telefone ou CPF.</small>
+                    <b>Proteção multi-restaurante</b>
+                    <small>
+                      Só mostramos pedidos cuja prova segura foi validada para este restaurante.
+                    </small>
                   </span>
                 </SecurityNote>
               </Content>
             ) : (
               <EmptyState>
                 <LockKeyhole />
-                <strong>Nenhum pedido seguro foi encontrado neste navegador</strong>
+                <strong>Nenhum pedido deste restaurante foi encontrado neste navegador</strong>
                 <p>
-                  Depois que você fizer um pedido como visitante, este navegador guardará um comprovante seguro para acessar acompanhamento e suporte sem precisar criar conta.
+                  Depois que você fizer um pedido como visitante, o navegador guardará um comprovante seguro. Esse comprovante é validado antes de qualquer pedido aparecer aqui.
                 </p>
                 <small>
-                  Se o pedido foi feito em outro aparelho ou navegador, não mostramos informações só pelo número do pedido para proteger seus dados.
+                  Pedidos de outros restaurantes nunca são misturados. Também não liberamos informações apenas pelo número do pedido, telefone ou CPF.
                 </small>
               </EmptyState>
             )}
@@ -136,4 +189,5 @@ const OrderButton = styled.button`
   width:100%;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e1e7ef;border-radius:13px;background:#fff;text-align:left;cursor:pointer;box-shadow:0 6px 16px rgba(15,23,42,.04);span{min-width:0}b,small{display:block}b{font-size:12px}small{margin-top:3px;color:#708095;font-size:9px}svg{width:18px;color:#d65632;flex:0 0 auto}&:hover{border-color:#e0aa98}
 `;
 const SecurityNote = styled.div`padding:11px 12px;display:flex;gap:8px;align-items:flex-start;border:1px solid #cee5d7;border-radius:12px;background:#f1faf4;color:#2f7047;svg{width:17px;flex:0 0 auto}b,small{display:block}b{font-size:10px}small{margin-top:2px;font-size:8px;line-height:1.4}`;
+const LoadingState = styled.div`min-height:320px;padding:28px;display:grid;place-items:center;align-content:center;text-align:center;gap:9px;background:#f8fafc;color:#667085;svg{width:30px;color:#d65632;animation:spin .8s linear infinite}strong{font-size:14px;color:#243044}p{max-width:360px;margin:0;font-size:10px;line-height:1.5}@keyframes spin{to{transform:rotate(360deg)}}`;
 const EmptyState = styled.div`min-height:360px;padding:28px;display:grid;place-items:center;align-content:center;text-align:center;gap:9px;background:#f8fafc;svg{width:34px;color:#d65632}strong{max-width:360px;font-size:15px}p{max-width:390px;margin:0;color:#667085;font-size:11px;line-height:1.55}small{max-width:390px;color:#8b96a8;font-size:9px;line-height:1.5}`;
