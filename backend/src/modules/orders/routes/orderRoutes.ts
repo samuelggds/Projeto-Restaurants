@@ -38,6 +38,7 @@ import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { orderAccessMiddleware } from '../../../middlewares/orderAccessMiddleware.js';
 import { orderIssueAccessMiddleware } from '../../../middlewares/orderIssueAccessMiddleware.js';
+import { orderSupportStaffMiddleware } from '../../../middlewares/orderSupportStaffMiddleware.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
@@ -206,11 +207,11 @@ router.get('/:id/issue-thread', orderIssueAccessMiddleware, (req, res) => {
   GetOrderIssueThreadController.handle(req, res);
 });
 
-router.post('/:id/reply-issue', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/:id/reply-issue', authMiddleware, orderSupportStaffMiddleware, (req, res) => {
   ReplyOrderIssueController.handle(req, res);
 });
 
-router.patch('/:id/resolve-issue', authMiddleware, adminMiddleware, (req, res) => {
+router.patch('/:id/resolve-issue', authMiddleware, orderSupportStaffMiddleware, (req, res) => {
   ResolveOrderIssueController.handle(req, res);
 });
 
