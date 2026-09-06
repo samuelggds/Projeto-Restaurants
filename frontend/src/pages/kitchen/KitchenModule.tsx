@@ -243,7 +243,7 @@ function KitchenShell({
         </S.Top>
         <S.Content>
           {workspaceState?.newOrderNotice && (
-            <S.NewOrderNotice role="status" aria-live="assertive">
+            <S.WorkspaceNotice className="new-order-notice" role="status" aria-live="assertive">
               <BellRing />
               <span>
                 <b>Novo pedido na cozinha</b>
@@ -252,7 +252,7 @@ function KitchenShell({
               <button type="button" onClick={() => navigate('queue')}>
                 Abrir fila
               </button>
-            </S.NewOrderNotice>
+            </S.WorkspaceNotice>
           )}
           {workspaceState?.error && (
             <S.WorkspaceNotice role="alert">
