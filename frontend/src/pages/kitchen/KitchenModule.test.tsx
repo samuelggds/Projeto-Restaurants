@@ -66,11 +66,11 @@ describe('KitchenModule workspace states', () => {
     render({ ...baseState, loading: true });
     const loading = container.querySelector('[role="status"]');
     expect(loading?.textContent).toContain('Carregando pedidos...');
-    expect(container.textContent).not.toContain('Nenhum pedido aguardando preparo.');
+    expect(container.textContent).not.toContain('Nenhum pedido ativo no momento.');
 
     render({ ...baseState, lastUpdatedAt: new Date().toISOString() });
     expect(container.querySelector('[role="status"]')).toBeNull();
-    expect(container.textContent).toContain('Nenhum pedido aguardando preparo.');
+    expect(container.textContent).toContain('Nenhum pedido ativo no momento.');
   });
 
   it('mostra erro bloqueante com retry sem renderizar um vazio enganoso', () => {
@@ -81,7 +81,7 @@ describe('KitchenModule workspace states', () => {
 
     const alert = container.querySelector('[role="alert"]');
     expect(alert?.textContent).toContain('Não foi possível carregar os pedidos da cozinha.');
-    expect(container.textContent).not.toContain('Nenhum pedido aguardando preparo.');
+    expect(container.textContent).not.toContain('Nenhum pedido ativo no momento.');
     const retry = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Tentar novamente',
     );
