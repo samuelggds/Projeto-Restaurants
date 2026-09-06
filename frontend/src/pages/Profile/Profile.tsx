@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../Services/api';
-import ordersService from '../../Services/ordersService';
+import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import favoritesService from '../../Services/favoritesService';
 import loyaltyService from '../../Services/loyaltyService';
@@ -12,7 +12,7 @@ import customerAddressService, {
 import { useAuth } from '../../contexts/authContext';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { ProfilePage } from './ProfilePage';
-import { buildProfileData } from '../Profile/adapters/profileDataAdapter';
+import { buildOrderSummary, buildProfileData } from '../Profile/adapters/profileDataAdapter';
 import { AddressModal } from './components/AddressModal';
 import { buildReorderCart, findOrderByDisplayId } from '../Profile/domain/reorderCart';
 import { addFavoriteToCart } from '../Profile/domain/favoriteCart';
@@ -29,6 +29,10 @@ import {
   buildProfileRestaurantHomePath,
   buildProfileRestaurantMenuPath,
 } from './domain/profileRestaurantNavigation';
+import {
+  OrderSupportDialog,
+  type OrderSupportOrder,
+} from '../../features/order-support/OrderSupportDialog';
 
 function resizeToSquareBase64(file: File, size: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -67,6 +71,7 @@ export default function Profile() {
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<CustomerPaymentMethod[]>([]);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [addressModalOpen, setAddressModalOpen] = useState(
     () => searchParams.get('newAddress') === '1',
   );
@@ -75,8 +80,8 @@ export default function Profile() {
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
   const loyaltyRequestSequence = useRef(0);
+  const guestClaimAttemptedRef = useRef(false);
   const [localAvatar, setLocalAvatar] = useState('');
-  // Derived: prefer a locally-uploaded photo until the auth context reflects the new avatar
   const avatarUrl = localAvatar || String((user as Record<string, unknown>)?.avatar || '');
   const restaurantId = useMemo(() => {
     const authUser = (user as Record<string, unknown> | null) || {};
@@ -122,7 +127,47 @@ export default function Profile() {
     };
   }, [loadLoyaltyWallet]);
 
-  // Brand info from public settings of the user's restaurant
+  useEffect(() => {
+    if (
+      guestClaimAttemptedRef.current ||
+      String(user?.role || '').toUpperCase() !== 'CLIENTE'
+    ) {
+      return;
+    }
+    const proofs = getGuestOwnedOrderProofs();
+    const token = getAccessToken() || '';
+    if (!proofs.length || !token) return;
+    guestClaimAttemptedRef.current = true;
+    void ordersService
+      .claimGuestOrders(proofs, token)
+      .then((result) => {
+        if (!result.claimedCount) return;
+        login(
+          {
+            ...(user ?? {}),
+            ...(result.restaurantId ? { restaurantId: result.restaurantId } : {}),
+          },
+          token,
+        );
+        toast.success(
+          result.claimedCount === 1
+            ? 'Seu pedido feito como visitante foi adicionado à sua conta.'
+            : `${result.claimedCount} pedidos feitos como visitante foram adicionados à sua conta.`,
+        );
+        return ordersService.listMyOrders().then((raw: unknown) => {
+          const list = Array.isArray(raw)
+            ? raw
+            : Array.isArray((raw as Record<string, unknown>)?.orders)
+              ? ((raw as Record<string, unknown>).orders as unknown[])
+              : [];
+          setOrders(list as Record<string, unknown>[]);
+        });
+      })
+      .catch(() => {
+        guestClaimAttemptedRef.current = false;
+      });
+  }, [login, user]);
+
   useEffect(() => {
     const rid = Number(
       (user as Record<string, unknown>)?.restaurantId ||
@@ -142,7 +187,6 @@ export default function Profile() {
     };
   }, [user]);
 
-  // User's orders
   useEffect(() => {
     let active = true;
     ordersService
@@ -217,6 +261,23 @@ export default function Profile() {
       }),
     [user, settings, orders, favorites, addresses, avatarUrl],
   );
+  const supportOrders = useMemo<OrderSupportOrder[]>(
+    () =>
+      orders.flatMap((order) => {
+        const id = Number(order.id || 0);
+        if (!Number.isInteger(id) || id <= 0) return [];
+        return [
+          {
+            id,
+            status: String(order.status || ''),
+            total: Number(order.total || 0),
+            createdAt: String(order.createdAt || ''),
+            summary: buildOrderSummary(order),
+          },
+        ];
+      }),
+    [orders],
+  );
   const restaurantHomePath = useMemo(
     () =>
       buildProfileRestaurantHomePath(
@@ -264,7 +325,6 @@ export default function Profile() {
   const handleSavePersonalData = useCallback(
     async (payload: { name: string; email: string; phone: string }) => {
       const { data: updated } = await api.put('/auth/profile', payload);
-      // Sync auth context immediately so useMemo recomputes without a refresh
       const token = getAccessToken() || '';
       if (token && updated) login({ ...(user ?? {}), ...updated }, token);
     },
@@ -392,6 +452,7 @@ export default function Profile() {
             state: { openCart: true },
           })
         }
+        onSupport={() => setSupportOpen(true)}
         onLogout={handleLogout}
         onUploadAvatar={handleUploadAvatar}
         onSavePersonalData={handleSavePersonalData}
@@ -433,6 +494,11 @@ export default function Profile() {
             state: { openCart: true, loyaltyRedemptionId: redemptionId },
           })
         }
+      />
+      <OrderSupportDialog
+        open={supportOpen}
+        onClose={() => setSupportOpen(false)}
+        orders={supportOrders}
       />
       {addressModalOpen && (
         <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />

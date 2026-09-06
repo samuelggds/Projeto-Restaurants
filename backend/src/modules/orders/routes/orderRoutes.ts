@@ -3,6 +3,7 @@ import CreateOrderController from '../controllers/CreateOrderController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import UpdateOrderStatusController from '../controllers/UpdateOrderStatusController.js';
 import ClaimOrderForDeliveryController from '../controllers/ClaimOrderForDeliveryController.js';
+import ClaimGuestOrdersController from '../controllers/ClaimGuestOrdersController.js';
 import GetCourierFinanceController from '../controllers/GetCourierFinanceController.js';
 import GetDeliveryTrackingController from '../controllers/GetDeliveryTrackingController.js';
 import ListOrdersController from '../controllers/ListOrdersController.js';
@@ -36,6 +37,7 @@ import MercadoPagoPointWebhookController from '../../paymentTerminals/controller
 import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
 import { orderAccessMiddleware } from '../../../middlewares/orderAccessMiddleware.js';
+import { orderIssueAccessMiddleware } from '../../../middlewares/orderIssueAccessMiddleware.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
@@ -82,6 +84,10 @@ router.post('/pix/payment/status', orderAccessMiddleware, premiumTableOrderMiddl
 
 router.post('/pix/payment/confirm', orderAccessMiddleware, premiumTableOrderMiddleware, billingMiddleware, (req, res) => {
   ConfirmOrderPixPaymentController.handle(req, res);
+});
+
+router.post('/claim-guest-orders', authMiddleware, (req, res) => {
+  ClaimGuestOrdersController.handle(req, res);
 });
 
 router.put(
@@ -192,11 +198,11 @@ router.patch('/:id/cancel', authMiddleware, (req, res) => {
   CancelOrderController.handle(req, res);
 });
 
-router.post('/:id/report-issue', authMiddleware, (req, res) => {
+router.post('/:id/report-issue', orderIssueAccessMiddleware, (req, res) => {
   ReportOrderIssueController.handle(req, res);
 });
 
-router.get('/:id/issue-thread', authMiddleware, (req, res) => {
+router.get('/:id/issue-thread', orderIssueAccessMiddleware, (req, res) => {
   GetOrderIssueThreadController.handle(req, res);
 });
 

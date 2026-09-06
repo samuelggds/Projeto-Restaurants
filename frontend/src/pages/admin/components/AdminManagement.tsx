@@ -14,6 +14,12 @@ const AdminCustomers = lazy(() =>
   import('./AdminCustomers').then((module) => ({ default: module.AdminCustomers })),
 );
 
+const AdminOrderSupportInbox = lazy(() =>
+  import('./AdminOrderSupportInbox').then((module) => ({
+    default: module.AdminOrderSupportInbox,
+  })),
+);
+
 type Props = {
   area: Exclude<AdminSection, 'settings' | 'employees' | 'subscriptions'>;
   orders: AdminOrder[];
@@ -54,13 +60,18 @@ export function AdminManagement(props: Props) {
     );
   if (props.area === 'orders')
     return (
-      <AdminOrders
-        orders={props.orders}
-        restaurantName={props.restaurantName}
-        money={money}
-        onConfirmPayment={props.onConfirmOrderPayment}
-        onCancelOrder={props.onCancelOrder}
-      />
+      <>
+        <Suspense fallback={<p role="status">Carregando suporte dos pedidos...</p>}>
+          <AdminOrderSupportInbox />
+        </Suspense>
+        <AdminOrders
+          orders={props.orders}
+          restaurantName={props.restaurantName}
+          money={money}
+          onConfirmPayment={props.onConfirmOrderPayment}
+          onCancelOrder={props.onCancelOrder}
+        />
+      </>
     );
   if (props.area === 'catalog')
     return (

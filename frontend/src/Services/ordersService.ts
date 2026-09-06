@@ -4,9 +4,12 @@ type OrderPayload = Record<string, unknown>;
 type PixPaymentPayload = Record<string, unknown>;
 type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
+export type GuestOrderProof = { orderId: number; token: string };
 
 const MAX_DELIVERY_TRACKING_ACCURACY_METERS = 500;
 const GUEST_TRACKING_TOKEN_PREFIX = 'guest-order-tracking-token:';
+const GUEST_OWNERSHIP_TOKEN_PREFIX = 'guest-order-ownership-token:';
+const GUEST_OWNED_ORDER_IDS_KEY = 'guest-order-owned-order-ids';
 const LAST_GUEST_DELIVERY_ORDER_KEY = 'last-guest-delivery-order-id';
 
 function asRecord(value: unknown): GenericRecord | null {
@@ -41,18 +44,52 @@ function safeStorageRemove(key: string) {
   }
 }
 
-function rememberGuestTrackingAccess(payload: unknown) {
+function readOwnedOrderIds() {
+  try {
+    const parsed = JSON.parse(safeStorageGet(GUEST_OWNED_ORDER_IDS_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(Number)
+      .filter((value) => Number.isInteger(value) && value > 0)
+      .slice(-50);
+  } catch {
+    return [];
+  }
+}
+
+function rememberGuestOrderAccess(payload: unknown) {
   const record = asRecord(payload);
   if (!record || typeof window === 'undefined') return;
   const orderId = Number(record.id ?? record.orderId ?? 0);
-  const token = String(record.guestTrackingToken || '').trim();
-  if (!Number.isInteger(orderId) || orderId <= 0 || !token) return;
-  safeStorageSet(`${GUEST_TRACKING_TOKEN_PREFIX}${orderId}`, token);
-  safeStorageSet(LAST_GUEST_DELIVERY_ORDER_KEY, String(orderId));
+  if (!Number.isInteger(orderId) || orderId <= 0) return;
+
+  const trackingToken = String(record.guestTrackingToken || '').trim();
+  if (trackingToken) {
+    safeStorageSet(`${GUEST_TRACKING_TOKEN_PREFIX}${orderId}`, trackingToken);
+    safeStorageSet(LAST_GUEST_DELIVERY_ORDER_KEY, String(orderId));
+  }
+
+  const ownershipToken = String(record.guestOwnershipToken || '').trim();
+  if (ownershipToken) {
+    safeStorageSet(`${GUEST_OWNERSHIP_TOKEN_PREFIX}${orderId}`, ownershipToken);
+    const ids = [...new Set([...readOwnedOrderIds(), orderId])].slice(-50);
+    safeStorageSet(GUEST_OWNED_ORDER_IDS_KEY, JSON.stringify(ids));
+  }
 }
 
 export function getGuestOrderTrackingToken(orderId: string | number) {
   return safeStorageGet(`${GUEST_TRACKING_TOKEN_PREFIX}${Number(orderId)}`) || '';
+}
+
+export function getGuestOrderOwnershipToken(orderId: string | number) {
+  return safeStorageGet(`${GUEST_OWNERSHIP_TOKEN_PREFIX}${Number(orderId)}`) || '';
+}
+
+export function getGuestOwnedOrderProofs(): GuestOrderProof[] {
+  return readOwnedOrderIds().flatMap((orderId) => {
+    const token = getGuestOrderOwnershipToken(orderId);
+    return token ? [{ orderId, token }] : [];
+  });
 }
 
 export function getLatestGuestDeliveryOrderId() {
@@ -66,6 +103,15 @@ export function clearGuestOrderTrackingAccess(orderId: string | number) {
   if (Number(safeStorageGet(LAST_GUEST_DELIVERY_ORDER_KEY) || 0) === normalizedOrderId) {
     safeStorageRemove(LAST_GUEST_DELIVERY_ORDER_KEY);
   }
+}
+
+export function clearGuestOrderOwnershipAccess(orderId: string | number) {
+  const normalizedOrderId = Number(orderId);
+  safeStorageRemove(`${GUEST_OWNERSHIP_TOKEN_PREFIX}${normalizedOrderId}`);
+  clearGuestOrderTrackingAccess(normalizedOrderId);
+  const ids = readOwnedOrderIds().filter((candidate) => candidate !== normalizedOrderId);
+  if (ids.length) safeStorageSet(GUEST_OWNED_ORDER_IDS_KEY, JSON.stringify(ids));
+  else safeStorageRemove(GUEST_OWNED_ORDER_IDS_KEY);
 }
 
 function normalizeOrderItem(item: unknown) {
@@ -125,7 +171,7 @@ class OrdersService {
 
   async createOrder(payload: OrderPayload) {
     const response = await api.post('/orders', payload);
-    rememberGuestTrackingAccess(response.data);
+    rememberGuestOrderAccess(response.data);
     return response.data;
   }
 
@@ -136,13 +182,13 @@ class OrdersService {
 
   async createPixPayment(payload: PixPaymentPayload) {
     const response = await api.post('/orders/pix/payment', payload);
-    rememberGuestTrackingAccess(response.data);
+    rememberGuestOrderAccess(response.data);
     return response.data;
   }
 
   async createCardCheckout(payload: PixPaymentPayload) {
     const response = await api.post('/orders/card/checkout', payload);
-    rememberGuestTrackingAccess(response.data);
+    rememberGuestOrderAccess(response.data);
     return response.data;
   }
 
@@ -159,6 +205,22 @@ class OrdersService {
   async confirmPixPayment(payload: PixPaymentStatusPayload) {
     const response = await api.post('/orders/pix/payment/confirm', payload);
     return response.data;
+  }
+
+  async claimGuestOrders(proofs: GuestOrderProof[], accessToken?: string) {
+    const response = await api.post(
+      '/orders/claim-guest-orders',
+      { proofs },
+      accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
+    );
+    const claimedIds = Array.isArray(response.data?.orderIds) ? response.data.orderIds.map(Number) : [];
+    claimedIds.forEach(clearGuestOrderOwnershipAccess);
+    return response.data as {
+      claimedCount: number;
+      orderIds: number[];
+      restaurantId: number | null;
+      ignoredCount?: number;
+    };
   }
 
   async updateStatus(orderId: string | number, status: string, deliveryConfirmationCode?: string) {
@@ -251,7 +313,12 @@ class OrdersService {
   }
 
   async reportIssue(orderId: string | number, message: string) {
-    const response = await api.post(`/orders/${orderId}/report-issue`, { message });
+    const guestToken = getGuestOrderOwnershipToken(orderId);
+    const response = await api.post(
+      `/orders/${orderId}/report-issue`,
+      { message },
+      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+    );
     return response.data;
   }
 
@@ -261,7 +328,10 @@ class OrdersService {
   }
 
   async getIssueThread(orderId: string | number) {
-    const response = await api.get(`/orders/${orderId}/issue-thread`);
+    const guestToken = getGuestOrderOwnershipToken(orderId);
+    const response = await api.get(`/orders/${orderId}/issue-thread`, {
+      ...(guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : {}),
+    });
     return response.data;
   }
 

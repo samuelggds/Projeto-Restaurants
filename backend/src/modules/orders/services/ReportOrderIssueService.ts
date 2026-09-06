@@ -28,16 +28,20 @@ function buildOrderAddressLabel(order: {
   return parts.join(', ');
 }
 
+type Requester = {
+  userId?: number | string | null;
+  restaurantId?: number | string | null;
+  role?: string | null;
+  guestPublicId?: string | null;
+};
+
 class ReportOrderIssueService {
-  async execute(
-    orderId: number | string,
-    userId: number | string,
-    restaurantId: number | string | null,
-    issueMessage: string,
-  ) {
+  async execute(orderId: number | string, requester: Requester, issueMessage: string) {
     const normalizedOrderId = Number(orderId);
-    const normalizedUserId = Number(userId);
-    const normalizedRestaurantId = Number(restaurantId || 0);
+    const normalizedUserId = Number(requester.userId || 0);
+    const normalizedRestaurantId = Number(requester.restaurantId || 0);
+    const guestPublicId = String(requester.guestPublicId || '').trim();
+    const isGuest = Boolean(guestPublicId);
     const normalizedIssueMessage = String(issueMessage || '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -46,7 +50,7 @@ class ReportOrderIssueService {
       throw new Error('Pedido inválido para relatar problema.');
     }
 
-    if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    if (!isGuest && (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0)) {
       throw new Error('Usuário inválido para relatar problema.');
     }
 
@@ -55,17 +59,21 @@ class ReportOrderIssueService {
     }
 
     const order = await prisma.order.findFirst({
-      where: {
-        id: normalizedOrderId,
-        userId: normalizedUserId,
-        ...(Number.isFinite(normalizedRestaurantId) && normalizedRestaurantId > 0
-          ? {
-              restaurantId: normalizedRestaurantId,
-            }
-          : {}),
-      },
+      where: isGuest
+        ? {
+            id: normalizedOrderId,
+            publicId: guestPublicId,
+          }
+        : {
+            id: normalizedOrderId,
+            userId: normalizedUserId,
+            ...(Number.isFinite(normalizedRestaurantId) && normalizedRestaurantId > 0
+              ? { restaurantId: normalizedRestaurantId }
+              : {}),
+          },
       select: {
         id: true,
+        publicId: true,
         userId: true,
         status: true,
         type: true,
@@ -82,11 +90,7 @@ class ReportOrderIssueService {
         items: {
           select: {
             quantity: true,
-            product: {
-              select: {
-                name: true,
-              },
-            },
+            product: { select: { name: true } },
           },
         },
         user: {
@@ -105,7 +109,11 @@ class ReportOrderIssueService {
     });
 
     if (!order) {
-      throw new Error('Pedido não encontrado para este usuário.');
+      throw new Error(
+        isGuest
+          ? 'Este comprovante não pertence ao pedido informado.'
+          : 'Pedido não encontrado para este usuário.',
+      );
     }
 
     const orderAddressLabel = buildOrderAddressLabel(order);
@@ -114,11 +122,7 @@ class ReportOrderIssueService {
           .map((item) => {
             const quantity = Number(item?.quantity || 0);
             const productName = String(item?.product?.name || 'Item').trim();
-
-            if (!productName) {
-              return '';
-            }
-
+            if (!productName) return '';
             return quantity > 0 ? `${quantity}x ${productName}` : productName;
           })
           .filter(Boolean)
@@ -129,11 +133,9 @@ class ReportOrderIssueService {
     if (!existingThread && normalizedIssueMessage.length < 10) {
       throw new Error('Descreva o problema com pelo menos 10 caracteres.');
     }
-
     if (existingThread && normalizedIssueMessage.length < 2) {
       throw new Error('Digite uma mensagem para continuar o chat.');
     }
-
     if (existingThread?.isResolved) {
       throw new Error('Este problema já foi resolvido e o chat foi encerrado.');
     }
@@ -162,9 +164,7 @@ class ReportOrderIssueService {
     });
 
     const threadPayload = toOrderIssueThreadPayload(thread);
-    if (!threadPayload) {
-      throw new Error('Não foi possível atualizar a conversa do pedido.');
-    }
+    if (!threadPayload) throw new Error('Não foi possível atualizar a conversa do pedido.');
 
     const payload = {
       orderId: order.id,
@@ -183,6 +183,7 @@ class ReportOrderIssueService {
       reportedAt: chatMessage.sentAt,
       isResolved: threadPayload.isResolved,
       messages: threadPayload.messages,
+      guest: isGuest,
     };
 
     notifyRestaurantOrderIssueReported({
@@ -211,15 +212,17 @@ class ReportOrderIssueService {
       ...threadPayload,
       message: chatMessage,
     });
-    io.to(`user:${order.userId}`).emit('order:issue-message', {
-      ...threadPayload,
-      message: chatMessage,
-    });
+    if (!isGuest) {
+      io.to(`user:${order.userId}`).emit('order:issue-message', {
+        ...threadPayload,
+        message: chatMessage,
+      });
+    }
 
     return {
       ...threadPayload,
       lastMessage: chatMessage,
-      info: 'Problema relatado para o admin com sucesso.',
+      info: 'Mensagem enviada ao restaurante com sucesso.',
     };
   }
 }
