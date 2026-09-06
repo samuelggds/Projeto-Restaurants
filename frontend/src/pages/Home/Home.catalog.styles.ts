@@ -162,9 +162,10 @@ export const CategoryRow = styled.div`
   align-items: center;
   gap: 10px;
   overflow-x: auto;
+  overflow-y: visible;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding: 0 0 16px;
+  padding: 8px 0 16px;
   border-bottom: 1px solid var(--home-border);
   scroll-behavior: smooth;
   &::-webkit-scrollbar {
@@ -173,7 +174,7 @@ export const CategoryRow = styled.div`
   @media (max-width: 760px) {
     width: calc(100% + 24px);
     margin-inline: -12px;
-    padding: 0 12px 13px;
+    padding: 8px 12px 13px;
   }
 `;
 export const CategoryButton = styled.button<{ $active: boolean }>`
@@ -193,6 +194,9 @@ export const CategoryButton = styled.button<{ $active: boolean }>`
   cursor: pointer;
   color: ${({ $active }) => ($active ? 'var(--home-primary)' : 'var(--home-text)')};
   scroll-snap-align: start;
+  transform: translateY(0);
+  transform-origin: center;
+  backface-visibility: hidden;
   box-shadow: ${({ $active }) =>
     $active
       ? 'inset 0 0 0 1px var(--home-primary), 0 8px 18px rgba(40, 50, 44, 0.08)'
@@ -200,12 +204,17 @@ export const CategoryButton = styled.button<{ $active: boolean }>`
   transition:
     color 180ms ease,
     border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-  &:hover {
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      transform: translateY(-4px);
+      border-color: var(--home-primary);
+      box-shadow: 0 14px 30px rgba(70, 45, 20, 0.12);
+    }
+  }
+  &:active {
     transform: translateY(-1px);
-    border-color: var(--home-primary);
-    box-shadow: 0 10px 26px rgba(70, 45, 20, 0.1);
   }
   img {
     width: 52px;
