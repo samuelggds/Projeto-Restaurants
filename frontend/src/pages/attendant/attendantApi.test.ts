@@ -8,6 +8,7 @@ describe('normalizeAttendantWorkspace', () => {
       orders: [
         {
           id: 'order-1',
+          orderId: 91,
           code: '#91',
           type: 'MESA',
           status: 'PRONTO',
@@ -26,6 +27,7 @@ describe('normalizeAttendantWorkspace', () => {
           tableNumber: 8,
           type: 'BILL',
           status: 'WAITING',
+          assignedToId: null,
           assignedToName: null,
           requestedAt: '2026-09-02T11:58:00.000Z',
           assignedAt: null,
@@ -48,6 +50,7 @@ describe('normalizeAttendantWorkspace', () => {
 
     expect(result.orders[0]).toEqual({
       id: 'order-1',
+      orderId: 91,
       code: '#91',
       type: 'MESA',
       status: 'PRONTO',
@@ -57,12 +60,23 @@ describe('normalizeAttendantWorkspace', () => {
       readyAt: '2026-09-02T11:55:00.000Z',
       items: [{ quantity: 2, productName: 'Pizza' }],
     });
+    expect(result.calls[0]).toEqual({
+      id: 'call-1',
+      tableNumber: 8,
+      type: 'BILL',
+      status: 'WAITING',
+      assignedToId: null,
+      assignedToName: null,
+      requestedAt: '2026-09-02T11:58:00.000Z',
+      assignedAt: null,
+      resolvedAt: null,
+    });
     expect(JSON.stringify(result)).not.toMatch(/não deve aparecer|sessionToken|address|total/u);
   });
 
   it('ignora registros sem identidade operacional e mantém fallback seguro', () => {
     const result = normalizeAttendantWorkspace({
-      orders: [{ id: '', createdAt: 'inválido' }],
+      orders: [{ id: '', orderId: 0, createdAt: 'inválido' }],
       calls: [{ id: '1', tableNumber: 0, requestedAt: 'inválido' }],
       tables: [{ tableNumber: 0, openedAt: 'inválido' }],
     });

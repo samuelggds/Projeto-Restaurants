@@ -47,6 +47,14 @@ class GetOrderByIdService {
         return operationalOrder;
       }
 
+      if (normalizedSubRole === FuncionarioSubRole.ATENDENTE) {
+        const attendantOrder = await orderRepository.findById(orderId, restaurantId);
+        if (!attendantOrder) {
+          throw new Error('Pedido não encontrado neste restaurante.');
+        }
+        return attendantOrder;
+      }
+
       throw new Error('Funcionário sem perfil operacional válido.');
     }
 

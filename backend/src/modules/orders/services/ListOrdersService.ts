@@ -69,6 +69,10 @@ class ListOrdersService {
         return orderRepository.findReadyTableOrders(normalizedRestaurantId);
       }
 
+      if (normalizedSubRole === FuncionarioSubRole.ATENDENTE) {
+        return orderRepository.findAll(normalizedRestaurantId, status);
+      }
+
       if (normalizedSubRole !== FuncionarioSubRole.COZINHA) {
         throw new Error('Funcionário sem perfil operacional válido.');
       }

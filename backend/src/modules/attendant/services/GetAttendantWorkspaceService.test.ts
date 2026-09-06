@@ -27,7 +27,7 @@ function createService(snapshot, onLoad = () => undefined) {
   return new GetAttendantWorkspaceService(repository, tenantRunner);
 }
 
-test('monta um snapshot operacional sem repassar dados sensíveis dos registros', async () => {
+test('monta um snapshot operacional com ids de ação sem repassar dados sensíveis', async () => {
   const now = new Date('2026-09-02T15:30:00.000Z');
   const service = createService({
     orders: [
@@ -59,6 +59,7 @@ test('monta um snapshot operacional sem repassar dados sensíveis dos registros'
         table: { number: 4 },
         type: 'BILL',
         status: 'WAITING',
+        assignedToId: null,
         assignedTo: null,
         requestedAt: new Date('2026-09-02T15:20:00.000Z'),
         assignedAt: null,
@@ -83,6 +84,7 @@ test('monta um snapshot operacional sem repassar dados sensíveis dos registros'
     orders: [
       {
         id: 'order-public-id',
+        orderId: 81,
         code: '#81',
         type: 'RETIRADA',
         status: 'PRONTO',
@@ -99,6 +101,7 @@ test('monta um snapshot operacional sem repassar dados sensíveis dos registros'
         tableNumber: 4,
         type: 'BILL',
         status: 'WAITING',
+        assignedToId: null,
         assignedToName: null,
         requestedAt: '2026-09-02T15:20:00.000Z',
         assignedAt: null,

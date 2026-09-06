@@ -1,3 +1,4 @@
+import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { getOrderIssueThread, toOrderIssueThreadPayload } from './orderIssueChatStore.js';
 
@@ -6,12 +7,14 @@ class GetOrderIssueThreadService {
     orderId,
     requesterUserId,
     requesterRole,
+    requesterSubRole,
     requesterRestaurantId,
     guestPublicId,
   }: {
     orderId: number | string;
     requesterUserId?: number | string | null;
     requesterRole: string;
+    requesterSubRole?: string | null;
     requesterRestaurantId: number | string | null;
     guestPublicId?: string | null;
   }) {
@@ -25,10 +28,13 @@ class GetOrderIssueThreadService {
     }
 
     const role = String(requesterRole || '').toUpperCase();
-    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    const subRole = String(requesterSubRole || '').toUpperCase();
+    const isRestaurantSupport =
+      role === UserRole.ADMIN ||
+      (role === UserRole.FUNCIONARIO && subRole === FuncionarioSubRole.ATENDENTE);
     const isGuest = Boolean(normalizedGuestPublicId);
 
-    if (isAdmin) {
+    if (isRestaurantSupport) {
       if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
         throw new Error('Restaurante inválido para carregar conversa.');
       }

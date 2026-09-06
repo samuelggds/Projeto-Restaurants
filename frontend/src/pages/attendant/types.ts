@@ -3,10 +3,18 @@ export type AttendantOrderStatus = 'PENDENTE' | 'PREPARANDO' | 'PRONTO';
 export type AttendantCallType = 'WAITER' | 'BILL';
 export type AttendantCallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
 export type AttendantTableStatus = 'OPEN' | 'CLOSING_REQUESTED';
-export type AttendantView = 'overview' | 'orders' | 'tables' | 'calls';
+export type AttendantView =
+  | 'overview'
+  | 'orders'
+  | 'create'
+  | 'support'
+  | 'deliveries'
+  | 'tables'
+  | 'calls';
 
 export interface AttendantOrder {
   id: string;
+  orderId: number;
   code: string;
   type: AttendantOrderType;
   status: AttendantOrderStatus;
@@ -25,6 +33,7 @@ export interface AttendantCall {
   tableNumber: number;
   type: AttendantCallType;
   status: AttendantCallStatus;
+  assignedToId: number | null;
   assignedToName: string | null;
   requestedAt: string;
   assignedAt: string | null;

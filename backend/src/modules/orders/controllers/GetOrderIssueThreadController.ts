@@ -10,6 +10,7 @@ class GetOrderIssueThreadController {
         orderId: id,
         requesterUserId: req.user?.id ?? null,
         requesterRole: req.user?.role || 'CLIENTE',
+        requesterSubRole: req.user?.subRole || null,
         requesterRestaurantId: req.user?.restaurantId ?? null,
         guestPublicId: req.guestOrderOwnership?.publicId || null,
       });

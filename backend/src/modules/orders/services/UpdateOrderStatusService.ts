@@ -46,6 +46,9 @@ class UpdateOrderStatusService {
     const isWaiter =
       normalizedRole === UserRole.FUNCIONARIO &&
       normalizedSubRole === FuncionarioSubRole.GARCOM;
+    const isAttendant =
+      normalizedRole === UserRole.FUNCIONARIO &&
+      normalizedSubRole === FuncionarioSubRole.ATENDENTE;
     const order = isWaiter
       ? await orderRepository.findDeliverableTableOrderById(orderId, restaurantId)
       : await orderRepository.findById(orderId, restaurantId);
@@ -69,6 +72,17 @@ class UpdateOrderStatusService {
       )
     ) {
       throw new Error('O garçom só pode marcar como entregue um pedido de mesa que esteja pronto.');
+    }
+
+    if (
+      isAttendant &&
+      !(
+        order.type === OrderType.RETIRADA &&
+        currentStatus === OrderStatus.PRONTO &&
+        status === OrderStatus.ENTREGUE
+      )
+    ) {
+      throw new Error('O atendente só pode concluir a retirada de um pedido que esteja pronto.');
     }
 
     const canChange = OrderStateMachine.canTransition(currentStatus, status);

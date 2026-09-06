@@ -34,6 +34,10 @@ function canUserChangeStatus(
       return status === OrderStatus.ENTREGUE;
     }
 
+    if (normalizedSubRole === FuncionarioSubRole.ATENDENTE) {
+      return status === OrderStatus.ENTREGUE;
+    }
+
     if (normalizedSubRole !== FuncionarioSubRole.COZINHA) return false;
 
     const kitchenStatuses: OrderStatus[] = [OrderStatus.PREPARANDO, OrderStatus.PRONTO];
