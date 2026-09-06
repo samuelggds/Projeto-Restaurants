@@ -57,8 +57,9 @@ function enumValue<T extends string>(value: unknown, allowed: Set<T>, fallback: 
 function normalizeOrder(value: unknown): AttendantOrder | null {
   const input = record(value);
   const id = text(input?.id);
+  const orderId = positiveInteger(input?.orderId);
   const createdAt = isoDate(input?.createdAt);
-  if (!input || !id || !createdAt) return null;
+  if (!input || !id || !orderId || !createdAt) return null;
 
   const items = (Array.isArray(input.items) ? input.items : []).flatMap((item) => {
     const itemRecord = record(item);
@@ -69,7 +70,8 @@ function normalizeOrder(value: unknown): AttendantOrder | null {
 
   return {
     id,
-    code: text(input.code) || id.slice(0, 8).toUpperCase(),
+    orderId,
+    code: text(input.code) || `#${orderId}`,
     type: enumValue(input.type, orderTypes, 'RETIRADA'),
     status: enumValue(input.status, orderStatuses, 'PENDENTE'),
     tableNumber: positiveInteger(input.tableNumber),
@@ -92,6 +94,7 @@ function normalizeCall(value: unknown): AttendantCall | null {
     tableNumber,
     type: enumValue(input.type, callTypes, 'WAITER'),
     status: enumValue(input.status, callStatuses, 'WAITING'),
+    assignedToId: positiveInteger(input.assignedToId),
     assignedToName: nullableText(input.assignedToName),
     requestedAt,
     assignedAt: isoDate(input.assignedAt),
@@ -139,6 +142,26 @@ const attendantApi = {
   async getWorkspace() {
     const response = await api.get('/attendant/workspace');
     return normalizeAttendantWorkspace(response.data);
+  },
+
+  async updateCallStatus(id: string | number, status: 'IN_PROGRESS' | 'RESOLVED') {
+    const response = await api.patch(`/attendant/calls/${id}/status`, { status });
+    return response.data;
+  },
+
+  async getOrder(orderId: number) {
+    const response = await api.get(`/orders/${orderId}`);
+    return response.data as UnknownRecord;
+  },
+
+  async completePickup(orderId: number) {
+    const response = await api.put(`/orders/${orderId}/status`, { status: 'ENTREGUE' });
+    return response.data;
+  },
+
+  async createOrder(payload: UnknownRecord) {
+    const response = await api.post('/orders', payload);
+    return response.data;
   },
 };
 
