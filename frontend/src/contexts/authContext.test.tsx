@@ -54,6 +54,7 @@ describe('AuthProvider bootstrap', () => {
     vi.clearAllMocks();
     clearAuthSession();
     localStorage.clear();
+    sessionStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -89,9 +90,10 @@ describe('AuthProvider bootstrap', () => {
     expect(container.firstElementChild?.getAttribute('data-loading')).toBe('false');
     expect(getAccessToken()).toBe('restored-token');
     expect(localStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
   });
 
-  it('remove o usuário em cache quando o cookie de refresh não é aceito', async () => {
+  it('remove o usuário legado quando o cookie de refresh não é aceito', async () => {
     localStorage.setItem('user', JSON.stringify({ id: 7, name: 'Cached', role: 'ADMIN' }));
     mocks.refreshAccessToken.mockRejectedValue(new Error('unauthorized'));
 
@@ -109,9 +111,8 @@ describe('AuthProvider bootstrap', () => {
     expect(localStorage.getItem('user')).toBeNull();
   });
 
-  it('não apaga o usuário compartilhado quando outra aba troca a conta do cookie', async () => {
-    const cachedUser = { id: 7, name: 'Cached', role: 'ADMIN' };
-    localStorage.setItem('user', JSON.stringify(cachedUser));
+  it('não preserva identidade de outra conta quando outra aba troca a sessão do cookie', async () => {
+    localStorage.setItem('user', JSON.stringify({ id: 7, name: 'Cached', role: 'ADMIN' }));
     mocks.refreshAccessToken.mockRejectedValue(new AuthSessionIdentityChangedError());
 
     await act(async () =>
@@ -124,7 +125,8 @@ describe('AuthProvider bootstrap', () => {
     await flushUntil(() => container.firstElementChild?.getAttribute('data-loading') === 'false');
 
     expect(container.textContent).toBe('anonymous:none');
-    expect(localStorage.getItem('user')).toBe(JSON.stringify(cachedUser));
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(sessionStorage.getItem('user')).toBeNull();
     expect(getAccessToken()).toBeNull();
   });
 });
