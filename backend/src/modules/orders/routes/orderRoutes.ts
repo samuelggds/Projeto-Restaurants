@@ -117,9 +117,14 @@ router.post('/:id/delivery-payment/reconcile-card', authMiddleware, (req, res) =
   DeliveryPaymentController.reconcileCard(req, res);
 });
 
-router.patch('/:id/confirm-delivery-received', authMiddleware, (req, res) => {
-  ConfirmOrderDeliveryReceivedController.handle(req, res);
-});
+router.patch(
+  '/:id/confirm-delivery-received',
+  deliveryTrackingAccessMiddleware,
+  deliveryConfirmationAttemptRateLimitMiddleware,
+  (req, res) => {
+    ConfirmOrderDeliveryReceivedController.handle(req, res);
+  },
+);
 
 router.patch('/:id/confirm-payment', authMiddleware, adminMiddleware, (req, res) => {
   ConfirmOrderPaymentController.handle(req, res);
