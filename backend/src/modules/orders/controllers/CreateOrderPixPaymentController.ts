@@ -3,6 +3,7 @@ import orderPixPaymentService from '../services/OrderPixPaymentService.js';
 import createOrderService from '../services/CreateOrderService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
+import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -115,12 +116,19 @@ class CreateOrderPixPaymentController {
             publicId: String(order.publicId),
           })
         : null;
+      const guestOwnershipToken = isGuestDelivery
+        ? issueGuestOrderOwnershipToken({
+            orderId: Number(order.id),
+            publicId: String(order.publicId),
+          })
+        : null;
 
       return res.status(201).json({
         ...result,
         orderId: order.id,
         orderPublicId: order.publicId,
         ...(guestTrackingToken ? { guestTrackingToken } : {}),
+        ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
       return res.status(400).json({
