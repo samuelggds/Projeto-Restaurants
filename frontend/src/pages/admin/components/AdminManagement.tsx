@@ -9,10 +9,15 @@ import type {
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
 import { AdminCatalog } from './AdminCatalog';
-import { AdminOrderSupportInbox } from './AdminOrderSupportInbox';
 
 const AdminCustomers = lazy(() =>
   import('./AdminCustomers').then((module) => ({ default: module.AdminCustomers })),
+);
+
+const AdminOrderSupportInbox = lazy(() =>
+  import('./AdminOrderSupportInbox').then((module) => ({
+    default: module.AdminOrderSupportInbox,
+  })),
 );
 
 type Props = {
@@ -56,7 +61,9 @@ export function AdminManagement(props: Props) {
   if (props.area === 'orders')
     return (
       <>
-        <AdminOrderSupportInbox />
+        <Suspense fallback={<p role="status">Carregando suporte dos pedidos...</p>}>
+          <AdminOrderSupportInbox />
+        </Suspense>
         <AdminOrders
           orders={props.orders}
           restaurantName={props.restaurantName}
