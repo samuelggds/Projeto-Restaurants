@@ -41,8 +41,8 @@ vi.mock('../../Services/restaurantSettingsService', () => ({
 vi.mock('./attendantApi', () => ({
   default: { getWorkspace: mocks.getWorkspace },
 }));
-vi.mock('./AttendantOperationCenter', () => ({
-  AttendantOperationCenter: (props: Record<string, unknown>) => {
+vi.mock('./AttendantOperationCenterV2', () => ({
+  AttendantOperationCenterV2: (props: Record<string, unknown>) => {
     mocks.latestProps = props;
     return <div data-testid="attendant-operation-center" />;
   },
