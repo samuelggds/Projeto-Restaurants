@@ -11,6 +11,9 @@ import {
   installVitePreloadRecovery,
   markRuntimeReady,
 } from './components/AppRuntimeBoundary/runtimeRecovery.js';
+import { restoreTenantRouteContext } from './shared/navigation/tenantRouteContext.js';
+
+restoreTenantRouteContext();
 
 const removePreloadRecovery = installVitePreloadRecovery();
 const cancelRuntimeReadyMarker = markRuntimeReady();

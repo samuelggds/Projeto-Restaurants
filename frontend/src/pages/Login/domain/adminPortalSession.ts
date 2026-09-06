@@ -8,6 +8,13 @@ export type AdminPortalGrantContext = {
   slug: string;
 };
 
+let pendingExchange:
+  | { slug: string; key: string; request: Promise<string> }
+  | null = null;
+let pendingVerify:
+  | { slug: string; grant: string; request: Promise<AdminPortalGrantContext> }
+  | null = null;
+
 export function storeAdminPortalGrant(slug: string, grant: string) {
   sessionStorage.setItem(sessionKey(slug), grant);
 }
@@ -20,26 +27,50 @@ export function clearAdminPortalGrant(slug: string) {
   sessionStorage.removeItem(sessionKey(slug));
 }
 
-export async function exchangeAdminPortalKey(slug: string, key: string) {
-  const response = await api.post(`/admin-portal/${encodeURIComponent(slug)}/exchange`, { key });
-  const grant = String(response.data?.grant || '');
-  if (!grant) throw new Error('Página não encontrada.');
-  storeAdminPortalGrant(slug, grant);
-  return grant;
+export function exchangeAdminPortalKey(slug: string, key: string) {
+  if (pendingExchange?.slug === slug && pendingExchange.key === key) {
+    return pendingExchange.request;
+  }
+
+  const request = api
+    .post(`/admin-portal/${encodeURIComponent(slug)}/exchange`, { key })
+    .then((response) => {
+      const grant = String(response.data?.grant || '');
+      if (!grant) throw new Error('Página não encontrada.');
+      storeAdminPortalGrant(slug, grant);
+      return grant;
+    })
+    .finally(() => {
+      if (pendingExchange?.request === request) pendingExchange = null;
+    });
+
+  pendingExchange = { slug, key, request };
+  return request;
 }
 
-export async function verifyAdminPortalGrant(slug: string): Promise<AdminPortalGrantContext> {
+export function verifyAdminPortalGrant(slug: string): Promise<AdminPortalGrantContext> {
   const grant = getAdminPortalGrant(slug);
-  if (!grant) throw new Error('Página não encontrada.');
-  try {
-    const response = await api.post(`/admin-portal/${encodeURIComponent(slug)}/verify`, { grant });
-    return {
+  if (!grant) return Promise.reject(new Error('Página não encontrada.'));
+
+  if (pendingVerify?.slug === slug && pendingVerify.grant === grant) {
+    return pendingVerify.request;
+  }
+
+  const request = api
+    .post(`/admin-portal/${encodeURIComponent(slug)}/verify`, { grant })
+    .then((response) => ({
       valid: response.data?.valid === true,
       restaurantId: Number(response.data?.restaurantId || 0),
       slug: String(response.data?.slug || ''),
-    };
-  } catch (error) {
-    clearAdminPortalGrant(slug);
-    throw error;
-  }
+    }))
+    .catch((error) => {
+      clearAdminPortalGrant(slug);
+      throw error;
+    })
+    .finally(() => {
+      if (pendingVerify?.request === request) pendingVerify = null;
+    });
+
+  pendingVerify = { slug, grant, request };
+  return request;
 }

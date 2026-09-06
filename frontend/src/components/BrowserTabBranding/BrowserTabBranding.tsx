@@ -9,6 +9,7 @@ import {
 } from '../../config/browserBranding';
 import { normalizeRestaurantCategory } from '../../config/restaurantCategory';
 import { mapLoginBranding } from '../../pages/Login/domain/loginBranding';
+import { persistTenantSlug } from '../../shared/navigation/tenantRouteContext';
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
   'admin',
@@ -135,6 +136,7 @@ export default function BrowserTabBranding() {
       applyRestaurantBrowserBranding(document, stored.name, stored.category);
 
       const routeReference = restaurantReferenceFromLocation(location.pathname, location.search);
+      if (routeReference.slug) persistTenantSlug(routeReference.slug);
       const restaurantId = routeReference.id || stored.id;
 
       // Rotas reservadas sem um tenant resolvido (ex.: rastreamento público antes
