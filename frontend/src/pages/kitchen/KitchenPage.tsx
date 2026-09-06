@@ -13,10 +13,16 @@ import { playKitchenNewOrderSound, primeKitchenAudio } from './kitchenAudio';
 const POLL_MS = 30_000;
 const NEW_ORDER_NOTICE_MS = 5000;
 
+function currentOperationalDayStart() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return start.toISOString();
+}
+
 export default function KitchenPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [shiftStartedAt] = useState(() => new Date().toISOString());
+  const [shiftStartedAt] = useState(currentOperationalDayStart);
   const newOrderNoticeTimerRef = useRef<number | null>(null);
   const [data, setData] = useState<EmployeeWorkspaceData>({
     orders: [],
