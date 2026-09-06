@@ -8,12 +8,16 @@ import { getAccessToken } from '../../modules/auth/session/authSession';
 import { KitchenModule } from './KitchenModule';
 import type { EmployeeWorkspaceData, KitchenWorkspaceState, RestaurantBrand } from './types';
 import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAdapter';
+import { playKitchenNewOrderSound, primeKitchenAudio } from './kitchenAudio';
 
 const POLL_MS = 30_000;
+const NEW_ORDER_NOTICE_MS = 5000;
 
 export default function KitchenPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const shiftStartedAtRef = useRef(new Date().toISOString());
+  const newOrderNoticeTimerRef = useRef<number | null>(null);
   const [data, setData] = useState<EmployeeWorkspaceData>({
     orders: [],
     tables: [],
@@ -23,6 +27,8 @@ export default function KitchenPage() {
     restaurantName: 'Restaurante',
     monogram: 'R',
     primaryColor: '#d64d08',
+    soundNotifications: true,
+    maxConcurrentOrders: 20,
   });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restaurantId = Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
@@ -37,6 +43,7 @@ export default function KitchenPage() {
       : 'Seu usuário não está vinculado a um restaurante. Entre novamente ou procure o administrador.',
     lastUpdatedAt: null,
     realtimeStatus: restaurantId && accessToken ? 'connecting' : 'disconnected',
+    newOrderNotice: null,
   });
 
   const loadOrders = useCallback(async (refreshing = false) => {
@@ -81,6 +88,21 @@ export default function KitchenPage() {
     return () => {
       mountedRef.current = false;
       latestOrdersRequestRef.current += 1;
+      if (newOrderNoticeTimerRef.current) window.clearTimeout(newOrderNoticeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const prime = () => {
+      void primeKitchenAudio();
+      window.removeEventListener('pointerdown', prime);
+      window.removeEventListener('keydown', prime);
+    };
+    window.addEventListener('pointerdown', prime, { once: true });
+    window.addEventListener('keydown', prime, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', prime);
+      window.removeEventListener('keydown', prime);
     };
   }, []);
 
@@ -114,6 +136,18 @@ export default function KitchenPage() {
     const refreshOrders = () => {
       void loadOrders(true);
     };
+    const handleNewOrder = () => {
+      void playKitchenNewOrderSound(restaurant.soundNotifications !== false);
+      setWorkspaceState((current) => ({
+        ...current,
+        newOrderNotice: 'Novo pedido recebido. A fila foi atualizada automaticamente.',
+      }));
+      if (newOrderNoticeTimerRef.current) window.clearTimeout(newOrderNoticeTimerRef.current);
+      newOrderNoticeTimerRef.current = window.setTimeout(() => {
+        setWorkspaceState((current) => ({ ...current, newOrderNotice: null }));
+      }, NEW_ORDER_NOTICE_MS);
+      void loadOrders(true);
+    };
     const markConnected = () =>
       setWorkspaceState((current) => ({ ...current, realtimeStatus: 'connected' }));
     const markDisconnected = () =>
@@ -128,7 +162,7 @@ export default function KitchenPage() {
       0,
     );
 
-    socket.on('new-order', refreshOrders);
+    socket.on('new-order', handleNewOrder);
     socket.on('order:payment-confirmed', refreshOrders);
     socket.on('order:status-changed', refreshOrders);
     socket.on('connect', markConnected);
@@ -137,7 +171,7 @@ export default function KitchenPage() {
 
     return () => {
       window.clearTimeout(initialSocketStatusTimer);
-      socket.off('new-order', refreshOrders);
+      socket.off('new-order', handleNewOrder);
       socket.off('order:payment-confirmed', refreshOrders);
       socket.off('order:status-changed', refreshOrders);
       socket.off('connect', markConnected);
@@ -145,7 +179,7 @@ export default function KitchenPage() {
       socket.off('connect_error', markDisconnected);
       release();
     };
-  }, [accessToken, restaurantId, loadOrders]);
+  }, [accessToken, restaurantId, loadOrders, restaurant.soundNotifications]);
 
   const u = user as Record<string, unknown>;
   const employee = {
@@ -153,10 +187,11 @@ export default function KitchenPage() {
     name: String(u?.name || 'Cozinheiro'),
     email: String(u?.email || ''),
     role: 'KITCHEN' as const,
-    shift: new Date().toLocaleTimeString('pt-BR', {
+    shift: new Date(shiftStartedAtRef.current).toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     }),
+    shiftStartedAt: shiftStartedAtRef.current,
   };
 
   return (
