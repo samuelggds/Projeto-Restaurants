@@ -17,10 +17,10 @@ import { KitchenProvider, type KitchenModuleProps as BaseProps } from './Kitchen
 import { useKitchenWorkspace } from './useKitchenWorkspace';
 import {
   KitchenHistoryPage,
-  KitchenOverviewPage,
   KitchenQueuePage,
   KitchenReadyPage,
 } from './pages/KitchenPages';
+import { KitchenOverviewPage } from './pages/KitchenOverviewPage';
 import * as S from './Kitchen.styles';
 import * as N from './KitchenNavigation.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
