@@ -28,7 +28,6 @@ function NoticeCard({ notice }: { notice: AppNotice }) {
   return (
     <Card
       $variant={notice.variant}
-      $duration={notice.duration}
       role={notice.variant === 'error' || notice.variant === 'warning' ? 'alert' : 'status'}
       aria-live={notice.variant === 'error' ? 'assertive' : 'polite'}
     >
@@ -56,7 +55,9 @@ function NoticeCard({ notice }: { notice: AppNotice }) {
         <X aria-hidden="true" />
       </CloseButton>
 
-      {notice.duration != null ? <Progress aria-hidden="true" /> : null}
+      {notice.duration != null ? (
+        <Progress $duration={notice.duration} aria-hidden="true" />
+      ) : null}
     </Card>
   );
 }
@@ -110,7 +111,7 @@ const variantSoft = {
   info: '#eef5ff',
 } as const;
 
-const Card = styled.article<{ $variant: AppNotice['variant']; $duration: number | null }>`
+const Card = styled.article<{ $variant: AppNotice['variant'] }>`
   --notice-accent: ${({ $variant }) => variantAccent[$variant]};
   position: relative;
   display: grid;
@@ -195,7 +196,7 @@ const ActionButton = styled.button`
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--notice-accent) 30%, transparent);
+    outline: 2px solid rgba(53, 105, 168, 0.28);
     outline-offset: 3px;
     border-radius: 4px;
   }
@@ -228,7 +229,7 @@ const CloseButton = styled.button`
   }
 `;
 
-const Progress = styled.span`
+const Progress = styled.span<{ $duration: number }>`
   position: absolute;
   right: 0;
   bottom: 0;
@@ -236,13 +237,8 @@ const Progress = styled.span`
   height: 2px;
   background: var(--notice-accent);
   transform-origin: left center;
-  animation: notice-progress linear forwards;
-  animation-duration: inherit;
+  animation: notice-progress ${({ $duration }) => `${$duration}ms`} linear forwards;
   opacity: 0.62;
-
-  ${Card}[style*='--notice-duration'] & {
-    animation-duration: var(--notice-duration);
-  }
 
   @keyframes notice-progress {
     from {
