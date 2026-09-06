@@ -116,6 +116,10 @@ export const AttendantResponsiveScale = createGlobalStyle`
       padding: 18px !important;
     }
 
+    .attendant-responsive-scope form section > div > div + div {
+      margin-top: 20px !important;
+    }
+
     .attendant-responsive-scope main button[aria-label='Fechar detalhes'] {
       width: 44px !important;
       height: 44px !important;
@@ -229,6 +233,10 @@ export const AttendantResponsiveScale = createGlobalStyle`
       padding: 16px !important;
     }
 
+    .attendant-responsive-scope form section > div > div + div {
+      margin-top: 16px !important;
+    }
+
     .attendant-responsive-scope main button[aria-label='Fechar detalhes'] {
       width: 44px !important;
       height: 44px !important;
@@ -253,6 +261,10 @@ export const AttendantResponsiveScale = createGlobalStyle`
     .attendant-responsive-scope main section {
       padding: 15px !important;
       border-radius: 15px !important;
+    }
+
+    .attendant-responsive-scope form section > div > div + div {
+      margin-top: 18px !important;
     }
   }
 `;
