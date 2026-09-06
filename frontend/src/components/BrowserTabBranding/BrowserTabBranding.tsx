@@ -29,6 +29,17 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'waiter',
 ]);
 
+type RestaurantIdentitySource = {
+  restaurantId?: unknown;
+  restaurantName?: unknown;
+  restaurantCategory?: unknown;
+  restaurant?: {
+    id?: unknown;
+    name?: unknown;
+    category?: unknown;
+  } | null;
+} | null;
+
 type StoredRestaurantIdentity = {
   id: number;
   name: string;
@@ -40,21 +51,22 @@ function parsePositiveId(value: unknown) {
   return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : 0;
 }
 
-function readJsonRecord(key: string) {
+function readSessionUser(): RestaurantIdentitySource {
+  if (typeof sessionStorage === 'undefined') return null;
   try {
-    const parsed = JSON.parse(localStorage.getItem(key) || 'null');
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    const parsed = JSON.parse(sessionStorage.getItem('user') || 'null');
+    return parsed && typeof parsed === 'object' ? (parsed as RestaurantIdentitySource) : null;
   } catch {
-    return {};
+    return null;
   }
 }
 
-function readStoredRestaurantIdentity(): StoredRestaurantIdentity {
-  const user = readJsonRecord('user');
+function readStoredRestaurantIdentity(authUser: RestaurantIdentitySource): StoredRestaurantIdentity {
+  // A identidade autenticada é a fonte principal. O snapshot de sessionStorage
+  // existe apenas durante a sessão atual e nunca é lido do localStorage.
+  const user = authUser || readSessionUser() || {};
   const restaurant =
-    user.restaurant && typeof user.restaurant === 'object'
-      ? (user.restaurant as Record<string, unknown>)
-      : {};
+    user.restaurant && typeof user.restaurant === 'object' ? user.restaurant : {};
 
   return {
     id:
@@ -97,7 +109,7 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
       );
       if (nextSlug || nextId) return { slug: nextSlug, id: nextId };
     } catch {
-      // O fallback armazenado abaixo mantém a identidade segura caso o next seja inválido.
+      // O fallback da sessão atual mantém a identidade caso o next seja inválido.
     }
   }
 
@@ -106,7 +118,7 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
 
 export default function BrowserTabBranding() {
   const location = useLocation();
-  const { isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
     if (isAuthLoading) return undefined;
@@ -119,18 +131,21 @@ export default function BrowserTabBranding() {
         return;
       }
 
-      const stored = readStoredRestaurantIdentity();
+      const stored = readStoredRestaurantIdentity(user as RestaurantIdentitySource);
       applyRestaurantBrowserBranding(document, stored.name, stored.category);
 
       const routeReference = restaurantReferenceFromLocation(location.pathname, location.search);
       const restaurantId = routeReference.id || stored.id;
 
+      // Rotas reservadas sem um tenant resolvido (ex.: rastreamento público antes
+      // da resposta do pedido) não podem cair em um restaurante "default". Isso
+      // evita consulta cross-tenant e mantém o branding neutro até o tenant existir.
+      if (!routeReference.slug && !restaurantId) return;
+
       try {
         const settings = routeReference.slug
           ? await restaurantSettingsService.getPublicSettingsBySlug(routeReference.slug)
-          : restaurantId
-            ? await restaurantSettingsService.getPublicSettings(restaurantId)
-            : await restaurantSettingsService.getDefaultPublicSettings();
+          : await restaurantSettingsService.getPublicSettings(restaurantId);
 
         if (!active) return;
 
@@ -164,7 +179,7 @@ export default function BrowserTabBranding() {
       active = false;
       window.removeEventListener(RESTAURANT_BROWSER_BRANDING_UPDATED_EVENT, handleBrandingUpdate);
     };
-  }, [isAuthLoading, location.pathname, location.search]);
+  }, [isAuthLoading, location.pathname, location.search, user]);
 
   return null;
 }
