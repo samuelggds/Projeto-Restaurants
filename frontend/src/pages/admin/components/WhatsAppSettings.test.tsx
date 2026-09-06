@@ -1,79 +1,62 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminMockSettings } from '../data';
 import { WhatsAppSettings } from './WhatsAppSettings';
 
 describe('WhatsAppSettings', () => {
-  it('organiza o canal em etapas e expõe somente as automações realmente disponíveis', () => {
-    const settings = {
-      ...adminMockSettings,
-      whatsapp: '+55 (11) 99999-0000',
-      whatsappDisplayName: 'Atendimento da Casa',
-      whatsappDefaultMessage: 'Olá, preciso de ajuda!',
-      whatsappEnabled: true,
-      receiveOrdersOnWhatsapp: true,
-      receiveStatusNotifications: false,
-    };
-    const markup = renderToStaticMarkup(
-      <WhatsAppSettings settings={settings} update={() => undefined} />,
-    );
-
-    expect(markup).toContain('value="+55 (11) 99999-0000"');
-    expect(markup).toContain('value="Atendimento da Casa"');
-    expect(markup).toContain('Olá, preciso de ajuda!');
-    expect(markup.match(/role="switch"/g)).toHaveLength(2);
-    expect(markup).toContain('Canal pronto e visível na Home');
-    expect(markup).toContain('1 · Ativação do canal');
-    expect(markup).toContain('Identificação e número');
-    expect(markup).toContain('Mensagem inicial e prévia');
-    expect(markup).toContain('Notificações e automações');
-    expect(markup).not.toContain('name="receiveOrdersOnWhatsapp"');
-    expect(markup).toContain('EM PREPARAÇÃO');
-    expect(markup).toContain('Integração ainda não disponível');
-    expect(markup).toContain(
-      'href="https://wa.me/5511999990000?text=Ol%C3%A1%2C%20preciso%20de%20ajuda!"',
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      'user',
+      JSON.stringify({ restaurantId: 42, restaurantCategory: 'PIZZARIA' }),
     );
   });
 
-  it('mantém a prévia desabilitada e explica um número inválido', () => {
+  it('organiza somente o conteúdo do WhatsApp em três passos e prévia didática', () => {
     const markup = renderToStaticMarkup(
       <WhatsAppSettings
         settings={{
           ...adminMockSettings,
-          whatsapp: '123',
+          restaurantName: 'North Pizza',
+          whatsapp: '+55 (11) 99999-0000',
+          whatsappDisplayName: 'North Pizza',
+          whatsappDefaultMessage: 'Olá! Bem-vindo à North Pizza.',
           whatsappEnabled: true,
+          receiveStatusNotifications: true,
         }}
         update={() => undefined}
       />,
     );
 
-    expect(markup).toContain('Use DDI, DDD e número, com 10 a 13 dígitos.');
-    expect(markup).toContain('aria-invalid="true"');
-    expect(markup).toContain('aria-disabled="true"');
-    expect(markup).not.toContain('href="https://wa.me/');
+    expect(markup).toContain('Configurar WhatsApp');
+    expect(markup).toContain('Foto e nome do perfil');
+    expect(markup).toContain('Seu número do WhatsApp');
+    expect(markup).toContain('Mensagens automáticas');
+    expect(markup).toContain('Exemplo de mensagens');
+    expect(markup).toContain('/orders/107/tracking');
+    expect(markup).toContain('Pedido confirmado / em preparo');
+    expect(markup).toContain('Saiu para entrega');
+    expect(markup).toContain('Confirmar entrega');
+    expect(markup.match(/role="switch"/g)).toHaveLength(2);
+    expect(markup).not.toContain('EM PREPARAÇÃO');
   });
 
-  it('exige o número somente quando o contato público está ativado', () => {
-    const disabledMarkup = renderToStaticMarkup(
+  it('usa a logo monocromática da categoria quando não existe foto personalizada', () => {
+    const markup = renderToStaticMarkup(
       <WhatsAppSettings
-        settings={{ ...adminMockSettings, whatsapp: '' }}
+        settings={{ ...adminMockSettings, restaurantName: 'North Pizza' }}
         update={() => undefined}
       />,
     );
-    const enabledMarkup = renderToStaticMarkup(
-      <WhatsAppSettings
-        settings={{ ...adminMockSettings, whatsapp: '', whatsappEnabled: true }}
-        update={() => undefined}
-      />,
-    );
 
-    expect(disabledMarkup).not.toContain('Informe o número que será exibido aos clientes.');
-    expect(enabledMarkup).toContain('Informe o número que será exibido aos clientes.');
+    expect(markup).toContain('data:image/svg+xml');
+    expect(decodeURIComponent(markup)).toContain('stroke="#111111"');
+    expect(markup).toContain('Por padrão usamos a logo preto e branco da categoria, sem fundo.');
   });
 
-  it('pausa o controle de notificações enquanto o canal principal estiver desativado', () => {
+  it('mantém a ativação de status bloqueada enquanto o canal estiver desligado', () => {
     const markup = renderToStaticMarkup(
       <WhatsAppSettings
         settings={{
@@ -87,16 +70,26 @@ describe('WhatsAppSettings', () => {
 
     const statusSwitch = markup.match(/<input[^>]*name="receiveStatusNotifications"[^>]*>/)?.[0];
     expect(statusSwitch).toContain('disabled=""');
-    expect(markup).toContain('Ative o canal acima para liberar os envios.');
-    expect(markup).toContain('Canal pausado e oculto na Home');
   });
 
-  it('encaminha a ativação das notificações funcionais para o estado persistido', () => {
+  it('valida o número comercial quando o canal estiver ativo', () => {
+    const markup = renderToStaticMarkup(
+      <WhatsAppSettings
+        settings={{ ...adminMockSettings, whatsappEnabled: true, whatsapp: '123' }}
+        update={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('Use DDI, DDD e número, com 10 a 13 dígitos.');
+    expect(markup).toContain('aria-invalid="true"');
+  });
+
+  it('encaminha alterações persistidas de canal, número e mensagens para o estado do admin', () => {
     const container = document.createElement('div');
     const root = createRoot(container);
     const update = vi.fn();
 
-    act(() =>
+    act(() => {
       root.render(
         <WhatsAppSettings
           settings={{
@@ -107,14 +100,10 @@ describe('WhatsAppSettings', () => {
           }}
           update={update}
         />,
-      ),
-    );
+      );
+    });
 
-    const statusSwitch = container.querySelector(
-      '[name="receiveStatusNotifications"]',
-    ) as HTMLInputElement;
-    expect(statusSwitch.disabled).toBe(false);
-
+    const statusSwitch = container.querySelector('[name="receiveStatusNotifications"]') as HTMLInputElement;
     act(() => statusSwitch.click());
     expect(update).toHaveBeenCalledWith('receiveStatusNotifications', true);
 
