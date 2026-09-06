@@ -17,6 +17,7 @@ import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import * as L from '../kitchen/Kitchen.styles';
 import * as S from './CourierNavigation.styles';
 import { CourierChatNotifications } from './components/CourierChatNotifications';
+import { CourierChatResponsiveStyles } from './components/CourierChatResponsiveStyles';
 import type { CourierView } from './courierViewMeta';
 
 type Props = {
@@ -55,6 +56,7 @@ export function CourierNavigation({
 
   return (
     <>
+      <CourierChatResponsiveStyles />
       <CourierChatNotifications />
 
       <S.Sidebar>
