@@ -1,8 +1,4 @@
-import {
-  getRestaurantLoginVisual,
-  normalizeRestaurantCategory,
-  type RestaurantCategory,
-} from './restaurantCategory';
+import { normalizeRestaurantCategory, type RestaurantCategory } from './restaurantCategory';
 
 export const RESTAURANT_BROWSER_BRANDING_UPDATED_EVENT =
   'pecajaf:restaurant-browser-branding-updated';
@@ -35,8 +31,7 @@ const CATEGORY_ICON_MARKUP: Record<RestaurantCategory, string> = {
 };
 
 function buildCategorySvg(category: RestaurantCategory) {
-  const accent = getRestaurantLoginVisual(category).accent;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="${accent}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${CATEGORY_ICON_MARKUP[category]}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#111111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${CATEGORY_ICON_MARKUP[category]}</svg>`;
 }
 
 export function getRestaurantCategoryFavicon(value: unknown) {
