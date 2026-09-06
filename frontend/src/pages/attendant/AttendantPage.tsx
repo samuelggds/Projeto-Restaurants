@@ -12,7 +12,7 @@ import {
 } from '../../shared/navigation/authNavigation';
 import { mapRestaurantBrand } from '../operations/orderAdapter';
 import attendantApi from './attendantApi';
-import { AttendantWorkspace } from './AttendantWorkspace';
+import { AttendantOperationCenter } from './AttendantOperationCenter';
 import type {
   AttendantRestaurantBrand,
   AttendantWorkspaceSnapshot,
@@ -41,6 +41,7 @@ export default function AttendantPage() {
   const account = asRecord(user);
   const accountRestaurant = asRecord(account.restaurant);
   const restaurantId = Number(account.restaurantId || accountRestaurant.id || 0) || null;
+  const attendantId = Number(account.id || 0) || null;
   const attendantName = String(account.name || 'Atendente').trim() || 'Atendente';
   const restaurantSlugRef = useRef(
     String(account.restaurantSlug || accountRestaurant.slug || '').trim().toLowerCase(),
@@ -52,11 +53,12 @@ export default function AttendantPage() {
     primaryColor: '#e16a3d',
   });
   const [workspaceState, setWorkspaceState] = useState<AttendantWorkspaceState>({
-    loading: Boolean(restaurantId),
+    loading: Boolean(restaurantId && attendantId),
     refreshing: false,
-    error: restaurantId
-      ? null
-      : 'Seu usuário não está vinculado a um restaurante. Entre novamente ou procure o administrador.',
+    error:
+      restaurantId && attendantId
+        ? null
+        : 'Seu usuário não está vinculado corretamente ao restaurante. Entre novamente ou procure o administrador.',
     lastUpdatedAt: null,
   });
   const mountedRef = useRef(true);
@@ -64,7 +66,7 @@ export default function AttendantPage() {
 
   const loadWorkspace = useCallback(
     async (refreshing = false) => {
-      if (!restaurantId) return;
+      if (!restaurantId || !attendantId) return;
       const requestId = ++requestIdRef.current;
       if (mountedRef.current) {
         setWorkspaceState((current) => ({
@@ -95,7 +97,7 @@ export default function AttendantPage() {
         }));
       }
     },
-    [restaurantId],
+    [attendantId, restaurantId],
   );
 
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function AttendantPage() {
   }, [restaurantId]);
 
   useEffect(() => {
-    if (!restaurantId) return;
+    if (!restaurantId || !attendantId) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled) void loadWorkspace();
@@ -141,11 +143,11 @@ export default function AttendantPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [loadWorkspace, restaurantId]);
+  }, [attendantId, loadWorkspace, restaurantId]);
 
   useEffect(() => {
     const token = getAccessToken();
-    if (!token || !restaurantId) return;
+    if (!token || !restaurantId || !attendantId) return;
     const { socket, release } = acquireSocket(token, 'attendant-workspace');
     let debounceTimer: number | null = null;
     const invalidate = () => {
@@ -154,28 +156,46 @@ export default function AttendantPage() {
     };
 
     socket.on('attendant:workspace-invalidated', invalidate);
+    socket.on('order:issue-message', invalidate);
+    socket.on('order:issue-resolved', invalidate);
     return () => {
       if (debounceTimer !== null) window.clearTimeout(debounceTimer);
       socket.off('attendant:workspace-invalidated', invalidate);
+      socket.off('order:issue-message', invalidate);
+      socket.off('order:issue-resolved', invalidate);
       release();
     };
-  }, [loadWorkspace, restaurantId]);
+  }, [attendantId, loadWorkspace, restaurantId]);
+
+  const handleLogout = () => {
+    const tenantSlug = restaurantSlugRef.current || getRememberedTenantSlug();
+    const destination = tenantSlug ? `/${tenantSlug}/team` : TENANT_REQUIRED_PATH;
+    flushSync(() => {
+      logout();
+      navigate(destination, { replace: true });
+    });
+  };
+
+  if (!restaurantId || !attendantId) {
+    return (
+      <main style={{ padding: 32, fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <h1>Não foi possível abrir a central do atendente</h1>
+        <p>{workspaceState.error}</p>
+        <button type="button" onClick={handleLogout}>Sair e entrar novamente</button>
+      </main>
+    );
+  }
 
   return (
-    <AttendantWorkspace
+    <AttendantOperationCenter
+      attendantId={attendantId}
       attendantName={attendantName}
+      restaurantId={restaurantId}
       restaurant={restaurant}
       snapshot={snapshot}
       workspaceState={workspaceState}
       onRefresh={() => loadWorkspace(true)}
-      onLogout={() => {
-        const tenantSlug = restaurantSlugRef.current || getRememberedTenantSlug();
-        const destination = tenantSlug ? `/${tenantSlug}/team` : TENANT_REQUIRED_PATH;
-        flushSync(() => {
-          logout();
-          navigate(destination, { replace: true });
-        });
-      }}
+      onLogout={handleLogout}
     />
   );
 }
