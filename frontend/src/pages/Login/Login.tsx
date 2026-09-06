@@ -105,9 +105,13 @@ export default function Login() {
   useEffect(() => {
     clearLegacyRememberedAccountEmail();
     const rememberedEmail = readRememberedAccountEmail(rememberScope);
-    setEmail(rememberedEmail);
-    setPassword('');
-    setRememberMe(Boolean(rememberedEmail));
+    const timeoutId = window.setTimeout(() => {
+      setEmail(rememberedEmail);
+      setPassword('');
+      setRememberMe(Boolean(rememberedEmail));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [rememberScope]);
 
   const loadGoogleScript = useCallback(() => {
