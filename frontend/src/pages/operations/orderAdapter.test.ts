@@ -173,9 +173,27 @@ describe('operational order adapter', () => {
       observation: undefined,
     });
   });
-  it('monta a identidade do restaurante', () => {
+  it('monta a identidade e as configurações operacionais do restaurante', () => {
     expect(
-      mapRestaurantBrand({ restaurant: { name: 'North Pizza' }, primaryColor: '#f00' }),
-    ).toEqual({ restaurantName: 'North Pizza', monogram: 'NP', primaryColor: '#f00' });
+      mapRestaurantBrand({
+        restaurant: { name: 'North Pizza' },
+        primaryColor: '#f00',
+        soundNotifications: false,
+        maxConcurrentOrders: 35,
+      }),
+    ).toEqual({
+      restaurantName: 'North Pizza',
+      monogram: 'NP',
+      primaryColor: '#f00',
+      soundNotifications: false,
+      maxConcurrentOrders: 35,
+    });
+  });
+
+  it('aplica defaults seguros para capacidade e som', () => {
+    expect(mapRestaurantBrand({ restaurant: { name: 'North Pizza' } })).toMatchObject({
+      soundNotifications: true,
+      maxConcurrentOrders: 20,
+    });
   });
 });

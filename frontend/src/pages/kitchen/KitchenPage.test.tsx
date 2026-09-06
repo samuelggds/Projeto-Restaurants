@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   navigate: vi.fn(),
   logout: vi.fn(),
+  playNewOrderSound: vi.fn(),
+  primeKitchenAudio: vi.fn(),
   socketListeners: new Map<string, (...args: unknown[]) => void>(),
   socket: {
     connected: false,
@@ -48,6 +50,10 @@ vi.mock('../../Services/socketService', () => ({
 }));
 vi.mock('../../modules/auth/session/authSession', () => ({
   getAccessToken: () => 'kitchen-token',
+}));
+vi.mock('./kitchenAudio', () => ({
+  playKitchenNewOrderSound: mocks.playNewOrderSound,
+  primeKitchenAudio: mocks.primeKitchenAudio,
 }));
 vi.mock('./KitchenModule', () => ({
   KitchenModule: (props: KitchenModuleProps) => {
@@ -100,6 +106,8 @@ describe('KitchenPage data integration', () => {
     mocks.latestProps = null;
     mocks.socketListeners.clear();
     mocks.socket.connected = false;
+    mocks.playNewOrderSound.mockResolvedValue(true);
+    mocks.primeKitchenAudio.mockResolvedValue(true);
     mocks.socket.on.mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
       mocks.socketListeners.set(event, listener);
       return mocks.socket;
@@ -108,6 +116,8 @@ describe('KitchenPage data integration', () => {
     mocks.getSettings.mockResolvedValue({
       restaurant: { name: 'Restaurante Teste' },
       primaryColor: '#d64d08',
+      soundNotifications: true,
+      maxConcurrentOrders: 28,
     });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -134,11 +144,28 @@ describe('KitchenPage data integration', () => {
       mocks.socketListeners.get('new-order')?.();
       await Promise.resolve();
     });
+    expect(mocks.playNewOrderSound).toHaveBeenCalledWith(true);
+    expect(mocks.latestProps?.workspaceState?.newOrderNotice).toContain('Novo pedido recebido');
+
     await act(async () => second.resolve([rawOrder(2)]));
     expect(mocks.latestProps?.data?.orders[0]).toMatchObject({ id: '#2', reference: 'Mesa 2' });
 
     await act(async () => first.resolve([rawOrder(1)]));
     expect(mocks.latestProps?.data?.orders[0]).toMatchObject({ id: '#2', reference: 'Mesa 2' });
+  });
+
+  it('carrega capacidade, preferência sonora e início do turno', async () => {
+    mocks.listOrders.mockResolvedValue([]);
+
+    await act(async () => root.render(<KitchenPage />));
+    await flushUntil(() => mocks.latestProps?.restaurant?.maxConcurrentOrders === 28);
+
+    expect(mocks.latestProps?.restaurant).toMatchObject({
+      restaurantName: 'Restaurante Teste',
+      soundNotifications: true,
+      maxConcurrentOrders: 28,
+    });
+    expect(mocks.latestProps?.employee?.shiftStartedAt).toBeTruthy();
   });
 
   it('preserva localmente o novo status quando o reload posterior falha', async () => {

@@ -118,3 +118,91 @@ export const ShiftBanner = styled.section`
     }
   }
 `;
+
+export const CapacityCard = styled.section<{ $tone: 'normal' | 'high' | 'critical' }>`
+  margin: -2px 0 18px;
+  padding: 15px 16px;
+  border: 1px solid
+    ${(p) =>
+      p.$tone === 'critical' ? '#efb1a8' : p.$tone === 'high' ? '#ead19a' : '#cfe1d5'};
+  border-radius: 9px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  background: ${(p) =>
+    p.$tone === 'critical' ? '#fff3f1' : p.$tone === 'high' ? '#fff9e8' : '#f3faf5'};
+  box-shadow: 0 5px 16px rgba(23, 37, 34, 0.035);
+
+  .capacity-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: ${(p) =>
+      p.$tone === 'critical' ? '#b53f33' : p.$tone === 'high' ? '#9a6817' : '#287b43'};
+    background: rgba(255, 255, 255, 0.76);
+  }
+
+  .capacity-icon svg {
+    width: 23px;
+  }
+
+  .capacity-copy {
+    min-width: 0;
+    display: grid;
+    gap: 7px;
+  }
+
+  .capacity-copy > span {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .capacity-copy small {
+    color: #62706a;
+    font-size: 10px;
+  }
+
+  .capacity-copy b {
+    color: ${(p) =>
+      p.$tone === 'critical' ? '#a9352c' : p.$tone === 'high' ? '#8a5b12' : '#276e3c'};
+    font-size: 12px;
+  }
+
+  .capacity-track {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(50, 70, 62, 0.11);
+  }
+
+  .capacity-track i {
+    display: block;
+    height: 100%;
+    max-width: 100%;
+    border-radius: inherit;
+    background: ${(p) =>
+      p.$tone === 'critical' ? '#c84e3f' : p.$tone === 'high' ? '#c98b28' : '#329154'};
+    transition: width 220ms ease;
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 38px minmax(0, 1fr);
+    padding: 12px;
+
+    .capacity-icon {
+      width: 38px;
+      height: 38px;
+    }
+
+    .capacity-copy > span {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 2px;
+    }
+  }
+`;

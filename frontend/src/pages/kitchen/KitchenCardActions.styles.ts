@@ -33,6 +33,24 @@ export const KitchenCardActions = styled.div`
     opacity: 0.62;
   }
 
+  & ~ .action-success {
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid #b9ddc2;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #23653a;
+    background: #f0faf3;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  & ~ .action-success svg {
+    flex: 0 0 auto;
+  }
+
   @media (max-width: 380px) {
     grid-template-columns: 1fr;
   }

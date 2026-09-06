@@ -10,6 +10,8 @@ export interface RestaurantBrand {
   restaurantName: string;
   monogram: string;
   primaryColor: string;
+  soundNotifications?: boolean;
+  maxConcurrentOrders?: number;
 }
 export interface Employee {
   id: string;
@@ -17,6 +19,7 @@ export interface Employee {
   email: string;
   role: EmployeeRole;
   shift: string;
+  shiftStartedAt?: string;
 }
 export interface OrderItemCustomization {
   groupName: string;
@@ -59,6 +62,7 @@ export interface KitchenWorkspaceState {
   error: string | null;
   lastUpdatedAt: string | null;
   realtimeStatus: KitchenRealtimeStatus;
+  newOrderNotice?: string | null;
 }
 export interface RestaurantTable {
   id: string;
