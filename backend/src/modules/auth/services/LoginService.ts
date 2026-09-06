@@ -12,15 +12,7 @@ type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleA
 export class LoginService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
-  async execute({
-    email,
-    password,
-    rememberMe = false,
-  }: {
-    email: string;
-    password: string;
-    rememberMe?: boolean;
-  }) {
+  async execute({ email, password }: { email: string; password: string }) {
     const normalizedEmail = String(email || '')
       .trim()
       .toLowerCase();
@@ -59,7 +51,7 @@ export class LoginService {
     await loginLockoutService.registerSuccess(normalizedEmail);
     await this.platformAccess.assertRoleAllowed(user.role);
 
-    const mfaChallenge = await loginMfaService.beginIfRequired(user as any, rememberMe);
+    const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
     if (mfaChallenge) {
       return mfaChallenge;
     }
@@ -70,7 +62,6 @@ export class LoginService {
       subRole: user.subRole ?? null,
       restaurantId: user.restaurantId,
       authVersion: user.authVersion,
-      rememberMe,
     };
     const token = authTokenService.createAccessToken(tokenPayload);
     const refreshToken = await authTokenService.createRefreshToken(tokenPayload);
