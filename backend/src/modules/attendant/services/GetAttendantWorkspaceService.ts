@@ -49,6 +49,7 @@ export class GetAttendantWorkspaceService {
       generatedAt: now.toISOString(),
       orders: snapshot.orders.map((order) => ({
         id: order.publicId,
+        orderId: order.id,
         code: `#${order.id}`,
         type: order.type,
         status: order.status,
@@ -66,6 +67,7 @@ export class GetAttendantWorkspaceService {
         tableNumber: call.table.number,
         type: call.type,
         status: call.status,
+        assignedToId: call.assignedToId ?? null,
         assignedToName: optionalName(call.assignedTo?.name),
         requestedAt: call.requestedAt.toISOString(),
         assignedAt: call.assignedAt?.toISOString() ?? null,
