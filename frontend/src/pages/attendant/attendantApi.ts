@@ -24,31 +24,21 @@ function record(value: unknown): UnknownRecord | null {
     ? (value as UnknownRecord)
     : null;
 }
-
-function text(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function nullableText(value: unknown) {
-  return text(value) || null;
-}
-
+function text(value: unknown) { return typeof value === 'string' ? value.trim() : ''; }
+function nullableText(value: unknown) { return text(value) || null; }
 function positiveInteger(value: unknown) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
-
 function count(value: unknown) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
-
 function isoDate(value: unknown) {
   if (!value) return null;
   const parsed = new Date(String(value));
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
-
 function enumValue<T extends string>(value: unknown, allowed: Set<T>, fallback: T) {
   const normalized = text(value).toUpperCase() as T;
   return allowed.has(normalized) ? normalized : fallback;
@@ -60,14 +50,12 @@ function normalizeOrder(value: unknown): AttendantOrder | null {
   const orderId = positiveInteger(input?.orderId);
   const createdAt = isoDate(input?.createdAt);
   if (!input || !id || !orderId || !createdAt) return null;
-
   const items = (Array.isArray(input.items) ? input.items : []).flatMap((item) => {
     const itemRecord = record(item);
     const productName = text(itemRecord?.productName);
     const quantity = positiveInteger(itemRecord?.quantity);
     return productName && quantity ? [{ productName, quantity }] : [];
   });
-
   return {
     id,
     orderId,
@@ -88,7 +76,6 @@ function normalizeCall(value: unknown): AttendantCall | null {
   const tableNumber = positiveInteger(input?.tableNumber);
   const requestedAt = isoDate(input?.requestedAt);
   if (!input || !id || !tableNumber || !requestedAt) return null;
-
   return {
     id,
     tableNumber,
@@ -107,7 +94,6 @@ function normalizeTable(value: unknown): AttendantTable | null {
   const tableNumber = positiveInteger(input?.tableNumber);
   const openedAt = isoDate(input?.openedAt);
   if (!input || !tableNumber || !openedAt) return null;
-
   return {
     id: text(input.id) || String(tableNumber),
     tableNumber,
@@ -143,24 +129,20 @@ const attendantApi = {
     const response = await api.get('/attendant/workspace');
     return normalizeAttendantWorkspace(response.data);
   },
-
   async updateCallStatus(id: string | number, status: 'IN_PROGRESS' | 'RESOLVED') {
     const response = await api.patch(`/attendant/calls/${id}/status`, { status });
     return response.data;
   },
-
   async getOrder(orderId: number) {
     const response = await api.get(`/orders/${orderId}`);
     return response.data as UnknownRecord;
   },
-
   async completePickup(orderId: number) {
     const response = await api.put(`/orders/${orderId}/status`, { status: 'ENTREGUE' });
     return response.data;
   },
-
   async createOrder(payload: UnknownRecord) {
-    const response = await api.post('/orders', payload);
+    const response = await api.post('/attendant/orders', payload);
     return response.data;
   },
 };
