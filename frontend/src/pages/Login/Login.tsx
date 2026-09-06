@@ -33,21 +33,17 @@ import {
 import { getAccessibleBrandColor, getReadableTextColor } from './domain/loginBranding';
 import { verifyAdminPortalGrant } from './domain/adminPortalSession';
 import {
+  clearLegacyRememberedAccountEmail,
+  clearRememberedAccountEmail,
+  readRememberedAccountEmail,
+  writeRememberedAccountEmail,
+} from './domain/rememberedAccount';
+import {
   canUseLoginPortal,
   getLoginPortalAccessError,
   getRestaurantSlugFromAuthPath,
   resolveLoginPortal,
 } from './domain/loginPortal';
-
-const LEGACY_REMEMBERED_EMAIL_KEY = 'rememberedEmail';
-
-function clearLegacyRememberedEmail() {
-  try {
-    localStorage.removeItem(LEGACY_REMEMBERED_EMAIL_KEY);
-  } catch {
-    // Storage pode estar indisponível em navegadores com políticas restritivas.
-  }
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -55,6 +51,10 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const portal = resolveLoginPortal(location.pathname);
   const portalSlug = getRestaurantSlugFromAuthPath(location.pathname);
+  const rememberScope = useMemo(
+    () => ({ portal, restaurantSlug: portalSlug }),
+    [portal, portalSlug],
+  );
   const searchReference = searchParams.toString();
   const contextualSearchParams = useMemo(() => {
     const params = new URLSearchParams(searchReference);
@@ -87,6 +87,7 @@ export default function Login() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -102,8 +103,12 @@ export default function Login() {
   const googleInitializedClientIdRef = useRef('');
 
   useEffect(() => {
-    clearLegacyRememberedEmail();
-  }, []);
+    clearLegacyRememberedAccountEmail();
+    const rememberedEmail = readRememberedAccountEmail(rememberScope);
+    setEmail(rememberedEmail);
+    setPassword('');
+    setRememberMe(Boolean(rememberedEmail));
+  }, [rememberScope]);
 
   const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
@@ -346,15 +351,25 @@ export default function Login() {
     };
   }, [initializeGoogleLogin, showCustomerSelfService]);
 
+  const handleRememberMeChange = (checked: boolean) => {
+    setRememberMe(checked);
+    if (!checked) clearRememberedAccountEmail(rememberScope);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFeedback(null);
     setIsLoading(true);
-    clearLegacyRememberedEmail();
     try {
       const firstStep = await authService.login({ email, password });
       const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
       const response = await validatePortalAccess(withMfa);
+
+      if (rememberMe) {
+        writeRememberedAccountEmail(rememberScope, email);
+      } else {
+        clearRememberedAccountEmail(rememberScope);
+      }
 
       setFeedback({ type: 'success', message: 'Login realizado com sucesso!' });
       setTimeout(() => {
@@ -561,14 +576,23 @@ export default function Login() {
                 </S.LoginInputField>
               </S.InputGroup>
 
-              {!isTechnicalAccess ? (
-                <S.Row>
-                  <span />
+              <S.Row>
+                <S.CheckboxLabel>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => handleRememberMeChange(event.target.checked)}
+                  />
+                  Lembrar de mim
+                </S.CheckboxLabel>
+                {!isTechnicalAccess ? (
                   <S.LoginForgotLink type="button" onClick={() => navigate(recoverPasswordPath)}>
                     Esqueceu a senha?
                   </S.LoginForgotLink>
-                </S.Row>
-              ) : null}
+                ) : (
+                  <span />
+                )}
+              </S.Row>
 
               <S.LoginSubmitButton type="submit" disabled={isLoading} aria-label={submitLabel}>
                 <span>{isLoading ? 'Entrando...' : submitLabel}</span>
@@ -578,7 +602,10 @@ export default function Login() {
 
             <S.LoginSecurityNote>
               <ShieldCheck aria-hidden="true" />
-              <span>O sistema não salva seu e-mail nem sua senha neste dispositivo.</span>
+              <span>
+                Ao marcar “Lembrar de mim”, somente o e-mail deste acesso é lembrado. A senha nunca
+                é salva pelo sistema e sempre será exigida.
+              </span>
             </S.LoginSecurityNote>
 
             {showCustomerSelfService ? (
