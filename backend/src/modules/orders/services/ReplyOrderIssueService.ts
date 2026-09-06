@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client';
+import { FuncionarioSubRole, UserRole } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import {
@@ -12,17 +12,23 @@ class ReplyOrderIssueService {
   async execute({
     orderId,
     restaurantId,
-    adminUserId,
+    actorUserId,
+    actorRole,
+    actorSubRole,
     replyMessage,
   }: {
     orderId: number | string;
     restaurantId: number | string | null;
-    adminUserId: number | string;
+    actorUserId: number | string;
+    actorRole: string;
+    actorSubRole?: string | null;
     replyMessage: string;
   }) {
     const normalizedOrderId = Number(orderId);
     const normalizedRestaurantId = Number(restaurantId || 0);
-    const normalizedAdminUserId = Number(adminUserId);
+    const normalizedActorUserId = Number(actorUserId);
+    const normalizedRole = String(actorRole || '').toUpperCase();
+    const normalizedSubRole = String(actorSubRole || '').toUpperCase();
     const normalizedReplyMessage = String(replyMessage || '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -30,62 +36,55 @@ class ReplyOrderIssueService {
     if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
       throw new Error('Pedido inválido para responder.');
     }
-
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error('Restaurante inválido para responder.');
     }
-
-    if (!Number.isInteger(normalizedAdminUserId) || normalizedAdminUserId <= 0) {
-      throw new Error('Admin inválido para responder.');
+    if (!Number.isInteger(normalizedActorUserId) || normalizedActorUserId <= 0) {
+      throw new Error('Funcionário inválido para responder.');
     }
-
     if (normalizedReplyMessage.length < 2) {
       throw new Error('Digite uma resposta para o cliente.');
     }
-
     if (normalizedReplyMessage.length > 600) {
       throw new Error('Resposta muito longa. Use no máximo 600 caracteres.');
     }
 
-    const [order, adminUser] = await Promise.all([
+    const isAdmin = normalizedRole === UserRole.ADMIN;
+    const isAttendant =
+      normalizedRole === UserRole.FUNCIONARIO &&
+      normalizedSubRole === FuncionarioSubRole.ATENDENTE;
+    if (!isAdmin && !isAttendant) {
+      throw new Error('Seu perfil não pode responder atendimentos de pedidos.');
+    }
+
+    const [order, actorUser] = await Promise.all([
       prisma.order.findFirst({
-        where: {
-          id: normalizedOrderId,
-          restaurantId: normalizedRestaurantId,
-        },
+        where: { id: normalizedOrderId, restaurantId: normalizedRestaurantId },
         select: {
           id: true,
           restaurantId: true,
           userId: true,
-          user: {
-            select: {
-              name: true,
-            },
-          },
+          user: { select: { name: true } },
         },
       }),
       prisma.user.findFirst({
         where: {
-          id: normalizedAdminUserId,
+          id: normalizedActorUserId,
           restaurantId: normalizedRestaurantId,
-          role: UserRole.ADMIN,
           active: true,
+          ...(isAdmin
+            ? { role: UserRole.ADMIN }
+            : { role: UserRole.FUNCIONARIO, subRole: FuncionarioSubRole.ATENDENTE }),
         },
-        select: {
-          name: true,
-        },
+        select: { name: true },
       }),
     ]);
 
-    if (!order) {
-      throw new Error('Pedido não encontrado para este restaurante.');
-    }
+    if (!order) throw new Error('Pedido não encontrado para este restaurante.');
+    if (!actorUser) throw new Error('Funcionário sem acesso ao atendimento deste restaurante.');
 
     const existingThread = await getOrderIssueThread(order.id, normalizedRestaurantId);
-    if (!existingThread) {
-      throw new Error('Cliente ainda não iniciou conversa neste pedido.');
-    }
-
+    if (!existingThread) throw new Error('Cliente ainda não iniciou conversa neste pedido.');
     if (existingThread.isResolved) {
       throw new Error('Este problema já foi resolvido e o chat foi encerrado.');
     }
@@ -105,28 +104,22 @@ class ReplyOrderIssueService {
       itemsSummary: Array.isArray(existingThread.itemsSummary) ? existingThread.itemsSummary : [],
     });
 
-    const adminName = String(adminUser?.name || 'Admin').trim() || 'Admin';
+    const actorName = String(actorUser.name || 'Equipe').trim() || 'Equipe';
     const { thread, chatMessage } = await addOrderIssueMessage({
       orderId: order.id,
       restaurantId: normalizedRestaurantId,
       senderType: 'ADMIN',
-      senderName: adminName,
+      senderName: actorName,
       message: normalizedReplyMessage,
     });
 
     const threadPayload = toOrderIssueThreadPayload(thread);
-    if (!threadPayload) {
-      throw new Error('Não foi possível atualizar a conversa do pedido.');
-    }
+    if (!threadPayload) throw new Error('Não foi possível atualizar a conversa do pedido.');
 
-    io.to(`restaurant:${order.restaurantId}:admin`).emit('order:issue-message', {
-      ...threadPayload,
-      message: chatMessage,
-    });
-    io.to(`user:${order.userId}`).emit('order:issue-message', {
-      ...threadPayload,
-      message: chatMessage,
-    });
+    const eventPayload = { ...threadPayload, message: chatMessage };
+    io.to(`restaurant:${order.restaurantId}:admin`).emit('order:issue-message', eventPayload);
+    io.to(`restaurant:${order.restaurantId}:attendant`).emit('order:issue-message', eventPayload);
+    io.to(`user:${order.userId}`).emit('order:issue-message', eventPayload);
 
     return {
       ...threadPayload,
