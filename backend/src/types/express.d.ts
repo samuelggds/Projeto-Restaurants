@@ -17,6 +17,10 @@ declare global {
         orderId: number;
         publicId: string;
       };
+      guestOrderOwnership?: {
+        orderId: number;
+        publicId: string;
+      };
       tableSession?: {
         id: number;
         publicId: string;
