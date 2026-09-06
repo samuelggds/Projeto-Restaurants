@@ -247,7 +247,7 @@ export interface AdminPortalKeyResult {
   restaurantId: number;
   slug: string;
   key: string;
-  expiresAt: string;
+  expiresAt: string | null;
   rotationId: number;
 }
 
