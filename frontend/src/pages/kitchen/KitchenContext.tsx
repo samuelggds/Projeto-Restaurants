@@ -1,6 +1,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -48,6 +49,13 @@ export function KitchenProvider({
   const [reprintSuccessOrderId, setReprintSuccessOrderId] = useState<string | null>(null);
   const onUpdateOrderStatus = props.onUpdateOrderStatus;
   const onReprintOrder = props.onReprintOrder;
+
+  useEffect(
+    () => () => {
+      if (reprintSuccessTimerRef.current) window.clearTimeout(reprintSuccessTimerRef.current);
+    },
+    [],
+  );
 
   const updateOrderStatus = useCallback(
     async (id: string, status: OrderStatus) => {
