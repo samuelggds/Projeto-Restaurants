@@ -21,6 +21,15 @@ function pathnameFromUrl(value: string | undefined) {
  * demais endpoints sob responsabilidade do cenário que está sendo testado.
  */
 export async function mockAuthRefresh(page: Page, userId: number, accessToken: string) {
+  // Os cenários E2E alternam personas substituindo o cookie mockado. Como a
+  // aplicação real guarda o snapshot do usuário apenas em sessionStorage,
+  // cada nova sessão mockada precisa começar sem a identidade anterior. Isso
+  // evita reaproveitar o snapshot de outra conta e preserva o mesmo requisito
+  // de segurança usado em dispositivos compartilhados.
+  await page.addInitScript(() => {
+    sessionStorage.removeItem('user');
+  });
+
   await page.route(LOCAL_API, async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
