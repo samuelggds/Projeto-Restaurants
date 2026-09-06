@@ -205,9 +205,13 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
 export function mapRestaurantBrand(settings: Record<string, unknown>): RestaurantBrand {
   const restaurant = (settings.restaurant as Record<string, unknown>) ?? settings;
   const name = String(restaurant.name || settings.restaurantName || '');
+  const maxConcurrentOrders = Number(settings.maxConcurrentOrders ?? 20);
   return {
     restaurantName: name,
     monogram: createRestaurantMonogram(name),
     primaryColor: String(settings.primaryColor || '#d64d08'),
+    soundNotifications: settings.soundNotifications !== false,
+    maxConcurrentOrders:
+      Number.isInteger(maxConcurrentOrders) && maxConcurrentOrders > 0 ? maxConcurrentOrders : 20,
   };
 }
