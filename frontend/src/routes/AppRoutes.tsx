@@ -22,6 +22,7 @@ const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
 const AttendantPage = lazy(() => import('../pages/attendant/AttendantPage'));
 import api from '../Services/api';
+import restaurantSettingsService from '../Services/restaurantSettingsService';
 import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
 import {
@@ -39,6 +40,7 @@ import {
   buildAuthEntryUrl,
   buildSessionEntryUrl,
   getCurrentReturnPath,
+  getRememberedTenantSlug,
   getSafeNextPath,
   rememberTenantSlug,
   TENANT_REQUIRED_PATH,
@@ -83,6 +85,44 @@ function TenantRequiredPage() {
 function LegacyLoginRedirect() {
   const location = useLocation();
   return <Navigate to={consumeSignedOutEntryUrl(location)} replace />;
+}
+
+function StoreRootRedirect() {
+  const { user, isLoading } = useAuth();
+  const [resolvedSlug, setResolvedSlug] = useState(() => getRememberedTenantSlug());
+  const restaurantId = Number(user?.restaurantId || user?.restaurant?.id || 0);
+
+  useEffect(() => {
+    if (resolvedSlug || !restaurantId) return;
+    let active = true;
+
+    restaurantSettingsService
+      .getPublicSettings(restaurantId)
+      .then((settings) => {
+        if (!active) return;
+        const record = settings && typeof settings === 'object' ? (settings as Record<string, unknown>) : {};
+        const restaurant =
+          record.restaurant && typeof record.restaurant === 'object'
+            ? (record.restaurant as Record<string, unknown>)
+            : {};
+        const slug = String(record.restaurantSlug || record.slug || restaurant.slug || '')
+          .trim()
+          .toLowerCase();
+        if (/^[a-z0-9_-]+$/u.test(slug)) {
+          rememberTenantSlug(slug);
+          setResolvedSlug(slug);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [restaurantId, resolvedSlug]);
+
+  if (resolvedSlug) return <Navigate to={`/${resolvedSlug}`} replace />;
+  if (isLoading || restaurantId) return <RouteLoading />;
+  return <Navigate to={TENANT_REQUIRED_PATH} replace />;
 }
 
 function RestaurantMenuGate() {
@@ -257,7 +297,7 @@ export default function AppRoutes() {
                 </Route>
               </Route>
 
-              <Route path="/" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route path="/" element={<StoreRootRedirect />} />
               <Route path="/login" element={<LegacyLoginRedirect />} />
               <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
               <Route path="/recover-password" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
