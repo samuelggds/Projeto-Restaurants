@@ -5,7 +5,9 @@ import rateLimit from 'express-rate-limit';
 const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
 
 export function resolveGlobalRateLimitMax(isProduction: boolean, configuredMax: number) {
-  return isProduction ? configuredMax : Math.max(configuredMax, 5000);
+  const safeConfiguredMax = Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : 0;
+  const minimum = isProduction ? 3000 : 5000;
+  return Math.max(safeConfiguredMax, minimum);
 }
 
 export function applyCorsAndGlobalRateLimit(app: Express) {
@@ -14,7 +16,7 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
     .flatMap((value) => value.split(','))
     .map((origin) => normalizeOrigin(origin))
     .filter(Boolean);
-  const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 300);
+  const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 3000);
 
   app.use((req, res, next) => {
     const fetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();
@@ -54,8 +56,9 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
   );
 
   // CORS must run first so browsers can read a legitimate 429 response instead
-  // of reducing it to an opaque "Network Error". Development screens poll
-  // several real-time resources, so their safe local default is higher.
+  // of reducing it to an opaque "Network Error". Real-time screens can generate
+  // many legitimate requests, so the global limiter protects against bursts
+  // without competing with stricter route-specific security limiters.
   app.use(
     rateLimit({
       windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
