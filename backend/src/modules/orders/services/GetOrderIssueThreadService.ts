@@ -43,13 +43,14 @@ class GetOrderIssueThreadService {
 
       if (!order) throw new Error('Pedido não encontrado para este restaurante.');
       const thread = await getOrderIssueThread(order.id, normalizedRestaurantId);
-      return (
-        toOrderIssueThreadPayload(thread) || {
+      return {
+        ...(toOrderIssueThreadPayload(thread) || {
           orderId: order.id,
           isResolved: false,
           messages: [],
-        }
-      );
+        }),
+        restaurantId: normalizedRestaurantId,
+      };
     }
 
     if (!isGuest && (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0)) {
@@ -75,13 +76,14 @@ class GetOrderIssueThreadService {
     }
 
     const thread = await getOrderIssueThread(order.id, order.restaurantId);
-    return (
-      toOrderIssueThreadPayload(thread) || {
+    return {
+      ...(toOrderIssueThreadPayload(thread) || {
         orderId: order.id,
         isResolved: false,
         messages: [],
-      }
-    );
+      }),
+      restaurantId: order.restaurantId,
+    };
   }
 }
 
