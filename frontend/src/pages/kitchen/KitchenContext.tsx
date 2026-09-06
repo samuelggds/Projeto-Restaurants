@@ -22,6 +22,7 @@ export type KitchenContextValue = KitchenModuleProps &
     reprintingOrderIds: ReadonlySet<string>;
     orderUpdateError: { orderId: string; message: string } | null;
     reprintError: { orderId: string; message: string } | null;
+    reprintSuccessOrderId: string | null;
   };
 // eslint-disable-next-line react-refresh/only-export-components
 export const KitchenContext = createContext<KitchenContextValue | null>(null);
@@ -34,6 +35,7 @@ export function KitchenProvider({
   const orders = data.orders;
   const actionLocksRef = useRef(new Set<string>());
   const reprintLocksRef = useRef(new Set<string>());
+  const reprintSuccessTimerRef = useRef<number | null>(null);
   const [updatingOrderIds, setUpdatingOrderIds] = useState<ReadonlySet<string>>(new Set());
   const [reprintingOrderIds, setReprintingOrderIds] = useState<ReadonlySet<string>>(new Set());
   const [orderUpdateError, setOrderUpdateError] = useState<{
@@ -43,6 +45,7 @@ export function KitchenProvider({
   const [reprintError, setReprintError] = useState<{ orderId: string; message: string } | null>(
     null,
   );
+  const [reprintSuccessOrderId, setReprintSuccessOrderId] = useState<string | null>(null);
   const onUpdateOrderStatus = props.onUpdateOrderStatus;
   const onReprintOrder = props.onReprintOrder;
 
@@ -90,6 +93,7 @@ export function KitchenProvider({
     },
     [onUpdateOrderStatus, orders],
   );
+
   const reprintOrder = useCallback(
     async (id: string) => {
       if (reprintLocksRef.current.has(id)) return;
@@ -105,9 +109,15 @@ export function KitchenProvider({
       reprintLocksRef.current.add(id);
       setReprintingOrderIds(new Set(reprintLocksRef.current));
       setReprintError((current) => (current?.orderId === id ? null : current));
+      setReprintSuccessOrderId((current) => (current === id ? null : current));
       try {
         await onReprintOrder(id);
         setReprintError((current) => (current?.orderId === id ? null : current));
+        setReprintSuccessOrderId(id);
+        if (reprintSuccessTimerRef.current) window.clearTimeout(reprintSuccessTimerRef.current);
+        reprintSuccessTimerRef.current = window.setTimeout(() => {
+          setReprintSuccessOrderId((current) => (current === id ? null : current));
+        }, 3200);
       } catch (error: unknown) {
         const typed = error as {
           message?: string;
@@ -129,6 +139,7 @@ export function KitchenProvider({
     },
     [onReprintOrder, orders],
   );
+
   const value = useMemo(
     () => ({
       ...props,
@@ -143,6 +154,7 @@ export function KitchenProvider({
       reprintingOrderIds,
       orderUpdateError,
       reprintError,
+      reprintSuccessOrderId,
     }),
     [
       props,
@@ -154,6 +166,7 @@ export function KitchenProvider({
       reprintingOrderIds,
       orderUpdateError,
       reprintError,
+      reprintSuccessOrderId,
     ],
   );
   return <KitchenContext.Provider value={value}>{children}</KitchenContext.Provider>;
