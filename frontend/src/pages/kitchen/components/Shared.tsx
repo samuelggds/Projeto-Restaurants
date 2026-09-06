@@ -131,10 +131,14 @@ export function OrderItems({ order, compact = false }: { order: Order; compact?:
   );
 }
 export function Empty({ children }: { children: string }) {
+  const message =
+    children === 'Nenhum pedido encontrado neste turno.'
+      ? 'Nenhum pedido encontrado neste canal.'
+      : children;
   return (
     <S.Empty>
       <CheckCircle2 />
-      <b>{children}</b>
+      <b>{message}</b>
     </S.Empty>
   );
 }
