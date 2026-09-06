@@ -14,11 +14,14 @@ const employee = {
   email: 'ana@restaurant.test',
   role: 'KITCHEN' as const,
   shift: '18:00',
+  shiftStartedAt: '2026-08-24T18:00:00.000Z',
 };
 const restaurant = {
   restaurantName: 'Restaurante Teste',
   monogram: 'RT',
   primaryColor: '#d64d08',
+  maxConcurrentOrders: 20,
+  soundNotifications: true,
 };
 
 function order(overrides: Partial<Order>): Order {
@@ -59,6 +62,7 @@ const data: EmployeeWorkspaceData = {
       reference: 'Delivery',
       customer: 'Bia',
       status: 'PREPARANDO',
+      preparationStartedAt: '2026-08-24T18:03:00.000Z',
       items: ['1× Lasanha'],
       itemDetails: [{ name: 'Lasanha', quantity: 1, customizations: [] }],
     }),
@@ -145,6 +149,30 @@ describe('páginas operacionais da cozinha', () => {
     expect(container.querySelector('[data-order-id="#3"]')).toBeNull();
   });
 
+  it('ordena pedidos em preparo pelo início da etapa atual', () => {
+    const preparingOrders = [
+      order({
+        id: '#20',
+        status: 'PREPARANDO',
+        createdAtIso: '2026-08-24T17:40:00.000Z',
+        preparationStartedAt: '2026-08-24T18:12:00.000Z',
+      }),
+      order({
+        id: '#21',
+        status: 'PREPARANDO',
+        createdAtIso: '2026-08-24T17:50:00.000Z',
+        preparationStartedAt: '2026-08-24T18:05:00.000Z',
+      }),
+    ];
+    renderPage(<KitchenQueuePage />, { currentData: { ...data, orders: preparingOrders } });
+
+    expect(
+      [...container.querySelectorAll('[data-order-id]')].map((element) =>
+        element.getAttribute('data-order-id'),
+      ),
+    ).toEqual(['#21', '#20']);
+  });
+
   it('bloqueia clique duplo durante a transição e mostra a rejeição do backend', async () => {
     let rejectUpdate: (reason?: unknown) => void = () => undefined;
     const pendingUpdate = new Promise<void>((_resolve, reject) => {
@@ -218,6 +246,19 @@ describe('páginas operacionais da cozinha', () => {
     expect(card.textContent).toContain('Ative a impressão da cozinha');
   });
 
+  it('confirma visualmente quando a reimpressão é enviada', async () => {
+    const onReprintOrder = vi.fn().mockResolvedValue(undefined);
+    renderPage(<KitchenQueuePage />, { onReprintOrder });
+
+    const card = container.querySelector('[data-order-id="#1"]') as HTMLElement;
+    const reprint = [...card.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Reimprimir comanda'),
+    ) as HTMLButtonElement;
+
+    await act(async () => reprint.click());
+    expect(card.textContent).toContain('Comanda enviada para impressão.');
+  });
+
   it('expande a fila em blocos de 10 e permite voltar ao recorte inicial', () => {
     const pendingOrders = Array.from({ length: 12 }, (_, index) =>
       order({
@@ -245,10 +286,10 @@ describe('páginas operacionais da cozinha', () => {
     expect(container.querySelectorAll('[data-order-id]')).toHaveLength(10);
   });
 
-  it('calcula o histórico com timestamps reais e mantém itens básicos consultáveis', () => {
-    const now = new Date();
-    const startedAt = new Date(now.getTime() - 20 * 60_000).toISOString();
-    const readyAt = new Date(now.getTime() - 10 * 60_000).toISOString();
+  it('calcula o histórico do turno com timestamps reais e mantém itens consultáveis', () => {
+    const startedAt = '2026-08-24T18:10:00.000Z';
+    const readyAt = '2026-08-24T18:20:00.000Z';
+    const completedAt = '2026-08-24T18:30:00.000Z';
     const historyData: EmployeeWorkspaceData = {
       ...data,
       orders: [
@@ -257,7 +298,7 @@ describe('páginas operacionais da cozinha', () => {
           status: 'ENTREGUE',
           preparationStartedAt: startedAt,
           readyAt,
-          completedAtIso: now.toISOString(),
+          completedAtIso: completedAt,
           completedAt: '18:30',
           items: ['1× Pizza histórica'],
           itemDetails: [{ name: 'Pizza histórica', quantity: 1, customizations: [] }],
@@ -266,9 +307,9 @@ describe('páginas operacionais da cozinha', () => {
     };
     renderPage(<KitchenHistoryPage />, { currentData: historyData });
 
-    expect(container.textContent).toContain('Concluídos hoje1');
+    expect(container.textContent).toContain('Concluídos no turno1');
     expect(container.textContent).toContain('Tempo médio10 min');
-    expect(container.textContent).not.toContain('18 min');
+    expect(container.textContent).toContain('Desde 18:00');
     const details = container.querySelector('details') as HTMLDetailsElement;
     expect(details).not.toBeNull();
     act(() => {
@@ -276,6 +317,28 @@ describe('páginas operacionais da cozinha', () => {
       details.dispatchEvent(new Event('toggle', { bubbles: true }));
     });
     expect(details.textContent).toContain('Pizza histórica');
+  });
+
+  it('ignora pedidos concluídos antes do início do turno', () => {
+    const historyData: EmployeeWorkspaceData = {
+      ...data,
+      orders: [
+        order({
+          id: '#30',
+          status: 'ENTREGUE',
+          completedAtIso: '2026-08-24T17:59:00.000Z',
+        }),
+        order({
+          id: '#31',
+          status: 'ENTREGUE',
+          completedAtIso: '2026-08-24T18:01:00.000Z',
+        }),
+      ],
+    };
+    renderPage(<KitchenHistoryPage />, { currentData: historyData });
+
+    expect(container.textContent).not.toContain('#30');
+    expect(container.textContent).toContain('#31');
   });
 
   it('expande o histórico de 10 em 10 e volta para os primeiros pedidos', () => {
