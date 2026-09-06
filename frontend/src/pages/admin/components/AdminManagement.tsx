@@ -9,6 +9,7 @@ import type {
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
 import { AdminCatalog } from './AdminCatalog';
+import { AdminOrderSupportInbox } from './AdminOrderSupportInbox';
 
 const AdminCustomers = lazy(() =>
   import('./AdminCustomers').then((module) => ({ default: module.AdminCustomers })),
@@ -54,13 +55,16 @@ export function AdminManagement(props: Props) {
     );
   if (props.area === 'orders')
     return (
-      <AdminOrders
-        orders={props.orders}
-        restaurantName={props.restaurantName}
-        money={money}
-        onConfirmPayment={props.onConfirmOrderPayment}
-        onCancelOrder={props.onCancelOrder}
-      />
+      <>
+        <AdminOrderSupportInbox />
+        <AdminOrders
+          orders={props.orders}
+          restaurantName={props.restaurantName}
+          money={money}
+          onConfirmPayment={props.onConfirmOrderPayment}
+          onCancelOrder={props.onCancelOrder}
+        />
+      </>
     );
   if (props.area === 'catalog')
     return (
