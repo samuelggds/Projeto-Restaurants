@@ -283,7 +283,7 @@ function readRestaurantIdentity() {
 
 export function WhatsAppSettings({ settings, update }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const identity = useMemo(readRestaurantIdentity, []);
+  const identity = useMemo(() => readRestaurantIdentity(), []);
   const storageKey = `pecajaf:whatsapp-profile-image:${identity.id}`;
   const [profileImage, setProfileImage] = useState(() => {
     if (typeof window === 'undefined') return '';
