@@ -77,8 +77,22 @@ function rememberGuestOrderAccess(payload: unknown) {
   }
 }
 
+function readTrackingTokenFromCurrentUrl(orderId: number) {
+  if (typeof window === 'undefined' || !Number.isInteger(orderId) || orderId <= 0) return '';
+  const routeOrderId = Number(window.location.pathname.match(/^\/orders\/(\d+)\/tracking\/?$/u)?.[1] || 0);
+  if (routeOrderId !== orderId) return '';
+  const hash = String(window.location.hash || '').replace(/^#/u, '');
+  const token = String(new URLSearchParams(hash).get('guestToken') || '').trim();
+  if (!token) return '';
+  safeStorageSet(`${GUEST_TRACKING_TOKEN_PREFIX}${orderId}`, token);
+  safeStorageSet(LAST_GUEST_DELIVERY_ORDER_KEY, String(orderId));
+  return token;
+}
+
 export function getGuestOrderTrackingToken(orderId: string | number) {
-  return safeStorageGet(`${GUEST_TRACKING_TOKEN_PREFIX}${Number(orderId)}`) || '';
+  const normalizedOrderId = Number(orderId);
+  const stored = safeStorageGet(`${GUEST_TRACKING_TOKEN_PREFIX}${normalizedOrderId}`) || '';
+  return stored || readTrackingTokenFromCurrentUrl(normalizedOrderId);
 }
 
 export function getGuestOrderOwnershipToken(orderId: string | number) {
@@ -270,7 +284,12 @@ class OrdersService {
   }
 
   async confirmDeliveryReceived(orderId: string | number) {
-    const response = await api.patch(`/orders/${orderId}/confirm-delivery-received`);
+    const guestToken = getGuestOrderTrackingToken(orderId);
+    const response = await api.patch(
+      `/orders/${orderId}/confirm-delivery-received`,
+      undefined,
+      guestToken ? { headers: { 'x-guest-order-token': guestToken } } : undefined,
+    );
     return normalizeOrder(response.data);
   }
 
