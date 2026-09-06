@@ -44,11 +44,9 @@ class UpdateOrderStatusService {
     const normalizedRole = String(role || '').toUpperCase() as UserRole;
     const normalizedSubRole = String(actorSubRole || '').toUpperCase();
     const isWaiter =
-      normalizedRole === UserRole.FUNCIONARIO &&
-      normalizedSubRole === FuncionarioSubRole.GARCOM;
+      normalizedRole === UserRole.FUNCIONARIO && normalizedSubRole === FuncionarioSubRole.GARCOM;
     const isAttendant =
-      normalizedRole === UserRole.FUNCIONARIO &&
-      normalizedSubRole === FuncionarioSubRole.ATENDENTE;
+      normalizedRole === UserRole.FUNCIONARIO && normalizedSubRole === FuncionarioSubRole.ATENDENTE;
     const order = isWaiter
       ? await orderRepository.findDeliverableTableOrderById(orderId, restaurantId)
       : await orderRepository.findById(orderId, restaurantId);
@@ -62,50 +60,27 @@ class UpdateOrderStatusService {
     }
 
     const currentStatus = order.status;
-
     if (
       isWaiter &&
-      !(
-        order.type === OrderType.MESA &&
-        currentStatus === OrderStatus.PRONTO &&
-        status === OrderStatus.ENTREGUE
-      )
+      !(order.type === OrderType.MESA && currentStatus === OrderStatus.PRONTO && status === OrderStatus.ENTREGUE)
     ) {
       throw new Error('O garçom só pode marcar como entregue um pedido de mesa que esteja pronto.');
     }
-
     if (
       isAttendant &&
-      !(
-        order.type === OrderType.RETIRADA &&
-        currentStatus === OrderStatus.PRONTO &&
-        status === OrderStatus.ENTREGUE
-      )
+      !(order.type === OrderType.RETIRADA && currentStatus === OrderStatus.PRONTO && status === OrderStatus.ENTREGUE)
     ) {
       throw new Error('O atendente só pode concluir a retirada de um pedido que esteja pronto.');
     }
-
-    const canChange = OrderStateMachine.canTransition(currentStatus, status);
-
-    if (!canChange) {
+    if (!OrderStateMachine.canTransition(currentStatus, status)) {
       throw new Error(`Transição inválida: ${currentStatus} → ${status} `);
     }
-
-    const canUserChange = OrderPermissions.canUserChangeStatus(
-      normalizedRole,
-      status,
-      actorSubRole,
-    );
-
-    if (!canUserChange) {
+    if (!OrderPermissions.canUserChangeStatus(normalizedRole, status, actorSubRole)) {
       throw new Error('Usuário não tem permissão para isso!');
     }
 
     if (normalizedRole === UserRole.MOTOQUEIRO) {
-      await courierAccessService.assertActiveCourier(
-        Number(actorUserId || 0),
-        Number(restaurantId),
-      );
+      await courierAccessService.assertActiveCourier(Number(actorUserId || 0), Number(restaurantId));
       if (order.type !== OrderType.DELIVERY) {
         throw new Error('Motoqueiros só podem atualizar pedidos de entrega.');
       }
@@ -115,8 +90,7 @@ class UpdateOrderStatusService {
     }
 
     const digitalMethods: PaymentMethod[] = [PaymentMethod.PIX, PaymentMethod.CARTAO];
-    const isPayOnDelivery =
-      order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order?.observation);
+    const isPayOnDelivery = order.payOnDelivery === true || this.hasLegacyPayOnDeliveryMarker(order.observation);
     const isDigitalPayment = !!order.paymentMethod && digitalMethods.includes(order.paymentMethod);
     const isCashPaymentAtHandoff =
       order.type === OrderType.DELIVERY && order.paymentMethod === PaymentMethod.DINHEIRO;
@@ -129,9 +103,8 @@ class UpdateOrderStatusService {
       if (order.paid !== true && !isCashPaymentAtHandoff) {
         throw new Error('O pagamento precisa estar confirmado antes de concluir a entrega.');
       }
-
       const providedCode = String(deliveryConfirmationCode || '').replace(/\D/g, '');
-      if (!/^\d{4}$/.test(providedCode)) {
+      if (!/^\d{4}$/u.test(providedCode)) {
         throw new Error('Informe o código de 4 dígitos exibido para o cliente.');
       }
       if (!order.publicId || !order.deliveryStartedAt) {
@@ -148,16 +121,11 @@ class UpdateOrderStatusService {
       }
     }
 
-    if (
-      status === OrderStatus.ENTREGUE &&
-      order.type === OrderType.RETIRADA &&
-      order.paid !== true
-    ) {
+    if (status === OrderStatus.ENTREGUE && order.type === OrderType.RETIRADA && order.paid !== true) {
       throw new Error('Confirme o pagamento antes de concluir a retirada do pedido.');
     }
 
     const isUnpaidDigitalOrderBlocked = isDigitalPayment && !isPayOnDelivery && order.paid !== true;
-
     if (
       status === OrderStatus.CANCELADO &&
       isDigitalPayment &&
@@ -168,7 +136,6 @@ class UpdateOrderStatusService {
         'Pedido pago online deve ser cancelado pelo fluxo de estorno para devolver o valor ao cliente.',
       );
     }
-
     if (
       isUnpaidDigitalOrderBlocked &&
       status !== OrderStatus.PENDENTE &&
@@ -191,10 +158,8 @@ class UpdateOrderStatusService {
           { status: currentStatus, paid: order.paid },
           tx,
         );
-
         await restoreOrderItemsStock(tx, order);
         await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
-
         return cancelledOrder;
       });
     } else if (status === OrderStatus.ENTREGUE) {
@@ -206,38 +171,25 @@ class UpdateOrderStatusService {
           { status: currentStatus, paid: order.paid },
           tx,
         );
-
-        if (!deliveredOrder) {
-          throw new Error('Pedido não encontrado para atualizar.');
-        }
-
+        if (!deliveredOrder) throw new Error('Pedido não encontrado para atualizar.');
         deliveredOrder = await tx.order.update({
           where: { id: deliveredOrder.id },
           data: { deliveredAt: new Date() },
           include: {
             user: { select: { id: true, name: true, email: true, phone: true } },
-            restaurant: {
-              select: { id: true, name: true, whatsapp: true },
-            },
-            table: {
-              select: { id: true, number: true, active: true, restaurantId: true },
-            },
-            participant: {
-              select: { id: true, publicId: true, displayName: true },
-            },
+            restaurant: { select: { id: true, name: true, whatsapp: true } },
+            table: { select: { id: true, number: true, active: true, restaurantId: true } },
+            participant: { select: { id: true, publicId: true, displayName: true } },
             items: { include: { product: true } },
           },
         });
-
         if (isCashPaymentAtHandoff && deliveredOrder.paid !== true) {
           cashPaymentConfirmedOnDelivery = true;
           deliveredOrder = await orderRepository.confirmPayment(orderId, restaurantId, tx);
         }
-
         if (deliveredOrder?.paid === true) {
           await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
         }
-
         return deliveredOrder;
       });
     } else {
@@ -253,7 +205,6 @@ class UpdateOrderStatusService {
         paid: true,
         paymentMethod: updatedOrder.paymentMethod,
       });
-
       if (updatedOrder.userId) {
         io.to(`user:${updatedOrder.userId}`).emit('order:payment-confirmed', {
           orderId: updatedOrder.id,
@@ -264,13 +215,15 @@ class UpdateOrderStatusService {
       emitTableSessionOrderEvent(io, 'order:payment-confirmed', updatedOrder);
     }
 
-    notifyCustomerOrderStatusChanged({
+    void notifyCustomerOrderStatusChanged({
       restaurantId,
-      customerPhone: order?.user?.phone,
-      customerName: order?.user?.name,
-      restaurantName: order?.restaurant?.name,
-      restaurantWhatsapp: order?.restaurant?.whatsapp,
+      customerPhone: updatedOrder?.user?.phone || order.user?.phone,
+      customerName: updatedOrder?.user?.name || order.user?.name,
+      restaurantName: updatedOrder?.restaurant?.name || order.restaurant?.name,
+      restaurantWhatsapp: updatedOrder?.restaurant?.whatsapp || order.restaurant?.whatsapp,
       orderId: updatedOrder?.id,
+      publicId: updatedOrder?.publicId,
+      orderType: updatedOrder?.type,
       status: updatedOrder?.status,
     }).catch((error: unknown) => {
       console.error(
