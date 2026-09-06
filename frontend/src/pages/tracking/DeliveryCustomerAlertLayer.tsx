@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
+import { GuestOrderClaimLayer } from '../../features/guest-orders/GuestOrderClaimLayer';
 import { useActiveOrderNotice } from '../Home/hooks/useActiveOrderNotice';
 import DeliveryConfirmationCodePrompt from './DeliveryConfirmationCodePrompt';
 import { TrackingOrderSupportLauncher } from './TrackingOrderSupportLauncher';
@@ -14,21 +15,19 @@ export default function DeliveryCustomerAlertLayer() {
   const { activeOrder } = useActiveOrderNotice(customerId);
   const trackingMatch = location.pathname.match(/^\/orders\/(\d+)\/tracking$/u);
 
-  if (trackingMatch) {
-    return <TrackingOrderSupportLauncher orderId={Number(trackingMatch[1])} />;
-  }
-  if (
-    activeOrder?.status !== 'SAIU_PARA_ENTREGA' ||
-    !/^\d{4}$/.test(activeOrder.deliveryConfirmationCode || '')
-  ) {
-    return null;
-  }
-
   return (
-    <DeliveryConfirmationCodePrompt
-      code={activeOrder.deliveryConfirmationCode as string}
-      orderId={Number(activeOrder.id)}
-      deliveryStartedAt={activeOrder.deliveryStartedAt}
-    />
+    <>
+      <GuestOrderClaimLayer />
+      {trackingMatch ? (
+        <TrackingOrderSupportLauncher orderId={Number(trackingMatch[1])} />
+      ) : activeOrder?.status === 'SAIU_PARA_ENTREGA' &&
+        /^\d{4}$/.test(activeOrder.deliveryConfirmationCode || '') ? (
+        <DeliveryConfirmationCodePrompt
+          code={activeOrder.deliveryConfirmationCode as string}
+          orderId={Number(activeOrder.id)}
+          deliveryStartedAt={activeOrder.deliveryStartedAt}
+        />
+      ) : null}
+    </>
   );
 }
