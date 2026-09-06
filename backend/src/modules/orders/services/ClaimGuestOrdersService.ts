@@ -98,10 +98,7 @@ class ClaimGuestOrdersService {
       let inheritedCpf = account.cpf;
 
       for (const order of sameTenantOrders) {
-        if (order.userId === userId) {
-          claimedIds.push(order.id);
-          continue;
-        }
+        if (order.userId === userId) continue;
 
         const isSyntheticGuest = String(order.user?.email || '').startsWith(
           `guest.${targetRestaurantId}.`,
