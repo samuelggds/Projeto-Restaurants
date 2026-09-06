@@ -13,6 +13,7 @@ import {
 import { mapRestaurantBrand } from '../operations/orderAdapter';
 import attendantApi from './attendantApi';
 import { AttendantOperationCenter } from './AttendantOperationCenter';
+import { AttendantResponsiveScale } from './AttendantResponsiveScale';
 import type {
   AttendantRestaurantBrand,
   AttendantWorkspaceSnapshot,
@@ -187,15 +188,20 @@ export default function AttendantPage() {
   }
 
   return (
-    <AttendantOperationCenter
-      attendantId={attendantId}
-      attendantName={attendantName}
-      restaurantId={restaurantId}
-      restaurant={restaurant}
-      snapshot={snapshot}
-      workspaceState={workspaceState}
-      onRefresh={() => loadWorkspace(true)}
-      onLogout={handleLogout}
-    />
+    <>
+      <AttendantResponsiveScale />
+      <div className="attendant-responsive-scope">
+        <AttendantOperationCenter
+          attendantId={attendantId}
+          attendantName={attendantName}
+          restaurantId={restaurantId}
+          restaurant={restaurant}
+          snapshot={snapshot}
+          workspaceState={workspaceState}
+          onRefresh={() => loadWorkspace(true)}
+          onLogout={handleLogout}
+        />
+      </div>
+    </>
   );
 }
