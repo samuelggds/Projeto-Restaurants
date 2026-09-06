@@ -21,7 +21,7 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
   process.env.NODE_ENV = 'production';
   process.env.CORS_ORIGINS = allowedOrigin;
   process.env.FRONTEND_URL = allowedOrigin;
-  process.env.RATE_LIMIT_MAX_REQUESTS = '1';
+  process.env.RATE_LIMIT_MAX_REQUESTS = '3000';
   process.env.RATE_LIMIT_WINDOW_MS = '60000';
 
   const app = express();
@@ -38,11 +38,17 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
         headers: { Origin: allowedOrigin },
       });
 
-    const firstResponse = await request();
-    const limitedResponse = await request();
-    const body = await limitedResponse.json();
+    let limitedResponse: Response | null = null;
+    for (let attempt = 0; attempt <= 3000; attempt += 1) {
+      const response = await request();
+      if (response.status === 429) {
+        limitedResponse = response;
+        break;
+      }
+    }
 
-    assert.equal(firstResponse.status, 200);
+    assert.ok(limitedResponse);
+    const body = await limitedResponse.json();
     assert.equal(limitedResponse.status, 429);
     assert.equal(limitedResponse.headers.get('access-control-allow-origin'), allowedOrigin);
     assert.equal(body.error, 'Muitas requisicoes. Tente novamente em instantes.');
@@ -51,17 +57,19 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
   }
 });
 
-test('usa uma margem segura para as telas em tempo real no desenvolvimento', () => {
+test('usa margens seguras para telas em tempo real sem reduzir configuração maior', () => {
   assert.equal(resolveGlobalRateLimitMax(false, 300), 5000);
   assert.equal(resolveGlobalRateLimitMax(false, 8000), 8000);
-  assert.equal(resolveGlobalRateLimitMax(true, 300), 300);
+  assert.equal(resolveGlobalRateLimitMax(true, 300), 3000);
+  assert.equal(resolveGlobalRateLimitMax(true, 8000), 8000);
+  assert.equal(resolveGlobalRateLimitMax(true, Number.NaN), 3000);
 });
 
 test('bloqueia POST cross-site de origem não autorizada e permite a origem configurada', async () => {
   process.env.NODE_ENV = 'production';
   process.env.CORS_ORIGINS = allowedOrigin;
   process.env.FRONTEND_URL = allowedOrigin;
-  process.env.RATE_LIMIT_MAX_REQUESTS = '100';
+  process.env.RATE_LIMIT_MAX_REQUESTS = '3000';
 
   const app = express();
   app.set('trust proxy', 1);
