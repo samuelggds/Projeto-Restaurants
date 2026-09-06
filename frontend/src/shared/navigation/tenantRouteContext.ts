@@ -50,7 +50,7 @@ export function persistTenantSlug(value: unknown) {
 export function restoreTenantRouteContext(pathname?: string) {
   if (typeof window === 'undefined') return '';
 
-  const currentPathname = String(pathname ?? window.location.pathname || '/');
+  const currentPathname = String((pathname ?? window.location.pathname) || '/');
   const explicitSlug = normalizeTenantSlug(currentPathname.split('/').filter(Boolean)[0]);
 
   let persistedSlug = '';
