@@ -1,4 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useLocation,
+  useParams,
+} from 'react-router-dom';
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 const Login = lazy(() => import('../pages/Login/Login'));
@@ -12,7 +20,9 @@ const UserProfile = lazy(() => import('../pages/Profile/Profile'));
 const CourierDashboard = lazy(() => import('../pages/Courier/CourierWorkspace'));
 const DeliveryTrackingPage = lazy(() => import('../pages/tracking/DeliveryTrackingPage'));
 const DeliveryChatPage = lazy(() => import('../pages/tracking/DeliveryChatPage'));
-const DeliveryCustomerAlertLayer = lazy(() => import('../pages/tracking/DeliveryCustomerAlertLayer'));
+const DeliveryCustomerAlertLayer = lazy(
+  () => import('../pages/tracking/DeliveryCustomerAlertLayer'),
+);
 const SuperAdminPage = lazy(() => import('../pages/super_admin/SuperAdminPage'));
 const BillingPage = lazy(() => import('../pages/Billing/BillingPage'));
 const SystemBlockedPage = lazy(() => import('../pages/SystemBlocked/SystemBlocked'));
@@ -100,7 +110,8 @@ function StoreRootRedirect() {
       .getPublicSettings(restaurantId)
       .then((settings) => {
         if (!active) return;
-        const record = settings && typeof settings === 'object' ? (settings as Record<string, unknown>) : {};
+        const record =
+          settings && typeof settings === 'object' ? (settings as Record<string, unknown>) : {};
         const restaurant =
           record.restaurant && typeof record.restaurant === 'object'
             ? (record.restaurant as Record<string, unknown>)
@@ -122,6 +133,15 @@ function StoreRootRedirect() {
 
   if (resolvedSlug) return <Navigate to={`/${resolvedSlug}`} replace />;
   if (isLoading || restaurantId) return <RouteLoading />;
+
+  // Somente em dev: evita a tela "restaurant-required" ao abrir a raiz sem tenant lembrado.
+  const devDefaultSlug = import.meta.env.DEV
+    ? String(import.meta.env.VITE_DEFAULT_TENANT_SLUG || '')
+        .trim()
+        .toLowerCase()
+    : '';
+  if (/^[a-z0-9_-]+$/u.test(devDefaultSlug)) return <Navigate to={`/${devDefaultSlug}`} replace />;
+
   return <Navigate to={TENANT_REQUIRED_PATH} replace />;
 }
 
@@ -300,8 +320,14 @@ export default function AppRoutes() {
               <Route path="/" element={<StoreRootRedirect />} />
               <Route path="/login" element={<LegacyLoginRedirect />} />
               <Route path="/register" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-              <Route path="/recover-password" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
-              <Route path="/mesa/:tableNumber" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
+              <Route
+                path="/recover-password"
+                element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
+              />
+              <Route
+                path="/mesa/:tableNumber"
+                element={<Navigate to={TENANT_REQUIRED_PATH} replace />}
+              />
               <Route path="*" element={<Navigate to={TENANT_REQUIRED_PATH} replace />} />
             </Route>
           </Routes>
