@@ -17,6 +17,7 @@ type AuthPayload = {
   subRole?: string | null;
   restaurantId: number | null;
   authVersion?: number;
+  rememberMe?: boolean;
 };
 
 type RefreshPayload = AuthPayload & {
@@ -50,6 +51,7 @@ function normalizePayload(payload: AuthPayload) {
         ? null
         : Number(payload.restaurantId),
     authVersion: Number.isInteger(Number(payload.authVersion)) ? Number(payload.authVersion) : 0,
+    rememberMe: payload.rememberMe !== false,
   };
 }
 
@@ -103,7 +105,8 @@ export class AuthTokenService {
 
   createAccessToken(payload: AuthPayload) {
     const normalized = normalizePayload(payload);
-    return jwt.sign({ ...normalized, type: 'access' }, getJwtSecret(), {
+    const { rememberMe: _rememberMe, ...accessPayload } = normalized;
+    return jwt.sign({ ...accessPayload, type: 'access' }, getJwtSecret(), {
       expiresIn: getJwtExpiresIn(),
     });
   }
@@ -169,8 +172,6 @@ export class AuthTokenService {
         return false;
       }
 
-      // O JTI exato funciona como fencing token: se um novo login substituir a
-      // família entre a leitura e a exclusão, essa transação não o revoga.
       const revokedSession = await transaction.authRefreshSession.deleteMany({
         where: {
           userId,
@@ -178,22 +179,17 @@ export class AuthTokenService {
         },
       });
 
-      if (revokedSession.count !== 1) {
-        return false;
-      }
+      if (revokedSession.count !== 1) return false;
 
       const revokedAccountTokens = await transaction.user.updateMany({
         where: {
           id: userId,
           authVersion: expectedAuthVersion,
         },
-        data: {
-          authVersion: { increment: 1 },
-        },
+        data: { authVersion: { increment: 1 } },
       });
 
       if (revokedAccountTokens.count !== 1) {
-        // Lançar faz o Prisma desfazer também a exclusão da sessão.
         throw new Error('Falha ao revogar familia de refresh token');
       }
 
@@ -206,18 +202,9 @@ export class AuthTokenService {
     const signed = this.signRefreshToken(normalized);
 
     await prisma.authRefreshSession.upsert({
-      where: {
-        userId: normalized.id,
-      },
-      update: {
-        jti: signed.persistedJti,
-        expiresAt: signed.expiresAt,
-      },
-      create: {
-        userId: normalized.id,
-        jti: signed.persistedJti,
-        expiresAt: signed.expiresAt,
-      },
+      where: { userId: normalized.id },
+      update: { jti: signed.persistedJti, expiresAt: signed.expiresAt },
+      create: { userId: normalized.id, jti: signed.persistedJti, expiresAt: signed.expiresAt },
     });
 
     return signed.token;
@@ -225,26 +212,20 @@ export class AuthTokenService {
 
   async rotateRefreshToken(refreshToken: string) {
     const decoded = jwt.verify(refreshToken, getSafeRefreshSecret());
-    if (!decoded || typeof decoded === 'string') {
-      throw new Error('Refresh token invalido');
-    }
+    if (!decoded || typeof decoded === 'string') throw new Error('Refresh token invalido');
 
     const { userId, familyId, persistedJti } = getRefreshTokenIdentifiers(decoded);
     const tokenType = String(decoded.type || '').trim();
     const tokenAuthVersion = Number(decoded.authVersion);
+    const rememberMe = decoded.rememberMe !== false;
 
     if (!Number.isInteger(tokenAuthVersion) || tokenAuthVersion < 0) {
       throw new Error('Refresh token invalido');
     }
-
-    if (tokenType !== 'refresh') {
-      throw new Error('Refresh token invalido');
-    }
+    if (tokenType !== 'refresh') throw new Error('Refresh token invalido');
 
     const session = await prisma.authRefreshSession.findUnique({
-      where: {
-        userId,
-      },
+      where: { userId },
       select: {
         jti: true,
         expiresAt: true,
@@ -262,9 +243,7 @@ export class AuthTokenService {
     });
 
     const latestJti = String(session?.jti || '');
-    if (!latestJti) {
-      throw new Error('Refresh token expirado');
-    }
+    if (!latestJti) throw new Error('Refresh token expirado');
 
     if (latestJti !== persistedJti) {
       if (belongsToFamily(latestJti, familyId)) {
@@ -274,21 +253,16 @@ export class AuthTokenService {
           expectedAuthVersion: tokenAuthVersion,
         });
       }
-
       throw new Error('Refresh token expirado');
     }
 
     const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
-    if (!expiresAt || expiresAt.getTime() <= Date.now()) {
-      throw new Error('Refresh token expirado');
-    }
+    if (!expiresAt || expiresAt.getTime() <= Date.now()) throw new Error('Refresh token expirado');
 
     if (!session.user.active || Number(session.user.authVersion) !== tokenAuthVersion) {
       throw new Error('Refresh token expirado');
     }
 
-    // A rota de refresh permanece alcançável para descobrir a identidade, mas
-    // só o SUPER_ADMIN pode renovar a sessão durante manutenção global.
     await this.platformAccess.assertRoleAllowed(session.user.role);
 
     const payload = {
@@ -297,19 +271,13 @@ export class AuthTokenService {
       subRole: session.user.subRole,
       restaurantId: session.user.restaurantId,
       authVersion: session.user.authVersion,
+      rememberMe,
     };
 
     const nextRefresh = this.signRefreshToken(payload, familyId);
     const claimedSession = await prisma.authRefreshSession.updateMany({
-      where: {
-        userId,
-        jti: persistedJti,
-        expiresAt: { gt: new Date() },
-      },
-      data: {
-        jti: nextRefresh.persistedJti,
-        expiresAt: nextRefresh.expiresAt,
-      },
+      where: { userId, jti: persistedJti, expiresAt: { gt: new Date() } },
+      data: { jti: nextRefresh.persistedJti, expiresAt: nextRefresh.expiresAt },
     });
 
     if (claimedSession.count !== 1) {
@@ -332,18 +300,10 @@ export class AuthTokenService {
 
   async revokeRefreshToken(refreshToken: string) {
     const decoded = jwt.verify(refreshToken, getSafeRefreshSecret());
-    if (!decoded || typeof decoded === 'string') {
-      throw new Error('Refresh token invalido');
-    }
+    if (!decoded || typeof decoded === 'string') throw new Error('Refresh token invalido');
 
     const { userId, persistedJti } = getRefreshTokenIdentifiers(decoded);
-
-    await prisma.authRefreshSession.deleteMany({
-      where: {
-        userId,
-        jti: persistedJti,
-      },
-    });
+    await prisma.authRefreshSession.deleteMany({ where: { userId, jti: persistedJti } });
   }
 }
 
