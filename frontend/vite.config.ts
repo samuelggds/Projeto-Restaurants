@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      'react-toastify': '/src/components/AppNotice/reactToastifyCompat.ts',
+    },
+  },
   build: {
     rollupOptions: {
       output: {
@@ -17,11 +22,7 @@ export default defineConfig({
             return 'router-vendor';
           }
 
-          if (
-            id.includes('react-toastify') ||
-            id.includes('react-qr-code') ||
-            id.includes('lucide-react')
-          ) {
+          if (id.includes('react-qr-code') || id.includes('lucide-react')) {
             return 'react-ui-vendor';
           }
 

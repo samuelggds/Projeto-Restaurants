@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Headphones,
-  LoaderCircle,
-  LockKeyhole,
-  MessageCircle,
-  PackageSearch,
-  X,
-} from 'lucide-react';
+import { Headphones, LoaderCircle, MessageCircle, PackageSearch, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import ordersService, { getGuestOwnedOrderProofs } from '../../Services/ordersService';
@@ -77,7 +70,7 @@ export function PublicGuestOrderHelp({
         <Headphones />
         <span>
           <b>Ajuda com um pedido</b>
-          <small>Acompanhe ou fale com o suporte</small>
+          <small>Acompanhe ou fale com a equipe</small>
         </span>
       </Launcher>
 
@@ -105,16 +98,16 @@ export function PublicGuestOrderHelp({
             {loading ? (
               <LoadingState role="status">
                 <LoaderCircle />
-                <strong>Verificando seus pedidos...</strong>
-                <p>Estamos validando com segurança quais pedidos pertencem a este restaurante.</p>
+                <strong>Procurando seus pedidos...</strong>
+                <p>Estamos buscando os pedidos disponíveis neste dispositivo.</p>
               </LoadingState>
             ) : orders.length ? (
               <Content>
                 <Intro>
                   <PackageSearch />
                   <div>
-                    <strong>Pedidos deste restaurante reconhecidos neste navegador</strong>
-                    <p>Escolha um pedido para abrir o acompanhamento seguro e falar com a equipe.</p>
+                    <strong>Pedidos encontrados neste dispositivo</strong>
+                    <p>Escolha um pedido para acompanhar ou falar com a equipe.</p>
                   </div>
                 </Intro>
                 <OrderList>
@@ -122,35 +115,22 @@ export function PublicGuestOrderHelp({
                     <OrderButton key={orderId} type="button" onClick={() => goToOrder(orderId)}>
                       <span>
                         <b>Pedido #{orderId}</b>
-                        <small>Identidade do pedido validada com segurança</small>
+                        <small>Acompanhar pedido ou falar com a equipe</small>
                       </span>
                       <MessageCircle />
                     </OrderButton>
                   ))}
                 </OrderList>
-                <SecurityNote>
-                  <LockKeyhole />
-                  <span>
-                    <b>Proteção multi-restaurante</b>
-                    <small>
-                      Só mostramos pedidos cuja prova segura foi validada para este restaurante.
-                    </small>
-                  </span>
-                </SecurityNote>
               </Content>
             ) : (
               <EmptyState>
-                <LockKeyhole />
-                <strong>Nenhum pedido deste restaurante foi encontrado neste navegador</strong>
+                <PackageSearch />
+                <strong>Nenhum pedido foi encontrado neste dispositivo</strong>
                 <p>
-                  Depois que você fizer um pedido como visitante, o navegador guardará um
-                  comprovante seguro. Esse comprovante é validado antes de qualquer pedido aparecer
-                  aqui.
+                  Os pedidos feitos como visitante neste navegador aparecem aqui quando estão
+                  disponíveis para acompanhamento.
                 </p>
-                <small>
-                  Pedidos de outros restaurantes nunca são misturados. Também não liberamos
-                  informações apenas pelo número do pedido, telefone ou CPF.
-                </small>
+                <small>Se você fez o pedido em outro aparelho ou navegador, abra por lá.</small>
               </EmptyState>
             )}
           </Dialog>
@@ -379,32 +359,6 @@ const OrderButton = styled.button`
   }
   &:hover {
     border-color: #e0aa98;
-  }
-`;
-const SecurityNote = styled.div`
-  padding: 11px 12px;
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  border: 1px solid #cee5d7;
-  border-radius: 12px;
-  background: #f1faf4;
-  color: #2f7047;
-  svg {
-    width: 17px;
-    flex: 0 0 auto;
-  }
-  b,
-  small {
-    display: block;
-  }
-  b {
-    font-size: 10px;
-  }
-  small {
-    margin-top: 2px;
-    font-size: 8px;
-    line-height: 1.4;
   }
 `;
 const LoadingState = styled.div`
