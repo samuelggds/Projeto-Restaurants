@@ -14,50 +14,57 @@ describe('authSession', () => {
   beforeEach(() => {
     clearAuthSession();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
-  it('mantém o token somente em memória e persiste apenas o usuário', () => {
+  it('mantém o token somente em memória e o usuário apenas na sessão do navegador', () => {
     persistAuthSession({ id: 7, role: 'ADMIN' }, 'access-token');
     expect(getAccessToken()).toBe('access-token');
     expect(getAuthSessionUserId()).toBe(7);
     expect(localStorage.getItem('token')).toBeNull();
-    expect(JSON.parse(localStorage.getItem('user') || 'null')).toEqual({ id: 7, role: 'ADMIN' });
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(JSON.parse(sessionStorage.getItem('user') || 'null')).toEqual({ id: 7, role: 'ADMIN' });
   });
 
-  it('invalida apenas a credencial em memória quando outra aba muda a conta', () => {
+  it('invalida a credencial em memória sem criar identidade persistente em localStorage', () => {
     persistAuthSession({ id: 7, role: 'ADMIN' }, 'access-token');
 
     invalidateAuthSessionMemory();
 
     expect(getAccessToken()).toBeNull();
     expect(getAuthSessionUserId()).toBeNull();
-    expect(JSON.parse(localStorage.getItem('user') || 'null')).toEqual({
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(JSON.parse(sessionStorage.getItem('user') || 'null')).toEqual({
       id: 7,
       role: 'ADMIN',
     });
   });
 
-  it('remove toda a sessão sem apagar o e-mail lembrado', () => {
+  it('remove toda a sessão e também dados legados do antigo lembrar de mim', () => {
     localStorage.setItem('token', 'access-token');
     localStorage.setItem('user', '{}');
     localStorage.setItem('refreshToken', 'refresh-token');
     localStorage.setItem('rememberedEmail', 'cliente@email.com');
+    sessionStorage.setItem('user', JSON.stringify({ id: 7, role: 'ADMIN' }));
 
     clearAuthSession();
 
     expect(localStorage.getItem('token')).toBeNull();
     expect(localStorage.getItem('user')).toBeNull();
     expect(localStorage.getItem('refreshToken')).toBeNull();
-    expect(localStorage.getItem('rememberedEmail')).toBe('cliente@email.com');
+    expect(localStorage.getItem('rememberedEmail')).toBeNull();
+    expect(sessionStorage.getItem('user')).toBeNull();
   });
 
   it('apaga tokens legados do Web Storage mesmo quando consulta a memória', () => {
     localStorage.setItem('token', 'legacy-access-token');
     localStorage.setItem('refreshToken', 'legacy-refresh-token');
+    localStorage.setItem('rememberedEmail', 'legacy@email.com');
 
     expect(getAccessToken()).toBeNull();
     expect(localStorage.getItem('token')).toBeNull();
     expect(localStorage.getItem('refreshToken')).toBeNull();
+    expect(localStorage.getItem('rememberedEmail')).toBeNull();
   });
 
   it('não deixa um refresh antigo ressuscitar a sessão depois do logout', () => {
