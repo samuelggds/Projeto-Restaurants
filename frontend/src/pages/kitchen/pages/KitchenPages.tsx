@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChefHat,
   Clock3,
+  Gauge,
   History,
   LayoutGrid,
   Printer,
@@ -123,11 +124,21 @@ function timestamp(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function oldestCreatedFirst(a: Order, b: Order) {
-  return (
-    timestamp(a.createdAtIso, Number.MAX_SAFE_INTEGER) -
-    timestamp(b.createdAtIso, Number.MAX_SAFE_INTEGER)
-  );
+function stageTimestamp(order: Order) {
+  if (order.status === 'PREPARANDO') {
+    return timestamp(order.preparationStartedAt ?? order.createdAtIso, Number.MAX_SAFE_INTEGER);
+  }
+  if (order.status === 'PRONTO') {
+    return timestamp(
+      order.readyAt ?? order.preparationStartedAt ?? order.createdAtIso,
+      Number.MAX_SAFE_INTEGER,
+    );
+  }
+  return timestamp(order.createdAtIso, Number.MAX_SAFE_INTEGER);
+}
+
+function oldestStageFirst(a: Order, b: Order) {
+  return stageTimestamp(a) - stageTimestamp(b);
 }
 
 function oldestReadyFirst(a: Order, b: Order) {
@@ -144,27 +155,33 @@ function newestCompletedFirst(a: Order, b: Order) {
   );
 }
 
-function isToday(value: string | undefined, now: number) {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  const current = new Date(now);
-  return (
-    date.getFullYear() === current.getFullYear() &&
-    date.getMonth() === current.getMonth() &&
-    date.getDate() === current.getDate()
-  );
+function isInCurrentShift(order: Order, shiftStartedAt?: string) {
+  if (!shiftStartedAt) return true;
+  const startedAt = timestamp(shiftStartedAt, 0);
+  const completedAt = timestamp(order.completedAtIso ?? order.createdAtIso, 0);
+  return completedAt >= startedAt;
+}
+
+function capacityState(activeCount: number, maxConcurrentOrders: number) {
+  const safeMax = Math.max(1, maxConcurrentOrders);
+  const percent = Math.min(100, Math.round((activeCount / safeMax) * 100));
+  if (percent >= 90) return { percent, tone: 'critical' as const, label: 'Próxima do limite' };
+  if (percent >= 70) return { percent, tone: 'high' as const, label: 'Movimento alto' };
+  return { percent, tone: 'normal' as const, label: 'Operação normal' };
 }
 
 export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: string) => void }) {
-  const { orders } = useWorkspace();
+  const { orders, restaurant } = useWorkspace();
   const now = useKitchenClock();
   const active = orders.filter((order) => isActiveOrderStatus(order.status));
   const urgent = active
     .filter((o) => o.status !== 'PRONTO')
-    .sort(oldestCreatedFirst)
+    .sort(oldestStageFirst)
     .slice(0, 4);
   const nextOrder = urgent[0];
+  const maxConcurrentOrders = restaurant.maxConcurrentOrders ?? 20;
+  const capacity = capacityState(active.length, maxConcurrentOrders);
+
   return (
     <>
       <D.ShiftBanner>
@@ -195,6 +212,7 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
           )}
         </div>
       </D.ShiftBanner>
+
       <MetricCards
         items={[
           { label: 'Pedidos ativos', value: active.length },
@@ -215,12 +233,31 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
           },
         ]}
       />
+
+      <D.CapacityCard $tone={capacity.tone}>
+        <span className="capacity-icon" aria-hidden="true">
+          <Gauge />
+        </span>
+        <div className="capacity-copy">
+          <span>
+            <small>Capacidade da cozinha</small>
+            <b>{capacity.label}</b>
+          </span>
+          <div className="capacity-track" aria-label={`${capacity.percent}% da capacidade`}>
+            <i style={{ width: `${capacity.percent}%` }} />
+          </div>
+          <small>
+            {active.length} de {maxConcurrentOrders} pedidos simultâneos • {capacity.percent}% utilizado
+          </small>
+        </div>
+      </D.CapacityCard>
+
       <S.Grid>
         <S.Card>
           <header>
             <div>
               <h2>Prioridade da cozinha</h2>
-              <p>Pedidos com maior tempo de espera.</p>
+              <p>Pedidos ordenados pelo tempo na etapa atual.</p>
             </div>
             <ChefHat />
           </header>
@@ -242,8 +279,9 @@ export function KitchenOverviewPage({ onOpenOrder }: { onOpenOrder?: (orderId: s
                 <div className="identity">
                   <b>{order.id}</b>
                   <span>
-                    {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
-                    aguardando há {orderElapsed(order, now)}
+                    {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •{' '}
+                    {order.status === 'PREPARANDO' ? 'em preparo' : 'aguardando'} há{' '}
+                    {orderElapsed(order, now)}
                   </span>
                   {hasOrderPreparationDetails(order) && (
                     <em className="preparation-alert">Montagem especial</em>
@@ -351,6 +389,7 @@ function KitchenCard({
     reprintingOrderIds,
     orderUpdateError,
     reprintError,
+    reprintSuccessOrderId,
     onRefresh,
   } = useWorkspace();
   const next =
@@ -359,6 +398,7 @@ function KitchenCard({
   const actionError = orderUpdateError?.orderId === order.id ? orderUpdateError.message : null;
   const currentReprintError = reprintError?.orderId === order.id ? reprintError.message : null;
   const reprinting = reprintingOrderIds.has(order.id);
+  const reprintSucceeded = reprintSuccessOrderId === order.id;
   const hasItems = Boolean(order.itemDetails?.length || order.items.some((item) => item.trim()));
   const visibleActionError = !hasItems
     ? 'Este pedido chegou sem itens. Atualize a fila antes de iniciar o preparo.'
@@ -423,6 +463,12 @@ function KitchenCard({
             <Printer size={14} /> {reprinting ? 'Solicitando…' : 'Reimprimir comanda'}
           </button>
         </KitchenCardActions>
+      )}
+      {reprintSucceeded && (
+        <div className="action-success" role="status" aria-live="polite">
+          <CheckCircle2 size={16} />
+          <span>Comanda enviada para impressão.</span>
+        </div>
       )}
       {visibleActionError && (
         <div className="action-error" role="alert">
@@ -498,19 +544,19 @@ export function KitchenQueuePage({
       window.clearTimeout(timer);
     };
   }, [focusedOrderId, onFocusComplete, orders]);
+
   const visible = useMemo(
     () =>
-      orders
-        .filter(
-          (o) =>
-            (channel === 'ALL' || o.channel === channel) &&
-            isActiveOrderStatus(o.status) &&
-            (status === 'ALL' || o.status === status) &&
-            matchesOrderSearch(o, query),
-        )
-        .sort(oldestCreatedFirst),
+      orders.filter(
+        (o) =>
+          (channel === 'ALL' || o.channel === channel) &&
+          isActiveOrderStatus(o.status) &&
+          (status === 'ALL' || o.status === status) &&
+          matchesOrderSearch(o, query),
+      ),
     [orders, channel, status, query],
   );
+
   return (
     <>
       <S.Toolbar>
@@ -576,7 +622,9 @@ export function KitchenQueuePage({
         {activeStatuses
           .filter((item) => status === 'ALL' || item === status)
           .map((item) => {
-            const laneOrders = visible.filter((order) => order.status === item);
+            const laneOrders = visible
+              .filter((order) => order.status === item)
+              .sort(oldestStageFirst);
             return (
               <S.StatusColumn key={item} className={`lane-${item.toLocaleLowerCase('pt-BR')}`}>
                 <header>
@@ -671,8 +719,8 @@ export function KitchenReadyPage() {
                 <b>{order.id}</b>
                 {index === 0 && <em className="ready-priority">Retirada prioritária</em>}
                 <span>
-                  {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} •
-                  pronto há {orderElapsed(order, now)}
+                  {order.channel === 'TABLE' ? order.reference : channelLabel[order.channel]} • pronto
+                  há {orderElapsed(order, now)}
                   {order.customer ? ` • ${order.customer}` : ''}
                 </span>
               </div>
@@ -696,8 +744,7 @@ export function KitchenReadyPage() {
 }
 
 export function KitchenHistoryPage() {
-  const { orders } = useWorkspace();
-  const now = useKitchenClock();
+  const { orders, employee } = useWorkspace();
   const [channel, setChannel] = useState<ChannelFilterValue>('ALL');
   const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(KITCHEN_LIST_BATCH_SIZE);
@@ -706,6 +753,7 @@ export function KitchenHistoryPage() {
       (order) =>
         (channel === 'ALL' || order.channel === channel) &&
         (order.status === 'ENTREGUE' || order.status === 'CANCELADO') &&
+        isInCurrentShift(order, employee.shiftStartedAt) &&
         matchesOrderSearch(order, query),
     )
     .sort(newestCompletedFirst);
@@ -734,14 +782,12 @@ export function KitchenHistoryPage() {
       <MetricCards
         items={[
           {
-            label: 'Concluídos hoje',
-            value: completed.filter(
-              (order) => order.status === 'ENTREGUE' && isToday(order.completedAtIso, now),
-            ).length,
+            label: 'Concluídos no turno',
+            value: completed.filter((order) => order.status === 'ENTREGUE').length,
             tone: 'green',
           },
           {
-            label: 'Cancelados',
+            label: 'Cancelados no turno',
             value: completed.filter((o) => o.status === 'CANCELADO').length,
           },
           { label: 'Tempo médio', value: averagePreparationTime(completed), icon: 'clock' },
@@ -750,7 +796,7 @@ export function KitchenHistoryPage() {
       <S.SectionTitle>
         <div>
           <h2>Histórico do turno</h2>
-          <p>Pedidos finalizados e cancelados.</p>
+          <p>Desde {employee.shift}: pedidos finalizados e cancelados nesta sessão da cozinha.</p>
         </div>
         <History />
       </S.SectionTitle>
@@ -788,7 +834,7 @@ export function KitchenHistoryPage() {
             )}
           </div>
         ))}
-        {!completed.length && <Empty>Nenhum pedido encontrado neste canal.</Empty>}
+        {!completed.length && <Empty>Nenhum pedido encontrado neste turno.</Empty>}
       </S.HistoryTable>
       <KitchenListControls
         visibleCount={Math.min(visibleCount, completed.length)}
