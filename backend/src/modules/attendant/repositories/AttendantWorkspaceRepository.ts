@@ -54,6 +54,7 @@ const attendantCallSelect = {
   type: true,
   status: true,
   requestedAt: true,
+  assignedToId: true,
   assignedAt: true,
   resolvedAt: true,
   table: { select: { number: true } },
