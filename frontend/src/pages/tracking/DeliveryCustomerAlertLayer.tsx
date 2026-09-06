@@ -24,6 +24,7 @@ const RESERVED_ROOT_PATHS = new Set([
 type PublicRestaurantContext = {
   restaurantId: number;
   restaurantName: string;
+  slug: string;
 };
 
 export default function DeliveryCustomerAlertLayer() {
@@ -45,10 +46,7 @@ export default function DeliveryCustomerAlertLayer() {
   const [publicRestaurant, setPublicRestaurant] = useState<PublicRestaurantContext | null>(null);
 
   useEffect(() => {
-    if (!publicRestaurantSlug || user) {
-      setPublicRestaurant(null);
-      return undefined;
-    }
+    if (!publicRestaurantSlug || user) return undefined;
 
     let active = true;
     const load = async () => {
@@ -65,6 +63,7 @@ export default function DeliveryCustomerAlertLayer() {
         setPublicRestaurant({
           restaurantId,
           restaurantName: String(restaurant.name || record.name || publicRestaurantSlug).trim(),
+          slug: publicRestaurantSlug,
         });
       } catch {
         if (active) setPublicRestaurant(null);
@@ -77,13 +76,16 @@ export default function DeliveryCustomerAlertLayer() {
     };
   }, [publicRestaurantSlug, user]);
 
+  const visiblePublicRestaurant =
+    !user && publicRestaurant?.slug === publicRestaurantSlug ? publicRestaurant : null;
+
   return (
     <>
       <GuestOrderClaimLayer />
-      {!user && publicRestaurant ? (
+      {visiblePublicRestaurant ? (
         <PublicGuestOrderHelp
-          restaurantId={publicRestaurant.restaurantId}
-          restaurantName={publicRestaurant.restaurantName}
+          restaurantId={visiblePublicRestaurant.restaurantId}
+          restaurantName={visiblePublicRestaurant.restaurantName}
         />
       ) : null}
       {trackingMatch ? (
