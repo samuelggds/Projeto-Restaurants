@@ -1,6 +1,14 @@
 import { createGlobalStyle } from 'styled-components';
 
 export const GlobalStyles = createGlobalStyle`
+  :root {
+    --motion-fast: 140ms;
+    --motion-base: 200ms;
+    --motion-slow: 280ms;
+    --motion-ease: cubic-bezier(.22, .8, .35, 1);
+    --motion-ease-out: cubic-bezier(.16, 1, .3, 1);
+  }
+
   * {
     margin: 0;
     padding: 0;
@@ -24,7 +32,7 @@ export const GlobalStyles = createGlobalStyle`
   }
 
   button:not(:disabled),
-  [role="button"],
+  [role="button"]:not([aria-disabled="true"]),
   a[href],
   label[for],
   select:not(:disabled) {
@@ -34,6 +42,34 @@ export const GlobalStyles = createGlobalStyle`
   button:disabled,
   select:disabled {
     cursor: not-allowed;
+  }
+
+  /*
+   * Base global de microinterações.
+   * Evitamos `transition: all`: propriedades de layout como width/height/top/left
+   * não devem ser animadas acidentalmente, principalmente em telas menores.
+   */
+  :where(
+    button:not(:disabled),
+    a[href],
+    [role="button"]:not([aria-disabled="true"]),
+    input:not(:disabled),
+    select:not(:disabled),
+    textarea:not(:disabled),
+    summary
+  ) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, filter, scale;
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-ease);
+  }
+
+  :where(button:not(:disabled), a[href], [role="button"]:not([aria-disabled="true"])):active {
+    scale: .985;
+    transition-duration: 80ms;
+  }
+
+  :where(input:not(:disabled), select:not(:disabled), textarea:not(:disabled)):focus {
+    transition-duration: var(--motion-fast);
   }
 
   .Toastify__toast {
@@ -67,7 +103,7 @@ export const GlobalStyles = createGlobalStyle`
   .Toastify__close-button {
     color: #fff;
     opacity: 0.75;
-    transition: opacity 160ms ease, transform 160ms ease;
+    transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
   }
 
   .Toastify__close-button:hover {
@@ -84,7 +120,7 @@ export const GlobalStyles = createGlobalStyle`
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
-    animation: app-page-enter 240ms ease both;
+    animation: app-page-enter var(--motion-slow) var(--motion-ease-out) both;
   }
 
   .app-route-loading {
@@ -95,6 +131,7 @@ export const GlobalStyles = createGlobalStyle`
     padding: 24px;
     color: #334155;
     background: #f8fafc;
+    animation: app-soft-enter var(--motion-base) var(--motion-ease) both;
   }
 
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -104,22 +141,55 @@ export const GlobalStyles = createGlobalStyle`
 
   [role="dialog"],
   [aria-modal="true"] {
-    animation: app-dialog-enter 220ms cubic-bezier(.22, .8, .35, 1);
+    animation: app-dialog-enter var(--motion-slow) var(--motion-ease-out) both;
+  }
+
+  :where([role="menu"], [role="listbox"], [role="tooltip"], [data-app-floating-surface="true"]) {
+    transform-origin: top center;
+    animation: app-surface-enter var(--motion-base) var(--motion-ease-out) both;
+  }
+
+  details[open] > :not(summary) {
+    animation: app-soft-enter var(--motion-base) var(--motion-ease) both;
   }
 
   @keyframes app-page-enter {
     from {
       opacity: 0;
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
+      transform: none;
     }
   }
 
   @keyframes app-dialog-enter {
     from {
       opacity: 0;
-      transform: translateY(5px) scale(.992);
+      transform: translateY(8px) scale(.988);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes app-surface-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-5px) scale(.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes app-soft-enter {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
     }
     to {
       opacity: 1;
@@ -138,6 +208,7 @@ export const GlobalStyles = createGlobalStyle`
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 `;
