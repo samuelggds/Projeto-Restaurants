@@ -11,60 +11,7 @@ import {
   installVitePreloadRecovery,
   markRuntimeReady,
 } from './components/AppRuntimeBoundary/runtimeRecovery.js';
-
-const TENANT_SESSION_STORAGE_KEY = 'gastronexa:tenant-slug';
-const TENANT_PERSISTENT_STORAGE_KEY = 'gastronexa:last-tenant-slug';
-const RESERVED_ROUTE_SEGMENTS = new Set([
-  'admin',
-  'attendant',
-  'billing',
-  'change-password',
-  'courier',
-  'equipe',
-  'kitchen',
-  'login',
-  'mesa',
-  'orders',
-  'profile',
-  'recover-password',
-  'register',
-  'restaurant-required',
-  'super_admin',
-  'system-blocked',
-  'system-maintenance',
-  'team',
-  'waiter',
-]);
-
-function normalizeTenantSlug(value: unknown) {
-  const slug = String(value || '')
-    .trim()
-    .toLowerCase();
-  return /^[a-z0-9_-]+$/u.test(slug) && !RESERVED_ROUTE_SEGMENTS.has(slug) ? slug : '';
-}
-
-function restoreTenantRouteContext() {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const explicitSlug = normalizeTenantSlug(window.location.pathname.split('/').filter(Boolean)[0]);
-    const persistedSlug = normalizeTenantSlug(
-      window.localStorage.getItem(TENANT_PERSISTENT_STORAGE_KEY),
-    );
-    const resolvedSlug = explicitSlug || persistedSlug;
-
-    if (!resolvedSlug) return;
-
-    window.sessionStorage.setItem(TENANT_SESSION_STORAGE_KEY, resolvedSlug);
-    if (explicitSlug) {
-      // Apenas o slug público do restaurante atravessa abas. Nenhum usuário,
-      // senha, access token, refresh token ou grant administrativo é persistido aqui.
-      window.localStorage.setItem(TENANT_PERSISTENT_STORAGE_KEY, explicitSlug);
-    }
-  } catch {
-    // Storage pode estar indisponível em navegadores com políticas restritivas.
-  }
-}
+import { restoreTenantRouteContext } from './shared/navigation/tenantRouteContext.js';
 
 restoreTenantRouteContext();
 
