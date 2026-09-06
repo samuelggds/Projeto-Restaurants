@@ -79,7 +79,7 @@ test('registra pedido manual de retirada sem vincular o pedido ao atendente', as
   await page.getByPlaceholder('Ex.: Samuel Gomes').fill('Samuel Gomes');
   await page.getByPlaceholder('(85) 99999-9999').fill('(85) 99999-9999');
   await page.getByPlaceholder('000.000.000-00').fill('529.982.247-25');
-  await page.locator('text=Pizza da casa').locator('..').getByRole('button', { name: '+' }).click();
+  await page.getByRole('button', { name: 'Adicionar Pizza da casa' }).click();
   await page.getByRole('button', { name: /Confirmar pedido/ }).click();
   expect(api.getManualPayload()?.customerName).toBe('Samuel Gomes');
   expect(api.getManualPayload()?.customerCpf).toBe('52998224725');
