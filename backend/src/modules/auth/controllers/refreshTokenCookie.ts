@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 
 const COOKIE_NAME = '__Host-pizza_refresh';
 const LOCAL_COOKIE_NAME = 'pizza_refresh';
@@ -18,13 +19,24 @@ export function resolveRefreshCookieSameSite(
     : 'lax';
 }
 
+function shouldPersistRefreshToken(refreshToken: string) {
+  try {
+    const decoded = jwt.decode(refreshToken);
+    if (!decoded || typeof decoded === 'string') return true;
+    return decoded.rememberMe !== false;
+  } catch {
+    return true;
+  }
+}
+
 export function setRefreshTokenCookie(res: Response, refreshToken: string) {
+  const persistent = shouldPersistRefreshToken(refreshToken);
   res.cookie(cookieName(), refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: resolveRefreshCookieSameSite(),
     path: '/',
-    maxAge: FOURTEEN_DAYS_MS,
+    ...(persistent ? { maxAge: FOURTEEN_DAYS_MS } : {}),
   });
 }
 
