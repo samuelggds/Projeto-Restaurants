@@ -24,6 +24,11 @@ import { getAccessibleBrandColor, getReadableTextColor } from '../Login/domain/l
 
 type ContactMethod = 'email' | 'phone';
 
+const REQUEST_RECOVERY_ERROR_MESSAGE =
+  'Não foi possível enviar o código agora. Tente novamente em alguns instantes.';
+const RESET_PASSWORD_ERROR_MESSAGE =
+  'Não foi possível redefinir a senha agora. Confira o código e tente novamente.';
+
 export default function RecoverPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -91,13 +96,11 @@ export default function RecoverPassword() {
       const response = await authService.forgotPassword(buildIdentifierPayload());
       toast.success(
         response?.message ||
-          'Se os dados informados existirem, enviamos um codigo para redefinir a senha.',
+          'Se os dados informados existirem, enviamos um código para redefinir a senha.',
       );
       setStep('reset');
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.error || 'Nao foi possivel solicitar recuperacao de senha.',
-      );
+    } catch {
+      toast.error(REQUEST_RECOVERY_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
@@ -127,8 +130,8 @@ export default function RecoverPassword() {
             : 'Senha redefinida com sucesso. Faça login para continuar.'),
       );
       navigate(loginPath, { replace: true });
-    } catch (error) {
-      toast.error(error?.response?.data?.error || 'Nao foi possivel redefinir a senha.');
+    } catch {
+      toast.error(RESET_PASSWORD_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
