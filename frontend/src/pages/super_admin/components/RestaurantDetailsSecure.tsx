@@ -11,7 +11,7 @@ import * as S from '../SuperAdmin.styles';
 import { ConfirmAction, Empty, Modal } from './Shared';
 import { SubscriptionDialog } from './ActionDialogs';
 
-type GeneratedLink = { url: string; expiresAt: string } | null;
+type GeneratedLink = { url: string; expiresAt: string | null } | null;
 
 export function RestaurantDetailsSecure({
   restaurant,
@@ -160,8 +160,8 @@ export function RestaurantDetailsSecure({
             <div>
               <h2>Link administrativo privado</h2>
               <p>
-                Gere um link secreto para abrir a tela ADMIN deste restaurante. Gerar um novo link
-                invalida imediatamente o anterior.
+                Gere um link secreto para abrir a tela ADMIN deste restaurante. O link atual não
+                expira por tempo; gerar um novo link ou revogar o atual o invalida imediatamente.
               </p>
             </div>
           </S.SectionHeading>
@@ -173,13 +173,17 @@ export function RestaurantDetailsSecure({
                 <input value={generatedLink.url} readOnly autoComplete="off" />
               </label>
               <div className="wide">
-                <small>Expira em {formatDate(generatedLink.expiresAt, true)}.</small>
+                <small>
+                  Validade: sem expiração automática. Somente o SUPER_ADMIN pode gerar um novo link
+                  ou revogar o atual.
+                </small>
               </div>
             </S.Fields>
           ) : (
             <S.InlineAlert $tone="info">
-              Por segurança, a chave não pode ser recuperada depois. Gere um novo link quando
-              precisar enviá-lo novamente ao administrador.
+              Por segurança, a chave não pode ser recuperada depois. Gere um novo link somente
+              quando precisar substituir o atual; o link existente permanece válido até rotação ou
+              revogação pelo SUPER_ADMIN.
             </S.InlineAlert>
           )}
 

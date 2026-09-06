@@ -5,7 +5,6 @@ import { getJwtSecret } from '../../../config/auth.js';
 
 const ROTATED_ACTION = 'ADMIN_PORTAL_KEY_ROTATED';
 const REVOKED_ACTION = 'ADMIN_PORTAL_KEY_REVOKED';
-const LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const GRANT_TTL: SignOptions['expiresIn'] = '10m';
 
 export class AdminPortalAccessError extends Error {
@@ -28,7 +27,6 @@ type AuditContext = {
 
 type AdminPortalMetadata = {
   keyHash?: string;
-  expiresAt?: string;
 };
 
 type AdminPortalGrantPayload = jwt.JwtPayload & {
@@ -91,7 +89,6 @@ export class AdminPortalAccessService {
 
     const key = crypto.randomBytes(32).toString('base64url');
     const keyHash = hashKey(key);
-    const expiresAt = new Date(Date.now() + LINK_TTL_MS);
 
     const audit = await prisma.auditLog.create({
       data: {
@@ -104,7 +101,7 @@ export class AdminPortalAccessService {
         ipAddress: context.ipAddress || null,
         requestId: context.requestId || null,
         userAgent: context.userAgent || null,
-        metadata: { keyHash, expiresAt: expiresAt.toISOString() },
+        metadata: { keyHash },
       },
       select: { id: true },
     });
@@ -113,7 +110,7 @@ export class AdminPortalAccessService {
       restaurantId: restaurant.id,
       slug: restaurant.slug,
       key,
-      expiresAt: expiresAt.toISOString(),
+      expiresAt: null,
       rotationId: audit.id,
     };
   }
@@ -161,13 +158,7 @@ export class AdminPortalAccessService {
 
     const metadata = (latest.metadata || {}) as AdminPortalMetadata;
     const expectedHash = String(metadata.keyHash || '');
-    const expiresAt = new Date(String(metadata.expiresAt || ''));
-    if (
-      !expectedHash ||
-      !Number.isFinite(expiresAt.getTime()) ||
-      expiresAt.getTime() <= Date.now() ||
-      !safeEqual(expectedHash, hashKey(key))
-    ) {
+    if (!expectedHash || !safeEqual(expectedHash, hashKey(key))) {
       throw new AdminPortalAccessError('Página não encontrada.');
     }
 
