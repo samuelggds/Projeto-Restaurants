@@ -1,24 +1,12 @@
 import { useEffect, useState } from 'react';
-import {
-  Ban,
-  Check,
-  CheckCircle2,
-  Clock3,
-  Copy,
-  CreditCard,
-  RefreshCw,
-  RotateCcw,
-  TimerOff,
-  Users,
-  XCircle,
-} from 'lucide-react';
+import { Check, Clock3, Copy, CreditCard, RefreshCw, Users } from 'lucide-react';
 import QRCode from 'react-qr-code';
+import { PaymentResultView } from '../../../components/payment/PaymentResultView';
 import {
   formatTableMoney,
   type TablePaymentIntent,
   type TablePaymentStatus,
 } from '../domain/tableAccount';
-import { Submit } from './TableAccountPanel.styles';
 import * as S from './TablePaymentStatusView.styles';
 
 type Props = {
@@ -31,40 +19,19 @@ type Props = {
   onClose: () => void;
 };
 
-const terminalCopy: Record<
+const terminalDescriptions: Record<
   Exclude<TablePaymentStatus, 'RESERVED' | 'PROCESSING'>,
-  { title: string; description: string }
+  string
 > = {
-  PAID: {
-    title: 'Pagamento confirmado',
-    description: 'O backend confirmou o recebimento e o valor já foi abatido da conta.',
-  },
-  FAILED: {
-    title: 'Pagamento não aprovado',
-    description: 'A cobrança não foi concluída e o valor voltou a ficar disponível.',
-  },
-  EXPIRED: {
-    title: 'Tempo para pagar encerrado',
-    description: 'O prazo terminou; o valor voltou a ficar disponível na conta.',
-  },
-  CANCELED: {
-    title: 'Pagamento cancelado',
-    description: 'Reserva cancelada e nenhum valor foi confirmado como pago.',
-  },
-  REFUNDED: {
-    title: 'Pagamento estornado',
-    description: 'O estorno foi registrado e aparece no histórico desta conta.',
-  },
+  PAID: 'Tudo certo! Seu pagamento foi recebido e o valor já foi abatido da conta da mesa.',
+  FAILED:
+    'Não foi possível concluir este pagamento. Você pode tentar novamente ou escolher outra forma de pagar.',
+  EXPIRED:
+    'O prazo deste pagamento terminou. Você pode voltar à conta da mesa e iniciar uma nova tentativa.',
+  CANCELED: 'Este pagamento foi cancelado. Você pode voltar à conta e escolher como deseja pagar.',
+  REFUNDED:
+    'O estorno foi registrado na conta da mesa. O prazo para receber o valor depende da sua instituição financeira.',
 };
-
-function StatusIcon({ status, manual }: { status: TablePaymentStatus; manual: boolean }) {
-  if (status === 'PAID') return <CheckCircle2 size={31} />;
-  if (status === 'FAILED') return <XCircle size={31} />;
-  if (status === 'EXPIRED') return <TimerOff size={31} />;
-  if (status === 'CANCELED') return <Ban size={31} />;
-  if (status === 'REFUNDED') return <RotateCcw size={31} />;
-  return manual ? <Users size={31} /> : <Clock3 size={31} />;
-}
 
 export function TablePaymentStatusView({
   payment,
@@ -84,26 +51,22 @@ export function TablePaymentStatusView({
     : '';
   const awaitingCardDetails = pending && payment.method === 'CARD' && Boolean(checkoutUrl);
 
-  const title = pending
-    ? manual
-      ? 'Aguardando o garçom'
-      : payment.method === 'PIX'
-        ? 'Pague com Pix'
-        : awaitingCardDetails
-          ? 'Informe os dados do cartão'
-          : 'Confirmando pagamento com cartão'
-    : terminalCopy[status].title;
-  const description = pending
-    ? manual
-      ? payment.method === 'CASH'
-        ? 'Entregue o dinheiro à equipe. A conta só muda para paga depois da confirmação no painel do garçom.'
-        : 'A equipe fará a cobrança na maquininha. A conta só muda para paga depois da confirmação no painel do garçom.'
-      : payment.method === 'PIX'
-        ? 'Use o QR Code ou copie o código. A confirmação será consultada automaticamente no provedor.'
-        : awaitingCardDetails
-          ? 'Abra o checkout seguro do gateway e preencha os dados do cartão. Nenhum dado bruto do cartão é armazenado pelo restaurante.'
-          : 'O cartão já foi enviado ao gateway e estamos aguardando a confirmação do provedor.'
-    : terminalCopy[status].description;
+  const title = manual
+    ? 'Aguardando o garçom'
+    : payment.method === 'PIX'
+      ? 'Pague com Pix'
+      : awaitingCardDetails
+        ? 'Informe os dados do cartão'
+        : 'Confirmando pagamento com cartão';
+  const description = manual
+    ? payment.method === 'CASH'
+      ? 'Entregue o dinheiro à equipe. Assim que o garçom confirmar o recebimento, o valor será abatido da sua conta.'
+      : 'A equipe fará a cobrança na maquininha. Assim que o pagamento for confirmado, o valor será abatido da sua conta.'
+    : payment.method === 'PIX'
+      ? 'Use o QR Code ou copie o código para pagar no seu banco. A confirmação aparecerá aqui automaticamente.'
+      : awaitingCardDetails
+        ? 'Abra a página de pagamento e preencha os dados do cartão para continuar.'
+        : 'Seu pagamento com cartão está sendo processado. A confirmação aparecerá aqui automaticamente.';
 
   const copyPaymentCode = async () => {
     if (!payment.paymentCode) return;
@@ -121,7 +84,7 @@ export function TablePaymentStatusView({
     const result = await onVerify();
     if (result && result.status !== 'PAID') {
       setVerificationMessage(
-        'Ainda aguardando a confirmação do provedor. A consulta continuará automaticamente.',
+        'Ainda aguardando a confirmação do pagamento. A consulta continuará automaticamente.',
       );
     }
   };
@@ -134,10 +97,43 @@ export function TablePaymentStatusView({
     return () => window.clearInterval(intervalId);
   }, [actionLoading, manual, onVerify, pending]);
 
+  if (status !== 'RESERVED' && status !== 'PROCESSING') {
+    const methodLabels = {
+      PIX: 'Pix',
+      CARD: 'Cartão',
+      CASH: 'Dinheiro',
+      CARD_MACHINE: 'Cartão na maquininha',
+    };
+
+    return (
+      <PaymentResultView
+        embedded
+        status={status}
+        method={methodLabels[payment.method]}
+        orderLabel="Conta da mesa"
+        amount={formatTableMoney(payment.totalCents)}
+        description={terminalDescriptions[status]}
+        onAutoReturn={manual ? undefined : onClose}
+        primaryAction={
+          status === 'PAID'
+            ? { label: 'Concluir', onClick: onClose }
+            : status === 'REFUNDED'
+              ? { label: 'Voltar à conta', onClick: onStartOver }
+              : { label: 'Fazer nova tentativa', onClick: onStartOver, disabled: actionLoading }
+        }
+        secondaryAction={
+          status === 'PAID' || status === 'REFUNDED'
+            ? undefined
+            : { label: 'Fechar', onClick: onClose }
+        }
+      />
+    );
+  }
+
   return (
     <S.PaymentStage data-status={status} aria-live="polite">
       <S.PaymentStatusIcon data-status={status}>
-        <StatusIcon status={status} manual={manual} />
+        {manual ? <Users size={31} /> : <Clock3 size={31} />}
       </S.PaymentStatusIcon>
       <h3>{title}</h3>
       <p>{description}</p>
@@ -147,9 +143,7 @@ export function TablePaymentStatusView({
           ? 'Reservado'
           : awaitingCardDetails
             ? 'Aguardando dados do cartão'
-            : status === 'PROCESSING'
-              ? 'Em confirmação'
-              : terminalCopy[status].title}
+            : 'Em confirmação'}
       </span>
 
       <S.AmountBreakdown aria-label="Composição do pagamento">
@@ -189,28 +183,13 @@ export function TablePaymentStatusView({
       {pending && !manual && (
         <S.SecondaryAction type="button" disabled={actionLoading} onClick={() => void verify()}>
           <RefreshCw size={17} />
-          {actionLoading ? 'Consultando provedor...' : 'Verificar pagamento agora'}
+          {actionLoading ? 'Verificando pagamento...' : 'Verificar pagamento agora'}
         </S.SecondaryAction>
       )}
       {pending && (
         <S.TextAction type="button" disabled={actionLoading} onClick={() => void onCancel()}>
           Cancelar esta reserva
         </S.TextAction>
-      )}
-      {status === 'PAID' && (
-        <Submit type="button" onClick={onClose}>
-          Concluir <Check size={17} />
-        </Submit>
-      )}
-      {['FAILED', 'EXPIRED', 'CANCELED'].includes(status) && (
-        <Submit type="button" onClick={onStartOver}>
-          Fazer nova tentativa <RefreshCw size={17} />
-        </Submit>
-      )}
-      {status === 'REFUNDED' && (
-        <S.SecondaryAction type="button" onClick={onStartOver}>
-          Voltar à conta
-        </S.SecondaryAction>
       )}
     </S.PaymentStage>
   );

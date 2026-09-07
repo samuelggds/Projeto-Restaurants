@@ -372,9 +372,9 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await page.getByRole('button', { name: /Gerar código Pix/ }).click();
   await expect(page.getByText('Pagamento via Pix', { exact: true })).toBeVisible();
   await expect(page.getByText('R$ 36,00')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Tudo certo com seu pedido' })).toBeVisible();
-  await expect(page.getByText('Pagamento confirmado', { exact: true })).toBeVisible();
-  await expect(page.getByText('O backend confirmou o recebimento')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pix confirmado!' })).toBeVisible();
+  await expect(page.locator('main[data-status="PAID"]')).toBeVisible();
+  await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
   await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
   const loyaltyToggle = page.getByTestId('customer-coupon-status-toggle');
   await expect(loyaltyToggle).toHaveAttribute('aria-expanded', 'false');

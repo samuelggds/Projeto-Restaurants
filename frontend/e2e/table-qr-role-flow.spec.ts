@@ -189,7 +189,7 @@ function tablePayment(state: FlowState) {
     sessionPublicId: TABLE_SESSION_PUBLIC_ID,
     payerParticipantPublicId: TABLE_PARTICIPANT_PUBLIC_ID,
     selectionMode: 'SELECTED_ITEMS',
-    method: 'PIX',
+    method: state.tablePaymentPayload?.method === 'CARD' ? 'CARD' : 'PIX',
     status,
     billItemPublicIds: ['bill-item-1'],
     subtotalCents: 2_800,
@@ -197,8 +197,14 @@ function tablePayment(state: FlowState) {
     totalCents: 3_080,
     provider: 'FAKE_TABLE',
     externalId: 'table-pix-e2e',
-    checkoutUrl: null,
-    paymentCode: '00020101021226890014br.gov.bcb.pix.e2e',
+    checkoutUrl:
+      state.tablePaymentPayload?.method === 'CARD'
+        ? 'https://pay.example.test/table-card-checkout'
+        : null,
+    paymentCode:
+      state.tablePaymentPayload?.method === 'CARD'
+        ? null
+        : '00020101021226890014br.gov.bcb.pix.e2e',
     expiresAt: '2030-01-01T12:10:00.000Z',
     createdAt: '2030-01-01T12:00:00.000Z',
     updatedAt: '2030-01-01T12:00:00.000Z',
@@ -709,7 +715,9 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   });
 
   await expect(page.getByText('Aguardando pagamento', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Clicar em pagar não significa pagamento confirmado/i)).toBeVisible();
+  await expect(
+    page.getByText(/Se você já fez o Pix, aguarde a confirmação antes de pagar novamente/i),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Continuar no cardápio' }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   const tableStatusButton = page.getByRole('button', {
@@ -760,92 +768,122 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(kitchenOrder.getByText(product.name)).toBeVisible();
 });
 
-test('cliente separa escopo e método e só vê pago após reconciliação canônica', async ({
-  page,
-}, testInfo) => {
-  const state: FlowState = {
-    tableCreated: true,
-    tableOpen: true,
-    createTablePayload: null,
-    orderPayload: null,
-    orderStatus: 'PENDENTE',
-    adminTableReads: 0,
-    waiterTableReads: 0,
-    tablePaymentPayload: null,
-    tablePaymentStatus: null,
-    tablePaymentIdempotencyKey: null,
-  };
-  await mockRoleFlowApi(page, state);
-  await page.goto('/');
-  await selectPersona(page, 'customer');
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(
-    `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
-  );
+for (const onlineMethod of ['PIX', 'CARD'] as const) {
+  test(`cliente separa escopo e método e só vê pago após reconciliação canônica (${onlineMethod})`, async ({
+    page,
+  }, testInfo) => {
+    const clockStart = new Date('2026-09-07T12:00:00.000Z');
+    await page.clock.install({ time: clockStart });
+    const state: FlowState = {
+      tableCreated: true,
+      tableOpen: true,
+      createTablePayload: null,
+      orderPayload: null,
+      orderStatus: 'PENDENTE',
+      adminTableReads: 0,
+      waiterTableReads: 0,
+      tablePaymentPayload: null,
+      tablePaymentStatus: null,
+      tablePaymentIdempotencyKey: null,
+    };
+    await mockRoleFlowApi(page, state);
+    await page.goto('/');
+    await selectPersona(page, 'customer');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(
+      `/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}?tid=${TABLE_ID}&rid=${RESTAURANT_ID}&tk=${TABLE_TOKEN}`,
+    );
 
-  await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
-  await page.getByText('Arroz', { exact: true }).click();
-  await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
-  await page.getByRole('button', { name: /Revisar e continuar/ }).click();
+    await page.getByRole('button', { name: `Ver detalhes de ${product.name}` }).click();
+    await page.getByText('Arroz', { exact: true }).click();
+    await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
+    await page.getByRole('button', { name: /Sacola com [1-9]\d* itens/ }).click();
+    await page.getByRole('button', { name: /Revisar e continuar/ }).click();
 
-  const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
-  await expect(continuationDialog.getByRole('button', { name: 'Pix' })).toHaveCount(0);
-  await continuationDialog.getByRole('button', { name: 'Adicionar à conta' }).click();
-  await expect.poll(() => state.orderPayload).not.toBeNull();
-  expect(state.orderPayload).toMatchObject({
-    restaurantId: RESTAURANT_ID,
-    type: 'MESA',
-    tableId: TABLE_ID,
-    settlementMode: 'TABLE_ACCOUNT',
+    const continuationDialog = page.getByRole('dialog', { name: 'Como deseja continuar?' });
+    await expect(continuationDialog.getByRole('button', { name: 'Pix' })).toHaveCount(0);
+    await continuationDialog.getByRole('button', { name: 'Adicionar à conta' }).click();
+    await expect.poll(() => state.orderPayload).not.toBeNull();
+    expect(state.orderPayload).toMatchObject({
+      restaurantId: RESTAURANT_ID,
+      type: 'MESA',
+      tableId: TABLE_ID,
+      settlementMode: 'TABLE_ACCOUNT',
+    });
+    expect(state.orderPayload).not.toHaveProperty('paymentMethod');
+
+    const tableActions = page.getByRole('region', {
+      name: `Mesa e atendimento da mesa ${TABLE_NUMBER}`,
+    });
+    const tableActionsToggle = tableActions.getByTestId('table-service-actions-toggle');
+    await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'false');
+    await tableActionsToggle.click();
+    await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'true');
+    await tableActions.getByRole('button', { name: 'Ver conta', exact: true }).click();
+    const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
+    await expect(accountDialog.getByText('1 de 3')).toBeVisible();
+    await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();
+    await expect(accountDialog.getByText('Pix online')).toHaveCount(0);
+    await expect(accountDialog.getByText('Dinheiro', { exact: true })).toHaveCount(0);
+
+    for (const width of [360, 390, 430]) {
+      await captureResponsiveAccount(page, testInfo, width);
+    }
+
+    await accountDialog.getByRole('button', { name: /Escolher itens/ }).click();
+    await accountDialog.getByRole('checkbox', { name: `Selecionar ${product.name}` }).check();
+    await accountDialog.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(accountDialog.getByText('2 de 3')).toBeVisible();
+    await expect(accountDialog.getByText('Como deseja pagar?')).toBeVisible();
+    await expect(accountDialog.getByRole('button', { name: /Pix online/ })).toBeVisible();
+    await expect(accountDialog.getByRole('button', { name: /Dinheiro/ })).toBeVisible();
+    await expect(accountDialog.getByText(/30,80/).last()).toBeVisible();
+
+    await page.clock.pauseAt(new Date(clockStart.getTime() + 60_000));
+    await accountDialog
+      .getByRole('button', { name: onlineMethod === 'PIX' ? /Pix online/ : /Cartão online/ })
+      .click();
+    await accountDialog
+      .getByRole('button', {
+        name: onlineMethod === 'PIX' ? 'Gerar pagamento Pix' : 'Ir para pagamento com cartão',
+      })
+      .click();
+    await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
+    expect(state.tablePaymentPayload).toEqual({
+      selectionMode: 'SELECTED_ITEMS',
+      method: onlineMethod,
+      billItemPublicIds: ['bill-item-1'],
+      includeOptionalServiceFee: true,
+    });
+    expect(state.tablePaymentIdempotencyKey).toMatch(/^table-payment:/);
+
+    await expect(accountDialog.getByText('3 de 3')).toBeVisible();
+    const resultTitle = onlineMethod === 'PIX' ? 'Pix confirmado!' : 'Pagamento confirmado!';
+    await expect(
+      accountDialog.getByRole('heading', {
+        name: onlineMethod === 'PIX' ? 'Pague com Pix' : 'Informe os dados do cartão',
+      }),
+    ).toBeVisible();
+    await expect(accountDialog.getByRole('heading', { name: resultTitle })).toHaveCount(0);
+    await accountDialog.getByRole('button', { name: 'Verificar pagamento' }).click();
+    await expect(accountDialog.getByRole('heading', { name: resultTitle })).toBeVisible();
+    await expect(
+      accountDialog.getByText('Seu pagamento foi recebido e o valor já foi abatido'),
+    ).toBeVisible();
+    await expect(accountDialog.locator('[aria-label="Retorno automático"]')).toContainText('5s');
+    await page.clock.runFor(4_999);
+    await expect(accountDialog).toBeVisible();
+    await page.clock.runFor(1);
+    await expect(accountDialog).toHaveCount(0);
+    const returnedUrl = new URL(page.url());
+    expect(returnedUrl.pathname).toBe(`/${RESTAURANT_SLUG}/mesa/${TABLE_NUMBER}`);
+    expect(returnedUrl.searchParams.get('rid')).toBe(String(RESTAURANT_ID));
+    expect(returnedUrl.searchParams.get('tk')).toBe(TABLE_TOKEN);
+    await expect(
+      page.getByRole('button', { name: `Ver detalhes de ${product.name}` }),
+    ).toBeVisible();
   });
-  expect(state.orderPayload).not.toHaveProperty('paymentMethod');
-
-  const tableActions = page.getByRole('region', {
-    name: `Mesa e atendimento da mesa ${TABLE_NUMBER}`,
-  });
-  const tableActionsToggle = tableActions.getByTestId('table-service-actions-toggle');
-  await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'false');
-  await tableActionsToggle.click();
-  await expect(tableActionsToggle).toHaveAttribute('aria-expanded', 'true');
-  await tableActions.getByRole('button', { name: 'Ver conta', exact: true }).click();
-  const accountDialog = page.getByRole('dialog', { name: `Conta da mesa ${TABLE_NUMBER}` });
-  await expect(accountDialog.getByText('1 de 3')).toBeVisible();
-  await expect(accountDialog.getByText('O que você quer pagar?')).toBeVisible();
-  await expect(accountDialog.getByText('Pix online')).toHaveCount(0);
-  await expect(accountDialog.getByText('Dinheiro', { exact: true })).toHaveCount(0);
-
-  for (const width of [360, 390, 430]) {
-    await captureResponsiveAccount(page, testInfo, width);
-  }
-
-  await accountDialog.getByRole('button', { name: /Escolher itens/ }).click();
-  await accountDialog.getByRole('checkbox', { name: `Selecionar ${product.name}` }).check();
-  await accountDialog.getByRole('button', { name: 'Continuar', exact: true }).click();
-  await expect(accountDialog.getByText('2 de 3')).toBeVisible();
-  await expect(accountDialog.getByText('Como deseja pagar?')).toBeVisible();
-  await expect(accountDialog.getByRole('button', { name: /Pix online/ })).toBeVisible();
-  await expect(accountDialog.getByRole('button', { name: /Dinheiro/ })).toBeVisible();
-  await expect(accountDialog.getByText(/30,80/).last()).toBeVisible();
-
-  await accountDialog.getByRole('button', { name: /Pix online/ }).click();
-  await accountDialog.getByRole('button', { name: 'Gerar pagamento Pix' }).click();
-  await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
-  expect(state.tablePaymentPayload).toEqual({
-    selectionMode: 'SELECTED_ITEMS',
-    method: 'PIX',
-    billItemPublicIds: ['bill-item-1'],
-    includeOptionalServiceFee: true,
-  });
-  expect(state.tablePaymentIdempotencyKey).toMatch(/^table-payment:/);
-
-  await expect(accountDialog.getByText('3 de 3')).toBeVisible();
-  await expect(accountDialog.getByRole('heading', { name: 'Pague com Pix' })).toBeVisible();
-  await expect(accountDialog.getByText('Pagamento confirmado')).toHaveCount(0);
-  await accountDialog.getByRole('button', { name: 'Verificar pagamento' }).click();
-  await expect(accountDialog.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible();
-  await expect(accountDialog.getByText('O backend confirmou o recebimento')).toBeVisible();
-});
+}
 
 test('retorno success do cartão permanece pendente até o backend confirmar', async ({ page }) => {
   const state: FlowState = {
@@ -867,18 +905,16 @@ test('retorno success do cartão permanece pendente até o backend confirmar', a
   );
 
   await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Pagamento ainda pendente' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Aguardando confirmação' })).toBeVisible();
   await expect(page.getByText('Pagamento confirmado')).toHaveCount(0);
-  await expect(
-    page.getByText('Esse retorno não é usado como confirmação financeira.'),
-  ).toBeVisible();
+  await expect(page.getByText('Aguarde a confirmação antes de tentar de novo.')).toBeVisible();
 
   const pendingReads = Number(state.cardPaymentStatusReads || 0);
   state.cardPaymentStatus = 'PAID';
   await page.getByRole('button', { name: 'Verificar pagamento' }).click();
   await expect.poll(() => Number(state.cardPaymentStatusReads || 0)).toBeGreaterThan(pendingReads);
   await expect(page.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible();
-  await expect(page.getByText('O backend confirmou a aprovação do cartão')).toBeVisible();
+  await expect(page.getByText('Recebemos a confirmação do seu pagamento.')).toBeVisible();
 });
 
 test('impressão individual ocupa uma única folha A4 com QR Code grande', async ({ page }) => {

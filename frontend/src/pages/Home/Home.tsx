@@ -56,6 +56,7 @@ import { TableServiceActions } from './components/TableServiceActions';
 import { TableOrderContinuationModal } from './components/TableOrderContinuationModal';
 import { TableAccountPanel } from './components/TableAccountPanel';
 import { CardPaymentReturnPanel } from './components/CardPaymentReturnPanel';
+import { PaymentResultView } from '../../components/payment/PaymentResultView';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
 
@@ -437,6 +438,8 @@ export default function Home() {
     pixPaymentError,
     verifyPixPayment,
     clearPixPayment,
+    paymentResult,
+    clearPaymentResult,
     executePayment,
   } = useCheckoutPayments({
     restaurantId,
@@ -771,8 +774,23 @@ export default function Home() {
         error={cardPaymentReturn.error}
         providerReturnStatus={cardPaymentReturn.providerReturnStatus}
         primaryColor={primary}
+        restaurantName={homeData.brand.name}
         onVerify={cardPaymentReturn.verify}
         onClose={closeCardPaymentReturn}
+      />
+    );
+  }
+
+  if (paymentResult) {
+    return (
+      <PaymentResultView
+        status={paymentResult.status}
+        method={paymentResult.method}
+        restaurantName={homeData.brand.name}
+        orderLabel={paymentResult.orderId ? `Pedido #${paymentResult.orderId}` : undefined}
+        amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+        onAutoReturn={clearPaymentResult}
+        primaryAction={{ label: 'Voltar ao cardápio', onClick: clearPaymentResult }}
       />
     );
   }
@@ -784,6 +802,7 @@ export default function Home() {
         paymentStatus={pixPaymentStatus}
         paymentError={pixPaymentError}
         primaryColor={primary}
+        restaurantName={homeData.brand.name}
         formatCurrency={(value) =>
           value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
         }

@@ -35,7 +35,8 @@ const SUPPORTED_CARD = new Set<string>([
 ]);
 
 const PAID_STATUSES = new Set(['PAID', 'APPROVED', 'ACCREDITED', 'RECEIVED', 'CONFIRMED']);
-const FAILED_STATUSES = new Set(['FAILED', 'DECLINED', 'REJECTED', 'CANCELED', 'CANCELLED']);
+const FAILED_STATUSES = new Set(['FAILED', 'DECLINED', 'REJECTED']);
+const CANCELED_STATUSES = new Set(['CANCELED', 'CANCELLED']);
 const EXPIRED_STATUSES = new Set(['EXPIRED', 'OVERDUE']);
 const REFUNDED_STATUSES = new Set(['REFUNDED', 'CHARGED_BACK', 'CHARGEDBACK']);
 
@@ -101,6 +102,7 @@ function providerStatus(value: unknown): ProviderPayment['status'] {
   if (PAID_STATUSES.has(status)) return 'PAID';
   if (REFUNDED_STATUSES.has(status)) return 'REFUNDED';
   if (EXPIRED_STATUSES.has(status)) return 'EXPIRED';
+  if (CANCELED_STATUSES.has(status)) return 'CANCELED';
   if (FAILED_STATUSES.has(status)) return 'FAILED';
   return 'PENDING';
 }
@@ -474,12 +476,19 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
         paymentId: externalId,
         restaurantId: this.context.restaurantId,
       });
-      if (Number.isFinite(Number(status.amount)) && !matchesAmount(status.amount, amountCents)) {
+      const normalizedStatus = status.isApproved ? 'PAID' : providerStatus(status.status);
+      const hasAmount = status.amount !== null && status.amount !== undefined;
+      // O PagBank pode omitir o valor enquanto o Pix não foi pago. Uma aprovação
+      // sempre precisa trazer um valor válido e correspondente à conta.
+      if (
+        (normalizedStatus === 'PAID' || hasAmount) &&
+        (!hasAmount || !matchesAmount(status.amount, amountCents))
+      ) {
         throw new Error('O valor retornado pelo Pix não corresponde à conta da mesa.');
       }
       return {
         externalId,
-        status: status.isApproved ? 'PAID' : providerStatus(status.status),
+        status: normalizedStatus,
         amountCents,
         checkoutUrl: null,
         paymentCode: null,

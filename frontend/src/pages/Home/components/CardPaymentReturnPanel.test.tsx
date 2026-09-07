@@ -17,8 +17,8 @@ function render(status: 'VERIFYING' | 'PENDING' | 'PAID' | 'CANCELED' | 'ERROR')
 describe('CardPaymentReturnPanel', () => {
   it.each([
     ['VERIFYING', 'Verificando pagamento'],
-    ['PENDING', 'Pagamento ainda pendente'],
-    ['CANCELED', 'Pedido cancelado'],
+    ['PENDING', 'Aguardando confirmação'],
+    ['CANCELED', 'Pagamento não concluído'],
     ['ERROR', 'Não foi possível verificar'],
   ] as const)('não anuncia confirmação no estado %s', (status, label) => {
     const markup = render(status);
