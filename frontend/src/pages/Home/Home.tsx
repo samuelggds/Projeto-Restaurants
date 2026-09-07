@@ -539,7 +539,7 @@ export default function Home() {
       notify(
         'warning',
         'Serviço indisponível',
-        'O restaurante ainda não configurou os pagamentos para este pedido.',
+        'Este restaurante ainda não aceita este tipo de pagamento para este pedido.',
       );
       return;
     }
@@ -775,6 +775,7 @@ export default function Home() {
         providerReturnStatus={cardPaymentReturn.providerReturnStatus}
         primaryColor={primary}
         restaurantName={homeData.brand.name}
+        restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
         onVerify={cardPaymentReturn.verify}
         onClose={closeCardPaymentReturn}
       />
@@ -787,6 +788,7 @@ export default function Home() {
         status={paymentResult.status}
         method={paymentResult.method}
         restaurantName={homeData.brand.name}
+        restaurantCategory={homeData.brand.category ?? 'RESTAURANTE'}
         orderLabel={paymentResult.orderId ? `Pedido #${paymentResult.orderId}` : undefined}
         amount={paymentResult.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         onAutoReturn={clearPaymentResult}

@@ -7,6 +7,7 @@ export type HomeBrand = {
   name: string;
   monogram?: string;
   logoUrl?: string;
+  category?: string;
   address: string;
   primaryColor?: string;
   whatsapp?: string;

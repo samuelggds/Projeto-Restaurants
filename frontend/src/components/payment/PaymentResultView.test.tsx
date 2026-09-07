@@ -179,4 +179,11 @@ describe('PaymentResultView', () => {
     await render({ method: 'Pix' });
     expect(container.querySelector('h1')?.textContent).toBe('Pix confirmado!');
   });
+
+  it('usa o ícone da categoria do restaurante no cabeçalho', async () => {
+    await render({ restaurantCategory: 'PIZZARIA' });
+
+    const categoryIcon = container.querySelector('[data-category-icon="PIZZARIA"]');
+    expect(categoryIcon).not.toBeNull();
+  });
 });

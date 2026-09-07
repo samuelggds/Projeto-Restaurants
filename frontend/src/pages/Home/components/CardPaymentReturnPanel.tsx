@@ -7,6 +7,7 @@ type Props = {
   providerReturnStatus: string;
   primaryColor?: string;
   restaurantName?: string;
+  restaurantCategory?: unknown;
   orderLabel?: string;
   amount?: string;
   onVerify: () => void | Promise<unknown>;
@@ -16,6 +17,7 @@ type Props = {
 export function CardPaymentReturnPanel({
   status,
   restaurantName,
+  restaurantCategory,
   orderLabel,
   amount,
   onVerify,
@@ -28,6 +30,7 @@ export function CardPaymentReturnPanel({
       status={status}
       method="Cartão"
       restaurantName={restaurantName}
+      restaurantCategory={restaurantCategory ?? 'RESTAURANTE'}
       orderLabel={orderLabel}
       amount={amount}
       onAutoReturn={onClose}

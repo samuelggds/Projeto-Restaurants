@@ -7,10 +7,11 @@ import {
   ReceiptText,
   RotateCcw,
   TimerOff,
-  Utensils,
   WifiOff,
   X,
 } from 'lucide-react';
+import { resolveCategoryIcon } from '../../config/categoryIconMap';
+import { normalizeRestaurantCategory } from '../../config/restaurantCategory';
 import * as S from './PaymentResultView.styles';
 
 export type PaymentResultStatus =
@@ -26,6 +27,7 @@ export interface PaymentResultViewProps {
   status: PaymentResultStatus;
   method: string;
   restaurantName?: string;
+  restaurantCategory?: unknown;
   orderLabel?: string;
   amount?: string;
   description?: string;
@@ -169,6 +171,7 @@ export function PaymentResultView({
   status,
   method,
   restaurantName,
+  restaurantCategory,
   orderLabel,
   amount,
   description,
@@ -181,6 +184,8 @@ export function PaymentResultView({
   const headingId = useId();
   const current = content[status];
   const StatusIcon = current.icon;
+  const normalizedCategory = normalizeRestaurantCategory(restaurantCategory);
+  const CategoryIcon = resolveCategoryIcon(normalizedCategory);
   const isCard = /cart[aã]o|card/i.test(method);
   const title =
     status === 'PAID' && /^pix$/i.test(method.trim()) ? 'Pix confirmado!' : current.title;
@@ -194,8 +199,8 @@ export function PaymentResultView({
     <S.Page as={embedded ? 'div' : 'main'} $embedded={embedded} data-status={status}>
       <S.Panel $embedded={embedded} aria-labelledby={headingId}>
         <S.Header>
-          <span aria-hidden="true">
-            <Utensils size={19} />
+          <span aria-hidden="true" data-category-icon={normalizedCategory}>
+            <CategoryIcon size={19} />
           </span>
           <div>
             <small>Seu pagamento</small>

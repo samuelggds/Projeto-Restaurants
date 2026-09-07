@@ -342,8 +342,8 @@ function PaymentMethods({
       <S.PaymentProtection>
         <ShieldCheck />{' '}
         <span>
-          <b>Pagamento protegido</b>O provedor de pagamento protege os dados sensíveis. Este site
-          armazena somente o token seguro e os quatro últimos dígitos.
+          <b>Pagamento protegido</b>O provedor de pagamento protege seus dados. Este site guarda
+          apenas as informações essenciais para o pagamento e os quatro últimos dígitos do cartão.
         </span>
       </S.PaymentProtection>
     </>

@@ -2,7 +2,7 @@ import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ordersService from '../../../Services/ordersService';
-import { useCheckoutPayments } from './useCheckoutPayments';
+import { getCheckoutErrorMessage, useCheckoutPayments } from './useCheckoutPayments';
 
 vi.mock('../../../Services/ordersService', () => ({
   default: {
@@ -82,6 +82,18 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
     container.remove();
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('esconde detalhes técnicos do gateway e mostra uma mensagem amigável ao cliente', () => {
+    const message = getCheckoutErrorMessage(
+      new Error(
+        'Pagamento PIX indisponivel no momento. Configure access token do Mercado Pago nas configuracoes do restaurante.',
+      ),
+    );
+
+    expect(message).toBe(
+      'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.',
+    );
   });
 
   it('não anuncia pago quando o provedor aprova mas o pedido canônico continua pendente', async () => {

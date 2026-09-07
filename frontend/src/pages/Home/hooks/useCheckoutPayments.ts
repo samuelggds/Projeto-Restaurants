@@ -6,6 +6,7 @@ import {
   getUnsuccessfulPaymentOutcome,
   type TerminalPaymentOutcome,
 } from '../domain/paymentOutcome';
+import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
 
 export type PixPaymentData = {
   restaurantId?: number;
@@ -24,7 +25,7 @@ export type PixPaymentStatus =
 
 export type CheckoutPaymentResult = {
   restaurantId: number;
-  status: TerminalPaymentOutcome;
+  status: PaymentResultStatus;
   method: 'Cartão';
   orderId: number | null;
   total: number;
@@ -58,18 +59,45 @@ export function getCheckoutErrorMessage(error: unknown): string {
 
   if (Array.isArray(candidate)) {
     const firstMessage = (candidate[0] as { message?: unknown } | undefined)?.message;
-    return typeof firstMessage === 'string' ? firstMessage : '';
+    if (typeof firstMessage === 'string') return getCheckoutErrorMessage(firstMessage);
+    return '';
   }
 
   const message = String(candidate).trim();
-  if (!message.startsWith('[')) return message;
+  if (!message)
+    return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+
+  if (!message.startsWith('[')) {
+    const normalized = message.toLowerCase();
+    const hidesTechnicalConfig =
+      (normalized.includes('access token') ||
+        normalized.includes('configur') ||
+        normalized.includes('mercado pago') ||
+        normalized.includes('pagbank') ||
+        normalized.includes('asaas') ||
+        normalized.includes('gateway') ||
+        normalized.includes('credencial') ||
+        normalized.includes('token') ||
+        normalized.includes('integração') ||
+        normalized.includes('integracao')) &&
+      !/cart(?:ã|a)o|cvv|dados do cart(?:ã|a)o|dados do pagamento/i.test(message);
+
+    if (hidesTechnicalConfig) {
+      return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+    }
+
+    return message;
+  }
 
   try {
     const issues = JSON.parse(message) as Array<{ message?: unknown }>;
     const firstMessage = issues.find((issue) => typeof issue?.message === 'string')?.message;
-    return typeof firstMessage === 'string' ? firstMessage : '';
+    if (typeof firstMessage !== 'string') {
+      return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+    }
+    return getCheckoutErrorMessage(firstMessage);
   } catch {
-    return 'Revise os dados do pedido e tente novamente.';
+    return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
   }
 }
 

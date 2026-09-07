@@ -13,6 +13,7 @@ type Props = {
   payment: TablePaymentIntent;
   status: TablePaymentStatus;
   actionLoading: boolean;
+  restaurantCategory?: unknown;
   onVerify: () => Promise<TablePaymentIntent | null>;
   onCancel: () => Promise<boolean>;
   onStartOver: () => void;
@@ -37,6 +38,7 @@ export function TablePaymentStatusView({
   payment,
   status,
   actionLoading,
+  restaurantCategory,
   onVerify,
   onCancel,
   onStartOver,
@@ -110,6 +112,7 @@ export function TablePaymentStatusView({
         embedded
         status={status}
         method={methodLabels[payment.method]}
+        restaurantCategory={restaurantCategory ?? 'RESTAURANTE'}
         orderLabel="Conta da mesa"
         amount={formatTableMoney(payment.totalCents)}
         description={terminalDescriptions[status]}
