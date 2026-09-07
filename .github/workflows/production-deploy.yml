@@ -1,0 +1,29 @@
+name: Production deploy configuration
+
+on:
+  push:
+    branches: [main, master, develop, development]
+  pull_request:
+    branches: [main, master, develop, development]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  configuration:
+    name: Production deploy isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate resolved Compose environment without production secrets
+        env:
+          REQUIRE_DOCKER_COMPOSE: 'true'
+        run: node --test deploy/productionCompose.test.mjs

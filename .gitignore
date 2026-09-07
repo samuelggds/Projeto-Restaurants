@@ -1,7 +1,7 @@
-.env.docker
-.env.routing.local
-.env.production
 .env
+.env.*
+!.env.example
+!.env.*.example
 node_modules/
 routing-data/
 .npm-cache/
