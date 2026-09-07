@@ -12,7 +12,7 @@ function getEmailKey(req: Request) {
 }
 
 export const passwordResetRateLimitMiddleware = rateLimit({
-  windowMs: Number(process.env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS || 60 * 60 * 1000),
+  windowMs: Number(process.env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
   max: Number(process.env.PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS || 5),
   standardHeaders: true,
   legacyHeaders: false,

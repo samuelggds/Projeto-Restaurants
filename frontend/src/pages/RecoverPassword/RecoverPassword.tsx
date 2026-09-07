@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { ThemeProvider } from 'styled-components';
 import { ArrowRight, KeyRound, LockKeyhole, Mail, Moon, Phone, Sun } from 'lucide-react';
@@ -10,6 +10,8 @@ import {
   STANDARD_PASSWORD_POLICY,
 } from '../../features/password-policy';
 import * as S from './styles';
+import { useResendCooldown } from './hooks/useResendCooldown';
+import { ResendCodeButton } from './components/ResendCodeButton';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from '../Login/components/TenantBrandHero';
 import {
@@ -46,6 +48,9 @@ export default function RecoverPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const requestPending = useRef(false);
+  const { deadline, remainingSeconds, remainingMilliseconds, canRequest, startCooldown } =
+    useResendCooldown();
   const passwordEvaluation = evaluatePassword(
     newPassword,
     confirmPassword,
@@ -85,15 +90,21 @@ export default function RecoverPassword() {
 
   const handleRequestCode = async (event) => {
     event.preventDefault();
+    if (requestPending.current || isLoading || !canRequest()) return;
 
     if (!String(identifier || '').trim()) {
       toast.error('Informe o e-mail ou telefone.');
       return;
     }
 
+    requestPending.current = true;
+    // Start before the request: a timeout may hide a code already sent by the API.
+    startCooldown();
     try {
       setIsLoading(true);
       const response = await authService.forgotPassword(buildIdentifierPayload());
+      startCooldown();
+      setCode('');
       toast.success(
         response?.message ||
           'Se os dados informados existirem, enviamos um código para redefinir a senha.',
@@ -102,6 +113,7 @@ export default function RecoverPassword() {
     } catch {
       toast.error(REQUEST_RECOVERY_ERROR_MESSAGE);
     } finally {
+      requestPending.current = false;
       setIsLoading(false);
     }
   };
@@ -202,7 +214,7 @@ export default function RecoverPassword() {
                   type="button"
                   $active={contactMethod === 'email'}
                   aria-pressed={contactMethod === 'email'}
-                  disabled={step === 'reset'}
+                  disabled={step === 'reset' || isLoading}
                   onClick={() => selectContactMethod('email')}
                 >
                   E-mail
@@ -211,7 +223,7 @@ export default function RecoverPassword() {
                   type="button"
                   $active={contactMethod === 'phone'}
                   aria-pressed={contactMethod === 'phone'}
-                  disabled={step === 'reset'}
+                  disabled={step === 'reset' || isLoading}
                   onClick={() => selectContactMethod('phone')}
                 >
                   Telefone
@@ -233,7 +245,7 @@ export default function RecoverPassword() {
                     placeholder={contactMethod === 'email' ? 'exemplo@email.com' : '(11) 99999-9999'}
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
-                    readOnly={step === 'reset'}
+                    readOnly={step === 'reset' || isLoading}
                     autoComplete={contactMethod === 'email' ? 'email' : 'tel'}
                     required
                   />
@@ -317,6 +329,7 @@ export default function RecoverPassword() {
                 type="submit"
                 disabled={
                   isLoading ||
+                  (step === 'request' && remainingSeconds > 0) ||
                   (step === 'reset' && (code.length !== 6 || !passwordEvaluation.isValid))
                 }
               >
@@ -326,7 +339,9 @@ export default function RecoverPassword() {
                   <>
                     <span>
                       {step === 'request'
-                        ? 'Enviar código'
+                        ? remainingSeconds > 0
+                          ? `Aguarde ${remainingSeconds}s`
+                          : 'Enviar código'
                         : isTableContext
                           ? `Redefinir e voltar ao login da ${tableLabel}`
                           : 'Redefinir senha'}
@@ -341,9 +356,12 @@ export default function RecoverPassword() {
                   <S.SecondaryButton type="button" onClick={changeContact} disabled={isLoading}>
                     Alterar contato
                   </S.SecondaryButton>
-                  <S.SecondaryButton type="button" onClick={handleRequestCode} disabled={isLoading}>
-                    Reenviar código
-                  </S.SecondaryButton>
+                  <ResendCodeButton
+                    remainingMilliseconds={remainingMilliseconds}
+                    deadline={deadline}
+                    isLoading={isLoading}
+                    onClick={handleRequestCode}
+                  />
                 </S.ActionRow>
               )}
             </S.Form>
