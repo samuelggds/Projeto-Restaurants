@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const RESEND_COOLDOWN_SECONDS = 30;
+const COOLDOWN_MS = RESEND_COOLDOWN_SECONDS * 1000;
 const STORAGE_KEY = 'gastronexa:password-reset:resend-until';
 
 function readDeadline() {
@@ -8,28 +9,29 @@ function readDeadline() {
     const value = Number(sessionStorage.getItem(STORAGE_KEY));
     const now = Date.now();
     // Store a timestamp only, never the account identifier, password or OTP.
-    return Number.isFinite(value) && value > now && value <= now + RESEND_COOLDOWN_SECONDS * 1000
-      ? value
-      : 0;
+    return Number.isFinite(value) && value > now && value <= now + COOLDOWN_MS ? value : 0;
   } catch {
     return 0;
   }
 }
 
-function secondsUntil(deadline: number) {
-  return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+function millisecondsUntil(deadline: number) {
+  return Math.min(COOLDOWN_MS, Math.max(0, deadline - Date.now()));
 }
 
 export function useResendCooldown() {
   const [deadline, setDeadline] = useState(readDeadline);
   const deadlineRef = useRef(deadline);
-  const [remainingSeconds, setRemainingSeconds] = useState(() => secondsUntil(deadline));
+  const [remainingMilliseconds, setRemainingMilliseconds] = useState(() =>
+    millisecondsUntil(deadline),
+  );
+  const remainingSeconds = Math.ceil(remainingMilliseconds / 1000);
 
   const startCooldown = useCallback(() => {
-    const until = Date.now() + RESEND_COOLDOWN_SECONDS * 1000;
+    const until = Date.now() + COOLDOWN_MS;
     deadlineRef.current = until;
     setDeadline(until);
-    setRemainingSeconds(RESEND_COOLDOWN_SECONDS);
+    setRemainingMilliseconds(COOLDOWN_MS);
     try {
       sessionStorage.setItem(STORAGE_KEY, String(until));
     } catch {
@@ -45,12 +47,12 @@ export function useResendCooldown() {
   useEffect(() => {
     if (!deadline) return;
     const update = () => {
-      const seconds = secondsUntil(deadline);
-      setRemainingSeconds(seconds);
-      if (seconds === 0) window.clearInterval(timer);
+      const milliseconds = millisecondsUntil(deadline);
+      setRemainingMilliseconds(milliseconds);
+      if (milliseconds === 0) window.clearInterval(timer);
     };
-    // Use the deadline rather than decrementing a counter: background tabs
-    // throttle timers and must catch up when they become visible again.
+    // Fractional progress lets CSS interpolate the rectangular border smoothly.
+    // The stored deadline, not timer ticks or animation events, controls access.
     const timer = window.setInterval(update, 250);
     window.addEventListener('focus', update);
     document.addEventListener('visibilitychange', update);
@@ -61,5 +63,5 @@ export function useResendCooldown() {
     };
   }, [deadline]);
 
-  return { remainingSeconds, canRequest, startCooldown };
+  return { deadline, remainingSeconds, remainingMilliseconds, canRequest, startCooldown };
 }

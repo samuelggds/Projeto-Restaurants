@@ -11,6 +11,7 @@ import {
 } from '../../features/password-policy';
 import * as S from './styles';
 import { useResendCooldown } from './hooks/useResendCooldown';
+import { ResendCodeButton } from './components/ResendCodeButton';
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { TenantBrandHero } from '../Login/components/TenantBrandHero';
 import {
@@ -48,7 +49,8 @@ export default function RecoverPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const requestPending = useRef(false);
-  const { remainingSeconds, canRequest, startCooldown } = useResendCooldown();
+  const { deadline, remainingSeconds, remainingMilliseconds, canRequest, startCooldown } =
+    useResendCooldown();
   const passwordEvaluation = evaluatePassword(
     newPassword,
     confirmPassword,
@@ -354,15 +356,12 @@ export default function RecoverPassword() {
                   <S.SecondaryButton type="button" onClick={changeContact} disabled={isLoading}>
                     Alterar contato
                   </S.SecondaryButton>
-                  <S.SecondaryButton
-                    type="button"
+                  <ResendCodeButton
+                    remainingMilliseconds={remainingMilliseconds}
+                    deadline={deadline}
+                    isLoading={isLoading}
                     onClick={handleRequestCode}
-                    disabled={isLoading || remainingSeconds > 0}
-                  >
-                    {remainingSeconds > 0
-                      ? `Reenviar em ${remainingSeconds}s`
-                      : 'Reenviar código'}
-                  </S.SecondaryButton>
+                  />
                 </S.ActionRow>
               )}
             </S.Form>

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import {
   PASSWORD_RESET_CODE_TTL_MS,
@@ -13,12 +14,20 @@ type ClaimPasswordResetCode = {
   resetAttempts: boolean;
 };
 
-class PasswordResetCodeRepository {
+type PasswordResetCodeStore = {
+  user: {
+    updateMany: (args: Prisma.UserUpdateManyArgs) => PromiseLike<{ count: number }>;
+  };
+};
+
+export class PasswordResetCodeRepository {
+  constructor(private readonly db: PasswordResetCodeStore = prisma) {}
+
   async claim(input: ClaimPasswordResetCode) {
     const { userId, authVersion, previousCodeHash, codeHash, requestedAt, resetAttempts } = input;
     // One conditional write, not read-then-write. Only the winner may send a code.
     // The guard survives reloads, other tabs, API calls and multiple API processes.
-    const claimed = await prisma.user.updateMany({
+    const claimed = await this.db.user.updateMany({
       where: {
         id: userId,
         authVersion,

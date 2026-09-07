@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import prisma from '../../../config/prisma.js';
-import repository from './PasswordResetCodeRepository.js';
+import test, { type TestContext } from 'node:test';
+import type { Prisma } from '@prisma/client';
+import { PasswordResetCodeRepository } from './PasswordResetCodeRepository.js';
 
 const requestedAt = new Date('2026-09-07T12:00:00.000Z');
 const input = {
@@ -13,11 +13,22 @@ const input = {
   resetAttempts: false,
 };
 
+function setup(t: TestContext, count = 1) {
+  const calls: Prisma.UserUpdateManyArgs[] = [];
+  const updateMany = t.mock.fn(async (args: Prisma.UserUpdateManyArgs) => {
+    calls.push(args);
+    return { count };
+  });
+  // Inject a real function instead of monkey-patching Prisma's dynamic proxy.
+  const repository = new PasswordResetCodeRepository({ user: { updateMany } });
+  return { repository, calls, updateMany };
+}
+
 test('one conditional write guards time, prior code, auth version and recovery lock', async (t) => {
-  const update = t.mock.method(prisma.user, 'updateMany', async () => ({ count: 1 }));
+  const { repository, calls, updateMany } = setup(t);
   assert.equal(await repository.claim(input), true);
-  assert.equal(update.mock.callCount(), 1);
-  const { where, data } = update.mock.calls[0].arguments[0];
+  assert.equal(updateMany.mock.callCount(), 1);
+  const { where, data } = calls[0];
   assert.deepEqual(where, {
     id: 12,
     authVersion: 4,
@@ -44,14 +55,14 @@ test('one conditional write guards time, prior code, auth version and recovery l
 });
 
 test('no changed row means a lost claim, not permission to send', async (t) => {
-  t.mock.method(prisma.user, 'updateMany', async () => ({ count: 0 }));
+  const { repository } = setup(t, 0);
   assert.equal(await repository.claim(input), false);
 });
 
 test('attempts are reset only when the caller has established code expiry', async (t) => {
-  const update = t.mock.method(prisma.user, 'updateMany', async () => ({ count: 1 }));
+  const { repository, calls } = setup(t);
   await repository.claim({ ...input, previousCodeHash: null, resetAttempts: true });
-  const { data } = update.mock.calls[0].arguments[0];
+  const { data } = calls[0];
   assert.equal(data.resetPasswordFailedAttempts, 0);
   assert.equal(data.resetPasswordLockedUntil, null);
 });
