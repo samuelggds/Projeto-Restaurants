@@ -31,7 +31,7 @@ export function ResendCodeButton({
         onClick={onClick}
         disabled={isLoading || coolingDown}
         aria-busy={isLoading}
-        aria-label={coolingDown ? `Reenviar código em ${seconds} segundos` : 'Reenviar código'}
+        aria-label={coolingDown ? `Reenviar em ${seconds} segundos` : 'Reenviar código'}
         data-cooling={coolingDown}
         data-testid="resend-code-button"
       >
