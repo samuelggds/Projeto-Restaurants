@@ -4,6 +4,8 @@ import nodemailer from 'nodemailer';
 import userRepository from '../repositories/UserRepository.js';
 import { forgotPasswordSchema } from '../../../validators/ForgotPasswordValidator.js';
 import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
+import passwordResetCodeRepository from '../repositories/PasswordResetCodeRepository.js';
+import { isPasswordResetCoolingDown } from '../security/passwordResetCooldown.js';
 
 function createTransporter() {
   const smtpHost = String(process.env.SMTP_HOST || '').trim();
@@ -106,14 +108,29 @@ class RequestPasswordResetService {
       return { message: safeMessage };
     }
 
+    if (isPasswordResetCoolingDown(user.resetPasswordCodeExpiresAt, now)) {
+      return { message: safeMessage };
+    }
+
     const code = String(crypto.randomInt(100000, 1000000));
     const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     const resetAttempts =
       !user.resetPasswordCodeExpiresAt ||
       new Date(user.resetPasswordCodeExpiresAt).getTime() <= now.getTime();
-    await userRepository.savePasswordResetCode(user.id, codeHash, expiresAt, resetAttempts);
+    const claimed = await passwordResetCodeRepository.claim({
+      userId: user.id,
+      authVersion: user.authVersion,
+      previousCodeHash: user.resetPasswordCodeHash,
+      codeHash,
+      requestedAt: now,
+      resetAttempts,
+    });
+    if (!claimed) {
+      // A concurrent request won, a lock was applied or the account changed.
+      // Do not send another code or disclose the existence of the account.
+      return { message: safeMessage };
+    }
 
     const frontendUrl = String(process.env.FRONTEND_URL || 'http://localhost:5173').replace(
       /\/$/,
@@ -130,8 +147,8 @@ class RequestPasswordResetService {
         await transporter.sendMail({
           from,
           to: user.email,
-          subject: 'Recuperacao de senha - Peca ja food',
-          text: `Seu codigo para redefinir a senha e: ${code}. Ele expira em 15 minutos.\n\nSe preferir, abra: ${frontendUrl}/recover-password`,
+          subject: 'Recuperação de senha - GastroNexa',
+          text: `Seu código para redefinir a senha na GastroNexa é: ${code}. Ele expira em 15 minutos.\n\nSe preferir, abra: ${frontendUrl}/recover-password`,
         });
       } catch (error) {
         if (process.env.NODE_ENV === 'production') {

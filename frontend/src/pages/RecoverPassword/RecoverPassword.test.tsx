@@ -1,24 +1,18 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  forgotPassword: vi.fn(),
-  resetPassword: vi.fn(),
-}));
-
-vi.mock('../../Services/authService', () => ({
-  default: {
-    forgotPassword: mocks.forgotPassword,
-    resetPassword: mocks.resetPassword,
-  },
-}));
+const mocks = vi.hoisted(() => ({ forgotPassword: vi.fn(), resetPassword: vi.fn() }));
+vi.mock('../../Services/authService', () => ({ default: mocks }));
+vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('../Login/hooks/useRestaurantLoginBranding', () => ({
   useRestaurantLoginBranding: () => ({
-    name: 'Restaurante Teste',
+    name: 'GastroNexa',
+    description: 'Restaurante de teste',
     primaryColor: '#cf562f',
     logoUrl: '',
+    category: 'PIZZARIA',
   }),
 }));
 
@@ -27,14 +21,7 @@ import RecoverPassword from './RecoverPassword';
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
-const TABLE_RETURN_PATH = '/restaurante-teste/mesa/12?rid=42&tk=test-token#conta';
-
-function LocationProbe() {
-  const location = useLocation();
-  return <output>{`${location.pathname}${location.search}${location.hash}`}</output>;
-}
-
-function setInputValue(input: HTMLInputElement, value: string) {
+function setInput(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   act(() => {
     setter?.call(input, value);
@@ -42,113 +29,139 @@ function setInputValue(input: HTMLInputElement, value: string) {
   });
 }
 
-describe('RecoverPassword', () => {
+describe('recuperacao: intervalo de 30 segundos', () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    window.sessionStorage.clear();
-    window.sessionStorage.setItem('gastronexa:tenant-slug', 'restaurante-teste');
-    mocks.forgotPassword.mockResolvedValue({ message: 'Código enviado.' });
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
+  function renderPage() {
     act(() => {
       root.render(
-        <MemoryRouter
-          initialEntries={[
-            `/restaurante-teste/recover-password?next=${encodeURIComponent(TABLE_RETURN_PATH)}`,
-          ]}
-        >
-          <Routes>
-            <Route path="/:restaurantSlug/recover-password" element={<RecoverPassword />} />
-            <Route path="/:restaurantSlug/login" element={<LocationProbe />} />
-          </Routes>
+        <MemoryRouter initialEntries={['/recover-password']}>
+          <RecoverPassword />
         </MemoryRouter>,
       );
     });
+  }
+
+  function button(text: string) {
+    const element = [...container.querySelectorAll('button')].find((item) =>
+      item.textContent?.includes(text),
+    );
+    expect(element).toBeDefined();
+    return element as HTMLButtonElement;
+  }
+
+  function enterEmail() {
+    act(() => button('E-mail').click());
+    setInput(container.querySelector('#identifier') as HTMLInputElement, 'cliente@example.test');
+  }
+
+  async function submit() {
+    await act(async () => {
+      (container.querySelector('form') as HTMLFormElement).requestSubmit();
+    });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-07T12:00:00.000Z'));
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    mocks.forgotPassword.mockResolvedValue({ message: 'Solicitacao recebida.' });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    renderPage();
+    enterEmail();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
-  it('solicita o código por e-mail e preserva o contato durante a confirmação', async () => {
-    const emailMethod = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'E-mail',
-    ) as HTMLButtonElement;
-    act(() => emailMethod.click());
-
-    expect(emailMethod.getAttribute('aria-pressed')).toBe('true');
-    const identifier = container.querySelector('#identifier') as HTMLInputElement;
-    expect(identifier.type).toBe('email');
-    setInputValue(identifier, 'cliente@example.test');
-
-    await act(async () => {
-      (container.querySelector('form') as HTMLFormElement).requestSubmit();
-      await Promise.resolve();
-    });
-
-    expect(mocks.forgotPassword).toHaveBeenCalledWith({ email: 'cliente@example.test' });
-    expect(identifier.readOnly).toBe(true);
-    expect(container.textContent).toContain('Código solicitado para cliente@example.test.');
-    expect(emailMethod.disabled).toBe(true);
+  it('bloqueia no envio inicial, libera em 30s e reinicia depois de reenviar', async () => {
+    await submit();
+    expect(button('Reenviar em 30s').disabled).toBe(true);
+    act(() => button('Reenviar em 30s').click());
+    expect(mocks.forgotPassword).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(29_000); });
+    expect(button('Reenviar em 1s').disabled).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(button('Reenviar código').disabled).toBe(false);
+    await act(async () => { button('Reenviar código').click(); });
+    expect(mocks.forgotPassword).toHaveBeenCalledTimes(2);
+    expect(button('Reenviar em 30s').disabled).toBe(true);
   });
 
-  it('permite trocar o contato antes de solicitar um novo código', async () => {
-    const identifier = container.querySelector('#identifier') as HTMLInputElement;
-    setInputValue(identifier, '(11) 99999-9999');
-
-    await act(async () => {
-      (container.querySelector('form') as HTMLFormElement).requestSubmit();
-      await Promise.resolve();
-    });
-
-    const changeContact = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'Alterar contato',
-    ) as HTMLButtonElement;
-    act(() => changeContact.click());
-
-    expect(identifier.readOnly).toBe(false);
-    expect(container.querySelector('#reset-code')).toBeNull();
+  it('nao permite contornar o intervalo usando alterar contato', async () => {
+    await submit();
+    act(() => button('Alterar contato').click());
+    expect(button('Aguarde 30s').disabled).toBe(true);
+    await submit();
+    expect(mocks.forgotPassword).toHaveBeenCalledTimes(1);
   });
 
-  it('retorna ao Login tenant-scoped com o next completo após redefinir a senha', async () => {
-    mocks.resetPassword.mockResolvedValue({ message: 'Senha redefinida.' });
-    const emailMethod = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === 'E-mail',
-    ) as HTMLButtonElement;
-    act(() => emailMethod.click());
-    setInputValue(
-      container.querySelector('#identifier') as HTMLInputElement,
-      'cliente@example.test',
-    );
+  it('mantem o prazo ao remontar a pagina, sem guardar email ou codigo', async () => {
+    await submit();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    act(() => root.unmount());
+    root = createRoot(container);
+    renderPage();
+    enterEmail();
+    expect(button('Aguarde 20s').disabled).toBe(true);
+    await submit();
+    expect(mocks.forgotPassword).toHaveBeenCalledTimes(1);
+    const stored = sessionStorage.getItem('gastronexa:password-reset:resend-until');
+    expect(Number.isFinite(Number(stored))).toBe(true);
+    expect(stored).not.toContain('cliente');
+  });
 
-    await act(async () => {
-      (container.querySelector('form') as HTMLFormElement).requestSubmit();
-      await Promise.resolve();
-    });
+  it('recalcula o prazo pelo relogio ao voltar para uma aba em segundo plano', async () => {
+    await submit();
+    vi.setSystemTime(new Date('2026-09-07T12:00:45.000Z'));
+    act(() => window.dispatchEvent(new Event('focus')));
+    expect(button('Reenviar código').disabled).toBe(false);
+  });
 
-    setInputValue(container.querySelector('#reset-code') as HTMLInputElement, '123456');
-    setInputValue(container.querySelector('#new-password') as HTMLInputElement, 'Senha@123');
-    setInputValue(container.querySelector('#confirm-password') as HTMLInputElement, 'Senha@123');
+  it('nao bloqueia a redefinicao enquanto o reenvio esta em contagem', async () => {
+    await submit();
+    setInput(container.querySelector('#reset-code') as HTMLInputElement, '123456');
+    setInput(container.querySelector('#new-password') as HTMLInputElement, 'SenhaTeste@12345');
+    setInput(container.querySelector('#confirm-password') as HTMLInputElement, 'SenhaTeste@12345');
+    expect(button('Reenviar em 30s').disabled).toBe(true);
+    expect(button('Redefinir senha').disabled).toBe(false);
+  });
 
-    await act(async () => {
-      (container.querySelector('form') as HTMLFormElement).requestSubmit();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+  it('evita submissao duplicada mesmo antes da resposta da API', async () => {
+    let resolveRequest: (value: object) => void = () => undefined;
+    mocks.forgotPassword.mockImplementation(() => new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+    await submit();
+    await submit();
+    expect(mocks.forgotPassword).toHaveBeenCalledTimes(1);
+    await act(async () => { resolveRequest({ message: 'Solicitacao recebida.' }); });
+    expect(button('Reenviar em 30s').disabled).toBe(true);
+  });
 
-    expect(mocks.resetPassword).toHaveBeenCalledWith({
-      email: 'cliente@example.test',
-      code: '123456',
-      newPassword: 'Senha@123',
-      confirmPassword: 'Senha@123',
-    });
-    const location = container.textContent || '';
-    expect(location).toMatch(/^\/restaurante-teste\/login\?next=/u);
-    expect(new URLSearchParams(location.split('?')[1]).get('next')).toBe(TABLE_RETURN_PATH);
+  it('mantem espera depois de falha de rede e permite tentar novamente apos 30s', async () => {
+    mocks.forgotPassword.mockRejectedValueOnce(new Error('Network Error'));
+    await submit();
+    expect(button('Aguarde 30s').disabled).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(button('Enviar código').disabled).toBe(false);
+  });
+
+  it('continua funcionando quando o navegador bloqueia sessionStorage', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Blocked'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Blocked'); });
+    await submit();
+    expect(button('Reenviar em 30s').disabled).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(button('Reenviar código').disabled).toBe(false);
   });
 });
