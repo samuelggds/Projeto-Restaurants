@@ -99,7 +99,7 @@ describe('ResendCodeButton: contorno retangular', () => {
     render(30_000);
     const status = container.querySelector('[role="status"]');
     const waitingMessage = status?.textContent;
-    expect(button().getAttribute('aria-label')).toBe('Reenviar código em 30 segundos');
+    expect(button().getAttribute('aria-label')).toBe('Reenviar em 30 segundos');
     render(15_000);
     expect(status?.textContent).toBe(waitingMessage);
     render(0);
