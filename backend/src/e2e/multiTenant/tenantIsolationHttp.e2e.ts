@@ -72,10 +72,10 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         { headers: { 'x-restaurant-id': String(fixture.restaurants.b.id) } },
       );
       assert.equal(list.response.status, 200);
-      assert.ok(Array.isArray(list.data));
-      assert.ok(list.data.some((order: any) => order.id === fixture.orders.a.id));
-      assert.ok(list.data.every((order: any) => order.restaurantId === fixture.restaurants.a.id));
-      assert.ok(!list.data.some((order: any) => order.id === fixture.orders.b.id));
+      assert.ok(Array.isArray(list.data.orders));
+      assert.ok(list.data.orders.some((order: any) => order.id === fixture.orders.a.id));
+      assert.ok(list.data.orders.every((order: any) => order.restaurantId === fixture.restaurants.a.id));
+      assert.ok(!list.data.orders.some((order: any) => order.id === fixture.orders.b.id));
 
       const denied = await apiRequest(
         baseUrl,
