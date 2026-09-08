@@ -1,46 +1,81 @@
-# Deploy de produção
+# Deploy de producao
 
-O caminho recomendado é `docker-compose.production.yml`: PostgreSQL, backend, frontend, OSRM e Nominatim ficam em redes privadas, e o Caddy publica somente HTTP/HTTPS com certificado automático.
+O caminho recomendado e `docker-compose.production.yml`: banco, API e roteamento ficam em redes privadas; o Caddy publica somente HTTP/HTTPS.
 
-## 1. Pré-requisitos
+> Mudanca de configuracao: infraestrutura/migracao e API/worker agora usam arquivos separados. Nao implante esta versao usando apenas o antigo `.env.production`. Migrations passam a ser uma etapa explicita; nao sao executadas no startup da API.
+
+## 1. Pre-requisitos
 
 - VPS Linux com Docker Engine e Docker Compose atualizados.
-- DNS de `APP_DOMAIN` e `API_DOMAIN` apontando para o IP público.
-- Firewall liberando somente `22` (restrito), `80` e `443`; não publique `3000`, `5000`, `5432` ou `8080`.
+- DNS de `APP_DOMAIN` e `API_DOMAIN` apontando para o IP publico.
+- Firewall liberando somente `22` (restrito), `80` e `443`; nao publique `3000`, `5000`, `5432` ou `8080`.
 - Backups externos e monitoramento configurados.
-- Dados de rota preparados conforme [ROUTING_PRODUCTION.md](./ROUTING_PRODUCTION.md).
+- Uma role de banco para migrations e outra restrita para runtime, conforme [fundacao RLS](./docs/security/postgresql-rls-foundation.md).
 
-## 2. Configuração
+## 2. Configuracao e separacao de segredos
 
 ```bash
 cp .env.production.example .env.production
-chmod 600 .env.production
+cp .env.production.runtime.example .env.production.runtime
+chmod 600 .env.production .env.production.runtime
 ```
 
-Substitua todos os placeholders, habilite somente os provedores de pagamento utilizados e configure URLs públicas HTTPS. A inicialização é bloqueada quando faltam banco, origens, serviços privados de rota ou segredos seguros.
+Use `.env.production` apenas para interpolacao da infraestrutura/build: dominios, `POSTGRES_*`, `DIRECT_URL`, roteamento e valores publicos `VITE_*`. Esse arquivo **nao e injetado integralmente em nenhum processo da aplicacao**.
 
-Valide o arquivo final:
+Use `.env.production.runtime` para a API e o worker: `DATABASE_URL` da role restrita, JWT, criptografia, SMTP, gateways e outras opcoes da aplicacao. Nunca coloque `DIRECT_URL`, `POSTGRES_PASSWORD` ou `POSTGRES_PASSWORD_FILE` nele. A inicializacao em producao rejeita essas variaveis sem imprimir seus valores.
+
+A role runtime deve ser `NOSUPERUSER`, `NOBYPASSRLS` e nao possuir as tabelas. O controle de role existente continua obrigatorio; separar arquivos nao substitui privilegios corretos no PostgreSQL.
+
+Para migrar uma instalacao existente, mova os valores reais das variaveis da aplicacao para o arquivo de runtime, mantendo as mesmas chaves JWT/criptografia e credenciais de gateway. Nao regenere segredos indiscriminadamente: isso pode invalidar sessoes ou tornar credenciais criptografadas ilegiveis. Mantenha as variaveis de infraestrutura somente no arquivo de infraestrutura.
+
+`PRODUCTION_RUNTIME_ENV_FILE` permite selecionar outro arquivo de runtime. O antigo `PRODUCTION_ENV_FILE` deixou de ser utilizado neste Compose. Nao aponte o novo caminho para o arquivo de infraestrutura.
+
+Escolha uma opcao de roteamento em `.env.production`:
+
+- `ROUTING_PROVIDER=osrm` (padrao): prepare os dados conforme [ROUTING_PRODUCTION.md](./ROUTING_PRODUCTION.md) e habilite `--profile selfhost-routing` ao subir os servicos.
+- `ROUTING_PROVIDER=geoapify`: preencha `GEOAPIFY_API_KEY` em `.env.production.runtime`. Nao e necessario habilitar o perfil de roteamento proprio.
+
+Substitua todos os placeholders. Configure apenas os provedores utilizados. Para a criacao inicial do SUPER_ADMIN, preencha uma fonte de senha temporaria no runtime; remova-a depois da criacao confirmada. O worker recebe os campos de bootstrap vazios. `SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE` exige montar explicitamente o secret apenas na API; definir um caminho nao monta o arquivo automaticamente.
+
+Valide sem imprimir as credenciais resolvidas no terminal ou em logs:
 
 ```bash
-PRODUCTION_ENV_FILE=.env.production \
-docker compose --env-file .env.production -f docker-compose.production.yml config
+docker compose --env-file .env.production -f docker-compose.production.yml config --quiet
 ```
 
-## 3. Banco e primeira publicação
+## 3. Banco, migrations e primeira publicacao
 
-Antes da primeira publicação, confirme que `DATABASE_URL` e `DIRECT_URL` apontam para o banco correto. O container do backend executa `prisma migrate deploy` antes de iniciar; ele nunca executa seed automaticamente.
+Antes de executar, confirme que `DIRECT_URL` (infraestrutura) e `DATABASE_URL` (runtime) apontam para **o mesmo banco**, mas usam roles diferentes. A API nao recebe a conexao de owner.
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.production.yml build
-docker compose --env-file .env.production -f docker-compose.production.yml up -d
+docker compose --env-file .env.production -f docker-compose.production.yml up -d db
+docker compose --env-file .env.production -f docker-compose.production.yml \
+  --profile maintenance run --rm --build migrate
+```
+
+O servico `migrate` mapeia `DIRECT_URL` para `DATABASE_URL`, que e a variavel efetivamente usada pelo schema Prisma. Ele recebe apenas essa conexao e `NODE_ENV`; nao recebe JWT, SMTP ou credenciais de gateways. O perfil `maintenance` nao deve ser incluido no comando normal de subida da aplicacao.
+
+**Pare se a migration falhar.** Antes de iniciar API/worker, provisione a role runtime e os grants de tabelas/sequences; configure tambem os default privileges da role que cria tabelas. Consulte o documento RLS. Novas tabelas sem grants podem impedir consultas mesmo quando as migrations passam.
+
+Com OSRM/Nominatim preparados:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.production.yml \
+  --profile selfhost-routing up -d --build
 docker compose --env-file .env.production -f docker-compose.production.yml ps
 ```
 
-Não execute `db:seed` em produção. A rotina também exige `ALLOW_PROD_SEED=true` para reduzir acidentes.
+Com Geoapify configurado:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
+```
+
+O Compose de producao sobrescreve o CMD legado da imagem: o backend apenas executa o bootstrap protegido do SUPER_ADMIN e inicia a API. Nenhum seed e executado. Nao execute `db:seed` em producao.
 
 ## 4. HTTPS, Socket.IO e GPS
 
-O Caddy usa [deploy/Caddyfile](./deploy/Caddyfile), obtém certificados para os dois domínios e encaminha WebSocket/long polling para o backend. O rastreamento do motoqueiro exige HTTPS em aparelhos reais.
+O Caddy usa [deploy/Caddyfile](./deploy/Caddyfile), obtem certificados para os dois dominios e encaminha WebSocket/long polling. O rastreamento exige HTTPS em aparelhos reais.
 
 Se optar por Nginx em vez de Caddy, preserve uma rota dedicada para Socket.IO:
 
@@ -73,76 +108,60 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 75s;
+        proxy_send_timeout 75s;
     }
 }
 ```
 
-`VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_SOCKET_PATH`, `VITE_QR_BASE_URL` e o provedor de tiles são incorporados ao build. Reconstrua o frontend ao alterar qualquer variável `VITE_*`.
+Os valores `VITE_*` sao incorporados ao build; reconstrua o frontend ao altera-los. Eles sao publicos e nunca devem conter segredos de backend.
 
 ## 5. Escala
 
-Use uma réplica do backend enquanto o Socket.IO utilizar o adapter em memória. Escalar para duas ou mais instâncias sem Redis/sticky sessions pode separar motoqueiro e cliente em processos diferentes. O mesmo cuidado vale para os jobs agendados. A limitação está registrada no runbook de rotas.
+Use uma replica do backend enquanto o Socket.IO utilizar o adapter em memoria. Duas ou mais instancias exigem adaptador compartilhado e revisao do balanceamento das conexoes; o mesmo cuidado vale para eventos de jobs.
 
-## 6. Atualização segura
+## 6. Atualizacao segura
 
-1. Faça backup verificado do PostgreSQL e guarde a imagem atualmente implantada.
-2. Execute lint, typecheck, testes proporcionais ao risco e build.
-3. Valide `docker compose config` e construa as novas imagens.
-4. Execute `prisma migrate deploy` pelo container novo.
-5. Suba a aplicação e valide `/health`, `/ready`, login, pedido e Socket.IO.
-6. Em mudança de rastreamento, faça o smoke test com um celular real.
-
-Para validar automaticamente a aplicação após o deploy:
+1. Faca backup verificado e guarde a imagem e a configuracao anteriormente implantadas.
+2. Execute lint, typecheck, testes e build; valide o novo gate `Production deploy isolation`.
+3. Valide `docker compose config --quiet` com os dois arquivos reais protegidos.
+4. Construa a nova imagem e execute o servico `migrate` com `run --rm --build`; confirme o sucesso e os grants antes de prosseguir.
+5. Suba a aplicacao e valide `/health`, `/ready`, login/MFA, pedido e Socket.IO. Mudancas de rastreamento exigem smoke test em celular real.
+6. Se falhar, pare o rollout e restaure imagem/configuracao anteriores. Nao remova volumes. Migrations destrutivas exigem um plano proprio de rollback de dados.
 
 ```bash
 SMOKE_BASE_URL=https://seu-dominio.example npm run smoke
 ```
 
-O comando possui timeout e falha se `/health` ou `/ready` não responderem com JSON e HTTP 2xx.
-7. Se falhar, restaure a imagem anterior; migrations destrutivas exigem plano próprio de rollback de dados.
-
-Use a política de baixo custo de manutenção descrita em [TESTING.md](./TESTING.md). O E2E obrigatório fica restrito às jornadas críticas.
+O comando possui timeout e exige JSON com HTTP 2xx nas sondas. Consulte [TESTING.md](./TESTING.md) para as jornadas criticas.
 
 ## 7. Observabilidade e backups
 
-- Configure `SENTRY_DSN`, alertas e retenção de logs.
-- Monitore `/ready`, 5xx, 429, latência, conexões Socket.IO e serviços de rota.
-- Automatize backup do PostgreSQL fora do servidor e teste a restauração.
-- Proteja `.env.production` e nunca o envie ao Git.
-- Rotacione imediatamente qualquer segredo exposto.
-- Revise a retenção de GPS em `DELIVERY_LOCATION_RETENTION_DAYS`.
+Configure Sentry, alertas e retencao; monitore `/ready`, 5xx, 429, latencia, conexoes e roteamento. Automatize backups externos e teste a restauracao. Proteja **ambos** os arquivos de ambiente e nao registre a saida completa de `docker compose config`, pois ela contem segredos. Rotacione segredos expostos e revise `DELIVERY_LOCATION_RETENTION_DAYS`.
 
 ## 8. Pagamentos e OAuth
 
-- Use credenciais de produção e URLs de webhook em `https://API_DOMAIN/...`.
-- Mantenha `ALLOW_INSECURE_STRIPE_WEBHOOK=false`, `ALLOW_GLOBAL_PAYMENT_FALLBACK=false` e `ENABLE_TEST_PAYMENT_WEBHOOK=false`.
-- Autorize `https://APP_DOMAIN` no Google OAuth.
-- Faça um pagamento controlado de cada provedor habilitado e confirme idempotência do webhook antes de abrir ao público.
+Use credenciais de producao e webhooks HTTPS. Mantenha `ALLOW_INSECURE_STRIPE_WEBHOOK=false`, `ALLOW_GLOBAL_PAYMENT_FALLBACK=false` e `ENABLE_TEST_PAYMENT_WEBHOOK=false`. Autorize o dominio do frontend no Google OAuth. Faca um pagamento controlado de cada provedor e confirme a idempotencia antes de abrir ao publico.
 
 ## 9. Render ou outro PaaS
 
-Frontend e backend podem ser publicados separadamente, mas o rastreamento continua exigindo OSRM e Nominatim privados alcançáveis pelo backend. Configure:
+Separe a etapa de release/migracao do processo web:
 
-- backend: `npm ci && npm run build && npx prisma generate`; início `npx prisma migrate deploy && npm run start`;
-- frontend: `npm ci && npm run build`; publicação de `dist`;
-- todas as variáveis obrigatórias de `.env.production.example`;
-- healthcheck do backend em `/ready`;
-- uma única instância do backend até existir adapter Redis;
-- proxy com suporte a WebSocket e HTTPS.
+- build backend: `npm ci && npm run build && npx prisma generate`;
+- job de migracao isolado: `npm run db:migrate:deploy`, com a conexao de owner fornecida como `DATABASE_URL` **somente nesse job**;
+- runtime: variaveis de `.env.production.runtime.example`, bootstrap inicial controlado e `npm run start`; sem `DIRECT_URL` nem senhas de owner;
+- frontend: `npm ci && npm run build`, publicacao de `dist`;
+- healthcheck `/ready`, HTTPS, proxy WebSocket e uma unica replica de API nesta fase.
 
-Não use os servidores públicos de demonstração do OSRM/Nominatim como dependência de produção.
+No PaaS, configure explicitamente os dominios e variaveis de roteamento, pois nao existe a interpolacao do Compose. Nao use servidores publicos de demonstracao OSRM/Nominatim em producao. Caso a plataforma compartilhe obrigatoriamente os segredos de migracao com o runtime, use um job externo com permissao minima em vez de enfraquecer a verificacao.
 
 ## 10. Checklist de abertura
 
-- [ ] DNS e certificados válidos.
-- [ ] Somente 80/443 públicos.
-- [ ] `/health` e `/ready` respondendo 200.
-- [ ] Backups e restauração testados.
-- [ ] OSRM e Nominatim saudáveis para toda a área dos tenants.
-- [ ] Tiles com capacidade/SLA e atribuição correta.
-- [ ] CORS restrito ao domínio do frontend.
-- [ ] Login, MFA administrativo e permissões por restaurante validados.
-- [ ] Mesa/QR, produto montável, cozinha, garçom, promoção e pagamento validados.
-- [ ] Rastreamento real validado do aparelho do motoqueiro até o cliente.
-- [ ] Alertas, logs e Sentry recebendo eventos.
-- [ ] Uma réplica do backend confirmada.
+- [ ] Dois arquivos de ambiente separados, protegidos e fora do Git.
+- [ ] Migrations aprovadas e runtime sem credenciais administrativas.
+- [ ] Role runtime/grants/RLS verificados.
+- [ ] DNS, certificados e somente 80/443 publicos para a aplicacao.
+- [ ] Sondas, backups e restauracao verificados.
+- [ ] Provedor de roteamento escolhido, saudavel e com cobertura; tiles apropriados.
+- [ ] CORS, login/MFA e permissoes entre restaurantes validados.
+- [ ] Mesa/QR, cozinha, garcom, promocao, pagamento e rastreamento real validados.
+- [ ] Alertas funcionando e uma replica de API confirmada.

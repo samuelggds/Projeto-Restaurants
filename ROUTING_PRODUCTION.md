@@ -1,6 +1,6 @@
 # Rotas e rastreamento em produção
 
-O rastreamento usa GPS do celular do motoqueiro, Socket.IO para atualização em tempo real, polling como contingência, OSRM para calcular a rota e Nominatim para localizar o endereço salvo no pedido. OSRM e Nominatim são privados e não publicam portas no host.
+Este guia cobre `ROUTING_PROVIDER=osrm`: GPS do celular do motoqueiro, Socket.IO, polling como contingência, OSRM para calcular a rota e Nominatim para localizar o endereço salvo no pedido. OSRM e Nominatim são privados e não publicam portas no host. Para Geoapify, siga a configuração alternativa em [DEPLOY.md](./DEPLOY.md); não é necessário importar mapas nem iniciar o perfil de roteamento próprio.
 
 ## Requisitos
 
@@ -17,18 +17,22 @@ Referências oficiais: [OSRM](https://project-osrm.org/docs/v26.6.1/http), [imag
 
 ```bash
 cp .env.production.example .env.production
-chmod 600 .env.production
+cp .env.production.runtime.example .env.production.runtime
+chmod 600 .env.production .env.production.runtime
 ```
+
+A separação e o procedimento de atualização estão em [DEPLOY.md](./DEPLOY.md). `.env.production` contém infraestrutura e credenciais de migração; `.env.production.runtime` contém somente credenciais restritas e opções da aplicação. Nunca injete o arquivo de infraestrutura como `env_file` da API/worker.
 
 Edite `.env.production`:
 
-- troque todos os valores `SUBSTITUA_*`;
-- gere quatro segredos independentes, por exemplo com `openssl rand -hex 48`;
+- troque todos os valores `SUBSTITUA_*` de infraestrutura;
 - configure os dois domínios e um e-mail válido para o certificado;
-- informe URLs HTTPS reais no frontend;
+- defina `ROUTING_PROVIDER=osrm`;
 - escolha `ROUTING_PBF_URL` e `ROUTING_REPLICATION_URL` da mesma região;
 - informe um `ROUTING_USER_AGENT` com contato operacional;
 - configure um provedor de tiles em `VITE_MAP_TILE_URL`.
+
+Configure JWT, criptografia, SMTP, gateways e a conexão restrita `DATABASE_URL` no arquivo de runtime. Ao atualizar uma instalação existente, preserve os segredos válidos em vez de substituí-los por novos valores indiscriminadamente.
 
 As variáveis `VITE_*` são incorporadas à imagem durante o build. Qualquer alteração exige reconstruir o frontend.
 
@@ -40,12 +44,11 @@ Salve sempre o arquivo ativo como `routing-data/osrm/region.osm.pbf`. O nome ló
 
 ## 3. Preparação do OSRM
 
-Use exatamente a mesma imagem pinada em `.env.production` no pré-processamento e no runtime:
+Use exatamente a mesma imagem pinada em `.env.production` no pré-processamento e no runtime. Defina apenas os dois valores públicos necessários no terminal, iguais aos escolhidos naquele arquivo. Não execute `source .env.production`: o formato dotenv não é um script shell e o arquivo contém segredos que não precisam ser exportados.
 
 ```bash
-set -a
-. ./.env.production
-set +a
+export OSRM_IMAGE='ghcr.io/project-osrm/osrm-backend:26.8.0-debian'
+export ROUTING_PBF_URL='https://download.geofabrik.de/south-america/brazil-latest.osm.pbf'
 
 mkdir -p routing-data/osrm
 curl -fL "$ROUTING_PBF_URL" -o routing-data/osrm/region.osm.pbf
@@ -67,17 +70,19 @@ O perfil `car` é uma aproximação para motocicleta; ele não inclui trânsito 
 
 ## 4. Validação e inicialização
 
-Valide a interpolação sem iniciar containers:
+Valide a interpolação sem iniciar containers e sem imprimir segredos:
 
 ```bash
-PRODUCTION_ENV_FILE=.env.production \
-docker compose --env-file .env.production -f docker-compose.production.yml config
+docker compose --env-file .env.production -f docker-compose.production.yml config --quiet
 ```
 
-Suba a pilha:
+**Antes de iniciar a API**, execute as migrations isoladas, provisione a role runtime e confira os grants conforme a seção 3 de [DEPLOY.md](./DEPLOY.md). O startup da API não executa mais migrations no Compose de produção.
+
+Suba a pilha com o perfil obrigatório para o roteamento próprio:
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.production.yml \
+  --profile selfhost-routing up -d --build
 docker compose --env-file .env.production -f docker-compose.production.yml ps
 ```
 
@@ -89,7 +94,10 @@ docker compose --env-file .env.production -f docker-compose.production.yml logs 
 
 ## 5. Smoke tests
 
+Defina `API_DOMAIN` com o domínio público configurado, sem carregar o arquivo completo de segredos:
+
 ```bash
+export API_DOMAIN='api.seudominio.com'
 curl -fsS "https://$API_DOMAIN/health"
 curl -fsS "https://$API_DOMAIN/ready"
 
@@ -127,8 +135,8 @@ Logs têm rotação no Compose. Configure Sentry e alertas externos antes da abe
 - OSRM não é atualizado automaticamente. Baixe e processe o novo PBF em um diretório de staging usando a mesma versão da imagem.
 - Valide uma rota conhecida no staging, pare somente o serviço OSRM, preserve o conjunto anterior, troque o diretório de dados de forma atômica e reinicie o serviço.
 - Se o healthcheck ou smoke test falhar, restaure imediatamente o conjunto anterior.
-- Faça backup testado do banco principal e dos arquivos `.env.production`; o PBF e os artefatos OSRM podem ser reconstruídos, mas manter a versão anterior acelera o rollback.
+- Faça backup testado do banco principal e dos dois arquivos `.env.production` e `.env.production.runtime`; o PBF e os artefatos OSRM podem ser reconstruídos, mas manter a versão anterior acelera o rollback.
 
 ## 8. Retenção e privacidade
 
-`DELIVERY_LOCATION_RETENTION_DAYS` controla a limpeza automática das posições antigas. Defina o menor prazo compatível com suporte e obrigações legais. O endpoint e o socket preservam isolamento por pedido, conta e `restaurantId`; não exponha OSRM, Nominatim nem PostgreSQL na internet.
+`DELIVERY_LOCATION_RETENTION_DAYS`, no arquivo de runtime, controla a limpeza automática das posições antigas. Defina o menor prazo compatível com suporte e obrigações legais. O endpoint e o socket preservam isolamento por pedido, conta e `restaurantId`; não exponha OSRM, Nominatim nem PostgreSQL na internet.
