@@ -59,7 +59,7 @@ export function KitchenPrintingSettings() {
   const [credential, setCredential] = useState('');
   const [jobs, setJobs] = useState<KitchenPrintJobSummary[]>([]);
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
-  const [deviceName, setDeviceName] = useState('Agente principal da cozinha');
+  const [deviceName, setDeviceName] = useState('Computador principal da cozinha');
   const [copied, setCopied] = useState(false);
   const [orderSearch, setOrderSearch] = useState('');
   const [visibleJobLimit, setVisibleJobLimit] = useState(PRINT_JOB_BATCH_SIZE);
@@ -149,22 +149,22 @@ export function KitchenPrintingSettings() {
     try {
       const result = await kitchenPrintingService.issueCredential({
         ...(configuration?.agent?.publicId ? { devicePublicId: configuration.agent.publicId } : {}),
-        name: deviceName.trim() || 'Agente principal da cozinha',
+        name: deviceName.trim() || 'Computador principal da cozinha',
       });
       if (!mountedRef.current) return;
       setCredential(result.credential);
       setFeedback({
         tone: 'success',
         message: configuration?.agent
-          ? 'Credencial rotacionada. A chave anterior já deixou de funcionar.'
-          : 'Credencial criada. Configure-a agora no computador da cozinha.',
+          ? 'Código de conexão renovado. O anterior já deixou de funcionar.'
+          : 'Código de conexão criado. Informe-o agora no computador da cozinha.',
       });
       await loadConfiguration();
     } catch (error) {
       if (!mountedRef.current) return;
       setFeedback({
         tone: 'error',
-        message: errorMessage(error, 'Não foi possível gerar a credencial do agente.'),
+        message: errorMessage(error, 'Não foi possível criar o código de conexão.'),
       });
     } finally {
       if (mountedRef.current) setBusy(null);
@@ -181,7 +181,7 @@ export function KitchenPrintingSettings() {
       if (!mountedRef.current) return;
       setCredential('');
       setConfiguration((current) => (current ? { ...current, agent: null } : current));
-      setFeedback({ tone: 'success', message: 'Acesso do agente revogado.' });
+      setFeedback({ tone: 'success', message: 'Acesso do computador removido.' });
     } catch (error) {
       if (!mountedRef.current) return;
       setFeedback({
@@ -203,14 +203,14 @@ export function KitchenPrintingSettings() {
       setFeedback({
         tone: 'success',
         message:
-          'Teste adicionado à fila. Ele será impresso assim que o agente estiver disponível.',
+          'Teste adicionado à fila. Ele será impresso assim que o computador estiver disponível.',
       });
       await loadConfiguration();
     } catch (error) {
       if (!mountedRef.current) return;
       setFeedback({
         tone: 'error',
-        message: errorMessage(error, 'Não foi possível adicionar o teste à fila.'),
+        message: errorMessage(error, 'Não foi possível enviar o teste para impressão.'),
       });
     } finally {
       if (mountedRef.current) setBusy(null);
@@ -226,7 +226,7 @@ export function KitchenPrintingSettings() {
     } catch {
       setFeedback({
         tone: 'error',
-        message: 'Não foi possível copiar automaticamente. Selecione a credencial e copie.',
+        message: 'Não foi possível copiar automaticamente. Selecione o código e copie.',
       });
     }
   };
@@ -240,14 +240,14 @@ export function KitchenPrintingSettings() {
       if (!mountedRef.current) return;
       setFeedback({
         tone: 'success',
-        message: 'Job devolvido à fila. O agente tentará imprimir novamente.',
+        message: 'Impressão devolvida à fila. O computador tentará imprimir novamente.',
       });
       await loadConfiguration();
     } catch (error) {
       if (!mountedRef.current) return;
       setFeedback({
         tone: 'error',
-        message: errorMessage(error, 'Não foi possível repetir este job.'),
+        message: errorMessage(error, 'Não foi possível tentar esta impressão novamente.'),
       });
     } finally {
       if (mountedRef.current) setRetryingJobId(null);
@@ -258,7 +258,7 @@ export function KitchenPrintingSettings() {
     return (
       <S.Root>
         <div className="load-state" role="status">
-          Carregando configuração segura da impressora…
+          Carregando as configurações da impressora…
         </div>
       </S.Root>
     );
@@ -286,11 +286,11 @@ export function KitchenPrintingSettings() {
     : dirty
       ? 'Salve suas escolhas para continuar a configuração.'
       : !agent
-        ? 'Gere uma chave no passo 3 e conecte o computador da cozinha.'
+        ? 'Gere um código de conexão no passo 3 e conecte o computador da cozinha.'
         : !agent.online
-          ? 'Abra o Print Agent no computador da cozinha para ele ficar online.'
+          ? 'Abra o programa da cozinha no computador para conectá-lo.'
           : !agent.printerName
-            ? 'Escolha a impressora térmica dentro do Print Agent.'
+            ? 'Escolha a impressora térmica dentro do programa da cozinha.'
             : 'Tudo pronto. Faça uma impressão de teste para conferir a comanda.';
 
   return (
@@ -540,13 +540,13 @@ export function KitchenPrintingSettings() {
             <span className="step-number">3</span>
             <div>
               <h3>Conecte o computador da cozinha</h3>
-              <p>O Print Agent faz a ponte segura entre o sistema e a impressora do Windows.</p>
+              <p>O programa da cozinha conecta o sistema à impressora do Windows com segurança.</p>
             </div>
             {canConfigureAgent && (
               <button
                 className="icon-button"
                 type="button"
-                aria-label="Atualizar status do agente"
+                aria-label="Atualizar status do computador"
                 disabled={loading}
                 onClick={() => void loadConfiguration(true)}
               >
@@ -578,9 +578,9 @@ export function KitchenPrintingSettings() {
                   </b>
                   <small>
                     {agent?.online
-                      ? 'O Print Agent está pronto para receber comandas.'
+                      ? 'O programa da cozinha está pronto para receber comandas.'
                       : agent
-                        ? 'Abra o Print Agent no computador da cozinha.'
+                        ? 'Abra o programa da cozinha no computador.'
                         : 'Siga as instruções abaixo para fazer o primeiro acesso.'}
                   </small>
                 </div>
@@ -598,14 +598,14 @@ export function KitchenPrintingSettings() {
                   <li>
                     <span>2</span>
                     <div>
-                      <b>Gere uma chave de conexão</b>
-                      <small>A chave identifica este restaurante com segurança.</small>
+                      <b>Gere um código de conexão</b>
+                      <small>O código identifica este restaurante com segurança.</small>
                     </div>
                   </li>
                   <li>
                     <span>3</span>
                     <div>
-                      <b>Abra o Print Agent e informe a chave</b>
+                      <b>Abra o programa da cozinha e informe o código</b>
                       <small>Depois, escolha a impressora térmica instalada no Windows.</small>
                     </div>
                   </li>
@@ -617,7 +617,7 @@ export function KitchenPrintingSettings() {
                   <span>Nome deste computador</span>
                   <small>Este nome aparecerá somente para a equipe administrativa.</small>
                   <input
-                    aria-label="Nome do computador do Print Agent"
+                    aria-label="Nome do computador da cozinha"
                     maxLength={80}
                     value={deviceName}
                     onChange={(event) => setDeviceName(event.target.value)}
@@ -634,28 +634,38 @@ export function KitchenPrintingSettings() {
                     ? 'Gerando…'
                     : agent
                       ? 'Gerar uma nova chave'
-                      : 'Gerar chave de conexão'}
+                      : 'Gerar código de conexão'}
                 </button>
               </div>
 
               {credential && (
-                <div className="credential" role="region" aria-label="Credencial do agente">
+                <div
+                  className="credential"
+                  role="region"
+                  aria-label="Código de conexão do computador"
+                >
                   <div className="credential-head">
                     <KeyRound />
                     <div>
-                      <h4>Copie esta chave agora</h4>
-                      <p>Ela será exibida apenas uma vez e deve ser informada no Print Agent.</p>
+                      <h4>Copie este código agora</h4>
+                      <p>
+                        Ele será exibido apenas uma vez e deve ser informado no programa da cozinha.
+                      </p>
                     </div>
                   </div>
                   <div className="credential-row">
-                    <input aria-label="Credencial do Print Agent" readOnly value={credential} />
+                    <input
+                      aria-label="Código de conexão do computador"
+                      readOnly
+                      value={credential}
+                    />
                     <button className="copy" type="button" onClick={() => void copyCredential()}>
                       <Copy size={15} /> {copied ? 'Copiado' : 'Copiar chave'}
                     </button>
                   </div>
                   <small className="credential-note">
-                    Por segurança, o servidor armazena somente o hash e não poderá mostrar esta
-                    chave novamente. Uma nova chave invalida imediatamente a anterior.
+                    Por segurança, este código não poderá ser mostrado novamente. Um novo código
+                    desativa imediatamente o anterior.
                   </small>
                 </div>
               )}

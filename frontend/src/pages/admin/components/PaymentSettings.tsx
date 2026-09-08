@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { adminMockSettings } from '../data';
 import { isValidCnpj, isValidCpf } from '../domain/businessSettingsValidation';
+import { adminErrorMessage } from '../utils/adminErrorMessage';
 import { PaymentTerminalSettings } from './PaymentTerminalSettings';
 import * as PS from './PaymentSettings.styles';
 
@@ -44,27 +45,25 @@ const providers: Array<{
     id: 'MERCADO_PAGO',
     name: 'Mercado Pago',
     initials: 'MP',
-    description: 'Autorize a conta do restaurante sem copiar tokens ou chaves secretas.',
+    description: 'Conecte a conta do restaurante sem copiar senhas ou códigos de acesso.',
   },
   {
     id: 'ASAAS',
     name: 'Asaas',
     initials: 'AS',
-    description: 'Crie uma subconta vinculada ao restaurante usando o CPF ou CNPJ do responsável.',
+    description:
+      'Crie uma conta de recebimento ligada ao restaurante usando o CPF ou CNPJ do responsável.',
   },
   {
     id: 'PAGBANK',
     name: 'PagBank',
     initials: 'PB',
-    description: 'Autorize a conta PagBank pelo fluxo Connect configurado na plataforma.',
+    description: 'Conecte a conta PagBank pelo processo seguro de autorização.',
   },
 ];
 
 function errorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  if (!error || typeof error !== 'object') return fallback;
-  const response = (error as { response?: { data?: Record<string, unknown> } }).response;
-  return String(response?.data?.error || response?.data?.message || fallback);
+  return adminErrorMessage(error, fallback);
 }
 
 function providerIsConnected(settings: Settings, provider: Provider) {
@@ -74,7 +73,9 @@ function providerIsConnected(settings: Settings, provider: Provider) {
 }
 
 function providerName(provider: string) {
-  return providers.find((item) => item.id === provider)?.name || 'Selecione um provedor';
+  return (
+    providers.find((item) => item.id === provider)?.name || 'Selecione uma empresa de pagamento'
+  );
 }
 
 function documentDigits(value: string) {
@@ -131,13 +132,24 @@ export function PaymentSettings({
     (Boolean(settings.cardGateway) &&
       providerIsConnected(settings, settings.cardGateway as Provider));
   const configurationReady = activeMethods > 0 && pixReady && cardReady;
+  const configurationNotice = !activeMethods
+    ? 'Há etapas pendentes: ative Pix ou cartão para aceitar pagamentos online.'
+    : settings.acceptsPix && !settings.pixKey.trim()
+      ? 'Há etapas pendentes: cadastre a chave Pix do restaurante para liberar o Pix.'
+      : settings.acceptsPix && !providerIsConnected(settings, settings.pixProvider as Provider)
+        ? `Há etapas pendentes: vincule a conta ${providerName(settings.pixProvider)} para liberar o Pix.`
+        : settings.acceptsCard && !settings.cardGateway
+          ? 'Há etapas pendentes: escolha quem processará os pagamentos com cartão.'
+          : settings.acceptsCard && !providerIsConnected(settings, settings.cardGateway as Provider)
+            ? `Há etapas pendentes: vincule a conta ${providerName(settings.cardGateway)} para liberar o cartão.`
+            : 'Há etapas pendentes: revise o cadastro dos meios de pagamento.';
 
   const connect = async (provider: 'MERCADO_PAGO' | 'PAGBANK') => {
     setConnectionError('');
     setBusyProvider(provider);
     try {
       const handler = provider === 'MERCADO_PAGO' ? onConnectMercadoPago : onConnectPagBank;
-      if (!handler) throw new Error('A conexão deste provedor não está disponível nesta tela.');
+      if (!handler) throw new Error('A conexão desta empresa não está disponível nesta tela.');
       await handler();
     } catch (error) {
       setConnectionError(
@@ -233,7 +245,7 @@ export function PaymentSettings({
           </div>
           <PS.ReadyStatus $ready={configurationReady}>
             {configurationReady ? <BadgeCheck /> : <CircleAlert />}
-            <span>{configurationReady ? 'Configuração completa' : 'Há etapas pendentes'}</span>
+            <span>{configurationReady ? 'Configuração completa' : configurationNotice}</span>
           </PS.ReadyStatus>
         </PS.Summary>
       </PS.Hero>
@@ -254,15 +266,15 @@ export function PaymentSettings({
           <li>
             <b>2</b>
             <div>
-              <strong>Escolha o provedor</strong>
-              <span>Defina quem processará cada forma de pagamento.</span>
+              <strong>Escolha a empresa de pagamento</strong>
+              <span>Defina qual empresa receberá e processará cada pagamento.</span>
             </div>
           </li>
           <li>
             <b>3</b>
             <div>
-              <strong>Vincule e salve</strong>
-              <span>Autorize a conta e use “Salvar alterações” no topo da tela.</span>
+              <strong>Conecte e salve</strong>
+              <span>Conecte a conta e use “Salvar alterações” no topo da tela.</span>
             </div>
           </li>
         </ol>
@@ -301,7 +313,7 @@ export function PaymentSettings({
 
           <PS.ControlGrid>
             <PS.Field>
-              <span>Provedor do Pix</span>
+              <span>Empresa que receberá o Pix</span>
               <select
                 value={settings.pixProvider}
                 disabled={!settings.acceptsPix}
@@ -311,7 +323,7 @@ export function PaymentSettings({
                 <option value="ASAAS">Asaas</option>
                 <option value="PAGBANK">PagBank</option>
               </select>
-              <small>Os valores serão criados na conta vinculada deste provedor.</small>
+              <small>Os valores serão recebidos na conta conectada desta empresa.</small>
             </PS.Field>
             <PS.Field>
               <span>Chave Pix do restaurante</span>
@@ -338,9 +350,9 @@ export function PaymentSettings({
               <CreditCard />
             </PS.MethodIcon>
             <div>
-              <span>CHECKOUT E ENTREGA</span>
+              <span>PAGAMENTO ONLINE E ENTREGA</span>
               <h3>Cartão</h3>
-              <p>Checkout online e, com Mercado Pago Point, cobrança integrada na entrega.</p>
+              <p>Pagamento online e, com Mercado Pago Point, cobrança integrada na entrega.</p>
             </div>
             <PS.SwitchLabel>
               <span>{settings.acceptsCard ? 'Ativado' : 'Desativado'}</span>
@@ -356,24 +368,24 @@ export function PaymentSettings({
 
           <PS.ControlGrid>
             <PS.Field $full>
-              <span>Gateway do cartão</span>
+              <span>Empresa que processará o cartão</span>
               <select
                 value={settings.cardGateway}
                 disabled={!settings.acceptsCard}
                 aria-invalid={settings.acceptsCard && !settings.cardGateway}
                 onChange={(event) => update('cardGateway', event.target.value)}
               >
-                <option value="">Selecione o gateway</option>
+                <option value="">Selecione uma empresa</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
                 <option value="PAGBANK">PagBank</option>
                 <option value="ASAAS">Asaas</option>
               </select>
               <small>
                 {settings.acceptsCard && !settings.cardGateway
-                  ? 'Escolha um gateway para aceitar cartão.'
+                  ? 'Escolha uma empresa para aceitar cartão.'
                   : settings.cardGateway === 'MERCADO_PAGO'
                     ? 'Mercado Pago também habilita a integração com Point para cartão na entrega.'
-                    : 'O cliente será direcionado ao checkout protegido do provedor.'}
+                    : 'O cliente será direcionado à tela segura de pagamento.'}
               </small>
             </PS.Field>
           </PS.ControlGrid>
@@ -383,9 +395,9 @@ export function PaymentSettings({
       <PS.SectionHeading>
         <span>2</span>
         <div>
-          <h3>Contas dos provedores</h3>
+          <h3>Contas de recebimento</h3>
           <p>
-            Vincule somente os provedores selecionados acima. Uma conta é exclusiva deste
+            Conecte somente as empresas selecionadas acima. Cada conta é exclusiva deste
             restaurante.
           </p>
         </div>
@@ -487,7 +499,7 @@ export function PaymentSettings({
                 )
               ) : (
                 <PS.InactiveHint>
-                  Selecione este provedor no Pix ou no cartão para conectá-lo.
+                  Selecione esta empresa no Pix ou no cartão para conectá-la.
                 </PS.InactiveHint>
               )}
             </PS.ProviderCard>
@@ -516,21 +528,21 @@ export function PaymentSettings({
           <LockKeyhole />
           <p>
             <strong>Credenciais protegidas</strong>
-            Tokens e chaves secretas não são exibidos nesta tela. A autorização acontece no ambiente
-            do provedor.
+            Senhas e códigos de acesso não aparecem nesta tela. A conexão acontece no site seguro da
+            empresa de pagamento.
           </p>
         </div>
         <div>
           <ShieldCheck />
           <p>
-            <strong>Pagamento confirmado pelo provedor</strong>
+            <strong>Pagamento confirmado pela empresa</strong>
             Pix e cartão na entrega automatizados só ficam como pagos depois da confirmação
-            financeira do provedor. O motoqueiro não confirma pagamento.
+            financeira da empresa de pagamento. O motoqueiro não confirma pagamento.
           </p>
         </div>
       </PS.SecurityNotes>
 
-      <PS.CurrentChoice aria-label="Resumo dos provedores escolhidos">
+      <PS.CurrentChoice aria-label="Resumo das empresas de pagamento escolhidas">
         <span>Configuração atual</span>
         <b>Pix: {settings.acceptsPix ? providerName(settings.pixProvider) : 'desativado'}</b>
         <b>Cartão: {settings.acceptsCard ? providerName(settings.cardGateway) : 'desativado'}</b>

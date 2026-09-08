@@ -1,5 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
-import { Bike, CheckCircle2, ImagePlus, Info, MessageCircle, PackageCheck, Trash2 } from 'lucide-react';
+import {
+  Bike,
+  CheckCircle2,
+  ImagePlus,
+  Info,
+  MessageCircle,
+  PackageCheck,
+  Trash2,
+} from 'lucide-react';
 import styled from 'styled-components';
 import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
@@ -34,7 +42,9 @@ const Panel = styled(S.SettingSection)`
     gap: 18px;
   }
 
-  .wa-title { gap: 13px; }
+  .wa-title {
+    gap: 13px;
+  }
   .wa-title > span {
     width: 50px;
     height: 50px;
@@ -44,8 +54,16 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     place-items: center;
   }
-  .wa-title h2 { margin: 0; color: var(--wa-text); font-size: clamp(24px, 2.2vw, 31px); }
-  .wa-title p { margin: 5px 0 0; color: var(--wa-muted); font-size: 11px; }
+  .wa-title h2 {
+    margin: 0;
+    color: var(--wa-text);
+    font-size: clamp(24px, 2.2vw, 31px);
+  }
+  .wa-title p {
+    margin: 5px 0 0;
+    color: var(--wa-muted);
+    font-size: 11px;
+  }
 
   .channel-state {
     min-width: 225px;
@@ -56,9 +74,18 @@ const Panel = styled(S.SettingSection)`
     padding: 12px 14px;
     background: #f5fbf7;
   }
-  .channel-state span { display: grid; gap: 2px; }
-  .channel-state b { color: #176a3c; font-size: 11px; }
-  .channel-state small { color: #707871; font-size: 9px; }
+  .channel-state span {
+    display: grid;
+    gap: 2px;
+  }
+  .channel-state b {
+    color: #176a3c;
+    font-size: 11px;
+  }
+  .channel-state small {
+    color: #707871;
+    font-size: 9px;
+  }
 
   .switch {
     appearance: none;
@@ -79,20 +106,30 @@ const Panel = styled(S.SettingSection)`
     left: 3px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
     transition: transform 160ms ease;
   }
-  .switch:checked { background: var(--wa-green); }
-  .switch:checked::after { transform: translateX(20px); }
-  .switch:disabled { opacity: .45; cursor: not-allowed; }
+  .switch:checked {
+    background: var(--wa-green);
+  }
+  .switch:checked::after {
+    transform: translateX(20px);
+  }
+  .switch:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 
   .wa-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(360px, .9fr);
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
     gap: 18px;
     align-items: start;
   }
-  .left-column { display: grid; gap: 14px; }
+  .left-column {
+    display: grid;
+    gap: 14px;
+  }
 
   .card,
   .preview-card {
@@ -100,14 +137,17 @@ const Panel = styled(S.SettingSection)`
     border-radius: 18px;
     padding: 20px;
     background: #fff;
-    box-shadow: 0 8px 24px rgba(56,42,30,.045);
+    box-shadow: 0 8px 24px rgba(56, 42, 30, 0.045);
   }
-  .preview-card { position: sticky; top: 18px; }
+  .preview-card {
+    position: sticky;
+    top: 18px;
+  }
 
   .card-heading,
   .preview-heading {
     display: grid;
-    grid-template-columns: 34px minmax(0,1fr);
+    grid-template-columns: 34px minmax(0, 1fr);
     gap: 11px;
     align-items: start;
     margin-bottom: 16px;
@@ -120,20 +160,41 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     place-items: center;
   }
-  .step { color: #fff; background: var(--wa-green); font-size: 12px; font-weight: 900; }
-  .preview-heading > span { color: var(--wa-green); background: var(--wa-soft); }
+  .step {
+    color: #fff;
+    background: var(--wa-green);
+    font-size: 12px;
+    font-weight: 900;
+  }
+  .preview-heading > span {
+    color: var(--wa-green);
+    background: var(--wa-soft);
+  }
   .card-heading h3,
-  .preview-heading h3 { margin: 0; color: var(--wa-text); font-size: 16px; }
+  .preview-heading h3 {
+    margin: 0;
+    color: var(--wa-text);
+    font-size: 16px;
+  }
   .card-heading p,
-  .preview-heading p { margin: 4px 0 0; color: var(--wa-muted); font-size: 10px; line-height: 1.45; }
+  .preview-heading p {
+    margin: 4px 0 0;
+    color: var(--wa-muted);
+    font-size: 10px;
+    line-height: 1.45;
+  }
 
   .profile-layout {
     display: grid;
-    grid-template-columns: 126px minmax(0,1fr);
+    grid-template-columns: 126px minmax(0, 1fr);
     gap: 18px;
     align-items: center;
   }
-  .profile-preview { display: grid; justify-items: center; gap: 7px; }
+  .profile-preview {
+    display: grid;
+    justify-items: center;
+    gap: 7px;
+  }
   .profile-image,
   .chat-avatar {
     border: 1px solid #e3ddd7;
@@ -141,10 +202,26 @@ const Panel = styled(S.SettingSection)`
     background: #fff;
     object-fit: cover;
   }
-  .profile-image { width: 92px; height: 92px; padding: 13px; }
-  .profile-image.custom { padding: 0; }
-  .profile-preview b { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
-  .profile-actions { flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .profile-image {
+    width: 92px;
+    height: 92px;
+    padding: 13px;
+  }
+  .profile-image.custom {
+    padding: 0;
+  }
+  .profile-preview b {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.5px;
+  }
+  .profile-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
   .profile-action {
     min-height: 37px;
     border: 1px solid #ddd8d2;
@@ -160,13 +237,26 @@ const Panel = styled(S.SettingSection)`
     align-items: center;
     gap: 6px;
   }
-  .profile-action.danger { color: #b42318; }
+  .profile-action.danger {
+    color: #b42318;
+  }
   .help,
-  .error { display: block; margin-top: 6px; font-size: 9px; line-height: 1.45; }
-  .help { color: var(--wa-muted); }
-  .error { color: #b42318; }
+  .error {
+    display: block;
+    margin-top: 6px;
+    font-size: 9px;
+    line-height: 1.45;
+  }
+  .help {
+    color: var(--wa-muted);
+  }
+  .error {
+    color: #b42318;
+  }
 
-  .greeting textarea { min-height: 90px; }
+  .greeting textarea {
+    min-height: 90px;
+  }
 
   .automation-list {
     margin-top: 14px;
@@ -178,12 +268,16 @@ const Panel = styled(S.SettingSection)`
     min-height: 59px;
     padding: 10px 12px;
     display: grid;
-    grid-template-columns: 33px minmax(0,1fr) auto;
+    grid-template-columns: 33px minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
   }
-  .automation-row + .automation-row { border-top: 1px solid #eeeae6; }
-  .automation-row.master { background: #f7fbf8; }
+  .automation-row + .automation-row {
+    border-top: 1px solid #eeeae6;
+  }
+  .automation-row.master {
+    background: #f7fbf8;
+  }
   .automation-icon {
     width: 33px;
     height: 33px;
@@ -193,10 +287,27 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     place-items: center;
   }
-  .automation-copy { display: grid; gap: 2px; }
-  .automation-copy b { color: #302b27; font-size: 10px; }
-  .automation-copy span { color: var(--wa-muted); font-size: 8.8px; line-height: 1.4; }
-  .badge { border-radius: 999px; padding: 5px 7px; color: #2e6743; background: #eaf6ee; font-size: 7.5px; font-weight: 900; }
+  .automation-copy {
+    display: grid;
+    gap: 2px;
+  }
+  .automation-copy b {
+    color: #302b27;
+    font-size: 10px;
+  }
+  .automation-copy span {
+    color: var(--wa-muted);
+    font-size: 8.8px;
+    line-height: 1.4;
+  }
+  .badge {
+    border-radius: 999px;
+    padding: 5px 7px;
+    color: #2e6743;
+    background: #eaf6ee;
+    font-size: 7.5px;
+    font-weight: 900;
+  }
 
   .preview-note,
   .tip {
@@ -208,8 +319,15 @@ const Panel = styled(S.SettingSection)`
     line-height: 1.4;
     gap: 7px;
   }
-  .preview-note { margin-bottom: 12px; display: flex; align-items: flex-start; }
-  .tip { margin-top: 12px; align-items: flex-start; }
+  .preview-note {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+  }
+  .tip {
+    margin-top: 12px;
+    align-items: flex-start;
+  }
 
   .chat-preview {
     border: 1px solid #e7e1da;
@@ -219,10 +337,26 @@ const Panel = styled(S.SettingSection)`
     display: grid;
     gap: 11px;
   }
-  .chat-message { display: grid; grid-template-columns: 36px minmax(0,1fr); gap: 9px; align-items: start; }
-  .chat-avatar { width: 36px; height: 36px; padding: 7px; }
-  .chat-avatar.custom { padding: 0; }
-  .message-content > b { display: block; margin: 0 0 4px 4px; color: #1b6b3c; font-size: 9.5px; }
+  .chat-message {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 9px;
+    align-items: start;
+  }
+  .chat-avatar {
+    width: 36px;
+    height: 36px;
+    padding: 7px;
+  }
+  .chat-avatar.custom {
+    padding: 0;
+  }
+  .message-content > b {
+    display: block;
+    margin: 0 0 4px 4px;
+    color: #1b6b3c;
+    font-size: 9.5px;
+  }
   .bubble {
     border-radius: 4px 11px 11px 11px;
     padding: 10px 11px;
@@ -231,26 +365,57 @@ const Panel = styled(S.SettingSection)`
     font-size: 9.7px;
     line-height: 1.45;
     overflow-wrap: anywhere;
-    box-shadow: 0 2px 6px rgba(54,41,30,.07);
+    box-shadow: 0 2px 6px rgba(54, 41, 30, 0.07);
   }
-  .bubble a { color: #1676d2; font-weight: 700; text-decoration: underline; }
+  .bubble a {
+    color: #1676d2;
+    font-weight: 700;
+    text-decoration: underline;
+  }
 
   @media (max-width: 1050px) {
-    .wa-grid { grid-template-columns: 1fr; }
-    .preview-card { position: static; }
+    .wa-grid {
+      grid-template-columns: 1fr;
+    }
+    .preview-card {
+      position: static;
+    }
   }
   @media (max-width: 700px) {
-    .wa-header { align-items: stretch; flex-direction: column; }
-    .channel-state { width: 100%; }
-    .profile-layout { grid-template-columns: 1fr; }
-    .profile-preview { justify-items: start; }
+    .wa-header {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .channel-state {
+      width: 100%;
+    }
+    .profile-layout {
+      grid-template-columns: 1fr;
+    }
+    .profile-preview {
+      justify-items: start;
+    }
   }
   @media (max-width: 520px) {
-    .card, .preview-card { padding: 15px; border-radius: 15px; }
-    .wa-title h2 { font-size: 23px; }
-    .automation-row { grid-template-columns: 31px minmax(0,1fr); }
-    .automation-row .switch, .badge { grid-column: 2; justify-self: start; }
-    .chat-preview { padding: 10px; }
+    .card,
+    .preview-card {
+      padding: 15px;
+      border-radius: 15px;
+    }
+    .wa-title h2 {
+      font-size: 23px;
+    }
+    .automation-row {
+      grid-template-columns: 31px minmax(0, 1fr);
+    }
+    .automation-row .switch,
+    .badge {
+      grid-column: 2;
+      justify-self: start;
+    }
+    .chat-preview {
+      padding: 10px;
+    }
   }
 `;
 
@@ -261,19 +426,29 @@ function normalizeWhatsAppNumber(value: string) {
 function getNumberError(value: string, required: boolean) {
   const digits = normalizeWhatsAppNumber(value);
   if (!digits) return required ? 'Informe o número que será usado no WhatsApp.' : '';
-  if (digits.length < 10 || digits.length > 13) return 'Use DDI, DDD e número, com 10 a 13 dígitos.';
+  if (digits.length < 10 || digits.length > 13)
+    return 'Use DDI, DDD e número, com 10 a 13 dígitos.';
   return '';
 }
 
 function readRestaurantIdentity() {
   if (typeof window === 'undefined') return { id: 'default', category: 'RESTAURANTE' };
   try {
-    const user = JSON.parse(window.localStorage.getItem('user') || 'null') as Record<string, unknown> | null;
-    const restaurant = user?.restaurant && typeof user.restaurant === 'object'
-      ? (user.restaurant as Record<string, unknown>)
-      : {};
+    const user = JSON.parse(window.localStorage.getItem('user') || 'null') as Record<
+      string,
+      unknown
+    > | null;
+    const restaurant =
+      user?.restaurant && typeof user.restaurant === 'object'
+        ? (user.restaurant as Record<string, unknown>)
+        : {};
     return {
-      id: String(user?.restaurantId || restaurant.id || window.localStorage.getItem('menuRestaurantId') || 'default'),
+      id: String(
+        user?.restaurantId ||
+          restaurant.id ||
+          window.localStorage.getItem('menuRestaurantId') ||
+          'default',
+      ),
       category: user?.restaurantCategory || restaurant.category || 'RESTAURANTE',
     };
   } catch {
@@ -293,14 +468,21 @@ export function WhatsAppSettings({ settings, update }: Props) {
 
   const enabled = Boolean(settings.whatsappEnabled);
   const statusEnabled = Boolean(settings.receiveStatusNotifications);
-  const displayName = String(settings.whatsappDisplayName || settings.restaurantName || 'Restaurante').trim();
+  const displayName = String(
+    settings.whatsappDisplayName || settings.restaurantName || 'Restaurante',
+  ).trim();
   const number = normalizeWhatsAppNumber(settings.whatsapp);
   const numberError = getNumberError(settings.whatsapp, enabled);
-  const categoryImage = useMemo(() => getRestaurantCategoryFavicon(identity.category), [identity.category]);
+  const categoryImage = useMemo(
+    () => getRestaurantCategoryFavicon(identity.category),
+    [identity.category],
+  );
   const avatar = profileImage || categoryImage;
-  const baseUrl = typeof window === 'undefined' ? 'https://seu-restaurante.com' : window.location.origin;
+  const baseUrl =
+    typeof window === 'undefined' ? 'https://seu-restaurante.com' : window.location.origin;
   const trackingUrl = `${baseUrl}/orders/107/tracking`;
-  const greeting = String(settings.whatsappDefaultMessage || '').trim() ||
+  const greeting =
+    String(settings.whatsappDefaultMessage || '').trim() ||
     `Olá! 👋 Bem-vindo(a) à ${displayName}!\nFaça seu pedido pelo nosso site:\n${baseUrl}`;
 
   const chooseImage = (file?: File) => {
@@ -334,7 +516,9 @@ export function WhatsAppSettings({ settings, update }: Props) {
     <Panel>
       <header className="wa-header">
         <div className="wa-title">
-          <span aria-hidden="true"><MessageCircle size={24} /></span>
+          <span aria-hidden="true">
+            <MessageCircle size={24} />
+          </span>
           <div>
             <h2>Configurar WhatsApp</h2>
             <p>Configure o contato e veja como o cliente receberá as mensagens.</p>
@@ -369,12 +553,20 @@ export function WhatsAppSettings({ settings, update }: Props) {
             </header>
             <div className="profile-layout">
               <div className="profile-preview">
-                <img className={`profile-image ${profileImage ? 'custom' : ''}`} src={avatar} alt="Foto do perfil do WhatsApp" />
+                <img
+                  className={`profile-image ${profileImage ? 'custom' : ''}`}
+                  src={avatar}
+                  alt="Foto do perfil do WhatsApp"
+                />
                 <b>{displayName}</b>
               </div>
               <div>
                 <div className="profile-actions">
-                  <button className="profile-action" type="button" onClick={() => inputRef.current?.click()}>
+                  <button
+                    className="profile-action"
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                  >
                     <ImagePlus size={14} /> {profileImage ? 'Alterar foto' : 'Escolher foto'}
                   </button>
                   {profileImage ? (
@@ -382,9 +574,18 @@ export function WhatsAppSettings({ settings, update }: Props) {
                       <Trash2 size={14} /> Remover
                     </button>
                   ) : null}
-                  <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => chooseImage(event.target.files?.[0])} />
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    hidden
+                    onChange={(event) => chooseImage(event.target.files?.[0])}
+                  />
                 </div>
-                <span className="help">Por padrão usamos a logo preto e branco da categoria, sem fundo. A foto escolhida fica exclusiva desta configuração de WhatsApp.</span>
+                <span className="help">
+                  Por padrão usamos a logo preto e branco da categoria, sem fundo. A foto escolhida
+                  fica exclusiva desta configuração de WhatsApp.
+                </span>
                 {imageError ? <span className="error">{imageError}</span> : null}
                 <S.Field style={{ marginTop: 13 }}>
                   Nome no WhatsApp
@@ -420,7 +621,9 @@ export function WhatsAppSettings({ settings, update }: Props) {
                 aria-invalid={Boolean(numberError)}
                 onChange={(event) => update('whatsapp', event.target.value)}
               />
-              <small className={numberError ? 'error' : 'help'}>{numberError || 'Use DDI + DDD + número. Ex.: 55 11 99999-9999.'}</small>
+              <small className={numberError ? 'error' : 'help'}>
+                {numberError || 'Use DDI + DDD + número. Ex.: 55 11 99999-9999.'}
+              </small>
             </S.Field>
           </section>
 
@@ -441,15 +644,22 @@ export function WhatsAppSettings({ settings, update }: Props) {
                 value={settings.whatsappDefaultMessage}
                 onChange={(event) => update('whatsappDefaultMessage', event.target.value)}
               />
-              <small className="help">{settings.whatsappDefaultMessage.length}/500 caracteres</small>
+              <small className="help">
+                {settings.whatsappDefaultMessage.length}/500 caracteres
+              </small>
             </S.Field>
 
             <div className="automation-list">
               <label className="automation-row master">
-                <span className="automation-icon"><MessageCircle size={16} /></span>
+                <span className="automation-icon">
+                  <MessageCircle size={16} />
+                </span>
                 <span className="automation-copy">
                   <b>Atualizações automáticas do pedido</b>
-                  <span>Ative para enviar mudanças de status quando o provedor do WhatsApp estiver configurado.</span>
+                  <span>
+                    Ative para enviar mudanças de status quando a conexão do WhatsApp estiver
+                    configurada.
+                  </span>
                 </span>
                 <input
                   className="switch"
@@ -462,18 +672,33 @@ export function WhatsAppSettings({ settings, update }: Props) {
                 />
               </label>
               <div className="automation-row">
-                <span className="automation-icon"><CheckCircle2 size={16} /></span>
-                <span className="automation-copy"><b>Pedido confirmado / em preparo</b><span>Informa ao cliente a nova etapa do pedido.</span></span>
+                <span className="automation-icon">
+                  <CheckCircle2 size={16} />
+                </span>
+                <span className="automation-copy">
+                  <b>Pedido confirmado / em preparo</b>
+                  <span>Informa ao cliente a nova etapa do pedido.</span>
+                </span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
               <div className="automation-row">
-                <span className="automation-icon"><Bike size={16} /></span>
-                <span className="automation-copy"><b>Saiu para entrega</b><span>Mostra o link real de rastreamento em /orders/:id/tracking.</span></span>
+                <span className="automation-icon">
+                  <Bike size={16} />
+                </span>
+                <span className="automation-copy">
+                  <b>Saiu para entrega</b>
+                  <span>Mostra o link real de rastreamento em /orders/:id/tracking.</span>
+                </span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
               <div className="automation-row">
-                <span className="automation-icon"><PackageCheck size={16} /></span>
-                <span className="automation-copy"><b>Confirmar entrega</b><span>Leva o cliente ao acompanhamento seguro do próprio pedido.</span></span>
+                <span className="automation-icon">
+                  <PackageCheck size={16} />
+                </span>
+                <span className="automation-copy">
+                  <b>Confirmar entrega</b>
+                  <span>Leva o cliente ao acompanhamento seguro do próprio pedido.</span>
+                </span>
                 <span className="badge">AUTOMÁTICO</span>
               </div>
             </div>
@@ -482,25 +707,49 @@ export function WhatsAppSettings({ settings, update }: Props) {
 
         <aside className="preview-card">
           <header className="preview-heading">
-            <span><MessageCircle size={16} /></span>
-            <div><h3>Exemplo de mensagens</h3><p>Veja como o cliente receberá cada atualização.</p></div>
+            <span>
+              <MessageCircle size={16} />
+            </span>
+            <div>
+              <h3>Exemplo de mensagens</h3>
+              <p>Veja como o cliente receberá cada atualização.</p>
+            </div>
           </header>
-          <div className="preview-note"><Info size={14} /><span>Pedido #107 e horários são exemplos. Em produção usamos os dados reais.</span></div>
+          <div className="preview-note">
+            <Info size={14} />
+            <span>Pedido #107 e horários são exemplos. Em produção usamos os dados reais.</span>
+          </div>
           <div className="chat-preview">
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
               <span style={{ whiteSpace: 'pre-line' }}>{greeting}</span>
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              ✅ Seu pedido #107 foi confirmado!<br />Em breve começaremos o preparo.
+              ✅ Seu pedido #107 foi confirmado!
+              <br />
+              Em breve começaremos o preparo.
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              🛵 Seu pedido #107 saiu para entrega!<br />Acompanhe em tempo real:<br /><a href={trackingUrl}>{trackingUrl}</a>
+              🛵 Seu pedido #107 saiu para entrega!
+              <br />
+              Acompanhe em tempo real:
+              <br />
+              <a href={trackingUrl}>{trackingUrl}</a>
             </PreviewMessage>
             <PreviewMessage avatar={avatar} custom={Boolean(profileImage)} name={displayName}>
-              📦 Confirme o recebimento do pedido #107.<br />Abra o acompanhamento seguro:<br /><a href={trackingUrl}>{trackingUrl}</a>
+              📦 Confirme o recebimento do pedido #107.
+              <br />
+              Abra o acompanhamento seguro:
+              <br />
+              <a href={trackingUrl}>{trackingUrl}</a>
             </PreviewMessage>
           </div>
-          <div className="tip"><Info size={14} /><span>A prévia não envia mensagens. Os disparos reais continuam sujeitos ao provedor configurado e às regras do pedido.</span></div>
+          <div className="tip">
+            <Info size={14} />
+            <span>
+              A prévia não envia mensagens. Os envios reais dependem da conexão configurada e das
+              regras do pedido.
+            </span>
+          </div>
         </aside>
       </div>
     </Panel>
@@ -520,7 +769,12 @@ function PreviewMessage({
 }) {
   return (
     <div className="chat-message">
-      <img className={`chat-avatar ${custom ? 'custom' : ''}`} src={avatar} alt="" aria-hidden="true" />
+      <img
+        className={`chat-avatar ${custom ? 'custom' : ''}`}
+        src={avatar}
+        alt=""
+        aria-hidden="true"
+      />
       <div className="message-content">
         <b>{name}</b>
         <div className="bubble">{children}</div>

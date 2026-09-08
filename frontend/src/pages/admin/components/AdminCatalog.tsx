@@ -51,10 +51,10 @@ type AdminCatalogProps = {
   onImportComplete: () => void | Promise<void>;
 };
 
+import { adminErrorMessage } from '../utils/adminErrorMessage';
+
 function errorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object') return fallback;
-  const response = (error as { response?: { data?: Record<string, unknown> } }).response;
-  return String(response?.data?.error || response?.data?.message || fallback);
+  return adminErrorMessage(error, fallback);
 }
 
 export function AdminCatalog(props: AdminCatalogProps) {

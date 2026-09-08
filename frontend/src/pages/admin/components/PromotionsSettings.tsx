@@ -767,7 +767,7 @@ export function PromotionsSettings({
             </article>
             <article>
               <span>4</span>
-              <b>Usa no checkout</b>
+              <b>Usa na tela de pagamento</b>
               <p>O desconto é validado antes da confirmação do próximo pedido.</p>
             </article>
           </S.LoyaltyFlow>

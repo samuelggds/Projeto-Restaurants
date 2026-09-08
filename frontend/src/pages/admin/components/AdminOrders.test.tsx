@@ -102,7 +102,8 @@ describe('AdminOrders', () => {
     renderedOrders = orders,
   ) {
     const onConfirmPayment = vi.fn().mockResolvedValue(undefined);
-    if (!mocks.listPage.getMockImplementation()) mocks.listPage.mockResolvedValue(mockPage(renderedOrders));
+    if (!mocks.listPage.getMockImplementation())
+      mocks.listPage.mockResolvedValue(mockPage(renderedOrders));
     await act(async () =>
       root.render(
         <AppDialogProvider>
@@ -183,7 +184,9 @@ describe('AdminOrders', () => {
     expect(container.textContent).toContain('#303');
     expect(container.textContent).not.toContain('#301');
     expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'PAYMENT' });
-    expect(buttonByLabel(container, 'Mostrar pedidos ativos').querySelector('strong')?.textContent).toBe('3');
+    expect(
+      buttonByLabel(container, 'Mostrar pedidos ativos').querySelector('strong')?.textContent,
+    ).toBe('3');
     expect(container.textContent).toContain('Todos 300');
 
     mocks.listPage.mockResolvedValue(mockPage());
@@ -240,6 +243,8 @@ describe('AdminOrders', () => {
     });
 
     expect(onCancelOrder).toHaveBeenCalledWith(301);
-    expect(toast.error).toHaveBeenCalledWith('O provedor recusou o estorno.');
+    expect(toast.error).toHaveBeenCalledWith(
+      'O serviço de pagamentos não respondeu agora. Confira se a conta está conectada em Configurações > Pagamentos e tente novamente em instantes.',
+    );
   });
 });

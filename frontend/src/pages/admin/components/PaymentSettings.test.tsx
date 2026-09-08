@@ -78,7 +78,9 @@ describe('PaymentSettings', () => {
 
     expect(container.textContent).toContain('2meios ativos');
     expect(container.textContent).toContain('0/1contas vinculadas');
-    expect(container.textContent).toContain('Há etapas pendentes');
+    expect(container.textContent).toContain(
+      'Há etapas pendentes: cadastre a chave Pix do restaurante para liberar o Pix.',
+    );
     expect(container.textContent).toContain('Conta não vinculada');
   });
 

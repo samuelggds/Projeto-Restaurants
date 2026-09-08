@@ -29,6 +29,7 @@ import monthlyBillingService, {
   type Subscription,
 } from '../../../Services/monthlyBillingService';
 import { clearSystemBlockState, findBlockingInvoice } from '../../../Services/systemBlock';
+import { adminErrorMessage } from '../utils/adminErrorMessage';
 import * as S from './MonthlyBilling.styles';
 
 const benefits: Record<PlanCode, string[]> = {
@@ -81,8 +82,8 @@ const money = (value: number | string) =>
   });
 const date = (value?: string | null) =>
   value ? new Intl.DateTimeFormat('pt-BR').format(new Date(value)) : 'Não informado';
-const errorMessage = (error: unknown) =>
-  (error as { response?: { data?: { error?: string } } }).response?.data?.error;
+const errorMessage = (error: unknown, fallback = 'Não foi possível concluir a operação.') =>
+  adminErrorMessage(error, fallback);
 
 function getInvoiceTone(status?: string) {
   if (status === 'PAGO') return 'success';
@@ -136,7 +137,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     } catch (error) {
       setFeedback({
         tone: 'error',
-        message: errorMessage(error) || 'Não foi possível carregar as mensalidades.',
+        message: errorMessage(error, 'Não foi possível carregar as mensalidades.'),
       });
     } finally {
       setLoading(false);
@@ -207,7 +208,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     } catch (error) {
       setFeedback({
         tone: 'error',
-        message: errorMessage(error) || 'Não foi possível alterar o plano.',
+        message: errorMessage(error, 'Não foi possível alterar o plano.'),
       });
     } finally {
       setChangingPlan(null);
@@ -228,9 +229,7 @@ export function MonthlyBilling({ restricted = false }: MonthlyBillingProps = {})
     } catch (error) {
       setFeedback({
         tone: 'error',
-        message:
-          errorMessage(error) ||
-          (error instanceof Error ? error.message : 'Não foi possível gerar o Pix.'),
+        message: errorMessage(error, 'Não foi possível criar a cobrança Pix.'),
       });
     } finally {
       setPayingInvoice(null);

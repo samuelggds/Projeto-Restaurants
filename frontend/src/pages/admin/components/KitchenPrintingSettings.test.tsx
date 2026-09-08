@@ -105,11 +105,11 @@ describe('configuração da impressora da cozinha', () => {
     expect(container.textContent).toContain('pagamento na entrega e contas de mesa');
   });
 
-  it('exibe a credencial apenas depois da emissão e explica que ela aparece uma vez', async () => {
+  it('exibe o código apenas depois da emissão e explica que ele aparece uma vez', async () => {
     await act(async () => root.render(<KitchenPrintingSettings />));
     await flush();
 
-    expect(container.querySelector('[aria-label="Credencial do Print Agent"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Código de conexão do computador"]')).toBeNull();
     expect(container.textContent).toContain('Conclua os passos anteriores');
 
     const enabled = container.querySelector(
@@ -125,18 +125,18 @@ describe('configuração da impressora da cozinha', () => {
     await flush();
 
     const issue = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Gerar chave'),
+      button.textContent?.includes('Gerar código'),
     ) as HTMLButtonElement;
     await act(async () => issue.click());
 
     expect(mocks.issueCredential).toHaveBeenCalledWith({
-      name: 'Agente principal da cozinha',
+      name: 'Computador principal da cozinha',
     });
     const secret = container.querySelector(
-      '[aria-label="Credencial do Print Agent"]',
+      'input[aria-label="Código de conexão do computador"]',
     ) as HTMLInputElement;
     expect(secret.value).toContain('segredo-unico');
-    expect(container.textContent).toContain('o servidor armazena somente o hash');
+    expect(container.textContent).toContain('este código não poderá ser mostrado novamente');
   });
 
   it('mostra exemplos de comanda para delivery, mesa e retirada', async () => {

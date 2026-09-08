@@ -9,7 +9,8 @@ type Props = {
 };
 
 export function AppearanceSettings({ settings, update }: Props) {
-  const seoProgress = Number(Boolean(settings.seoTitle.trim())) + Number(Boolean(settings.seoDescription.trim()));
+  const seoProgress =
+    Number(Boolean(settings.seoTitle.trim())) + Number(Boolean(settings.seoDescription.trim()));
 
   return (
     <S.SettingSection>
@@ -72,7 +73,9 @@ export function AppearanceSettings({ settings, update }: Props) {
               <option>Manrope</option>
               <option>DM Sans</option>
             </select>
-            <small>Mantenha uma fonte simples e legível para cardápio e checkout.</small>
+            <small>
+              Mantenha uma fonte simples e legível para o cardápio e a tela de pagamento.
+            </small>
           </S.Field>
         </S.FormGrid>
       </S.Card>

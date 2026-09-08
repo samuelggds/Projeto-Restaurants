@@ -16,7 +16,9 @@ function errorMessage(error: unknown) {
     response?: { data?: { error?: unknown } };
     message?: unknown;
   };
-  return String(typed.response?.data?.error || typed.message || 'Não foi possível concluir esta ação.');
+  return String(
+    typed.response?.data?.error || typed.message || 'Não foi possível concluir esta ação.',
+  );
 }
 
 export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
@@ -90,9 +92,9 @@ export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
           <span>MAQUININHAS INTEGRADAS</span>
           <h3 id="payment-terminals-title">Mercado Pago Point</h3>
           <p>
-            Sincronize as maquininhas da conta Mercado Pago e atribua cada terminal a um
-            motoqueiro. Pedidos com cartão na entrega serão enviados automaticamente para a Point
-            vinculada ao entregador.
+            Atualize as maquininhas da conta Mercado Pago e atribua cada uma a um motoqueiro.
+            Pedidos com cartão na entrega serão enviados automaticamente para a Point conectada ao
+            entregador.
           </p>
         </div>
         <S.SyncButton
@@ -101,14 +103,14 @@ export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
           disabled={!mercadoPagoConnected || loading}
         >
           <RefreshCw size={17} />
-          {loading ? 'Sincronizando...' : 'Sincronizar maquininhas'}
+          {loading ? 'Atualizando...' : 'Atualizar maquininhas'}
         </S.SyncButton>
       </S.Header>
 
       {!mercadoPagoConnected && (
         <S.Notice>
-          Conecte primeiro a conta Mercado Pago do restaurante acima. Depois disso, as Point
-          vinculadas a essa conta poderão ser sincronizadas aqui.
+          Conecte primeiro a conta Mercado Pago do restaurante acima. Depois disso, as Point ligadas
+          a essa conta poderão ser atualizadas aqui.
         </S.Notice>
       )}
       {error && <S.Notice $error>{error}</S.Notice>}
@@ -117,8 +119,8 @@ export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
         <S.Empty>
           <CreditCard size={24} />
           <br />
-          Nenhuma maquininha sincronizada. Confirme que a Point pertence à conta Mercado Pago do
-          restaurante e use “Sincronizar maquininhas”.
+          Nenhuma maquininha encontrada. Confirme que a Point pertence à conta Mercado Pago do
+          restaurante e use “Atualizar maquininhas”.
         </S.Empty>
       ) : (
         <S.Grid>
@@ -132,7 +134,7 @@ export function PaymentTerminalSettings({ mercadoPagoConnected }: Props) {
                 <S.Badge $ok={terminal.active && terminal.operatingMode === 'PDV'}>
                   {terminal.active
                     ? terminal.operatingMode === 'PDV'
-                      ? 'PDV integrado'
+                      ? 'Pronta para cobrar'
                       : terminal.operatingMode || 'Ativa'
                     : 'Indisponível'}
                 </S.Badge>

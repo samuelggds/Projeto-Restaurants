@@ -321,15 +321,15 @@ const guideSections: GuideSection[] = [
     path: 'Pagamentos',
     helper: 'Configure Pix e cartão do restaurante com segurança.',
     fields: [
-      { label: 'Provedor Pix', value: 'Mercado Pago, Asaas ou PagBank' },
+      { label: 'Empresa que recebe o Pix', value: 'Mercado Pago, Asaas ou PagBank' },
       { label: 'Chave Pix', value: 'Chave do restaurante' },
-      { label: 'Gateway de cartão', value: 'Conta conectada' },
+      { label: 'Empresa que processa o cartão', value: 'Conta conectada' },
     ],
     action: 'Salvar pagamentos',
     steps: [
       'Abra Configurações > Pagamentos.',
-      'Escolha o provedor e conecte a conta oficial do restaurante.',
-      'Nunca cole credenciais de clientes em locais públicos; conclua a autorização no ambiente do provedor.',
+      'Escolha a empresa de pagamento e conecte a conta oficial do restaurante.',
+      'Nunca cole dados de acesso de clientes em locais públicos; conclua a conexão no site seguro da empresa.',
     ],
   },
   {
