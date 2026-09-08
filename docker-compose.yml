@@ -5,6 +5,8 @@ services:
     container_name: pizza_backend
     restart: unless-stopped
     environment: &backend-environment
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+      MP_WEBHOOK_SECRETS: ${MP_WEBHOOK_SECRETS:-}
       NODE_ENV: ${NODE_ENV:-development}
       OPS_DATABASE_ENV: ${OPS_DATABASE_ENV:-development}
       OPS_API_ENV: ${OPS_API_ENV:-development}
@@ -13,7 +15,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
       CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
-      DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
       JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
       JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_mfa_secret_min_32_chars}
@@ -83,6 +84,9 @@ services:
       SMTP_ACCESS_TOKEN: ${SMTP_ACCESS_TOKEN:-}
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     ports:
       - '3000:3000'
     extra_hosts:
@@ -99,6 +103,15 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  migrate:
+    build: *backend-build
+    restart: 'no'
+    environment:
+      DATABASE_URL: ${DIRECT_URL:-postgresql://postgres:postgres@host.docker.internal:5432/pizza_ai}
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   worker:
     build: *backend-build

@@ -1,5 +1,7 @@
 {
   "runtime": [
+    "provisionRuntimeRole.mjs",
+    "provisionRuntimeRole.test.mjs",
     "nodeOsUserInfoFallback.cjs",
     "runAllTests.mjs",
     "runTenantE2E.mjs",

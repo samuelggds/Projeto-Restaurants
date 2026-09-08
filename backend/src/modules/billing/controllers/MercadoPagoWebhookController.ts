@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
+import { authenticateMercadoPagoWebhook } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import processMercadoPagoInvoiceWebhookService from '../services/ProcessMercadoPagoInvoiceWebhookService.js';
 import { debug, info, error as logError } from '../utils/billingLogger.js';
 
 class MercadoPagoWebhookController {
   async handle(req: Request, res: Response) {
     try {
-      const paymentId = req.body?.data?.id || req.body?.id || req.query?.id;
+      const paymentId = authenticateMercadoPagoWebhook(req, res);
+      if (!paymentId) return res;
       debug('MP webhook received', { paymentId });
 
       if (!paymentId) {

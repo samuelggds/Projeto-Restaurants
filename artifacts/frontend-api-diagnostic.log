@@ -1,0 +1,20 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=1 src/Services/api.test.ts --reporter=verbose
+
+
+ RUN  v4.1.10 C:/Users/Samuel/Documents/Codex/RESTAURANT-DELIVERY-MESA/pizza-ia-delivery/frontend
+
+ ✓ src/Services/api.test.ts > api auth session > prioriza o proxy same-origin do Vite em desenvolvimento 2ms
+ ✓ src/Services/api.test.ts > api auth session > serializa a rotação do cookie de refresh entre abas quando Web Locks está disponível 3ms
+ ✓ src/Services/api.test.ts > api auth session > envia o token mantido em memória e elimina uma cópia legada 2ms
+ ✓ src/Services/api.test.ts > api auth session > não repete em outro endereço uma operação marcada como não repetível 3ms
+ ✓ src/Services/api.test.ts > api auth session > compartilha uma única renovação concorrente e mantém o novo token fora do storage 1ms
+ ✓ src/Services/api.test.ts > api auth session > descarta o resultado de um refresh iniciado antes de uma nova sessão 1ms
+ ✓ src/Services/api.test.ts > api auth session > não aplica token renovado para outra conta que assumiu o cookie em outra aba 0ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  08:11:31
+   Duration  1.33s (transform 87ms, setup 0ms, import 281ms, tests 13ms, environment 844ms)
+

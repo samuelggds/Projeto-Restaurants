@@ -702,6 +702,9 @@ model TableServiceCall {
 }
 
 model Order {
+  creationRequestKey              String?
+  creationActor                   String?
+  creationFingerprint             String?
   id                              Int                        @id @default(autoincrement())
   publicId                        String                     @unique @default(uuid())
   total                           Decimal                    @db.Decimal(10, 2)
@@ -779,6 +782,7 @@ model Order {
 
   @@unique([id, restaurantId])
   @@unique([id, restaurantId, tableSessionId, participantId])
+  @@unique([restaurantId, creationActor, creationRequestKey])
   @@index([restaurantId, status, assignedCourierId])
   @@index([restaurantId, refundStatus])
   @@index([assignedCourierId, deliveryStartedAt])

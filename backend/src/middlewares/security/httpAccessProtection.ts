@@ -5,9 +5,9 @@ import rateLimit from 'express-rate-limit';
 const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
 
 export function resolveGlobalRateLimitMax(isProduction: boolean, configuredMax: number) {
-  const safeConfiguredMax = Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : 0;
-  const minimum = isProduction ? 3000 : 5000;
-  return Math.max(safeConfiguredMax, minimum);
+  return Number.isSafeInteger(configuredMax) && configuredMax > 0
+    ? configuredMax
+    : isProduction ? 3000 : 5000;
 }
 
 export function applyCorsAndGlobalRateLimit(app: Express) {
@@ -16,7 +16,7 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
     .flatMap((value) => value.split(','))
     .map((origin) => normalizeOrigin(origin))
     .filter(Boolean);
-  const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 3000);
+  const configuredMax = Number(process.env.RATE_LIMIT_MAX_REQUESTS);
 
   app.use((req, res, next) => {
     const fetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();

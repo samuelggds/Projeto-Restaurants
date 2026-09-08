@@ -5,6 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppDialogProvider } from '../../../components/AppDialog/AppDialogProvider';
 import type { AdminOrder } from '../types';
 import { AdminOrders } from './AdminOrders';
+import type { RestaurantOrdersPageQuery } from '../../../Services/ordersService';
+import { getAdminOrdersSummary } from '../domain/adminOrders';
+
+const mocks = vi.hoisted(() => ({ listPage: vi.fn() }));
+
+vi.mock('../../../Services/ordersService', () => ({
+  default: { listRestaurantOrdersPage: mocks.listPage },
+}));
 
 vi.mock('react-toastify', () => ({
   toast: {
@@ -70,19 +78,32 @@ describe('AdminOrders', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     vi.clearAllMocks();
+    mocks.listPage.mockReset();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
-  function renderOrders(
+  function mockPage(renderedOrders = orders, total = renderedOrders.length) {
+    return {
+      orders: renderedOrders.map((order) => ({ ...order, id: order.numericId })),
+      nextCursor: null,
+      hasMore: false,
+      total,
+      summary: { ...getAdminOrdersSummary(orders), total: 300 },
+    };
+  }
+
+  async function renderOrders(
     onCancelOrder = vi.fn().mockResolvedValue(undefined),
     renderedOrders = orders,
   ) {
     const onConfirmPayment = vi.fn().mockResolvedValue(undefined);
-    act(() =>
+    if (!mocks.listPage.getMockImplementation()) mocks.listPage.mockResolvedValue(mockPage(renderedOrders));
+    await act(async () =>
       root.render(
         <AppDialogProvider>
           <AdminOrders
@@ -98,8 +119,8 @@ describe('AdminOrders', () => {
     return { onCancelOrder, onConfirmPayment };
   }
 
-  it('separa pagamento, modalidade, andamento e regras de devolução', () => {
-    renderOrders();
+  it('separa pagamento, modalidade, andamento e regras de devolução', async () => {
+    await renderOrders();
 
     expect(container.textContent).toContain('Pedidos ativos');
     expect(container.textContent).toContain('Pago online');
@@ -113,45 +134,65 @@ describe('AdminOrders', () => {
     expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
   });
 
-  it('cresce em blocos de 10 e retorna aos 10 pedidos iniciais', () => {
+  it('busca uma página por clique e retorna à primeira sem carregar o histórico inteiro', async () => {
     const manyOrders = Array.from({ length: 23 }, (_, index) => ({
       ...orders[0],
       id: `#${401 + index}`,
       numericId: 401 + index,
       customerName: `Cliente ${index + 1}`,
     }));
-    renderOrders(undefined, manyOrders);
+    mocks.listPage.mockImplementation(async ({ cursor }: RestaurantOrdersPageQuery) => {
+      const start = cursor ? manyOrders.findIndex((order) => order.numericId === cursor) + 1 : 0;
+      const nextOrders = manyOrders.slice(start, start + 10);
+      const hasMore = start + 10 < manyOrders.length;
+      return {
+        ...mockPage(nextOrders, 23),
+        nextCursor: hasMore ? nextOrders.at(-1)?.numericId : null,
+        hasMore,
+      };
+    });
+    await renderOrders(undefined, manyOrders);
 
     expect(container.querySelectorAll('.order-card')).toHaveLength(10);
     expect(container.textContent).toContain('Exibindo 10 de 23 pedidos');
+    expect(mocks.listPage).toHaveBeenCalledTimes(1);
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ALL' });
 
-    act(() => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
+    await act(async () => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
     expect(container.querySelectorAll('.order-card')).toHaveLength(20);
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ALL', cursor: 410 });
 
-    act(() => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
+    await act(async () => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
     expect(container.querySelectorAll('.order-card')).toHaveLength(23);
+    expect(mocks.listPage).toHaveBeenCalledTimes(3);
 
-    act(() => buttonByLabel(container, 'Voltar aos 10 pedidos iniciais').click());
+    await act(async () => buttonByLabel(container, 'Voltar aos 10 pedidos iniciais').click());
     expect(container.querySelectorAll('.order-card')).toHaveLength(10);
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ALL' });
   });
 
-  it('usa os indicadores para focar a fila sem combinar filtros conflitantes', () => {
-    renderOrders();
+  it('usa indicadores globais e envia o filtro da fila ao servidor', async () => {
+    await renderOrders();
 
     const awaitingPayment = buttonByLabel(container, 'Mostrar pedidos aguardando pagamento');
-    act(() => awaitingPayment.click());
+    mocks.listPage.mockResolvedValue(mockPage([orders[2]], 1));
+    await act(async () => awaitingPayment.click());
 
     expect(awaitingPayment.getAttribute('aria-pressed')).toBe('true');
     expect(container.querySelectorAll('.order-card')).toHaveLength(1);
     expect(container.textContent).toContain('#303');
     expect(container.textContent).not.toContain('#301');
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'PAYMENT' });
+    expect(buttonByLabel(container, 'Mostrar pedidos ativos').querySelector('strong')?.textContent).toBe('3');
+    expect(container.textContent).toContain('Todos 300');
 
-    act(() => buttonByLabel(container, 'Mostrar pedidos ativos').click());
+    mocks.listPage.mockResolvedValue(mockPage());
+    await act(async () => buttonByLabel(container, 'Mostrar pedidos ativos').click());
     expect(container.querySelectorAll('.order-card')).toHaveLength(3);
   });
 
   it('só chama o cancelamento online depois da confirmação no diálogo interno', async () => {
-    const { onCancelOrder } = renderOrders();
+    const { onCancelOrder } = await renderOrders();
 
     await act(async () => buttonByLabel(container, 'Cancelar e estornar o pedido #301').click());
 
@@ -174,7 +215,7 @@ describe('AdminOrders', () => {
   });
 
   it('informa devolução manual para pagamento recebido na entrega', async () => {
-    const { onCancelOrder } = renderOrders();
+    const { onCancelOrder } = await renderOrders();
 
     await act(async () => buttonByLabel(container, 'Cancelar o pedido #302').click());
 
@@ -187,7 +228,7 @@ describe('AdminOrders', () => {
     const onCancelOrder = vi.fn().mockRejectedValue({
       response: { data: { error: 'O provedor recusou o estorno.' } },
     });
-    renderOrders(onCancelOrder);
+    await renderOrders(onCancelOrder);
 
     await act(async () => buttonByLabel(container, 'Cancelar e estornar o pedido #301').click());
     const confirmButton = container.querySelector(

@@ -1,3 +1,4 @@
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 type ResolveOrderRestaurantInput = {
   requestedRestaurantId?: number | string | null;
   contextRestaurantId?: number | string | null;
@@ -21,7 +22,7 @@ export function resolveOrderRestaurantId({
 
   if (context) {
     if (requested && requested !== context) {
-      throw new Error('O restaurante informado não corresponde à sessão atual.');
+      throw new OrderRequestError('O restaurante informado não corresponde à sessão atual.');
     }
 
     return context;
@@ -31,5 +32,5 @@ export function resolveOrderRestaurantId({
     return requested;
   }
 
-  throw new Error('Restaurante não informado para o pedido.');
+  throw new OrderRequestError('Restaurante não informado para o pedido.');
 }

@@ -21,7 +21,7 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
   process.env.NODE_ENV = 'production';
   process.env.CORS_ORIGINS = allowedOrigin;
   process.env.FRONTEND_URL = allowedOrigin;
-  process.env.RATE_LIMIT_MAX_REQUESTS = '3000';
+  process.env.RATE_LIMIT_MAX_REQUESTS = '2';
   process.env.RATE_LIMIT_WINDOW_MS = '60000';
 
   const app = express();
@@ -39,7 +39,7 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
       });
 
     let limitedResponse: Response | null = null;
-    for (let attempt = 0; attempt <= 3000; attempt += 1) {
+    for (let attempt = 0; attempt <= 2; attempt += 1) {
       const response = await request();
       if (response.status === 429) {
         limitedResponse = response;
@@ -57,12 +57,14 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
   }
 });
 
-test('usa margens seguras para telas em tempo real sem reduzir configuração maior', () => {
-  assert.equal(resolveGlobalRateLimitMax(false, 300), 5000);
+test('respeita limite explícito e só usa padrão quando ausente ou inválido', () => {
+  assert.equal(resolveGlobalRateLimitMax(false, 300), 300);
   assert.equal(resolveGlobalRateLimitMax(false, 8000), 8000);
-  assert.equal(resolveGlobalRateLimitMax(true, 300), 3000);
+  assert.equal(resolveGlobalRateLimitMax(true, 300), 300);
   assert.equal(resolveGlobalRateLimitMax(true, 8000), 8000);
   assert.equal(resolveGlobalRateLimitMax(true, Number.NaN), 3000);
+  assert.equal(resolveGlobalRateLimitMax(false, Number.NaN), 5000);
+  assert.equal(resolveGlobalRateLimitMax(true, 0), 3000);
 });
 
 test('bloqueia POST cross-site de origem não autorizada e permite a origem configurada', async () => {

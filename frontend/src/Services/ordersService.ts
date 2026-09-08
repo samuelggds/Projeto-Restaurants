@@ -1,10 +1,34 @@
 import api from './api';
+import { withOrderCreationAttempt } from './orderCreationAttempt';
 
 type OrderPayload = Record<string, unknown>;
 type PixPaymentPayload = Record<string, unknown>;
 type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
 export type GuestOrderProof = { orderId: number; token: string };
+
+export type RestaurantOrdersQueue = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED';
+export type RestaurantOrdersPageQuery = {
+  limit?: number;
+  cursor?: number;
+  status?: string;
+  search?: string;
+  queue?: RestaurantOrdersQueue;
+};
+export type RestaurantOrdersSummary = {
+  total: number;
+  active: number;
+  awaitingPayment: number;
+  inProgress: number;
+  delivered: number;
+};
+export type RestaurantOrdersPage = {
+  orders: unknown[];
+  nextCursor: number | null;
+  hasMore: boolean;
+  total: number;
+  summary: RestaurantOrdersSummary;
+};
 
 const MAX_DELIVERY_TRACKING_ACCURACY_METERS = 500;
 const GUEST_TRACKING_TOKEN_PREFIX = 'guest-order-tracking-token:';
@@ -162,6 +186,15 @@ function normalizeOrdersPayload(payload: unknown) {
 }
 
 class OrdersService {
+  async listRestaurantOrdersPage(query: RestaurantOrdersPageQuery = {}): Promise<RestaurantOrdersPage> {
+    const response = await api.get<RestaurantOrdersPage>('/orders', { params: query });
+    const page = response.data;
+    if (!page || !Array.isArray(page.orders) || !page.summary) {
+      throw new Error('Não foi possível carregar a página de pedidos. Atualize a tela.');
+    }
+    return { ...page, orders: normalizeOrdersPayload(page) };
+  }
+
   async listRestaurantOrders(status?: string) {
     const response = await api.get('/orders', { params: status ? { status } : undefined });
     return normalizeOrdersPayload(response.data);
@@ -184,7 +217,7 @@ class OrdersService {
   }
 
   async createOrder(payload: OrderPayload) {
-    const response = await api.post('/orders', payload);
+    const response = await withOrderCreationAttempt(payload, (headers) => api.post('/orders', payload, { headers }));
     rememberGuestOrderAccess(response.data);
     return response.data;
   }

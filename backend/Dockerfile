@@ -19,9 +19,10 @@ COPY prisma ./prisma
 RUN npm ci --omit=dev && npx prisma generate --schema=/app/prisma/schema.prisma && npm cache clean --force
 
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node scripts/provisionRuntimeRole.mjs ./scripts/provisionRuntimeRole.mjs
 RUN chown -R node:node /app
 
 USER node
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run bootstrap:superadmin && unset SUPER_ADMIN_BOOTSTRAP_PASSWORD SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE && npm run start"]
+CMD ["node", "dist/server.js"]

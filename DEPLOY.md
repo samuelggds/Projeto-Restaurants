@@ -1,6 +1,6 @@
 # Deploy de produção
 
-O caminho recomendado é `docker-compose.production.yml`: PostgreSQL, backend, frontend, OSRM e Nominatim ficam em redes privadas, e o Caddy publica somente HTTP/HTTPS com certificado automático.
+O caminho recomendado é `docker-compose.production.yml`: PostgreSQL, API e frontend em redes privadas; o Caddy publica HTTP/HTTPS. O roteamento padrão usa Geoapify. OSRM/Nominatim próprios são uma alternativa explícita.
 
 ## 1. Pré-requisitos
 
@@ -8,7 +8,7 @@ O caminho recomendado é `docker-compose.production.yml`: PostgreSQL, backend, f
 - DNS de `APP_DOMAIN` e `API_DOMAIN` apontando para o IP público.
 - Firewall liberando somente `22` (restrito), `80` e `443`; não publique `3000`, `5000`, `5432` ou `8080`.
 - Backups externos e monitoramento configurados.
-- Dados de rota preparados conforme [ROUTING_PRODUCTION.md](./ROUTING_PRODUCTION.md).
+- Geoapify configurado ou dados próprios preparados conforme [ROUTING_PRODUCTION.md](./ROUTING_PRODUCTION.md).
 
 ## 2. Configuração
 
@@ -19,16 +19,22 @@ chmod 600 .env.production
 
 Substitua todos os placeholders, habilite somente os provedores de pagamento utilizados e configure URLs públicas HTTPS. A inicialização é bloqueada quando faltam banco, origens, serviços privados de rota ou segredos seguros.
 
+Para Geoapify, mantenha `ROUTING_PROVIDER=geoapify` e preencha `GEOAPIFY_API_KEY`.
+Para infraestrutura própria, configure `ROUTING_PROVIDER=osrm` e `COMPOSE_PROFILES=selfhost-routing` no arquivo de ambiente e prepare os dados antes da subida. O profile ativa OSRM/Nominatim; definir somente as URLs não inicia esses serviços.
+
+O Compose injeta uma lista explícita de variáveis em cada processo. `DIRECT_URL` e a senha owner chegam apenas a `migrate`/PostgreSQL; API e worker recebem `DATABASE_URL` restrita. Adicione novas opções à lista do Compose ao introduzi-las na aplicação.
+
 Valide o arquivo final:
 
 ```bash
-PRODUCTION_ENV_FILE=.env.production \
-docker compose --env-file .env.production -f docker-compose.production.yml config
+docker compose --env-file .env.production -f docker-compose.production.yml config --quiet
 ```
 
 ## 3. Banco e primeira publicação
 
-Antes da primeira publicação, confirme que `DATABASE_URL` e `DIRECT_URL` apontam para o banco correto. O container do backend executa `prisma migrate deploy` antes de iniciar; ele nunca executa seed automaticamente.
+Antes da primeira publicação, confirme que `DATABASE_URL` e `DIRECT_URL` apontam para o mesmo servidor/banco direto, com usuários distintos e senhas de pelo menos 20 caracteres. O job `migrate` aplica migrations com owner e provisiona a role runtime sem privilégios administrativos; depois `bootstrap` cria/confere o administrador inicial usando runtime. API e worker iniciam somente após sucesso. Não há seed automático.
+
+Roles runtime já existentes com ownership, superuser, BYPASSRLS ou membership são recusadas: revise-as explicitamente antes do deploy. Em banco gerenciado/pooler, faça o provisionamento na camada de infraestrutura usando a conexão direta; não use este provisionador para URLs que apontem para hosts distintos.
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.production.yml build
@@ -37,6 +43,8 @@ docker compose --env-file .env.production -f docker-compose.production.yml ps
 ```
 
 Não execute `db:seed` em produção. A rotina também exige `ALLOW_PROD_SEED=true` para reduzir acidentes.
+
+Depois do bootstrap confirmado, remova a senha inicial do ambiente e os containers encerrados (`docker compose ... rm -f migrate bootstrap`); não remova volumes. Se usar `SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE`, monte o secret somente no serviço `bootstrap` por um override de implantação.
 
 ## 4. HTTPS, Socket.IO e GPS
 
@@ -88,7 +96,7 @@ Use uma réplica do backend enquanto o Socket.IO utilizar o adapter em memória.
 1. Faça backup verificado do PostgreSQL e guarde a imagem atualmente implantada.
 2. Execute lint, typecheck, testes proporcionais ao risco e build.
 3. Valide `docker compose config` e construa as novas imagens.
-4. Execute `prisma migrate deploy` pelo container novo.
+4. Execute `docker compose --env-file .env.production -f docker-compose.production.yml run --rm migrate` com a imagem nova e aguarde sucesso.
 5. Suba a aplicação e valide `/health`, `/ready`, login, pedido e Socket.IO.
 6. Em mudança de rastreamento, faça o smoke test com um celular real.
 
@@ -115,15 +123,17 @@ Use a política de baixo custo de manutenção descrita em [TESTING.md](./TESTIN
 ## 8. Pagamentos e OAuth
 
 - Use credenciais de produção e URLs de webhook em `https://API_DOMAIN/...`.
+- Configure `MP_WEBHOOK_SECRET` com a chave de Webhooks da aplicação Mercado Pago, não com o access token. Para aplicações distintas ou rotação, use `MP_WEBHOOK_SECRETS` como lista JSON de segredos ativos. Pedidos, billing e Point autenticam `x-signature` + `x-request-id` + `data.id` da URL antes do processamento; segredo ausente retorna 503 e assinatura inválida retorna 401. Migre notificações IPN antigas para Webhooks assinados antes de publicar esta versão.
 - Mantenha `ALLOW_INSECURE_STRIPE_WEBHOOK=false`, `ALLOW_GLOBAL_PAYMENT_FALLBACK=false` e `ENABLE_TEST_PAYMENT_WEBHOOK=false`.
 - Autorize `https://APP_DOMAIN` no Google OAuth.
 - Faça um pagamento controlado de cada provedor habilitado e confirme idempotência do webhook antes de abrir ao público.
 
 ## 9. Render ou outro PaaS
 
-Frontend e backend podem ser publicados separadamente, mas o rastreamento continua exigindo OSRM e Nominatim privados alcançáveis pelo backend. Configure:
+Frontend e backend podem ser publicados separadamente. Configure Geoapify ou OSRM/Nominatim privados alcançáveis pelo backend:
 
-- backend: `npm ci && npm run build && npx prisma generate`; início `npx prisma migrate deploy && npm run start`;
+- backend: `npm ci && npm run build && npx prisma generate`; início `npm run start` apenas com segredos runtime;
+- job de pré-deploy separado com credenciais owner: `prisma migrate deploy`; provisionamento da role na infraestrutura e bootstrap separado antes do primeiro início;
 - frontend: `npm ci && npm run build`; publicação de `dist`;
 - todas as variáveis obrigatórias de `.env.production.example`;
 - healthcheck do backend em `/ready`;
@@ -138,7 +148,7 @@ Não use os servidores públicos de demonstração do OSRM/Nominatim como depend
 - [ ] Somente 80/443 públicos.
 - [ ] `/health` e `/ready` respondendo 200.
 - [ ] Backups e restauração testados.
-- [ ] OSRM e Nominatim saudáveis para toda a área dos tenants.
+- [ ] Geoapify configurado ou OSRM/Nominatim saudáveis para toda a área dos tenants.
 - [ ] Tiles com capacidade/SLA e atribuição correta.
 - [ ] CORS restrito ao domínio do frontend.
 - [ ] Login, MFA administrativo e permissões por restaurante validados.

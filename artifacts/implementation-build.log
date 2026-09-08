@@ -1,0 +1,207 @@
+
+> pizza-ia-delivery@1.0.0 build
+> npm --prefix backend run build && npm --prefix frontend run build && npm --prefix print-agent run build && node scripts/report.mjs
+
+
+> backend@1.0.0 build
+> tsup
+
+CLI Building entry: src/bootstrapSuperAdmin.ts, src/server.ts, src/worker.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Using tsup config: C:\Users\Samuel\Documents\Codex\RESTAURANT-DELIVERY-MESA\pizza-ia-delivery\backend\tsup.config.ts
+CLI Target: es2022
+CLI Cleaning output folder
+ESM Build start
+ESM dist\bootstrapSuperAdmin.js 31.10 KB
+ESM dist\worker.js              133.73 KB
+ESM dist\server.js              1.57 MB
+ESM ⚡️ Build success in 185ms
+
+> frontend@0.0.0 build
+> vite build
+
+vite v8.0.16 building client environment for production...
+[2K
+transforming...✓ 2662 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                           2.08 kB │ gzip:   0.85 kB
+dist/assets/amex-BUzYj_Rf.svg                             4.34 kB │ gzip:   1.92 kB
+dist/assets/vendor-vh-t_kPv.css                          15.09 kB │ gzip:   6.36 kB
+dist/assets/restaurantMonogram-BfZ0xq6q.js                0.27 kB │ gzip:   0.21 kB
+dist/assets/paymentTerminalService-HOd672Gw.js            0.33 kB │ gzip:   0.21 kB
+dist/assets/waiterCallsService-D9l5b283.js                0.54 kB │ gzip:   0.33 kB
+dist/assets/deliveryChatService-CbZQTgcN.js               0.59 kB │ gzip:   0.32 kB
+dist/assets/orderNotificationSound-BflG0N2n.js            0.66 kB │ gzip:   0.36 kB
+dist/assets/rolldown-runtime-QTnfLwEv.js                  0.69 kB │ gzip:   0.42 kB
+dist/assets/authService-CvSqy_eO.js                       0.76 kB │ gzip:   0.33 kB
+dist/assets/supportChatService-DC457mys.js                0.78 kB │ gzip:   0.38 kB
+dist/assets/adminOverview-DlT_gNot.js                     0.79 kB │ gzip:   0.44 kB
+dist/assets/tablesService-CcNVyqPt.js                     0.81 kB │ gzip:   0.34 kB
+dist/assets/productsService-eWas-7iq.js                   0.83 kB │ gzip:   0.41 kB
+dist/assets/deliveryChatUnread-DVEvR9IO.js                0.94 kB │ gzip:   0.45 kB
+dist/assets/adminPortalSession-BCXS3Yi0.js                0.99 kB │ gzip:   0.52 kB
+dist/assets/AdminPortalLoginGate-Oeol0fnp.js              1.14 kB │ gzip:   0.62 kB
+dist/assets/courierCompensationService-BZLGFT7o.js        1.26 kB │ gzip:   0.37 kB
+dist/assets/CourierListControls-B2Hcbwrp.js               1.62 kB │ gzip:   0.76 kB
+dist/assets/courierOrders-XFYZ7l6V.js                     1.72 kB │ gzip:   0.78 kB
+dist/assets/courierLocation-CoPH1sVE.js                   1.79 kB │ gzip:   0.79 kB
+dist/assets/AdminPortalEntry-DMKOfe_p.js                  1.84 kB │ gzip:   0.95 kB
+dist/assets/tableAccountService-CcZiS6yL.js               1.98 kB │ gzip:   0.77 kB
+dist/assets/categoryIconMap-BdF08EIn.js                   2.37 kB │ gzip:   1.23 kB
+dist/assets/useActiveOrderNotice-CDsupsMY.js              2.48 kB │ gzip:   1.17 kB
+dist/assets/orderAdapter-DuHeg_ur.js                      3.55 kB │ gzip:   1.64 kB
+dist/assets/useDraggableFloatingActions-Z7rr_hb4.js       3.65 kB │ gzip:   1.44 kB
+dist/assets/ProfilePanel-DiPUTJ81.js                      3.85 kB │ gzip:   1.38 kB
+dist/assets/password-policy-OEJDf9Hg.js                   4.20 kB │ gzip:   1.72 kB
+dist/assets/ChangePasswordPage-CJX3yM8h.js                5.19 kB │ gzip:   2.03 kB
+dist/assets/data-BoJmeK72.js                              5.28 kB │ gzip:   2.35 kB
+dist/assets/CourierSettlementsPanel-5nzROSkH.js           5.55 kB │ gzip:   2.20 kB
+dist/assets/AdminCustomers-BG-cuI2T.js                    6.14 kB │ gzip:   1.85 kB
+dist/assets/Register-BDMyueQZ.js                          6.48 kB │ gzip:   2.65 kB
+dist/assets/SystemBlocked-D-EYz2Yu.js                     6.49 kB │ gzip:   2.46 kB
+dist/assets/ordersService-DCi5dDjK.js                     6.59 kB │ gzip:   2.27 kB
+dist/assets/EmployeeList-CKBU1bdF.js                      7.43 kB │ gzip:   2.27 kB
+dist/assets/PickupPaymentPanel-CAd-B-U1.js                7.48 kB │ gzip:   2.71 kB
+dist/assets/useLoyaltyExpirationClock-Dtc3I0VZ.js         7.70 kB │ gzip:   2.78 kB
+dist/assets/DeliveryConfirmationCodePrompt-Dbyhx0Cy.js    8.06 kB │ gzip:   3.01 kB
+dist/assets/DeliveryMap-CCrkujMU.js                      10.29 kB │ gzip:   3.23 kB
+dist/assets/DeliveryChatPage-BeEOdHce.js                 11.16 kB │ gzip:   4.02 kB
+dist/assets/Login-DkZaYZz4.js                            11.39 kB │ gzip:   4.62 kB
+dist/assets/DigitalMenuIdentityEntryPage-dHczi__m.js     11.47 kB │ gzip:   4.32 kB
+dist/assets/AdminOrderSupportInbox-yCd5S1aZ.js           12.44 kB │ gzip:   4.15 kB
+dist/assets/RecoverPassword-8X-CCH2f.js                  12.71 kB │ gzip:   4.49 kB
+dist/assets/OrderSupportDialog-DXb5lTTv.js               13.09 kB │ gzip:   4.66 kB
+dist/assets/DeliveryCustomerAlertLayer-Dc0Q2snr.js       14.85 kB │ gzip:   4.85 kB
+dist/assets/AdminPeople.styles-CrML9wM2.js               16.90 kB │ gzip:   3.43 kB
+dist/assets/BillingPage-CLJ7FVxV.js                      17.49 kB │ gzip:   5.47 kB
+dist/assets/OrderCard-BDrKKcGh.js                        22.99 kB │ gzip:   6.83 kB
+dist/assets/DeliveryTrackingPage-CNbkSspk.js             24.08 kB │ gzip:   7.49 kB
+dist/assets/Kitchen.styles-BR2SNk2H.js                   24.12 kB │ gzip:   5.18 kB
+dist/assets/TenantBrandHero-C9qknfd3.js                  24.77 kB │ gzip:   6.32 kB
+dist/assets/styles-Fnf34Yfi.js                           27.73 kB │ gzip:   5.89 kB
+dist/assets/styled-vendor-CAmPpJa8.js                    28.61 kB │ gzip:  11.56 kB
+dist/assets/CourierCompensationSettings-s0mCLv8H.js      38.44 kB │ gzip:   8.86 kB
+dist/assets/socket-vendor-Hx7oKnD-.js                    41.20 kB │ gzip:  12.87 kB
+dist/assets/router-vendor-CiGianE4.js                    43.01 kB │ gzip:  15.43 kB
+dist/assets/KitchenPage-B_Qgcoa5.js                      49.09 kB │ gzip:  13.31 kB
+dist/assets/AttendantPage-COsEJ80U.js                    51.51 kB │ gzip:  14.44 kB
+dist/assets/CourierWorkspace-Bl0AEZHr.js                 55.50 kB │ gzip:  15.78 kB
+dist/assets/ProductDrawer-D16au_xO.js                    59.65 kB │ gzip:  15.22 kB
+dist/assets/react-ui-vendor-U91cOSnZ.js                  70.58 kB │ gzip:  23.49 kB
+dist/assets/EmployeeCompensationSettings-CFxPNhZ_.js     77.19 kB │ gzip:  17.23 kB
+dist/assets/reportEmployeeIssue-COj3ETxB.js              85.13 kB │ gzip:  18.22 kB
+dist/assets/WaiterPage-ZkUfFvma.js                       90.61 kB │ gzip:  21.78 kB
+dist/assets/SuperAdminPage-DvX7hRJG.js                  110.73 kB │ gzip:  27.51 kB
+dist/assets/Profile-B5dzExTM.js                         120.87 kB │ gzip:  31.45 kB
+dist/assets/index-BCItbEzS.js                           139.02 kB │ gzip:  38.88 kB
+dist/assets/react-core-vendor-CCIEwYL0.js               189.64 kB │ gzip:  59.65 kB
+dist/assets/IngredientWizard-BTBuX24J.js                190.63 kB │ gzip:  32.15 kB
+dist/assets/vendor-CmUTCslH.js                          198.57 kB │ gzip:  61.44 kB
+dist/assets/Home-Co5sYa-2.js                            346.86 kB │ gzip:  84.85 kB
+dist/assets/Admin-DzqDfS5d.js                           493.25 kB │ gzip: 114.56 kB
+
+✓ built in 993ms
+> pizza-ia-kitchen-print-agent@1.0.0 build
+> tsc -p tsconfig.json
+
+
+┌──────────────────────────────────────────────────────┬─────────────┬─────────────┐
+│                       [1m[97m BUILD REPORT [0m[2m  08/09/2026, 08:06:32 [0m                      │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [1mArquivo[0m                                              │     [1mTamanho[0m │        [1mGzip[0m │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [1m[34m  BACKEND   —  tsup  →  backend/dist/[0m                                            │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [34mbackend/dist/bootstrapSuperAdmin.js[0m                  │     [34m31.1 kB[0m │      [2m8.1 kB[0m │
+│ [33mbackend/dist/server.js[0m                               │     [33m1.57 MB[0m │    [2m303.2 kB[0m │
+│ [34mbackend/dist/worker.js[0m                               │    [34m133.7 kB[0m │     [2m31.2 kB[0m │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [1m  Subtotal — 3 arquivos[0m                              │     [1m[32m1.73 MB[0m │    [2m342.6 kB[0m │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [1m[32m  FRONTEND  —  Vite  →  frontend/dist/[0m                                           │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [33mfrontend/dist/assets/Admin-DzqDfS5d.js[0m               │    [33m481.7 kB[0m │    [2m111.8 kB[0m │
+│ [32mfrontend/dist/assets/AdminCustomers-BG-cuI2T.js[0m      │      [32m6.0 kB[0m │      [2m1.8 kB[0m │
+│ [32m…tend/dist/assets/AdminOrderSupportInbox-yCd5S1aZ.js[0m │     [32m12.2 kB[0m │      [2m4.0 kB[0m │
+│ [32mfrontend/dist/assets/AdminPeople.styles-CrML9wM2.js[0m  │     [32m16.5 kB[0m │      [2m3.4 kB[0m │
+│ [32mfrontend/dist/assets/AdminPortalEntry-DMKOfe_p.js[0m    │      [32m1.8 kB[0m │       [2m950 B[0m │
+│ [32m…ontend/dist/assets/AdminPortalLoginGate-Oeol0fnp.js[0m │      [32m1.1 kB[0m │       [2m621 B[0m │
+│ [32mfrontend/dist/assets/AttendantPage-COsEJ80U.js[0m       │     [32m50.3 kB[0m │     [2m14.1 kB[0m │
+│ [32mfrontend/dist/assets/BillingPage-CLJ7FVxV.js[0m         │     [32m17.1 kB[0m │      [2m5.3 kB[0m │
+│ [32mfrontend/dist/assets/ChangePasswordPage-CJX3yM8h.js[0m  │      [32m5.1 kB[0m │      [2m2.0 kB[0m │
+│ [32m…dist/assets/CourierCompensationSettings-s0mCLv8H.js[0m │     [32m37.5 kB[0m │      [2m8.7 kB[0m │
+│ [32mfrontend/dist/assets/CourierListControls-B2Hcbwrp.js[0m │      [32m1.6 kB[0m │       [2m762 B[0m │
+│ [32m…end/dist/assets/CourierSettlementsPanel-5nzROSkH.js[0m │      [32m5.4 kB[0m │      [2m2.2 kB[0m │
+│ [32mfrontend/dist/assets/CourierWorkspace-Bl0AEZHr.js[0m    │     [32m54.2 kB[0m │     [2m15.4 kB[0m │
+│ [32mfrontend/dist/assets/DeliveryChatPage-BeEOdHce.js[0m    │     [32m10.9 kB[0m │      [2m3.9 kB[0m │
+│ [32m…t/assets/DeliveryConfirmationCodePrompt-Dbyhx0Cy.js[0m │      [32m7.9 kB[0m │      [2m2.9 kB[0m │
+│ [32m…/dist/assets/DeliveryCustomerAlertLayer-Dc0Q2snr.js[0m │     [32m14.5 kB[0m │      [2m4.7 kB[0m │
+│ [32mfrontend/dist/assets/DeliveryMap-CCrkujMU.js[0m         │     [32m10.1 kB[0m │      [2m3.1 kB[0m │
+│ [32m…ontend/dist/assets/DeliveryTrackingPage-CNbkSspk.js[0m │     [32m23.5 kB[0m │      [2m7.3 kB[0m │
+│ [32m…ist/assets/DigitalMenuIdentityEntryPage-dHczi__m.js[0m │     [32m11.2 kB[0m │      [2m4.2 kB[0m │
+│ [32m…ist/assets/EmployeeCompensationSettings-CFxPNhZ_.js[0m │     [32m75.4 kB[0m │     [2m16.8 kB[0m │
+│ [32mfrontend/dist/assets/EmployeeList-CKBU1bdF.js[0m        │      [32m7.3 kB[0m │      [2m2.2 kB[0m │
+│ [33mfrontend/dist/assets/Home-Co5sYa-2.js[0m                │    [33m338.7 kB[0m │     [2m82.8 kB[0m │
+│ [32mfrontend/dist/assets/IngredientWizard-BTBuX24J.js[0m    │    [32m186.2 kB[0m │     [2m31.7 kB[0m │
+│ [32mfrontend/dist/assets/Kitchen.styles-BR2SNk2H.js[0m      │     [32m23.6 kB[0m │      [2m5.1 kB[0m │
+│ [32mfrontend/dist/assets/KitchenPage-B_Qgcoa5.js[0m         │     [32m47.9 kB[0m │     [2m13.0 kB[0m │
+│ [32mfrontend/dist/assets/Login-DkZaYZz4.js[0m               │     [32m11.1 kB[0m │      [2m4.5 kB[0m │
+│ [32mfrontend/dist/assets/OrderCard-BDrKKcGh.js[0m           │     [32m22.5 kB[0m │      [2m6.7 kB[0m │
+│ [32mfrontend/dist/assets/OrderSupportDialog-DXb5lTTv.js[0m  │     [32m12.8 kB[0m │      [2m4.5 kB[0m │
+│ [32mfrontend/dist/assets/PickupPaymentPanel-CAd-B-U1.js[0m  │      [32m7.3 kB[0m │      [2m2.6 kB[0m │
+│ [32mfrontend/dist/assets/ProductDrawer-D16au_xO.js[0m       │     [32m58.3 kB[0m │     [2m14.8 kB[0m │
+│ [32mfrontend/dist/assets/Profile-B5dzExTM.js[0m             │    [32m118.0 kB[0m │     [2m30.7 kB[0m │
+│ [32mfrontend/dist/assets/ProfilePanel-DiPUTJ81.js[0m        │      [32m3.8 kB[0m │      [2m1.3 kB[0m │
+│ [32mfrontend/dist/assets/RecoverPassword-8X-CCH2f.js[0m     │     [32m12.4 kB[0m │      [2m4.4 kB[0m │
+│ [32mfrontend/dist/assets/Register-BDMyueQZ.js[0m            │      [32m6.3 kB[0m │      [2m2.6 kB[0m │
+│ [32mfrontend/dist/assets/SuperAdminPage-DvX7hRJG.js[0m      │    [32m108.1 kB[0m │     [2m26.8 kB[0m │
+│ [32mfrontend/dist/assets/SystemBlocked-D-EYz2Yu.js[0m       │      [32m6.3 kB[0m │      [2m2.4 kB[0m │
+│ [32mfrontend/dist/assets/TenantBrandHero-C9qknfd3.js[0m     │     [32m24.2 kB[0m │      [2m6.2 kB[0m │
+│ [32mfrontend/dist/assets/WaiterPage-ZkUfFvma.js[0m          │     [32m88.5 kB[0m │     [2m21.2 kB[0m │
+│ [32mfrontend/dist/assets/adminOverview-DlT_gNot.js[0m       │       [32m793 B[0m │       [2m444 B[0m │
+│ [32mfrontend/dist/assets/adminPortalSession-BCXS3Yi0.js[0m  │       [32m996 B[0m │       [2m516 B[0m │
+│ [32mfrontend/dist/assets/amex-BUzYj_Rf.svg[0m               │      [32m4.2 kB[0m │      [2m1.8 kB[0m │
+│ [32mfrontend/dist/assets/authService-CvSqy_eO.js[0m         │       [32m769 B[0m │       [2m328 B[0m │
+│ [32mfrontend/dist/assets/categoryIconMap-BdF08EIn.js[0m     │      [32m2.3 kB[0m │      [2m1.2 kB[0m │
+│ [32m…/dist/assets/courierCompensationService-BZLGFT7o.js[0m │      [32m1.2 kB[0m │       [2m374 B[0m │
+│ [32mfrontend/dist/assets/courierLocation-CoPH1sVE.js[0m     │      [32m1.8 kB[0m │       [2m789 B[0m │
+│ [32mfrontend/dist/assets/courierOrders-XFYZ7l6V.js[0m       │      [32m1.7 kB[0m │       [2m781 B[0m │
+│ [32mfrontend/dist/assets/data-BoJmeK72.js[0m                │      [32m5.2 kB[0m │      [2m2.3 kB[0m │
+│ [32mfrontend/dist/assets/deliveryChatService-CbZQTgcN.js[0m │       [32m594 B[0m │       [2m323 B[0m │
+│ [32mfrontend/dist/assets/deliveryChatUnread-DVEvR9IO.js[0m  │       [32m946 B[0m │       [2m455 B[0m │
+│ [32mfrontend/dist/assets/index-BCItbEzS.js[0m               │    [32m135.8 kB[0m │     [2m37.9 kB[0m │
+│ [32mfrontend/dist/assets/orderAdapter-DuHeg_ur.js[0m        │      [32m3.5 kB[0m │      [2m1.6 kB[0m │
+│ [32m…tend/dist/assets/orderNotificationSound-BflG0N2n.js[0m │       [32m664 B[0m │       [2m362 B[0m │
+│ [32mfrontend/dist/assets/ordersService-DCi5dDjK.js[0m       │      [32m6.4 kB[0m │      [2m2.2 kB[0m │
+│ [32mfrontend/dist/assets/password-policy-OEJDf9Hg.js[0m     │      [32m4.1 kB[0m │      [2m1.7 kB[0m │
+│ [32m…tend/dist/assets/paymentTerminalService-HOd672Gw.js[0m │       [32m335 B[0m │       [2m219 B[0m │
+│ [32mfrontend/dist/assets/productsService-eWas-7iq.js[0m     │       [32m835 B[0m │       [2m419 B[0m │
+│ [32mfrontend/dist/assets/react-core-vendor-CCIEwYL0.js[0m   │    [32m185.2 kB[0m │     [2m57.6 kB[0m │
+│ [32mfrontend/dist/assets/react-ui-vendor-U91cOSnZ.js[0m     │     [32m68.9 kB[0m │     [2m22.8 kB[0m │
+│ [32mfrontend/dist/assets/reportEmployeeIssue-COj3ETxB.js[0m │     [32m83.1 kB[0m │     [2m17.8 kB[0m │
+│ [32mfrontend/dist/assets/restaurantMonogram-BfZ0xq6q.js[0m  │       [32m271 B[0m │       [2m211 B[0m │
+│ [32mfrontend/dist/assets/rolldown-runtime-QTnfLwEv.js[0m    │       [32m694 B[0m │       [2m422 B[0m │
+│ [32mfrontend/dist/assets/router-vendor-CiGianE4.js[0m       │     [32m42.0 kB[0m │     [2m14.9 kB[0m │
+│ [32mfrontend/dist/assets/socket-vendor-Hx7oKnD-.js[0m       │     [32m40.2 kB[0m │     [2m12.5 kB[0m │
+│ [32mfrontend/dist/assets/styled-vendor-CAmPpJa8.js[0m       │     [32m27.9 kB[0m │     [2m11.2 kB[0m │
+│ [32mfrontend/dist/assets/styles-Fnf34Yfi.js[0m              │     [32m27.1 kB[0m │      [2m5.7 kB[0m │
+│ [32mfrontend/dist/assets/supportChatService-DC457mys.js[0m  │       [32m782 B[0m │       [2m387 B[0m │
+│ [32mfrontend/dist/assets/tableAccountService-CcZiS6yL.js[0m │      [32m1.9 kB[0m │       [2m776 B[0m │
+│ [32mfrontend/dist/assets/tablesService-CcNVyqPt.js[0m       │       [32m813 B[0m │       [2m338 B[0m │
+│ [32m…ontend/dist/assets/useActiveOrderNotice-CDsupsMY.js[0m │      [32m2.4 kB[0m │      [2m1.2 kB[0m │
+│ [32m…dist/assets/useDraggableFloatingActions-Z7rr_hb4.js[0m │      [32m3.6 kB[0m │      [2m1.4 kB[0m │
+│ [32m…d/dist/assets/useLoyaltyExpirationClock-Dtc3I0VZ.js[0m │      [32m7.5 kB[0m │      [2m2.7 kB[0m │
+│ [32mfrontend/dist/assets/vendor-CmUTCslH.js[0m              │    [32m193.9 kB[0m │     [2m59.5 kB[0m │
+│ [32mfrontend/dist/assets/vendor-vh-t_kPv.css[0m             │     [32m14.7 kB[0m │      [2m6.2 kB[0m │
+│ [32mfrontend/dist/assets/waiterCallsService-D9l5b283.js[0m  │       [32m542 B[0m │       [2m339 B[0m │
+│ [32mfrontend/dist/favicon.svg[0m                            │       [32m837 B[0m │       [2m419 B[0m │
+│ [32mfrontend/dist/icons.svg[0m                              │      [32m4.9 kB[0m │      [2m2.1 kB[0m │
+│ [32mfrontend/dist/index.html[0m                             │      [32m2.0 kB[0m │       [2m856 B[0m │
+├──────────────────────────────────────────────────────┼─────────────┼─────────────┤
+│ [1m  Subtotal — 77 arquivos[0m                             │     [1m[32m2.74 MB[0m │    [2m750.5 kB[0m │
+╞══════════════════════════════════════════════════════╪═════════════╪═════════════╡
+│ [1m  TOTAL GERAL  —  80 arquivos[0m                        │     [1m[35m4.48 MB[0m │     [2m1.07 MB[0m │
+└──────────────────────────────────────────────────────┴─────────────┴─────────────┘
+

@@ -1,3 +1,4 @@
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 import {
   type BusinessDayId,
   tryNormalizeBusinessHours,
@@ -71,7 +72,7 @@ function getZonedClock(now: Date, timeZone?: unknown) {
   const dayId = weekday ? DAY_IDS_BY_WEEKDAY[weekday] : undefined;
 
   if (!dayId || !Number.isInteger(hours) || !Number.isInteger(minutes)) {
-    throw new Error('Não foi possível calcular o horário local do restaurante.');
+    throw new OrderRequestError('Não foi possível calcular o horário local do restaurante.');
   }
 
   return { dayId, minuteOfDay: hours * 60 + minutes };
@@ -117,6 +118,6 @@ export function assertRestaurantIsOpenForOrders(
   timeZone?: unknown,
 ) {
   if (!isRestaurantOpenForOrders(isOpenForOrders, businessHours, now, timeZone)) {
-    throw new Error(RESTAURANT_CLOSED_MESSAGE);
+    throw new OrderRequestError(RESTAURANT_CLOSED_MESSAGE);
   }
 }

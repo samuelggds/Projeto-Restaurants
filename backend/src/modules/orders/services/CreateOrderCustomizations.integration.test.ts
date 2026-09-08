@@ -10,6 +10,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import tableAccountSettingsRepository from '../../tableAccount/repositories/TableAccountSettingsRepository.js';
 import { BUSINESS_DAY_IDS } from '../../restaurantSettings/utils/businessHours.js';
+import { registerRealtimeTransport } from '../../../realtime/realtimePublisher.js';
 
 const originalHttpCreateServer = http.createServer;
 http.createServer = ((...args) => {
@@ -93,8 +94,11 @@ test('bloqueia a criação do pedido fora da agenda semanal', async () => {
   );
 });
 
-test('persiste opções agrupadas e observação do item ao criar o pedido', async () => {
+test('persiste opções agrupadas e observação sem vazar metadados de criação em resposta/eventos', async (t) => {
   const persistedItems = [];
+  const events: unknown[] = [];
+  const emitter = { emit: (_event: string, payload: unknown) => { events.push(payload); } };
+  t.after(registerRealtimeTransport({ ...emitter, to: () => emitter }));
   const tx = {
     $queryRaw: async () => [],
     restaurantPrinterSettings: {
@@ -219,6 +223,9 @@ test('persiste opções agrupadas e observação do item ao criar o pedido', asy
       userId: 42,
       status: 'PENDENTE',
       items: persistedItems,
+      creationRequestKey: 'private-request-key',
+      creationActor: 'private-actor',
+      creationFingerprint: 'private-fingerprint',
     };
   };
 
@@ -244,6 +251,11 @@ test('persiste opções agrupadas e observação do item ao criar o pedido', asy
   });
 
   assert.equal(order.id, 321);
+  assert.ok(events.length > 0);
+  for (const payload of [order, ...events]) {
+    assert.equal(JSON.stringify(payload).includes('private-'), false);
+    assert.equal(JSON.stringify(payload).includes('creationRequestKey'), false);
+  }
   assert.deepEqual(persistedItems, [
     {
       orderId: 321,
@@ -306,6 +318,29 @@ test('persiste opções agrupadas e observação do item ao criar o pedido', asy
       },
     },
   ]);
+});
+
+test('reenvio confirmado não revalida estoque ou abertura e não repete eventos', async (t) => {
+  const context = { key: 'key-hash', actor: 'actor-hash', fingerprint: 'payload-hash' };
+  const events: unknown[] = [];
+  const emitter = { emit: (_event: string, payload: unknown) => { events.push(payload); } };
+  t.after(registerRealtimeTransport({ ...emitter, to: () => emitter }));
+  const rawOrder = { id: 321, restaurantId: 7, userId: 42, status: 'PENDENTE', creationRequestKey: context.key, creationActor: context.actor, creationFingerprint: context.fingerprint };
+  const tx = {
+    $queryRaw: async (_query, tenant) => { assert.equal(tenant, '7'); return []; },
+    order: { findFirst: async ({ where }) => {
+      assert.deepEqual(where, { restaurantId: 7, creationRequestKey: context.key, creationActor: context.actor });
+      return { id: rawOrder.id, creationFingerprint: context.fingerprint };
+    } },
+  };
+  prisma.$transaction = async (callback) => callback(tx);
+  orderRepository.findById = async (_id, _tenant, db) => { assert.equal(db, tx); return rawOrder; };
+  restaurantSettingsRepository.findByRestaurantId = async () => { throw new Error('O restaurante fechou após aceitar a tentativa.'); };
+  orderRepository.create = async () => { throw new Error('Não deve criar outro pedido.'); };
+  const result = await createOrderService.execute({ creationRequest: context, restaurantId: 7, userRestaurantId: 7, userId: 42, type: OrderType.RETIRADA, items: [{ productId: 10, quantity: 1 }] });
+  assert.deepEqual(result, { id: 321, restaurantId: 7, userId: 42, status: 'PENDENTE' });
+  assert.equal(rawOrder.creationRequestKey, context.key, 'serialização não altera o registro interno');
+  assert.deepEqual(events, []);
 });
 
 test('não permite que o cliente marque cartão como pago no payload de criação', async () => {

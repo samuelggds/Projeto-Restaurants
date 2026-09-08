@@ -154,6 +154,14 @@ router.patch(
   },
 );
 
+router.get('/reports/overview', authMiddleware, adminMiddleware, (req, res) => {
+  OrderReportsController.overview(req, res);
+});
+
+router.get('/reports/customers', authMiddleware, adminMiddleware, (req, res) => {
+  OrderReportsController.customers(req, res);
+});
+
 router.get('/', authMiddleware, staffMiddleware, (req, res) => {
   ListOrdersController.handle(req, res);
 });

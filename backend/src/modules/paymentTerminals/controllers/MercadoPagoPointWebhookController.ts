@@ -1,12 +1,13 @@
 import type { Request, Response } from 'express';
+import { authenticateMercadoPagoWebhook } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import paymentTerminalRepository from '../repositories/PaymentTerminalRepository.js';
 import paymentTerminalService from '../services/PaymentTerminalService.js';
 
 class MercadoPagoPointWebhookController {
   async handle(req: Request, res: Response) {
     try {
-      const providerOrderId = String(req.body?.data?.id || req.body?.id || '').trim();
-      if (!providerOrderId) return res.sendStatus(200);
+      const providerOrderId = authenticateMercadoPagoWebhook(req, res);
+      if (!providerOrderId) return res;
 
       const localPayment = await paymentTerminalRepository.findByProviderOrderId(
         'MERCADO_PAGO',

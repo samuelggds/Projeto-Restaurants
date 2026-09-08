@@ -1,0 +1,28 @@
+
+> pizza-ia-kitchen-print-agent@1.0.0 test
+> node scripts/runAllTests.mjs
+
+Executando 3 arquivos de teste do Print Agent.
+✔ config local salva pareamento e seleção sem expor token no resumo/log (106.2626ms)
+✔ config rejeita HTTP remoto, polling agressivo e credencial inválida (0.6264ms)
+✔ render MM58 respeita largura e mantém conteúdo operacional (34.1844ms)
+✔ render MM80 respeita largura e mantém conteúdo operacional (0.8585ms)
+✔ render de mesa destaca mesa e cliente juntos sem duplicar identificação (0.8096ms)
+✔ render de mesa sem nome ainda destaca o número da mesa (0.508ms)
+✔ render de retirada destaca retirada local e mantém cliente separado (0.5106ms)
+✔ render de DELIVERY omite linhas vazias do endereço (0.5777ms)
+✔ render MM58 apresenta quantidades, remoções e porções sem estourar a bobina (0.8224ms)
+✔ render MM80 apresenta quantidades, remoções e porções sem estourar a bobina (0.8581ms)
+✔ render TEST contém identificação e confirmação de conexão (0.4873ms)
+✔ sucesso imprime todas as cópias antes de ACK PRINTED (27.2718ms)
+✔ falha não confirma PRINTED e reporta FAILED para retry (1.2542ms)
+✔ fila vazia não chama transporte nem ACK (0.2366ms)
+✔ falha de rede após o spooler não marca FAILED nem provoca retry imediato (0.9548ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 971.1983

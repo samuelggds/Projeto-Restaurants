@@ -1,5 +1,10 @@
 # Rotas e rastreamento em produção
 
+Este documento descreve a alternativa de infraestrutura própria. No arquivo `.env.production`,
+defina `ROUTING_PROVIDER=osrm` e `COMPOSE_PROFILES=selfhost-routing` para ativá-la.
+O Compose padrão usa `ROUTING_PROVIDER=geoapify` com `GEOAPIFY_API_KEY`; nessa opção,
+não execute a importação nem o processamento OSM descritos abaixo.
+
 O rastreamento usa GPS do celular do motoqueiro, Socket.IO para atualização em tempo real, polling como contingência, OSRM para calcular a rota e Nominatim para localizar o endereço salvo no pedido. OSRM e Nominatim são privados e não publicam portas no host.
 
 ## Requisitos

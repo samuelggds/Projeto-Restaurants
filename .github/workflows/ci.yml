@@ -30,6 +30,8 @@ jobs:
       - run: npm --prefix print-agent ci
       - name: Check architecture constraints
         run: npm run check:architecture
+      - name: Check resolved production deployment isolation
+        run: node scripts/verifyProductionCompose.mjs
 
       - name: Check operational script catalog and guards
         run: npm run check:scripts

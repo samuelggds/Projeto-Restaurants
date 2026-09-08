@@ -175,6 +175,7 @@ async function main() {
     ALLOW_INSECURE_STRIPE_WEBHOOK: 'false',
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || 'sk_test_tenant_e2e_only',
     ASAAS_WEBHOOK_TOKEN: 'tenant-e2e-asaas-webhook-token',
+    MP_WEBHOOK_SECRET: 'tenant-e2e-mp-webhook-secret',
     AUTH_RATE_LIMIT_MAX_REQUESTS: '1000',
     GLOBAL_RATE_LIMIT_MAX_REQUESTS: '5000',
     SOCKET_AUTH_REVALIDATE_MS: '5000',
@@ -190,16 +191,8 @@ async function main() {
   console.log('Provisionando a role runtime NOSUPERUSER/NOBYPASSRLS sem ownership.');
   await run(
     process.execPath,
-    [
-      prismaCli,
-      'db',
-      'execute',
-      '--file',
-      path.resolve(backendRoot, 'prisma/rls/setup-e2e-runtime-role.sql'),
-      '--schema',
-      path.resolve(backendRoot, 'prisma/schema.prisma'),
-    ],
-    { env: ownerEnv },
+    [path.resolve(backendRoot, 'scripts/provisionRuntimeRole.mjs')],
+    { env: { ...ownerEnv, RUNTIME_DATABASE_URL: safeRuntimeDatabase.url } },
   );
 
   console.log(`Executando ${testFiles.length} arquivo(s) E2E multi-tenant.`);

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHmac } from 'node:crypto';
+
+function signedMpHeaders(id: string) {
+  const secret = process.env.MP_WEBHOOK_SECRET!;
+  const manifest = `id:${id};request-id:e2e-webhook;ts:1742505638;`;
+  return { 'x-request-id': 'e2e-webhook', 'x-signature': `ts=1742505638,v1=${createHmac('sha256', secret).update(manifest).digest('hex')}` };
+}
 
 import Stripe from 'stripe';
 
@@ -26,6 +33,21 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
   const { baseUrl } = runtime;
 
   try {
+    await t.test('criação repetida e concorrente preserva um único pedido', async () => {
+      const key = 'e2e-creation-attempt-123456789';
+      const payload = { restaurantId: fixture.restaurants.a.id, type: 'RETIRADA', paymentMethod: 'DINHEIRO', items: [{ productId: fixture.products.a.id, quantity: 1 }] };
+      const send = (json = payload) => apiRequest(baseUrl, '/orders', fixture.tokens.adminA, { method: 'POST', headers: { 'Idempotency-Key': key }, json });
+      const [first, second] = await Promise.all([send(), send()]);
+      assert.equal(first.response.status, 201, JSON.stringify(first.data));
+      assert.equal(second.response.status, 201, JSON.stringify(second.data));
+      assert.equal(first.data.id, second.data.id);
+      const retry = await send();
+      assert.equal(retry.data.id, first.data.id);
+      const conflict = await send({ ...payload, items: [{ productId: fixture.products.a.id, quantity: 2 }] });
+      assert.equal(conflict.response.status, 409);
+      assert.equal(conflict.data.code, 'IDEMPOTENCY_CONFLICT');
+      assert.equal(await prisma.order.count({ where: { restaurantId: fixture.restaurants.a.id, creationRequestKey: { not: null } } }), 1);
+    });
     await t.test(
       'autenticação real recarrega a identidade persistida e ignora tenant externo',
       async () => {
@@ -815,10 +837,11 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
         try {
           const mercadoPago = await apiRequest(
             baseUrl,
-            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}`,
+            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}&data.id=mp-cross-tenant`,
             undefined,
             {
               method: 'POST',
+              headers: signedMpHeaders('mp-cross-tenant'),
               json: { data: { id: 'mp-cross-tenant' } },
             },
           );
@@ -844,10 +867,11 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
           };
           const wrongAmount = await apiRequest(
             baseUrl,
-            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}`,
+            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}&data.id=mp-wrong-amount`,
             undefined,
             {
               method: 'POST',
+              headers: signedMpHeaders('mp-wrong-amount'),
               json: { data: { id: 'mp-wrong-amount' } },
             },
           );
@@ -867,10 +891,11 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
           };
           const wrongPaymentId = await apiRequest(
             baseUrl,
-            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}`,
+            `/orders/webhook/mercadopago?restaurantId=${fixture.restaurants.a.id}&data.id=mp-other`,
             undefined,
             {
               method: 'POST',
+              headers: signedMpHeaders('mp-other'),
               json: { data: { id: 'mp-other' } },
             },
           );

@@ -1,3 +1,4 @@
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 import type { Prisma } from '@prisma/client';
 import { CouponRedemptionStatus, OrderType } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
@@ -45,10 +46,10 @@ class OrderPricingService {
   }: QuotePayload) {
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
-      throw new Error('Restaurante inválido para calcular o pedido.');
+      throw new OrderRequestError('Restaurante inválido para calcular o pedido.');
     }
     if (!Array.isArray(items) || items.length === 0) {
-      throw new Error('O pedido deve conter pelo menos um item.');
+      throw new OrderRequestError('O pedido deve conter pelo menos um item.');
     }
 
     const products = await Promise.all(
@@ -61,14 +62,14 @@ class OrderPricingService {
     products.forEach((product, index) => {
       const item = items[index];
       if (!product) {
-        throw new Error(`Produto não encontrado: ${Number(item.productId || 0)}`);
+        throw new OrderRequestError(`Produto não encontrado: ${Number(item.productId || 0)}`);
       }
       if (product.active === false) {
-        throw new Error(`Produto indisponível: ${product.name}`);
+        throw new OrderRequestError(`Produto indisponível: ${product.name}`);
       }
       const quantity = Number(item.quantity || 0);
       if (!Number.isInteger(quantity) || quantity <= 0) {
-        throw new Error(`Quantidade inválida para ${product.name}.`);
+        throw new OrderRequestError(`Quantidade inválida para ${product.name}.`);
       }
       requestedQuantityByProduct.set(
         product.id,
@@ -81,7 +82,7 @@ class OrderPricingService {
       const stock =
         product.stock === null || product.stock === undefined ? null : Number(product.stock);
       if (Number.isInteger(stock) && stock >= 0 && requestedQuantity > stock) {
-        throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${stock}.`);
+        throw new OrderRequestError(`Estoque insuficiente para ${product.name}. Disponível: ${stock}.`);
       }
     });
 
@@ -109,13 +110,13 @@ class OrderPricingService {
     });
     const normalizedType = String(type || '').toUpperCase();
     if (normalizedType === OrderType.DELIVERY && settings?.acceptsDelivery === false) {
-      throw new Error('O restaurante não está aceitando pedidos para delivery no momento.');
+      throw new OrderRequestError('O restaurante não está aceitando pedidos para delivery no momento.');
     }
     if (normalizedType === OrderType.RETIRADA && settings?.acceptsPickup === false) {
-      throw new Error('O restaurante não está aceitando pedidos para retirada no momento.');
+      throw new OrderRequestError('O restaurante não está aceitando pedidos para retirada no momento.');
     }
     if (normalizedType === OrderType.MESA && settings?.tableOrderingEnabled === false) {
-      throw new Error('Os pedidos pelo cardápio de mesa estão desativados no momento.');
+      throw new OrderRequestError('Os pedidos pelo cardápio de mesa estão desativados no momento.');
     }
 
     let configuredDeliveryFeeAmount = 0;
@@ -123,7 +124,7 @@ class OrderPricingService {
       if (settings?.deliveryFeeMode === 'DISTANCE') {
         const normalizedDistanceMeters = Number(deliveryDistanceMeters);
         if (!Number.isFinite(normalizedDistanceMeters) || normalizedDistanceMeters < 0) {
-          throw new Error('Não foi possível calcular a distância para a taxa de entrega.');
+          throw new OrderRequestError('Não foi possível calcular a distância para a taxa de entrega.');
         }
 
         const distanceFee = await deliveryFeeByDistanceService.calculate({
@@ -146,7 +147,7 @@ class OrderPricingService {
 
     const minimumOrder = Math.max(Number(settings?.minimumOrder || 0), 0);
     if (normalizedType === OrderType.DELIVERY && minimumOrder > 0 && itemsSubtotal < minimumOrder) {
-      throw new Error(
+      throw new OrderRequestError(
         `Pedido mínimo após as ofertas: R$ ${minimumOrder.toFixed(2)}. A taxa de entrega é cobrada à parte.`,
       );
     }
@@ -159,7 +160,7 @@ class OrderPricingService {
     if (requestedRedemptionId > 0) {
       const normalizedUserId = Number(userId || 0);
       if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
-        throw new Error('Entre na sua conta para usar uma recompensa de fidelidade.');
+        throw new OrderRequestError('Entre na sua conta para usar uma recompensa de fidelidade.');
       }
 
       const redemption = await db.couponRedemption.findFirst({
@@ -173,12 +174,12 @@ class OrderPricingService {
         include: { coupon: true },
       });
       if (!redemption || redemption.coupon.restaurantId !== normalizedRestaurantId) {
-        throw new Error('Cupom resgatado inválido ou indisponível.');
+        throw new OrderRequestError('Cupom resgatado inválido ou indisponível.');
       }
 
       const coupon = redemption.coupon;
       if (itemsSubtotal < Number(coupon.minimumSubtotal || 0)) {
-        throw new Error(
+        throw new OrderRequestError(
           `Este cupom exige subtotal mínimo de R$ ${Number(coupon.minimumSubtotal).toFixed(2)}.`,
         );
       }
@@ -194,7 +195,7 @@ class OrderPricingService {
       const maximumCouponDiscount = Math.max(itemsSubtotal - 0.01, 0);
       couponDiscount = roundMoney(Math.min(Math.max(limitedDiscount, 0), maximumCouponDiscount));
       if (couponDiscount <= 0) {
-        throw new Error(
+        throw new OrderRequestError(
           'Este cupom não gera desconto neste pedido. Escolha outro benefício ou aumente o subtotal.',
         );
       }
@@ -206,7 +207,7 @@ class OrderPricingService {
       couponRedemptionId !== undefined &&
       couponRedemptionId !== ''
     ) {
-      throw new Error('Cupom resgatado inválido.');
+      throw new OrderRequestError('Cupom resgatado inválido.');
     }
 
     const total = roundMoney(Math.max(itemsSubtotal - couponDiscount + deliveryFeeAmount, 0));

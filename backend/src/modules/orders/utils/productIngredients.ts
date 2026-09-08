@@ -1,3 +1,4 @@
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { resolveProductBasePricing, roundMoney } from '../../products/utils/productDiscount.js';
 
 type LegacyIngredient = {
@@ -103,7 +104,7 @@ type OrderItemSnapshotInput = OrderItemOptionSelection & {
 function money(value: unknown) {
   const normalized = Number(value);
   if (!Number.isFinite(normalized) || normalized < 0) {
-    throw new Error('O produto possui um valor de opção inválido.');
+    throw new OrderRequestError('O produto possui um valor de opção inválido.');
   }
   return Math.round((normalized + Number.EPSILON) * 100) / 100;
 }
@@ -126,10 +127,10 @@ function optionUnitPrice(option: ProductOption) {
 function uniquePositiveIds(values: number[] | undefined, field: string) {
   const ids = (values || []).map(Number);
   if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
-    throw new Error(`${field} contém uma opção inválida.`);
+    throw new OrderRequestError(`${field} contém uma opção inválida.`);
   }
   if (new Set(ids).size !== ids.length) {
-    throw new Error(`${field} contém opções repetidas.`);
+    throw new OrderRequestError(`${field} contém opções repetidas.`);
   }
   return ids;
 }
@@ -143,17 +144,17 @@ function resolveOptionQuantities(
     const optionId = Number(entry.optionId);
     const quantity = Number(entry.quantity);
     if (!Number.isInteger(optionId) || optionId <= 0 || !Number.isInteger(quantity)) {
-      throw new Error('A montagem contém uma quantidade inválida.');
+      throw new OrderRequestError('A montagem contém uma quantidade inválida.');
     }
     if (requested.has(optionId)) {
-      throw new Error('A montagem contém quantidade repetida para a mesma opção.');
+      throw new OrderRequestError('A montagem contém quantidade repetida para a mesma opção.');
     }
     requested.set(optionId, quantity);
   });
 
   const selectedIds = new Set(selectedOptions.map((option) => option.id));
   if ([...requested.keys()].some((optionId) => !selectedIds.has(optionId))) {
-    throw new Error('A montagem informou quantidade para uma opção não selecionada.');
+    throw new OrderRequestError('A montagem informou quantidade para uma opção não selecionada.');
   }
 
   return new Map(
@@ -163,7 +164,7 @@ function resolveOptionQuantities(
       const defaultQuantity = option.allowQuantity ? Number(option.defaultQuantity ?? minimum) : 1;
       const quantity = requested.get(option.id) ?? defaultQuantity;
       if (!Number.isInteger(quantity) || quantity < minimum || quantity > maximum) {
-        throw new Error(
+        throw new OrderRequestError(
           `A quantidade de ${option.ingredient.name} deve ficar entre ${minimum} e ${maximum}.`,
         );
       }
@@ -185,13 +186,13 @@ function resolveComposition(
         item.ingredient.restaurantId !== product.restaurantId,
     )
   ) {
-    throw new Error(`A composição de ${product.name} pertence a outro restaurante.`);
+    throw new OrderRequestError(`A composição de ${product.name} pertence a outro restaurante.`);
   }
   const unavailableRequiredItem = configuredItems.find(
     (item) => !item.ingredient.active && !item.removable,
   );
   if (unavailableRequiredItem) {
-    throw new Error(
+    throw new OrderRequestError(
       `${product.name} está indisponível porque ${unavailableRequiredItem.ingredient.name} faz parte da composição.`,
     );
   }
@@ -201,10 +202,10 @@ function resolveComposition(
   removedIds.forEach((itemId) => {
     const item = byId.get(itemId);
     if (!item) {
-      throw new Error(`Um item removido está indisponível para ${product.name}.`);
+      throw new OrderRequestError(`Um item removido está indisponível para ${product.name}.`);
     }
     if (!item.removable) {
-      throw new Error(`${item.ingredient.name} faz parte da receita e não pode ser removido.`);
+      throw new OrderRequestError(`${item.ingredient.name} faz parte da receita e não pode ser removido.`);
     }
   });
 
@@ -232,21 +233,21 @@ function resolvePortions(
   const requestedPortions = portionsInput || [];
   if (!configuration?.enabled) {
     if (requestedPortions.length > 0) {
-      throw new Error(`${product.name} não aceita divisão em porções.`);
+      throw new OrderRequestError(`${product.name} não aceita divisão em porções.`);
     }
     return { portions: [], additiveCents: 0, absoluteCents: null as number | null };
   }
 
   const portionCount = requestedPortions.length;
   if (portionCount < configuration.minPortions || portionCount > configuration.maxPortions) {
-    throw new Error(
+    throw new OrderRequestError(
       `${product.name} deve ter entre ${configuration.minPortions} e ${configuration.maxPortions} porções.`,
     );
   }
 
   const group = activeGroups.find((candidate) => candidate.id === configuration.optionGroupId);
   if (!group || group.restaurantId !== product.restaurantId) {
-    throw new Error(`A configuração de porções de ${product.name} está incompleta.`);
+    throw new OrderRequestError(`A configuração de porções de ${product.name} está incompleta.`);
   }
   const availableOptions = group.options.filter(
     (option) =>
@@ -259,18 +260,18 @@ function resolvePortions(
   const portions = requestedPortions.map((portion, index) => {
     const optionId = Number(portion.optionId);
     if (!Number.isInteger(optionId) || optionId <= 0) {
-      throw new Error(`A porção ${index + 1} possui uma opção inválida.`);
+      throw new OrderRequestError(`A porção ${index + 1} possui uma opção inválida.`);
     }
     const option = availableOptions.find((candidate) => candidate.id === optionId);
     if (!option) {
-      throw new Error(`A opção da porção ${index + 1} está indisponível para ${product.name}.`);
+      throw new OrderRequestError(`A opção da porção ${index + 1} está indisponível para ${product.name}.`);
     }
     const observation = String(portion.observation || '').trim();
     if (observation && !configuration.allowPortionObservations) {
-      throw new Error(`${product.name} não aceita observações específicas por porção.`);
+      throw new OrderRequestError(`${product.name} não aceita observações específicas por porção.`);
     }
     if (observation.length > 300) {
-      throw new Error('A observação de cada porção deve ter no máximo 300 caracteres.');
+      throw new OrderRequestError('A observação de cada porção deve ter no máximo 300 caracteres.');
     }
     const unitPrice = optionUnitPrice(option);
     return {
@@ -289,11 +290,11 @@ function resolvePortions(
 
   const pricingModes = new Set(portions.map((portion) => portion.pricingMode));
   if (pricingModes.size > 1 && configuration.pricingStrategy !== 'FIXED') {
-    throw new Error('As opções por porção precisam usar o mesmo modo de preço.');
+    throw new OrderRequestError('As opções por porção precisam usar o mesmo modo de preço.');
   }
   const usesAbsolutePrice = portions[0]?.pricingMode === 'ABSOLUTE';
   if (usesAbsolutePrice && configuration.pricingStrategy === 'ADD') {
-    throw new Error('A estratégia ADD não pode somar opções com preço final absoluto.');
+    throw new OrderRequestError('A estratégia ADD não pode somar opções com preço final absoluto.');
   }
 
   const optionCents = portions.map((portion) => cents(portion.unitPrice));
@@ -340,21 +341,21 @@ function resolveExplicitOptionIds(
   structured.forEach((selectedGroup) => {
     const groupId = Number(selectedGroup.groupId);
     if (!Number.isInteger(groupId) || groupId <= 0) {
-      throw new Error('A montagem contém um grupo inválido.');
+      throw new OrderRequestError('A montagem contém um grupo inválido.');
     }
     if (seenGroups.has(groupId)) {
-      throw new Error('A montagem contém o mesmo grupo mais de uma vez.');
+      throw new OrderRequestError('A montagem contém o mesmo grupo mais de uma vez.');
     }
     seenGroups.add(groupId);
 
     const group = (product.optionGroups || []).find((candidate) => candidate.id === groupId);
     if (!group || !group.active || group.restaurantId !== product.restaurantId) {
-      throw new Error(`Grupo de opções inválido para ${product.name}.`);
+      throw new OrderRequestError(`Grupo de opções inválido para ${product.name}.`);
     }
 
     const ids = uniquePositiveIds(selectedGroup.optionIds, `O grupo ${group.name}`);
     if (ids.some((id) => !group.options.some((option) => option.id === id))) {
-      throw new Error(`Uma opção não pertence ao grupo ${group.name}.`);
+      throw new OrderRequestError(`Uma opção não pertence ao grupo ${group.name}.`);
     }
     structuredIds.push(...ids);
   });
@@ -363,7 +364,7 @@ function resolveExplicitOptionIds(
     const flatSignature = [...flatIds].sort((a, b) => a - b).join(',');
     const structuredSignature = [...structuredIds].sort((a, b) => a - b).join(',');
     if (flatSignature !== structuredSignature) {
-      throw new Error('Os campos optionIds e selectedOptions informam montagens diferentes.');
+      throw new OrderRequestError('Os campos optionIds e selectedOptions informam montagens diferentes.');
     }
   }
 
@@ -376,7 +377,7 @@ function resolveLegacyIds(product: ProductWithOptions, ingredientIds: number[]) 
       group.options.filter((option) => option.ingredientId === ingredientId),
     );
     if (matches.length !== 1) {
-      throw new Error(`Ingrediente legado inválido ou ambíguo para ${product.name}.`);
+      throw new OrderRequestError(`Ingrediente legado inválido ou ambíguo para ${product.name}.`);
     }
     return matches[0].id;
   });
@@ -394,7 +395,7 @@ export function resolveOrderItemCustomizations(
     selection.configurationVersion !== undefined &&
     Number(selection.configurationVersion) !== Number(product.configurationVersion ?? 1)
   ) {
-    throw new Error('A configuração deste produto foi atualizada. Revise suas escolhas.');
+    throw new OrderRequestError('A configuração deste produto foi atualizada. Revise suas escolhas.');
   }
 
   const hasCustomizationIntent = Boolean(
@@ -407,7 +408,7 @@ export function resolveOrderItemCustomizations(
   );
   if (product.saleMode === 'COMPLETE') {
     if (hasCustomizationIntent) {
-      throw new Error(`${product.name} é vendido sem etapas de montagem.`);
+      throw new OrderRequestError(`${product.name} é vendido sem etapas de montagem.`);
     }
     return {
       price: money(product.price),
@@ -438,13 +439,13 @@ export function resolveOrderItemCustomizations(
       };
     }
     if (!composition.composition.some((item) => item.removable)) {
-      throw new Error(`${product.name} ainda não possui opções de montagem configuradas.`);
+      throw new OrderRequestError(`${product.name} ainda não possui opções de montagem configuradas.`);
     }
   }
 
   activeGroups.forEach((group) => {
     if (group.restaurantId !== product.restaurantId) {
-      throw new Error(`A configuração de ${product.name} pertence a outro restaurante.`);
+      throw new OrderRequestError(`A configuração de ${product.name} pertence a outro restaurante.`);
     }
   });
 
@@ -465,7 +466,7 @@ export function resolveOrderItemCustomizations(
   );
   const allActiveOptionIds = new Set(allActiveOptions.map((option) => option.id));
   if (selectedIds.some((id) => !allActiveOptionIds.has(id))) {
-    throw new Error(`Uma opção selecionada está indisponível para ${product.name}.`);
+    throw new OrderRequestError(`Uma opção selecionada está indisponível para ${product.name}.`);
   }
 
   const groupSelections = regularGroups.map((group) => {
@@ -481,15 +482,15 @@ export function resolveOrderItemCustomizations(
     const maximum = group.selectionType === 'SINGLE' ? 1 : group.maxSelections;
 
     if (availableOptions.length < minimum) {
-      throw new Error(`O grupo ${group.name} está sem opções suficientes. Avise o restaurante.`);
+      throw new OrderRequestError(`O grupo ${group.name} está sem opções suficientes. Avise o restaurante.`);
     }
     if (selected.length < minimum) {
-      throw new Error(
+      throw new OrderRequestError(
         `Escolha pelo menos ${minimum} ${minimum === 1 ? 'opção' : 'opções'} em ${group.name}.`,
       );
     }
     if (selected.length > maximum) {
-      throw new Error(
+      throw new OrderRequestError(
         `Escolha no máximo ${maximum} ${maximum === 1 ? 'opção' : 'opções'} em ${group.name}.`,
       );
     }
@@ -498,7 +499,7 @@ export function resolveOrderItemCustomizations(
       (option) => option.locked && !selectedIds.includes(option.id),
     );
     if (missingLockedOption) {
-      throw new Error(`${missingLockedOption.ingredient.name} é uma opção fixa de ${group.name}.`);
+      throw new OrderRequestError(`${missingLockedOption.ingredient.name} é uma opção fixa de ${group.name}.`);
     }
 
     return { group, selected, minimum, maximum };
@@ -537,11 +538,11 @@ export function resolveOrderItemCustomizations(
   const selectedOptions = customizations.flatMap((group) => group.options);
   const absoluteOptions = selectedOptions.filter((option) => option.pricingMode === 'ABSOLUTE');
   if (absoluteOptions.length > 1) {
-    throw new Error('A montagem selecionou mais de uma opção que define o preço base.');
+    throw new OrderRequestError('A montagem selecionou mais de uma opção que define o preço base.');
   }
   const portions = resolvePortions(product, activeGroups, selection.portions);
   if (absoluteOptions.length && portions.absoluteCents !== null) {
-    throw new Error('A montagem possui mais de uma etapa definindo o preço base.');
+    throw new OrderRequestError('A montagem possui mais de uma etapa definindo o preço base.');
   }
   const baseCents =
     portions.absoluteCents ??
@@ -579,7 +580,7 @@ export function buildOrderItemCustomizationSnapshot(
   const effectiveUnitPrice = roundMoney(Math.max(originalUnitPrice - unitDiscount, 0));
   const quantity = Number(item.quantity);
   if (!Number.isInteger(quantity) || quantity <= 0) {
-    throw new Error(`Quantidade inválida para ${product.name}.`);
+    throw new OrderRequestError(`Quantidade inválida para ${product.name}.`);
   }
   const observation = String(item.observation || '').trim();
 
@@ -610,19 +611,19 @@ function resolveLegacyProductIngredients(
   const available = product.ingredients.filter((ingredient) => ingredient.active);
 
   if (!available.length) {
-    throw new Error(`${product.name} ainda não possui opções de montagem configuradas.`);
+    throw new OrderRequestError(`${product.name} ainda não possui opções de montagem configuradas.`);
   }
 
   const selected = selectedIds.map((id) => available.find((ingredient) => ingredient.id === id));
   if (selected.some((ingredient) => !ingredient)) {
-    throw new Error(`Ingrediente inválido para ${product.name}.`);
+    throw new OrderRequestError(`Ingrediente inválido para ${product.name}.`);
   }
 
   const requiredIds = available
     .filter((ingredient) => ingredient.required)
     .map((ingredient) => ingredient.id);
   if (requiredIds.some((id) => !selectedIds.includes(id))) {
-    throw new Error(`Selecione os ingredientes obrigatórios de ${product.name}.`);
+    throw new OrderRequestError(`Selecione os ingredientes obrigatórios de ${product.name}.`);
   }
 
   const ingredients = selected.map((ingredient) => ({

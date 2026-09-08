@@ -11,8 +11,10 @@ import {
   X,
 } from 'lucide-react';
 import { resolveCategoryIcon } from '../../config/categoryIconMap';
-import { normalizeRestaurantCategory } from '../../config/restaurantCategory';
+import { normalizeRestaurantCategory, RESTAURANT_CATEGORIES } from '../../config/restaurantCategory';
 import * as S from './PaymentResultView.styles';
+
+const categoryIcons = Object.fromEntries(RESTAURANT_CATEGORIES.map((category) => [category, resolveCategoryIcon(category)]));
 
 export type PaymentResultStatus =
   'PAID' | 'FAILED' | 'CANCELED' | 'EXPIRED' | 'REFUNDED' | 'VERIFYING' | 'PENDING' | 'ERROR';
@@ -185,7 +187,7 @@ export function PaymentResultView({
   const current = content[status];
   const StatusIcon = current.icon;
   const normalizedCategory = normalizeRestaurantCategory(restaurantCategory);
-  const CategoryIcon = resolveCategoryIcon(normalizedCategory);
+  const CategoryIcon = categoryIcons[normalizedCategory];
   const isCard = /cart[aã]o|card/i.test(method);
   const title =
     status === 'PAID' && /^pix$/i.test(method.trim()) ? 'Pix confirmado!' : current.title;

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -26,9 +26,9 @@ import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
 import type { AdminOrder } from '../types';
+import type { RestaurantOrdersQueue } from '../../../Services/ordersService';
+import { ADMIN_ORDERS_PAGE_SIZE, useAdminOrdersPage } from '../hooks/useAdminOrdersPage';
 import {
-  filterAdminOrders,
-  getAdminOrdersSummary,
   getOrderPaymentPresentation,
   getOrderProgress,
   getOrderTypeLabel,
@@ -38,7 +38,7 @@ import {
 
 const PickupPaymentPanel = lazy(() => import('./PickupPaymentPanel'));
 
-type QueueView = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED';
+type QueueView = RestaurantOrdersQueue;
 
 type AdminOrdersProps = {
   orders: AdminOrder[];
@@ -57,10 +57,7 @@ const statusLabels: Record<string, string> = {
   CANCELADO: 'Cancelado',
 };
 
-const LIST_BATCH_SIZE = 10;
 const PROGRESS_STEPS = 5;
-const TERMINAL_STATUSES = new Set(['ENTREGUE', 'CANCELADO']);
-const IN_PROGRESS_STATUSES = new Set(['PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA']);
 const progressLabels = ['Recebido', 'Preparo', 'Pronto', 'Em rota', 'Concluído'];
 
 function getActionErrorMessage(error: unknown, fallback: string) {
@@ -85,15 +82,6 @@ function formatCreatedAt(value?: string) {
 
   if (isToday) return `Hoje, ${time}`;
   return `${createdAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}, ${time}`;
-}
-
-function matchesQueueView(order: AdminOrder, view: QueueView) {
-  const orderStatus = String(order.status || '').toUpperCase();
-  if (view === 'ACTIVE') return !TERMINAL_STATUSES.has(orderStatus);
-  if (view === 'PAYMENT') return !order.paid && orderStatus !== 'CANCELADO';
-  if (view === 'IN_PROGRESS') return IN_PROGRESS_STATUSES.has(orderStatus);
-  if (view === 'DELIVERED') return orderStatus === 'ENTREGUE';
-  return true;
 }
 
 function PaymentIcon({ method }: { method?: string }) {
@@ -127,16 +115,8 @@ export function AdminOrders({
   const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
-  const [visibleLimit, setVisibleLimit] = useState(LIST_BATCH_SIZE);
-  const summary = useMemo(() => getAdminOrdersSummary(orders), [orders]);
-  const visibleOrders = useMemo(
-    () =>
-      filterAdminOrders(orders, search, status).filter((order) =>
-        matchesQueueView(order, queueView),
-      ),
-    [orders, queueView, search, status],
-  );
-  const displayedOrders = visibleOrders.slice(0, visibleLimit);
+  const page = useAdminOrdersPage({ search, status, queue: queueView, refreshSignal: orders });
+  const { summary, orders: displayedOrders } = page;
   const hasFilters = Boolean(search || status || queueView !== 'ALL');
   const priorityView: QueueView = summary.awaitingPayment
     ? 'PAYMENT'
@@ -155,26 +135,22 @@ export function AdminOrders({
 
   const updateSearch = (value: string) => {
     setSearch(value);
-    setVisibleLimit(LIST_BATCH_SIZE);
   };
 
   const updateStatus = (value: string) => {
     setStatus(value);
     setQueueView('ALL');
-    setVisibleLimit(LIST_BATCH_SIZE);
   };
 
   const selectQueueView = (view: QueueView) => {
     setQueueView(view);
     setStatus('');
-    setVisibleLimit(LIST_BATCH_SIZE);
   };
 
   const clearFilters = () => {
     setSearch('');
     setStatus('');
     setQueueView('ALL');
-    setVisibleLimit(LIST_BATCH_SIZE);
   };
 
   const confirmPayment = async (order: AdminOrder) => {
@@ -190,6 +166,7 @@ export function AdminOrders({
     setConfirmingPaymentId(order.numericId);
     try {
       await onConfirmPayment(order.numericId);
+      await page.refresh();
       toast.success(`Pagamento do pedido ${order.id} confirmado.`);
     } catch (error) {
       toast.error(getActionErrorMessage(error, 'Não foi possível confirmar o pagamento.'));
@@ -220,6 +197,7 @@ export function AdminOrders({
     setCancellingOrderId(order.numericId);
     try {
       await onCancelOrder(order.numericId);
+      await page.refresh();
       toast.success(
         hasOnlinePaymentToRefund
           ? `Pedido ${order.id} cancelado e estorno solicitado.`
@@ -371,13 +349,13 @@ export function AdminOrders({
           </div>
           <span className="live-status">
             <Activity aria-hidden="true" />
-            Sincronizado em tempo real
+            {page.loading ? 'Atualizando pedidos...' : page.error ? 'Sincronização pendente' : 'Pedidos atualizados'}
           </span>
         </S.OrdersPanelHeader>
 
         <S.QueueTabs aria-label="Visualizações rápidas da fila">
           <button type="button" aria-pressed={queueView === 'ALL'} onClick={() => selectQueueView('ALL')}>
-            Todos <span>{orders.length}</span>
+            Todos <span>{summary.total}</span>
           </button>
           <button type="button" aria-pressed={queueView === 'ACTIVE'} onClick={() => selectQueueView('ACTIVE')}>
             Ativos <span>{summary.active}</span>
@@ -424,8 +402,8 @@ export function AdminOrders({
           </label>
           <div className="toolbar-result">
             <span role="status" aria-live="polite">
-              <strong>{visibleOrders.length}</strong>
-              {visibleOrders.length === 1 ? 'pedido encontrado' : 'pedidos encontrados'}
+              {page.loading ? 'Carregando pedidos...' : <><strong>{page.total}</strong>
+              {page.total === 1 ? 'pedido encontrado' : 'pedidos encontrados'}</>}
             </span>
             {hasFilters && (
               <button type="button" onClick={clearFilters}><FilterX aria-hidden="true" /> Limpar filtros</button>
@@ -433,8 +411,15 @@ export function AdminOrders({
           </div>
         </S.OrdersToolbar>
 
+        {page.error && (
+          <S.OrdersEmpty role="alert">
+            <p>{page.error}</p>
+            <button type="button" disabled={page.loading} onClick={() => void page.retry()}>Tentar novamente</button>
+          </S.OrdersEmpty>
+        )}
+
         {displayedOrders.length ? (
-          <S.OrdersList aria-busy={cancellingOrderId !== null || confirmingPaymentId !== null}>
+          <S.OrdersList aria-busy={page.loading || cancellingOrderId !== null || confirmingPaymentId !== null}>
             {displayedOrders.map((order) => {
               const payment = getOrderPaymentPresentation(order);
               const progress = getOrderProgress(order.status);
@@ -492,7 +477,7 @@ export function AdminOrders({
 
                   {isPickupPayAtStore && !isFinished ? (
                     <Suspense fallback={null}>
-                      <PickupPaymentPanel orderId={order.numericId} total={order.total} onPaid={() => undefined} />
+                      <PickupPaymentPanel orderId={order.numericId} total={order.total} onPaid={() => void page.refresh()} />
                     </Suspense>
                   ) : null}
 
@@ -534,23 +519,25 @@ export function AdminOrders({
               );
             })}
           </S.OrdersList>
-        ) : (
+        ) : page.loading ? (
+          <S.OrdersEmpty role="status"><p>Carregando pedidos...</p></S.OrdersEmpty>
+        ) : !page.error ? (
           <S.OrdersEmpty>
-            <span aria-hidden="true">{orders.length ? <Search /> : <ShoppingBag />}</span>
-            <h3>{orders.length ? 'Nenhum pedido encontrado' : 'Sua fila está vazia'}</h3>
-            <p>{orders.length ? 'Ajuste a busca ou escolha outra visualização para encontrar o pedido.' : 'Os novos pedidos aparecerão aqui automaticamente, sem precisar atualizar a página.'}</p>
+            <span aria-hidden="true">{summary.total ? <Search /> : <ShoppingBag />}</span>
+            <h3>{summary.total ? 'Nenhum pedido encontrado' : 'Sua fila está vazia'}</h3>
+            <p>{summary.total ? 'Ajuste a busca ou escolha outra visualização para encontrar o pedido.' : 'Os novos pedidos aparecerão aqui automaticamente, sem precisar atualizar a página.'}</p>
             {hasFilters && <button type="button" onClick={clearFilters}><FilterX aria-hidden="true" /> Limpar filtros</button>}
           </S.OrdersEmpty>
-        )}
+        ) : null}
 
         <S.OrdersPagination>
-          <span>{visibleOrders.length === 0 ? 'Nenhum pedido para exibir' : `Exibindo ${displayedOrders.length} de ${visibleOrders.length} pedidos`}</span>
+          <span>{page.loading && !displayedOrders.length ? 'Carregando pedidos...' : page.total === 0 ? 'Nenhum pedido para exibir' : `Exibindo ${displayedOrders.length} de ${page.total} pedidos`}</span>
           <div>
-            {visibleLimit > LIST_BATCH_SIZE ? (
-              <button type="button" aria-label="Voltar aos 10 pedidos iniciais" onClick={() => setVisibleLimit(LIST_BATCH_SIZE)}><ChevronLeft aria-hidden="true" /> Voltar aos 10 iniciais</button>
+            {displayedOrders.length > ADMIN_ORDERS_PAGE_SIZE ? (
+              <button type="button" aria-label="Voltar aos 10 pedidos iniciais" disabled={page.loading} onClick={() => void page.refresh()}><ChevronLeft aria-hidden="true" /> Voltar aos 10 iniciais</button>
             ) : null}
-            {displayedOrders.length < visibleOrders.length ? (
-              <button type="button" aria-label="Mostrar mais 10 pedidos" onClick={() => setVisibleLimit((current) => Math.min(current + LIST_BATCH_SIZE, visibleOrders.length))}>Mostrar mais 10 <ChevronDown aria-hidden="true" /></button>
+            {page.hasMore ? (
+              <button type="button" aria-label="Mostrar mais 10 pedidos" disabled={page.loading} onClick={() => void page.loadMore()}>{page.loading ? 'Carregando...' : 'Mostrar mais 10'} <ChevronDown aria-hidden="true" /></button>
             ) : null}
           </div>
         </S.OrdersPagination>

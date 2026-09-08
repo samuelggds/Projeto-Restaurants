@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { authenticateMercadoPagoWebhook } from '../../payments/providers/mercadoPagoWebhookSignature.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
 import finalizeOrderCardPaymentService from '../services/FinalizeOrderCardPaymentService.js';
@@ -32,7 +33,8 @@ export function parseMercadoPagoOrderReference(externalReference: string) {
 class MercadoPagoOrderWebhookController {
   async handle(req: Request, res: Response) {
     try {
-      const paymentId = req.body?.data?.id || req.body?.id || req.query?.id;
+      const paymentId = authenticateMercadoPagoWebhook(req, res);
+      if (!paymentId) return res;
       const allowGlobalFallback = process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
       const hintedRestaurantId = Number(req.query?.restaurantId || req.body?.restaurantId || 0);
 
