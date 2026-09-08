@@ -52,7 +52,7 @@ export function useActiveOrderNotice(customerId: number | string | null | undefi
     try {
       let activeOrder: ActiveOrderNotice | null = null;
       if (customerKey) {
-        const orders = await ordersService.listMyOrders();
+        const orders = await ordersService.listMyOrders({ queue: 'ACTIVE', limit: 1 });
         activeOrder = await enrichOutForDelivery(getActiveOrderNotice(readOrders(orders)));
       } else if (guestOrderId) {
         const tracking = await ordersService.getDeliveryTracking(guestOrderId);

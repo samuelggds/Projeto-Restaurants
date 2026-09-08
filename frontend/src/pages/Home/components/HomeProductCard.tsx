@@ -27,25 +27,17 @@ export const HomeProductCard = memo(function HomeProductCard({
   return (
     <S.ProductCard
       data-featured={featured || undefined}
-      role="button"
-      tabIndex={orderingLocked ? -1 : 0}
-      aria-disabled={orderingLocked || undefined}
-      aria-label={
-        orderingLocked
-          ? `${product.name}: novos pedidos bloqueados, conta solicitada`
-          : `Ver detalhes de ${product.name}`
-      }
-      onClick={() => {
-        if (!orderingLocked) onOpen(product);
-      }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          if (!orderingLocked) onOpen(product);
-        }
-      }}
     >
+      <button
+        type="button"
+        className="product-main-action"
+        disabled={orderingLocked}
+        aria-disabled={orderingLocked || undefined}
+        aria-label={orderingLocked
+          ? `${product.name}: novos pedidos bloqueados, conta solicitada`
+          : `Ver detalhes de ${product.name}`}
+        onClick={() => onOpen(product)}
+      />
       <S.ImageWrap data-featured={featured || undefined}>
         <img src={product.image} alt={product.name} loading="lazy" decoding="async" />
         {product.promotion?.active && !featured && (
@@ -54,8 +46,10 @@ export const HomeProductCard = memo(function HomeProductCard({
           </Promotion.Badge>
         )}
         <button
+          type="button"
           className={favorite ? 'favorite' : undefined}
           aria-label={`Favoritar ${product.name}`}
+          aria-pressed={favorite}
           onClick={(event) => {
             event.stopPropagation();
             onToggleFavorite?.(product.id);
@@ -81,6 +75,7 @@ export const HomeProductCard = memo(function HomeProductCard({
             <strong>{brl(product.price)}</strong>
           </Promotion.Price>
           <button
+            type="button"
             aria-label={
               orderingLocked
                 ? `Não é possível adicionar ${product.name}: conta solicitada`

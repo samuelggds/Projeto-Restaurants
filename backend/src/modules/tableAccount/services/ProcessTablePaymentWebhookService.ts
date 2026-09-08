@@ -21,6 +21,7 @@ import { resolveTablePaymentProviderTransition } from '../domain/tablePaymentPro
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
 import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
+import { executeTablePaymentRemoteOperation } from './tablePaymentRemoteOperation.js';
 
 export class ProcessTablePaymentWebhookService {
   constructor(private readonly provider: PaymentProvider = fakePaymentProvider) {}
@@ -154,12 +155,11 @@ export class ProcessTablePaymentWebhookService {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
-    if (outcome.latePayment && outcome.current.providerExternalId) {
-      await this.provider.refundPayment({
-        externalId: outcome.current.providerExternalId,
-        idempotencyKey: `late-refund:${outcome.current.publicId}`,
-      });
-
+    let latePaymentRefunded = false;
+    if (outcome.latePayment) {
+      const refund = await executeTablePaymentRemoteOperation(outcome.current, 'refund', this.provider);
+      latePaymentRefunded = refund.confirmed;
+      if (refund.confirmed) {
       await prisma.tablePaymentEvent.upsert({
         where: {
           deduplicationKey: `table-payment:${outcome.current.publicId}:late-refunded`,
@@ -180,6 +180,7 @@ export class ProcessTablePaymentWebhookService {
         },
         update: {},
       });
+      }
     }
 
     if (!outcome.duplicate) {
@@ -208,7 +209,9 @@ export class ProcessTablePaymentWebhookService {
       received: true,
       processed: true,
       duplicate: outcome.duplicate,
-      latePaymentRefunded: outcome.latePayment,
+      latePaymentRefunded,
+      latePaymentRefundPending: outcome.latePayment && !latePaymentRefunded,
+      manualReviewRequired: outcome.latePayment && !latePaymentRefunded,
     };
   }
 }

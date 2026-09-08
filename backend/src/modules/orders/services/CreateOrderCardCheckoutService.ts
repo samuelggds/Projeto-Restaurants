@@ -12,9 +12,7 @@ import {
   type CreateOrderCardCheckoutPayload,
 } from './cardCheckoutProviders.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
-import prisma from '../../../config/prisma.js';
-import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
-import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
 import finalizeOrderCardPaymentService from './FinalizeOrderCardPaymentService.js';
 
 class CreateOrderCardCheckoutService {
@@ -82,19 +80,13 @@ class CreateOrderCardCheckoutService {
         cancelUrlBase,
       });
     } catch (error) {
-      await prisma.$transaction(async (tx) => {
-        const pendingOrder = await orderRepository.findById(
-          createdOrder.id,
-          createdOrder.restaurantId,
-          tx,
-        );
-        if (pendingOrder) {
-          await restoreOrderItemsStock(tx, pendingOrder);
-        }
-        await releaseCouponRedemptionForOrder(createdOrder.id, createdOrder.restaurantId, tx);
-        await orderRepository.deleteById(createdOrder.id, createdOrder.restaurantId, tx);
+      // Even a missing/malformed response can follow a successful charge or webhook.
+      // Preserve the order, stock reservation and coupon until reconciliation.
+      console.error('[CARD_PAYMENT_CREATION_UNCERTAIN]', {
+        orderId: createdOrder.id, restaurantId: createdOrder.restaurantId,
+        errorType: error instanceof Error ? error.name : 'UnknownError',
       });
-      throw error;
+      throw new PaymentCreationUncertainError(createdOrder.id, createdOrder.publicId);
     }
 
     try {

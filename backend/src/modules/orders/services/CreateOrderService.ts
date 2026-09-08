@@ -899,10 +899,8 @@ class CreateOrderService {
             );
           }
 
-          await tx.product.updateMany({
-            where: { id: productId, restaurantId: resolvedRestaurantId, stock: 0 },
-            data: { active: false },
-          });
+          // Availability is the combination of the manual active flag and stock.
+          // Do not overwrite a merchant's availability decision when stock changes.
         }
 
         if (!shouldDeferRealtimeUntilPaid) {

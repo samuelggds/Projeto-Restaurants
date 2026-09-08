@@ -1,7 +1,7 @@
 import { OrderStatus, Prisma } from '@prisma/client';
 import { OrderRequestError } from './OrderRequestError.js';
 
-const queues = ['ALL', 'ACTIVE', 'PAYMENT', 'IN_PROGRESS', 'DELIVERED'] as const;
+const queues = ['ALL', 'ACTIVE', 'PAYMENT', 'IN_PROGRESS', 'DELIVERED', 'HISTORY'] as const;
 export type OrderListQuery = {
   limit: number;
   cursor?: number;
@@ -9,6 +9,7 @@ export type OrderListQuery = {
   search?: string;
   queue: (typeof queues)[number];
   issuesOnly?: boolean;
+  issueState?: 'OPEN' | 'RESOLVED';
 };
 
 export function parseOrderListQuery(query: Record<string, unknown>): OrderListQuery {
@@ -41,7 +42,12 @@ export function parseOrderListQuery(query: Record<string, unknown>): OrderListQu
   if (issues && issues !== 'true' && issues !== 'false') {
     throw new OrderRequestError('Filtro de atendimento inválido.');
   }
-  return { limit, cursor: positive('cursor'), status, queue, search, issuesOnly: issues === 'true' };
+  const issueState = scalar('issueState');
+  if (issueState && !['OPEN', 'RESOLVED'].includes(issueState)) {
+    throw new OrderRequestError('Situação do atendimento inválida.');
+  }
+  return { limit, cursor: positive('cursor'), status, queue, search, issuesOnly: issues === 'true',
+    issueState: issueState as OrderListQuery['issueState'] };
 }
 
 export function queueWhere(queue: OrderListQuery['queue']): Prisma.OrderWhereInput {
@@ -50,6 +56,7 @@ export function queueWhere(queue: OrderListQuery['queue']): Prisma.OrderWhereInp
     case 'PAYMENT': return { paid: false, status: { not: 'CANCELADO' } };
     case 'IN_PROGRESS': return { status: { in: ['PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA'] } };
     case 'DELIVERED': return { status: 'ENTREGUE' };
+    case 'HISTORY': return { status: { in: ['ENTREGUE', 'CANCELADO'] } };
     default: return {};
   }
 }
@@ -67,6 +74,7 @@ export function filteredOrderWhere(base: Prisma.OrderWhereInput, query: OrderLis
     AND: [base, queueWhere(query.queue),
       ...(query.status ? [{ status: query.status }] : []),
       ...(query.issuesOnly ? [{ issueThread: { isNot: null } }] : []),
+      ...(query.issueState ? [{ issueThread: { is: { isResolved: query.issueState === 'RESOLVED' } } }] : []),
       ...(search ? [{ OR: [
         ...(/^[1-9]\d*$/u.test(search) && Number.isSafeInteger(Number(search)) ? [{ id: Number(search) }] : []),
         { user: { is: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } } },

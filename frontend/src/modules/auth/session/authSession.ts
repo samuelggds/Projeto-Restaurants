@@ -1,3 +1,5 @@
+import { readStorage, writeStorage, removeStorage } from '../../../shared/storage/safeStorage';
+
 const ACCESS_TOKEN_KEY = 'token';
 const USER_KEY = 'user';
 const REFRESH_TOKEN_KEY = 'refreshToken';
@@ -18,25 +20,21 @@ function readUserId(user: unknown) {
 }
 
 function removeLegacyPersistedAuthData() {
-  if (typeof localStorage === 'undefined') return;
-
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+  removeStorage(ACCESS_TOKEN_KEY);
+  removeStorage(REFRESH_TOKEN_KEY);
+  removeStorage(REMEMBERED_EMAIL_KEY);
   // Versões anteriores guardavam também o snapshot do usuário de forma persistente.
   // Isso não é necessário para autenticação e pode expor identidade em dispositivos compartilhados.
-  localStorage.removeItem(USER_KEY);
+  removeStorage(USER_KEY);
 }
 
 function persistSessionUser(user: unknown) {
-  if (typeof sessionStorage === 'undefined') return;
-  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  writeStorage(USER_KEY, JSON.stringify(user), 'sessionStorage');
 }
 
 export function readSessionUserRaw() {
   removeLegacyPersistedAuthData();
-  if (typeof sessionStorage === 'undefined') return null;
-  return sessionStorage.getItem(USER_KEY);
+  return readStorage(USER_KEY, 'sessionStorage');
 }
 
 // Remove credenciais/snapshots deixados por versões que persistiam dados em Web Storage.
@@ -102,7 +100,7 @@ export function invalidateAuthSessionMemory() {
 
 export function clearAuthSession() {
   invalidateAuthSessionMemory();
-  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(USER_KEY);
+  removeStorage(USER_KEY, 'sessionStorage');
 }
 
 export function isAuthSnapshotCurrent({

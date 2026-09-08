@@ -1,3 +1,5 @@
+import { publicOrderPayload } from '../modules/orders/domain/publicOrderPayload.js';
+
 export type RealtimeEmitter = {
   emit(event: string, ...args: unknown[]): unknown;
 };
@@ -25,7 +27,7 @@ export const realtimePublisher: RealtimeTransport = {
       warnAboutMissingTransport();
       return false;
     }
-    return activeTransport.emit(event, ...args);
+    return activeTransport.emit(event, ...args.map((arg) => publicOrderPayload(arg)));
   },
 
   to(room) {
@@ -35,7 +37,7 @@ export const realtimePublisher: RealtimeTransport = {
           warnAboutMissingTransport();
           return false;
         }
-        return activeTransport.to(room).emit(event, ...args);
+        return activeTransport.to(room).emit(event, ...args.map((arg) => publicOrderPayload(arg)));
       },
     };
   },

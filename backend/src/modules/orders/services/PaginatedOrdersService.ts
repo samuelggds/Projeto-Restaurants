@@ -37,7 +37,7 @@ class PaginatedOrdersService {
     }
     return withTenantDbContext(viewer.restaurantId, async (db) => {
       const page = await readOrderPage(db, base, query, {
-        ascending: viewer.role === 'MOTOQUEIRO' || viewer.subRole === 'GARCOM',
+        ascending: (viewer.role === 'MOTOQUEIRO' || viewer.subRole === 'GARCOM') && !['HISTORY', 'DELIVERED'].includes(query.queue),
         waiter: viewer.role === 'FUNCIONARIO' && viewer.subRole === 'GARCOM',
         includeSummary: viewer.role === 'ADMIN',
       });

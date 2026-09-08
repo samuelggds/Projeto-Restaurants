@@ -14,6 +14,7 @@ import {
   type PixProvider,
 } from '../../payments/providers/providerCatalog.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { getDirectTablePayment, mutateDirectTablePayment } from './tablePaymentGatewayMutation.js';
 import type {
   CreateProviderPaymentInput,
   PaymentProvider,
@@ -470,6 +471,8 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
     });
     if (!intent) throw new Error('Pagamento da mesa não encontrado para consulta no provedor.');
     const amountCents = Number(intent.totalCents);
+    const directPayment = await getDirectTablePayment({ ...this.context, provider: this.code, externalId, amountCents, expiresAt: intent.expiresAt });
+    if (directPayment) return directPayment;
 
     if (this.context.method === 'PIX') {
       const status = await orderPixPaymentService.getPaymentStatus({
@@ -508,12 +511,22 @@ export class ConfiguredTablePaymentProvider implements PaymentProvider {
     throw new Error('Consulta de cartão não suportada para este gateway.');
   }
 
-  async cancelPayment(_input: ProviderMutationInput): Promise<ProviderPayment> {
-    throw new Error('Cancelamento remoto deste checkout ainda não está disponível.');
+  private async mutatePayment(input: ProviderMutationInput, operation: 'cancel' | 'refund') {
+    const intent = await prisma.tablePaymentIntent.findFirst({ where: {
+      id: this.context.intentId, publicId: this.context.intentPublicId, restaurantId: this.context.restaurantId,
+      provider: this.code, providerExternalId: input.externalId,
+    }, select: { totalCents: true, expiresAt: true } });
+    if (!intent) throw new Error('Pagamento não encontrado neste restaurante.');
+    return mutateDirectTablePayment({ ...this.context, provider: this.code, externalId: input.externalId,
+      amountCents: Number(intent.totalCents), expiresAt: intent.expiresAt }, operation, input);
   }
 
-  async refundPayment(_input: ProviderMutationInput): Promise<ProviderPayment> {
-    throw new Error('Estorno remoto deve ser realizado pelo fluxo financeiro do gateway.');
+  async cancelPayment(input: ProviderMutationInput): Promise<ProviderPayment> {
+    return this.mutatePayment(input, 'cancel');
+  }
+
+  async refundPayment(input: ProviderMutationInput): Promise<ProviderPayment> {
+    return this.mutatePayment(input, 'refund');
   }
 
   async validateWebhook(_input: ProviderWebhookInput): Promise<ValidatedPaymentWebhook> {

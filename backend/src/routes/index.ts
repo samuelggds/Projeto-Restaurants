@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { publicOrderPayloadMiddleware } from '../middlewares/security/publicOrderPayloadMiddleware.js';
 
 import authRoutes from '../modules/auth/routes/authRoutes.js';
 import productRoutes from '../modules/products/routes/productsRoutes.js';
@@ -38,6 +39,7 @@ import deliveryChatRoutes from '../modules/deliveryChat/routes/DeliveryChatRoute
 import pickupPaymentRoutes from '../modules/pickupPayments/routes/PickupPaymentRoutes.js';
 
 const router = Router();
+router.use(publicOrderPayloadMiddleware);
 
 router.post('/api/webhooks/asaas', (req, res) => {
   AsaasOrderWebhookController.handle(req, res);

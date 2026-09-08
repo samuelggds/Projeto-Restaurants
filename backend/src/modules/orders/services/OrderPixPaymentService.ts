@@ -16,10 +16,7 @@ import {
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
-import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
-import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
-import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 
 const APPROVED_PAYMENT_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const APPROVED_ASAAS_PAYMENT_STATUSES = new Set(['received', 'confirmed', 'received_in_cash']);
@@ -52,6 +49,9 @@ type CreatePixPayload = {
   orderTotal?: number;
   orderSubtotal?: number;
   orderDeliveryFee?: number;
+  /** Supplied only by a persisted, immutable payment attempt. */
+  idempotencyKey?: string;
+  resumeOnly?: boolean;
 };
 
 type PaymentStatusPayload = {
@@ -425,6 +425,8 @@ class OrderPixPaymentService {
     orderTotal,
     orderSubtotal,
     orderDeliveryFee,
+    idempotencyKey,
+    resumeOnly = false,
   }: CreatePixPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedType = String(type || '').toUpperCase();
@@ -534,7 +536,7 @@ class OrderPixPaymentService {
       throw new Error('Total do pedido inválido para gerar cobrança PIX.');
     }
 
-    const payerEmail = this.normalizeEmail(userEmail, normalizedRestaurantId);
+    const payerEmail = this.normalizeEmail(userEmail || (sourceOrderId ? `guest.pix.${normalizedRestaurantId}.${sourceOrderId}@pecaja.local` : null), normalizedRestaurantId);
     const payerName = String(customerName || 'Cliente').trim();
     const cpf = this.normalizeCpf(customerCpf);
     const normalizedSystemFee = Number(systemFee || 0);
@@ -552,7 +554,7 @@ class OrderPixPaymentService {
         token,
         {
           method: 'POST',
-          headers: { 'x-idempotency-key': crypto.randomUUID() },
+          headers: { 'x-idempotency-key': idempotencyKey || crypto.randomUUID() },
           body: JSON.stringify({
             reference_id: sourceOrderId
               ? `orderpix:${normalizedRestaurantId}:${sourceOrderId}`
@@ -607,6 +609,32 @@ class OrderPixPaymentService {
     if (resolvedPixProvider === PIX_PROVIDERS.ASAAS) {
       const accessToken = await this.getAsaasAccessToken(normalizedRestaurantId);
       const asaasBaseUrl = this.getAsaasBaseUrl();
+      if (resumeOnly) {
+        if (!sourceOrderId) throw new Error('Pedido obrigatório para conciliar PIX.');
+        const reference = `orderpix:${normalizedRestaurantId}:${sourceOrderId}`;
+        // Asaas externalReference is a search filter, not an idempotency guarantee.
+        // An empty search after a timeout must never authorize a second POST.
+        const found = await this.fetchAsaasJson<{ data?: AsaasPaymentPayload[]; hasMore?: boolean }>(
+          `${asaasBaseUrl}/v3/payments?externalReference=${encodeURIComponent(reference)}&limit=2`, accessToken,
+        );
+        const matches = found.responseBody?.data || [];
+        const payment = matches[0];
+        if (!found.ok || found.responseBody?.hasMore || matches.length !== 1 ||
+          payment?.externalReference !== reference || Math.round(Number(payment?.value) * 100) !== Math.round(totalAmount * 100)) {
+          throw new Error('A cobrança PIX anterior ainda precisa de conciliação no Asaas. Nenhuma nova cobrança foi criada.');
+        }
+        const paymentId = String(payment.id || '').trim();
+        if (!paymentId) throw new Error('Cobrança Asaas sem identificador.');
+        const qr = await this.fetchAsaasJson<AsaasPixQrCodePayload>(
+          `${asaasBaseUrl}/v3/payments/${encodeURIComponent(paymentId)}/pixQrCode`, accessToken,
+        );
+        if (!qr.ok || !qr.responseBody?.payload) throw new Error('O QR Code da cobrança existente ainda não está disponível.');
+        return {
+          paymentId: this.normalizeAsaasPaymentId(paymentId), status: String(payment.status || 'PENDING'),
+          provider: resolvedPixProvider, totalAmount, qrCode: String(qr.responseBody.payload),
+          qrCodeBase64: qr.responseBody.encodedImage || null, requiresStatusCheck: true,
+        };
+      }
       const privateSettings =
         await restaurantSettingsRepository.findByRestaurantId(normalizedRestaurantId);
 
@@ -784,6 +812,7 @@ class OrderPixPaymentService {
     if (normalizedSystemFee > 0) {
       try {
         response = await paymentApi.create({
+          ...(idempotencyKey ? { requestOptions: { idempotencyKey } } : {}),
           body: {
             ...baseBody,
             application_fee: normalizedSystemFee,
@@ -803,11 +832,13 @@ class OrderPixPaymentService {
         );
 
         response = await paymentApi.create({
+          ...(idempotencyKey ? { requestOptions: { idempotencyKey: `${idempotencyKey}-nosplit` } } : {}),
           body: baseBody,
         });
       }
     } else {
       response = await paymentApi.create({
+        ...(idempotencyKey ? { requestOptions: { idempotencyKey } } : {}),
         body: baseBody,
       });
     }
@@ -1039,22 +1070,6 @@ class OrderPixPaymentService {
     await orderRepository.claimPixPaymentId(orderId, restaurantId, normalizedPaymentId);
   }
 
-  async removePendingOrderAfterPaymentFailure({
-    orderId,
-    restaurantId,
-  }: {
-    orderId: number | string;
-    restaurantId: number;
-  }) {
-    await prisma.$transaction(async (tx) => {
-      const pendingOrder = await orderRepository.findById(orderId, restaurantId, tx);
-      if (pendingOrder) {
-        await restoreOrderItemsStock(tx, pendingOrder);
-      }
-      await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
-      await orderRepository.deleteById(orderId, restaurantId, tx);
-    });
-  }
 }
 
 export default new OrderPixPaymentService();

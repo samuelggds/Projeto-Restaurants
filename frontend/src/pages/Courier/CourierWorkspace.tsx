@@ -1,3 +1,5 @@
+import { useOrderHistory } from '../../hooks/useOrderHistory';
+import { OrderHistoryPagination } from '../../components/OrderHistoryPagination';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -164,9 +166,10 @@ export default function CourierWorkspace() {
       ),
     [orders],
   );
+  const history = useOrderHistory({ query: { queue: 'DELIVERED', ...(search ? { search } : {}) }, refreshSignal: refresh });
   const delivered = useMemo(
     () =>
-      orders
+      normalizeCourierOrders(history.orders)
         .filter(
           (order) =>
             isCourierDeliveryOrder(order) && getNormalizedOrderStatus(order) === 'ENTREGUE',
@@ -176,7 +179,7 @@ export default function CourierWorkspace() {
           const rightDate = Date.parse(String(right.deliveredAt || right.createdAt || '')) || 0;
           return rightDate - leftDate;
         }),
-    [orders],
+    [history.orders],
   );
   const effectiveRouteOrderId = inRoute.some((order) => order.id === selectedRouteOrderId)
     ? selectedRouteOrderId
@@ -1206,6 +1209,7 @@ export default function CourierWorkspace() {
                   </V.ListSurface>
                 </Suspense>
               )}
+              {view === 'history' && <OrderHistoryPagination {...history} />}
             </V.ViewStack>
           )}
         </S.CourierContent>

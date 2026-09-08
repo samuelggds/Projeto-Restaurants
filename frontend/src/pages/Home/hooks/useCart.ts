@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeProduct } from '../types';
 import { readJsonStorage } from '../../../shared/storage/jsonStorage';
+import { readStorage, writeStorage } from '../../../shared/storage/safeStorage';
 import {
   normalizeProductOptionGroups,
   productConfigurationSignature,
@@ -92,7 +93,7 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
       const key = `cartItems:${restaurantId}`;
       const namespaced = readJsonStorage<CartItem[]>(key, []);
       const legacyRestaurantId = Number(
-        localStorage.getItem('cartRestaurantId') || localStorage.getItem('menuRestaurantId') || 0,
+        readStorage('cartRestaurantId') || readStorage('menuRestaurantId') || 0,
       );
       const legacy =
         namespaced.length === 0 && legacyRestaurantId === restaurantId
@@ -110,10 +111,10 @@ export function useCart(products: HomeProduct[], notify: Notify, restaurantId?: 
   useEffect(() => {
     if (!storageRestaurantId || storageRestaurantId !== restaurantId) return;
     const serialized = JSON.stringify(cart);
-    localStorage.setItem(`cartItems:${storageRestaurantId}`, serialized);
+    writeStorage(`cartItems:${storageRestaurantId}`, serialized);
     // Espelho temporário para os atalhos de favoritos que ainda usam a chave legada.
-    localStorage.setItem('cartItems', serialized);
-    localStorage.setItem('cartRestaurantId', String(storageRestaurantId));
+    writeStorage('cartItems', serialized);
+    writeStorage('cartRestaurantId', String(storageRestaurantId));
   }, [cart, restaurantId, storageRestaurantId]);
 
   const catalogSignature = useMemo(

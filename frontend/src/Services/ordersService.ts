@@ -7,13 +7,15 @@ type PixPaymentStatusPayload = Record<string, unknown>;
 type GenericRecord = Record<string, unknown>;
 export type GuestOrderProof = { orderId: number; token: string };
 
-export type RestaurantOrdersQueue = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED';
+export type RestaurantOrdersQueue = 'ALL' | 'ACTIVE' | 'PAYMENT' | 'IN_PROGRESS' | 'DELIVERED' | 'HISTORY';
 export type RestaurantOrdersPageQuery = {
   limit?: number;
   cursor?: number;
   status?: string;
   search?: string;
   queue?: RestaurantOrdersQueue;
+  issuesOnly?: boolean;
+  issueState?: 'OPEN' | 'RESOLVED';
 };
 export type RestaurantOrdersSummary = {
   total: number;
@@ -27,8 +29,24 @@ export type RestaurantOrdersPage = {
   nextCursor: number | null;
   hasMore: boolean;
   total: number;
-  summary: RestaurantOrdersSummary;
+  summary?: RestaurantOrdersSummary;
 };
+
+export type OrderOverview = { todayOrders: number; sales: number; averageTicket: number;
+  preparingOrders: number; customers: number; timezone: string };
+export type OrderCustomersPage = { customers: { key: string; name: string; email: string; count: number; total: number }[];
+  total: number; hasMore: boolean; nextOffset: number | null;
+  summary: { customers: number; returningCustomers: number; totalOrders: number; totalMoved: number } };
+
+function normalizeOrderPage(payload: unknown): RestaurantOrdersPage {
+  const page = asRecord(payload);
+  if (!page || !Array.isArray(page.orders) || !Number.isSafeInteger(page.total) || Number(page.total) < 0
+    || typeof page.hasMore !== 'boolean'
+    || (page.hasMore ? !Number.isSafeInteger(page.nextCursor) || Number(page.nextCursor) <= 0 : page.nextCursor !== null)) {
+    throw new Error('Não foi possível carregar a página de pedidos. Atualize a tela.');
+  }
+  return { ...page, orders: normalizeOrdersPayload(page) } as RestaurantOrdersPage;
+}
 
 const MAX_DELIVERY_TRACKING_ACCURACY_METERS = 500;
 const GUEST_TRACKING_TOKEN_PREFIX = 'guest-order-tracking-token:';
@@ -188,20 +206,51 @@ function normalizeOrdersPayload(payload: unknown) {
 class OrdersService {
   async listRestaurantOrdersPage(query: RestaurantOrdersPageQuery = {}): Promise<RestaurantOrdersPage> {
     const response = await api.get<RestaurantOrdersPage>('/orders', { params: query });
-    const page = response.data;
-    if (!page || !Array.isArray(page.orders) || !page.summary) {
-      throw new Error('Não foi possível carregar a página de pedidos. Atualize a tela.');
-    }
-    return { ...page, orders: normalizeOrdersPayload(page) };
+    return normalizeOrderPage(response.data);
   }
 
   async listRestaurantOrders(status?: string) {
-    const response = await api.get('/orders', { params: status ? { status } : undefined });
-    return normalizeOrdersPayload(response.data);
+    // Operational consumers need the complete active queue, never an arbitrary history page.
+    return this.listActivePages((cursor) => this.listRestaurantOrdersPage({ queue: 'ACTIVE', limit: 100,
+      ...(status ? { status } : {}), ...(cursor ? { cursor } : {}) }));
   }
 
-  async listMyOrders() {
-    const response = await api.get('/orders/my-orders');
+  async listMyOrders(query: RestaurantOrdersPageQuery = {}) {
+    const response = await api.get('/orders/my-orders', { params: query });
+    return normalizeOrderPage(response.data);
+  }
+
+  async listMyActiveOrders() {
+    return this.listActivePages((cursor) => this.listMyOrders({ queue: 'ACTIVE', limit: 100, ...(cursor ? { cursor } : {}) }));
+  }
+
+  async listOpenOrderIssues() {
+    return this.listActivePages((cursor) => this.listRestaurantOrdersPage({ issueState: 'OPEN', limit: 100, ...(cursor ? { cursor } : {}) }));
+  }
+
+  private async listActivePages(read: (cursor?: number) => Promise<RestaurantOrdersPage>) {
+    const orders = new Map<unknown, unknown>();
+    const cursors = new Set<number>();
+    let cursor: number | undefined;
+    do {
+      const page = await read(cursor);
+      for (const order of page.orders) orders.set(asRecord(order)?.id, order);
+      if (!page.hasMore) return [...orders.values()];
+      if (!page.orders.length || cursors.has(page.nextCursor!) || cursors.size >= 1000) {
+        throw new Error('A fila mudou durante a consulta. Atualize os pedidos.');
+      }
+      cursor = page.nextCursor!;
+      cursors.add(cursor);
+    } while (true);
+  }
+
+  async getOverview(): Promise<OrderOverview> {
+    const response = await api.get<OrderOverview>('/orders/reports/overview');
+    return response.data;
+  }
+
+  async getCustomers(query: { limit?: number; offset?: number; search?: string; sort?: string } = {}): Promise<OrderCustomersPage> {
+    const response = await api.get<OrderCustomersPage>('/orders/reports/customers', { params: query });
     return response.data;
   }
 

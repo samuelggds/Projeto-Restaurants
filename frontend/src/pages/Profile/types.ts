@@ -79,6 +79,7 @@ export type ProfileData = {
 };
 
 export type ProfilePageProps = {
+  historyPagination?: { loading: boolean; error: string; hasMore: boolean; loadMore: () => unknown; refresh: () => unknown };
   data?: ProfileData;
   initialView?: ProfileView;
   cartCount?: number;

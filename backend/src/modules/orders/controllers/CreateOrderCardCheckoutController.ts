@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import createOrderCardCheckoutService from '../services/CreateOrderCardCheckoutService.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
+import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
 
 class CreateOrderCardCheckoutController {
   async handle(req: Request, res: Response) {
@@ -87,6 +88,21 @@ class CreateOrderCardCheckoutController {
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof PaymentCreationUncertainError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+          orderId: error.orderId,
+          orderPublicId: error.orderPublicId,
+          reconciliationRequired: true,
+          ...(req.user?.isGuest ? {
+            guestOwnershipToken: issueGuestOrderOwnershipToken({ orderId: error.orderId, publicId: error.orderPublicId }),
+            ...(String(req.body?.type).toUpperCase() === 'DELIVERY' ? {
+              guestTrackingToken: issueGuestOrderTrackingToken({ orderId: error.orderId, publicId: error.orderPublicId }),
+            } : {}),
+          } : {}),
+        });
+      }
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Erro ao iniciar pagamento com cartao',
       });

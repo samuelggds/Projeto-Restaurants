@@ -400,7 +400,6 @@ class CreateOrderService {
               },
               data: {
                 stock: nextStock,
-                active: nextStock === 0 ? false : Boolean(product.active),
               },
             });
           }),

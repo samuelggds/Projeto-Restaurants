@@ -50,7 +50,8 @@ export default defineConfig({
   server: {
     host: true,
     strictPort: true,
-    allowedHosts: true,
+    // Vite already accepts localhost and IP addresses; custom hosts must be explicitly allowed.
+    allowedHosts: [],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',

@@ -35,6 +35,8 @@ export function useAdminOrdersPage({
   });
   const requestVersion = useRef(0);
   const loadingRef = useRef(false);
+  const visiblePages = useRef(1);
+  const loadedQuery = useRef('');
   const query = useMemo(() => ({
     limit: ADMIN_ORDERS_PAGE_SIZE,
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
@@ -52,24 +54,37 @@ export function useAdminOrdersPage({
     // A second click must not request the same page while its first request is pending.
     if (cursor !== undefined && loadingRef.current) return;
     const version = ++requestVersion.current;
+    const changedQuery = loadedQuery.current !== queryKey;
+    if (changedQuery) visiblePages.current = 1;
     loadingRef.current = true;
     setPage((current) => ({
       ...current,
-      ...(cursor === undefined ? { orders: [], nextCursor: null, hasMore: false } : {}),
+      ...(changedQuery ? { orders: [], nextCursor: null, hasMore: false } : {}),
       loading: true, error: '', queryKey,
     }));
     try {
-      const result = await ordersService.listRestaurantOrdersPage({
+      let result = await ordersService.listRestaurantOrdersPage({
         ...query,
         ...(cursor === undefined ? {} : { cursor }),
       });
+      const refreshedOrders = [...result.orders];
+      if (cursor === undefined) {
+        for (let index = 1; index < visiblePages.current && result.hasMore; index += 1) {
+          if (version !== requestVersion.current) return;
+          result = await ordersService.listRestaurantOrdersPage({ ...query, cursor: result.nextCursor! });
+          refreshedOrders.push(...result.orders);
+        }
+        result = { ...result, orders: refreshedOrders };
+      }
       if (version !== requestVersion.current) return;
+      loadedQuery.current = queryKey;
+      if (cursor !== undefined) visiblePages.current += 1;
       setPage((current) => {
         const incoming = result.orders.map(mapAdminOrder);
         const merged = cursor === undefined ? incoming : [...current.orders, ...incoming];
         const unique = new Map(merged.map((order) => [order.numericId, order]));
         return {
-          ...result, orders: [...unique.values()], loading: false, error: '', queryKey,
+          ...result, summary: result.summary || emptySummary, orders: [...unique.values()], loading: false, error: '', queryKey,
         };
       });
     } catch {

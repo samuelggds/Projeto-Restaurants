@@ -17,6 +17,11 @@ As autorizações e bloqueios de acesso continuam obrigatórios antes da recuper
 O frontend mantém a chave após falha e recarga, e a descarta após sucesso. Duas chamadas
 simultâneas da mesma tentativa compartilham a requisição. Se o navegador bloquear o
 armazenamento, a proteção contra reenvio permanece na aba atual.
+Em origens HTTP da rede local sem WebCrypto SHA-256, a tentativa também fica apenas
+na memória da aba; o conteúdo do carrinho e os dados pessoais não são persistidos.
+Use HTTPS para conservar essa proteção após recarregar a página nesses dispositivos.
+Os campos internos `creationRequestKey`, `creationActor` e `creationFingerprint` não
+fazem parte da resposta de criação nem dos eventos publicados por esse fluxo.
 
 Clientes antigos sem header continuam aceitos, mas precisam adotar o contrato para
 obter essa garantia. Os endpoints de criação de checkout Pix/cartão e a operação do

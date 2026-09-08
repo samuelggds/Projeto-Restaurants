@@ -39,7 +39,7 @@ class UpdateProductService {
 
     let nextActive = parsedData.active;
 
-    if (stockWasProvided) {
+    if (stockWasProvided && parsedData.active === undefined) {
       nextActive = normalizedStock === null || normalizedStock > 0;
     }
 

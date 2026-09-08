@@ -1,0 +1,3 @@
+[REALTIME_TRANSPORT_NOT_CONFIGURED]
+{"scenario":"canceled-pickup-accepted-as-cash","status":"CANCELADO","paid":true,"writes":1}
+{"scenario":"pickup-timeout-retry-does-not-resume","providerCalls":1,"returnedPayment":true,"pixCode":null}

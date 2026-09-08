@@ -1,6 +1,8 @@
 import { Prisma, TablePaymentEventType, TablePaymentIntentStatus } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import fakePaymentProvider from '../providers/FakePaymentProvider.js';
+import { executeTablePaymentRemoteOperation, resolveExistingTablePaymentProvider } from './tablePaymentRemoteOperation.js';
+import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
@@ -15,7 +17,7 @@ import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class CancelTablePaymentIntentService {
   constructor(
-    private readonly provider: PaymentProvider = fakePaymentProvider,
+    private readonly provider: PaymentProvider | null = null,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -29,6 +31,7 @@ export class CancelTablePaymentIntentService {
     const now = this.now();
     const result = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, input.restaurantId);
         await lockTablePaymentSession(tx, input.restaurantId, input.tableSessionId);
         await expireTablePaymentReservations(tx, input.restaurantId, input.tableSessionId, now);
 
@@ -72,7 +75,7 @@ export class CancelTablePaymentIntentService {
           data: {
             status: TablePaymentIntentStatus.CANCELED,
             canceledAt: now,
-            failureCode: 'CANCELED_BY_PAYER',
+            failureCode: intent.provider ? 'PROVIDER_CANCELLATION_PENDING' : 'CANCELED_BY_PAYER',
           },
         });
         if (changed.count !== 1) {
@@ -109,23 +112,16 @@ export class CancelTablePaymentIntentService {
     );
 
     let providerCancellationPending = false;
-    if (
-      result.changed &&
-      result.previousStatus === TablePaymentIntentStatus.PROCESSING &&
-      result.intent.provider === this.provider.code &&
-      result.intent.providerExternalId
-    ) {
-      try {
-        await this.provider.cancelPayment({
-          externalId: result.intent.providerExternalId,
-          idempotencyKey: `cancel:${result.intent.publicId}`,
+    if (result.intent.provider || result.intent.method === 'PIX' || result.intent.method === 'CARD') {
+      const operation = await executeTablePaymentRemoteOperation(result.intent, 'cancel', this.provider);
+      providerCancellationPending = !operation.confirmed;
+      if (operation.payment?.status === 'PAID') {
+        const provider = resolveExistingTablePaymentProvider(result.intent, this.provider);
+        const late = await new ProcessTablePaymentWebhookService(provider).executeValidated({
+          eventId: `cancel-reconcile:${result.intent.publicId}:paid`, externalId: operation.payment.externalId,
+          status: 'PAID', amountCents: operation.payment.amountCents, occurredAt: now,
         });
-      } catch (error) {
-        providerCancellationPending = true;
-        console.error(
-          '[CANCEL_TABLE_PAYMENT_PROVIDER_ERROR]',
-          error instanceof Error ? error.name : 'UNKNOWN_ERROR',
-        );
+        providerCancellationPending = !('latePaymentRefunded' in late && late.latePaymentRefunded);
       }
     }
 
@@ -143,6 +139,7 @@ export class CancelTablePaymentIntentService {
     return {
       payment: serializeTablePaymentIntent(result.intent, input.sessionPublicId),
       providerCancellationPending,
+      manualReviewRequired: providerCancellationPending,
     };
   }
 }

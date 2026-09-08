@@ -1,3 +1,4 @@
+import { OrderHistoryPagination } from '../../../components/OrderHistoryPagination';
 import {
   ArrowRight,
   Bike,
@@ -744,6 +745,7 @@ export function KitchenReadyPage() {
 }
 
 export function KitchenHistoryPage() {
+  const { historyPagination } = useWorkspace();
   const { orders, employee } = useWorkspace();
   const [channel, setChannel] = useState<ChannelFilterValue>('ALL');
   const [query, setQuery] = useState('');
@@ -842,6 +844,7 @@ export function KitchenHistoryPage() {
         onShowMore={() => setVisibleCount((current) => current + KITCHEN_LIST_BATCH_SIZE)}
         onReset={() => setVisibleCount(KITCHEN_LIST_BATCH_SIZE)}
       />
+      {historyPagination && <OrderHistoryPagination {...historyPagination} />}
     </>
   );
 }

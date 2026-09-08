@@ -287,6 +287,24 @@ export const ProductCategoryGroup = styled.section`
   }
 `;
 export const ProductCard = styled.article`
+  position: relative;
+  .product-main-action {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+  .product-main-action:focus-visible {
+    outline: 3px solid var(--home-primary);
+    outline-offset: -4px;
+  }
+  .product-main-action:disabled { cursor: not-allowed; }
+  footer button { position: relative; z-index: 2; }
   min-width: 0;
   cursor: pointer;
   content-visibility: auto;
@@ -632,6 +650,7 @@ export const ProductModal = styled.div<{ $open: boolean; $primary: string }>`
   }
 `;
 export const ImageWrap = styled.div`
+  button { z-index: 2; }
   height: 168px;
   min-height: 0;
   position: relative;

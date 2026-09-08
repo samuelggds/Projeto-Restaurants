@@ -1,3 +1,5 @@
+import { useOrderHistory } from '../../../hooks/useOrderHistory';
+import { OrderHistoryPagination } from '../../../components/OrderHistoryPagination';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
@@ -63,6 +65,7 @@ function orderThread(order: RawOrder): ConversationSummary | null {
 
 export function AdminOrderSupportInbox() {
   const [orders, setOrders] = useState<RawOrder[]>([]);
+  const history = useOrderHistory({ query: { queue: 'ALL', issueState: 'RESOLVED' }, refreshSignal: orders });
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [thread, setThread] = useState<Thread | null>(null);
@@ -73,7 +76,7 @@ export function AdminOrderSupportInbox() {
 
   const loadOrders = useCallback(async () => {
     try {
-      const data = await ordersService.listRestaurantOrders();
+      const data = await ordersService.listOpenOrderIssues();
       setOrders(Array.isArray(data) ? (data as RawOrder[]) : []);
     } catch {
       // O restante do painel segue disponível caso o suporte esteja temporariamente indisponível.
@@ -91,10 +94,10 @@ export function AdminOrderSupportInbox() {
 
   const conversations = useMemo(
     () =>
-      orders
+      [...orders, ...history.orders as RawOrder[]]
         .map(orderThread)
         .filter((item): item is ConversationSummary => Boolean(item)),
-    [orders],
+    [orders, history.orders],
   );
   const openCount = conversations.filter((item) => !item.isResolved).length;
   const visible =
@@ -264,6 +267,7 @@ export function AdminOrderSupportInbox() {
                     </Empty>
                   )}
                 </List>
+                {filter === 'all' && <OrderHistoryPagination {...history} />}
               </Sidebar>
 
               <Conversation $visible={Boolean(selectedId)}>

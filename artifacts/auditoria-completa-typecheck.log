@@ -1,0 +1,16 @@
+
+> pizza-ia-delivery@1.0.0 typecheck
+> npm --prefix backend run typecheck && npm --prefix frontend run typecheck && npm --prefix print-agent run typecheck
+
+
+> backend@1.0.0 typecheck
+> tsc --noEmit
+
+
+> frontend@0.0.0 typecheck
+> tsc --noEmit
+
+
+> pizza-ia-kitchen-print-agent@1.0.0 typecheck
+> tsc --noEmit -p tsconfig.json
+

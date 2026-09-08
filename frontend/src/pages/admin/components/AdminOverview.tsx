@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ChevronDown,
@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import * as S from './AdminOverview.styles';
 import type { AdminOrder, AdminProduct } from '../types';
-import { calculateOverviewMetrics } from '../domain/adminOverview';
+import ordersService, { type OrderOverview } from '../../../Services/ordersService';
+import { useAdminOrdersPage } from '../hooks/useAdminOrdersPage';
 
 type OverviewDestination = 'orders' | 'catalog' | 'customers';
 
@@ -82,14 +83,22 @@ export function AdminOverview({
   money,
   onNavigate,
 }: AdminOverviewProps) {
-  const metrics = calculateOverviewMetrics(orders);
+  const [metrics, setMetrics] = useState<OrderOverview>({ todayOrders: 0, sales: 0, averageTicket: 0, preparingOrders: 0, customers: 0, timezone: 'America/Sao_Paulo' });
+  const [metricsError, setMetricsError] = useState('');
+  useEffect(() => {
+    let active = true;
+    ordersService.getOverview().then((result) => {
+      if (active) { setMetrics(result); setMetricsError(''); }
+    }).catch(() => { if (active) setMetricsError('Indicadores indisponíveis. Atualize a página para tentar novamente.'); });
+    return () => { active = false; };
+  }, [orders]);
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatus, setOrderStatus] = useState('ALL');
-  const [visibleOrderLimit, setVisibleOrderLimit] = useState(LIST_BATCH_SIZE);
+  const orderPage = useAdminOrdersPage({ search: orderSearch, status: orderStatus === 'ALL' ? '' : orderStatus, queue: 'ALL', refreshSignal: orders });
   const [productSearch, setProductSearch] = useState('');
   const [productStatus, setProductStatus] = useState('AVAILABLE');
   const [visibleProductLimit, setVisibleProductLimit] = useState(LIST_BATCH_SIZE);
-  const orderStatuses = useMemo(() => [...new Set(orders.map((order) => order.status))], [orders]);
+  const orderStatuses = Object.keys(orderStatusCopy);
   const availableProducts = useMemo(
     () => products.filter((product) => product.active !== false),
     [products],
@@ -98,17 +107,6 @@ export function AdminOverview({
   const productAvailability = products.length
     ? Math.round((availableProducts.length / products.length) * 100)
     : 0;
-  const filteredOrders = useMemo(() => {
-    const query = normalize(orderSearch).replace(/^#/, '');
-    return orders.filter((order) => {
-      const matchesSearch =
-        !query ||
-        normalize(order.numericId).includes(query) ||
-        normalize(order.id).replace(/^#/, '').includes(query) ||
-        normalize(order.customerName).includes(query);
-      return matchesSearch && (orderStatus === 'ALL' || order.status === orderStatus);
-    });
-  }, [orders, orderSearch, orderStatus]);
   const filteredProducts = useMemo(() => {
     const query = normalize(productSearch).replace(/^#/, '');
     return products.filter((product) => {
@@ -122,14 +120,14 @@ export function AdminOverview({
       return matchesSearch && matchesStatus;
     });
   }, [products, productSearch, productStatus]);
-  const visibleOrders = filteredOrders.slice(0, visibleOrderLimit);
+  const visibleOrders = orderPage.orders;
   const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
-  const hasActiveOperation = metrics.todayOrders.length > 0 || metrics.preparingOrders > 0;
+  const hasActiveOperation = metrics.todayOrders > 0 || metrics.preparingOrders > 0;
 
   const clearOrderFilters = () => {
     setOrderSearch('');
     setOrderStatus('ALL');
-    setVisibleOrderLimit(LIST_BATCH_SIZE);
+
   };
   const clearProductFilters = () => {
     setProductSearch('');
@@ -139,6 +137,7 @@ export function AdminOverview({
 
   return (
     <S.OverviewRoot>
+      {metricsError && <p role="alert">{metricsError}</p>}
       <S.Hero aria-labelledby="overview-summary-title">
         <S.HeroCopy>
           <span className="eyebrow">
@@ -156,8 +155,8 @@ export function AdminOverview({
           </p>
           <div className="hero-status" aria-label="Situação atual da operação">
             <span>
-              <ShoppingBag aria-hidden="true" /> {metrics.todayOrders.length}{' '}
-              {metrics.todayOrders.length === 1 ? 'pedido hoje' : 'pedidos hoje'}
+              <ShoppingBag aria-hidden="true" /> {metrics.todayOrders}{' '}
+              {metrics.todayOrders === 1 ? 'pedido hoje' : 'pedidos hoje'}
             </span>
             <span>
               <Clock3 aria-hidden="true" /> {metrics.preparingOrders} em preparo
@@ -198,7 +197,7 @@ export function AdminOverview({
           </span>
           <span className="metric-copy">
             <small>Pedidos hoje</small>
-            <strong>{metrics.todayOrders.length}</strong>
+            <strong>{metrics.todayOrders}</strong>
             <em>{metrics.preparingOrders} em preparo agora</em>
           </span>
         </S.Metric>
@@ -209,7 +208,7 @@ export function AdminOverview({
           <span className="metric-copy">
             <small>Ticket médio</small>
             <strong>{money(metrics.averageTicket)}</strong>
-            <em>{metrics.todayOrders.length ? 'Média das vendas de hoje' : 'Aguardando vendas'}</em>
+            <em>{metrics.todayOrders ? 'Média das vendas de hoje' : 'Aguardando vendas'}</em>
           </span>
         </S.Metric>
         <S.Metric>
@@ -218,7 +217,7 @@ export function AdminOverview({
           </span>
           <span className="metric-copy">
             <small>Clientes ativos</small>
-            <strong>{metrics.customers.length}</strong>
+            <strong>{metrics.customers}</strong>
             <button type="button" onClick={() => onNavigate('customers')}>
               Ver clientes <ArrowRight aria-hidden="true" />
             </button>
@@ -254,7 +253,7 @@ export function AdminOverview({
                 value={orderSearch}
                 onChange={(event) => {
                   setOrderSearch(event.target.value);
-                  setVisibleOrderLimit(LIST_BATCH_SIZE);
+              
                 }}
                 placeholder="Buscar por ID ou cliente"
               />
@@ -266,7 +265,7 @@ export function AdminOverview({
                 value={orderStatus}
                 onChange={(event) => {
                   setOrderStatus(event.target.value);
-                  setVisibleOrderLimit(LIST_BATCH_SIZE);
+              
                 }}
               >
                 <option value="ALL">Todos os status</option>
@@ -279,6 +278,7 @@ export function AdminOverview({
               <ChevronDown aria-hidden="true" />
             </label>
           </S.OverviewFilters>
+          {orderPage.error && <p role="alert">{orderPage.error}</p>}
           <S.DataList aria-live="polite">
             {visibleOrders.map((order) => {
               const status = formatStatus(order.status);
@@ -320,33 +320,15 @@ export function AdminOverview({
           </S.DataList>
           <S.OverviewPagination>
             <span>
-              {filteredOrders.length
-                ? `${visibleOrders.length} de ${filteredOrders.length} pedidos`
-                : '0 resultados'}
+              {orderPage.total ? `${visibleOrders.length} de ${orderPage.total} pedidos` : '0 resultados'}
             </span>
             <div>
-              {visibleOrderLimit > LIST_BATCH_SIZE ? (
-                <button
-                  type="button"
-                  aria-label="Voltar aos 10 pedidos recentes iniciais"
-                  onClick={() => setVisibleOrderLimit(LIST_BATCH_SIZE)}
-                >
-                  <ChevronLeft aria-hidden="true" /> Voltar aos 10
+              {(orderPage.hasMore || orderPage.error) && (
+                <button type="button" disabled={orderPage.loading} aria-label="Mostrar mais 10 pedidos recentes"
+                  onClick={() => void (orderPage.error ? orderPage.retry() : orderPage.loadMore())}>
+                  {orderPage.loading ? 'Carregando...' : orderPage.error ? 'Tentar novamente' : 'Mostrar mais 10'} <ChevronDown aria-hidden="true" />
                 </button>
-              ) : null}
-              {visibleOrders.length < filteredOrders.length ? (
-                <button
-                  type="button"
-                  aria-label="Mostrar mais 10 pedidos recentes"
-                  onClick={() =>
-                    setVisibleOrderLimit((current) =>
-                      Math.min(current + LIST_BATCH_SIZE, filteredOrders.length),
-                    )
-                  }
-                >
-                  Mostrar mais 10 <ChevronDown aria-hidden="true" />
-                </button>
-              ) : null}
+              )}
             </div>
           </S.OverviewPagination>
         </S.Panel>

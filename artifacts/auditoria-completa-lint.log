@@ -1,0 +1,16 @@
+
+> pizza-ia-delivery@1.0.0 lint
+> npm --prefix backend run lint:ci && npm --prefix frontend run lint:ci && npm --prefix print-agent run lint
+
+
+> backend@1.0.0 lint:ci
+> eslint . --max-warnings 0
+
+
+> frontend@0.0.0 lint:ci
+> eslint . --max-warnings 0
+
+
+> pizza-ia-kitchen-print-agent@1.0.0 lint
+> eslint . --max-warnings 0
+

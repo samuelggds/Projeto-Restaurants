@@ -1,3 +1,4 @@
+import { OrderHistoryPagination } from '../../components/OrderHistoryPagination';
 import {
   Bike,
   CheckCircle2,
@@ -532,7 +533,7 @@ function Overview(props: ProfilePageProps) {
   );
 }
 
-function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageProps) {
+function Orders({ data = profileMockData, onReorder, onViewOrder, historyPagination }: ProfilePageProps) {
   const [visibleOrderLimit, setVisibleOrderLimit] = useState(ORDER_LIST_BATCH_SIZE);
   const visibleOrders = data.recentOrders.slice(0, visibleOrderLimit);
 
@@ -620,6 +621,7 @@ function Orders({ data = profileMockData, onReorder, onViewOrder }: ProfilePageP
             </div>
           </S.OrderPagination>
         )}
+        {historyPagination && <OrderHistoryPagination {...historyPagination} />}
       </S.PageCard>
     </>
   );

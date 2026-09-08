@@ -4,6 +4,7 @@ import createOrderService from '../services/CreateOrderService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import { issueGuestOrderTrackingToken } from '../utils/guestOrderTrackingToken.js';
 import { issueGuestOrderOwnershipToken } from '../utils/guestOrderOwnershipToken.js';
+import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
 
 class CreateOrderPixPaymentController {
   async handle(req: Request, res: Response) {
@@ -87,11 +88,11 @@ class CreateOrderPixPaymentController {
           orderDeliveryFee: Number(order.deliveryFeeAmount),
         });
       } catch (error) {
-        await orderPixPaymentService.removePendingOrderAfterPaymentFailure({
-          orderId: order.id,
-          restaurantId: resolvedRestaurantId,
+        console.error('[PIX_PAYMENT_CREATION_UNCERTAIN]', {
+          orderId: order.id, restaurantId: resolvedRestaurantId,
+          errorType: error instanceof Error ? error.name : 'UnknownError',
         });
-        throw error;
+        throw new PaymentCreationUncertainError(order.id, order.publicId);
       }
 
       try {
@@ -132,6 +133,21 @@ class CreateOrderPixPaymentController {
         ...(guestOwnershipToken ? { guestOwnershipToken } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof PaymentCreationUncertainError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code,
+          orderId: error.orderId,
+          orderPublicId: error.orderPublicId,
+          reconciliationRequired: true,
+          ...(req.user?.isGuest ? {
+            guestOwnershipToken: issueGuestOrderOwnershipToken({ orderId: error.orderId, publicId: error.orderPublicId }),
+            ...(String(req.body?.type).toUpperCase() === 'DELIVERY' ? {
+              guestTrackingToken: issueGuestOrderTrackingToken({ orderId: error.orderId, publicId: error.orderPublicId }),
+            } : {}),
+          } : {}),
+        });
+      }
       return res.status(400).json({
         error: error instanceof Error ? error.message : 'Erro ao gerar pagamento PIX',
       });

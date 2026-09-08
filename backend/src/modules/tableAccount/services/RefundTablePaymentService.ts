@@ -6,7 +6,8 @@ import {
   type RefundTablePaymentInput,
 } from '../domain/tableAccountSchemas.js';
 import { canRefundTablePayment } from '../domain/tableAccountRules.js';
-import fakePaymentProvider from '../providers/FakePaymentProvider.js';
+import { executeTablePaymentRemoteOperation } from './tablePaymentRemoteOperation.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
 import tablePaymentRepository, {
   tablePaymentIntentDtoSelect,
@@ -20,7 +21,7 @@ import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 
 export class RefundTablePaymentService {
   constructor(
-    private readonly provider: PaymentProvider = fakePaymentProvider,
+    private readonly provider: PaymentProvider | null = null,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -64,32 +65,13 @@ export class RefundTablePaymentService {
       );
     }
 
-    if (initial.provider) {
-      if (initial.provider !== this.provider.code || !initial.providerExternalId) {
+    if (initial.provider || initial.method === 'PIX' || initial.method === 'CARD') {
+      const operation = await executeTablePaymentRemoteOperation(initial, 'refund', this.provider);
+      if (!operation.confirmed) {
         throw new TablePaymentError(
-          'O provedor deste pagamento ainda não possui integração de estorno.',
+          'O estorno ainda não foi confirmado. O pagamento permanece pago; confira a devolução no gateway e concilie novamente. A solicitação não será reenviada automaticamente.',
           409,
-          'TABLE_PAYMENT_PROVIDER_UNAVAILABLE',
-        );
-      }
-
-      try {
-        const providerPayment = await this.provider.refundPayment({
-          externalId: initial.providerExternalId,
-          idempotencyKey: `admin-refund:${initial.publicId}`,
-        });
-        if (providerPayment.status !== 'REFUNDED') {
-          throw new Error('O provedor não confirmou o estorno.');
-        }
-      } catch (error) {
-        console.error(
-          '[REFUND_TABLE_PAYMENT_PROVIDER_ERROR]',
-          error instanceof Error ? error.name : 'UNKNOWN_ERROR',
-        );
-        throw new TablePaymentError(
-          'O provedor não confirmou o estorno. Tente novamente sem alterar o pagamento.',
-          502,
-          'TABLE_PAYMENT_PROVIDER_REFUND_FAILED',
+          'TABLE_PAYMENT_REFUND_PENDING_MANUAL_REVIEW',
         );
       }
     }
@@ -97,6 +79,7 @@ export class RefundTablePaymentService {
     const now = this.now();
     const result = await prisma.$transaction(
       async (tx) => {
+        await setTenantDbContext(tx, restaurantId);
         await lockTablePaymentSession(tx, restaurantId, initial.tableSessionId);
 
         const intent = await tablePaymentRepository.findForStaffByPublicId(

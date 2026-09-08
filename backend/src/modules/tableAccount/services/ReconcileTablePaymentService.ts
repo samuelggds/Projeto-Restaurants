@@ -1,7 +1,7 @@
 import type { PaymentProvider } from '../providers/PaymentProvider.js';
 import { createConfiguredTablePaymentProviderForExisting } from '../providers/ConfiguredTablePaymentProvider.js';
 import tablePaymentRepository from '../repositories/TablePaymentRepository.js';
-import processTablePaymentWebhookService, {
+import {
   ProcessTablePaymentWebhookService,
   type ProcessTablePaymentWebhookService as ProcessTablePaymentWebhookServiceType,
 } from './ProcessTablePaymentWebhookService.js';
@@ -92,7 +92,7 @@ export class ReconcileTablePaymentService {
     const occurredAt = this.now();
     const processor =
       this.processor ||
-      (this.provider ? processTablePaymentWebhookService : new ProcessTablePaymentWebhookService(provider));
+      new ProcessTablePaymentWebhookService(provider);
     await processor.executeValidated({
       eventId: `reconcile:${provider.code}:${providerPayment.externalId}:${providerPayment.status}`,
       externalId: providerPayment.externalId,
