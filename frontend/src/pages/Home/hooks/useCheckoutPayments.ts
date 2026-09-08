@@ -59,7 +59,7 @@ export function getCheckoutErrorMessage(error: unknown): string {
 
   if (Array.isArray(candidate)) {
     const firstMessage = (candidate[0] as { message?: unknown } | undefined)?.message;
-    if (typeof firstMessage === 'string') return getCheckoutErrorMessage(firstMessage);
+    if (typeof firstMessage === 'string') return getCheckoutErrorMessage({ message: firstMessage });
     return '';
   }
 
@@ -75,7 +75,6 @@ export function getCheckoutErrorMessage(error: unknown): string {
         normalized.includes('mercado pago') ||
         normalized.includes('pagbank') ||
         normalized.includes('asaas') ||
-        normalized.includes('gateway') ||
         normalized.includes('credencial') ||
         normalized.includes('token') ||
         normalized.includes('integração') ||
@@ -95,9 +94,9 @@ export function getCheckoutErrorMessage(error: unknown): string {
     if (typeof firstMessage !== 'string') {
       return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
     }
-    return getCheckoutErrorMessage(firstMessage);
+    return getCheckoutErrorMessage({ message: firstMessage });
   } catch {
-    return 'Não conseguimos concluir o pagamento neste momento. Tente outra forma ou tente novamente em alguns minutos.';
+    return 'Revise os dados do pedido e tente novamente.';
   }
 }
 
