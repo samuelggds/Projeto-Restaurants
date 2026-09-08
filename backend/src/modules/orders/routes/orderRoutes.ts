@@ -32,6 +32,7 @@ import PagBankOrderWebhookController from '../controllers/PagBankOrderWebhookCon
 import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderController.js';
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
 import QuoteOrderController from '../controllers/QuoteOrderController.js';
+import OrderReportsController from '../controllers/OrderReportsController.js';
 import DeliveryPaymentController from '../../paymentTerminals/controllers/DeliveryPaymentController.js';
 import MercadoPagoPointWebhookController from '../../paymentTerminals/controllers/MercadoPagoPointWebhookController.js';
 import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
